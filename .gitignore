@@ -1,0 +1,4 @@
+.env
+*.pem
+private-key*
+.DS_Store
