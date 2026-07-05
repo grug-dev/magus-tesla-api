@@ -1,4 +1,9 @@
 .env
 *.pem
+!magus-public-key-netlify/**/*.pem
 private-key*
 .DS_Store
+*.zip
+
+# Local Netlify folder
+.netlify
