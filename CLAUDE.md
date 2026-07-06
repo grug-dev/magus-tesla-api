@@ -7,6 +7,30 @@ The goal is to fetch live vehicle data (battery, location, climate, state) for p
 dashboarding and future automation. Built as a clean, extensible Go project with strict
 package separation so new Tesla API capabilities can be added without touching existing code.
 
+The stack is **Go + htmx** (htmx web layer is planned, not yet built).
+
+---
+
+## Coding Conventions — Read Before Writing Code
+
+Technical coding conventions live in assistant-neutral files under [`ai/`](ai/) (kept
+separate from the human-facing Tesla docs in `docs/`). These are the source of truth —
+this file only points at them.
+
+- **Before writing or editing any Go code**, read [`ai/go-conventions.md`](ai/go-conventions.md) and follow it exactly.
+- **Before writing or editing htmx markup**, read [`ai/htmx-conventions.md`](ai/htmx-conventions.md).
+- **Before wiring htmx to the Go/Gin API**, read [`ai/htmx-go-integration.md`](ai/htmx-go-integration.md).
+
+(The two htmx files are stubs today — the web layer doesn't exist yet — but that is where
+those conventions belong once it does.)
+
+### Non-negotiables (full detail in `ai/go-conventions.md`)
+
+These are always in effect. Do not violate them even if you haven't opened the conventions file:
+
+- **Modular packages are a hard requirement** — every Tesla API concern gets its own package under `internal/`; one concern per package; `cmd/` stays thin (zero business logic).
+- **Miles → km conversion is mandatory** — every miles/mph struct field must have a companion `<Field>Km()` / `<Field>Kmh()` value-receiver method using the `milesToKm` constant. Never a JSON-tagged km field; nil-safe for pointer fields.
+
 ---
 
 ## Session Start Protocol
@@ -20,67 +44,15 @@ At the start of every session, before writing any code:
 
 ---
 
-## Architecture
-
-Standard Go project layout — modular monolith:
-
-- `cmd/` — thin executable entry points, one per concern. No business logic here.
-- `internal/` — private packages. Each package owns exactly one concern.
-
-### Current packages
-
-| Package | Path | Responsibility |
-|---|---|---|
-| `config` | `internal/config/` | Load `.env`, expose typed config, save tokens back to `.env` |
-| `auth` | `internal/auth/` | Tesla OAuth URL builder, authorization code exchange, token refresh |
-| `server` | `internal/server/` | Gin HTTP server that catches the OAuth redirect on `:8080/callback` |
-| `vehicle` | `internal/vehicle/` | Authenticated Fleet API client + all vehicle data types and calls |
-
-### Current commands
-
-| Command | Path | What it does |
-|---|---|---|
-| `setup` | `cmd/setup/` | One-time OAuth flow — opens browser, catches callback, saves tokens to `.env` |
-| `magus` | `cmd/magus/` | Fetches and prints Magus's live vehicle snapshot. Auto-refreshes token on 401. |
-
----
-
-## Coding Rules
-
-- Every new Tesla API concern gets its own package under `internal/`. Never add charging commands to the vehicle package, never add telemetry to auth, etc.
-- `cmd/` files must stay thin — they wire packages together. Zero business logic in `cmd/`.
-- Never call `os.Getenv` outside of `internal/config/`. All other packages receive config via function arguments or the `Config` struct.
-- All new Fleet API endpoint calls belong in `internal/vehicle/` or a new `internal/<domain>/` package (e.g. `internal/charging/`, `internal/telemetry/`).
-- The user wants **modular packages** as a hard requirement — enforce this on every suggestion.
-- **Miles → km conversion is mandatory.** Every struct field expressed in miles (or a miles-derived unit like mph) **must** have a companion value-receiver method that returns the metric equivalent, following the `OdometerKm()` pattern:
-  - Name it `<Field>Km` for distances and `<Field>Kmh` for speeds/rates (e.g. `BatteryRangeKm()`, `ChargeRateKmh()`, `SpeedKmh()`).
-  - Multiply by the package-level `milesToKm` constant (`1.609344`) — never hardcode the factor inline.
-  - **Never** add the km value as a JSON-tagged struct field: the Fleet API only sends miles, so km is always **derived**, not unmarshalled.
-  - For pointer fields (e.g. `*float64` speed), the method returns a nil-safe pointer (`nil` in → `nil` out).
-
----
-
-## Running
-
-```bash
-# Install / update dependencies (first time or after go.mod changes)
-go mod tidy
-
-# One-time OAuth setup — run again only when refresh token expires (every 3 months)
-go run ./cmd/setup
-
-# Fetch Magus's live data (auto-refreshes access token if expired)
-go run ./cmd/magus
-```
-
----
-
 ## Token Behavior (implemented)
+
+Operational/domain behavior of the two Tesla tokens. The reusable Go error-handling
+**code pattern** for this (the `ErrUnauthorized` sentinel + `errors.Is` + retry-on-401)
+is documented in [`ai/go-conventions.md`](ai/go-conventions.md).
 
 - `TESLA_ACCESS_TOKEN` — expires every 8 hours. Used as `Authorization: Bearer` on all API calls.
 - `TESLA_REFRESH_TOKEN` — expires every 3 months, single-use. Used to silently get a new access token.
-- **Auto-refresh is implemented in `cmd/magus`**: on HTTP 401 from the Fleet API, it calls `auth.RefreshTokens()`, saves both new tokens to `.env` via `config.SaveTokens()`, and retries once.
-- `vehicle.ErrUnauthorized` is the sentinel error returned by the client on 401 — use `errors.Is()` to detect it in any future command that needs the same pattern.
+- On HTTP 401 from the Fleet API, `cmd/magus` auto-refreshes: it calls `auth.RefreshTokens()`, saves both new tokens to `.env` via `config.SaveTokens()`, and retries once.
 - Full token explanation: see `docs/layer2-user-vehicle-access.md` → "Understanding the two tokens".
 
 ---
