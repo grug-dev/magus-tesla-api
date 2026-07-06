@@ -41,6 +41,8 @@ func main() {
 		log.Fatal("No vehicles found on this account.")
 	}
 
+	fmt.Println("All Vehicules %", vehicles)
+
 	magus := vehicles[0]
 	fmt.Printf("Found: %s (VIN: %s) — state: %s\n\n", magus.DisplayName, magus.VIN, magus.State)
 

@@ -106,3 +106,25 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 - `cmd/poller` — scheduled runner to periodically fetch and persist data
 - `internal/store` — local data store to log Magus's state over time
 - Virtual key pairing for command support (lock, climate, charge control)
+
+---
+
+## Q&A
+
+### Does the Netlify deployment need to be running always?
+
+There's no server to "keep running" — the Netlify deploy is **static hosting** (a single PEM
+file on Netlify's CDN), not a running process. Once deployed it stays live permanently at no cost
+and with no compute; there is nothing to start, restart, or keep awake, and it is unaffected by
+whether your local machine is on.
+
+That said, the file must **stay published**. Tesla requires the public key to remain permanently
+accessible at `https://magus-monitor.netlify.app/.well-known/appspecific/com.tesla.3p.public-key.pem`
+so it can re-verify the app's domain and key over time. So:
+
+- **Keep the `magus-monitor` Netlify site deployed** — don't delete it or unpublish the deploy.
+- You only need to **redeploy** if the key changes or you move domains:
+  `netlify deploy --dir=magus-public-key-netlify --prod`.
+- This is Layer 1 (app-level) infrastructure — it's shared by the whole app and is independent of
+  the OAuth tokens and data fetching in Layer 2. See
+  [docs/layer1-app-registration.md](docs/layer1-app-registration.md) for context.

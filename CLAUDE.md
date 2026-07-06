@@ -81,7 +81,7 @@ go run ./cmd/magus
 - `TESLA_REFRESH_TOKEN` — expires every 3 months, single-use. Used to silently get a new access token.
 - **Auto-refresh is implemented in `cmd/magus`**: on HTTP 401 from the Fleet API, it calls `auth.RefreshTokens()`, saves both new tokens to `.env` via `config.SaveTokens()`, and retries once.
 - `vehicle.ErrUnauthorized` is the sentinel error returned by the client on 401 — use `errors.Is()` to detect it in any future command that needs the same pattern.
-- Full token explanation: see `docs/post-registration-setup.md` → "Understanding the two tokens".
+- Full token explanation: see `docs/layer2-user-vehicle-access.md` → "Understanding the two tokens".
 
 ---
 
@@ -109,7 +109,10 @@ To redeploy the public key: `netlify deploy --dir=magus-public-key-netlify --pro
 
 ## Key Reference
 
-`docs/post-registration-setup.md` — full Tesla API registration walkthrough with every curl command, decision, and step taken during initial configuration. Read before touching auth or setup code.
+Tesla API setup walkthrough, split by authorization layer (each step references the package/class that implements it). Read before touching auth or setup code:
+- `docs/layer1-app-registration.md` — Layer 1 (Steps 1–5): registering the "Magus Monitor" app (Client ID/Secret, EC keys, public-key hosting, partner-account registration).
+- `docs/layer2-user-vehicle-access.md` — Layer 2 (Steps 6–8): OAuth login, the two tokens, and fetching vehicle data.
+- `docs/post-registration-setup.md` — short index pointing to both.
 
 ---
 
