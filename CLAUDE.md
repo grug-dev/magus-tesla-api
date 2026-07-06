@@ -17,12 +17,15 @@ Technical coding conventions live in assistant-neutral files under [`ai/`](ai/) 
 separate from the human-facing Tesla docs in `docs/`). These are the source of truth —
 this file only points at them.
 
+- **Before adding, moving, or removing any code** (modules, boundaries, structure), read [`ai/architecture.md`](ai/architecture.md) — the "Agentic Modular Monolith" structure and boundary rules.
 - **Before writing or editing any Go code**, read [`ai/go-conventions.md`](ai/go-conventions.md) and follow it exactly.
-- **Before writing or editing htmx markup**, read [`ai/htmx-conventions.md`](ai/htmx-conventions.md).
-- **Before wiring htmx to the Go/Gin API**, read [`ai/htmx-go-integration.md`](ai/htmx-go-integration.md).
+- **Before writing or editing htmx markup**, read [`ai/htmx-conventions.md`](ai/htmx-conventions.md) (Templ engine).
+- **Before wiring htmx to the Go gateway**, read [`ai/htmx-go-integration.md`](ai/htmx-go-integration.md).
+- **For any requirement spanning multiple modules**, follow the lead-orchestrator protocol in [`ai/agentic-workflow.md`](ai/agentic-workflow.md).
 
-(The two htmx files are stubs today — the web layer doesn't exist yet — but that is where
-those conventions belong once it does.)
+(The htmx conventions are decided but the web layer isn't built yet. Note: the current
+`config`/`auth`/`server`/`vehicle` packages are a **smoke test** to be replaced by the
+module layout in `ai/architecture.md` — treat that file, not the current code, as the target.)
 
 ### Non-negotiables (full detail in `ai/go-conventions.md`)
 
@@ -30,6 +33,7 @@ These are always in effect. Do not violate them even if you haven't opened the c
 
 - **Modular packages are a hard requirement** — every Tesla API concern gets its own package under `internal/`; one concern per package; `cmd/` stays thin (zero business logic).
 - **Miles → km conversion is mandatory** — every miles/mph struct field must have a companion `<Field>Km()` / `<Field>Kmh()` value-receiver method using the `milesToKm` constant. Never a JSON-tagged km field; nil-safe for pointer fields.
+- **Boundaries are sacred** (detail in `ai/architecture.md`): no HTML outside `internal/gateway/`; no module reads another module's DB/internals; cross-module data flows only through public Go interfaces; the gateway calls interfaces, never a database.
 
 ---
 

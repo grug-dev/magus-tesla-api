@@ -2,7 +2,8 @@
 
 Authoritative Go coding conventions for this project. Any AI assistant (Claude Code,
 OpenCode, Cursor, …) or human **must read and follow this file before writing or
-editing Go code.** Referenced from `CLAUDE.md`.
+editing Go code.** Referenced from `CLAUDE.md`. For the module structure and boundary
+rules these conventions operate within, see [`architecture.md`](./architecture.md).
 
 ---
 
@@ -38,6 +39,8 @@ Standard Go project layout — modular monolith:
 - Never call `os.Getenv` outside of `internal/config/`. All other packages receive config via function arguments or the `Config` struct.
 - All new Fleet API endpoint calls belong in `internal/vehicle/` or a new `internal/<domain>/` package (e.g. `internal/charging/`, `internal/telemetry/`).
 - The user wants **modular packages** as a hard requirement — enforce this on every suggestion.
+- **Interface-first module contract.** Every module's mandatory, always-present public API is a **Go interface** (its "port") — this is how the gateway and sibling modules call it (in-process, no HTTP). An HTTP `/api/{version}` JSON endpoint is a secondary, optional adapter added per module only when a real external consumer exists (see [`architecture.md`](./architecture.md) §3).
+- **Vendor DTOs carry a service-name suffix.** Any struct that mirrors an external service's JSON ends in that service's name (`...Tesla`); our own domain models never carry a vendor suffix. Full rule + rationale in [`architecture.md`](./architecture.md) §6.
 - **Miles → km conversion is mandatory.** Every struct field expressed in miles (or a miles-derived unit like mph) **must** have a companion value-receiver method that returns the metric equivalent, following the `OdometerKm()` pattern:
   - Name it `<Field>Km` for distances and `<Field>Kmh` for speeds/rates (e.g. `BatteryRangeKm()`, `ChargeRateKmh()`, `SpeedKmh()`).
   - Multiply by the package-level `milesToKm` constant (`1.609344`) — never hardcode the factor inline.
