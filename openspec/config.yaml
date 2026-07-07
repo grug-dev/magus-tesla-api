@@ -1,0 +1,27 @@
+# OpenSpec project configuration — tailors AI behavior to this project.
+schema: spec-driven
+
+context: |
+  Project: magus-tesla-api — a multi-tenant Tesla analytics platform, the
+  "Agentic Modular Monolith". AGENTS.md, CLAUDE.md, and ai/*.md are the
+  authoritative architecture and conventions; specs here describe capability
+  behavior, not architecture.
+
+  Tech stack: Go, htmx + Templ (the UI gateway), PostgreSQL via pgx, sqlc for
+  type-safe DB access.
+
+  Architecture (see ai/architecture.md): modular monolith under internal/; each
+  module owns its own data and exposes a Go interface (its "port"); no HTML
+  outside internal/gateway/; no cross-module database access; adapters such as
+  internal/tesla use ...Tesla-suffixed DTOs (ai/architecture.md §6). Each OpenSpec
+  domain maps to one internal/ module.
+
+rules:
+  specs:
+    - Use GIVEN/WHEN/THEN format for scenarios.
+    - Describe capability behavior (WHAT); implementation (HOW) lives in design.md and ai/*.md.
+  design:
+    - Keep each module's persistence schema module-scoped (internal/<module>/db) to preserve boundaries.
+  proposal:
+    - State whether the change is breaking and which modules it affects.
+    - Must use grill-me skill

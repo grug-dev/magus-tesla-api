@@ -66,6 +66,7 @@ go mod tidy
 # One-time OAuth setup — run again only when refresh token expires (every 3 months)
 go run ./cmd/setup
 
-# Fetch Magus's live data (auto-refreshes access token if expired)
+# List all vehicles on the account (tokens from .env, or pass --access-token/--refresh-token).
+# Auto-refreshes the access token on HTTP 401.
 go run ./cmd/magus
 ```

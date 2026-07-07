@@ -2,10 +2,15 @@
 
 ## Project Goal
 
-Personal Go modular monolith to monitor **Magus** (a Tesla) via the Tesla Fleet API.
-The goal is to fetch live vehicle data (battery, location, climate, state) for personal
-dashboarding and future automation. Built as a clean, extensible Go project with strict
-package separation so new Tesla API capabilities can be added without touching existing code.
+Go modular monolith — the **Agentic Modular Monolith** (see [`ai/architecture.md`](ai/architecture.md)) —
+that monitors Tesla vehicles via the Tesla Fleet API. It is **multi-tenant**: it serves
+multiple users, each connecting their own Tesla account, with per-user tokens persisted in
+a database (the `internal/account/` module). The goal is to turn live and historical
+vehicle data into per-user dashboards and automation. Built with strict package separation
+so new Tesla API capabilities slot in without touching existing code.
+
+Magus (the project owner's own Tesla) is the first test vehicle, but the platform is **not**
+hardwired to a single car or user.
 
 The stack is **Go + htmx** (htmx web layer is planned, not yet built).
 
@@ -24,8 +29,9 @@ this file only points at them.
 - **For any requirement spanning multiple modules**, follow the lead-orchestrator protocol in [`ai/agentic-workflow.md`](ai/agentic-workflow.md).
 
 (The htmx conventions are decided but the web layer isn't built yet. Note: the current
-`config`/`auth`/`server`/`vehicle` packages are a **smoke test** to be replaced by the
-module layout in `ai/architecture.md` — treat that file, not the current code, as the target.)
+`config`/`auth`/`server` packages are a **smoke test** whose logic moves into the `account`
+module; `vehicle` has already been replaced by the `tesla` adapter. Treat `ai/architecture.md`,
+not the current code, as the target.)
 
 ### Non-negotiables (full detail in `ai/go-conventions.md`)
 
@@ -48,15 +54,27 @@ At the start of every session, before writing any code:
 
 ---
 
-## Token Behavior (implemented)
+## Token Behavior
 
-Operational/domain behavior of the two Tesla tokens. The reusable Go error-handling
-**code pattern** for this (the `ErrUnauthorized` sentinel + `errors.Is` + retry-on-401)
-is documented in [`ai/go-conventions.md`](ai/go-conventions.md).
+Each Tesla connection uses two tokens, **per user**:
 
-- `TESLA_ACCESS_TOKEN` — expires every 8 hours. Used as `Authorization: Bearer` on all API calls.
-- `TESLA_REFRESH_TOKEN` — expires every 3 months, single-use. Used to silently get a new access token.
-- On HTTP 401 from the Fleet API, `cmd/magus` auto-refreshes: it calls `auth.RefreshTokens()`, saves both new tokens to `.env` via `config.SaveTokens()`, and retries once.
+- **access token** — expires every 8 hours; sent as `Authorization: Bearer` on every Fleet API call.
+- **refresh token** — expires every 3 months, single-use; exchanged for a new access token.
+
+**Multi-tenant model (target):** tokens are stored **per user in a database**, owned by the
+`internal/account/` module (see [`ai/architecture.md`](ai/architecture.md) §5). The `tesla`
+adapter is stateless — it receives the access token to use as `tesla.Credentials`. Token
+**refresh belongs to the `account` module**, not the adapter.
+
+**Current state:** the `account` module isn't built yet. `cmd/magus` accepts
+`--access-token` / `--refresh-token`, or falls back to `.env` when neither is given. On HTTP
+401 (sentinel `tesla.ErrUnauthorized`, detect with `errors.Is`; reusable pattern in
+[`ai/go-conventions.md`](ai/go-conventions.md)) it refreshes once via `auth.RefreshTokens()`
+and retries — saving the rotated pair back to `.env` in the fallback path, or printing it in
+the flag path. This refresh orchestration is **temporary** and will move into `account`. The
+remaining smoke-test packages (`config`/`auth`/`server`) are being replaced by `account`;
+`vehicle` has already been replaced by the `tesla` adapter.
+
 - Full token explanation: see `docs/layer2-user-vehicle-access.md` → "Understanding the two tokens".
 
 ---

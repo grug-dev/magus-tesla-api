@@ -4,11 +4,17 @@
 
 ## Mission
 
-The objective of this project is to build a personal Tesla analytics platform that provides long-term insights into vehicle usage, battery health, charging habits, driving efficiency, operating costs, and overall vehicle performance.
+The objective of this project is to build a **multi-tenant** Tesla analytics platform that provides long-term insights into vehicle usage, battery health, charging habits, driving efficiency, operating costs, and overall vehicle performance — for **many users, each connecting their own Tesla account and vehicles**.
 
-This project is **not** intended to simply display Tesla API responses. Instead, it transforms raw Tesla telemetry into meaningful historical metrics, trends, forecasts, and dashboards that help the owner better understand the vehicle over months and years.
+This project is **not** intended to simply display Tesla API responses. Instead, it transforms raw Tesla telemetry into meaningful historical metrics, trends, forecasts, and dashboards that help **each user** better understand **their vehicles** over months and years.
 
 The platform should continuously evolve as Tesla exposes additional APIs or as new analytical ideas emerge.
+
+## Tenancy Model
+
+The platform serves **multiple users**. Every user connects their own Tesla account via OAuth; their access and refresh tokens are stored **per user in a database**, owned by the `internal/account/` module. All data collection, metrics, storage, and dashboards are **scoped to a user and their vehicles** — one user's data is never mixed with another's. The `internal/tesla/` adapter is stateless about identity and is handed the credentials to use on every call. See `ai/architecture.md` for the module structure and boundary rules, and `ai/agentic-workflow.md` for how AI assistants build it.
+
+> The current `config`/`auth`/`server` packages are a single-user **smoke test** being replaced by this multi-tenant design (their logic moves into the `account` module); `vehicle` has already been replaced by the `tesla` adapter.
 
 ---
 
@@ -33,7 +39,7 @@ Raw Tesla API responses are only an intermediate step. The primary value of the 
 
 # Primary Objectives
 
-The platform should answer questions such as:
+For each user and their vehicles, the platform should answer questions such as:
 
 * Is my battery degrading normally?
 * How has my battery capacity changed over time?
@@ -266,9 +272,9 @@ Agents should think like both a software architect and a data analyst.
 
 # Success Criteria
 
-The project succeeds when the owner can understand the long-term behavior of the vehicle without manually inspecting Tesla API responses.
+The project succeeds when **each user** can understand the long-term behavior of **their vehicles** without manually inspecting Tesla API responses.
 
-Every feature should increase the owner's understanding of:
+Every feature should increase the user's understanding of:
 
 * Battery health
 * Charging behavior
@@ -278,4 +284,4 @@ Every feature should increase the owner's understanding of:
 * Long-term trends
 * Future predictions
 
-The project should evolve into a comprehensive personal Tesla intelligence platform rather than a simple Tesla API client.
+The project should evolve into a comprehensive **multi-tenant** Tesla intelligence platform rather than a simple Tesla API client.

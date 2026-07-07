@@ -1,137 +1,132 @@
-// Command magus fetches live data from Magus via the Tesla Fleet API.
-// Step 8 of post-registration-setup.md — first API call.
-// Automatically refreshes the access token when it expires.
+// Command magus lists every vehicle assigned to a Tesla account.
+//
+// Tokens may be supplied as flags (--access-token / --refresh-token) so the
+// command works for ANY user — the multi-tenant direction where the account
+// module will later supply each user's tokens from the database. If no
+// --access-token is given, tokens fall back to .env (the single-user smoke-test
+// path, kept until the account module lands).
+//
+// On HTTP 401 the access token is refreshed once (using the refresh token plus
+// the app credentials from .env) and the call is retried. NOTE: this refresh
+// orchestration is temporary and will move into internal/account/ — see
+// ai/architecture.md §5.
+//
+// Usage:
+//
+//	go run ./cmd/magus                                      # tokens from .env
+//	go run ./cmd/magus --access-token=AT --refresh-token=RT # tokens from flags
 package main
 
 import (
+	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
 	"github.com/cristianpena/magus-tesla-api/internal/config"
-	"github.com/cristianpena/magus-tesla-api/internal/vehicle"
+	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
 func main() {
-	// Step 1 — Load credentials and tokens from .env.
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+	accessTokenFlag := flag.String("access-token", "", "Tesla access token; if empty, falls back to .env (TESLA_ACCESS_TOKEN)")
+	refreshTokenFlag := flag.String("refresh-token", "", "Tesla refresh token for auto-refresh on 401; if empty, falls back to .env (TESLA_REFRESH_TOKEN)")
+	flag.Parse()
+
+	// config supplies the app credentials (client id/secret) needed to refresh,
+	// and the .env token fallback used when no token flags are given. Best-effort:
+	// running purely with token flags doesn't strictly need it, but refresh does.
+	cfg, cfgErr := config.Load()
+
+	accessToken := *accessTokenFlag
+	refreshToken := *refreshTokenFlag
+	fromEnv := false
+	if accessToken == "" {
+		// No token flags — fall back to .env (temporary single-user path until the
+		// account module supplies per-user tokens from the database).
+		if cfgErr != nil {
+			log.Fatalf("no --access-token given and could not read .env: %v", cfgErr)
+		}
+		accessToken = cfg.AccessToken
+		refreshToken = cfg.RefreshToken
+		fromEnv = true
+	}
+	if accessToken == "" {
+		log.Fatal("no access token: pass --access-token or set TESLA_ACCESS_TOKEN in .env")
 	}
 
-	client := vehicle.NewClient(cfg.AccessToken)
+	ctx := context.Background()
+	client := tesla.NewClient()
+	creds := tesla.Credentials{AccessToken: accessToken}
 
-	// Step 8 — List vehicles to find Magus's ID.
-	// On HTTP 401 (access token expired), refresh automatically and retry once.
-	fmt.Println("Fetching vehicle list...")
-	vehicles, err := client.List()
-	if errors.Is(err, vehicle.ErrUnauthorized) {
-		cfg, client, err = refreshTokens(cfg)
+	fmt.Println("Fetching vehicles for the account...")
+	vehicles, err := client.ListVehicles(ctx, creds)
+	if errors.Is(err, tesla.ErrUnauthorized) {
+		// Access token expired — refresh once and retry.
+		creds, err = refreshAndRetry(cfg, refreshToken, fromEnv)
 		if err != nil {
-			log.Fatalf("Token refresh failed: %v\nRun `go run ./cmd/setup` to re-authenticate.", err)
+			log.Fatalf("%v", err)
 		}
-		vehicles, err = client.List()
+		vehicles, err = client.ListVehicles(ctx, creds)
 	}
 	if err != nil {
-		log.Fatalf("Could not list vehicles: %v", err)
+		log.Fatalf("could not list vehicles: %v", err)
 	}
+
+	printVehicles(vehicles)
+}
+
+// refreshAndRetry exchanges the refresh token for a new access token using the
+// app credentials from .env, persists (or surfaces) the rotated pair, and returns
+// fresh Credentials to retry with.
+//
+// TEMPORARY: this belongs in internal/account/, which will own per-user tokens in
+// the database (see ai/architecture.md §5).
+func refreshAndRetry(cfg *config.Config, refreshToken string, fromEnv bool) (tesla.Credentials, error) {
+	if cfg == nil {
+		return tesla.Credentials{}, errors.New("cannot refresh: app credentials unavailable (need .env with TESLA_CLIENT_ID and TESLA_CLIENT_SECRET)")
+	}
+	if refreshToken == "" {
+		return tesla.Credentials{}, errors.New("access token expired and no refresh token available (pass --refresh-token or set TESLA_REFRESH_TOKEN in .env)")
+	}
+
+	fmt.Println("[token] access token expired — refreshing...")
+	tokens, err := auth.RefreshTokens(cfg.ClientID, cfg.ClientSecret, refreshToken)
+	if err != nil {
+		return tesla.Credentials{}, fmt.Errorf("refreshing tokens: %w", err)
+	}
+
+	if fromEnv {
+		// Tokens came from .env — persist the rotated pair back to .env.
+		if err := config.SaveTokens(tokens.AccessToken, tokens.RefreshToken); err != nil {
+			return tesla.Credentials{}, fmt.Errorf("saving refreshed tokens to .env: %w", err)
+		}
+		fmt.Println("[token] new tokens saved to .env.")
+	} else {
+		// Per-user tokens from flags: the refresh token is single-use, so surface
+		// the rotated pair for the caller to store (the account module will persist
+		// these to the database later).
+		fmt.Println("[token] refreshed — save these; the refresh token is single-use:")
+		fmt.Printf("  --access-token=%s\n", tokens.AccessToken)
+		fmt.Printf("  --refresh-token=%s\n", tokens.RefreshToken)
+	}
+
+	return tesla.Credentials{AccessToken: tokens.AccessToken}, nil
+}
+
+// printVehicles writes every vehicle on the account to stdout.
+func printVehicles(vehicles []tesla.VehicleTesla) {
 	if len(vehicles) == 0 {
-		log.Fatal("No vehicles found on this account.")
+		fmt.Println("No vehicles found on this account.")
+		return
 	}
 
-	fmt.Println("All Vehicules %", vehicles)
-
-	magus := vehicles[0]
-	fmt.Printf("Found: %s (VIN: %s) — state: %s\n\n", magus.DisplayName, magus.VIN, magus.State)
-
-	// Wake up the vehicle if it is not online before requesting data.
-	// Both "asleep" and "offline" states must be woken before vehicle_data
-	// will return — an offline car rejects the data call with HTTP 408.
-	if magus.State != "online" {
-		fmt.Printf("Magus is %s. Sending wake-up signal...\n", magus.State)
-		if _, err := client.WakeUp(magus.ID); err != nil {
-			log.Fatalf("Wake-up failed: %v", err)
-		}
-
-		fmt.Print("Waiting for Magus to come online")
-		for range 15 {
-			time.Sleep(4 * time.Second)
-			fmt.Print(".")
-			list, err := client.List()
-			if err == nil && len(list) > 0 && list[0].State == "online" {
-				magus = list[0]
-				break
-			}
-		}
-		fmt.Println()
-
-		if magus.State != "online" {
-			log.Fatal("Magus did not come online in time. Try again.")
-		}
-		fmt.Println("Magus is online.")
+	fmt.Printf("\n=== %d vehicle(s) on this account ===\n\n", len(vehicles))
+	for i, v := range vehicles {
+		fmt.Printf("%d. %s\n", i+1, v.DisplayName)
+		fmt.Printf("   VIN   : %s\n", v.VIN)
+		fmt.Printf("   State : %s\n", v.State)
+		fmt.Printf("   ID    : %d\n\n", v.ID)
 	}
-
-	// Step 8 — Fetch full vehicle data.
-	fmt.Println("Fetching vehicle data...")
-	data, err := client.Data(magus.ID)
-	if err != nil {
-		log.Fatalf("Could not fetch vehicle data: %v", err)
-	}
-
-	printSummary(data)
-}
-
-// refreshTokens uses the saved refresh token to get a new access token,
-// persists both new tokens to .env, and returns an updated config and client.
-func refreshTokens(cfg *config.Config) (*config.Config, *vehicle.Client, error) {
-	fmt.Println("[Token] Access token expired — refreshing automatically...")
-
-	tokens, err := auth.RefreshTokens(cfg.ClientID, cfg.ClientSecret, cfg.RefreshToken)
-	if err != nil {
-		return nil, nil, fmt.Errorf("could not refresh tokens: %w", err)
-	}
-
-	if err := config.SaveTokens(tokens.AccessToken, tokens.RefreshToken); err != nil {
-		return nil, nil, fmt.Errorf("could not save new tokens to .env: %w", err)
-	}
-
-	cfg.AccessToken = tokens.AccessToken
-	cfg.RefreshToken = tokens.RefreshToken
-	fmt.Println("[Token] New tokens saved to .env.")
-
-	return cfg, vehicle.NewClient(cfg.AccessToken), nil
-}
-
-func printSummary(d *vehicle.VehicleData) {
-	fmt.Printf("\n=== %s — Live Snapshot ===\n\n", d.DisplayName)
-
-	fmt.Println("[ Battery & Charging ]")
-	fmt.Printf("  Battery level   : %d%%\n", d.ChargeState.BatteryLevel)
-	fmt.Printf("  Estimated range : %.1f mi (%.1f km)\n", d.ChargeState.BatteryRange, d.ChargeState.BatteryRangeKm())
-	fmt.Printf("  Charging state  : %s\n", d.ChargeState.ChargingState)
-	if d.ChargeState.ChargingState == "Charging" {
-		fmt.Printf("  Charge rate     : %.1f mph (%.1f km/h)\n", d.ChargeState.ChargeRate, d.ChargeState.ChargeRateKmh())
-		fmt.Printf("  Time to full    : %.1f hrs\n", d.ChargeState.TimeToFullCharge)
-	}
-
-	fmt.Println("\n[ Climate ]")
-	fmt.Printf("  Inside temp     : %.1f°C\n", d.ClimateState.InsideTemp)
-	fmt.Printf("  Outside temp    : %.1f°C\n", d.ClimateState.OutsideTemp)
-	fmt.Printf("  Climate on      : %v\n", d.ClimateState.IsClimateOn)
-
-	fmt.Println("\n[ Location & Drive ]")
-	fmt.Printf("  Latitude        : %.6f\n", d.DriveState.Latitude)
-	fmt.Printf("  Longitude       : %.6f\n", d.DriveState.Longitude)
-	fmt.Printf("  Heading         : %d°\n", d.DriveState.Heading)
-	if d.DriveState.Speed != nil {
-		fmt.Printf("  Speed           : %.1f mph (%.1f km/h)\n", *d.DriveState.Speed, *d.DriveState.SpeedKmh())
-	}
-
-	fmt.Println("\n[ Vehicle State ]")
-	fmt.Printf("  Locked          : %v\n", d.VehicleState.Locked)
-	fmt.Printf("  Odometer        : %.1f mi (%.1f km)\n", d.VehicleState.Odometer, d.VehicleState.OdometerKm())
-	fmt.Printf("  Software        : %s\n", d.VehicleState.CarVersion)
-	fmt.Println()
 }

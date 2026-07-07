@@ -9,10 +9,11 @@ from `CLAUDE.md`. The AI-development *workflow* that maintains this structure li
 [`htmx-conventions.md`](./htmx-conventions.md) and
 [`htmx-go-integration.md`](./htmx-go-integration.md).
 
-> **Heads-up on the current repo:** the existing `internal/config`, `internal/auth`,
-> `internal/server`, and `internal/vehicle` packages were a **smoke test** to learn the
-> Tesla API — they are **not** the target design and will be replaced by the module
-> layout below. Treat this document, not the current code, as the intended architecture.
+> **Heads-up on the current repo:** the existing `internal/config`, `internal/auth`, and
+> `internal/server` packages are a **smoke test** to learn the Tesla API — **not** the target
+> design; their responsibilities move into the `account` module. `internal/vehicle` has
+> already been replaced by the `internal/tesla` adapter. Treat this document, not the current
+> code, as the intended architecture.
 
 ---
 
