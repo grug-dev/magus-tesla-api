@@ -116,20 +116,8 @@ Open items to discuss at the start of each session. Ask the user which one to ta
 
 ### High priority
 
-- [ ] **`cmd/poller`** — scheduled runner that periodically calls `cmd/magus` logic and appends Magus's state to a local store. Foundation for all historical data features.
-- [ ] **`internal/store`** — package for persisting vehicle snapshots over time (SQLite or JSON log). Required by poller and any dashboard work.
+- [ ] **`cmd/poller`** — scheduled runner that periodically calls `the module that fetch vehicle data` logic and appends that data to the database. Foundation for all historical data features.
 
-### Medium priority
-
-- [ ] Virtual key pairing (Step 7) — needed before any commands (lock, climate, charge control) can be sent.
-- [ ] Expand `internal/vehicle/vehicle.go` with more data fields: tire pressure (TPMS), charge limit, scheduled charging, sentry mode, media state.
-- [ ] `.env.example` already exists — add a `Makefile` with `make setup`, `make fetch`, `make poll` targets for convenience.
-
-### Lower priority / future
-
-- [ ] Web dashboard — expose stored data via a simple HTTP API (`cmd/api`) and a frontend.
-- [ ] Notifications — Slack or push alert when battery drops below a threshold.
-- [ ] Software update tracker — alert when Magus installs a new firmware version.
 
 ---
 
