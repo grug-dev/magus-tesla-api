@@ -1,0 +1,17 @@
+package pages
+
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+
+// Login is the sign-in page. The button links to the gateway's Google login route,
+// which redirects to Google's consent screen.
+templ Login() {
+	@layouts.Base("Sign in — Magus") {
+		<main>
+			<h1>Sign in to Magus</h1>
+			<p>Connect your Google account to continue.</p>
+			<a href="/auth/google/login">
+				<button type="button">Sign in with Google</button>
+			</a>
+		</main>
+	}
+}

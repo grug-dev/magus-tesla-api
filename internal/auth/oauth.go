@@ -15,7 +15,7 @@ const (
 
 // BuildAuthURL constructs the Tesla OAuth authorization URL.
 // Returns the full URL and the state value used to verify the callback.
-func BuildAuthURL(clientID, redirectURI string) string {
+func BuildAuthURL(clientID, redirectURI, state string) string {
 	params := url.Values{}
 	params.Set("client_id", clientID)
 	params.Set("locale", "en-US")
@@ -23,7 +23,7 @@ func BuildAuthURL(clientID, redirectURI string) string {
 	params.Set("redirect_uri", redirectURI)
 	params.Set("response_type", "code")
 	params.Set("scope", scopes)
-	params.Set("state", "magus123")
+	params.Set("state", state)
 
 	return fmt.Sprintf("%s?%s", teslaAuthURL, params.Encode())
 }

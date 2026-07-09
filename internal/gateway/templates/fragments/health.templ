@@ -1,0 +1,20 @@
+package fragments
+
+// Health is the presentation model for the database-health region. It is a clean
+// gateway view model — no DB or vendor types leak into templates.
+type Health struct {
+	OK     bool
+	Detail string
+}
+
+// HealthCard is the htmx-swappable health region. Its element id ("health") matches
+// the fragment name so the same markup serves both the full page and the htmx swap.
+templ HealthCard(h Health) {
+	<div id="health">
+		if h.OK {
+			<p>Database: <strong>healthy</strong></p>
+		} else {
+			<p>Database: <strong>unavailable</strong> { h.Detail }</p>
+		}
+	</div>
+}

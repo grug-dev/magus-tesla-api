@@ -1,0 +1,24 @@
+package pages
+
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+)
+
+// Dashboard lists the signed-in user's vehicles. The list is wrapped in a Templ
+// fragment named "vehicles" so the handler renders the whole page on load and just
+// the fragment for the htmx Refresh button.
+templ Dashboard(d fragments.VehiclesData) {
+	@layouts.Base("Your vehicles — Magus") {
+		<main>
+			<h1>Your vehicles</h1>
+			<button hx-get="/ui/vehicles" hx-target="#vehicles" hx-swap="outerHTML">
+				Refresh
+			</button>
+			@templ.Fragment("vehicles") {
+				@fragments.VehiclesList(d)
+			}
+			<p><a href="/">Home</a></p>
+		</main>
+	}
+}

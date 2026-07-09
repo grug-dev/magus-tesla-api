@@ -28,12 +28,12 @@ tier, timestamps, token usage, notes — lives in
 [`multi-tenant-vehicle-access.progress.json`](./multi-tenant-vehicle-access.progress.json)
 beside this file. Tick a box when that tier is **archived**.
 
-- [ ] Tier 0 — `document-tesla-adapter` (tesla) *(optional)*
-- [ ] Tier 1 — `add-account-module` (account) — _proposed_
-- [ ] Tier 2 — `add-web-gateway-foundation` (gateway)
-- [ ] Tier 3 — `add-google-login` (gateway)
-- [ ] Tier 4 — `add-tesla-connect` (gateway)
-- [ ] Tier 5 — `add-vehicle-dashboard` (gateway)
+- [x] Tier 0 — `document-tesla-adapter` (tesla) *(optional)* — _archived_
+- [x] Tier 1 — `add-account-module` (account) — _archived_
+- [x] Tier 2 — `add-web-gateway-foundation` (gateway) — _archived_
+- [x] Tier 3 — `add-google-login` (gateway) — _archived_
+- [x] Tier 4 — `add-tesla-connect` (gateway) — _archived_
+- [x] Tier 5 — `add-vehicle-dashboard` (gateway) — _archived_
 
 ## Resuming across sessions / assistants
 

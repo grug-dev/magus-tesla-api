@@ -1,0 +1,19 @@
+package layouts
+
+// Base is the full-page HTML shell. Pages wrap their content in it via
+// `@layouts.Base(title) { ...content... }`. It loads the vendored, pinned htmx
+// from /static (embedded in the binary) — never an external CDN.
+templ Base(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }</title>
+			<script src="/static/htmx.min.js" defer></script>
+		</head>
+		<body>
+			{ children... }
+		</body>
+	</html>
+}

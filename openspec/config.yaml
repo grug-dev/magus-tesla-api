@@ -25,3 +25,7 @@ rules:
   proposal:
     - State whether the change is breaking and which modules it affects.
     - Must use grill-me skill
+  tasks:
+    - Use the task list format (with checkboxes) for tasks.
+    - Each task must be atomic and testable.
+    - Keep tasks.md updated live as I apply (so openspec status always shows real progress and any session can resume)

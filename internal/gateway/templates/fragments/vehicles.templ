@@ -1,0 +1,40 @@
+package fragments
+
+// Vehicle is the clean presentation model for one vehicle — no vendor (...Tesla)
+// suffix; the gateway maps the adapter DTO onto this before rendering.
+type Vehicle struct {
+	DisplayName string
+	VIN         string
+	State       string
+}
+
+// VehiclesData drives the vehicle-list region: the vehicles to show, or a notice
+// (with an optional Connect prompt) when there are none to display.
+type VehiclesData struct {
+	Vehicles     []Vehicle
+	Notice       string
+	NeedsConnect bool
+}
+
+// VehiclesList is the htmx-swappable vehicle region. Its id ("vehicles") matches the
+// fragment name so the same markup serves the full page and the htmx refresh.
+templ VehiclesList(d VehiclesData) {
+	<div id="vehicles">
+		if len(d.Vehicles) > 0 {
+			<ul>
+				for _, v := range d.Vehicles {
+					<li><strong>{ v.DisplayName }</strong> — { v.VIN } ({ v.State })</li>
+				}
+			</ul>
+		} else if d.NeedsConnect {
+			if d.Notice != "" {
+				<p>{ d.Notice }</p>
+			} else {
+				<p>No Tesla connected.</p>
+			}
+			<p><a href="/connect/tesla">Connect your Tesla</a></p>
+		} else {
+			<p>{ d.Notice }</p>
+		}
+	</div>
+}

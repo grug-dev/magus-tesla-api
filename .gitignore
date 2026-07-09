@@ -7,3 +7,5 @@ private-key*
 
 # Local Netlify folder
 .netlify
+
+bin/

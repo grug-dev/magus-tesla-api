@@ -49,6 +49,39 @@ Standard Go project layout — modular monolith:
 
 ---
 
+## Persistence (Postgres + sqlc + goose)
+
+Conventions established by the `account` module — the project's first DB-backed module.
+Every future DB-backed module follows the same shape. Full deploy runbook:
+[`../docs/deployment.md`](../docs/deployment.md).
+
+- **PostgreSQL via `pgx/v5` + `pgxpool`.** UUID primary keys (`gen_random_uuid()`, built into
+  Postgres 13+). In generated Go, UUIDs are `github.com/google/uuid.UUID` (via a `sqlc.yaml`
+  override). `timestamptz` stays the pgx/v5 default (`pgtype.Timestamptz`); the module converts
+  it to/from plain `time.Time` at its DB→domain **mapping boundary** so `pgtype` never leaks into
+  a module's public types.
+- **Module-scoped DB package.** Each module's queries live in `internal/<module>/db`, generated
+  by sqlc into package `<module>db` (e.g. `accountdb`). **No other module imports it** — this is
+  how "no cross-module DB access" (`architecture.md` §2) is enforced at the package level.
+- **`sqlc.yaml` — one `sql:` entry per module.** Add an entry when a module gains a DB; never
+  merge two modules into one package. Keep the `uuid → google/uuid.UUID` override; map nullable
+  columns (`pgtype.Text`) and `timestamptz` (`pgtype.Timestamptz`) to plain domain types in the
+  module's mapping helpers, not via more overrides.
+- **goose migrations are the single schema source.** SQL migrations live in
+  `internal/<module>/db/migrations/<timestamp>_<name>.sql` (goose `-- +goose Up/Down`). sqlc's
+  `schema:` points at that directory, so there is **no separate `schema.sql`** to keep in sync.
+- **`DATABASE_URL` is the single source of truth** for the DSN. Only `internal/config` reads it
+  (env access stays in config); the `Makefile` derives the DB name + admin connection from it.
+- **Setup is one command:** `make db-setup` (idempotent create-if-missing + `goose up`).
+  Regenerate code with `make sqlc` after editing any `query.sql` or migration. **Never run these
+  as part of a build** — they are explicit developer/deploy steps.
+- **Secrets at rest:** Tesla tokens are stored plaintext for now (local Postgres). Add column
+  encryption before any non-local deployment — tracked as an open item on the `account` change.
+- **DB tests are `DATABASE_URL`-gated** and self-skip when it is unset, so `go test ./...` stays
+  green without a database. Pure logic (e.g. token-expiry math) is unit-tested without a DB.
+
+---
+
 ## Error-handling pattern (401 / auto-refresh)
 
 - `vehicle.ErrUnauthorized` is the sentinel error returned by the client on 401 — use `errors.Is()` to detect it in any future command that needs the same pattern.

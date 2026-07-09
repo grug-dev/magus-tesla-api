@@ -1,5 +1,20 @@
 # magus-tesla-api — Project Instructions for Claude
 
+## Builds & local checks — PROJECT OVERRIDE
+
+**This project overrides the global `## Builds` rule in `~/.claude/CLAUDE.md`.** For
+`magus-tesla-api` **only**, Claude MAY run the Go build/verify and codegen commands directly
+(the owner has authorized it); it need not hand them back to the user. Allowed without asking:
+
+- `go build ./...`, `go vet ./...`, `go test ./...`
+- `make build`, `make vet`, `make test`, `make check`, `make bins`
+- `sqlc generate` / `make sqlc`, `go mod tidy` / `make tidy`
+
+Still gated (ask / require explicit request first): anything that mutates or drops data —
+`make db-reset`, `make migrate-down`, manual `DROP`/`DELETE`. Applying migrations forward
+(`make migrate-up`, `make db-setup`) is fine when the user asks for setup. The global build
+prohibition remains in force for every **other** project.
+
 ## Project Goal
 
 Go modular monolith — the **Agentic Modular Monolith** (see [`ai/architecture.md`](ai/architecture.md)) —

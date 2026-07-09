@@ -22,10 +22,13 @@ from `CLAUDE.md`. The AI-development *workflow* that maintains this structure li
 1. **Modular Monolith.** The codebase is split into isolated domain modules under
    `internal/`. Each module owns its own data and business logic and exposes a **strict
    public Go interface** (its "port"). Modules never reach into each other's internals.
-2. **UI Gateway.** A single presentation layer (`internal/gateway/`) is the *only* place
-   HTML exists. It receives htmx requests, calls domain module **interfaces** (in-process)
-   for data, pipes that data into Templ templates, and streams back **HTML fragments**.
-   Its HTTP routes are prefixed `/ui`.
+2. **UI Gateway.** A single presentation layer (`internal/gateway/`, served by `cmd/web`) is
+   the *only* place HTML exists. It receives htmx requests, calls domain module
+   **interfaces** (in-process) for data, pipes that data into Templ templates, and streams
+   back **HTML fragments**. Its htmx fragment routes are prefixed `/ui` (plus the page routes
+   and an ops `/healthz`). The gateway is built on **Gin** — the project's chosen web router.
+   *(Note: the separate `internal/server` Gin helper, used only by `cmd/setup` for the
+   one-time OAuth redirect, remains a smoke-test helper and is unrelated to the gateway.)*
 3. **Agentic Modular Monolith (dev workflow).** The same module boundaries that isolate
    *code* also isolate the *dev-time AI coding agents* that maintain each module. Fully
    described in [`agentic-workflow.md`](./agentic-workflow.md). **No runtime agent code

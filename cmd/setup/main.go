@@ -23,7 +23,7 @@ func main() {
 
 	// Step 6a — Build the Tesla OAuth URL and open it in the browser.
 	fmt.Println("[Step 6a] Opening Tesla authorization page in your browser...")
-	authURL := auth.BuildAuthURL(cfg.ClientID, cfg.RedirectURI)
+	authURL := auth.BuildAuthURL(cfg.ClientID, cfg.RedirectURI, "magus123")
 	fmt.Printf("If the browser does not open automatically, paste this URL:\n%s\n\n", authURL)
 
 	if err := auth.OpenBrowser(authURL); err != nil {

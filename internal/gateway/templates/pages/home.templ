@@ -1,0 +1,43 @@
+package pages
+
+import (
+	"strconv"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+)
+
+// HomeView is the landing page's presentation model.
+type HomeView struct {
+	VisitCount int
+	SignedIn   bool
+	Email      string
+	Health     fragments.Health
+}
+
+// Home is the landing page. It reflects auth state (sign-in link when anonymous,
+// email + log out when signed in) and keeps the htmx health-fragment demo.
+templ Home(vm HomeView) {
+	@layouts.Base("Magus") {
+		<main>
+			<h1>Magus</h1>
+			if vm.SignedIn {
+				<p>Signed in as <strong>{ vm.Email }</strong>.</p>
+				<p><a href="/dashboard">View your vehicles</a></p>
+				<p><a href="/connect/tesla">Connect your Tesla</a></p>
+				<form method="post" action="/logout">
+					<button type="submit">Log out</button>
+				</form>
+			} else {
+				<p><a href="/login">Sign in with Google</a></p>
+			}
+			<p>Visits this session: { strconv.Itoa(vm.VisitCount) }.</p>
+			<button hx-get="/ui/health" hx-target="#health" hx-swap="outerHTML">
+				Check database
+			</button>
+			@templ.Fragment("health") {
+				@fragments.HealthCard(vm.Health)
+			}
+		</main>
+	}
+}

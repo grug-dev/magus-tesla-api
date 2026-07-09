@@ -1,0 +1,28 @@
+version: "2"
+# One sql entry per module. Each generates a module-scoped package that no other
+# module imports — this is how "no cross-module DB access" is enforced at the
+# package level (ai/architecture.md §2). Add a new entry when a module needs a DB.
+sql:
+  - engine: "postgresql"
+    # The goose migrations dir is the single schema source; sqlc parses the goose
+    # "-- +goose Up" sections and ignores the Down sections.
+    schema: "internal/account/db/migrations"
+    queries: "internal/account/db/query.sql"
+    gen:
+      go:
+        package: "accountdb"
+        out: "internal/account/db"
+        sql_package: "pgx/v5"
+        emit_json_tags: false
+        emit_interface: false
+        overrides:
+          # UUID columns → github.com/google/uuid.UUID (clean interface signatures),
+          # instead of the default pgtype.UUID.
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+          # NOTE: timestamptz stays as the pgx/v5 default (pgtype.Timestamptz). The
+          # account service converts to/from plain time.Time at its DB→domain mapping
+          # boundary (see internal/account/service.go: `timestamp`), so the public
+          # domain types expose time.Time without a pgtype dependency leaking out.

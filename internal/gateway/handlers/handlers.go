@@ -1,0 +1,299 @@
+// Package handlers holds the gateway's HTTP handlers. They receive requests, call
+// domain-module interfaces, and render Templ components to HTML. Templ/htmx
+// knowledge lives here and in templates/ — never in a domain module
+// (ai/architecture.md §2).
+package handlers
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/a-h/templ"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/auth"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
+	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
+	"github.com/cristianpena/magus-tesla-api/internal/tesla"
+)
+
+// Deps are the gateway handlers' dependencies.
+type Deps struct {
+	Pool              *pgxpool.Pool
+	Account           account.Service
+	Google            *googleauth.Client
+	Tesla             tesla.VehicleService
+	TeslaClientID     string
+	TeslaClientSecret string
+	TeslaRedirectURL  string
+}
+
+// Handler carries the gateway's dependencies.
+type Handler struct {
+	pool              *pgxpool.Pool
+	acct              account.Service
+	google            *googleauth.Client
+	tesla             tesla.VehicleService
+	teslaClientID     string
+	teslaClientSecret string
+	teslaRedirectURL  string
+}
+
+// New builds the gateway handlers.
+func New(d Deps) *Handler {
+	return &Handler{
+		pool:              d.Pool,
+		acct:              d.Account,
+		google:            d.Google,
+		tesla:             d.Tesla,
+		teslaClientID:     d.TeslaClientID,
+		teslaClientSecret: d.TeslaClientSecret,
+		teslaRedirectURL:  d.TeslaRedirectURL,
+	}
+}
+
+// Dashboard renders the signed-in user's vehicle list page.
+func (h *Handler) Dashboard(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	render(c, http.StatusOK, pages.Dashboard(h.vehiclesFor(c.Request.Context(), uid)))
+}
+
+// VehiclesFragment renders ONLY the vehicles fragment (htmx refresh).
+func (h *Handler) VehiclesFragment(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	renderFragment(c, http.StatusOK, pages.Dashboard(h.vehiclesFor(c.Request.Context(), uid)), "vehicles")
+}
+
+// vehiclesFor is the dashboard's core logic, decoupled from gin/session so it is
+// unit-testable with fake account/tesla implementations. It obtains the account's
+// current Tesla token, lists vehicles, maps the vendor DTOs to a clean model, and
+// turns the known failure modes into user-facing states.
+func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.VehiclesData {
+	token, err := h.acct.AccessTokenFor(ctx, uid)
+	if errors.Is(err, account.ErrNoTeslaConnection) {
+		return fragments.VehiclesData{NeedsConnect: true}
+	}
+	if err != nil {
+		return fragments.VehiclesData{Notice: "Could not reach your Tesla connection. Please try again."}
+	}
+
+	vs, err := h.tesla.ListVehicles(ctx, tesla.Credentials{AccessToken: token})
+	if errors.Is(err, tesla.ErrUnauthorized) {
+		return fragments.VehiclesData{Notice: "Your Tesla session expired. Please reconnect your Tesla.", NeedsConnect: true}
+	}
+	if err != nil {
+		return fragments.VehiclesData{Notice: "Could not load your vehicles from Tesla. Please try again."}
+	}
+
+	out := make([]fragments.Vehicle, 0, len(vs))
+	for _, v := range vs {
+		out = append(out, fragments.Vehicle{DisplayName: v.DisplayName, VIN: v.VIN, State: v.State})
+	}
+	if len(out) == 0 {
+		return fragments.VehiclesData{Notice: "No vehicles found on your Tesla account."}
+	}
+	return fragments.VehiclesData{Vehicles: out}
+}
+
+// currentUID returns the signed-in account id from the session, if any.
+func currentUID(c *gin.Context) (uuid.UUID, bool) {
+	s, _ := sessions.Default(c).Get("uid").(string)
+	if s == "" {
+		return uuid.Nil, false
+	}
+	id, err := uuid.Parse(s)
+	if err != nil {
+		return uuid.Nil, false
+	}
+	return id, true
+}
+
+// ConnectTesla starts the Tesla OAuth connect flow for the signed-in user.
+func (h *Handler) ConnectTesla(c *gin.Context) {
+	if _, ok := currentUID(c); !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	state, err := randomState()
+	if err != nil {
+		c.String(http.StatusInternalServerError, "could not start Tesla connect")
+		return
+	}
+	sess := sessions.Default(c)
+	sess.Set("tesla_state", state)
+	_ = sess.Save()
+	c.Redirect(http.StatusFound, auth.BuildAuthURL(h.teslaClientID, h.teslaRedirectURL, state))
+}
+
+// TeslaCallback validates the state, exchanges the code, and stores the Tesla tokens
+// for the signed-in user's account.
+func (h *Handler) TeslaCallback(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	sess := sessions.Default(c)
+	want, _ := sess.Get("tesla_state").(string)
+	if want == "" || c.Query("state") != want {
+		c.String(http.StatusBadRequest, "invalid oauth state")
+		return
+	}
+	sess.Delete("tesla_state")
+	_ = sess.Save()
+
+	tokens, err := auth.ExchangeCode(h.teslaClientID, h.teslaClientSecret, c.Query("code"), h.teslaRedirectURL)
+	if err != nil {
+		c.String(http.StatusBadGateway, "Tesla connect failed")
+		return
+	}
+	if err := h.acct.SaveTeslaTokens(c.Request.Context(), uid, account.TeslaTokens{
+		AccessToken:     tokens.AccessToken,
+		RefreshToken:    tokens.RefreshToken,
+		AccessExpiresAt: time.Now().Add(time.Duration(tokens.ExpiresIn) * time.Second),
+	}); err != nil {
+		c.String(http.StatusInternalServerError, "could not save Tesla connection")
+		return
+	}
+	c.Redirect(http.StatusFound, "/")
+}
+
+// Home renders the landing page: auth state from the session plus the htmx health demo.
+func (h *Handler) Home(c *gin.Context) {
+	sess := sessions.Default(c)
+	visits, _ := sess.Get("visits").(int)
+	visits++
+	sess.Set("visits", visits)
+	_ = sess.Save()
+
+	uid, _ := sess.Get("uid").(string)
+	email, _ := sess.Get("email").(string)
+
+	render(c, http.StatusOK, pages.Home(pages.HomeView{
+		VisitCount: visits,
+		SignedIn:   uid != "",
+		Email:      email,
+		Health:     h.health(c),
+	}))
+}
+
+// LoginPage renders the sign-in page.
+func (h *Handler) LoginPage(c *gin.Context) {
+	render(c, http.StatusOK, pages.Login())
+}
+
+// GoogleLogin starts the OAuth flow: store a CSRF state in the session and redirect
+// to Google's consent screen.
+func (h *Handler) GoogleLogin(c *gin.Context) {
+	state, err := randomState()
+	if err != nil {
+		c.String(http.StatusInternalServerError, "could not start login")
+		return
+	}
+	sess := sessions.Default(c)
+	sess.Set("oauth_state", state)
+	_ = sess.Save()
+	c.Redirect(http.StatusFound, h.google.AuthCodeURL(state))
+}
+
+// GoogleCallback validates the state, exchanges the code, provisions/resolves the
+// account, and establishes the authenticated session.
+func (h *Handler) GoogleCallback(c *gin.Context) {
+	sess := sessions.Default(c)
+	want, _ := sess.Get("oauth_state").(string)
+	if want == "" || c.Query("state") != want {
+		c.String(http.StatusBadRequest, "invalid oauth state")
+		return
+	}
+	sess.Delete("oauth_state")
+
+	id, err := h.google.Exchange(c.Request.Context(), c.Query("code"))
+	if err != nil {
+		c.String(http.StatusBadGateway, "google login failed")
+		return
+	}
+
+	acct, err := h.acct.UpsertFromOAuth(c.Request.Context(), account.OAuthIdentity{
+		Provider:    "google",
+		ProviderID:  id.Sub,
+		Email:       id.Email,
+		DisplayName: id.Name,
+	})
+	if err != nil {
+		c.String(http.StatusInternalServerError, "could not provision account")
+		return
+	}
+
+	sess.Set("uid", acct.ID.String())
+	sess.Set("email", acct.Email)
+	_ = sess.Save()
+	c.Redirect(http.StatusFound, "/")
+}
+
+// Logout clears the session.
+func (h *Handler) Logout(c *gin.Context) {
+	sess := sessions.Default(c)
+	sess.Clear()
+	_ = sess.Save()
+	c.Redirect(http.StatusFound, "/")
+}
+
+// Healthz is the ops liveness/readiness check: 200 when the DB is reachable, 503 otherwise.
+func (h *Handler) Healthz(c *gin.Context) {
+	if err := h.pool.Ping(c.Request.Context()); err != nil {
+		c.String(http.StatusServiceUnavailable, "unhealthy: %v", err)
+		return
+	}
+	c.String(http.StatusOK, "ok")
+}
+
+// HealthFragment renders ONLY the "health" fragment of the home page (htmx swap).
+func (h *Handler) HealthFragment(c *gin.Context) {
+	renderFragment(c, http.StatusOK, pages.Home(pages.HomeView{Health: h.health(c)}), "health")
+}
+
+// health pings the DB and returns the presentation model for the health region.
+func (h *Handler) health(c *gin.Context) fragments.Health {
+	if err := h.pool.Ping(c.Request.Context()); err != nil {
+		return fragments.Health{OK: false, Detail: err.Error()}
+	}
+	return fragments.Health{OK: true}
+}
+
+// randomState returns a hex-encoded 256-bit CSRF state for the OAuth flow.
+func randomState() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// --- render helpers: Templ component -> gin response ---
+
+func render(c *gin.Context, status int, comp templ.Component) {
+	c.Status(status)
+	c.Header("Content-Type", "text/html; charset=utf-8")
+	_ = comp.Render(c.Request.Context(), c.Writer)
+}
+
+func renderFragment(c *gin.Context, status int, comp templ.Component, fragment string) {
+	templ.Handler(comp, templ.WithStatus(status), templ.WithFragments(fragment)).ServeHTTP(c.Writer, c.Request)
+}
