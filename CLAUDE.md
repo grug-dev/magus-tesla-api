@@ -43,10 +43,13 @@ this file only points at them.
 - **Before wiring htmx to the Go gateway**, read [`ai/htmx-go-integration.md`](ai/htmx-go-integration.md).
 - **For any requirement spanning multiple modules**, follow the lead-orchestrator protocol in [`ai/agentic-workflow.md`](ai/agentic-workflow.md).
 
-(The htmx conventions are decided but the web layer isn't built yet. Note: the current
-`config`/`auth`/`server` packages are a **smoke test** whose logic moves into the `account`
-module; `vehicle` has already been replaced by the `tesla` adapter. Treat `ai/architecture.md`,
-not the current code, as the target.)
+(The htmx conventions are decided but the web layer isn't built yet. Note: the multi-tenant
+design **is live** — `cmd/web` (`internal/account` + `internal/gateway` + `internal/tesla` +
+`internal/googleauth`) is the running server and already scopes data per user. The `vehicle`
+package was replaced by the `tesla` adapter. `internal/config`/`auth`/`server` are no longer a
+smoke test: `internal/config` is shared config reading used by both `cmd/web` and `cmd/setup`;
+`internal/auth` and `internal/server` are used only by `cmd/setup`, the standalone one-time
+OAuth-capture tool, not the running server. Treat `ai/architecture.md` as the target structure.)
 
 ### Non-negotiables (full detail in `ai/go-conventions.md`)
 

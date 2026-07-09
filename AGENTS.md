@@ -14,7 +14,7 @@ The platform should continuously evolve as Tesla exposes additional APIs or as n
 
 The platform serves **multiple users**. Every user connects their own Tesla account via OAuth; their access and refresh tokens are stored **per user in a database**, owned by the `internal/account/` module. All data collection, metrics, storage, and dashboards are **scoped to a user and their vehicles** — one user's data is never mixed with another's. The `internal/tesla/` adapter is stateless about identity and is handed the credentials to use on every call. See `ai/architecture.md` for the module structure and boundary rules, and `ai/agentic-workflow.md` for how AI assistants build it.
 
-> The current `config`/`auth`/`server` packages are a single-user **smoke test** being replaced by this multi-tenant design (their logic moves into the `account` module); `vehicle` has already been replaced by the `tesla` adapter.
+> The multi-tenant design **is live** — `internal/account`, `internal/gateway`, `internal/tesla`, and `internal/googleauth` back `cmd/web`, the running server, which already scopes data per user and their vehicles. The `vehicle` package has been replaced by the `tesla` adapter. What remain are **setup/config helpers**, not a single-user system: `internal/config` is shared configuration reading (AWS region, Tesla endpoints) used by both `cmd/web` and `cmd/setup`; `internal/auth` and `internal/server` are used only by `cmd/setup` — the standalone one-time OAuth-capture tool — and are not part of the running server.
 
 ---
 
@@ -285,3 +285,38 @@ Every feature should increase the user's understanding of:
 * Future predictions
 
 The project should evolve into a comprehensive **multi-tenant** Tesla intelligence platform rather than a simple Tesla API client.
+
+<!-- CODEGRAPH_START -->
+## CodeGraph
+
+This project has a CodeGraph MCP server (`codegraph_*` tools) configured. CodeGraph is a tree-sitter-parsed knowledge graph of every symbol, edge, and file. Reads are sub-millisecond and return structural information grep cannot.
+
+### When to prefer codegraph over native search
+
+Use codegraph for **structural** questions — what calls what, what would break, where is X defined, what is X's signature. Use native grep/read only for **literal text** queries (string contents, comments, log messages) or after you already have a specific file open.
+
+| Question | Tool |
+|---|---|
+| "Where is X defined?" / "Find symbol named X" | `codegraph_search` |
+| "What calls function Y?" | `codegraph_callers` |
+| "What does Y call?" | `codegraph_callees` |
+| "What would break if I changed Z?" | `codegraph_impact` |
+| "Show me Y's signature / source / docstring" | `codegraph_node` |
+| "Give me focused context for a task/area" | `codegraph_context` |
+| "See several related symbols' source at once" | `codegraph_explore` |
+| "What files exist under path/" | `codegraph_files` |
+| "Is the index healthy?" | `codegraph_status` |
+
+### Rules of thumb
+
+- **Answer directly — don't delegate exploration.** For "how does X work" / architecture / trace questions, answer with 2-3 codegraph calls: `codegraph_context` first, then ONE `codegraph_explore` for the source of the symbols it surfaces. Codegraph IS the pre-built index, so spawning a separate file-reading sub-task/agent — or running a grep + read loop — repeats work codegraph already did and costs more for the same answer.
+- **Trust codegraph results.** They come from a full AST parse. Do NOT re-verify them with grep — that's slower, less accurate, and wastes context.
+- **Don't grep first** when looking up a symbol by name. `codegraph_search` is faster and returns kind + location + signature in one call.
+- **Don't chain `codegraph_search` + `codegraph_node`** when you just want context — `codegraph_context` is one call.
+- **Don't loop `codegraph_node` over many symbols** — one `codegraph_explore` call returns several symbols' source grouped in a single capped call, while each separate node/Read call re-reads the whole context and costs far more.
+- **Index lag**: the file watcher debounces ~500ms behind writes; don't re-query immediately after editing a file in the same turn.
+
+### If `.codegraph/` doesn't exist
+
+The MCP server returns "not initialized." Ask the user: *"I notice this project doesn't have CodeGraph initialized. Want me to run `codegraph init -i` to build the index?"*
+<!-- CODEGRAPH_END -->

@@ -4,7 +4,7 @@
 
 ## Vision
 
-Build the most comprehensive personal Tesla intelligence platform that transforms vehicle telemetry into actionable knowledge.
+Build the most comprehensive  Tesla intelligence platform that transforms vehicle telemetry into actionable knowledge.
 
 The platform is intended to become the owner's long-term digital memory of the vehicle, recording every relevant event, analyzing historical behavior, discovering trends, forecasting future performance, and providing AI-powered recommendations.
 

@@ -29,3 +29,9 @@ rules:
     - Use the task list format (with checkboxes) for tasks.
     - Each task must be atomic and testable.
     - Keep tasks.md updated live as I apply (so openspec status always shows real progress and any session can resume)
+  archive:
+    - Group archived changes by business domain under openspec/changes/archive/<domain>/ (do NOT dump them flat in openspec/changes/archive/).
+    - Target path: openspec/changes/archive/<domain>/YYYY-MM-DD-<change-name>.
+    - Determine <domain> from the change's primary affected module before archiving. If a change spans modules, choose the one whose capability it most advances; for cross-cutting changes use "platform".
+    - Create the <domain> subfolder if it does not exist.
+    - Canonical domains for this project (mirror internal/ modules): account, gateway, tesla, googleauth, config, platform (for cross-cutting/setup tasks not owned by one module).
