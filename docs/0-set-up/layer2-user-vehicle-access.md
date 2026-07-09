@@ -170,9 +170,7 @@ Think of it as the **master key** — you use it once to get a new daily pass, a
 > pairing is per-vehicle and per-account — it authorizes commands to *this user's specific car*.
 > It is only needed for write operations; every read in Step 8 works without it.
 
-> **Codebase:** none yet. When implemented, command signing would use `private-key.pem` (from
-> Layer 1, Step 2) and would live in its own package (e.g. `internal/command/`), never inside
-> `internal/vehicle` (which is read-only data) — per the one-concern-per-package rule.
+
 
 ---
 

@@ -188,7 +188,7 @@ Replace `PARTNER_TOKEN_FROM_5A` with the `access_token` from 5a. A successful re
 > **Codebase:** **not implemented in Go.** Step 5 is a one-time bootstrap done with `curl`. If it
 > ever needs to be automated (e.g. to re-register on a new domain), it would belong in a new
 > `internal/partner/` package per the project's one-concern-per-package rule — never bolted onto
-> `internal/auth` or `internal/vehicle`. It uses the same `TESLA_CLIENT_ID`/`TESLA_CLIENT_SECRET`
+> `internal/auth` . It uses the same `TESLA_CLIENT_ID`/`TESLA_CLIENT_SECRET`
 > that `config.Load()` already exposes.
 
 ---

@@ -168,7 +168,6 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | OAuth flow, token exchange, token refresh |
 | `internal/server` | Gin callback server for OAuth redirect |
-| `internal/vehicle` | Fleet API HTTP client + vehicle data types and calls |
 
 ---
 
