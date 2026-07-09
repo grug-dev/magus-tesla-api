@@ -19,9 +19,11 @@ is **per user** — every account that wants Magus Monitor to see its cars runs 
 > tokens in one `.env`.
 
 > **Codebase (whole layer):** this is where nearly all the Go code lives — `cmd/setup`,
-> `internal/auth`, `internal/server`, `cmd/magus`, and `internal/vehicle`. The `internal/config`
-> package is shared with Layer 1: `config.Load()` supplies both the app credentials (Layer 1) and
-> the user tokens (Layer 2), while `config.SaveTokens()` is Layer-2-only.
+> `cmd/web`, `internal/auth`, `internal/server`, `internal/account`, `internal/tesla`, and
+> `internal/gateway`. The `internal/config` package is shared with Layer 1: `config.Load()`
+> supplies both the app credentials (Layer 1) and the user tokens (Layer 2), while
+> `config.SaveTokens()` is Layer-2-only (used by the `cmd/setup` smoke path; the web gateway
+> stores tokens per user in Postgres via `internal/account`).
 
 ---
 
@@ -107,9 +109,10 @@ After `go run ./cmd/setup` completes, two tokens are saved to `.env`. Here is wh
 
 Think of it as a **daily pass** — it gets you through the door, but expires every 8 hours.
 
-> **Codebase:** `internal/vehicle/client.go` → `NewClient(accessToken)` stores this token and
-> `get()` / `post()` attach it as the `Authorization: Bearer` header. On HTTP 401 the client
-> returns the sentinel `vehicle.ErrUnauthorized`, which callers detect with `errors.Is()`.
+> **Codebase:** `internal/tesla/client.go` → `NewClient()` returns a state-less adapter; every
+> call receives `tesla.Credentials{AccessToken}` as an argument (the adapter holds no identity of
+> its own). `do()` attaches the token as the `Authorization: Bearer` header. On HTTP 401 the
+> adapter returns the sentinel `tesla.ErrUnauthorized`, which callers detect with `errors.Is()`.
 
 ---
 
@@ -128,8 +131,10 @@ Think of it as the **master key** — you use it once to get a new daily pass, a
 
 > **Codebase:** `internal/auth/token.go` → `RefreshTokens(clientID, clientSecret, refreshToken)`
 > POSTs `grant_type=refresh_token` and returns a fresh `TokenResponse` (new access **and** new
-> refresh token). Because it is single-use, the caller must immediately persist the new pair via
-> `config.SaveTokens()` — this is exactly what `cmd/magus` does on a 401 (see Step 8).
+> refresh token). Because it is single-use, the caller must immediately persist the new pair. In
+> the multi-tenant path `internal/account` owns this: `account.AccessTokenFor` refreshes a
+> near-expiry token and persists the rotated pair atomically (FOR UPDATE) in Postgres; the
+> single-user `cmd/setup` smoke persists the pair to `.env` via `config.SaveTokens()`.
 
 ---
 
@@ -142,10 +147,16 @@ Think of it as the **master key** — you use it once to get a new daily pass, a
 | Refresh token was used but new one wasn't saved | Re-run `go run ./cmd/setup` within 24 hours of last use — old one may still work |
 | Both tokens lost or corrupted | Re-run `go run ./cmd/setup` |
 
-> **Implemented:** `cmd/magus` automatically detects a 401 (expired access token), calls `auth.RefreshTokens()`, saves the new token pair to `.env`, and retries — no manual action needed. Re-run `go run ./cmd/setup` only when the refresh token itself expires (every 3 months).
+> **Implemented (multi-tenant):** `internal/account` proactively refreshes a near-expiry token
+> before handing it out (`account.AccessTokenFor`), atomically rotating the single-use refresh
+> token in Postgres — no manual action needed for ordinary access-token expiry. A *reactive*
+> refresh-on-401 retry (recovering from a token Tesla revoked despite it not being time-expired)
+> is a planned follow-up, also to live in `account`. Re-run `go run ./cmd/setup` only for the
+> single-user smoke path, or when a stored refresh token itself expires (every 3 months).
 
-> **Codebase:** the auto-refresh path is `cmd/magus/main.go` (detects `vehicle.ErrUnauthorized`) →
-> `internal/auth/token.go` `RefreshTokens()` → `internal/config/config.go` `SaveTokens()` → retry.
+> **Codebase:** the auto-refresh path is `internal/account/service.go` (`AccessTokenFor`) →
+> `internal/auth/token.go` `RefreshTokens()` → persist the rotated pair in the same
+> `FOR UPDATE` transaction.
 
 ---
 
@@ -167,35 +178,42 @@ Think of it as the **master key** — you use it once to get a new daily pass, a
 
 ## Step 8 — First API call: fetch Magus's live data
 
-Handled by `cmd/magus/` using the `internal/vehicle/` package.
+Handled by the multi-tenant web gateway (`cmd/web`) using the state-less `internal/tesla`
+adapter. Per-user tokens are supplied by `internal/account` (from Postgres), not `.env`.
 
 ### Package structure
 
 ```
-internal/vehicle/client.go    ← authenticated HTTP client for the Fleet API
-internal/vehicle/vehicle.go   ← types + List(), Data(), WakeUp() methods
-cmd/magus/main.go             ← entry point: loads config, fetches and prints Magus's data
+internal/tesla/client.go      ← state-less authenticated HTTP adapter for the Fleet API
+internal/tesla/vehicles.go    ← ListVehicles(), VehicleData(), WakeUp()
+internal/account/service.go   ← per-user token store + proactive refresh (AccessTokenFor)
+internal/gateway/handlers/    ← HTTP handler → account token → tesla.ListVehicles → Templ fragment
+cmd/web/main.go               ← entry point: wires config, pgx pool, account, gateway engine
 ```
 
 ### Run it
 
 ```bash
-go run ./cmd/magus
+# Requires DATABASE_URL + SESSION_SECRET in .env (per-user tokens live in Postgres).
+go run ./cmd/web
 ```
 
-What it does:
+What the vehicle dashboard does:
 
-1. Loads the access token from `.env`.
-2. Calls `GET /api/1/vehicles` to find Magus and check if she is online or asleep.
-3. If asleep, calls `POST /api/1/vehicles/{id}/wake_up` and polls until online (up to 60 seconds).
-4. Calls `GET /api/1/vehicles/{id}/vehicle_data` to fetch the full snapshot.
-5. Prints a summary covering battery, charging, climate, location, and vehicle state.
+1. Reads the signed-in user's Tesla access token from Postgres via `account.AccessTokenFor`
+   (refreshing it first if it is near expiry).
+2. Calls `GET /api/1/vehicles` through the `tesla` adapter to list every vehicle on that
+   user's Tesla account.
+3. Maps each vendor DTO (`VehicleTesla`) to a clean model and renders it as an htmx/Templ
+   fragment on the dashboard.
+4. Available endpoints `VehicleData()` (full snapshot) and `WakeUp()` (wake a sleeping vehicle)
+   are implemented in the adapter and exposed by its `VehicleService` interface, ready for the
+   data-collection / richer-dashboard work to consume.
 
-> **How "Magus" is selected:** `GET /api/1/vehicles` returns **every vehicle on the authenticated
-> account**, not just one. The current code takes `vehicles[0]` (the first vehicle) in
-> `cmd/magus/main.go`. If the account had multiple cars, they would all appear in the list — the
-> project is one-account/first-car *only because of this selection*, not because of any Tesla
-> limit. Supporting multiple vehicles is purely a matter of selecting by VIN/name instead of index.
+> **How a vehicle is selected:** `GET /api/1/vehicles` returns **every vehicle on the
+> authenticated account**, not just one — the dashboard simply renders the whole list. The
+> project is one-app → many-users → many-vehicles; per-user scoping comes from each user's own
+> stored Tesla tokens, and supporting multiple vehicles per account is already in place.
 
 ### Fleet API endpoints used
 
@@ -206,15 +224,18 @@ What it does:
 | `POST /api/1/vehicles/{id}/wake_up` | Wakes a sleeping vehicle before fetching data |
 
 > **Codebase (per call):**
-> - `internal/vehicle/client.go` → `NewClient(accessToken)` builds the authenticated client;
->   `get()` and `post()` are the shared request helpers (attach the Bearer token, map 401 → `ErrUnauthorized`).
-> - `internal/vehicle/vehicle.go` → `List()` calls `GET /api/1/vehicles`; `WakeUp(vehicleID)` calls
->   `POST /api/1/vehicles/{id}/wake_up`; `Data(vehicleID)` calls `GET /api/1/vehicles/{id}/vehicle_data`.
-> - Response types `Vehicle`, `VehicleData`, `ChargeState`, `ClimateState`, `DriveState`,
->   `VehicleState` live in the same file, along with the mandatory miles→km helpers
->   (`BatteryRangeKm()`, `ChargeRateKmh()`, `SpeedKmh()`, `OdometerKm()`).
-> - `cmd/magus/main.go` → `main()` orchestrates list → wake (if needed) → data → print, and owns
->   the 401 auto-refresh retry described in Step 6.
+> - `internal/tesla/client.go` → `NewClient()` builds the state-less adapter; `do()` is the shared
+>   request helper (attaches the Bearer token from per-call `tesla.Credentials`, maps 401 → `ErrUnauthorized`).
+> - `internal/tesla/vehicles.go` → `ListVehicles` calls `GET /api/1/vehicles`; `WakeUp` calls
+>   `POST /api/1/vehicles/{id}/wake_up`; `VehicleData` calls `GET /api/1/vehicles/{id}/vehicle_data`.
+>   The public contract is the `VehicleService` interface (in `client.go`).
+> - Vendor-shaped DTOs `VehicleTesla`, `VehicleDataTesla`, `ChargeStateTesla`, `ClimateStateTesla`,
+>   `DriveStateTesla`, `VehicleStateTesla` live in `internal/tesla/types.go`, along with the
+>   mandatory miles→km helpers (`BatteryRangeKm()`, `ChargeRateKmh()`, `SpeedKmh()`, `OdometerKm()`).
+> - The gateway handler (`internal/gateway/handlers/handlers.go` → `vehiclesFor`) obtains the
+>   user's token via `account.AccessTokenFor`, calls `tesla.ListVehicles`, and maps DTOs to a clean
+>   model for the Templ fragment. On `tesla.ErrUnauthorized` it currently prompts reconnect; a
+>   reactive refresh-on-401 retry is a planned follow-up owned by `account`.
 
 ---
 

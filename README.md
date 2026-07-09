@@ -25,10 +25,11 @@ Build a personal, self-hosted tool that:
 go mod tidy
 
 # One-time OAuth setup — saves access + refresh tokens to .env
+# (single-user smoke path; the web gateway handles its own per-user OAuth)
 go run ./cmd/setup
 
-# Fetch Tesla vehicle data
-go run ./cmd/magus
+# Run the multi-tenant web gateway (needs DATABASE_URL + SESSION_SECRET in .env)
+go run ./cmd/web
 ```
 
 ---
@@ -69,7 +70,7 @@ go test ./...    # tests (account DB tests self-skip unless DATABASE_URL is set)
 To produce runnable **binaries** (not just compile), build the entrypoints into `./bin`:
 
 ```bash
-make bins        # → bin/magus, bin/setup, …  (go build -o bin/ ./cmd/...)
+make bins        # → bin/setup, bin/web, …  (go build -o bin/ ./cmd/...)
 ```
 
 > `make sqlc` is an explicit step, never part of `make build`. Re-run it whenever you edit a
@@ -84,14 +85,17 @@ make bins        # → bin/magus, bin/setup, …  (go build -o bin/ ./cmd/...)
 magus-tesla-api/
 │
 ├── cmd/
-│   ├── setup/          # One-time OAuth flow (Step 6 of setup guide)
-│   └── magus/          # Fetch and display Tesla vehicle data (Step 8)
+│   ├── setup/          # One-time OAuth flow (single-user smoke path)
+│   └── web/            # Multi-tenant HTTP gateway (vehicle dashboard)
 │
 ├── internal/
+│   ├── account/        # Per-user Tesla tokens (persisted, refreshed) in Postgres
+│   ├── tesla/          # State-less Fleet API adapter (handed creds per call)
+│   ├── gateway/        # Gin + Templ HTTP layer (handlers, pages, fragments)
+│   ├── googleauth/     # Google OAuth for user login
 │   ├── config/         # .env loading and token persistence
 │   ├── auth/           # Tesla OAuth URL, code exchange, token refresh
-│   ├── server/         # Gin HTTP server for OAuth callback on localhost:8080
-│   └── vehicle/        # Tesla Fleet API client + all vehicle data types
+│   └── server/         # Gin HTTP server for OAuth callback on localhost:8080
 │
 ├── magus-public-key-netlify/   # EC public key hosted on Netlify for Tesla verification
 │   └── well-known/appspecific/
@@ -117,7 +121,7 @@ It covers:
 5. Registering the public key via the Fleet API
 6. Running the OAuth flow with `go run ./cmd/setup`
 7. Virtual key pairing (skipped — only needed for commands)
-8. Fetching live data with `go run ./cmd/magus`
+8. Fetching live data — now served by the multi-tenant web gateway (`go run ./cmd/web`)
 
 ---
 
@@ -178,13 +182,6 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 
 ---
 
-## What's Next
-
-- Automatic token refresh when the access token expires (every 8 hours)
-- More vehicle endpoints: tire pressure, charge schedule, software version
-- `cmd/poller` — scheduled runner to periodically fetch and persist data
-- `internal/store` — local data store to log Magus's state over time
-- Virtual key pairing for command support (lock, climate, charge control)
 
 ---
 

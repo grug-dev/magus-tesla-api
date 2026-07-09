@@ -28,7 +28,7 @@ Standard Go project layout — modular monolith:
 | Command | Path | What it does |
 |---|---|---|
 | `setup` | `cmd/setup/` | One-time OAuth flow — opens browser, catches callback, saves tokens to `.env` |
-| `magus` | `cmd/magus/` | Fetches and prints Magus's live vehicle snapshot. Auto-refreshes token on 401. |
+| `web` | `cmd/web/` | HTTP gateway serving the per-user vehicle dashboard (multi-tenant, DB-backed) |
 
 ---
 
@@ -84,9 +84,10 @@ Every future DB-backed module follows the same shape. Full deploy runbook:
 
 ## Error-handling pattern (401 / auto-refresh)
 
-- `vehicle.ErrUnauthorized` is the sentinel error returned by the client on 401 — use `errors.Is()` to detect it in any future command that needs the same pattern.
-- **Auto-refresh is implemented in `cmd/magus`**: on HTTP 401 from the Fleet API, it calls `auth.RefreshTokens()`, saves both new tokens to `.env` via `config.SaveTokens()`, and retries once.
-- Reuse this sentinel + `errors.Is()` + retry-once shape in any new command that calls the Fleet API. The token *lifetimes* and operational behavior are documented in `CLAUDE.md` → "Token Behavior".
+- `tesla.ErrUnauthorized` is the sentinel error returned by the adapter on 401 — use `errors.Is()` to detect it in any caller that needs the pattern.
+- **Token refresh is owned by the `account` module** (`internal/account`): `account.AccessTokenFor` proactively refreshes an expired (or near-expiry) stored token before handing it out, atomically rotating the single-use refresh token inside a `FOR UPDATE` transaction. Callers wrap the resulting token in `tesla.Credentials` before calling the adapter.
+- A *reactive* refresh-on-401 retry (recovering from a token Tesla revoked despite it not being time-expired) is a planned follow-up, also to live in the `account` module.
+- Reuse this sentinel + `errors.Is()` shape in any new code that calls the Fleet API. The token *lifetimes* and operational behavior are documented in `CLAUDE.md` → "Token Behavior".
 
 ---
 
@@ -96,10 +97,11 @@ Every future DB-backed module follows the same shape. Full deploy runbook:
 # Install / update dependencies (first time or after go.mod changes)
 go mod tidy
 
-# One-time OAuth setup — run again only when refresh token expires (every 3 months)
+# One-time OAuth setup — single-user smoke path; saves tokens to .env.
+# Re-run only when the refresh token expires (every 3 months).
 go run ./cmd/setup
 
-# List all vehicles on the account (tokens from .env, or pass --access-token/--refresh-token).
-# Auto-refreshes the access token on HTTP 401.
-go run ./cmd/magus
+# Multi-tenant web gateway — serves the per-user vehicle dashboard.
+# Requires DATABASE_URL and SESSION_SECRET in .env.
+go run ./cmd/web
 ```

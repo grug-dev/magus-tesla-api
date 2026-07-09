@@ -245,12 +245,14 @@ make db-reset        # DROP the DB + recreate (owned by the role) + migrate — 
 ## 6. Tesla OAuth + run
 
 ```bash
-# One-time OAuth — opens a browser, catches the callback, writes tokens to .env.
-# Re-run only when the refresh token expires (~every 3 months).
+# One-time OAuth (single-user smoke path) — opens a browser, catches the
+# callback, writes tokens to .env. Re-run only when the refresh token expires
+# (~every 3 months). The web gateway handles its own per-user OAuth flow.
 go run ./cmd/setup
 
-# Smoke test: fetch and print live vehicle data.
-go run ./cmd/magus
+# Multi-tenant web gateway — serves the per-user vehicle dashboard.
+# Requires DATABASE_URL + SESSION_SECRET in .env.
+go run ./cmd/web
 ```
 
 Build/vet before shipping:

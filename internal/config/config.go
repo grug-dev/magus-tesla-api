@@ -16,8 +16,9 @@ type Config struct {
 	AccessToken  string
 	RefreshToken string
 	// DatabaseURL is the Postgres DSN for the account module's store (e.g.
-	// postgres://user:pass@localhost:5432/magus). Optional — the .env-based smoke
-	// test (cmd/magus) runs without it; the DB-backed modules require it.
+	// postgres://user:pass@localhost:5432/magus). Required for the DB-backed
+	// modules (account, web gateway); the one-time OAuth bootstrap (cmd/setup)
+	// runs without it.
 	DatabaseURL string
 	// Port is the TCP port the web gateway (cmd/web) listens on. Defaults to 8080.
 	Port string

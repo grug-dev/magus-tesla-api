@@ -81,14 +81,6 @@ Each Tesla connection uses two tokens, **per user**:
 adapter is stateless — it receives the access token to use as `tesla.Credentials`. Token
 **refresh belongs to the `account` module**, not the adapter.
 
-**Current state:** the `account` module isn't built yet. `cmd/magus` accepts
-`--access-token` / `--refresh-token`, or falls back to `.env` when neither is given. On HTTP
-401 (sentinel `tesla.ErrUnauthorized`, detect with `errors.Is`; reusable pattern in
-[`ai/go-conventions.md`](ai/go-conventions.md)) it refreshes once via `auth.RefreshTokens()`
-and retries — saving the rotated pair back to `.env` in the fallback path, or printing it in
-the flag path. This refresh orchestration is **temporary** and will move into `account`. The
-remaining smoke-test packages (`config`/`auth`/`server`) are being replaced by `account`;
-`vehicle` has already been replaced by the `tesla` adapter.
 
 - Full token explanation: see `docs/layer2-user-vehicle-access.md` → "Understanding the two tokens".
 
@@ -149,15 +141,14 @@ with the current `vehicle_device_data` scope — no new permissions needed.
 | **Location** | GPS lat/lng, heading, speed, shift state | Trip detector (driving = speed != null), home/away detection, geo-fence alert |
 | **Climate** | Inside/outside temp, climate on/off, driver temp setting | Comfort report, "car is hot" alert when parked in sun |
 | **Vehicle state** | Locked, odometer, software version, sentry mode on/off | Mileage tracker, software update notifier, sentry alert |
-| **Drive state** | Speed, heading, shift state | Detect when Magus is in motion vs parked |
+| **Drive state** | Speed, heading, shift state | Detect when the vehicle is in motion vs parked |
 
 ### Concrete ideas to explore with the user
 
-1. **Trip tracker** — detect when Magus starts moving (speed != null + shift != P), record start/end location and distance. Needs `internal/store`.
-2. **Daily digest** — every morning: battery level, overnight charge added, current range, where Magus is parked. Needs `cmd/poller` + `internal/store`.
+2. **Daily digest** — every morning: battery level, overnight charge added, current range, where vehicle is parked. Needs `cmd/poller` + `internal/store`.
 3. **Battery health log** — record battery level vs odometer over time. Graph degradation. Needs `internal/store`.
 4. **Charge session detector** — detect start/end of charging (state changes to/from "Charging"), log kWh added and duration. Needs `cmd/poller`.
-5. **Range anxiety guard** — send a notification (Slack, email, push) when battery drops below a configurable threshold. Simple to add to `cmd/magus` or `cmd/poller`.
-6. **Geo-fence home alert** — detect when Magus leaves or arrives at home coordinates. Needs stored home location + `cmd/poller`.
+5. **Range anxiety guard** — send a notification (Slack, email, push) when battery drops below a configurable threshold. Simple to add to `cmd/poller`.
+6. **Geo-fence home alert** — detect when the vehicle leaves or arrives at home coordinates. Needs stored home location + `cmd/poller`.
 7. **Software update notifier** — compare `car_version` to last known value, alert on change.
 8. **Sentry mode monitor** — log when sentry mode turns on/off.
