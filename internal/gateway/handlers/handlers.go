@@ -82,10 +82,23 @@ func (h *Handler) VehiclesFragment(c *gin.Context) {
 }
 
 // vehiclesFor is the dashboard's core logic, decoupled from gin/session so it is
-// unit-testable with fake account/tesla implementations. It obtains the account's
-// current Tesla token, lists vehicles, maps the vendor DTOs to a clean model, and
-// turns the known failure modes into user-facing states.
+// unit-testable with fake account/tesla implementations. It reads the account's
+// registered vehicles through the account module first; only when none are
+// registered does it obtain a Tesla access token, call tesla.ListVehicles once,
+// and persist the result as a one-time registration. After that first seed the
+// dashboard never calls Tesla again (openspec/changes/persist-tesla-vehicles).
 func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.VehiclesData {
+	registered, err := h.acct.RegisteredVehicles(ctx, uid)
+	if err != nil {
+		return fragments.VehiclesData{Notice: "Could not load your vehicles. Please try again."}
+	}
+	if len(registered) > 0 {
+		return fragments.VehiclesData{Vehicles: mapVehicles(registered)}
+	}
+
+	// No vehicles registered yet → one-time seed from Tesla. We need a current
+	// access token to make the call; the known failure modes map to the same
+	// user-facing states as before.
 	token, err := h.acct.AccessTokenFor(ctx, uid)
 	if errors.Is(err, account.ErrNoTeslaConnection) {
 		return fragments.VehiclesData{NeedsConnect: true}
@@ -102,14 +115,46 @@ func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.Vehi
 		return fragments.VehiclesData{Notice: "Could not load your vehicles from Tesla. Please try again."}
 	}
 
-	out := make([]fragments.Vehicle, 0, len(vs))
-	for _, v := range vs {
-		out = append(out, fragments.Vehicle{DisplayName: v.DisplayName, VIN: v.VIN, State: v.State})
-	}
-	if len(out) == 0 {
+	if len(vs) == 0 {
 		return fragments.VehiclesData{Notice: "No vehicles found on your Tesla account."}
 	}
-	return fragments.VehiclesData{Vehicles: out}
+
+	seed := make([]account.SeedVehicle, 0, len(vs))
+	for _, v := range vs {
+		seed = append(seed, account.SeedVehicle{
+			TeslaID:     v.ID,
+			VIN:         v.VIN,
+			DisplayName: v.DisplayName,
+		})
+	}
+	persisted, err := h.acct.SeedVehicles(ctx, uid, seed)
+	if err != nil {
+		// Seeding failed, but we still have the freshly-listed vehicles — degrade
+		// gracefully and show them from the Tesla response so the user sees
+		// something. The next dashboard load will retry the seed.
+		return fragments.VehiclesData{Vehicles: mapTeslasToVehicles(vs)}
+	}
+	return fragments.VehiclesData{Vehicles: mapVehicles(persisted)}
+}
+
+// mapVehicles converts the account module's clean Vehicle domain structs to the
+// presentation model. No `state` — it is not persisted.
+func mapVehicles(vs []account.Vehicle) []fragments.Vehicle {
+	out := make([]fragments.Vehicle, 0, len(vs))
+	for _, v := range vs {
+		out = append(out, fragments.Vehicle{DisplayName: v.DisplayName, VIN: v.VIN})
+	}
+	return out
+}
+
+// mapTeslasToVehicles maps the vendor DTOs directly, used only as a fallback when
+// seeding failed mid-flight.
+func mapTeslasToVehicles(vs []tesla.VehicleTesla) []fragments.Vehicle {
+	out := make([]fragments.Vehicle, 0, len(vs))
+	for _, v := range vs {
+		out = append(out, fragments.Vehicle{DisplayName: v.DisplayName, VIN: v.VIN})
+	}
+	return out
 }
 
 // currentUID returns the signed-in account id from the session, if any.

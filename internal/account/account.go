@@ -51,6 +51,25 @@ type TeslaTokens struct {
 	AccessExpiresAt time.Time
 }
 
+// Vehicle is one registered Tesla vehicle for an account, as exposed through the
+// account module's public interface. It carries only the durable identity +
+// display fields — the volatile `state` returned by the Tesla API is
+// intentionally NOT stored or surfaced (see openspec/changes/persist-tesla-vehicles).
+type Vehicle struct {
+	TeslaID     int64
+	VIN         string
+	DisplayName string
+}
+
+// SeedVehicle is the mapped slice the gateway hands the account module when
+// registering vehicles from a tesla.ListVehicles result. It is a small,
+// tesla-free DTO so this module does not import the adapter.
+type SeedVehicle struct {
+	TeslaID     int64
+	VIN         string
+	DisplayName string
+}
+
 // Service is the account module's public port. The gateway and sibling modules
 // depend on this interface, never on the concrete implementation or the DB.
 type Service interface {
@@ -69,4 +88,16 @@ type Service interface {
 	// import tesla; the caller wraps it in tesla.Credentials before calling the
 	// adapter.
 	AccessTokenFor(ctx context.Context, accountID uuid.UUID) (string, error)
+
+	// RegisteredVehicles returns the vehicles currently registered to the account.
+	// The result is empty (not an error) when the account has no vehicles
+	// registered yet. The gateway uses this to decide whether a one-time Tesla
+	// ListVehicles call is needed to seed the registry.
+	RegisteredVehicles(ctx context.Context, accountID uuid.UUID) ([]Vehicle, error)
+
+	// SeedVehicles registers the given vehicles for the account, idempotently per
+	// (account_id, tesla_id): a vehicle already registered is left untouched (its
+	// stored display_name is NOT overwritten), and only truly new vehicles are
+	// inserted. It returns the account's full registered set after the seed.
+	SeedVehicles(ctx context.Context, accountID uuid.UUID, vehicles []SeedVehicle) ([]Vehicle, error)
 }

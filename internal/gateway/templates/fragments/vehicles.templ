@@ -1,11 +1,13 @@
 package fragments
 
 // Vehicle is the clean presentation model for one vehicle — no vendor (...Tesla)
-// suffix; the gateway maps the adapter DTO onto this before rendering.
+// suffix; the gateway maps the account module's domain Vehicle onto this before
+// rendering. The volatile Tesla `state` is intentionally not surfaced (see
+// openspec/changes/persist-tesla-vehicles): once vehicles are persisted the
+// dashboard no longer calls Tesla, so online/asleep state would only mislead.
 type Vehicle struct {
 	DisplayName string
 	VIN         string
-	State       string
 }
 
 // VehiclesData drives the vehicle-list region: the vehicles to show, or a notice
@@ -23,7 +25,7 @@ templ VehiclesList(d VehiclesData) {
 		if len(d.Vehicles) > 0 {
 			<ul>
 				for _, v := range d.Vehicles {
-					<li><strong>{ v.DisplayName }</strong> — { v.VIN } ({ v.State })</li>
+					<li><strong>{ v.DisplayName }</strong> — { v.VIN }</li>
 				}
 			</ul>
 		} else if d.NeedsConnect {

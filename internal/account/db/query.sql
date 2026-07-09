@@ -52,3 +52,20 @@ WHERE account_id = @account_id
 ORDER BY updated_at DESC
 LIMIT 1
 FOR UPDATE;
+
+-- name: InsertVehicleIfMissing :exec
+-- Idempotent per-account vehicle registration: insert a vehicle only if this
+-- (account_id, tesla_id) is not already registered. Existing vehicles are left
+-- untouched (display_name is NOT overwritten) — the "rest of the information
+-- should not change" rule. :exec (no RETURNING) because ON CONFLICT DO NOTHING
+-- yields no row on a skipped insert, and the caller re-reads the full set via
+-- ListVehiclesByAccount anyway — there is nothing to return here.
+INSERT INTO vehicles (account_id, tesla_id, vin, display_name)
+VALUES (@account_id, @tesla_id, @vin, @display_name)
+ON CONFLICT (account_id, tesla_id) DO NOTHING;
+
+-- name: ListVehiclesByAccount :many
+-- All vehicles registered to an account, ordered by tesla_id for stable output.
+SELECT * FROM vehicles
+WHERE account_id = @account_id
+ORDER BY tesla_id;

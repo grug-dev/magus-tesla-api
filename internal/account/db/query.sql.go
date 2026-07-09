@@ -86,6 +86,70 @@ func (q *Queries) GetLatestTeslaTokenByAccountForUpdate(ctx context.Context, acc
 	return i, err
 }
 
+const insertVehicleIfMissing = `-- name: InsertVehicleIfMissing :exec
+INSERT INTO vehicles (account_id, tesla_id, vin, display_name)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (account_id, tesla_id) DO NOTHING
+`
+
+type InsertVehicleIfMissingParams struct {
+	AccountID   uuid.UUID
+	TeslaID     int64
+	Vin         string
+	DisplayName pgtype.Text
+}
+
+// Idempotent per-account vehicle registration: insert a vehicle only if this
+// (account_id, tesla_id) is not already registered. Existing vehicles are left
+// untouched (display_name is NOT overwritten) — the "rest of the information
+// should not change" rule. :exec (no RETURNING) because ON CONFLICT DO NOTHING
+// yields no row on a skipped insert, and the caller re-reads the full set via
+// ListVehiclesByAccount anyway — there is nothing to return here.
+func (q *Queries) InsertVehicleIfMissing(ctx context.Context, arg InsertVehicleIfMissingParams) error {
+	_, err := q.db.Exec(ctx, insertVehicleIfMissing,
+		arg.AccountID,
+		arg.TeslaID,
+		arg.Vin,
+		arg.DisplayName,
+	)
+	return err
+}
+
+const listVehiclesByAccount = `-- name: ListVehiclesByAccount :many
+SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at FROM vehicles
+WHERE account_id = $1
+ORDER BY tesla_id
+`
+
+// All vehicles registered to an account, ordered by tesla_id for stable output.
+func (q *Queries) ListVehiclesByAccount(ctx context.Context, accountID uuid.UUID) ([]Vehicle, error) {
+	rows, err := q.db.Query(ctx, listVehiclesByAccount, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Vehicle
+	for rows.Next() {
+		var i Vehicle
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.TeslaID,
+			&i.Vin,
+			&i.DisplayName,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateTeslaToken = `-- name: UpdateTeslaToken :one
 UPDATE tesla_tokens
 SET access_token      = $1,

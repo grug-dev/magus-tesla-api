@@ -127,6 +127,38 @@ func (s *service) AccessTokenFor(ctx context.Context, accountID uuid.UUID) (stri
 	return updated.AccessToken, nil
 }
 
+func (s *service) RegisteredVehicles(ctx context.Context, accountID uuid.UUID) ([]Vehicle, error) {
+	rows, err := s.q.ListVehiclesByAccount(ctx, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("listing registered vehicles: %w", err)
+	}
+	out := make([]Vehicle, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, vehicleFromRow(r))
+	}
+	return out, nil
+}
+
+func (s *service) SeedVehicles(ctx context.Context, accountID uuid.UUID, vehicles []SeedVehicle) ([]Vehicle, error) {
+	for _, v := range vehicles {
+		// ON CONFLICT DO NOTHING: existing vehicles are skipped, their stored
+		// attributes are not overwritten ("the rest of the information should not
+		// change"). InsertVehicleIfMissing is :exec (no RETURNING) — on a
+		// conflict it simply does nothing; we re-read the full registered set
+		// via RegisteredVehicles below so the returned slice reflects whatever
+		// persisted state already had (e.g. an unchanged display_name).
+		if err := s.q.InsertVehicleIfMissing(ctx, accountdb.InsertVehicleIfMissingParams{
+			AccountID:   accountID,
+			TeslaID:     v.TeslaID,
+			Vin:         v.VIN,
+			DisplayName: textFromString(v.DisplayName),
+		}); err != nil {
+			return nil, fmt.Errorf("registering vehicle tesla_id=%d: %w", v.TeslaID, err)
+		}
+	}
+	return s.RegisteredVehicles(ctx, accountID)
+}
+
 // --- pure helpers (unit-tested without a database) ---
 
 // needsRefresh reports whether a token expiring at expiresAt should be refreshed
@@ -142,6 +174,14 @@ func accessExpiry(now time.Time, expiresIn int) time.Time {
 }
 
 // --- row → domain mapping ---
+
+func vehicleFromRow(v accountdb.Vehicle) Vehicle {
+	return Vehicle{
+		TeslaID:     v.TeslaID,
+		VIN:         v.Vin,
+		DisplayName: v.DisplayName.String, // "" when NULL
+	}
+}
 
 func accountFromRow(a accountdb.Account) Account {
 	return Account{
