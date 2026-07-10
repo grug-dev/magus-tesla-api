@@ -48,7 +48,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc tidy build vet test check bins
+        db-setup db-reset env-setup sqlc tidy build vet test check bins explore-tesla-api
 
 # --- Help -------------------------------------------------------------------
 
@@ -251,3 +251,6 @@ bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin
 	go build -o bin/ ./cmd/...
 	@echo "Built: $$(ls bin/)"
+
+explore-tesla-api: ## Explore live Tesla API responses (COSTS a real API call; WAKES the car). Needs a fresh TESLA_ACCESS_TOKEN in .env
+	go run ./cmd/explore-tesla-api

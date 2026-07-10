@@ -61,6 +61,27 @@ These are always in effect. Do not violate them even if you haven't opened the c
 
 ---
 
+## Tesla API Exploration (`tesla-exploration` capability)
+
+The `cmd/explore-tesla-api` runnable + the `Raw*` methods in `internal/tesla/raw.go` exist to
+inspect the **raw** Fleet API JSON on demand (see `cmd/explore-tesla-api/README.md`). Two standing
+rules govern this capability:
+
+- **Never write tests for it.** The `tesla-exploration` capability — `internal/tesla/raw.go` and
+  everything under `cmd/explore-tesla-api/` — **must not** have `_test.go` files, and no test in
+  the repo may call its `Raw*` methods or the command. Its calls hit the live, **paid** Fleet API
+  and wake the car; keeping it test-free is what guarantees `go test ./...` never incurs that cost.
+  Do not add tests here even when asked to "add tests" broadly — this module is the explicit
+  exception.
+- **Keep it in sync with the `tesla` adapter.** Whenever a new Fleet API call is added to
+  `internal/tesla` (a new typed method in `vehicles.go`), you **must** also: (1) add its raw
+  sibling in `internal/tesla/raw.go` following the existing `Raw*` pattern (reuse `get`/`post`,
+  return `json.RawMessage`, keep it OFF the `VehicleService` interface), and (2) surface it in
+  `cmd/explore-tesla-api/main.go` so the explorer keeps full coverage of the adapter. Update
+  `cmd/explore-tesla-api/README.md` accordingly.
+
+---
+
 ## Session Start Protocol
 
 At the start of every session, before writing any code:

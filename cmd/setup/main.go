@@ -31,7 +31,7 @@ func main() {
 	}
 
 	// Step 6b — Start the Gin callback server and wait for Tesla to redirect with the code.
-	fmt.Println("[Step 6b] Waiting for Tesla callback on http://localhost:8080/callback ...")
+	fmt.Println("[Step 6b] Waiting for Tesla callback on http://localhost:8080/connect/tesla/callback ...")
 	codeCh := make(chan string, 1)
 	srv := server.StartCallbackServer(codeCh)
 

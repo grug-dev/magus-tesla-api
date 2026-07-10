@@ -52,12 +52,12 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		ClientID:     os.Getenv("TESLA_CLIENT_ID"),
-		ClientSecret: os.Getenv("TESLA_CLIENT_SECRET"),
-		RedirectURI:  "http://localhost:8080/callback",
-		AccessToken:   os.Getenv("TESLA_ACCESS_TOKEN"),
-		RefreshToken:  os.Getenv("TESLA_REFRESH_TOKEN"),
-		DatabaseURL:   os.Getenv("DATABASE_URL"),
+		ClientID:           os.Getenv("TESLA_CLIENT_ID"),
+		ClientSecret:       os.Getenv("TESLA_CLIENT_SECRET"),
+		RedirectURI:        "http://localhost:8080/connect/tesla/callback",
+		AccessToken:        os.Getenv("TESLA_ACCESS_TOKEN"),
+		RefreshToken:       os.Getenv("TESLA_REFRESH_TOKEN"),
+		DatabaseURL:        os.Getenv("DATABASE_URL"),
 		Port:               os.Getenv("PORT"),
 		SessionSecret:      os.Getenv("SESSION_SECRET"),
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
