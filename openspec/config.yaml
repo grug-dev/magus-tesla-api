@@ -25,13 +25,18 @@ rules:
   proposal:
     - State whether the change is breaking and which modules it affects.
     - Must use grill-me skill
+    - Change names must start with the owning module name — <module>-<verb-noun-slug> (e.g. tesla-add-charge-state); use platform- for cross-cutting changes.
+    - If the change spans multiple modules, do NOT create one big change — create openspec/roadmaps/<feature-name>.md (+ sibling .progress.json) with one module-prefixed change per tier, then proceed one module change at a time (see ai/agentic-workflow.md §pipeline).
   tasks:
     - Use the task list format (with checkboxes) for tasks.
     - Each task must be atomic and testable.
     - Keep tasks.md updated live as I apply (so openspec status always shows real progress and any session can resume)
+    - Group tasks into isolated, independent sub-tasks with explicit dependencies so separate agents can implement them — in parallel when they touch disjoint files.
+    - When applying, also maintain openspec/changes/<change>/progress.json (contract in ai/agentic-workflow.md) — update the matching task entry live alongside tasks.md.
   archive:
     - Group archived changes by business domain under openspec/changes/archive/<domain>/ (do NOT dump them flat in openspec/changes/archive/).
     - Target path: openspec/changes/archive/<domain>/YYYY-MM-DD-<change-name>.
     - Determine <domain> from the change's primary affected module before archiving. If a change spans modules, choose the one whose capability it most advances; for cross-cutting changes use "platform".
     - Create the <domain> subfolder if it does not exist.
     - Canonical domains for this project (mirror internal/ modules): account, gateway, tesla, googleauth, config, platform (for cross-cutting/setup tasks not owned by one module).
+    - Never archive a change whose progress.json exists but review.status is not reviewer-approved — the reviewer role sets that, nobody else (see ai/agentic-workflow.md §pipeline).

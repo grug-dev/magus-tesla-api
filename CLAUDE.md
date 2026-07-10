@@ -59,6 +59,22 @@ These are always in effect. Do not violate them even if you haven't opened the c
 - **Miles → km conversion is mandatory** — every miles/mph struct field must have a companion `<Field>Km()` / `<Field>Kmh()` value-receiver method using the `milesToKm` constant. Never a JSON-tagged km field; nil-safe for pointer fields.
 - **Boundaries are sacred** (detail in `ai/architecture.md`): no HTML outside `internal/gateway/`; no module reads another module's DB/internals; cross-module data flows only through public Go interfaces; the gateway calls interfaces, never a database.
 
+## Pipeline config (kkpa-dev-harness-pipeline)
+
+Declarative config read by the dev-harness-pipeline at dispatch time (contract of record:
+[`ai/agentic-workflow.md`](ai/agentic-workflow.md) §pipeline). These files are
+**module-agnostic** — general instructions that apply to every module; the per-module
+layer is each module's own `AGENTS.md`, added to the pack by the leader per dispatch.
+
+- **Modules-Root:** `internal/` — the only folder whose direct children are the monolith's
+  modules. Pipeline module resolution considers only these; each worker is sandboxed to
+  exactly one child of this folder (plus explicitly granted paths).
+- **Doc-Pack (base — every worker AND reviewer, all modules):** `CLAUDE.md`, `AGENTS.md`
+ `ai/*.md`,  `ai/architecture.md`, `ai/go-conventions.md`, `ai/agentic-workflow.md`.
+  Module-specific docs are declared per module in the `## Doc-Pack (module)` section of
+  `internal/<module>/AGENTS.md` — additive to this base, never replacing it (e.g. the
+  htmx docs live in the gateway module's pack).
+
 ---
 
 ## Tesla API Exploration (`tesla-exploration` capability)
@@ -86,7 +102,7 @@ rules govern this capability:
 
 At the start of every session, before writing any code:
 
-1. Remind the user of the current open roadmap items (see **Roadmap** section below).
+1. Remind the user of the current open roadmap items (see openspec/roadmaps/backlog.md).
 2. Ask which one they want to work on, or if they have something else in mind.
 3. If they are unsure, open the brainstorm section and suggest 2–3 ideas based on what's already built.
 4. Agree on the goal for the session before starting.
@@ -138,16 +154,6 @@ Tesla API setup walkthrough, split by authorization layer (each step references 
 - `docs/layer1-app-registration.md` — Layer 1 (Steps 1–5): registering the "Magus Monitor" app (Client ID/Secret, EC keys, public-key hosting, partner-account registration).
 - `docs/layer2-user-vehicle-access.md` — Layer 2 (Steps 6–8): OAuth login, the two tokens, and fetching vehicle data.
 - `docs/post-registration-setup.md` — short index pointing to both.
-
----
-
-## Roadmap
-
-Open items to discuss at the start of each session. Ask the user which one to tackle.
-
-### High priority
-
-- [ ] **`cmd/poller`** — scheduled runner that periodically calls `the module that fetch vehicle data` logic and appends that data to the database. Foundation for all historical data features.
 
 
 ---

@@ -10,6 +10,10 @@ This project is **not** intended to simply display Tesla API responses. Instead,
 
 The platform should continuously evolve as Tesla exposes additional APIs or as new analytical ideas emerge.
 
+## Vision
+
+See VISION.md for the long-term vision of this project.
+
 ## Tenancy Model
 
 The platform serves **multiple users**. Every user connects their own Tesla account via OAuth; their access and refresh tokens are stored **per user in a database**, owned by the `internal/account/` module. All data collection, metrics, storage, and dashboards are **scoped to a user and their vehicles** — one user's data is never mixed with another's. The `internal/tesla/` adapter is stateless about identity and is handed the credentials to use on every call. See `ai/architecture.md` for the module structure and boundary rules, and `ai/agentic-workflow.md` for how AI assistants build it.
