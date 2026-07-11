@@ -3,11 +3,14 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
@@ -72,9 +75,30 @@ func (f fakeTesla) WakeUp(context.Context, tesla.Credentials, int64) (*tesla.Veh
 	return nil, nil
 }
 
+// fakeReader is a test double for telemetry.Reader. Returns the configured
+// snapshots or error — no DB or network.
+type fakeReader struct {
+	snapshots []telemetry.Snapshot
+	err       error
+}
+
+func (f *fakeReader) LatestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]telemetry.Snapshot, error) {
+	return f.snapshots, f.err
+}
+
+// newHandler builds a Handler for tests that don't involve telemetry (seeds, connect
+// flows, etc.). The TelemetryReader is left nil — it won't be reached in those paths.
 func newHandler(acct account.Service, tsvc tesla.VehicleService) *Handler {
 	return New(Deps{Account: acct, Tesla: tsvc})
 }
+
+// newHandlerWithReader builds a Handler with a fake telemetry.Reader for tests that
+// exercise the enriched-vehicle path.
+func newHandlerWithReader(acct account.Service, tsvc tesla.VehicleService, reader telemetry.Reader) *Handler {
+	return New(Deps{Account: acct, Tesla: tsvc, TelemetryReader: reader})
+}
+
+// --- pre-existing tests (unchanged behavior) ---
 
 func TestVehiclesFor_RegisteredRendersWithoutTeslaCall(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
@@ -84,7 +108,8 @@ func TestVehiclesFor_RegisteredRendersWithoutTeslaCall(t *testing.T) {
 	tsvc := &fakeTesla{vehicles: []tesla.VehicleTesla{
 		{DisplayName: "SHOULD NOT BE CALLED", VIN: "NEVER"},
 	}}
-	h := newHandler(acct, tsvc)
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newHandlerWithReader(acct, tsvc, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
 	if len(d.Vehicles) != 2 {
 		t.Fatalf("want 2 vehicles from the registry, got %d (%+v)", len(d.Vehicles), d)
@@ -121,7 +146,8 @@ func TestVehiclesFor_NoStateRendered(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "Magus"},
 	}}
-	h := newHandler(acct, fakeTesla{})
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
 	if len(d.Vehicles) != 1 {
 		t.Fatalf("want 1 vehicle, got %d", len(d.Vehicles))
@@ -154,5 +180,188 @@ func TestVehiclesFor_EmptyTeslaListShowsNotice(t *testing.T) {
 	d := h.vehiclesFor(context.Background(), uuid.New())
 	if len(d.Vehicles) != 0 || d.NeedsConnect || d.Notice == "" {
 		t.Fatalf("want a plain notice (no vehicles, no connect prompt), got %+v", d)
+	}
+}
+
+// --- new tests for telemetry enrichment (task 3.2) ---
+
+// boolPtr is a helper to take the address of a bool literal in tests.
+func boolPtr(b bool) *bool { return &b }
+
+func TestVehiclesFor_EnrichedCard(t *testing.T) {
+	capturedAt := time.Now().Add(-1 * time.Hour) // fresh, within 36 h
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{
+			TeslaID:       42,
+			CapturedAt:    capturedAt,
+			BatteryLevel:  80,
+			BatteryRange:  200.0, // miles → BatteryRangeKm = 200 * 1.609344
+			ChargingState: "Disconnected",
+			Odometer:      12000.0, // miles → OdometerKm = 12000 * 1.609344
+			InsideTemp:    22.5,
+			OutsideTemp:   15.0,
+			Locked:        true,
+			SentryMode:    boolPtr(true),
+		},
+	}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.vehiclesFor(context.Background(), uuid.New())
+
+	if len(d.Vehicles) != 1 {
+		t.Fatalf("want 1 vehicle, got %d", len(d.Vehicles))
+	}
+	v := d.Vehicles[0]
+	if !v.HasSnapshot {
+		t.Errorf("want HasSnapshot true, got false")
+	}
+	if v.BatteryLevel != 80 {
+		t.Errorf("want BatteryLevel 80, got %d", v.BatteryLevel)
+	}
+	wantRangeKm := 200.0 * 1.609344
+	if v.BatteryRangeKm != wantRangeKm {
+		t.Errorf("want BatteryRangeKm %.4f, got %.4f", wantRangeKm, v.BatteryRangeKm)
+	}
+	if v.ChargingState != "Disconnected" {
+		t.Errorf("want ChargingState Disconnected, got %q", v.ChargingState)
+	}
+	wantOdomKm := 12000.0 * 1.609344
+	if v.OdometerKm != wantOdomKm {
+		t.Errorf("want OdometerKm %.4f, got %.4f", wantOdomKm, v.OdometerKm)
+	}
+	if v.InsideTempC != 22.5 {
+		t.Errorf("want InsideTempC 22.5, got %f", v.InsideTempC)
+	}
+	if v.OutsideTempC != 15.0 {
+		t.Errorf("want OutsideTempC 15.0, got %f", v.OutsideTempC)
+	}
+	if !v.Locked {
+		t.Errorf("want Locked true, got false")
+	}
+	if v.SentryMode == nil || !*v.SentryMode {
+		t.Errorf("want SentryMode *true, got %v", v.SentryMode)
+	}
+	if v.LastUpdated == "" {
+		t.Errorf("want LastUpdated set, got empty string")
+	}
+	if v.IsStale {
+		t.Errorf("want IsStale false for a 1h-old snapshot, got true")
+	}
+}
+
+func TestVehiclesFor_PlaceholderCard(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 7, VIN: "VIN7", DisplayName: "Ghost"},
+	}}
+	// Reader returns an empty slice — no snapshot for this vehicle.
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.vehiclesFor(context.Background(), uuid.New())
+
+	if len(d.Vehicles) != 1 {
+		t.Fatalf("want 1 vehicle, got %d", len(d.Vehicles))
+	}
+	v := d.Vehicles[0]
+	if v.HasSnapshot {
+		t.Errorf("want HasSnapshot false, got true")
+	}
+	if v.BatteryLevel != 0 || v.BatteryRangeKm != 0 || v.OdometerKm != 0 {
+		t.Errorf("want all snapshot fields zero for placeholder, got %+v", v)
+	}
+	if v.LastUpdated != "" {
+		t.Errorf("want LastUpdated empty for placeholder, got %q", v.LastUpdated)
+	}
+	if v.IsStale {
+		t.Errorf("placeholder card must not have IsStale set")
+	}
+}
+
+func TestVehiclesFor_GracefulDegradation(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 9, VIN: "VIN9", DisplayName: "Bricked"},
+	}}
+	reader := &fakeReader{err: errors.New("db unavailable")}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.vehiclesFor(context.Background(), uuid.New())
+
+	if d.Notice == "" {
+		t.Errorf("want a degradation notice when Reader errors, got empty notice")
+	}
+	if len(d.Vehicles) != 1 {
+		t.Fatalf("want 1 vehicle in placeholder state, got %d", len(d.Vehicles))
+	}
+	if d.Vehicles[0].HasSnapshot {
+		t.Errorf("want HasSnapshot false on all vehicles after Reader error")
+	}
+}
+
+func TestVehiclesFor_StaleBoundary(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "Magus"},
+	}}
+
+	// Clearly within the threshold (10 s of headroom) — should NOT be stale.
+	withinThreshold := time.Now().Add(-stalenessThreshold + 10*time.Second)
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 1, CapturedAt: withinThreshold},
+	}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.vehiclesFor(context.Background(), uuid.New())
+	if len(d.Vehicles) != 1 {
+		t.Fatalf("want 1 vehicle, got %d", len(d.Vehicles))
+	}
+	if d.Vehicles[0].IsStale {
+		t.Errorf("want IsStale false when 10 s within threshold, got true")
+	}
+
+	// One second past the threshold — should be stale.
+	pastThreshold := time.Now().Add(-stalenessThreshold - time.Second)
+	reader2 := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 1, CapturedAt: pastThreshold},
+	}}
+	h2 := newHandlerWithReader(acct, fakeTesla{}, reader2)
+	d2 := h2.vehiclesFor(context.Background(), uuid.New())
+	if len(d2.Vehicles) != 1 {
+		t.Fatalf("want 1 vehicle, got %d", len(d2.Vehicles))
+	}
+	if !d2.Vehicles[0].IsStale {
+		t.Errorf("want IsStale true when 1 s past threshold, got false")
+	}
+}
+
+func TestVehiclesFor_SentryModeThreeStates(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "Nil"},
+		{TeslaID: 2, VIN: "VIN2", DisplayName: "Off"},
+		{TeslaID: 3, VIN: "VIN3", DisplayName: "On"},
+	}}
+	now := time.Now()
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 1, CapturedAt: now, SentryMode: nil},
+		{TeslaID: 2, CapturedAt: now, SentryMode: boolPtr(false)},
+		{TeslaID: 3, CapturedAt: now, SentryMode: boolPtr(true)},
+	}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.vehiclesFor(context.Background(), uuid.New())
+
+	if len(d.Vehicles) != 3 {
+		t.Fatalf("want 3 vehicles, got %d", len(d.Vehicles))
+	}
+	// Build a lookup by DisplayName for readability.
+	byName := make(map[string]*bool)
+	for _, v := range d.Vehicles {
+		byName[v.DisplayName] = v.SentryMode
+	}
+
+	if byName["Nil"] != nil {
+		t.Errorf("want SentryMode nil for 'Nil' vehicle, got %v", byName["Nil"])
+	}
+	if byName["Off"] == nil || *byName["Off"] != false {
+		t.Errorf("want SentryMode *false for 'Off' vehicle, got %v", byName["Off"])
+	}
+	if byName["On"] == nil || *byName["On"] != true {
+		t.Errorf("want SentryMode *true for 'On' vehicle, got %v", byName["On"])
 	}
 }

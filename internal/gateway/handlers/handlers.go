@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -23,8 +24,13 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
+	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
+
+// stalenessThreshold is the duration after which a snapshot is considered stale.
+// At ~36 h a missed 03:30 nightly poll has elapsed (24 h cycle + 12 h buffer).
+const stalenessThreshold = 36 * time.Hour
 
 // Deps are the gateway handlers' dependencies.
 type Deps struct {
@@ -32,6 +38,10 @@ type Deps struct {
 	Account           account.Service
 	Google            *googleauth.Client
 	Tesla             tesla.VehicleService
+	// TelemetryReader is the telemetry read port; injected at construction.
+	// The gateway calls LatestSnapshotsByAccount once per dashboard render.
+	// NEVER import internal/telemetry/db — all access through this interface only.
+	TelemetryReader   telemetry.Reader
 	TeslaClientID     string
 	TeslaClientSecret string
 	TeslaRedirectURL  string
@@ -43,6 +53,7 @@ type Handler struct {
 	acct              account.Service
 	google            *googleauth.Client
 	tesla             tesla.VehicleService
+	telemetryReader   telemetry.Reader
 	teslaClientID     string
 	teslaClientSecret string
 	teslaRedirectURL  string
@@ -55,6 +66,7 @@ func New(d Deps) *Handler {
 		acct:              d.Account,
 		google:            d.Google,
 		tesla:             d.Tesla,
+		telemetryReader:   d.TelemetryReader,
 		teslaClientID:     d.TeslaClientID,
 		teslaClientSecret: d.TeslaClientSecret,
 		teslaRedirectURL:  d.TeslaRedirectURL,
@@ -87,13 +99,31 @@ func (h *Handler) VehiclesFragment(c *gin.Context) {
 // registered does it obtain a Tesla access token, call tesla.ListVehicles once,
 // and persist the result as a one-time registration. After that first seed the
 // dashboard never calls Tesla again (openspec/changes/persist-tesla-vehicles).
+//
+// When vehicles are already registered, it additionally calls
+// h.telemetryReader.LatestSnapshotsByAccount to enrich each vehicle card with its
+// latest stored nightly snapshot. If the Reader fails, it degrades gracefully —
+// all vehicles render in placeholder state with a non-fatal notice.
 func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.VehiclesData {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
 		return fragments.VehiclesData{Notice: "Could not load your vehicles. Please try again."}
 	}
 	if len(registered) > 0 {
-		return fragments.VehiclesData{Vehicles: mapVehicles(registered)}
+		// Fetch the latest snapshot per vehicle from the telemetry read port.
+		// On error: log and degrade gracefully — use an empty snapshot map so all
+		// vehicles render with HasSnapshot: false (placeholder). Never return early.
+		snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
+		snapMap := mergeSnapshots(snaps)
+		var notice string
+		if snapErr != nil {
+			log.Printf("gateway: telemetry reader error for account %s: %v", uid, snapErr)
+			notice = "Telemetry unavailable — showing vehicle identity only."
+		}
+		return fragments.VehiclesData{
+			Vehicles: mapVehicles(registered, snapMap),
+			Notice:   notice,
+		}
 	}
 
 	// No vehicles registered yet → one-time seed from Tesla. We need a current
@@ -134,15 +164,48 @@ func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.Vehi
 		// something. The next dashboard load will retry the seed.
 		return fragments.VehiclesData{Vehicles: mapTeslasToVehicles(vs)}
 	}
-	return fragments.VehiclesData{Vehicles: mapVehicles(persisted)}
+	// Freshly seeded: no snapshot exists yet, so pass an empty snapshot map —
+	// all newly-seeded vehicles will render the "no data yet" placeholder card.
+	return fragments.VehiclesData{Vehicles: mapVehicles(persisted, nil)}
+}
+
+// mergeSnapshots builds a map from TeslaID to Snapshot for O(1) lookup per vehicle.
+// A nil or empty slice produces an empty map (no panic on range).
+func mergeSnapshots(snaps []telemetry.Snapshot) map[int64]telemetry.Snapshot {
+	m := make(map[int64]telemetry.Snapshot, len(snaps))
+	for _, s := range snaps {
+		m[s.TeslaID] = s
+	}
+	return m
 }
 
 // mapVehicles converts the account module's clean Vehicle domain structs to the
-// presentation model. No `state` — it is not persisted.
-func mapVehicles(vs []account.Vehicle) []fragments.Vehicle {
+// presentation model, enriching each with the matching snapshot from snapMap when
+// available. Passing a nil snapMap produces placeholder cards for all vehicles.
+//
+// All derivation (km conversion, staleness, timestamp formatting, sentry-nil
+// passthrough) happens here — the template receives fully-computed display fields.
+func mapVehicles(vs []account.Vehicle, snapMap map[int64]telemetry.Snapshot) []fragments.Vehicle {
 	out := make([]fragments.Vehicle, 0, len(vs))
 	for _, v := range vs {
-		out = append(out, fragments.Vehicle{DisplayName: v.DisplayName, VIN: v.VIN})
+		fv := fragments.Vehicle{
+			DisplayName: v.DisplayName,
+			VIN:         v.VIN,
+		}
+		if snap, ok := snapMap[v.TeslaID]; ok {
+			fv.HasSnapshot = true
+			fv.BatteryLevel = snap.BatteryLevel
+			fv.BatteryRangeKm = snap.BatteryRangeKm()
+			fv.ChargingState = snap.ChargingState
+			fv.OdometerKm = snap.OdometerKm()
+			fv.InsideTempC = snap.InsideTemp
+			fv.OutsideTempC = snap.OutsideTemp
+			fv.Locked = snap.Locked
+			fv.SentryMode = snap.SentryMode
+			fv.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02 15:04 UTC")
+			fv.IsStale = time.Since(snap.CapturedAt) > stalenessThreshold
+		}
+		out = append(out, fv)
 	}
 	return out
 }

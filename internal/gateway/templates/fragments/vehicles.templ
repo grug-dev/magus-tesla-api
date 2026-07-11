@@ -1,13 +1,33 @@
 package fragments
 
+import "fmt"
+
 // Vehicle is the clean presentation model for one vehicle — no vendor (...Tesla)
 // suffix; the gateway maps the account module's domain Vehicle onto this before
-// rendering. The volatile Tesla `state` is intentionally not surfaced (see
-// openspec/changes/persist-tesla-vehicles): once vehicles are persisted the
-// dashboard no longer calls Tesla, so online/asleep state would only mislead.
+// rendering. All snapshot-derived fields are display-ready and pre-computed by the
+// handler (km conversion, staleness, sentry-nil handling, timestamp formatting) so
+// the template stays logic-light (ai/htmx-conventions.md §"No business logic in templates").
 type Vehicle struct {
 	DisplayName string
 	VIN         string
+
+	// HasSnapshot is true when a stored nightly snapshot exists for this vehicle.
+	// When false, the card renders in placeholder state ("no data yet").
+	HasSnapshot bool
+
+	// Extended fields — populated only when HasSnapshot is true.
+	// All derivation is done in the handler; the template only reads these.
+	BatteryLevel   int
+	BatteryRangeKm float64
+	ChargingState  string
+	OdometerKm     float64
+	InsideTempC    float64
+	OutsideTempC   float64
+	Locked         bool
+	// SentryMode is a three-state pointer: nil = not reported, *false = off, *true = on.
+	SentryMode  *bool
+	LastUpdated string // pre-formatted by the handler, e.g. "2006-01-02 15:04 UTC"
+	IsStale     bool   // true when CapturedAt is older than stalenessThreshold (36 h)
 }
 
 // VehiclesData drives the vehicle-list region: the vehicles to show, or a notice
@@ -22,10 +42,48 @@ type VehiclesData struct {
 // fragment name so the same markup serves the full page and the htmx refresh.
 templ VehiclesList(d VehiclesData) {
 	<div id="vehicles">
+		if d.Notice != "" && !d.NeedsConnect && len(d.Vehicles) > 0 {
+			<p class="notice-banner">{ d.Notice }</p>
+		}
 		if len(d.Vehicles) > 0 {
 			<ul>
 				for _, v := range d.Vehicles {
-					<li><strong>{ v.DisplayName }</strong> — { v.VIN }</li>
+					<li>
+						<strong>{ v.DisplayName }</strong> — { v.VIN }
+						if v.HasSnapshot {
+							<ul>
+								<li>Battery: { fmt.Sprintf("%d%%", v.BatteryLevel) } / Range: { fmt.Sprintf("%.1f km", v.BatteryRangeKm) }</li>
+								<li>Charging: { v.ChargingState }</li>
+								<li>Odometer: { fmt.Sprintf("%.1f km", v.OdometerKm) }</li>
+								<li>Inside: { fmt.Sprintf("%.1f °C", v.InsideTempC) } / Outside: { fmt.Sprintf("%.1f °C", v.OutsideTempC) }</li>
+								<li>
+									if v.Locked {
+										Locked
+									} else {
+										Unlocked
+									}
+								</li>
+								<li>
+									Sentry:
+									if v.SentryMode == nil {
+										Not reported
+									} else if *v.SentryMode {
+										On
+									} else {
+										Off
+									}
+								</li>
+								<li>
+									Last updated: { v.LastUpdated }
+									if v.IsStale {
+										<span class="stale-badge"> ⚠ Stale</span>
+									}
+								</li>
+							</ul>
+						} else {
+							<p>No data yet — awaiting first nightly snapshot.</p>
+						}
+					</li>
 				}
 			</ul>
 		} else if d.NeedsConnect {

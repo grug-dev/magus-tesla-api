@@ -18,6 +18,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
+	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
@@ -52,6 +53,7 @@ func main() {
 		Account:           acct,
 		Google:            google,
 		Tesla:             tesla.NewClient(),
+		TelemetryReader:   telemetry.NewReader(pool),
 		SessionSecret:     cfg.SessionSecret,
 		TeslaClientID:     cfg.ClientID,
 		TeslaClientSecret: cfg.ClientSecret,

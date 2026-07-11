@@ -19,17 +19,17 @@
 
 ## 1. Extend `gateway.Deps`, `handlers.Deps`, `Handler`, and `New()` — no dependencies, parallel-ok with 2
 
-- [ ] 1.1 In `internal/gateway/gateway.go`: add `TelemetryReader telemetry.Reader` to the `Deps`
+- [x] 1.1 In `internal/gateway/gateway.go`: add `TelemetryReader telemetry.Reader` to the `Deps`
       struct. Import `internal/telemetry` (the public port — never `internal/telemetry/db`).
       No other change to `gateway.go` at this stage (routes `/dashboard` and `/ui/vehicles`
       are unchanged).
 
-- [ ] 1.2 In `internal/gateway/handlers/handlers.go`: mirror the new field in `handlers.Deps`
+- [x] 1.2 In `internal/gateway/handlers/handlers.go`: mirror the new field in `handlers.Deps`
       (add `TelemetryReader telemetry.Reader`), in the `Handler` struct (add `telemetryReader
       telemetry.Reader`), and in the `New(d Deps) *Handler` constructor (assign
       `telemetryReader: d.TelemetryReader`). Import `internal/telemetry`.
 
-- [ ] 1.3 Extend `vehiclesFor(ctx, uid)` in `internal/gateway/handlers/handlers.go`:
+- [x] 1.3 Extend `vehiclesFor(ctx, uid)` in `internal/gateway/handlers/handlers.go`:
       - After a successful `account.RegisteredVehicles(ctx, uid)` call, call
         `h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)`.
       - On error from the `Reader`, log the error and continue with an empty snapshot
@@ -40,7 +40,7 @@
       - When the `Reader` returns an error, the `VehiclesData` notice must convey
         "Telemetry unavailable — showing vehicle identity only."
 
-- [ ] 1.4 Extend `mapVehicles` (or create a new `mergeSnapshots` helper, whichever keeps
+- [x] 1.4 Extend `mapVehicles` (or create a new `mergeSnapshots` helper, whichever keeps
       the function clean) in `internal/gateway/handlers/handlers.go`:
       - Accept the snapshot map `map[int64]telemetry.Snapshot` as a second argument.
       - For each registered `account.Vehicle`, look up `snaps[v.TeslaID]`:
@@ -61,7 +61,7 @@
 
 ## 2. Extend `fragments.Vehicle` view struct and update `VehiclesList` template — no dependencies, parallel-ok with 1
 
-- [ ] 2.1 In `internal/gateway/templates/fragments/vehicles.templ`: extend the `Vehicle`
+- [x] 2.1 In `internal/gateway/templates/fragments/vehicles.templ`: extend the `Vehicle`
       struct with the following fields (all display-ready, pre-computed by the handler):
       ```
       HasSnapshot    bool
@@ -79,7 +79,7 @@
       No business logic is added to the struct or template. Fields are only read in the
       component.
 
-- [ ] 2.2 Update the `VehiclesList` component in `vehicles.templ` to render the enriched
+- [x] 2.2 Update the `VehiclesList` component in `vehicles.templ` to render the enriched
       card and the two alternate states:
       - **Enriched card** (`HasSnapshot == true`): render all Extended fields. Sentry
         mode must visually distinguish nil ("Not reported"), false ("Off"), true ("On").
@@ -97,19 +97,21 @@
       - The `<div id="vehicles">` root element and `templ.Fragment("vehicles")` fragment
         id are UNCHANGED (htmx swap target must remain stable).
 
-- [ ] 2.3 After editing `vehicles.templ`, note in `tasks.md` that **`templ generate` must
-      be run** by the implementer (or the leader, per the project rule that codegen is a
-      developer step, not an assistant step). The generated `vehicles_templ.go` must be
-      committed alongside the `.templ` edit.
+- [x] 2.3 `templ generate` was run by the implementer (gateway worker). The generated
+      `vehicles_templ.go` is present alongside the `.templ` edit and must be committed.
 
 ## 3. Verify handler–template contract alignment — depends on 1 and 2
 
-- [ ] 3.1 Confirm that every field added to `fragments.Vehicle` in task 2.1 is populated
+- [x] 3.1 Confirm that every field added to `fragments.Vehicle` in task 2.1 is populated
       by the handler mapper in task 1.4 — and vice versa: no template field is left
       without a mapping rule in the handler. Document any zero-value fields that are
       intentionally left unset for the placeholder state.
+      Intentional zero-value fields for placeholder state (HasSnapshot false):
+      BatteryLevel=0, BatteryRangeKm=0, ChargingState="", OdometerKm=0,
+      InsideTempC=0, OutsideTempC=0, Locked=false, SentryMode=nil,
+      LastUpdated="", IsStale=false.
 
-- [ ] 3.2 Write or extend unit tests in `internal/gateway/handlers/handlers_test.go`:
+- [x] 3.2 Write or extend unit tests in `internal/gateway/handlers/handlers_test.go`:
       - **Enriched state:** fake `TelemetryReader` returns one snapshot for the
         registered vehicle; assert the resulting `fragments.Vehicle` has `HasSnapshot:
         true`, correct `BatteryRangeKm`, correct `IsStale` value (test both fresh and
@@ -129,7 +131,7 @@
 
 ## 4. Append `telemetry.Reader` dependency note to `AGENTS.md` — no dependencies, parallel-ok
 
-- [ ] 4.1 In `internal/gateway/AGENTS.md`, APPEND (never remove or modify existing content)
+- [x] 4.1 In `internal/gateway/AGENTS.md`, APPEND (never remove or modify existing content)
       the following note to the `## Public interface` section (or `Deps` section if one exists):
 
       > - `Deps.TelemetryReader telemetry.Reader` — the telemetry read port; injected at

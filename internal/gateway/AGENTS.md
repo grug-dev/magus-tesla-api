@@ -26,6 +26,12 @@ It renders what other modules expose; it owns no business data.
 - `Deps` struct — every collaborator arrives as a public Go interface (account, tesla,
   googleauth). New dependencies extend `Deps`; never construct another module's
   internals here.
+- `Deps.TelemetryReader telemetry.Reader` — the telemetry read port; injected at
+  construction via `gateway.Deps` and `handlers.Deps`. The gateway calls
+  `LatestSnapshotsByAccount(ctx, accountID)` once per dashboard render to populate
+  vehicle card telemetry. Added by `gateway-read-stored-vehicles` (tier 5).
+  NEVER import `internal/telemetry/db` (`telemetrydb`) — all access through this
+  interface only.
 
 ## Boundaries
 

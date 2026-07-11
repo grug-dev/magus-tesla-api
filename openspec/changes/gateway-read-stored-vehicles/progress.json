@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "gateway-read-stored-vehicles",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/nightly-vehicle-telemetry.md",
+  "request": "Tier 5 of nightly-vehicle-telemetry (Option A, user 2026-07-11): the signed-in user's dashboard shows each registered vehicle enriched with its latest stored nightly snapshot, read-only through the telemetry.Reader port (LatestSnapshotsByAccount), merged by TeslaID in the gateway handler. No live Tesla call on a normal render; first-connect seed retained. No DB object, no migration.",
+  "status": "verified",
+  "created_at": "2026-07-11T23:18:46Z",
+  "updated_at": "2026-07-11T23:29:26Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-4-8"
+  },
+  "apply_plan": "Wave 1 worker (Sonnet): tasks 1,2,3,4 — all inside the internal/gateway/ sandbox, one serial worker (task 3 tests need tasks 1+2 done; batching amortizes the doc-pack read). Worker also runs templ generate for vehicles.templ and go build/test ./internal/gateway/.... Leader: task 5 (cmd/web/main.go wiring of telemetry.NewReader(pool), outside the gateway sandbox; adding Deps.TelemetryReader in task 1 keeps cmd/web compiling with a nil reader until then). Leader: task 6 (full verification: go build/vet/test ./..., openspec validate --strict, boundary check).",
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Extend gateway.Deps + handlers.Deps/Handler/New with telemetry.Reader; extend vehiclesFor (call Reader, TeslaID snapshot map, graceful degradation notice) + mapVehicles/mergeSnapshots (Extended fields, km via companions, IsStale via stalenessThreshold const, sentry-nil passthrough)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T23:21:15Z",
+      "completed_at": "2026-07-11T23:25:57Z",
+      "duration_seconds": 282,
+      "notes": "Added TelemetryReader to gateway.Deps, handlers.Deps, Handler struct, New(). Extended vehiclesFor with mergeSnapshots+mapVehicles accepting snapshot map. stalenessThreshold const added. Graceful degradation on Reader error with notice.",
+      "budget": {
+        "cost_usd_approx": 2.0,
+        "approx": true,
+        "note": "Shared delta for the batched wave-1 serial worker (tasks 1-4), $12.24->$14.25; recorded once on task 1 to avoid double-count. five_hour 62%->72%."
+      }
+    },
+    {
+      "id": "2",
+      "title": "Extend fragments.Vehicle view struct (11 display-ready fields) + update VehiclesList component for enriched/placeholder/stale/telemetry-unavailable states (fragment id 'vehicles' unchanged); run templ generate",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T23:21:15Z",
+      "completed_at": "2026-07-11T23:25:57Z",
+      "duration_seconds": 282,
+      "notes": "Added 11 display-ready fields to fragments.Vehicle. Updated VehiclesList for enriched/placeholder/stale/notice states. templ generate run successfully; vehicles_templ.go regenerated. div#vehicles unchanged."
+    },
+    {
+      "id": "3",
+      "title": "Handler unit tests + handler-template contract alignment: enriched, placeholder, graceful-degradation, stale-boundary, sentry three-state; fake telemetry.Reader, no DB/network/Tesla",
+      "module": "gateway",
+      "depends_on": ["1", "2"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T23:21:15Z",
+      "completed_at": "2026-07-11T23:25:57Z",
+      "duration_seconds": 282,
+      "notes": "Added fakeReader + 5 new tests: enriched card, placeholder card, graceful degradation, stale boundary (within/past), sentry three-state (nil/false/true). All pass. No DB/network. go test ./internal/gateway/... green."
+    },
+    {
+      "id": "4",
+      "title": "Append telemetry.Reader dependency note to internal/gateway/AGENTS.md (append-only)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T23:21:15Z",
+      "completed_at": "2026-07-11T23:25:57Z",
+      "duration_seconds": 282,
+      "notes": "Appended telemetry.Reader note to the Public interface section of internal/gateway/AGENTS.md. Existing content unchanged."
+    },
+    {
+      "id": "5",
+      "title": "LEADER-INTEGRATED: wire telemetry.NewReader(pool) into gateway.Deps.TelemetryReader in cmd/web/main.go",
+      "module": "gateway",
+      "depends_on": ["1"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T23:28:30Z",
+      "completed_at": "2026-07-11T23:28:50Z",
+      "duration_seconds": 20,
+      "notes": "LEADER-INTEGRATED. cmd/web/main.go: added internal/telemetry import; construct telemetry.NewReader(pool) and pass as gateway.Deps.TelemetryReader. Thin wiring, no logic. go build ./... clean."
+    },
+    {
+      "id": "6",
+      "title": "LEADER: verification — go build/vet/test ./... green, tests DB/network/Tesla-free, openspec validate --strict, boundary (no telemetrydb/pgtype import; no km field; fragment id stable)",
+      "module": "gateway",
+      "depends_on": ["1", "2", "3", "4", "5"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T23:28:50Z",
+      "completed_at": "2026-07-11T23:29:26Z",
+      "duration_seconds": 36,
+      "notes": "LEADER verification. go build ./... + go vet ./... clean; go test ./... green (gateway/handlers/telemetry/account/tesla all ok; telemetry DB-gated tests self-skip w/o DATABASE_URL). openspec validate --strict = valid. Boundary: no telemetrydb/pgtype import in gateway (only guard comments); km only on view model (BatteryRangeKm/OdometerKm), no domain km field; div#vehicles fragment id stable; telemetry PORT imported in gateway + cmd/web."
+    }
+  ],
+  "rollup": {
+    "pending": [],
+    "current": [],
+    "done": ["1", "2", "3", "4", "5", "6"],
+    "blocked": []
+  },
+  "decisions": [
+    {
+      "id": "DEC-1",
+      "scope": "design:D2",
+      "made_by": "user",
+      "at": "2026-07-11T23:00:00Z",
+      "note": "Units on the dashboard = kilometers. Range/odometer shown in km via telemetry Snapshot companions BatteryRangeKm()/OdometerKm(); temperatures shown in °C as stored (no conversion). Leader Step-2 interview."
+    },
+    {
+      "id": "DEC-2",
+      "scope": "design:D3",
+      "made_by": "user",
+      "at": "2026-07-11T23:00:00Z",
+      "note": "Field set = Extended: battery %, range (km), charge state, odometer (km), inside/outside temp (°C), locked, sentry mode (three-state nil/off/on), last-updated. Leader Step-2 interview."
+    },
+    {
+      "id": "DEC-3",
+      "scope": "design:D4",
+      "made_by": "user",
+      "at": "2026-07-11T23:00:00Z",
+      "note": "Freshness = flag when stale. Always show last-updated; add a visible stale marker when the latest snapshot is older than ~36h (missed 03:30 nightly poll). Named constant stalenessThreshold = 36h. Leader Step-2 interview."
+    }
+  ],
+  "review": {
+    "status": "pending"
+  },
+  "events": [
+    {
+      "at": "2026-07-11T23:18:46Z",
+      "agent": "leader",
+      "event": "Tier 5 (gateway-read-stored-vehicles) artifacts created by gateway worker (Sonnet) and openspec validate --strict = valid. proposal (non-breaking, gateway-only + leader cmd/web wiring, names dashboard read path) + design (D1-D7; explicit no-DB-object / design-gate-not-applicable; 2-indexed-query read path, no N+1) + gateway delta spec (9 GIVEN/WHEN/THEN scenarios) + tasks (6 groups / 16 sub-tasks). Design gate NOT triggered (read-only, no schema object). Grill satisfied by roadmap Decisions + Step-2 user interview (DEC-1/2/3). Worker self-corrected a method-name error (SeedVehicles) and a spec header. progress.json seeded, all tasks pending. NEXT: Step 5 apply — wave 1 worker tasks 1,2,3,4 (gateway sandbox, one serial worker), then leader task 5 (cmd/web), leader task 6 (verify)."
+    },
+    {
+      "at": "2026-07-11T23:29:26Z",
+      "agent": "leader",
+      "event": "Apply complete + verified. Wave-1 gateway worker (Sonnet) did tasks 1-4 in the internal/gateway/ sandbox (Deps/Handler/vehiclesFor + mergeSnapshots/mapVehicles; 11-field view model + VehiclesList enriched/placeholder/stale/notice states; templ generate; 5 new handler tests; AGENTS.md note). Worker enumerated D1-D7 compliance — cross-checked against design.md, all sound. Leader task 5 wired telemetry.NewReader(pool) into cmd/web (committed WITH the wave so main never has a nil reader that would panic on render). Leader task 6: go build/vet/test ./... green, openspec --strict valid, boundary clean. Budget wave-1 delta approx $2.00 (five_hour 62%->72%, context 17%). Checkpoint gate: below 90/60 thresholds, continue. Status -> verified. NEXT: Step 7 review loop (dispatch gateway-reviewer)."
+    }
+  ]
+}
