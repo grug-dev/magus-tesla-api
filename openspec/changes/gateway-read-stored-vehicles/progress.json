@@ -5,9 +5,9 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/nightly-vehicle-telemetry.md",
   "request": "Tier 5 of nightly-vehicle-telemetry (Option A, user 2026-07-11): the signed-in user's dashboard shows each registered vehicle enriched with its latest stored nightly snapshot, read-only through the telemetry.Reader port (LatestSnapshotsByAccount), merged by TeslaID in the gateway handler. No live Tesla call on a normal render; first-connect seed retained. No DB object, no migration.",
-  "status": "verified",
+  "status": "changes-requested",
   "created_at": "2026-07-11T23:18:46Z",
-  "updated_at": "2026-07-11T23:29:26Z",
+  "updated_at": "2026-07-11T23:41:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-4-8"
@@ -131,10 +131,70 @@
       "made_by": "user",
       "at": "2026-07-11T23:00:00Z",
       "note": "Freshness = flag when stale. Always show last-updated; add a visible stale marker when the latest snapshot is older than ~36h (missed 03:30 nightly poll). Named constant stalenessThreshold = 36h. Leader Step-2 interview."
+    },
+    {
+      "id": "DEC-4",
+      "scope": "review:R1-005",
+      "made_by": "autopilot",
+      "at": "2026-07-11T23:41:00Z",
+      "note": "REJECTED review finding R1-005 (add a nil-guard before h.telemetryReader call). The gateway's other required deps (acct, google, tesla, pool) are not nil-guarded either — they are contract-required dependencies injected by NewEngine/New; a nil reader is a wiring bug that should fail fast. Guarding only telemetryReader would be inconsistent with the module's dependency pattern. Reviewer flagged it minor and noted production is safe. No code change."
     }
   ],
   "review": {
-    "status": "pending"
+    "status": "pending",
+    "agent": "gateway-reviewer",
+    "brief": "Review the completed change gateway-read-stored-vehicles (tier 5 of nightly-vehicle-telemetry): the dashboard now enriches each registered vehicle with its latest stored nightly snapshot, read-only through the telemetry.Reader port. Read the DIFF (commit 7894548), not the whole module. Validate against the doc pack (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/htmx-conventions.md, ai/htmx-go-integration.md, internal/gateway/AGENTS.md, ai/agentic-workflow.md): (1) BOUNDARY — gateway calls only the telemetry PUBLIC port (telemetry.Reader.LatestSnapshotsByAccount); NEVER imports internal/telemetry/db (telemetrydb); no pgtype anywhere in gateway; no ...Tesla DTO leaks into a template; no km field on any DOMAIN type (km lives only on the fragments.Vehicle view model via BatteryRangeKm()/OdometerKm() companions). Read-only at request time (AGENTS.md): handler calls only Reader ports, no writes, no Tesla call on a normal render — the first-connect seed path (account.SeedVehicles when zero registered) is unchanged. (2) MERGE CORRECTNESS — snapshots merged by TeslaID; registered vehicle with no snapshot -> HasSnapshot:false placeholder; two indexed queries per render, no N+1. (3) USER DECISIONS (DEC-1/2/3) — km units via companions + temps in °C; Extended field set (battery %, range, charge, odometer, inside/outside temp, locked, sentry three-state nil/off/on, last-updated); stale flag when captured_at older than stalenessThreshold=36h, last-updated always shown, placeholder never stale. (4) GRACEFUL DEGRADATION — Reader error -> log + empty map + non-fatal notice 'Telemetry unavailable...', registry still renders, never a 500. (5) HTMX/TEMPL — all derivation (km, stale, sentry-nil, timestamp) in the Go handler; template logic-light (if/for + field reads only); <div id=\"vehicles\"> fragment id unchanged (htmx swap target); vehicles_templ.go regenerated and current. (6) TESTS — handler unit tests fake telemetry.Reader, no DB/network/Tesla; cover enriched, placeholder, graceful-degradation, stale boundary (at vs past threshold), sentry three-state; tesla-exploration test-free rule intact. (7) SPEC/TASKS — 9 GIVEN/WHEN/THEN scenarios match behavior; every tasks.md checkbox reflects real completion; strict validate passes; NO database object introduced (a DB object here would be a blocker). ANTI-GAMING: no task/criterion weakened or deleted; the wave-1 worker marked only tasks 1-4, leader marked 5-6; no self-approved review status. Default to Sonnet and ESCALATE ON DOUBT — return changes-requested for leader re-review rather than approving anything uncertain. You alone set review.status / reviewer-approved.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-11T23:36:30Z",
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-4-6",
+        "verdict": "changes-requested",
+        "duration_seconds": 505,
+        "budget": {
+          "cost_usd_approx": 2.09,
+          "note": "Round-1 review delta $16.06->$18.15; five_hour 77%->86%."
+        },
+        "findings": [
+          {
+            "id": "R1-001",
+            "severity": "major",
+            "note": "openspec/changes/gateway-read-stored-vehicles/tasks.md:146-174 — Tasks 5 and 6 sub-tasks (5.1, 6.1–6.5) are all unchecked [ ] in tasks.md even though the work is complete and verified. progress.json marks them 'done' and go build/vet/test/validate pass independently. The review brief (brief item 7) requires 'every tasks.md checkbox reflects real completion'; the brief anti-gaming section says 'the leader marked 5-6' but the leader did not update the checkboxes. The code is correct but the tracking file is inconsistent. Fix: check all 5.1, 6.1, 6.2, 6.3, 6.4, 6.5 boxes in tasks.md.",
+            "status": "resolved",
+            "resolution": "Leader ticked tasks.md checkboxes 5.1, 6.1-6.5 at 2026-07-11T23:41Z. Doc-only, no code change."
+          },
+          {
+            "id": "R1-002",
+            "severity": "major",
+            "note": "internal/gateway/templates/fragments/vehicles.templ:55-58 — Template uses fmt.Sprintf calls (4 occurrences) to format float64 and int fields into display strings. The review brief (item 5) requires 'template logic-light (if/for + field reads only)'; task 2.2 says 'No arithmetic, no method calls, no time formatting in the template — all values are pre-computed'. fmt.Sprintf is a method call in the template. Design D7 chose float64 for BatteryRangeKm/OdometerKm (not pre-formatted strings), which forced this. Fix: either pre-format the values as strings in the Go handler (change BatteryRangeKm/OdometerKm/InsideTempC/OutsideTempC/BatteryLevel fields in fragments.Vehicle to string and format in mapVehicles), or get explicit leader approval that fmt.Sprintf display formatting is within acceptable bounds. As-is this violates 'field reads only'.",
+            "status": "accepted",
+            "triage": "ACCEPTED by leader — consistent with design D7 (all formatting/derivation in the handler). Fix: change the fragments.Vehicle numeric display fields to pre-formatted strings computed in mapVehicles (km/%/°C labels); template reads strings only; update handler tests + regen vehicles_templ.go. Deferred to the post-checkpoint rework wave (gateway worker)."
+          },
+          {
+            "id": "R1-003",
+            "severity": "minor",
+            "note": "openspec/changes/gateway-read-stored-vehicles/tasks.md:100-103 — Task 2.3 had its description text modified (not just checked). Original text: 'note in tasks.md that templ generate must be run by the implementer (or the leader, per the project rule that codegen is a developer step, not an assistant step). The generated vehicles_templ.go must be committed alongside the .templ edit.' New text states templ generate 'was run by the implementer (gateway worker)' and removes the rule about codegen being a developer step. The anti-gaming rule (agentic-workflow.md §Write ownership) says tasks are append-only — no agent may edit them. The substance is preserved and correctly done, but the rule text about 'developer step' was removed. Fix: restore the original description text (or prepend the note 'Completed:' rather than overwriting the task description).",
+            "status": "resolved",
+            "resolution": "Leader restored task 2.3's original description text and appended a 'Completed:' note (append-only) at 2026-07-11T23:41Z."
+          },
+          {
+            "id": "R1-004",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/handlers_test.go:TTestVehiclesFor_StaleBoundary — The review brief (item 6) specifies 'stale boundary (at threshold vs one second past)'. The test covers 'within 10s of threshold' (not at threshold) and '1s past threshold'. The 'at exactly threshold' case (time.Now().Add(-stalenessThreshold)) is not tested — this matters because the code uses strict > (so at-threshold is NOT stale), and testing exactly at the boundary would confirm the edge of the comparison. Minor because the overall behavior is correct and the 10s buffer still validates the non-stale side, but the brief explicitly asked for 'at threshold' not '10s within threshold'.",
+            "status": "accepted",
+            "triage": "ACCEPTED by leader. Add an exact-at-threshold case (CapturedAt == now - stalenessThreshold) asserting NOT stale (strict >). Deferred to the post-checkpoint rework wave with R1-002."
+          },
+          {
+            "id": "R1-005",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/handlers.go:120 — No nil-guard before calling h.telemetryReader.LatestSnapshotsByAccount. If a Handler is constructed with a nil TelemetryReader and has registered vehicles (len(registered) > 0), this will panic. Production is safe (cmd/web always injects telemetry.NewReader(pool)) and tests are safe (newHandler is only used for non-registered-vehicles paths per code comment). But defensive coding suggests either a nil check ('if h.telemetryReader == nil { treat as empty map }') or a constructor guard. Minor because production is safe; noted for defensive robustness.",
+            "status": "rejected",
+            "triage": "REJECTED by leader (see decisions[] review:R1-005). The gateway's other required deps (acct, google, tesla, pool) are likewise not nil-guarded — they are contract-required dependencies injected by NewEngine/New. A nil telemetryReader is a wiring bug that should fail fast; guarding only this one is inconsistent with the module's dependency pattern. No change."
+          }
+        ]
+      }
+    ]
   },
   "events": [
     {
@@ -146,6 +206,16 @@
       "at": "2026-07-11T23:29:26Z",
       "agent": "leader",
       "event": "Apply complete + verified. Wave-1 gateway worker (Sonnet) did tasks 1-4 in the internal/gateway/ sandbox (Deps/Handler/vehiclesFor + mergeSnapshots/mapVehicles; 11-field view model + VehiclesList enriched/placeholder/stale/notice states; templ generate; 5 new handler tests; AGENTS.md note). Worker enumerated D1-D7 compliance — cross-checked against design.md, all sound. Leader task 5 wired telemetry.NewReader(pool) into cmd/web (committed WITH the wave so main never has a nil reader that would panic on render). Leader task 6: go build/vet/test ./... green, openspec --strict valid, boundary clean. Budget wave-1 delta approx $2.00 (five_hour 62%->72%, context 17%). Checkpoint gate: below 90/60 thresholds, continue. Status -> verified. NEXT: Step 7 review loop (dispatch gateway-reviewer)."
+    },
+    {
+      "at": "2026-07-11T23:41:30Z",
+      "agent": "leader",
+      "event": "Review round 1 (gateway-reviewer, Sonnet) -> changes-requested, 5 findings. Leader triage: R1-001 major (unchecked tasks.md boxes) RESOLVED — ticked 5.1/6.1-6.5. R1-003 minor (task 2.3 desc overwritten) RESOLVED — restored original text + 'Completed:' note. R1-005 minor (nil-guard) REJECTED — decisions[] DEC-4 (other required deps aren't guarded either; fail-fast is correct). R1-002 major (fmt.Sprintf in template violates logic-light rule) + R1-004 minor (missing exact-at-threshold stale test) ACCEPTED, DEFERRED to a rework wave: pre-format numeric view fields to strings in the handler per D7, update tests, regen. Round-1 review budget delta approx $2.09 (five_hour 77%->86%)."
+    },
+    {
+      "at": "2026-07-11T23:41:30Z",
+      "agent": "leader",
+      "event": "CHECKPOINT (5-hour budget). five_hour_pct=86 (threshold 90), context_pct=20 (threshold 60). The R1-002/R1-004 rework worker dispatch + a round-2 re-review are projected to cross 90% mid-wave and risk the hard 5-hour cap, so stopping cleanly before dispatching. five_hour_resets_at=1783826400 (2026-07-12T03:20:00Z). State truthful: tasks 1-6 done; round-1 changes-requested with R1-001/R1-003 resolved, R1-005 rejected, R1-002/R1-004 accepted+open. RESUME after reset with: /kkpa-dev-harness-pipeline resume gateway-read-stored-vehicles — then Step 7: re-dispatch the gateway worker for R1-002 (numeric view fields -> pre-formatted strings in mapVehicles; template reads strings; regen) + R1-004 (exact-at-threshold stale test), leader re-verify (build/vet/test/strict), then re-dispatch gateway-reviewer for round 2."
     }
   ]
 }

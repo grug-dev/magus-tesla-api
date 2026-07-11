@@ -6,7 +6,7 @@
   "autopilot": true,
   "autopilot_note": "User directive 2026-07-10: drive all tiers to completion without asking for go-ahead between tiers; pause only for changes-requested reviews, destructive/commit actions, new decisions beyond the roadmap Decisions, or interruptions.",
   "request": "Build the poller: a scheduled runner (cmd/poller) that periodically fetches vehicle data for all connected users and appends snapshots to the database — the foundation for all historical data features (daily digest, battery health log, charge session detection)",
-  "updated_at": "2026-07-11T23:01:04Z",
+  "updated_at": "2026-07-11T23:18:46Z",
   "tiers": [
     {
       "id": 1,
@@ -78,13 +78,13 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [4],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T23:18:46Z",
       "completed_at": null,
       "tokens": null,
-      "notes": "Data Access Model compliance + Option A: dashboard reads the registry AND the latest nightly snapshot (battery %, range, charge state, last-updated) through the account + telemetry read ports; no live tesla.ListVehicles on a normal render (first-connect seed retained). depends_on tier 4 (telemetry read port)."
+      "notes": "Started 2026-07-11 (autopilot advance after tier 4). Artifacts created + openspec validate --strict valid (proposal/design D1-D7/gateway delta spec 9 scenarios/tasks 6 groups). Read-only through telemetry.Reader; NO DB object -> design gate not triggered. Step-2 user interview decisions (change progress.json DEC-1/2/3): units=km via Snapshot Km() companions (temps °C); Extended field set (battery/range/charge/odometer/inside+outside temp/locked/sentry three-state/last-updated); stale flag when snapshot older than ~36h. Change progress.json seeded, all tasks pending. depends_on tier 4 (archived)."
     }
   ]
 }

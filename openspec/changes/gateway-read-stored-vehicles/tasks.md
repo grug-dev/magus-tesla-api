@@ -97,8 +97,12 @@
       - The `<div id="vehicles">` root element and `templ.Fragment("vehicles")` fragment
         id are UNCHANGED (htmx swap target must remain stable).
 
-- [x] 2.3 `templ generate` was run by the implementer (gateway worker). The generated
-      `vehicles_templ.go` is present alongside the `.templ` edit and must be committed.
+- [x] 2.3 After editing `vehicles.templ`, note in `tasks.md` that **`templ generate` must be run**
+      by the implementer (or the leader, per the project rule that codegen is a developer step,
+      not an assistant step). The generated `vehicles_templ.go` must be committed alongside the
+      `.templ` edit.
+      Completed: `templ generate` was run by the gateway worker; `vehicles_templ.go` is present
+      and committed alongside the `.templ` edit.
 
 ## 3. Verify handler–template contract alignment — depends on 1 and 2
 
@@ -143,7 +147,7 @@
 
 ## 5. Wire `telemetry.NewReader(pool)` in `cmd/web/main.go` — LEADER-INTEGRATED
 
-- [ ] 5.1 In `cmd/web/main.go`: construct `telemetry.NewReader(pool)` (using the existing
+- [x] 5.1 In `cmd/web/main.go`: construct `telemetry.NewReader(pool)` (using the existing
       `pgxpool.Pool` already present in `cmd/web`). Pass the result as
       `gateway.Deps{TelemetryReader: telemetryReader, ...}` alongside the existing
       account, tesla, and googleauth deps. Import `internal/telemetry`. This is a
@@ -151,22 +155,22 @@
 
 ## 6. Verification — depends on 1–5
 
-- [ ] 6.1 `go build ./...` passes with no errors. All new `telemetry.Reader` usages in
+- [x] 6.1 `go build ./...` passes with no errors. All new `telemetry.Reader` usages in
       the gateway compile cleanly. The generated `vehicles_templ.go` is present and
       current (regenerated after task 2 edits). `cmd/web` compiles with the new
       `TelemetryReader` field in `gateway.Deps`.
 
-- [ ] 6.2 `go vet ./...` passes with no warnings.
+- [x] 6.2 `go vet ./...` passes with no warnings.
 
-- [ ] 6.3 `go test ./...` is green and fast. The handler unit tests added in task 3.2 run
+- [x] 6.3 `go test ./...` is green and fast. The handler unit tests added in task 3.2 run
       without a database or network. No Tesla API call fires. The `DATABASE_URL`-gated
       integration tests in `internal/telemetry` continue to self-skip when `DATABASE_URL`
       is unset.
 
-- [ ] 6.4 `openspec validate gateway-read-stored-vehicles --strict` passes. All
+- [x] 6.4 `openspec validate gateway-read-stored-vehicles --strict` passes. All
       tasks.md checkboxes reflect real completion.
 
-- [ ] 6.5 Boundary check: `internal/gateway` imports `internal/telemetry` (the public
+- [x] 6.5 Boundary check: `internal/gateway` imports `internal/telemetry` (the public
       port package) but NOT `internal/telemetry/db` (`telemetrydb`). No `pgtype` type
       appears in any gateway file. No `...Tesla`-suffixed DTO leaks into a template.
       No km field exists on any domain type (km values live only in the gateway view
