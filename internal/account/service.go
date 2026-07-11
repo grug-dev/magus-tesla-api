@@ -139,6 +139,20 @@ func (s *service) RegisteredVehicles(ctx context.Context, accountID uuid.UUID) (
 	return out, nil
 }
 
+func (s *service) AllRegisteredVehicles(ctx context.Context) ([]OwnedVehicle, error) {
+	rows, err := s.q.ListAllVehicles(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing all registered vehicles: %w", err)
+	}
+	// Non-nil empty slice when there are no rows: callers get a length-0 slice,
+	// never nil, and never an error.
+	out := make([]OwnedVehicle, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, ownedVehicleFromRow(r))
+	}
+	return out, nil
+}
+
 func (s *service) SeedVehicles(ctx context.Context, accountID uuid.UUID, vehicles []SeedVehicle) ([]Vehicle, error) {
 	for _, v := range vehicles {
 		// ON CONFLICT DO NOTHING: existing vehicles are skipped, their stored
@@ -177,6 +191,19 @@ func accessExpiry(now time.Time, expiresIn int) time.Time {
 
 func vehicleFromRow(v accountdb.Vehicle) Vehicle {
 	return Vehicle{
+		TeslaID:     v.TeslaID,
+		VIN:         v.Vin,
+		DisplayName: v.DisplayName.String, // "" when NULL
+	}
+}
+
+// ownedVehicleFromRow maps an all-accounts ListAllVehicles row to the cross-account
+// OwnedVehicle domain type, tagging it with its owning account id. account_id is
+// already uuid.UUID via the sqlc override; pgtype.Text.String is "" when NULL —
+// pgtype never leaves the module.
+func ownedVehicleFromRow(v accountdb.ListAllVehiclesRow) OwnedVehicle {
+	return OwnedVehicle{
+		AccountID:   v.AccountID,
 		TeslaID:     v.TeslaID,
 		VIN:         v.Vin,
 		DisplayName: v.DisplayName.String, // "" when NULL

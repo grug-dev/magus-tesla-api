@@ -61,6 +61,20 @@ type Vehicle struct {
 	DisplayName string
 }
 
+// OwnedVehicle is one registered Tesla vehicle in the CROSS-ACCOUNT view: unlike
+// Vehicle (the gateway's per-account view, which omits the account id because the
+// caller already knows it), OwnedVehicle carries its owning AccountID so a
+// background collection job can enumerate every vehicle across ALL accounts and,
+// per vehicle, resolve a token via AccessTokenFor(AccountID). It is our own domain
+// model — no vendor suffix — and, like Vehicle, carries only durable identity +
+// display fields, never the volatile Tesla `state`.
+type OwnedVehicle struct {
+	AccountID   uuid.UUID
+	TeslaID     int64
+	VIN         string
+	DisplayName string
+}
+
 // SeedVehicle is the mapped slice the gateway hands the account module when
 // registering vehicles from a tesla.ListVehicles result. It is a small,
 // tesla-free DTO so this module does not import the adapter.
@@ -94,6 +108,20 @@ type Service interface {
 	// registered yet. The gateway uses this to decide whether a one-time Tesla
 	// ListVehicles call is needed to seed the registry.
 	RegisteredVehicles(ctx context.Context, accountID uuid.UUID) ([]Vehicle, error)
+
+	// AllRegisteredVehicles returns every registered vehicle across ALL accounts,
+	// each tagged with its owning account id (see OwnedVehicle). The result is
+	// empty (not an error) when no vehicle is registered under any account. It is
+	// for server-side background collection jobs (e.g. the nightly telemetry
+	// collector) that must list every vehicle across every account without reading
+	// this module's tables.
+	//
+	// It does NOT check Tesla-connection liveness: vehicles are returned regardless
+	// of whether their owning account currently has a usable token. Deciding
+	// whether a token is available — and handling expired or revoked ones — is the
+	// caller's job, done per account via AccessTokenFor (which returns
+	// ErrNoTeslaConnection when there is none).
+	AllRegisteredVehicles(ctx context.Context) ([]OwnedVehicle, error)
 
 	// SeedVehicles registers the given vehicles for the account, idempotently per
 	// (account_id, tesla_id): a vehicle already registered is left untouched (its

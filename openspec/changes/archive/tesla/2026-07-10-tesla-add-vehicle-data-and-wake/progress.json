@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "tesla-add-vehicle-data-and-wake",
+  "module": "tesla",
+  "roadmap": "openspec/roadmaps/nightly-vehicle-telemetry.md",
+  "request": "Tier 1 of nightly-vehicle-telemetry: expose raw-preserving vehicle data fetch + wake on the tesla adapter so the future telemetry module can store lossless nightly snapshots (roadmap Decisions are binding).",
+  "status": "reviewer-approved",
+  "created_at": "2026-07-10T20:30:25Z",
+  "updated_at": "2026-07-10T20:57:10Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-fable-5" },
+  "execution_mode": "leader-as-worker (hats) — apply-wave subagents hit the account session limit mid-flight (0 code written); leader implemented tasks 1-4 directly within the tesla sandbox and integrated task 5, per the ai/agentic-workflow.md sanctioned same-session fallback. The review gate is preserved as an independent reviewer subagent (Step 7).",
+  "tasks": [
+    {
+      "id": "1",
+      "title": "DTO enrichment: ChargeLimitSoc + absent-aware SentryMode + miles/mph companion audit (types.go)",
+      "module": "tesla",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "tesla",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T20:40:00Z",
+      "completed_at": "2026-07-10T20:45:00Z",
+      "notes": "ChargeLimitSoc int (charge_limit_soc); SentryMode *bool (charge over value per triage 6a); companion audit clean — 4 existing miles/mph companions cover all such fields, 2 new fields need none."
+    },
+    {
+      "id": "2",
+      "title": "VehicleData raw+typed single fetch: interface signature, envelope handling, reimplementation; WakeUp + ErrUnauthorized confirmed unchanged",
+      "module": "tesla",
+      "depends_on": ["1"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "tesla",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T20:45:00Z",
+      "completed_at": "2026-07-10T20:50:00Z",
+      "notes": "Interface now (*VehicleDataTesla, json.RawMessage, error); dataResponseTesla.Response -> json.RawMessage; DTO decoded from the same raw inner-response bytes (one get). WakeUp unchanged; 401 still routes through do -> ErrUnauthorized."
+    },
+    {
+      "id": "3",
+      "title": "Offline typed tests (httptest via unexported baseURL) — establishes the module's test pattern; exploration stays test-free",
+      "module": "tesla",
+      "depends_on": ["2"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "tesla",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T20:50:00Z",
+      "completed_at": "2026-07-10T20:54:00Z",
+      "notes": "Added unexported Client.baseURL (default = prod const, set in NewClient; do uses it). vehicles_test.go: typed+lossless raw (inner-object, one request), 401->ErrUnauthorized, WakeUp state, nil-safe Km/Kmh companions. Verified no _test.go under raw.go/explorer scope and no test calls Raw* methods."
+    },
+    {
+      "id": "4",
+      "title": "Exploration sync audit (Raw* one-to-one, explorer coverage) + cmd/explore-tesla-api README update",
+      "module": "tesla",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "tesla",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T20:54:00Z",
+      "completed_at": "2026-07-10T20:56:00Z",
+      "notes": "Audit: all 3 typed methods already have Raw* siblings and the explorer surfaces all 3 — no code drift, none added/removed (as predicted). README updated to note typed VehicleData now returns raw too; explorer stays the full-envelope tool. raw.go untouched."
+    },
+    {
+      "id": "5",
+      "title": "Gateway test fake signature fix (handlers_test.go, one line)",
+      "module": "tesla",
+      "depends_on": ["2"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T20:56:00Z",
+      "completed_at": "2026-07-10T20:56:30Z",
+      "notes": "Leader-integrated cross-module edit: fakeTesla.VehicleData now returns (nil, nil, nil) + added encoding/json import. Gateway production code never calls it; behavior unchanged."
+    },
+    {
+      "id": "6",
+      "title": "Verification: build/vet/tests green, no live Tesla calls, no exploration tests, openspec validate --strict, honest checkboxes",
+      "module": "tesla",
+      "depends_on": ["1", "2", "3", "4", "5"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T20:56:30Z",
+      "completed_at": "2026-07-10T20:57:10Z",
+      "notes": "go build ./... OK; go vet ./... OK; go test ./... all green (internal/tesla 0.229s, offline; explorer [no test files]). openspec validate --strict passes. tasks.md checkboxes reflect real completion."
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "tesla-reviewer",
+    "brief": "Review the tesla-add-vehicle-data-and-wake change independently against the doc pack. MUST verify: (1) Boundaries — all code edits inside internal/tesla except the sanctioned gateway test-fake fix (handlers_test.go) and cmd/explore-tesla-api README/main; raw.go untouched; no cross-module DB access. (2) Convention: VehicleDataTesla stays vendor-shaped (no synthetic non-JSON fields); the raw payload is exposed via a return value, not a DTO field (ai/architecture.md §6). (3) Km/Kmh mandate: every miles/mph field on the enriched DTO has a nil-safe value-receiver companion; no km stored as a JSON-tagged field. (4) SentryMode is *bool (leader triage 6a) and design.md decision 6/6a + risk note now agree with the code — flag any residual contradiction. (5) Raw semantics: VehicleData returns the INNER vehicle_data object (not the transport envelope) from ONE fetch, DTO decoded from those same bytes (losslessness). (6) Tests: honest (no weakened asserts), offline only. (7) Anti-gaming: exploration capability strictly test-free — zero _test.go under raw.go/cmd/explore-tesla-api, and NO test calls any Raw* method; confirm the sync rule holds one-to-one. (8) Delta spec coverage: proposal/specs/tasks match what shipped. Do NOT run cmd/explore-tesla-api or any live Tesla call. You MAY run go build/vet/test ./... (Builds override). You alone set reviewer-approved.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-10T21:00:25Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "minor",
+            "note": "Working tree carries unrelated, out-of-change edits not declared in this change's Impact and not attributable to the tesla change: internal/server/callback.go (deleted), cmd/setup/callback.go (new), cmd/setup/main.go (modified), README.md/AGENTS.md (modified), cmd/README.md (new). These are a separate internal/server->cmd/setup refactor. They do not affect the correctness or approval of tesla-add-vehicle-data-and-wake, but the leader must NOT let them be swept into the same commit/archive; stage the tesla change files selectively. Evidence: git status HEAD; no mention of these paths anywhere under openspec/changes/tesla-add-vehicle-data-and-wake/.",
+            "status": "open",
+            "triage": "accepted",
+            "triage_note": "Valid git-hygiene advisory (accepted). Correction: root AGENTS.md IS part of this feature — the leader added its 'Data Access Model' section during the grill-me interview (justifies the nightly wake); it is NOT the unrelated refactor. Genuinely unrelated (user's pre-existing uncommitted work): cmd/setup/main.go, internal/server/callback.go (D), cmd/setup/callback.go, cmd/README.md, README.md. Resolution: the leader is NOT committing, so there is no sweep risk now; surfaced to the user so that when THEY commit, they stage tier-1 files selectively. openspec archive is a pure file move and does not touch these paths."
+        ]
+      }
+    ]
+  },
+  "events": [
+    { "at": "2026-07-10T20:30:25Z", "agent": "leader", "event": "Artifacts created by tesla worker; openspec validate --strict passed first run. Discovery: VehicleData & WakeUp already existed on VehicleService — change narrowed to breaking signature (raw return), DTO enrichment, first module tests, sync audit." },
+    { "at": "2026-07-10T20:30:25Z", "agent": "leader", "event": "Triage of worker's open questions: (Q1) keep existing WakeUp name; (Q2) battery_range IS rated range; (Q3) SentryMode must not conflate absent with false — implement absent-aware *bool and update design.md; (Q4) task 5 gateway fake fix is leader-integrated; (Q5) acknowledged — this change establishes the module's test pattern." },
+    { "at": "2026-07-10T20:35:00Z", "agent": "leader", "event": "Apply-wave subagents (tasks 1-3 and task 4) both hit the account-wide session limit; task-4 worker did 0 tool calls, task 1-3 worker only read docs. No code written, progress.json still all-pending — clean interruption. Verified against git: no internal/tesla/*.go modified." },
+    { "at": "2026-07-10T20:36:00Z", "agent": "leader", "event": "Switched to leader-as-worker (hats) mode for the apply wave — tasks 1-3 are strictly sequential (shared files) so no parallelism was lost, and re-dispatching cold-start subagents would re-burn budget. Boundary + honest-state discipline kept; independent reviewer subagent still gates archive." },
+    { "at": "2026-07-10T20:57:10Z", "agent": "leader", "event": "Tasks 1-6 implemented and verified (build/vet/test/validate all green; SentryMode *bool per triage 6a with design.md reconciled). Change status -> verified. Proceeding to Step 7 review; brief written." },
+    { "at": "2026-07-10T21:00:25Z", "agent": "tesla-reviewer", "event": "Round 1 verdict: APPROVED. All 8 brief items PASS with file:line evidence; build/vet/test/validate green. One minor non-blocking finding R1-1 (git hygiene). Set review.status + top-level status = reviewer-approved." },
+    { "at": "2026-07-10T21:02:00Z", "agent": "leader", "event": "Triaged R1-1: accepted as valid advisory (see triage_note). Not archiving autonomously — the project's archive rules need domain-subfolder placement (openspec/changes/archive/tesla/) and archiving is bound to a selective git commit the user must drive (R1-1). Holding at reviewer-approved; recommending the user run /opsx:archive. KB spec-sync skipped: no kkpa/context/ in this project." }
+  ]
+}

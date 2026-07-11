@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "telemetry-add-snapshot-read-port",
+  "module": "telemetry",
+  "roadmap": "openspec/roadmaps/nightly-vehicle-telemetry.md",
+  "request": "Tier 4 of nightly-vehicle-telemetry (Option A, user 2026-07-11): add a public snapshot READ port to internal/telemetry returning the latest stored snapshot per vehicle for a given account (DISTINCT ON batch query), read-only over vehicle_snapshots, pgtype->domain mapped inside the module. Prerequisite for tier 5 (gateway displays nightly data).",
+  "status": "reviewer-approved",
+  "created_at": "2026-07-11T10:57:00Z",
+  "updated_at": "2026-07-11T11:14:40Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-4-8"
+  },
+  "apply_plan": "Mirror tier 3's interleaved regen. Wave 1 worker (Sonnet): tasks 1 (query.sql), 4 (Reader interface in telemetry.go) — pure, no regen. Leader: task 2 (make sqlc regen). Wave 2 worker (Sonnet): tasks 3 (store seam + pgStore + rowToSnapshot/mapping), 5 (NewReader in reader.go), 6 (offline reader_test), 7 (DATABASE_URL-gated store test) — need generated telemetrydb; serial in one worker (shared files + dep chain). Task 8 (AGENTS.md Reader) already delivered by the artifacts worker -> done. Leader: task 9 verification.",
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Add LatestSnapshotsByAccount :many (DISTINCT ON (tesla_id) ... ORDER BY tesla_id, captured_at DESC) to internal/telemetry/db/query.sql",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T11:05:26Z",
+      "completed_at": "2026-07-11T11:06:00Z",
+      "duration_seconds": 34,
+      "notes": "Appended LatestSnapshotsByAccount :many query to internal/telemetry/db/query.sql using DISTINCT ON (tesla_id) ... WHERE account_id = @account_id ORDER BY tesla_id, captured_at DESC. Full explicit column list (no SELECT *). Doc comment explains the DISTINCT ON approach, the (account_id, tesla_id, captured_at) index coverage, and the N+1 anti-pattern it avoids."
+    },
+    {
+      "id": "2",
+      "title": "Regenerate telemetrydb via make sqlc (query.sql.go) — LEADER-INTEGRATED",
+      "module": "telemetry",
+      "depends_on": ["1"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T11:07:00Z",
+      "completed_at": "2026-07-11T11:07:30Z",
+      "duration_seconds": 30,
+      "notes": "LEADER-INTEGRATED. `make sqlc` (sqlc generate) regenerated internal/telemetry/db/query.sql.go; new method Queries.LatestSnapshotsByAccount(ctx, accountID uuid.UUID) ([]VehicleSnapshot, error) present (DISTINCT ON generated verbatim). models.go unchanged (VehicleSnapshot already covers the row). Only internal/telemetry/db changed. go build ./internal/telemetry/... clean."
+    },
+    {
+      "id": "3",
+      "title": "Extend the unexported store seam + pgStore impl + rowToSnapshot mapping for the read path (pgtype->domain, sentry_mode nil<->NULL)",
+      "module": "telemetry",
+      "depends_on": ["2"],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T11:08:00Z",
+      "completed_at": "2026-07-11T11:12:21Z",
+      "duration_seconds": 261,
+      "notes": "Extended store interface in service.go with latestSnapshotsByAccount(ctx, accountID uuid.UUID) ([]Snapshot, error). Created mapping.go with rowToSnapshot(telemetrydb.VehicleSnapshot) Snapshot: pgtype.Timestamptz.Time->time.Time, pgtype.Bool->*bool (nil fidelity preserved), int32->int for BatteryLevel/ChargeLimitSoc. Added dbStore.latestSnapshotsByAccount on the concrete type: calls q.LatestSnapshotsByAccount, maps via rowToSnapshot, returns non-nil empty slice when zero rows (design D5). Updated fakeStore in service_test.go with no-op stub for the new method. go build ./internal/telemetry/... clean."
+    },
+    {
+      "id": "4",
+      "title": "Declare the public Reader interface (LatestSnapshotsByAccount(ctx, accountID) ([]Snapshot, error)) in telemetry.go",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T11:05:26Z",
+      "completed_at": "2026-07-11T11:06:00Z",
+      "duration_seconds": 34,
+      "notes": "Added Reader interface to internal/telemetry/telemetry.go alongside Collector. Doc comment on the interface type and on the single method. Uses existing context.Context and uuid.UUID imports (already present in the file). Returns []Snapshot (the existing domain type). No compile-time assertion yet (task 5, depends on the concrete reader type). go build + go vet both clean."
+    },
+    {
+      "id": "5",
+      "title": "NewReader(pool) Reader constructor in reader.go (uses the store seam; pgtype confined to the module)",
+      "module": "telemetry",
+      "depends_on": ["2", "3", "4"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T11:08:00Z",
+      "completed_at": "2026-07-11T11:12:21Z",
+      "duration_seconds": 261,
+      "notes": "Created internal/telemetry/reader.go: unexported reader struct holding store seam, NewReader(pool *pgxpool.Pool) Reader constructor wiring &dbStore{q: telemetrydb.New(pool)}, LatestSnapshotsByAccount delegating to store.latestSnapshotsByAccount. Compile-time assertion var _ Reader = (*reader)(nil) present. No pgtype in this file. go build clean."
+    },
+    {
+      "id": "6",
+      "title": "Offline unit test (reader_test.go): fake store seam, latest-wins-per-vehicle + empty-account; no DB/network/Tesla call",
+      "module": "telemetry",
+      "depends_on": ["3", "4", "5"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T11:08:00Z",
+      "completed_at": "2026-07-11T11:12:21Z",
+      "duration_seconds": 261,
+      "notes": "Created internal/telemetry/reader_test.go: fakeReadStore (write methods panic to catch accidental calls), 5 test cases: ReturnsFakeSnapshots (latest-wins-per-vehicle, 2 vehicles with different CapturedAt), EmptyAccount_ReturnsNonNilEmptySlice, StoreError_PropagatesError, SentryModeNilFidelity (nil stays nil), KmCompanions (BatteryRangeKm/OdometerKm via milesToKm=1.609344). All 5 pass; no DB/network/Tesla call. go test -run TestReader green."
+    },
+    {
+      "id": "7",
+      "title": "DATABASE_URL-gated store test: real DISTINCT ON query returns newest per vehicle; multi-vehicle; self-skips when unset",
+      "module": "telemetry",
+      "depends_on": ["2", "3"],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T11:08:00Z",
+      "completed_at": "2026-07-11T11:12:21Z",
+      "duration_seconds": 261,
+      "notes": "Created internal/telemetry/db_read_integration_test.go: 4 test cases all using newTestStore (self-skips when DATABASE_URL unset). MultiVehicleLatestWins: inserts 2 snapshots for vehicleA (old/new) + 1 for vehicleB; asserts 2 rows returned, vehicleA is the newer one, all typed fields verified (BatteryLevel, BatteryRange, ChargingState, ChargeLimitSoc, Odometer, Locked, SentryMode, CarVersion, lat/lng, AccountID). SentryNilRoundTrip: nil *bool -> SQL NULL -> nil *bool. EmptyAccount: non-nil empty slice. DifferentAccountExcluded: multi-tenant isolation. All 4 self-skip (DATABASE_URL not set) in CI. go test ./internal/telemetry/... green."
+    },
+    {
+      "id": "8",
+      "title": "Append Reader port to internal/telemetry/AGENTS.md public-interface section",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-11T10:52:00Z",
+      "completed_at": "2026-07-11T10:56:00Z",
+      "duration_seconds": 240,
+      "notes": "Delivered by the artifacts worker (Sonnet) alongside the OpenSpec artifacts: appended the Reader interface to the ## Public interface (the port) section, append-only, no existing content removed."
+    },
+    {
+      "id": "9",
+      "title": "Verification: go build/vet/test green, store test self-skips w/o DATABASE_URL, strict validate, boundary + units check",
+      "module": "telemetry",
+      "depends_on": ["1", "2", "3", "4", "5", "6", "7", "8"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T11:14:14Z",
+      "completed_at": "2026-07-11T11:14:40Z",
+      "duration_seconds": 26,
+      "notes": "LEADER verification. go build ./... + go vet ./... clean; go test ./internal/telemetry/... green (0.43s); 8 store tests SELF-SKIP without DATABASE_URL (5 new TestReader offline + all prior pass); openspec validate --strict = valid; boundary clean (no gateway/accountdb/internal-config/html-template/templ import); no km field/column (only milesToKm const + Km()/Kmh() companions). Read port ready for gateway tier 5."
+    }
+  ],
+  "rollup": {
+    "pending": [],
+    "current": [],
+    "done": ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+    "blocked": []
+  },
+  "decisions": [],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review the completed change telemetry-add-snapshot-read-port (tier 4 of nightly-vehicle-telemetry): a NEW public READ port on internal/telemetry returning the latest stored snapshot per vehicle for an account. Read the DIFF, not the whole module. Validate per the doc pack (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/telemetry/AGENTS.md): (1) BOUNDARY/PORT — Reader is a clean public interface (LatestSnapshotsByAccount(ctx, accountID uuid.UUID) ([]Snapshot, error)); pgtype NEVER leaks out of the module (confined to dbStore/mapping.go); no telemetrydb type in any public signature; the module imports nothing forbidden (no gateway/accountdb/internal-config/html/templ); read-only — NO new migration/table/column. (2) QUERY CORRECTNESS — DISTINCT ON (tesla_id) ... WHERE account_id ORDER BY tesla_id, captured_at DESC genuinely returns the NEWEST snapshot per vehicle scoped to the account; covered by the existing (account_id,tesla_id,captured_at) index; no N+1. (3) MAPPING FIDELITY — rowToSnapshot maps pgtype->domain correctly: sentry_mode pgtype.Bool->*bool with nil<->NULL fidelity (Valid==false => nil), Timestamptz->time.Time, int32->int; empty result -> non-nil empty slice + nil error. (4) UNITS — Snapshot keeps miles API-native; Km()/Kmh() companions only; NO km field/column introduced. (5) TESTS — offline reader_test.go uses a fake store seam (no DB/network/Tesla call) covering latest-per-vehicle, empty account, error propagation, sentry nil fidelity; DATABASE_URL-gated store test self-skips when unset and, when set, proves latest-wins + multi-vehicle + cross-account isolation; tasks-exploration test-free rule intact (no tests on Raw*/cmd/explore-tesla-api). (6) SPEC/TASKS coverage — delta spec ADDED requirements with GIVEN/WHEN/THEN match behavior; every tasks.md checkbox reflects real completion; strict validate passes. ANTI-GAMING: no task title/criterion weakened or deleted; workers marked only their own tasks; leader-integrated make sqlc (task 2) regen is legit. Default to a cheaper model and ESCALATE ON DOUBT: return changes-requested for leader re-review rather than approving anything uncertain. You alone set review.status/reviewer-approved.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-11T11:16:32Z",
+        "agent": "telemetry-reviewer",
+        "model": "claude-sonnet-4-6",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-001",
+            "severity": "minor",
+            "note": "openspec/changes/telemetry-add-snapshot-read-port/tasks.md: checkboxes for 2.1, 8.1, 9.1, 9.2, 9.3, 9.4 remain unchecked ([ ]) despite all corresponding work being verifiably complete — query.sql.go contains the generated LatestSnapshotsByAccount, AGENTS.md has the Reader section, go build/vet/test all pass. The pipeline contract states tasks.md wins on implementation done-ness; these unchecked boxes misrepresent state. Leader should tick these boxes. Code is correct; no blocker.",
+            "status": "open"
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-07-11T10:57:00Z",
+      "agent": "leader",
+      "event": "Tier 4 (telemetry-add-snapshot-read-port) artifacts created by telemetry worker (Sonnet) and openspec validate --strict = valid. proposal (non-breaking, telemetry-only, enables gateway tier 5) + design (Reader port, DISTINCT ON (tesla_id) batch query, pgtype->domain boundary, read-only/no-migration) + delta spec (ADDED requirements, GIVEN/WHEN/THEN) + tasks (9 sub-tasks). Task 8 (AGENTS.md Reader) already delivered by the artifacts worker -> seeded done. progress.json seeded, all others pending. NEXT: Step 5 apply, wave 1 = tasks 1 + 4 (pure, disjoint files, parallel-ok but tiny -> one worker serial), then leader task 2 (make sqlc), then wave 2 worker tasks 3,5,6,7. Grill requirement satisfied by roadmap Decisions + the 2026-07-11 Option-A tier-4 scope interview. Doc-pack gaps re-confirmed: repo-root AGENTS.md and docs/deployment.md do not exist."
+    }
+  ]
+}

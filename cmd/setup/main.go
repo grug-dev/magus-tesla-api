@@ -9,7 +9,6 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
 	"github.com/cristianpena/magus-tesla-api/internal/config"
-	"github.com/cristianpena/magus-tesla-api/internal/server"
 )
 
 func main() {
@@ -33,7 +32,7 @@ func main() {
 	// Step 6b — Start the Gin callback server and wait for Tesla to redirect with the code.
 	fmt.Println("[Step 6b] Waiting for Tesla callback on http://localhost:8080/connect/tesla/callback ...")
 	codeCh := make(chan string, 1)
-	srv := server.StartCallbackServer(codeCh)
+	srv := startCallbackServer(codeCh)
 
 	var code string
 	select {
@@ -43,7 +42,7 @@ func main() {
 		log.Fatal("Timed out waiting for authorization code. Re-run setup to try again.")
 	}
 
-	server.Shutdown(srv)
+	shutdown(srv)
 
 	// Step 6c — Exchange the authorization code for an access token and refresh token.
 	fmt.Println("[Step 6c] Exchanging authorization code for tokens...")

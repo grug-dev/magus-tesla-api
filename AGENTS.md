@@ -18,7 +18,7 @@ See VISION.md for the long-term vision of this project.
 
 The platform serves **multiple users**. Every user connects their own Tesla account via OAuth; their access and refresh tokens are stored **per user in a database**, owned by the `internal/account/` module. All data collection, metrics, storage, and dashboards are **scoped to a user and their vehicles** — one user's data is never mixed with another's. The `internal/tesla/` adapter is stateless about identity and is handed the credentials to use on every call. See `ai/architecture.md` for the module structure and boundary rules, and `ai/agentic-workflow.md` for how AI assistants build it.
 
-> The multi-tenant design **is live** — `internal/account`, `internal/gateway`, `internal/tesla`, and `internal/googleauth` back `cmd/web`, the running server, which already scopes data per user and their vehicles. The `vehicle` package has been replaced by the `tesla` adapter. What remain are **setup/config helpers**, not a single-user system: `internal/config` is shared configuration reading (AWS region, Tesla endpoints) used by both `cmd/web` and `cmd/setup`; `internal/auth` and `internal/server` are used only by `cmd/setup` — the standalone one-time OAuth-capture tool — and are not part of the running server.
+> The multi-tenant design **is live** — `internal/account`, `internal/gateway`, `internal/tesla`, and `internal/googleauth` back `cmd/web`, the running server, which already scopes data per user and their vehicles. The `vehicle` package has been replaced by the `tesla` adapter. What remain are **setup/config helpers**, not a single-user system: `internal/config` is shared configuration reading (AWS region, Tesla endpoints) used by both `cmd/web` and `cmd/setup`; `internal/auth` is a **shared** Tesla OAuth helper — used by `cmd/setup` (one-shot token capture), `cmd/explore-tesla-api` (on-demand token refresh), and the **running server** (`internal/account` for per-user token refresh; `internal/gateway/handlers` for the live per-user Tesla connect flow). The one-shot callback server that catches Tesla's OAuth redirect during setup lives in `cmd/setup/callback.go`, alongside its only consumer.
 
 ---
 
@@ -180,6 +180,17 @@ The platform should intelligently determine polling intervals based on:
 The vehicle should not be unnecessarily awakened solely for data collection.
 
 Adaptive polling is preferred over fixed schedules.
+
+## Data Access Model (who may call Tesla)
+
+End users never trigger Tesla API calls on demand. The only user-initiated call is
+listing the account's vehicles when a Tesla account is first connected. Every other
+Tesla API call is made by server-side scheduled/background collection jobs, and
+dashboards read exclusively from data the platform has already stored.
+
+Consequently, a scheduled wake is sanctioned when it is the only way to collect data a
+platform feature requires (e.g. the nightly anchor snapshot) — a deliberate, bounded
+exception to the no-wake preference above, since no on-demand collection path exists.
 
 ---
 

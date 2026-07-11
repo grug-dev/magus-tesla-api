@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -38,6 +39,12 @@ func (f fakeAccount) AccessTokenFor(context.Context, uuid.UUID) (string, error) 
 func (f fakeAccount) RegisteredVehicles(context.Context, uuid.UUID) ([]account.Vehicle, error) {
 	return f.registered, f.regErr
 }
+
+// AllRegisteredVehicles satisfies the widened account.Service (used by the telemetry
+// collector, not by the gateway); the gateway never calls it, so a stub suffices.
+func (f fakeAccount) AllRegisteredVehicles(context.Context) ([]account.OwnedVehicle, error) {
+	return nil, nil
+}
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {
 	f.seedCalls++
 	if f.seedErr != nil {
@@ -58,8 +65,8 @@ type fakeTesla struct {
 func (f fakeTesla) ListVehicles(context.Context, tesla.Credentials) ([]tesla.VehicleTesla, error) {
 	return f.vehicles, f.listErr
 }
-func (f fakeTesla) VehicleData(context.Context, tesla.Credentials, int64) (*tesla.VehicleDataTesla, error) {
-	return nil, nil
+func (f fakeTesla) VehicleData(context.Context, tesla.Credentials, int64) (*tesla.VehicleDataTesla, json.RawMessage, error) {
+	return nil, nil, nil
 }
 func (f fakeTesla) WakeUp(context.Context, tesla.Credentials, int64) (*tesla.VehicleTesla, error) {
 	return nil, nil

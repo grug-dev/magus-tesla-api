@@ -71,3 +71,8 @@ go run ./cmd/explore-tesla-api > payloads.json
 When a new Fleet API call is added to `internal/tesla` (a new typed method in `vehicles.go`),
 add its **raw sibling** in `internal/tesla/raw.go` and surface it here so the explorer keeps full
 coverage of the adapter. See the project `CLAUDE.md` (“tesla-exploration” notes) for the rule.
+
+Note that the typed `VehicleData` method now returns the raw inner `vehicle_data` payload
+alongside the decoded DTO, so production callers (e.g. the telemetry collector) get lossless
+bytes without this tool. The explorer stays the way to inspect the **full transport envelope**
+and any fields the typed DTOs omit — its `VehicleDataRaw` sibling is unchanged.

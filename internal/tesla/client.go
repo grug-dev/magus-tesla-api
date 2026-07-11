@@ -33,7 +33,10 @@ type Credentials struct {
 // Callers depend on this interface, not on the concrete *Client.
 type VehicleService interface {
 	ListVehicles(ctx context.Context, creds Credentials) ([]VehicleTesla, error)
-	VehicleData(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleDataTesla, error)
+	// VehicleData returns both the typed snapshot and the lossless raw payload
+	// (the inner vehicle_data object) from a single Fleet API request, so a caller
+	// can store the raw bytes and read typed fields without a second paid call.
+	VehicleData(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleDataTesla, json.RawMessage, error)
 	WakeUp(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleTesla, error)
 }
 
@@ -41,11 +44,15 @@ type VehicleService interface {
 // per call, a single Client is safe to share across users.
 type Client struct {
 	http *http.Client
+	// baseURL is the Fleet API root. It defaults to the production endpoint and is
+	// unexported so only same-package tests can point the client at an httptest
+	// server — the public API stays unchanged and no test ever hits Tesla.
+	baseURL string
 }
 
 // NewClient returns a ready-to-use Tesla adapter.
 func NewClient() *Client {
-	return &Client{http: &http.Client{}}
+	return &Client{http: &http.Client{}, baseURL: baseURL}
 }
 
 // Compile-time check that *Client satisfies the public contract.
@@ -61,7 +68,7 @@ func (c *Client) post(ctx context.Context, creds Credentials, path string, out a
 
 // do performs an authenticated Fleet API request and decodes the JSON response.
 func (c *Client) do(ctx context.Context, method string, creds Credentials, path string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, nil)
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, nil)
 	if err != nil {
 		return fmt.Errorf("building request: %w", err)
 	}

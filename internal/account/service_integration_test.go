@@ -221,6 +221,160 @@ func TestRegisteredVehicles_EmptyForNewAccount(t *testing.T) {
 	}
 }
 
+// vehiclesForAccount filters an all-accounts enumeration down to a single account
+// and keys the result by tesla_id. The integration tests share a real Postgres, so
+// AllRegisteredVehicles can legitimately see vehicles other tests created; asserting
+// against a specific account id keeps these tests robust regardless of what else the
+// registry holds.
+func vehiclesForAccount(all []OwnedVehicle, accountID uuid.UUID) map[int64]OwnedVehicle {
+	byID := map[int64]OwnedVehicle{}
+	for _, v := range all {
+		if v.AccountID == accountID {
+			byID[v.TeslaID] = v
+		}
+	}
+	return byID
+}
+
+func TestAllRegisteredVehicles_EmptyWhenNoneRegistered(t *testing.T) {
+	s, pool := newTestService(t)
+	ctx := context.Background()
+
+	// A brand-new account with no vehicles: the all-accounts enumeration must not
+	// error, must return a non-nil slice, and must contain none of this account's
+	// vehicles (it may contain other tests' data in a shared DB).
+	acct, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "all-empty@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account: %v", err)
+	}
+	deleteAccount(t, pool, acct.ID)
+
+	got, err := s.AllRegisteredVehicles(ctx)
+	if err != nil {
+		t.Fatalf("AllRegisteredVehicles: %v", err)
+	}
+	if got == nil {
+		t.Fatalf("expected a non-nil slice from AllRegisteredVehicles, got nil")
+	}
+	if mine := vehiclesForAccount(got, acct.ID); len(mine) != 0 {
+		t.Fatalf("expected no vehicles for a fresh account, got %d (%+v)", len(mine), mine)
+	}
+}
+
+func TestAllRegisteredVehicles_SingleAccountTaggedWithItsID(t *testing.T) {
+	s, pool := newTestService(t)
+	ctx := context.Background()
+
+	acct, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "all-single@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account: %v", err)
+	}
+	deleteAccount(t, pool, acct.ID)
+
+	// One vehicle with a display name, one with a NULL display name (empty string
+	// seeds as NULL via textFromString), to assert the NULL→"" mapping.
+	if _, err := s.SeedVehicles(ctx, acct.ID, []SeedVehicle{
+		{TeslaID: 5001, VIN: "VIN5001", DisplayName: "Named Car"},
+		{TeslaID: 5002, VIN: "VIN5002", DisplayName: ""},
+	}); err != nil {
+		t.Fatalf("seeding vehicles: %v", err)
+	}
+
+	all, err := s.AllRegisteredVehicles(ctx)
+	if err != nil {
+		t.Fatalf("AllRegisteredVehicles: %v", err)
+	}
+
+	mine := vehiclesForAccount(all, acct.ID)
+	if len(mine) != 2 {
+		t.Fatalf("expected 2 vehicles for the account, got %d (%+v)", len(mine), mine)
+	}
+	if v := mine[5001]; v.AccountID != acct.ID || v.VIN != "VIN5001" || v.DisplayName != "Named Car" {
+		t.Errorf("vehicle 5001 round-trip wrong: %+v (want AccountID=%s VIN=VIN5001 DisplayName=Named Car)", v, acct.ID)
+	}
+	if v := mine[5002]; v.AccountID != acct.ID || v.VIN != "VIN5002" || v.DisplayName != "" {
+		t.Errorf("vehicle 5002 round-trip wrong: %+v (want AccountID=%s VIN=VIN5002 DisplayName=\"\")", v, acct.ID)
+	}
+}
+
+func TestAllRegisteredVehicles_MultipleAccountsEachTaggedCorrectly(t *testing.T) {
+	s, pool := newTestService(t)
+	ctx := context.Background()
+
+	acctA, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "all-multi-a@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account A: %v", err)
+	}
+	deleteAccount(t, pool, acctA.ID)
+
+	acctB, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "all-multi-b@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account B: %v", err)
+	}
+	deleteAccount(t, pool, acctB.ID)
+
+	// A has one vehicle; B has two.
+	if _, err := s.SeedVehicles(ctx, acctA.ID, []SeedVehicle{
+		{TeslaID: 6001, VIN: "VIN6001", DisplayName: "A-Car"},
+	}); err != nil {
+		t.Fatalf("seeding account A: %v", err)
+	}
+	if _, err := s.SeedVehicles(ctx, acctB.ID, []SeedVehicle{
+		{TeslaID: 6101, VIN: "VIN6101", DisplayName: "B-Car-One"},
+		{TeslaID: 6102, VIN: "VIN6102", DisplayName: "B-Car-Two"},
+	}); err != nil {
+		t.Fatalf("seeding account B: %v", err)
+	}
+
+	all, err := s.AllRegisteredVehicles(ctx)
+	if err != nil {
+		t.Fatalf("AllRegisteredVehicles: %v", err)
+	}
+
+	mineA := vehiclesForAccount(all, acctA.ID)
+	if len(mineA) != 1 {
+		t.Fatalf("expected 1 vehicle for account A, got %d (%+v)", len(mineA), mineA)
+	}
+	if v := mineA[6001]; v.AccountID != acctA.ID || v.VIN != "VIN6001" || v.DisplayName != "A-Car" {
+		t.Errorf("account A vehicle wrong: %+v (want AccountID=%s)", v, acctA.ID)
+	}
+
+	mineB := vehiclesForAccount(all, acctB.ID)
+	if len(mineB) != 2 {
+		t.Fatalf("expected 2 vehicles for account B, got %d (%+v)", len(mineB), mineB)
+	}
+	if v := mineB[6101]; v.AccountID != acctB.ID || v.VIN != "VIN6101" || v.DisplayName != "B-Car-One" {
+		t.Errorf("account B vehicle 6101 wrong: %+v (want AccountID=%s)", v, acctB.ID)
+	}
+	if v := mineB[6102]; v.AccountID != acctB.ID || v.VIN != "VIN6102" || v.DisplayName != "B-Car-Two" {
+		t.Errorf("account B vehicle 6102 wrong: %+v (want AccountID=%s)", v, acctB.ID)
+	}
+
+	// Cross-check: A's vehicle is never tagged with B's id and vice versa.
+	if _, ok := mineA[6101]; ok {
+		t.Errorf("account A's result leaked account B's vehicle 6101")
+	}
+	if _, ok := mineB[6001]; ok {
+		t.Errorf("account B's result leaked account A's vehicle 6001")
+	}
+}
+
 func TestSeedVehicles_InsertsWhenMissing(t *testing.T) {
 	s, pool := newTestService(t)
 	ctx := context.Background()

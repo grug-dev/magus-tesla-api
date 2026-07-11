@@ -5,6 +5,8 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -32,6 +34,14 @@ type Config struct {
 	// BaseURL is the app's public base URL (e.g. https://magus.example.com), used to
 	// build the Google OAuth redirect URI. Defaults to http://localhost:8080.
 	BaseURL string
+	// Poller schedule — cmd/poller runs one telemetry collection cycle per day at
+	// this local time (default 03:30). PollerWakeTimeout bounds how long the
+	// collector waits for a sleeping vehicle to come online before recording a
+	// timeout. These are read only by cmd/poller; cmd/web ignores them.
+	PollerScheduleHour   int
+	PollerScheduleMinute int
+	PollerTimezone       string
+	PollerWakeTimeout    time.Duration
 }
 
 // GoogleRedirectURL is the exact OAuth redirect URI registered with Google.
@@ -72,11 +82,39 @@ func Load() (*Config, error) {
 		cfg.BaseURL = "http://localhost:8080"
 	}
 
+	cfg.PollerScheduleHour = envInt("POLLER_SCHEDULE_HOUR", 3)
+	cfg.PollerScheduleMinute = envInt("POLLER_SCHEDULE_MINUTE", 30)
+	cfg.PollerTimezone = os.Getenv("POLLER_TIMEZONE")
+	if cfg.PollerTimezone == "" {
+		cfg.PollerTimezone = "Local"
+	}
+	cfg.PollerWakeTimeout = envDuration("POLLER_WAKE_TIMEOUT", 90*time.Second)
+
 	if cfg.ClientID == "" || cfg.ClientSecret == "" {
 		return nil, fmt.Errorf("step 1: TESLA_CLIENT_ID and TESLA_CLIENT_SECRET must be set in .env")
 	}
 
 	return cfg, nil
+}
+
+// envInt reads an integer env var, falling back to def when unset or unparseable.
+func envInt(key string, def int) int {
+	if v := os.Getenv(key); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return def
+}
+
+// envDuration reads a Go duration env var (e.g. "90s"), falling back to def.
+func envDuration(key string, def time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		if d, err := time.ParseDuration(v); err == nil {
+			return d
+		}
+	}
+	return def
 }
 
 // SaveTokens persists the access and refresh tokens back into the .env file.

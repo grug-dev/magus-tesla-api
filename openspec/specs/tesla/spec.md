@@ -8,9 +8,7 @@ full state snapshot, and wake a sleeping vehicle on behalf of caller-supplied cr
 holds no user identity of its own, signals expired credentials distinctly so callers can
 refresh, and exposes metric-converted companion values for the miles/mph data the Fleet API
 returns.
-
 ## Requirements
-
 ### Requirement: Vehicle Inventory Listing
 The tesla adapter SHALL return every vehicle associated with the account behind the supplied
 credentials, each carrying its identity (identifier, VIN, display name) and current state.
@@ -22,17 +20,32 @@ credentials, each carrying its identity (identifier, VIN, display name) and curr
 - **AND** each vehicle carries its identifier, VIN, display name, and state
 
 ### Requirement: Full Vehicle Snapshot
-The tesla adapter SHALL fetch a single vehicle's full state snapshot, exposing its charge,
-climate, drive, and vehicle-state data.
+The tesla adapter SHALL fetch a single vehicle's full state snapshot with exactly one Fleet API
+request and return BOTH the parsed typed snapshot AND the raw, unmodified payload of that same
+response, so a caller can store the payload losslessly while reading typed fields. The typed
+snapshot SHALL expose charge, climate, drive, and vehicle-state data, including the charge limit
+and sentry-mode status.
 
 #### Scenario: Fetching a snapshot for an online vehicle
 - **GIVEN** valid credentials and the identifier of a vehicle that is online
 - **WHEN** a caller requests that vehicle's data snapshot
-- **THEN** the adapter returns the vehicle's full state
-- **AND** the snapshot includes charge data (battery level, range, charging state, charge rate)
+- **THEN** the adapter returns the vehicle's full typed state
+- **AND** the snapshot includes charge data (battery level, range, charging state, charge rate, charge limit)
 - **AND** the snapshot includes climate data (inside and outside temperature, climate on/off)
 - **AND** the snapshot includes drive data (speed, latitude, longitude, heading)
-- **AND** the snapshot includes vehicle-state data (locked, odometer, software version)
+- **AND** the snapshot includes vehicle-state data (locked, odometer, software version, sentry mode)
+
+#### Scenario: Raw payload returned alongside the typed snapshot
+- **GIVEN** valid credentials and the identifier of a vehicle that is online
+- **WHEN** a caller requests that vehicle's data snapshot
+- **THEN** the adapter also returns the raw, unmodified vehicle-data payload from the same response
+- **AND** parsing that raw payload yields the same values the typed snapshot exposes
+
+#### Scenario: One request serves both results
+- **GIVEN** valid credentials and the identifier of a vehicle that is online
+- **WHEN** a caller requests that vehicle's data snapshot
+- **THEN** the adapter makes exactly one Fleet API data request
+- **AND** both the typed snapshot and the raw payload derive from that single response
 
 ### Requirement: Vehicle Wake
 The tesla adapter SHALL request that a sleeping vehicle come online and return the vehicle's
@@ -89,3 +102,4 @@ fields SHALL be nil-safe — absent when the source value is absent.
 - **GIVEN** a snapshot for a parked vehicle that reports no speed
 - **WHEN** a caller reads the companion metric speed
 - **THEN** the adapter reports no speed rather than a converted zero
+

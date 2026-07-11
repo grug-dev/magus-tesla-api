@@ -23,8 +23,11 @@ include .env
 export
 endif
 
-# This module's goose migrations. Add more dirs here as other modules gain a DB.
-MIGRATIONS_DIR ?= internal/account/db/migrations
+# Each module owns its goose migrations dir (ai/architecture.md §2). goose shares a
+# single goose_db_version table across dirs, so this list MUST stay in global version
+# (timestamp) order — dirs are applied left-to-right on `up`, reverse on `down`. Add a
+# module's dir here, in timestamp order, when it gains a DB.
+MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migrations
 
 # goose binary: prefer one on PATH, else the `go install` location (GOPATH/bin).
 GOOSE ?= $(shell command -v goose 2>/dev/null || echo $$(go env GOPATH)/bin/goose)
@@ -61,7 +64,7 @@ db-url: ## Print the derived DB name / admin URL (sanity check, no changes)
 	@echo "DB_NAME            = $(DB_NAME)"
 	@echo "APP_ROLE           = $(APP_ROLE)"
 	@echo "ADMIN_DATABASE_URL = $(ADMIN_DATABASE_URL)"
-	@echo "MIGRATIONS         = $(MIGRATIONS_DIR)"
+	@echo "MIGRATIONS         = $(MIGRATIONS_DIRS)"
 	@echo "GOOSE              = $(GOOSE)"
 
 # --- Database ---------------------------------------------------------------
@@ -73,14 +76,23 @@ check-goose:
 		echo "Then add \"$$(go env GOPATH)/bin\" to PATH, or run: make <target> GOOSE=/path/to/goose"; \
 		exit 1; }
 
-migrate-up: check-goose ## Apply all pending migrations
-	@$(GOOSE) -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" up
+migrate-up: check-goose ## Apply all pending migrations (every module dir, in version order)
+	@for dir in $(MIGRATIONS_DIRS); do \
+		echo "goose up: $$dir"; \
+		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" up; \
+	done
 
-migrate-down: check-goose ## Roll back the most recent migration
-	@$(GOOSE) -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" down
+migrate-down: check-goose ## Roll back the newest migration in each module dir (reverse order)
+	@for dir in $$(printf '%s\n' $(MIGRATIONS_DIRS) | awk '{a[NR]=$$0} END{for(i=NR;i>=1;i--)print a[i]}'); do \
+		echo "goose down: $$dir"; \
+		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" down; \
+	done
 
-migrate-status: check-goose ## Show which migrations have been applied
-	@$(GOOSE) -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" status
+migrate-status: check-goose ## Show which migrations have been applied (per module dir)
+	@for dir in $(MIGRATIONS_DIRS); do \
+		echo "== $$dir =="; \
+		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" status; \
+	done
 
 db-setup: check-goose ## ONE COMMAND: create the app role + database (both if missing) + migrate to latest
 	@set -e; \
@@ -122,7 +134,10 @@ db-setup: check-goose ## ONE COMMAND: create the app role + database (both if mi
 	echo "Applying migrations as '$$ROLE'..."; \
 	if [ -z "$$PW" ]; then PW="$$MAGUS_DB_PASSWORD"; fi; \
 	if [ -n "$$PW" ]; then export PGUSER="$$ROLE" PGPASSWORD="$$PW"; fi; \
-	$(GOOSE) -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" up; \
+	for dir in $(MIGRATIONS_DIRS); do \
+		echo "goose up: $$dir"; \
+		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" up; \
+	done; \
 	echo; echo "✓ Database setup complete."; \
 	PRINT_DSN=$$(echo "$(DATABASE_URL)" | sed -E "s#^(postgres(ql)?://)([^/@]*@)?#\1$$ROLE:<password>@#"); \
 	echo "→ Point the app at the new role. Put this in your .env (insert the password you just set;"; \

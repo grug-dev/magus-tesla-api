@@ -1,6 +1,7 @@
-// Package server runs the local Gin HTTP server that catches the Tesla OAuth callback.
-// Covers Step 6b of post-registration-setup.md — receive the authorization code from Tesla's redirect.
-package server
+// callback.go is the one-shot Gin server that catches the Tesla OAuth redirect
+// during setup. It covers Step 6b of docs/post-registration-setup.md — receive
+// the authorization code from Tesla's redirect.
+package main
 
 import (
 	"context"
@@ -10,10 +11,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// StartCallbackServer starts a Gin server on :8080 and listens for the OAuth callback.
-// It sends the authorization code to codeCh and shuts itself down afterward.
-// Returns the *http.Server so the caller can shut it down gracefully.
-func StartCallbackServer(codeCh chan<- string) *http.Server {
+// startCallbackServer starts a Gin server on :8080 and listens for the OAuth
+// callback. It sends the authorization code to codeCh and shuts itself down
+// afterward. Returns the *http.Server so the caller can shut it down gracefully.
+func startCallbackServer(codeCh chan<- string) *http.Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 
@@ -45,8 +46,8 @@ func StartCallbackServer(codeCh chan<- string) *http.Server {
 	return srv
 }
 
-// Shutdown gracefully stops the callback server.
-func Shutdown(srv *http.Server) {
+// shutdown gracefully stops the callback server.
+func shutdown(srv *http.Server) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	srv.Shutdown(ctx)

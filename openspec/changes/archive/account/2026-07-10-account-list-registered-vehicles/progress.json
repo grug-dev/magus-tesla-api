@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "account-list-registered-vehicles",
+  "module": "account",
+  "roadmap": "openspec/roadmaps/nightly-vehicle-telemetry.md",
+  "request": "Tier 2 of nightly-vehicle-telemetry: expose an all-accounts registered-vehicles enumeration on the account port so the background telemetry collector can iterate every vehicle (with owning accountID) without touching account's tables.",
+  "status": "reviewer-approved",
+  "created_at": "2026-07-10T21:15:23Z",
+  "updated_at": "2026-07-10T21:20:38Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-fable-5" },
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Domain type OwnedVehicle + AllRegisteredVehicles method on account.Service (account.go)",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-10T21:16:43Z",
+      "completed_at": "2026-07-10T21:18:51Z",
+      "notes": "Added OwnedVehicle{AccountID uuid.UUID; TeslaID int64; VIN, DisplayName string} (cross-account view, no vendor suffix, no state) and AllRegisteredVehicles(ctx) ([]OwnedVehicle, error) on the Service interface with doc comment (empty-not-error, background-jobs, no liveness check — caller uses AccessTokenFor). go build/vet ./internal/account/... pass."
+    },
+    {
+      "id": "2",
+      "title": "ListAllVehicles :many sqlc query + regen accountdb (db/query.sql)",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-10T21:16:43Z",
+      "completed_at": "2026-07-10T21:18:51Z",
+      "notes": "Added `-- name: ListAllVehicles :many` (SELECT account_id, tesla_id, vin, display_name FROM vehicles ORDER BY account_id, tesla_id; no tesla_tokens join). make sqlc (sqlc v1.31.1) regen was clean: only internal/account/db/query.sql.go changed. Generated Queries.ListAllVehicles(ctx) ([]ListAllVehiclesRow, error) with ListAllVehiclesRow{AccountID uuid.UUID; TeslaID int64; Vin string; DisplayName pgtype.Text}. Verified no cross-module package imports accountdb (grep of `account/db` outside internal/account = empty). No migration."
+    },
+    {
+      "id": "3",
+      "title": "Implement AllRegisteredVehicles + pgtype->domain mapping (service.go)",
+      "module": "account",
+      "depends_on": ["1", "2"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-10T21:16:43Z",
+      "completed_at": "2026-07-10T21:18:51Z",
+      "notes": "Implemented service.AllRegisteredVehicles: calls s.q.ListAllVehicles(ctx), wraps DB errors with fmt.Errorf(...%w...), returns make([]OwnedVehicle,0,len) (non-nil empty, nil error when no rows). Added ownedVehicleFromRow(accountdb.ListAllVehiclesRow) OwnedVehicle at the DB->domain boundary next to vehicleFromRow: account_id maps straight through (uuid.UUID via sqlc override), DisplayName.String is \"\" when NULL — pgtype does not leak into the return type. go build/vet ./internal/account/... pass."
+    },
+    {
+      "id": "4",
+      "title": "DATABASE_URL-gated integration tests for AllRegisteredVehicles (service_integration_test.go)",
+      "module": "account",
+      "depends_on": ["3"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-10T21:16:43Z",
+      "completed_at": "2026-07-10T21:18:51Z",
+      "notes": "Added 3 DATABASE_URL-gated tests via existing newTestService (self-skips when unset) + a vehiclesForAccount(all, id) filter helper (robust in the shared integration DB): (a) TestAllRegisteredVehicles_EmptyWhenNoneRegistered — fresh account, non-nil slice, no vehicles for it, no error; (b) TestAllRegisteredVehicles_SingleAccountTaggedWithItsID — 2 vehicles incl. one empty display_name asserting NULL->\"\", both tagged with the account id, tesla_id/vin/display_name round-trip; (c) TestAllRegisteredVehicles_MultipleAccountsEachTaggedCorrectly — account A(1 veh)+B(2 veh), all returned each tagged with correct owner + cross-leak check. DATABASE_URL was UNSET during this run: `go test ./internal/account/...` => ok (integration tests SKIP, compiled clean under -run -v)."
+    },
+    {
+      "id": "5",
+      "title": "Gateway test-fake stub for the widened account.Service (handlers_test.go)",
+      "module": "account",
+      "depends_on": ["1"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T21:19:30Z",
+      "completed_at": "2026-07-10T21:20:00Z",
+      "notes": "Leader-integrated: added value-receiver fakeAccount.AllRegisteredVehicles(ctx) ([]account.OwnedVehicle, error) returning nil,nil (gateway never calls it). Gateway package compiles + tests pass again."
+    },
+    {
+      "id": "6",
+      "title": "Verification: build/vet/test green, integration self-skips without DATABASE_URL, openspec validate --strict, honest checkboxes",
+      "module": "account",
+      "depends_on": ["1", "2", "3", "4", "5"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T21:20:00Z",
+      "completed_at": "2026-07-10T21:20:38Z",
+      "notes": "go build ./... OK; go vet ./... OK; go test ./... all green. HONESTY NOTE: DATABASE_URL unset in this env, so the 3 new account integration tests self-SKIPPED (compiled clean, not executed against a real DB). openspec validate --strict passes. tasks.md checkboxes reflect real completion. No unit-level (DB-free) test exists for AllRegisteredVehicles — coverage is integration-only, matching the module's existing pattern; flag for reviewer."
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "account-reviewer",
+    "brief": "Review account-list-registered-vehicles independently against the doc pack. MUST verify: (1) Boundaries — code edits inside internal/account/ except the sanctioned gateway test-fake stub (internal/gateway/handlers/handlers_test.go); persistence stays module-scoped (internal/account/db); no other module reads accountdb (grep account/db imports outside internal/account). (2) Additive/non-breaking — AllRegisteredVehicles is a NEW Service method; existing methods/types unchanged; no goose migration (confirm vehicles.account_id already exists and no schema drift). (3) Domain purity — OwnedVehicle is a new domain type (no vendor suffix, no state field), distinct from per-account Vehicle; pgtype does NOT leak into the return (ownedVehicleFromRow maps at the DB->domain boundary; DisplayName NULL->\"\"); returns non-nil empty slice + nil error when no rows. (4) sqlc — ListAllVehicles query matches the generated code; `make sqlc` regen touched only internal/account/db/query.sql.go (no manual edits to generated files); no tesla_tokens join (return-all per design D2). (5) Tests — the 3 integration tests are honest and DATABASE_URL-gated (self-skip when unset). HONESTY GATE: DATABASE_URL was UNSET in the leader's verification run, so these tests SELF-SKIPPED (compiled, not executed). Judge whether integration-only coverage is acceptable here (matches the module's existing RegisteredVehicles/SeedVehicles pattern, which are also integration-gated) or whether a DB-free unit test of ownedVehicleFromRow's NULL->\"\" mapping should be requested. If you can set DATABASE_URL and run them, do so and report; otherwise verify they compile and self-skip cleanly. (6) Delta spec coverage — proposal/specs/tasks match what shipped; empty/single/multi-account scenarios represented. (7) Anti-gaming — no weakened asserts; tasks/criteria unedited. You MAY run go build/vet/test ./... (Builds override). You alone set reviewer-approved.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-10T21:24:31Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-minor-tasks-checkboxes-lag",
+            "severity": "minor",
+            "note": "openspec/changes/account-list-registered-vehicles/tasks.md:56,62,63,65 — checkboxes 5.1, 6.1, 6.2, 6.3 remain unchecked '[ ]' while progress.json marks tasks 5 and 6 status:'done'. Bookkeeping only: the underlying work is real and independently verified (fakeAccount.AllRegisteredVehicles stub present at internal/gateway/handlers/handlers_test.go:44-46; build/vet/full-test/validate all green). The checkboxes UNDERSTATE completion, so this is not anti-gaming and not a code defect. Leader (owner of tasks.md) should tick 5.1/6.1/6.2/6.3 before archive so tasks.md reflects reality.",
+            "status": "fixed",
+            "triage": "accepted",
+            "triage_note": "Accepted and fixed by leader 2026-07-10: ticked tasks.md 5.1/6.1/6.2/6.3 to [x] so the file matches progress.json before archive."
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    { "at": "2026-07-10T21:15:23Z", "agent": "leader", "event": "Artifacts created by account worker; openspec validate --strict passed first run. Method AllRegisteredVehicles(ctx) ([]OwnedVehicle, error); new OwnedVehicle domain type (AccountID+TeslaID+VIN+DisplayName); return-all semantics (design D2); no migration (vehicles.account_id exists) — one new sqlc query. No blocking open questions." },
+    { "at": "2026-07-10T21:15:23Z", "agent": "leader", "event": "Autopilot: proceeding from tier 1 without pausing. Apply plan: dispatch one account worker for module slice tasks 1-4 (sequential/tiny; parallelizing 1∥2 not worth cold-start cost); leader integrates task 5 (gateway fake) + task 6 (verification)." },
+    { "at": "2026-07-10T21:19:00Z", "agent": "account", "event": "Tasks 1-4 done, module-scoped build/vet/test green (worker ran on claude-opus-4-8). sqlc regen clean (only query.sql.go). DATABASE_URL unset -> integration tests self-skipped." },
+    { "at": "2026-07-10T21:20:38Z", "agent": "leader", "event": "Tasks 5-6 done: gateway fake stub added, full go build/vet/test/validate green. Change status -> verified. HONESTY: account integration tests self-skipped (no DATABASE_URL in this env) — flagged in review brief item 5 for the reviewer to weigh integration-only coverage. Dispatching account-reviewer (Step 7)." },
+    { "at": "2026-07-10T21:24:31Z", "agent": "account-reviewer", "event": "Round 1 verdict: APPROVED. All 7 brief items PASS. Reviewer had a local Postgres: ran all 3 integration tests against a throwaway DB (all passed), then dropped it — honesty gate fully resolved (tests executed, not just skipped). sqlc regen idempotent (no drift). One minor finding R1 (tasks.md checkbox lag). Set review.status + top-level status = reviewer-approved." },
+    { "at": "2026-07-10T21:25:30Z", "agent": "leader", "event": "Triaged R1 (accepted+fixed): ticked tasks.md 5.1/6.1/6.2/6.3. Proceeding to Step 8 archive per autopilot." }
+  ]
+}

@@ -69,3 +69,11 @@ ON CONFLICT (account_id, tesla_id) DO NOTHING;
 SELECT * FROM vehicles
 WHERE account_id = @account_id
 ORDER BY tesla_id;
+
+-- name: ListAllVehicles :many
+-- Every registered vehicle across ALL accounts, each with its owning account_id,
+-- for background collection jobs (nightly telemetry). Ordered (account_id, tesla_id)
+-- for stable, testable output. No join to tesla_tokens: enumeration is decoupled
+-- from connection liveness (that is the caller's job via AccessTokenFor).
+SELECT account_id, tesla_id, vin, display_name FROM vehicles
+ORDER BY account_id, tesla_id;

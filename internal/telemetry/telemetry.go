@@ -1,0 +1,149 @@
+// Package telemetry is the platform's first collection + storage domain module
+// (tier 3 of openspec/roadmaps/nightly-vehicle-telemetry.md). It captures one
+// immutable snapshot of every connected user's vehicles on a nightly schedule,
+// storing the raw vehicle_data payload plus extracted typed fields, and records
+// the outcome of every collection attempt with per-vehicle isolation.
+//
+// It consumes the account and tesla PORTS only (never their DB or internals) and
+// owns two append-only tables through the module-scoped telemetrydb package.
+// Domain types here carry NO vendor suffix — they are our own models, distinct
+// from the ...Tesla DTOs the tesla adapter unmarshals (ai/architecture.md §6).
+package telemetry
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// milesToKm is the exact miles→kilometers factor. Every miles/mph field on a
+// domain type exposes a companion Km/Kmh value-receiver method (ai/go-conventions.md
+// non-negotiable). The Fleet API only sends miles, so km values are always derived,
+// never stored as a column or a struct field.
+const milesToKm = 1.609344
+
+// Snapshot is one immutable capture of a vehicle's state — our own domain model
+// (no vendor suffix). It carries the owning account id, the vehicle's Tesla id,
+// the platform capture time, the extracted typed fields, and the lossless raw
+// vehicle_data payload. Distance/range fields are held API-native (miles); the
+// kilometre equivalent is derived via the Km() companions below, never a field.
+type Snapshot struct {
+	AccountID      uuid.UUID
+	TeslaID        int64
+	CapturedAt     time.Time
+	BatteryLevel   int
+	BatteryRange   float64 // miles — see BatteryRangeKm
+	ChargingState  string
+	ChargeLimitSoc int
+	Odometer       float64 // miles — see OdometerKm
+	InsideTemp     float64 // Celsius (Tesla temps are already °C — no conversion)
+	OutsideTemp    float64 // Celsius
+	Locked         bool
+	// SentryMode is a pointer so an absent field (a vehicle that does not report
+	// sentry) stays distinguishable from a reported-off sentry: nil = not reported,
+	// *false = off, *true = on. It maps to a NULLABLE column (nil↔SQL NULL);
+	// collapsing absent into false would lose history (design D1).
+	SentryMode *bool
+	CarVersion string
+	Latitude   float64
+	Longitude  float64
+	// RawData is the lossless vehicle_data JSON, stored verbatim in the JSONB
+	// column so any field not extracted above can be back-filled later.
+	RawData []byte
+}
+
+// BatteryRangeKm returns the rated range converted from miles to kilometers.
+func (s Snapshot) BatteryRangeKm() float64 {
+	return s.BatteryRange * milesToKm
+}
+
+// OdometerKm returns the odometer reading converted from miles to kilometers.
+func (s Snapshot) OdometerKm() float64 {
+	return s.Odometer * milesToKm
+}
+
+// Outcome is the result of a single collection attempt on one vehicle.
+type Outcome string
+
+const (
+	OutcomeSuccess Outcome = "success"
+	OutcomeFailure Outcome = "failure"
+)
+
+// Reason explains an attempt's outcome. It doubles as the availability /
+// sleep-behavior signal recorded for every vehicle in poll_attempts (design D5).
+type Reason string
+
+const (
+	// ReasonOK — snapshot captured and stored.
+	ReasonOK Reason = "ok"
+	// ReasonAsleepTimeout — the wake deadline elapsed before the vehicle came online.
+	ReasonAsleepTimeout Reason = "asleep-timeout"
+	// ReasonUnauthorized — the account has no usable Tesla connection (401 /
+	// tesla.ErrUnauthorized, or account.ErrNoTeslaConnection). Not retried.
+	ReasonUnauthorized Reason = "unauthorized"
+	// ReasonAPIError — any other Tesla/HTTP/decode/store error (retried once).
+	ReasonAPIError Reason = "api-error"
+)
+
+// Attempt is one recorded (vehicle, run) collection attempt — exactly one is
+// written per vehicle per cycle regardless of outcome (design D5).
+type Attempt struct {
+	AccountID   uuid.UUID
+	TeslaID     int64
+	AttemptedAt time.Time
+	Outcome     Outcome
+	Reason      Reason
+}
+
+// Config carries the collection service's runtime tuning. The wake timeout bounds
+// how long an asleep vehicle is polled for online before it is recorded as an
+// asleep-timeout failure (design D4). Clock is optional and exists for tests
+// (fake clock); when nil the service uses the wall clock.
+type Config struct {
+	WakeTimeout time.Duration
+	// Clock returns the current time; nil means time.Now. Injected in tests so
+	// captured_at and timeout math are deterministic without waiting.
+	Clock func() time.Time
+}
+
+// CycleReport summarizes one collection cycle: how many vehicles were attempted
+// and the breakdown of outcomes by reason. It is returned by CollectAll so the
+// scheduler / caller can log a run without querying the store.
+type CycleReport struct {
+	// Attempted is the total number of vehicles processed in the cycle.
+	Attempted int
+	// Succeeded is the number of vehicles with a stored snapshot (reason ok).
+	Succeeded int
+	// FailuresByReason counts failures keyed by their Reason (asleep-timeout,
+	// unauthorized, api-error).
+	FailuresByReason map[Reason]int
+}
+
+// Collector runs one collection cycle over every registered vehicle across all
+// accounts, capturing a snapshot per vehicle and recording every attempt. It is
+// the telemetry module's public port; the scheduler and cmd/poller depend on this
+// interface, never on the concrete implementation or the DB.
+type Collector interface {
+	// CollectAll runs a single cycle: enumerate all registered vehicles (via the
+	// account port), and per vehicle wake-if-needed, fetch, store a snapshot, and
+	// record a poll_attempts row. Per-vehicle isolation: one vehicle's failure
+	// never aborts the cycle. It returns a CycleReport (counts of success/failure
+	// by reason) and an error only for a whole-cycle failure (e.g. the account
+	// enumeration itself failing) — never for an individual vehicle.
+	CollectAll(ctx context.Context) (CycleReport, error)
+}
+
+// Reader exposes the telemetry module's stored snapshots for read-only
+// consumption by the gateway and other callers. It is the second half of the
+// telemetry public port; the first half (Collector) is the write path.
+// Callers must never import telemetrydb directly — all access goes through
+// this interface.
+type Reader interface {
+	// LatestSnapshotsByAccount returns the most-recently captured snapshot for
+	// each vehicle belonging to the given account. If the account has no stored
+	// snapshots it returns an empty (non-nil) slice and a nil error. Order of
+	// the returned slice is unspecified.
+	LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)
+}

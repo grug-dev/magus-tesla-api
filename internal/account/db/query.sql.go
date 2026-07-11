@@ -115,6 +115,47 @@ func (q *Queries) InsertVehicleIfMissing(ctx context.Context, arg InsertVehicleI
 	return err
 }
 
+const listAllVehicles = `-- name: ListAllVehicles :many
+SELECT account_id, tesla_id, vin, display_name FROM vehicles
+ORDER BY account_id, tesla_id
+`
+
+type ListAllVehiclesRow struct {
+	AccountID   uuid.UUID
+	TeslaID     int64
+	Vin         string
+	DisplayName pgtype.Text
+}
+
+// Every registered vehicle across ALL accounts, each with its owning account_id,
+// for background collection jobs (nightly telemetry). Ordered (account_id, tesla_id)
+// for stable, testable output. No join to tesla_tokens: enumeration is decoupled
+// from connection liveness (that is the caller's job via AccessTokenFor).
+func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, error) {
+	rows, err := q.db.Query(ctx, listAllVehicles)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllVehiclesRow
+	for rows.Next() {
+		var i ListAllVehiclesRow
+		if err := rows.Scan(
+			&i.AccountID,
+			&i.TeslaID,
+			&i.Vin,
+			&i.DisplayName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listVehiclesByAccount = `-- name: ListVehiclesByAccount :many
 SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at FROM vehicles
 WHERE account_id = $1

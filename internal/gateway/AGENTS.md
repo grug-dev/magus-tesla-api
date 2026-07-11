@@ -43,3 +43,129 @@ It renders what other modules expose; it owns no business data.
 - `httptest` against `NewEngine` with fakes for the `Deps` interfaces — the existing
   suite covers auth guards, CSRF state, empty/error states, and fragment rendering.
   New handlers follow that pattern.
+
+## How to add or modify a page
+
+Use this recipe whenever a task asks you to add, modify, or extend an HTML page or
+region in the gateway. It tells you which files to touch and in what order. For the
+*why* behind each rule, see [`ai/htmx-conventions.md`](../../ai/htmx-conventions.md) and
+[`ai/htmx-go-integration.md`](../../ai/htmx-go-integration.md).
+
+### Decide first: does the markup need data the handler doesn't already have?
+
+#### No — pure markup, or data already on the view model
+
+1. Edit `internal/gateway/templates/pages/<name>.templ` (page shell) and/or
+   `internal/gateway/templates/fragments/<region>.templ` (swap region).
+2. Run `templ generate` (regenerates `*_templ.go`).
+3. Done. No DB, no domain module, no `sqlc`.
+
+#### Yes — the page must show something fetched or stored
+
+Work backwards from the template to the database. Identify which domain module owns
+the data (e.g. `account`, `charging`, `battery`, `drives`). If none fits, create a new
+`internal/<module>/` — never put SQL or business logic in the gateway.
+
+1. **Persist** — `internal/<module>/db/queries.sql` (edit) + `sqlc generate`
+   (regenerates `db/*.go`).
+2. **Domain** — `internal/<module>/<module>.go` (add DTO to the public `Service`
+   interface) + `internal/<module>/service.go` (implement the method using the new
+   sqlc query).
+3. **Wire** (only if the module is new to the gateway) — `internal/gateway/gateway.go`
+   (`Deps`) + `internal/gateway/handlers/handlers.go` (`Deps`, `Handler` struct,
+   `New()`).
+4. **View** — `internal/gateway/templates/fragments/<region>.templ`: a `ViewData`
+   struct (presentation model; no `...Tesla` suffix leak) and a `ViewRegion(d
+   ViewData)` component whose root element `<div id="<region>">` matches the
+   `templ.Fragment("<region>")` id — required invariant for htmx swaps.
+5. **Map** — `internal/gateway/handlers/handlers.go`: a `dataFor(ctx, uid)` helper
+   decoupled from gin/session (unit-testable with `Service` fakes) and an optional
+   `mapX()` mapper from domain DTO to the fragment view model.
+6. **Render** — `internal/gateway/handlers/handlers.go`: `Page(c)` (auth guard →
+   `dataFor` → `render`) and `RegionFragment(c)` (auth guard → `dataFor` →
+   `renderFragment` with the fragment id).
+7. **Route** — `internal/gateway/gateway.go`: `r.GET("/<name>", h.Page)` and
+   `r.GET("/ui/<region>", h.RegionFragment)`.
+8. **Template** — `internal/gateway/templates/pages/<name>.templ`:
+
+   ```templ
+   @layouts.Base("<title>") {
+       <main>
+           <h1>...</h1>
+           <button hx-get="/ui/<region>" hx-target="#<region>" hx-swap="outerHTML">
+               Refresh
+           </button>
+           @templ.Fragment("<region>") {
+               @fragments.ViewRegion(d)
+           }
+       </main>
+   }
+   ```
+9. **Regenerate** — `templ generate` (always after any `.templ` edit).
+10. **Tests** — `internal/gateway/handlers/handlers_test.go` and/or
+    `gateway_test.go`: fake the new `Service` method; `httptest` both `/<name>` and
+    `/ui/<region>`.
+
+### Layer-by-layer contract (what each layer enforces)
+
+| Layer | Rule |
+|---|---|
+| Persist (`<module>/db`) | sqlc-generated; only `queries.sql` changes by hand. |
+| Domain (`<module>`) | Every DB query is wrapped in a public `Service` method. DTOs carry no presentation fields; no vendor suffix leaks (e.g. `...Tesla`). |
+| Handler (`gateway/handlers`) | Thin: `currentUID(c)` → `dataFor(ctx, uid)` → `render`. `dataFor` is gin-free so it's testable with `Service` fakes. NEVER imports a DB or any module's internals. |
+| Fragments (`templates/fragments`) | `ViewData`/`ViewModel` structs live next to the markup. Root `<div id="X">` matches `templ.Fragment("X")` — required invariant for htmx swaps. |
+| Pages (`templates/pages`) | The only place HTML skeletons live. Uses `layouts.Base` + `@templ.Fragment` blocks + `hx-*` button attributes. |
+| Router (`gateway.go`) | Full list of endpoints. One `GET` per page + one `GET` per swap region. |
+
+### Two render entry points — reuse both
+
+```go
+func render(c *gin.Context, status int, comp templ.Component)
+func renderFragment(c *gin.Context, status int, comp templ.Component, fragment string)
+```
+
+The SAME `pages.Name(d)` tree serves both `/<name>` and `/ui/<region>`. `renderFragment`
+runs the whole template but emits only the `@templ.Fragment("<region>")` subtree — no
+duplicate partial template. See
+[`ai/htmx-go-integration.md`](../../ai/htmx-go-integration.md).
+
+### Auth guard pattern — same on every page
+
+```go
+func (h *Handler) Page(c *gin.Context) {
+    uid, ok := currentUID(c)              // encrypted cookie session key "uid"
+    if !ok {
+        c.Redirect(http.StatusFound, "/login")
+        return
+    }
+    render(c, http.StatusOK, pages.Name(h.dataFor(c.Request.Context(), uid)))
+}
+```
+
+Every page must opt in. There is no middleware-based auth today — copy this guard.
+
+### When the data doesn't belong to an existing module
+
+If the data is conceptually a new subsystem (charging, drives, battery…):
+
+- The owner is a **new** `internal/<module>/`, NOT the gateway.
+- It exposes a `Service` interface + DTOs (same shape as `account.Service`).
+- Gateway consumes it ONLY through that interface — add it to `Deps` + `Handler`
+  (step 3 above).
+- The recipe above is unchanged from step 4 onwards.
+
+If the data fits an existing module, add the new method/DTO to that module's `Service`
+and skip step 3 (the module is already in `Deps`).
+
+**Hard rule:** the gateway never owns business data. If a handler "needs SQL", the
+design is wrong — add a method to the owning module instead.
+
+### Regeneration cheatsheet
+
+| File changed | Run | Produces |
+|---|---|---|
+| `internal/<module>/db/queries.sql` | `sqlc generate` | `db/*.go` (generated) |
+| `*.templ` | `templ generate` | `*_templ.go` (generated) |
+| `*.go` | `go build` / `go test` | nothing else |
+
+Never hand-edit generated files (`db/*.go`, `*_templ.go`).

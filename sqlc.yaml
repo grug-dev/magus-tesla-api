@@ -26,3 +26,24 @@ sql:
           # account service converts to/from plain time.Time at its DB→domain mapping
           # boundary (see internal/account/service.go: `timestamp`), so the public
           # domain types expose time.Time without a pgtype dependency leaking out.
+
+  # telemetry module — vehicle_snapshots + poll_attempts. Its own package
+  # (telemetrydb), imported by no other module (ai/architecture.md §2). Same gen
+  # options + uuid override as account; timestamptz likewise stays pgtype.Timestamptz
+  # and is mapped to time.Time at internal/telemetry/service.go's DB→domain boundary.
+  # Nullable sentry_mode BOOLEAN → pgtype.Bool; raw_data JSONB → []byte.
+  - engine: "postgresql"
+    schema: "internal/telemetry/db/migrations"
+    queries: "internal/telemetry/db/query.sql"
+    gen:
+      go:
+        package: "telemetrydb"
+        out: "internal/telemetry/db"
+        sql_package: "pgx/v5"
+        emit_json_tags: false
+        emit_interface: false
+        overrides:
+          - db_type: "uuid"
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"

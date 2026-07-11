@@ -8,7 +8,7 @@ Fetches live vehicle data (battery, range, climate, location, state) and serves 
 
 ## Project Goal
 
-Build a personal, self-hosted tool that:
+Build a personal, multitenant, self-hosted tool that:
 - Authenticates with the Tesla Fleet API using OAuth 2.0
 - Fetches real-time data from Tesla vehicles (charge level, range, climate, location, vehicle state)
 - Stores and exposes that data for dashboarding and personal automation
@@ -84,9 +84,10 @@ make bins        # → bin/setup, bin/web, …  (go build -o bin/ ./cmd/...)
 ```
 magus-tesla-api/
 │
-├── cmd/
-│   ├── setup/          # One-time OAuth flow (single-user smoke path)
-│   └── web/            # Multi-tenant HTTP gateway (vehicle dashboard)
+├── cmd/               # Executable entry points — see cmd/README.md
+│   ├── setup/          # One-time Tesla OAuth flow (saves tokens to .env)
+│   ├── web/            # Multi-tenant HTTP gateway (vehicle dashboard)
+│   └── explore-tesla-api/  # On-demand raw Tesla Fleet API JSON inspector
 │
 ├── internal/
 │   ├── account/        # Per-user Tesla tokens (persisted, refreshed) in Postgres
@@ -94,8 +95,7 @@ magus-tesla-api/
 │   ├── gateway/        # Gin + Templ HTTP layer (handlers, pages, fragments)
 │   ├── googleauth/     # Google OAuth for user login
 │   ├── config/         # .env loading and token persistence
-│   ├── auth/           # Tesla OAuth URL, code exchange, token refresh
-│   └── server/         # Gin HTTP server for OAuth callback on localhost:8080
+│   └── auth/           # Tesla OAuth URL, code exchange, token refresh
 │
 ├── magus-public-key-netlify/   # EC public key hosted on Netlify for Tesla verification
 │   └── well-known/appspecific/
@@ -104,6 +104,8 @@ magus-tesla-api/
 └── docs/
     └── post-registration-setup.md   # Full setup guide — start here
 ```
+
+For details on the `cmd/` convention and each binary, see [cmd/README.md](cmd/README.md).
 
 ---
 
@@ -167,7 +169,6 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 |---|---|
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | OAuth flow, token exchange, token refresh |
-| `internal/server` | Gin callback server for OAuth redirect |
 
 ---
 

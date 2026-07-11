@@ -1,5 +1,7 @@
 package tesla
 
+import "encoding/json"
+
 // milesToKm is the exact miles→kilometers factor. Every miles/mph field on a
 // ...Tesla DTO exposes a companion Km/Kmh method (see ai/go-conventions.md).
 // The Fleet API only sends miles, so km values are always derived, never fields.
@@ -12,8 +14,12 @@ type listResponseTesla struct {
 	Count    int            `json:"count"`
 }
 
+// dataResponseTesla captures the vehicle_data envelope. Its Response is held as
+// raw bytes (not a decoded VehicleDataTesla) so a single fetch yields both the
+// lossless payload for JSONB storage and the typed DTO, decoded from those same
+// bytes — see (*Client).VehicleData.
 type dataResponseTesla struct {
-	Response VehicleDataTesla `json:"response"`
+	Response json.RawMessage `json:"response"`
 }
 
 type wakeResponseTesla struct {
@@ -49,6 +55,7 @@ type ChargeStateTesla struct {
 	BatteryRange       float64 `json:"battery_range"`
 	ChargingState      string  `json:"charging_state"`
 	ChargeRate         float64 `json:"charge_rate"`
+	ChargeLimitSoc     int     `json:"charge_limit_soc"`
 	TimeToFullCharge   float64 `json:"time_to_full_charge"`
 	ChargePortDoorOpen bool    `json:"charge_port_door_open"`
 }
@@ -93,6 +100,12 @@ type VehicleStateTesla struct {
 	Locked     bool    `json:"locked"`
 	Odometer   float64 `json:"odometer"`
 	CarVersion string  `json:"car_version"`
+	// SentryMode is a pointer so an absent field (a vehicle that does not report
+	// sentry) stays distinguishable from a reported-off sentry: nil = not reported,
+	// *false = off, *true = on. Collapsing absent into false would lose that
+	// distinction at the column layer (ai/architecture.md §6; AGENTS.md — never lose
+	// historical information).
+	SentryMode *bool `json:"sentry_mode"`
 }
 
 // OdometerKm returns the odometer reading converted from miles to kilometers.

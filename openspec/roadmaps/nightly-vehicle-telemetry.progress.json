@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "nightly-vehicle-telemetry",
+  "intention": "Every connected user's vehicles get one anchor telemetry snapshot per night (03:30, waking if needed); users never trigger Tesla API calls — dashboards read only stored data.",
+  "autopilot": true,
+  "autopilot_note": "User directive 2026-07-10: drive all tiers to completion without asking for go-ahead between tiers; pause only for changes-requested reviews, destructive/commit actions, new decisions beyond the roadmap Decisions, or interruptions.",
+  "request": "Build the poller: a scheduled runner (cmd/poller) that periodically fetches vehicle data for all connected users and appends snapshots to the database — the foundation for all historical data features (daily digest, battery health log, charge session detection)",
+  "updated_at": "2026-07-11T10:05:22Z",
+  "tiers": [
+    {
+      "id": 1,
+      "change": "tesla-add-vehicle-data-and-wake",
+      "module": "tesla",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10",
+      "completed_at": "2026-07-10",
+      "tokens": null,
+      "notes": "Shipped + reviewer-approved (tesla-reviewer, round 1) + archived to openspec/changes/archive/tesla/2026-07-10-tesla-add-vehicle-data-and-wake; delta synced into specs/tesla/spec.md. Breaking VehicleData signature returns (*VehicleDataTesla, json.RawMessage, error) from one fetch; DTO enriched (ChargeLimitSoc int, SentryMode *bool); first internal/tesla tests (offline httptest). Open advisory R1-1: user must stage tier-1 files selectively at commit (unrelated cmd/setup refactor in tree)."
+    },
+    {
+      "id": 2,
+      "change": "account-list-registered-vehicles",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-10",
+      "completed_at": "2026-07-10",
+      "tokens": null,
+      "notes": "Shipped + reviewer-approved (account-reviewer, round 1 — ran integration tests against a throwaway Postgres, all passed) + archived to openspec/changes/archive/account/2026-07-10-account-list-registered-vehicles; delta synced into specs/account/spec.md. Added AllRegisteredVehicles(ctx) ([]OwnedVehicle, error) + OwnedVehicle type + ListAllVehicles sqlc query (no migration — vehicles.account_id existed). Return-all semantics (D2). Tier 3 now unblocked (deps 1,2 both archived)."
+    },
+    {
+      "id": 3,
+      "change": "telemetry-add-nightly-snapshots",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [1, 2],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-10",
+      "completed_at": "2026-07-11T10:05:22Z",
+      "tokens": null,
+      "budget": {
+        "cost_usd_approx": 10.73,
+        "note": "Sum of bracketed deltas: leader tasks 2+3.2 (1.24) + wave-2 worker 6/7/10/11 (3.98) + leader 9+13 (0.74) + R1-01/R1-02 rework wave incl. re-verify (4.77). Excludes the pre-budget-instrumentation artifacts + wave-1 dispatches (unbracketed)."
+      },
+      "notes": "Shipped + reviewer-approved (telemetry-reviewer, round 2) + archived to openspec/changes/archive/2026-07-11-telemetry-add-nightly-snapshots; delta synced into specs/telemetry/spec.md (+6 requirements). NEW module internal/telemetry from scratch (first AGENTS.md-creation path). Owns vehicle_snapshots + poll_attempts (append-only, module-scoped telemetrydb, no cross-module FK D2); collection service consuming account (AllRegisteredVehicles/AccessTokenFor) + tesla (VehicleData/WakeUp/ListVehicles) ports; 03:30-local in-app scheduler (pure nextRun, graceful shutdown); wake-with-timeout; per-vehicle isolation + one api-error retry; thin cmd/poller; POLLER_* config env. Review round 1 -> changes-requested (R1-01 major: collectAccount waking every vehicle incl. online -> paid WakeUp waste; R1-02 minor: Scheduler.Run silent). Both fixed in rework wave (ListVehicles once/account, skip WakeUp for online D3/D4; Run logs cycle summary+error); round 2 -> approved. Autopilot decision D1: non-401 ListVehicles failure -> record all vehicles api-error (no blind wake fallback), reviewer-accepted. Tier 4 (gateway-read-stored-vehicles, depends_on [3]) now UNBLOCKED."
+    },
+    {
+      "id": 4,
+      "change": "telemetry-add-snapshot-read-port",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [3],
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T10:06:00Z",
+      "completed_at": null,
+      "tokens": null,
+      "notes": "Split from the original single gateway tier per the user's 2026-07-11 tier-4 scope decision (Option A: surface nightly snapshot data on the dashboard). This tier adds a public READ port to internal/telemetry returning the latest stored snapshot per vehicle (pgtype->domain mapped inside the module; Km()/Kmh() companions on the returned DTO), read-only over vehicle_snapshots. No new collection logic. Unblocks tier 5 (gateway display)."
+    },
+    {
+      "id": 5,
+      "change": "gateway-read-stored-vehicles",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [4],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "tokens": null,
+      "notes": "Data Access Model compliance + Option A: dashboard reads the registry AND the latest nightly snapshot (battery %, range, charge state, last-updated) through the account + telemetry read ports; no live tesla.ListVehicles on a normal render (first-connect seed retained). depends_on tier 4 (telemetry read port)."
+    }
+  ]
+}

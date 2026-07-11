@@ -1,0 +1,395 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "telemetry-add-nightly-snapshots",
+  "module": "telemetry",
+  "roadmap": "openspec/roadmaps/nightly-vehicle-telemetry.md",
+  "request": "Tier 3 (core) of nightly-vehicle-telemetry: new internal/telemetry module \u2014 vehicle_snapshots + poll_attempts storage, a collection service consuming the account + tesla ports, a 03:30 in-app scheduler, per-vehicle failure isolation, and a thin cmd/poller.",
+  "status": "archived",
+  "created_at": "2026-07-10T21:37:36Z",
+  "updated_at": "2026-07-11T10:05:22Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-4-8"
+  },
+  "apply_plan": "Interleaved (sqlc.yaml is repo-root, sits between migration and regen). Wave 1 worker: tasks 1,3.1,4,5 (pure source, no regen). Leader: task 2 (sqlc.yaml+Makefile) + run task 3.2 regen; task 8 (config) done early. Wave 2 worker: tasks 6,7,10,11. Leader: task 9 (cmd/poller integration) + task 13 (verification).",
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Migration + schema: vehicle_snapshots + poll_attempts (internal/telemetry/db/migrations)",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-10T21:39:52Z",
+      "completed_at": "2026-07-10T21:41:45Z",
+      "notes": "Wrote internal/telemetry/db/migrations/20260710000002_init_telemetry.sql (timestamp follows the account convention; sequence after 20260710000001_vehicles.sql). vehicle_snapshots: id UUID PK gen_random_uuid, account_id UUID NOT NULL, tesla_id BIGINT NOT NULL, captured_at TIMESTAMPTZ NOT NULL, raw_data JSONB NOT NULL, battery_level INTEGER NOT NULL, battery_range DOUBLE PRECISION NOT NULL, charging_state TEXT NOT NULL, charge_limit_soc INTEGER NOT NULL, odometer DOUBLE PRECISION NOT NULL, inside_temp DOUBLE PRECISION NOT NULL, outside_temp DOUBLE PRECISION NOT NULL, locked BOOLEAN NOT NULL, sentry_mode BOOLEAN (NULLABLE), car_version TEXT NOT NULL, latitude DOUBLE PRECISION NOT NULL, longitude DOUBLE PRECISION NOT NULL. Index idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at). poll_attempts: id UUID PK, account_id UUID NOT NULL, tesla_id BIGINT NOT NULL, attempted_at TIMESTAMPTZ NOT NULL, outcome TEXT NOT NULL, reason TEXT NOT NULL. NO FKs (D2). +goose Down drops both (poll_attempts then vehicle_snapshots). Append-only header comments included."
+    },
+    {
+      "id": "2",
+      "title": "sqlc.yaml second entry (telemetrydb) + Makefile multi-dir migrations",
+      "module": "telemetry",
+      "depends_on": [
+        "1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T02:50:56Z",
+      "completed_at": "2026-07-11T02:53:39Z",
+      "budget": {
+        "five_hour_pct_start": 61,
+        "five_hour_pct_end": 62,
+        "context_pct_start": 5,
+        "context_pct_end": 7,
+        "cost_usd_delta": 1.24,
+        "note": "Shared leader bracket for tasks 2 + 3.2 (interleaved integration)."
+      },
+      "notes": "LEADER-INTEGRATED. sqlc.yaml: second sql: entry -> package telemetrydb, out internal/telemetry/db, schema internal/telemetry/db/migrations, queries query.sql, uuid override kept, timestamptz left as pgtype (mapped at service boundary). Makefile: MIGRATIONS_DIR -> ordered MIGRATIONS_DIRS list (account then telemetry, timestamp order for the shared goose_db_version table); migrate-up/db-setup loop forward, migrate-down loops reverse, migrate-status per-dir; db-url prints the list. Decision: multi-dir goose (module-scoped migrations per architecture)."
+    },
+    {
+      "id": "3",
+      "title": "sqlc queries (query.sql) + regen telemetrydb",
+      "module": "telemetry",
+      "depends_on": [
+        "2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T02:53:00Z",
+      "completed_at": "2026-07-11T02:53:39Z",
+      "notes": "3.1 DONE by telemetry worker (wave 1): internal/telemetry/db/query.sql. 3.2 DONE by leader: `make sqlc` (sqlc v1.31.1) regenerated telemetrydb -> db.go, models.go, query.sql.go. Generated types match plan: VehicleSnapshot.SentryMode pgtype.Bool (nullable), RawData []byte (JSONB), CapturedAt/AttemptedAt pgtype.Timestamptz, ID/AccountID uuid.UUID, INTEGER cols int32. Only internal/telemetry/db changed; grep confirms no other module imports telemetrydb. go build ./... and go vet ./internal/telemetry/... green."
+    },
+    {
+      "id": "4",
+      "title": "Domain types + Km/Kmh companions + Config + Collector interface + CycleReport (telemetry.go)",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-10T21:39:52Z",
+      "completed_at": "2026-07-10T21:41:45Z",
+      "notes": "Wrote internal/telemetry/telemetry.go. Snapshot{AccountID uuid.UUID, TeslaID int64, CapturedAt time.Time, BatteryLevel int, BatteryRange float64 (miles), ChargingState string, ChargeLimitSoc int, Odometer float64 (miles), InsideTemp/OutsideTemp float64 (\u00b0C), Locked bool, SentryMode *bool, CarVersion string, Latitude/Longitude float64, RawData []byte}. Companions: BatteryRangeKm() and OdometerKm() value-receivers using package-level const milesToKm = 1.609344 (never inline; no km field). Outcome (success/failure) + Reason (ok/asleep-timeout/unauthorized/api-error) string consts; Attempt struct; Config{WakeTimeout time.Duration, Clock func() time.Time}; CycleReport{Attempted, Succeeded int, FailuresByReason map[Reason]int}; Collector interface CollectAll(ctx) (CycleReport, error) with the D9 isolation doc comment. OMITTED var _ Collector = (*service)(nil) \u2014 service.go is wave 2. go build/vet ./internal/telemetry/... green."
+    },
+    {
+      "id": "5",
+      "title": "Wake-with-timeout orchestration (wake.go)",
+      "module": "telemetry",
+      "depends_on": [
+        "4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-10T21:39:52Z",
+      "completed_at": "2026-07-10T21:41:45Z",
+      "notes": "Wrote internal/telemetry/wake.go. Signature: waitUntilOnline(ctx, svc tesla.VehicleService, creds tesla.Credentials, teslaID int64, timeout time.Duration) (bool, error) \u2014 package-private helper for the service. Wraps ctx in context.WithTimeout(timeout), calls WakeUp once, then polls ListVehicles every wakePollInterval (5s) filtering to teslaID's State==\"online\". Signals distinctly: (true,nil)=online reached; (false,nil)=timeout/ctx-cancel before online (caller maps asleep-timeout); (false,err)=adapter error incl. tesla.ErrUnauthorized (errors.Is) and errVehicleNotListed (vehicle absent from list -> caller maps api-error). Deadline/cancel errors during WakeUp/ListVehicles are treated as timeout, not api-error (isDeadline helper). Pure of storage \u2014 only the tesla port. go build/vet green."
+    },
+    {
+      "id": "6",
+      "title": "Collection service: ports->store, per-account batching, isolation, retry, reason mapping (service.go)",
+      "module": "telemetry",
+      "depends_on": [
+        "3",
+        "4",
+        "5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T09:52:56Z",
+      "completed_at": "2026-07-11T09:59:04Z",
+      "duration_seconds": 368,
+      "notes": "REWORK REQUIRED (review round 1, finding R1-01, ACCEPTED by leader). collectAccount omits the design-D3 / task-6.1 upfront per-account ListVehicles call: it calls waitUntilOnline for EVERY vehicle, which unconditionally WakeUps even already-online vehicles \u2014 wasting a paid Fleet API WakeUp per online vehicle and calling ListVehicles per-vehicle-per-tick instead of once per account. FIX: in collectAccount, after resolving creds, call s.tsla.ListVehicles(ctx, creds) ONCE; build teslaID->State; on that call's ErrUnauthorized record all vehicles unauthorized (no further calls); then per vehicle: if State==\"online\" skip WakeUp and go straight to VehicleData; if asleep/offline/absent run the wake flow (waitUntilOnline, D4). Re-read design.md D3/D4 for exact semantics. ALSO extend service_test.go: assert an already-online vehicle receives ZERO WakeUp calls and ListVehicles is called once per account (fake tesla must count WakeUp/ListVehicles calls). Prior (now-superseded) impl note: NewService(pool,acct,tsla,cfg) Collector; unexported store seam (dbStore is the only pgtype site); per-vehicle isolation + one api-error retry; exactly one poll_attempt per vehicle; whole-cycle error only if AllRegisteredVehicles fails. Keep all of that; only change the wake path. || REWORK DONE (R1-01 fixed): collectAccount now calls s.tsla.ListVehicles(ctx,creds) EXACTLY ONCE per account via new listStates helper, building a teslaID->State map. On that call's tesla.ErrUnauthorized -> all vehicles recorded unauthorized, NO further Tesla calls; on a non-401 ListVehicles error -> all vehicles recorded api-error (no blind waking). attemptVehicle now takes the pre-read state: State==\"online\" SKIPS WakeUp and goes straight to VehicleData; asleep/offline/absent runs the bounded wake flow (waitUntilOnline, D4) unchanged. wake.go left intact (still used for asleep vehicles; no signature change). All prior D5 behavior preserved (per-vehicle isolation, one api-error retry, exactly one poll_attempt/vehicle, reason mapping, pgtype confined to dbStore, whole-cycle error only when AllRegisteredVehicles fails). service_test.go: fakeTesla already counted wake/data/list calls; added listErr field + WakeUp state-flip (wakesOnline). New/changed tests: TestCollectAll_OnlineVehicle_NoWakeStraightToFetch asserts online vehicle gets 0 WakeUp, 1 VehicleData, ListVehicles==1/account; TestCollectAll_AsleepVehicle_WakeFlowRuns asserts asleep vehicle gets 1 WakeUp (branch split); TestCollectAll_AccountWideListVehicles401_AllUnauthorizedNoPerVehicleCalls asserts fleet-wide 401 -> both vehicles unauthorized, 0 per-vehicle calls; TestCollectAll_Unauthorized401_NotRetried reframed to a VehicleData 401 on an online vehicle (0 wake, 1 data, not retried). go build ./... + go vet ./internal/telemetry/... clean; go test ./internal/telemetry/... -count=1 green in 0.40s (4 store tests self-skip w/o DATABASE_URL, no Tesla call fires).",
+      "budget": {
+        "five_hour_pct_start": 65,
+        "five_hour_pct_end": 81,
+        "context_pct_start": 9,
+        "context_pct_end": 11,
+        "cost_usd_delta": 3.98,
+        "approx": true,
+        "note": "Shared Wave-2 worker delta across tasks 6,7,10,11 (one Opus worker, serial)."
+      }
+    },
+    {
+      "id": "7",
+      "title": "Scheduler: daily 03:30-local daemon + pure nextRun (scheduler.go)",
+      "module": "telemetry",
+      "depends_on": [
+        "6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T02:55:56Z",
+      "completed_at": "2026-07-11T03:03:14Z",
+      "duration_seconds": 438,
+      "notes": "Wrote internal/telemetry/scheduler.go. Scheduler{collector, hour, minute, loc, now}. NewScheduler(collector, hour, minute, loc, cfg) *Scheduler: nil loc -> time.Local; clock seam uses cfg.Clock else time.Now. Run(ctx) loops: nextRun -> time.NewTimer -> select on ctx.Done()/timer.C; on tick runs one CollectAll (ignoring its error so one bad night never stops the schedule), reschedules next day; returns ctx.Err() on cancellation with NO new cycle started after shutdown begins (graceful, D7). Pure function nextRun(now, hour, minute, loc) time.Time: computed in loc (honors DST / non-local tz), strictly-after semantics (== now rolls to tomorrow). Public constructor signature and Config unchanged. | REWORK (round 1, finding R1-02, ACCEPTED \u2014 fold into the same re-dispatch): Scheduler.Run currently does `_, _ = s.collector.CollectAll(ctx)`, discarding the CycleReport + error, and cmd/poller logs nothing per cycle \u2014 a background poller that fails silently every night. FIX: after each CollectAll in Run, log a one-line summary (attempted/succeeded/failures-by-reason) and any non-nil error, so operators see nightly outcomes. Add a small test if practical. Task 7 stays done for scheduling correctness; this is the logging add. || REWORK DONE (R1-02 fixed): Scheduler.Run no longer discards the cycle result — it now captures `report, err := s.collector.CollectAll(ctx)` and calls logCycle(report, err), which emits a one-line summary `telemetry cycle: attempted=N succeeded=N failures={reason=count ...}` (failures rendered in a stable reason-sorted order via formatFailures) plus a separate `telemetry cycle: whole-cycle error: <err>` line when err!=nil. Uses the stdlib `log` package (log.Printf), matching cmd/web and cmd/poller. nextRun and the graceful-shutdown/timer semantics (D7) are UNCHANGED. Tests added in scheduler_test.go: TestScheduler_RunsAndLogsOneCycle (fake clock ~10ms before target -> one cycle runs through the logging path, then ctx cancel -> clean context.Canceled shutdown, no panic) and TestFormatFailures (empty map -> \"\"; deterministic reason-sorted output). go build/vet/test green.",
+      "budget": {
+        "five_hour_pct_start": 65,
+        "five_hour_pct_end": 81,
+        "context_pct_start": 9,
+        "context_pct_end": 11,
+        "cost_usd_delta": 3.98,
+        "approx": true,
+        "note": "Shared Wave-2 worker delta across tasks 6,7,10,11 (one Opus worker, serial)."
+      }
+    },
+    {
+      "id": "8",
+      "title": "Config env: POLLER_SCHEDULE_HOUR/MINUTE/TIMEZONE/WAKE_TIMEOUT (internal/config)",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T21:38:00Z",
+      "completed_at": "2026-07-10T21:38:30Z",
+      "notes": "LEADER-INTEGRATED: added PollerScheduleHour(3)/Minute(30)/Timezone(Local)/WakeTimeout(90s) to config.Config + envInt/envDuration helpers; os.Getenv stays confined to config. go build/vet ./internal/config/... green."
+    },
+    {
+      "id": "9",
+      "title": "cmd/poller wiring (integration)",
+      "module": "telemetry",
+      "depends_on": [
+        "6",
+        "7",
+        "8"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T03:04:49Z",
+      "completed_at": "2026-07-11T03:05:30Z",
+      "notes": "LEADER-INTEGRATED. cmd/poller/main.go mirrors cmd/web: config.Load, require DATABASE_URL, time.LoadLocation(PollerTimezone), signal.NotifyContext(SIGINT/SIGTERM), pgxpool.New(defer Close), account.NewService(pool,ClientID,ClientSecret), tesla.NewClient(), telemetry.NewService(pool,acct,tesla,Config{WakeTimeout}), telemetry.NewScheduler(collector,hour,minute,loc,cfg), scheduler.Run(ctx) treating context.Canceled as clean exit. Zero business logic. go build ./cmd/poller green. NOTE for reviewer: Scheduler.Run currently discards each cycle's CycleReport and logs nothing per-cycle (per its own doc comment) \u2014 poller has no per-run operational visibility yet; flagged as a possible observability gap, not a blocker.",
+      "duration_seconds": 41,
+      "budget": {
+        "five_hour_pct_start": 81,
+        "five_hour_pct_end": 83,
+        "context_pct_start": 11,
+        "context_pct_end": 12,
+        "cost_usd_delta": 0.74,
+        "note": "Leader bracket for tasks 9 + 13 (cmd/poller + verification)."
+      }
+    },
+    {
+      "id": "10",
+      "title": "Offline collector/wake/schedule tests (fakes for account+tesla ports)",
+      "module": "telemetry",
+      "depends_on": [
+        "5",
+        "6",
+        "7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T02:55:56Z",
+      "completed_at": "2026-07-11T03:03:14Z",
+      "duration_seconds": 438,
+      "notes": "10.1 in internal/telemetry/service_test.go: fakeAccount + fakeTesla (programmable per-vehicle scripts, call counters) + fakeStore injected via the `store` seam (NO DB, NO network, NO Tesla call). Covers: happy wake-then-fetch; asleep-timeout (VehicleData never called); unauthorized via ErrNoTeslaConnection (no Tesla call) AND via 401 ErrUnauthorized (terminal, 1 wake, not retried); transient api-error retried once then succeeds; persistent api-error retried once then fails (exactly 2 VehicleData calls); per-vehicle isolation (healthy sibling still captured); multi-account/multi-vehicle (A has token, B unauthorized); store-error retried into success; whole-cycle enumeration error returns error + records no attempts; SentryMode *true/*false/nil fidelity. assertOneAttempt guards exactly-one-attempt-per-vehicle. 10.2 in internal/telemetry/scheduler_test.go: pure nextRun table (before/after/exactly-at target, non-UTC timezone proving loc math, month-boundary rollover); scheduler graceful shutdown w/o running on pre-cancelled ctx; nil-loc default; waitUntilOnline online-immediately / asleep-timeout (bounded, false,nil) / ErrUnauthorized propagation with a short timeout + fake tesla port. Full suite runs in ~0.4s with retryBackoff=0 in the test service helper.",
+      "budget": {
+        "five_hour_pct_start": 65,
+        "five_hour_pct_end": 81,
+        "context_pct_start": 9,
+        "context_pct_end": 11,
+        "cost_usd_delta": 3.98,
+        "approx": true,
+        "note": "Shared Wave-2 worker delta across tasks 6,7,10,11 (one Opus worker, serial)."
+      }
+    },
+    {
+      "id": "11",
+      "title": "DATABASE_URL-gated store tests (db_integration_test.go)",
+      "module": "telemetry",
+      "depends_on": [
+        "3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T02:55:56Z",
+      "completed_at": "2026-07-11T03:03:14Z",
+      "duration_seconds": 438,
+      "notes": "Wrote internal/telemetry/db_integration_test.go, DATABASE_URL-gated (self-skips when unset, mirrors account's pattern: pgxpool.New + t.Cleanup(pool.Close)). Tests exercise the real dbStore + telemetrydb read helpers (ListSnapshotsByVehicle / ListPollAttemptsByVehicle): (1) full snapshot round-trip incl. raw JSONB + all typed columns, with nil sentry_mode round-tripping as SQL NULL (row.SentryMode.Valid==false); (2) *true and *false round-trip faithfully (Valid==true, correct Bool); (3) append-only \u2014 a second insert for the same (account_id, tesla_id) adds a row and leaves the first intact, verified via captured_at DESC ordering; (4) poll_attempt round-trip (outcome/reason/attempted_at). Per-test cleanup deletes only its own (account_id, tesla_id) rows so a shared DB stays tidy. CONFIRMED self-skips green with DATABASE_URL unset (go test ./internal/telemetry/... ok in 0.4s).",
+      "budget": {
+        "five_hour_pct_start": 65,
+        "five_hour_pct_end": 81,
+        "context_pct_start": 9,
+        "context_pct_end": 11,
+        "cost_usd_delta": 3.98,
+        "approx": true,
+        "note": "Shared Wave-2 worker delta across tasks 6,7,10,11 (one Opus worker, serial)."
+      }
+    },
+    {
+      "id": "12",
+      "title": "Module AGENTS.md (Agent-Name: telemetry + Doc-Pack + brief)",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-fable-5",
+      "started_at": "2026-07-10T21:30:00Z",
+      "completed_at": "2026-07-10T21:36:00Z",
+      "notes": "Delivered in the artifacts dispatch (created with the change)."
+    },
+    {
+      "id": "13",
+      "title": "Verification: build/vet/test green, store tests self-skip w/o DATABASE_URL, strict validate, boundary check",
+      "module": "telemetry",
+      "depends_on": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10",
+        "11",
+        "12"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-11T03:05:30Z",
+      "completed_at": "2026-07-11T03:06:26Z",
+      "notes": "LEADER-run verification. `go build ./...` + `go vet ./...` clean; cmd/poller builds. `go test ./... -count=1` green; telemetry tests fast (0.30s), 4 store tests SELF-SKIP without DATABASE_URL, no Tesla API call fires (23 telemetry tests total). `openspec validate telemetry-add-nightly-snapshots --strict` = valid. Boundary: telemetry DIRECT project imports = internal/account, internal/tesla, internal/telemetry/db ONLY (accountdb/auth appear only transitively via account's public package \u2014 allowed); no gateway/html/template/templ/internal/config import; no km field or column (km only in explanatory comments + Km()/Kmh() companions).",
+      "duration_seconds": 56
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-07-11T09:59:04Z",
+      "scope": "review:R1-01",
+      "made_by": "autopilot",
+      "decision": "On the R1-01 fix, when the once-per-account ListVehicles fails with a NON-401 error, record every vehicle for that account as failure/api-error for the cycle rather than falling back to per-vehicle blind waking.",
+      "why": "D3 does not spell out the non-401 list-failure path. Blindly waking each vehicle would re-introduce the exact paid-WakeUp waste R1-01 targets. api-error still honors per-vehicle isolation + exactly-one-attempt-per-vehicle; a transient list failure simply skips that account's cycle. Flagged for reviewer to confirm vs a per-vehicle wake fallback.",
+      "covered_by": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review the completed change telemetry-add-nightly-snapshots (new internal/telemetry module, tier 3 of nightly-vehicle-telemetry). Read the diff, not the whole module. Validate, per the doc pack (CLAUDE.md, AGENTS.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/telemetry/AGENTS.md): (1) MODULE BOUNDARY \u2014 internal/telemetry imports only the account + tesla PUBLIC ports, pgx/pgxpool, internal/telemetry/db (telemetrydb), google/uuid, stdlib; NO accountdb/tesla-internals/gateway/html/template/templ/internal/config import; no FK from telemetry tables into account tables (D2); telemetrydb imported by no other module. (2) UNITS non-negotiable \u2014 miles stored API-native; km ONLY via nil-safe Km()/Kmh() value-receiver companions using package const milesToKm=1.609344; NO km column or struct field. (3) SENTRY fidelity \u2014 SentryMode *bool end-to-end, nil<->SQL NULL, *true/*false faithful; pgtype NEVER leaks out of the module (mapped at the DB boundary only). (4) ISOLATION/RETRY (D5/D9) \u2014 per-vehicle error containment (one vehicle's failure never aborts account or cycle); exactly one poll_attempt per vehicle per cycle; reason mapping ok/unauthorized(no retry)/asleep-timeout/api-error(retried exactly once); whole-cycle error only when AllRegisteredVehicles fails; per-account token resolved once, ErrNoTeslaConnection => all that account's vehicles unauthorized with no Tesla calls. (5) SCHEDULER (D7) \u2014 pure nextRun (unit-tested), daily at hour:minute in tz, graceful shutdown on ctx cancel with no new cycle started; note the worker's design that Run discards the CycleReport (leader flagged a possible observability gap \u2014 assess whether acceptable for tier 3). (6) TESTS \u2014 offline collector/wake/schedule tests use fakes with NO live Tesla call and NO DATABASE_URL; store tests are DATABASE_URL-gated and self-skip; tasks-exploration test-free rule not violated. (7) SPEC/TASKS coverage \u2014 every tasks.md checkbox reflects real completion; artifacts pass strict validate. ANTI-GAMING: confirm no task title/criterion was weakened or deleted; no self-approved statuses; worker only marked its own tasks. Leader-integrated files (sqlc.yaml second telemetrydb entry, Makefile multi-dir MIGRATIONS_DIRS, internal/config poller env, cmd/poller/main.go) are in scope for review too. Default to a cheaper model and ESCALATE ON DOUBT: return changes-requested asking for leader re-review rather than approving anything you are unsure about. You alone may set review.status/reviewer-approved.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-11T03:11:16Z",
+        "agent": "telemetry-reviewer",
+        "model": "claude-sonnet-4-6",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1-01",
+            "severity": "major",
+            "location": "internal/telemetry/service.go:117-135 (collectAccount) vs openspec/changes/telemetry-add-nightly-snapshots/design.md D3 and tasks.md task 6.1",
+            "note": "D3 specifies: 'Call ListVehicles once per account to read the current State of all vehicles; if online, fetch immediately; if asleep/offline, run the bounded wake flow.' Task 6.1 explicitly states: 'call ListVehicles once, then per vehicle wake-if-needed (task 5), VehicleData'. The implementation omits the upfront per-account ListVehicles call and instead calls waitUntilOnline (which unconditionally calls WakeUp) for every vehicle regardless of whether it is already online. This means even an online vehicle receives an unnecessary WakeUp API call per nightly cycle, wasting paid Fleet API quota contrary to D3's explicit cost-reduction rationale ('one ListVehicles per account instead of per vehicle'). The task 6.1 checkbox is marked done but the specified behavior is not implemented.",
+            "status": "fixed"
+          },
+          {
+            "id": "R1-02",
+            "severity": "minor",
+            "location": "internal/telemetry/scheduler.go:67 (Scheduler.Run) and cmd/poller/main.go",
+            "note": "Scheduler.Run discards CollectAll's CycleReport and error with '_, _ = s.collector.CollectAll(ctx)'. cmd/poller logs startup but has no per-cycle log. For a nightly background poller this is an observability gap: if every night's collection fails silently, the only way to detect it is by querying the database. The leader flagged this in task 9 notes as 'a possible observability gap, not a blocker.' Assessed as minor for tier 3 (collection foundation, not operations tier), but worth addressing before production use. Suggested fix: at minimum log the CycleReport summary (attempted/succeeded/failures) and any whole-cycle error after each CollectAll call in Run, or return the report/error to a caller hook.",
+            "status": "fixed"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-07-11T10:03:29Z",
+        "agent": "telemetry-reviewer",
+        "model": "claude-sonnet-4-6",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R2-01",
+            "severity": "info",
+            "note": "R1-01 verified fixed. internal/telemetry/service.go:collectAccount now calls s.tsla.ListVehicles(ctx,creds) EXACTLY ONCE per account via the new listStates helper (service.go:172-182), building a teslaID->State map. state==\"online\" goes straight to VehicleData with ZERO WakeUp calls (attemptVehicle:214-225); asleep/offline/absent runs waitUntilOnline as per D4. Fleet-wide ErrUnauthorized on ListVehicles records all vehicles unauthorized with no further calls (service.go:142-148). Non-401 ListVehicles failure records all vehicles as api-error rather than blindly waking them (service.go:149-158) — the new D1 decision (see below). service_test.go:TestCollectAll_OnlineVehicle_NoWakeStraightToFetch asserts ft.wakeCalls[10]==0 and ft.listCalls==1 with a real call-counting fake; TestCollectAll_AccountWideListVehicles401_AllUnauthorizedNoPerVehicleCalls asserts the 401 short-circuit; TestCollectAll_AsleepVehicle_WakeFlowRuns proves the asleep branch still runs WakeUp. All three tests pass with actual fake-counter assertions, not vacuous. go build./... + go vet./... clean; go test ./internal/telemetry/... -count=1 PASS (19 tests + 4 DB tests self-skipped).",
+            "status": "open"
+          },
+          {
+            "id": "R2-02",
+            "severity": "info",
+            "note": "R1-02 verified fixed. scheduler.go:Run (line 72-73) now captures `report, err := s.collector.CollectAll(ctx)` and calls `logCycle(report, err)`. logCycle (scheduler.go:82-88) emits `telemetry cycle: whole-cycle error: <err>` when non-nil and `telemetry cycle: attempted=N succeeded=N failures={reason=count ...}` always, using stdlib log.Printf. formatFailures (scheduler.go:92-110) renders the map in stable sorted order. TestScheduler_RunsAndLogsOneCycle exercises this path and passes (log output visible in test run). nextRun and graceful-shutdown (D7) unchanged.",
+            "status": "open"
+          },
+          {
+            "id": "R2-D1",
+            "severity": "info",
+            "note": "New leader decision D1 (non-401 ListVehicles failure -> all vehicles api-error, no per-vehicle wake fallback) assessed as ACCEPTABLE under D3/D4. D3 does not specify a fallback for a non-401 list failure; per-vehicle blind waking would re-introduce the WakeUp waste R1-01 targeted. The decision preserves per-vehicle isolation (each vehicle gets exactly one poll_attempt row) and the cycle continues with other accounts. The trade-off (a transient list error skips an account's collection for one night) is acceptable for a nightly snapshot tier where a transient failure will self-heal the next night. No design violation found.",
+            "status": "open"
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-07-10T21:37:36Z",
+      "agent": "leader",
+      "event": "Artifacts created by telemetry worker (first module scaffolded from scratch; AGENTS.md delivered). openspec validate --strict passed. Schema: vehicle_snapshots (raw JSONB + typed cols, sentry_mode nullable) + poll_attempts. Decisions: no cross-module FK (D2), per-account batching (D3), isolation+1 retry (D5), flag-broken out of scope->poll_attempts reason (D6). Collector port: CollectAll(ctx) (CycleReport, error). No blocking open questions."
+    },
+    {
+      "at": "2026-07-10T21:37:36Z",
+      "agent": "leader",
+      "event": "Leader decision on worker note: multi-dir goose migrations (each module owns internal/<module>/db/migrations; Makefile runs one -dir per module) \u2014 the boundary-respecting choice matching account's precedent + config.yaml persistence rule. Not a new user product decision; autopilot proceeds."
+    },
+    {
+      "at": "2026-07-10T21:42:30Z",
+      "agent": "leader",
+      "event": "CHECKPOINT for session clear. Wave 1 complete: tasks 1, 3.1, 4, 5 done (telemetry.go, wake.go, db/query.sql, db/migrations/20260710000002_init_telemetry.sql); tasks 8 (config) + 12 (AGENTS.md) done. `go build ./...` GREEN (db/ has no generated .go yet \u2014 expected, regen is task 3.2). No background agents running. RESUME POINT = leader task 2 next. Remaining: [2] leader wire sqlc.yaml (second telemetrydb entry: schema=internal/telemetry/db/migrations, queries=internal/telemetry/db/query.sql, pkg=telemetrydb, keep uuid override) + Makefile second goose -dir for internal/telemetry/db/migrations; then run [3.2] `make sqlc` (sentry_mode BOOLEAN nullable -> pgtype.Bool; raw_data JSONB -> []byte, matches Snapshot.RawData). Then wave 2 worker: [6] service.go (map *bool<->pgtype.Bool at boundary), [7] scheduler.go, [10] offline tests, [11] DATABASE_URL-gated store tests. Then leader: [9] cmd/poller (mirror cmd/web: config.Load, DATABASE_URL, signal.NotifyContext, pgxpool, account.NewService(pool,cfg.ClientID,cfg.ClientSecret), tesla.NewClient(), telemetry.NewService(pool,acct,tesla,cfg), scheduler.Run(ctx)), [13] full verification, then dispatch telemetry-reviewer (Step 7). Autopilot still ON. NOTE: skill instructions were updated mid-flight (budget instrumentation, duration_seconds, model tiering, checkpoint gating) \u2014 resume session uses the new skill; existing task entries predate the budget/duration_seconds fields (leave as-is; add going forward)."
+    },
+    {
+      "at": "2026-07-11T02:53:39Z",
+      "agent": "leader",
+      "event": "RESUMED (session 71b0c1b5). Budget clear at resume (5h 61%, ctx 5%). Tasks 2 + 3.2 done leader-integrated: sqlc.yaml gained the telemetrydb entry; Makefile switched to ordered MIGRATIONS_DIRS (account then telemetry) with forward/reverse goose loops; `make sqlc` regenerated telemetrydb (db.go/models.go/query.sql.go) \u2014 types verified (SentryMode pgtype.Bool, RawData []byte). go build ./... + vet green; no cross-module import of telemetrydb. NEXT = dispatch wave 2 telemetry worker for tasks 6 (service.go), 7 (scheduler.go), 10 (offline tests), 11 (DATABASE_URL-gated store tests). These share internal/telemetry files and have a dependency chain (6->7, 10 needs 6/7) so they run SERIAL in one worker, not parallel."
+    },
+    {
+      "at": "2026-07-11T03:06:26Z",
+      "agent": "leader",
+      "event": "Wave 2 complete + leader integration done. Worker delivered service.go, scheduler.go, service_test.go, scheduler_test.go, db_integration_test.go (tasks 6,7,10,11). Leader wrote cmd/poller/main.go (task 9) and ran verification (task 13): go build/vet ./... clean, go test ./... green (telemetry 23 tests, 0.3s, 4 store tests self-skip w/o DATABASE_URL, no Tesla call), strict validate valid, boundary clean (direct imports account+tesla+telemetrydb only; no km field/column). Status=verified. Budget at review gate: 5h 83%%, ctx 12%% \u2014 under 90, proceeding. Dispatching telemetry-reviewer on Sonnet (read diff, escalate on doubt). Observability note logged on task 9 for reviewer: Scheduler.Run discards CycleReport / no per-cycle logging."
+    },
+    {
+      "at": "2026-07-11T03:13:20Z",
+      "agent": "leader",
+      "event": "TRIAGE of review round 1 (verdict changes-requested). R1-01 (Major) ACCEPTED \u2014 verified against internal/telemetry/service.go:collectAccount: no upfront per-account ListVehicles; waitUntilOnline WakeUps every vehicle unconditionally (comment claims it lists once but code does not). Real cost impact (paid WakeUp per online vehicle). Task 6 reopened to pending. R1-02 (Minor, observability) ACCEPTED for opportunistic fix in the same re-dispatch (Scheduler.Run discards CycleReport/logs nothing). No findings rejected. Change status -> changes-requested."
+    },
+    {
+      "at": "2026-07-11T03:13:20Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at the review boundary. five_hour_pct=92 (>= 90 gate), context_pct=13, five_hour_resets_at=1783752600 (2026-07-11T06:50:00Z UTC). Stopping cleanly BEFORE the R1-01/R1-02 fix re-dispatch to avoid draining the 5-hour bucket further; context is fine (13%) so this is a 5-hour trip, not a context trip. State is truthful: change=changes-requested, review round 1 recorded (changes-requested), task 6=pending (R1-01 rework note), task 7 done+R1-02 rework note; all other tasks done; build/vet/test currently green for the SHIPPED behavior. RESUME PLAN (after 06:50Z, /clear then `resume telemetry-add-nightly-snapshots`): re-dispatch the telemetry worker (Opus) to fix R1-01 in collectAccount (ListVehicles once/account -> skip WakeUp for online vehicles, D3/D4) + extend service_test.go (assert online vehicles get 0 WakeUp, ListVehicles once/account) + R1-02 (log CycleReport summary+error in Scheduler.Run); then leader re-verify (build/vet/test, strict validate, boundary); then SendMessage the SAME reviewer (agentId a6c051dd8e7e4acb5) for round 2 re-verifying only the prior findings + changed files; on approved -> Step 8 archive + roadmap tier update + Step 9 autopilot advance. Autopilot still ON, paused only by this budget checkpoint. No background agents running."
+    },
+    {
+      "at": "2026-07-11T09:52:56Z",
+      "agent": "leader",
+      "event": "RESUMED (session 2d7d8731). Budget at resume: five_hour_pct=96, context_pct=4. Past the checkpoint's five_hour_resets_at (06:50Z) but the 5h bucket reads 96% (new window already consumed) — OVER the 90 gate. Surfaced to the user; user chose PROCEED NOW ANYWAY (accepting the risk the 5h cap trips mid-dispatch; state stays truthful so resume picks up cleanly). Re-read current SKILL.md (user noted an instructions update; no behavioral change to this rework step). Prior reviewer subagent (a6c051dd8e7e4acb5) belongs to a dead session and is unreachable from this fresh session -> per Step 7.3 the round-2 reviewer will be a FRESH dispatch with round-1 findings inline, not a SendMessage reuse. Dispatching telemetry worker (Opus) for the R1-01 + R1-02 rework: task 6 -> current."
+    },
+    {
+      "at": "2026-07-11T10:01:00Z",
+      "agent": "leader",
+      "event": "REWORK WAVE complete + re-verified. telemetry worker (Opus, agentId acc9894609f99117c) delivered R1-01 (service.go: ListVehicles once/account -> skip WakeUp for online vehicles, D3/D4; service_test.go asserts online=0 WakeUp & ListVehicles==1/account, fleet-wide-401 all-unauthorized-no-per-vehicle-calls, asleep-vehicle-wakes) and R1-02 (scheduler.go: Run logs one-line CycleReport summary attempted/succeeded/failures + whole-cycle error via stdlib log; scheduler_test additions). Task 6 -> done. Leader re-verification: go build ./... + go vet ./... clean; go test ./... -count=1 GREEN (telemetry 0.87s, 4 store tests self-skip w/o DATABASE_URL, no Tesla call); openspec validate --strict = valid; boundary clean (telemetry direct imports = account + tesla + telemetrydb only; account/db+auth transitive-via-account = allowed; ZERO gateway/config/html/templ imports). Status -> verified. REWORK BUDGET bracket (resume->now): five_hour_pct 96 -> 42 (the 5h bucket RESET mid-wave, so pct dropped despite spend; the earlier 96% at resume was a stale/rolling reading), context_pct 4 -> 9, cost_usd 69.22 -> 73.99 (delta ~4.77 for worker + re-verify). Historical per-task wave-2 budgets on tasks 6/7 left intact. D1 recorded (worker's non-401 ListVehicles judgment call, autopilot). DOC-PACK GAPS noted by worker: repo-root AGENTS.md does not exist (base Doc-Pack lists it -> dropped per Step 0.5); docs/deployment.md referenced by internal/telemetry/AGENTS.md ## Doc-Pack (module) does NOT exist -> broken reference, pre-existing doc drift, surfaced to user (not fixed in this change). NEXT (Step 7): dispatch a FRESH telemetry-reviewer (round 2) with round-1 findings inline (prior reviewer session dead/unreachable), re-checking ONLY R1-01 + R1-02 + changed files (service.go, service_test.go, scheduler.go, scheduler_test.go). Budget clear (42%) -> proceeding, autopilot ON."
+    }
+  ]
+}
