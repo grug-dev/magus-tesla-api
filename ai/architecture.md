@@ -133,3 +133,80 @@ our own domain models never carry a vendor suffix.**
 
 *Why: you should be able to tell at a glance whether a value is vendor-shaped (fragile,
 external) or a domain model (yours, stable). The suffix makes an accidental leak obvious.*
+
+---
+
+## 7. Read-Heavy Workload Profile
+
+This system has an **asymmetric workload**: ~99% of database operations are reads
+(user opens dashboard, HTMX fragment refresh, API consumer fetches metrics) and ~1%
+are writes (the nightly telemetry batch at 03:30 that appends one snapshot per
+vehicle across all accounts). Every architectural and schema decision must bias
+toward **read performance**. Write optimization is secondary and happens off-hours.
+
+### The Reader/Collector port split
+
+Data-owning modules (e.g. `internal/telemetry/`) expose **two distinct ports**:
+
+- **`Collector`** — called by the nightly batch (`cmd/scheduler` or equivalent) to
+  write data. The gateway never calls this.
+- **`Reader`** — called by the gateway and other read consumers to read data. This
+  is the only port the gateway depends on at request time.
+
+The split is a **read-optimization design**, not just a separation of concerns: it
+makes it impossible for a user-facing request to trigger a write path, and it lets
+the `Reader` interface be shaped purely for dashboard query patterns (batch, latest,
+aggregated) without being polluted by collection concerns.
+
+Reference implementation: `internal/telemetry/` — `Collector.CollectAll` (write,
+nightly) vs `Reader.LatestSnapshotsByAccount` (read, per dashboard load).
+
+### Pre-computed summaries
+
+Dashboards read **pre-aggregated data**, not raw append-only tables on every request.
+The nightly batch is the right time to compute daily/weekly/monthly summaries and
+write them to summary tables (or materialized views). This keeps dashboard reads
+cheap (one indexed `SELECT` from a summary table) instead of expensive (scanning
+months of raw snapshots and aggregating on the fly).
+
+- Summary tables live in the owning module's `db/` package, written by the
+  `Collector` port, read by the `Reader` port.
+- They are an **optimization**, not a replacement for raw history — the immutable
+  append-only tables remain the source of truth.
+
+### Concrete patterns already in use (now conventions)
+
+1. **Extracted typed columns alongside `JSONB`** — `vehicle_snapshots` stores the
+   lossless `raw_data JSONB` *plus* extracted typed columns (battery_level, odometer,
+   etc.). Dashboards read the typed columns (indexed, cheap); the raw JSONB is there
+   for lossless replay or future field extraction. Convention: never force a
+   dashboard to extract from JSONB on the hot path.
+
+2. **`DISTINCT ON` for "latest per X"** — `LatestSnapshotsByAccount` uses
+   `DISTINCT ON (tesla_id) ... ORDER BY tesla_id, captured_at DESC` to get the latest
+   snapshot per vehicle in one index scan. Convention: batch reads like this replace
+   N+1 per-vehicle queries at the module interface boundary.
+
+3. **`account_id` as leading index column** — every multi-tenant table indexes
+   `account_id` first, because every dashboard read scopes by account. The
+   `(account_id, tesla_id, captured_at)` index in telemetry covers both the WHERE
+   filter and the ORDER BY in a single range scan. Convention: no multi-tenant table
+   is created without an `account_id`-leading index.
+
+4. **Append-only inserts for history** — `vehicle_snapshots` and `poll_attempts`
+   are `INSERT`-only (no UPDATE/DELETE). Writes are cheap; reads are indexed.
+   Convention: historical event tables are append-only.
+
+### What this means for any new feature
+
+Before adding a new query, table, or module interface, ask:
+
+- **Is this on the read path?** Then it must be fast — indexed, batched, and shaped
+  for the dashboard's access pattern.
+- **Is this on the write path?** Then it runs during the nightly batch and has
+  latitude to be slower (the user isn't waiting).
+- **Could a summary table replace a runtime aggregation?** If yes, compute it in the
+  nightly batch and read cheap during the day.
+
+The database schema, module interfaces, and API surface should all reflect this
+asymmetry: optimized reads at the edge, deferred writes at the center.

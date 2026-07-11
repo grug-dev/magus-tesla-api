@@ -36,6 +36,7 @@ The project should always prioritize:
 8. Testability.
 9. Maintainability.
 10. Low operational cost.
+11. **Read-optimized storage.** Reads far outnumber writes (users open dashboards many times a day; writes happen once nightly during the telemetry batch). Schema, indexes, and module interfaces must bias toward read performance. Pre-compute summaries during the nightly batch so dashboards read cheap during the day. See `ai/architecture.md` §7 for the full workload profile and concrete conventions.
 
 Raw Tesla API responses are only an intermediate step. The primary value of the platform comes from calculated insights.
 

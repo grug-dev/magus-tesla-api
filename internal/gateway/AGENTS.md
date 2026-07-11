@@ -38,6 +38,23 @@ It renders what other modules expose; it owns no business data.
 - Handlers stay thin: session/auth check → call an interface → render. Testable logic
   goes in helper funcs driven through interface fakes (see `handlers/`).
 
+## Read-only at request time
+
+The gateway is **read-only on every user-facing request**. This is both a tenancy
+safety rule and a read-optimization principle (see [`ai/architecture.md`](../../ai/architecture.md)
+§7): the hot path (user → DB read → HTML) stays cheap and predictable.
+
+- Handlers only call **`Reader` ports** (e.g. `account.RegisteredVehicles`,
+  `telemetry.Reader.LatestSnapshotsByAccount`). Never call `Collector` or
+  `Writer` ports from a handler.
+- No writes, no Tesla API calls, no side effects on user requests. The only
+  user-initiated Tesla API call is listing vehicles on first Tesla connect
+  (one-time seed), and even that happens through the account module's interface —
+  not the gateway calling Tesla directly.
+- All writes (telemetry collection, summary computation, token rotation) happen in
+  the nightly batch (`telemetry.Collector`) or inside `account.Service` methods
+  called from non-gateway paths — never from a gateway handler.
+
 ## Testing
 
 - `httptest` against `NewEngine` with fakes for the `Deps` interfaces — the existing

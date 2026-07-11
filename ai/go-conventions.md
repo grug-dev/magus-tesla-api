@@ -80,6 +80,37 @@ Every future DB-backed module follows the same shape. Full deploy runbook:
 - **DB tests are `DATABASE_URL`-gated** and self-skip when it is unset, so `go test ./...` stays
   green without a database. Pure logic (e.g. token-expiry math) is unit-tested without a DB.
 
+### Read optimization (project-wide)
+
+This system has an **asymmetric workload** — ~99% reads, ~1% writes (the nightly
+telemetry batch at 03:30). See [`architecture.md`](./architecture.md) §7 for the
+full rationale. The DB-level conventions below are binding for every DB-backed
+module:
+
+- **`account_id` is the leading index column** on every multi-tenant table. Every
+  dashboard read scopes by account; an index without `account_id` first forces a
+  scan when the planner can't pre-filter by tenant. Reference: the
+  `(account_id, tesla_id, captured_at)` index in `internal/telemetry/db/migrations/`.
+- **Extract typed columns for hot reads alongside `JSONB` raw payloads.** When a
+  table stores a lossless `raw_data JSONB` column (for replay/future extraction),
+  also extract the fields dashboards need as typed, indexed columns. Dashboards
+  read the typed columns — never extract from JSONB on the hot path. Reference:
+  `vehicle_snapshots.battery_level`, `odometer`, etc. alongside `raw_data`.
+- **`DISTINCT ON (x) ... ORDER BY x, time DESC` for "latest per X" queries.** One
+  Postgres index scan, no N+1. Reference: `LatestSnapshotsByAccount` in
+  `internal/telemetry/db/query.sql`. Write batch reads at the module interface
+  level (`LatestSnapshotsByAccount` — all vehicles in one query), never per-entity
+  helpers (`LatestSnapshotForVehicle`) that the caller must loop over.
+- **Append-only inserts for historical event tables.** No `UPDATE`/`DELETE` on
+  snapshot/history tables — they are immutable. Writes are cheap (blind `INSERT`);
+  reads are indexed. Reference: `vehicle_snapshots`, `poll_attempts`.
+- **Pre-compute dashboard summaries during the nightly batch.** If a dashboard
+  needs an aggregation (daily distance, weekly energy, monthly cost), compute it in
+  the nightly `Collector` batch and write it to a summary table (or materialized
+  view). Dashboard reads do `SELECT ... FROM summary_table`, not a runtime
+  `GROUP BY` over months of raw rows. Summary tables live in the owning module's
+  `db/` package, written by `Collector`, read by `Reader`.
+
 ---
 
 ## Error-handling pattern (401 / auto-refresh)
