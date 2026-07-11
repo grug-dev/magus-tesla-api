@@ -74,6 +74,14 @@ layer is each module's own `AGENTS.md`, added to the pack by the leader per disp
   Module-specific docs are declared per module in the `## Doc-Pack (module)` section of
   `internal/<module>/AGENTS.md` — additive to this base, never replacing it (e.g. the
   htmx docs live in the gateway module's pack).
+- **Design-Gates:** `database` — design areas whose artifacts require the user's explicit
+  confirmation before Apply (design + rationale + index plan shown to the user, iterated
+  until confirmed). `database` is built-in and always on; listing it here is for
+  visibility — additional areas may be appended later.
+- **Performance-Profile:** `read-heavy — read performance is mandatory over write
+  performance; writes are mostly done by pollers at midnight, so denormalizing, indexing
+  aggressively, and precomputing for reads is acceptable — never at the cost of the
+  modular-monolith boundaries or module data ownership.`
 
 ---
 

@@ -206,6 +206,10 @@ so it can re-verify the app's domain and key over time. So:
   [docs/layer1-app-registration.md](docs/layer1-app-registration.md) for context.
 
 
+### How artifacts work?
+
+design.md — in the OpenSpec flow, proposal.md carries the what/why, specs/ carry behavioral requirements, tasks.md the implementation steps, and design.md is where technical decisions like table design, indexes, and migrations belong
+
 ## Update GO
 
 `mise use go@latest` to update to the latest Go version. If you don't have `mise` installed

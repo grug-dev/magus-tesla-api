@@ -22,9 +22,12 @@ rules:
     - Describe capability behavior (WHAT); implementation (HOW) lives in design.md and ai/*.md.
   design:
     - Keep each module's persistence schema module-scoped (internal/<module>/db) to preserve boundaries.
+    - Any new/changed database object (table, column, index, constraint, view, migration) MUST include the full schema, the rationale (why this design is right — trade-offs and rejected alternatives), and an index plan justified against the project's read patterns. design.md is REQUIRED for any DB-touching change — never skipped as "simple".
+    - Designs optimize for READ performance by default - reads are mandatory-fast; writes run mostly via midnight pollers and may pay the cost (denormalize, index aggressively, precompute) — never at the cost of module boundaries or data ownership.
   proposal:
     - State whether the change is breaking and which modules it affects.
     - Must use grill-me skill
+    - Performance-sensitive proposals (anything touching the database or a hot read path) must name the read path(s) they affect.
     - Change names must start with the owning module name — <module>-<verb-noun-slug> (e.g. tesla-add-charge-state); use platform- for cross-cutting changes.
     - If the change spans multiple modules, do NOT create one big change — create openspec/roadmaps/<feature-name>.md (+ sibling .progress.json) with one module-prefixed change per tier, then proceed one module change at a time (see ai/agentic-workflow.md §pipeline).
   tasks:
