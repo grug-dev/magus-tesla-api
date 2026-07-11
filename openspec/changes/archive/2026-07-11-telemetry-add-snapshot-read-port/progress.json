@@ -164,7 +164,8 @@
             "id": "R1-001",
             "severity": "minor",
             "note": "openspec/changes/telemetry-add-snapshot-read-port/tasks.md: checkboxes for 2.1, 8.1, 9.1, 9.2, 9.3, 9.4 remain unchecked ([ ]) despite all corresponding work being verifiably complete — query.sql.go contains the generated LatestSnapshotsByAccount, AGENTS.md has the Reader section, go build/vet/test all pass. The pipeline contract states tasks.md wins on implementation done-ness; these unchecked boxes misrepresent state. Leader should tick these boxes. Code is correct; no blocker.",
-            "status": "open"
+            "status": "resolved",
+            "resolution": "Leader ticked checkboxes 2.1, 8.1, 9.1, 9.2, 9.3, 9.4 in tasks.md at 2026-07-11T22:59Z before archive; tasks.md now reflects the verified-complete state. Doc-only fix, no code change."
           }
         ]
       }

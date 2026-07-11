@@ -6,7 +6,7 @@
   "autopilot": true,
   "autopilot_note": "User directive 2026-07-10: drive all tiers to completion without asking for go-ahead between tiers; pause only for changes-requested reviews, destructive/commit actions, new decisions beyond the roadmap Decisions, or interruptions.",
   "request": "Build the poller: a scheduled runner (cmd/poller) that periodically fetches vehicle data for all connected users and appends snapshots to the database — the foundation for all historical data features (daily digest, battery health log, charge session detection)",
-  "updated_at": "2026-07-11T10:05:22Z",
+  "updated_at": "2026-07-11T23:01:04Z",
   "tiers": [
     {
       "id": 1,
@@ -60,13 +60,17 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [3],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-4-8",
       "started_at": "2026-07-11T10:06:00Z",
-      "completed_at": null,
+      "completed_at": "2026-07-11T23:01:04Z",
       "tokens": null,
-      "notes": "Split from the original single gateway tier per the user's 2026-07-11 tier-4 scope decision (Option A: surface nightly snapshot data on the dashboard). This tier adds a public READ port to internal/telemetry returning the latest stored snapshot per vehicle (pgtype->domain mapped inside the module; Km()/Kmh() companions on the returned DTO), read-only over vehicle_snapshots. No new collection logic. Unblocks tier 5 (gateway display)."
+      "budget": {
+        "cost_usd_approx": null,
+        "note": "Tier-4 apply/review ran in a prior session that did not bracket per-task budget (tasks carry no budget field). Not reconstructable; recorded null rather than guessed."
+      },
+      "notes": "Shipped + reviewer-approved (telemetry-reviewer, round 1 — approved) + archived to openspec/changes/archive/2026-07-11-telemetry-add-snapshot-read-port; delta synced into specs/telemetry/spec.md (+1 requirement). Public READ port on internal/telemetry: Reader.LatestSnapshotsByAccount via DISTINCT ON (tesla_id) batch query (existing (account_id,tesla_id,captured_at) index, no N+1); pgtype->domain confined to mapping.go/dbStore; read-only, no migration. Offline reader_test + DATABASE_URL-gated store test (self-skips). Round-1 minor R1-001 (6 unchecked tasks.md boxes) resolved by leader before archive; no code change. No autopilot decisions (decisions[] empty). Tier 5 (gateway-read-stored-vehicles, depends_on [4]) now UNBLOCKED."
     },
     {
       "id": 5,

@@ -40,7 +40,7 @@
 
 ## 2. sqlc regeneration (`internal/telemetry/db/`) — LEADER-INTEGRATED, depends on 1
 
-- [ ] 2.1 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/telemetry/db/query.sql.go`.
+- [x] 2.1 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/telemetry/db/query.sql.go`.
       Confirm that only `internal/telemetry/db/query.sql.go` changed (models.go is
       untouched; no new struct is needed — `VehicleSnapshot` already covers the output).
       Confirm no cross-module import of `telemetrydb` was introduced. This is a
@@ -131,7 +131,7 @@
 
 ## 8. `AGENTS.md` public-interface update (`internal/telemetry/AGENTS.md`) — no dependencies, parallel-ok
 
-- [ ] 8.1 In `internal/telemetry/AGENTS.md`, append `Reader` to the `## Public interface (the port)`
+- [x] 8.1 In `internal/telemetry/AGENTS.md`, append `Reader` to the `## Public interface (the port)`
       section. Do NOT remove, rewrite, or move any existing content. Append only:
 
       > - `Reader` — `LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)`:
@@ -142,15 +142,15 @@
 
 ## 9. Verification — depends on 1–8
 
-- [ ] 9.1 `go build ./...` and `go vet ./...` pass with no errors or warnings. The generated
+- [x] 9.1 `go build ./...` and `go vet ./...` pass with no errors or warnings. The generated
       `internal/telemetry/db/query.sql.go` must be present and current (task 2 completed).
       `internal/telemetry` compiles with the new `Reader` interface and `NewReader` constructor.
-- [ ] 9.2 `go test ./...` is green and fast. The offline unit test (task 6) runs without a
+- [x] 9.2 `go test ./...` is green and fast. The offline unit test (task 6) runs without a
       database or network. The `DATABASE_URL`-gated integration test (task 7) self-skips when
       `DATABASE_URL` is unset and passes when set. No Tesla API call fires from the test run.
-- [ ] 9.3 `openspec validate telemetry-add-snapshot-read-port --strict` passes and every
+- [x] 9.3 `openspec validate telemetry-add-snapshot-read-port --strict` passes and every
       tasks.md checkbox reflects real completion.
-- [ ] 9.4 Boundary check: `internal/telemetry` imports only its allowed packages (`account` +
+- [x] 9.4 Boundary check: `internal/telemetry` imports only its allowed packages (`account` +
       `tesla` public ports, `pgx/v5` + `pgxpool`, `telemetrydb`, `uuid`, stdlib). No other
       module imports `internal/telemetry/db` (`telemetrydb`). No `pgtype` type appears in any
       public type or interface signature. No km field on any domain type or any DB column.
