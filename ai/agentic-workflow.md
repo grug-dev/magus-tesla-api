@@ -96,9 +96,11 @@ folder whose direct children are the modules (`internal/`; workers are sandboxed
 child each) — and **`Doc-Pack`** — the module-agnostic **base** docs every worker and
 reviewer must read. Each module may extend the base through a `## Doc-Pack (module)`
 section in its own `AGENTS.md` (e.g. the gateway declares the htmx docs); module packs
-are **additive-only** — they add docs, never remove or override base ones. The resolved
+are **additive-only** — they add docs, never remove or override base ones. An optional
+**`Doc-Pack (reviewer)`** key lists docs added only to reviewer dispatches (leader-protocol
+docs workers don't need — here: this file). The resolved
 doc pack for a dispatch = base Doc-Pack + the module's Doc-Pack section + the module's
-`AGENTS.md` itself, deduped by the leader.
+`AGENTS.md` itself (+ the reviewer pack for reviewer dispatches), deduped by the leader.
 
 Loading is guaranteed in layers: (1) the assistant harness injects the CLAUDE.md/AGENTS.md
 hierarchy into every subagent automatically; (2) the worker/reviewer role definitions

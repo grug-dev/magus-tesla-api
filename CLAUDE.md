@@ -69,11 +69,15 @@ layer is each module's own `AGENTS.md`, added to the pack by the leader per disp
 - **Modules-Root:** `internal/` — the only folder whose direct children are the monolith's
   modules. Pipeline module resolution considers only these; each worker is sandboxed to
   exactly one child of this folder (plus explicitly granted paths).
-- **Doc-Pack (base — every worker AND reviewer, all modules):** `CLAUDE.md`, `AGENTS.md`
- `ai/*.md`,  `ai/architecture.md`, `ai/go-conventions.md`, `ai/agentic-workflow.md`.
-  Module-specific docs are declared per module in the `## Doc-Pack (module)` section of
-  `internal/<module>/AGENTS.md` — additive to this base, never replacing it (e.g. the
-  htmx docs live in the gateway module's pack).
+- **Doc-Pack (base — every worker AND reviewer, all modules):** `CLAUDE.md`,
+  `ai/architecture.md`, `ai/go-conventions.md`. Lean on purpose — every dispatch
+  re-reads it in full. Module-specific docs are declared per module in the
+  `## Doc-Pack (module)` section of `internal/<module>/AGENTS.md` — additive to this
+  base, never replacing it (e.g. the htmx docs live in the gateway module's pack).
+- **Doc-Pack (reviewer):** `ai/agentic-workflow.md` — the leader-protocol/contract doc,
+  added to reviewer dispatches only; workers never receive it.
+- **Context-Checkpoint-At:** `60` — context-window % that trips the auto-checkpoint;
+  checkpoint + `/clear` + resume beats pushing a long context further.
 - **Design-Gates:** `database` — design areas whose artifacts require the user's explicit
   confirmation before Apply (design + rationale + index plan shown to the user, iterated
   until confirmed). `database` is built-in and always on; listing it here is for
