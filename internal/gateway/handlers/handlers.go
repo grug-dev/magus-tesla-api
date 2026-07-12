@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -34,10 +35,10 @@ const stalenessThreshold = 36 * time.Hour
 
 // Deps are the gateway handlers' dependencies.
 type Deps struct {
-	Pool              *pgxpool.Pool
-	Account           account.Service
-	Google            *googleauth.Client
-	Tesla             tesla.VehicleService
+	Pool    *pgxpool.Pool
+	Account account.Service
+	Google  *googleauth.Client
+	Tesla   tesla.VehicleService
 	// TelemetryReader is the telemetry read port; injected at construction.
 	// The gateway calls LatestSnapshotsByAccount once per dashboard render.
 	// NEVER import internal/telemetry/db — all access through this interface only.
@@ -169,6 +170,13 @@ func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.Vehi
 	return fragments.VehiclesData{Vehicles: mapVehicles(persisted, nil)}
 }
 
+// isStale reports whether a snapshot captured at capturedAt is stale relative to now.
+// Pure function of (capturedAt, now) so the exact-at-threshold boundary is
+// deterministically testable — a wall-clock time.Since would be flaky at the edge.
+func isStale(capturedAt, now time.Time) bool {
+	return now.Sub(capturedAt) > stalenessThreshold
+}
+
 // mergeSnapshots builds a map from TeslaID to Snapshot for O(1) lookup per vehicle.
 // A nil or empty slice produces an empty map (no panic on range).
 func mergeSnapshots(snaps []telemetry.Snapshot) map[int64]telemetry.Snapshot {
@@ -194,16 +202,16 @@ func mapVehicles(vs []account.Vehicle, snapMap map[int64]telemetry.Snapshot) []f
 		}
 		if snap, ok := snapMap[v.TeslaID]; ok {
 			fv.HasSnapshot = true
-			fv.BatteryLevel = snap.BatteryLevel
-			fv.BatteryRangeKm = snap.BatteryRangeKm()
+			fv.Battery = fmt.Sprintf("%d%%", snap.BatteryLevel)
+			fv.BatteryRange = fmt.Sprintf("%.1f km", snap.BatteryRangeKm())
 			fv.ChargingState = snap.ChargingState
-			fv.OdometerKm = snap.OdometerKm()
-			fv.InsideTempC = snap.InsideTemp
-			fv.OutsideTempC = snap.OutsideTemp
+			fv.Odometer = fmt.Sprintf("%.1f km", snap.OdometerKm())
+			fv.InsideTemp = fmt.Sprintf("%.1f °C", snap.InsideTemp)
+			fv.OutsideTemp = fmt.Sprintf("%.1f °C", snap.OutsideTemp)
 			fv.Locked = snap.Locked
 			fv.SentryMode = snap.SentryMode
 			fv.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02 15:04 UTC")
-			fv.IsStale = time.Since(snap.CapturedAt) > stalenessThreshold
+			fv.IsStale = isStale(snap.CapturedAt, time.Now())
 		}
 		out = append(out, fv)
 	}

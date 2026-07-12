@@ -5,9 +5,9 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/nightly-vehicle-telemetry.md",
   "request": "Tier 5 of nightly-vehicle-telemetry (Option A, user 2026-07-11): the signed-in user's dashboard shows each registered vehicle enriched with its latest stored nightly snapshot, read-only through the telemetry.Reader port (LatestSnapshotsByAccount), merged by TeslaID in the gateway handler. No live Tesla call on a normal render; first-connect seed retained. No DB object, no migration.",
-  "status": "changes-requested",
+  "status": "in-review",
   "created_at": "2026-07-11T23:18:46Z",
-  "updated_at": "2026-07-11T23:41:30Z",
+  "updated_at": "2026-07-12T09:34:31Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-4-8"
@@ -138,6 +138,13 @@
       "made_by": "autopilot",
       "at": "2026-07-11T23:41:00Z",
       "note": "REJECTED review finding R1-005 (add a nil-guard before h.telemetryReader call). The gateway's other required deps (acct, google, tesla, pool) are not nil-guarded either — they are contract-required dependencies injected by NewEngine/New; a nil reader is a wiring bug that should fail fast. Guarding only telemetryReader would be inconsistent with the module's dependency pattern. Reviewer flagged it minor and noted production is safe. No code change."
+    },
+    {
+      "id": "DEC-5",
+      "scope": "review:R1-004",
+      "made_by": "leader",
+      "at": "2026-07-12T09:27:50Z",
+      "note": "R1-004 rework design: extract a pure isStale(capturedAt, now time.Time) bool helper (returns now.Sub(capturedAt) > stalenessThreshold); mapVehicles calls isStale(snap.CapturedAt, time.Now()). Why: a literal time.Now().Add(-stalenessThreshold) exact-boundary test is FLAKY — nanoseconds elapse before time.Since runs, tipping past the strict >. Injecting now makes the at-threshold not-stale case deterministic. Alternative (accept flaky wall-clock test) rejected."
     }
   ],
   "review": {
@@ -168,8 +175,9 @@
             "id": "R1-002",
             "severity": "major",
             "note": "internal/gateway/templates/fragments/vehicles.templ:55-58 — Template uses fmt.Sprintf calls (4 occurrences) to format float64 and int fields into display strings. The review brief (item 5) requires 'template logic-light (if/for + field reads only)'; task 2.2 says 'No arithmetic, no method calls, no time formatting in the template — all values are pre-computed'. fmt.Sprintf is a method call in the template. Design D7 chose float64 for BatteryRangeKm/OdometerKm (not pre-formatted strings), which forced this. Fix: either pre-format the values as strings in the Go handler (change BatteryRangeKm/OdometerKm/InsideTempC/OutsideTempC/BatteryLevel fields in fragments.Vehicle to string and format in mapVehicles), or get explicit leader approval that fmt.Sprintf display formatting is within acceptable bounds. As-is this violates 'field reads only'.",
-            "status": "accepted",
-            "triage": "ACCEPTED by leader — consistent with design D7 (all formatting/derivation in the handler). Fix: change the fragments.Vehicle numeric display fields to pre-formatted strings computed in mapVehicles (km/%/°C labels); template reads strings only; update handler tests + regen vehicles_templ.go. Deferred to the post-checkpoint rework wave (gateway worker)."
+            "status": "resolved",
+            "triage": "ACCEPTED by leader — consistent with design D7 (all formatting/derivation in the handler). Fix: change the fragments.Vehicle numeric display fields to pre-formatted strings computed in mapVehicles (km/%/°C labels); template reads strings only; update handler tests + regen vehicles_templ.go. Deferred to the post-checkpoint rework wave (gateway worker).",
+            "resolution": "Gateway worker (Sonnet) 2026-07-12: fragments.Vehicle numeric fields -> pre-formatted strings (Battery/BatteryRange/Odometer/InsideTemp/OutsideTemp); all fmt.Sprintf moved to mapVehicles; removed import \"fmt\" from vehicles.templ (template reads plain strings); tests updated to string assertions; vehicles_templ.go regenerated; design.md D7 addendum appended. div#vehicles id unchanged. Leader re-verified build/vet/test/strict + gofmt."
           },
           {
             "id": "R1-003",
@@ -182,8 +190,9 @@
             "id": "R1-004",
             "severity": "minor",
             "note": "internal/gateway/handlers/handlers_test.go:TTestVehiclesFor_StaleBoundary — The review brief (item 6) specifies 'stale boundary (at threshold vs one second past)'. The test covers 'within 10s of threshold' (not at threshold) and '1s past threshold'. The 'at exactly threshold' case (time.Now().Add(-stalenessThreshold)) is not tested — this matters because the code uses strict > (so at-threshold is NOT stale), and testing exactly at the boundary would confirm the edge of the comparison. Minor because the overall behavior is correct and the 10s buffer still validates the non-stale side, but the brief explicitly asked for 'at threshold' not '10s within threshold'.",
-            "status": "accepted",
-            "triage": "ACCEPTED by leader. Add an exact-at-threshold case (CapturedAt == now - stalenessThreshold) asserting NOT stale (strict >). Deferred to the post-checkpoint rework wave with R1-002."
+            "status": "resolved",
+            "triage": "ACCEPTED by leader. Add an exact-at-threshold case (CapturedAt == now - stalenessThreshold) asserting NOT stale (strict >). Deferred to the post-checkpoint rework wave with R1-002.",
+            "resolution": "Gateway worker (Sonnet) 2026-07-12, per DEC-5: extracted pure isStale(capturedAt, now) helper (now.Sub(capturedAt) > stalenessThreshold); mapVehicles calls isStale(snap.CapturedAt, time.Now()). New TestIsStale with fixed now asserts exactly-at-threshold=false, 1ns past=true, 1ns within=false — deterministic, no wall-clock flakiness. Existing integration TestVehiclesFor_StaleBoundary retained."
           },
           {
             "id": "R1-005",
@@ -216,6 +225,16 @@
       "at": "2026-07-11T23:41:30Z",
       "agent": "leader",
       "event": "CHECKPOINT (5-hour budget). five_hour_pct=86 (threshold 90), context_pct=20 (threshold 60). The R1-002/R1-004 rework worker dispatch + a round-2 re-review are projected to cross 90% mid-wave and risk the hard 5-hour cap, so stopping cleanly before dispatching. five_hour_resets_at=1783826400 (2026-07-12T03:20:00Z). State truthful: tasks 1-6 done; round-1 changes-requested with R1-001/R1-003 resolved, R1-005 rejected, R1-002/R1-004 accepted+open. RESUME after reset with: /kkpa-dev-harness-pipeline resume gateway-read-stored-vehicles — then Step 7: re-dispatch the gateway worker for R1-002 (numeric view fields -> pre-formatted strings in mapVehicles; template reads strings; regen) + R1-004 (exact-at-threshold stale test), leader re-verify (build/vet/test/strict), then re-dispatch gateway-reviewer for round 2."
+    },
+    {
+      "at": "2026-07-12T09:27:50Z",
+      "agent": "leader",
+      "event": "RESUMED after 5-hour reset (five_hour_pct=4, context_pct=9, cost $1.25). Bucket confirmed reset (resets_at now past). Dispatching gateway rework worker (Sonnet) for the two accepted-open round-1 findings: R1-002 (pre-format numeric view fields to strings in mapVehicles; strip fmt from vehicles.templ; regen) + R1-004 (extract pure isStale(capturedAt,now) helper per DEC-5; add exact-at-threshold not-stale test). Git continues on main (roadmap's established branch — all 4 prior tiers committed/archived from main, no ft/ branch)."
+    },
+    {
+      "at": "2026-07-12T09:34:31Z",
+      "agent": "leader",
+      "event": "Round-1 rework complete + re-verified. Gateway worker (Sonnet) resolved R1-002 (view fields -> pre-formatted strings; fmt out of vehicles.templ; regen) and R1-004 (isStale pure helper per DEC-5 + deterministic exact-at-threshold test). Leader re-verify: go build/vet/test ./... green, openspec --strict valid, boundary clean (no telemetrydb/pgtype; div#vehicles id stable; no fmt/method calls in templ). Leader also gofmt-fixed a PRE-EXISTING Deps-struct misalignment (introduced by tier-5 wave-1's TelemetryReader comment; vet doesn't catch gofmt, so round-1 missed it). Rework budget delta approx $1.63 (five_hour 4%->14%, context 11%). Findings R1-002/R1-004 -> resolved; status -> in-review. NEXT: re-dispatch gateway-reviewer for round 2."
     }
   ]
 }

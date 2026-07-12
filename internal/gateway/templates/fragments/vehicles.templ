@@ -1,7 +1,5 @@
 package fragments
 
-import "fmt"
-
 // Vehicle is the clean presentation model for one vehicle — no vendor (...Tesla)
 // suffix; the gateway maps the account module's domain Vehicle onto this before
 // rendering. All snapshot-derived fields are display-ready and pre-computed by the
@@ -16,14 +14,15 @@ type Vehicle struct {
 	HasSnapshot bool
 
 	// Extended fields — populated only when HasSnapshot is true.
-	// All derivation is done in the handler; the template only reads these.
-	BatteryLevel   int
-	BatteryRangeKm float64
-	ChargingState  string
-	OdometerKm     float64
-	InsideTempC    float64
-	OutsideTempC   float64
-	Locked         bool
+	// All values are pre-formatted strings computed in the handler (unit included);
+	// the template only reads these fields — no arithmetic, no fmt calls.
+	Battery      string // e.g. "80%"
+	BatteryRange string // e.g. "321.9 km"
+	ChargingState string
+	Odometer     string // e.g. "19312.1 km"
+	InsideTemp   string // e.g. "22.5 °C"
+	OutsideTemp  string // e.g. "15.0 °C"
+	Locked       bool
 	// SentryMode is a three-state pointer: nil = not reported, *false = off, *true = on.
 	SentryMode  *bool
 	LastUpdated string // pre-formatted by the handler, e.g. "2006-01-02 15:04 UTC"
@@ -52,10 +51,10 @@ templ VehiclesList(d VehiclesData) {
 						<strong>{ v.DisplayName }</strong> — { v.VIN }
 						if v.HasSnapshot {
 							<ul>
-								<li>Battery: { fmt.Sprintf("%d%%", v.BatteryLevel) } / Range: { fmt.Sprintf("%.1f km", v.BatteryRangeKm) }</li>
+								<li>Battery: { v.Battery } / Range: { v.BatteryRange }</li>
 								<li>Charging: { v.ChargingState }</li>
-								<li>Odometer: { fmt.Sprintf("%.1f km", v.OdometerKm) }</li>
-								<li>Inside: { fmt.Sprintf("%.1f °C", v.InsideTempC) } / Outside: { fmt.Sprintf("%.1f °C", v.OutsideTempC) }</li>
+								<li>Odometer: { v.Odometer }</li>
+								<li>Inside: { v.InsideTemp } / Outside: { v.OutsideTemp }</li>
 								<li>
 									if v.Locked {
 										Locked

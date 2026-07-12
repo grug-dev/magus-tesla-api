@@ -169,6 +169,15 @@ This keeps `.templ` files readable (the learning codebase rationale from
 `htmx-conventions.md`), compile-time safe, and fully testable via the handler's
 `dataFor` / `mapVehicles` pure-Go path.
 
+**Round-1 rework (accepted finding R1-002):** The `fragments.Vehicle` view struct's numeric
+display fields (`BatteryRangeKm float64`, `OdometerKm float64`, `BatteryLevel int`,
+`InsideTempC float64`, `OutsideTempC float64`) were replaced with pre-formatted display
+strings (`Battery string`, `BatteryRange string`, `Odometer string`, `InsideTemp string`,
+`OutsideTemp string`). The `fmt.Sprintf(...)` formatting that was previously in the
+`.templ` file now lives exclusively in `mapVehicles` in `handlers.go`, so the template
+reads only plain string fields — no `fmt` import, no method calls, no arithmetic anywhere
+in the `.templ` file. This fully satisfies the "no business logic in templates" rule.
+
 ## Performance Profile Compliance
 
 Read path: `GET /dashboard` / `GET /ui/vehicles`:

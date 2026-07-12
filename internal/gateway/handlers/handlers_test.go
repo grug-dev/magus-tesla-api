@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -217,25 +218,26 @@ func TestVehiclesFor_EnrichedCard(t *testing.T) {
 	if !v.HasSnapshot {
 		t.Errorf("want HasSnapshot true, got false")
 	}
-	if v.BatteryLevel != 80 {
-		t.Errorf("want BatteryLevel 80, got %d", v.BatteryLevel)
+	if v.Battery != "80%" {
+		t.Errorf("want Battery %q, got %q", "80%", v.Battery)
 	}
-	wantRangeKm := 200.0 * 1.609344
-	if v.BatteryRangeKm != wantRangeKm {
-		t.Errorf("want BatteryRangeKm %.4f, got %.4f", wantRangeKm, v.BatteryRangeKm)
+	snap := telemetry.Snapshot{BatteryRange: 200.0, Odometer: 12000.0}
+	wantBatteryRange := fmt.Sprintf("%.1f km", snap.BatteryRangeKm())
+	if v.BatteryRange != wantBatteryRange {
+		t.Errorf("want BatteryRange %q, got %q", wantBatteryRange, v.BatteryRange)
 	}
 	if v.ChargingState != "Disconnected" {
 		t.Errorf("want ChargingState Disconnected, got %q", v.ChargingState)
 	}
-	wantOdomKm := 12000.0 * 1.609344
-	if v.OdometerKm != wantOdomKm {
-		t.Errorf("want OdometerKm %.4f, got %.4f", wantOdomKm, v.OdometerKm)
+	wantOdometer := fmt.Sprintf("%.1f km", snap.OdometerKm())
+	if v.Odometer != wantOdometer {
+		t.Errorf("want Odometer %q, got %q", wantOdometer, v.Odometer)
 	}
-	if v.InsideTempC != 22.5 {
-		t.Errorf("want InsideTempC 22.5, got %f", v.InsideTempC)
+	if v.InsideTemp != "22.5 °C" {
+		t.Errorf("want InsideTemp %q, got %q", "22.5 °C", v.InsideTemp)
 	}
-	if v.OutsideTempC != 15.0 {
-		t.Errorf("want OutsideTempC 15.0, got %f", v.OutsideTempC)
+	if v.OutsideTemp != "15.0 °C" {
+		t.Errorf("want OutsideTemp %q, got %q", "15.0 °C", v.OutsideTemp)
 	}
 	if !v.Locked {
 		t.Errorf("want Locked true, got false")
@@ -267,8 +269,9 @@ func TestVehiclesFor_PlaceholderCard(t *testing.T) {
 	if v.HasSnapshot {
 		t.Errorf("want HasSnapshot false, got true")
 	}
-	if v.BatteryLevel != 0 || v.BatteryRangeKm != 0 || v.OdometerKm != 0 {
-		t.Errorf("want all snapshot fields zero for placeholder, got %+v", v)
+	if v.Battery != "" || v.BatteryRange != "" || v.Odometer != "" || v.InsideTemp != "" || v.OutsideTemp != "" {
+		t.Errorf("want all display string fields empty for placeholder, got Battery=%q BatteryRange=%q Odometer=%q InsideTemp=%q OutsideTemp=%q",
+			v.Battery, v.BatteryRange, v.Odometer, v.InsideTemp, v.OutsideTemp)
 	}
 	if v.LastUpdated != "" {
 		t.Errorf("want LastUpdated empty for placeholder, got %q", v.LastUpdated)
@@ -328,6 +331,27 @@ func TestVehiclesFor_StaleBoundary(t *testing.T) {
 	}
 	if !d2.Vehicles[0].IsStale {
 		t.Errorf("want IsStale true when 1 s past threshold, got false")
+	}
+}
+
+// TestIsStale verifies the exact-at-threshold and boundary semantics of the isStale
+// helper using a fixed clock — no wall-clock dependency, fully deterministic.
+func TestIsStale(t *testing.T) {
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	// Exactly at threshold: duration == stalenessThreshold, NOT stale (strict >).
+	if isStale(now.Add(-stalenessThreshold), now) {
+		t.Errorf("want isStale false at exactly threshold (strict >), got true")
+	}
+
+	// One nanosecond past threshold: duration > stalenessThreshold, IS stale.
+	if !isStale(now.Add(-stalenessThreshold-time.Nanosecond), now) {
+		t.Errorf("want isStale true one nanosecond past threshold, got false")
+	}
+
+	// One nanosecond within threshold: duration < stalenessThreshold, NOT stale.
+	if isStale(now.Add(-stalenessThreshold+time.Nanosecond), now) {
+		t.Errorf("want isStale false one nanosecond within threshold, got true")
 	}
 }
 
