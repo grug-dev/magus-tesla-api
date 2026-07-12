@@ -3,7 +3,7 @@
   "kind": "change",
   "change": "RM1-account-list-registered-vehicles",
   "module": "account",
-  "roadmap": "openspec/roadmaps/archive/RM1-nightly-vehicle-telemetry.md",
+  "roadmap": "openspec/roadmaps/archive/RM1-nightly-vehicle-telemetry/RM1-nightly-vehicle-telemetry.md",
   "request": "Tier 2 of nightly-vehicle-telemetry: expose an all-accounts registered-vehicles enumeration on the account port so the background telemetry collector can iterate every vehicle (with owning accountID) without touching account's tables.",
   "status": "reviewer-approved",
   "created_at": "2026-07-10T21:15:23Z",

@@ -3,7 +3,7 @@
   "kind": "change",
   "change": "RM1-telemetry-add-nightly-snapshots",
   "module": "telemetry",
-  "roadmap": "openspec/roadmaps/archive/RM1-nightly-vehicle-telemetry.md",
+  "roadmap": "openspec/roadmaps/archive/RM1-nightly-vehicle-telemetry/RM1-nightly-vehicle-telemetry.md",
   "request": "Tier 3 (core) of nightly-vehicle-telemetry: new internal/telemetry module \u2014 vehicle_snapshots + poll_attempts storage, a collection service consuming the account + tesla ports, a 03:30 in-app scheduler, per-vehicle failure isolation, and a thin cmd/poller.",
   "status": "archived",
   "created_at": "2026-07-10T21:37:36Z",
