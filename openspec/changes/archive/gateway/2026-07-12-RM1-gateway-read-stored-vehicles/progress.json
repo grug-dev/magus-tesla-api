@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "kind": "change",
-  "change": "gateway-read-stored-vehicles",
+  "change": "RM1-gateway-read-stored-vehicles",
   "module": "gateway",
-  "roadmap": "openspec/roadmaps/nightly-vehicle-telemetry.md",
+  "roadmap": "openspec/roadmaps/archive/RM1-nightly-vehicle-telemetry.md",
   "request": "Tier 5 of nightly-vehicle-telemetry (Option A, user 2026-07-11): the signed-in user's dashboard shows each registered vehicle enriched with its latest stored nightly snapshot, read-only through the telemetry.Reader port (LatestSnapshotsByAccount), merged by TeslaID in the gateway handler. No live Tesla call on a normal render; first-connect seed retained. No DB object, no migration.",
   "status": "archived",
   "created_at": "2026-07-11T23:18:46Z",

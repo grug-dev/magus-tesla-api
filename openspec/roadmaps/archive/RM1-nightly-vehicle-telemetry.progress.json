@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "roadmap",
-  "roadmap": "nightly-vehicle-telemetry",
+  "roadmap": "RM1-nightly-vehicle-telemetry",
   "intention": "Every connected user's vehicles get one anchor telemetry snapshot per night (03:30, waking if needed); users never trigger Tesla API calls — dashboards read only stored data.",
   "autopilot": true,
   "autopilot_note": "User directive 2026-07-10: drive all tiers to completion without asking for go-ahead between tiers; pause only for changes-requested reviews, destructive/commit actions, new decisions beyond the roadmap Decisions, or interruptions.",
@@ -17,7 +17,7 @@
   "tiers": [
     {
       "id": 1,
-      "change": "tesla-add-vehicle-data-and-wake",
+      "change": "RM1-tesla-add-vehicle-data-and-wake",
       "module": "tesla",
       "optional": false,
       "depends_on": [],
@@ -31,7 +31,7 @@
     },
     {
       "id": 2,
-      "change": "account-list-registered-vehicles",
+      "change": "RM1-account-list-registered-vehicles",
       "module": "account",
       "optional": false,
       "depends_on": [],
@@ -45,7 +45,7 @@
     },
     {
       "id": 3,
-      "change": "telemetry-add-nightly-snapshots",
+      "change": "RM1-telemetry-add-nightly-snapshots",
       "module": "telemetry",
       "optional": false,
       "depends_on": [1, 2],
@@ -63,7 +63,7 @@
     },
     {
       "id": 4,
-      "change": "telemetry-add-snapshot-read-port",
+      "change": "RM1-telemetry-add-snapshot-read-port",
       "module": "telemetry",
       "optional": false,
       "depends_on": [3],
@@ -81,7 +81,7 @@
     },
     {
       "id": 5,
-      "change": "gateway-read-stored-vehicles",
+      "change": "RM1-gateway-read-stored-vehicles",
       "module": "gateway",
       "optional": false,
       "depends_on": [4],
