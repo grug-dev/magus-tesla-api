@@ -21,17 +21,17 @@
 
 ## 1. Export `logCycle` → `LogCycle` in `internal/telemetry/scheduler.go` — no dependencies
 
-- [ ] 1.1 Rename the package-private function `logCycle` (scheduler.go:82) to `LogCycle` (export
+- [x] 1.1 Rename the package-private function `logCycle` (scheduler.go:82) to `LogCycle` (export
       it). The signature `func LogCycle(report CycleReport, err error)` and the body (the
       `err != nil` whole-cycle-error `log.Printf` line, then the `attempted/succeeded/failures`
       `log.Printf` line via `formatFailures`) stay identical. The `formatFailures` helper is
       untouched.
-- [ ] 1.2 Update the single in-package call site in `Scheduler.Run` (scheduler.go:73) from
+- [x] 1.2 Update the single in-package call site in `Scheduler.Run` (scheduler.go:73) from
       `logCycle(report, err)` to `LogCycle(report, err)`. No other call site exists.
-- [ ] 1.3 Update the `logCycle` doc comment (scheduler.go:78-81) to note it is exported so
+- [x] 1.3 Update the `logCycle` doc comment (scheduler.go:78-81) to note it is exported so
       `cmd/poller` (one-shot mode) and `Scheduler.Run` share the exact same report formatter; keep
       the existing explanation of what the line prints and that it uses the stdlib `log` package.
-- [ ] 1.4 Verify `go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...` pass,
+- [x] 1.4 Verify `go build ./internal/telemetry/...` and `go vet ./internal/telemetry/...` pass,
       and the existing `scheduler_test.go` (`TestScheduler_RunsAndLogsOneCycle`, which exercises
       the logging path through `Run`) still passes — confirming the rename is source-for-source
       and the in-package caller is updated.
@@ -41,22 +41,22 @@
 
 ## 2. Add `--once` flag to `cmd/poller/main.go` and branch on `*once` — depends on task 1
 
-- [ ] 2.1 Add `"flag"` to the import block of `cmd/poller/main.go` (alphabetical order within the
+- [x] 2.1 Add `"flag"` to the import block of `cmd/poller/main.go` (alphabetical order within the
       stdlib group, after `"errors"`). Do not remove or reorder the existing imports.
-- [ ] 2.2 At the top of `main()`, before `cfg, err := config.Load()`, add:
+- [x] 2.2 At the top of `main()`, before `cfg, err := config.Load()`, add:
       `once := flag.Bool("once", false, "run one collection cycle immediately and exit (skip the daily scheduler)")`
       followed immediately by `flag.Parse()`. Mirror the `flag.Int`/`flag.Parse` pair at
       `cmd/explore-tesla-api/main.go:64-65`. Keep `config.Load()` and the `cfg.DatabaseURL == ""`
       guard exactly as today (both run unconditionally, for both modes).
-- [ ] 2.3 Move the schedule-only `time.LoadLocation(cfg.PollerTimezone)` block (today main.go:33-36,
+- [x] 2.3 Move the schedule-only `time.LoadLocation(cfg.PollerTimezone)` block (today main.go:33-36,
       including the `log.Fatalf("invalid POLLER_TIMEZONE %q: %v", ...) `) inside an `if !once { ... }`
       guard. Declare `loc` inside that block. A `--once` run must NOT load or validate the timezone
       (it never schedules). Do not delete the block — the nightly path keeps it.
-- [ ] 2.4 Keep `ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT,
+- [x] 2.4 Keep `ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT,
       syscall.SIGTERM); defer stop()` before the branch (both modes need it). Build the pool, `acct`,
       `tcfg`, and `collector := telemetry.NewService(...)` once, as today — do NOT construct
       anything twice.
-- [ ] 2.5 Add the tail branch:
+- [x] 2.5 Add the tail branch:
       - `if !once {` — the existing nightly path, unchanged: build
         `scheduler := telemetry.NewScheduler(collector, cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, tcfg)`,
         log `"poller started: nightly collection at %02d:%02d %s (wake timeout %s)"`,
@@ -67,10 +67,10 @@
         (exit 1 only on a whole-cycle failure; `CollectAll` returns `nil` for per-vehicle failures).
         Do NOT call `NewScheduler` or `Run`. On `err == nil` the function returns and the process
         exits 0.
-- [ ] 2.6 Update the `cmd/poller` package doc comment (main.go:1-4) with the `--once` usage line:
+- [x] 2.6 Update the `cmd/poller` package doc comment (main.go:1-4) with the `--once` usage line:
       `// go run ./cmd/poller --once    # one immediate cycle, then exit` (alongside the existing
       description of the nightly command).
-- [ ] 2.7 Verify `go build ./cmd/poller` and `go vet ./cmd/poller` pass. Confirm `cmd/poller` (no
+- [x] 2.7 Verify `go build ./cmd/poller` and `go vet ./cmd/poller` pass. Confirm `cmd/poller` (no
       flag) still builds and the nightly branch is source-for-source the existing path (minus the
       `if !once` wrapping and the `flag` plumbing). Confirm `cmd/poller --once` compiles against
       the exported `telemetry.LogCycle` from task 1.

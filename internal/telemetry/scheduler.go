@@ -70,16 +70,21 @@ func (s *Scheduler) Run(ctx context.Context) error {
 			// proceed to the next day so a single failed night does not stop the
 			// schedule.
 			report, err := s.collector.CollectAll(ctx)
-			logCycle(report, err)
+			LogCycle(report, err)
 		}
 	}
 }
 
-// logCycle emits a single operational line summarizing one collection cycle so an
+// LogCycle emits a single operational line summarizing one collection cycle so an
 // unattended poller's nightly outcome is visible in logs (attempted / succeeded /
 // failures-by-reason), plus a separate line for any whole-cycle error. It uses the
 // standard library log package, matching the rest of the repo (cmd/web, cmd/poller).
-func logCycle(report CycleReport, err error) {
+//
+// It is exported so cmd/poller (one-shot mode) and Scheduler.Run share the exact same
+// report formatter — a future change to the line shape lands in one place and both
+// paths update, avoiding silent divergence between the scheduled and on-demand
+// collections.
+func LogCycle(report CycleReport, err error) {
 	if err != nil {
 		log.Printf("telemetry cycle: whole-cycle error: %v", err)
 	}
