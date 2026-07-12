@@ -6,7 +6,14 @@
   "autopilot": true,
   "autopilot_note": "User directive 2026-07-10: drive all tiers to completion without asking for go-ahead between tiers; pause only for changes-requested reviews, destructive/commit actions, new decisions beyond the roadmap Decisions, or interruptions.",
   "request": "Build the poller: a scheduled runner (cmd/poller) that periodically fetches vehicle data for all connected users and appends snapshots to the database — the foundation for all historical data features (daily digest, battery health log, charge session detection)",
-  "updated_at": "2026-07-11T23:18:46Z",
+  "updated_at": "2026-07-12T09:49:21Z",
+  "status": "complete",
+  "rollup": {
+    "pending": [],
+    "current": [],
+    "blocked": [],
+    "done": [1, 2, 3, 4, 5]
+  },
   "tiers": [
     {
       "id": 1,
@@ -78,13 +85,21 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [4],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-4-8",
       "started_at": "2026-07-11T23:18:46Z",
-      "completed_at": null,
+      "completed_at": "2026-07-12T09:49:21Z",
+      "duration_seconds": 37835,
       "tokens": null,
-      "notes": "Started 2026-07-11 (autopilot advance after tier 4). Artifacts created + openspec validate --strict valid (proposal/design D1-D7/gateway delta spec 9 scenarios/tasks 6 groups). Read-only through telemetry.Reader; NO DB object -> design gate not triggered. Step-2 user interview decisions (change progress.json DEC-1/2/3): units=km via Snapshot Km() companions (temps °C); Extended field set (battery/range/charge/odometer/inside+outside temp/locked/sentry three-state/last-updated); stale flag when snapshot older than ~36h. Change progress.json seeded, all tasks pending. depends_on tier 4 (archived)."
+      "budget": {
+        "cost_usd_delta": 10.27,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "Sum of bracketed deltas: wave-1 $2.00 + R1 review $2.09 + R1 rework $1.63 + R2 review $1.39 + R3 review $3.16. Excludes unbracketed artifacts. Spanned a 5-hour bucket reset (overnight checkpoint); duration_seconds is wall-clock incl. the paused span."
+      },
+      "notes": "Shipped + reviewer-approved (gateway-reviewer, round 3) + archived to openspec/changes/archive/gateway/2026-07-12-gateway-read-stored-vehicles; delta synced into specs/gateway/spec.md (+1 ADDED enriched-cards req, ~1 MODIFIED Vehicle Dashboard per DEC-6). Dashboard enriches each registered vehicle with its latest stored nightly snapshot via telemetry.Reader (no live Tesla on render; first-connect seed retained; graceful degradation). Review: R1 changes-requested (R1-002 fmt-in-template, R1-004 stale-boundary test) -> reworked; R2 changes-requested (R2-001 gofmt gateway.go) -> fixed; R3 approved. Autopilot/leader decisions: DEC-5 (isStale pure helper), DEC-6 (archive-time spec-delta ADDED/MODIFIED fix). Final tier -> roadmap COMPLETE."
     }
   ]
 }

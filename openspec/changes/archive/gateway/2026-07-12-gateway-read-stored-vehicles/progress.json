@@ -5,9 +5,9 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/nightly-vehicle-telemetry.md",
   "request": "Tier 5 of nightly-vehicle-telemetry (Option A, user 2026-07-11): the signed-in user's dashboard shows each registered vehicle enriched with its latest stored nightly snapshot, read-only through the telemetry.Reader port (LatestSnapshotsByAccount), merged by TeslaID in the gateway handler. No live Tesla call on a normal render; first-connect seed retained. No DB object, no migration.",
-  "status": "in-review",
+  "status": "archived",
   "created_at": "2026-07-11T23:18:46Z",
-  "updated_at": "2026-07-12T09:39:49Z",
+  "updated_at": "2026-07-12T09:49:21Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-4-8"
@@ -145,10 +145,17 @@
       "made_by": "leader",
       "at": "2026-07-12T09:27:50Z",
       "note": "R1-004 rework design: extract a pure isStale(capturedAt, now time.Time) bool helper (returns now.Sub(capturedAt) > stalenessThreshold); mapVehicles calls isStale(snap.CapturedAt, time.Now()). Why: a literal time.Now().Add(-stalenessThreshold) exact-boundary test is FLAKY — nanoseconds elapse before time.Since runs, tipping past the strict >. Injecting now makes the at-threshold not-stale case deterministic. Alternative (accept flaky wall-clock test) rejected."
+    },
+    {
+      "id": "DEC-6",
+      "scope": "change",
+      "made_by": "leader",
+      "at": "2026-07-12T09:47:00Z",
+      "note": "Archive-time spec-delta fix (openspec archive aborted: MODIFIED header 'Dashboard renders enriched vehicle cards...' not found in main gateway spec). The delta authored a genuinely NEW requirement but tagged it MODIFIED; openspec validate --strict doesn't cross-check main specs so it slipped past both apply-verify and review. Fix: re-tagged the new requirement as ADDED, and surgically MODIFIED the existing 'Vehicle Dashboard' requirement to drop the now-contradicting 'display_name and vin only' over-constraint (all 5 original scenarios preserved verbatim; 'no live volatile state' intent kept). No code/behavior change — the reviewer-approved implementation is untouched; this only corrects delta spec-sync structure + internal consistency. Alternative (ADDED-only, leaving the 'only' contradiction) rejected for spec integrity."
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "gateway-reviewer",
     "brief": "Review the completed change gateway-read-stored-vehicles (tier 5 of nightly-vehicle-telemetry): the dashboard now enriches each registered vehicle with its latest stored nightly snapshot, read-only through the telemetry.Reader port. Read the DIFF (commit 7894548), not the whole module. Validate against the doc pack (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/htmx-conventions.md, ai/htmx-go-integration.md, internal/gateway/AGENTS.md, ai/agentic-workflow.md): (1) BOUNDARY — gateway calls only the telemetry PUBLIC port (telemetry.Reader.LatestSnapshotsByAccount); NEVER imports internal/telemetry/db (telemetrydb); no pgtype anywhere in gateway; no ...Tesla DTO leaks into a template; no km field on any DOMAIN type (km lives only on the fragments.Vehicle view model via BatteryRangeKm()/OdometerKm() companions). Read-only at request time (AGENTS.md): handler calls only Reader ports, no writes, no Tesla call on a normal render — the first-connect seed path (account.SeedVehicles when zero registered) is unchanged. (2) MERGE CORRECTNESS — snapshots merged by TeslaID; registered vehicle with no snapshot -> HasSnapshot:false placeholder; two indexed queries per render, no N+1. (3) USER DECISIONS (DEC-1/2/3) — km units via companions + temps in °C; Extended field set (battery %, range, charge, odometer, inside/outside temp, locked, sentry three-state nil/off/on, last-updated); stale flag when captured_at older than stalenessThreshold=36h, last-updated always shown, placeholder never stale. (4) GRACEFUL DEGRADATION — Reader error -> log + empty map + non-fatal notice 'Telemetry unavailable...', registry still renders, never a 500. (5) HTMX/TEMPL — all derivation (km, stale, sentry-nil, timestamp) in the Go handler; template logic-light (if/for + field reads only); <div id=\"vehicles\"> fragment id unchanged (htmx swap target); vehicles_templ.go regenerated and current. (6) TESTS — handler unit tests fake telemetry.Reader, no DB/network/Tesla; cover enriched, placeholder, graceful-degradation, stale boundary (at vs past threshold), sentry three-state; tesla-exploration test-free rule intact. (7) SPEC/TASKS — 9 GIVEN/WHEN/THEN scenarios match behavior; every tasks.md checkbox reflects real completion; strict validate passes; NO database object introduced (a DB object here would be a blocker). ANTI-GAMING: no task/criterion weakened or deleted; the wave-1 worker marked only tasks 1-4, leader marked 5-6; no self-approved review status. Default to Sonnet and ESCALATE ON DOUBT — return changes-requested for leader re-review rather than approving anything uncertain. You alone set review.status / reviewer-approved.",
     "rounds": [
@@ -251,6 +258,26 @@
             "note": "Rejection stands per DEC-4. No change."
           }
         ]
+      },
+      {
+        "round": 3,
+        "at": "2026-07-12T09:44:10Z",
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-4-6",
+        "verdict": "approved",
+        "duration_seconds": 105,
+        "budget": {
+          "cost_usd_approx": 3.16,
+          "note": "Round-3 spot-check delta $5.58->$8.75 (includes interleaved leader reconcile ops); five_hour 23%->35%. Fresh reviewer re-dispatch (no SendMessage in this runtime — Step 0.7 degradation)."
+        },
+        "findings": [],
+        "carry_over": [
+          {
+            "id": "R2-001",
+            "status": "fixed",
+            "note": "Commit c88429e verified: only file changed in gateway is gateway.go (Deps struct whitespace realignment on TelemetryReader/SessionSecret + Pool/Account/Google/Tesla). Pure formatting, zero logic/field/type/order change. gofmt -l internal/gateway/ prints nothing. go build ./... clean, go vet ./... clean, go test ./... green (all gateway/handlers/telemetry/account/tesla packages pass; no DB/network/Tesla calls in unit tests). openspec validate gateway-read-stored-vehicles --strict passes. Boundary sanity: no telemetrydb/pgtype import in gateway (only guard comments); <div id=\"vehicles\"> intact at vehicles.templ:43. R2-001 fully resolved — no regressions introduced."
+          }
+        ]
       }
     ]
   },
@@ -288,7 +315,17 @@
     {
       "at": "2026-07-12T09:39:49Z",
       "agent": "leader",
-      "event": "Review round 2 (fresh gateway-reviewer, Sonnet) -> changes-requested, 1 new minor finding R2-001; confirmed R1-002 + R1-004 fully FIXED and R1-001/R1-003 resolved / R1-005 rejection standing. R2-001: gofmt -l internal/gateway/ still flags gateway.go — my round-1-rework gofmt check was scoped to only the CHANGED .go files, so I missed gateway.go's wave-1 gofmt debt (my event note over-generalized). ACCEPTED (good escalation). Leader ran gofmt -w internal/gateway/gateway.go; gofmt -l whole dir now clean; go build/vet/test green. Round-2 review budget delta approx $1.39 (five_hour 18%->23%). NEXT: signal same reviewer (SendMessage) for round-3 spot-check of R2-001, then archive on approval."
+      "event": "Review round 2 (fresh gateway-reviewer, Sonnet) -> changes-requested, 1 new minor finding R2-001; confirmed R1-002 + R1-004 fully FIXED and R1-001/R1-003 resolved / R1-005 rejection standing. R2-001: gofmt -l internal/gateway/ still flags gateway.go — my round-1-rework gofmt check was scoped to only the CHANGED .go files, so I missed gateway.go's wave-1 gofmt debt (my event note over-generalized). ACCEPTED (good escalation). Leader ran gofmt -w internal/gateway/gateway.go; gofmt -l whole dir now clean; go build/vet/test green. Round-2 review budget delta approx $1.39 (five_hour 18%->23%). Committed c88429e. NEXT: signal same reviewer (SendMessage) for round-3 spot-check of R2-001, then archive on approval."
+    },
+    {
+      "at": "2026-07-12T09:44:10Z",
+      "agent": "leader",
+      "event": "Review round 3 (fresh gateway-reviewer, Sonnet — no SendMessage in this runtime, Step 0.7 degradation: re-dispatched with R2-001 context inline for a narrow spot-check) -> APPROVED. R2-001 verified fixed (c88429e: pure gofmt realignment, gofmt -l clean, build/vet/test/strict all green, no regression). Reviewer set review.status=reviewer-approved. Leader reconciled top-level status -> reviewer-approved. All findings closed (R1-001/002/003/004 fixed, R1-005 rejected per DEC-4, R2-001 fixed). Round-3 budget delta approx $3.16 (five_hour 23%->35%). NEXT: Step 8 archive + roadmap tier-5 completion (final tier -> roadmap complete)."
+    },
+    {
+      "at": "2026-07-12T09:49:21Z",
+      "agent": "leader",
+      "event": "ARCHIVED. openspec archive synced the gateway delta into openspec/specs/gateway/spec.md (+1 ADDED 'Dashboard renders enriched vehicle cards from stored telemetry', ~1 MODIFIED 'Vehicle Dashboard' per DEC-6). Change moved to openspec/changes/archive/gateway/2026-07-12-gateway-read-stored-vehicles/ (regrouped under archive/gateway/ per project convention). status -> archived. Roadmap tier 5 = final tier -> nightly-vehicle-telemetry roadmap COMPLETE. KB spec-sync skipped: no kkpa/context/ KB in this project. NEXT: commit archive; offer push/PR (gated)."
     }
   ]
 }
