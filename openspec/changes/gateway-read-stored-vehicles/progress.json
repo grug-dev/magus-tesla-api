@@ -7,7 +7,7 @@
   "request": "Tier 5 of nightly-vehicle-telemetry (Option A, user 2026-07-11): the signed-in user's dashboard shows each registered vehicle enriched with its latest stored nightly snapshot, read-only through the telemetry.Reader port (LatestSnapshotsByAccount), merged by TeslaID in the gateway handler. No live Tesla call on a normal render; first-connect seed retained. No DB object, no migration.",
   "status": "in-review",
   "created_at": "2026-07-11T23:18:46Z",
-  "updated_at": "2026-07-12T09:34:31Z",
+  "updated_at": "2026-07-12T09:39:49Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-4-8"
@@ -148,7 +148,7 @@
     }
   ],
   "review": {
-    "status": "pending",
+    "status": "changes-requested",
     "agent": "gateway-reviewer",
     "brief": "Review the completed change gateway-read-stored-vehicles (tier 5 of nightly-vehicle-telemetry): the dashboard now enriches each registered vehicle with its latest stored nightly snapshot, read-only through the telemetry.Reader port. Read the DIFF (commit 7894548), not the whole module. Validate against the doc pack (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/htmx-conventions.md, ai/htmx-go-integration.md, internal/gateway/AGENTS.md, ai/agentic-workflow.md): (1) BOUNDARY — gateway calls only the telemetry PUBLIC port (telemetry.Reader.LatestSnapshotsByAccount); NEVER imports internal/telemetry/db (telemetrydb); no pgtype anywhere in gateway; no ...Tesla DTO leaks into a template; no km field on any DOMAIN type (km lives only on the fragments.Vehicle view model via BatteryRangeKm()/OdometerKm() companions). Read-only at request time (AGENTS.md): handler calls only Reader ports, no writes, no Tesla call on a normal render — the first-connect seed path (account.SeedVehicles when zero registered) is unchanged. (2) MERGE CORRECTNESS — snapshots merged by TeslaID; registered vehicle with no snapshot -> HasSnapshot:false placeholder; two indexed queries per render, no N+1. (3) USER DECISIONS (DEC-1/2/3) — km units via companions + temps in °C; Extended field set (battery %, range, charge, odometer, inside/outside temp, locked, sentry three-state nil/off/on, last-updated); stale flag when captured_at older than stalenessThreshold=36h, last-updated always shown, placeholder never stale. (4) GRACEFUL DEGRADATION — Reader error -> log + empty map + non-fatal notice 'Telemetry unavailable...', registry still renders, never a 500. (5) HTMX/TEMPL — all derivation (km, stale, sentry-nil, timestamp) in the Go handler; template logic-light (if/for + field reads only); <div id=\"vehicles\"> fragment id unchanged (htmx swap target); vehicles_templ.go regenerated and current. (6) TESTS — handler unit tests fake telemetry.Reader, no DB/network/Tesla; cover enriched, placeholder, graceful-degradation, stale boundary (at vs past threshold), sentry three-state; tesla-exploration test-free rule intact. (7) SPEC/TASKS — 9 GIVEN/WHEN/THEN scenarios match behavior; every tasks.md checkbox reflects real completion; strict validate passes; NO database object introduced (a DB object here would be a blocker). ANTI-GAMING: no task/criterion weakened or deleted; the wave-1 worker marked only tasks 1-4, leader marked 5-6; no self-approved review status. Default to Sonnet and ESCALATE ON DOUBT — return changes-requested for leader re-review rather than approving anything uncertain. You alone set review.status / reviewer-approved.",
     "rounds": [
@@ -202,6 +202,55 @@
             "triage": "REJECTED by leader (see decisions[] review:R1-005). The gateway's other required deps (acct, google, tesla, pool) are likewise not nil-guarded — they are contract-required dependencies injected by NewEngine/New. A nil telemetryReader is a wiring bug that should fail fast; guarding only this one is inconsistent with the module's dependency pattern. No change."
           }
         ]
+      },
+      {
+        "round": 2,
+        "at": "2026-07-12T09:39:49Z",
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-4-6",
+        "verdict": "changes-requested",
+        "duration_seconds": 181,
+        "budget": {
+          "cost_usd_approx": 1.39,
+          "note": "Round-2 review delta $4.20->$5.58; five_hour 18%->23%. Includes the leader's gofmt -w gateway.go fix in the same span."
+        },
+        "findings": [
+          {
+            "id": "R2-001",
+            "severity": "minor",
+            "note": "internal/gateway/gateway.go:31-47 (Deps struct) — gofmt -l flags this file. The leader's event log claimed the Deps-struct misalignment was gofmt-fixed in commit 9985a34, but gateway.go is NOT in that commit's changed file set and gofmt -d still shows misalignment on TelemetryReader/SessionSecret. handlers.go was correctly fixed; gateway.go was not. The review brief gate requires 'gofmt -l internal/gateway/... prints nothing'. Currently it prints 'internal/gateway/gateway.go'. Fix: run gofmt -w internal/gateway/gateway.go.",
+            "status": "resolved",
+            "triage": "ACCEPTED by leader — valid, real gofmt violation, and the reviewer is right that my round-1-rework event over-generalized (I ran gofmt -l only on the CHANGED .go files, so I fixed handlers.go's Deps struct but never checked gateway.go, which carries the same wave-1 gofmt debt). Good escalation.",
+            "resolution": "Leader ran gofmt -w internal/gateway/gateway.go (Deps struct TelemetryReader/SessionSecret realigned; pure formatting, no logic). gofmt -l internal/gateway/ now prints nothing; go build/vet/test ./internal/gateway/... still green. Committed with round-2 fix."
+          }
+        ],
+        "carry_over": [
+          {
+            "id": "R1-001",
+            "status": "fixed",
+            "note": "tasks.md checkboxes 5.1/6.1-6.5 ticked. Confirmed still resolved."
+          },
+          {
+            "id": "R1-002",
+            "status": "fixed",
+            "note": "vehicles.templ has no fmt import, no fmt.Sprintf, no method calls — plain string field reads only. fragments.Vehicle display fields are pre-formatted strings (Battery/BatteryRange/Odometer/InsideTemp/OutsideTemp). All fmt.Sprintf calls moved to mapVehicles in handlers.go using .BatteryRangeKm()/.OdometerKm() companions. div#vehicles id unchanged. vehicles_templ.go regenerated and consistent. design.md D7 addendum appended (append-only, original text intact)."
+          },
+          {
+            "id": "R1-003",
+            "status": "fixed",
+            "note": "task 2.3 description restored. Confirmed still resolved."
+          },
+          {
+            "id": "R1-004",
+            "status": "fixed",
+            "note": "Pure isStale(capturedAt, now time.Time) bool helper added; mapVehicles calls isStale(snap.CapturedAt, time.Now()). TestIsStale uses fixed now=2024-01-15T12:00:00Z; asserts exactly-at-threshold=false (strict >), 1ns past=true, 1ns within=false. Deterministic. TestVehiclesFor_StaleBoundary retained. TestIsStale PASS confirmed."
+          },
+          {
+            "id": "R1-005",
+            "status": "rejected",
+            "note": "Rejection stands per DEC-4. No change."
+          }
+        ]
       }
     ]
   },
@@ -234,7 +283,12 @@
     {
       "at": "2026-07-12T09:34:31Z",
       "agent": "leader",
-      "event": "Round-1 rework complete + re-verified. Gateway worker (Sonnet) resolved R1-002 (view fields -> pre-formatted strings; fmt out of vehicles.templ; regen) and R1-004 (isStale pure helper per DEC-5 + deterministic exact-at-threshold test). Leader re-verify: go build/vet/test ./... green, openspec --strict valid, boundary clean (no telemetrydb/pgtype; div#vehicles id stable; no fmt/method calls in templ). Leader also gofmt-fixed a PRE-EXISTING Deps-struct misalignment (introduced by tier-5 wave-1's TelemetryReader comment; vet doesn't catch gofmt, so round-1 missed it). Rework budget delta approx $1.63 (five_hour 4%->14%, context 11%). Findings R1-002/R1-004 -> resolved; status -> in-review. NEXT: re-dispatch gateway-reviewer for round 2."
+      "event": "Round-1 rework complete + re-verified. Gateway worker (Sonnet) resolved R1-002 (view fields -> pre-formatted strings; fmt out of vehicles.templ; regen) and R1-004 (isStale pure helper per DEC-5 + deterministic exact-at-threshold test). Leader re-verify: go build/vet/test ./... green, openspec --strict valid, boundary clean (no telemetrydb/pgtype; div#vehicles id stable; no fmt/method calls in templ). Leader also gofmt-fixed a PRE-EXISTING Deps-struct misalignment (introduced by tier-5 wave-1's TelemetryReader comment; vet doesn't catch gofmt, so round-1 missed it). Rework budget delta approx $1.63 (five_hour 4%->14%, context 11%). Findings R1-002/R1-004 -> resolved; status -> in-review. Committed 9985a34. NEXT: re-dispatch gateway-reviewer for round 2."
+    },
+    {
+      "at": "2026-07-12T09:39:49Z",
+      "agent": "leader",
+      "event": "Review round 2 (fresh gateway-reviewer, Sonnet) -> changes-requested, 1 new minor finding R2-001; confirmed R1-002 + R1-004 fully FIXED and R1-001/R1-003 resolved / R1-005 rejection standing. R2-001: gofmt -l internal/gateway/ still flags gateway.go — my round-1-rework gofmt check was scoped to only the CHANGED .go files, so I missed gateway.go's wave-1 gofmt debt (my event note over-generalized). ACCEPTED (good escalation). Leader ran gofmt -w internal/gateway/gateway.go; gofmt -l whole dir now clean; go build/vet/test green. Round-2 review budget delta approx $1.39 (five_hour 18%->23%). NEXT: signal same reviewer (SendMessage) for round-3 spot-check of R2-001, then archive on approval."
     }
   ]
 }

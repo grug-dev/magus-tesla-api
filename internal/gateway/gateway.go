@@ -29,17 +29,17 @@ var staticFS embed.FS
 
 // Deps are everything the gateway needs, wired by cmd/web.
 type Deps struct {
-	Pool          *pgxpool.Pool
-	Account       account.Service
-	Google        *googleauth.Client
-	Tesla         tesla.VehicleService
+	Pool    *pgxpool.Pool
+	Account account.Service
+	Google  *googleauth.Client
+	Tesla   tesla.VehicleService
 	// TelemetryReader is the telemetry read port. The gateway calls
 	// LatestSnapshotsByAccount once per dashboard render to populate vehicle card
 	// telemetry. Injected from cmd/web via telemetry.NewReader(pool).
 	// NEVER import internal/telemetry/db (telemetrydb) — all access through this
 	// interface only.
-	TelemetryReader   telemetry.Reader
-	SessionSecret string
+	TelemetryReader telemetry.Reader
+	SessionSecret   string
 	// Tesla OAuth app credentials + the web connect redirect URI.
 	TeslaClientID     string
 	TeslaClientSecret string
