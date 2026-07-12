@@ -85,13 +85,13 @@
       `scheduler_test.go`) passes; no Tesla API call fires from the test run; no new test is
       required for `cmd/poller` (the thin `main` follows the repo's `cmd/` test-free convention —
       `cmd/setup`, `cmd/web`, `cmd/explore-tesla-api` are all test-free).
-- [ ] 3.3 `openspec validate telemetry-add-poller-once-flag --strict` passes and every tasks.md
+- [x] 3.3 `openspec validate telemetry-add-poller-once-flag --strict` passes and every tasks.md
       checkbox reflects real completion.
-- [ ] 3.4 Boundary check: `internal/telemetry` gains no new import and no new cross-module
+- [x] 3.4 Boundary check: `internal/telemetry` gains no new import and no new cross-module
       dependency (only an identifier is exported); `cmd/poller` adds only the stdlib `"flag"`
       import and its existing `internal/telemetry` import (now calling `LogCycle`); no other
       module's files are touched; no DB migration, no sqlc regen, no `Makefile` change.
-- [ ] 3.5 Confirm the scheduled nightly path is behavior-identical: same setup, same
+- [x] 3.5 Confirm the scheduled nightly path is behavior-identical: same setup, same
       `NewScheduler`, same `Run`, same `errors.Is(err, context.Canceled)` handling, same
       `"poller started"`/`"poller stopped"` log lines; the only differences are the `if !once`
       guard around the `time.LoadLocation` block + scheduler path, the `flag` plumbing, and the

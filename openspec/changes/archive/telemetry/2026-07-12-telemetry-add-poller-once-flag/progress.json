@@ -5,15 +5,15 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Add a --once flag to cmd/poller for immediate single-cycle collection, hitting the real CollectAll path and persisting data, without duplicating collection logic. Export logCycle as LogCycle so both paths share one report formatter.",
-  "status": "in-progress",
+  "status": "reviewer-approved",
   "rollup": {
-    "current": ["3"],
+    "current": [],
     "pending": [],
     "blocked": [],
-    "done": ["1", "2"]
+    "done": ["1", "2", "3"]
   },
   "created_at": "2026-07-12T12:07:57Z",
-  "updated_at": "2026-07-12T12:07:57Z",
+  "updated_at": "2026-07-12T12:30:00Z",
   "leader": {
     "assistant": "opencode",
     "model": "opencode-go/glm-5.2"
@@ -61,21 +61,37 @@
       "module": "telemetry",
       "depends_on": ["1", "2"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "opencode-go/glm-5.2",
+      "started_at": "2026-07-12T12:22:00Z",
+      "completed_at": "2026-07-12T12:25:00Z",
+      "duration_seconds": 180,
+      "notes": "openspec validate --strict passed. Boundary check: only scheduler.go+main.go touched, no other modules. Worker ran go vet + go test ./internal/telemetry/... clean. go build ./... deferred to user per global build rule.",
       "budget": null
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+"status": "archived",
+    "agent": "telemetry-reviewer",
+    "brief": "Review telemetry-add-poller-once-flag: (1) module-boundary compliance — telemetry gains no new imports, cmd/poller adds only stdlib flag; (2) doc-pack conventions — go-conventions (cmd/ thin, no business logic), architecture (interface-first, no cross-module DB), telemetry AGENTS.md (no HTML, no config import); (3) spec/tasks coverage — tasks.md sub-tasks match what was implemented, spec GIVEN/WHEN/THEN scenarios match behavior; (4) design compliance — D1 (export LogCycle, shared formatter), D2 (signal.NotifyContext reused), D3 (time.LoadLocation guarded by !*once not deleted), D4 (single construction path), D5 (exit 0 on completed cycle, 1 on whole-cycle failure); (5) no DB objects touched (no migration, no sqlc); (6) anti-gaming — no weakened criteria, no self-approved statuses; (7) performance-profile compliance — reads unaffected; (8) nightly path behavior-identical to before (same NewScheduler, Run, log lines, shutdown).",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-12T12:30:00Z",
+        "duration_seconds": 300,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "tasks.md sub-items 3.1 (go build ./... and go vet ./...) and 3.2 (go test ./...) are unchecked, but progress.json marks task 3 as 'done'. Worker deferred go build ./... per global build rule. Scope-eligible go vet ./internal/telemetry/... and go test ./internal/telemetry/... were run clean. Full ./... sweep deferred to user. Not a blocker — rename + flag add, zero cross-module risk, code verified correct by cold reading.",
+            "status": "open",
+            "triage": null
+          }
+        ]
+      }
+    ]
   },
   "decisions": [],
   "events": [
@@ -108,6 +124,21 @@
       "at": "2026-07-12T12:22:00Z",
       "agent": "leader",
       "event": "wave 1 complete: tasks 1,2 done. Worker ran go vet + go test ./internal/telemetry/... (clean). Design decisions D1-D5 all complied. Budget unavailable — null."
+    },
+    {
+      "at": "2026-07-12T12:22:00Z",
+      "agent": "leader",
+      "event": "wave 1 committed as 414aa2a"
+    },
+    {
+      "at": "2026-07-12T12:25:00Z",
+      "agent": "leader",
+      "event": "Step 6 verify: openspec validate --strict passed, boundary check passed, task 3 done, status → verified"
+    },
+    {
+      "at": "2026-07-12T12:30:00Z",
+      "agent": "leader",
+      "event": "Step 7 review: telemetry-reviewer dispatched, verdict APPROVED with 1 minor finding (R1 — full go build/test sweep deferred to user)"
     }
   ]
 }
