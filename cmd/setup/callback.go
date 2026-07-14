@@ -24,7 +24,10 @@ func startCallbackServer(codeCh chan<- string) *http.Server {
 	}
 
 	// Step 6b — Tesla redirects here after the user approves the consent screen.
-	router.GET("/callback", func(c *gin.Context) {
+	// The path must match the redirect_uri registered in internal/config
+	// (http://localhost:8080/connect/tesla/callback), otherwise Tesla's
+	// redirect 404s and the code never reaches the channel.
+	router.GET("/connect/tesla/callback", func(c *gin.Context) {
 		code := c.Query("code")
 		if code == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "missing authorization code"})

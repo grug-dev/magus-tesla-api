@@ -154,7 +154,7 @@ This is a machine-to-machine token obtained with your app credentials. No user l
 
 ```bash
 curl --request POST \
-  --url 'https://auth.tesla.com/oauth2/v3/token' \
+  --url 'https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token' \
   --header 'Content-Type: application/x-www-form-urlencoded' \
   --data 'grant_type=client_credentials' \
   --data 'client_id=YOUR_CLIENT_ID' \

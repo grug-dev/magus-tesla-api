@@ -133,6 +133,12 @@ func listVehiclesWithAutoRefresh(ctx context.Context, client *tesla.Client, cfg 
 		// Success, or a non-auth failure that refreshing cannot fix — surface as-is.
 		return listRaw, creds, err
 	}
+
+	// Diagnose WHY the access token 401'd before attempting refresh. The shared
+	// tesla client discards Tesla's response body, so re-issue the call locally to
+	// capture it. This is read-only and touches nothing the web server uses.
+	log.Printf("→ access token rejected by /api/1/vehicles; Tesla response: %s", dumpListBody(cfg.AccessToken))
+
 	if cfg.RefreshToken == "" {
 		return nil, creds, fmt.Errorf("access token expired and no TESLA_REFRESH_TOKEN in .env to refresh with: %w", err)
 	}
@@ -140,6 +146,11 @@ func listVehiclesWithAutoRefresh(ctx context.Context, client *tesla.Client, cfg 
 	log.Println("→ access token expired; refreshing via TESLA_REFRESH_TOKEN")
 	tokens, rerr := auth.RefreshTokens(cfg.ClientID, cfg.ClientSecret, cfg.RefreshToken)
 	if rerr != nil {
+		// Diagnose WHY the refresh 400'd. auth.RefreshTokens discards Tesla's body,
+		// so re-issue the grant locally to capture the actual error reason
+		// (invalid_grant / invalid_client / invalid_scope). Safe to re-issue: a 400
+		// means Tesla already rejected the refresh.
+		log.Printf("→ refresh failed; Tesla response: %s", dumpRefreshBody(cfg.ClientID, cfg.RefreshToken))
 		return nil, creds, fmt.Errorf("access token expired and refresh failed "+
 			"(the refresh token may be expired or already consumed — re-run `go run ./cmd/setup`): %w", rerr)
 	}

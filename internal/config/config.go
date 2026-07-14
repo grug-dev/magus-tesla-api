@@ -62,17 +62,17 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		ClientID:           os.Getenv("TESLA_CLIENT_ID"),
-		ClientSecret:       os.Getenv("TESLA_CLIENT_SECRET"),
+		ClientID:           envStripped("TESLA_CLIENT_ID"),
+		ClientSecret:       envStripped("TESLA_CLIENT_SECRET"),
 		RedirectURI:        "http://localhost:8080/connect/tesla/callback",
-		AccessToken:        os.Getenv("TESLA_ACCESS_TOKEN"),
-		RefreshToken:       os.Getenv("TESLA_REFRESH_TOKEN"),
-		DatabaseURL:        os.Getenv("DATABASE_URL"),
-		Port:               os.Getenv("PORT"),
-		SessionSecret:      os.Getenv("SESSION_SECRET"),
-		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		BaseURL:            os.Getenv("BASE_URL"),
+		AccessToken:        envStripped("TESLA_ACCESS_TOKEN"),
+		RefreshToken:       envStripped("TESLA_REFRESH_TOKEN"),
+		DatabaseURL:        envStripped("DATABASE_URL"),
+		Port:               envStripped("PORT"),
+		SessionSecret:      envStripped("SESSION_SECRET"),
+		GoogleClientID:     envStripped("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: envStripped("GOOGLE_CLIENT_SECRET"),
+		BaseURL:            envStripped("BASE_URL"),
 	}
 
 	if cfg.Port == "" {
@@ -84,7 +84,7 @@ func Load() (*Config, error) {
 
 	cfg.PollerScheduleHour = envInt("POLLER_SCHEDULE_HOUR", 3)
 	cfg.PollerScheduleMinute = envInt("POLLER_SCHEDULE_MINUTE", 30)
-	cfg.PollerTimezone = os.Getenv("POLLER_TIMEZONE")
+	cfg.PollerTimezone = envStripped("POLLER_TIMEZONE")
 	if cfg.PollerTimezone == "" {
 		cfg.PollerTimezone = "Local"
 	}
@@ -95,6 +95,27 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// envStripped reads an env var and removes a single pair of surrounding matching
+// quotes (" or ') if present. The Makefile does `include .env; export`, and make's
+// include does NOT strip quotes the way godotenv/bash do — so a .env line like
+// TESLA_ACCESS_TOKEN="eyJ..." reaches the Go process as "eyJ..." (with literal quote
+// chars) when run via `make`. godotenv.Load is non-overriding, so it cannot replace an
+// already-exported (quoted) value. Stripping here makes config.Load tolerant of quoted
+// exports regardless of how the var was set (make export, shell, or godotenv itself,
+// which already strips — no-op in that case). A real `make VAR=x` override has no
+// quotes, so override semantics are unchanged.
+func envStripped(key string) string {
+	v := os.Getenv(key)
+	if len(v) < 2 {
+		return v
+	}
+	first, last := v[0], v[len(v)-1]
+	if (first == '"' && last == '"') || (first == '\'' && last == '\'') {
+		return v[1 : len(v)-1]
+	}
+	return v
 }
 
 // envInt reads an integer env var, falling back to def when unset or unparseable.
