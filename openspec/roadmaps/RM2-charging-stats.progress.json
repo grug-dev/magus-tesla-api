@@ -7,7 +7,7 @@
   "status": "in-progress",
   "autopilot": false,
   "created_at": "2026-07-14T10:44:28Z",
-  "updated_at": "2026-07-14T17:12:22Z",
+  "updated_at": "2026-07-14T17:48:38Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -66,6 +66,15 @@
       "decision": "Explorer run of dx/charging/history returned 403 'missing scopes'. Source B is blocked on granting vehicle_charging_cmds: (1) enable it for the app in the Tesla dev portal, (2) add it to internal/auth/oauth.go, (3) re-run cmd/setup to re-consent. This is a new prerequisite before the live schema can even be captured.",
       "why": "Tesla FAQ: 403 = token lacks required scope. Current scope is 'openid vehicle_device_data offline_access'; charging history needs vehicle_charging_cmds (charging billing/history).",
       "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-07-14T17:48:38Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Added vehicle_charging_cmds to internal/auth/oauth.go inline (commit 518f129), not via a dispatched worker or formal change — a single-token enabler to unblock schema capture, parallel to D4. Fold into the Source B change later, which must ALSO add the scope to the multi-tenant web connect flow (verify in Tier 2).",
+      "why": "One-token scope change; a cold-start worker is disproportionate. User confirmed the app is permitted to request the scope in the Tesla dev portal (screenshot). Awaiting user re-consent (make setup) + explorer re-run to capture the live payload.",
+      "covered_by": "D5"
     }
   ],
   "tiers": [
@@ -97,7 +106,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Part (a) snapshot-column enrichment can start now. Part (b) charge_sessions BLOCKED: dx/charging/history returns 403 (needs vehicle_charging_cmds scope, D5) AND its fields are unconfirmed; then DB design gate + grill-me."
+      "notes": "Part (a) snapshot-column enrichment can start now. Part (b) charge_sessions BLOCKED: vehicle_charging_cmds scope now added (D6) — awaiting user re-consent + live dx/charging/history fields; then DB design gate + grill-me."
     }
   ]
 }
