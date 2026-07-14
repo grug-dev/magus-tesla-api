@@ -46,8 +46,9 @@ Other public symbols: `Credentials{AccessToken}`, `NewClient() *Client`, sentine
 `DriveStateTesla`, `VehicleStateTesla`) with their metric companion methods.
 
 **Off the interface, deliberately:** the `Raw*` methods in `raw.go` (`ListVehiclesRaw`,
-`VehicleDataRaw`, `WakeUpRaw`) exist only on the concrete `*Client` for the
-`tesla-exploration` capability (`cmd/explore-tesla-api`). Domain code must never call them.
+`VehicleDataRaw`, `WakeUpRaw`, `ChargingHistoryRaw`) exist only on the concrete `*Client`
+for the `tesla-exploration` capability (`cmd/explore-tesla-api`). Domain code must never
+call them.
 Sync rule: every new typed Fleet API method in `vehicles.go` gets a `Raw*` sibling here
 (reuse `get`/`post`, return `json.RawMessage`, stay off the interface) and explorer coverage
 in `cmd/explore-tesla-api/main.go` + its README (`CLAUDE.md` §Tesla API Exploration).

@@ -92,7 +92,15 @@ func run() error {
 	}
 	log.Printf("→ selected vehicle [%d]: %q (id=%d, state=%s)", *index, vehicle.DisplayName, vehicle.ID, vehicle.State)
 
-	// 2. Wake + poll until online (VehicleData requires an online vehicle).
+	// 2. Charging history — account-level, no vehicle id, no wake needed.
+	log.Println("→ GET /api/1/dx/charging/history")
+	chargingRaw, err := client.ChargingHistoryRaw(ctx, creds)
+	if err != nil {
+		return err
+	}
+	printJSON("ChargingHistory", chargingRaw)
+
+	// 3. Wake + poll until online (VehicleData requires an online vehicle).
 	if vehicle.State != "online" {
 		log.Printf("→ POST /api/1/vehicles/%d/wake_up", vehicle.ID)
 		wakeRaw, err := client.WakeUpRaw(ctx, creds, vehicle.ID)
@@ -106,7 +114,7 @@ func run() error {
 		}
 	}
 
-	// 3. Full raw snapshot.
+	// 4. Full raw snapshot.
 	log.Printf("→ GET /api/1/vehicles/%d/vehicle_data", vehicle.ID)
 	dataRaw, err := client.VehicleDataRaw(ctx, creds, vehicle.ID)
 	if err != nil {

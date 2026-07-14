@@ -59,7 +59,7 @@ param `?location_data=true`, which also shows a location-sharing icon on the car
 
 | Endpoint | Method | Returns | Status |
 |---|---|---|---|
-| `/api/1/dx/charging/history` | GET | Paginated past charging events | ⬜ |
+| `/api/1/dx/charging/history` | GET | Paginated past charging events | ⬜ typed · `ChargingHistoryRaw` explorer-reachable |
 | `/api/1/dx/charging/sessions` | GET | Session pricing + energy — **business fleet accounts only** | ⬜ |
 | `/api/1/dx/warranty/details` | GET | Warranty information | ⬜ |
 
