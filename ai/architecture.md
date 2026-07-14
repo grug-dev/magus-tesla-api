@@ -176,11 +176,19 @@ months of raw snapshots and aggregating on the fly).
 
 ### Concrete patterns already in use (now conventions)
 
-1. **Extracted typed columns alongside `JSONB`** — `vehicle_snapshots` stores the
-   lossless `raw_data JSONB` *plus* extracted typed columns (battery_level, odometer,
-   etc.). Dashboards read the typed columns (indexed, cheap); the raw JSONB is there
-   for lossless replay or future field extraction. Convention: never force a
-   dashboard to extract from JSONB on the hot path.
+1. **Raw `JSONB` is mandatory insurance for external API ingestion — then typed
+   columns for hot reads.** Any table persisting an external API response (Tesla
+   Fleet API or any third-party) MUST store the lossless `raw_data JSONB NOT NULL`
+   payload. This is a schema-drift hedge: if the API renames or reshapes a field,
+   only the extraction code (the `...Tesla` DTO JSON tags) changes — the table
+   schema and all historical rows stay valid. If you later want a field you weren't
+   extracting, you backfill from `raw_data` with a one-time SQL `UPDATE` — no
+   re-calling the API (paid, rate-limited, wakes the car), no lost history.
+   `vehicle_snapshots` stores the full `vehicle_data` payload in `raw_data JSONB`
+   *plus* extracted typed columns (battery_level, odometer, etc.). Dashboards read
+   the typed columns (indexed, cheap); the raw JSONB is write-once-read-never-
+   unless-backfilling. Convention: never force a dashboard to extract from JSONB on
+   the hot path. See [`go-conventions.md`](./go-conventions.md) §Persistence.
 
 2. **`DISTINCT ON` for "latest per X"** — `LatestSnapshotsByAccount` uses
    `DISTINCT ON (tesla_id) ... ORDER BY tesla_id, captured_at DESC` to get the latest

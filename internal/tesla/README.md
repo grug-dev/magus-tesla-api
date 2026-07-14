@@ -19,6 +19,12 @@ See [`AGENTS.md`](AGENTS.md) for the full module brief, conventions, and rules.
 Each typed method in `vehicles.go` has a `Raw*` sibling in `raw.go` for the exploration
 tool (`cmd/explore-tesla-api`).
 
+> **Storage convention:** callers that persist `VehicleData` responses MUST store the
+> raw payload losslessly in a `raw_data JSONB NOT NULL` column alongside any extracted
+> typed columns. This is a schema-drift hedge — if Tesla renames or reshapes a field,
+> only the DTO JSON tags here change; the storage schema and all historical rows stay
+> valid. See [`ai/go-conventions.md`](../../ai/go-conventions.md) §Persistence.
+
 ## Fleet API endpoint reference
 
 The full Tesla Fleet API documentation lives at:
