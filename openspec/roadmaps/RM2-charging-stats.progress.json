@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM2-charging-stats",
+  "intention": "Per-user charging analytics — enriched nightly charge-state fields plus true charge sessions (energy, battery before→after, efficiency) from Tesla's dx/charging/history endpoint, with a historical backfill.",
+  "request": "I'd like to start fetching nightly charging stats for vehicles. By using the same EXISTING poller as the `vehicle_data` endpoint, we can get a nightly snapshot of charging events and store them in a separate table. This would allow us to do analytics on charging behavior, energy usage, etc. etc.\n\nAlso, if there is a way to get the charging history from Tesla's API, we can backfill the table with historical data.\n\nWondering if this is a good idea, or if there are any gotchas with the Tesla API that would make this difficult.\n\nI'd like to be able to query the battery level before and after charging events, as well as the energy used during the charge. This would allow us to calculate efficiency and other metrics.\n\nAny other ideas for what to track in the charging stats table? You can do that after exploring the Tesla API and seeing what data is available.",
+  "status": "in-progress",
+  "autopilot": false,
+  "created_at": "2026-07-14T10:44:28Z",
+  "updated_at": "2026-07-14T10:44:28Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM2-charging-stats",
+    "base": "main",
+    "created_at": "2026-07-14T10:44:28Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-07-14T10:44:28Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Scope = both sources: enrich nightly snapshot columns (A) AND add dx/charging/history sessions + charge_sessions table + backfill (B).",
+      "why": "User selected 'Both A + B' — A is cheap (data already in JSONB), B is the only source of true per-session energy / before→after / efficiency.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-07-14T10:44:28Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "telemetry owns the charge_sessions table + collector + backfill; tesla owns the dx/charging/history adapter call. Multi-module → this roadmap.",
+      "why": "User selected 'telemetry'; only the tesla adapter may call Tesla (boundaries). telemetry already owns nightly collection + append-only storage + the account/tesla ports.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-07-14T10:44:28Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "SCHEMA GATE: the charge_sessions table and the typed ChargingHistoryTesla DTO are designed ONLY after the user provides the real dx/charging/history response. No paid exploration call from the assistant.",
+      "why": "User will supply the live response; Fleet API docs do not enumerate the endpoint's fields, so designing against guesses would be reworked at the DB design gate.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM2-tesla-add-charging-history",
+      "module": "tesla",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Part (a) Raw+explorer can start now; part (b) typed ChargingHistoryTesla DTO BLOCKED on user-provided dx/charging/history response."
+    },
+    {
+      "id": 2,
+      "change": "RM2-telemetry-add-charging-stats",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Part (a) snapshot-column enrichment can start now; part (b) charge_sessions table BLOCKED on confirmed dx/charging/history fields, then DB design gate + grill-me."
+    }
+  ]
+}

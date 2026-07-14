@@ -32,6 +32,26 @@ Architecture is a valid MODULE-NAME when it is cross-cutting (e.g., `security`, 
 # Pending to be picked up
 
 
+## CHARGING STATS
+
+### PROPOSAL
+
+I'd like to start fetching nightly charging stats for vehicles. By using the same
+EXISTING poller as the `vehicle_data` endpoint, we can get a nightly snapshot of charging events and
+store them in a separate table. This would allow us to do analytics on charging behavior, energy usage, etc. etc.
+
+Also, if there is a way to get the charging history from Tesla's API, we can backfill the table with historical data. 
+
+Wondering if this is a good idea, or if there are any gotchas with the Tesla API that would make this difficult.
+
+I'd like to be able to query the battery level before and after charging events, as well as the energy used during the charge. This would allow us to calculate efficiency and other metrics.
+
+ANy other ideas for what to track in the charging stats table? You can do that after exploring the Tesla API and seeing what data is available.
+
+
+
+# BRAINSTORMING
+
 
 ## 1. **Security** — encrypt Tesla tokens at rest
 
@@ -43,23 +63,3 @@ Encrypt Tesla tokens at rest (tesla_tokens.access_token / refresh_token) — app
 
 ### ORIGIN
 add-account-module (Tier 1) design.md Open Question
-
-## 2. **telemetry** — adaptive polling / charge-session detection
-
-### PROPOSAL
-
-Boost sampling to minutes-level only while a vehicle is charging or driving (per the telemetry module's `AGENTS.md` §Polling Strategy), layering on the nightly-snapshot foundation. Deferred: the nightly anchor shipped first; adaptive polling adds API cost and scheduler complexity that only pays off once nightly data shows charge/drive patterns worth finer sampling. Trigger: when accumulated nightly data justifies charge-session detection or higher-resolution sampling.
-
-### ORIGIN
-
-RM1-nightly-vehicle-telemetry roadmap — "Future work (recorded, not tiers)" (descoped at the 2026-07-10 grill-me interview).
-
-## 3. **telemetry** — availability & sleep-behavior metrics
-
-### PROPOSAL
-
-Derive availability and sleep-behavior metrics from the `poll_attempts` table (attempt reasons: `asleep-timeout`, `unauthorized`, `api-error`, …). Deferred: needs weeks of accumulated `poll_attempts` history before the metrics are statistically meaningful. Trigger: after several weeks of nightly poll attempts have been recorded.
-
-### ORIGIN
-
-RM1-nightly-vehicle-telemetry roadmap — "Future work (recorded, not tiers)".
