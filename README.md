@@ -30,6 +30,10 @@ go run ./cmd/setup
 
 # Run the multi-tenant web gateway (needs DATABASE_URL + SESSION_SECRET in .env)
 go run ./cmd/web
+
+# Run the nightly telemetry poller (needs DATABASE_URL in .env)
+go run ./cmd/poller          # nightly scheduled collection (blocks)
+go run ./cmd/poller --once   # one immediate collection cycle, then exit
 ```
 
 ---
@@ -87,6 +91,7 @@ magus-tesla-api/
 ├── cmd/               # Executable entry points — see cmd/README.md
 │   ├── setup/          # One-time Tesla OAuth flow (saves tokens to .env)
 │   ├── web/            # Multi-tenant HTTP gateway (vehicle dashboard)
+│   ├── poller/         # Nightly telemetry collection (run once or scheduled)
 │   └── explore-tesla-api/  # On-demand raw Tesla Fleet API JSON inspector
 │
 ├── internal/

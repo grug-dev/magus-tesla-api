@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "telemetry-add-poller-once-flag",
+  "module": "telemetry",
+  "roadmap": null,
+  "request": "Add a --once flag to cmd/poller for immediate single-cycle collection, hitting the real CollectAll path and persisting data, without duplicating collection logic. Export logCycle as LogCycle so both paths share one report formatter.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": ["1", "2", "3"]
+  },
+  "created_at": "2026-07-12T12:07:57Z",
+  "updated_at": "2026-07-12T12:30:00Z",
+  "leader": {
+    "assistant": "opencode",
+    "model": "opencode-go/glm-5.2"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/telemetry-add-poller-once-flag",
+    "base": "main",
+    "created_at": "2026-07-12T12:07:57Z"
+  },
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Export logCycle → LogCycle in internal/telemetry/scheduler.go",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "opencode-go/glm-5.2",
+      "started_at": "2026-07-12T12:10:00Z",
+      "completed_at": "2026-07-12T12:14:00Z",
+      "duration_seconds": 240,
+      "notes": "renamed logCycle -> LogCycle (signature + body unchanged), updated single call site in Scheduler.Run, refreshed doc comment to note export for shared formatter with cmd/poller --once. go vet ./internal/telemetry/... clean, telemetry tests pass.",
+      "budget": null
+    },
+    {
+      "id": "2",
+      "title": "Add --once flag to cmd/poller/main.go and branch on *once",
+      "module": "telemetry",
+      "depends_on": ["1"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "opencode-go/glm-5.2",
+      "started_at": "2026-07-12T12:14:30Z",
+      "completed_at": "2026-07-12T12:22:00Z",
+      "duration_seconds": 450,
+      "notes": "added 'flag' import, flag.Bool('once')+flag.Parse before config.Load, moved time.LoadLocation block inside if !*once, kept signal.NotifyContext + pool/acct/tcfg/collector construction once before the branch, added else CollectAll->LogCycle->log.Fatalf on whole-cycle error. Package doc comment updated with --once usage line. go vet ./cmd/poller ./internal/telemetry/... clean, gofmt clean. Guard is !*once (once is *bool) per design D4.",
+      "budget": null
+    },
+    {
+      "id": "3",
+      "title": "Verification — build, vet, test, boundary check",
+      "module": "telemetry",
+      "depends_on": ["1", "2"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "opencode-go/glm-5.2",
+      "started_at": "2026-07-12T12:22:00Z",
+      "completed_at": "2026-07-12T12:25:00Z",
+      "duration_seconds": 180,
+      "notes": "openspec validate --strict passed. Boundary check: only scheduler.go+main.go touched, no other modules. Worker ran go vet + go test ./internal/telemetry/... clean. go build ./... deferred to user per global build rule.",
+      "budget": null
+    }
+  ],
+  "review": {
+"status": "archived",
+    "agent": "telemetry-reviewer",
+    "brief": "Review telemetry-add-poller-once-flag: (1) module-boundary compliance — telemetry gains no new imports, cmd/poller adds only stdlib flag; (2) doc-pack conventions — go-conventions (cmd/ thin, no business logic), architecture (interface-first, no cross-module DB), telemetry AGENTS.md (no HTML, no config import); (3) spec/tasks coverage — tasks.md sub-tasks match what was implemented, spec GIVEN/WHEN/THEN scenarios match behavior; (4) design compliance — D1 (export LogCycle, shared formatter), D2 (signal.NotifyContext reused), D3 (time.LoadLocation guarded by !*once not deleted), D4 (single construction path), D5 (exit 0 on completed cycle, 1 on whole-cycle failure); (5) no DB objects touched (no migration, no sqlc); (6) anti-gaming — no weakened criteria, no self-approved statuses; (7) performance-profile compliance — reads unaffected; (8) nightly path behavior-identical to before (same NewScheduler, Run, log lines, shutdown).",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-12T12:30:00Z",
+        "duration_seconds": 300,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "tasks.md sub-items 3.1 (go build ./... and go vet ./...) and 3.2 (go test ./...) are unchecked, but progress.json marks task 3 as 'done'. Worker deferred go build ./... per global build rule. Scope-eligible go vet ./internal/telemetry/... and go test ./internal/telemetry/... were run clean. Full ./... sweep deferred to user. Not a blocker — rename + flag add, zero cross-module risk, code verified correct by cold reading.",
+            "status": "open",
+            "triage": null
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [],
+  "events": [
+    {
+      "at": "2026-07-12T12:07:57Z",
+      "agent": "leader",
+      "event": "project discovered: opencode runtime, budget unavailable (stale cache), git auto, Modules-Root=internal/, DB gate N/A for this change"
+    },
+    {
+      "at": "2026-07-12T12:07:57Z",
+      "agent": "leader",
+      "event": "branch ft/telemetry-add-poller-once-flag created off main (clean tree)"
+    },
+    {
+      "at": "2026-07-12T12:07:57Z",
+      "agent": "leader",
+      "event": "artifacts created by telemetry worker, validated openspec --strict, no design gate triggered (no DB objects), committed as 351ebe5"
+    },
+    {
+      "at": "2026-07-12T12:07:57Z",
+      "agent": "leader",
+      "event": "progress.json created, tasks seeded from tasks.md (1,2,3 all pending)"
+    },
+    {
+      "at": "2026-07-12T12:22:00Z",
+      "agent": "leader",
+      "event": "wave 1 dispatched: serial worker for tasks 1+2 (telemetry-add-poller-once-flag)"
+    },
+    {
+      "at": "2026-07-12T12:22:00Z",
+      "agent": "leader",
+      "event": "wave 1 complete: tasks 1,2 done. Worker ran go vet + go test ./internal/telemetry/... (clean). Design decisions D1-D5 all complied. Budget unavailable — null."
+    },
+    {
+      "at": "2026-07-12T12:22:00Z",
+      "agent": "leader",
+      "event": "wave 1 committed as 414aa2a"
+    },
+    {
+      "at": "2026-07-12T12:25:00Z",
+      "agent": "leader",
+      "event": "Step 6 verify: openspec validate --strict passed, boundary check passed, task 3 done, status → verified"
+    },
+    {
+      "at": "2026-07-12T12:30:00Z",
+      "agent": "leader",
+      "event": "Step 7 review: telemetry-reviewer dispatched, verdict APPROVED with 1 minor finding (R1 — full go build/test sweep deferred to user)"
+    }
+  ]
+}

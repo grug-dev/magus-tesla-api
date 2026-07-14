@@ -2,11 +2,15 @@
 // wires config, a pgx pool, the account + tesla ports, and the telemetry collector,
 // then runs the in-app daily scheduler with graceful shutdown. Thin by design — all
 // collection logic lives in internal/telemetry (ai/go-conventions.md).
+//
+//	go run ./cmd/poller                # nightly scheduled collection (blocks)
+//	go run ./cmd/poller --once          # one immediate cycle, then exit
 package main
 
 import (
 	"context"
 	"errors"
+	"flag"
 	"log"
 	"os/signal"
 	"syscall"
@@ -21,6 +25,9 @@ import (
 )
 
 func main() {
+	once := flag.Bool("once", false, "run one collection cycle immediately and exit (skip the daily scheduler)")
+	flag.Parse()
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
@@ -29,14 +36,9 @@ func main() {
 		log.Fatal("DATABASE_URL is required for the poller")
 	}
 
-	// The scheduler runs in this timezone; "Local" resolves to the host's zone.
-	loc, err := time.LoadLocation(cfg.PollerTimezone)
-	if err != nil {
-		log.Fatalf("invalid POLLER_TIMEZONE %q: %v", cfg.PollerTimezone, err)
-	}
-
 	// Signals cancel this context, which the scheduler watches to shut down cleanly
-	// (it finishes without starting a new cycle).
+	// (it finishes without starting a new cycle). Both the nightly path and the
+	// --once path reuse this ctx so a SIGINT/SIGTERM during a wake-wait is honored.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -52,15 +54,37 @@ func main() {
 	// (clock seam, left nil here so both use the wall clock).
 	tcfg := telemetry.Config{WakeTimeout: cfg.PollerWakeTimeout}
 	collector := telemetry.NewService(pool, acct, tesla.NewClient(), tcfg)
-	scheduler := telemetry.NewScheduler(collector, cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, tcfg)
 
-	log.Printf("poller started: nightly collection at %02d:%02d %s (wake timeout %s)",
-		cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, cfg.PollerWakeTimeout)
+	if !*once {
+		// The scheduler runs in this timezone; "Local" resolves to the host's zone.
+		// Only the nightly path needs it — a --once run never schedules, so it never
+		// loads or validates POLLER_TIMEZONE.
+		loc, err := time.LoadLocation(cfg.PollerTimezone)
+		if err != nil {
+			log.Fatalf("invalid POLLER_TIMEZONE %q: %v", cfg.PollerTimezone, err)
+		}
 
-	// Run blocks until ctx is cancelled, then returns ctx.Err() — the expected exit on
-	// SIGINT/SIGTERM, so that is not a failure.
-	if err := scheduler.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		log.Fatalf("scheduler: %v", err)
+		scheduler := telemetry.NewScheduler(collector, cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, tcfg)
+
+		log.Printf("poller started: nightly collection at %02d:%02d %s (wake timeout %s)",
+			cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, cfg.PollerWakeTimeout)
+
+		// Run blocks until ctx is cancelled, then returns ctx.Err() — the expected
+		// exit on SIGINT/SIGTERM, so that is not a failure.
+		if err := scheduler.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			log.Fatalf("scheduler: %v", err)
+		}
+		log.Println("poller stopped")
+	} else {
+		// One-shot mode: run a single collection cycle immediately, log the shared
+		// per-cycle report, then exit. Reuses CollectAll + LogCycle so it provably
+		// shares the exact collection + report path with the nightly scheduler.
+		// CollectAll returns nil for per-vehicle failures (per-vehicle isolation);
+		// a non-nil error means a whole-cycle (enumeration) failure → exit 1.
+		report, err := collector.CollectAll(ctx)
+		telemetry.LogCycle(report, err)
+		if err != nil {
+			log.Fatalf("one-shot collection: %v", err)
+		}
 	}
-	log.Println("poller stopped")
 }

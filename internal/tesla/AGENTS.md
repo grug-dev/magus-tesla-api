@@ -7,6 +7,12 @@ Agent-Name: tesla
 Module-specific docs, additive to the base pack declared in the repo-root `CLAUDE.md`
 (never replacing it):
 
+- **Tesla Fleet API docs** — <https://developer.tesla.com/docs/fleet-api/getting-started/what-is-fleet-api>
+  The authoritative reference for every endpoint, request/response shape, and authentication
+  flow this adapter wraps. Consult it before adding any new Fleet API method or DTO.
+- `ai/tesla-fleet-api-endpoints.md` — local inventory of the Fleet API data-read endpoints
+  and which the adapter already implements (✅) vs. candidates (⬜). The "what to consume
+  next" map; keep the ✅ column in sync with `vehicles.go`/`raw.go`.
 - `docs/layer2-user-vehicle-access.md` — OAuth login, the two tokens, fetching vehicle data.
 - `cmd/explore-tesla-api/README.md` — the exploration runnable this module's `raw.go` backs,
   including the adapter↔explorer sync rule.

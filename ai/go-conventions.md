@@ -91,11 +91,25 @@ module:
   dashboard read scopes by account; an index without `account_id` first forces a
   scan when the planner can't pre-filter by tenant. Reference: the
   `(account_id, tesla_id, captured_at)` index in `internal/telemetry/db/migrations/`.
-- **Extract typed columns for hot reads alongside `JSONB` raw payloads.** When a
-  table stores a lossless `raw_data JSONB` column (for replay/future extraction),
-  also extract the fields dashboards need as typed, indexed columns. Dashboards
-  read the typed columns — never extract from JSONB on the hot path. Reference:
-  `vehicle_snapshots.battery_level`, `odometer`, etc. alongside `raw_data`.
+- **Always store raw `JSONB` when ingesting external API responses — it is the
+  insurance policy, not an optional companion.** Any table that persists a response
+  from an external API (Tesla Fleet API, any third-party) MUST include a
+  `raw_data JSONB NOT NULL` column holding the lossless, unmodified payload. This is
+  not a read-optimization choice — it is a schema-drift hedge:
+  - If the external API renames or reshapes a field, only the extraction code (the
+    `...Tesla` DTO JSON tags in `internal/tesla`) needs updating — the table schema
+    and all historical rows stay valid.
+  - If you later want a field you weren't extracting, you backfill from `raw_data`
+    with a one-time SQL `UPDATE` — no re-calling the API (paid, rate-limited,
+    wakes the car), no lost history.
+  - The raw column is write-once-read-never-unless-backfilling; it is never the hot
+    read path.
+  Reference: `vehicle_snapshots.raw_data` stores the full `vehicle_data` payload.
+- **Extract typed columns for hot reads alongside the raw `JSONB`.** In addition to
+  the mandatory `raw_data JSONB` (above), extract the fields dashboards need into
+  typed, indexed columns. Dashboards read the typed columns — never extract from
+  JSONB on the hot path. Reference: `vehicle_snapshots.battery_level`, `odometer`,
+  etc. alongside `raw_data`.
 - **`DISTINCT ON (x) ... ORDER BY x, time DESC` for "latest per X" queries.** One
   Postgres index scan, no N+1. Reference: `LatestSnapshotsByAccount` in
   `internal/telemetry/db/query.sql`. Write batch reads at the module interface
