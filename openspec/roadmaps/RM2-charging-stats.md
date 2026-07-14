@@ -72,6 +72,27 @@ would be reworked at the database design gate.
   richer `dx/charging/sessions` pricing/energy endpoint is **business-fleet-only** per the
   docs, so likely unavailable on a personal account.)
 
+### ⚠️ Discovered blocker (2026-07-14): 403 missing scopes
+
+Running the new explorer against `GET /api/1/dx/charging/history` returned **HTTP 403**.
+Tesla's FAQ documents 403 as *"Unauthorized missing scopes"* — the token lacks the
+endpoint's required scope. This app requests only `openid vehicle_device_data
+offline_access` (`internal/auth/oauth.go:13`); charging history needs
+**`vehicle_charging_cmds`** (the charging management / billing-history scope). **Source B
+is blocked until the token is re-minted with that scope.** Unblock sequence:
+
+1. **Tesla dev portal (Layer 1, user):** ensure the *Magus Monitor* app is permitted to
+   request `vehicle_charging_cmds`. If it isn't, the re-consent below is rejected.
+2. **Code (`internal/auth/oauth.go`):** add `vehicle_charging_cmds` to the scope string.
+   Isolated to `cmd/setup` (per `CLAUDE.md`, `internal/auth` is used only by the setup
+   tool — the running web server is unaffected). The multi-tenant web connect flow must
+   get the same scope when Source B ships (verify in Tier 2).
+3. **Re-consent (user):** re-run `cmd/setup` to redo the OAuth grant (owner grants the new
+   scope), writing fresh `.env` tokens; then re-run the explorer to capture the payload.
+
+Fallback: if re-consent WITH the scope still 403s, the endpoint is partner/region-gated
+rather than scope-gated — revisit Source B (see Future work).
+
 ## Tiers
 
 | # | Status | Change | Module | Scope | depends_on | Proposal prompt (ready to paste) |

@@ -7,7 +7,7 @@
   "status": "in-progress",
   "autopilot": false,
   "created_at": "2026-07-14T10:44:28Z",
-  "updated_at": "2026-07-14T16:41:32Z",
+  "updated_at": "2026-07-14T17:12:22Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -57,6 +57,15 @@
       "decision": "Landed the Tier-1(a) raw exploration bootstrap (ChargingHistoryRaw + explorer surface, commit 20539b5) BEFORE authoring the RM2-tesla-add-charging-history OpenSpec change, to unblock capturing the live dx/charging/history schema.",
       "why": "Raw* explorer additions are the test-free, off-interface tesla-exploration exception (CLAUDE.md); the change's real specs (the typed capability) need the live fields this bootstrap exists to capture.",
       "covered_by": "D3"
+    },
+    {
+      "id": "D5",
+      "at": "2026-07-14T17:12:22Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Explorer run of dx/charging/history returned 403 'missing scopes'. Source B is blocked on granting vehicle_charging_cmds: (1) enable it for the app in the Tesla dev portal, (2) add it to internal/auth/oauth.go, (3) re-run cmd/setup to re-consent. This is a new prerequisite before the live schema can even be captured.",
+      "why": "Tesla FAQ: 403 = token lacks required scope. Current scope is 'openid vehicle_device_data offline_access'; charging history needs vehicle_charging_cmds (charging billing/history).",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -73,7 +82,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Part (a) raw explorer bootstrap LANDED 2026-07-14 (ChargingHistoryRaw + explorer surface, commit 20539b5); build/vet green, no tests. Change not yet authored; part (b) typed DTO BLOCKED on user-provided dx/charging/history response."
+      "notes": "Bootstrap LANDED 2026-07-14 (ChargingHistoryRaw + explorer, commit 20539b5), build/vet green, no tests. Explorer run hit 403 missing-scopes — token lacks vehicle_charging_cmds. Change unauthored; part (b) typed DTO pending live response, now also gated on the scope grant (see D5)."
     },
     {
       "id": 2,
@@ -88,7 +97,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Part (a) snapshot-column enrichment can start now; part (b) charge_sessions table BLOCKED on confirmed dx/charging/history fields, then DB design gate + grill-me."
+      "notes": "Part (a) snapshot-column enrichment can start now. Part (b) charge_sessions BLOCKED: dx/charging/history returns 403 (needs vehicle_charging_cmds scope, D5) AND its fields are unconfirmed; then DB design gate + grill-me."
     }
   ]
 }
