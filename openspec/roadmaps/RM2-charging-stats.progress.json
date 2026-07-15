@@ -7,7 +7,7 @@
   "status": "in-progress",
   "autopilot": false,
   "created_at": "2026-07-14T10:44:28Z",
-  "updated_at": "2026-07-15T11:01:22Z",
+  "updated_at": "2026-07-15T11:31:00Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -16,10 +16,10 @@
     "created_at": "2026-07-14T10:44:28Z"
   },
   "rollup": {
-    "current": [1],
+    "current": [],
     "pending": [2],
     "blocked": [],
-    "done": []
+    "done": [1]
   },
   "decisions": [
     {
@@ -102,14 +102,21 @@
       "module": "tesla",
       "optional": false,
       "depends_on": [],
-      "status": "in-flight",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-07-15T11:01:22Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "UNBLOCKED 2026-07-15 (D7/D8): scope works via prompt_missing_scopes, live payload captured (Supercharger-only). Authoring OpenSpec artifacts (worker dispatched). DTO = full response; no DB (that is Tier 2); no miles fields -> no Km() companions."
+      "completed_at": "2026-07-15T11:31:00Z",
+      "duration_seconds": 1778,
+      "budget": {
+        "five_hour_pct_delta": 17.0,
+        "cost_usd_delta": 4.04,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of tracked impl-wave (2.59/11%) + review (1.45/6%) deltas; artifact-authoring wave not separately bracketed; excludes leader orchestration overhead"
+      },
+      "notes": "ARCHIVED 2026-07-15. Typed pagination-aware ChargingHistory + ChargingHistoryTesla DTO (full response), Option A pagination. Reviewer-approved (1 round). R1 (percent-encode date query params) DEFERRED to Tier 2 (change D11)."
     },
     {
       "id": 2,
@@ -124,7 +131,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Part (a) snapshot-column enrichment can start now. Part (b) charge_sessions BLOCKED: vehicle_charging_cmds scope now added (D6) — awaiting user re-consent + live dx/charging/history fields; then DB design gate + grill-me."
+      "notes": "Unblocked: Tier 1 shipped ChargingHistory; fields confirmed (Supercharger-only). Part (a) snapshot enrichment ready. Part (b) charge_sessions still needs DB design gate + grill-me. CARRY: fix R1 (percent-encode ChargingHistory StartTime/EndTime) when wiring date-range backfill."
     }
   ]
 }
