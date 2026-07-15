@@ -24,38 +24,38 @@
 
 ## T1 — DTO types (`internal/tesla/types.go`) — no dependencies
 
-- [ ] T1.1 Add the unexported `chargingHistoryResponseTesla` envelope struct with
+- [x] T1.1 Add the unexported `chargingHistoryResponseTesla` envelope struct with
       `Data []ChargingSessionTesla` (json: `"data"`) and `TotalResults int`
       (json: `"totalResults"`).
-- [ ] T1.2 Add `ChargingHistoryTesla` (exported result type) with fields `Data
+- [x] T1.2 Add `ChargingHistoryTesla` (exported result type) with fields `Data
       []ChargingSessionTesla` and `TotalResults int` (no JSON tags — this is the merged
       caller-facing struct, not an envelope).
-- [ ] T1.3 Add `ChargingSessionTesla` with all session fields per design.md §ChargingSessionTesla.
+- [x] T1.3 Add `ChargingSessionTesla` with all session fields per design.md §ChargingSessionTesla.
       The three datetime fields (`ChargeStartDateTime`, `ChargeStopDateTime`,
       `UnlatchDateTime`) are `time.Time`; add a custom `UnmarshalJSON` on
       `ChargingSessionTesla` (or a named `rfcTime` helper type) that parses
       `time.RFC3339` to handle Tesla's offset-format timestamps correctly.
-- [ ] T1.4 Add `ChargingFeeTesla` with all fee fields per design.md §ChargingFeeTesla.
+- [x] T1.4 Add `ChargingFeeTesla` with all fee fields per design.md §ChargingFeeTesla.
       `RateTier3`, `RateTier4`, `UsageTier3`, `UsageTier4` are `*float64` (nullable);
       all `Total*` fields are `float64` (non-nullable, per live payload).
-- [ ] T1.5 Add `ChargingInvoiceTesla` with fields `FileName`, `ContentID`, `InvoiceType`
+- [x] T1.5 Add `ChargingInvoiceTesla` with fields `FileName`, `ContentID`, `InvoiceType`
       per design.md §ChargingInvoiceTesla.
-- [ ] T1.6 Add `ChargingHistoryParams` struct with fields `StartTime string`, `EndTime string`,
+- [x] T1.6 Add `ChargingHistoryParams` struct with fields `StartTime string`, `EndTime string`,
       `PageNo int`, `Count int` per design.md §Typed Method Signature.
-- [ ] T1.7 Audit: confirm no `Km()` or `Kmh()` companion methods are needed (no miles/mph
+- [x] T1.7 Audit: confirm no `Km()` or `Kmh()` companion methods are needed (no miles/mph
       fields in this payload per DES3). Confirm no JSON-tagged km field is added. Document
       this fact in a comment on `ChargingSessionTesla` or `ChargingFeeTesla`.
 
 ## T2 — `VehicleService.ChargingHistory` port + `*Client` impl — depends on T1
 
-- [ ] T2.1 Add `ChargingHistory(ctx context.Context, creds Credentials, params
+- [x] T2.1 Add `ChargingHistory(ctx context.Context, creds Credentials, params
       ChargingHistoryParams) (*ChargingHistoryTesla, error)` to the `VehicleService`
       interface in `internal/tesla/client.go`. Add the doc comment from design.md
       (account-scoped, no wake, `vehicle_charging_cmds` scope required).
-- [ ] T2.2 Update the compile-time check in `client.go`:
+- [x] T2.2 Update the compile-time check in `client.go`:
       `var _ VehicleService = (*Client)(nil)` — this already exists and will catch a
       missing method implementation immediately.
-- [ ] T2.3 Implement `(*Client).ChargingHistory` in `internal/tesla/vehicles.go`:
+- [x] T2.3 Implement `(*Client).ChargingHistory` in `internal/tesla/vehicles.go`:
       - Build the URL path `/api/1/dx/charging/history` with query params from
         `ChargingHistoryParams` (append `startTime`, `endTime`, `pageNo`, `count` only
         when non-zero/non-empty).
@@ -74,25 +74,25 @@
 > Tests use `httptest.Server` with canned JSON only. No live Tesla call. Use the same
 > unexported `baseURL` field pattern established in `internal/tesla/vehicles_test.go`.
 
-- [ ] T3.1 Add test cases in `internal/tesla/vehicles_test.go` (same package) for
+- [x] T3.1 Add test cases in `internal/tesla/vehicles_test.go` (same package) for
       `ChargingHistory` with a canned single-page response matching the live-captured
       payload shape. Assert: `len(Data) == 1`, `TotalResults == 1`, session fields
       (SessionID, VIN, SiteLocationName, CountryCode, BillingType, VehicleMakeType),
       datetime fields parsed to `time.Time` with correct UTC offset, fee count,
       fee fields including `RateTier3 == nil`, invoice count, invoice fields.
-- [ ] T3.2 Add a test asserting auto-pagination: serve two pages (page 1 returns 1 session
+- [x] T3.2 Add a test asserting auto-pagination: serve two pages (page 1 returns 1 session
       with `totalResults: 2`; page 2 returns 1 session with `totalResults: 2`). Assert the
       merged result has `len(Data) == 2` and `TotalResults == 2`. Assert the fake handler
       was called twice (request counter).
-- [ ] T3.3 Add a test asserting `PageNo != 0` fetches only one page: serve a handler that
+- [x] T3.3 Add a test asserting `PageNo != 0` fetches only one page: serve a handler that
       records `pageNo` from the query string and returns a single-page envelope. Assert
       the handler was called exactly once.
-- [ ] T3.4 Add a test asserting 401 → `errors.Is(err, ErrUnauthorized)` and 403 →
+- [x] T3.4 Add a test asserting 401 → `errors.Is(err, ErrUnauthorized)` and 403 →
       `errors.Is(err, ErrForbidden)`.
-- [ ] T3.5 Add a unit test for the `time.RFC3339` timestamp parsing: assert that
+- [x] T3.5 Add a unit test for the `time.RFC3339` timestamp parsing: assert that
       `"2026-06-28T10:24:41-05:00"` unmarshals to the correct `time.Time` value
       (UTC equivalent: `2026-06-28T15:24:41Z`).
-- [ ] T3.6 Confirm no `_test.go` exists for `raw.go` scope and no test calls
+- [x] T3.6 Confirm no `_test.go` exists for `raw.go` scope and no test calls
       `ChargingHistoryRaw` or any other `Raw*` method.
 
 ## T4 — Update `ai/tesla-fleet-api-endpoints.md` — independent of T1–T3
@@ -100,25 +100,25 @@
 > Requires leader path grant for `ai/tesla-fleet-api-endpoints.md` (outside the tesla
 > sandbox; explicitly granted in this dispatch).
 
-- [ ] T4.1 In the Charging endpoints table, replace the `/api/1/dx/charging/history` row
+- [x] T4.1 In the Charging endpoints table, replace the `/api/1/dx/charging/history` row
       status from `⬜ typed · ChargingHistoryRaw explorer-reachable` to
       `✅ ChargingHistory` (typed method on `VehicleService`) with a note that
       `ChargingHistoryRaw` remains available for exploration.
 
 ## T5 — Update `internal/tesla/AGENTS.md` Public interface section — independent of T1–T3
 
-- [ ] T5.1 Add `ChargingHistory(ctx context.Context, creds Credentials, params
+- [x] T5.1 Add `ChargingHistory(ctx context.Context, creds Credentials, params
       ChargingHistoryParams) (*ChargingHistoryTesla, error)` to the `VehicleService`
       interface block in the `## Public interface (the port)` section of
       `internal/tesla/AGENTS.md`.
-- [ ] T5.2 Update the "Off the interface, deliberately" paragraph to note that
+- [x] T5.2 Update the "Off the interface, deliberately" paragraph to note that
       `ChargingHistoryRaw` remains the exploration sibling (raw, off-interface) for
       `ChargingHistory` (typed, on-interface) — clarify this is the reverse-order case
       where the raw sibling pre-existed the typed method.
 
 ## T6 — Cross-module compile fix (gateway test fake) — depends on T2; OUTSIDE tesla sandbox, leader-integrated
 
-- [ ] T6.1 Add a stub `ChargingHistory` method to `fakeTesla` in
+- [x] T6.1 Add a stub `ChargingHistory` method to `fakeTesla` in
       `internal/gateway/handlers/handlers_test.go`:
       ```go
       func (f *fakeTesla) ChargingHistory(ctx context.Context, creds tesla.Credentials, params tesla.ChargingHistoryParams) (*tesla.ChargingHistoryTesla, error) {
@@ -126,13 +126,18 @@
       }
       ```
       This is a compile-only fix; no gateway production code calls `ChargingHistory`.
+- [x] T6.2 Add the same compile-only stub `ChargingHistory` to the SECOND `VehicleService`
+      test fake — `fakeTesla` in `internal/telemetry/service_test.go` (pointer receiver).
+      Not flagged by the worker; surfaced at full-build verification. Leader-integrated
+      (cross-module, test-only). No telemetry production code calls `ChargingHistory` yet
+      (Tier 2 wires the charge_sessions collector).
 
 ## T7 — Verification — depends on T1–T6
 
-- [ ] T7.1 `go build ./...` passes with no errors.
-- [ ] T7.2 `go vet ./...` passes with no warnings.
-- [ ] T7.3 `go test ./...` green and fast: `internal/tesla` typed tests run offline with no
+- [x] T7.1 `go build ./...` passes with no errors.
+- [x] T7.2 `go vet ./...` passes with no warnings.
+- [x] T7.3 `go test ./...` green and fast: `internal/tesla` typed tests run offline with no
       live Fleet API calls; `internal/tesla/raw.go` and `cmd/explore-tesla-api` report no
       test files; no network request fires from the test suite.
-- [ ] T7.4 `openspec validate RM2-tesla-add-charging-history --strict` passes and
+- [x] T7.4 `openspec validate RM2-tesla-add-charging-history --strict` passes and
       tasks.md checkboxes reflect real completion.

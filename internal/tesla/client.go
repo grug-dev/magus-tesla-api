@@ -46,6 +46,17 @@ type VehicleService interface {
 	// can store the raw bytes and read typed fields without a second paid call.
 	VehicleData(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleDataTesla, json.RawMessage, error)
 	WakeUp(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleTesla, error)
+	// ChargingHistory returns the account's Tesla-billed charging session history
+	// (Supercharger + DC fast-charging only). It is account-scoped — no vehicle id
+	// is required — and server-side: the vehicle does not need to be awake.
+	//
+	// Pass ChargingHistoryParams to filter by date range or control pagination.
+	// The zero value fetches all sessions from the beginning of account history.
+	// The method iterates pages automatically and returns the merged result, so
+	// callers receive the complete history in one Go call.
+	//
+	// Required scope: vehicle_charging_cmds.
+	ChargingHistory(ctx context.Context, creds Credentials, params ChargingHistoryParams) (*ChargingHistoryTesla, error)
 }
 
 // Client is the HTTP implementation of VehicleService. Because credentials arrive

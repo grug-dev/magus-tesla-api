@@ -156,6 +156,12 @@ func (f *fakeTesla) VehicleData(_ context.Context, _ tesla.Credentials, id int64
 	return sc.data, raw, nil
 }
 
+// ChargingHistory satisfies tesla.VehicleService; telemetry's collector does not
+// call it yet (Tier 2 wires the charge_sessions collector).
+func (f *fakeTesla) ChargingHistory(_ context.Context, _ tesla.Credentials, _ tesla.ChargingHistoryParams) (*tesla.ChargingHistoryTesla, error) {
+	return nil, nil
+}
+
 // --- fake store (records what CollectAll would persist) ---
 
 type recordedAttempt struct {

@@ -75,6 +75,9 @@ func (f fakeTesla) VehicleData(context.Context, tesla.Credentials, int64) (*tesl
 func (f fakeTesla) WakeUp(context.Context, tesla.Credentials, int64) (*tesla.VehicleTesla, error) {
 	return nil, nil
 }
+func (f fakeTesla) ChargingHistory(context.Context, tesla.Credentials, tesla.ChargingHistoryParams) (*tesla.ChargingHistoryTesla, error) {
+	return nil, nil
+}
 
 // fakeReader is a test double for telemetry.Reader. Returns the configured
 // snapshots or error — no DB or network.
