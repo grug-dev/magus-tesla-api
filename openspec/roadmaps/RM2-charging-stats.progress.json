@@ -7,7 +7,7 @@
   "status": "in-progress",
   "autopilot": false,
   "created_at": "2026-07-14T10:44:28Z",
-  "updated_at": "2026-07-14T17:48:38Z",
+  "updated_at": "2026-07-15T11:01:22Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -16,8 +16,8 @@
     "created_at": "2026-07-14T10:44:28Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2],
+    "current": [1],
+    "pending": [2],
     "blocked": [],
     "done": []
   },
@@ -75,6 +75,24 @@
       "decision": "Added vehicle_charging_cmds to internal/auth/oauth.go inline (commit 518f129), not via a dispatched worker or formal change — a single-token enabler to unblock schema capture, parallel to D4. Fold into the Source B change later, which must ALSO add the scope to the multi-tenant web connect flow (verify in Tier 2).",
       "why": "One-token scope change; a cold-start worker is disproportionate. User confirmed the app is permitted to request the scope in the Tesla dev portal (screenshot). Awaiting user re-consent (make setup) + explorer re-run to capture the live payload.",
       "covered_by": "D5"
+    },
+    {
+      "id": "D7",
+      "at": "2026-07-15T11:01:22Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Tier 1 UNBLOCKED. The 403 was Tesla silently dropping newly-added scopes for an already-consented user; fixed by adding prompt_missing_scopes=true to the OAuth authorize URL (internal/auth/oauth.go, committed f3b95b9) alongside vehicle_charging_cmds. User re-consented and captured the live dx/charging/history payload 2026-07-15. Both D3 (schema gate) and D5/D6 (scope) are now satisfied.",
+      "why": "prompt=login re-authenticates but does not re-prompt for new scopes; prompt_missing_scopes=true is Tesla's documented mechanism (Third-Party Tokens). Also fixes the multi-tenant web /connect/tesla flow, which shares auth.BuildAuthURL.",
+      "covered_by": "D5"
+    },
+    {
+      "id": "D8",
+      "at": "2026-07-15T11:01:22Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "dx/charging/history is Supercharger/Tesla-billed ONLY (no home/AC/third-party sessions); ChargingHistoryTesla types the FULL response (session fields + fees[] + invoices[]). Home-charging coverage is out of scope for Source B, deferred to the charging_state-transition detector (RM2 Future work).",
+      "why": "Confirmed from the live payload (single Supercharger session, Medellin CO, with fees + invoice). User interview 2026-07-15: type the full response, discard nothing before telemetry (Tier 2) decides what to persist.",
+      "covered_by": "D3"
     }
   ],
   "tiers": [
@@ -84,14 +102,14 @@
       "module": "tesla",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "in-flight",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-15T11:01:22Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Bootstrap LANDED 2026-07-14 (ChargingHistoryRaw + explorer, commit 20539b5), build/vet green, no tests. Explorer run hit 403 missing-scopes — token lacks vehicle_charging_cmds. Change unauthored; part (b) typed DTO pending live response, now also gated on the scope grant (see D5)."
+      "notes": "UNBLOCKED 2026-07-15 (D7/D8): scope works via prompt_missing_scopes, live payload captured (Supercharger-only). Authoring OpenSpec artifacts (worker dispatched). DTO = full response; no DB (that is Tier 2); no miles fields -> no Km() companions."
     },
     {
       "id": 2,

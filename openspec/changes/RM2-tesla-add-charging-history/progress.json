@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM2-tesla-add-charging-history",
+  "module": "tesla",
+  "roadmap": "openspec/roadmaps/RM2-charging-stats.md",
+  "request": "RM2 Tier 1: add the typed, pagination-aware dx/charging/history capability to internal/tesla — a ChargingHistory method on the VehicleService port + a ChargingHistoryTesla DTO typing the FULL captured response (Supercharger/Tesla-billed sessions only). The raw sibling + explorer already exist. Designed against the live 2026-07-15 payload; no DB (Tier 2 owns persistence).",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-07-15T11:13:17Z",
+  "updated_at": "2026-07-15T11:13:17Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM2-charging-stats",
+    "base": "main",
+    "created_at": "2026-07-14T10:44:28Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "DTO types (ChargingHistoryTesla, ChargingSessionTesla, ChargingFeeTesla, ChargingInvoiceTesla, ChargingHistoryParams) in types.go",
+      "module": "tesla",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "",
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "ChargingHistory on VehicleService port (client.go) + auto-paginating *Client impl (vehicles.go)",
+      "module": "tesla",
+      "depends_on": ["T1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "",
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "Offline httptest tests for ChargingHistory (single page, auto-pagination, PageNo, 401/403, RFC3339 parse)",
+      "module": "tesla",
+      "depends_on": ["T2"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "",
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "Flip ai/tesla-fleet-api-endpoints.md dx/charging/history row to typed",
+      "module": "tesla",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "",
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Sync internal/tesla/AGENTS.md Public-interface section with the new method",
+      "module": "tesla",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "",
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Cross-module compile fix: stub ChargingHistory on fakeTesla in gateway handlers_test.go (leader-integrated)",
+      "module": "gateway",
+      "depends_on": ["T2"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": "leader",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Outside tesla sandbox — leader owns cross-module integration code.",
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "Verification: go build/vet/test ./... green, no live Tesla call, openspec validate --strict",
+      "module": "tesla",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": "",
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D9",
+      "at": "2026-07-15T11:13:17Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Pagination = Option A: ChargingHistory auto-fetches all pages internally (offset pageNo/count) and returns the merged history; ChargingHistoryParams.PageNo!=0 is a single-page escape hatch.",
+      "why": "RM2 tier-1 scope mandates 'pagination-aware' and Tier 2 backfills the full history; pagination belongs inside the adapter (anti-corruption boundary). Write-side/nightly call, not a hot read path. Approves worker DES6 recommendation over Option B.",
+      "covered_by": "RM2 tier-1 scope: pagination-aware"
+    }
+  ],
+  "events": [
+    { "at": "2026-07-15T11:13:17Z", "agent": "leader", "event": "tesla worker authored + validated artifacts (proposal/design/specs/tasks); openspec validate --strict passed; Option A pagination confirmed (D9); T6 flagged as leader-integrated cross-module fix" }
+  ]
+}
