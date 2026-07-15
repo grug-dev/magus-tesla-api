@@ -88,6 +88,42 @@ TESLA_ACCESS_TOKEN=...
 TESLA_REFRESH_TOKEN=...
 ```
 
+### Scopes and `prompt_missing_scopes`
+
+The OAuth URL `BuildAuthURL` constructs requests the following space-delimited scopes (defined as
+the `scopes` constant in `internal/auth/oauth.go`):
+
+| Scope | What it unlocks |
+|---|---|
+| `openid` | Standard OIDC identity — required for the token exchange itself |
+| `vehicle_device_data` | `GET /api/1/vehicles/{id}/vehicle_data` — the nightly telemetry snapshot |
+| `vehicle_cmds` | Vehicle commands (lock, unlock, climate, etc.) — reserved for future use |
+| `vehicle_specs` | Vehicle specifications endpoint — reserved for future use |
+| `vehicle_pricing_info` | Vehicle pricing endpoint — reserved for future use |
+| `vehicle_charging_cmds` | `GET /api/1/dx/charging/history` — the account-level charging history endpoint |
+| `offline_access` | Mints the single-use refresh token (enables the 3-month refresh cycle) |
+
+> **Prerequisite (Layer 1):** every scope in this list must also be **enabled for your application**
+> on the [Tesla developer portal](https://developer.tesla.com) (app settings → scopes). If a scope
+> is missing from the app configuration there, Tesla will silently drop it from the consent grant
+> even if the `/authorize` URL requests it — no error is surfaced until the corresponding Fleet API
+> call returns **HTTP 403 "missing scopes"**.
+
+The `/authorize` URL includes `prompt_missing_scopes=true`, which forces Tesla to prompt the user
+to authorize any requested scope they have **not already granted** in a previous consent. Without
+this parameter, Tesla silently mints a token carrying only the previously-granted scopes, dropping
+any new scope added to the list — the user sees a normal consent screen but the new scope is never
+actually granted. **Adding a new scope to the `scopes` constant therefore requires re-running
+`go run ./cmd/setup`** so the user is re-prompted for it; refreshing an existing token never
+widens its scopes.
+
+> **Codebase:** `internal/auth/oauth.go` → `BuildAuthURL` sets `scope=<scopes>` and
+> `prompt_missing_scopes=true` on the `/authorize` URL. The scope list is a package-level constant;
+> changing it has no effect on existing tokens (refresh preserves the original grant's scopes, it
+> does not widen them) — re-consent via `cmd/setup` is the only way to add a scope to an existing
+> user. On the web server side, `internal/gateway/handlers/handlers.go` reuses the same
+> `BuildAuthURL`, so the live connect flow always requests the full scope set.
+
 ### Understanding the two tokens
 
 After `go run ./cmd/setup` completes, two tokens are saved to `.env`. Here is what each one is, where it came from, and when you use it.
@@ -158,6 +194,30 @@ Think of it as the **master key** — you use it once to get a new daily pass, a
 > `internal/auth/token.go` `RefreshTokens()` → persist the rotated pair in the same
 > `FOR UPDATE` transaction.
 
+#### Troubleshooting HTTP 403 "missing scopes"
+
+If a Fleet API call returns **`HTTP 403`** while `GET /api/1/vehicles` still succeeds, the access
+token is valid but **lacks the scope** the endpoint requires. The refreshed token inherits the
+original grant's scopes — refreshing cannot add a missing scope, so this is **not** a token-expiry
+problem.
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `GET /api/1/dx/charging/history` → 403 | `vehicle_charging_cmds` not granted | Re-run `go run ./cmd/setup` (see below) |
+| Any endpoint → 403 after adding a scope to `internal/auth/oauth.go` | Existing token predates the new scope | Re-run `go run ./cmd/setup` |
+| 403 persists after re-running `cmd/setup` | Scope is disabled for the app on developer.tesla.com | Enable the scope in the app settings on the Tesla developer portal, then re-run `cmd/setup` |
+
+**To fix:** re-run `go run ./cmd/setup`. Because `BuildAuthURL` sets
+`prompt_missing_scopes=true`, Tesla will prompt you to authorize the missing scope(s); grant them,
+and the newly minted token will carry the full scope set. On the web server side, a user who
+connected before a scope was added would need to re-connect via `/connect/tesla` (their existing
+token's scopes cannot be widened by refresh alone).
+
+> **Codebase:** `internal/tesla/client.go` → `do()` returns the sentinel `tesla.ErrForbidden`
+> (detectable with `errors.Is`) on HTTP 403, with Tesla's response body (containing the specific
+> "missing scopes" reason) wrapped in the error message. Previously a 403 fell through to a generic
+> `unexpected status 403` error with no body, hiding the root cause.
+
 ---
 
 ## Step 7 — Pair the virtual key with Magus *(skipped)*
@@ -215,11 +275,12 @@ What the vehicle dashboard does:
 
 ### Fleet API endpoints used
 
-| Endpoint | What it returns |
-|---|---|
-| `GET /api/1/vehicles` | Vehicle list with IDs and current state |
-| `GET /api/1/vehicles/{id}/vehicle_data` | Full snapshot: charge, climate, location, state |
-| `POST /api/1/vehicles/{id}/wake_up` | Wakes a sleeping vehicle before fetching data |
+| Endpoint | What it returns | Required scope |
+|---|---|---|
+| `GET /api/1/vehicles` | Vehicle list with IDs and current state | `openid` |
+| `GET /api/1/vehicles/{id}/vehicle_data` | Full snapshot: charge, climate, location, state | `vehicle_device_data` |
+| `POST /api/1/vehicles/{id}/wake_up` | Wakes a sleeping vehicle before fetching data | `vehicle_device_data` |
+| `GET /api/1/dx/charging/history` | Account-level charging history (paginated, no vehicle id) | `vehicle_charging_cmds` |
 
 > **Codebase (per call):**
 > - `internal/tesla/client.go` → `NewClient()` builds the state-less adapter; `do()` is the shared

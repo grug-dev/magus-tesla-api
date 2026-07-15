@@ -12,7 +12,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 )
 
 const baseURL = "https://fleet-api.prd.na.vn.cloud.tesla.com"
@@ -22,6 +24,12 @@ const baseURL = "https://fleet-api.prd.na.vn.cloud.tesla.com"
 // the target architecture the account module owns refresh and would obtain a
 // fresh token and retry.
 var ErrUnauthorized = errors.New("tesla: access token expired or invalid (HTTP 401)")
+
+// ErrForbidden is returned when the Fleet API responds with HTTP 403, most
+// commonly because the access token lacks a required scope ("missing scopes").
+// Detect it with errors.Is; the wrapped error carries Tesla's response body
+// with the specific reason.
+var ErrForbidden = errors.New("tesla: forbidden — token missing required scopes (HTTP 403)")
 
 // Credentials carries the per-user secret needed to call the Tesla Fleet API. The
 // caller supplies it on every call — the adapter holds no identity of its own.
@@ -86,6 +94,17 @@ func (c *Client) do(ctx context.Context, method string, creds Credentials, path 
 		return fmt.Errorf("%s: %w", path, ErrUnauthorized)
 	}
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		hint := strings.TrimSpace(string(body))
+		if resp.StatusCode == http.StatusForbidden {
+			if hint != "" {
+				return fmt.Errorf("%s: %w: %s", path, ErrForbidden, hint)
+			}
+			return fmt.Errorf("%s: %w", path, ErrForbidden)
+		}
+		if hint != "" {
+			return fmt.Errorf("unexpected status %d from %s: %s", resp.StatusCode, path, hint)
+		}
 		return fmt.Errorf("unexpected status %d from %s", resp.StatusCode, path)
 	}
 

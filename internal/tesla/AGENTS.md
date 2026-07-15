@@ -40,9 +40,11 @@ type VehicleService interface {
 (The active change `tesla-add-vehicle-data-and-wake` amends `VehicleData` to also return the
 raw `json.RawMessage` payload from the same single fetch.)
 
-Other public symbols: `Credentials{AccessToken}`, `NewClient() *Client`, sentinel
-`ErrUnauthorized` (returned on HTTP 401 — detect with `errors.Is`), and the `...Tesla` DTOs
-(`VehicleTesla`, `VehicleDataTesla`, `ChargeStateTesla`, `ClimateStateTesla`,
+Other public symbols: `Credentials{AccessToken}`, `NewClient() *Client`, sentinels
+`ErrUnauthorized` (returned on HTTP 401 — detect with `errors.Is`) and `ErrForbidden`
+(returned on HTTP 403, most commonly a missing-scope grant — detect with `errors.Is`; the
+wrapped error carries Tesla's response body with the specific reason), and the `...Tesla`
+DTOs (`VehicleTesla`, `VehicleDataTesla`, `ChargeStateTesla`, `ClimateStateTesla`,
 `DriveStateTesla`, `VehicleStateTesla`) with their metric companion methods.
 
 **Off the interface, deliberately:** the `Raw*` methods in `raw.go` (`ListVehiclesRaw`,
@@ -56,7 +58,7 @@ in `cmd/explore-tesla-api/main.go` + its README (`CLAUDE.md` §Tesla API Explora
 ## Imports — allowed and forbidden
 
 - **Allowed:** Go standard library only (`context`, `encoding/json`, `errors`, `fmt`,
-  `net/http`, and stdlib test packages such as `net/http/httptest`).
+  `io`, `net/http`, `strings`, and stdlib test packages such as `net/http/httptest`).
 - **Forbidden:** any other `internal/` module (this adapter is a leaf — it depends on
   nobody); `html/template`/Templ (no HTML outside the gateway); any DB driver (`pgx`,
   `sqlc` output); `os.Getenv` (env access lives in `internal/config` only).

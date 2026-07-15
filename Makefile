@@ -51,7 +51,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc tidy build vet test check bins explore-tesla-api
+        db-setup db-reset env-setup sqlc tidy build vet test check bins cmd-setup cmd-web cmd-explore-tesla
 
 # --- Help -------------------------------------------------------------------
 
@@ -267,5 +267,17 @@ bins: ## Compile the cmd/* entrypoints into ./bin
 	go build -o bin/ ./cmd/...
 	@echo "Built: $$(ls bin/)"
 
-explore-tesla-api: ## Explore live Tesla API responses (COSTS a real API call; WAKES the car). Needs a fresh TESLA_ACCESS_TOKEN in .env
-	go run ./cmd/explore-tesla-api
+cmd-setup: ## Build cmd/setup into ./bin and run it (one-shot Tesla OAuth flow; writes tokens to .env)
+	@mkdir -p bin
+	go build -o bin/setup ./cmd/setup
+	./bin/setup
+
+cmd-web: ## Build cmd/web into ./bin and run it (the web server; listens on $PORT, default 8080)
+	@mkdir -p bin
+	go build -o bin/web ./cmd/web
+	./bin/web
+
+cmd-explore-tesla: ## Build cmd/explore-tesla-api into ./bin and run it (COSTS a real API call; WAKES the car). Needs a fresh TESLA_ACCESS_TOKEN in .env
+	@mkdir -p bin
+	go build -o bin/explore-tesla-api ./cmd/explore-tesla-api
+	./bin/explore-tesla-api
