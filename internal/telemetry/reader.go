@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
@@ -97,7 +96,7 @@ func (r *superchargerReader) SuperchargerSessionsByAccount(ctx context.Context, 
 func (r *superchargerReader) SuperchargerSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerSession, error) {
 	rows, err := r.q.SuperchargerSessionsByVehicle(ctx, telemetrydb.SuperchargerSessionsByVehicleParams{
 		AccountID:  accountID,
-		TeslaID:    pgtype.Int8{Int64: teslaID, Valid: true},
+		TeslaID:    teslaIDToPgInt8(teslaID),
 		LimitCount: resolveLimit(limit),
 	})
 	if err != nil {

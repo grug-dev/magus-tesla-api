@@ -476,6 +476,13 @@ func stringPtrToPgText(v *string) pgtype.Text {
 	return pgtype.Text{String: *v, Valid: true}
 }
 
+// teslaIDToPgInt8 wraps a non-nullable int64 tesla id as a valid pgtype.Int8 query
+// parameter. It lives here so pgtype stays confined to the module's DB-boundary files
+// (service.go/mapping.go) and never appears in reader.go (ai/go-conventions.md §persistence).
+func teslaIDToPgInt8(v int64) pgtype.Int8 {
+	return pgtype.Int8{Int64: v, Valid: true}
+}
+
 func (d *dbStore) insertPollAttempt(ctx context.Context, a Attempt) error {
 	return d.q.InsertPollAttempt(ctx, telemetrydb.InsertPollAttemptParams{
 		AccountID:   a.AccountID,

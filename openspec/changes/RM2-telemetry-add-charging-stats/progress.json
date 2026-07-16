@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM2-charging-stats.md",
   "request": "RM2 tier 2: per-user charging analytics in internal/telemetry. Source A: enrich vehicle_snapshots with 6 charge_state columns (home-charging visibility at the 03:30 poll). Source B: new supercharger_sessions ledger table + nightly dx/charging/history collector (full-fetch upsert, no wake) + SuperchargerReader port. Design gated + grilled 2026-07-16 (roadmap D9-D12).",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -13,7 +13,7 @@
     "done": ["L1", "L2", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "A1", "A2", "A3", "A4", "A5"]
   },
   "created_at": "2026-07-16T21:22:36Z",
-  "updated_at": "2026-07-16T22:05:50Z",
+  "updated_at": "2026-07-16T22:07:30Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -267,10 +267,26 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review the full change diff (main..HEAD): telemetry Source A+B + the leader tesla enablers (commits 81adf9d,5629ff7,732f329). VALIDATE: (1) Boundaries - telemetry imports only account+tesla public ports (no accountdb/tesla internals, no other module db); pgtype confined to service.go/mapping.go, absent from public types/interfaces; no HTML; no cross-module FK in migrations. (2) DB matches user-confirmed design (mismatch = blocker): supercharger_sessions vs DBS1 (cols/types/nullability), UNIQUE(session_id), the 2 indexes DBS4, upsert refreshes ONLY raw_data/energy_kwh/total_cost/currency/is_paid/tesla_id/updated_at (DBS3); vehicle_snapshots 6 nullable cols DSA1. (3) D12 - snapshotFrom stores ACTUAL value via unconditional ptr() (NO zero->nil heuristic); nil reserved for pre-migration rows. (4) D13 - supercharger raw_data = session.Raw verbatim (not a re-marshal); confirm ChargingSessionTesla.Raw is a defensive copy. (5) D11 - collectChargingHistory folds into collectAccount, full-fetch ChargingHistoryParams{}, per-account + per-session isolation (failure only counts, never aborts snapshot loop), no poll_attempts row for charging, VIN->tesla_id (nil for unregistered VIN). (6) Derivations DBS2 in Go: energy_kwh sums usage where lower(uom)='kwh', total_cost sums totalDue, currency first fee, is_paid AND, all nil on empty fees. (7) go-conventions: new charge/energy/cost/voltage fields are NOT miles/mph so correctly have no Km()/Kmh(); append-only divergence for supercharger_sessions is documented + justified. (8) Tests: NO live Tesla call / no wake in any test; DB tests self-skip without DATABASE_URL; offline derivation + isolation + VIN-resolution + upsert-idempotency + D12 truthful-zero all present. (9) Performance-Profile: reads served by precomputed columns + the 2 indexes; raw_data lossless. (10) Anti-gaming: tasks/criteria not weakened; no self-approved status. Read the diff, not the whole module; escalate on doubt (return changes-requested rather than approving anything uncertain).",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-16T23:55:00Z",
+        "duration_seconds": 900,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "reader.go:100 uses pgtype.Int8 to build SuperchargerSessionsByVehicleParams.TeslaID. pgtype does not appear in any public type or interface, but the design (B4.2) and brief explicitly confine pgtype to service.go/mapping.go only. Harmless convention leak — a small helper in service.go or mapping.go could wrap the int64→pgtype.Int8 conversion.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -289,6 +305,8 @@
     { "at": "2026-07-16T21:36:47Z", "agent": "leader", "event": "Apply wave 1: dispatched telemetry worker (sonnet) for Source B (B1-B8) end-to-end. Budget _start: 5h 32%, ctx 22%, cost $11.15." },
     { "at": "2026-07-16T21:56:48Z", "agent": "leader", "event": "Wave 1 (Source B) done + leader-verified (migration=DBS1, upsert refresh set=DBS3, collector isolation+D13 in code; go build/vet/test green, 15 DB tests skip). Budget _end 5h 57%/ctx 26%; delta +25%/+$7.86. Checkpoint gate not tripped. Commit 5629ff7." },
     { "at": "2026-07-16T21:57:30Z", "agent": "leader", "event": "Apply wave 2: dispatched telemetry worker (sonnet) for Source A (A1-A5); L1 tesla fields already in place. Budget _start: 5h 57%, ctx 26%, cost $19.01." },
-    { "at": "2026-07-16T22:05:50Z", "agent": "leader", "event": "Wave 2 (Source A) done + leader-verified (migration=DSA1; snapshotFrom uses unconditional ptr() = D12 no-zero-heuristic; pgtype confined; build/vet/test green). Budget _end 5h 69%/ctx 28%; delta +12%/+$3.94. Checkpoint not tripped. All 15 apply tasks done -> status applied." }
+    { "at": "2026-07-16T22:05:50Z", "agent": "leader", "event": "Wave 2 (Source A) done + leader-verified (migration=DSA1; snapshotFrom uses unconditional ptr() = D12 no-zero-heuristic; pgtype confined; build/vet/test green). Budget _end 5h 69%/ctx 28%; delta +12%/+$3.94. Checkpoint not tripped. All 15 apply tasks done -> status applied. Commit 732f329." },
+    { "at": "2026-07-16T22:07:30Z", "agent": "leader", "event": "Step 6 Verify: go test ./... all green (DB tests skip), openspec validate --strict valid -> status verified. Step 7: wrote review brief, dispatching telemetry-reviewer (sonnet). Review round _start 5h 69%." },
+    { "at": "2026-07-16T22:12:00Z", "agent": "leader", "event": "Reviewer APPROVED round 1 (reviewer-approved) with one minor R1. Leader closed R1 post-approval: moved the pgtype.Int8 construction into service.go teslaIDToPgInt8 helper + dropped reader.go's pgtype import (reader.go now matches its own 'no pgtype' invariant). Non-behavioral; go build/vet/test green -> no re-review needed. Triage accepted, R1 fixed." }
   ]
 }
