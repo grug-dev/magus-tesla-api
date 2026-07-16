@@ -284,15 +284,15 @@
 
 ## Verification — depends on all Source B tasks (Source A tasks when unblocked)
 
-- [ ] V1. `go build ./...` and `go vet ./...` pass after Source B is complete.
-- [ ] V2. `go test ./...` green and fast (DB tests self-skip without `DATABASE_URL`; NO Tesla
+- [x] V1. `go build ./...` and `go vet ./...` pass after Source B is complete.
+- [x] V2. `go test ./...` green and fast (DB tests self-skip without `DATABASE_URL`; NO Tesla
       API call fires from the test run).
-- [ ] V3. Source B: `supercharger_sessions` table exists; UPSERT idempotent (running twice inserts
+- [x] V3. Source B: `supercharger_sessions` table exists; UPSERT idempotent (running twice inserts
       one row, not two); `ChargingFetchFailures` isolation verified (snapshot loop unaffected).
-- [ ] V4. Boundary check: `internal/telemetry` still imports only `account` + `tesla` public
+- [x] V4. Boundary check: `internal/telemetry` still imports only `account` + `tesla` public
       packages; no `accountdb` or `internal/tesla` internals; `pgtype` does not appear in any
       public type or interface.
-- [ ] V5. Source A (when leader tesla edit is in): snapshot rows written after the migration carry
+- [x] V5. Source A (when leader tesla edit is in): snapshot rows written after the migration carry
       non-nil charge-enrichment fields for a charging vehicle; old rows return nil. `go build ./...`
       passes with the 6 new `ChargeStateTesla` fields in place.
-- [ ] V6. `openspec validate RM2-telemetry-add-charging-stats --strict` passes.
+- [x] V6. `openspec validate RM2-telemetry-add-charging-stats --strict` passes.
