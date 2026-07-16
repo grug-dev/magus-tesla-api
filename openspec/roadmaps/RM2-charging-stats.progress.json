@@ -7,7 +7,7 @@
   "status": "in-progress",
   "autopilot": false,
   "created_at": "2026-07-14T10:44:28Z",
-  "updated_at": "2026-07-15T11:31:00Z",
+  "updated_at": "2026-07-16T21:22:36Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -93,6 +93,42 @@
       "decision": "dx/charging/history is Supercharger/Tesla-billed ONLY (no home/AC/third-party sessions); ChargingHistoryTesla types the FULL response (session fields + fees[] + invoices[]). Home-charging coverage is out of scope for Source B, deferred to the charging_state-transition detector (RM2 Future work).",
       "why": "Confirmed from the live payload (single Supercharger session, Medellin CO, with fees + invoice). User interview 2026-07-15: type the full response, discard nothing before telemetry (Tier 2) decides what to persist.",
       "covered_by": "D3"
+    },
+    {
+      "id": "D9",
+      "at": "2026-07-16T21:22:36Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "DB DESIGN GATE (confirmed): new supercharger_sessions table (Supercharger-only ledger). Cols: session_id BIGINT, account_id UUID NOT NULL, vin TEXT NOT NULL, tesla_id BIGINT NULL (resolved VIN->tesla_id via account OwnedVehicle), site_location_name, country_code, charge_start/stop_date_time TIMESTAMPTZ NOT NULL, unlatch NULL, billing_type, vehicle_make_type, energy_kwh/total_cost DOUBLE NULL, currency/is_paid NULL, raw_data JSONB NOT NULL (whole session), created_at(first_seen)/updated_at. UNIQUE(session_id) upsert DO UPDATE mutable+derived only. Indexes: UNIQUE(session_id), (account_id,tesla_id,charge_start DESC), (account_id,charge_start DESC). Derive energy_kwh=sum usage where lower(uom)='kwh', total_cost=sum totalDue, currency=session currencyCode, is_paid=AND(fee.isPaid), all nullable; no session-level status col. New SuperchargerReader (byAccount+byVehicle, start DESC). Full design in tier-2 design.md.",
+      "why": "grill-me interview 2026-07-16 (leader+user). Read-heavy profile: precompute derived cols + 2 composite indexes covering the only 2 dashboard reads; raw_data lossless. Rejected: fee/invoice child tables (join cost), append-only rows (unbounded + latest-row pick), read-time derivation (re-parse per read). Battery%/efficiency out of scope (endpoint lacks them).",
+      "covered_by": "D3"
+    },
+    {
+      "id": "D10",
+      "at": "2026-07-16T21:22:36Z",
+      "scope": "tier:2",
+      "made_by": "leader",
+      "decision": "Source A (snapshot enrichment) is cross-module: leader adds 6 fields to tesla ChargeStateTesla inline (charge_energy_added, charger_power, charger_voltage, charger_actual_current, usable_battery_level, fast_charger_type; no Km companions - none are miles/mph); telemetry worker adds 6 NULLABLE vehicle_snapshots columns + snapshotFrom mapping (old rows NULL, recoverable from raw_data). RM2 stays 2 tiers.",
+      "why": "User chose 'leader adds tesla fields inline' at the grill. Proportionate mechanical edit, precedent D6 (leader added OAuth scope inline). telemetry worker cannot edit the tesla module (worker sandbox). Source A is complementary: the 03:30 poll catches overnight HOME charging, which Supercharger-only Source B misses.",
+      "covered_by": "D1"
+    },
+    {
+      "id": "D11",
+      "at": "2026-07-16T21:22:36Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Collector folds into collectAccount: one ChargingHistory(creds,{}) full-fetch per account after the vehicle loop (first run = backfill, later runs re-upsert), VIN->tesla_id map from owned, upsert via new upsertSuperchargerSession store seam; per-account isolation, charging failure counted in CycleReport (ChargingSessionsUpserted/ChargingFetchFailures), no new attempts table. Tier-1 R1 (percent-encode date params) stays DEFERRED - no date params are passed - recorded in backlog.",
+      "why": "User chose full-fetch-nightly at the grill. Supercharger sessions are low-volume and the call is server-side (no wake), so re-fetch+upsert is cheap and idempotent; avoids last-seen bookkeeping and a cross-module tesla R1 fix in a telemetry tier.",
+      "covered_by": "D8"
+    },
+    {
+      "id": "D12",
+      "at": "2026-07-16T21:22:36Z",
+      "scope": "tier:2",
+      "made_by": "leader",
+      "decision": "Source A snapshotFrom stores the ACTUAL ChargeStateTesla value (pointer-wrapped), NOT a zero-is-absent heuristic. Plain DTO fields always carry a value (0/'' when idle), so every new vehicle_snapshots row is non-NULL; the 6 charge columns are nullable ONLY for pre-migration rows. On read, nil means 'row predates enrichment', never 'reported zero'. Corrected the worker's DSA3 (which proposed 0->nil) in design.md + tasks.md A3.1 before the artifact commit.",
+      "why": "The worker flagged (unresolved) that 0->nil would discard real measurements (0 A plugged-in idle, 0% battery, 0 kWh at charge start). Storing truthful values is correct; interpreting 0 in context is the dashboard's job. Clear best answer, no user gate needed (schema unchanged - columns already nullable).",
+      "covered_by": "D10"
     }
   ],
   "tiers": [
@@ -124,10 +160,10 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [1],
-      "status": "not-started",
+      "status": "in-flight",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-16T21:22:36Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
