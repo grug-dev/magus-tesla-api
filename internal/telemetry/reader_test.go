@@ -39,6 +39,10 @@ func (f *fakeReadStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID)
 	return out, nil
 }
 
+func (f *fakeReadStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
+	panic("fakeReadStore: upsertSuperchargerSession must not be called from the reader path")
+}
+
 // newFakeReader builds a *reader with the given fake store, bypassing the pool-backed
 // NewReader constructor. This is the offline-test entry point (no Postgres needed).
 func newFakeReader(s store) *reader {

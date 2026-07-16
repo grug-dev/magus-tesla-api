@@ -12,9 +12,13 @@ package telemetry
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
 // milesToKm is the exact miles→kilometers factor. Every miles/mph field on a
@@ -119,6 +123,13 @@ type CycleReport struct {
 	// FailuresByReason counts failures keyed by their Reason (asleep-timeout,
 	// unauthorized, api-error).
 	FailuresByReason map[Reason]int
+	// ChargingSessionsUpserted is the total number of Supercharger sessions
+	// successfully upserted across all accounts in this cycle.
+	ChargingSessionsUpserted int
+	// ChargingFetchFailures is the number of accounts for which the
+	// ChargingHistory call failed (network error, 401, etc.). A non-zero value
+	// signals partial data for those accounts.
+	ChargingFetchFailures int
 }
 
 // Collector runs one collection cycle over every registered vehicle across all
@@ -146,4 +157,124 @@ type Reader interface {
 	// snapshots it returns an empty (non-nil) slice and a nil error. Order of
 	// the returned slice is unspecified.
 	LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)
+}
+
+// --- Source B: Supercharger sessions ---
+
+// SuperchargerSession is one Tesla-billed Supercharger / DC fast-charging session —
+// our own domain model (no vendor suffix, ai/architecture.md §6). It is distinct from
+// tesla.ChargingSessionTesla: that is the vendor DTO; this is the mapped, stored
+// domain record. Nullable fields use *T where the column allows NULL (energy, cost,
+// currency, is_paid, tesla_id, unlatch_date_time). No Km()/Kmh() companions — none
+// of these fields are distances or speeds (design DBS5).
+type SuperchargerSession struct {
+	ID                  uuid.UUID
+	SessionID           int64      // Tesla's globally-unique session id
+	AccountID           uuid.UUID
+	VIN                 string
+	TeslaID             *int64     // NULL when VIN not a current registered vehicle
+	SiteLocationName    string
+	CountryCode         string
+	ChargeStartDateTime time.Time
+	ChargeStopDateTime  time.Time
+	UnlatchDateTime     *time.Time // NULL when not present in response
+	BillingType         string
+	VehicleMakeType     string
+	EnergyKWh           *float64   // derived; NULL when no kWh fee (design DBS2)
+	TotalCost           *float64   // derived; NULL when fees empty
+	Currency            *string    // derived; NULL when fees empty
+	IsPaid              *bool      // derived; NULL when fees empty
+	RawData             []byte     // verbatim session JSON (fees[] + invoices[])
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
+// deriveEnergyKWh sums the usage tiers for fees where lower(uom) == "kwh".
+// Returns nil when no fee has uom == "kwh" (time-based billing only, or no fees).
+// Design DBS2: energy_kwh derivation in Go at write time, not in SQL.
+func deriveEnergyKWh(fees []tesla.ChargingFeeTesla) *float64 {
+	var total float64
+	found := false
+	for _, f := range fees {
+		if strings.ToLower(f.UOM) != "kwh" {
+			continue
+		}
+		found = true
+		total += f.UsageBase + f.UsageTier1 + f.UsageTier2
+		if f.UsageTier3 != nil {
+			total += *f.UsageTier3
+		}
+		if f.UsageTier4 != nil {
+			total += *f.UsageTier4
+		}
+	}
+	if !found {
+		return nil
+	}
+	return &total
+}
+
+// deriveTotalCost sums totalDue over all fees. Returns nil when fees is empty.
+// Design DBS2: total_cost derivation in Go at write time.
+func deriveTotalCost(fees []tesla.ChargingFeeTesla) *float64 {
+	if len(fees) == 0 {
+		return nil
+	}
+	var total float64
+	for _, f := range fees {
+		total += f.TotalDue
+	}
+	return &total
+}
+
+// deriveCurrency returns the currencyCode from the first fee. Returns nil when
+// fees is empty. Design DBS2: currency is uniform across fees for one session.
+func deriveCurrency(fees []tesla.ChargingFeeTesla) *string {
+	if len(fees) == 0 {
+		return nil
+	}
+	c := fees[0].CurrencyCode
+	return &c
+}
+
+// deriveIsPaid returns the logical AND of every fee's isPaid. Returns nil when
+// fees is empty (impossible to determine billing status). *false when at least
+// one fee is unpaid; *true when all fees are paid. Design DBS2.
+func deriveIsPaid(fees []tesla.ChargingFeeTesla) *bool {
+	if len(fees) == 0 {
+		return nil
+	}
+	allPaid := true
+	for _, f := range fees {
+		if !f.IsPaid {
+			allPaid = false
+			break
+		}
+	}
+	return &allPaid
+}
+
+// SuperchargerReader exposes supercharger session data for read-only consumption.
+// It is a separate port from Reader (snapshot-centric) to keep concerns distinct
+// and to allow the gateway to depend on only the port it needs. Callers MUST NOT
+// import telemetrydb (design DBS6).
+type SuperchargerReader interface {
+	// SuperchargerSessionsByAccount returns all Supercharger sessions for the
+	// given account, ordered by charge_start_date_time DESC, limited to limit
+	// rows (0 = server default of math.MaxInt32). Returns an empty non-nil
+	// slice when no sessions exist.
+	SuperchargerSessionsByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerSession, error)
+
+	// SuperchargerSessionsByVehicle returns Supercharger sessions for the given
+	// vehicle within the given account, ordered by charge_start_date_time DESC,
+	// limited to limit rows (0 = server default of math.MaxInt32). Returns an
+	// empty non-nil slice when no sessions exist.
+	SuperchargerSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerSession, error)
+}
+
+// NewSuperchargerReader constructs a SuperchargerReader backed by the telemetry DB pool.
+// Implementation is in reader.go. The gateway and other callers depend on the
+// SuperchargerReader interface, never on the concrete type or on telemetrydb directly.
+func NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader {
+	return newSuperchargerReaderImpl(pool)
 }

@@ -91,6 +91,10 @@ type fakeTesla struct {
 	wakeCalls map[int64]int
 	dataCalls map[int64]int
 	listCalls int
+	// chargingHistory, when set, is returned by ChargingHistory for all accounts.
+	// If chargingHistoryErr is also set, that error is returned instead.
+	chargingHistory    *tesla.ChargingHistoryTesla
+	chargingHistoryErr error
 }
 
 func newFakeTesla() *fakeTesla {
@@ -156,10 +160,18 @@ func (f *fakeTesla) VehicleData(_ context.Context, _ tesla.Credentials, id int64
 	return sc.data, raw, nil
 }
 
-// ChargingHistory satisfies tesla.VehicleService; telemetry's collector does not
-// call it yet (Tier 2 wires the charge_sessions collector).
+// ChargingHistory returns the programmable charging history for B7 tests.
+// Default (no fields set) returns an empty history with no error.
 func (f *fakeTesla) ChargingHistory(_ context.Context, _ tesla.Credentials, _ tesla.ChargingHistoryParams) (*tesla.ChargingHistoryTesla, error) {
-	return nil, nil
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.chargingHistoryErr != nil {
+		return nil, f.chargingHistoryErr
+	}
+	if f.chargingHistory != nil {
+		return f.chargingHistory, nil
+	}
+	return &tesla.ChargingHistoryTesla{}, nil
 }
 
 // --- fake store (records what CollectAll would persist) ---
@@ -179,6 +191,10 @@ type fakeStore struct {
 	snapErr      error
 	snapErrOnce  bool
 	snapInserts  int
+	// upsertedSessions records all SuperchargerSession upserts (B7 tests inspect this).
+	upsertedSessions []SuperchargerSession
+	// upsertErr, when set, is returned by every upsertSuperchargerSession call.
+	upsertErr error
 }
 
 func (s *fakeStore) insertSnapshot(_ context.Context, snap Snapshot) error {
@@ -204,6 +220,21 @@ func (s *fakeStore) insertPollAttempt(_ context.Context, a Attempt) error {
 // store interface even after the read method was added in task 3.
 func (s *fakeStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]Snapshot, error) {
 	return []Snapshot{}, nil
+}
+
+// upsertedSessions holds all sessions upserted via upsertSuperchargerSession.
+// It is a separate field so B7 tests can inspect what was upserted.
+//
+// upsertSuperchargerSession records the upserted session and returns upsertErr
+// (nil by default). Used by B7 collector tests.
+func (s *fakeStore) upsertSuperchargerSession(_ context.Context, session SuperchargerSession) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.upsertErr != nil {
+		return s.upsertErr
+	}
+	s.upsertedSessions = append(s.upsertedSessions, session)
+	return nil
 }
 
 func (s *fakeStore) attemptsByVehicle() map[int64][]recordedAttempt {
@@ -656,4 +687,260 @@ func assertOneAttempt(t *testing.T, fs *fakeStore, teslaID int64, wantReason Rea
 	if got[0].reason != wantReason || got[0].outcome != wantOutcome {
 		t.Errorf("vehicle %d: want %s/%s, got %s/%s", teslaID, wantOutcome, wantReason, got[0].outcome, got[0].reason)
 	}
+}
+
+// --- B7: Offline collector tests for ChargingHistory fold-in (design DBS7) ---
+
+// makeChargingSessions builds N minimal ChargingSessionTesla values with distinct
+// SessionIDs starting from baseID. VIN defaults to "VIN001" so VIN-to-TeslaID tests
+// can control which ones resolve.
+func makeChargingSessions(n int, baseID int64, vin string) []tesla.ChargingSessionTesla {
+	sessions := make([]tesla.ChargingSessionTesla, n)
+	for i := range sessions {
+		sessions[i] = tesla.ChargingSessionTesla{
+			SessionID: baseID + int64(i),
+			VIN:       vin,
+			Raw:       []byte(fmt.Sprintf(`{"sessionId":%d}`, baseID+int64(i))),
+		}
+	}
+	return sessions
+}
+
+// TestCollectAll_ChargingHistory_SuccessCountsUpserted verifies that when
+// ChargingHistory succeeds with N sessions, CycleReport.ChargingSessionsUpserted
+// equals N and ChargingFetchFailures equals 0 (design DBS7/B7.1a).
+func TestCollectAll_ChargingHistory_SuccessCountsUpserted(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	ft.set(10, &vehicleScript{state: "online", data: onlineData(10, nil)})
+	ft.chargingHistory = &tesla.ChargingHistoryTesla{
+		Data: makeChargingSessions(3, 1000, "VIN001"),
+	}
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 10, VIN: "VIN001"}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectAll(context.Background())
+	if err != nil {
+		t.Fatalf("CollectAll returned whole-cycle error: %v", err)
+	}
+	if report.ChargingSessionsUpserted != 3 {
+		t.Errorf("want ChargingSessionsUpserted=3, got %d", report.ChargingSessionsUpserted)
+	}
+	if report.ChargingFetchFailures != 0 {
+		t.Errorf("want ChargingFetchFailures=0, got %d", report.ChargingFetchFailures)
+	}
+	if len(fs.upsertedSessions) != 3 {
+		t.Errorf("want 3 sessions upserted, got %d", len(fs.upsertedSessions))
+	}
+}
+
+// TestCollectAll_ChargingHistory_FetchFailure_SnapshotUnaffected verifies that a
+// ChargingHistory call failure increments ChargingFetchFailures and does NOT abort
+// snapshot collection for the account (design DBS7/B7.1b, per-account isolation).
+func TestCollectAll_ChargingHistory_FetchFailure_SnapshotUnaffected(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	ft.set(20, &vehicleScript{state: "online", data: onlineData(20, nil)})
+	ft.chargingHistoryErr = errors.New("tesla: 503 upstream")
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 20, VIN: "VINX"}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectAll(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected whole-cycle error: %v", err)
+	}
+	// Snapshot collection must be unaffected.
+	if report.Succeeded != 1 {
+		t.Errorf("want snapshot collection Succeeded=1, got %d", report.Succeeded)
+	}
+	if len(fs.snapshots) != 1 {
+		t.Errorf("want 1 snapshot stored, got %d", len(fs.snapshots))
+	}
+	// Charging failure counted.
+	if report.ChargingFetchFailures != 1 {
+		t.Errorf("want ChargingFetchFailures=1, got %d", report.ChargingFetchFailures)
+	}
+	if report.ChargingSessionsUpserted != 0 {
+		t.Errorf("want ChargingSessionsUpserted=0, got %d", report.ChargingSessionsUpserted)
+	}
+}
+
+// TestCollectAll_ChargingHistory_VINResolution verifies that sessions for a
+// recognized VIN get the correct TeslaID, and sessions for an unknown VIN get
+// TeslaID == nil (design DBS7/B7.1c, orphan handling).
+func TestCollectAll_ChargingHistory_VINResolution(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	ft.set(30, &vehicleScript{state: "online", data: onlineData(30, nil)})
+
+	// Two sessions: one with a VIN matching the registered vehicle, one unknown.
+	knownVIN := "VIN_KNOWN"
+	unknownVIN := "VIN_UNKNOWN"
+	ft.chargingHistory = &tesla.ChargingHistoryTesla{
+		Data: []tesla.ChargingSessionTesla{
+			{SessionID: 2001, VIN: knownVIN, Raw: []byte(`{"sessionId":2001}`)},
+			{SessionID: 2002, VIN: unknownVIN, Raw: []byte(`{"sessionId":2002}`)},
+		},
+	}
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 30, VIN: knownVIN}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	if _, err := svc.CollectAll(context.Background()); err != nil {
+		t.Fatalf("unexpected whole-cycle error: %v", err)
+	}
+	if len(fs.upsertedSessions) != 2 {
+		t.Fatalf("want 2 sessions upserted, got %d", len(fs.upsertedSessions))
+	}
+	bySessionID := map[int64]SuperchargerSession{}
+	for _, s := range fs.upsertedSessions {
+		bySessionID[s.SessionID] = s
+	}
+	knownSess := bySessionID[2001]
+	if knownSess.TeslaID == nil || *knownSess.TeslaID != 30 {
+		t.Errorf("session 2001 (known VIN): want TeslaID=30, got %v", knownSess.TeslaID)
+	}
+	unknownSess := bySessionID[2002]
+	if unknownSess.TeslaID != nil {
+		t.Errorf("session 2002 (unknown VIN): want TeslaID=nil, got %v", unknownSess.TeslaID)
+	}
+}
+
+// --- B7 Derivation helper unit tests (design DBS2, B7.1d) ---
+
+// TestDeriveEnergyKWh_KWhFeesOnly covers the case where all fees are kWh-billed.
+func TestDeriveEnergyKWh_KWhFeesOnly(t *testing.T) {
+	fees := []tesla.ChargingFeeTesla{
+		{UOM: "kwh", UsageBase: 10.0, UsageTier1: 5.0, UsageTier2: 3.0, UsageTier3: nil, UsageTier4: nil},
+		{UOM: "kWh", UsageBase: 2.0, UsageTier1: 1.0}, // mixed case
+	}
+	got := deriveEnergyKWh(fees)
+	if got == nil {
+		t.Fatal("want non-nil energy, got nil")
+	}
+	want := 10.0 + 5.0 + 3.0 + 2.0 + 1.0
+	if *got != want {
+		t.Errorf("want %v, got %v", want, *got)
+	}
+}
+
+// TestDeriveEnergyKWh_TimeOnlyFees covers the case where no fee is kWh-billed.
+func TestDeriveEnergyKWh_TimeOnlyFees(t *testing.T) {
+	fees := []tesla.ChargingFeeTesla{
+		{UOM: "min", UsageBase: 30.0},
+	}
+	got := deriveEnergyKWh(fees)
+	if got != nil {
+		t.Errorf("want nil for time-only fees, got %v", got)
+	}
+}
+
+// TestDeriveEnergyKWh_MixedFees covers kWh + time-based fees in the same session.
+func TestDeriveEnergyKWh_MixedFees(t *testing.T) {
+	tier3 := 1.5
+	fees := []tesla.ChargingFeeTesla{
+		{UOM: "kwh", UsageBase: 20.0, UsageTier1: 5.0, UsageTier2: 0.0, UsageTier3: &tier3},
+		{UOM: "min", UsageBase: 60.0}, // ignored
+	}
+	got := deriveEnergyKWh(fees)
+	if got == nil {
+		t.Fatal("want non-nil energy for mixed fees, got nil")
+	}
+	want := 20.0 + 5.0 + 0.0 + 1.5
+	if *got != want {
+		t.Errorf("want %v, got %v", want, *got)
+	}
+}
+
+// TestDeriveEnergyKWh_EmptyFees covers the empty fees case.
+func TestDeriveEnergyKWh_EmptyFees(t *testing.T) {
+	got := deriveEnergyKWh(nil)
+	if got != nil {
+		t.Errorf("want nil for empty fees, got %v", got)
+	}
+}
+
+// TestDeriveTotalCost covers sum of totalDue and empty fees.
+func TestDeriveTotalCost(t *testing.T) {
+	t.Run("non-empty", func(t *testing.T) {
+		fees := []tesla.ChargingFeeTesla{
+			{TotalDue: 3.50},
+			{TotalDue: 1.25},
+		}
+		got := deriveTotalCost(fees)
+		if got == nil {
+			t.Fatal("want non-nil cost, got nil")
+		}
+		want := 4.75
+		if *got != want {
+			t.Errorf("want %v, got %v", want, *got)
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		if got := deriveTotalCost(nil); got != nil {
+			t.Errorf("want nil for empty fees, got %v", got)
+		}
+	})
+}
+
+// TestDeriveCurrency covers first-fee currency and empty fees.
+func TestDeriveCurrency(t *testing.T) {
+	t.Run("non-empty", func(t *testing.T) {
+		fees := []tesla.ChargingFeeTesla{
+			{CurrencyCode: "USD"},
+			{CurrencyCode: "USD"},
+		}
+		got := deriveCurrency(fees)
+		if got == nil || *got != "USD" {
+			t.Errorf("want *USD, got %v", got)
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		if got := deriveCurrency(nil); got != nil {
+			t.Errorf("want nil for empty fees, got %v", got)
+		}
+	})
+}
+
+// TestDeriveIsPaid covers all-paid, one-unpaid, and empty fees.
+func TestDeriveIsPaid(t *testing.T) {
+	t.Run("all-paid", func(t *testing.T) {
+		fees := []tesla.ChargingFeeTesla{
+			{IsPaid: true},
+			{IsPaid: true},
+		}
+		got := deriveIsPaid(fees)
+		if got == nil || !*got {
+			t.Errorf("want *true for all-paid, got %v", got)
+		}
+	})
+	t.Run("one-unpaid", func(t *testing.T) {
+		fees := []tesla.ChargingFeeTesla{
+			{IsPaid: true},
+			{IsPaid: false},
+		}
+		got := deriveIsPaid(fees)
+		if got == nil || *got {
+			t.Errorf("want *false for one-unpaid, got %v", got)
+		}
+	})
+	t.Run("empty", func(t *testing.T) {
+		if got := deriveIsPaid(nil); got != nil {
+			t.Errorf("want nil for empty fees, got %v", got)
+		}
+	})
 }

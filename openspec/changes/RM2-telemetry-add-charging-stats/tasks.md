@@ -43,7 +43,7 @@
 
 ### B1. Migration — `supercharger_sessions` table (`internal/telemetry/db/migrations/`) — no dependencies
 
-- [ ] B1.1 Add goose migration `internal/telemetry/db/migrations/<timestamp>_add_supercharger_sessions.sql`.
+- [x] B1.1 Add goose migration `internal/telemetry/db/migrations/<timestamp>_add_supercharger_sessions.sql`.
       Use the NEXT timestamp after `20260710000002` (e.g. `20260716000001`). Create table
       `supercharger_sessions` with all columns per design DBS1:
       `id UUID PK DEFAULT gen_random_uuid()`,
@@ -77,18 +77,18 @@
 
 ### B2. sqlc queries for supercharger_sessions (`internal/telemetry/db/query.sql`) — depends on B1
 
-- [ ] B2.1 Add `-- name: UpsertSuperchargerSession :exec` to `query.sql`. The query is an
+- [x] B2.1 Add `-- name: UpsertSuperchargerSession :exec` to `query.sql`. The query is an
       `INSERT INTO supercharger_sessions (...) VALUES (...) ON CONFLICT (session_id)
       DO UPDATE SET raw_data = EXCLUDED.raw_data, energy_kwh = EXCLUDED.energy_kwh,
       total_cost = EXCLUDED.total_cost, currency = EXCLUDED.currency,
       is_paid = EXCLUDED.is_paid, tesla_id = EXCLUDED.tesla_id, updated_at = now()`.
       Immutable columns (session_id, account_id, vin, location, timestamps, billing fields,
       created_at) MUST NOT appear in the DO UPDATE SET clause.
-- [ ] B2.2 Add `-- name: SuperchargerSessionsByAccount :many` to `query.sql`.
+- [x] B2.2 Add `-- name: SuperchargerSessionsByAccount :many` to `query.sql`.
       `SELECT * FROM supercharger_sessions WHERE account_id = @account_id
       ORDER BY charge_start_date_time DESC LIMIT @limit_count`. Uses
       `idx_supercharger_sessions_account_time`. Document in comment which index this uses.
-- [ ] B2.3 Add `-- name: SuperchargerSessionsByVehicle :many` to `query.sql`.
+- [x] B2.3 Add `-- name: SuperchargerSessionsByVehicle :many` to `query.sql`.
       `SELECT * FROM supercharger_sessions WHERE account_id = @account_id
       AND tesla_id = @tesla_id ORDER BY charge_start_date_time DESC LIMIT @limit_count`.
       Uses `idx_supercharger_sessions_vehicle_time`. Document in comment.
@@ -96,7 +96,7 @@
 
 ### B3. Domain types + interfaces (`internal/telemetry/telemetry.go`) — no dependencies, parallel-ok
 
-- [ ] B3.1 Add `SuperchargerSession` domain type per design DBS5. No vendor suffix. Fields:
+- [x] B3.1 Add `SuperchargerSession` domain type per design DBS5. No vendor suffix. Fields:
       `ID uuid.UUID`, `SessionID int64`, `AccountID uuid.UUID`, `VIN string`,
       `TeslaID *int64` (nullable), `SiteLocationName string`, `CountryCode string`,
       `ChargeStartDateTime time.Time`, `ChargeStopDateTime time.Time`,
@@ -105,7 +105,7 @@
       `RawData []byte`, `CreatedAt time.Time`, `UpdatedAt time.Time`.
       Add doc comment: domain model (no vendor suffix), no Km/Kmh companions (no
       distance/speed fields), distinct from `tesla.ChargingSessionTesla`.
-- [ ] B3.2 Add derivation helper functions (unexported, `telemetry` package):
+- [x] B3.2 Add derivation helper functions (unexported, `telemetry` package):
       `deriveEnergyKWh(fees []tesla.ChargingFeeTesla) *float64` — sum of
       (usageBase + usageTier1 + usageTier2 + nilOrZero(usageTier3) + nilOrZero(usageTier4))
       for fees where `strings.ToLower(fee.UOM) == "kwh"`; return nil when no kWh fee.
@@ -115,11 +115,11 @@
       nil when fees empty.
       `deriveIsPaid(fees []tesla.ChargingFeeTesla) *bool` — logical AND; nil when fees empty.
       These are pure functions testable offline without DB.
-- [ ] B3.3 Extend `CycleReport` with two new fields per design DBS7:
+- [x] B3.3 Extend `CycleReport` with two new fields per design DBS7:
       `ChargingSessionsUpserted int` and `ChargingFetchFailures int`. Add doc comments.
       Acceptance: existing CycleReport callers remain compile-compatible (additive struct
       fields, zero value is correct default).
-- [ ] B3.4 Declare `SuperchargerReader` interface per design DBS6:
+- [x] B3.4 Declare `SuperchargerReader` interface per design DBS6:
       `SuperchargerSessionsByAccount(ctx, accountID uuid.UUID, limit int) ([]SuperchargerSession, error)`
       and `SuperchargerSessionsByVehicle(ctx, accountID uuid.UUID, teslaID int64, limit int)
       ([]SuperchargerSession, error)`. Add doc comment: separate port from `Reader`; callers
@@ -128,9 +128,9 @@
 
 ### B4. Store seam: `upsertSuperchargerSession` (`internal/telemetry/service.go`) — depends on B2, B3
 
-- [ ] B4.1 Add `upsertSuperchargerSession(ctx context.Context, s SuperchargerSession) error`
+- [x] B4.1 Add `upsertSuperchargerSession(ctx context.Context, s SuperchargerSession) error`
       to the unexported `store` interface in `service.go`.
-- [ ] B4.2 Implement `dbStore.upsertSuperchargerSession`: map `SuperchargerSession` to
+- [x] B4.2 Implement `dbStore.upsertSuperchargerSession`: map `SuperchargerSession` to
       `telemetrydb.UpsertSuperchargerSessionParams` at the DB boundary. This is the ONLY
       place pgtype is touched for this method:
       `session_id` → `s.SessionID` (int64, not nullable),
@@ -146,7 +146,7 @@
 
 ### B5. Fold ChargingHistory into `collectAccount` (`internal/telemetry/service.go`) — depends on B3, B4
 
-- [ ] B5.1 After the existing per-vehicle snapshot loop in `collectAccount`, add the Supercharger
+- [x] B5.1 After the existing per-vehicle snapshot loop in `collectAccount`, add the Supercharger
       ingestion pass:
       (a) Call `s.tsla.ChargingHistory(ctx, creds, tesla.ChargingHistoryParams{})`. On failure:
           increment `report.ChargingFetchFailures`; do NOT abort or affect snapshot collection.
@@ -154,8 +154,9 @@
       (c) For each `ChargingSessionTesla` in the result:
           - Derive `EnergyKWh`, `TotalCost`, `Currency`, `IsPaid` using the B3.2 helpers.
           - Resolve `TeslaID`: look up the session's VIN in the map; nil if not found.
-          - Construct `SuperchargerSession`; set `RawData` to the full session marshalled as JSON
-            (the whole session object including fees + invoices).
+          - Construct `SuperchargerSession`; set `RawData` to the verbatim session bytes
+            `session.Raw` (the `tesla.ChargingSessionTesla.Raw` field captured in UnmarshalJSON,
+            L2/D13) — NOT a re-marshal of the typed struct. This is the lossless whole-session blob.
           - Call `s.store.upsertSuperchargerSession(ctx, session)`. On failure: continue
             (per-session isolation; do NOT abort the charging ingestion pass).
           - On success: increment `report.ChargingSessionsUpserted`.
@@ -165,24 +166,24 @@
 
 ### B6. `SuperchargerReader` implementation (`internal/telemetry/reader.go`, `mapping.go`) — depends on B2, B3
 
-- [ ] B6.1 Add `rowToSuperchargerSession(r telemetrydb.SuperchargerSession) SuperchargerSession`
+- [x] B6.1 Add `rowToSuperchargerSession(r telemetrydb.SuperchargerSession) SuperchargerSession`
       to `mapping.go`. Map all pgtype nullable columns to domain pointer fields using the same
       `Valid`-field pattern as `rowToSnapshot`. Map `pgtype.Int8 → *int64`,
       `pgtype.Timestamptz → *time.Time`, `pgtype.Float8 → *float64`,
       `pgtype.Text → *string`, `pgtype.Bool → *bool`. No pgtype in the return type.
-- [ ] B6.2 Add `superchargerReader` struct (unexported) to `reader.go` (or a new file)
+- [x] B6.2 Add `superchargerReader` struct (unexported) to `reader.go` (or a new file)
       implementing `SuperchargerReader`. Each method calls the corresponding sqlc query
       (`SuperchargerSessionsByAccount` / `SuperchargerSessionsByVehicle`), maps rows via
       `rowToSuperchargerSession`, and returns a non-nil empty slice when 0 rows found.
       Handle `limit = 0` by passing a large sentinel (e.g. `math.MaxInt32`) or a server
       default — document the choice.
-- [ ] B6.3 Implement `NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader` — construct
+- [x] B6.3 Implement `NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader` — construct
       the reader backed by `telemetrydb.New(pool)`. Add compile-time assertion:
       `var _ SuperchargerReader = (*superchargerReader)(nil)`.
 
 ### B7. Offline collector tests (charging fold-in) (`internal/telemetry/*_test.go`) — depends on B5
 
-- [ ] B7.1 Extend the existing offline collector test suite (fake `account.Service` +
+- [x] B7.1 Extend the existing offline collector test suite (fake `account.Service` +
       `tesla.VehicleService` + fake `store`): add tests verifying
       (a) when `ChargingHistory` succeeds with N sessions, `CycleReport.ChargingSessionsUpserted`
           equals N and `ChargingFetchFailures` equals 0;
@@ -197,7 +198,7 @@
 
 ### B8. DATABASE_URL-gated store/reader tests (`internal/telemetry/db_integration_test.go`) — depends on B2, B6
 
-- [ ] B8.1 Add `DATABASE_URL`-gated integration tests (self-skip when unset) for Source B:
+- [x] B8.1 Add `DATABASE_URL`-gated integration tests (self-skip when unset) for Source B:
       (a) `UpsertSuperchargerSession`: insert a session; read it back via
           `SuperchargerSessionsByAccount`; assert all fields including nullable ones round-trip
           faithfully (NULL when nil pointer, not zero value).

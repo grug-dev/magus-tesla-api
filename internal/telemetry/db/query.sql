@@ -60,3 +60,58 @@ SELECT DISTINCT ON (tesla_id)
 FROM vehicle_snapshots
 WHERE account_id = @account_id
 ORDER BY tesla_id, captured_at DESC;
+
+-- name: UpsertSuperchargerSession :exec
+-- Upsert one Supercharger session. On conflict with the session_id UNIQUE constraint,
+-- refresh only the mutable/derived columns (raw_data, derived fields, tesla_id,
+-- updated_at). Immutable columns (session_id, account_id, vin, location name,
+-- country, timestamps, billing fields, created_at) are never overwritten.
+-- Design DBS3: supercharger_sessions is NOT append-only; billing state mutates
+-- post-session (is_paid, invoice status change after midnight).
+INSERT INTO supercharger_sessions (
+    session_id, account_id, vin, tesla_id,
+    site_location_name, country_code,
+    charge_start_date_time, charge_stop_date_time, unlatch_date_time,
+    billing_type, vehicle_make_type,
+    energy_kwh, total_cost, currency, is_paid,
+    raw_data
+) VALUES (
+    @session_id, @account_id, @vin, @tesla_id,
+    @site_location_name, @country_code,
+    @charge_start_date_time, @charge_stop_date_time, @unlatch_date_time,
+    @billing_type, @vehicle_make_type,
+    @energy_kwh, @total_cost, @currency, @is_paid,
+    @raw_data
+)
+ON CONFLICT (session_id) DO UPDATE SET
+    raw_data   = EXCLUDED.raw_data,
+    energy_kwh = EXCLUDED.energy_kwh,
+    total_cost = EXCLUDED.total_cost,
+    currency   = EXCLUDED.currency,
+    is_paid    = EXCLUDED.is_paid,
+    tesla_id   = EXCLUDED.tesla_id,
+    updated_at = now();
+
+-- name: SuperchargerSessionsByAccount :many
+-- Return all Supercharger sessions for the given account, newest first, up to
+-- limit_count rows. Uses idx_supercharger_sessions_account_time
+-- (account_id, charge_start_date_time DESC) — the account_id prefix prunes to
+-- the tenant; DESC order matches the ORDER BY so no sort step is needed.
+-- Design DBS4 / DBS6: account-wide spend/energy dashboard access pattern.
+SELECT * FROM supercharger_sessions
+WHERE account_id = @account_id
+ORDER BY charge_start_date_time DESC
+LIMIT @limit_count;
+
+-- name: SuperchargerSessionsByVehicle :many
+-- Return Supercharger sessions for one vehicle within an account, newest first,
+-- up to limit_count rows. Uses idx_supercharger_sessions_vehicle_time
+-- (account_id, tesla_id, charge_start_date_time DESC) — both WHERE columns are
+-- the leading index columns so the planner satisfies the filter and the ORDER BY
+-- in a single range scan without a sort step.
+-- Design DBS4 / DBS6: per-vehicle charging history dashboard access pattern.
+SELECT * FROM supercharger_sessions
+WHERE account_id = @account_id
+  AND tesla_id = @tesla_id
+ORDER BY charge_start_date_time DESC
+LIMIT @limit_count;

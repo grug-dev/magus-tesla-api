@@ -269,7 +269,9 @@ After the existing per-vehicle snapshot loop (valid `creds` already available):
    fetch, all pages, no vehicle wake.
 2. Build `map[string]int64` from `VIN → TeslaID` using the account's `owned []account.OwnedVehicle`.
 3. For each `ChargingSessionTesla` in the result, derive the four computed fields in Go, build a
-   `SuperchargerSession`, and call `s.store.upsertSuperchargerSession(ctx, session)`.
+   `SuperchargerSession` (setting `RawData = session.Raw` — the verbatim bytes captured in the DTO's
+   UnmarshalJSON, L2/D13, giving true parity with `vehicle_snapshots.raw_data`; NOT a re-marshal),
+   and call `s.store.upsertSuperchargerSession(ctx, session)`.
 4. Accumulate successes in `CycleReport.ChargingSessionsUpserted`.
 5. On `ChargingHistory` call failure: log/count it in `CycleReport.ChargingFetchFailures` — do NOT
    abort the account's snapshot collection. A charging-fetch failure is isolated from the vehicle

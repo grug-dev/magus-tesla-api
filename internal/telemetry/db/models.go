@@ -18,6 +18,29 @@ type PollAttempt struct {
 	Reason      string
 }
 
+// Tesla-billed Supercharger and DC fast-charging sessions per account. Covers sessions returned by GET /api/1/dx/charging/history only (no home/AC charging, no battery percentage). Owned by internal/telemetry; no other module reads this table directly. UPSERT on session_id (not append-only): billing state is mutable post-session.
+type SuperchargerSession struct {
+	ID                  uuid.UUID
+	SessionID           int64
+	AccountID           uuid.UUID
+	Vin                 string
+	TeslaID             pgtype.Int8
+	SiteLocationName    string
+	CountryCode         string
+	ChargeStartDateTime pgtype.Timestamptz
+	ChargeStopDateTime  pgtype.Timestamptz
+	UnlatchDateTime     pgtype.Timestamptz
+	BillingType         string
+	VehicleMakeType     string
+	EnergyKwh           pgtype.Float8
+	TotalCost           pgtype.Float8
+	Currency            pgtype.Text
+	IsPaid              pgtype.Bool
+	RawData             []byte
+	CreatedAt           pgtype.Timestamptz
+	UpdatedAt           pgtype.Timestamptz
+}
+
 type VehicleSnapshot struct {
 	ID             uuid.UUID
 	AccountID      uuid.UUID
