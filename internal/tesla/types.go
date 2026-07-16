@@ -62,6 +62,16 @@ type ChargeStateTesla struct {
 	ChargeLimitSoc     int     `json:"charge_limit_soc"`
 	TimeToFullCharge   float64 `json:"time_to_full_charge"`
 	ChargePortDoorOpen bool    `json:"charge_port_door_open"`
+	// Charge-telemetry fields promoted for telemetry snapshot enrichment
+	// (RM2-telemetry-add-charging-stats Source A). The Fleet API sends a concrete
+	// value (0 / "" when the vehicle is idle), so these are plain — never miles/mph,
+	// hence no Km()/Kmh() companions.
+	ChargeEnergyAdded    float64 `json:"charge_energy_added"`    // kWh added this session
+	ChargerPower         int     `json:"charger_power"`          // kW
+	ChargerVoltage       int     `json:"charger_voltage"`        // V
+	ChargerActualCurrent int     `json:"charger_actual_current"` // A
+	UsableBatteryLevel   int     `json:"usable_battery_level"`   // %
+	FastChargerType      string  `json:"fast_charger_type"`
 }
 
 // BatteryRangeKm returns the estimated range converted from miles to kilometers.
@@ -154,6 +164,11 @@ type ChargingSessionTesla struct {
 	BillingType          string                  `json:"billingType"`
 	Invoices             []ChargingInvoiceTesla  `json:"invoices"`
 	VehicleMakeType      string                  `json:"vehicleMakeType"`
+	// Raw is the verbatim JSON of this session object, captured in UnmarshalJSON so
+	// callers can persist a lossless copy (mirroring how VehicleData exposes raw
+	// bytes). Excluded from (un)marshalling — it is populated manually, not from a
+	// JSON field. Used by telemetry's supercharger_sessions.raw_data column.
+	Raw json.RawMessage `json:"-"`
 }
 
 // rfcTimeString is a helper that wraps a string for RFC3339 parsing in the
@@ -219,6 +234,9 @@ func (s *ChargingSessionTesla) UnmarshalJSON(data []byte) error {
 	s.BillingType = a.BillingType
 	s.Invoices = a.Invoices
 	s.VehicleMakeType = a.VehicleMakeType
+	// Capture the verbatim session bytes so callers can persist a lossless copy
+	// (defensive copy — the decoder may reuse the backing array).
+	s.Raw = append(json.RawMessage(nil), data...)
 	return nil
 }
 
