@@ -224,7 +224,7 @@
 
 ### A1. Migration — 6 nullable columns on `vehicle_snapshots` (`internal/telemetry/db/migrations/`) — no block on tesla edit for authoring
 
-- [ ] A1.1 Add goose migration `internal/telemetry/db/migrations/<timestamp>_enrich_vehicle_snapshots_charge.sql`
+- [x] A1.1 Add goose migration `internal/telemetry/db/migrations/<timestamp>_enrich_vehicle_snapshots_charge.sql`
       (timestamp AFTER the B1 migration). Use `ALTER TABLE vehicle_snapshots ADD COLUMN`:
       `charge_energy_added DOUBLE PRECISION` (nullable),
       `charger_power INTEGER` (nullable),
@@ -238,7 +238,7 @@
 
 ### A2. `Snapshot` domain type extension (`internal/telemetry/telemetry.go`) — BLOCKED on leader tesla edit
 
-- [ ] A2.1 Add six nullable fields to `Snapshot` per design DSA2:
+- [x] A2.1 Add six nullable fields to `Snapshot` per design DSA2:
       `ChargeEnergyAdded *float64`, `ChargerPower *int`, `ChargerVoltage *int`,
       `ChargerActualCurrent *int`, `UsableBatteryLevel *int`, `FastChargerType *string`.
       Add doc comment: nullable — nil when not reported or row predates this extraction.
@@ -248,13 +248,13 @@
 
 ### A3. `snapshotFrom` + sqlc param extension (`internal/telemetry/service.go`) — BLOCKED on leader tesla edit; depends on A1, A2
 
-- [ ] A3.1 Extend `snapshotFrom` to map the 6 new `ChargeStateTesla` fields into `Snapshot`,
+- [x] A3.1 Extend `snapshotFrom` to map the 6 new `ChargeStateTesla` fields into `Snapshot`,
       storing the ACTUAL DTO value pointer-wrapped (`ptr(data.ChargeState.X)`) — NO zero-is-absent
       heuristic (design DSA3/D12). The plain DTO fields always carry a value (0/"" when idle), so
       every new row is non-NULL; a `0`/`""` is a truthful reading and must be stored. `ptr` is a
       tiny generic `func ptr[T any](v T) *T { return &v }` helper. (NULL is reserved for
       pre-migration rows — handled by not backfilling, DSA1.)
-- [ ] A3.2 Extend `dbStore.insertSnapshot` to pass the 6 nullable fields to the sqlc
+- [x] A3.2 Extend `dbStore.insertSnapshot` to pass the 6 nullable fields to the sqlc
       `InsertVehicleSnapshotParams`. Map `*float64` → `pgtype.Float8`, `*int` → `pgtype.Int4`,
       `*string` → `pgtype.Text` using the same `Valid`-field pattern. Update the sqlc query
       `InsertVehicleSnapshot` in `query.sql` to include the 6 new column names + params.
@@ -262,17 +262,17 @@
 
 ### A4. `rowToSnapshot` extension + helpers (`internal/telemetry/mapping.go`) — BLOCKED on leader tesla edit; depends on A1, A2
 
-- [ ] A4.1 Add helper functions to `mapping.go` per design DSA4:
+- [x] A4.1 Add helper functions to `mapping.go` per design DSA4:
       `pgNullableFloat64(v pgtype.Float8) *float64`,
       `pgNullableInt32AsInt(v pgtype.Int4) *int`,
       `pgNullableText(v pgtype.Text) *string`.
       Each returns nil when `!v.Valid`, non-nil pointer otherwise.
-- [ ] A4.2 Extend `rowToSnapshot` to map the 6 new nullable columns from the sqlc-generated
+- [x] A4.2 Extend `rowToSnapshot` to map the 6 new nullable columns from the sqlc-generated
       `telemetrydb.VehicleSnapshot` row using the helpers from A4.1.
 
 ### A5. DATABASE_URL-gated store tests for Source A (`internal/telemetry/db_integration_test.go`) — BLOCKED; depends on A1, A3, A4
 
-- [ ] A5.1 Extend the `DATABASE_URL`-gated integration tests to cover Source A:
+- [x] A5.1 Extend the `DATABASE_URL`-gated integration tests to cover Source A:
       (a) Insert a snapshot with all 6 charge-enrichment fields set to non-nil values; read it
           back via `LatestSnapshotsByAccount`; assert all 6 round-trip faithfully.
       (b) Insert a snapshot with all 6 fields nil (vehicle not charging); assert 6 fields come

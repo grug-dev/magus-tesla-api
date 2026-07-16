@@ -367,6 +367,13 @@ func (s *service) record(ctx context.Context, accountID uuid.UUID, teslaID int64
 // flows into domain logic un-mapped). Distances stay API-native (miles); km is derived
 // on read via the Snapshot Km() companions, never stored. SentryMode stays *bool so an
 // absent field remains distinct from a reported-off sentry (nil ≠ *false, D1).
+//
+// Source A (RM2-telemetry-add-charging-stats): the 6 charge-enrichment fields are
+// stored as the ACTUAL DTO value pointer-wrapped — NO zero-is-absent heuristic (D12,
+// design DSA3). The plain DTO fields always carry a concrete value (0 / "" when idle),
+// so every new row is non-NULL. A truthful 0 must be preserved; interpreting a 0 in
+// context (e.g. against ChargingState) is the dashboard's responsibility. NULL is
+// reserved exclusively for pre-migration rows that were never backfilled (DSA1).
 func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, data *tesla.VehicleDataTesla, raw []byte) Snapshot {
 	return Snapshot{
 		AccountID:      accountID,
@@ -385,8 +392,21 @@ func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, data
 		Latitude:       data.DriveState.Latitude,
 		Longitude:      data.DriveState.Longitude,
 		RawData:        raw,
+		// Source A enrichment — actual DTO values, pointer-wrapped (D12/DSA3).
+		// ptr(v) returns &v; a 0 or "" is a truthful reading and is stored non-NULL.
+		ChargeEnergyAdded:    ptr(data.ChargeState.ChargeEnergyAdded),
+		ChargerPower:         ptr(data.ChargeState.ChargerPower),
+		ChargerVoltage:       ptr(data.ChargeState.ChargerVoltage),
+		ChargerActualCurrent: ptr(data.ChargeState.ChargerActualCurrent),
+		UsableBatteryLevel:   ptr(data.ChargeState.UsableBatteryLevel),
+		FastChargerType:      ptr(data.ChargeState.FastChargerType),
 	}
 }
+
+// ptr wraps a plain value in a pointer, returning *T. Used by snapshotFrom to
+// store the actual DTO value (including a truthful 0/"") into a *T field without
+// a zero-is-absent heuristic (design DSA3/D12 of RM2-telemetry-add-charging-stats).
+func ptr[T any](v T) *T { return &v }
 
 // --- telemetrydb-backed store (the ONLY place pgtype is touched) ---
 
@@ -417,7 +437,43 @@ func (d *dbStore) insertSnapshot(ctx context.Context, s Snapshot) error {
 		CarVersion:     s.CarVersion,
 		Latitude:       s.Latitude,
 		Longitude:      s.Longitude,
+		// Source A (RM2-telemetry-add-charging-stats): nullable charge-enrichment columns.
+		// nil → invalid pgtype (SQL NULL); non-nil → valid with the concrete value.
+		// Same Valid-field pattern as boolPtrToPgBool. pgtype never leaks past this boundary.
+		ChargeEnergyAdded:    float64PtrToPgFloat8(s.ChargeEnergyAdded),
+		ChargerPower:         intPtrToPgInt4(s.ChargerPower),
+		ChargerVoltage:       intPtrToPgInt4(s.ChargerVoltage),
+		ChargerActualCurrent: intPtrToPgInt4(s.ChargerActualCurrent),
+		UsableBatteryLevel:   intPtrToPgInt4(s.UsableBatteryLevel),
+		FastChargerType:      stringPtrToPgText(s.FastChargerType),
 	})
+}
+
+// float64PtrToPgFloat8 maps a *float64 to a nullable pgtype.Float8. nil → invalid
+// (SQL NULL); non-nil → valid with the concrete value. Mirrors boolPtrToPgBool.
+func float64PtrToPgFloat8(v *float64) pgtype.Float8 {
+	if v == nil {
+		return pgtype.Float8{Valid: false}
+	}
+	return pgtype.Float8{Float64: *v, Valid: true}
+}
+
+// intPtrToPgInt4 maps a *int to a nullable pgtype.Int4. nil → invalid (SQL NULL);
+// non-nil → valid Int32. Mirrors boolPtrToPgBool.
+func intPtrToPgInt4(v *int) pgtype.Int4 {
+	if v == nil {
+		return pgtype.Int4{Valid: false}
+	}
+	return pgtype.Int4{Int32: int32(*v), Valid: true}
+}
+
+// stringPtrToPgText maps a *string to a nullable pgtype.Text. nil → invalid
+// (SQL NULL); non-nil → valid with the concrete string. Mirrors boolPtrToPgBool.
+func stringPtrToPgText(v *string) pgtype.Text {
+	if v == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: *v, Valid: true}
 }
 
 func (d *dbStore) insertPollAttempt(ctx context.Context, a Attempt) error {

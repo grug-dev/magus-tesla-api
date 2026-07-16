@@ -3,8 +3,44 @@ package telemetry
 import (
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
 	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
+
+// pgNullableFloat64 converts a nullable pgtype.Float8 to *float64.
+// Returns nil when !v.Valid (SQL NULL → nil pointer, meaning "row predates enrichment");
+// returns a pointer to the concrete value otherwise. Design DSA4/D12: nil means
+// "pre-migration row", never "reported zero" — the write path stores a truthful 0.
+func pgNullableFloat64(v pgtype.Float8) *float64 {
+	if !v.Valid {
+		return nil
+	}
+	f := v.Float64
+	return &f
+}
+
+// pgNullableInt32AsInt converts a nullable pgtype.Int4 to *int.
+// Returns nil when !v.Valid; returns a pointer to int(v.Int32) otherwise.
+// Design DSA4/D12: same nil-means-pre-migration semantics as pgNullableFloat64.
+func pgNullableInt32AsInt(v pgtype.Int4) *int {
+	if !v.Valid {
+		return nil
+	}
+	n := int(v.Int32)
+	return &n
+}
+
+// pgNullableText converts a nullable pgtype.Text to *string.
+// Returns nil when !v.Valid; returns a pointer to v.String otherwise.
+// Design DSA4/D12: same nil-means-pre-migration semantics as pgNullableFloat64.
+func pgNullableText(v pgtype.Text) *string {
+	if !v.Valid {
+		return nil
+	}
+	s := v.String
+	return &s
+}
 
 // rowToSnapshot converts a generated telemetrydb.VehicleSnapshot row into the
 // domain Snapshot type. This is the DB→domain mapping boundary for the read path:
@@ -15,6 +51,8 @@ import (
 //   - SentryMode: pgtype.Bool → *bool: {Valid: false} → nil, {Valid: true, Bool: v} → &v
 //   - BatteryLevel, ChargeLimitSoc: int32 → int (sqlc generates int32; domain uses int)
 //   - All other fields are value-compatible (float64, string, bool, uuid.UUID, []byte)
+//   - Source A charge fields: pgtype nullable → *float64/*int/*string via pgNullable* helpers.
+//     nil means "pre-migration row" (never backfilled); a stored 0 round-trips as a non-nil *0.
 func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 	var sentryMode *bool
 	if r.SentryMode.Valid {
@@ -39,6 +77,15 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 		CarVersion:     r.CarVersion,
 		Latitude:       r.Latitude,
 		Longitude:      r.Longitude,
+		// Source A charge enrichment (RM2-telemetry-add-charging-stats/DSA4):
+		// nullable columns → domain pointer fields. nil iff the column is SQL NULL
+		// (pre-migration row). A stored 0 / "" comes back as a non-nil pointer to 0/"".
+		ChargeEnergyAdded:    pgNullableFloat64(r.ChargeEnergyAdded),
+		ChargerPower:         pgNullableInt32AsInt(r.ChargerPower),
+		ChargerVoltage:       pgNullableInt32AsInt(r.ChargerVoltage),
+		ChargerActualCurrent: pgNullableInt32AsInt(r.ChargerActualCurrent),
+		UsableBatteryLevel:   pgNullableInt32AsInt(r.UsableBatteryLevel),
+		FastChargerType:      pgNullableText(r.FastChargerType),
 	}
 }
 

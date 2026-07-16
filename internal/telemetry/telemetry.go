@@ -55,6 +55,21 @@ type Snapshot struct {
 	// RawData is the lossless vehicle_data JSON, stored verbatim in the JSONB
 	// column so any field not extracted above can be back-filled later.
 	RawData []byte
+
+	// Charge enrichment fields (Source A of RM2-telemetry-add-charging-stats).
+	// Nullable: nil when not reported OR when the row predates this extraction
+	// (every row written before the 20260716000002 migration). On the write path,
+	// snapshotFrom always stores the actual DTO value pointer-wrapped, so a 0 or ""
+	// is a truthful reading and is stored as non-NULL (D12, design DSA3).
+	// NULL is reserved exclusively for pre-migration rows that were never backfilled.
+	// No Km()/Kmh() companions — these fields are kWh, kW, V, A, %, and string:
+	// none are distances or speeds (design DSA1, ai/go-conventions.md).
+	ChargeEnergyAdded    *float64 // kWh added this charge session; nil = not reported / pre-enrichment
+	ChargerPower         *int     // kW; nil = not reported / pre-enrichment
+	ChargerVoltage       *int     // V; nil = not reported / pre-enrichment
+	ChargerActualCurrent *int     // A; nil = not reported / pre-enrichment
+	UsableBatteryLevel   *int     // %; nil = not reported / pre-enrichment
+	FastChargerType      *string  // e.g. "Tesla", "Combo"; nil = not reported / pre-enrichment
 }
 
 // BatteryRangeKm returns the rated range converted from miles to kilometers.

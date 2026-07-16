@@ -9,16 +9,24 @@
 -- (miles); km is derived on read by the domain type's Km() companions, never a
 -- column. sentry_mode is bound as a nullable boolean (nil = vehicle did not
 -- report sentry) so absent stays distinct from a reported off.
+-- Source A (RM2-telemetry-add-charging-stats): the 6 charge-enrichment columns are
+-- always non-NULL for rows written after the 20260716000002 migration — snapshotFrom
+-- stores the actual DTO value pointer-wrapped (D12: no zero-is-absent heuristic).
+-- NULL is reserved for pre-migration rows only; see design DSA1/DSA3.
 INSERT INTO vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
     battery_level, battery_range, charging_state, charge_limit_soc,
     odometer, inside_temp, outside_temp, locked, sentry_mode,
-    car_version, latitude, longitude
+    car_version, latitude, longitude,
+    charge_energy_added, charger_power, charger_voltage,
+    charger_actual_current, usable_battery_level, fast_charger_type
 ) VALUES (
     @account_id, @tesla_id, @captured_at, @raw_data,
     @battery_level, @battery_range, @charging_state, @charge_limit_soc,
     @odometer, @inside_temp, @outside_temp, @locked, @sentry_mode,
-    @car_version, @latitude, @longitude
+    @car_version, @latitude, @longitude,
+    @charge_energy_added, @charger_power, @charger_voltage,
+    @charger_actual_current, @usable_battery_level, @fast_charger_type
 );
 
 -- name: InsertPollAttempt :exec
@@ -56,7 +64,9 @@ SELECT DISTINCT ON (tesla_id)
     id, account_id, tesla_id, captured_at, raw_data,
     battery_level, battery_range, charging_state, charge_limit_soc,
     odometer, inside_temp, outside_temp, locked, sentry_mode,
-    car_version, latitude, longitude
+    car_version, latitude, longitude,
+    charge_energy_added, charger_power, charger_voltage,
+    charger_actual_current, usable_battery_level, fast_charger_type
 FROM vehicle_snapshots
 WHERE account_id = @account_id
 ORDER BY tesla_id, captured_at DESC;
