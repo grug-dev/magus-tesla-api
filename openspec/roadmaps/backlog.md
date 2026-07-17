@@ -32,21 +32,33 @@ Architecture is a valid MODULE-NAME when it is cross-cutting (e.g., `security`, 
 # Pending to be picked up
 
 
-## CHARGING STATS
+## 1. tesla — Percent-encode `dx/charging/history` date query params
 
 ### PROPOSAL
 
-I'd like to start fetching nightly charging stats for vehicles. By using the same
-EXISTING poller as the `vehicle_data` endpoint, we can get a nightly snapshot of charging events and
-store them in a separate table. This would allow us to do analytics on charging behavior, energy usage, etc. etc.
+`internal/tesla` `Client.ChargingHistory` (in `vehicles.go`) builds the request URL by
+concatenating the optional `startTime`/`endTime` query params as raw strings, WITHOUT
+percent-encoding. Date/time values (e.g. `2026-06-28T10:24:41-05:00`) contain `:` and `+`,
+which are URL-significant — an unencoded value can produce a malformed query and a failed or
+wrong-window API call.
 
-Also, if there is a way to get the charging history from Tesla's API, we can backfill the table with historical data. 
+**Currently dormant / harmless:** no caller passes date params — the nightly collector calls
+`ChargingHistory(creds, ChargingHistoryParams{})` (full fetch, no filter), so the affected
+code path never runs.
 
-Wondering if this is a good idea, or if there are any gotchas with the Tesla API that would make this difficult.
+**TRIGGER — fix this FIRST when** a date-windowed / incremental charging-history backfill is
+added (i.e. the collector starts passing `StartTime`/`EndTime` to avoid re-fetching the whole
+history every night). Encode both params with `url.QueryEscape` (or build the query via
+`url.Values`) before that feature ships.
 
-I'd like to be able to query the battery level before and after charging events, as well as the energy used during the charge. This would allow us to calculate efficiency and other metrics.
+### ORIGIN
 
-ANy other ideas for what to track in the charging stats table? You can do that after exploring the Tesla API and seeing what data is available.
+`RM2-tesla-add-charging-history` (RM2 tier 1) review finding **R1**, deferred through
+`RM2-telemetry-add-charging-stats` (tier 2, which chose full-fetch nightly so no date params
+are passed). Recorded in the archived RM2 progress.json.
+
+Note: the former "CHARGING STATS" backlog item shipped as roadmap **RM2-charging-stats** (both
+tiers archived 2026-07-16) — see `openspec/roadmaps/archive/RM2-charging-stats/`.
 
 
 

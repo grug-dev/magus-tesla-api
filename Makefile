@@ -51,7 +51,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc tidy build vet test check bins cmd-setup cmd-web cmd-explore-tesla
+        db-setup db-reset env-setup sqlc tidy build vet test check bins cmd-setup cmd-web cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
 
@@ -281,3 +281,8 @@ cmd-explore-tesla: ## Build cmd/explore-tesla-api into ./bin and run it (COSTS a
 	@mkdir -p bin
 	go build -o bin/explore-tesla-api ./cmd/explore-tesla-api
 	./bin/explore-tesla-api
+
+cmd-poller-once: ## Build cmd/poller into ./bin and run ONE collection cycle now, then exit (--once). Needs DATABASE_URL + a connected Tesla account; MAY WAKE sleeping cars (real API calls)
+	@mkdir -p bin
+	go build -o bin/poller ./cmd/poller
+	./bin/poller --once
