@@ -7,9 +7,7 @@ Agent-Name: telemetry
 Additive to the base Doc-Pack (repo-root `CLAUDE.md`, `AGENTS.md`, `ai/architecture.md`,
 `ai/go-conventions.md`, `ai/agentic-workflow.md`) — never replacing it. This module adds:
 
-- [`docs/deployment.md`](../../docs/deployment.md) — Postgres + goose + sqlc runbook: `DATABASE_URL`
-  as the single DSN source, `make db-setup` / `make migrate-up` / `make sqlc`. Read before touching
-  the migration or the generated `telemetrydb` package.
+
 
 (The htmx docs in some modules' packs are irrelevant here — telemetry is a backend
 collection/storage module with no HTML.)

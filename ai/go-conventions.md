@@ -52,8 +52,7 @@ Standard Go project layout — modular monolith:
 ## Persistence (Postgres + sqlc + goose)
 
 Conventions established by the `account` module — the project's first DB-backed module.
-Every future DB-backed module follows the same shape. Full deploy runbook:
-[`../docs/deployment.md`](../docs/deployment.md).
+Every future DB-backed module follows the same shape. 
 
 - **PostgreSQL via `pgx/v5` + `pgxpool`.** UUID primary keys (`gen_random_uuid()`, built into
   Postgres 13+). In generated Go, UUIDs are `github.com/google/uuid.UUID` (via a `sqlc.yaml`

@@ -42,7 +42,7 @@ go run ./cmd/poller --once   # one immediate collection cycle, then exit
 
 > **Prerequisites:** Go 1.22+. The DB-backed modules use **generated** code, so the sqlc output
 > must exist *before* you compile (see below). Install `sqlc` (`brew install sqlc`) and, for
-> migrations, `goose` — full tooling list in [docs/deployment.md](docs/deployment.md).
+> migrations, `goose` — full tooling list in [docs/0-set-up/deployment.md](docs/0-set-up/deployment.md).
 
 The monolith is a single Go module: `go build ./...` compiles **every** package and command at
 once. The one wrinkle is code generation — `internal/account/db` is produced by sqlc, so a fresh
@@ -79,7 +79,7 @@ make bins        # → bin/setup, bin/web, …  (go build -o bin/ ./cmd/...)
 
 > `make sqlc` is an explicit step, never part of `make build`. Re-run it whenever you edit a
 > `query.sql` or a migration, then rebuild. First-time database setup is separate — see
-> **[docs/deployment.md](docs/deployment.md)** (`make db-setup`).
+> **[docs/0-set-up/deployment.md](docs/0-set-up/deployment.md)** (`make db-setup`).
 
 ---
 
@@ -137,7 +137,7 @@ It covers:
 Standing the project up on a fresh machine — including PostgreSQL, `sqlc`/`goose` tooling,
 and the one-command database setup (`make db-setup`) — is documented in:
 
-**[docs/deployment.md](docs/deployment.md)**
+**[docs/0-set-up/deployment.md](docs/0-set-up/deployment.md)**
 
 The database is configured entirely through `DATABASE_URL` in `.env`; `make db-setup` creates
 the database (if needed) and applies migrations idempotently. Persistence coding conventions
