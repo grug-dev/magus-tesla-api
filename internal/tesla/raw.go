@@ -47,3 +47,14 @@ func (c *Client) WakeUpRaw(ctx context.Context, creds Credentials, vehicleID int
 	}
 	return out, nil
 }
+
+// ChargingHistoryRaw returns the unmodified JSON body of the account-level
+// charging-history endpoint. It is account-scoped and server-side — it needs
+// no vehicle id and does NOT require the vehicle to be awake.
+func (c *Client) ChargingHistoryRaw(ctx context.Context, creds Credentials) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.get(ctx, creds, "/api/1/dx/charging/history", &out); err != nil {
+		return nil, fmt.Errorf("fetching charging history (raw): %w", err)
+	}
+	return out, nil
+}

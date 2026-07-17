@@ -27,4 +27,4 @@
 - [x] 3.3 Add a `make explore-tesla-api` target running `go run ./cmd/explore-tesla-api` with a help comment noting it costs a real API call and wakes the car.
 - [x] 3.4 `go build ./...` and `go vet ./...` pass.
 - [x] 3.5 `go test ./...` stays green and fast; confirmed `cmd/explore-tesla-api` and `internal/tesla` report `[no test files]`, no Tesla calls fire from the test run.
-- [ ] 3.6 With a fresh `TESLA_ACCESS_TOKEN` in `.env`, run `go run ./cmd/explore-tesla-api` and confirm raw `ListVehicles` JSON, wake/poll progress on stderr, and the full raw `vehicle_data` JSON on stdout. _(Requires a live token — user to verify.)_
+- [x] 3.6 With a fresh `TESLA_ACCESS_TOKEN` in `.env`, run `go run ./cmd/explore-tesla-api` and confirm raw `ListVehicles` JSON, wake/poll progress on stderr, and the full raw `vehicle_data` JSON on stdout. _(Verified live 2026-07-15: `make cmd-explore-tesla` ran end-to-end — raw `ListVehicles`, wake/poll, and `dx/charging/history` payload all returned.)_

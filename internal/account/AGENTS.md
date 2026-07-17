@@ -10,7 +10,7 @@ Per-module instructions for `internal/account/` — merged with the global rules
 Extends the project base Doc-Pack (`CLAUDE.md` → "Pipeline config") — never replaces it.
 A dispatched worker/reviewer reads: base pack + this list + this file, before any write.
 
-- `docs/deployment.md` — DATABASE_URL and local Postgres setup this module depends on
+
 - `ai/go-conventions.md` §persistence — binding here: goose migrations are the single
   sqlc schema source; convert pgtype values to domain types at the DB→domain boundary
 

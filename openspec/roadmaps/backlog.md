@@ -32,6 +32,38 @@ Architecture is a valid MODULE-NAME when it is cross-cutting (e.g., `security`, 
 # Pending to be picked up
 
 
+## 1. tesla — Percent-encode `dx/charging/history` date query params
+
+### PROPOSAL
+
+`internal/tesla` `Client.ChargingHistory` (in `vehicles.go`) builds the request URL by
+concatenating the optional `startTime`/`endTime` query params as raw strings, WITHOUT
+percent-encoding. Date/time values (e.g. `2026-06-28T10:24:41-05:00`) contain `:` and `+`,
+which are URL-significant — an unencoded value can produce a malformed query and a failed or
+wrong-window API call.
+
+**Currently dormant / harmless:** no caller passes date params — the nightly collector calls
+`ChargingHistory(creds, ChargingHistoryParams{})` (full fetch, no filter), so the affected
+code path never runs.
+
+**TRIGGER — fix this FIRST when** a date-windowed / incremental charging-history backfill is
+added (i.e. the collector starts passing `StartTime`/`EndTime` to avoid re-fetching the whole
+history every night). Encode both params with `url.QueryEscape` (or build the query via
+`url.Values`) before that feature ships.
+
+### ORIGIN
+
+`RM2-tesla-add-charging-history` (RM2 tier 1) review finding **R1**, deferred through
+`RM2-telemetry-add-charging-stats` (tier 2, which chose full-fetch nightly so no date params
+are passed). Recorded in the archived RM2 progress.json.
+
+Note: the former "CHARGING STATS" backlog item shipped as roadmap **RM2-charging-stats** (both
+tiers archived 2026-07-16) — see `openspec/roadmaps/archive/RM2-charging-stats/`.
+
+
+
+# BRAINSTORMING
+
 
 ## 1. **Security** — encrypt Tesla tokens at rest
 
@@ -43,23 +75,3 @@ Encrypt Tesla tokens at rest (tesla_tokens.access_token / refresh_token) — app
 
 ### ORIGIN
 add-account-module (Tier 1) design.md Open Question
-
-## 2. **telemetry** — adaptive polling / charge-session detection
-
-### PROPOSAL
-
-Boost sampling to minutes-level only while a vehicle is charging or driving (per the telemetry module's `AGENTS.md` §Polling Strategy), layering on the nightly-snapshot foundation. Deferred: the nightly anchor shipped first; adaptive polling adds API cost and scheduler complexity that only pays off once nightly data shows charge/drive patterns worth finer sampling. Trigger: when accumulated nightly data justifies charge-session detection or higher-resolution sampling.
-
-### ORIGIN
-
-RM1-nightly-vehicle-telemetry roadmap — "Future work (recorded, not tiers)" (descoped at the 2026-07-10 grill-me interview).
-
-## 3. **telemetry** — availability & sleep-behavior metrics
-
-### PROPOSAL
-
-Derive availability and sleep-behavior metrics from the `poll_attempts` table (attempt reasons: `asleep-timeout`, `unauthorized`, `api-error`, …). Deferred: needs weeks of accumulated `poll_attempts` history before the metrics are statistically meaningful. Trigger: after several weeks of nightly poll attempts have been recorded.
-
-### ORIGIN
-
-RM1-nightly-vehicle-telemetry roadmap — "Future work (recorded, not tiers)".

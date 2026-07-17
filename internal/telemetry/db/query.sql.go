@@ -47,32 +47,42 @@ INSERT INTO vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
     battery_level, battery_range, charging_state, charge_limit_soc,
     odometer, inside_temp, outside_temp, locked, sentry_mode,
-    car_version, latitude, longitude
+    car_version, latitude, longitude,
+    charge_energy_added, charger_power, charger_voltage,
+    charger_actual_current, usable_battery_level, fast_charger_type
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8,
     $9, $10, $11, $12, $13,
-    $14, $15, $16
+    $14, $15, $16,
+    $17, $18, $19,
+    $20, $21, $22
 )
 `
 
 type InsertVehicleSnapshotParams struct {
-	AccountID      uuid.UUID
-	TeslaID        int64
-	CapturedAt     pgtype.Timestamptz
-	RawData        []byte
-	BatteryLevel   int32
-	BatteryRange   float64
-	ChargingState  string
-	ChargeLimitSoc int32
-	Odometer       float64
-	InsideTemp     float64
-	OutsideTemp    float64
-	Locked         bool
-	SentryMode     pgtype.Bool
-	CarVersion     string
-	Latitude       float64
-	Longitude      float64
+	AccountID            uuid.UUID
+	TeslaID              int64
+	CapturedAt           pgtype.Timestamptz
+	RawData              []byte
+	BatteryLevel         int32
+	BatteryRange         float64
+	ChargingState        string
+	ChargeLimitSoc       int32
+	Odometer             float64
+	InsideTemp           float64
+	OutsideTemp          float64
+	Locked               bool
+	SentryMode           pgtype.Bool
+	CarVersion           string
+	Latitude             float64
+	Longitude            float64
+	ChargeEnergyAdded    pgtype.Float8
+	ChargerPower         pgtype.Int4
+	ChargerVoltage       pgtype.Int4
+	ChargerActualCurrent pgtype.Int4
+	UsableBatteryLevel   pgtype.Int4
+	FastChargerType      pgtype.Text
 }
 
 // Queries for the telemetry module. sqlc generates package `telemetrydb` from
@@ -84,6 +94,10 @@ type InsertVehicleSnapshotParams struct {
 // (miles); km is derived on read by the domain type's Km() companions, never a
 // column. sentry_mode is bound as a nullable boolean (nil = vehicle did not
 // report sentry) so absent stays distinct from a reported off.
+// Source A (RM2-telemetry-add-charging-stats): the 6 charge-enrichment columns are
+// always non-NULL for rows written after the 20260716000002 migration — snapshotFrom
+// stores the actual DTO value pointer-wrapped (D12: no zero-is-absent heuristic).
+// NULL is reserved for pre-migration rows only; see design DSA1/DSA3.
 func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSnapshotParams) error {
 	_, err := q.db.Exec(ctx, insertVehicleSnapshot,
 		arg.AccountID,
@@ -102,6 +116,12 @@ func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSn
 		arg.CarVersion,
 		arg.Latitude,
 		arg.Longitude,
+		arg.ChargeEnergyAdded,
+		arg.ChargerPower,
+		arg.ChargerVoltage,
+		arg.ChargerActualCurrent,
+		arg.UsableBatteryLevel,
+		arg.FastChargerType,
 	)
 	return err
 }
@@ -111,7 +131,9 @@ SELECT DISTINCT ON (tesla_id)
     id, account_id, tesla_id, captured_at, raw_data,
     battery_level, battery_range, charging_state, charge_limit_soc,
     odometer, inside_temp, outside_temp, locked, sentry_mode,
-    car_version, latitude, longitude
+    car_version, latitude, longitude,
+    charge_energy_added, charger_power, charger_voltage,
+    charger_actual_current, usable_battery_level, fast_charger_type
 FROM vehicle_snapshots
 WHERE account_id = $1
 ORDER BY tesla_id, captured_at DESC
@@ -151,6 +173,12 @@ func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.U
 			&i.CarVersion,
 			&i.Latitude,
 			&i.Longitude,
+			&i.ChargeEnergyAdded,
+			&i.ChargerPower,
+			&i.ChargerVoltage,
+			&i.ChargerActualCurrent,
+			&i.UsableBatteryLevel,
+			&i.FastChargerType,
 		); err != nil {
 			return nil, err
 		}
@@ -203,7 +231,7 @@ func (q *Queries) ListPollAttemptsByVehicle(ctx context.Context, arg ListPollAtt
 }
 
 const listSnapshotsByVehicle = `-- name: ListSnapshotsByVehicle :many
-SELECT id, account_id, tesla_id, captured_at, raw_data, battery_level, battery_range, charging_state, charge_limit_soc, odometer, inside_temp, outside_temp, locked, sentry_mode, car_version, latitude, longitude FROM vehicle_snapshots
+SELECT id, account_id, tesla_id, captured_at, raw_data, battery_level, battery_range, charging_state, charge_limit_soc, odometer, inside_temp, outside_temp, locked, sentry_mode, car_version, latitude, longitude, charge_energy_added, charger_power, charger_voltage, charger_actual_current, usable_battery_level, fast_charger_type FROM vehicle_snapshots
 WHERE account_id = $1 AND tesla_id = $2
 ORDER BY captured_at DESC
 `
@@ -242,6 +270,12 @@ func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsB
 			&i.CarVersion,
 			&i.Latitude,
 			&i.Longitude,
+			&i.ChargeEnergyAdded,
+			&i.ChargerPower,
+			&i.ChargerVoltage,
+			&i.ChargerActualCurrent,
+			&i.UsableBatteryLevel,
+			&i.FastChargerType,
 		); err != nil {
 			return nil, err
 		}
@@ -251,4 +285,194 @@ func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsB
 		return nil, err
 	}
 	return items, nil
+}
+
+const superchargerSessionsByAccount = `-- name: SuperchargerSessionsByAccount :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at FROM supercharger_sessions
+WHERE account_id = $1
+ORDER BY charge_start_date_time DESC
+LIMIT $2
+`
+
+type SuperchargerSessionsByAccountParams struct {
+	AccountID  uuid.UUID
+	LimitCount int32
+}
+
+// Return all Supercharger sessions for the given account, newest first, up to
+// limit_count rows. Uses idx_supercharger_sessions_account_time
+// (account_id, charge_start_date_time DESC) — the account_id prefix prunes to
+// the tenant; DESC order matches the ORDER BY so no sort step is needed.
+// Design DBS4 / DBS6: account-wide spend/energy dashboard access pattern.
+func (q *Queries) SuperchargerSessionsByAccount(ctx context.Context, arg SuperchargerSessionsByAccountParams) ([]SuperchargerSession, error) {
+	rows, err := q.db.Query(ctx, superchargerSessionsByAccount, arg.AccountID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SuperchargerSession
+	for rows.Next() {
+		var i SuperchargerSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.AccountID,
+			&i.Vin,
+			&i.TeslaID,
+			&i.SiteLocationName,
+			&i.CountryCode,
+			&i.ChargeStartDateTime,
+			&i.ChargeStopDateTime,
+			&i.UnlatchDateTime,
+			&i.BillingType,
+			&i.VehicleMakeType,
+			&i.EnergyKwh,
+			&i.TotalCost,
+			&i.Currency,
+			&i.IsPaid,
+			&i.RawData,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const superchargerSessionsByVehicle = `-- name: SuperchargerSessionsByVehicle :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at FROM supercharger_sessions
+WHERE account_id = $1
+  AND tesla_id = $2
+ORDER BY charge_start_date_time DESC
+LIMIT $3
+`
+
+type SuperchargerSessionsByVehicleParams struct {
+	AccountID  uuid.UUID
+	TeslaID    pgtype.Int8
+	LimitCount int32
+}
+
+// Return Supercharger sessions for one vehicle within an account, newest first,
+// up to limit_count rows. Uses idx_supercharger_sessions_vehicle_time
+// (account_id, tesla_id, charge_start_date_time DESC) — both WHERE columns are
+// the leading index columns so the planner satisfies the filter and the ORDER BY
+// in a single range scan without a sort step.
+// Design DBS4 / DBS6: per-vehicle charging history dashboard access pattern.
+func (q *Queries) SuperchargerSessionsByVehicle(ctx context.Context, arg SuperchargerSessionsByVehicleParams) ([]SuperchargerSession, error) {
+	rows, err := q.db.Query(ctx, superchargerSessionsByVehicle, arg.AccountID, arg.TeslaID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SuperchargerSession
+	for rows.Next() {
+		var i SuperchargerSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.AccountID,
+			&i.Vin,
+			&i.TeslaID,
+			&i.SiteLocationName,
+			&i.CountryCode,
+			&i.ChargeStartDateTime,
+			&i.ChargeStopDateTime,
+			&i.UnlatchDateTime,
+			&i.BillingType,
+			&i.VehicleMakeType,
+			&i.EnergyKwh,
+			&i.TotalCost,
+			&i.Currency,
+			&i.IsPaid,
+			&i.RawData,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const upsertSuperchargerSession = `-- name: UpsertSuperchargerSession :exec
+INSERT INTO supercharger_sessions (
+    session_id, account_id, vin, tesla_id,
+    site_location_name, country_code,
+    charge_start_date_time, charge_stop_date_time, unlatch_date_time,
+    billing_type, vehicle_make_type,
+    energy_kwh, total_cost, currency, is_paid,
+    raw_data
+) VALUES (
+    $1, $2, $3, $4,
+    $5, $6,
+    $7, $8, $9,
+    $10, $11,
+    $12, $13, $14, $15,
+    $16
+)
+ON CONFLICT (session_id) DO UPDATE SET
+    raw_data   = EXCLUDED.raw_data,
+    energy_kwh = EXCLUDED.energy_kwh,
+    total_cost = EXCLUDED.total_cost,
+    currency   = EXCLUDED.currency,
+    is_paid    = EXCLUDED.is_paid,
+    tesla_id   = EXCLUDED.tesla_id,
+    updated_at = now()
+`
+
+type UpsertSuperchargerSessionParams struct {
+	SessionID           int64
+	AccountID           uuid.UUID
+	Vin                 string
+	TeslaID             pgtype.Int8
+	SiteLocationName    string
+	CountryCode         string
+	ChargeStartDateTime pgtype.Timestamptz
+	ChargeStopDateTime  pgtype.Timestamptz
+	UnlatchDateTime     pgtype.Timestamptz
+	BillingType         string
+	VehicleMakeType     string
+	EnergyKwh           pgtype.Float8
+	TotalCost           pgtype.Float8
+	Currency            pgtype.Text
+	IsPaid              pgtype.Bool
+	RawData             []byte
+}
+
+// Upsert one Supercharger session. On conflict with the session_id UNIQUE constraint,
+// refresh only the mutable/derived columns (raw_data, derived fields, tesla_id,
+// updated_at). Immutable columns (session_id, account_id, vin, location name,
+// country, timestamps, billing fields, created_at) are never overwritten.
+// Design DBS3: supercharger_sessions is NOT append-only; billing state mutates
+// post-session (is_paid, invoice status change after midnight).
+func (q *Queries) UpsertSuperchargerSession(ctx context.Context, arg UpsertSuperchargerSessionParams) error {
+	_, err := q.db.Exec(ctx, upsertSuperchargerSession,
+		arg.SessionID,
+		arg.AccountID,
+		arg.Vin,
+		arg.TeslaID,
+		arg.SiteLocationName,
+		arg.CountryCode,
+		arg.ChargeStartDateTime,
+		arg.ChargeStopDateTime,
+		arg.UnlatchDateTime,
+		arg.BillingType,
+		arg.VehicleMakeType,
+		arg.EnergyKwh,
+		arg.TotalCost,
+		arg.Currency,
+		arg.IsPaid,
+		arg.RawData,
+	)
+	return err
 }

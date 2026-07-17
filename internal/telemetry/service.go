@@ -33,10 +33,15 @@ const defaultRetryBackoff = 2 * time.Second
 // can also be unit-tested offline via the same fake-store pattern (design D3 of
 // telemetry-add-snapshot-read-port). The mapping from pgtype→domain happens in
 // mapping.go (rowToSnapshot), confining pgtype to the concrete dbStore.
+//
+// upsertSuperchargerSession is the Source B write seam: it maps a domain
+// SuperchargerSession into telemetrydb params at the DB boundary. pgtype never
+// appears in the SuperchargerSession type or any public interface (design DBS4/B4).
 type store interface {
 	insertSnapshot(ctx context.Context, s Snapshot) error
 	insertPollAttempt(ctx context.Context, a Attempt) error
 	latestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)
+	upsertSuperchargerSession(ctx context.Context, s SuperchargerSession) error
 }
 
 // service is the concrete Collector. It consumes the account and tesla PORTS only
@@ -127,6 +132,12 @@ func groupByAccount(vehicles []account.OwnedVehicle) map[uuid.UUID][]account.Own
 // calls: (1) AccessTokenFor failure (no connection / refresh failure) → unauthorized;
 // (2) the up-front ListVehicles returning ErrUnauthorized (the account's token is
 // rejected fleet-wide, so per-vehicle calls would fail identically) → unauthorized.
+//
+// After the per-vehicle snapshot loop, collectAccount also fetches the account's
+// Supercharger history (Source B, design DBS7). A ChargingHistory call failure
+// only increments ChargingFetchFailures — it never aborts or affects the snapshot
+// collection. No poll_attempts row is written for charging (poll_attempts is
+// per-vehicle; charging is per-account — outcomes live in CycleReport).
 func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned []account.OwnedVehicle, report *CycleReport) {
 	token, err := s.acct.AccessTokenFor(ctx, accountID)
 	if err != nil {
@@ -167,6 +178,80 @@ func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned
 	for _, v := range owned {
 		reason := s.collectVehicle(ctx, creds, accountID, v.TeslaID, states[v.TeslaID])
 		s.record(ctx, accountID, v.TeslaID, reason, report)
+	}
+
+	// Source B: fetch Supercharger session history for this account (design DBS7).
+	// Zero params = full fetch, no vehicle wake. This call is per-account (not per
+	// vehicle): one HTTP call returns all sessions for all vehicles in the account.
+	s.collectChargingHistory(ctx, accountID, owned, creds, report)
+}
+
+// collectChargingHistory fetches the account's Supercharger session history and
+// upserts each session. It is called after the per-vehicle snapshot loop so a
+// ChargingHistory failure cannot abort or affect snapshot collection. On failure
+// it only increments ChargingFetchFailures (design DBS7). Per-session isolation:
+// a single upsert failure is logged but does not abort the remaining sessions.
+// No poll_attempts rows are written — outcomes live in CycleReport (design DBS7).
+func (s *service) collectChargingHistory(ctx context.Context, accountID uuid.UUID, owned []account.OwnedVehicle, creds tesla.Credentials, report *CycleReport) {
+	history, err := s.tsla.ChargingHistory(ctx, creds, tesla.ChargingHistoryParams{})
+	if err != nil {
+		// Charging-history fetch failure is isolated: never aborts the cycle and
+		// never affects the snapshot loop. Count it for observability.
+		report.ChargingFetchFailures++
+		return
+	}
+
+	// Build VIN → TeslaID map from the account's registered vehicles so we can
+	// resolve tesla_id for each session. Sessions for VINs not in this map get
+	// tesla_id = NULL (sold / deregistered vehicle — row is kept, VIN is preserved).
+	vinToTeslaID := make(map[string]int64, len(owned))
+	for _, v := range owned {
+		vinToTeslaID[v.VIN] = v.TeslaID
+	}
+
+	for _, session := range history.Data {
+		// Resolve tesla_id: nil when the session's VIN is no longer a registered vehicle.
+		var teslaID *int64
+		if id, ok := vinToTeslaID[session.VIN]; ok {
+			idCopy := id
+			teslaID = &idCopy
+		}
+
+		// Derive the four computed fields from fees[] in Go (not in SQL) so they
+		// are testable offline without a DB (design DBS2).
+		domainSession := SuperchargerSession{
+			SessionID:           session.SessionID,
+			AccountID:           accountID,
+			VIN:                 session.VIN,
+			TeslaID:             teslaID,
+			SiteLocationName:    session.SiteLocationName,
+			CountryCode:         session.CountryCode,
+			ChargeStartDateTime: session.ChargeStartDateTime,
+			ChargeStopDateTime:  session.ChargeStopDateTime,
+			BillingType:         session.BillingType,
+			VehicleMakeType:     session.VehicleMakeType,
+			EnergyKWh:           deriveEnergyKWh(session.Fees),
+			TotalCost:           deriveTotalCost(session.Fees),
+			Currency:            deriveCurrency(session.Fees),
+			IsPaid:              deriveIsPaid(session.Fees),
+			// RawData is the verbatim session bytes captured in UnmarshalJSON (D13,
+			// L2). NOT a re-marshal of the typed struct — lossless whole-session blob,
+			// true parity with vehicle_snapshots.raw_data.
+			RawData: session.Raw,
+		}
+
+		// Resolve unlatch_date_time: Tesla sends a zero time when absent; convert to nil.
+		if !session.UnlatchDateTime.IsZero() {
+			t := session.UnlatchDateTime
+			domainSession.UnlatchDateTime = &t
+		}
+
+		if err := s.store.upsertSuperchargerSession(ctx, domainSession); err != nil {
+			// Per-session isolation: a single upsert failure does not abort the
+			// charging ingestion pass. Continue to the next session.
+			continue
+		}
+		report.ChargingSessionsUpserted++
 	}
 }
 
@@ -282,6 +367,13 @@ func (s *service) record(ctx context.Context, accountID uuid.UUID, teslaID int64
 // flows into domain logic un-mapped). Distances stay API-native (miles); km is derived
 // on read via the Snapshot Km() companions, never stored. SentryMode stays *bool so an
 // absent field remains distinct from a reported-off sentry (nil ≠ *false, D1).
+//
+// Source A (RM2-telemetry-add-charging-stats): the 6 charge-enrichment fields are
+// stored as the ACTUAL DTO value pointer-wrapped — NO zero-is-absent heuristic (D12,
+// design DSA3). The plain DTO fields always carry a concrete value (0 / "" when idle),
+// so every new row is non-NULL. A truthful 0 must be preserved; interpreting a 0 in
+// context (e.g. against ChargingState) is the dashboard's responsibility. NULL is
+// reserved exclusively for pre-migration rows that were never backfilled (DSA1).
 func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, data *tesla.VehicleDataTesla, raw []byte) Snapshot {
 	return Snapshot{
 		AccountID:      accountID,
@@ -300,8 +392,21 @@ func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, data
 		Latitude:       data.DriveState.Latitude,
 		Longitude:      data.DriveState.Longitude,
 		RawData:        raw,
+		// Source A enrichment — actual DTO values, pointer-wrapped (D12/DSA3).
+		// ptr(v) returns &v; a 0 or "" is a truthful reading and is stored non-NULL.
+		ChargeEnergyAdded:    ptr(data.ChargeState.ChargeEnergyAdded),
+		ChargerPower:         ptr(data.ChargeState.ChargerPower),
+		ChargerVoltage:       ptr(data.ChargeState.ChargerVoltage),
+		ChargerActualCurrent: ptr(data.ChargeState.ChargerActualCurrent),
+		UsableBatteryLevel:   ptr(data.ChargeState.UsableBatteryLevel),
+		FastChargerType:      ptr(data.ChargeState.FastChargerType),
 	}
 }
+
+// ptr wraps a plain value in a pointer, returning *T. Used by snapshotFrom to
+// store the actual DTO value (including a truthful 0/"") into a *T field without
+// a zero-is-absent heuristic (design DSA3/D12 of RM2-telemetry-add-charging-stats).
+func ptr[T any](v T) *T { return &v }
 
 // --- telemetrydb-backed store (the ONLY place pgtype is touched) ---
 
@@ -332,7 +437,50 @@ func (d *dbStore) insertSnapshot(ctx context.Context, s Snapshot) error {
 		CarVersion:     s.CarVersion,
 		Latitude:       s.Latitude,
 		Longitude:      s.Longitude,
+		// Source A (RM2-telemetry-add-charging-stats): nullable charge-enrichment columns.
+		// nil → invalid pgtype (SQL NULL); non-nil → valid with the concrete value.
+		// Same Valid-field pattern as boolPtrToPgBool. pgtype never leaks past this boundary.
+		ChargeEnergyAdded:    float64PtrToPgFloat8(s.ChargeEnergyAdded),
+		ChargerPower:         intPtrToPgInt4(s.ChargerPower),
+		ChargerVoltage:       intPtrToPgInt4(s.ChargerVoltage),
+		ChargerActualCurrent: intPtrToPgInt4(s.ChargerActualCurrent),
+		UsableBatteryLevel:   intPtrToPgInt4(s.UsableBatteryLevel),
+		FastChargerType:      stringPtrToPgText(s.FastChargerType),
 	})
+}
+
+// float64PtrToPgFloat8 maps a *float64 to a nullable pgtype.Float8. nil → invalid
+// (SQL NULL); non-nil → valid with the concrete value. Mirrors boolPtrToPgBool.
+func float64PtrToPgFloat8(v *float64) pgtype.Float8 {
+	if v == nil {
+		return pgtype.Float8{Valid: false}
+	}
+	return pgtype.Float8{Float64: *v, Valid: true}
+}
+
+// intPtrToPgInt4 maps a *int to a nullable pgtype.Int4. nil → invalid (SQL NULL);
+// non-nil → valid Int32. Mirrors boolPtrToPgBool.
+func intPtrToPgInt4(v *int) pgtype.Int4 {
+	if v == nil {
+		return pgtype.Int4{Valid: false}
+	}
+	return pgtype.Int4{Int32: int32(*v), Valid: true}
+}
+
+// stringPtrToPgText maps a *string to a nullable pgtype.Text. nil → invalid
+// (SQL NULL); non-nil → valid with the concrete string. Mirrors boolPtrToPgBool.
+func stringPtrToPgText(v *string) pgtype.Text {
+	if v == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: *v, Valid: true}
+}
+
+// teslaIDToPgInt8 wraps a non-nullable int64 tesla id as a valid pgtype.Int8 query
+// parameter. It lives here so pgtype stays confined to the module's DB-boundary files
+// (service.go/mapping.go) and never appears in reader.go (ai/go-conventions.md §persistence).
+func teslaIDToPgInt8(v int64) pgtype.Int8 {
+	return pgtype.Int8{Int64: v, Valid: true}
 }
 
 func (d *dbStore) insertPollAttempt(ctx context.Context, a Attempt) error {
@@ -377,4 +525,60 @@ func boolPtrToPgBool(b *bool) pgtype.Bool {
 		return pgtype.Bool{Valid: false}
 	}
 	return pgtype.Bool{Bool: *b, Valid: true}
+}
+
+// upsertSuperchargerSession maps a domain SuperchargerSession to
+// telemetrydb.UpsertSuperchargerSessionParams at the DB boundary. This is the ONLY
+// place pgtype is touched for supercharger session writes — pgtype never appears in
+// SuperchargerSession or any method signature outside service.go/mapping.go
+// (design DBS4/B4.2, ai/go-conventions.md §persistence).
+func (d *dbStore) upsertSuperchargerSession(ctx context.Context, s SuperchargerSession) error {
+	// nullable tesla_id: nil → invalid (NULL), non-nil → valid BIGINT.
+	var teslaID pgtype.Int8
+	if s.TeslaID != nil {
+		teslaID = pgtype.Int8{Int64: *s.TeslaID, Valid: true}
+	}
+
+	// nullable unlatch_date_time: zero time (empty parse) → invalid (NULL).
+	var unlatchDT pgtype.Timestamptz
+	if s.UnlatchDateTime != nil {
+		unlatchDT = pgtype.Timestamptz{Time: *s.UnlatchDateTime, Valid: true}
+	}
+
+	// nullable derived fields.
+	var energyKwh pgtype.Float8
+	if s.EnergyKWh != nil {
+		energyKwh = pgtype.Float8{Float64: *s.EnergyKWh, Valid: true}
+	}
+	var totalCost pgtype.Float8
+	if s.TotalCost != nil {
+		totalCost = pgtype.Float8{Float64: *s.TotalCost, Valid: true}
+	}
+	var currency pgtype.Text
+	if s.Currency != nil {
+		currency = pgtype.Text{String: *s.Currency, Valid: true}
+	}
+	var isPaid pgtype.Bool
+	if s.IsPaid != nil {
+		isPaid = pgtype.Bool{Bool: *s.IsPaid, Valid: true}
+	}
+
+	return d.q.UpsertSuperchargerSession(ctx, telemetrydb.UpsertSuperchargerSessionParams{
+		SessionID:           s.SessionID,
+		AccountID:           s.AccountID,
+		Vin:                 s.VIN,
+		TeslaID:             teslaID,
+		SiteLocationName:    s.SiteLocationName,
+		CountryCode:         s.CountryCode,
+		ChargeStartDateTime: timestamptzFrom(s.ChargeStartDateTime),
+		ChargeStopDateTime:  timestamptzFrom(s.ChargeStopDateTime),
+		UnlatchDateTime:     unlatchDT,
+		BillingType:         s.BillingType,
+		VehicleMakeType:     s.VehicleMakeType,
+		EnergyKwh:           energyKwh,
+		TotalCost:           totalCost,
+		Currency:            currency,
+		IsPaid:              isPaid,
+		RawData:             s.RawData,
+	})
 }

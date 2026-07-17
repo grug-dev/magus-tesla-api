@@ -9,7 +9,13 @@ import (
 	"strings"
 )
 
-const teslaTokenURL = "https://auth.tesla.com/oauth2/v3/token"
+// -const teslaTokenURL = "https://auth.tesla.com/oauth2/v3/token"
+const teslaTokenURL = "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token"
+
+// fleetAudience is the regional Fleet API base URL Tesla requires as the
+// audience of an authorization_code exchange. NA region — must match the
+// region of the tesla adapter (internal/tesla/client.go baseURL).
+const fleetAudience = "https://fleet-api.prd.na.vn.cloud.tesla.com"
 
 type TokenResponse struct {
 	AccessToken  string `json:"access_token"`
@@ -25,6 +31,7 @@ func ExchangeCode(clientID, clientSecret, code, redirectURI string) (*TokenRespo
 	data.Set("client_id", clientID)
 	data.Set("client_secret", clientSecret)
 	data.Set("code", code)
+	data.Set("audience", fleetAudience)
 	data.Set("redirect_uri", redirectURI)
 
 	resp, err := http.Post(teslaTokenURL, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
@@ -47,11 +54,13 @@ func ExchangeCode(clientID, clientSecret, code, redirectURI string) (*TokenRespo
 
 // RefreshTokens uses a saved refresh token to obtain a new access token.
 // The refresh token is single-use — always save the new one returned in the response.
+//
+// clientSecret is unused: Tesla's refresh_token grant takes no client secret. The
+// param is kept for signature parity with ExchangeCode and account.refreshFunc.
 func RefreshTokens(clientID, clientSecret, refreshToken string) (*TokenResponse, error) {
 	data := url.Values{}
 	data.Set("grant_type", "refresh_token")
 	data.Set("client_id", clientID)
-	data.Set("client_secret", clientSecret)
 	data.Set("refresh_token", refreshToken)
 
 	resp, err := http.Post(teslaTokenURL, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))

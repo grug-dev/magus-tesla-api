@@ -12,7 +12,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 )
 
 const baseURL = "https://fleet-api.prd.na.vn.cloud.tesla.com"
@@ -22,6 +24,12 @@ const baseURL = "https://fleet-api.prd.na.vn.cloud.tesla.com"
 // the target architecture the account module owns refresh and would obtain a
 // fresh token and retry.
 var ErrUnauthorized = errors.New("tesla: access token expired or invalid (HTTP 401)")
+
+// ErrForbidden is returned when the Fleet API responds with HTTP 403, most
+// commonly because the access token lacks a required scope ("missing scopes").
+// Detect it with errors.Is; the wrapped error carries Tesla's response body
+// with the specific reason.
+var ErrForbidden = errors.New("tesla: forbidden — token missing required scopes (HTTP 403)")
 
 // Credentials carries the per-user secret needed to call the Tesla Fleet API. The
 // caller supplies it on every call — the adapter holds no identity of its own.
@@ -38,6 +46,17 @@ type VehicleService interface {
 	// can store the raw bytes and read typed fields without a second paid call.
 	VehicleData(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleDataTesla, json.RawMessage, error)
 	WakeUp(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleTesla, error)
+	// ChargingHistory returns the account's Tesla-billed charging session history
+	// (Supercharger + DC fast-charging only). It is account-scoped — no vehicle id
+	// is required — and server-side: the vehicle does not need to be awake.
+	//
+	// Pass ChargingHistoryParams to filter by date range or control pagination.
+	// The zero value fetches all sessions from the beginning of account history.
+	// The method iterates pages automatically and returns the merged result, so
+	// callers receive the complete history in one Go call.
+	//
+	// Required scope: vehicle_charging_cmds.
+	ChargingHistory(ctx context.Context, creds Credentials, params ChargingHistoryParams) (*ChargingHistoryTesla, error)
 }
 
 // Client is the HTTP implementation of VehicleService. Because credentials arrive
@@ -86,6 +105,17 @@ func (c *Client) do(ctx context.Context, method string, creds Credentials, path 
 		return fmt.Errorf("%s: %w", path, ErrUnauthorized)
 	}
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		hint := strings.TrimSpace(string(body))
+		if resp.StatusCode == http.StatusForbidden {
+			if hint != "" {
+				return fmt.Errorf("%s: %w: %s", path, ErrForbidden, hint)
+			}
+			return fmt.Errorf("%s: %w", path, ErrForbidden)
+		}
+		if hint != "" {
+			return fmt.Errorf("unexpected status %d from %s: %s", resp.StatusCode, path, hint)
+		}
 		return fmt.Errorf("unexpected status %d from %s", resp.StatusCode, path)
 	}
 

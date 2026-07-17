@@ -49,9 +49,12 @@ make explore-tesla-api
 
 1. `GET /api/1/vehicles` — prints the full raw inventory, then selects the vehicle at `-i`
    (default `0`).
-2. If that vehicle is not `online`, `POST .../wake_up` and poll the inventory every ~3s
+2. `GET /api/1/dx/charging/history` — prints the full raw charging-history payload. This
+   call is **account-level** (no vehicle id required) and **does not need the vehicle to be
+   awake** — it runs before the wake step so it is always captured regardless of vehicle state.
+3. If that vehicle is not `online`, `POST .../wake_up` and poll the inventory every ~3s
    (up to ~60s) until it reports `online`.
-3. `GET .../vehicle_data` — prints the full raw snapshot.
+4. `GET .../vehicle_data` — prints the full raw snapshot.
 
 **Output:** progress messages go to **stderr**; the raw JSON payloads are pretty-printed to
 **stdout**. To capture just the JSON:

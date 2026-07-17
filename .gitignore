@@ -9,3 +9,11 @@ private-key*
 .netlify
 
 bin/
+
+# Compiled cmd binaries built at the repo root by `go build ./cmd/<name>`
+# (without -o). Use `make bins` instead — it outputs to bin/ above. These
+# entries catch accidental root-level builds so they never get committed.
+/explore-tesla-api
+/poller
+/setup
+/web

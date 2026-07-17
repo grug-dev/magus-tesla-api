@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM2-charging-stats",
+  "intention": "Per-user charging analytics — enriched nightly charge-state fields plus true charge sessions (energy, battery before→after, efficiency) from Tesla's dx/charging/history endpoint, with a historical backfill.",
+  "request": "I'd like to start fetching nightly charging stats for vehicles. By using the same EXISTING poller as the `vehicle_data` endpoint, we can get a nightly snapshot of charging events and store them in a separate table. This would allow us to do analytics on charging behavior, energy usage, etc. etc.\n\nAlso, if there is a way to get the charging history from Tesla's API, we can backfill the table with historical data.\n\nWondering if this is a good idea, or if there are any gotchas with the Tesla API that would make this difficult.\n\nI'd like to be able to query the battery level before and after charging events, as well as the energy used during the charge. This would allow us to calculate efficiency and other metrics.\n\nAny other ideas for what to track in the charging stats table? You can do that after exploring the Tesla API and seeing what data is available.",
+  "status": "complete",
+  "autopilot": false,
+  "created_at": "2026-07-14T10:44:28Z",
+  "updated_at": "2026-07-16T22:18:24Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM2-charging-stats",
+    "base": "main",
+    "created_at": "2026-07-14T10:44:28Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [1, 2]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-07-14T10:44:28Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Scope = both sources: enrich nightly snapshot columns (A) AND add dx/charging/history sessions + charge_sessions table + backfill (B).",
+      "why": "User selected 'Both A + B' — A is cheap (data already in JSONB), B is the only source of true per-session energy / before→after / efficiency.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-07-14T10:44:28Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "telemetry owns the charge_sessions table + collector + backfill; tesla owns the dx/charging/history adapter call. Multi-module → this roadmap.",
+      "why": "User selected 'telemetry'; only the tesla adapter may call Tesla (boundaries). telemetry already owns nightly collection + append-only storage + the account/tesla ports.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-07-14T10:44:28Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "SCHEMA GATE: the charge_sessions table and the typed ChargingHistoryTesla DTO are designed ONLY after the user provides the real dx/charging/history response. No paid exploration call from the assistant.",
+      "why": "User will supply the live response; Fleet API docs do not enumerate the endpoint's fields, so designing against guesses would be reworked at the DB design gate.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-07-14T16:41:32Z",
+      "scope": "tier:1",
+      "made_by": "leader",
+      "decision": "Landed the Tier-1(a) raw exploration bootstrap (ChargingHistoryRaw + explorer surface, commit 20539b5) BEFORE authoring the RM2-tesla-add-charging-history OpenSpec change, to unblock capturing the live dx/charging/history schema.",
+      "why": "Raw* explorer additions are the test-free, off-interface tesla-exploration exception (CLAUDE.md); the change's real specs (the typed capability) need the live fields this bootstrap exists to capture.",
+      "covered_by": "D3"
+    },
+    {
+      "id": "D5",
+      "at": "2026-07-14T17:12:22Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Explorer run of dx/charging/history returned 403 'missing scopes'. Source B is blocked on granting vehicle_charging_cmds: (1) enable it for the app in the Tesla dev portal, (2) add it to internal/auth/oauth.go, (3) re-run cmd/setup to re-consent. This is a new prerequisite before the live schema can even be captured.",
+      "why": "Tesla FAQ: 403 = token lacks required scope. Current scope is 'openid vehicle_device_data offline_access'; charging history needs vehicle_charging_cmds (charging billing/history).",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-07-14T17:48:38Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Added vehicle_charging_cmds to internal/auth/oauth.go inline (commit 518f129), not via a dispatched worker or formal change — a single-token enabler to unblock schema capture, parallel to D4. Fold into the Source B change later, which must ALSO add the scope to the multi-tenant web connect flow (verify in Tier 2).",
+      "why": "One-token scope change; a cold-start worker is disproportionate. User confirmed the app is permitted to request the scope in the Tesla dev portal (screenshot). Awaiting user re-consent (make setup) + explorer re-run to capture the live payload.",
+      "covered_by": "D5"
+    },
+    {
+      "id": "D7",
+      "at": "2026-07-15T11:01:22Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Tier 1 UNBLOCKED. The 403 was Tesla silently dropping newly-added scopes for an already-consented user; fixed by adding prompt_missing_scopes=true to the OAuth authorize URL (internal/auth/oauth.go, committed f3b95b9) alongside vehicle_charging_cmds. User re-consented and captured the live dx/charging/history payload 2026-07-15. Both D3 (schema gate) and D5/D6 (scope) are now satisfied.",
+      "why": "prompt=login re-authenticates but does not re-prompt for new scopes; prompt_missing_scopes=true is Tesla's documented mechanism (Third-Party Tokens). Also fixes the multi-tenant web /connect/tesla flow, which shares auth.BuildAuthURL.",
+      "covered_by": "D5"
+    },
+    {
+      "id": "D8",
+      "at": "2026-07-15T11:01:22Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "dx/charging/history is Supercharger/Tesla-billed ONLY (no home/AC/third-party sessions); ChargingHistoryTesla types the FULL response (session fields + fees[] + invoices[]). Home-charging coverage is out of scope for Source B, deferred to the charging_state-transition detector (RM2 Future work).",
+      "why": "Confirmed from the live payload (single Supercharger session, Medellin CO, with fees + invoice). User interview 2026-07-15: type the full response, discard nothing before telemetry (Tier 2) decides what to persist.",
+      "covered_by": "D3"
+    },
+    {
+      "id": "D9",
+      "at": "2026-07-16T21:22:36Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "DB DESIGN GATE (confirmed): new supercharger_sessions table (Supercharger-only ledger). Cols: session_id BIGINT, account_id UUID NOT NULL, vin TEXT NOT NULL, tesla_id BIGINT NULL (resolved VIN->tesla_id via account OwnedVehicle), site_location_name, country_code, charge_start/stop_date_time TIMESTAMPTZ NOT NULL, unlatch NULL, billing_type, vehicle_make_type, energy_kwh/total_cost DOUBLE NULL, currency/is_paid NULL, raw_data JSONB NOT NULL (whole session), created_at(first_seen)/updated_at. UNIQUE(session_id) upsert DO UPDATE mutable+derived only. Indexes: UNIQUE(session_id), (account_id,tesla_id,charge_start DESC), (account_id,charge_start DESC). Derive energy_kwh=sum usage where lower(uom)='kwh', total_cost=sum totalDue, currency=session currencyCode, is_paid=AND(fee.isPaid), all nullable; no session-level status col. New SuperchargerReader (byAccount+byVehicle, start DESC). Full design in tier-2 design.md.",
+      "why": "grill-me interview 2026-07-16 (leader+user). Read-heavy profile: precompute derived cols + 2 composite indexes covering the only 2 dashboard reads; raw_data lossless. Rejected: fee/invoice child tables (join cost), append-only rows (unbounded + latest-row pick), read-time derivation (re-parse per read). Battery%/efficiency out of scope (endpoint lacks them).",
+      "covered_by": "D3"
+    },
+    {
+      "id": "D10",
+      "at": "2026-07-16T21:22:36Z",
+      "scope": "tier:2",
+      "made_by": "leader",
+      "decision": "Source A (snapshot enrichment) is cross-module: leader adds 6 fields to tesla ChargeStateTesla inline (charge_energy_added, charger_power, charger_voltage, charger_actual_current, usable_battery_level, fast_charger_type; no Km companions - none are miles/mph); telemetry worker adds 6 NULLABLE vehicle_snapshots columns + snapshotFrom mapping (old rows NULL, recoverable from raw_data). RM2 stays 2 tiers.",
+      "why": "User chose 'leader adds tesla fields inline' at the grill. Proportionate mechanical edit, precedent D6 (leader added OAuth scope inline). telemetry worker cannot edit the tesla module (worker sandbox). Source A is complementary: the 03:30 poll catches overnight HOME charging, which Supercharger-only Source B misses.",
+      "covered_by": "D1"
+    },
+    {
+      "id": "D11",
+      "at": "2026-07-16T21:22:36Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Collector folds into collectAccount: one ChargingHistory(creds,{}) full-fetch per account after the vehicle loop (first run = backfill, later runs re-upsert), VIN->tesla_id map from owned, upsert via new upsertSuperchargerSession store seam; per-account isolation, charging failure counted in CycleReport (ChargingSessionsUpserted/ChargingFetchFailures), no new attempts table. Tier-1 R1 (percent-encode date params) stays DEFERRED - no date params are passed - recorded in backlog.",
+      "why": "User chose full-fetch-nightly at the grill. Supercharger sessions are low-volume and the call is server-side (no wake), so re-fetch+upsert is cheap and idempotent; avoids last-seen bookkeeping and a cross-module tesla R1 fix in a telemetry tier.",
+      "covered_by": "D8"
+    },
+    {
+      "id": "D12",
+      "at": "2026-07-16T21:22:36Z",
+      "scope": "tier:2",
+      "made_by": "leader",
+      "decision": "Source A snapshotFrom stores the ACTUAL ChargeStateTesla value (pointer-wrapped), NOT a zero-is-absent heuristic. Plain DTO fields always carry a value (0/'' when idle), so every new vehicle_snapshots row is non-NULL; the 6 charge columns are nullable ONLY for pre-migration rows. On read, nil means 'row predates enrichment', never 'reported zero'. Corrected the worker's DSA3 (which proposed 0->nil) in design.md + tasks.md A3.1 before the artifact commit.",
+      "why": "The worker flagged (unresolved) that 0->nil would discard real measurements (0 A plugged-in idle, 0% battery, 0 kWh at charge start). Storing truthful values is correct; interpreting 0 in context is the dashboard's job. Clear best answer, no user gate needed (schema unchanged - columns already nullable).",
+      "covered_by": "D10"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM2-tesla-add-charging-history",
+      "module": "tesla",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-15T11:01:22Z",
+      "completed_at": "2026-07-15T11:31:00Z",
+      "duration_seconds": 1778,
+      "budget": {
+        "five_hour_pct_delta": 17.0,
+        "cost_usd_delta": 4.04,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of tracked impl-wave (2.59/11%) + review (1.45/6%) deltas; artifact-authoring wave not separately bracketed; excludes leader orchestration overhead"
+      },
+      "notes": "ARCHIVED 2026-07-15. Typed pagination-aware ChargingHistory + ChargingHistoryTesla DTO (full response), Option A pagination. Reviewer-approved (1 round). R1 (percent-encode date query params) DEFERRED to Tier 2 (change D11)."
+    },
+    {
+      "id": 2,
+      "change": "RM2-telemetry-add-charging-stats",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [1],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-16T21:22:36Z",
+      "completed_at": "2026-07-16T22:18:24Z",
+      "duration_seconds": 3648,
+      "budget": {
+        "five_hour_pct_delta": 82.0,
+        "cost_usd_delta": 29.77,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "whole resumed session was tier 2: grill-me + design gate + 2 apply waves (B,A) + tesla enablers L1/L2 + review round + R1 fix + archive. From resume start 5h 3%/$0.74 to 85%/$30.51."
+      },
+      "notes": "ARCHIVED 2026-07-16 (archive/telemetry/2026-07-16-RM2-telemetry-add-charging-stats). Source A: 6 nullable charge cols on vehicle_snapshots. Source B: supercharger_sessions ledger + nightly upsert collector + SuperchargerReader. Reviewer-approved 1 round (R1 minor fixed). R1 date-encoding remains deferred (no date params used)."
+    }
+  ]
+}

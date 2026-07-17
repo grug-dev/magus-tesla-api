@@ -32,30 +32,36 @@ Verified against the code — keep this section in sync when the port changes:
 ```go
 type VehicleService interface {
     ListVehicles(ctx context.Context, creds Credentials) ([]VehicleTesla, error)
-    VehicleData(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleDataTesla, error)
+    VehicleData(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleDataTesla, json.RawMessage, error)
     WakeUp(ctx context.Context, creds Credentials, vehicleID int64) (*VehicleTesla, error)
+    ChargingHistory(ctx context.Context, creds Credentials, params ChargingHistoryParams) (*ChargingHistoryTesla, error)
 }
 ```
 
-(The active change `tesla-add-vehicle-data-and-wake` amends `VehicleData` to also return the
-raw `json.RawMessage` payload from the same single fetch.)
-
-Other public symbols: `Credentials{AccessToken}`, `NewClient() *Client`, sentinel
-`ErrUnauthorized` (returned on HTTP 401 — detect with `errors.Is`), and the `...Tesla` DTOs
-(`VehicleTesla`, `VehicleDataTesla`, `ChargeStateTesla`, `ClimateStateTesla`,
-`DriveStateTesla`, `VehicleStateTesla`) with their metric companion methods.
+Other public symbols: `Credentials{AccessToken}`, `NewClient() *Client`, sentinels
+`ErrUnauthorized` (returned on HTTP 401 — detect with `errors.Is`) and `ErrForbidden`
+(returned on HTTP 403, most commonly a missing-scope grant — detect with `errors.Is`; the
+wrapped error carries Tesla's response body with the specific reason), and the `...Tesla`
+DTOs (`VehicleTesla`, `VehicleDataTesla`, `ChargeStateTesla`, `ClimateStateTesla`,
+`DriveStateTesla`, `VehicleStateTesla`) with their metric companion methods; plus the
+charging history types `ChargingHistoryTesla`, `ChargingSessionTesla`, `ChargingFeeTesla`,
+`ChargingInvoiceTesla`, and `ChargingHistoryParams`.
 
 **Off the interface, deliberately:** the `Raw*` methods in `raw.go` (`ListVehiclesRaw`,
-`VehicleDataRaw`, `WakeUpRaw`) exist only on the concrete `*Client` for the
-`tesla-exploration` capability (`cmd/explore-tesla-api`). Domain code must never call them.
+`VehicleDataRaw`, `WakeUpRaw`, `ChargingHistoryRaw`) exist only on the concrete `*Client`
+for the `tesla-exploration` capability (`cmd/explore-tesla-api`). Domain code must never
+call them.
 Sync rule: every new typed Fleet API method in `vehicles.go` gets a `Raw*` sibling here
 (reuse `get`/`post`, return `json.RawMessage`, stay off the interface) and explorer coverage
 in `cmd/explore-tesla-api/main.go` + its README (`CLAUDE.md` §Tesla API Exploration).
+**Reverse-order case:** `ChargingHistoryRaw` pre-existed the typed `ChargingHistory` method —
+the raw sibling was already present when the typed method was added (RM2-tesla-add-charging-history),
+so no new raw method was created. The sync rule is satisfied by the pre-existing `ChargingHistoryRaw`.
 
 ## Imports — allowed and forbidden
 
 - **Allowed:** Go standard library only (`context`, `encoding/json`, `errors`, `fmt`,
-  `net/http`, and stdlib test packages such as `net/http/httptest`).
+  `io`, `net/http`, `strings`, and stdlib test packages such as `net/http/httptest`).
 - **Forbidden:** any other `internal/` module (this adapter is a leaf — it depends on
   nobody); `html/template`/Templ (no HTML outside the gateway); any DB driver (`pgx`,
   `sqlc` output); `os.Getenv` (env access lives in `internal/config` only).

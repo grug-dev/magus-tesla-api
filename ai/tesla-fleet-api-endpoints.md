@@ -59,9 +59,30 @@ param `?location_data=true`, which also shows a location-sharing icon on the car
 
 | Endpoint | Method | Returns | Status |
 |---|---|---|---|
-| `/api/1/dx/charging/history` | GET | Paginated past charging events | ⬜ |
-| `/api/1/dx/charging/sessions` | GET | Session pricing + energy — **business fleet accounts only** | ⬜ |
+| `/api/1/dx/charging/history` | GET | **Tesla-billed charging sessions only** — Supercharger + DC fast-charging that Tesla invoiced (has `fees`, `invoices`, `billingType`). Home/Wall Connector charging is unbilled and **never appears here** — see "Home charging" note below. | ✅ `ChargingHistory` (typed on `VehicleService`); `ChargingHistoryRaw` remains available for exploration |
+| `/api/1/dx/charging/sessions` | GET | Session pricing + energy — **business fleet accounts only** (still only Tesla-billed sessions) | ⬜ |
 | `/api/1/dx/warranty/details` | GET | Warranty information | ⬜ |
+
+> **Home charging is NOT available from any `/dx/charging/*` endpoint.** Those are Tesla's
+> *billing* records, not a charging-event log. Home, destination-L2, Mobile Connector, and
+> any non-Tesla-billed session are invisible there. The Tesla app reconstructs the full
+> charging picture (including home) from **two** sources:
+>
+> 1. **Billing history** (`/api/1/dx/charging/history`) — paid sessions only.
+> 2. **Vehicle telemetry** (`/api/1/vehicles/{vin}/vehicle_data` → `charge_state`) — every
+>    charge event, regardless of charger. A session is derived from `charging_state`
+>    transitions (`Disconnected → Charging` start, `→ Complete/Disconnected` end) plus
+>    `charge_energy_added` (or `battery_level` delta × usable capacity); "home" is inferred
+>    from location at the time. This platform already polls `vehicle_data` for nightly
+>    snapshots — extending collection to capture `charge_state` transitions during a charge
+>    is the way to derive home/destination sessions. Aligned with `AGENTS.md` §Polling
+>    Strategy and §Metrics.
+>
+> **One shortcut:** if the user owns a **Tesla Wall Connector** registered to their account,
+> `/api/1/energy_sites/{energy_site_id}/telemetry_history?kind=charge&start_date=...&end_date=...&time_zone=...`
+> (see Energy endpoints) returns per-session watt-hours delivered by the Wall Connector
+> directly — no derivation needed. Requires `GET /api/1/products` first to enumerate
+> `energy_site_id`s, and only covers Tesla-branded Wall Connectors, not third-party EVSEs.
 
 ---
 
