@@ -244,9 +244,9 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var14 string
-		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(intToStr(vm.TeslaID) + ":" + vm.VIN)
+		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(vm.VehicleValue)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 79, Col: 85}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row_edit.templ`, Line: 79, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 		if templ_7745c5c3_Err != nil {
@@ -451,26 +451,6 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 		}
 		return nil
 	})
-}
-
-// intToStr converts an int64 to a decimal string for use in templ expressions.
-func intToStr(n int64) string {
-	if n == 0 {
-		return "0"
-	}
-	result := ""
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	for n > 0 {
-		result = string(rune('0'+n%10)) + result
-		n /= 10
-	}
-	if neg {
-		result = "-" + result
-	}
-	return result
 }
 
 var _ = templruntime.GeneratedTemplate

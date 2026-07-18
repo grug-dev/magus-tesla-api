@@ -308,7 +308,11 @@ func (h *Handler) checkCSRF(c *gin.Context) bool {
 	if got == "" {
 		got = c.GetHeader("X-CSRF-Token")
 	}
-	if subtle.ConstantTimeCompare([]byte(want), []byte(got)) != 1 {
+	// Fail closed when no token was issued for this session. subtle.ConstantTimeCompare
+	// returns 1 for two equal-length equal slices, so comparing "" (no session token,
+	// e.g. a write before GET /charges was ever loaded) against "" (no submitted token)
+	// would pass and let a tokenless request through. Both sides must be a real token.
+	if want == "" || subtle.ConstantTimeCompare([]byte(want), []byte(got)) != 1 {
 		c.String(http.StatusForbidden, "invalid csrf token")
 		return false
 	}
@@ -401,6 +405,7 @@ func chargeEntryVMFromEntry(e manualcharge.Entry, vehicles []account.Vehicle) fr
 		RawEndBatteryPct:   rawEndPct,
 		TeslaID:         e.TeslaID,
 		VIN:             e.VIN,
+		VehicleValue:    fmt.Sprintf("%d:%s", e.TeslaID, e.VIN),
 	}
 }
 

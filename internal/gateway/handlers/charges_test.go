@@ -602,6 +602,97 @@ func TestChargeRowDelete_ValidInput(t *testing.T) {
 	}
 }
 
+// --- R1/R2 regression: empty-session CSRF must fail closed ---
+// When the session carries no csrf_manualcharge token (e.g. an authenticated user
+// who never loaded GET /charges) and the request submits no token either, the check
+// must return 403 — not pass via subtle.ConstantTimeCompare("","") == 1.
+
+// TestChargeCreate_NoSessionToken covers the empty-session CSRF bypass for create.
+func TestChargeCreate_NoSessionToken(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	r := engineWithSession(h, uid, "") // uid set, no csrf token in session
+	c := sessionCookie(r, uid, "")
+
+	form := url.Values{
+		// deliberately no csrf_token submitted
+		"vehicle":          {"1001:VIN1001"},
+		"charged_on":       {"2026-07-15"},
+		"energy_added_kwh": {"10.5"},
+		"price":            {"5000"},
+		"currency":         {"COP"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("want 403 when session has no csrf token and none submitted, got %d", w.Code)
+	}
+	if writer.createEntry.EnergyAddedKWh != 0 {
+		t.Errorf("no entry should be created on CSRF failure, got energy %f", writer.createEntry.EnergyAddedKWh)
+	}
+}
+
+// TestChargeRowUpdate_NoSessionToken covers the empty-session CSRF bypass for update.
+func TestChargeRowUpdate_NoSessionToken(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	r := engineWithSession(h, uid, "")
+	c := sessionCookie(r, uid, "")
+
+	form := url.Values{
+		// deliberately no csrf_token submitted
+		"vehicle":          {"1001:VIN1001"},
+		"charged_on":       {"2026-07-16"},
+		"energy_added_kwh": {"20.0"},
+		"price":            {"9000"},
+		"currency":         {"COP"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("want 403 on update when session has no csrf token, got %d", w.Code)
+	}
+	if writer.updateEntry.EnergyAddedKWh != 0 {
+		t.Errorf("no entry should be updated on CSRF failure, got energy %f", writer.updateEntry.EnergyAddedKWh)
+	}
+}
+
+// TestChargeRowDelete_NoSessionToken covers the empty-session CSRF bypass for delete.
+func TestChargeRowDelete_NoSessionToken(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	r := engineWithSession(h, uid, "")
+	c := sessionCookie(r, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+id.String(), nil)
+	// deliberately no X-CSRF-Token header
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("want 403 on delete when session has no csrf token, got %d", w.Code)
+	}
+}
+
 // errFake is a sentinel error for test fakes.
 var errFake = &fakeError{"fake error"}
 

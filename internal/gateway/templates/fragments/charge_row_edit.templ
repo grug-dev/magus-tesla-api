@@ -76,7 +76,7 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 				<div>
 					<label>
 						Vehicle
-						<input type="hidden" name="vehicle" value={ intToStr(vm.TeslaID) + ":" + vm.VIN }/>
+						<input type="hidden" name="vehicle" value={ vm.VehicleValue }/>
 						<span>{ vm.VehicleLabel }</span>
 					</label>
 				</div>
@@ -156,24 +156,4 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 			</form>
 		</td>
 	</tr>
-}
-
-// intToStr converts an int64 to a decimal string for use in templ expressions.
-func intToStr(n int64) string {
-	if n == 0 {
-		return "0"
-	}
-	result := ""
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	for n > 0 {
-		result = string(rune('0'+n%10)) + result
-		n /= 10
-	}
-	if neg {
-		result = "-" + result
-	}
-	return result
 }

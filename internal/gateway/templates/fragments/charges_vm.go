@@ -30,6 +30,7 @@ type ChargeEntryVM struct {
 	RawEndBatteryPct   string // "92" or ""
 	TeslaID            int64  // for vehicle picker pre-selection in edit form
 	VIN                string // durable vehicle key for display
+	VehicleValue       string // "{TeslaID}:{VIN}" — pre-built form value for the edit form's hidden vehicle input (keeps the template logic-free, D6)
 }
 
 // VehicleOptionVM is one option in the vehicle picker <select> of the create/edit form.
