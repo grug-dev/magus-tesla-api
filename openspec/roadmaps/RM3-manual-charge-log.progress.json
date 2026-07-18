@@ -6,7 +6,7 @@
   "request": "ok, let's go for a manual entry approach. Looks like this might be a big roadmap since it touches front-end pages with HTMX. I want this approach lives in its own package/module isolated of the other ones. It does not consumes any tesla's fleet api, right? Please help me to create the openspec proposal for this new module package , and separate the task/roadmap tiers by frontend and backend changes. Help me to design the database table, I'd say that required fields might be:  Date, price (COP), energy added. and as optional fields: Start timestamp, end timestamp, starting battery %, ending battery %, charging type (AC, DC), if it's HOME, WORK or OTHER. any suggestion are welcome",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-07-18T15:19:07Z",
+  "updated_at": "2026-07-18T20:45:13Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM3-manual-charge-log",
@@ -14,8 +14,8 @@
     "created_at": "2026-07-18T12:48:41Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [2],
+    "current": [2],
+    "pending": [],
     "blocked": [],
     "done": [1]
   },
@@ -36,6 +36,33 @@
       "made_by": "leader",
       "decision": "Autopilot ON; tiers advance automatically. Frontend must live in gateway (no HTML outside gateway), so tier 2 is a gateway change, not a second file in the new module.",
       "why": "Roadmap default is autopilot; architecture rule forces the htmx page into gateway consuming the manualcharge ports.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-07-18T20:45:13Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Tier-2 UI product choices (leader interview): (a) standalone /charges 'Charge log' page linked from dashboard nav, NOT a dashboard section; (b) inline row edit via htmx (Edit swaps the row into an edit form, Save/Cancel swaps back), NOT a separate edit page; (c) form shows the 3 required fields (charged_on, energy_added_kwh, price) with the ~8 optional fields under a 'More details' expander.",
+      "why": "User-selected in the Step-2 interview; binding for the RM3-gateway-add-manual-charge-ui proposal/design/specs.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-07-18T20:45:13Z",
+      "scope": "tier:2",
+      "made_by": "leader",
+      "decision": "Gateway 'read-only at request time' rule (internal/gateway/AGENTS.md) is amended to permit user-initiated domain WRITES via a module Writer port on explicit form POSTs: CSRF-protected and tenant-scoped (account_id + vehicle resolved from the user's own account.RegisteredVehicles before calling manualcharge.Writer). Reads still use Reader ports only. This is the first user-facing domain write path in the gateway.",
+      "why": "Roadmap D1/D2 already decided the gateway calls the manualcharge Writer (CRUD) from the UI; the AGENTS.md read-only rule predates any user write and must be reconciled. Direction is user-chosen, so no autopilot pause; recorded for the reviewer who reads AGENTS.md.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-07-18T20:45:13Z",
+      "scope": "tier:2",
+      "made_by": "leader",
+      "decision": "A full grill-me pass was not run for tier 2; the Step-2 leader interview (3 targeted product forks, all resolved) satisfies the clarification pass. No database/index design (tier 2 adds no DB objects and reuses tier-1 manualcharge ports/queries), so the performance-design grill trigger does not fire.",
+      "why": "Pipeline guidance: don't grill when the answer is genuinely obvious; the design space is small and already fixed by roadmap D1/D2 + the interview. Recorded for transparency per config.yaml proposal rule.",
       "covered_by": null
     }
   ],
@@ -61,14 +88,14 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [1],
-      "status": "not-started",
+      "status": "in-flight",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T20:45:13Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": ""
+      "notes": "Step-2 interview done (D3 product forks, D4 write-path amendment, D5 grill note). Dispatching gateway worker for OpenSpec artifacts (spec delta on the gateway capability)."
     }
   ]
 }
