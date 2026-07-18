@@ -61,6 +61,27 @@ Note: the former "CHARGING STATS" backlog item shipped as roadmap **RM2-charging
 tiers archived 2026-07-16) — see `openspec/roadmaps/archive/RM2-charging-stats/`.
 
 
+## 2. manualcharge / telemetry — Semi-automatic home-charge detection
+
+### PROPOSAL
+
+Infer home / AC charging sessions from the vehicle's **own** telemetry — `charge_energy_added`
+deltas + `charging_state` transitions (unambiguously the vehicle's own data, so **no**
+multi-tenant attribution problem) — to **pre-fill or suggest** entries in the manual charge
+log (`internal/manualcharge`, shipped by RM3). This directly reduces the manual-entry
+friction (people forget to log) that RM3 ships with.
+
+**TRIGGER — pick this up when** polling gets finer than the current once-nightly cadence: a
+charge session is minutes-to-an-hour long, so a single daily snapshot cannot reconstruct one.
+Pair with an event-driven / sub-hourly poller (or Tesla Fleet Telemetry streaming). It is the
+vehicle-side automatic counterpart to RM2's "charge-session detector" future note.
+
+### ORIGIN
+
+`RM3-manual-charge-log` roadmap "Future work" (leader session 2026-07-18) — the known
+adoption-friction gap of the user-asserted manual-entry approach.
+
+
 
 # BRAINSTORMING
 
@@ -75,3 +96,30 @@ Encrypt Tesla tokens at rest (tesla_tokens.access_token / refresh_token) — app
 
 ### ORIGIN
 add-account-module (Tier 1) design.md Open Question
+
+
+## 2. tesla / energy — Wall Connector charge history (EVALUATED & DECLINED 2026-07-18)
+
+### PROPOSAL
+
+Tesla's Fleet API exposes **Wall Connector** energy: `GET /api/1/products` discovers the
+`energy_site_id` + connector `device_id`/`din`, and
+`GET /api/1/energy_sites/{id}/telemetry_history?kind=charge` returns per-session
+`energy_added_wh` + start + duration. The adapter already has `ProductsRaw` +
+`EnergyChargeHistoryRaw` (raw / exploration only — off the `VehicleService` interface).
+
+**DECLINED for nightly persistence:** the payload is **charger-centric** — every session is
+keyed only by the connector (`target_id`/`din`), carries **no VIN / vehicle_id**, and cannot
+be reliably attributed to a specific owned vehicle in a multi-tenant platform (a second car,
+guest, or neighbor on the same connector is indistinguishable). Observed historical sessions
+also predate telemetry collection and can never be back-correlated. Shipped
+`RM3-manual-charge-log` (user-asserted manual entry) instead.
+
+**TRIGGER to revisit — only if** a single-vehicle-connector guarantee **plus a
+user-configured `connector → vehicle` mapping** is acceptable (attribution by configuration,
+not inference), OR Tesla adds a vehicle identifier to the charge-history payload.
+
+### ORIGIN
+
+Leader analysis session 2026-07-18 — inspected `cmd/explore-tesla-api/output/3-Products.json`
++ `4-EnergyChargeHistory.json`; user decision to skip the energy API in favor of manual entry.

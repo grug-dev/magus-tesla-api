@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM3-manual-charge-log",
+  "intention": "Users can manually log home/work/3rd-party charge sessions (date, energy, COP cost + optional battery/timing/type/location) that the Fleet API cannot attribute — the user-asserted complement to RM2's Supercharger sessions.",
+  "request": "ok, let's go for a manual entry approach. Looks like this might be a big roadmap since it touches front-end pages with HTMX. I want this approach lives in its own package/module isolated of the other ones. It does not consumes any tesla's fleet api, right? Please help me to create the openspec proposal for this new module package , and separate the task/roadmap tiers by frontend and backend changes. Help me to design the database table, I'd say that required fields might be:  Date, price (COP), energy added. and as optional fields: Start timestamp, end timestamp, starting battery %, ending battery %, charging type (AC, DC), if it's HOME, WORK or OTHER. any suggestion are welcome",
+  "status": "in-progress",
+  "autopilot": true,
+  "updated_at": "2026-07-18T12:48:41Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM3-manual-charge-log",
+    "base": "main",
+    "created_at": "2026-07-18T12:48:41Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-07-18T12:48:41Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Feature is a new isolated module internal/manualcharge (table manual_charge_entries, type manualcharge.Entry, Writer CRUD + Reader ports) consuming NO Tesla Fleet API; required fields charged_on/energy_added_kwh/price+currency('COP'); optional timing, battery %, charging_type(AC|DC), location_kind(HOME|WORK|OTHER)/label, notes; mutable table.",
+      "why": "Wall Connector energy API is charger-centric and un-attributable per-vehicle in a multi-tenant platform (declined 2026-07-18); manual entry makes the user assert ownership.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-07-18T12:48:41Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Autopilot ON; tiers advance automatically. Frontend must live in gateway (no HTML outside gateway), so tier 2 is a gateway change, not a second file in the new module.",
+      "why": "Roadmap default is autopilot; architecture rule forces the htmx page into gateway consuming the manualcharge ports.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM3-manualcharge-add-entries",
+      "module": "manualcharge",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": ""
+    },
+    {
+      "id": 2,
+      "change": "RM3-gateway-add-manual-charge-ui",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": ""
+    }
+  ]
+}
