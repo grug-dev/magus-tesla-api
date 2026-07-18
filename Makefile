@@ -27,7 +27,7 @@ endif
 # single goose_db_version table across dirs, so this list MUST stay in global version
 # (timestamp) order — dirs are applied left-to-right on `up`, reverse on `down`. Add a
 # module's dir here, in timestamp order, when it gains a DB.
-MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migrations
+MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migrations internal/manualcharge/db/migrations
 
 # goose binary: prefer one on PATH, else the `go install` location (GOPATH/bin).
 GOOSE ?= $(shell command -v goose 2>/dev/null || echo $$(go env GOPATH)/bin/goose)

@@ -148,17 +148,17 @@
 
 ## T4. Service: store seam + Writer/Reader implementations + mapping (`internal/manualcharge/service.go`) — depends on T2, T3
 
-- [ ] T4.1 Create `internal/manualcharge/service.go`. Declare unexported `store` interface
+- [x] T4.1 Create `internal/manualcharge/service.go`. Declare unexported `store` interface
       with methods mirroring the sqlc-generated query functions:
       `createEntry(ctx, params manualchargedb.CreateEntryParams) (manualchargedb.ManualChargeEntry, error)`,
       `updateEntry(ctx, params manualchargedb.UpdateEntryParams) (manualchargedb.ManualChargeEntry, error)`,
       `deleteEntry(ctx, params manualchargedb.DeleteEntryParams) error`,
       `listEntriesByVehicle(ctx, params manualchargedb.ListEntriesByVehicleParams) ([]manualchargedb.ManualChargeEntry, error)`,
       `listEntriesByAccount(ctx, params manualchargedb.ListEntriesByAccountParams) ([]manualchargedb.ManualChargeEntry, error)`.
-- [ ] T4.2 Implement `dbStore` struct (unexported) wrapping `*manualchargedb.Queries` and
+- [x] T4.2 Implement `dbStore` struct (unexported) wrapping `*manualchargedb.Queries` and
       satisfying the `store` interface. Each method delegates to the corresponding sqlc query.
       This is the ONLY place `manualchargedb` types are referenced.
-- [ ] T4.3 Implement `writerService` struct (unexported) holding a `store`. Implement
+- [x] T4.3 Implement `writerService` struct (unexported) holding a `store`. Implement
       `Create`, `Update`, `Delete`:
       `Create` — maps `Entry` fields to `CreateEntryParams` (pgtype at boundary for nullable
       fields; pattern: `pgtype.Int2{Int16: int16(*e.StartBatteryPct), Valid: e.StartBatteryPct != nil}`
@@ -166,23 +166,23 @@
       `Update` — similarly maps to `UpdateEntryParams`; calls `store.updateEntry`; maps row.
       `Delete` — calls `store.deleteEntry(ctx, manualchargedb.DeleteEntryParams{ID: id, AccountID: accountID})`.
       Acceptance: pgtype never appears in the public `Entry`, `Writer`, or `Reader` types.
-- [ ] T4.4 Implement `readerService` struct (unexported) holding a `store`. Implement
+- [x] T4.4 Implement `readerService` struct (unexported) holding a `store`. Implement
       `ListEntriesByVehicle` and `ListEntriesByAccount`:
       Both use `limit = 100` as the server default when caller passes `limit <= 0`.
       Both call the corresponding `store` method and map each row via `rowToEntry`.
       Both return a non-nil empty slice when 0 rows found.
-- [ ] T4.5 Implement `rowToEntry(r manualchargedb.ManualChargeEntry) Entry` mapping function
+- [x] T4.5 Implement `rowToEntry(r manualchargedb.ManualChargeEntry) Entry` mapping function
       (unexported, in this file or a sibling `mapping.go`). Map all pgtype nullable columns
       to domain `*T` fields using the `Valid`-field pattern:
       `pgtype.Int2 → *int` (e.g. `start_battery_pct`),
       `pgtype.Timestamptz → *time.Time` (e.g. `started_at`, `ended_at`),
       `pgtype.Text → *string` (e.g. `charging_type`, `location_kind`, `location_label`, `notes`),
       `pgtype.Numeric → float64` for `energy_added_kwh` and `price` (via
-      `pgtype.Numeric.Float64()`).
+      `pgtype.Numeric.Float64Value()`).
       `pgtype.Timestamptz → time.Time` for `created_at`, `updated_at`, `charged_on`.
-      Map `pgtype` Timestamptz for DATE column `charged_on` using the time value.
+      Map `pgtype` Date for DATE column `charged_on` using the time value.
       No pgtype in the return type.
-- [ ] T4.6 Implement `NewWriter(pool *pgxpool.Pool) Writer` and
+- [x] T4.6 Implement `NewWriter(pool *pgxpool.Pool) Writer` and
       `NewReader(pool *pgxpool.Pool) Reader` constructors. Add compile-time interface assertions:
       `var _ Writer = (*writerService)(nil)` and `var _ Reader = (*readerService)(nil)`.
 
@@ -208,10 +208,10 @@
 
 ## T6. DATABASE_URL-gated integration tests (`internal/manualcharge/db_integration_test.go`) — depends on T2, T4
 
-- [ ] T6.1 Create `internal/manualcharge/db_integration_test.go` (package `manualcharge_test`).
+- [x] T6.1 Create `internal/manualcharge/db_integration_test.go` (package `manualcharge_test`).
       Add a `TestMain` (or a per-test skip) that calls `t.Skip` when `DATABASE_URL` is unset,
       so `go test ./...` stays green without a database.
-- [ ] T6.2 Test `Writer.Create`:
+- [x] T6.2 Test `Writer.Create`:
       (a) Create an entry with all required fields only; read it back via
           `Reader.ListEntriesByAccount`; assert all required fields round-trip faithfully
           (including `currency = 'COP'` default when not supplied).
@@ -222,30 +222,30 @@
       (d) Attempt to create with `price < 0`; assert an error is returned.
       (e) Attempt to create with `start_battery_pct = 101`; assert an error.
       (f) Attempt to create with `ended_at < started_at`; assert an error (timing CHECK).
-- [ ] T6.3 Test `Writer.Update`:
+- [x] T6.3 Test `Writer.Update`:
       (a) Create an entry; update `price` and `notes`; read back via `ListEntriesByAccount`;
           assert updated fields changed, `created_at` unchanged, `updated_at` advanced.
       (b) Attempt to update an entry belonging to a different `account_id`; assert zero rows
           affected / "not found" behavior (no cross-tenant mutation).
-- [ ] T6.4 Test `Writer.Delete`:
+- [x] T6.4 Test `Writer.Delete`:
       (a) Create an entry; delete it; assert it no longer appears in
           `ListEntriesByAccount` results.
       (b) Delete with a mismatched `account_id`; assert the row survives (cross-tenant delete
           protection).
-- [ ] T6.5 Test `Reader.ListEntriesByVehicle`:
+- [x] T6.5 Test `Reader.ListEntriesByVehicle`:
       (a) Create entries for two vehicles (`tesla_id = V1`, `tesla_id = V2`) in the same
           account; assert `ListEntriesByVehicle(V1)` returns only V1 entries, none for V2.
       (b) Create 3 entries for vehicle V1 with different `charged_on` dates; assert they are
           returned newest-first (`charged_on DESC`).
       (c) Request with `limit = 1`; assert exactly 1 entry returned.
       (d) Request for a vehicle with no entries; assert an empty non-nil slice.
-- [ ] T6.6 Test `Reader.ListEntriesByAccount`:
+- [x] T6.6 Test `Reader.ListEntriesByAccount`:
       (a) Create entries for two different accounts (`account_id = A`, `account_id = B`);
           assert `ListEntriesByAccount(A)` returns only account A's entries.
       (b) Create entries with different `charged_on` dates; assert newest-first ordering.
       (c) Request with `limit = 1`; assert at most 1 entry returned.
       (d) Account with no entries returns an empty non-nil slice.
-- [ ] T6.7 Multi-tenant isolation spot-check: assert that the service NEVER returns entries
+- [x] T6.7 Multi-tenant isolation spot-check: assert that the service NEVER returns entries
       from a different `account_id` in any read method under any scenario tested above.
 
 ---
