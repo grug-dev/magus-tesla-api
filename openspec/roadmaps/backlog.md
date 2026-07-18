@@ -82,6 +82,29 @@ vehicle-side automatic counterpart to RM2's "charge-session detector" future not
 adoption-friction gap of the user-asserted manual-entry approach.
 
 
+## 3. manualcharge — Integration tests for the remaining CHECK-constraint scenarios
+
+### PROPOSAL
+
+The `manual_charge_entries` migration enforces three CHECK constraints that the spec
+(`RM3-manualcharge-add-entries` `specs/manual-charge-log/spec.md`) names as scenarios but that
+have **no dedicated integration test**: `end_battery_pct` out of range (0–100), invalid
+`charging_type` (not `AC`/`DC`), and invalid `location_kind` (not `HOME`/`WORK`/`OTHER`). The
+constraints are live and verified to exist (psql), and the closely-related `start_battery_pct=101`
+case IS tested (T6.2e) — so this is a **test-coverage** gap only, not a correctness gap.
+
+**TRIGGER — pick up when** the `manualcharge` module is next touched (e.g. RM3 tier 2 gateway UI
+work, or any change adding fields/constraints). Add three `TestCreate_CheckConstraint_*` cases in
+`internal/manualcharge/db_integration_test.go` mirroring the existing pattern; each asserts a DB
+error is returned. Cheap (~30 lines) against the live DATABASE_URL-gated harness.
+
+### ORIGIN
+
+`RM3-manualcharge-add-entries` (RM3 tier 1) review finding **R3** (minor, accepted). The verdict
+was `approved`; the mandated T6.2 criteria were met, so the added coverage was deferred here
+rather than reopening the review. Recorded in the RM3 tier-1 progress.json review round 1.
+
+
 
 # BRAINSTORMING
 

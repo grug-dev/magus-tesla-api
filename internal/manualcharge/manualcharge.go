@@ -115,7 +115,6 @@ type Reader interface {
 // NewWriter constructs a Writer backed by the given pgxpool. The implementation
 // lives in service.go where the manualchargedb generated package is used.
 // This is the only publicly exported constructor for the Writer port.
-// Body is a placeholder — replaced in T4 when manualchargedb is generated.
 func NewWriter(pool *pgxpool.Pool) Writer {
 	return newWriter(pool)
 }
@@ -123,7 +122,6 @@ func NewWriter(pool *pgxpool.Pool) Writer {
 // NewReader constructs a Reader backed by the given pgxpool. The implementation
 // lives in service.go where the manualchargedb generated package is used.
 // This is the only publicly exported constructor for the Reader port.
-// Body is a placeholder — replaced in T4 when manualchargedb is generated.
 func NewReader(pool *pgxpool.Pool) Reader {
 	return newReader(pool)
 }

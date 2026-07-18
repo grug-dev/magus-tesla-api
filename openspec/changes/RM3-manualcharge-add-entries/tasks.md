@@ -252,7 +252,7 @@
 
 ## T7. `internal/manualcharge/AGENTS.md` — no dependencies
 
-- [ ] T7.1 Create `internal/manualcharge/AGENTS.md`. Include:
+- [x] T7.1 Create `internal/manualcharge/AGENTS.md`. Include:
       `Agent-Name: manualcharge` header;
       `## Doc-Pack (module)` section (no module-specific docs beyond the base pack);
       Module responsibility (user-asserted charge entries, isolated from Tesla Fleet API);
@@ -269,19 +269,19 @@
 
 ## Verification — depends on all tasks above
 
-- [ ] V1. `go build ./...` passes (no compilation errors in the new module or any file that
+- [x] V1. `go build ./...` passes (no compilation errors in the new module or any file that
       imports it).
-- [ ] V2. `go vet ./...` passes with no warnings in the new module.
-- [ ] V3. `go test ./...` green and fast:
+- [x] V2. `go vet ./...` passes with no warnings in the new module.
+- [x] V3. `go test ./...` green and fast:
       - Unit tests (T5) run offline with no DB.
       - Integration tests (T6) self-skip when `DATABASE_URL` is unset.
       - NO Tesla API call fires anywhere in the test run.
-- [ ] V4. Boundary check: `internal/manualcharge` does NOT import `internal/tesla`,
+- [x] V4. Boundary check: `internal/manualcharge` does NOT import `internal/tesla`,
       `internal/account`, `internal/telemetry`, or any other module's internals. `pgtype` does
       not appear in any public type, interface, or function signature outside `service.go` and
       any `mapping.go`.
-- [ ] V5. Migration applies cleanly: `make migrate-up` runs without error; the table and both
+- [x] V5. Migration applies cleanly: `make migrate-up` runs without error; the table and both
       indexes exist in the target database.
-- [ ] V6. Compile-time interface assertions hold:
+- [x] V6. Compile-time interface assertions hold:
       `var _ Writer = (*writerService)(nil)` and `var _ Reader = (*readerService)(nil)` both
       compile without errors.
