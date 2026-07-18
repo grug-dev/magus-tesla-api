@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM3-manualcharge-add-entries",
+  "module": "manualcharge",
+  "roadmap": "openspec/roadmaps/RM3-manual-charge-log.md",
+  "request": "ok, let's go for a manual entry approach ... I want this approach lives in its own package/module isolated of the other ones. It does not consumes any tesla's fleet api ... create the openspec proposal for this new module package, and separate the task/roadmap tiers by frontend and backend changes. Help me to design the database table (required: Date, price COP, energy added; optional: start/end timestamp, start/end battery %, charging type AC/DC, HOME/WORK/OTHER).",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "V"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-07-18T13:09:39Z",
+  "updated_at": "2026-07-18T13:09:39Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM3-manual-charge-log",
+    "base": "main",
+    "created_at": "2026-07-18T12:48:41Z"
+  },
+  "tasks": [
+    { "id": "T1", "title": "Migration — manual_charge_entries table + 2 indexes", "module": "manualcharge", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T2", "title": "sqlc queries (query.sql: create/update/delete/list-by-vehicle/list-by-account)", "module": "manualcharge", "depends_on": ["T1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T3", "title": "Domain type manualcharge.Entry + derived methods + Writer/Reader ports", "module": "manualcharge", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T4", "title": "Service: store seam + Writer/Reader impls + rowToEntry mapping", "module": "manualcharge", "depends_on": ["T2", "T3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T5", "title": "Unit tests — derived methods, offline (no DB)", "module": "manualcharge", "depends_on": ["T3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T6", "title": "DATABASE_URL-gated integration tests — CRUD + ordering + multi-tenant", "module": "manualcharge", "depends_on": ["T2", "T4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T7", "title": "internal/manualcharge/AGENTS.md", "module": "manualcharge", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "V", "title": "Verification — build/vet/test/boundary/migrate-up (V1-V6)", "module": "manualcharge", "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": "filled by the leader before dispatching the reviewer",
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-07-18T13:09:39Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Confirmed the manual_charge_entries schema + 2-index plan + mutable-table CRUD + derived read-time methods + NUMERIC-stored / float64-surfaced money, exactly as design.md D1-D9.",
+      "why": "Database design gate (built-in) — user reviewed the written schema, rationale and index plan and approved implementation.",
+      "covered_by": "roadmap RM3-manual-charge-log Decisions"
+    },
+    {
+      "id": "D2",
+      "at": "2026-07-18T13:05:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader reformatted specs/manual-charge-log/spec.md into OpenSpec delta format (## ADDED Requirements / #### Scenario) itself rather than re-dispatching a fresh worker.",
+      "why": "No SendMessage in this runtime to continue the worker; the fix is a mechanical format transform of already-correct content, far cheaper in-leader than a fresh worker doc-pack re-read.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    { "at": "2026-07-18T12:48:41Z", "agent": "leader", "event": "created RM3 roadmap + branch ft/RM3-manual-charge-log; committed roadmap (af06d87)" },
+    { "at": "2026-07-18T13:00:00Z", "agent": "leader", "event": "dispatched manualcharge worker (sonnet) for artifacts; returned proposal/design/specs/tasks + AGENTS.md" },
+    { "at": "2026-07-18T13:05:00Z", "agent": "leader", "event": "reformatted spec to delta format; openspec validate --strict passes" },
+    { "at": "2026-07-18T13:09:39Z", "agent": "leader", "event": "database design gate PASSED (user confirmed); tier 1 -> proposed" }
+  ]
+}
