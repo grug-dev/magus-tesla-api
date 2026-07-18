@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 )
 
 // This file backs the `tesla-exploration` capability: raw, undecoded access to the
@@ -55,6 +56,43 @@ func (c *Client) ChargingHistoryRaw(ctx context.Context, creds Credentials) (jso
 	var out json.RawMessage
 	if err := c.get(ctx, creds, "/api/1/dx/charging/history", &out); err != nil {
 		return nil, fmt.Errorf("fetching charging history (raw): %w", err)
+	}
+	return out, nil
+}
+
+// ProductsRaw returns the unmodified JSON body of the account's product list —
+// vehicles AND energy products (Powerwall / solar sites and Tesla Wall Connectors).
+// Account-scoped, server-side, no vehicle id, no wake. Energy products only appear
+// when the token carries the `energy_device_data` scope; without it Tesla returns
+// 403 (ErrForbidden) or an energy-free list. It is the way to discover an
+// `energy_site_id` for the energy endpoints (e.g. EnergyChargeHistoryRaw).
+func (c *Client) ProductsRaw(ctx context.Context, creds Credentials) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.get(ctx, creds, "/api/1/products", &out); err != nil {
+		return nil, fmt.Errorf("listing products (raw): %w", err)
+	}
+	return out, nil
+}
+
+// EnergyChargeHistoryRaw returns the unmodified JSON body of a Tesla Wall Connector's
+// charging history for ONE energy site — the energy delivered over time, in watt-hours
+// (`GET /api/1/energy_sites/{energy_site_id}/telemetry_history?kind=charge`). Account-
+// scoped, server-side, no wake. It reports connector-level energy for a WALL CONNECTOR
+// owned by THIS account; it is NOT per-vehicle (no VIN) and never covers a connector on
+// another account. Requires the `energy_device_data` scope and an energy_site_id from
+// ProductsRaw. start/end are YYYY-MM-DD; timeZone is an IANA name (e.g. America/Bogota).
+func (c *Client) EnergyChargeHistoryRaw(ctx context.Context, creds Credentials, energySiteID, startDate, endDate, timeZone string) (json.RawMessage, error) {
+	q := url.Values{}
+	q.Set("kind", "charge")
+	q.Set("start_date", startDate)
+	q.Set("end_date", endDate)
+	if timeZone != "" {
+		q.Set("time_zone", timeZone)
+	}
+	path := fmt.Sprintf("/api/1/energy_sites/%s/telemetry_history?%s", url.PathEscape(energySiteID), q.Encode())
+	var out json.RawMessage
+	if err := c.get(ctx, creds, path, &out); err != nil {
+		return nil, fmt.Errorf("fetching energy charge history (raw): %w", err)
 	}
 	return out, nil
 }

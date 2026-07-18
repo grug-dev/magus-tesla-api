@@ -13,6 +13,9 @@ Module-specific docs, additive to the base pack declared in the repo-root `CLAUD
 - `ai/tesla-fleet-api-endpoints.md` — local inventory of the Fleet API data-read endpoints
   and which the adapter already implements (✅) vs. candidates (⬜). The "what to consume
   next" map; keep the ✅ column in sync with `vehicles.go`/`raw.go`.
+- `README.md` (this module) — the human-facing adapter overview. It does **not** track endpoint
+  implementation status itself; it points at `ai/tesla-fleet-api-endpoints.md` (above) as the
+  single source of truth. See the **endpoint-status single-source rule** below.
 - `docs/layer2-user-vehicle-access.md` — OAuth login, the two tokens, fetching vehicle data.
 - `cmd/explore-tesla-api/README.md` — the exploration runnable this module's `raw.go` backs,
   including the adapter↔explorer sync rule.
@@ -57,6 +60,20 @@ in `cmd/explore-tesla-api/main.go` + its README (`CLAUDE.md` §Tesla API Explora
 **Reverse-order case:** `ChargingHistoryRaw` pre-existed the typed `ChargingHistory` method —
 the raw sibling was already present when the typed method was added (RM2-tesla-add-charging-history),
 so no new raw method was created. The sync rule is satisfied by the pre-existing `ChargingHistoryRaw`.
+
+**Endpoint-status single-source rule:** implementation status for the Fleet API data-read
+endpoints (which are ✅ implemented vs ⬜ candidate) is tracked in **exactly one** place —
+`ai/tesla-fleet-api-endpoints.md`. Do **not** re-list wrapped endpoints anywhere else (the
+module `README.md` only *references* that inventory, never copies it — a second list only
+drifts). So the **definition of done for adding (or removing) a typed endpoint** is:
+1. Add/remove the method on `vehicles.go` + the `VehicleService` interface (`client.go`), and
+   update the port block above.
+2. Add its `Raw*` sibling in `raw.go` + explorer coverage in `cmd/explore-tesla-api/main.go`
+   (and that README) — unless the raw sibling already exists (reverse-order case above).
+3. **Flip the endpoint's status to ✅ in `ai/tesla-fleet-api-endpoints.md`** (naming the typed
+   method) — this is the ONLY status list, so a change that skips it leaves the repo lying about
+   what's wrapped. Reviewers reject an endpoint change that leaves this inventory stale.
+The README needs no per-endpoint edit — it points at the inventory, so it can't go stale.
 
 ## Imports — allowed and forbidden
 

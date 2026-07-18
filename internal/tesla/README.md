@@ -10,14 +10,12 @@ See [`AGENTS.md`](AGENTS.md) for the full module brief, conventions, and rules.
 
 ## Currently wrapped endpoints
 
-| Method | HTTP | Path | Purpose |
-|---|---|---|---|
-| `ListVehicles` / `ListVehiclesRaw` | `GET` | `/api/1/vehicles` | Account's vehicle inventory |
-| `VehicleData` / `VehicleDataRaw` | `GET` | `/api/1/vehicles/{id}/vehicle_data` | Full typed + raw data snapshot |
-| `WakeUp` / `WakeUpRaw` | `POST` | `/api/1/vehicles/{id}/wake_up` | Wake the vehicle |
-
-Each typed method in `vehicles.go` has a `Raw*` sibling in `raw.go` for the exploration
-tool (`cmd/explore-tesla-api`).
+**Single source of truth:** which Fleet API endpoints this adapter implements is tracked in
+the endpoint inventory **[`ai/tesla-fleet-api-endpoints.md`](../../ai/tesla-fleet-api-endpoints.md)**,
+where every row is marked ✅ *implemented* or ⬜ *candidate*. Read the ✅ rows there for the
+current list — this README deliberately does **not** duplicate it (a second copy only drifts
+out of date). Each ✅ typed method in `vehicles.go` has a `Raw*` sibling in `raw.go` for the
+exploration tool (`cmd/explore-tesla-api`).
 
 > **Storage convention:** callers that persist `VehicleData` responses MUST store the
 > raw payload losslessly in a `raw_data JSONB NOT NULL` column alongside any extracted
@@ -34,6 +32,10 @@ Below is a community-documented reference of known endpoints (source:
 [tesla-api.timdorr.com](https://tesla-api.timdorr.com)). Paths are the same base
 (`fleet-api.prd.na.vn.cloud.tesla.com`) the adapter already targets. Commands may
 require additional vehicle-command signing scopes beyond the data-read scope.
+
+> This catalog is for **discovery** — it does **not** track what the adapter implements.
+> For implementation status (✅ implemented / ⬜ candidate) of the **data-read** endpoints,
+> see the inventory [`ai/tesla-fleet-api-endpoints.md`](../../ai/tesla-fleet-api-endpoints.md).
 
 ### Vehicle data (state) — read-only
 

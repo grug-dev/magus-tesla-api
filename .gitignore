@@ -8,6 +8,10 @@ private-key*
 # Local Netlify folder
 .netlify
 
+# Raw Tesla Fleet API payloads captured by cmd/explore-tesla-api. Contain sensitive
+# data (VIN, GPS lat/lng, energy_site_id, Wall Connector DIN/serial) — never commit.
+cmd/explore-tesla-api/output/
+
 bin/
 
 # Compiled cmd binaries built at the repo root by `go build ./cmd/<name>`

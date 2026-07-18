@@ -77,8 +77,9 @@ func (s *Scheduler) Run(ctx context.Context) error {
 
 // LogCycle emits a single operational line summarizing one collection cycle so an
 // unattended poller's nightly outcome is visible in logs (attempted / succeeded /
-// failures-by-reason), plus a separate line for any whole-cycle error. It uses the
-// standard library log package, matching the rest of the repo (cmd/web, cmd/poller).
+// failures-by-reason, plus the per-account Supercharger-history outcome), plus a
+// separate line for any whole-cycle error. It uses the standard library log package,
+// matching the rest of the repo (cmd/web, cmd/poller).
 //
 // It is exported so cmd/poller (one-shot mode) and Scheduler.Run share the exact same
 // report formatter — a future change to the line shape lands in one place and both
@@ -88,8 +89,9 @@ func LogCycle(report CycleReport, err error) {
 	if err != nil {
 		log.Printf("telemetry cycle: whole-cycle error: %v", err)
 	}
-	log.Printf("telemetry cycle: attempted=%d succeeded=%d failures={%s}",
-		report.Attempted, report.Succeeded, formatFailures(report.FailuresByReason))
+	log.Printf("telemetry cycle: attempted=%d succeeded=%d failures={%s} charging_upserted=%d charging_failures=%d",
+		report.Attempted, report.Succeeded, formatFailures(report.FailuresByReason),
+		report.ChargingSessionsUpserted, report.ChargingFetchFailures)
 }
 
 // formatFailures renders the failures-by-reason map in a stable (reason-sorted) order so
