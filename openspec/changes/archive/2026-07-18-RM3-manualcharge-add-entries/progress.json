@@ -5,7 +5,7 @@
   "module": "manualcharge",
   "roadmap": "openspec/roadmaps/RM3-manual-charge-log.md",
   "request": "ok, let's go for a manual entry approach ... I want this approach lives in its own package/module isolated of the other ones. It does not consumes any tesla's fleet api ... create the openspec proposal for this new module package, and separate the task/roadmap tiers by frontend and backend changes. Help me to design the database table (required: Date, price COP, energy added; optional: start/end timestamp, start/end battery %, charging type AC/DC, HOME/WORK/OTHER).",
-  "status": "in-review",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -129,6 +129,7 @@
     { "at": "2026-07-18T15:10:57Z", "agent": "leader", "event": "leader wiring (D4): added manualcharge sqlc.yaml entry + registered its migrations dir in Makefile MIGRATIONS_DIRS." },
     { "at": "2026-07-18T15:10:57Z", "agent": "leader", "event": "VERIFICATION PASSED (status->verified). V1 build/V2 vet clean; V5 migrate-up applied 20260718000001 (table+2 indexes+CHECKs confirmed via psql); V3 28/28 tests green against real Postgres (8 offline + 20 integration un-skipped); V4 boundary/pgtype confinement clean; V6 compile assertions hold." },
     { "at": "2026-07-18T15:19:07Z", "agent": "manualcharge-reviewer", "event": "REVIEW round 1: APPROVED (reviewer-approved). Independently ran build/vet/test incl. 28/28 vs real DB. 3 minor findings (R1 stale comments, R2 tasks.md checkboxes, R3 3 untested CHECK scenarios), no blockers/majors." },
-    { "at": "2026-07-18T15:19:07Z", "agent": "leader", "event": "triaged findings (D5): fixed R1 (removed stale placeholder comments in manualcharge.go) + R2 (ticked tasks.md T7.1/V1-V6) as non-behavioral hygiene; deferred R3 to backlog item 3. No re-review (verdict already approved; fixes non-behavioral)." }
+    { "at": "2026-07-18T15:19:07Z", "agent": "leader", "event": "triaged findings (D5): fixed R1 (removed stale placeholder comments in manualcharge.go) + R2 (ticked tasks.md T7.1/V1-V6) as non-behavioral hygiene; deferred R3 to backlog item 3. No re-review (verdict already approved; fixes non-behavioral). Committed 9e0134b." },
+    { "at": "2026-07-18T15:19:07Z", "agent": "leader", "event": "ARCHIVING: reviewer-approved -> archived. openspec archive --yes (syncs manual-charge-log delta into main specs, moves change to archive/). KB spec-sync skipped: no kkpa/context/ KB in this project." }
   ]
 }
