@@ -27,8 +27,8 @@
 
 ## T1. Migration — `manual_charge_entries` table (`internal/manualcharge/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create directory `internal/manualcharge/db/migrations/`.
-- [ ] T1.2 Add goose migration
+- [x] T1.1 Create directory `internal/manualcharge/db/migrations/`.
+- [x] T1.2 Add goose migration
       `internal/manualcharge/db/migrations/20260718000001_add_manual_charge_entries.sql`.
       Use timestamp `20260718000001`. Create table `manual_charge_entries` with all columns per
       design D1:
@@ -65,24 +65,24 @@
 
 ## T2. sqlc queries (`internal/manualcharge/db/query.sql`) — depends on T1
 
-- [ ] T2.1 Create `internal/manualcharge/db/query.sql` with file header comment: owned by
+- [x] T2.1 Create `internal/manualcharge/db/query.sql` with file header comment: owned by
       `internal/manualcharge`; no other module may import `manualchargedb`
       (ai/architecture.md §2, ai/go-conventions.md §persistence).
-- [ ] T2.2 Add `-- name: CreateEntry :one`. INSERT all columns (including optional ones as
+- [x] T2.2 Add `-- name: CreateEntry :one`. INSERT all columns (including optional ones as
       nullable params) RETURNING `*`. Covers T3.2's `Writer.Create`.
-- [ ] T2.3 Add `-- name: UpdateEntry :one`. UPDATE statement that sets `charged_on`,
+- [x] T2.3 Add `-- name: UpdateEntry :one`. UPDATE statement that sets `charged_on`,
       `energy_added_kwh`, `price`, `currency`, and all optional fields, plus
       `updated_at = now()`, WHERE `id = @id AND account_id = @account_id` RETURNING `*`.
       The account_id scope prevents cross-tenant updates. Document which columns are
       immutable (`id`, `account_id`, `tesla_id`, `vin`, `created_at`).
-- [ ] T2.4 Add `-- name: DeleteEntry :exec`. DELETE FROM `manual_charge_entries`
+- [x] T2.4 Add `-- name: DeleteEntry :exec`. DELETE FROM `manual_charge_entries`
       WHERE `id = @id AND account_id = @account_id`. Account scope prevents cross-tenant
       deletes. Document the intentional double-scope.
-- [ ] T2.5 Add `-- name: ListEntriesByVehicle :many`. SELECT `*` FROM
+- [x] T2.5 Add `-- name: ListEntriesByVehicle :many`. SELECT `*` FROM
       `manual_charge_entries` WHERE `account_id = @account_id AND tesla_id = @tesla_id`
       ORDER BY `charged_on DESC` LIMIT `@limit_count`. Document which index this uses
       (`idx_manual_charge_entries_vehicle_time`) and that the ORDER BY is covered.
-- [ ] T2.6 Add `-- name: ListEntriesByAccount :many`. SELECT `*` FROM
+- [x] T2.6 Add `-- name: ListEntriesByAccount :many`. SELECT `*` FROM
       `manual_charge_entries` WHERE `account_id = @account_id`
       ORDER BY `charged_on DESC` LIMIT `@limit_count`. Document which index this uses
       (`idx_manual_charge_entries_account_time`) and that the ORDER BY is covered.
@@ -93,10 +93,10 @@
 
 ## T3. Domain type + interfaces (`internal/manualcharge/manualcharge.go`) — no dependencies, parallel-ok with T1–T2
 
-- [ ] T3.1 Create `internal/manualcharge/manualcharge.go` with package comment: new isolated
+- [x] T3.1 Create `internal/manualcharge/manualcharge.go` with package comment: new isolated
       module for user-asserted charge entries; consumes no Tesla Fleet API; no HTML; public
       ports are Writer and Reader.
-- [ ] T3.2 Define `Entry` domain struct per design D6. No vendor suffix. Fields:
+- [x] T3.2 Define `Entry` domain struct per design D6. No vendor suffix. Fields:
       `ID uuid.UUID`,
       `AccountID uuid.UUID`,
       `TeslaID int64`,
@@ -117,7 +117,7 @@
       `UpdatedAt time.Time`.
       Add doc comment: our domain model (no vendor suffix); pgtype confined to DB boundary;
       optional fields are `*T` (nil = not supplied / NULL in DB).
-- [ ] T3.3 Add derived value-receiver methods on `Entry` (all nil-safe):
+- [x] T3.3 Add derived value-receiver methods on `Entry` (all nil-safe):
       `CostPerKWh() *float64` — returns `&(e.Price / e.EnergyAddedKWh)`; returns nil if
       `e.EnergyAddedKWh == 0` (defensive; CHECK prevents zero, but nil is the safer signal).
       `BatteryDelta() *int` — returns `&(*e.EndBatteryPct - *e.StartBatteryPct)` if both
@@ -126,18 +126,18 @@
       if both non-nil; otherwise nil.
       Add doc comments: derived on read, never stored; no Km/Kmh companions (no distance/speed
       fields — ai/go-conventions.md).
-- [ ] T3.4 Declare `Writer` interface per design D4:
+- [x] T3.4 Declare `Writer` interface per design D4:
       `Create(ctx context.Context, e Entry) (Entry, error)`,
       `Update(ctx context.Context, e Entry) (Entry, error)`,
       `Delete(ctx context.Context, accountID uuid.UUID, id uuid.UUID) error`.
       Doc comment: full CRUD port; `Delete` takes `accountID` to scope the SQL WHERE clause
       to the calling user's account; `Create` and `Update` return the stored `Entry`.
-- [ ] T3.5 Declare `Reader` interface per design D5:
+- [x] T3.5 Declare `Reader` interface per design D5:
       `ListEntriesByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Entry, error)`,
       `ListEntriesByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]Entry, error)`.
       Doc comment: both return a non-nil empty slice when no entries exist; `limit = 0` uses
       a server default (100); gateway and other callers MUST NOT import `manualchargedb`.
-- [ ] T3.6 Declare constructor functions (implemented in T4):
+- [x] T3.6 Declare constructor functions (implemented in T4):
       `func NewWriter(pool *pgxpool.Pool) Writer`
       `func NewReader(pool *pgxpool.Pool) Reader`
       These are the ONLY publicly exported constructors for the port implementations. Add
@@ -190,15 +190,15 @@
 
 ## T5. Unit tests — derived methods, offline (`internal/manualcharge/manualcharge_test.go`) — depends on T3
 
-- [ ] T5.1 Create `internal/manualcharge/manualcharge_test.go` (package `manualcharge_test`).
+- [x] T5.1 Create `internal/manualcharge/manualcharge_test.go` (package `manualcharge_test`).
       Add unit tests for `Entry.CostPerKWh()`:
       (a) non-nil result when both fields are set (`price=8000, energy=15.5 → ~516.13`);
       (b) nil when `energy_added_kwh = 0` (defensive nil, not a divide-by-zero panic).
-- [ ] T5.2 Add unit tests for `Entry.BatteryDelta()`:
+- [x] T5.2 Add unit tests for `Entry.BatteryDelta()`:
       (a) non-nil result when both battery fields are set (`start=20, end=80 → 60`);
       (b) nil when `start_battery_pct` is nil;
       (c) nil when `end_battery_pct` is nil.
-- [ ] T5.3 Add unit tests for `Entry.SessionDuration()`:
+- [x] T5.3 Add unit tests for `Entry.SessionDuration()`:
       (a) non-nil duration when both `started_at` and `ended_at` are set;
       (b) nil when `started_at` is nil;
       (c) nil when `ended_at` is nil.
