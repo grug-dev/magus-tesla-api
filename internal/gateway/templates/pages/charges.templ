@@ -1,0 +1,32 @@
+package pages
+
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+)
+
+// ChargePage renders the full Charge log page. It uses layouts.BaseAuth (the
+// authenticated shell with nav links) and composes the create form fragment and
+// the list fragment via templ.Fragment so the handler can render either the full
+// page (initial load) or a single fragment (htmx swap) from the same template tree.
+templ ChargePage(d fragments.ChargesPageData) {
+	@layouts.BaseAuth("Charge log — Magus") {
+		<main>
+			<h1>Charge log</h1>
+			<p><a href="/dashboard">Back to dashboard</a></p>
+			@templ.Fragment("charges-create-form") {
+				@fragments.ChargeCreateForm(d, nil)
+			}
+			<hr/>
+			<h2>Your entries</h2>
+			<button
+				hx-get="/ui/charges/list"
+				hx-target="#charges-list"
+				hx-swap="outerHTML"
+			>Refresh</button>
+			@templ.Fragment("charges-list") {
+				@fragments.ChargesList(d)
+			}
+		</main>
+	}
+}

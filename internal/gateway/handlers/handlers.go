@@ -25,6 +25,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
+	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -42,35 +43,46 @@ type Deps struct {
 	// TelemetryReader is the telemetry read port; injected at construction.
 	// The gateway calls LatestSnapshotsByAccount once per dashboard render.
 	// NEVER import internal/telemetry/db — all access through this interface only.
-	TelemetryReader   telemetry.Reader
-	TeslaClientID     string
-	TeslaClientSecret string
-	TeslaRedirectURL  string
+	TelemetryReader telemetry.Reader
+	// ManualChargeWriter is the manualcharge write port. Called by write handlers
+	// on explicit user-initiated form submissions (create/update/delete).
+	// See AGENTS.md "Exception: user-initiated writes" for constraints.
+	ManualChargeWriter manualcharge.Writer
+	// ManualChargeReader is the manualcharge read port. Called by read handlers
+	// and the dataForCharges helper to list charge entries.
+	ManualChargeReader manualcharge.Reader
+	TeslaClientID      string
+	TeslaClientSecret  string
+	TeslaRedirectURL   string
 }
 
 // Handler carries the gateway's dependencies.
 type Handler struct {
-	pool              *pgxpool.Pool
-	acct              account.Service
-	google            *googleauth.Client
-	tesla             tesla.VehicleService
-	telemetryReader   telemetry.Reader
-	teslaClientID     string
-	teslaClientSecret string
-	teslaRedirectURL  string
+	pool               *pgxpool.Pool
+	acct               account.Service
+	google             *googleauth.Client
+	tesla              tesla.VehicleService
+	telemetryReader    telemetry.Reader
+	manualChargeWriter manualcharge.Writer
+	manualChargeReader manualcharge.Reader
+	teslaClientID      string
+	teslaClientSecret  string
+	teslaRedirectURL   string
 }
 
 // New builds the gateway handlers.
 func New(d Deps) *Handler {
 	return &Handler{
-		pool:              d.Pool,
-		acct:              d.Account,
-		google:            d.Google,
-		tesla:             d.Tesla,
-		telemetryReader:   d.TelemetryReader,
-		teslaClientID:     d.TeslaClientID,
-		teslaClientSecret: d.TeslaClientSecret,
-		teslaRedirectURL:  d.TeslaRedirectURL,
+		pool:               d.Pool,
+		acct:               d.Account,
+		google:             d.Google,
+		tesla:              d.Tesla,
+		telemetryReader:    d.TelemetryReader,
+		manualChargeWriter: d.ManualChargeWriter,
+		manualChargeReader: d.ManualChargeReader,
+		teslaClientID:      d.TeslaClientID,
+		teslaClientSecret:  d.TeslaClientSecret,
+		teslaRedirectURL:   d.TeslaRedirectURL,
 	}
 }
 

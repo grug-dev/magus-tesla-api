@@ -18,6 +18,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
+	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -49,15 +50,17 @@ func main() {
 	google := googleauth.NewClient(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL())
 
 	engine, err := gateway.NewEngine(gateway.Deps{
-		Pool:              pool,
-		Account:           acct,
-		Google:            google,
-		Tesla:             tesla.NewClient(),
-		TelemetryReader:   telemetry.NewReader(pool),
-		SessionSecret:     cfg.SessionSecret,
-		TeslaClientID:     cfg.ClientID,
-		TeslaClientSecret: cfg.ClientSecret,
-		TeslaRedirectURL:  cfg.TeslaConnectRedirectURL(),
+		Pool:               pool,
+		Account:            acct,
+		Google:             google,
+		Tesla:              tesla.NewClient(),
+		TelemetryReader:    telemetry.NewReader(pool),
+		ManualChargeWriter: manualcharge.NewWriter(pool),
+		ManualChargeReader: manualcharge.NewReader(pool),
+		SessionSecret:      cfg.SessionSecret,
+		TeslaClientID:      cfg.ClientID,
+		TeslaClientSecret:  cfg.ClientSecret,
+		TeslaRedirectURL:   cfg.TeslaConnectRedirectURL(),
 	})
 	if err != nil {
 		log.Fatalf("gateway: %v", err)

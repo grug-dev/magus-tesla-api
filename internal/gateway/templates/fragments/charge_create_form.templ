@@ -1,0 +1,145 @@
+package fragments
+
+// ChargeCreateForm renders the "Log a charge" create form.
+// Its root <div id="charges-create-form"> matches the templ.Fragment name and
+// is the hx-target for the create POST (required invariant — design.md D1).
+// validationErrors maps field names to error messages; nil or empty means no errors.
+templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
+	<div id="charges-create-form">
+		<h2>Log a charge</h2>
+		if validationErrors["_top"] != "" {
+			<p class="error">{ validationErrors["_top"] }</p>
+		}
+		<form
+			hx-post="/ui/charges/create"
+			hx-target="#charges-create-form"
+			hx-swap="outerHTML"
+		>
+			<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
+			<div>
+				<label>
+					Date
+					<input type="date" name="charged_on" required/>
+				</label>
+				if validationErrors["charged_on"] != "" {
+					<span class="error">{ validationErrors["charged_on"] }</span>
+				}
+			</div>
+			<div>
+				<label>
+					Energy added (kWh)
+					<input type="number" name="energy_added_kwh" step="0.01" min="0.01" required/>
+				</label>
+				if validationErrors["energy_added_kwh"] != "" {
+					<span class="error">{ validationErrors["energy_added_kwh"] }</span>
+				}
+			</div>
+			<div>
+				<label>
+					Price
+					<input type="number" name="price" step="0.01" min="0" required/>
+				</label>
+				if validationErrors["price"] != "" {
+					<span class="error">{ validationErrors["price"] }</span>
+				}
+			</div>
+			<div>
+				<label>
+					Currency
+					<input type="text" name="currency" value="COP" required/>
+				</label>
+				if validationErrors["currency"] != "" {
+					<span class="error">{ validationErrors["currency"] }</span>
+				}
+			</div>
+			<div>
+				<label>
+					Vehicle
+					<select name="vehicle">
+						<option value="">Select a vehicle</option>
+						for _, opt := range d.VehicleOptions {
+							<option value={ opt.Value }>{ opt.DisplayName }</option>
+						}
+					</select>
+				</label>
+				if validationErrors["vehicle"] != "" {
+					<span class="error">{ validationErrors["vehicle"] }</span>
+				}
+			</div>
+			<details>
+				<summary>More details</summary>
+				<div>
+					<label>
+						Started at
+						<input type="datetime-local" name="started_at"/>
+					</label>
+				</div>
+				<div>
+					<label>
+						Ended at
+						<input type="datetime-local" name="ended_at"/>
+					</label>
+				</div>
+				<div>
+					<label>
+						Start battery %
+						<input type="number" name="start_battery_pct" min="0" max="100" step="1"/>
+					</label>
+				</div>
+				<div>
+					<label>
+						End battery %
+						<input type="number" name="end_battery_pct" min="0" max="100" step="1"/>
+					</label>
+				</div>
+				<div>
+					<label>
+						Charging type
+						<select name="charging_type">
+							<option value="">-</option>
+							<option value="AC">AC</option>
+							<option value="DC">DC</option>
+						</select>
+					</label>
+				</div>
+				<div>
+					<label>
+						Location kind
+						<select name="location_kind">
+							<option value="">-</option>
+							<option value="HOME">Home</option>
+							<option value="WORK">Work</option>
+							<option value="OTHER">Other</option>
+						</select>
+					</label>
+				</div>
+				<div>
+					<label>
+						Location label
+						<input type="text" name="location_label"/>
+					</label>
+				</div>
+				<div>
+					<label>
+						Notes
+						<textarea name="notes"></textarea>
+					</label>
+				</div>
+			</details>
+			<div>
+				<button type="submit">Log charge</button>
+			</div>
+		</form>
+	</div>
+}
+
+// ChargeCreateSuccessOOB renders the create-success response: a reset create form
+// (the primary swap target #charges-create-form) plus an OOB swap to refresh
+// #charges-list. Both are returned in one response body so htmx applies both
+// in a single round-trip using hx-swap-oob="outerHTML" (design.md D1 + htmx OOB).
+templ ChargeCreateSuccessOOB(d ChargesPageData) {
+	@ChargeCreateForm(d, nil)
+	<div id="charges-list" hx-swap-oob="outerHTML:#charges-list">
+		@ChargesList(d)
+	</div>
+}

@@ -32,6 +32,16 @@ It renders what other modules expose; it owns no business data.
   vehicle card telemetry. Added by `gateway-read-stored-vehicles` (tier 5).
   NEVER import `internal/telemetry/db` (`telemetrydb`) — all access through this
   interface only.
+- `Deps.ManualChargeWriter manualcharge.Writer` — the manual charge write port; injected
+  at construction. Called ONLY by the write handlers (ChargeCreate, ChargeRowUpdate,
+  ChargeRowDelete) on explicit user-initiated form submissions. See "Exception:
+  user-initiated writes" below. NEVER import `internal/manualcharge/db` — all access
+  through this interface only.
+- `Deps.ManualChargeReader manualcharge.Reader` — the manual charge read port; injected
+  at construction. Called by read handlers (ChargePage, ChargesListFragment,
+  ChargeRowStatic, ChargeRowEditFragment) and the `buildChargesPage` helper to list
+  charge entries. NEVER import `internal/manualcharge/db` — all access through this
+  interface only.
 
 ## Boundaries
 
@@ -46,13 +56,14 @@ It renders what other modules expose; it owns no business data.
 
 ## Read-only at request time
 
-The gateway is **read-only on every user-facing request**. This is both a tenancy
-safety rule and a read-optimization principle (see [`ai/architecture.md`](../../ai/architecture.md)
-§7): the hot path (user → DB read → HTML) stays cheap and predictable.
+The gateway is **read-only on every user-facing request** by default. This is both a
+tenancy safety rule and a read-optimization principle (see
+[`ai/architecture.md`](../../ai/architecture.md) §7): the hot path (user → DB read →
+HTML) stays cheap and predictable.
 
 - Handlers only call **`Reader` ports** (e.g. `account.RegisteredVehicles`,
   `telemetry.Reader.LatestSnapshotsByAccount`). Never call `Collector` or
-  `Writer` ports from a handler.
+  `Writer` ports from a handler, **except as documented below**.
 - No writes, no Tesla API calls, no side effects on user requests. The only
   user-initiated Tesla API call is listing vehicles on first Tesla connect
   (one-time seed), and even that happens through the account module's interface —
@@ -60,6 +71,37 @@ safety rule and a read-optimization principle (see [`ai/architecture.md`](../../
 - All writes (telemetry collection, summary computation, token rotation) happen in
   the nightly batch (`telemetry.Collector`) or inside `account.Service` methods
   called from non-gateway paths — never from a gateway handler.
+
+### Exception: user-initiated writes (D4 amendment — RM3-gateway-add-manual-charge-ui)
+
+The gateway MAY call `manualcharge.Writer` (Create / Update / Delete) on explicit
+**user-initiated form POSTs/PUTs/DELETEs** (`ChargeCreate`, `ChargeRowUpdate`,
+`ChargeRowDelete`), subject to ALL of the following constraints:
+
+1. **Auth guard first** — `currentUID(c)` must resolve a valid session UID or the
+   handler redirects to `/login` and returns. No write proceeds without an
+   authenticated user.
+2. **Tenant ownership validated before every write** — the handler calls
+   `h.acct.RegisteredVehicles(ctx, uid)` and confirms the submitted `(tesla_id, vin)`
+   pair belongs to the calling user's account. If the vehicle is not in the user's
+   list, the handler returns HTTP 403 (forbidden) without calling Writer. This is the
+   referential integrity flow: no cross-module FK exists in the DB, so the gateway
+   enforces tenant scoping at the application layer.
+3. **CSRF token on every state-changing route** — the handler calls `checkCSRF(c)`,
+   which reads `csrf_token` from the form body (or `X-CSRF-Token` header) and
+   compares it via `subtle.ConstantTimeCompare` to the session key
+   `"csrf_manualcharge"`. Returns HTTP 403 on mismatch; no write proceeds.
+4. **Only `manualcharge.Writer` is permitted** — this is the narrow aperture.
+   This amendment does NOT open general write access to the gateway; Reader-only
+   remains the default for ALL other handlers (dashboard, telemetry fragments,
+   health, OAuth, etc.).
+
+**Rationale:** Manual charge entry is a different class of request from dashboard
+reads: the user explicitly fills a form and submits it. Denying all writes at the
+gateway layer would force an external HTTP API that the browser would then need to
+call — an unnecessary layer when the gateway is already the only HTML surface.
+The write is intentional (form POST), narrow (one module's Writer port),
+CSRF-protected, and tenant-scoped.
 
 ## Testing
 

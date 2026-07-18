@@ -1,0 +1,40 @@
+package fragments
+
+// ChargesList is the htmx-swappable charge entries table region.
+// Its root <div id="charges-list"> matches the templ.Fragment("charges-list") name
+// and the hx-target="#charges-list" on the refresh button (required invariant).
+templ ChargesList(d ChargesPageData) {
+	<div id="charges-list">
+		if d.Error != "" {
+			<p class="notice-banner">{ d.Error }</p>
+		}
+		if d.EmptyState {
+			<p>No charge entries yet. Use the form above to log your first charge.</p>
+		} else if len(d.Entries) > 0 {
+			<table>
+				<thead>
+					<tr>
+						<th>Date</th>
+						<th>Vehicle</th>
+						<th>Energy</th>
+						<th>Price</th>
+						<th>Cost/kWh</th>
+						<th>Battery</th>
+						<th>Duration</th>
+						<th>Actions</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, vm := range d.Entries {
+						@ChargeRow(vm, d.CSRFToken)
+					}
+				</tbody>
+			</table>
+		}
+	</div>
+}
+
+// ChargesEmptyState renders the empty-state message for the charges list.
+templ ChargesEmptyState() {
+	<p>No charge entries yet. Use the form above to log your first charge.</p>
+}
