@@ -438,6 +438,63 @@ func TestChargingHistory_RFC3339TimestampParsing(t *testing.T) {
 // ChargingHistoryRaw, ListVehiclesRaw, VehicleDataRaw, or WakeUpRaw). This is
 // enforced by inspection — the Raw* prohibition is maintained by convention.
 
+// TestListVehicles_AccessTypeDecoding asserts that the AccessType field on
+// VehicleTesla is correctly decoded from the Fleet API list response (D3).
+// Two cases are covered:
+//   - a vehicle with "access_type": "OWNER" decodes to AccessType == "OWNER"
+//   - a vehicle with access_type omitted decodes to AccessType == "" (zero value)
+//
+// The test is entirely offline: an httptest.Server serves canned JSON and
+// no .env, token, or DB is required.
+func TestListVehicles_AccessTypeDecoding(t *testing.T) {
+	const listBody = `{
+		"response": [
+			{
+				"id": 1,
+				"vehicle_id": 100,
+				"vin": "VIN_OWNER",
+				"display_name": "Owner Car",
+				"state": "online",
+				"access_type": "OWNER"
+			},
+			{
+				"id": 2,
+				"vehicle_id": 200,
+				"vin": "VIN_OMITTED",
+				"display_name": "Omitted Car",
+				"state": "online"
+			}
+		],
+		"count": 2
+	}`
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/1/vehicles" {
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(listBody))
+	}))
+	defer srv.Close()
+
+	vehicles, err := testClient(srv).ListVehicles(context.Background(), Credentials{AccessToken: "tok"})
+	if err != nil {
+		t.Fatalf("ListVehicles: %v", err)
+	}
+	if len(vehicles) != 2 {
+		t.Fatalf("want 2 vehicles, got %d", len(vehicles))
+	}
+
+	// Vehicle with explicit "access_type": "OWNER" must decode to "OWNER".
+	if got := vehicles[0].AccessType; got != "OWNER" {
+		t.Errorf("vehicles[0].AccessType: want %q, got %q", "OWNER", got)
+	}
+
+	// Vehicle with access_type omitted must decode to the zero value "".
+	if got := vehicles[1].AccessType; got != "" {
+		t.Errorf("vehicles[1].AccessType: want %q (zero), got %q", "", got)
+	}
+}
+
 func TestMetricCompanions(t *testing.T) {
 	const eps = 1e-9
 

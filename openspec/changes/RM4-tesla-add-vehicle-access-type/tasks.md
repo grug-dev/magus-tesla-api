@@ -11,24 +11,24 @@
 
 ## T1 — Add `AccessType` field to `VehicleTesla` DTO — no dependencies
 
-- [ ] T1.1 In `internal/tesla/types.go`, add `AccessType string \`json:"access_type"\`` to
+- [x] T1.1 In `internal/tesla/types.go`, add `AccessType string \`json:"access_type"\`` to
       the `VehicleTesla` struct. Place the field after the existing identity/state fields
       (after `State string`, before any blank line closing the struct). No pointer, no enum
       type, no companion method — plain `string` per D1.
-- [ ] T1.2 Confirm no `Km()` or `Kmh()` companion method is added for `AccessType` (string
+- [x] T1.2 Confirm no `Km()` or `Kmh()` companion method is added for `AccessType` (string
       classification field, not a distance/speed value). Document this fact with a brief
       inline comment on the field if needed for reviewer clarity.
 
 ## T2 — Decode test + `AGENTS.md` interface note update — no dependencies
 
-- [ ] T2.1 In `internal/tesla/vehicles_test.go`, add a test (same-package, offline) that
+- [x] T2.1 In `internal/tesla/vehicles_test.go`, add a test (same-package, offline) that
       serves a canned `/api/1/vehicles` JSON response via `httptest.Server` with a vehicle
       whose `"access_type"` is `"OWNER"`. Assert that `ListVehicles` returns
       `vehicles[0].AccessType == "OWNER"`.
-- [ ] T2.2 Add a complementary assertion in the same test (or a separate sub-case) that a
+- [x] T2.2 Add a complementary assertion in the same test (or a separate sub-case) that a
       vehicle with `"access_type"` omitted from the JSON response decodes to
       `AccessType == ""` (zero value, no error).
-- [ ] T2.3 In `internal/tesla/AGENTS.md`, update the "Other public symbols" sentence that
+- [x] T2.3 In `internal/tesla/AGENTS.md`, update the "Other public symbols" sentence that
       lists `VehicleTesla` and its fields to include `AccessType string` so the documented
       DTO shape matches the code.
 
