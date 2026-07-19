@@ -51,7 +51,8 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc tidy build vet test check bins cmd-setup cmd-web cmd-explore-tesla cmd-poller-once
+        db-setup db-reset env-setup sqlc templ generate tidy build vet test check bins \
+        up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
 
@@ -277,7 +278,7 @@ cmd-setup: ## Build cmd/setup into ./bin and run it (one-shot Tesla OAuth flow; 
 	go build -o bin/setup ./cmd/setup
 	./bin/setup
 
-cmd-web: ## Build cmd/web into ./bin and run it (the web server; listens on $PORT, default 8080)
+up: generate migrate-up ## Refresh & run: regenerate code (sqlc + templ), apply migrations, then build & run the web server on $PORT (default 8080)
 	@mkdir -p bin
 	go build -o bin/web ./cmd/web
 	./bin/web
