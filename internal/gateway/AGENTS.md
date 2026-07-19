@@ -122,7 +122,7 @@ region in the gateway. It tells you which files to touch and in what order. For 
 
 1. Edit `internal/gateway/templates/pages/<name>.templ` (page shell) and/or
    `internal/gateway/templates/fragments/<region>.templ` (swap region).
-2. Run `templ generate` (regenerates `*_templ.go`).
+2. Run `make templ` (pinned `go tool templ generate`; regenerates `*_templ.go`).
 3. Done. No DB, no domain module, no `sqlc`.
 
 #### Yes — the page must show something fetched or stored
@@ -166,7 +166,7 @@ the data (e.g. `account`, `charging`, `battery`, `drives`). If none fits, create
        </main>
    }
    ```
-9. **Regenerate** — `templ generate` (always after any `.templ` edit).
+9. **Regenerate** — `make templ` (pinned `go tool templ generate`; always after any `.templ` edit).
 10. **Tests** — `internal/gateway/handlers/handlers_test.go` and/or
     `gateway_test.go`: fake the new `Service` method; `httptest` both `/<name>` and
     `/ui/<region>`.
@@ -230,7 +230,7 @@ design is wrong — add a method to the owning module instead.
 | File changed | Run | Produces |
 |---|---|---|
 | `internal/<module>/db/queries.sql` | `sqlc generate` | `db/*.go` (generated) |
-| `*.templ` | `templ generate` | `*_templ.go` (generated) |
+| `*.templ` | `make templ` (pinned `go tool templ generate`) | `*_templ.go` (generated) |
 | `*.go` | `go build` / `go test` | nothing else |
 
 Never hand-edit generated files (`db/*.go`, `*_templ.go`).

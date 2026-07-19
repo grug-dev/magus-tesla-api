@@ -246,6 +246,11 @@ env-setup: ## Interactive .env bootstrap — prompt only for MISSING vars, auto-
 sqlc: ## Regenerate type-safe DB code from SQL (sqlc generate)
 	sqlc generate
 
+templ: ## Regenerate Templ HTML code (pinned go tool — NEVER a bare `go run .../templ`, it pollutes go.mod)
+	go tool templ generate ./...
+
+generate: sqlc templ ## Run all code generators (sqlc + templ)
+
 tidy: ## Sync go.mod / go.sum (go mod tidy)
 	go mod tidy
 
