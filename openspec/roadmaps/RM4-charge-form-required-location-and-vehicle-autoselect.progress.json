@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM4-charge-form-required-location-and-vehicle-autoselect",
+  "intention": "Manual charge create form always captures a location and auto-selects the right vehicle (single -> disabled; else first OWNER; else first-in-list).",
+  "request": "I want some improvements on the manualcharge module: (1) make location_kind a required field on the charge form (front-end and back-end); (2) auto-select the vehicle in the create form - single vehicle -> auto-select + disable; more than one -> first vehicle with Tesla access_type OWNER.",
+  "autopilot": true,
+  "status": "in-progress",
+  "created_at": "2026-07-19T12:51:07Z",
+  "updated_at": "2026-07-19T12:51:07Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM4-charge-form-required-location-and-vehicle-autoselect",
+    "base": "main",
+    "created_at": "2026-07-19T12:51:07Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2, 3, 4],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-07-19T12:51:07Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "location_kind -> NOT NULL via defensive backfill to 'OTHER' then SET NOT NULL, no DB DEFAULT; required on create+edit; domain field stays *string, validated non-nil.",
+      "why": "Grill-me outcome; keeps build green after the manualcharge tier and preserves the DB-boundary nil convention.",
+      "covered_by": null
+    },
+    {
+      "id": "RD2",
+      "at": "2026-07-19T12:51:07Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "vehicles.access_type nullable TEXT, CHECK (IS NULL OR IN ('OWNER','DRIVER')), no index; AccessType *string on Vehicle/OwnedVehicle/SeedVehicle.",
+      "why": "Grill-me outcome; no truthful backfill value for a migration, read only within the small per-account vehicle list.",
+      "covered_by": null
+    },
+    {
+      "id": "RD3",
+      "at": "2026-07-19T12:51:07Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "No access_type backfill mechanism: user wipes all DB table data, so fresh seeds capture access_type. Wipe must happen after tesla+account tiers deploy.",
+      "why": "Grill-me outcome; collapses the SeedVehicles ON CONFLICT change and gateway re-seed trigger.",
+      "covered_by": null
+    },
+    {
+      "id": "RD4",
+      "at": "2026-07-19T12:51:07Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Auto-select is create-form only: single -> select + disabled + hidden input; else first OWNER; else first-in-list; never unselected.",
+      "why": "Grill-me outcome; disabled <select> posts nothing, so a hidden input carries the value.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM4-tesla-add-vehicle-access-type",
+      "module": "tesla",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Add AccessType to VehicleTesla DTO; no DB, no new Fleet call."
+    },
+    {
+      "id": 2,
+      "change": "RM4-account-persist-vehicle-access-type",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Add access_type column + domain fields; persist on seed. DB design gate."
+    },
+    {
+      "id": 3,
+      "change": "RM4-manualcharge-require-location-kind",
+      "module": "manualcharge",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "location_kind NOT NULL + service validation. DB design gate."
+    },
+    {
+      "id": 4,
+      "change": "RM4-gateway-require-location-and-autoselect-vehicle",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1, 2, 3],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Required location field + create-form vehicle auto-select; map access_type at seed."
+    }
+  ],
+  "events": [
+    { "at": "2026-07-19T12:51:07Z", "agent": "leader", "event": "RM4 roadmap created (4 tiers); branch ft/RM4-charge-form-required-location-and-vehicle-autoselect off main; rm-counter 4->5; grill-me decisions RD1-RD4 captured; autopilot on." }
+  ]
+}
