@@ -5,7 +5,7 @@
   "module": "tesla",
   "roadmap": "openspec/roadmaps/RM4-charge-form-required-location-and-vehicle-autoselect.md",
   "request": "Tier 1 of RM4: add Tesla per-vehicle access_type (OWNER/DRIVER) to the VehicleTesla DTO so ListVehicles surfaces it for downstream persistence (account) and vehicle auto-select (gateway).",
-  "status": "reviewer-approved",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -13,7 +13,7 @@
     "done": ["T1", "T2", "T3"]
   },
   "created_at": "2026-07-19T12:58:04Z",
-  "updated_at": "2026-07-19T13:07:00Z",
+  "updated_at": "2026-07-19T13:09:00Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -122,6 +122,7 @@
     { "at": "2026-07-19T12:58:04Z", "agent": "leader", "event": "progress.json seeded from tasks.md (T1,T2,T3); status proposed. Change-level design decisions live in design.md (D1-D4); roadmap decisions RD1-RD4 in the roadmap progress.json." },
     { "at": "2026-07-19T13:01:17Z", "agent": "leader", "event": "Wave 1 dispatched tesla worker (sonnet) for T1+T2; returned with types.go field + offline decode test + AGENTS.md note; complied with D1-D4; module tests green." },
     { "at": "2026-07-19T13:03:00Z", "agent": "leader", "event": "Step 6 verify: go build/vet/test ./... all green, openspec --strict valid. T3 done; status -> verified. Next: review loop (Step 7)." },
-    { "at": "2026-07-19T13:07:00Z", "agent": "leader", "event": "Review round 1: tesla-reviewer (sonnet) verdict APPROVED, 8/8 brief items confirmed; one minor finding F1 (untested spec DRIVER scenario). Leader triaged F1 accepted and applied the reviewer's suggested 2-line test addition (DRIVER case); go test green. status -> reviewer-approved." }
+    { "at": "2026-07-19T13:07:00Z", "agent": "leader", "event": "Review round 1: tesla-reviewer (sonnet) verdict APPROVED, 8/8 brief items confirmed; one minor finding F1 (untested spec DRIVER scenario). Leader triaged F1 accepted and applied the reviewer's suggested 2-line test addition (DRIVER case); go test green. status -> reviewer-approved." },
+    { "at": "2026-07-19T13:09:00Z", "agent": "leader", "event": "Step 8 archive: openspec archive synced the delta into openspec/specs/tesla/spec.md; change moved to archive/tesla/2026-07-19-RM4-tesla-add-vehicle-access-type/ (domain-grouped per config); T3.* checkboxes ticked (verification passed). status -> archived." }
   ]
 }

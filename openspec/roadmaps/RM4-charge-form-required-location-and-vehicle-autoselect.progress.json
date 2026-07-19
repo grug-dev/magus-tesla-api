@@ -7,7 +7,7 @@
   "autopilot": true,
   "status": "in-progress",
   "created_at": "2026-07-19T12:51:07Z",
-  "updated_at": "2026-07-19T12:58:04Z",
+  "updated_at": "2026-07-19T13:09:00Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -16,10 +16,10 @@
     "created_at": "2026-07-19T12:51:07Z"
   },
   "rollup": {
-    "current": [1],
+    "current": [],
     "pending": [2, 3, 4],
     "blocked": [],
-    "done": []
+    "done": [1]
   },
   "decisions": [
     {
@@ -66,14 +66,21 @@
       "module": "tesla",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-07-19T12:51:07Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Add AccessType to VehicleTesla DTO; no DB, no new Fleet call. Artifacts created + validated."
+      "completed_at": "2026-07-19T13:09:00Z",
+      "duration_seconds": 1073,
+      "budget": {
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 3.07,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of tier task/wave deltas + review round: apply ~5pp/$0.75, review ~5pp/$1.14, plus artifact + archive overhead. 5-hour 63->78%."
+      },
+      "notes": "Shipped: access_type on VehicleTesla DTO. 1 review round (approved, minor F1 fixed). Archived to archive/tesla/. No DB."
     },
     {
       "id": 2,
@@ -123,6 +130,7 @@
   ],
   "events": [
     { "at": "2026-07-19T12:51:07Z", "agent": "leader", "event": "RM4 roadmap created (4 tiers); branch ft/RM4-charge-form-required-location-and-vehicle-autoselect off main; rm-counter 4->5; grill-me decisions RD1-RD4 captured; autopilot on." },
-    { "at": "2026-07-19T12:58:04Z", "agent": "leader", "event": "Tier 1 (RM4-tesla-add-vehicle-access-type) artifacts created by tesla worker (sonnet) and validated (openspec --strict). No DB -> no design gate. Tier -> proposed, [ ]->[~]." }
+    { "at": "2026-07-19T12:58:04Z", "agent": "leader", "event": "Tier 1 (RM4-tesla-add-vehicle-access-type) artifacts created by tesla worker (sonnet) and validated (openspec --strict). No DB -> no design gate. Tier -> proposed, [ ]->[~]." },
+    { "at": "2026-07-19T13:09:00Z", "agent": "leader", "event": "Tier 1 ARCHIVED: implemented (sonnet worker), verified (build/vet/test ./... green), reviewed (approved, minor F1 fixed), delta synced to specs/tesla, moved to archive/tesla/. Tier 1 [~]->[x]. Unblocked next: tiers 2 (account) and 3 (manualcharge) - both depend_on []. Tier 2 hits the database design gate (autopilot pause)." }
   ]
 }

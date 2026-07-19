@@ -34,9 +34,9 @@
 
 ## T3 — Verification — depends on T1 and T2
 
-- [ ] T3.1 `go build ./...` passes with no errors.
-- [ ] T3.2 `go vet ./...` passes with no warnings.
-- [ ] T3.3 `go test ./internal/tesla/...` is green and runs entirely offline (no live Tesla
+- [x] T3.1 `go build ./...` passes with no errors.
+- [x] T3.2 `go vet ./...` passes with no warnings.
+- [x] T3.3 `go test ./internal/tesla/...` is green and runs entirely offline (no live Tesla
       call, no `.env` required, no DB).
-- [ ] T3.4 `openspec validate RM4-tesla-add-vehicle-access-type --strict` passes and
+- [x] T3.4 `openspec validate RM4-tesla-add-vehicle-access-type --strict` passes and
       tasks.md checkboxes reflect real completion.
