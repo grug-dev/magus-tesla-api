@@ -58,6 +58,7 @@ These are always in effect. Do not violate them even if you haven't opened the c
 - **Modular packages are a hard requirement** — every Tesla API concern gets its own package under `internal/`; one concern per package; `cmd/` stays thin (zero business logic).
 - **Miles → km conversion is mandatory** — every miles/mph struct field must have a companion `<Field>Km()` / `<Field>Kmh()` value-receiver method using the `milesToKm` constant. Never a JSON-tagged km field; nil-safe for pointer fields.
 - **Boundaries are sacred** (detail in `ai/architecture.md`): no HTML outside `internal/gateway/`; no module reads another module's DB/internals; cross-module data flows only through public Go interfaces; the gateway calls interfaces, never a database.
+- **Docs track structural change** — any change that adds, removes, renames, or re-scopes a module (or otherwise alters the project's structure or a module's public surface) MUST update the affected docs **in the same change**, never as a follow-up: the root `README.md` "Project Structure" tree and "Architecture" table, `cmd/README.md` when a runnable changes, and the module's own `README.md` where one exists. A change that leaves structure docs stale is **incomplete**.
 
 ## Pipeline config (kkpa-dev-harness-pipeline)
 

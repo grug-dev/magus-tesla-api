@@ -86,7 +86,11 @@ this section is the assistant-neutral contract of record.)
 - **Reviewer** — reviews the module's completed change cold, against a leader-written
   review brief, before archive. The only role allowed to set `reviewer-approved`.
   On `changes-requested`, the leader triages and fixes, then signals the **same**
-  reviewer to re-verify.
+  reviewer to re-verify. Part of the gate: confirm the change honored `CLAUDE.md`'s
+  **Docs track structural change** rule — if it added/removed/renamed a module or changed
+  a module's public surface without updating the root `README.md` structure/architecture
+  sections (and `cmd/README.md` / the module's own `README.md` where relevant), that is a
+  `changes-requested` finding, not a nit.
 
 ### Pipeline config & the doc-pack guarantee
 

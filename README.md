@@ -97,6 +97,8 @@ magus-tesla-api/
 ├── internal/
 │   ├── account/        # Per-user Tesla tokens (persisted, refreshed) in Postgres
 │   ├── tesla/          # State-less Fleet API adapter (handed creds per call)
+│   ├── telemetry/      # Nightly vehicle snapshot collection + storage (poller)
+│   ├── manualcharge/   # User-asserted charge entries (home/work/3rd-party sessions)
 │   ├── gateway/        # Gin + Templ HTTP layer (handlers, pages, fragments)
 │   ├── googleauth/     # Google OAuth for user login
 │   ├── config/         # .env loading and token persistence
@@ -172,8 +174,14 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 
 | Package | Responsibility |
 |---|---|
+| `internal/account` | Per-user Tesla tokens (persisted + refreshed) in Postgres |
+| `internal/tesla` | Stateless Fleet API adapter (handed credentials per call) |
+| `internal/telemetry` | Nightly per-vehicle snapshot collection + storage |
+| `internal/manualcharge` | User-asserted charge entries (home/work/3rd-party) |
+| `internal/gateway` | Gin + Templ HTTP layer (handlers, pages, fragments) |
+| `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
-| `internal/auth` | OAuth flow, token exchange, token refresh |
+| `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
 
 ---
 
