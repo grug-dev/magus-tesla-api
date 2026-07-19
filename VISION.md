@@ -38,7 +38,6 @@ Examples include:
 * Battery health score
 * Charging behavior
 * Temperature impact
-* Seasonal effects
 * Battery forecasts
 * Expected remaining useful life
 
@@ -75,7 +74,6 @@ Examples include:
 * Trip history
 * Daily utilization
 * Monthly utilization
-* Seasonal behavior
 * Driving patterns
 
 ---
@@ -91,7 +89,6 @@ Examples include:
 * Cost per trip
 * Monthly operating cost
 * Annual operating cost
-* Estimated gasoline equivalent
 * Lifetime savings
 
 ---

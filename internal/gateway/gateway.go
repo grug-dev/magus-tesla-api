@@ -17,6 +17,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/handlers"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
+	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -39,7 +40,14 @@ type Deps struct {
 	// NEVER import internal/telemetry/db (telemetrydb) — all access through this
 	// interface only.
 	TelemetryReader telemetry.Reader
-	SessionSecret   string
+	// ManualChargeWriter is the manualcharge write port. Called by write handlers
+	// (create/update/delete) on explicit user-initiated form submissions only.
+	// See AGENTS.md "Exception: user-initiated writes" for the full amendment.
+	ManualChargeWriter manualcharge.Writer
+	// ManualChargeReader is the manualcharge read port. Called by read handlers
+	// and the dataForCharges helper to list charge entries.
+	ManualChargeReader manualcharge.Reader
+	SessionSecret      string
 	// Tesla OAuth app credentials + the web connect redirect URI.
 	TeslaClientID     string
 	TeslaClientSecret string
@@ -74,14 +82,16 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.StaticFS("/static", http.FS(sub))
 
 	h := handlers.New(handlers.Deps{
-		Pool:              d.Pool,
-		Account:           d.Account,
-		Google:            d.Google,
-		Tesla:             d.Tesla,
-		TelemetryReader:   d.TelemetryReader,
-		TeslaClientID:     d.TeslaClientID,
-		TeslaClientSecret: d.TeslaClientSecret,
-		TeslaRedirectURL:  d.TeslaRedirectURL,
+		Pool:               d.Pool,
+		Account:            d.Account,
+		Google:             d.Google,
+		Tesla:              d.Tesla,
+		TelemetryReader:    d.TelemetryReader,
+		ManualChargeWriter: d.ManualChargeWriter,
+		ManualChargeReader: d.ManualChargeReader,
+		TeslaClientID:      d.TeslaClientID,
+		TeslaClientSecret:  d.TeslaClientSecret,
+		TeslaRedirectURL:   d.TeslaRedirectURL,
 	})
 
 	r.GET("/", h.Home)
@@ -95,6 +105,14 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/ui/vehicles", h.VehiclesFragment)
 	r.GET("/ui/health", h.HealthFragment)
 	r.GET("/healthz", h.Healthz)
+
+	r.GET("/charges", h.ChargePage)
+	r.GET("/ui/charges/list", h.ChargesListFragment)
+	r.GET("/ui/charges/row/:id", h.ChargeRowStatic)
+	r.GET("/ui/charges/row/:id/edit", h.ChargeRowEditFragment)
+	r.POST("/ui/charges/create", h.ChargeCreate)
+	r.PUT("/ui/charges/row/:id", h.ChargeRowUpdate)
+	r.DELETE("/ui/charges/row/:id", h.ChargeRowDelete)
 
 	return r, nil
 }

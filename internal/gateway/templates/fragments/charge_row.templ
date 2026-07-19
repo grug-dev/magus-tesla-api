@@ -1,0 +1,47 @@
+package fragments
+
+// ChargeRow renders the static view of one charge entry as a table row.
+// Its id="charge-row-{vm.ID}" matches the templ.Fragment id pattern and
+// is the target for inline-edit and delete swaps (required invariant).
+templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
+	<tr id={ "charge-row-" + vm.ID }>
+		<td>{ vm.ChargedOnLabel }</td>
+		<td>{ vm.VehicleLabel }</td>
+		<td>{ vm.EnergyKWh }</td>
+		<td>{ vm.PriceLabel }</td>
+		<td>{ vm.CostPerKWhLabel }</td>
+		<td>{ vm.BatteryDelta }</td>
+		<td>{ vm.DurationLabel }</td>
+		<td>
+			<button
+				hx-get={ "/ui/charges/row/" + vm.ID + "/edit" }
+				hx-target={ "#charge-row-" + vm.ID }
+				hx-swap="outerHTML"
+			>Edit</button>
+			<button
+				hx-delete={ "/ui/charges/row/" + vm.ID }
+				hx-target={ "#charge-row-" + vm.ID }
+				hx-swap="outerHTML"
+				hx-confirm="Delete this entry?"
+				hx-include={ "#csrf-delete-" + vm.ID }
+			>Delete</button>
+			<input type="hidden" id={ "csrf-delete-" + vm.ID } name="csrf_token" value={ csrfToken }/>
+		</td>
+	</tr>
+}
+
+// ChargeRowEmpty renders an empty <tr> used as the delete-success swap target.
+// htmx hx-swap="outerHTML" replaces the static row with this empty element,
+// which effectively removes the row from the table.
+templ ChargeRowEmpty(id string) {
+	<tr id={ "charge-row-" + id }></tr>
+}
+
+// ChargeRowError renders an error <tr> when a write operation fails on an existing row.
+templ ChargeRowError(id string, msg string) {
+	<tr id={ "charge-row-" + id }>
+		<td colspan="8">
+			<span class="error">{ msg }</span>
+		</td>
+	</tr>
+}

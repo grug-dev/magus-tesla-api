@@ -18,11 +18,16 @@ We use **Templ**, not `html/template`. Templ components are written in `.templ` 
 interfaces give the domain.
 
 - Components are Go functions that return `templ.Component`, e.g. `templ BatteryCard(s battery.State) { ... }`.
-- After editing any `.templ` file you must run **`templ generate`** (produces `*_templ.go`).
-  Per project rule, **the user runs builds/codegen** — an assistant edits `.templ` files
-  and asks the user to run `templ generate`, it does not run it.
-- Install/pin Templ per the current official docs — verify setup via Context7 (`/a-h/templ`)
-  rather than memory, since tooling evolves.
+- After editing any `.templ` file, regenerate the `*_templ.go` with **`make templ`**
+  (the pinned `go tool templ generate ./...` — see the `Makefile`). **Never** run a bare
+  `go run .../templ generate` inside the module: it pulls the templ CLI's transitive deps
+  into `go.mod` as accidental `// indirect` requires.
+- Codegen runner: this project's `CLAUDE.md` authorizes Claude to run `make templ`
+  (and other codegen) directly; in a project without that override, an assistant edits
+  `.templ` files and asks the user to run `make templ` instead of running it.
+- The templ CLI is pinned as a `go tool` directive at the same version as the
+  `github.com/a-h/templ` runtime — verify setup via Context7 (`/a-h/templ`) rather than
+  memory, since tooling evolves.
 
 ---
 

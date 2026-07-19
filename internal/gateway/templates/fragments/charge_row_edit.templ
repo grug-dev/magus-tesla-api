@@ -1,0 +1,159 @@
+package fragments
+
+// ChargeRowEdit renders the inline edit form for a single charge entry row.
+// Its id="charge-row-{vm.ID}" matches the static row's id so htmx
+// hx-swap="outerHTML" can swap between the two views in-place.
+// validationErrors maps field names to error messages; nil or empty means no errors.
+templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[string]string) {
+	<tr id={ "charge-row-" + vm.ID }>
+		<td colspan="8">
+			if validationErrors["_top"] != "" {
+				<p class="error">{ validationErrors["_top"] }</p>
+			}
+			<form>
+				<input type="hidden" name="csrf_token" value={ csrfToken }/>
+				<input type="hidden" name="id" value={ vm.ID }/>
+				<div>
+					<label>
+						Date
+						<input
+							type="date"
+							name="charged_on"
+							value={ vm.RawChargedOn }
+							required
+						/>
+					</label>
+					if validationErrors["charged_on"] != "" {
+						<span class="error">{ validationErrors["charged_on"] }</span>
+					}
+				</div>
+				<div>
+					<label>
+						Energy added (kWh)
+						<input
+							type="number"
+							name="energy_added_kwh"
+							value={ vm.RawEnergyKWh }
+							step="0.01"
+							min="0.01"
+							required
+						/>
+					</label>
+					if validationErrors["energy_added_kwh"] != "" {
+						<span class="error">{ validationErrors["energy_added_kwh"] }</span>
+					}
+				</div>
+				<div>
+					<label>
+						Price
+						<input
+							type="number"
+							name="price"
+							value={ vm.RawPrice }
+							step="0.01"
+							min="0"
+							required
+						/>
+					</label>
+					if validationErrors["price"] != "" {
+						<span class="error">{ validationErrors["price"] }</span>
+					}
+				</div>
+				<div>
+					<label>
+						Currency
+						<input
+							type="text"
+							name="currency"
+							value={ vm.Currency }
+							required
+						/>
+					</label>
+					if validationErrors["currency"] != "" {
+						<span class="error">{ validationErrors["currency"] }</span>
+					}
+				</div>
+				<div>
+					<label>
+						Vehicle
+						<input type="hidden" name="vehicle" value={ vm.VehicleValue }/>
+						<span>{ vm.VehicleLabel }</span>
+					</label>
+				</div>
+				<details>
+					<summary>More details</summary>
+					<div>
+						<label>
+							Started at
+							<input type="datetime-local" name="started_at" value={ vm.RawStartedAt }/>
+						</label>
+					</div>
+					<div>
+						<label>
+							Ended at
+							<input type="datetime-local" name="ended_at" value={ vm.RawEndedAt }/>
+						</label>
+					</div>
+					<div>
+						<label>
+							Start battery %
+							<input type="number" name="start_battery_pct" value={ vm.RawStartBatteryPct } min="0" max="100" step="1"/>
+						</label>
+					</div>
+					<div>
+						<label>
+							End battery %
+							<input type="number" name="end_battery_pct" value={ vm.RawEndBatteryPct } min="0" max="100" step="1"/>
+						</label>
+					</div>
+					<div>
+						<label>
+							Charging type
+							<select name="charging_type">
+								<option value="">-</option>
+								<option value="AC" selected?={ vm.ChargingType == "AC" }>AC</option>
+								<option value="DC" selected?={ vm.ChargingType == "DC" }>DC</option>
+							</select>
+						</label>
+					</div>
+					<div>
+						<label>
+							Location kind
+							<select name="location_kind">
+								<option value="">-</option>
+								<option value="HOME" selected?={ vm.LocationKind == "HOME" }>Home</option>
+								<option value="WORK" selected?={ vm.LocationKind == "WORK" }>Work</option>
+								<option value="OTHER" selected?={ vm.LocationKind == "OTHER" }>Other</option>
+							</select>
+						</label>
+					</div>
+					<div>
+						<label>
+							Location label
+							<input type="text" name="location_label" value={ vm.LocationLabel }/>
+						</label>
+					</div>
+					<div>
+						<label>
+							Notes
+							<textarea name="notes">{ vm.Notes }</textarea>
+						</label>
+					</div>
+				</details>
+				<div>
+					<button
+						hx-put={ "/ui/charges/row/" + vm.ID }
+						hx-target={ "#charge-row-" + vm.ID }
+						hx-swap="outerHTML"
+						hx-include="closest form"
+					>Save</button>
+					<button
+						hx-get={ "/ui/charges/row/" + vm.ID }
+						hx-target={ "#charge-row-" + vm.ID }
+						hx-swap="outerHTML"
+					>Cancel</button>
+				</div>
+			</form>
+		</td>
+	</tr>
+}

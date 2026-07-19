@@ -1,0 +1,290 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM3-gateway-add-manual-charge-ui",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM3-manual-charge-log.md",
+  "request": "ok, let's go for a manual entry approach. Looks like this might be a big roadmap since it touches front-end pages with HTMX ... separate the task/roadmap tiers by frontend and backend changes ... (Tier 2 = frontend/gateway)",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
+  },
+  "created_at": "2026-07-18T20:56:03Z",
+  "updated_at": "2026-07-18T21:11:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM3-manual-charge-log",
+    "base": "main",
+    "created_at": "2026-07-18T12:48:41Z"
+  },
+  "tasks": [
+    {
+      "id": "A",
+      "title": "Wire manualcharge Writer/Reader ports into gateway.Deps / handlers / cmd/web",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T20:58:22Z",
+      "completed_at": "2026-07-18T21:03:22Z",
+      "duration_seconds": 300,
+      "notes": "Added ManualChargeWriter/Reader to gateway.Deps, handlers.Deps, Handler struct, wired in New(); injected NewWriter/NewReader in cmd/web/main.go. go build passes.",
+      "budget": {
+        "five_hour_pct_start": 25.0,
+        "five_hour_pct_end": 44.0,
+        "five_hour_pct_delta": 19.0,
+        "cost_usd_delta": 3.39,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial-worker dispatch — delta covers tasks A-I jointly (attributed to A; B-I null to avoid inflating the tier sum)"
+      }
+    },
+    {
+      "id": "B",
+      "title": "View models (ChargeEntryVM/VehicleOptionVM/ChargesPageData) + dataForCharges + parseVehicleValue",
+      "module": "gateway",
+      "depends_on": ["A"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T20:58:22Z",
+      "completed_at": "2026-07-18T21:03:22Z",
+      "duration_seconds": 300,
+      "notes": "ChargeEntryVM/VehicleOptionVM/ChargesPageData in fragments/charges_vm.go; chargeEntryVMFromEntry, buildVehicleOptions, buildChargesPage, parseVehicleValue in handlers/charges.go.",
+      "budget": null
+    },
+    {
+      "id": "C",
+      "title": "Templ templates: charges page, list/row/edit/create fragments, auth-conditional nav link",
+      "module": "gateway",
+      "depends_on": ["B"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T20:58:22Z",
+      "completed_at": "2026-07-18T21:03:22Z",
+      "duration_seconds": 300,
+      "notes": "Created pages/charges.templ, fragments/charges_list.templ, charge_row.templ, charge_row_edit.templ, charge_create_form.templ. BaseAuth layout with Charge log nav link. templ generate produced 6 updates.",
+      "budget": null
+    },
+    {
+      "id": "D",
+      "title": "Read handlers + routes: GET /charges, GET /ui/charges/list, GET /ui/charges/row/:id",
+      "module": "gateway",
+      "depends_on": ["B", "C"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T20:58:22Z",
+      "completed_at": "2026-07-18T21:03:22Z",
+      "duration_seconds": 300,
+      "notes": "ChargePage, ChargesListFragment, ChargeRowStatic handlers in handlers/charges.go. Routes registered in gateway.go. All auth-guarded.",
+      "budget": null
+    },
+    {
+      "id": "E",
+      "title": "Create handler + route (POST /ui/charges/create) with CSRF + tenant-ownership check",
+      "module": "gateway",
+      "depends_on": ["B", "C", "D"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T20:58:22Z",
+      "completed_at": "2026-07-18T21:03:22Z",
+      "duration_seconds": 300,
+      "notes": "ChargeCreate handler with CSRF check, vehicle ownership validation, Writer.Create call. Success returns OOB swap (ChargeCreateSuccessOOB). htmx hx-swap-oob mechanism confirmed via Context7.",
+      "budget": null
+    },
+    {
+      "id": "F",
+      "title": "Inline-edit handlers + routes (GET .../row/:id/edit, PUT .../row/:id)",
+      "module": "gateway",
+      "depends_on": ["B", "C", "D"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T20:58:22Z",
+      "completed_at": "2026-07-18T21:03:22Z",
+      "duration_seconds": 300,
+      "notes": "ChargeRowEditFragment and ChargeRowUpdate handlers with CSRF, ownership validation, fetchEntryVM (list+filter per D6 decision). Routes registered.",
+      "budget": null
+    },
+    {
+      "id": "G",
+      "title": "Delete handler + route (DELETE /ui/charges/row/:id) with CSRF",
+      "module": "gateway",
+      "depends_on": ["B", "C", "D"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T20:58:22Z",
+      "completed_at": "2026-07-18T21:03:22Z",
+      "duration_seconds": 300,
+      "notes": "ChargeRowDelete handler with CSRF, Writer.Delete(accountID, id), returns ChargeRowEmpty on success. Route registered.",
+      "budget": null
+    },
+    {
+      "id": "H",
+      "title": "httptest handler/gateway tests with manualcharge Writer/Reader fakes",
+      "module": "gateway",
+      "depends_on": ["A", "B", "C", "D", "E", "F", "G"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T21:03:22Z",
+      "completed_at": "2026-07-18T21:08:52Z",
+      "duration_seconds": 330,
+      "notes": "fakeChargeWriter/Reader in charges_test.go. 15 test functions cover auth guards, CSRF, ownership, validation errors, graceful degradation, create/update/delete success. go test ./internal/gateway/... passes.",
+      "budget": null
+    },
+    {
+      "id": "I",
+      "title": "Amend internal/gateway/AGENTS.md 'Read-only at request time' with the D4 user-write exception + new Deps fields",
+      "module": "gateway",
+      "depends_on": ["H"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-18T21:08:52Z",
+      "completed_at": "2026-07-18T21:08:52Z",
+      "duration_seconds": 0,
+      "notes": "AGENTS.md updated: Public interface section documents ManualChargeWriter/Reader; new 'Exception: user-initiated writes' sub-section documents all D4 constraints. Original read-only rule preserved — amendment is additive.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review the fe6e503 diff for RM3-gateway-add-manual-charge-ui (gateway module). Validate: (1) BOUNDARIES — HTML only in gateway; gateway touches manualcharge/account ONLY via public interfaces (never their db packages or internals); NO new method added to manualcharge (D6 list+filter for edit path). (2) htmx/Templ conventions — Templ fragment-id invariant (root id matches @templ.Fragment), no logic/arithmetic in templates, no HTML comments in markup, render/renderFragment reuse. (3) D4 WRITE-PATH AMENDMENT — every write handler (Create/Update/Delete) enforces auth guard + tenant ownership via account.RegisteredVehicles + CSRF before calling Writer; Delete passes accountID for a tenant-scoped WHERE; AGENTS.md amendment is additive (read-only default preserved). (4) CSRF correctness — session-stored token, subtle.ConstantTimeCompare, on all 3 write routes; 403 on mismatch. (5) TENANT ISOLATION — a user can only list/edit/delete their own entries; unowned vehicle => 403 with no write. (6) SPEC/TASKS coverage — gateway spec delta requirements all met; tasks A-I acceptance criteria actually satisfied. (7) TESTS — httptest covers auth guards, CSRF 403, ownership 403, validation 422, reader-error graceful degradation, and create/edit/delete success + fragment rendering. (8) PERFORMANCE (read-heavy) — list read uses the indexed tier-1 ports, no N+1, no per-row extra queries beyond the low-frequency edit fetch. (9) VIEW MODELS — no manualcharge.*/pgtype.* in templates; derived CostPerKWh/BatteryDelta/SessionDuration pre-computed and nil-safe. (10) ANTI-GAMING — tasks/criteria not weakened; worker set task statuses done but you validate independently; only you may set reviewer-approved. Read the diff, not the whole module; escalate on doubt (return changes-requested rather than approving anything uncertain).",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-18T21:30:00Z",
+        "duration_seconds": 259,
+        "verdict": "changes-requested",
+        "budget": {
+          "five_hour_pct_start": 49.0,
+          "five_hour_pct_end": 64.0,
+          "five_hour_pct_delta": 15.0,
+          "cost_usd_delta": 4.61,
+          "context_pct_end": 23,
+          "source": "statusline-cache",
+          "approx": true,
+          "note": "bundles the round-1 review pass + the leader's round-1 fix work (regen/build/test/commit); not separately bracketed"
+        },
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "blocker",
+            "note": "internal/gateway/handlers/charges.go:304-315 — checkCSRF() is bypassable when no CSRF token exists in the session. subtle.ConstantTimeCompare([]byte(\"\"), []byte(\"\")) returns 1 (equal), so a request that arrives before the user has ever visited GET /charges (no 'csrf_manualcharge' session key) with an empty 'csrf_token' form field (or no X-CSRF-Token header) passes the check and proceeds to write. The fix is to add a guard `if want == \"\" { c.String(http.StatusForbidden, \"invalid csrf token\"); return false }` before the ConstantTimeCompare call. Verified with go program: ConstantTimeCompare(\"\", \"\") == 1.",
+            "triage": "accepted",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "blocker",
+            "note": "internal/gateway/handlers/charges_test.go — No test covers the CSRF empty-session bypass (R1). All three CSRF tests (TestChargeCreate_CSRFMismatch, TestChargeRowUpdate_CSRFMismatch, TestChargeRowDelete_CSRFMismatch) seed a non-empty 'correcttoken' / 'goodtoken' in the session and submit a different wrong token. None tests the scenario: authenticated user + no CSRF key in session + empty submitted token => must be 403 but currently passes. A test is required for each of the three write handlers.",
+            "triage": "accepted",
+            "status": "fixed"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "internal/gateway/templates/fragments/charge_row_edit.templ:161-179 — intToStr() is a Go helper function defined inside a .templ file. Per htmx-conventions.md, .templ files are for presentation only (formatting, conditionals, loops). String conversion helpers belong in a .go file in the same package (e.g. charges_vm.go or a new helpers.go). Using strconv.FormatInt would achieve the same result with zero custom code. Not a boundary violation but a convention gap.",
+            "triage": "accepted",
+            "status": "fixed"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-07-18T21:35:00Z",
+        "duration_seconds": 66,
+        "verdict": "approved",
+        "budget": {
+          "five_hour_pct_start": 64.0,
+          "five_hour_pct_end": 77.0,
+          "five_hour_pct_delta": 13.0,
+          "cost_usd_delta": 3.83,
+          "context_pct_end": 25,
+          "source": "statusline-cache",
+          "approx": true,
+          "note": "bundles the round-2 re-verify pass + leader archive bookkeeping; not separately bracketed"
+        },
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "blocker",
+            "note": "internal/gateway/handlers/charges.go:315 — FIXED. checkCSRF now guards `if want == \"\" || subtle.ConstantTimeCompare(...) != 1` before returning 403. An empty session token (no csrf_manualcharge key) fails closed immediately, independent of the submitted token. No path exists where an empty session token validates.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "blocker",
+            "note": "internal/gateway/handlers/charges_test.go:615-697 — FIXED. Three new tests added: TestChargeCreate_NoSessionToken, TestChargeRowUpdate_NoSessionToken, TestChargeRowDelete_NoSessionToken. Each calls engineWithSession(h, uid, \"\") (csrfToken=\"\", so the session /_session route skips setting csrf_manualcharge), submits no token, and asserts 403. No write is recorded (writer.createEntry/updateEntry remain zero-value). All three pass under `go test ./internal/gateway/... -run Charge -count=1`.",
+            "status": "fixed"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "internal/gateway/templates/fragments/charge_row_edit.templ — FIXED. intToStr removed entirely (grep -rn 'intToStr' internal/gateway/ returns nothing). Template now uses { vm.VehicleValue } — a pre-computed string set in chargeEntryVMFromEntry via fmt.Sprintf(\"%d:%s\", e.TeslaID, e.VIN) at charges.go:408. Template is logic-free.",
+            "status": "fixed"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D6",
+      "at": "2026-07-18T20:56:03Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "The inline-edit/cancel path re-reads via the existing manualcharge.Reader (ListEntriesByAccount) and filters by id in memory; we do NOT add a GetEntry(ctx, accountID, id) getter to the archived tier-1 manualcharge.Reader.",
+      "why": "Module isolation — reopening the archived manualcharge module for a convenience getter is outside the gateway tier and unwarranted; the edit path is low-frequency and the list is limit-capped. Worker flagged GetEntry as optional; declined.",
+      "covered_by": "module-isolation rule (ai/architecture.md §2)"
+    },
+    {
+      "id": "D7",
+      "at": "2026-07-18T20:56:03Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "templ codegen runs via `go run github.com/a-h/templ/cmd/templ generate ./...` (templ is a go.mod dep, not installed on PATH); the worker runs it plus `go build ./...` and `go test ./internal/gateway/...` to verify — not handed to the user.",
+      "why": "Project override (CLAUDE.md) authorizes codegen (sqlc generate) and go build/test for this repo; templ generate is the analogous codegen step. The artifacts' cautious 'user runs templ generate' note is superseded for this project.",
+      "covered_by": "CLAUDE.md project build override"
+    },
+    {
+      "id": "D8",
+      "at": "2026-07-18T20:56:03Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "The whole tier-2 change (tasks A-I, a linear dependency chain within the single gateway module touching shared files handlers/gateway.go/templates) is implemented by ONE serial worker dispatch rather than 7 per-wave workers.",
+      "why": "Pipeline default batches into one serial worker to read the doc pack once and amortize setup; tasks are interdependent and share files, so parallelism is unsafe and per-wave re-dispatch would re-read the doc pack ~7x. Budget is ample (5h 2%, ctx 5%).",
+      "covered_by": "SKILL.md Step 5.1 (serial-worker default)"
+    }
+  ],
+  "events": [
+    { "at": "2026-07-18T20:56:03Z", "agent": "leader", "event": "Step 4: created change progress.json (tasks A-I pending) after artifacts committed (d677f2e)." },
+    { "at": "2026-07-18T20:57:03Z", "agent": "leader", "event": "Step 5: dispatched one serial gateway worker (Sonnet) for tasks A-I (D8). Budget _start: 5h 25%, ctx 15%." },
+    { "at": "2026-07-18T21:11:00Z", "agent": "leader", "event": "Step 5/6: worker returned all A-I done; independently verified go build/vet + go test ./internal/gateway/... green (30 handler tests). Templates: no HTML comments, no domain-type leaks. Wave delta ~+19% 5h / +$3.39. Status -> verified. Wave commit fe6e503 (go.mod templ-CLI deps stripped via go mod tidy before commit)." },
+    { "at": "2026-07-18T21:30:00Z", "agent": "gateway-reviewer", "event": "Review round 1: changes-requested — R1/R2 (blocker: CSRF empty-session fail-open + missing test), R3 (minor: intToStr in .templ)." },
+    { "at": "2026-07-18T21:22:52Z", "agent": "leader", "event": "Round 1 triage: all 3 findings accepted + fixed by leader. R1 checkCSRF fails closed on empty session token; R2 3 NoSessionToken regression tests (assert 403, no write); R3 intToStr removed, VehicleValue pre-computed. templ regen via pinned @version (go.mod untouched), build/vet/test green. Fix commit 3bad42b. Re-dispatching gateway-reviewer for round 2." },
+    { "at": "2026-07-18T21:35:00Z", "agent": "gateway-reviewer", "event": "Review round 2: APPROVED — R1/R2/R3 all confirmed fixed; 20 handler tests pass; build clean. Set review.status + status reviewer-approved." },
+    { "at": "2026-07-18T21:27:00Z", "agent": "leader", "event": "Step 8: archived RM3-gateway-add-manual-charge-ui (openspec archive: synced gateway spec delta into main specs; moved change to archive/gateway/). Roadmap tier 2 -> [x]/archived; roadmap complete." }
+  ]
+}

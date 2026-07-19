@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM3-manualcharge-add-entries",
+  "module": "manualcharge",
+  "roadmap": "openspec/roadmaps/RM3-manual-charge-log.md",
+  "request": "ok, let's go for a manual entry approach ... I want this approach lives in its own package/module isolated of the other ones. It does not consumes any tesla's fleet api ... create the openspec proposal for this new module package, and separate the task/roadmap tiers by frontend and backend changes. Help me to design the database table (required: Date, price COP, energy added; optional: start/end timestamp, start/end battery %, charging type AC/DC, HOME/WORK/OTHER).",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "V"]
+  },
+  "created_at": "2026-07-18T13:09:39Z",
+  "updated_at": "2026-07-18T15:10:57Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM3-manual-charge-log",
+    "base": "main",
+    "created_at": "2026-07-18T12:48:41Z"
+  },
+  "tasks": [
+    { "id": "T1", "title": "Migration — manual_charge_entries table + 2 indexes", "module": "manualcharge", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "manualcharge", "model": "claude-sonnet-4-6", "started_at": "2026-07-18T13:11:54Z", "completed_at": "2026-07-18T13:14:00Z", "duration_seconds": 126, "notes": "db/migrations/20260718000001_add_manual_charge_entries.sql: table + both indexes + COMMENT + goose Down.", "budget": { "five_hour_pct_start": 80, "five_hour_pct_end": 91, "five_hour_pct_delta": 11, "cost_usd_delta": 1.96, "context_pct_end": 27, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta (one serial sonnet worker: T1/T2/T3/T5)" } },
+    { "id": "T2", "title": "sqlc queries (query.sql: create/update/delete/list-by-vehicle/list-by-account)", "module": "manualcharge", "depends_on": ["T1"], "parallel_ok": false, "status": "done", "agent": "manualcharge", "model": "claude-sonnet-4-6", "started_at": "2026-07-18T13:14:00Z", "completed_at": "2026-07-18T13:16:00Z", "duration_seconds": 120, "notes": "db/query.sql: 5 named queries; account_id scope guards on Update/Delete. Not yet generated (leader make sqlc pending).", "budget": { "five_hour_pct_start": 80, "five_hour_pct_end": 91, "five_hour_pct_delta": 11, "cost_usd_delta": 1.96, "context_pct_end": 27, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta (see T1)" } },
+    { "id": "T3", "title": "Domain type manualcharge.Entry + derived methods + Writer/Reader ports", "module": "manualcharge", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "manualcharge", "model": "claude-sonnet-4-6", "started_at": "2026-07-18T13:11:54Z", "completed_at": "2026-07-18T13:19:00Z", "duration_seconds": 426, "notes": "manualcharge.go: Entry (18 fields), CostPerKWh/BatteryDelta/SessionDuration, Writer+Reader. service.go added as compile stub (assertions + placeholder bodies) for T4 to fill.", "budget": { "five_hour_pct_start": 80, "five_hour_pct_end": 91, "five_hour_pct_delta": 11, "cost_usd_delta": 1.96, "context_pct_end": 27, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta (see T1)" } },
+    { "id": "T4", "title": "Service: store seam + Writer/Reader impls + rowToEntry mapping", "module": "manualcharge", "depends_on": ["T2", "T3"], "parallel_ok": false, "status": "done", "agent": "manualcharge", "model": "claude-sonnet-4-6", "started_at": "2026-07-18T15:02:09Z", "completed_at": "2026-07-18T15:04:24Z", "duration_seconds": 135, "notes": "service.go: store seam (5 methods), dbStore wrapping manualchargedb.Queries, writerService (Create/Update/Delete), readerService (ListByVehicle/ListByAccount, limit default 100, non-nil empty slice), rowToEntry (pgtype.Numeric via Float64Value, Date.Time, all nullable helpers). go build+vet+test clean.", "budget": { "five_hour_pct_start": 8, "five_hour_pct_end": 25, "five_hour_pct_delta": 17, "cost_usd_delta": 3.37, "context_pct_end": 13, "source": "statusline-cache", "approx": true, "note": "wave-2 shared delta (one serial sonnet worker: T4/T6) + leader verification (build/vet/test/migrate-up/integration tests)" } },
+    { "id": "T5", "title": "Unit tests — derived methods, offline (no DB)", "module": "manualcharge", "depends_on": ["T3"], "parallel_ok": true, "status": "done", "agent": "manualcharge", "model": "claude-sonnet-4-6", "started_at": "2026-07-18T13:19:00Z", "completed_at": "2026-07-18T13:20:28Z", "duration_seconds": 88, "notes": "manualcharge_test.go: 8 offline tests (CostPerKWh incl. zero-energy; BatteryDelta/SessionDuration nil-safe). go test green, no DB.", "budget": { "five_hour_pct_start": 80, "five_hour_pct_end": 91, "five_hour_pct_delta": 11, "cost_usd_delta": 1.96, "context_pct_end": 27, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta (see T1)" } },
+    { "id": "T6", "title": "DATABASE_URL-gated integration tests — CRUD + ordering + multi-tenant", "module": "manualcharge", "depends_on": ["T2", "T4"], "parallel_ok": false, "status": "done", "agent": "manualcharge", "model": "claude-sonnet-4-6", "started_at": "2026-07-18T15:04:24Z", "completed_at": "2026-07-18T15:07:37Z", "duration_seconds": 193, "notes": "db_integration_test.go: 15 DATABASE_URL-gated tests covering Create (required-only, all-optionals, 4 CHECK violations), Update (mutation+created_at, cross-account), Delete (own, cross-account), ListByVehicle (isolation, ordering, limit, empty), ListByAccount (isolation, ordering, limit, empty), multi-tenant spot-check. Self-skip without DATABASE_URL; all PASS against real Postgres in verify.", "budget": { "five_hour_pct_start": 8, "five_hour_pct_end": 25, "five_hour_pct_delta": 17, "cost_usd_delta": 3.37, "context_pct_end": 13, "source": "statusline-cache", "approx": true, "note": "wave-2 shared delta (see T4)" } },
+    { "id": "T7", "title": "internal/manualcharge/AGENTS.md", "module": "manualcharge", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "manualcharge", "model": "claude-sonnet-4-6", "started_at": "2026-07-18T12:58:00Z", "completed_at": "2026-07-18T13:00:00Z", "duration_seconds": 120, "notes": "Created during the artifacts dispatch; Agent-Name header + Doc-Pack + responsibility + ports + allowed imports + ownership + testing notes.", "budget": null },
+    { "id": "V", "title": "Verification — build/vet/test/boundary/migrate-up (V1-V6)", "module": "manualcharge", "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "claude-opus-4-8", "started_at": "2026-07-18T15:08:42Z", "completed_at": "2026-07-18T15:10:57Z", "duration_seconds": 135, "notes": "V1 build / V2 vet clean. V3: 28/28 tests pass (8 offline + 20 integration) against real Postgres. V4: no cross-module imports; pgtype+manualchargedb confined to service.go. V5: migrate-up applied; table+2 indexes+CHECKs verified via psql. V6: compile assertions hold.", "budget": null }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "manualcharge-reviewer",
+    "brief": "Validate change RM3-manualcharge-add-entries (new isolated module internal/manualcharge, tier 1 backend). Check: (1) Module boundary — no import of internal/tesla|account|telemetry|gateway; manualchargedb + pgtype confined to service.go; no HTML/Templ; no Tesla API call in any test. (2) DB objects match user-confirmed design D1-D9 EXACTLY (schema, 2 indexes account_id-leading, NUMERIC money/energy, TEXT+CHECK enums, no cross-module FK, no raw_data JSONB, mutable table w/ updated_at) — any mismatch is a blocker. (3) Ports: Writer accountID-scoped Delete/Update (no cross-tenant mutation), Reader non-nil empty slice + limit=0->100 default, Create/Update return stored row. (4) rowToEntry pgtype mapping correct incl. pgtype.Date for charged_on and Numeric via Float64Value/Scan (D9). (5) Tests cover CRUD + ordering (charged_on DESC) + multi-tenant isolation + CHECK violations; integration tests self-skip without DATABASE_URL. (6) Performance-Profile (read-heavy): indexes serve the two declared read paths, ORDER BY covered by index. (7) Conventions in ai/go-conventions.md (error wrapping, doc comments, no companion Km/Kmh needed here). (8) Anti-gaming: no weakened tasks/criteria, no self-approved statuses; leader wiring (sqlc.yaml + Makefile MIGRATIONS_DIRS, decision D4) is sound. Review the diff on branch ft/RM3-manual-charge-log (commits 248f543 artifacts, wave-1, 46edca4 wave-2), not the whole repo. Escalate on doubt (changes-requested) rather than approving anything uncertain.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-18T15:19:07Z",
+        "duration_seconds": 214,
+        "verdict": "approved",
+        "budget": { "five_hour_pct_start": 28, "five_hour_pct_end": 34, "five_hour_pct_delta": 6, "cost_usd_delta": 1.34, "context_pct_end": 16, "source": "statusline-cache", "approx": false, "note": "sonnet reviewer round 1" },
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "internal/manualcharge/manualcharge.go:118,126 — doc comments on NewWriter and NewReader still say 'Body is a placeholder — replaced in T4 when manualchargedb is generated.' The bodies are real (delegate to newWriter/newReader in service.go); the stale comment is misleading but causes no functional issue.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "openspec/changes/RM3-manualcharge-add-entries/tasks.md — T7.1 and V1-V6 verification items are unchecked ([ ]) despite being done per progress.json events and AGENTS.md file existing on disk. tasks.md tracking is stale but does not constitute weakened criteria — the work is verifiably complete (build/vet/test green, AGENTS.md present, migration applied).",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "openspec/changes/RM3-manualcharge-add-entries/specs/manual-charge-log/spec.md — scenarios for 'Reject an out-of-range end battery percentage', 'Reject an invalid charging type', and 'Reject an invalid location kind' are in the spec but have no corresponding integration test. tasks.md T6.2 only mandates start_battery_pct=101 (covered). The DB CHECK constraints that back these scenarios are correctly implemented in the migration. Test gap is present but the constraint enforcement is structurally correct.",
+            "status": "open",
+            "triage": "accepted — valid but non-blocking; mandated T6.2 criteria met and constraints verified live via psql. Deferred to backlog as a small follow-up (add 3 CHECK-violation integration tests) rather than reopening an approved review for non-mandated coverage."
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-07-18T13:09:39Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Confirmed the manual_charge_entries schema + 2-index plan + mutable-table CRUD + derived read-time methods + NUMERIC-stored / float64-surfaced money, exactly as design.md D1-D9.",
+      "why": "Database design gate (built-in) — user reviewed the written schema, rationale and index plan and approved implementation.",
+      "covered_by": "roadmap RM3-manual-charge-log Decisions"
+    },
+    {
+      "id": "D2",
+      "at": "2026-07-18T13:05:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader reformatted specs/manual-charge-log/spec.md into OpenSpec delta format (## ADDED Requirements / #### Scenario) itself rather than re-dispatching a fresh worker.",
+      "why": "No SendMessage in this runtime to continue the worker; the fix is a mechanical format transform of already-correct content, far cheaper in-leader than a fresh worker doc-pack re-read.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-07-18T13:20:28Z",
+      "scope": "task:T3",
+      "made_by": "leader",
+      "decision": "Accepted the worker adding a compile-stub service.go in wave 1 (interface assertions + placeholder bodies) rather than leaving NewWriter/NewReader undefined.",
+      "why": "Keeps the package compiling + unit tests runnable at the wave-1 boundary; T4 replaces the stub bodies with real manualchargedb-backed impls. No design deviation.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-07-18T14:58:51Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader-integration wiring for the new module: (a) added the manualcharge sqlc.yaml entry using the repo's structured uuid override + emit flags (matching account/telemetry) rather than design D7's shorthand string form; (b) registered internal/manualcharge/db/migrations in the Makefile MIGRATIONS_DIRS list (was hardcoded to account+telemetry only) so migrate-up/down/status pick it up.",
+      "why": "Both are functionally equivalent to what D7/tasks specified; matching the existing repo convention keeps the two integration points consistent. The Makefile edit was undiscovered in tasks.md but mandatory — without it migrate-up silently skips the new module (observed: first migrate-up ran only account+telemetry).",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-07-18T15:19:07Z",
+      "scope": "review:R3",
+      "made_by": "leader",
+      "decision": "Reviewer round 1 returned APPROVED with 3 minor findings. Triage: R1 (stale placeholder doc comments) + R2 (unticked tasks.md T7.1/V1-V6) accepted and fixed directly by the leader as non-behavioral hygiene — no re-review round, since neither changes code behavior or the review's substance. R3 (3 spec CHECK scenarios lack dedicated integration tests) accepted as valid but deferred to backlog item 3 rather than reopening an approved review.",
+      "why": "Approved verdict is archivable (Step 7.4); R1/R2 are zero-cost truthfulness fixes that leaving unfixed would ship known-false artifacts; R3 is non-mandated coverage (T6.2 criteria met, constraints verified live), so gold-plating with a fresh worker+review round is disproportionate — the backlog is the durable record.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    { "at": "2026-07-18T12:48:41Z", "agent": "leader", "event": "created RM3 roadmap + branch ft/RM3-manual-charge-log; committed roadmap (af06d87)" },
+    { "at": "2026-07-18T13:00:00Z", "agent": "leader", "event": "dispatched manualcharge worker (sonnet) for artifacts; returned proposal/design/specs/tasks + AGENTS.md (T7)" },
+    { "at": "2026-07-18T13:05:00Z", "agent": "leader", "event": "reformatted spec to delta format; openspec validate --strict passes" },
+    { "at": "2026-07-18T13:09:39Z", "agent": "leader", "event": "database design gate PASSED (user confirmed); tier 1 -> proposed; artifacts committed (248f543)" },
+    { "at": "2026-07-18T13:11:54Z", "agent": "leader", "event": "dispatched wave 1 (sonnet): T1 migration, T2 query.sql, T3 domain+ports, T5 unit tests" },
+    { "at": "2026-07-18T13:20:28Z", "agent": "leader", "event": "wave 1 complete: T1/T2/T3/T5 done, T7 already done; go build+vet ./... clean, 8/8 unit tests pass" },
+    { "at": "2026-07-18T13:20:28Z", "agent": "leader", "event": "BUDGET CHECKPOINT: five_hour_pct=91 (>=90 threshold), context_pct=27, five_hour_resets_at=1784385000 (~2026-07-18T14:30Z). Stopping cleanly after wave-1 commit. RESUME PLAN: (1) leader add sqlc.yaml entry (design D7) + `make sqlc`; (2) wave 2 = T4 service impl + T6 integration tests; (3) verify V1-V6; (4) review loop (Step 7)." },
+    { "at": "2026-07-18T14:58:51Z", "agent": "leader", "event": "RESUMED. Budget bucket reset confirmed: five_hour_pct dropped 96->8 (fresh window, resets_at 1784403600). Leader added manualcharge sqlc.yaml entry (D7, structured uuid override matching account/telemetry) + ran `make sqlc`: generated manualchargedb (models.go/query.sql.go/db.go). charged_on is pgtype.Date; energy/price pgtype.Numeric." },
+    { "at": "2026-07-18T14:58:51Z", "agent": "leader", "event": "dispatched wave 2 (sonnet, one serial worker): T4 service impl (dbStore seam + writer/reader + rowToEntry) then T6 DATABASE_URL-gated integration tests." },
+    { "at": "2026-07-18T15:07:37Z", "agent": "leader", "event": "wave 2 complete: T4/T6 done. Worker enumerated D4/D5/D6/D8/D9 compliance; leader cross-checked against design.md — all hold (non-nil empty slice, accountID-scoped Delete, pgtype/manualchargedb confined to service.go, NUMERIC via Float64Value/Scan)." },
+    { "at": "2026-07-18T15:10:57Z", "agent": "leader", "event": "leader wiring (D4): added manualcharge sqlc.yaml entry + registered its migrations dir in Makefile MIGRATIONS_DIRS." },
+    { "at": "2026-07-18T15:10:57Z", "agent": "leader", "event": "VERIFICATION PASSED (status->verified). V1 build/V2 vet clean; V5 migrate-up applied 20260718000001 (table+2 indexes+CHECKs confirmed via psql); V3 28/28 tests green against real Postgres (8 offline + 20 integration un-skipped); V4 boundary/pgtype confinement clean; V6 compile assertions hold." },
+    { "at": "2026-07-18T15:19:07Z", "agent": "manualcharge-reviewer", "event": "REVIEW round 1: APPROVED (reviewer-approved). Independently ran build/vet/test incl. 28/28 vs real DB. 3 minor findings (R1 stale comments, R2 tasks.md checkboxes, R3 3 untested CHECK scenarios), no blockers/majors." },
+    { "at": "2026-07-18T15:19:07Z", "agent": "leader", "event": "triaged findings (D5): fixed R1 (removed stale placeholder comments in manualcharge.go) + R2 (ticked tasks.md T7.1/V1-V6) as non-behavioral hygiene; deferred R3 to backlog item 3. No re-review (verdict already approved; fixes non-behavioral). Committed 9e0134b." },
+    { "at": "2026-07-18T15:19:07Z", "agent": "leader", "event": "ARCHIVING: reviewer-approved -> archived. openspec archive --yes (syncs manual-charge-log delta into main specs, moves change to archive/). KB spec-sync skipped: no kkpa/context/ KB in this project." }
+  ]
+}

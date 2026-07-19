@@ -61,6 +61,50 @@ Note: the former "CHARGING STATS" backlog item shipped as roadmap **RM2-charging
 tiers archived 2026-07-16) — see `openspec/roadmaps/archive/RM2-charging-stats/`.
 
 
+## 2. manualcharge / telemetry — Semi-automatic home-charge detection
+
+### PROPOSAL
+
+Infer home / AC charging sessions from the vehicle's **own** telemetry — `charge_energy_added`
+deltas + `charging_state` transitions (unambiguously the vehicle's own data, so **no**
+multi-tenant attribution problem) — to **pre-fill or suggest** entries in the manual charge
+log (`internal/manualcharge`, shipped by RM3). This directly reduces the manual-entry
+friction (people forget to log) that RM3 ships with.
+
+**TRIGGER — pick this up when** polling gets finer than the current once-nightly cadence: a
+charge session is minutes-to-an-hour long, so a single daily snapshot cannot reconstruct one.
+Pair with an event-driven / sub-hourly poller (or Tesla Fleet Telemetry streaming). It is the
+vehicle-side automatic counterpart to RM2's "charge-session detector" future note.
+
+### ORIGIN
+
+`RM3-manual-charge-log` roadmap "Future work" (leader session 2026-07-18) — the known
+adoption-friction gap of the user-asserted manual-entry approach.
+
+
+## 3. manualcharge — Integration tests for the remaining CHECK-constraint scenarios
+
+### PROPOSAL
+
+The `manual_charge_entries` migration enforces three CHECK constraints that the spec
+(`RM3-manualcharge-add-entries` `specs/manual-charge-log/spec.md`) names as scenarios but that
+have **no dedicated integration test**: `end_battery_pct` out of range (0–100), invalid
+`charging_type` (not `AC`/`DC`), and invalid `location_kind` (not `HOME`/`WORK`/`OTHER`). The
+constraints are live and verified to exist (psql), and the closely-related `start_battery_pct=101`
+case IS tested (T6.2e) — so this is a **test-coverage** gap only, not a correctness gap.
+
+**TRIGGER — pick up when** the `manualcharge` module is next touched (e.g. RM3 tier 2 gateway UI
+work, or any change adding fields/constraints). Add three `TestCreate_CheckConstraint_*` cases in
+`internal/manualcharge/db_integration_test.go` mirroring the existing pattern; each asserts a DB
+error is returned. Cheap (~30 lines) against the live DATABASE_URL-gated harness.
+
+### ORIGIN
+
+`RM3-manualcharge-add-entries` (RM3 tier 1) review finding **R3** (minor, accepted). The verdict
+was `approved`; the mandated T6.2 criteria were met, so the added coverage was deferred here
+rather than reopening the review. Recorded in the RM3 tier-1 progress.json review round 1.
+
+
 
 # BRAINSTORMING
 
@@ -75,3 +119,30 @@ Encrypt Tesla tokens at rest (tesla_tokens.access_token / refresh_token) — app
 
 ### ORIGIN
 add-account-module (Tier 1) design.md Open Question
+
+
+## 2. tesla / energy — Wall Connector charge history (EVALUATED & DECLINED 2026-07-18)
+
+### PROPOSAL
+
+Tesla's Fleet API exposes **Wall Connector** energy: `GET /api/1/products` discovers the
+`energy_site_id` + connector `device_id`/`din`, and
+`GET /api/1/energy_sites/{id}/telemetry_history?kind=charge` returns per-session
+`energy_added_wh` + start + duration. The adapter already has `ProductsRaw` +
+`EnergyChargeHistoryRaw` (raw / exploration only — off the `VehicleService` interface).
+
+**DECLINED for nightly persistence:** the payload is **charger-centric** — every session is
+keyed only by the connector (`target_id`/`din`), carries **no VIN / vehicle_id**, and cannot
+be reliably attributed to a specific owned vehicle in a multi-tenant platform (a second car,
+guest, or neighbor on the same connector is indistinguishable). Observed historical sessions
+also predate telemetry collection and can never be back-correlated. Shipped
+`RM3-manual-charge-log` (user-asserted manual entry) instead.
+
+**TRIGGER to revisit — only if** a single-vehicle-connector guarantee **plus a
+user-configured `connector → vehicle` mapping** is acceptable (attribution by configuration,
+not inference), OR Tesla adds a vehicle identifier to the charge-history payload.
+
+### ORIGIN
+
+Leader analysis session 2026-07-18 — inspected `cmd/explore-tesla-api/output/3-Products.json`
++ `4-EnergyChargeHistory.json`; user decision to skip the energy API in favor of manual entry.
