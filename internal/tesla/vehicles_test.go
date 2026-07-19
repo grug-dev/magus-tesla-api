@@ -460,12 +460,20 @@ func TestListVehicles_AccessTypeDecoding(t *testing.T) {
 			{
 				"id": 2,
 				"vehicle_id": 200,
+				"vin": "VIN_DRIVER",
+				"display_name": "Driver Car",
+				"state": "online",
+				"access_type": "DRIVER"
+			},
+			{
+				"id": 3,
+				"vehicle_id": 300,
 				"vin": "VIN_OMITTED",
 				"display_name": "Omitted Car",
 				"state": "online"
 			}
 		],
-		"count": 2
+		"count": 3
 	}`
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -480,8 +488,8 @@ func TestListVehicles_AccessTypeDecoding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListVehicles: %v", err)
 	}
-	if len(vehicles) != 2 {
-		t.Fatalf("want 2 vehicles, got %d", len(vehicles))
+	if len(vehicles) != 3 {
+		t.Fatalf("want 3 vehicles, got %d", len(vehicles))
 	}
 
 	// Vehicle with explicit "access_type": "OWNER" must decode to "OWNER".
@@ -489,9 +497,14 @@ func TestListVehicles_AccessTypeDecoding(t *testing.T) {
 		t.Errorf("vehicles[0].AccessType: want %q, got %q", "OWNER", got)
 	}
 
+	// Vehicle with explicit "access_type": "DRIVER" must decode to "DRIVER".
+	if got := vehicles[1].AccessType; got != "DRIVER" {
+		t.Errorf("vehicles[1].AccessType: want %q, got %q", "DRIVER", got)
+	}
+
 	// Vehicle with access_type omitted must decode to the zero value "".
-	if got := vehicles[1].AccessType; got != "" {
-		t.Errorf("vehicles[1].AccessType: want %q (zero), got %q", "", got)
+	if got := vehicles[2].AccessType; got != "" {
+		t.Errorf("vehicles[2].AccessType: want %q (zero), got %q", "", got)
 	}
 }
 
