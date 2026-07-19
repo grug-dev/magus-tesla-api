@@ -7,7 +7,7 @@
   "autopilot": true,
   "status": "in-progress",
   "created_at": "2026-07-19T12:51:07Z",
-  "updated_at": "2026-07-19T12:51:07Z",
+  "updated_at": "2026-07-19T12:58:04Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -16,8 +16,8 @@
     "created_at": "2026-07-19T12:51:07Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2, 3, 4],
+    "current": [1],
+    "pending": [2, 3, 4],
     "blocked": [],
     "done": []
   },
@@ -66,14 +66,14 @@
       "module": "tesla",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-19T12:51:07Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Add AccessType to VehicleTesla DTO; no DB, no new Fleet call."
+      "notes": "Add AccessType to VehicleTesla DTO; no DB, no new Fleet call. Artifacts created + validated."
     },
     {
       "id": 2,
@@ -122,6 +122,7 @@
     }
   ],
   "events": [
-    { "at": "2026-07-19T12:51:07Z", "agent": "leader", "event": "RM4 roadmap created (4 tiers); branch ft/RM4-charge-form-required-location-and-vehicle-autoselect off main; rm-counter 4->5; grill-me decisions RD1-RD4 captured; autopilot on." }
+    { "at": "2026-07-19T12:51:07Z", "agent": "leader", "event": "RM4 roadmap created (4 tiers); branch ft/RM4-charge-form-required-location-and-vehicle-autoselect off main; rm-counter 4->5; grill-me decisions RD1-RD4 captured; autopilot on." },
+    { "at": "2026-07-19T12:58:04Z", "agent": "leader", "event": "Tier 1 (RM4-tesla-add-vehicle-access-type) artifacts created by tesla worker (sonnet) and validated (openspec --strict). No DB -> no design gate. Tier -> proposed, [ ]->[~]." }
   ]
 }
