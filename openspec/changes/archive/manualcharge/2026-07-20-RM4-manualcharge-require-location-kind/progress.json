@@ -5,7 +5,7 @@
   "module": "manualcharge",
   "roadmap": "openspec/roadmaps/RM4-charge-form-required-location-and-vehicle-autoselect.md",
   "request": "Tier 3 of RM4: make location_kind a required field on manual charge entries - NOT NULL migration (defensive backfill to 'OTHER' then SET NOT NULL, no DEFAULT; RD1) and service validation on Create+Update (RD2). Field stays *string.",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -13,7 +13,7 @@
     "done": ["T1", "T2", "T3", "T4"]
   },
   "created_at": "2026-07-20T10:33:00Z",
-  "updated_at": "2026-07-20T10:45:00Z",
+  "updated_at": "2026-07-20T11:05:00Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -28,7 +28,7 @@
     { "id": "T4", "title": "Verification: go build/vet/test ./..., no sqlc change, boundaries intact, openspec --strict", "module": "manualcharge", "depends_on": ["T1", "T2", "T3"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "claude-opus-4-8", "started_at": "2026-07-20T10:44:00Z", "completed_at": "2026-07-20T10:45:00Z", "duration_seconds": 60, "notes": "Leader verify: build/vet/test ./... green (manualcharge unit tests pass, integration self-skip); no sqlc/db-*.go drift; boundaries intact; openspec --strict valid. Live-DB apply (V4) deferred to user's wipe+re-migrate.", "budget": { "source": "statusline-cache", "approx": true, "note": "included in shared Wave 1 delta on T1" } }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "manualcharge-reviewer",
     "brief": "Validate RM4-manualcharge-require-location-kind (tier 3). (1) Boundary: only internal/manualcharge touched; no import of tesla/account/telemetry/gateway; pgtype not in any public type/interface/test assertion. (2) DB design MATCHES RD1/design.md D1-D2 (mismatch = BLOCKER): migration does UPDATE ... 'OTHER' WHERE location_kind IS NULL *before* ALTER ... SET NOT NULL, NO DEFAULT, existing CHECK untouched; Down drops NOT NULL only. (3) Service D3: BOTH Create and Update reject nil OR empty LocationKind before any pgtype/DB call, using the 'manualcharge: ...' error convention. (4) D4: LocationKind stays *string (full project incl. gateway compiles). (5) D5 no index; D6 no sqlc regen (git diff internal/manualcharge/db/*.go empty). (6) Spec coverage: specs/manual-charge-log delta (location_kind required on create, enforced on update, HOME/WORK/OTHER accepted) matches impl + tests. (7) Tests: DATABASE_URL-gated self-skip; cover reject nil/empty on create, reject nil on update (row unchanged), accept HOME/WORK/OTHER, update change. Confirm the minEntry/TestCreate_RequiredOnly edits are a LEGITIMATE consequence of the required field (not a weakened criterion). (8) Performance-Profile read-heavy: no read-path/index impact. (9) Anti-gaming: tasks.md checkboxes + progress.json statuses truthful. Note: live-DB apply (T1.4/V4) is intentionally deferred to the user's DB wipe+re-migrate - not a gap. Read the diff (commit 9526c51) + the 4 artifacts. Escalate on any doubt.",
     "rounds": [
@@ -55,6 +55,14 @@
             "leader_note": "Added strings.Contains(err.Error(), 'location_kind is required') assertions to TestCreate_RejectsNilLocationKind, TestCreate_RejectsEmptyLocationKind, and TestUpdate_RejectsNilLocationKind; added the strings import. go vet + go test ./internal/manualcharge/... green."
           }
         ]
+      },
+      {
+        "round": 2,
+        "at": "2026-07-20T11:05:00Z",
+        "duration_seconds": 32,
+        "verdict": "approved",
+        "findings": [],
+        "note": "Re-verified F1 (V4 correctly left deferred, V1-3/5-7 ticked) + F2 (message assertions added to the 3 reject tests, strings import present). go vet + go test ./internal/manualcharge/... green. No assertion weakened."
       }
     ]
   },
@@ -71,6 +79,9 @@
   ],
   "events": [
     { "at": "2026-07-20T10:33:00Z", "agent": "leader", "event": "Tier 3 artifacts created by manualcharge worker (sonnet), openspec --strict valid; MODIFIED headers match main spec verbatim. DB design gate pre-satisfied (D-gate; RD1). progress.json seeded (T1-T4); status proposed. Autopilot proceeding to apply." },
-    { "at": "2026-07-20T10:45:00Z", "agent": "leader", "event": "Wave 1 complete: manualcharge worker (sonnet) shipped NOT NULL migration + Create/Update validation + 7 integration tests (updated minEntry/TestCreate_RequiredOnly as required); D1-D6 complied. Step 6 verify: build/vet/test ./... green, no sqlc drift, openspec --strict valid; live-DB apply deferred to user wipe. status -> verified. Next: review." }
+    { "at": "2026-07-20T10:45:00Z", "agent": "leader", "event": "Wave 1 complete: manualcharge worker (sonnet) shipped NOT NULL migration + Create/Update validation + 7 integration tests (updated minEntry/TestCreate_RequiredOnly as required); D1-D6 complied. Step 6 verify: build/vet/test ./... green, no sqlc drift, openspec --strict valid; live-DB apply deferred to user wipe. status -> verified. Next: review." },
+    { "at": "2026-07-20T10:55:00Z", "agent": "leader", "event": "Review round 1: manualcharge-reviewer (sonnet) changes-requested, 2 minor findings. Leader triaged both accepted: F2 added error-message assertions to 3 reject tests (+strings import); F1 ticked V1-3/5-7, left V4 DEFERRED (untruthful to tick - never run live). Committed 2fd7acd." },
+    { "at": "2026-07-20T11:05:00Z", "agent": "leader", "event": "Review round 2 (fresh reviewer, no live-messaging in runtime): APPROVED, F1+F2 resolved, go vet/test green. status -> reviewer-approved. Next: archive." },
+    { "at": "2026-07-20T11:08:00Z", "agent": "leader", "event": "Step 8 archive: openspec archive synced delta (3 modified requirements) into specs/manual-charge-log; moved to archive/manualcharge/2026-07-20-... (created domain folder, consistent with tiers 1-2). The 2 'incomplete tasks' are the intentionally-deferred live-DB steps T1.4/V4. status -> archived." }
   ]
 }

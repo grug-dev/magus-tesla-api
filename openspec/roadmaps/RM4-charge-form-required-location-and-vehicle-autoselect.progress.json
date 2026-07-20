@@ -7,7 +7,7 @@
   "autopilot": true,
   "status": "in-progress",
   "created_at": "2026-07-19T12:51:07Z",
-  "updated_at": "2026-07-20T10:30:00Z",
+  "updated_at": "2026-07-20T11:08:00Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -16,10 +16,10 @@
     "created_at": "2026-07-19T12:51:07Z"
   },
   "rollup": {
-    "current": [3],
+    "current": [],
     "pending": [4],
     "blocked": [],
-    "done": [1, 2]
+    "done": [1, 2, 3]
   },
   "decisions": [
     {
@@ -110,14 +110,21 @@
       "module": "manualcharge",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-07-20T10:33:00Z",
-      "completed_at": null,
+      "completed_at": "2026-07-20T11:08:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts created + validated; DB design gate pre-satisfied by RD1. Apply next."
+      "budget": {
+        "five_hour_pct_delta": 34.0,
+        "cost_usd_delta": 11.80,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts ~2pp, apply ~8pp/$1.33, review round1 ~$4, round2 ~$5, archive overhead. 5-hour 38->72%."
+      },
+      "notes": "Shipped: location_kind NOT NULL migration + Create/Update validation. 2 review rounds (round1 minor F1/F2 fixed, round2 approved). Live-DB apply deferred to user wipe. Archived to archive/manualcharge/."
     },
     {
       "id": 4,
@@ -140,6 +147,7 @@
     { "at": "2026-07-19T12:58:04Z", "agent": "leader", "event": "Tier 1 (RM4-tesla-add-vehicle-access-type) artifacts created by tesla worker (sonnet) and validated (openspec --strict). No DB -> no design gate. Tier -> proposed, [ ]->[~]." },
     { "at": "2026-07-19T13:09:00Z", "agent": "leader", "event": "Tier 1 ARCHIVED: implemented (sonnet worker), verified (build/vet/test ./... green), reviewed (approved, minor F1 fixed), delta synced to specs/tesla, moved to archive/tesla/. Tier 1 [~]->[x]. Unblocked next: tiers 2 (account) and 3 (manualcharge) - both depend_on []. Tier 2 hits the database design gate (autopilot pause)." },
     { "at": "2026-07-19T13:14:00Z", "agent": "leader", "event": "Tier 2 started (user chose 'Continue now - Tier 2'): artifacts created, DB design gate confirmed (RD2/RD3). Then BUDGET CHECKPOINT: 5-hour bucket 91% (>=90), context 21%; apply wave NOT started. Tier 2 [~], status proposed. Bucket resets 2026-07-19T15:30:00Z. Resume after reset -> Step 5 apply." },
-    { "at": "2026-07-20T10:30:00Z", "agent": "leader", "event": "Tier 2 ARCHIVED (resumed session): applied (sonnet worker: migration+sqlc+domain+service+integration tests), verified green, reviewed (approved, 0 findings), delta synced to specs/account-vehicle-registry, moved to archive/account/. Tier 2 [~]->[x]. Step 9 advance: tier 3 (manualcharge) now next unblocked (depends_on []); tier 4 (gateway) still blocked on tier 3. Budget clear (27%). Autopilot continues to tier 3." }
+    { "at": "2026-07-20T10:30:00Z", "agent": "leader", "event": "Tier 2 ARCHIVED (resumed session): applied (sonnet worker: migration+sqlc+domain+service+integration tests), verified green, reviewed (approved, 0 findings), delta synced to specs/account-vehicle-registry, moved to archive/account/. Tier 2 [~]->[x]. Step 9 advance: tier 3 (manualcharge) now next unblocked (depends_on []); tier 4 (gateway) still blocked on tier 3. Budget clear (27%). Autopilot continues to tier 3." },
+    { "at": "2026-07-20T11:08:00Z", "agent": "leader", "event": "Tier 3 ARCHIVED: applied (sonnet worker: NOT NULL migration + Create/Update validation + 7 tests), verified green, reviewed (2 rounds: round1 minor F1/F2 fixed, round2 approved), delta synced to specs/manual-charge-log, moved to archive/manualcharge/. Tier 3 [~]->[x]. Step 9: tier 4 (gateway) now UNBLOCKED (deps 1,2,3 all archived) - LAST + largest tier. Budget checkpoint gate: 5-hour 72%, context 35%; tier 4 is a big spend likely to cross 90% - flagging to user before starting." }
   ]
 }
