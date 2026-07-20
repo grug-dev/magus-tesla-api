@@ -38,4 +38,5 @@ type Vehicle struct {
 	DisplayName pgtype.Text
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
+	AccessType  pgtype.Text
 }

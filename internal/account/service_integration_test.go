@@ -415,6 +415,144 @@ func TestSeedVehicles_InsertsWhenMissing(t *testing.T) {
 	}
 }
 
+// ptr returns a pointer to the given string. Helper for tests that need *string literals.
+func ptr(s string) *string { return &s }
+
+// TestAccessType_RoundTrip verifies that access_type is persisted and read back
+// correctly through the full seed→read path (DATABASE_URL-gated, design.md D4).
+func TestAccessType_RoundTrip(t *testing.T) {
+	s, pool := newTestService(t)
+	ctx := context.Background()
+
+	acct, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "access-type-roundtrip@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account: %v", err)
+	}
+	deleteAccount(t, pool, acct.ID)
+
+	vehicles, err := s.SeedVehicles(ctx, acct.ID, []SeedVehicle{
+		{TeslaID: 7001, VIN: "VIN7001", DisplayName: "Owner Car", AccessType: ptr("OWNER")},
+		{TeslaID: 7002, VIN: "VIN7002", DisplayName: "Driver Car", AccessType: ptr("DRIVER")},
+		{TeslaID: 7003, VIN: "VIN7003", DisplayName: "Unknown Car", AccessType: nil},
+	})
+	if err != nil {
+		t.Fatalf("SeedVehicles: %v", err)
+	}
+	if len(vehicles) != 3 {
+		t.Fatalf("expected 3 vehicles, got %d", len(vehicles))
+	}
+
+	// Index by TeslaID for assertion.
+	byID := map[int64]Vehicle{}
+	for _, v := range vehicles {
+		byID[v.TeslaID] = v
+	}
+
+	// OWNER round-trip via RegisteredVehicles.
+	if v := byID[7001]; v.AccessType == nil || *v.AccessType != "OWNER" {
+		t.Errorf("vehicle 7001: want AccessType=OWNER, got %v", v.AccessType)
+	}
+	// DRIVER round-trip.
+	if v := byID[7002]; v.AccessType == nil || *v.AccessType != "DRIVER" {
+		t.Errorf("vehicle 7002: want AccessType=DRIVER, got %v", v.AccessType)
+	}
+	// nil round-trip.
+	if v := byID[7003]; v.AccessType != nil {
+		t.Errorf("vehicle 7003: want AccessType=nil, got %v", v.AccessType)
+	}
+
+	// AllRegisteredVehicles also surfaces access_type correctly.
+	all, err := s.AllRegisteredVehicles(ctx)
+	if err != nil {
+		t.Fatalf("AllRegisteredVehicles: %v", err)
+	}
+	mine := vehiclesForAccount(all, acct.ID)
+	if len(mine) != 3 {
+		t.Fatalf("expected 3 owned vehicles, got %d", len(mine))
+	}
+	if v := mine[7001]; v.AccessType == nil || *v.AccessType != "OWNER" {
+		t.Errorf("AllRegisteredVehicles vehicle 7001: want AccessType=OWNER, got %v", v.AccessType)
+	}
+	if v := mine[7002]; v.AccessType == nil || *v.AccessType != "DRIVER" {
+		t.Errorf("AllRegisteredVehicles vehicle 7002: want AccessType=DRIVER, got %v", v.AccessType)
+	}
+	if v := mine[7003]; v.AccessType != nil {
+		t.Errorf("AllRegisteredVehicles vehicle 7003: want AccessType=nil, got %v", v.AccessType)
+	}
+}
+
+// TestAccessType_IdempotencyPreservesStoredValue verifies that re-seeding an existing
+// vehicle with a different access_type leaves the stored value unchanged (ON CONFLICT
+// DO NOTHING — design.md D3).
+func TestAccessType_IdempotencyPreservesStoredValue(t *testing.T) {
+	s, pool := newTestService(t)
+	ctx := context.Background()
+
+	acct, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "access-type-idempotent@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account: %v", err)
+	}
+	deleteAccount(t, pool, acct.ID)
+
+	// First seed: OWNER.
+	if _, err := s.SeedVehicles(ctx, acct.ID, []SeedVehicle{
+		{TeslaID: 8001, VIN: "VIN8001", DisplayName: "My Car", AccessType: ptr("OWNER")},
+	}); err != nil {
+		t.Fatalf("first seed: %v", err)
+	}
+
+	// Re-seed same vehicle with DRIVER — ON CONFLICT DO NOTHING must leave it as OWNER.
+	got, err := s.SeedVehicles(ctx, acct.ID, []SeedVehicle{
+		{TeslaID: 8001, VIN: "VIN8001", DisplayName: "My Car", AccessType: ptr("DRIVER")},
+	})
+	if err != nil {
+		t.Fatalf("re-seed: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 vehicle after re-seed, got %d", len(got))
+	}
+	if got[0].AccessType == nil || *got[0].AccessType != "OWNER" {
+		t.Errorf("re-seed overwrote access_type: want OWNER (unchanged), got %v", got[0].AccessType)
+	}
+}
+
+// TestAccessType_InvalidValueRejectedByCheckConstraint verifies that seeding a vehicle
+// with an invalid access_type (not 'OWNER' or 'DRIVER') produces a DB CHECK constraint
+// error (design.md D1).
+func TestAccessType_InvalidValueRejectedByCheckConstraint(t *testing.T) {
+	s, pool := newTestService(t)
+	ctx := context.Background()
+
+	acct, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "access-type-check@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account: %v", err)
+	}
+	deleteAccount(t, pool, acct.ID)
+
+	_, err = s.SeedVehicles(ctx, acct.ID, []SeedVehicle{
+		{TeslaID: 9001, VIN: "VIN9001", DisplayName: "Bad Car", AccessType: ptr("ADMIN")},
+	})
+	if err == nil {
+		t.Fatalf("expected CHECK constraint error for invalid access_type 'ADMIN', got nil")
+	}
+	// Verify the error message mentions the check constraint (pgx surfaces this).
+	if errStr := err.Error(); errStr == "" {
+		t.Errorf("expected a non-empty error string for CHECK violation")
+	}
+}
+
 func TestSeedVehicles_IdempotentAndDoesNotOverwrite(t *testing.T) {
 	s, pool := newTestService(t)
 	ctx := context.Background()

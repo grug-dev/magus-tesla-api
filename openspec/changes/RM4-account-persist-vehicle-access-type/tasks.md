@@ -18,7 +18,7 @@
 
 ## 1. Goose migration — no dependencies
 
-- [ ] 1.1 Create `internal/account/db/migrations/20260720000001_vehicles_add_access_type.sql`
+- [x] 1.1 Create `internal/account/db/migrations/20260720000001_vehicles_add_access_type.sql`
       containing a goose `-- +goose Up` that runs:
       ```sql
       ALTER TABLE vehicles
@@ -30,11 +30,11 @@
 
 ## 2. Domain types (`internal/account/account.go`) — independent of 1, parallel-ok
 
-- [ ] 2.1 Add `AccessType *string` to the `Vehicle` struct. Document with a comment: `nil` means
+- [x] 2.1 Add `AccessType *string` to the `Vehicle` struct. Document with a comment: `nil` means
       the value was not captured at seed time (predates this change or caller supplied nil); `"OWNER"`
       or `"DRIVER"` reflect Tesla's per-vehicle access type.
-- [ ] 2.2 Add `AccessType *string` to the `OwnedVehicle` struct with the same doc comment.
-- [ ] 2.3 Add `AccessType *string` to the `SeedVehicle` struct. Document: the gateway (tier 4) will
+- [x] 2.2 Add `AccessType *string` to the `OwnedVehicle` struct with the same doc comment.
+- [x] 2.3 Add `AccessType *string` to the `SeedVehicle` struct. Document: the gateway (tier 4) will
       set this from `VehicleTesla.AccessType`; callers that do not supply it leave it `nil`, which
       is stored as `NULL`.
       Note: Do NOT add `AccessType` to the `Service` interface signatures — `SeedVehicles`,
@@ -42,20 +42,20 @@
 
 ## 3. sqlc queries + regeneration (`internal/account/db/query.sql`) — depends on 1 (schema source), parallel-ok with 2
 
-- [ ] 3.1 Update `InsertVehicleIfMissing` to add `access_type` to the INSERT column list and the
+- [x] 3.1 Update `InsertVehicleIfMissing` to add `access_type` to the INSERT column list and the
       `VALUES` bind variables (`@access_type`). The `ON CONFLICT DO NOTHING` clause is UNCHANGED.
-- [ ] 3.2 Confirm `ListVehiclesByAccount` selects `access_type`. If it uses `SELECT *`, the new
+- [x] 3.2 Confirm `ListVehiclesByAccount` selects `access_type`. If it uses `SELECT *`, the new
       column is automatically included — verify; if an explicit column list exists, add `access_type`.
-- [ ] 3.3 Confirm `ListAllVehicles` includes `access_type`. The query currently selects an explicit
+- [x] 3.3 Confirm `ListAllVehicles` includes `access_type`. The query currently selects an explicit
       list (`account_id, tesla_id, vin, display_name`) — add `access_type` to that list.
-- [ ] 3.4 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm that
+- [x] 3.4 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm that
       `InsertVehicleIfMissingParams` gains an `AccessType pgtype.Text` field, that
       `Vehicle` (the sqlc row type) gains `AccessType pgtype.Text`, and that
       `ListAllVehiclesRow` gains `AccessType pgtype.Text`. No other module's generated code should change.
 
 ## 4. Service mapping (`internal/account/service.go`) — depends on 2 and 3
 
-- [ ] 4.1 Add two private helper functions for nullable TEXT ↔ `*string` conversion at the
+- [x] 4.1 Add two private helper functions for nullable TEXT ↔ `*string` conversion at the
       DB→domain boundary (these are NEW because the existing `textFromString` maps `string → pgtype.Text`
       treating `""` as NULL, which is wrong for `*string`):
       ```go
@@ -64,19 +64,19 @@
       // textPtrToNullable maps a *string to pgtype.Text; invalid (NULL) when nil.
       func textPtrToNullable(s *string) pgtype.Text { ... }
       ```
-- [ ] 4.2 Update `vehicleFromRow` to map `v.AccessType` (pgtype.Text) to `*string` using
+- [x] 4.2 Update `vehicleFromRow` to map `v.AccessType` (pgtype.Text) to `*string` using
       `nullableTextToPtr`.
-- [ ] 4.3 Update `ownedVehicleFromRow` to map `v.AccessType` (pgtype.Text) to `*string` using
+- [x] 4.3 Update `ownedVehicleFromRow` to map `v.AccessType` (pgtype.Text) to `*string` using
       `nullableTextToPtr`.
-- [ ] 4.4 Update `SeedVehicles` — the `InsertVehicleIfMissingParams` literal gains
+- [x] 4.4 Update `SeedVehicles` — the `InsertVehicleIfMissingParams` literal gains
       `AccessType: textPtrToNullable(v.AccessType)`. No other logic changes (ON CONFLICT DO NOTHING
       is preserved exactly).
-- [ ] 4.5 Verify that `pgtype.Text` does not appear in any public type signature — it must be
+- [x] 4.5 Verify that `pgtype.Text` does not appear in any public type signature — it must be
       confined to the `service.go` boundary helpers and the sqlc-generated `accountdb` package.
 
 ## 5. Integration tests (`internal/account/service_integration_test.go`) — depends on 4
 
-- [ ] 5.1 Add `DATABASE_URL`-gated integration coverage (self-skips when unset, per the module's
+- [x] 5.1 Add `DATABASE_URL`-gated integration coverage (self-skips when unset, per the module's
       existing pattern) for `access_type` round-trip:
       - Seed a vehicle with `AccessType = ptr("OWNER")` → `RegisteredVehicles` returns
         `AccessType = ptr("OWNER")`.

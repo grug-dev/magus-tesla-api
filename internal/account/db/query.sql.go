@@ -87,8 +87,8 @@ func (q *Queries) GetLatestTeslaTokenByAccountForUpdate(ctx context.Context, acc
 }
 
 const insertVehicleIfMissing = `-- name: InsertVehicleIfMissing :exec
-INSERT INTO vehicles (account_id, tesla_id, vin, display_name)
-VALUES ($1, $2, $3, $4)
+INSERT INTO vehicles (account_id, tesla_id, vin, display_name, access_type)
+VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (account_id, tesla_id) DO NOTHING
 `
 
@@ -97,6 +97,7 @@ type InsertVehicleIfMissingParams struct {
 	TeslaID     int64
 	Vin         string
 	DisplayName pgtype.Text
+	AccessType  pgtype.Text
 }
 
 // Idempotent per-account vehicle registration: insert a vehicle only if this
@@ -105,18 +106,20 @@ type InsertVehicleIfMissingParams struct {
 // should not change" rule. :exec (no RETURNING) because ON CONFLICT DO NOTHING
 // yields no row on a skipped insert, and the caller re-reads the full set via
 // ListVehiclesByAccount anyway — there is nothing to return here.
+// ON CONFLICT DO NOTHING is UNCHANGED per design.md D3.
 func (q *Queries) InsertVehicleIfMissing(ctx context.Context, arg InsertVehicleIfMissingParams) error {
 	_, err := q.db.Exec(ctx, insertVehicleIfMissing,
 		arg.AccountID,
 		arg.TeslaID,
 		arg.Vin,
 		arg.DisplayName,
+		arg.AccessType,
 	)
 	return err
 }
 
 const listAllVehicles = `-- name: ListAllVehicles :many
-SELECT account_id, tesla_id, vin, display_name FROM vehicles
+SELECT account_id, tesla_id, vin, display_name, access_type FROM vehicles
 ORDER BY account_id, tesla_id
 `
 
@@ -125,6 +128,7 @@ type ListAllVehiclesRow struct {
 	TeslaID     int64
 	Vin         string
 	DisplayName pgtype.Text
+	AccessType  pgtype.Text
 }
 
 // Every registered vehicle across ALL accounts, each with its owning account_id,
@@ -145,6 +149,7 @@ func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, er
 			&i.TeslaID,
 			&i.Vin,
 			&i.DisplayName,
+			&i.AccessType,
 		); err != nil {
 			return nil, err
 		}
@@ -157,7 +162,7 @@ func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, er
 }
 
 const listVehiclesByAccount = `-- name: ListVehiclesByAccount :many
-SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at FROM vehicles
+SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at, access_type FROM vehicles
 WHERE account_id = $1
 ORDER BY tesla_id
 `
@@ -180,6 +185,7 @@ func (q *Queries) ListVehiclesByAccount(ctx context.Context, accountID uuid.UUID
 			&i.DisplayName,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.AccessType,
 		); err != nil {
 			return nil, err
 		}
