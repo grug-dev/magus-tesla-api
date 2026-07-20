@@ -44,7 +44,7 @@ read path — it is read from the persisted registry row.
 
 ## MODIFIED Requirements
 
-### Requirement: Per-Account Vehicle Registry Storage (updated)
+### Requirement: Per-Account Vehicle Registry Storage
 The account module SHALL persist a registry of Tesla vehicles linked to each account, storing, per
 vehicle, the Tesla Fleet API vehicle `id` (`tesla_id`), the `vin`, the `display_name`, and the
 `access_type`. Each vehicle row SHALL be owned by exactly one account via a foreign key to
@@ -59,7 +59,7 @@ obtain registered vehicles only through the account module's public interface.
   `access_type`
 - **AND** each row is linked to the account via its `account_id` foreign key
 
-### Requirement: Idempotent Vehicle Seeding (updated — access_type included in seed payload)
+### Requirement: Idempotent Vehicle Seeding
 Seeding vehicles for an account SHALL be idempotent per `(account_id, tesla_id)`. Inserting
 vehicles that already exist for that account SHALL create no duplicate rows and SHALL NOT change the
 stored `vin`, `display_name`, or `access_type` of an already-registered vehicle. Uniqueness SHALL
@@ -72,7 +72,7 @@ cannot duplicate a vehicle.
 - **THEN** no new row is created
 - **AND** the existing vehicle's `access_type` remains `'OWNER'`
 
-### Requirement: Registered Vehicle Read Access (updated)
+### Requirement: Registered Vehicle Read Access
 The account module SHALL expose a public interface to read all vehicles registered to an account,
 returning each vehicle's `tesla_id`, `vin`, `display_name`, and `access_type` (and no `state`).
 The result SHALL reflect whatever is currently persisted for that account — empty when nothing is

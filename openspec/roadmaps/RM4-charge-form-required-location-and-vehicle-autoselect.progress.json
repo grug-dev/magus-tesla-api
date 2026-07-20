@@ -7,7 +7,7 @@
   "autopilot": true,
   "status": "in-progress",
   "created_at": "2026-07-19T12:51:07Z",
-  "updated_at": "2026-07-19T13:14:00Z",
+  "updated_at": "2026-07-20T10:30:00Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -16,10 +16,10 @@
     "created_at": "2026-07-19T12:51:07Z"
   },
   "rollup": {
-    "current": [2],
+    "current": [],
     "pending": [3, 4],
     "blocked": [],
-    "done": [1]
+    "done": [1, 2]
   },
   "decisions": [
     {
@@ -88,14 +88,21 @@
       "module": "account",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-07-19T13:10:00Z",
-      "completed_at": null,
+      "completed_at": "2026-07-20T10:30:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts created + validated; DB design gate confirmed (RD2/RD3). PAUSED at budget checkpoint before apply wave."
+      "budget": {
+        "five_hour_pct_delta": 16.0,
+        "cost_usd_delta": 5.52,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "spanned a 5-hour bucket reset (checkpoint + resume): artifacts (session 1) ~4pp/$1.9, apply wave (session 2) ~16pp/$1.41, review ~$1.25, + archive overhead. cost is the reliable signal across the reset."
+      },
+      "notes": "Shipped: nullable access_type on vehicles + domain fields + seed persist. 1 review round (approved, 0 findings). Spanned a budget checkpoint. Archived to archive/account/."
     },
     {
       "id": 3,
@@ -132,6 +139,7 @@
     { "at": "2026-07-19T12:51:07Z", "agent": "leader", "event": "RM4 roadmap created (4 tiers); branch ft/RM4-charge-form-required-location-and-vehicle-autoselect off main; rm-counter 4->5; grill-me decisions RD1-RD4 captured; autopilot on." },
     { "at": "2026-07-19T12:58:04Z", "agent": "leader", "event": "Tier 1 (RM4-tesla-add-vehicle-access-type) artifacts created by tesla worker (sonnet) and validated (openspec --strict). No DB -> no design gate. Tier -> proposed, [ ]->[~]." },
     { "at": "2026-07-19T13:09:00Z", "agent": "leader", "event": "Tier 1 ARCHIVED: implemented (sonnet worker), verified (build/vet/test ./... green), reviewed (approved, minor F1 fixed), delta synced to specs/tesla, moved to archive/tesla/. Tier 1 [~]->[x]. Unblocked next: tiers 2 (account) and 3 (manualcharge) - both depend_on []. Tier 2 hits the database design gate (autopilot pause)." },
-    { "at": "2026-07-19T13:14:00Z", "agent": "leader", "event": "Tier 2 started (user chose 'Continue now - Tier 2'): artifacts created, DB design gate confirmed (RD2/RD3). Then BUDGET CHECKPOINT: 5-hour bucket 91% (>=90), context 21%; apply wave NOT started. Tier 2 [~], status proposed. Bucket resets 2026-07-19T15:30:00Z. Resume after reset -> Step 5 apply." }
+    { "at": "2026-07-19T13:14:00Z", "agent": "leader", "event": "Tier 2 started (user chose 'Continue now - Tier 2'): artifacts created, DB design gate confirmed (RD2/RD3). Then BUDGET CHECKPOINT: 5-hour bucket 91% (>=90), context 21%; apply wave NOT started. Tier 2 [~], status proposed. Bucket resets 2026-07-19T15:30:00Z. Resume after reset -> Step 5 apply." },
+    { "at": "2026-07-20T10:30:00Z", "agent": "leader", "event": "Tier 2 ARCHIVED (resumed session): applied (sonnet worker: migration+sqlc+domain+service+integration tests), verified green, reviewed (approved, 0 findings), delta synced to specs/account-vehicle-registry, moved to archive/account/. Tier 2 [~]->[x]. Step 9 advance: tier 3 (manualcharge) now next unblocked (depends_on []); tier 4 (gateway) still blocked on tier 3. Budget clear (27%). Autopilot continues to tier 3." }
   ]
 }

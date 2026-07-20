@@ -90,8 +90,8 @@
 
 ## 6. Verification — depends on 1–5
 
-- [ ] 6.1 `go build ./...` and `go vet ./...` pass.
-- [ ] 6.2 `go test ./...` green and fast; account integration tests self-skip without `DATABASE_URL`
+- [x] 6.1 `go build ./...` and `go vet ./...` pass.
+- [x] 6.2 `go test ./...` green and fast; account integration tests self-skip without `DATABASE_URL`
       (and pass with it set); no Tesla API call fires from the test run.
-- [ ] 6.3 `openspec validate --strict RM4-account-persist-vehicle-access-type` passes and every
+- [x] 6.3 `openspec validate --strict RM4-account-persist-vehicle-access-type` passes and every
       tasks.md checkbox above reflects real completion.
