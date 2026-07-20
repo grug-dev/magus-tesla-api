@@ -23,10 +23,10 @@
 
 ## T1. Migration — require location_kind NOT NULL (`internal/manualcharge/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create goose migration file
+- [x] T1.1 Create goose migration file
       `internal/manualcharge/db/migrations/20260720000001_require_location_kind.sql`.
       Use timestamp `20260720000001` (next sequential after `20260718000001`).
-- [ ] T1.2 Write `-- +goose Up` block with two statements in this exact order:
+- [x] T1.2 Write `-- +goose Up` block with two statements in this exact order:
       (a) `UPDATE manual_charge_entries SET location_kind = 'OTHER' WHERE location_kind IS NULL;`
           — defensive backfill; a no-op on a freshly wiped DB but required for safety on any
           non-empty environment. Add a comment explaining the 'OTHER' choice and that the order
@@ -36,7 +36,7 @@
           `CHECK (location_kind IN ('HOME','WORK','OTHER'))` constraint is left untouched.
       Add NO `DEFAULT` clause to the column (design D2 — DEFAULT would mask a missing field
       instead of failing loudly).
-- [ ] T1.3 Write `-- +goose Down` block:
+- [x] T1.3 Write `-- +goose Down` block:
       `ALTER TABLE manual_charge_entries ALTER COLUMN location_kind DROP NOT NULL;`
       Add a comment noting that the backfill UPDATE is NOT reversed — rows that were NULL before
       the Up migration now carry 'OTHER' and this is acceptable (schema rollback, not data
@@ -49,7 +49,7 @@
 
 ## T2. Service validation — location_kind required in Create and Update (`internal/manualcharge/service.go`) — no dependencies (parallel with T1)
 
-- [ ] T2.1 In `writerService.Create`, add a required-field check for `e.LocationKind` BEFORE
+- [x] T2.1 In `writerService.Create`, add a required-field check for `e.LocationKind` BEFORE
       the `numericFromFloat64` calls and before `params` is built:
       ```go
       if e.LocationKind == nil || *e.LocationKind == "" {
@@ -58,7 +58,7 @@
       ```
       This check must fire before any pgtype conversion or database call. Add `"errors"` to the
       import block if not already present.
-- [ ] T2.2 In `writerService.Update`, add the identical check for `e.LocationKind` in the same
+- [x] T2.2 In `writerService.Update`, add the identical check for `e.LocationKind` in the same
       position (before `numericFromFloat64` and before `params` is built):
       ```go
       if e.LocationKind == nil || *e.LocationKind == "" {
@@ -67,7 +67,7 @@
       ```
       Acceptance: the check appears in both `Create` and `Update`; the error message follows the
       existing `"manualcharge: ..."` prefix convention in the file.
-- [ ] T2.3 Confirm that `go build ./internal/manualcharge/...` passes with no errors after the
+- [x] T2.3 Confirm that `go build ./internal/manualcharge/...` passes with no errors after the
       change (no new imports beyond `"errors"` if not already present; the domain type
       `LocationKind *string` is unchanged).
 
@@ -75,25 +75,25 @@
 
 ## T3. Integration tests — location_kind required scenarios (`internal/manualcharge/db_integration_test.go`) — depends on T1 applied + T2 complete
 
-- [ ] T3.1 Add integration test: `TestCreate_RejectsNilLocationKind` — call
+- [x] T3.1 Add integration test: `TestCreate_RejectsNilLocationKind` — call
       `Writer.Create` with `e.LocationKind = nil`; assert the returned error is non-nil
       and contains the expected message (e.g., "location_kind is required"). Assert no row was
       inserted (confirm via `ListEntriesByAccount` returning empty slice for that account).
-- [ ] T3.2 Add integration test: `TestCreate_RejectsEmptyLocationKind` — call
+- [x] T3.2 Add integration test: `TestCreate_RejectsEmptyLocationKind` — call
       `Writer.Create` with `e.LocationKind = ptr("")`; assert the returned error is non-nil.
-- [ ] T3.3 Add integration test: `TestCreate_AcceptsHOME` — call `Writer.Create` with
+- [x] T3.3 Add integration test: `TestCreate_AcceptsHOME` — call `Writer.Create` with
       `location_kind = "HOME"`; assert no error and the returned entry has
       `LocationKind != nil && *entry.LocationKind == "HOME"`.
-- [ ] T3.4 Add integration test: `TestCreate_AcceptsWORK` — same pattern with `"WORK"`.
-- [ ] T3.5 Add integration test: `TestCreate_AcceptsOTHER` — same pattern with `"OTHER"`.
-- [ ] T3.6 Add integration test: `TestUpdate_RejectsNilLocationKind` — create a valid entry,
+- [x] T3.4 Add integration test: `TestCreate_AcceptsWORK` — same pattern with `"WORK"`.
+- [x] T3.5 Add integration test: `TestCreate_AcceptsOTHER` — same pattern with `"OTHER"`.
+- [x] T3.6 Add integration test: `TestUpdate_RejectsNilLocationKind` — create a valid entry,
       then call `Writer.Update` with the same entry but `LocationKind = nil`; assert the
       returned error is non-nil. Assert the original row is unchanged (read back via
       `ListEntriesByAccount`).
-- [ ] T3.7 Add integration test: `TestUpdate_AcceptsLocationKindChange` — create an entry with
+- [x] T3.7 Add integration test: `TestUpdate_AcceptsLocationKindChange` — create an entry with
       `location_kind = "HOME"`, then update it to `location_kind = "WORK"`; assert no error and
       the returned entry has `*entry.LocationKind == "WORK"`. Assert `updated_at` advanced.
-- [ ] T3.8 All new integration tests MUST skip when `DATABASE_URL` is unset (use the existing
+- [x] T3.8 All new integration tests MUST skip when `DATABASE_URL` is unset (use the existing
       `t.Skip` pattern already in the file). No Tesla API call fires.
 
 ---

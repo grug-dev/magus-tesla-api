@@ -18,6 +18,7 @@ package manualcharge
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -98,6 +99,15 @@ type writerService struct {
 // CreateEntryParams at the DB boundary; the row result is mapped back via rowToEntry
 // so the caller never sees pgtype (design D4, D8).
 func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
+	// location_kind is required — reject nil or empty before any pgtype conversion
+	// or database call. The domain field stays *string (design D4) for gateway
+	// compatibility; the required-ness is enforced here (design D3) and by the DB
+	// NOT NULL constraint (design D1). Error prefix follows the "manualcharge: ..."
+	// convention used throughout this file.
+	if e.LocationKind == nil || *e.LocationKind == "" {
+		return Entry{}, errors.New("manualcharge: location_kind is required")
+	}
+
 	// Build required NUMERIC params from float64 fields.
 	energy, err := numericFromFloat64(e.EnergyAddedKWh)
 	if err != nil {
@@ -139,6 +149,12 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 // Immutable columns (id, account_id, tesla_id, vin, created_at) are never touched
 // (design D4, T4.3).
 func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
+	// location_kind is required on Update (same constraint as Create — design D3).
+	// Reject nil or empty before any pgtype conversion or database call.
+	if e.LocationKind == nil || *e.LocationKind == "" {
+		return Entry{}, errors.New("manualcharge: location_kind is required")
+	}
+
 	energy, err := numericFromFloat64(e.EnergyAddedKWh)
 	if err != nil {
 		return Entry{}, fmt.Errorf("manualcharge: encoding energy_added_kwh: %w", err)
