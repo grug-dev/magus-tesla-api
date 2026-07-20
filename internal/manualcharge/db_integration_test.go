@@ -18,6 +18,7 @@ package manualcharge_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -840,6 +841,9 @@ func TestCreate_RejectsNilLocationKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("Create with nil LocationKind: expected non-nil error, got nil")
 	}
+	if !strings.Contains(err.Error(), "location_kind is required") {
+		t.Errorf("expected error to mention 'location_kind is required', got: %v", err)
+	}
 
 	// Assert no row was inserted.
 	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
@@ -868,6 +872,9 @@ func TestCreate_RejectsEmptyLocationKind(t *testing.T) {
 	_, err := w.Create(ctx, e)
 	if err == nil {
 		t.Fatal("Create with empty LocationKind: expected non-nil error, got nil")
+	}
+	if !strings.Contains(err.Error(), "location_kind is required") {
+		t.Errorf("expected error to mention 'location_kind is required', got: %v", err)
 	}
 
 	// Assert no row was inserted.
@@ -971,6 +978,9 @@ func TestUpdate_RejectsNilLocationKind(t *testing.T) {
 	_, err = w.Update(ctx, tampered)
 	if err == nil {
 		t.Fatal("Update with nil LocationKind: expected non-nil error, got nil")
+	}
+	if !strings.Contains(err.Error(), "location_kind is required") {
+		t.Errorf("expected error to mention 'location_kind is required', got: %v", err)
 	}
 
 	// Assert the original row is unchanged.

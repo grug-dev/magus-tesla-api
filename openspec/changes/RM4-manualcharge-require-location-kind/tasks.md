@@ -100,21 +100,22 @@
 
 ## T4. Verification — depends on T1 applied, T2, T3 complete
 
-- [ ] V1. `go build ./...` passes — no compile errors in `internal/manualcharge` or any file
+- [x] V1. `go build ./...` passes — no compile errors in `internal/manualcharge` or any file
       that imports it (gateway build must still compile with `LocationKind *string` unchanged).
-- [ ] V2. `go vet ./...` passes with no warnings in `internal/manualcharge`.
-- [ ] V3. `go test ./internal/manualcharge/...` passes:
+- [x] V2. `go vet ./...` passes with no warnings in `internal/manualcharge`.
+- [x] V3. `go test ./internal/manualcharge/...` passes:
       - Existing unit tests (derived methods) still pass offline with no DB.
       - New integration tests (T3.1–T3.7) pass when `DATABASE_URL` is set; self-skip when unset.
       - No Tesla API call fires.
-- [ ] V4. Migration applied cleanly: `make migrate-up` runs without error; the `location_kind`
+- [ ] V4. **DEFERRED to the user's DB wipe + re-migrate (RD3/RD4)** — no live DB in the pipeline
+      session. Migration applied cleanly: `make migrate-up` runs without error; the `location_kind`
       column in `manual_charge_entries` is `NOT NULL` (verify with
-      `\d manual_charge_entries` in psql or equivalent).
-- [ ] V5. Boundary check: `internal/manualcharge` still does NOT import `internal/tesla`,
+      `\d manual_charge_entries` in psql or equivalent). Migration file authored + reviewed.
+- [x] V5. Boundary check: `internal/manualcharge` still does NOT import `internal/tesla`,
       `internal/account`, `internal/telemetry`, or any other module's internals.
       `pgtype` does not appear in any public type, interface, or function signature.
-- [ ] V6. No sqlc regeneration was needed — the generated `manualchargedb` package is unchanged.
+- [x] V6. No sqlc regeneration was needed — the generated `manualchargedb` package is unchanged.
       Confirm with `git diff internal/manualcharge/db/*.go` (should show no changes).
-- [ ] V7. Compile-time interface assertions still hold:
+- [x] V7. Compile-time interface assertions still hold:
       `var _ Writer = (*writerService)(nil)` and `var _ Reader = (*readerService)(nil)`
       both compile without errors (already present in service.go; verify they pass with `go build`).
