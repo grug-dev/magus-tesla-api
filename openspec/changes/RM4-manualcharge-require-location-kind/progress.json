@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM4-manualcharge-require-location-kind",
+  "module": "manualcharge",
+  "roadmap": "openspec/roadmaps/RM4-charge-form-required-location-and-vehicle-autoselect.md",
+  "request": "Tier 3 of RM4: make location_kind a required field on manual charge entries - NOT NULL migration (defensive backfill to 'OTHER' then SET NOT NULL, no DEFAULT; RD1) and service validation on Create+Update (RD2). Field stays *string.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-07-20T10:33:00Z",
+  "updated_at": "2026-07-20T10:33:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM4-charge-form-required-location-and-vehicle-autoselect",
+    "base": "main",
+    "created_at": "2026-07-19T12:51:07Z"
+  },
+  "tasks": [
+    { "id": "T1", "title": "Goose migration: defensive UPDATE 'OTHER' then ALTER location_kind SET NOT NULL (no DEFAULT)", "module": "manualcharge", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T2", "title": "Service validation: Create+Update reject nil/empty LocationKind (field stays *string)", "module": "manualcharge", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T3", "title": "Integration tests: reject nil/empty on create+update; accept HOME/WORK/OTHER; update change (DATABASE_URL-gated)", "module": "manualcharge", "depends_on": ["T1", "T2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "T4", "title": "Verification: go build/vet/test ./..., no sqlc change, boundaries intact, openspec --strict", "module": "manualcharge", "depends_on": ["T1", "T2", "T3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [
+    {
+      "id": "D-gate",
+      "at": "2026-07-20T10:33:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate CONFIRMED for location_kind NOT NULL (defensive backfill to 'OTHER' then SET NOT NULL, no DEFAULT, no index) before Apply.",
+      "why": "User pre-confirmed this exact design in the grill (RD1: 'yes agree'). design.md D1-D6 documents it. Autopilot (Step 9) reuses the roadmap decision; no new decision arose.",
+      "covered_by": "roadmap RD1, RD2"
+    }
+  ],
+  "events": [
+    { "at": "2026-07-20T10:33:00Z", "agent": "leader", "event": "Tier 3 artifacts created by manualcharge worker (sonnet), openspec --strict valid; MODIFIED headers match main spec verbatim. DB design gate pre-satisfied (D-gate; RD1). progress.json seeded (T1-T4); status proposed. Autopilot proceeding to apply." }
+  ]
+}
