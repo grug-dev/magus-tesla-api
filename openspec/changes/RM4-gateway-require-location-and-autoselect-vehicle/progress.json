@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM4-gateway-require-location-and-autoselect-vehicle",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM4-charge-form-required-location-and-vehicle-autoselect.md",
+  "request": "Wire UI for RM4 tier 4 (gateway): required location_kind on create+edit forms; vehicle auto-select on create form using Vehicle.AccessType; map VehicleTesla.AccessType -> SeedVehicle.AccessType at seed time.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["A", "B", "C", "D"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-07-21T00:00:00Z",
+  "updated_at": "2026-07-21T00:00:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM4-charge-form-required-location-and-vehicle-autoselect",
+    "base": "main",
+    "created_at": "2026-07-19T12:51:07Z"
+  },
+  "tasks": [
+    {
+      "id": "A",
+      "title": "Required location validation in parseChargeForm + Templ <select> changes (create + edit forms)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Touches: handlers/charges.go (required location block + remove optional block), templates/fragments/charge_create_form.templ (move location_kind to required section, remove blank option, add required), templates/fragments/charge_row_edit.templ (remove blank option, add required). Parallel-safe with C only.",
+      "budget": null
+    },
+    {
+      "id": "B",
+      "title": "Vehicle auto-select view model (VehicleOptionVM.Selected, ChargesPageData.SingleVehicle) + buildVehicleOptions auto-select logic + create form template changes",
+      "module": "gateway",
+      "depends_on": ["A"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Touches: templates/fragments/charges_vm.go (two new bool fields), handlers/charges.go (replace buildVehicleOptions with auto-select logic), templates/fragments/charge_create_form.templ (disabled+hidden-input branch for single vehicle, selected? for multi). Depends on A because both touch charges.go and charge_create_form.templ.",
+      "budget": null
+    },
+    {
+      "id": "C",
+      "title": "Seed mapping: VehicleTesla.AccessType -> SeedVehicle.AccessType in handlers.go seed loop",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Touches: handlers/handlers.go only (seed build loop in buildVehicleData). Parallel-safe with A and B — disjoint file.",
+      "budget": null
+    },
+    {
+      "id": "D",
+      "title": "Tests: required location validation, auto-select logic, seed access_type mapping",
+      "module": "gateway",
+      "depends_on": ["A", "B", "C"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Touches: handlers/charges_test.go (missing/invalid location_kind 422 tests, auto-select unit tests), handlers/handlers_test.go (seed AccessType mapping tests). Terminal — runs after A+B+C complete.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [],
+  "events": [
+    {
+      "at": "2026-07-21T00:00:00Z",
+      "agent": "gateway",
+      "event": "Artifacts created: proposal.md, design.md, specs/gateway/spec.md, tasks.md, progress.json. Change status -> proposed. Tier 4 of RM4 roadmap (tiers 1-3 archived). No DB gate (this tier introduces no DB changes)."
+    }
+  ]
+}
