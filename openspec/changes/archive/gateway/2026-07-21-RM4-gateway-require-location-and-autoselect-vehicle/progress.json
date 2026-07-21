@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM4-charge-form-required-location-and-vehicle-autoselect.md",
   "request": "Wire UI for RM4 tier 4 (gateway): required location_kind on create+edit forms; vehicle auto-select on create form using Vehicle.AccessType; map VehicleTesla.AccessType -> SeedVehicle.AccessType at seed time.",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -108,10 +108,21 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Validate RM4 tier 4 (gateway) against the diff (75ae4bc) + artifacts. Check: (1) module-boundary compliance - no DB/other-module internals, other modules only via public interfaces, no HTML outside gateway, no ...Tesla DTO leak into templates; (2) doc-pack conventions - htmx/Templ rules, thin handlers, root <div id> matches templ.Fragment, no hand-edited *_templ.go inconsistent with .templ; (3) RD1/Decision#2: location_kind REQUIRED on BOTH create+edit (parseChargeForm rejects missing/empty; both selects drop blank option + have required); (4) RD4/Decision#5: create-form auto-select ONLY - single->selected+disabled+hidden input; else first OWNER; else first-in-list; never unselected; edit row unchanged in that respect; nil-safe on *string AccessType; (5) seed mapping empty->nil / non-empty->pointer; (6) spec/tasks coverage + tests actually assert the behaviors (missing-location rejected, all 3 auto-select branches, seed mapping both cases); (7) performance profile (read-heavy: auto-select is O(n) over already-fetched list, no new queries); (8) anti-gaming - no weakened criteria, tasks append-only, no self-approved statuses. Read the diff not the whole module. Escalate on doubt (changes-requested) rather than approving uncertain.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "at": "2026-07-21T09:57:35Z",
+        "duration_seconds": 255,
+        "budget": { "five_hour_pct_delta": 5.0, "cost_usd_delta": 1.38, "approx": true, "source": "statusline-cache", "note": "review round 1 (sonnet); 5h 32->37%, $7.55->$8.94." },
+        "verdict": "approved",
+        "findings": [],
+        "summary": "All review criteria pass. Module boundary: all changes confined to internal/gateway/ and openspec/changes/; no DB access, no cross-module internals, no HTML outside gateway, no ...Tesla DTO leaked into templates. Doc-pack conventions honored: Templ *_templ.go files are regenerated (consistent with .templ sources), handlers stay thin (session/auth check -> call interface -> render), ViewData structs live next to markup. RD1/Decision#2 (location required on both forms): parseChargeForm rejects missing/invalid location_kind with errs[\"location_kind\"] and returns early; both charge_create_form.templ and charge_row_edit.templ have no blank option and carry required. RD4/Decision#5 (auto-select create-form only): single vehicle -> Selected+disabled select+hidden input; multiple vehicles with OWNER -> first OWNER selected; multiple vehicles no OWNER -> first selected; edit row unchanged; nil-safe (v.AccessType != nil && *v.AccessType == \"OWNER\"). Seed mapping: empty string -> nil, non-empty -> &localCopy per boundary-nil convention. Tests: all 11 new tests pass and are non-vacuous - missing-location rejected at 422 with error message; Writer.Create/Update not called on invalid; valid location succeeds with LocationKind persisted; all 3 auto-select branches covered including nil AccessType; seed mapping both empty->nil and non-empty->pointer verified via lastSeedVehicles capture. Full suite go test ./... green. Performance: auto-select is O(n) over already-fetched vehicle list, no new DB queries or Tesla API calls. Anti-gaming: tasks.md only has checkbox transitions and minor description clarifications that preserve or sharpen (not weaken) requirements; no self-approved statuses; review.rounds was empty before this write."
+      }
+    ]
   },
   "decisions": [],
   "events": [

@@ -455,111 +455,64 @@ duration) pre-computed by the handler from the `manualcharge.Entry` value-receiv
 
 The gateway SHALL let a signed-in user create a manual charge entry by submitting the create
 form via `POST /ui/charges/create`. The handler SHALL validate the form, enforce tenant
-ownership of the chosen vehicle, require a valid CSRF token, and call `manualcharge.Writer.Create`
-on success. On success, the fragment SHALL reflect the new entry; on failure, it SHALL show
-validation errors in place.
+ownership of the chosen vehicle, require a valid CSRF token, and call
+`manualcharge.Writer.Create` on success. `location_kind` is a **required** field; the handler
+SHALL reject a missing or unrecognized value with a 422 and a field-level error message.
+On success, the fragment SHALL reflect the new entry; on failure, it SHALL show validation
+errors in place.
 
-#### Scenario: Successful create adds the entry
+#### Scenario: Create form rejects a missing location kind
 
-- **GIVEN** a signed-in user on the Charge log page with a valid CSRF token in their session
-- **WHEN** they submit the create form with valid required fields (charged_on, energy_added_kwh,
-  price, currency) and a vehicle selected from their own registered vehicles
-- **THEN** the gateway validates the CSRF token against the session value
-- **AND** confirms the chosen vehicle belongs to the user's account
-- **AND** calls `manualcharge.Writer.Create`
-- **AND** the new entry appears in the updated charge list (newest first)
-- **AND** the create form is reset for the next entry
-
-#### Scenario: Validation error shows errors in place
-
-- **GIVEN** a signed-in user submitting the create form with an invalid field
-  (e.g. energy_added_kwh = 0, or charged_on missing)
-- **WHEN** the gateway processes the POST
+- **GIVEN** a signed-in user on the Charge log page with a valid CSRF token
+- **WHEN** they submit the create form with all other required fields valid but no
+  `location_kind` selected (or an unrecognized value)
 - **THEN** the handler does NOT call `manualcharge.Writer.Create`
-- **AND** the create form fragment is re-rendered with the submitted values pre-filled
-- **AND** error messages are shown alongside the invalid fields
-- **AND** the HTTP response status is 422
+- **AND** the create form fragment is re-rendered at HTTP 422
+- **AND** an error message is shown alongside the `location_kind` field
+- **AND** the other submitted values are pre-filled in the re-rendered form
 
-#### Scenario: CSRF mismatch on create is rejected
+#### Scenario: Create form location_kind select has no blank option and is required
 
-- **GIVEN** a form POST to `/ui/charges/create` with a CSRF token that does not match the
-  session value (or is absent)
-- **WHEN** the gateway processes the POST
-- **THEN** the handler returns HTTP 403
-- **AND** no entry is created
-- **AND** a user-facing error is shown (not a raw error string)
+- **GIVEN** the "Log a charge" create form
+- **WHEN** it is rendered
+- **THEN** the `location_kind` `<select>` carries the HTML `required` attribute
+- **AND** there is no blank (`value=""`) option in the `location_kind` picker
+- **AND** the `location_kind` picker is visible in the always-visible section of the form
+  (not hidden inside the "More details" expander)
 
-#### Scenario: Vehicle not owned by the user is rejected
+#### Scenario: Successful create with valid location kind
 
-- **GIVEN** a form POST to `/ui/charges/create` with a `tesla_id` that is not in the user's
-  registered vehicle list (e.g. a tampered form value)
-- **WHEN** the gateway processes the POST
-- **THEN** the handler returns HTTP 403 (forbidden)
-- **AND** `manualcharge.Writer.Create` is NOT called
-
-#### Scenario: Optional fields in the create form are stored when provided
-
-- **GIVEN** a signed-in user submitting the create form with valid required fields and also
-  supplying started_at, ended_at, start_battery_pct, end_battery_pct
-- **WHEN** the gateway processes the POST and calls Writer.Create
-- **THEN** the stored entry includes the supplied optional values
-- **AND** the resulting row in the list shows the derived battery delta and session duration
-
-#### Scenario: Optional fields under "More details" expander are available
-
-- **GIVEN** the Charge log create form
-- **WHEN** a user clicks the "More details" expander
-- **THEN** the optional fields (started_at, ended_at, start_battery_pct, end_battery_pct,
-  charging_type, location_kind, location_label, notes) become visible
-- **AND** these fields are optional — submitting without expanding still creates a valid entry
-  with only the required fields
+- **GIVEN** a signed-in user on the Charge log page with a valid CSRF token
+- **WHEN** they submit the create form with all required fields valid, including
+  `location_kind` set to one of `HOME`, `WORK`, or `OTHER`
+- **THEN** the gateway validates the CSRF token and vehicle ownership
+- **AND** calls `manualcharge.Writer.Create` with the entry including `LocationKind`
+- **AND** the new entry appears in the updated charge list
 
 ---
 
 ### Requirement: Inline Row Editing
 
-The gateway SHALL let a signed-in user edit an existing charge entry directly in the table row
-via htmx without navigating to a separate edit page. Clicking "Edit" on a row SHALL swap that
-`<tr>` for an inline edit form. Saving or cancelling SHALL swap the row back.
+The gateway SHALL let a signed-in user edit an existing charge entry directly in the table
+row via htmx. `location_kind` is a **required** field on the edit form; the handler SHALL
+reject a missing or unrecognized value with a 422 and a field-level error.
 
-#### Scenario: Clicking Edit swaps a row to an inline edit form
+#### Scenario: Edit form rejects a missing location kind
 
-- **GIVEN** a signed-in user viewing the charge list with at least one entry
-- **WHEN** they click the "Edit" button on an entry row
-  (which issues `GET /ui/charges/row/{id}/edit`)
-- **THEN** the gateway returns only that row's edit form HTML (a `<tr>` with inputs)
-- **AND** the form inputs are pre-populated with the entry's current values
-- **AND** all other rows remain unchanged
+- **GIVEN** a signed-in user with an inline edit form open for an existing entry
+- **WHEN** they submit the edit form with `location_kind` missing or not in
+  `{HOME, WORK, OTHER}` (e.g. bypassing the browser constraint with a crafted request)
+- **THEN** the handler does NOT call `manualcharge.Writer.Update`
+- **AND** the edit form is re-rendered at HTTP 422
+- **AND** an error message is shown alongside the `location_kind` field
 
-#### Scenario: Saving an edit updates the row
+#### Scenario: Edit form location_kind select has no blank option and is required
 
-- **GIVEN** a signed-in user with an inline edit form open for an entry
-- **WHEN** they modify a field and click "Save" (which issues `PUT /ui/charges/row/{id}`)
-  with a valid CSRF token
-- **THEN** the gateway validates the CSRF token
-- **AND** validates tenant ownership of the entry (the entry's account_id matches the
-  session uid)
-- **AND** calls `manualcharge.Writer.Update`
-- **AND** the row swaps back to a static display row showing the updated values
-- **AND** derived values (cost per kWh, battery delta, duration) are recomputed and shown
-
-#### Scenario: Save with validation error shows errors in the edit row
-
-- **GIVEN** a signed-in user with an inline edit form open
-- **WHEN** they submit with an invalid field (e.g. energy_added_kwh = -1)
-- **THEN** the edit form row is re-rendered with the submitted values pre-filled
-- **AND** error messages are shown alongside the invalid field
-- **AND** `manualcharge.Writer.Update` is NOT called
-- **AND** the HTTP response status is 422
-
-#### Scenario: Cancelling edit restores the static row
-
-- **GIVEN** a signed-in user with an inline edit form open for an entry
-- **WHEN** they click "Cancel" (which issues `GET /ui/charges/row/{id}`)
-- **THEN** the gateway returns the static display `<tr>` for that entry
-- **AND** no data is changed
-- **AND** no round-trip through the list query is required (the handler fetches only that
-  single entry to render the static row)
+- **GIVEN** an inline edit form for an existing charge entry
+- **WHEN** it is rendered
+- **THEN** the `location_kind` `<select>` carries the HTML `required` attribute
+- **AND** there is no blank (`value=""`) option in the `location_kind` picker
+- **AND** the stored location value is pre-selected (exactly one option carries `selected`)
 
 ---
 
@@ -638,4 +591,91 @@ and `manualcharge.Reader` public interfaces. It SHALL NOT import `internal/manua
 - **THEN** it does so exclusively via `manualcharge.Reader` or `manualcharge.Writer`
 - **AND** no `manualchargedb` package is imported in any gateway file
 - **AND** no `pgtype` type appears in any gateway handler, view model, or template
+
+### Requirement: Vehicle Auto-Select on the Charge Create Form
+
+The gateway SHALL pre-select the most appropriate vehicle in the create form's vehicle picker
+on every render, using the following rule (RD4). If the account has exactly one registered
+vehicle, the picker SHALL be disabled and a hidden input SHALL carry the vehicle value so the
+form POST succeeds. If the account has multiple vehicles, the first vehicle with
+`Vehicle.AccessType == "OWNER"` SHALL be pre-selected; if no OWNER vehicle exists, the first
+vehicle in the list SHALL be pre-selected. The vehicle picker SHALL NEVER render without a
+pre-selected option. The auto-select logic is pre-computed by the handler; templates receive
+only a boolean `Selected` flag per option and do no AccessType comparisons.
+
+#### Scenario: Single vehicle is pre-selected and the picker is disabled
+
+- **GIVEN** a signed-in user whose account has exactly one registered vehicle
+- **WHEN** the Charge log create form is rendered
+- **THEN** the vehicle `<select>` is rendered with the `disabled` attribute
+- **AND** the sole vehicle's option is the selected option
+- **AND** a sibling `<input type="hidden" name="vehicle">` carries the vehicle's value
+  so the form POST includes the vehicle even though the `<select>` is disabled
+
+#### Scenario: Multiple vehicles with an OWNER vehicle — OWNER is pre-selected
+
+- **GIVEN** a signed-in user whose account has two or more registered vehicles
+- **AND** at least one vehicle has `Vehicle.AccessType == "OWNER"`
+- **WHEN** the create form is rendered
+- **THEN** the first vehicle with `AccessType == "OWNER"` is pre-selected in the picker
+- **AND** the `<select>` is NOT disabled (the user can change the selection)
+
+#### Scenario: Multiple vehicles with no OWNER — first in list is pre-selected
+
+- **GIVEN** a signed-in user whose account has two or more registered vehicles
+- **AND** no vehicle has `Vehicle.AccessType == "OWNER"` (all are DRIVER or nil)
+- **WHEN** the create form is rendered
+- **THEN** the first vehicle in the list is pre-selected
+- **AND** the `<select>` is NOT disabled
+
+#### Scenario: Auto-select is computed by the handler, not the template
+
+- **GIVEN** any Templ template rendering the vehicle picker in the create form
+- **WHEN** it renders each vehicle option
+- **THEN** the `Selected` flag is a pre-computed boolean on the view model (`VehicleOptionVM`)
+- **AND** the template only checks `opt.Selected` without any AccessType comparisons or
+  `len()` calls inside the Templ file
+
+---
+
+### Requirement: Seed Mapping Preserves Vehicle Access Type
+
+The gateway SHALL propagate each vehicle's `access_type` from the Tesla adapter into the
+account module's seed call during the one-time Tesla vehicle seed (first Tesla connect).
+Specifically, the gateway SHALL map a non-empty `VehicleTesla.AccessType` string to a
+non-nil `SeedVehicle.AccessType *string`, and SHALL map an empty string to `nil`, following
+the project's boundary-nil convention.
+
+#### Scenario: Non-empty access_type is propagated to the seed call
+
+- **GIVEN** the gateway building the seed list from a Tesla `ListVehicles` response
+- **AND** at least one vehicle has a non-empty `access_type` string (e.g. `"OWNER"`)
+- **WHEN** the gateway calls `account.SeedVehicles`
+- **THEN** the `SeedVehicle.AccessType` for that vehicle is a non-nil `*string` pointing
+  to the `access_type` value
+- **AND** the persisted `vehicles.access_type` column is set to that value
+
+#### Scenario: Empty access_type maps to nil at the seed boundary
+
+- **GIVEN** the gateway building the seed list from a Tesla `ListVehicles` response
+- **AND** a vehicle has an empty `access_type` string (the Fleet API omitted the field)
+- **WHEN** the gateway calls `account.SeedVehicles`
+- **THEN** `SeedVehicle.AccessType` for that vehicle is `nil`
+- **AND** the persisted `vehicles.access_type` column is `NULL`
+
+---
+
+### Requirement: location_kind Visible Without Expanding "More Details"
+
+In the create form, `location_kind` SHALL be visible in the always-visible required fields
+section, not inside the `<details>` expander. The "More details" expander SHALL retain the
+remaining optional fields (`started_at`, `ended_at`, `start_battery_pct`, `end_battery_pct`,
+`charging_type`, `location_label`, `notes`).
+
+#### Scenario: location_kind is always visible in the create form
+
+- **GIVEN** the Charge log create form
+- **WHEN** it is rendered (before any user interaction with the expander)
+- **THEN** the `location_kind` picker is visible without expanding "More details"
+- **AND** the "More details" expander still exists and reveals the remaining optional fields
 

@@ -5,9 +5,9 @@
   "intention": "Manual charge create form always captures a location and auto-selects the right vehicle (single -> disabled; else first OWNER; else first-in-list).",
   "request": "I want some improvements on the manualcharge module: (1) make location_kind a required field on the charge form (front-end and back-end); (2) auto-select the vehicle in the create form - single vehicle -> auto-select + disable; more than one -> first vehicle with Tesla access_type OWNER.",
   "autopilot": true,
-  "status": "in-progress",
+  "status": "complete",
   "created_at": "2026-07-19T12:51:07Z",
-  "updated_at": "2026-07-21T00:00:00Z",
+  "updated_at": "2026-07-21T09:58:00Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "auto",
@@ -16,10 +16,10 @@
     "created_at": "2026-07-19T12:51:07Z"
   },
   "rollup": {
-    "current": [4],
+    "current": [],
     "pending": [],
     "blocked": [],
-    "done": [1, 2, 3]
+    "done": [1, 2, 3, 4]
   },
   "decisions": [
     {
@@ -132,14 +132,21 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [1, 2, 3],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
-      "started_at": "2026-07-21T00:00:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts created by gateway worker (sonnet). Validated with openspec validate --strict: valid. Sub-tasks: A (required location + Templ selects), B (vehicle auto-select view model + template), C (seed access_type mapping), D (tests). A parallel-safe with C; B depends on A; D terminal."
+      "started_at": "2026-07-21T09:31:00Z",
+      "completed_at": "2026-07-21T09:58:00Z",
+      "duration_seconds": 1620,
+      "budget": {
+        "five_hour_pct_delta": 33.0,
+        "cost_usd_delta": 8.41,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "fresh resumed session. artifacts ~11pp/$2.85, apply ~13pp/$2.88, review round1 ~5pp/$1.38, + archive overhead. 5-hour 4->37%."
+      },
+      "notes": "Shipped: required location_kind on create+edit forms + create-form vehicle auto-select (RD4) + seed access_type mapping. 1 review round (approved, 0 findings). No DB. Archived to archive/gateway/. Final tier -> roadmap COMPLETE."
     }
   ],
   "events": [
@@ -150,6 +157,7 @@
     { "at": "2026-07-20T10:30:00Z", "agent": "leader", "event": "Tier 2 ARCHIVED (resumed session): applied (sonnet worker: migration+sqlc+domain+service+integration tests), verified green, reviewed (approved, 0 findings), delta synced to specs/account-vehicle-registry, moved to archive/account/. Tier 2 [~]->[x]. Step 9 advance: tier 3 (manualcharge) now next unblocked (depends_on []); tier 4 (gateway) still blocked on tier 3. Budget clear (27%). Autopilot continues to tier 3." },
     { "at": "2026-07-20T11:08:00Z", "agent": "leader", "event": "Tier 3 ARCHIVED: applied (sonnet worker: NOT NULL migration + Create/Update validation + 7 tests), verified green, reviewed (2 rounds: round1 minor F1/F2 fixed, round2 approved), delta synced to specs/manual-charge-log, moved to archive/manualcharge/. Tier 3 [~]->[x]. Step 9: tier 4 (gateway) now UNBLOCKED (deps 1,2,3 all archived) - LAST + largest tier. Budget checkpoint gate: 5-hour 72%, context 35%; tier 4 is a big spend likely to cross 90% - flagging to user before starting." },
     { "at": "2026-07-20T11:10:00Z", "agent": "leader", "event": "CHECKPOINT (user chose 'Checkpoint here, resume fresh') at the clean tier-3/4 boundary. Tiers 1-3 archived; tier 4 (gateway) not-started. Roadmap status in-progress. Resume in a fresh session (after the 5-hour bucket frees up) -> Step 9/2: start tier 4 at Step 2/3. Reuse roadmap decisions RD1-RD4 (esp. RD4 auto-select, RD1 location-required) as binding; no new interview needed unless a NEW decision arises." },
-    { "at": "2026-07-21T00:00:00Z", "agent": "gateway", "event": "Tier 4 artifacts created by gateway worker (sonnet): proposal.md, design.md, specs/gateway/spec.md (5 deltas: 2 MODIFIED + 3 ADDED), tasks.md (sub-tasks A/B/C/D with depends_on + parallel-safety map), progress.json. openspec validate --strict: VALID. No DB gate (no DB changes in this tier). Tier 4 not-started -> proposed; rollup pending[4] -> current[4]." }
+    { "at": "2026-07-21T00:00:00Z", "agent": "gateway", "event": "Tier 4 artifacts created by gateway worker (sonnet): proposal.md, design.md, specs/gateway/spec.md (5 deltas: 2 MODIFIED + 3 ADDED), tasks.md (sub-tasks A/B/C/D with depends_on + parallel-safety map), progress.json. openspec validate --strict: VALID. No DB gate (no DB changes in this tier). Tier 4 not-started -> proposed; rollup pending[4] -> current[4]." },
+    { "at": "2026-07-21T09:58:00Z", "agent": "leader", "event": "Tier 4 ARCHIVED (fresh resumed session): applied (sonnet worker, one serial pass A->B->C->D: required location_kind on create+edit + create-form auto-select RD4 + seed access_type mapping + 11 tests), leader-verified build/vet/test ./... green, reviewed (round1 approved, 0 findings), delta synced to specs/gateway (3 added + 2 modified), moved to archive/gateway/. Tier 4 [~]->[x]. ALL 4 TIERS ARCHIVED -> roadmap COMPLETE. Budget clear (5h 37%). Auto-archiving roadmap (Step 9.4)." }
   ]
 }
