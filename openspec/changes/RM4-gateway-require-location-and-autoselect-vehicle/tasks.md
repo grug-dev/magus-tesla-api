@@ -27,7 +27,7 @@
 complete before B applies its changes to those same files, OR they must be implemented
 together by the same agent.
 
-- [ ] A1. In `internal/gateway/handlers/charges.go`, `parseChargeForm`: add a
+- [x] A1. In `internal/gateway/handlers/charges.go`, `parseChargeForm`: add a
   required-field validation block for `location_kind`.
   - Read `v := c.PostForm("location_kind")`.
   - If `v` is not in `{"HOME","WORK","OTHER"}`, set
@@ -39,7 +39,7 @@ together by the same agent.
     exit already in place.
   - The optional-fields section's existing `if v := c.PostForm("location_kind"); ...`
     block is REMOVED (the required block above replaces it entirely).
-- [ ] A2. In `internal/gateway/templates/fragments/charge_create_form.templ`:
+- [x] A2. In `internal/gateway/templates/fragments/charge_create_form.templ`:
   - Move the `location_kind` `<select>` block from inside the `<details>` expander to
     the always-visible required fields section (after `currency`, before the vehicle picker).
   - Remove `<option value="">-</option>` from the `location_kind` `<select>`.
@@ -50,16 +50,16 @@ together by the same agent.
         <span class="error">{ validationErrors["location_kind"] }</span>
     }
     ```
-- [ ] A3. In `internal/gateway/templates/fragments/charge_row_edit.templ`:
+- [x] A3. In `internal/gateway/templates/fragments/charge_row_edit.templ`:
   - Remove `<option value="">-</option>` from the `location_kind` `<select>` inside
     `<details>`.
   - Add `required` attribute to that `<select>`.
   - Ensure at least one option is always selected: the existing `selected?=` pattern
     already guarantees this for existing entries (all will have HOME/WORK/OTHER after the
     tier-3 migration's defensive backfill). No change needed to the `selected?=` logic.
-- [ ] A4. Run `make templ` to regenerate `charge_create_form_templ.go` and
+- [x] A4. Run `make templ` to regenerate `charge_create_form_templ.go` and
   `charge_row_edit_templ.go`. Confirm no compile errors.
-- [ ] A5. Run `go build ./...` to confirm the handler change compiles.
+- [x] A5. Run `go build ./...` to confirm the handler change compiles.
 
 **Files touched:** `handlers/charges.go`, `templates/fragments/charge_create_form.templ`,
 `templates/fragments/charge_row_edit.templ`, their `*_templ.go` regenerated files.
@@ -77,7 +77,7 @@ option and carries `required`; `go build ./...` passes.
 **depends_on:** A (shares `charges.go` and `charge_create_form.templ`)
 **Parallel-safe with:** C (C touches `handlers.go`; B touches `charges.go` and templates)
 
-- [ ] B1. In `internal/gateway/templates/fragments/charges_vm.go`:
+- [x] B1. In `internal/gateway/templates/fragments/charges_vm.go`:
   - Add `Selected bool` field to `VehicleOptionVM`:
     ```go
     Selected bool // pre-computed; true for exactly one option (the auto-selected vehicle)
@@ -86,7 +86,7 @@ option and carries `required`; `go build ./...` passes.
     ```go
     SingleVehicle bool // true when len(VehicleOptions)==1; drives disabled+hidden-input branch
     ```
-- [ ] B2. In `internal/gateway/handlers/charges.go`, replace `buildVehicleOptions` with a
+- [x] B2. In `internal/gateway/handlers/charges.go`, replace `buildVehicleOptions` with a
   version that applies the auto-select rule (RD4) and computes both `SingleVehicle` and
   `Selected`. The function signature changes to also return `singleVehicle bool`:
   - If `len(vehicles) == 0`: return empty slice, `false`.
@@ -98,40 +98,11 @@ option and carries `required`; `go build ./...` passes.
     - Return, `false`.
   - Update `buildChargesPage` to use the new return value and set
     `ChargesPageData.SingleVehicle`.
-- [ ] B3. In `internal/gateway/templates/fragments/charge_create_form.templ`, replace the
+- [x] B3. In `internal/gateway/templates/fragments/charge_create_form.templ`, replace the
   vehicle `<select>` block with the auto-select-aware markup:
-  ```templ
-  <div>
-      <label>
-          Vehicle
-          if d.SingleVehicle {
-              <select name="vehicle" disabled>
-                  for _, opt := range d.VehicleOptions {
-                      <option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
-                  }
-              </select>
-              // Hidden input carries the value since disabled select does not POST
-              for _, opt := range d.VehicleOptions {
-                  if opt.Selected {
-                      <input type="hidden" name="vehicle" value={ opt.Value }/>
-                  }
-              }
-          } else {
-              <select name="vehicle" required>
-                  for _, opt := range d.VehicleOptions {
-                      <option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
-                  }
-              </select>
-          }
-      </label>
-      if validationErrors["vehicle"] != "" {
-          <span class="error">{ validationErrors["vehicle"] }</span>
-      }
-  </div>
-  ```
   Note: in the `SingleVehicle=false` branch the `<select>` also gains `required`.
-- [ ] B4. Run `make templ` to regenerate `charge_create_form_templ.go`.
-- [ ] B5. Run `go build ./...` to confirm the changes compile.
+- [x] B4. Run `make templ` to regenerate `charge_create_form_templ.go`.
+- [x] B5. Run `go build ./...` to confirm the changes compile.
 
 **Files touched:** `templates/fragments/charges_vm.go`, `handlers/charges.go` (auto-select
 logic in `buildVehicleOptions`), `templates/fragments/charge_create_form.templ`,
@@ -151,7 +122,7 @@ normal `<select>` with the selected option for `SingleVehicle=false`; `go build 
 **depends_on:** (none — touches only `handlers.go`, disjoint from A and B)
 **Parallel-safe with:** A, B
 
-- [ ] C1. In `internal/gateway/handlers/handlers.go`, in `buildVehicleData`, locate the seed
+- [x] C1. In `internal/gateway/handlers/handlers.go`, in `buildVehicleData`, locate the seed
   build loop (~line 165–172):
   ```go
   seed = append(seed, account.SeedVehicle{
@@ -174,7 +145,7 @@ normal `<select>` with the selected option for `SingleVehicle=false`; `go build 
       AccessType:  accessType,
   })
   ```
-- [ ] C2. Run `go build ./...` to confirm no compile errors.
+- [x] C2. Run `go build ./...` to confirm no compile errors.
 
 **Files touched:** `handlers/handlers.go`.
 
@@ -189,7 +160,7 @@ non-nil `*string` on `SeedVehicle.AccessType`, and maps empty string to `nil`.
 **ID:** D
 **depends_on:** A, B, C
 
-- [ ] D1. In `internal/gateway/handlers/charges_test.go`, add tests for
+- [x] D1. In `internal/gateway/handlers/charges_test.go`, add tests for
   required location validation (sub-task A):
   - `TestChargeCreate_MissingLocationKind`: POST with valid required fields but no
     `location_kind` → 422, response contains `location_kind` error, `Writer.Create` NOT
@@ -198,9 +169,9 @@ non-nil `*string` on `SeedVehicle.AccessType`, and maps empty string to `nil`.
     `Writer.Create` NOT called.
   - `TestChargeRowUpdate_MissingLocationKind`: PUT with missing `location_kind` → 422,
     `Writer.Update` NOT called.
-  - Verify that a valid `location_kind` (e.g. `"HOME"`) on a create POST still succeeds (if
-    not already covered by an existing test — add one if needed).
-- [ ] D2. In `internal/gateway/handlers/charges_test.go`, add tests for vehicle auto-select
+  - `TestChargeCreate_ValidLocationKind`: valid `location_kind=HOME` → 200, Writer.Create
+    called with LocationKind=HOME.
+- [x] D2. In `internal/gateway/handlers/charges_test.go`, add tests for vehicle auto-select
   (sub-task B):
   - `TestBuildVehicleOptions_SingleVehicle`: one vehicle → `SingleVehicle = true`, that
     vehicle `Selected = true`.
@@ -212,18 +183,12 @@ non-nil `*string` on `SeedVehicle.AccessType`, and maps empty string to `nil`.
     `AccessType = ptr("OWNER")` → first option `Selected = true`.
   - `TestBuildVehicleOptions_NilAccessType`: vehicle with `AccessType = nil` → treated as
     non-OWNER; if sole vehicle, still selected with `SingleVehicle = true`.
-- [ ] D3. In `internal/gateway/handlers/handlers_test.go`, add a test for seed mapping
-  (sub-task C). This is a unit test of the handler helper logic (not an integration test
-  against the DB):
-  - `TestSeedAccessTypeMapping_NonEmpty`: fake `tesla.VehicleTesla` with
-    `AccessType = "OWNER"` → `SeedVehicle.AccessType` is non-nil `"OWNER"`.
-  - `TestSeedAccessTypeMapping_Empty`: `AccessType = ""` → `SeedVehicle.AccessType` is nil.
-  - Note: the seed mapping logic may be extracted to a helper function
-    (`buildSeedVehicle(v tesla.VehicleTesla) account.SeedVehicle`) to make it directly
-    unit-testable without going through the full `buildVehicleData` httptest path. If it is
-    not extracted, test it via the httptest pattern (`engineWithSession` → trigger seed path
-    → assert fake `acct.SeedVehicles` received the correct `AccessType`).
-- [ ] D4. Run `go test ./internal/gateway/...` and confirm all tests pass.
+- [x] D3. In `internal/gateway/handlers/handlers_test.go`, add a test for seed mapping
+  (sub-task C):
+  - `TestSeedAccessTypeMapping_NonEmpty`: non-empty AccessType → non-nil *string.
+  - `TestSeedAccessTypeMapping_Empty`: empty AccessType → nil.
+  - Tested via `vehiclesFor` + `lastSeedVehicles` capture on `fakeAccount`.
+- [x] D4. Run `go test ./internal/gateway/...` and confirm all tests pass.
 
 **Files touched:** `handlers/charges_test.go`, `handlers/handlers_test.go`.
 

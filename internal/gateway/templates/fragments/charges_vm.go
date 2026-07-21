@@ -39,6 +39,7 @@ type VehicleOptionVM struct {
 	VIN         string
 	DisplayName string
 	Value       string // "{TeslaID}:{VIN}" — the combined form value the handler parses
+	Selected    bool   // pre-computed; true for exactly one option (the auto-selected vehicle)
 }
 
 // ChargesPageData is the full-page data for the charge log page and its fragments.
@@ -50,4 +51,5 @@ type ChargesPageData struct {
 	CSRFToken      string // for form hidden inputs
 	EmptyState     bool   // true when Entries is empty and no error occurred
 	Error          string // non-empty if a reader error degraded the page gracefully
+	SingleVehicle  bool   // true when len(VehicleOptions)==1; drives disabled+hidden-input branch
 }

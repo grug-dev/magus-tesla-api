@@ -269,7 +269,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		vms = append(vms, chargeEntryVMFromEntry(e, vehicles))
 	}
 
-	opts := buildVehicleOptions(vehicles)
+	opts, singleVehicle := buildVehicleOptions(vehicles)
 
 	return fragments.ChargesPageData{
 		Entries:        vms,
@@ -278,6 +278,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		CSRFToken:      csrfToken,
 		EmptyState:     len(vms) == 0 && pageError == "",
 		Error:          pageError,
+		SingleVehicle:  singleVehicle,
 	}
 }
 
@@ -420,8 +421,21 @@ func vehicleLabelFor(teslaID int64, vehicles []account.Vehicle) string {
 	return strconv.FormatInt(teslaID, 10)
 }
 
-// buildVehicleOptions converts registered vehicles to form picker options.
-func buildVehicleOptions(vehicles []account.Vehicle) []fragments.VehicleOptionVM {
+// buildVehicleOptions converts registered vehicles to form picker options and applies
+// the RD4 auto-select rule. It returns the options slice and a singleVehicle flag.
+//
+// Auto-select rule (RD4):
+//  1. Exactly one vehicle → select it; singleVehicle = true (template renders disabled+hidden).
+//  2. Multiple vehicles: find first where AccessType == "OWNER" → select it.
+//  3. Multiple vehicles, no OWNER → select the first.
+//
+// Exactly one option has Selected = true when len > 0. Templates must not
+// inspect AccessType — the Selected flag is the only presentation signal.
+func buildVehicleOptions(vehicles []account.Vehicle) ([]fragments.VehicleOptionVM, bool) {
+	if len(vehicles) == 0 {
+		return nil, false
+	}
+
 	opts := make([]fragments.VehicleOptionVM, 0, len(vehicles))
 	for _, v := range vehicles {
 		opts = append(opts, fragments.VehicleOptionVM{
@@ -431,7 +445,22 @@ func buildVehicleOptions(vehicles []account.Vehicle) []fragments.VehicleOptionVM
 			Value:       fmt.Sprintf("%d:%s", v.TeslaID, v.VIN),
 		})
 	}
-	return opts
+
+	if len(opts) == 1 {
+		opts[0].Selected = true
+		return opts, true
+	}
+
+	// Multiple vehicles: find the first OWNER (nil-safe pointer deref).
+	selectedIdx := 0
+	for i, v := range vehicles {
+		if v.AccessType != nil && *v.AccessType == "OWNER" {
+			selectedIdx = i
+			break
+		}
+	}
+	opts[selectedIdx].Selected = true
+	return opts, false
 }
 
 // parseChargeForm parses and validates the charge form from a Gin context.
@@ -493,6 +522,18 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		errs["currency"] = "Currency is required."
 	}
 
+	// location_kind is required (tier 3 made the DB column NOT NULL; the gateway
+	// must enforce field-level feedback before calling the service). Valid values:
+	// HOME, WORK, OTHER. Any other value (including empty string) is an error.
+	locationKindVal := c.PostForm("location_kind")
+	var locationKindPtr *string
+	if locationKindVal == "HOME" || locationKindVal == "WORK" || locationKindVal == "OTHER" {
+		lk := locationKindVal // local copy — avoids any implicit alias
+		locationKindPtr = &lk
+	} else {
+		errs["location_kind"] = "Location is required."
+	}
+
 	if len(errs) > 0 {
 		return manualcharge.Entry{}, errs, false
 	}
@@ -505,6 +546,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		EnergyAddedKWh: energy,
 		Price:          price,
 		Currency:       currency,
+		LocationKind:   locationKindPtr,
 	}
 
 	if v := c.PostForm("started_at"); v != "" {
@@ -531,9 +573,6 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 	}
 	if v := c.PostForm("charging_type"); v == "AC" || v == "DC" {
 		entry.ChargingType = &v
-	}
-	if v := c.PostForm("location_kind"); v == "HOME" || v == "WORK" || v == "OTHER" {
-		entry.LocationKind = &v
 	}
 	if v := c.PostForm("location_label"); v != "" {
 		entry.LocationLabel = &v

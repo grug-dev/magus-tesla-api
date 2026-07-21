@@ -29,6 +29,8 @@ type fakeAccount struct {
 	// seedCalls captures the SeedVehicles invocation so a test can assert the
 	// one-time Tesla call was persisted.
 	seedCalls int
+	// lastSeedVehicles captures the SeedVehicle list from the most recent SeedVehicles call.
+	lastSeedVehicles []account.SeedVehicle
 }
 
 func (f fakeAccount) UpsertFromOAuth(context.Context, account.OAuthIdentity) (account.Account, error) {
@@ -51,6 +53,7 @@ func (f fakeAccount) AllRegisteredVehicles(context.Context) ([]account.OwnedVehi
 }
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {
 	f.seedCalls++
+	f.lastSeedVehicles = vs
 	if f.seedErr != nil {
 		return nil, f.seedErr
 	}
@@ -390,5 +393,54 @@ func TestVehiclesFor_SentryModeThreeStates(t *testing.T) {
 	}
 	if byName["On"] == nil || *byName["On"] != true {
 		t.Errorf("want SentryMode *true for 'On' vehicle, got %v", byName["On"])
+	}
+}
+
+// --- Sub-task D: seed AccessType mapping tests (sub-task C) ---
+
+// TestSeedAccessTypeMapping_NonEmpty verifies that a non-empty VehicleTesla.AccessType
+// is mapped to a non-nil *string on the SeedVehicle passed to account.SeedVehicles.
+func TestSeedAccessTypeMapping_NonEmpty(t *testing.T) {
+	acct := &fakeAccount{token: "tok"}
+	tsvc := &fakeTesla{vehicles: []tesla.VehicleTesla{
+		{ID: 10, DisplayName: "Magus", VIN: "VIN10", State: "online", AccessType: "OWNER"},
+	}}
+	// newHandler: telemetryReader is nil; the seed path never reaches it.
+	h := newHandler(acct, tsvc)
+	_ = h.vehiclesFor(context.Background(), uuid.New())
+
+	if acct.seedCalls != 1 {
+		t.Fatalf("want exactly 1 SeedVehicles call, got %d", acct.seedCalls)
+	}
+	if len(acct.lastSeedVehicles) != 1 {
+		t.Fatalf("want 1 SeedVehicle, got %d", len(acct.lastSeedVehicles))
+	}
+	sv := acct.lastSeedVehicles[0]
+	if sv.AccessType == nil {
+		t.Errorf("want non-nil AccessType for OWNER vehicle, got nil")
+	} else if *sv.AccessType != "OWNER" {
+		t.Errorf("want AccessType=OWNER, got %q", *sv.AccessType)
+	}
+}
+
+// TestSeedAccessTypeMapping_Empty verifies that an empty VehicleTesla.AccessType
+// maps to nil on SeedVehicle.AccessType (boundary-nil convention).
+func TestSeedAccessTypeMapping_Empty(t *testing.T) {
+	acct := &fakeAccount{token: "tok"}
+	tsvc := &fakeTesla{vehicles: []tesla.VehicleTesla{
+		{ID: 20, DisplayName: "Unknown", VIN: "VIN20", State: "asleep", AccessType: ""},
+	}}
+	h := newHandler(acct, tsvc)
+	_ = h.vehiclesFor(context.Background(), uuid.New())
+
+	if acct.seedCalls != 1 {
+		t.Fatalf("want exactly 1 SeedVehicles call, got %d", acct.seedCalls)
+	}
+	if len(acct.lastSeedVehicles) != 1 {
+		t.Fatalf("want 1 SeedVehicle, got %d", len(acct.lastSeedVehicles))
+	}
+	sv := acct.lastSeedVehicles[0]
+	if sv.AccessType != nil {
+		t.Errorf("want nil AccessType for empty-string vehicle, got %q", *sv.AccessType)
 	}
 }
