@@ -45,7 +45,9 @@ Other public symbols: `Credentials{AccessToken}`, `NewClient() *Client`, sentine
 `ErrUnauthorized` (returned on HTTP 401 — detect with `errors.Is`) and `ErrForbidden`
 (returned on HTTP 403, most commonly a missing-scope grant — detect with `errors.Is`; the
 wrapped error carries Tesla's response body with the specific reason), and the `...Tesla`
-DTOs (`VehicleTesla`, `VehicleDataTesla`, `ChargeStateTesla`, `ClimateStateTesla`,
+DTOs (`VehicleTesla` with fields `ID int64`, `VehicleID int64`, `VIN string`,
+`DisplayName string`, `State string`, `AccessType string` — the Fleet API owner/driver flag,
+plain `string`, no enum; `VehicleDataTesla`, `ChargeStateTesla`, `ClimateStateTesla`,
 `DriveStateTesla`, `VehicleStateTesla`) with their metric companion methods; plus the
 charging history types `ChargingHistoryTesla`, `ChargingSessionTesla`, `ChargingFeeTesla`,
 `ChargingInvoiceTesla`, and `ChargingHistoryParams`.

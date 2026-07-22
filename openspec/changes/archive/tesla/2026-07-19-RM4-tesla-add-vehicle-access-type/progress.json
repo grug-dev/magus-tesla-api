@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM4-tesla-add-vehicle-access-type",
+  "module": "tesla",
+  "roadmap": "openspec/roadmaps/RM4-charge-form-required-location-and-vehicle-autoselect.md",
+  "request": "Tier 1 of RM4: add Tesla per-vehicle access_type (OWNER/DRIVER) to the VehicleTesla DTO so ListVehicles surfaces it for downstream persistence (account) and vehicle auto-select (gateway).",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": ["T1", "T2", "T3"]
+  },
+  "created_at": "2026-07-19T12:58:04Z",
+  "updated_at": "2026-07-19T13:09:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM4-charge-form-required-location-and-vehicle-autoselect",
+    "base": "main",
+    "created_at": "2026-07-19T12:51:07Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Add AccessType string `json:\"access_type\"` to the VehicleTesla DTO (types.go)",
+      "module": "tesla",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "tesla",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-19T13:00:06Z",
+      "completed_at": "2026-07-19T13:01:17Z",
+      "duration_seconds": 71,
+      "notes": "Added AccessType string `json:\"access_type\"` to VehicleTesla after State field. Plain string per D1; inline comment notes owner/driver flag and explains no Km()/Kmh() companion applies.",
+      "budget": {
+        "five_hour_pct_start": 65.0,
+        "five_hour_pct_end": 70.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 0.75,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared Wave 1 delta: T1+T2 ran in one serial worker; leader T3 verification measured in the same span"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Offline decode test for access_type (OWNER + omitted) + AGENTS.md interface note",
+      "module": "tesla",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "tesla",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-19T13:00:06Z",
+      "completed_at": "2026-07-19T13:01:17Z",
+      "duration_seconds": 71,
+      "notes": "Added TestListVehicles_AccessTypeDecoding in vehicles_test.go: httptest server, two-vehicle canned JSON, asserts OWNER decodes and omitted decodes to zero string. AGENTS.md updated with AccessType string in VehicleTesla fields. go build/vet/test all green.",
+      "budget": {
+        "five_hour_pct_start": 65.0,
+        "five_hour_pct_end": 70.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 0.75,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared Wave 1 delta (see T1)"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Verification: go build/vet, offline go test ./internal/tesla/..., openspec --strict",
+      "module": "tesla",
+      "depends_on": ["T1", "T2"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-19T13:01:30Z",
+      "completed_at": "2026-07-19T13:03:00Z",
+      "duration_seconds": 90,
+      "notes": "Leader-run verification: go build/vet/test ./... all green (tesla suite incl. new decode test); openspec validate --strict passes.",
+      "budget": {
+        "five_hour_pct_start": 65.0,
+        "five_hour_pct_end": 70.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 0.75,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared Wave 1 delta (see T1)"
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "tesla-reviewer",
+    "brief": "Validate RM4-tesla-add-vehicle-access-type (tier 1). (1) Boundary: only internal/tesla touched; no account/gateway/manualcharge/other-module edits; adapter stays stateless. (2) go-conventions: AccessType is a plain string DTO field, correctly NO Km()/Kmh() companion (not a distance/speed value); field placement/tag correct. (3) Spec coverage: specs/tesla/spec.md delta scenarios (OWNER decodes, DRIVER decodes, omitted->empty) match the implementation + test. (4) Test: offline httptest, no live Fleet call, no .env, no DB; covers OWNER and omitted->empty. (5) tesla-exploration rule: no _test.go added to raw.go/explorer; the raw-explorer sync rule correctly judged N/A (no new method) - confirm ListVehiclesRaw already exposes access_type via RawMessage. (6) Performance-Profile: no read-path/DB impact. (7) Design decisions D1-D4 honored. (8) Anti-gaming: tasks.md checkboxes and progress.json statuses truthful, no criteria weakened. Read the diff (commit 07ec32a) + the 4 artifacts, not the whole module. Escalate on any doubt (changes-requested) rather than approving.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-19T13:07:00Z",
+        "duration_seconds": 300,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "spec DRIVER decode scenario had no dedicated test assertion (only OWNER + omitted). Non-blocking (same unmarshal path) but a real spec<->test gap.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [],
+  "events": [
+    { "at": "2026-07-19T12:58:04Z", "agent": "leader", "event": "progress.json seeded from tasks.md (T1,T2,T3); status proposed. Change-level design decisions live in design.md (D1-D4); roadmap decisions RD1-RD4 in the roadmap progress.json." },
+    { "at": "2026-07-19T13:01:17Z", "agent": "leader", "event": "Wave 1 dispatched tesla worker (sonnet) for T1+T2; returned with types.go field + offline decode test + AGENTS.md note; complied with D1-D4; module tests green." },
+    { "at": "2026-07-19T13:03:00Z", "agent": "leader", "event": "Step 6 verify: go build/vet/test ./... all green, openspec --strict valid. T3 done; status -> verified. Next: review loop (Step 7)." },
+    { "at": "2026-07-19T13:07:00Z", "agent": "leader", "event": "Review round 1: tesla-reviewer (sonnet) verdict APPROVED, 8/8 brief items confirmed; one minor finding F1 (untested spec DRIVER scenario). Leader triaged F1 accepted and applied the reviewer's suggested 2-line test addition (DRIVER case); go test green. status -> reviewer-approved." },
+    { "at": "2026-07-19T13:09:00Z", "agent": "leader", "event": "Step 8 archive: openspec archive synced the delta into openspec/specs/tesla/spec.md; change moved to archive/tesla/2026-07-19-RM4-tesla-add-vehicle-access-type/ (domain-grouped per config); T3.* checkboxes ticked (verification passed). status -> archived." }
+  ]
+}

@@ -54,13 +54,38 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 			</div>
 			<div>
 				<label>
-					Vehicle
-					<select name="vehicle">
-						<option value="">Select a vehicle</option>
-						for _, opt := range d.VehicleOptions {
-							<option value={ opt.Value }>{ opt.DisplayName }</option>
-						}
+					Location
+					<select name="location_kind" required>
+						<option value="HOME">Home</option>
+						<option value="WORK">Work</option>
+						<option value="OTHER">Other</option>
 					</select>
+				</label>
+				if validationErrors["location_kind"] != "" {
+					<span class="error">{ validationErrors["location_kind"] }</span>
+				}
+			</div>
+			<div>
+				<label>
+					Vehicle
+					if d.SingleVehicle {
+						<select name="vehicle" disabled>
+							for _, opt := range d.VehicleOptions {
+								<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
+							}
+						</select>
+						for _, opt := range d.VehicleOptions {
+							if opt.Selected {
+								<input type="hidden" name="vehicle" value={ opt.Value }/>
+							}
+						}
+					} else {
+						<select name="vehicle" required>
+							for _, opt := range d.VehicleOptions {
+								<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
+							}
+						</select>
+					}
 				</label>
 				if validationErrors["vehicle"] != "" {
 					<span class="error">{ validationErrors["vehicle"] }</span>
@@ -99,17 +124,6 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 							<option value="">-</option>
 							<option value="AC">AC</option>
 							<option value="DC">DC</option>
-						</select>
-					</label>
-				</div>
-				<div>
-					<label>
-						Location kind
-						<select name="location_kind">
-							<option value="">-</option>
-							<option value="HOME">Home</option>
-							<option value="WORK">Work</option>
-							<option value="OTHER">Other</option>
 						</select>
 					</label>
 				</div>

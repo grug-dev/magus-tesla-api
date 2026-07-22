@@ -166,6 +166,7 @@ func (s *service) SeedVehicles(ctx context.Context, accountID uuid.UUID, vehicle
 			TeslaID:     v.TeslaID,
 			Vin:         v.VIN,
 			DisplayName: textFromString(v.DisplayName),
+			AccessType:  textPtrToNullable(v.AccessType),
 		}); err != nil {
 			return nil, fmt.Errorf("registering vehicle tesla_id=%d: %w", v.TeslaID, err)
 		}
@@ -194,6 +195,7 @@ func vehicleFromRow(v accountdb.Vehicle) Vehicle {
 		TeslaID:     v.TeslaID,
 		VIN:         v.Vin,
 		DisplayName: v.DisplayName.String, // "" when NULL
+		AccessType:  nullableTextToPtr(v.AccessType),
 	}
 }
 
@@ -207,6 +209,7 @@ func ownedVehicleFromRow(v accountdb.ListAllVehiclesRow) OwnedVehicle {
 		TeslaID:     v.TeslaID,
 		VIN:         v.Vin,
 		DisplayName: v.DisplayName.String, // "" when NULL
+		AccessType:  nullableTextToPtr(v.AccessType),
 	}
 }
 
@@ -225,6 +228,25 @@ func accountFromRow(a accountdb.Account) Account {
 // textFromString maps a Go string to a nullable pgtype.Text, treating "" as NULL.
 func textFromString(s string) pgtype.Text {
 	return pgtype.Text{String: s, Valid: s != ""}
+}
+
+// nullableTextToPtr maps a nullable pgtype.Text to *string; nil when not valid.
+// Used at the DB→domain boundary so pgtype never leaks into public types (design.md D4).
+func nullableTextToPtr(t pgtype.Text) *string {
+	if !t.Valid {
+		return nil
+	}
+	s := t.String
+	return &s
+}
+
+// textPtrToNullable maps a *string to pgtype.Text; invalid (NULL) when nil.
+// Used at the domain→DB boundary so pgtype never leaks into public types (design.md D4).
+func textPtrToNullable(s *string) pgtype.Text {
+	if s == nil {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: *s, Valid: true}
 }
 
 // timestamp maps a Go time.Time to a non-null pgtype.Timestamptz. sqlc's pgx/v5

@@ -40,6 +40,10 @@ type VehicleTesla struct {
 	VIN         string `json:"vin"`
 	DisplayName string `json:"display_name"`
 	State       string `json:"state"`
+	// AccessType is the Fleet API owner/driver flag ("OWNER" or "DRIVER").
+	// Plain string per D1 — no enum type; the adapter decodes-and-passes-through only.
+	// Not a distance/speed field, so no Km()/Kmh() companion is applicable.
+	AccessType string `json:"access_type"`
 }
 
 // VehicleDataTesla is the full snapshot from the vehicle_data endpoint.

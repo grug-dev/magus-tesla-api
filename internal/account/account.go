@@ -59,6 +59,10 @@ type Vehicle struct {
 	TeslaID     int64
 	VIN         string
 	DisplayName string
+	// AccessType is Tesla's per-vehicle access type for the account, either "OWNER"
+	// or "DRIVER". nil means the value was not captured at seed time (predates this
+	// change or the caller supplied nil).
+	AccessType *string
 }
 
 // OwnedVehicle is one registered Tesla vehicle in the CROSS-ACCOUNT view: unlike
@@ -73,6 +77,10 @@ type OwnedVehicle struct {
 	TeslaID     int64
 	VIN         string
 	DisplayName string
+	// AccessType is Tesla's per-vehicle access type for the account, either "OWNER"
+	// or "DRIVER". nil means the value was not captured at seed time (predates this
+	// change or the caller supplied nil).
+	AccessType *string
 }
 
 // SeedVehicle is the mapped slice the gateway hands the account module when
@@ -82,6 +90,10 @@ type SeedVehicle struct {
 	TeslaID     int64
 	VIN         string
 	DisplayName string
+	// AccessType is Tesla's per-vehicle access type. The gateway (tier 4) sets this
+	// from VehicleTesla.AccessType before calling SeedVehicles. Callers that do not
+	// supply it leave it nil, which is stored as NULL.
+	AccessType *string
 }
 
 // Service is the account module's public port. The gateway and sibling modules

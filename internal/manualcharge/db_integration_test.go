@@ -18,6 +18,7 @@ package manualcharge_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,8 +59,11 @@ func cleanupAccount(t *testing.T, pool *pgxpool.Pool, accountIDs ...uuid.UUID) {
 }
 
 // minEntry returns a minimal valid Entry for accountID + teslaID with all optional
-// fields as nil. The caller may override any field before passing to Writer.Create.
+// fields as nil. LocationKind is set to "HOME" because it became a required field
+// in RM4-manualcharge-require-location-kind (Writer.Create/Update reject nil or empty).
+// The caller may override any field before passing to Writer.Create.
 func minEntry(accountID uuid.UUID, teslaID int64) manualcharge.Entry {
+	lk := "HOME"
 	return manualcharge.Entry{
 		AccountID:      accountID,
 		TeslaID:        teslaID,
@@ -68,6 +72,7 @@ func minEntry(accountID uuid.UUID, teslaID int64) manualcharge.Entry {
 		EnergyAddedKWh: 20.5,
 		Price:          45000.00,
 		Currency:       "COP",
+		LocationKind:   &lk,
 	}
 }
 
@@ -128,7 +133,12 @@ func TestCreate_RequiredOnly(t *testing.T) {
 		t.Errorf("Currency: got %q, want %q (DB default)", got, want)
 	}
 
-	// Optional fields are nil.
+	// LocationKind is required and set in minEntry (HOME); it must round-trip.
+	if created.LocationKind == nil || *created.LocationKind != "HOME" {
+		t.Errorf("LocationKind: got %v, want \"HOME\"", created.LocationKind)
+	}
+
+	// Other optional fields are nil.
 	if created.StartedAt != nil {
 		t.Errorf("StartedAt: expected nil, got %v", *created.StartedAt)
 	}
@@ -808,5 +818,220 @@ func TestMultiTenantIsolation_NeverLeaks(t *testing.T) {
 		if e.AccountID != bob {
 			t.Errorf("bob ListByAccount: got entry for accountID %v (want bob %v)", e.AccountID, bob)
 		}
+	}
+}
+
+// --- T3: location_kind required-field scenarios (RM4-manualcharge-require-location-kind) ---
+
+// TestCreate_RejectsNilLocationKind asserts that Writer.Create returns a non-nil error
+// when LocationKind is nil, and that no row is inserted.
+func TestCreate_RejectsNilLocationKind(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+	r := manualcharge.NewReader(pool)
+
+	e := minEntry(accountID, 1001)
+	e.LocationKind = nil // required field absent
+
+	_, err := w.Create(ctx, e)
+	if err == nil {
+		t.Fatal("Create with nil LocationKind: expected non-nil error, got nil")
+	}
+	if !strings.Contains(err.Error(), "location_kind is required") {
+		t.Errorf("expected error to mention 'location_kind is required', got: %v", err)
+	}
+
+	// Assert no row was inserted.
+	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
+	if listErr != nil {
+		t.Fatalf("ListEntriesByAccount: %v", listErr)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 rows after rejection, got %d", len(entries))
+	}
+}
+
+// TestCreate_RejectsEmptyLocationKind asserts that Writer.Create returns a non-nil error
+// when LocationKind points to an empty string, and that no row is inserted.
+func TestCreate_RejectsEmptyLocationKind(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+	r := manualcharge.NewReader(pool)
+
+	e := minEntry(accountID, 1002)
+	e.LocationKind = ptrString("") // empty string — also invalid
+
+	_, err := w.Create(ctx, e)
+	if err == nil {
+		t.Fatal("Create with empty LocationKind: expected non-nil error, got nil")
+	}
+	if !strings.Contains(err.Error(), "location_kind is required") {
+		t.Errorf("expected error to mention 'location_kind is required', got: %v", err)
+	}
+
+	// Assert no row was inserted.
+	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
+	if listErr != nil {
+		t.Fatalf("ListEntriesByAccount: %v", listErr)
+	}
+	if len(entries) != 0 {
+		t.Errorf("expected 0 rows after rejection, got %d", len(entries))
+	}
+}
+
+// TestCreate_AcceptsHOME asserts that Writer.Create succeeds when LocationKind is "HOME"
+// and the returned entry carries the correct value.
+func TestCreate_AcceptsHOME(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+
+	e := minEntry(accountID, 1003)
+	e.LocationKind = ptrString("HOME")
+
+	created, err := w.Create(ctx, e)
+	if err != nil {
+		t.Fatalf("Create with LocationKind=HOME: unexpected error: %v", err)
+	}
+	if created.LocationKind == nil || *created.LocationKind != "HOME" {
+		t.Errorf("LocationKind: got %v, want \"HOME\"", created.LocationKind)
+	}
+}
+
+// TestCreate_AcceptsWORK asserts that Writer.Create succeeds when LocationKind is "WORK".
+func TestCreate_AcceptsWORK(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+
+	e := minEntry(accountID, 1004)
+	e.LocationKind = ptrString("WORK")
+
+	created, err := w.Create(ctx, e)
+	if err != nil {
+		t.Fatalf("Create with LocationKind=WORK: unexpected error: %v", err)
+	}
+	if created.LocationKind == nil || *created.LocationKind != "WORK" {
+		t.Errorf("LocationKind: got %v, want \"WORK\"", created.LocationKind)
+	}
+}
+
+// TestCreate_AcceptsOTHER asserts that Writer.Create succeeds when LocationKind is "OTHER".
+func TestCreate_AcceptsOTHER(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+
+	e := minEntry(accountID, 1005)
+	e.LocationKind = ptrString("OTHER")
+
+	created, err := w.Create(ctx, e)
+	if err != nil {
+		t.Fatalf("Create with LocationKind=OTHER: unexpected error: %v", err)
+	}
+	if created.LocationKind == nil || *created.LocationKind != "OTHER" {
+		t.Errorf("LocationKind: got %v, want \"OTHER\"", created.LocationKind)
+	}
+}
+
+// TestUpdate_RejectsNilLocationKind creates a valid entry with LocationKind="HOME", then
+// attempts an Update with LocationKind=nil. Asserts: error is non-nil, and the original
+// row is unchanged (LocationKind still "HOME").
+func TestUpdate_RejectsNilLocationKind(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+	r := manualcharge.NewReader(pool)
+
+	// Create a valid entry first.
+	e := minEntry(accountID, 1006)
+	e.LocationKind = ptrString("HOME")
+	created, err := w.Create(ctx, e)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Attempt Update with nil LocationKind.
+	tampered := created
+	tampered.LocationKind = nil
+
+	_, err = w.Update(ctx, tampered)
+	if err == nil {
+		t.Fatal("Update with nil LocationKind: expected non-nil error, got nil")
+	}
+	if !strings.Contains(err.Error(), "location_kind is required") {
+		t.Errorf("expected error to mention 'location_kind is required', got: %v", err)
+	}
+
+	// Assert the original row is unchanged.
+	entries, listErr := r.ListEntriesByAccount(ctx, accountID, 10)
+	if listErr != nil {
+		t.Fatalf("ListEntriesByAccount: %v", listErr)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].LocationKind == nil || *entries[0].LocationKind != "HOME" {
+		t.Errorf("original row's LocationKind was mutated: got %v, want \"HOME\"", entries[0].LocationKind)
+	}
+}
+
+// TestUpdate_AcceptsLocationKindChange creates an entry with LocationKind="HOME", then
+// updates it to LocationKind="WORK". Asserts: no error, returned entry has "WORK",
+// and updated_at is greater than or equal to created_at (i.e. it has advanced or the
+// same-microsecond floor applies — it must NOT have regressed).
+func TestUpdate_AcceptsLocationKindChange(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+
+	// Create with HOME.
+	e := minEntry(accountID, 1007)
+	e.LocationKind = ptrString("HOME")
+	created, err := w.Create(ctx, e)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	// Pause so the server clock can advance between create and update.
+	time.Sleep(5 * time.Millisecond)
+
+	// Update to WORK.
+	updated := created
+	updated.LocationKind = ptrString("WORK")
+
+	result, err := w.Update(ctx, updated)
+	if err != nil {
+		t.Fatalf("Update LocationKind HOME→WORK: unexpected error: %v", err)
+	}
+	if result.LocationKind == nil || *result.LocationKind != "WORK" {
+		t.Errorf("LocationKind after update: got %v, want \"WORK\"", result.LocationKind)
+	}
+	// updated_at must not have regressed (must be >= created_at).
+	if result.UpdatedAt.Before(created.UpdatedAt) {
+		t.Errorf("UpdatedAt regressed: was %v, now %v", created.UpdatedAt, result.UpdatedAt)
 	}
 }

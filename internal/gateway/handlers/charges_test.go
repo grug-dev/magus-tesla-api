@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 )
 
@@ -394,6 +393,7 @@ func TestChargeCreate_ValidInput(t *testing.T) {
 		"energy_added_kwh": {"10.5"},
 		"price":            {"5000"},
 		"currency":         {"COP"},
+		"location_kind":    {"HOME"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -535,6 +535,7 @@ func TestChargeRowUpdate_ValidInput(t *testing.T) {
 		"energy_added_kwh": {"20.0"},
 		"price":            {"9000"},
 		"currency":         {"COP"},
+		"location_kind":    {"WORK"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
@@ -812,20 +813,285 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 	}
 }
 
-// TestBuildVehicleOptions verifies vehicle picker option generation.
+// TestBuildVehicleOptions verifies vehicle picker option generation (legacy two-vehicle case).
 func TestBuildVehicleOptions(t *testing.T) {
+	owner := "OWNER"
 	vehicles := []account.Vehicle{
-		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus", AccessType: &owner},
 		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "Other"},
 	}
-	opts := buildVehicleOptions(vehicles)
+	opts, single := buildVehicleOptions(vehicles)
 	if len(opts) != 2 {
 		t.Fatalf("want 2 options, got %d", len(opts))
 	}
-	if opts[0] != (fragments.VehicleOptionVM{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus", Value: "1001:VIN1001"}) {
-		t.Errorf("unexpected first option: %+v", opts[0])
+	if single {
+		t.Errorf("want SingleVehicle false for 2 vehicles, got true")
+	}
+	// First vehicle is OWNER — should be selected.
+	if !opts[0].Selected {
+		t.Errorf("want first (OWNER) option Selected=true, got false")
+	}
+	if opts[1].Selected {
+		t.Errorf("want second option Selected=false, got true")
+	}
+	if opts[0].Value != "1001:VIN1001" {
+		t.Errorf("want value 1001:VIN1001, got %q", opts[0].Value)
 	}
 	if opts[1].Value != "2002:VIN2002" {
 		t.Errorf("want value 2002:VIN2002, got %q", opts[1].Value)
+	}
+}
+
+// --- Sub-task D: required location_kind tests ---
+
+// TestChargeCreate_MissingLocationKind verifies 422 when location_kind is absent.
+func TestChargeCreate_MissingLocationKind(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	h := newHandlerForCharges(writer, reader)
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":       {"tok"},
+		"vehicle":          {"1001:VIN1001"},
+		"charged_on":       {"2026-07-15"},
+		"energy_added_kwh": {"10.5"},
+		"price":            {"5000"},
+		"currency":         {"COP"},
+		// deliberately no location_kind
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 on missing location_kind, got %d", w.Code)
+	}
+	if writer.createEntry.EnergyAddedKWh != 0 {
+		t.Errorf("Writer.Create must NOT be called on missing location_kind, got energy %f",
+			writer.createEntry.EnergyAddedKWh)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Location is required") {
+		t.Errorf("want location_kind error in response, body=%q", body[:min(500, len(body))])
+	}
+}
+
+// TestChargeCreate_InvalidLocationKind verifies 422 when location_kind has an unrecognized value.
+func TestChargeCreate_InvalidLocationKind(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	h := newHandlerForCharges(writer, reader)
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":       {"tok"},
+		"vehicle":          {"1001:VIN1001"},
+		"charged_on":       {"2026-07-15"},
+		"energy_added_kwh": {"10.5"},
+		"price":            {"5000"},
+		"currency":         {"COP"},
+		"location_kind":    {"INVALID"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 on invalid location_kind, got %d", w.Code)
+	}
+	if writer.createEntry.EnergyAddedKWh != 0 {
+		t.Errorf("Writer.Create must NOT be called on invalid location_kind")
+	}
+}
+
+// TestChargeRowUpdate_MissingLocationKind verifies 422 on missing location_kind during update.
+func TestChargeRowUpdate_MissingLocationKind(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":       {"tok"},
+		"vehicle":          {"1001:VIN1001"},
+		"charged_on":       {"2026-07-16"},
+		"energy_added_kwh": {"20.0"},
+		"price":            {"9000"},
+		"currency":         {"COP"},
+		// deliberately no location_kind
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 on missing location_kind for update, got %d", w.Code)
+	}
+	if writer.updateEntry.EnergyAddedKWh != 0 {
+		t.Errorf("Writer.Update must NOT be called on missing location_kind")
+	}
+}
+
+// TestChargeCreate_ValidLocationKind verifies that a valid location_kind succeeds.
+func TestChargeCreate_ValidLocationKind(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	h := newHandlerForCharges(writer, reader)
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":       {"tok"},
+		"vehicle":          {"1001:VIN1001"},
+		"charged_on":       {"2026-07-15"},
+		"energy_added_kwh": {"10.5"},
+		"price":            {"5000"},
+		"currency":         {"COP"},
+		"location_kind":    {"HOME"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 on valid location_kind=HOME, got %d body=%q",
+			w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	if writer.createEntry.LocationKind == nil || *writer.createEntry.LocationKind != "HOME" {
+		t.Errorf("want LocationKind=HOME persisted, got %v", writer.createEntry.LocationKind)
+	}
+}
+
+// --- Sub-task D: vehicle auto-select unit tests ---
+
+// ptrStr is a helper to take the address of a string literal in tests.
+func ptrStr(s string) *string { return &s }
+
+// TestBuildVehicleOptions_SingleVehicle: one vehicle → Selected=true, SingleVehicle=true.
+func TestBuildVehicleOptions_SingleVehicle(t *testing.T) {
+	vehicles := []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+	}
+	opts, single := buildVehicleOptions(vehicles)
+	if !single {
+		t.Errorf("want SingleVehicle=true for 1 vehicle, got false")
+	}
+	if len(opts) != 1 {
+		t.Fatalf("want 1 option, got %d", len(opts))
+	}
+	if !opts[0].Selected {
+		t.Errorf("want sole vehicle Selected=true, got false")
+	}
+}
+
+// TestBuildVehicleOptions_MultiVehicleOwnerFirst: second vehicle is OWNER → second Selected.
+func TestBuildVehicleOptions_MultiVehicleOwnerFirst(t *testing.T) {
+	vehicles := []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Driver", AccessType: ptrStr("DRIVER")},
+		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "Owner", AccessType: ptrStr("OWNER")},
+	}
+	opts, single := buildVehicleOptions(vehicles)
+	if single {
+		t.Errorf("want SingleVehicle=false for 2 vehicles, got true")
+	}
+	if len(opts) != 2 {
+		t.Fatalf("want 2 options, got %d", len(opts))
+	}
+	if opts[0].Selected {
+		t.Errorf("want first (DRIVER) option Selected=false, got true")
+	}
+	if !opts[1].Selected {
+		t.Errorf("want second (OWNER) option Selected=true, got false")
+	}
+}
+
+// TestBuildVehicleOptions_MultiVehicleNoOwner: no OWNER → first vehicle Selected.
+func TestBuildVehicleOptions_MultiVehicleNoOwner(t *testing.T) {
+	vehicles := []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "First"},
+		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "Second"},
+	}
+	opts, single := buildVehicleOptions(vehicles)
+	if single {
+		t.Errorf("want SingleVehicle=false for 2 vehicles, got true")
+	}
+	if !opts[0].Selected {
+		t.Errorf("want first option Selected=true when no OWNER, got false")
+	}
+	if opts[1].Selected {
+		t.Errorf("want second option Selected=false when no OWNER, got true")
+	}
+}
+
+// TestBuildVehicleOptions_MultiVehicleFirstOwner: first vehicle is OWNER → first Selected.
+func TestBuildVehicleOptions_MultiVehicleFirstOwner(t *testing.T) {
+	vehicles := []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "First", AccessType: ptrStr("OWNER")},
+		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "Second"},
+	}
+	opts, single := buildVehicleOptions(vehicles)
+	if single {
+		t.Errorf("want SingleVehicle=false for 2 vehicles, got true")
+	}
+	if !opts[0].Selected {
+		t.Errorf("want first (OWNER) option Selected=true, got false")
+	}
+	if opts[1].Selected {
+		t.Errorf("want second option Selected=false, got true")
+	}
+}
+
+// TestBuildVehicleOptions_NilAccessType: nil AccessType treated as non-OWNER;
+// when sole vehicle, still Selected=true with SingleVehicle=true.
+func TestBuildVehicleOptions_NilAccessType(t *testing.T) {
+	vehicles := []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus", AccessType: nil},
+	}
+	opts, single := buildVehicleOptions(vehicles)
+	if !single {
+		t.Errorf("want SingleVehicle=true for 1 vehicle with nil AccessType, got false")
+	}
+	if !opts[0].Selected {
+		t.Errorf("want sole vehicle Selected=true even with nil AccessType, got false")
+	}
+
+	// Multi-vehicle with nil AccessType on all → first selected.
+	vehicles2 := []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "A", AccessType: nil},
+		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "B", AccessType: nil},
+	}
+	opts2, single2 := buildVehicleOptions(vehicles2)
+	if single2 {
+		t.Errorf("want SingleVehicle=false for 2 vehicles, got true")
+	}
+	if !opts2[0].Selected {
+		t.Errorf("want first option Selected=true when all AccessType=nil, got false")
+	}
+	if opts2[1].Selected {
+		t.Errorf("want second option Selected=false when all AccessType=nil, got true")
 	}
 }

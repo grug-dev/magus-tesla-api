@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM4-account-persist-vehicle-access-type",
+  "module": "account",
+  "roadmap": "openspec/roadmaps/RM4-charge-form-required-location-and-vehicle-autoselect.md",
+  "request": "Tier 2 of RM4: persist Tesla per-vehicle access_type in the account vehicle registry (nullable column, RD2) and expose it as *string on Vehicle/OwnedVehicle/SeedVehicle; capture at seed insert; surface on reads. No backfill (RD3).",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": ["1", "2", "3", "4", "5", "6"]
+  },
+  "created_at": "2026-07-19T13:14:00Z",
+  "updated_at": "2026-07-20T10:30:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM4-charge-form-required-location-and-vehicle-autoselect",
+    "base": "main",
+    "created_at": "2026-07-19T12:51:07Z"
+  },
+  "tasks": [
+    { "id": "1", "title": "Goose migration: ADD COLUMN access_type TEXT + CHECK (nullable, no index, no DEFAULT)", "module": "account", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "account", "model": "claude-sonnet-4-6", "started_at": "2026-07-20T10:20:20Z", "completed_at": "2026-07-20T10:23:00Z", "duration_seconds": 160, "notes": "Created 20260720000001_vehicles_add_access_type.sql with goose Up/Down; D1 comment inline.", "budget": { "five_hour_pct_start": 1.0, "five_hour_pct_end": 17.0, "five_hour_pct_delta": 16.0, "cost_usd_delta": 1.41, "context_pct_end": 25, "source": "statusline-cache", "approx": true, "note": "shared Wave 1 delta: tasks 1-5 ran in one serial account worker; leader task-6 verify in same span. Recorded on task 1 as the representative." } },
+    { "id": "2", "title": "Domain types: add AccessType *string to Vehicle/OwnedVehicle/SeedVehicle (Service iface unchanged)", "module": "account", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "account", "model": "claude-sonnet-4-6", "started_at": "2026-07-20T10:20:20Z", "completed_at": "2026-07-20T10:23:00Z", "duration_seconds": 160, "notes": "AccessType *string added to Vehicle, OwnedVehicle, SeedVehicle with doc comments; Service iface signatures unchanged.", "budget": null },
+    { "id": "3", "title": "sqlc: access_type in InsertVehicleIfMissing + read queries; regenerate accountdb", "module": "account", "depends_on": ["1"], "parallel_ok": true, "status": "done", "agent": "account", "model": "claude-sonnet-4-6", "started_at": "2026-07-20T10:20:20Z", "completed_at": "2026-07-20T10:23:00Z", "duration_seconds": 160, "notes": "InsertVehicleIfMissing+access_type; ListAllVehicles explicit list updated; ListVehiclesByAccount via SELECT*; make sqlc clean; InsertVehicleIfMissingParams/Vehicle/ListAllVehiclesRow all gained AccessType pgtype.Text.", "budget": null },
+    { "id": "4", "title": "service.go: nullable pgtype.Text <-> *string boundary helpers; map in seed insert + row->domain", "module": "account", "depends_on": ["2", "3"], "parallel_ok": false, "status": "done", "agent": "account", "model": "claude-sonnet-4-6", "started_at": "2026-07-20T10:20:20Z", "completed_at": "2026-07-20T10:23:00Z", "duration_seconds": 160, "notes": "nullableTextToPtr/textPtrToNullable added; vehicleFromRow/ownedVehicleFromRow updated; InsertVehicleIfMissingParams literal gains AccessType; pgtype.Text confined to service.go+accountdb.", "budget": null },
+    { "id": "5", "title": "Integration tests: access_type round-trip (OWNER/DRIVER/nil), idempotency, CHECK rejection (DATABASE_URL-gated)", "module": "account", "depends_on": ["4"], "parallel_ok": false, "status": "done", "agent": "account", "model": "claude-sonnet-4-6", "started_at": "2026-07-20T10:20:20Z", "completed_at": "2026-07-20T10:23:00Z", "duration_seconds": 160, "notes": "TestAccessType_RoundTrip/IdempotencyPreservesStoredValue/InvalidValueRejectedByCheckConstraint added; self-skip pattern via newTestService; go test ok (self-skipped without DATABASE_URL).", "budget": null },
+    { "id": "6", "title": "Verification: go build/vet/test ./..., openspec --strict", "module": "account", "depends_on": ["1", "2", "3", "4", "5"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "claude-opus-4-8", "started_at": "2026-07-20T10:23:30Z", "completed_at": "2026-07-20T10:25:00Z", "duration_seconds": 90, "notes": "Leader verify: go build/vet/test ./... all green (account incl. self-skipped DB-gated access_type tests); openspec --strict valid.", "budget": { "source": "statusline-cache", "approx": true, "note": "included in the shared Wave 1 delta on task 1" } }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "account-reviewer",
+    "brief": "Validate RM4-account-persist-vehicle-access-type (tier 2). (1) Boundary: only internal/account touched; no import of internal/tesla; no other-module edits. (2) DB design MATCHES the user-confirmed design (RD2/RD3, design.md D1-D3): migration is nullable access_type TEXT + CHECK(IS NULL OR IN('OWNER','DRIVER')), NO index, NO DEFAULT; ON CONFLICT DO NOTHING UNCHANGED (no backfill/re-seed added) - any mismatch is a BLOCKER finding. (3) go-conventions persistence: goose migration is the single sqlc schema source; pgtype.Text confined to service.go boundary helpers + generated accountdb, never in public types; AccessType is *string on Vehicle/OwnedVehicle/SeedVehicle. (4) sqlc regen correct: InsertVehicleIfMissingParams / accountdb.Vehicle / ListAllVehiclesRow gained AccessType pgtype.Text; ListVehiclesByAccount selects it. (5) Spec coverage: specs/account-vehicle-registry delta scenarios (seed-with persists+returns; seed-without=NULL; reads surface it; CHECK rejects invalid) match impl + tests. (6) Tests: DATABASE_URL-gated self-skip; cover OWNER/DRIVER/nil round-trip, re-seed idempotency (stored value unchanged), invalid-value CHECK rejection. (7) Performance-Profile read-heavy: no-index justified (never a predicate). (8) Service interface signatures UNCHANGED (backward-compatible). (9) Anti-gaming: tasks.md checkboxes + progress.json statuses truthful; no weakened criteria. Read the diff (commit 48d78cb) + the 4 artifacts, not the whole module. Escalate on any doubt.",
+    "rounds": [
+      { "round": 1, "at": "2026-07-20T10:28:00Z", "duration_seconds": 100, "verdict": "approved", "findings": [] }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-gate",
+      "at": "2026-07-19T13:12:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate CONFIRMED for the access_type schema (nullable TEXT + CHECK, no index, no backfill) before Apply.",
+      "why": "User pre-confirmed the design in the grill (RD2/RD3) and explicitly chose 'Continue now - Tier 2' as the design-gate sign-off. design.md D1-D4 documents it.",
+      "covered_by": "roadmap RD2, RD3"
+    }
+  ],
+  "events": [
+    { "at": "2026-07-19T13:12:00Z", "agent": "leader", "event": "Tier 2 artifacts created by account worker (sonnet), openspec --strict valid. Database design gate satisfied (D-gate; user-confirmed RD2/RD3). Design.md D1-D4 incl. no-index justification." },
+    { "at": "2026-07-19T13:14:00Z", "agent": "leader", "event": "BUDGET CHECKPOINT before apply wave: 5-hour bucket at 91% (>= 90 threshold), context 21%. Apply wave NOT started. Bucket resets 2026-07-19T15:30:00Z. Resume after reset at Step 5 (apply); status=proposed." },
+    { "at": "2026-07-20T10:19:00Z", "agent": "leader", "event": "RESUMED. 5-hour bucket reset (fresh window from 10:10Z, 0% used; a first stale-cache read showed 94% but refreshed to 0%), context 24%. status proposed -> in-progress. Dispatching account worker (sonnet) for Wave 1 = tasks 1-5 (serial, dependency-ordered); task 6 = leader verification." },
+    { "at": "2026-07-20T10:25:00Z", "agent": "leader", "event": "Wave 1 complete: account worker (sonnet) shipped migration + domain fields + sqlc regen + service mapping + integration tests; D1-D4 complied. Step 6 verify: build/vet/test ./... green, openspec --strict valid. status -> verified. Next: review (Step 7)." },
+    { "at": "2026-07-20T10:28:00Z", "agent": "leader", "event": "Review round 1: account-reviewer (sonnet) verdict APPROVED, 9/9 brief items pass, zero findings (DB design matches RD2/RD3, pgtype confined, no-index justified, iface unchanged). Ticked task-6 verify boxes (leader-run, passed). status -> reviewer-approved. Next: archive (Step 8)." },
+    { "at": "2026-07-20T10:30:00Z", "agent": "leader", "event": "Step 8 archive: fixed 3 MODIFIED spec headers ((updated) suffix blocked the merge), re-validated, openspec archive synced delta (1 added + 3 modified reqs) into specs/account-vehicle-registry; moved to archive/account/2026-07-20-... (domain-grouped). status -> archived." }
+  ]
+}

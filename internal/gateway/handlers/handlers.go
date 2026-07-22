@@ -164,10 +164,18 @@ func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.Vehi
 
 	seed := make([]account.SeedVehicle, 0, len(vs))
 	for _, v := range vs {
+		// Boundary-nil convention: empty string from the adapter maps to nil on the
+		// *string domain field; non-empty maps to a pointer to a local copy.
+		var accessType *string
+		if v.AccessType != "" {
+			at := v.AccessType // local copy — avoids loop-variable alias
+			accessType = &at
+		}
 		seed = append(seed, account.SeedVehicle{
 			TeslaID:     v.ID,
 			VIN:         v.VIN,
 			DisplayName: v.DisplayName,
+			AccessType:  accessType,
 		})
 	}
 	persisted, err := h.acct.SeedVehicles(ctx, uid, seed)

@@ -119,13 +119,15 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 					<div>
 						<label>
 							Location kind
-							<select name="location_kind">
-								<option value="">-</option>
+							<select name="location_kind" required>
 								<option value="HOME" selected?={ vm.LocationKind == "HOME" }>Home</option>
 								<option value="WORK" selected?={ vm.LocationKind == "WORK" }>Work</option>
 								<option value="OTHER" selected?={ vm.LocationKind == "OTHER" }>Other</option>
 							</select>
 						</label>
+						if validationErrors["location_kind"] != "" {
+							<span class="error">{ validationErrors["location_kind"] }</span>
+						}
 					</div>
 					<div>
 						<label>
