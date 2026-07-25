@@ -1,0 +1,14 @@
+package ui
+
+// BadgeProps configures a Badge. Kind maps to a DaisyUI status color; Text is the
+// pre-formatted label (e.g. charging state, "Sentry on").
+type BadgeProps struct {
+	Kind  string // "neutral"|"primary"|"success"|"warning"|"error" (default neutral)
+	Text  string
+	Class string
+}
+
+// Badge renders a small status pill.
+templ Badge(p BadgeProps) {
+	<span class={ "badge", badgeClass(p.Kind), p.Class }>{ p.Text }</span>
+}

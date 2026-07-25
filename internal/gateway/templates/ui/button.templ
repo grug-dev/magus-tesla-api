@@ -1,0 +1,25 @@
+package ui
+
+// ButtonProps configures a Button. Attrs carries htmx (hx-get/hx-target/hx-swap) or
+// any other attributes. If Href is set the component renders an <a>, otherwise a
+// <button>. Variant/Type are mapped to safe values by btnClass/btnType.
+type ButtonProps struct {
+	Variant string           // "primary"|"secondary"|"accent"|"ghost"|"outline"|"error" (default primary)
+	Type    string           // "button"|"submit" (default button)
+	Href    string           // if set, renders <a> instead of <button>
+	Class   string           // extra layout utilities only
+	Attrs   templ.Attributes // hx-* and other attributes
+}
+
+// Button renders a themed action as either a link or a button.
+templ Button(p ButtonProps) {
+	if p.Href != "" {
+		<a href={ templ.SafeURL(p.Href) } class={ btnClass(p.Variant), p.Class } { p.Attrs... }>
+			{ children... }
+		</a>
+	} else {
+		<button type={ btnType(p.Type) } class={ btnClass(p.Variant), p.Class } { p.Attrs... }>
+			{ children... }
+		</button>
+	}
+}

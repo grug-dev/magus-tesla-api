@@ -1,0 +1,22 @@
+package ui
+
+// PageHeaderProps configures a PageHeader. The children slot is an optional action
+// area (buttons) rendered to the right of the title.
+type PageHeaderProps struct {
+	Title    string
+	Subtitle string
+	Class    string
+}
+
+// PageHeader renders a page title, optional subtitle, and a right-aligned action slot.
+templ PageHeader(p PageHeaderProps) {
+	<div class={ "flex items-center justify-between mb-4", p.Class }>
+		<div>
+			<h1 class="text-2xl font-semibold text-base-content">{ p.Title }</h1>
+			if p.Subtitle != "" {
+				<p class="text-base-content/70">{ p.Subtitle }</p>
+			}
+		</div>
+		<div class="flex gap-2">{ children... }</div>
+	</div>
+}

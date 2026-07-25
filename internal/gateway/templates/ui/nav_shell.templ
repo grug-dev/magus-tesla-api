@@ -1,0 +1,22 @@
+package ui
+
+// NavItem is one sidebar link. Active lights the current page's entry.
+type NavItem struct {
+	Label  string
+	Href   string
+	Active bool
+}
+
+// NavShell renders the drawer sidebar menu so BaseAuth and pages never re-author nav
+// markup. The caller (layouts.navItems) owns the link list and active state.
+templ NavShell(items []NavItem) {
+	<ul class="menu bg-base-200 min-h-full w-64 p-4">
+		for _, it := range items {
+			<li>
+				<a href={ templ.SafeURL(it.Href) } class={ templ.KV("menu-active", it.Active) }>
+					{ it.Label }
+				</a>
+			</li>
+		}
+	</ul>
+}

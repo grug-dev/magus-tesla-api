@@ -1,0 +1,23 @@
+package ui
+
+// StatTileProps configures a StatTile. Value/Desc are pre-formatted display strings
+// produced by the page's view model (km/kmh/%/°C already applied) — the template does
+// no formatting or arithmetic.
+type StatTileProps struct {
+	Label string
+	Value string
+	Desc  string
+	Class string
+}
+
+// StatTile renders a single metric using DaisyUI's stat block. Wrap several in a
+// <div class="stats ..."> or a responsive grid.
+templ StatTile(p StatTileProps) {
+	<div class={ "stat", p.Class }>
+		<div class="stat-title">{ p.Label }</div>
+		<div class="stat-value">{ p.Value }</div>
+		if p.Desc != "" {
+			<div class="stat-desc">{ p.Desc }</div>
+		}
+	</div>
+}

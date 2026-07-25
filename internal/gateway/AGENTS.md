@@ -54,6 +54,28 @@ It renders what other modules expose; it owns no business data.
 - Handlers stay thin: session/auth check → call an interface → render. Testable logic
   goes in helper funcs driven through interface fakes (see `handlers/`).
 
+## UI stack (styling) — Node-less Tailwind + DaisyUI
+
+The gateway is the **only** module with a UI stack; no other module touches Tailwind,
+DaisyUI, or Templ (they expose interfaces, the gateway renders them). Foundation laid
+by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full rules in
+[`ai/htmx-conventions.md`](../../ai/htmx-conventions.md) §"Styling".
+
+- **Three-layer vocabulary:** Templ (typed `templates/ui/` kit) → DaisyUI (component look +
+  semantic theme tokens, **zero JS**) → Tailwind (layout/spacing utilities only).
+- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Table, PageHeader,
+  NavShell) — don't re-author class soup. Pages/fragments pass VM-ready strings in.
+- **Semantic tokens only — never hex / raw palette** (`bg-base-100`, `primary`,
+  `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
+  (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
+- **No client-side JS init** — keeps htmx swaps safe. Prefer CSS-only DaisyUI patterns
+  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS.
+- **Codegen:** after `.templ` edits or new classes, run `make templ` **and** `make css`
+  (`make generate` runs both). `static/app.css` is a committed vendored artifact (like
+  `htmx.min.js`); the Tailwind binary in `tools/` is git-ignored (`make ui-toolchain`).
+- **New pages go through `kkpa-goth-scaffold-ui scaffold <concept> [module]`**, which
+  mirrors the `charges` gold-standard slice.
+
 ## Read-only at request time
 
 The gateway is **read-only on every user-facing request** by default. This is both a
@@ -229,8 +251,17 @@ design is wrong — add a method to the owning module instead.
 
 | File changed | Run | Produces |
 |---|---|---|
-| `internal/<module>/db/queries.sql` | `sqlc generate` | `db/*.go` (generated) |
-| `*.templ` | `make templ` (pinned `go tool templ generate`) | `*_templ.go` (generated) |
+| `internal/<module>/db/queries.sql` | `make sqlc` | `db/*.go` (generated) |
+| `*.templ` (structure/markup) | `make templ` (pinned `go tool templ generate`) | `*_templ.go` (generated) |
+| new/changed DaisyUI or Tailwind **class** in a `.templ` | `make css` (auto-fetches the Tailwind binary if missing) | `static/app.css` (committed) |
 | `*.go` | `go build` / `go test` | nothing else |
 
-Never hand-edit generated files (`db/*.go`, `*_templ.go`).
+Never hand-edit generated files (`db/*.go`, `*_templ.go`, `static/app.css`). `make generate`
+runs **sqlc + templ + css** together — prefer it after a template change so nothing is missed.
+
+> **Gotcha — stale CSS silently ships unstyled markup.** `static/app.css` is a committed,
+> `//go:embed`-ed artifact: only classes present in it at build time are styled. If you add a
+> class to a `.templ` but skip `make css`, that class ships **unstyled in production** — the
+> build still succeeds, so nothing warns you. Always run `make css` (or `make generate`) and
+> **commit `app.css` in the same change** as the template edit. CI guard:
+> `make css && git diff --exit-code internal/gateway/static/app.css`.

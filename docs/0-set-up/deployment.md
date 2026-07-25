@@ -149,6 +149,23 @@ make sqlc     # sqlc generate → internal/account/db/{db,models,query.sql}.go
 > `go build` will fail *before* `make sqlc` runs, because the generated `accountdb`
 > package doesn't exist yet. That's expected — generate first.
 
+### Web UI CSS — nothing to install to build or deploy
+
+The gateway's stylesheet `internal/gateway/static/app.css` is a **committed, generated
+artifact** (like `htmx.min.js`) and is baked into the binary via `//go:embed static`. As a
+result:
+
+- **Building and deploying need nothing extra** — `go build ./cmd/web` embeds the existing
+  `app.css`. **No Node, no npm, no `package.json`, no Tailwind binary** at build or run time.
+  This is the whole point of the Node-less setup (see [`ai/htmx-conventions.md`](../../ai/htmx-conventions.md) → *Styling*).
+- **Only when you edit templates or add DaisyUI/Tailwind classes** do you regenerate CSS:
+  `make ui-toolchain` (once per machine — downloads the git-ignored native Tailwind binary for
+  your OS/arch: macOS/Linux, arm64/x64), then `make css` (or `make generate`, which runs
+  sqlc + templ + css). **Commit the updated `app.css`.**
+
+Rule of thumb: treat `app.css` like generated code — change the classes your `.templ` files
+use, run `make css`, commit the result, so the embedded stylesheet stays in sync.
+
 ---
 
 ## 4. Create the role, database, and run migrations — one command
@@ -239,6 +256,11 @@ make db-reset        # DROP the DB + recreate (owned by the role) + migrate — 
 - **Re-runnability:** `make db-setup` is safe to run on every deploy — it converges the DB to
   the latest schema and does nothing if already current.
 - **SSL:** use `sslmode=require` (or stricter) in production DSNs.
+- **Web UI CSS:** no Node/Tailwind toolchain is required to build or run — `internal/gateway/static/app.css`
+  is committed and embedded (`//go:embed`). Only a developer *regenerating* styles needs
+  `make ui-toolchain` + `make css`. If CI should guard that the committed CSS is current, run
+  `make css && git diff --exit-code internal/gateway/static/app.css` (fails if someone changed
+  templates without regenerating).
 
 ---
 

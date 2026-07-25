@@ -14,6 +14,13 @@ cmd/explore-tesla-api/output/
 
 bin/
 
+# Node-less Tailwind CLI binary for the gateway UI. Platform-specific and large
+# (~80 MB), re-fetchable with `make ui-toolchain`. Only this native binary is ignored:
+# the DaisyUI .mjs bundles, input.css, and the generated app.css under
+# internal/gateway/static/ ARE committed (app.css is a vendored artifact like htmx.min.js,
+# so `go build ./...` and the //go:embed static stay self-contained with no pre-step).
+internal/gateway/tools/tailwindcss
+
 # Compiled cmd binaries built at the repo root by `go build ./cmd/<name>`
 # (without -o). Use `make bins` instead — it outputs to bin/ above. These
 # entries catch accidental root-level builds so they never get committed.

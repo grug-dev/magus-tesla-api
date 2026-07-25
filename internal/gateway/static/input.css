@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/* Scan the gateway's Templ sources for class names (class strings are copied
+   verbatim into the generated *_templ.go, so scanning the .templ source is enough). */
+@source "../templates/**/*.templ";
+
+/* Do NOT scan the DaisyUI bundles themselves as content. */
+@source not "./daisyui{,*}.mjs";
+
+/* Node-less DaisyUI: load the committed bundles by LOCAL path — never the bare
+   `@plugin "daisyui"` (that resolves to the npm package we deliberately do not use).
+   lemonade is the default light theme; dark auto-applies via prefers-color-scheme. */
+@plugin "./daisyui.mjs" {
+  themes: lemonade --default, dark --prefersdark;
+}
+@plugin "./daisyui-theme.mjs";

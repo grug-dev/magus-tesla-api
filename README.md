@@ -99,7 +99,11 @@ magus-tesla-api/
 │   ├── tesla/          # State-less Fleet API adapter (handed creds per call)
 │   ├── telemetry/      # Nightly vehicle snapshot collection + storage (poller)
 │   ├── manualcharge/   # User-asserted charge entries (home/work/3rd-party sessions)
-│   ├── gateway/        # Gin + Templ HTTP layer (handlers, pages, fragments)
+│   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
+│   │   ├── handlers/       #   thin handlers: session/auth → module interface → render
+│   │   ├── templates/      #   Templ: layouts/ (drawer shell) · pages/ · fragments/ · ui/ (typed DaisyUI kit)
+│   │   ├── static/         #   embedded: htmx.min.js · DaisyUI .mjs bundles · input.css · generated app.css
+│   │   └── tools/          #   git-ignored Node-less Tailwind CLI binary (make ui-toolchain)
 │   ├── googleauth/     # Google OAuth for user login
 │   ├── config/         # .env loading and token persistence
 │   └── auth/           # Tesla OAuth URL, code exchange, token refresh
@@ -178,10 +182,61 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/tesla` | Stateless Fleet API adapter (handed credentials per call) |
 | `internal/telemetry` | Nightly per-vehicle snapshot collection + storage |
 | `internal/manualcharge` | User-asserted charge entries (home/work/3rd-party) |
-| `internal/gateway` | Gin + Templ HTTP layer (handlers, pages, fragments) |
+| `internal/gateway` | Gin + Templ + htmx web layer, styled with Node-less Tailwind + DaisyUI (drawer nav, typed `ui/` component kit). The only package allowed to produce HTML. |
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
+
+---
+
+## Making a change — what to touch, what to run
+
+The modular-monolith boundaries decide *where* code goes; this table is the quick map. Golden
+rules: **HTML lives only in `internal/gateway/`**, **no module reads another module's DB**, and
+**cross-module data flows only through public Go interfaces**. Full recipes live in
+[`internal/gateway/AGENTS.md`](internal/gateway/AGENTS.md), [`ai/architecture.md`](ai/architecture.md),
+and [`ai/go-conventions.md`](ai/go-conventions.md).
+
+| You're adding… | Modules / files to touch | Regenerate / verify |
+|---|---|---|
+| **A new page** (HTML using data a module already exposes) | `internal/gateway/` only — `templates/pages/*.templ` + `fragments/*.templ` composing the `templates/ui/` kit, a thin `handlers/*.go`, and a route in `gateway.go`. Prefer `kkpa-goth-scaffold-ui scaffold`. | `make templ` (+ `make css` if you used a new class) → `make check` |
+| **A new UI endpoint** (an htmx `/ui/...` fragment or a write action) | `internal/gateway/` — handler + fragment + `/ui/...` route; **CSRF + tenant check on writes** (see AGENTS.md). If it needs data no module exposes yet, also add a method to the **owning** module's `Service`/`Reader`/`Writer`. | `make sqlc` (if new query) → `make templ` (+ `make css`) → `make check` |
+| **A new upstream (Tesla Fleet) API call** | `internal/tesla/vehicles.go` (typed method) **and** `raw.go` (the `Raw*` sibling) **and** `cmd/explore-tesla-api/main.go` + its README — required by CLAUDE.md. Miles→km companions mandatory; **never** add tests that hit the live paid API. | `make check` |
+| **A new database table / column** | The **owning** `internal/<module>/` only — `db/migrations/*.sql` (goose) + `db/queries.sql`, exposed through the module's `Service`. Add the module's dir to `MIGRATIONS_DIRS` in the Makefile if it's the module's first table. **`database` is a design-gate — confirm the design first.** | `make sqlc` → `make migrate-up` → `make check` |
+| **A new module** (a new subsystem/concern) | New `internal/<module>/` with a `Service` interface + DTOs; wire into the gateway **only** via `Deps` + its interface. Update the README **Project Structure** tree + **Architecture** table in the same change. | `make sqlc` / `make templ` as needed → `make check` |
+
+Before committing any change, run **`make generate`** (sqlc + templ + css) then **`make check`**
+(build + vet + test). `make up` does generate + migrate + run.
+
+---
+
+## Web UI (gateway)
+
+The web UI lives **only** in `internal/gateway/` — the single module allowed to produce HTML.
+It's built on the **GOTH stack**: Go + [Templ](https://templ.guide) + htmx, styled with a
+**Node-less** standalone Tailwind CLI + **DaisyUI** (responsive drawer nav, a typed
+`templates/ui/` component kit, semantic theme tokens — never hex). Default theme: `lemonade`
+(`dark` auto-applies via `prefers-color-scheme`).
+
+**Only the gateway uses the UI stack.** Every domain module (`account`, `tesla`, `telemetry`,
+`manualcharge`, `googleauth`) is UI-agnostic: it owns data and exposes Go interfaces, and the
+gateway renders them. No domain module imports Templ, references a DaisyUI class, or knows a
+theme exists — so restyling or re-theming never ripples past the gateway boundary.
+
+> **Foundation already scaffolded here (2026-07-24).** The one-time UI foundation was laid
+> down by the local `kkpa-goth-scaffold-ui` skill's `init` mode and is committed (drawer
+> `base.templ`, the `ui/` kit, `static/input.css` + `app.css` + DaisyUI bundles, the `make css`
+> target). **Do not run `init` again** — it overwrites `base.templ` / `input.css` / the `ui/`
+> kit. Add new pages with `kkpa-goth-scaffold-ui scaffold <concept> [module]`; edit styling in
+> the committed files. Full rules: [`ai/htmx-conventions.md`](ai/htmx-conventions.md) and
+> [`internal/gateway/AGENTS.md`](internal/gateway/AGENTS.md).
+
+**CSS toolchain & deploy:** the generated `internal/gateway/static/app.css` is **committed**
+and embedded via `//go:embed static`, so a production build (`go build ./cmd/web`) is
+self-contained — **no Node, npm, or Tailwind binary needed at build or run time**. The
+git-ignored Tailwind binary (`make ui-toolchain`) is only needed on a **dev machine that
+regenerates CSS** after editing templates or adding classes. See
+[`docs/0-set-up/deployment.md`](docs/0-set-up/deployment.md) → *Web UI CSS*.
 
 ---
 

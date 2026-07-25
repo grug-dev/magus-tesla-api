@@ -1,0 +1,15 @@
+package ui
+
+// AlertProps configures an Alert. Kind maps to a DaisyUI status color; ideal for the
+// graceful-degradation Notice/Error strings a page view model carries.
+type AlertProps struct {
+	Kind  string // "info"|"success"|"warning"|"error" (default info)
+	Class string
+}
+
+// Alert renders an inline status message with a body slot.
+templ Alert(p AlertProps) {
+	<div class={ "alert", alertClass(p.Kind), p.Class } role="alert">
+		{ children... }
+	</div>
+}

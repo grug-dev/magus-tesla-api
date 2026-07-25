@@ -132,9 +132,11 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 		StartBatteryPct: intPtrToPgInt2(e.StartBatteryPct),
 		EndBatteryPct:   intPtrToPgInt2(e.EndBatteryPct),
 		ChargingType:    stringPtrToPgText(e.ChargingType),
-		LocationKind:    stringPtrToPgText(e.LocationKind),
-		LocationLabel:   stringPtrToPgText(e.LocationLabel),
-		Notes:           stringPtrToPgText(e.Notes),
+		// location_kind is NOT NULL in the DB (required field, design D3); the
+		// pointer is guaranteed non-nil by the validation above.
+		LocationKind:  stringPtrToRequired(e.LocationKind),
+		LocationLabel: stringPtrToPgText(e.LocationLabel),
+		Notes:         stringPtrToPgText(e.Notes),
 	}
 
 	row, err := w.store.createEntry(ctx, params)
@@ -176,9 +178,11 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 		StartBatteryPct: intPtrToPgInt2(e.StartBatteryPct),
 		EndBatteryPct:   intPtrToPgInt2(e.EndBatteryPct),
 		ChargingType:    stringPtrToPgText(e.ChargingType),
-		LocationKind:    stringPtrToPgText(e.LocationKind),
-		LocationLabel:   stringPtrToPgText(e.LocationLabel),
-		Notes:           stringPtrToPgText(e.Notes),
+		// location_kind is NOT NULL in the DB (required field, design D3); the
+		// pointer is guaranteed non-nil by the validation above.
+		LocationKind:  stringPtrToRequired(e.LocationKind),
+		LocationLabel: stringPtrToPgText(e.LocationLabel),
+		Notes:         stringPtrToPgText(e.Notes),
 	}
 
 	row, err := w.store.updateEntry(ctx, params)
@@ -333,8 +337,10 @@ func rowToEntry(r manualchargedb.ManualChargeEntry) (Entry, error) {
 		StartBatteryPct: pgInt2ToIntPtr(r.StartBatteryPct),
 		EndBatteryPct:   pgInt2ToIntPtr(r.EndBatteryPct),
 		// Nullable TEXT → *string
-		ChargingType:  pgTextToPtr(r.ChargingType),
-		LocationKind:  pgTextToPtr(r.LocationKind),
+		ChargingType: pgTextToPtr(r.ChargingType),
+		// location_kind is NOT NULL in the DB; surfaced as *string for a uniform
+		// domain surface (always non-nil on the read path).
+		LocationKind:  requiredToStringPtr(r.LocationKind),
 		LocationLabel: pgTextToPtr(r.LocationLabel),
 		Notes:         pgTextToPtr(r.Notes),
 		// Required TIMESTAMPTZ → time.Time
@@ -390,6 +396,17 @@ func stringPtrToPgText(v *string) pgtype.Text {
 	return pgtype.Text{String: *v, Valid: true}
 }
 
+// stringPtrToRequired maps a *string to a plain string for a NOT NULL column.
+// Callers must have validated the pointer is non-nil (e.g. location_kind is a
+// required field); a nil pointer defensively maps to "", which the column's
+// CHECK constraint would then reject at the database.
+func stringPtrToRequired(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
 // --- DB→domain helpers (read path, pgtype → domain) ---
 
 // pgTimestamptzToPtr converts a nullable pgtype.Timestamptz to *time.Time.
@@ -420,4 +437,11 @@ func pgTextToPtr(v pgtype.Text) *string {
 	}
 	s := v.String
 	return &s
+}
+
+// requiredToStringPtr maps a NOT NULL string column to *string, keeping the
+// domain surface uniform with the other nullable text fields. The value is
+// always present on the read path, so the returned pointer is never nil.
+func requiredToStringPtr(v string) *string {
+	return &v
 }

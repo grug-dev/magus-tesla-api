@@ -5,8 +5,10 @@ lives** (see [`architecture.md`](./architecture.md)). Any assistant/human writin
 must follow this file. The gateway↔module wiring is in
 [`htmx-go-integration.md`](./htmx-go-integration.md).
 
-> **Status:** conventions are decided; the web layer is **not built yet**. Follow these
-> when you create it.
+> **Status:** the web layer is **live** — the Node-less Tailwind + DaisyUI foundation, the
+> themed drawer shell, and the typed `templates/ui/` kit are in the repo (scaffolded once by
+> `kkpa-goth-scaffold-ui init` on 2026-07-24; default theme `lemonade`). Follow these
+> conventions for every page you add or change.
 
 ---
 
@@ -36,11 +38,60 @@ interfaces give the domain.
 ```
 internal/gateway/
 ├── handlers/     # Go: receive /ui requests, call module interfaces, render components
+├── static/       # embedded assets: htmx.min.js, DaisyUI .mjs bundles, input.css, generated app.css
+├── tools/        # git-ignored Node-less Tailwind CLI binary (re-fetch: make ui-toolchain)
 └── templates/    # .templ files only
-    ├── layouts/  # full-page shells (html, head, base structure)
+    ├── layouts/  # full-page shells (html, head, themed DaisyUI drawer shell)
     ├── pages/    # full pages composed from fragments (initial, non-htmx loads)
-    └── fragments/# the units htmx swaps in (cards, rows, panels)
+    ├── fragments/# the units htmx swaps in (cards, rows, panels)
+    └── ui/       # owned, typed DaisyUI wrapper components (Card, StatTile, Button, …)
 ```
+
+---
+
+## Styling: Node-less Tailwind + DaisyUI (zero JS)
+
+Styling is a **closed vocabulary**, so any assistant/agent produces on-theme markup by
+lookup, not invention. Three layers:
+
+- **Templ** — the typed component boundary (`templates/ui/`, package `ui`). Each wrapper
+  takes a `Props` struct so a wrong field fails the build.
+- **DaisyUI** — component look + theme (`card`, `btn`, `stat`, `table`, `alert`, `badge`,
+  `menu`, `drawer`) and **semantic theme tokens** (`bg-base-100`, `text-base-content`,
+  `primary`/`secondary`/`accent`, `info`/`success`/`warning`/`error`). It ships **zero
+  JavaScript**, which is why htmx fragment swaps stay styled with nothing to re-initialize.
+- **Tailwind** — layout/spacing utilities only (`grid`, `flex`, `gap-4`, breakpoints).
+
+Rules:
+- **Never write hex colors or raw palette utilities** (`bg-red-500`). Use theme tokens so the
+  whole app re-skins from one `<html data-theme>`.
+- **Compose the `ui/` kit**; don't re-author class soup in pages/fragments. Pass VM-ready
+  strings into components (`ui/` components hold no domain imports and no business logic).
+- **Do not introduce a component that needs client-side JS init.** If a genuinely interactive
+  widget is unavoidable, prefer a CSS-only DaisyUI pattern (`dropdown`, `<dialog>` modal,
+  `collapse`, `tabs`) before any JS — that is the whole reason DaisyUI was chosen over templUI.
+- After editing `.templ` or adding new classes, run **`make css`** (regenerates `app.css` via
+  the Node-less binary) alongside **`make templ`**. `make generate` runs both. `app.css` is a
+  **committed** vendored artifact (like `htmx.min.js`), so `go build ./...` needs no pre-step.
+
+### Upgrading Tailwind or DaisyUI
+
+Both are **vendored**: the Tailwind CLI binary (git-ignored, in `tools/`) and the DaisyUI
+`.mjs` bundles (committed, in `static/`). Upgrading either is a deliberate, committed step —
+and **you must regenerate `app.css` afterward**. The stylesheet is compiled at generation
+time, so a newer engine or plugin version has **no effect on the running app** until you
+re-run `make css`.
+
+- **Tailwind CLI binary** → `make ui-toolchain` re-downloads the `latest` release for your
+  OS/arch. To pin a version, change `latest/download` → `download/vX.Y.Z` in the
+  `ui-toolchain` Makefile target. Then `make css`.
+- **DaisyUI bundles** → `make ui-bundles` re-downloads `daisyui.mjs` + `daisyui-theme.mjs`
+  (`latest`). To pin, change `latest/download` → `download/vX.Y.Z` in the `ui-bundles` target.
+  Then `make css`, and **commit the two `.mjs` files together with the regenerated `app.css`**.
+- **Always finish with `make css` and commit `app.css`** — skipping it leaves the app on the
+  old CSS even though the tooling changed. Check what moved: `git diff --stat internal/gateway/static/`.
+- Confirm the upgrade took by reading the banners `make css` prints (`≈ tailwindcss vX.Y.Z`
+  and `🌼 daisyUI X.Y.Z`), and smoke-test a page — a major DaisyUI bump can rename classes.
 
 ---
 

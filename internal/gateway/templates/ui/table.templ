@@ -1,0 +1,27 @@
+package ui
+
+// TableProps configures a Table. Headers becomes the header row; the caller supplies
+// the <tr> body rows as the slot, so it controls row markup while the chrome stays
+// consistent.
+type TableProps struct {
+	Headers []string
+	Class   string
+}
+
+// Table renders a themed, horizontally scrollable table shell.
+templ Table(p TableProps) {
+	<div class="overflow-x-auto">
+		<table class={ "table", p.Class }>
+			<thead>
+				<tr>
+					for _, h := range p.Headers {
+						<th>{ h }</th>
+					}
+				</tr>
+			</thead>
+			<tbody>
+				{ children... }
+			</tbody>
+		</table>
+	</div>
+}

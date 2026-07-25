@@ -51,7 +51,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc templ generate tidy build vet test check bins \
+        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
@@ -250,7 +250,39 @@ sqlc: ## Regenerate type-safe DB code from SQL (sqlc generate)
 templ: ## Regenerate Templ HTML code (pinned go tool — NEVER a bare `go run .../templ`, it pollutes go.mod)
 	go tool templ generate ./...
 
-generate: sqlc templ ## Run all code generators (sqlc + templ)
+# Web UI CSS (gateway only) — Node-less: one native Tailwind binary + the committed
+# DaisyUI .mjs bundles. No npm, no package.json, no node_modules.
+ui-toolchain: ## (Re)download the git-ignored Node-less Tailwind CLI binary for THIS host's OS/arch (macOS/Linux). Dev-only — not needed to build or deploy (app.css is committed + embedded).
+	@mkdir -p internal/gateway/tools
+	@os=$$(uname -s); arch=$$(uname -m); \
+	case "$$os" in Darwin) os=macos;; Linux) os=linux;; *) echo "Unsupported OS '$$os' — download the right binary manually from github.com/tailwindlabs/tailwindcss/releases"; exit 1;; esac; \
+	case "$$arch" in arm64|aarch64) arch=arm64;; x86_64|amd64) arch=x64;; *) echo "Unsupported arch '$$arch'"; exit 1;; esac; \
+	asset="tailwindcss-$$os-$$arch"; \
+	echo "Downloading $$asset ..."; \
+	curl -fsSL -o internal/gateway/tools/tailwindcss \
+		"https://github.com/tailwindlabs/tailwindcss/releases/latest/download/$$asset"; \
+	chmod +x internal/gateway/tools/tailwindcss; \
+	echo "✓ tailwindcss ($$asset) ready at internal/gateway/tools/tailwindcss"
+
+ui-bundles: ## (Re)download the COMMITTED DaisyUI .mjs bundles (latest). Pin a version by editing the tag in the URLs; run `make css` + commit app.css after.
+	curl -fsSL -o internal/gateway/static/daisyui.mjs \
+		https://github.com/saadeghi/daisyui/releases/latest/download/daisyui.mjs
+	curl -fsSL -o internal/gateway/static/daisyui-theme.mjs \
+		https://github.com/saadeghi/daisyui/releases/latest/download/daisyui-theme.mjs
+	@echo "✓ DaisyUI bundles refreshed — now run: make css   (then commit app.css + the .mjs bundles)"
+
+# Git-ignored Tailwind binary — fetched on demand so `make css` (and `make generate` /
+# `make up`) work on a fresh clone or in CI with no manual step. This runs once; make
+# skips it whenever the binary already exists.
+internal/gateway/tools/tailwindcss:
+	@$(MAKE) ui-toolchain
+
+css: internal/gateway/tools/tailwindcss ## Regenerate internal/gateway/static/app.css from Templ sources (Node-less Tailwind + DaisyUI). Auto-fetches the Tailwind binary if missing; safe & idempotent.
+	internal/gateway/tools/tailwindcss \
+		-i internal/gateway/static/input.css \
+		-o internal/gateway/static/app.css --minify
+
+generate: sqlc templ css ## Run all code generators (sqlc + templ + css)
 
 tidy: ## Sync go.mod / go.sum (go mod tidy)
 	go mod tidy
@@ -278,7 +310,7 @@ cmd-setup: ## Build cmd/setup into ./bin and run it (one-shot Tesla OAuth flow; 
 	go build -o bin/setup ./cmd/setup
 	./bin/setup
 
-up: generate migrate-up ## Refresh & run: regenerate code (sqlc + templ), apply migrations, then build & run the web server on $PORT (default 8080)
+up: generate migrate-up ## Refresh & run: regenerate code (sqlc + templ + css), apply migrations, then build & run the web server on $PORT (default 8080)
 	@mkdir -p bin
 	go build -o bin/web ./cmd/web
 	./bin/web

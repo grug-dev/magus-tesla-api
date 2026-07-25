@@ -63,7 +63,7 @@ type CreateEntryParams struct {
 	StartBatteryPct pgtype.Int2
 	EndBatteryPct   pgtype.Int2
 	ChargingType    pgtype.Text
-	LocationKind    pgtype.Text
+	LocationKind    string
 	LocationLabel   pgtype.Text
 	Notes           pgtype.Text
 }
@@ -283,7 +283,7 @@ type UpdateEntryParams struct {
 	StartBatteryPct pgtype.Int2
 	EndBatteryPct   pgtype.Int2
 	ChargingType    pgtype.Text
-	LocationKind    pgtype.Text
+	LocationKind    string
 	LocationLabel   pgtype.Text
 	Notes           pgtype.Text
 	ID              uuid.UUID

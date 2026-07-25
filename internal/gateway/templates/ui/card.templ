@@ -1,0 +1,20 @@
+package ui
+
+// CardProps configures a Card. Class is for extra LAYOUT utilities only (spacing,
+// grid span) — never color; color comes from the theme tokens baked into the class.
+type CardProps struct {
+	Title string
+	Class string
+}
+
+// Card is a themed surface container with an optional title and a body slot.
+templ Card(p CardProps) {
+	<div class={ "card bg-base-100 shadow", p.Class }>
+		<div class="card-body">
+			if p.Title != "" {
+				<h2 class="card-title">{ p.Title }</h2>
+			}
+			{ children... }
+		</div>
+	</div>
+}
