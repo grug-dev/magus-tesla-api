@@ -74,6 +74,18 @@ func (c *Client) ProductsRaw(ctx context.Context, creds Credentials) (json.RawMe
 	return out, nil
 }
 
+// MeRaw returns the unmodified JSON body of the account-summary endpoint
+// (GET /api/1/users/me) — a summary of the authenticated user's account. Account-
+// scoped, server-side, no vehicle id, no wake. The logged output of the explorer
+// is the way to see exactly which fields Tesla returns for this account.
+func (c *Client) MeRaw(ctx context.Context, creds Credentials) (json.RawMessage, error) {
+	var out json.RawMessage
+	if err := c.get(ctx, creds, "/api/1/users/me", &out); err != nil {
+		return nil, fmt.Errorf("fetching user (raw): %w", err)
+	}
+	return out, nil
+}
+
 // EnergyChargeHistoryRaw returns the unmodified JSON body of a Tesla Wall Connector's
 // charging history for ONE energy site — the energy delivered over time, in watt-hours
 // (`GET /api/1/energy_sites/{energy_site_id}/telemetry_history?kind=charge`). Account-

@@ -1,0 +1,26 @@
+package ui
+
+// FieldProps configures a Field — the labeled form-control wrapper (DaisyUI
+// fieldset + legend). Error renders a themed inline message below the control;
+// empty means no error. Class is for extra LAYOUT utilities only (e.g. grid
+// column span). The control (Input/Select/Textarea) is supplied as the slot.
+type FieldProps struct {
+	Label string
+	Error string
+	Class string
+}
+
+// Field wraps a single form control with its legend label and optional error.
+// It owns the DaisyUI `fieldset`/`fieldset-legend` markup so a form's label +
+// error chrome lives in one place, not re-authored per field.
+templ Field(p FieldProps) {
+	<fieldset class={ "fieldset", p.Class }>
+		if p.Label != "" {
+			<legend class="fieldset-legend">{ p.Label }</legend>
+		}
+		{ children... }
+		if p.Error != "" {
+			<p class="text-error text-sm">{ p.Error }</p>
+		}
+	</fieldset>
+}

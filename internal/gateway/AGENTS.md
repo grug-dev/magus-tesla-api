@@ -63,8 +63,15 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
 
 - **Three-layer vocabulary:** Templ (typed `templates/ui/` kit) → DaisyUI (component look +
   semantic theme tokens, **zero JS**) → Tailwind (layout/spacing utilities only).
-- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Table, PageHeader,
-  NavShell) — don't re-author class soup. Pages/fragments pass VM-ready strings in.
+- **The `ui/` kit is an anti-corruption adapter around DaisyUI** — an external library that
+  ships breaking changes across majors. Routing every DaisyUI **component class** through a
+  `ui.*` wrapper makes a version bump a one-file edit per component, not an app-wide sweep.
+- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Table, PageHeader, NavShell,
+  and the form set **Field / Input / Select / Textarea**) — **never inline a DaisyUI component
+  class** (`btn`, `input`, `card`, `fieldset`, …) in a page/fragment; that's a bug. If a
+  repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme tokens
+  (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable layers.
+  Pages/fragments pass VM-ready strings in.
 - **Semantic tokens only — never hex / raw palette** (`bg-base-100`, `primary`,
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
@@ -173,19 +180,23 @@ the data (e.g. `account`, `charging`, `battery`, `drives`). If none fits, create
    `renderFragment` with the fragment id).
 7. **Route** — `internal/gateway/gateway.go`: `r.GET("/<name>", h.Page)` and
    `r.GET("/ui/<region>", h.RegionFragment)`.
-8. **Template** — `internal/gateway/templates/pages/<name>.templ`:
+8. **Template** — `internal/gateway/templates/pages/<name>.templ`. Use the authenticated
+   drawer shell `layouts.BaseAuth` and compose the `ui/` kit (never raw markup/class soup);
+   the swap button is `ui.Button` with its `hx-*` in `Attrs`:
 
    ```templ
-   @layouts.Base("<title>") {
-       <main>
-           <h1>...</h1>
-           <button hx-get="/ui/<region>" hx-target="#<region>" hx-swap="outerHTML">
+   @layouts.BaseAuth("<title> — Magus") {
+       @ui.PageHeader(ui.PageHeaderProps{Title: "<title>"})
+       @ui.Card(ui.CardProps{}) {
+           @ui.Button(ui.ButtonProps{Variant: "ghost", Class: "btn-sm", Attrs: templ.Attributes{
+               "hx-get": "/ui/<region>", "hx-target": "#<region>", "hx-swap": "outerHTML",
+           }}) {
                Refresh
-           </button>
+           }
            @templ.Fragment("<region>") {
                @fragments.ViewRegion(d)
            }
-       </main>
+       }
    }
    ```
 9. **Regenerate** — `make templ` (pinned `go tool templ generate`; always after any `.templ` edit).
@@ -201,7 +212,7 @@ the data (e.g. `account`, `charging`, `battery`, `drives`). If none fits, create
 | Domain (`<module>`) | Every DB query is wrapped in a public `Service` method. DTOs carry no presentation fields; no vendor suffix leaks (e.g. `...Tesla`). |
 | Handler (`gateway/handlers`) | Thin: `currentUID(c)` → `dataFor(ctx, uid)` → `render`. `dataFor` is gin-free so it's testable with `Service` fakes. NEVER imports a DB or any module's internals. |
 | Fragments (`templates/fragments`) | `ViewData`/`ViewModel` structs live next to the markup. Root `<div id="X">` matches `templ.Fragment("X")` — required invariant for htmx swaps. |
-| Pages (`templates/pages`) | The only place HTML skeletons live. Uses `layouts.Base` + `@templ.Fragment` blocks + `hx-*` button attributes. |
+| Pages (`templates/pages`) | The only place HTML skeletons live. Wrap in `layouts.BaseAuth` (authed) / `layouts.Base` (public), compose the `ui/` kit (`ui.PageHeader`/`ui.Card`/`ui.Button`, never raw class soup), and mark swap regions with `@templ.Fragment` blocks. |
 | Router (`gateway.go`) | Full list of endpoints. One `GET` per page + one `GET` per swap region. |
 
 ### Two render entry points — reuse both

@@ -130,6 +130,20 @@ func run() error {
 		return err
 	}
 
+	// 2a. User summary — account-level, no vehicle id, no wake. Returns the
+	//     authenticated user's account summary (GET /api/1/users/me). Requires the
+	//     user_data scope; if it 403s with "missing scopes", re-run `go run ./cmd/setup`
+	//     (internal/auth/oauth.go requests user_data) to mint a token that carries it.
+	meEndpoint := "GET /api/1/users/me"
+	log.Println("→ " + meEndpoint)
+	meRaw, err := client.MeRaw(ctx, creds)
+	if err != nil {
+		return err
+	}
+	if err := record("Me", meEndpoint, meRaw); err != nil {
+		return err
+	}
+
 	// 2b. Products — discover the account's energy products (Powerwall / Wall Connectors)
 	//     and any energy_site_id. Server-side, no wake. Energy products only appear when the
 	//     token carries the energy_device_data scope (else 403 / a vehicles-only list).

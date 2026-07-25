@@ -1,159 +1,103 @@
 package fragments
 
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+
 // ChargeRowEdit renders the inline edit form for a single charge entry row.
 // Its id="charge-row-{vm.ID}" matches the static row's id so htmx
 // hx-swap="outerHTML" can swap between the two views in-place.
 // validationErrors maps field names to error messages; nil or empty means no errors.
+// Every control is composed from the ui/ adapter kit (Field/Input/Select/Textarea)
+// — no raw DaisyUI component classes live here.
 templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[string]string) {
 	<tr id={ "charge-row-" + vm.ID }>
 		<td colspan="8">
 			if validationErrors["_top"] != "" {
-				<p class="error">{ validationErrors["_top"] }</p>
+				@ui.Alert(ui.AlertProps{Kind: "error"}) {
+					{ validationErrors["_top"] }
+				}
 			}
-			<form>
+			<form class="flex flex-col gap-3">
 				<input type="hidden" name="csrf_token" value={ csrfToken }/>
 				<input type="hidden" name="id" value={ vm.ID }/>
-				<div>
-					<label>
-						Date
-						<input
-							type="date"
-							name="charged_on"
-							value={ vm.RawChargedOn }
-							required
-						/>
-					</label>
-					if validationErrors["charged_on"] != "" {
-						<span class="error">{ validationErrors["charged_on"] }</span>
+				<div class="grid gap-3 sm:grid-cols-2">
+					@ui.Field(ui.FieldProps{Label: "Date", Error: validationErrors["charged_on"]}) {
+						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: vm.RawChargedOn, Required: true})
 					}
-				</div>
-				<div>
-					<label>
-						Energy added (kWh)
-						<input
-							type="number"
-							name="energy_added_kwh"
-							value={ vm.RawEnergyKWh }
-							step="0.01"
-							min="0.01"
-							required
-						/>
-					</label>
-					if validationErrors["energy_added_kwh"] != "" {
-						<span class="error">{ validationErrors["energy_added_kwh"] }</span>
+					@ui.Field(ui.FieldProps{Label: "Energy added (kWh)", Error: validationErrors["energy_added_kwh"]}) {
+						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: vm.RawEnergyKWh, Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0.01"}})
 					}
-				</div>
-				<div>
-					<label>
-						Price
-						<input
-							type="number"
-							name="price"
-							value={ vm.RawPrice }
-							step="0.01"
-							min="0"
-							required
-						/>
-					</label>
-					if validationErrors["price"] != "" {
-						<span class="error">{ validationErrors["price"] }</span>
+					@ui.Field(ui.FieldProps{Label: "Price", Error: validationErrors["price"]}) {
+						@ui.Input(ui.InputProps{Type: "number", Name: "price", Value: vm.RawPrice, Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
 					}
-				</div>
-				<div>
-					<label>
-						Currency
-						<input
-							type="text"
-							name="currency"
-							value={ vm.Currency }
-							required
-						/>
-					</label>
-					if validationErrors["currency"] != "" {
-						<span class="error">{ validationErrors["currency"] }</span>
+					@ui.Field(ui.FieldProps{Label: "Currency", Error: validationErrors["currency"]}) {
+						@ui.Input(ui.InputProps{Name: "currency", Value: vm.Currency, Required: true})
 					}
-				</div>
-				<div>
-					<label>
-						Vehicle
+					@ui.Field(ui.FieldProps{Label: "Vehicle"}) {
 						<input type="hidden" name="vehicle" value={ vm.VehicleValue }/>
-						<span>{ vm.VehicleLabel }</span>
-					</label>
+						<span class="text-base-content/80">{ vm.VehicleLabel }</span>
+					}
 				</div>
 				<details>
-					<summary>More details</summary>
-					<div>
-						<label>
-							Started at
-							<input type="datetime-local" name="started_at" value={ vm.RawStartedAt }/>
-						</label>
-					</div>
-					<div>
-						<label>
-							Ended at
-							<input type="datetime-local" name="ended_at" value={ vm.RawEndedAt }/>
-						</label>
-					</div>
-					<div>
-						<label>
-							Start battery %
-							<input type="number" name="start_battery_pct" value={ vm.RawStartBatteryPct } min="0" max="100" step="1"/>
-						</label>
-					</div>
-					<div>
-						<label>
-							End battery %
-							<input type="number" name="end_battery_pct" value={ vm.RawEndBatteryPct } min="0" max="100" step="1"/>
-						</label>
-					</div>
-					<div>
-						<label>
-							Charging type
-							<select name="charging_type">
+					<summary class="cursor-pointer font-medium">More details</summary>
+					<div class="grid gap-3 sm:grid-cols-2 mt-2">
+						@ui.Field(ui.FieldProps{Label: "Started at"}) {
+							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at", Value: vm.RawStartedAt})
+						}
+						@ui.Field(ui.FieldProps{Label: "Ended at"}) {
+							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: vm.RawEndedAt})
+						}
+						@ui.Field(ui.FieldProps{Label: "Start battery %"}) {
+							@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Value: vm.RawStartBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+						}
+						@ui.Field(ui.FieldProps{Label: "End battery %"}) {
+							@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: vm.RawEndBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+						}
+						@ui.Field(ui.FieldProps{Label: "Charging type"}) {
+							@ui.Select(ui.SelectProps{Name: "charging_type"}) {
 								<option value="">-</option>
 								<option value="AC" selected?={ vm.ChargingType == "AC" }>AC</option>
 								<option value="DC" selected?={ vm.ChargingType == "DC" }>DC</option>
-							</select>
-						</label>
-					</div>
-					<div>
-						<label>
-							Location kind
-							<select name="location_kind" required>
+							}
+						}
+						@ui.Field(ui.FieldProps{Label: "Location kind", Error: validationErrors["location_kind"]}) {
+							@ui.Select(ui.SelectProps{Name: "location_kind", Required: true}) {
 								<option value="HOME" selected?={ vm.LocationKind == "HOME" }>Home</option>
 								<option value="WORK" selected?={ vm.LocationKind == "WORK" }>Work</option>
 								<option value="OTHER" selected?={ vm.LocationKind == "OTHER" }>Other</option>
-							</select>
-						</label>
-						if validationErrors["location_kind"] != "" {
-							<span class="error">{ validationErrors["location_kind"] }</span>
+							}
+						}
+						@ui.Field(ui.FieldProps{Label: "Location label"}) {
+							@ui.Input(ui.InputProps{Name: "location_label", Value: vm.LocationLabel})
+						}
+						@ui.Field(ui.FieldProps{Label: "Notes", Class: "sm:col-span-2"}) {
+							@ui.Textarea(ui.TextareaProps{Name: "notes"}) { { vm.Notes } }
 						}
 					</div>
-					<div>
-						<label>
-							Location label
-							<input type="text" name="location_label" value={ vm.LocationLabel }/>
-						</label>
-					</div>
-					<div>
-						<label>
-							Notes
-							<textarea name="notes">{ vm.Notes }</textarea>
-						</label>
-					</div>
 				</details>
-				<div>
-					<button
-						hx-put={ "/ui/charges/row/" + vm.ID }
-						hx-target={ "#charge-row-" + vm.ID }
-						hx-swap="outerHTML"
-						hx-include="closest form"
-					>Save</button>
-					<button
-						hx-get={ "/ui/charges/row/" + vm.ID }
-						hx-target={ "#charge-row-" + vm.ID }
-						hx-swap="outerHTML"
-					>Cancel</button>
+				<div class="flex gap-2">
+					@ui.Button(ui.ButtonProps{
+						Variant: "primary",
+						Class:   "btn-sm",
+						Attrs: templ.Attributes{
+							"hx-put":     "/ui/charges/row/" + vm.ID,
+							"hx-target":  "#charge-row-" + vm.ID,
+							"hx-swap":    "outerHTML",
+							"hx-include": "closest form",
+						},
+					}) {
+						Save
+					}
+					@ui.Button(ui.ButtonProps{
+						Variant: "ghost",
+						Class:   "btn-sm",
+						Attrs: templ.Attributes{
+							"hx-get":    "/ui/charges/row/" + vm.ID,
+							"hx-target": "#charge-row-" + vm.ID,
+							"hx-swap":   "outerHTML",
+						},
+					}) {
+						Cancel
+					}
 				</div>
 			</form>
 		</td>

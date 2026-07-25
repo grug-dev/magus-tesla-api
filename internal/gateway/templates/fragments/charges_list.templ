@@ -1,40 +1,48 @@
 package fragments
 
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+
 // ChargesList is the htmx-swappable charge entries table region.
 // Its root <div id="charges-list"> matches the templ.Fragment("charges-list") name
 // and the hx-target="#charges-list" on the refresh button (required invariant).
+// It carries its own ui.Card surface + ui.Table so it stays styled when the handler
+// renders it standalone on an htmx swap.
 templ ChargesList(d ChargesPageData) {
 	<div id="charges-list">
-		if d.Error != "" {
-			<p class="notice-banner">{ d.Error }</p>
-		}
-		if d.EmptyState {
-			<p>No charge entries yet. Use the form above to log your first charge.</p>
-		} else if len(d.Entries) > 0 {
-			<table>
-				<thead>
-					<tr>
-						<th>Date</th>
-						<th>Vehicle</th>
-						<th>Energy</th>
-						<th>Price</th>
-						<th>Cost/kWh</th>
-						<th>Battery</th>
-						<th>Duration</th>
-						<th>Actions</th>
-					</tr>
-				</thead>
-				<tbody>
+		@ui.Card(ui.CardProps{}) {
+			<div class="flex items-center justify-between">
+				<h2 class="text-lg font-semibold">Your entries</h2>
+				@ui.Button(ui.ButtonProps{
+					Variant: "ghost",
+					Class:   "btn-sm",
+					Attrs: templ.Attributes{
+						"hx-get":    "/ui/charges/list",
+						"hx-target": "#charges-list",
+						"hx-swap":   "outerHTML",
+					},
+				}) {
+					Refresh
+				}
+			</div>
+			if d.Error != "" {
+				@ui.Alert(ui.AlertProps{Kind: "error"}) {
+					{ d.Error }
+				}
+			}
+			if d.EmptyState {
+				@ChargesEmptyState()
+			} else if len(d.Entries) > 0 {
+				@ui.Table(ui.TableProps{Headers: []string{"Date", "Vehicle", "Energy", "Price", "Cost/kWh", "Battery", "Duration", "Actions"}}) {
 					for _, vm := range d.Entries {
 						@ChargeRow(vm, d.CSRFToken)
 					}
-				</tbody>
-			</table>
+				}
+			}
 		}
 	</div>
 }
 
 // ChargesEmptyState renders the empty-state message for the charges list.
 templ ChargesEmptyState() {
-	<p>No charge entries yet. Use the form above to log your first charge.</p>
+	<p class="text-base-content/70">No charge entries yet. Use the form above to log your first charge.</p>
 }

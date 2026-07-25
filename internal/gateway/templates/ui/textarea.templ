@@ -1,0 +1,17 @@
+package ui
+
+// TextareaProps configures a Textarea. Attrs carries any extra attributes; Class
+// is for extra layout utilities. The caller supplies the text content as the
+// slot. Content is kept tight against the tags to avoid injected whitespace,
+// which a <textarea> would otherwise render literally.
+type TextareaProps struct {
+	Name  string
+	Class string
+	Attrs templ.Attributes
+}
+
+// Textarea renders a themed multi-line input. The DaisyUI `textarea` class is
+// OWNED here so a version bump is a one-file change.
+templ Textarea(p TextareaProps) {
+	<textarea name={ p.Name } class={ "textarea w-full", p.Class } { p.Attrs... }>{ children... }</textarea>
+}

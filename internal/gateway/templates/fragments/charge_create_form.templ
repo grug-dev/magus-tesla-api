@@ -1,149 +1,107 @@
 package fragments
 
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+
 // ChargeCreateForm renders the "Log a charge" create form.
 // Its root <div id="charges-create-form"> matches the templ.Fragment name and
 // is the hx-target for the create POST (required invariant — design.md D1).
 // validationErrors maps field names to error messages; nil or empty means no errors.
+// Every form control is composed from the ui/ adapter kit (Field/Input/Select/
+// Textarea) — no raw DaisyUI component classes live here, so a DaisyUI upgrade is
+// a one-file change in ui/, not a sweep across this form.
 templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 	<div id="charges-create-form">
-		<h2>Log a charge</h2>
-		if validationErrors["_top"] != "" {
-			<p class="error">{ validationErrors["_top"] }</p>
-		}
-		<form
-			hx-post="/ui/charges/create"
-			hx-target="#charges-create-form"
-			hx-swap="outerHTML"
-		>
-			<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
-			<div>
-				<label>
-					Date
-					<input type="date" name="charged_on" required/>
-				</label>
-				if validationErrors["charged_on"] != "" {
-					<span class="error">{ validationErrors["charged_on"] }</span>
+		@ui.Card(ui.CardProps{Title: "Log a charge"}) {
+			if validationErrors["_top"] != "" {
+				@ui.Alert(ui.AlertProps{Kind: "error"}) {
+					{ validationErrors["_top"] }
 				}
-			</div>
-			<div>
-				<label>
-					Energy added (kWh)
-					<input type="number" name="energy_added_kwh" step="0.01" min="0.01" required/>
-				</label>
-				if validationErrors["energy_added_kwh"] != "" {
-					<span class="error">{ validationErrors["energy_added_kwh"] }</span>
-				}
-			</div>
-			<div>
-				<label>
-					Price
-					<input type="number" name="price" step="0.01" min="0" required/>
-				</label>
-				if validationErrors["price"] != "" {
-					<span class="error">{ validationErrors["price"] }</span>
-				}
-			</div>
-			<div>
-				<label>
-					Currency
-					<input type="text" name="currency" value="COP" required/>
-				</label>
-				if validationErrors["currency"] != "" {
-					<span class="error">{ validationErrors["currency"] }</span>
-				}
-			</div>
-			<div>
-				<label>
-					Location
-					<select name="location_kind" required>
-						<option value="HOME">Home</option>
-						<option value="WORK">Work</option>
-						<option value="OTHER">Other</option>
-					</select>
-				</label>
-				if validationErrors["location_kind"] != "" {
-					<span class="error">{ validationErrors["location_kind"] }</span>
-				}
-			</div>
-			<div>
-				<label>
-					Vehicle
-					if d.SingleVehicle {
-						<select name="vehicle" disabled>
-							for _, opt := range d.VehicleOptions {
-								<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
+			}
+			<form
+				hx-post="/ui/charges/create"
+				hx-target="#charges-create-form"
+				hx-swap="outerHTML"
+				class="flex flex-col gap-3"
+			>
+				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
+				<div class="grid gap-3 sm:grid-cols-2">
+					@ui.Field(ui.FieldProps{Label: "Date", Error: validationErrors["charged_on"]}) {
+						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Required: true})
+					}
+					@ui.Field(ui.FieldProps{Label: "Energy added (kWh)", Error: validationErrors["energy_added_kwh"]}) {
+						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0.01"}})
+					}
+					@ui.Field(ui.FieldProps{Label: "Price", Error: validationErrors["price"]}) {
+						@ui.Input(ui.InputProps{Type: "number", Name: "price", Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
+					}
+					@ui.Field(ui.FieldProps{Label: "Currency", Error: validationErrors["currency"]}) {
+						@ui.Input(ui.InputProps{Name: "currency", Value: "COP", Required: true})
+					}
+					@ui.Field(ui.FieldProps{Label: "Location", Error: validationErrors["location_kind"]}) {
+						@ui.Select(ui.SelectProps{Name: "location_kind", Required: true}) {
+							<option value="HOME">Home</option>
+							<option value="WORK">Work</option>
+							<option value="OTHER">Other</option>
+						}
+					}
+					@ui.Field(ui.FieldProps{Label: "Vehicle", Error: validationErrors["vehicle"]}) {
+						if d.SingleVehicle {
+							@ui.Select(ui.SelectProps{Name: "vehicle", Disabled: true}) {
+								for _, opt := range d.VehicleOptions {
+									<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
+								}
 							}
-						</select>
-						for _, opt := range d.VehicleOptions {
-							if opt.Selected {
-								<input type="hidden" name="vehicle" value={ opt.Value }/>
+							for _, opt := range d.VehicleOptions {
+								if opt.Selected {
+									<input type="hidden" name="vehicle" value={ opt.Value }/>
+								}
+							}
+						} else {
+							@ui.Select(ui.SelectProps{Name: "vehicle", Required: true}) {
+								for _, opt := range d.VehicleOptions {
+									<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
+								}
 							}
 						}
-					} else {
-						<select name="vehicle" required>
-							for _, opt := range d.VehicleOptions {
-								<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
-							}
-						</select>
 					}
-				</label>
-				if validationErrors["vehicle"] != "" {
-					<span class="error">{ validationErrors["vehicle"] }</span>
-				}
-			</div>
-			<details>
-				<summary>More details</summary>
-				<div>
-					<label>
-						Started at
-						<input type="datetime-local" name="started_at"/>
-					</label>
 				</div>
+				<details>
+					<summary class="cursor-pointer font-medium">More details</summary>
+					<div class="grid gap-3 sm:grid-cols-2 mt-2">
+						@ui.Field(ui.FieldProps{Label: "Started at"}) {
+							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at"})
+						}
+						@ui.Field(ui.FieldProps{Label: "Ended at"}) {
+							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at"})
+						}
+						@ui.Field(ui.FieldProps{Label: "Start battery %"}) {
+							@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+						}
+						@ui.Field(ui.FieldProps{Label: "End battery %"}) {
+							@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+						}
+						@ui.Field(ui.FieldProps{Label: "Charging type"}) {
+							@ui.Select(ui.SelectProps{Name: "charging_type"}) {
+								<option value="">-</option>
+								<option value="AC">AC</option>
+								<option value="DC">DC</option>
+							}
+						}
+						@ui.Field(ui.FieldProps{Label: "Location label"}) {
+							@ui.Input(ui.InputProps{Name: "location_label"})
+						}
+						@ui.Field(ui.FieldProps{Label: "Notes", Class: "sm:col-span-2"}) {
+							@ui.Textarea(ui.TextareaProps{Name: "notes"})
+						}
+					</div>
+				</details>
 				<div>
-					<label>
-						Ended at
-						<input type="datetime-local" name="ended_at"/>
-					</label>
+					@ui.Button(ui.ButtonProps{Type: "submit", Variant: "primary"}) {
+						Log charge
+					}
 				</div>
-				<div>
-					<label>
-						Start battery %
-						<input type="number" name="start_battery_pct" min="0" max="100" step="1"/>
-					</label>
-				</div>
-				<div>
-					<label>
-						End battery %
-						<input type="number" name="end_battery_pct" min="0" max="100" step="1"/>
-					</label>
-				</div>
-				<div>
-					<label>
-						Charging type
-						<select name="charging_type">
-							<option value="">-</option>
-							<option value="AC">AC</option>
-							<option value="DC">DC</option>
-						</select>
-					</label>
-				</div>
-				<div>
-					<label>
-						Location label
-						<input type="text" name="location_label"/>
-					</label>
-				</div>
-				<div>
-					<label>
-						Notes
-						<textarea name="notes"></textarea>
-					</label>
-				</div>
-			</details>
-			<div>
-				<button type="submit">Log charge</button>
-			</div>
-		</form>
+			</form>
+		}
 	</div>
 }
 

@@ -1,0 +1,27 @@
+package ui
+
+// InputProps configures an Input. Type defaults to "text". Required maps to the
+// HTML boolean attribute. Attrs carries the less-common attributes (min, max,
+// step, placeholder, …) as string values. Class is for extra layout utilities.
+type InputProps struct {
+	Type     string           // "text"|"number"|"date"|"datetime-local"|… (default text)
+	Name     string
+	Value    string
+	Required bool
+	Class    string           // extra layout utilities only
+	Attrs    templ.Attributes // min/max/step/placeholder/etc. (string values)
+}
+
+// Input renders a themed input. The DaisyUI `input` class is OWNED here (the
+// adapter): an engine upgrade that renames or restructures it is a one-file
+// change, never a sweep across every form.
+templ Input(p InputProps) {
+	<input
+		type={ inputType(p.Type) }
+		name={ p.Name }
+		value={ p.Value }
+		class={ "input w-full", p.Class }
+		required?={ p.Required }
+		{ p.Attrs... }
+	/>
+}

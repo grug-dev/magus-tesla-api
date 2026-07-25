@@ -34,6 +34,14 @@ func btnType(t string) string {
 	return "button"
 }
 
+// inputType maps an Input type to a valid HTML input type. Empty → text.
+func inputType(t string) string {
+	if t == "" {
+		return "text"
+	}
+	return t
+}
+
 // alertClass maps an Alert kind to its DaisyUI class. Unknown/empty → info.
 func alertClass(kind string) string {
 	switch kind {

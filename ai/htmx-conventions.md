@@ -56,17 +56,34 @@ lookup, not invention. Three layers:
 
 - **Templ** — the typed component boundary (`templates/ui/`, package `ui`). Each wrapper
   takes a `Props` struct so a wrong field fails the build.
-- **DaisyUI** — component look + theme (`card`, `btn`, `stat`, `table`, `alert`, `badge`,
-  `menu`, `drawer`) and **semantic theme tokens** (`bg-base-100`, `text-base-content`,
-  `primary`/`secondary`/`accent`, `info`/`success`/`warning`/`error`). It ships **zero
-  JavaScript**, which is why htmx fragment swaps stay styled with nothing to re-initialize.
+- **DaisyUI** — component look + theme (`card`, `btn`, `input`, `select`, `fieldset`, `stat`,
+  `table`, `alert`, `badge`, `menu`, `drawer`) and **semantic theme tokens** (`bg-base-100`,
+  `text-base-content`, `primary`/`secondary`/`accent`, `info`/`success`/`warning`/`error`).
+  It ships **zero JavaScript**, which is why htmx fragment swaps stay styled with nothing to
+  re-initialize.
 - **Tailwind** — layout/spacing utilities only (`grid`, `flex`, `gap-4`, breakpoints).
+
+**The `ui/` kit is an anti-corruption adapter around DaisyUI.** DaisyUI is an external library
+that ships **breaking changes** across majors (v4→v5 removed `form-control`/`label-text`, made
+`input-bordered` a no-op). Routing every DaisyUI **component class** through a `ui.*` wrapper
+makes a version bump a **one-file edit per component** instead of an app-wide sweep. Split the
+surface by churn: **component classes are volatile → own them behind a wrapper**; **semantic
+theme tokens and Tailwind layout utilities are stable → use them inline.** (An adapter bounds
+an upgrade's blast radius; it doesn't make it free — re-verify the wrapper internals and
+smoke-test on a major bump.)
 
 Rules:
 - **Never write hex colors or raw palette utilities** (`bg-red-500`). Use theme tokens so the
   whole app re-skins from one `<html data-theme>`.
-- **Compose the `ui/` kit**; don't re-author class soup in pages/fragments. Pass VM-ready
-  strings into components (`ui/` components hold no domain imports and no business logic).
+- **Compose the `ui/` kit; never inline a DaisyUI component class in a page/fragment.** A raw
+  `<button class="btn">`, `<input class="input">`, or `<div class="card">` in `pages/` or
+  `fragments/` is a bug — use `ui.Button`/`ui.Input`/`ui.Card`. If a repeated element has no
+  wrapper yet, **add one to `ui/`** rather than inlining the class. Form controls compose
+  `ui.Field` + `ui.Input`/`ui.Select`/`ui.Textarea` (the DaisyUI `fieldset`/`input`/`select`/
+  `textarea` classes live only there). Theme tokens (`text-error`, `bg-base-100`) and Tailwind
+  layout utilities (`grid`, `sm:col-span-2`) stay inline — those are the stable layers. Pass
+  VM-ready strings into components (`ui/` components hold no domain imports and no business
+  logic).
 - **Do not introduce a component that needs client-side JS init.** If a genuinely interactive
   widget is unavoidable, prefer a CSS-only DaisyUI pattern (`dropdown`, `<dialog>` modal,
   `collapse`, `tabs`) before any JS — that is the whole reason DaisyUI was chosen over templUI.

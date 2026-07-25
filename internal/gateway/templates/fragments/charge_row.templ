@@ -1,5 +1,7 @@
 package fragments
 
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+
 // ChargeRow renders the static view of one charge entry as a table row.
 // Its id="charge-row-{vm.ID}" matches the templ.Fragment id pattern and
 // is the target for inline-edit and delete swaps (required invariant).
@@ -13,18 +15,32 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 		<td>{ vm.BatteryDelta }</td>
 		<td>{ vm.DurationLabel }</td>
 		<td>
-			<button
-				hx-get={ "/ui/charges/row/" + vm.ID + "/edit" }
-				hx-target={ "#charge-row-" + vm.ID }
-				hx-swap="outerHTML"
-			>Edit</button>
-			<button
-				hx-delete={ "/ui/charges/row/" + vm.ID }
-				hx-target={ "#charge-row-" + vm.ID }
-				hx-swap="outerHTML"
-				hx-confirm="Delete this entry?"
-				hx-include={ "#csrf-delete-" + vm.ID }
-			>Delete</button>
+			<div class="flex gap-2">
+				@ui.Button(ui.ButtonProps{
+					Variant: "ghost",
+					Class:   "btn-sm",
+					Attrs: templ.Attributes{
+						"hx-get":    "/ui/charges/row/" + vm.ID + "/edit",
+						"hx-target": "#charge-row-" + vm.ID,
+						"hx-swap":   "outerHTML",
+					},
+				}) {
+					Edit
+				}
+				@ui.Button(ui.ButtonProps{
+					Variant: "error",
+					Class:   "btn-sm btn-outline",
+					Attrs: templ.Attributes{
+						"hx-delete":  "/ui/charges/row/" + vm.ID,
+						"hx-target":  "#charge-row-" + vm.ID,
+						"hx-swap":    "outerHTML",
+						"hx-confirm": "Delete this entry?",
+						"hx-include": "#csrf-delete-" + vm.ID,
+					},
+				}) {
+					Delete
+				}
+			</div>
 			<input type="hidden" id={ "csrf-delete-" + vm.ID } name="csrf_token" value={ csrfToken }/>
 		</td>
 	</tr>
@@ -41,7 +57,7 @@ templ ChargeRowEmpty(id string) {
 templ ChargeRowError(id string, msg string) {
 	<tr id={ "charge-row-" + id }>
 		<td colspan="8">
-			<span class="error">{ msg }</span>
+			<span class="text-error">{ msg }</span>
 		</td>
 	</tr>
 }

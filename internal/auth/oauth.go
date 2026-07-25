@@ -17,6 +17,8 @@ const (
 	// it; energy_device_data unlocks the account's energy products in GET /api/1/products
 	// and the energy-site endpoints (e.g. GET /api/1/energy_sites/{id}/telemetry_history
 	// ?kind=charge — Tesla Wall Connector charging history), also 403 without it;
+	// user_data unlocks the user-account endpoints under /api/1/users/* — notably
+	// GET /api/1/users/me (authenticated user's account summary), 403 without it;
 	// offline_access mints the single-use refresh token. Changing this list
 	// requires re-running the OAuth consent (cmd/setup) to mint a token that carries
 	// the new scope; existing tokens keep whatever scopes they were granted. NOTE:
@@ -28,7 +30,7 @@ const (
 	// minting a scope-deficient token. Without it, adding a scope to this list has
 	// no effect on returning users — Tesla re-issues a token with only the
 	// previously-granted scopes.
-	scopes = "openid vehicle_device_data vehicle_cmds vehicle_specs vehicle_pricing_info vehicle_charging_cmds energy_device_data offline_access"
+	scopes = "openid user_data vehicle_device_data vehicle_cmds vehicle_specs vehicle_pricing_info vehicle_charging_cmds energy_device_data offline_access"
 )
 
 // BuildAuthURL constructs the Tesla OAuth authorization URL.

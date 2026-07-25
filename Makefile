@@ -51,7 +51,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate tidy build vet test check bins \
+        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
@@ -284,6 +284,19 @@ css: internal/gateway/tools/tailwindcss ## Regenerate internal/gateway/static/ap
 
 generate: sqlc templ css ## Run all code generators (sqlc + templ + css)
 
+ui-guard: ## Fail if a raw DaisyUI component class is inlined in a page/fragment (use the ui/ kit instead)
+	@if grep -rnE 'class="([^"]* )?(btn|card|input|select|textarea|fieldset|alert|badge|stat|table|navbar|drawer|menu)(-[a-z0-9]+)*( [^"]*)?"' \
+		internal/gateway/templates/pages internal/gateway/templates/fragments --include='*.templ'; then \
+		echo ""; \
+		echo "ERROR: raw DaisyUI component class found in a page/fragment above."; \
+		echo "The internal/gateway/templates/ui/ kit is the anti-corruption adapter for DaisyUI:"; \
+		echo "compose ui.Button/ui.Input/ui.Select/ui.Textarea/ui.Card/... instead of inlining the class."; \
+		echo "Theme tokens (text-error, bg-base-100) and Tailwind layout utilities ARE allowed inline."; \
+		exit 1; \
+	else \
+		echo "ui-guard: no inlined DaisyUI component classes in pages/fragments"; \
+	fi
+
 tidy: ## Sync go.mod / go.sum (go mod tidy)
 	go mod tidy
 
@@ -298,7 +311,7 @@ vet: ## Static analysis across all packages (go vet ./...)
 test: ## Run all tests (DB-backed tests skip unless DATABASE_URL is set)
 	go test ./...
 
-check: build vet test ## Full local gate: build + vet + test
+check: build vet ui-guard test ## Full local gate: build + vet + ui-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin
