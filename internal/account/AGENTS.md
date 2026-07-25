@@ -43,6 +43,12 @@ Consumers (e.g. the gateway) call these — never this module's tables
 ## Testing
 
 - Unit tests with fakes at the DB boundary, plus integration tests
-  (`service_integration_test.go`) against local Postgres.
+  (`service_integration_test.go`) against real Postgres. The test database is
+  provisioned by `testdb_test.go` via the shared `internal/testdb` helper: when
+  `DATABASE_URL` is set AND reachable, that managed Postgres is used; otherwise
+  a disposable `postgres:16-alpine` container is auto-started via
+  testcontainers-go, with goose migrations embedded under `db/migrations/`
+  applied before the suite runs. `make check` is green with zero manual DB
+  setup as long as Docker is running locally.
 - Tokens are stored plaintext (local Postgres only). Encrypting at rest is a known open
   item before any non-local deploy — do not "fix" it silently inside an unrelated change.

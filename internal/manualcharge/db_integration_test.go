@@ -1,7 +1,9 @@
-// Package manualcharge_test contains DATABASE_URL-gated integration tests for the
-// manualcharge module. These tests require a live Postgres with the goose migration
-// applied (make migrate-up) and self-skip when DATABASE_URL is unset, so
-// `go test ./...` stays green without a database (ai/go-conventions.md §persistence).
+// Package manualcharge_test contains database-backed integration tests for the
+// manualcharge module. Postgres is auto-provisioned by testdb_test.go's TestMain:
+//   - When DATABASE_URL is set, that managed Postgres is used (unchanged behavior).
+//   - Otherwise a disposable `postgres:16-alpine` container is started for the run.
+// goose migrations are embedded and applied before any test runs, so the schema is
+// always at the latest version — no `make migrate-up` step required.
 //
 // Coverage:
 //   - Writer.Create: required-only, all-optional, CHECK constraint violations.
@@ -17,7 +19,6 @@ package manualcharge_test
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -30,20 +31,15 @@ import (
 
 // --- test helpers ---
 
-// newTestPool connects to Postgres from DATABASE_URL and skips the test when it is
-// unset. pool.Close is registered via t.Cleanup.
+// newTestPool returns the package-wide pool created by TestMain. The pool is
+// shared across the whole package (one container, fully migrated) so per-test
+// overhead is just the cleanupAccount row deletion registered below.
 func newTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		t.Skip("DATABASE_URL not set; skipping manualcharge integration test")
+	if testPool == nil {
+		t.Fatalf("manualcharge test pool not initialized; TestMain failure?")
 	}
-	pool, err := pgxpool.New(context.Background(), dsn)
-	if err != nil {
-		t.Fatalf("manualcharge integration: connecting to Postgres: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	return pool
+	return testPool
 }
 
 // cleanupAccount removes all manual_charge_entries rows created by this test so

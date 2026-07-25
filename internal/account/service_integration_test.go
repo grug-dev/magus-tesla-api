@@ -3,7 +3,6 @@ package account
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -14,17 +13,15 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
 )
 
-// newTestService builds a white-box service against a real Postgres from
-// DATABASE_URL, with a fake refresh so no network call is made. The test is
-// skipped when DATABASE_URL is unset. Requires the goose migration to be applied
-// (`goose ... up`).
+// newTestService builds a white-box service against the test Postgres
+// provisioned by TestMain (see testdb_test.go), with a fake refresh so no
+// network call is made.
 func newTestService(t *testing.T) (*service, *pgxpool.Pool) {
 	t.Helper()
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		t.Skip("DATABASE_URL not set; skipping account integration test")
+	if testDSN == "" {
+		t.Fatalf("account test DSN not initialized; TestMain failure?")
 	}
-	pool, err := pgxpool.New(context.Background(), dsn)
+	pool, err := pgxpool.New(context.Background(), testDSN)
 	if err != nil {
 		t.Fatalf("connecting to Postgres: %v", err)
 	}

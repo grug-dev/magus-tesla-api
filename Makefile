@@ -308,7 +308,7 @@ build: ## Compile every package + command in the monolith (go build ./...)
 vet: ## Static analysis across all packages (go vet ./...)
 	go vet ./...
 
-test: ## Run all tests (DB-backed tests skip unless DATABASE_URL is set)
+test: ## Run all tests (manualcharge auto-provisions a disposable Postgres via testcontainers when DATABASE_URL is unset)
 	go test ./...
 
 check: build vet ui-guard test ## Full local gate: build + vet + ui-guard + test

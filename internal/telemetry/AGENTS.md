@@ -102,6 +102,10 @@ never leaves the module — convert to/from plain domain types at the DB→domai
   timeout, multi-account. NO test may make a live Tesla API call or wake a car (the calls are paid).
 - Schedule-time math (`nextRun`) and the wake helper's online-vs-timeout outcomes are unit-tested
   pure (fake clock / short timeout).
-- Store tests are `DATABASE_URL`-gated and self-skip when it is unset, so `go test ./...` stays
-  green without a database (`ai/go-conventions.md` §persistence). Verify `sentry_mode` nil↔NULL and
-  append-only behavior there.
+- Store tests use the shared `internal/testdb` helper (see `testdb_test.go`). When
+  `DATABASE_URL` is set AND reachable, that managed Postgres is used; otherwise
+  `TestMain` auto-provisions a disposable `postgres:16-alpine` container via
+  testcontainers-go and applies the goose migrations embedded under `db/migrations/`.
+  `go test ./...` (and `make check`) are green with zero manual DB setup as long as
+  Docker is running locally. Verify `sentry_mode` nil↔NULL and append-only behavior
+  there.

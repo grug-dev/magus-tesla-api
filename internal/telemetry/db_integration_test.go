@@ -2,7 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -12,20 +11,20 @@ import (
 	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
 
-// These tests exercise the real telemetrydb store against a live Postgres from
-// DATABASE_URL and self-skip when it is unset, so `go test ./...` stays green without a
-// database (ai/go-conventions.md §persistence). They mirror the account module's
-// DATABASE_URL-gated pattern. Requires the goose migration applied (`make migrate-up`).
+// These tests exercise the real telemetrydb store against a live Postgres
+// provisioned by TestMain (see testdb_test.go). The test database is
+// auto-provisioned via testcontainers-go when DATABASE_URL is unset/unreachable
+// (ai/go-conventions.md §persistence), so `go test ./...` is green with no
+// manual DB setup as long as Docker is running locally.
 
-// newTestStore builds a dbStore against a real Postgres from DATABASE_URL, skipping the
-// test when it is unset. It returns the store plus the pool for direct-SQL assertions.
+// newTestStore builds a dbStore against the test Postgres provisioned by
+// TestMain. It returns the store plus the pool for direct-SQL assertions.
 func newTestStore(t *testing.T) (*dbStore, *pgxpool.Pool) {
 	t.Helper()
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		t.Skip("DATABASE_URL not set; skipping telemetry store integration test")
+	if testDSN == "" {
+		t.Fatalf("telemetry test DSN not initialized; TestMain failure?")
 	}
-	pool, err := pgxpool.New(context.Background(), dsn)
+	pool, err := pgxpool.New(context.Background(), testDSN)
 	if err != nil {
 		t.Fatalf("connecting to Postgres: %v", err)
 	}

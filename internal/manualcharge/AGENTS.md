@@ -106,9 +106,22 @@ This module MUST NOT import:
 - **Unit tests** (`manualcharge_test.go`): test derived value-receiver methods (`CostPerKWh`,
   `BatteryDelta`, `SessionDuration`) with no DB and no Tesla API. Run offline as part of
   `go test ./...`.
-- **Integration tests** (`db_integration_test.go`): DATABASE_URL-gated — call `t.Skip` when
-  `DATABASE_URL` is unset so `go test ./...` remains green without a database. Cover full CRUD
-  round-trips, ordering guarantees, multi-tenant isolation, and CHECK constraint enforcement.
+- **Integration tests** (`db_integration_test.go`): cover full CRUD round-trips, ordering
+  guarantees, multi-tenant isolation, and CHECK constraint enforcement. The test database is
+  provisioned by `testdb_test.go`:
+    - When `DATABASE_URL` is set, that managed Postgres is used (CI with a service container,
+      or a local DB you've already provisioned).
+    - Otherwise `TestMain` starts a disposable `postgres:16-alpine` container via
+      `testcontainers-go`, applies the goose migrations embedded under `db/migrations/`, and
+      shares one `*pgxpool.Pool` across the whole package. No `createdb`/`make migrate-up`
+      step is required; `make check`/`go test ./...` runs the integration tests green with
+      zero manual DB setup as long as Docker is running locally.
+    - Migrations are applied programmatically via the `github.com/pressly/goose/v3` Go API;
+      `goose.NewProvider` records applied versions in `goose_db_version`, so re-running against
+      a managed DB (`DATABASE_URL` set) is a no-op.
+    - Production impact is NONE: the testcontainers/goose imports live only in `_test.go`
+      files and are never compiled into the deployed binary; no Docker daemon is required in
+      production.
 - **No Tesla API call fires in any test** — this module has no Fleet API dependency; this
   invariant is structural (no import of `internal/tesla`), not just disciplinary.
 - The `tesla-exploration` exception (CLAUDE.md) does NOT apply here. Tests for this module are
