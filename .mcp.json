@@ -7,6 +7,17 @@
         "serve",
         "--mcp"
       ]
+    },
+    "stitch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@google/stitch-mcp@latest"
+      ],
+      "env": {
+        "STITCH_API_TOKEN": "${STITCH_API_TOKEN}"
+      }
     }
   }
 }

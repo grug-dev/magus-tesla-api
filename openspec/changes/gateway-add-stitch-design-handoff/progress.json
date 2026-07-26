@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "gateway-add-stitch-design-handoff",
+  "module": "gateway",
+  "request": "Wire the Stitch (Google Labs AI UI design tool) MCP server into Claude Code; document the Stitch -> ui/ kit translation convention; apply it to build one screen (Login + Menu navigation) the user designed in Stitch, mirroring the charges gold-standard slice.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-07-26T10:13:57Z",
+  "updated_at": "2026-07-26T10:13:57Z",
+  "leader": { "assistant": "opencode", "model": "glm-5.2" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/gateway-add-stitch-design-handoff",
+    "base": "main",
+    "created_at": "2026-07-26T10:13:00Z"
+  },
+  "tasks": [],
+  "review": {
+    "status": "not-started",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "made_by": "user",
+      "at": "2026-07-26T10:10:00Z",
+      "scope": "screen-choice",
+      "decision": "The Stitch screen to translate is the Login screen plus the Menu navigation (redesign-or-new TBD by the design at grill time; data + read paths pinned then)."
+    },
+    {
+      "id": "D2",
+      "made_by": "user",
+      "at": "2026-07-26T10:10:00Z",
+      "scope": "mcp-scope",
+      "decision": "MCP scope is the committed project .mcp.json (shared; token via ${STITCH_API_TOKEN} env expansion), NOT user-level ~/.claude/mcp_servers.json."
+    },
+    {
+      "id": "D3",
+      "made_by": "user",
+      "at": "2026-07-26T10:10:00Z",
+      "scope": "grill-timing",
+      "decision": "The grill-me pass (required by openspec/config.yaml) runs AFTER the Stitch MCP is connected (Claude Code restart + confirm Stitch tools), so the Login+Menu data model and read paths are grilled against the actual design."
+    },
+    {
+      "id": "D4",
+      "made_by": "user",
+      "at": "2026-07-26T10:10:00Z",
+      "scope": "design-system-theme",
+      "decision": "DESIGN.md -> custom DaisyUI theme mapping is DEFERRED (not part of this change). Will be recorded in openspec/roadmaps/backlog.md when wanted; this change only translates one Stitch screen into a ui/-kit slice."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-07-25T09:38:00Z",
+      "agent": "leader",
+      "event": "Prior session: proposal.md created (proposal-only stop, per user 2026-07-25 request: \"save the proposal, not more artifacts\"). design.md, specs, tasks.md, and progress.json intentionally absent. Proposal's 4 open questions (screen, MCP scope, grill-me pass, DESIGN.md theme) deferred to this resume pass."
+    },
+    {
+      "at": "2026-07-26T10:13:57Z",
+      "agent": "leader",
+      "event": "Resume under opencode (glm-5.2). Tree was dirty (proposal + ~14 unrelated UI files staged on main); user pushed them as 79499a6 \"Redesign\" -> clean tree. Created branch ft/gateway-add-stitch-design-handoff off main HEAD. User answered the 4 open questions -> decisions D1-D4 (made_by=user). Phase A leader-owned wiring done: .mcp.json stitch entry (additive to codegraph), .env.example STITCH_API_TOKEN, ai/htmx-conventions.md Stitch->ui/kit translation section. No DB gate (proposal confirms none). Grill + worker artifacts (design.md/specs/tasks) + Login+Menu build deferred to a Claude Code session now that .mcp.json is wired (per D3 \"grill after connecting\" + opencode cannot reach the Stitch MCP directly)."
+    }
+  ]
+}

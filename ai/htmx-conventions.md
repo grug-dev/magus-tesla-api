@@ -139,3 +139,44 @@ re-run `make css`.
   handler stay in sync.
 - Load htmx from a pinned version (documented when the layout is created), not an unpinned
   CDN latest.
+
+## Stitch designs → `ui/` kit translation (closed handoff procedure)
+
+Google Stitch (stitch.withgoogle.com) is a **visual / design source only** for this
+project. Its exported Tailwind/HTML (or JSX/Vue/…) is **reference, never committed**:
+Stitch hardcodes palette colors and inline utility classes, knows nothing of DaisyUI,
+Templ, or this project's `internal/gateway/templates/ui/` kit. Pasting a Stitch export
+would violate the closed vocabulary above and break one-`data-theme` re-skinning. So every
+Stitch design is **translated**, not merged. The same procedure every time, so an agent or
+human does not improvise:
+
+1. **Read the design.** Via the `stitch` MCP server declared in `.mcp.json` (preferred —
+   it exposes the design structure and the project's `DESIGN.md` design system), or via a
+   screenshot when MCP is unavailable. Identify layout regions, repeated components, and
+   per-state variants (empty / loading / error / authenticated).
+2. **Map to the `ui/` kit, never inline.** Rebuild the design as a Templ component
+   composed from existing `ui.*` wrappers (`ui.Card`, `ui.StatTile`, `ui.Button`,
+   `ui.Table`, `ui.Field` + `ui.Input`, …). If a repeated element has no wrapper yet,
+   **add one to `internal/gateway/templates/ui/`** — never inline a raw DaisyUI component
+   class in a page or fragment. This is the same closed-vocabulary rule as everywhere else
+   in this doc.
+3. **Replace Stitch colors with semantic theme tokens.** Strip every hardcoded hex/rgb
+   from the Stitch export and use DaisyUI semantic tokens (`bg-base-100`, `primary`,
+   `text-error`, …). Keep only Tailwind **layout** utilities inline (`grid`, `gap-4`,
+   `flex`, breakpoints). The output must re-skin from one `data-theme` with no per-page
+   color edits.
+4. **Structure swappable regions as htmx fragments.** State changes (login → logged-in
+   menu, menu open → closed, …) become htmx-swapped fragments following the attribute
+   conventions above — **no client-side JS**. Prefer a CSS-only DaisyUI pattern
+   (`dropdown`, `<dialog>`, `collapse`, `tabs`) when a state is purely presentational.
+5. **Mirror the `charges` gold-standard slice.** View model → page/fragments → Gin
+   handler → routes, the same layering. `kkpa-goth-scaffold-ui scaffold <concept>` is the
+   scaffolding entry point — it generates the slice skeleton against the `ui/` kit and the
+   themed shell, after which the Stitch translation fills in the composed components.
+
+### DESIGN.md → custom DaisyUI theme (out of scope here)
+
+Stitch's per-project `DESIGN.md` (colors / typography / spacing) can be mapped into a
+custom DaisyUI theme so the whole app re-skins from one `data-theme`. That mapping is a
+**separate change** — record it in `openspec/roadmaps/backlog.md` when wanted; this
+section only covers translating one Stitch screen into a `ui/`-kit slice.
