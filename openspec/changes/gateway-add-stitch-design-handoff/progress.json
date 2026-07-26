@@ -4,7 +4,7 @@
   "change": "gateway-add-stitch-design-handoff",
   "module": "gateway",
   "request": "Wire the Stitch (Google Labs AI UI design tool) MCP server into Claude Code; document the Stitch -> ui/ kit translation convention; apply it to build one screen (Login + Menu navigation) the user designed in Stitch, mirroring the charges gold-standard slice.",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
@@ -305,6 +305,16 @@
       "at": "2026-07-26T12:16:25Z",
       "agent": "leader",
       "event": "WAVE 2 COMPLETE (T4+T5). Worker dispatch reported Tool execution aborted but the work LANDED (tree dirty with nav_header.templ+nav_header_templ.go created, handlers.go +134, handlers_test.go +249 six cases, gateway.go +1 route, badge.templ/ui.go ghost kind). Worker had set T4 in-progress only (aborted before closing its entries); T5 untouched. Leader reconciliation: verified go build ./... + go vet ./internal/gateway/... + go test ./internal/gateway/... ALL GREEN. Cross-checked design-decision compliance vs design.md: DD2 (htmx fragment /ui/nav-header + gin-free navHeaderFor + renderFragment + root div#nav-header==@templ.Fragment id), DD3 (connectedFreshnessWindow=48h named const + pure connectedAt(capturedAt,now), distinct from 36h stalenessThreshold), DD4 (primary=first RegisteredVehicles, empty->NeedsConnect, error->Unavailable degraded), DD10 (ui.Badge ghost kind added, badge-success/warning/ghost semantic tokens, no hex) — all compliant. Boundary: no telemetrydb/accountdb import, no pgtype (only doc comment mentioning NEVER-import). Template presentation-only (StatusKind->badge kind mapping; all strings pre-computed). T5 closure grep clean (only TestHealthRoute_Removed asserts /ui/health 404). Set T4 done + T5 done, rollup all-done. Budget UNAVAILABLE (opencode) => no 5h/context numbers. Status -> applied-ready (pending Step 6 verify + Step 7 review). Next: wave commit, then Step 6 verify."
+    },
+    {
+      "at": "2026-07-26T12:25:00Z",
+      "agent": "leader",
+      "event": "WAVE 2 COMMIT: f009e51 feat(gateway): wave 2 — nav-header fragment handler + freshness VM (T4+T5, 11 files +785/-18)."
+    },
+    {
+      "at": "2026-07-26T12:30:00Z",
+      "agent": "leader",
+      "event": "STEP 6 VERIFY PASSED. openspec validate --strict -> Change is valid. make check (build+vet+ui-guard+test) ALL GREEN repo-wide (account/config/gateway/gateway/handlers/gateway/templates/ui/manualcharge/telemetry/tesla ok; db/* no test files). make css yields byte-identical app.css (clean match — no stray dirt; stale-CSS guard green). status -> verified. Next: Step 7 review (dispatch gateway-reviewer)."
     }
   ]
 }
