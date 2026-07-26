@@ -693,3 +693,74 @@ func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
 		}
 	}
 }
+
+// homeEngine builds a minimal Gin engine with session middleware, a /_session route
+// that seeds uid + email (so sessionCookie can forge a signed-in cookie), and the
+// home route wired to h.Home. Mirrors the navHeaderEngine pattern.
+func homeEngine(h *Handler, uid uuid.UUID, email string) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", uid.String())
+		sess.Set("email", email)
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/", h.Home)
+	return r
+}
+
+// TestHome_SignedInRendersUserContent verifies the signed-in home state: the page
+// shows the account email, the "View your vehicles" link, the "Connect your Tesla"
+// link, and the "Log out" button — and does NOT contain the removed debug bits
+// ("Visits this session", "Check database") that were stripped in T1.
+func TestHome_SignedInRendersUserContent(t *testing.T) {
+	uid := uuid.New()
+	const email = "driver@example.com"
+
+	h := New(Deps{Account: &fakeAccount{}, Tesla: &fakeTesla{}, TelemetryReader: &fakeReader{}})
+	eng := homeEngine(h, uid, email)
+
+	// homeEngine's /_session seeds both uid and email in one request; sessionCookie
+	// calls /_session and returns the resulting session cookie.
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for signed-in home, got %d", w.Code)
+	}
+	body := w.Body.String()
+
+	// Signed-in content must be present.
+	for _, want := range []string{
+		email,
+		`href="/dashboard"`,
+		`href="/connect/tesla"`,
+		"Log out",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("signed-in home body missing %q\n%s", want, body)
+		}
+	}
+
+	// Debug bits removed by T1 must be absent.
+	for _, gone := range []string{"Visits this session", "Check database"} {
+		if strings.Contains(body, gone) {
+			t.Errorf("signed-in home body should NOT contain %q", gone)
+		}
+	}
+
+	// Anonymous sign-in link must NOT appear when signed in.
+	if strings.Contains(body, `href="/login"`) {
+		t.Errorf("signed-in home should NOT contain sign-in link")
+	}
+}

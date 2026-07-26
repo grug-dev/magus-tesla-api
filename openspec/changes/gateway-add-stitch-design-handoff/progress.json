@@ -9,11 +9,21 @@
     "current": [],
     "pending": [],
     "blocked": [],
-    "done": ["T1", "T2", "T3", "T4", "T5", "T6"]
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ]
   },
   "created_at": "2026-07-26T10:13:57Z",
-  "updated_at": "2026-07-26T12:16:25Z",
-  "leader": { "assistant": "opencode", "model": "glm-5.2" },
+  "updated_at": "2026-07-26T12:53:30Z",
+  "leader": {
+    "assistant": "opencode",
+    "model": "glm-5.2"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/gateway-add-stitch-design-handoff",
@@ -33,7 +43,7 @@
       "started_at": "2026-07-26T11:48:56Z",
       "completed_at": "2026-07-26T11:52:22Z",
       "duration_seconds": 206,
-      "notes": "Done. Removed HomeView.VisitCount + HomeView.Health + 'Visits this session' <p> + 'Check database' <button hx-get=/ui/health> + @templ.Fragment(\"health\") block from home.templ; kept SignedIn/Email + signed-in/anonymous content. Dropped visits session read/increment/save + Health field from Home handler; deleted HealthFragment handler + health() helper. Removed r.GET(\"/ui/health\", h.HealthFragment) from gateway.go. Deleted fragments/health.templ + stale health_templ.go. Removed TestHealthFragment_ReturnsFragmentOnly + TestSession_VisitCounterRoundTrips; updated TestHome_RendersLayoutAndHtmx to assert the debug bits are GONE; added TestHealthRoute_Removed asserting GET /ui/health -> 404. make templ + make css run. go build/vet/test ./internal/gateway/... green + ui-guard green. Self-decision: did NOT add an HTTP signed-in-home test (no easy way to forge an encrypted session cookie in testEngine without going through Google OAuth); signed-in branch is structurally unchanged (only VisitCount/Health fields removed) and compile-verified.",
+      "notes": "Done. Removed HomeView.VisitCount + HomeView.Health + 'Visits this session' <p> + 'Check database' <button hx-get=/ui/health> + @templ.Fragment(\"health\") block from home.templ; kept SignedIn/Email + signed-in/anonymous content. Dropped visits session read/increment/save + Health field from Home handler; deleted HealthFragment handler + health() helper. Removed r.GET(\"/ui/health\", h.HealthFragment) from gateway.go. Deleted fragments/health.templ + stale health_templ.go. Removed TestHealthFragment_ReturnsFragmentOnly + TestSession_VisitCounterRoundTrips; updated TestHome_RendersLayoutAndHtmx to assert the debug bits are GONE; added TestHealthRoute_Removed asserting GET /ui/health -> 404. Signed-in home criterion (F2/review-requested): added TestHome_SignedInRendersUserContent + homeEngine() helper in internal/gateway/handlers/handlers_test.go — mirrors navHeaderEngine pattern, seeds uid+email via /_session, GET /, asserts email/View your vehicles/Connect your Tesla/Log out present and debug bits absent. make templ + make css run. go build/vet/test ./internal/gateway/... green.",
       "budget": null
     },
     {
@@ -70,7 +80,9 @@
       "id": "T4",
       "title": "Nav-header fragment handler + view model + freshness logic",
       "module": "gateway",
-      "depends_on": ["T3"],
+      "depends_on": [
+        "T3"
+      ],
       "parallel_ok": false,
       "status": "done",
       "agent": "gateway",
@@ -85,7 +97,9 @@
       "id": "T5",
       "title": "Reconcile home.templ Home handler after T1 (compile closure)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": false,
       "status": "done",
       "agent": "gateway",
@@ -113,11 +127,64 @@
     }
   ],
   "review": {
-    "status": "in-review",
+    "status": "changes-requested",
     "agent": "gateway-reviewer",
     "brief": "Validations required for gateway-add-stitch-design-handoff:\n1. Module-boundary compliance (internal/gateway/AGENTS.md): navHeaderFor calls ONLY Reader ports (account.RegisteredVehicles + telemetry.Reader.LatestSnapshotsByAccount); no import of internal/telemetry/db or internal/account/db; no pgtype in any gateway file; no writes, no Tesla live calls.\n2. Doc-pack conventions (CLAUDE.md + ai/architecture.md + ai/go-conventions.md + ai/htmx-conventions.md + ai/htmx-go-integration.md + internal/gateway/AGENTS.md): ui/ kit composed (ui.Badge, no inlined DaisyUI component class in pages/fragments); semantic tokens only (badge-success/warning/ghost, text-base-300) never hex (Google SVG brand fills in login.templ are the ONE documented exception); zero client-side JS; root <div id=\"nav-header\"> matches @templ.Fragment(\"nav-header\") id (htmx swap invariant); templates contain no business logic (no time math, no domain-method calls).\n3. Spec/tasks coverage (specs/gateway/spec.md): Login Page re-skinned, Authenticated Navigation Shell (no Wake Vehicle), Navigation Vehicle Header (Connected/Asleep/Awaiting/NeedsConnect/Unavailable/anonymous-redirect/htmx-fragment/no-DB-import/semantic-tokens), Navigation Items (4 entries, placeholder Soon badges, icons via ui.Icon), Home Page Debug Cleanup — each scenario has a test.\n4. Design.md compliance:DD2 (htmx fragment + gin-free navHeaderFor + renderFragment), DD3 (connectedFreshnessWindow=48h named const distinct from stalenessThreshold, pure connectedAt(capturedAt,now)), DD4 (primary=first RegisteredVehicles), DD10 (StatusKind->ui.Badge semantic tokens), DD11 (home cleanup). Wave-1 already shipped DD1/DD5/DD6/DD7/DD8/DD9.\n5. DB objects match the user-confirmed design (none — no DB gate tripped; design.md §4 says no DB object; verify ZERO new/changed table/column/index/migration: any DB object is a BLOCKER finding).\n6. Performance-Profile compliance (read-heavy): nav-header fragment reuses 2 existing indexed reads; hot-path isolation (page shell paints first, header swaps in); no cache added (out of scope, accepted).\n7. Anti-gaming: no task title/criterion weakened or deleted; go build/vet/test + ui-guard + stale-CSS guard actually green (the leader claims so — re-run to confirm); tasks.md not edited to game done-ness.",
     "reviewer": "Read the DIFF of the change (git diff main..HEAD -- internal/gateway/ + openspec/changes/gateway-add-stitch-design-handoff/), NOT the whole module. Repo at /Users/cristianpena/cpena/sw/github/magus-tesla-api, branch ft/gateway-add-stitch-design-handoff. Run make check + make css && git diff --exit-code to confirm guards green.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "model": "sonnet",
+        "started_at": "2026-07-26T12:44:12Z",
+        "completed_at": "2026-07-26T12:44:15Z",
+        "duration_seconds": 3,
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "location": "internal/gateway/templates/layouts/base.templ:53",
+            "issue": "HTML comment <!-- placeholder: the nav-header fragment ... --> was introduced by this change and is compiled verbatim into base_templ.go (line 126), shipping developer notes to the browser. Violates the non-negotiable CLAUDE.md rule: 'Never write HTML comments in markup you create or edit.'",
+            "recommendation": "Replace the HTML comment with a Go-style // comment immediately above the <div> element (Templ strips // comments; HTML <!-- --> is emitted as-is). Regenerate make templ + make css and commit app.css.",
+            "status": "fixed"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "location": "internal/gateway/gateway_test.go (home signed-in test missing)",
+            "issue": "T1 acceptance criterion states 'The signed-in state (email, View your vehicles, Connect your Tesla, Log out) and the anonymous Sign in with Google link still render (httptest with a session / without).' Only the anonymous path is tested (TestHome_AnonymousOffersSignIn). The signed-in path test was skipped by the worker citing difficulty forging an encrypted session cookie — but sessionCookie() already exists in handlers_test.go and is reused by TestNavHeaderFragment_ConnectedHTTP in the same PR.",
+            "recommendation": "Add a TestHome_SignedIn test using a minimal Gin engine with session middleware (matching the navHeaderEngine pattern), seed uid + email, GET /, assert 'Log out' and 'View your vehicles' are present and 'Visits this session' / 'Check database' are absent.",
+            "status": "fixed"
+          }
+        ],
+        "budget": {
+          "five_hour_pct_start": 10,
+          "five_hour_pct_end": 20,
+          "context_pct_start": 7,
+          "context_pct_end": 8,
+          "cost_usd_start": 0.8617,
+          "cost_usd_end": 3.2924,
+          "cost_usd_delta": 2.4307,
+          "note": "leader-owned bracket; reviewer round on Sonnet under Claude Code (budget now live). Round duration_seconds=3 is the reviewer's own start/end stamps; wall ~317s."
+        },
+        "fix": {
+          "by": "leader+gateway-worker",
+          "at": "2026-07-26T12:53:30Z",
+          "F1": "base.templ HTML comment -> // Go comments (stripped by templ); base_templ.go now has zero <!--; nav-header div slot + htmx swap invariant unchanged.",
+          "F2": "added handlers.TestHome_SignedInRendersUserContent + homeEngine helper (mirrors navHeaderEngine+sessionCookie); asserts signed-in content present + debug bits/login link absent.",
+          "budget": {
+            "five_hour_pct_start": 24,
+            "five_hour_pct_end": 31,
+            "context_pct_start": 10,
+            "context_pct_end": 10,
+            "cost_usd_start": 4.1679,
+            "cost_usd_end": 5.5788,
+            "cost_usd_delta": 1.4109
+          }
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -316,6 +383,16 @@
       "at": "2026-07-26T12:30:00Z",
       "agent": "leader",
       "event": "STEP 6 VERIFY PASSED. openspec validate --strict -> Change is valid. make check (build+vet+ui-guard+test) ALL GREEN repo-wide (account/config/gateway/gateway/handlers/gateway/templates/ui/manualcharge/telemetry/tesla ok; db/* no test files). make css yields byte-identical app.css (clean match — no stray dirt; stale-CSS guard green). status -> verified. Next: Step 7 review (dispatch gateway-reviewer)."
+    },
+    {
+      "at": "2026-07-26T12:47:00Z",
+      "agent": "leader",
+      "event": "RESUME under Claude Code (Opus 4.8) — prior sessions ran opencode/glm-5.2; budget now LIVE (5h 20%, ctx 8%). STEP 7 review round 1: dispatched gateway-reviewer (Sonnet, native kkpa-module-reviewer) -> verdict changes-requested, 2 findings. Leader TRIAGE: F1 (major, HTML comment in base.templ:53-54 shipped to browser) ACCEPTED — verified directly, violates non-negotiable CLAUDE.md HTML-comment rule. F2 (minor, signed-in TestHome missing per T1 criterion) ACCEPTED — reviewer's cited helpers all real (handlers/handlers_test.go sessionCookie/navHeaderEngine/TestNavHeaderFragment_ConnectedHTTP); leader's initial doubt was a non-recursive-grep scoping error, retracted. Both accepted -> re-dispatching gateway worker (Sonnet) to fix, then signal same reviewer to re-verify."
+    },
+    {
+      "at": "2026-07-26T12:53:30Z",
+      "agent": "leader",
+      "event": "Review round 1 fixes LANDED (gateway worker, Sonnet). F1: base.templ HTML comment removed (//-comments, templ-stripped; base_templ.go grep <!-- = 0). F2: handlers.TestHome_SignedInRendersUserContent + homeEngine added, signed-in home criterion now met. Leader re-verified: make check GREEN (build+vet+ui-guard+test), stale-CSS guard GREEN (app.css byte-identical). Findings F1/F2 -> fixed. Committing fix, then signalling gateway-reviewer (agentId a69f9fe78655b0b66) to re-verify prior findings + changed files only."
     }
   ]
 }

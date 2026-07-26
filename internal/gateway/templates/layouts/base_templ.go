@@ -123,7 +123,7 @@ func BaseAuth(title, path string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</main></div><div class=\"drawer-side\"><label for=\"nav-drawer\" aria-label=\"close sidebar\" class=\"drawer-overlay\"></label><div id=\"nav-header\" hx-get=\"/ui/nav-header\" hx-trigger=\"load\" hx-swap=\"outerHTML\"><!-- placeholder: the nav-header fragment (GET /ui/nav-header)\n\t\t\t\t\t     is swapped in by htmx on load; until then this slot is empty. --></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</main></div><div class=\"drawer-side\"><label for=\"nav-drawer\" aria-label=\"close sidebar\" class=\"drawer-overlay\"></label><div id=\"nav-header\" hx-get=\"/ui/nav-header\" hx-trigger=\"load\" hx-swap=\"outerHTML\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
