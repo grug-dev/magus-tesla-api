@@ -105,6 +105,60 @@ was `approved`; the mandated T6.2 criteria were met, so the added coverage was d
 rather than reopening the review. Recorded in the RM3 tier-1 progress.json review round 1.
 
 
+## 4. gateway — Supercharger Stats screen
+
+### PROPOSAL
+
+Build the "Supercharger Stats" page the navigation sidebar has been pointing to as a
+placeholder ("soon") since `gateway-add-stitch-design-handoff`. The nav entry currently
+renders as `Href="#"` with a "Soon" badge (the Stitch design's "Supercharger Stats" item,
+icon `analytics`); this change makes it a live route + page.
+
+Likely consumes the existing `telemetry.Reader` and/or `tesla` charging-history data
+(read-only, same indexed reads as the dashboard). The concrete metrics/layout are a
+design-time decision for the change that picks this up; mirror the `charges`
+gold-standard slice (view model → page/fragments → Gin handler → routes) composed from
+the `ui/` kit, semantic tokens only.
+
+**TRIGGER — pick up when** the user wants the "Supercharger Stats" nav entry to become a
+live page (replace the placeholder link + "Soon" badge with a real `/supercharger-stats`
+route + page). The placeholder wiring (nav item + `ui.NavItem.Placeholder`) was added by
+`gateway-add-stitch-design-handoff`.
+
+### ORIGIN
+
+`gateway-add-stitch-design-handoff` grill decision **D9** (user, 2026-07-26): Stitch nav
+items "Supercharger Stats" and "Settings" are placeholders in this change, both recorded
+as future work here. See the change's `tasks.md` T6 and `design.md` §3.4.
+
+
+## 5. gateway — Settings page
+
+### PROPOSAL
+
+Build the "Settings" page the navigation sidebar has been pointing to as a placeholder
+("soon") since `gateway-add-stitch-design-handoff`. The nav entry currently renders as
+`Href="#"` with a "Soon" badge (the Stitch design's "Settings" item, icon `settings`);
+this change makes it a live route + page.
+
+Likely a read/write surface for user preferences (account, units, notification, Tesla
+connection management). Any writes go through the owning module's port (e.g. `account`),
+respecting the gateway's read-only-at-request-time rule + the documented user-initiated
+write exception pattern. Concrete settings are a design-time decision for the change that
+picks this up; mirror the `charges` gold-standard slice, `ui/` kit, semantic tokens.
+
+**TRIGGER — pick up when** the user wants the "Settings" nav entry to become a live page
+(replace the placeholder link + "Soon" badge with a real `/settings` route + page). The
+placeholder wiring (nav item + `ui.NavItem.Placeholder`) was added by
+`gateway-add-stitch-design-handoff`.
+
+### ORIGIN
+
+`gateway-add-stitch-design-handoff` grill decision **D9** (user, 2026-07-26): Stitch nav
+items "Supercharger Stats" and "Settings" are placeholders in this change, both recorded
+as future work here. See the change's `tasks.md` T6 and `design.md` §3.4.
+
+
 
 # BRAINSTORMING
 

@@ -41,36 +41,23 @@ are intentionally deferred to a later resume pass.
 
 ## What Changes
 
-Primary module: **`internal/gateway/`** (the only module that produces HTML), plus one
-repo-root config file and the shared UI convention doc.
+Primary module: **`internal/gateway/`** (the only module that produces HTML), plus the
+shared UI convention doc (`ai/htmx-conventions.md`). The Stitch MCP connection itself is
+global user config — NOT a committed project file (per D5; see §a).
 
 ### (a) Wire the Stitch MCP server into Claude Code
 
-Add a **project-scoped** `.mcp.json` at the repo root so the Stitch MCP server is available
-to anyone working this repo in Claude Code:
-
-```json
-{
-  "mcpServers": {
-    "stitch": {
-      "command": "npx",
-      "args": ["-y", "@google/stitch-mcp@latest"],
-      "env": { "STITCH_API_TOKEN": "${STITCH_API_TOKEN}" }
-    }
-  }
-}
-```
-
-- **Secret handling (non-negotiable).** The `STITCH_API_TOKEN` (from stitch.withgoogle.com
-  → Settings → API Tokens → Generate New Token) is a credential. It is referenced via
-  `${STITCH_API_TOKEN}` env expansion and sourced from the untracked `.env` / shell —
-  **never** the literal token inside the committed `.mcp.json`. This mirrors the project's
-  "files that must never be committed" rule (`CLAUDE.md` §Security). Add `STITCH_API_TOKEN`
-  to `.env.example` (documented, empty) so contributors know it is required.
-- Runs as a **local stdio** server via `npx` (nothing to host). Requires restarting Claude
-  Code after adding; verify with "what tools do you have access to?" in a fresh session.
-- Alternative scope (open question below): keep it user-level in
-  `~/.claude/mcp_servers.json` instead of a committed project `.mcp.json`.
+The Stitch MCP connection is **GLOBAL user config** (per resolved decision D5), NOT a
+committed project file. The user's global opencode/Claude Code MCP config points at
+the Stitch **REMOTE** server at `https://stitch.googleapis.com/mcp` with an
+`X-Goog-Api-Key` header env-indirected via `{env:STITCH_API_TOKEN}`. Stitch is a general
+design tool, not this project's infrastructure, so this repo carries only the
+translation-**convention** doc (`ai/htmx-conventions.md` §"Stitch designs → `ui/` kit
+translation") — no `.mcp.json`, no `STITCH_API_TOKEN` in `.env.example`, no Stitch config
+or secret in any tracked file. The literal API key stays OUT of all tracked files
+(env-indirected); the user exports `STITCH_API_TOKEN` in the shell profile launching the
+editor and restarts the editor for the MCP connection to build. (D5 supersedes the
+earlier option-a `.mcp.json` plan recorded in the original draft of this proposal.)
 
 ### (b) Document the Stitch → `ui/` kit translation convention
 
@@ -94,12 +81,14 @@ way — a closed, lookup-able procedure rather than an improvised one each time:
 6. Mirror the `charges` gold-standard slice; `kkpa-goth-scaffold-ui scaffold <concept>` is
    the scaffolding entry point.
 
-### (c) Apply it — build one screen (deferred to design/build)
+### (c) Apply it — Login re-skin + Menu/navigation redesign (resolved by D1)
 
-Translate the specific screen the user designed in Stitch into a gateway slice (view model
-→ page/fragments → Gin handler → routes). **Which screen is an open question** (below) —
-this proposal establishes the mechanism; the concrete screen, its data source, and its read
-paths are pinned down at design time once the user names it and shares the design.
+Translate the Stitch Login screen (`593dc9d2dea647808643aa29935151c3`) and the
+Menu/navigation (the sidebar of `db4901e044c54869972239f92534cedc`) into gateway
+templates composed from the `ui/` kit. The Login is a visual re-skin of the EXISTING
+Google login (D6); the navigation reuses the EXISTING `account.RegisteredVehicles` +
+`telemetry.Reader.LatestSnapshotsByAccount` read ports (D7). Details in `design.md`;
+behavioral specs in `specs/gateway/spec.md`; atomic apply tasks in `tasks.md`.
 
 ### (d) DESIGN.md → DaisyUI theme mapping — out of scope (future)
 
@@ -109,18 +98,25 @@ becomes its own change and should be recorded in `openspec/roadmaps/backlog.md`.
 
 ## Breaking
 
-No. Adding a project `.mcp.json`, an `.env.example` entry, and doc sections is additive; the
-eventual screen is a new gateway slice. No existing route, handler, Go interface, or Templ
-component changes shape.
+No. The translation-convention doc section is additive; the Stitch MCP connection is
+global user config (not a committed file, per D5). The runtime deliverable is a Login
+re-skin (visual only — keeps the existing `/auth/google/login` link) plus a navigation
+redesign that reuses existing read ports — no existing route, handler, Go interface, or
+Templ component is removed; the only handler/route removed is the dead `/ui/health`
+debug demo (per D11). No DB change (see "No Database Changes").
 
 ## Modules affected
 
-- `internal/gateway/` — primary: the new screen slice + the translation-convention pointer
-  in its `AGENTS.md`.
-- Repo-root `.mcp.json` (new), `.env.example`, and `ai/htmx-conventions.md` — cross-cutting
-  dev-workflow/config, leader-owned, outside any module sandbox.
-- No other `internal/` module. (The chosen screen may *consume* an existing module's port
-  read-only; which one is TBD with the screen.)
+- `internal/gateway/` — primary: the Login re-skin, the Menu/navigation redesign (nav
+  header + nav items), and the `home.templ` debug cleanup. Consumes the existing
+  `account.RegisteredVehicles` and `telemetry.Reader.LatestSnapshotsByAccount` read
+  ports (read-only); no new module, no DB object.
+- `ai/htmx-conventions.md` — the Stitch→`ui/`-kit translation-convention section
+  (leader-owned Phase A, already done); the Stitch MCP connection is global user config
+  (D5), outside any module sandbox and NOT committed to this repo.
+- `openspec/roadmaps/backlog.md` — two future-work entries (Supercharger Stats screen;
+  Settings page) appended per D9.
+- No other `internal/` module.
 
 ## No Database Changes
 
@@ -131,37 +127,69 @@ change — not this gateway UI slice.)
 
 ## Read Paths Affected
 
-TBD with the chosen screen. If it renders existing module data (battery / charge / vehicle
-state, etc.), it reuses that module's existing indexed read via its public port — no new
-query, no hot path. Any new read path will be named in design.md per the proposal rule
-before build. The MCP handoff itself is a **dev-time** activity (the assistant reads the
-design during development); it is not a runtime read path.
+The runtime deliverable reuses two EXISTING indexed reads (no new query, no new index):
+`account.RegisteredVehicles(ctx, accountID)` (vehicle name) and
+`telemetry.Reader.LatestSnapshotsByAccount(ctx, accountID)` (battery level + `CapturedAt`),
+the latter the same single `DISTINCT ON` range scan the dashboard already runs once per
+render. The nav-header fragment runs these once per authed page load; they are isolated to
+a single `GET /ui/nav-header` htmx fragment so the page shell renders identity-only (hot
+path stays cheap). The Login page needs NO read path (pure static markup + one link). The
+`home.templ` debug cleanup removes a dead fragment handler/route. Full hot-path analysis is
+in `design.md` §5 "Read Paths Affected". The MCP handoff itself is a **dev-time** activity
+(the assistant reads the design during development); it is not a runtime read path.
 
 ## Capabilities
 
 ### Added / Modified Capabilities
 
-- **Dev-workflow + docs (immediate).** The `.mcp.json` Stitch entry and the
-  `ai/htmx-conventions.md` translation section — enablement/convention, not runtime
-  behavior, so no GIVEN/WHEN/THEN behavioral spec is required for them.
-- **`gateway` (deferred — this change's runtime deliverable).** One new screen rendered
-  from the translated Stitch design. Its behavioral spec is written at design time once the
-  screen is chosen.
+- **Dev-workflow + docs (Phase A — already done by the leader).** The global Stitch MCP
+  connection (D5) and the `ai/htmx-conventions.md` translation section —
+  enablement/convention, not runtime behavior, so no GIVEN/WHEN/THEN behavioral spec is
+  required for them.
+- **`gateway` (this change's runtime deliverable).** The Login re-skin and the
+  Menu/navigation redesign. Behavioral specs are in `specs/gateway/spec.md` (delta).
 
 ### Consumed Capabilities (no change to their specs)
 
 - TBD — whichever module port the chosen screen reads from (read-only). No port/spec change
   anticipated.
 
-## Open questions — resolve on resume (before design.md)
+## Resolved decisions (D1–D12 — see progress.json `decisions[]`)
 
-Saved as a proposal only, per request; these are deliberately left for the resume pass:
+The open questions in the original draft of this proposal were resolved in the
+leader↔user grill-me pass (2026-07-26) and recorded as binding decisions D1–D12 in
+`progress.json` `decisions[]`. The design.md authoring cross-references these by ID.
 
-1. **Which screen** did you design in Stitch? Does it redesign an existing page
-   (`dashboard` / `charges` / …) or add a new one, and what data does it show?
-2. **MCP scope** — committed project `.mcp.json` (shared; token via `${STITCH_API_TOKEN}`)
-   as proposed, or keep it user-level in `~/.claude/mcp_servers.json`?
-3. **grill-me pass** — `openspec/config.yaml` requires the grill-me skill on proposals for
-   binding decisions. A focused grill on the chosen screen's data model / read path is still
-   pending and must run before design.md.
-4. **DESIGN.md → DaisyUI theme** — include now or defer to the backlog (default: defer)?
+- **D1** (user) — The Stitch screen to translate is the **Login** screen plus the
+  **Menu/navigation** (redesign-or-new pinned at grill time).
+- **D2** (user, **superseded by D5**) — the original "committed project `.mcp.json`"
+  plan for the Stitch MCP connection.
+- **D3** (user) — The grill-me pass ran AFTER the Stitch MCP was connected, against
+  the actual designs.
+- **D4** (user) — `DESIGN.md → DaisyUI theme` mapping is **deferred** (not part of
+  this change; backlog when wanted).
+- **D5** (user, supersedes D2) — The Stitch MCP connection is **GLOBAL user config**
+  (remote server `https://stitch.googleapis.com/mcp`, `X-Goog-Api-Key` env-indirected
+  via `{env:STITCH_API_TOKEN}`), NOT project-scoped. This repo keeps only the
+  translation-convention doc, no Stitch config/secret. The `.mcp.json` paragraph above
+  was reconciled to this.
+- **D6** (user) — Login is a VISUAL re-skin of the EXISTING Google login; keep
+  "Continue with Google" (→ `/auth/google/login`), drop Stitch's email/password/"Sign
+  In"/"OR". No new auth module, no DB change.
+- **D7** (user) — Nav header (vehicle name + battery % + status dot) reads the LATEST
+  snapshot via the EXISTING `telemetry.Reader.LatestSnapshotsByAccount` + the account
+  vehicle-name port; "Connected" is freshness-derived from `CapturedAt`. No new read
+  path, no new module, no DB object.
+- **D8** (user) — Stitch nav's "Wake Vehicle" button is DROPPED (conflicts with the
+  gateway's Data Access Model).
+- **D9** (user) — "Supercharger Stats" + "Settings" render as placeholder/"soon" links;
+  both appended to `openspec/roadmaps/backlog.md` as future work.
+- **D10** (leader) — "Dashboard" → `/dashboard` and "Manual Records" → `/charges` map
+  to the EXISTING pages.
+- **D11** (user) — `home.templ` debug artifacts ("Visits this session" + the
+  "Check database" htmx health-fragment demo) are REMOVED; the rest of the landing is
+  untouched.
+- **D12** (user) — Stitch's inline `<script>` (parallax + focus-scale) and ALL inline
+  client JS are DROPPED (zero-JS); the external `googleusercontent.com` background
+  image is replaced by a CSS gradient or embedded local asset (design.md decides —
+  gradient).
