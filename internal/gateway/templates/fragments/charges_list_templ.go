@@ -76,7 +76,7 @@ func ChargesList(d ChargesPageData) templ.Component {
 			})
 			templ_7745c5c3_Err = ui.Button(ui.ButtonProps{
 				Variant: "ghost",
-				Class:   "btn-sm",
+				Size:    "sm",
 				Attrs: templ.Attributes{
 					"hx-get":    "/ui/charges/list",
 					"hx-target": "#charges-list",

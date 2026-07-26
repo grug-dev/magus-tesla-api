@@ -42,6 +42,26 @@ func inputType(t string) string {
 	return t
 }
 
+// btnSize maps a Button size to its DaisyUI class. Empty → md, DaisyUI's default
+// (no class emitted). Owning the size here keeps `btn-sm`/`btn-lg`/… out of call
+// sites, so a DaisyUI size-class rename is a one-place edit.
+func btnSize(size string) string {
+	switch size {
+	case "xs":
+		return "btn-xs"
+	case "sm":
+		return "btn-sm"
+	case "md":
+		return "btn-md"
+	case "lg":
+		return "btn-lg"
+	case "xl":
+		return "btn-xl"
+	default:
+		return ""
+	}
+}
+
 // alertClass maps an Alert kind to its DaisyUI class. Unknown/empty → info.
 func alertClass(kind string) string {
 	switch kind {

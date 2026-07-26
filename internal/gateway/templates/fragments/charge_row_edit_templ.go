@@ -562,7 +562,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 		})
 		templ_7745c5c3_Err = ui.Button(ui.ButtonProps{
 			Variant: "primary",
-			Class:   "btn-sm",
+			Size:    "sm",
 			Attrs: templ.Attributes{
 				"hx-put":     "/ui/charges/row/" + vm.ID,
 				"hx-target":  "#charge-row-" + vm.ID,
@@ -593,7 +593,7 @@ func ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[stri
 		})
 		templ_7745c5c3_Err = ui.Button(ui.ButtonProps{
 			Variant: "ghost",
-			Class:   "btn-sm",
+			Size:    "sm",
 			Attrs: templ.Attributes{
 				"hx-get":    "/ui/charges/row/" + vm.ID,
 				"hx-target": "#charge-row-" + vm.ID,

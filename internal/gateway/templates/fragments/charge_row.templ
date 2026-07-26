@@ -18,7 +18,7 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 			<div class="flex gap-2">
 				@ui.Button(ui.ButtonProps{
 					Variant: "ghost",
-					Class:   "btn-sm",
+					Size:    "sm",
 					Attrs: templ.Attributes{
 						"hx-get":    "/ui/charges/row/" + vm.ID + "/edit",
 						"hx-target": "#charge-row-" + vm.ID,
@@ -29,7 +29,8 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 				}
 				@ui.Button(ui.ButtonProps{
 					Variant: "error",
-					Class:   "btn-sm btn-outline",
+					Size:    "sm",
+					Outline: true,
 					Attrs: templ.Attributes{
 						"hx-delete":  "/ui/charges/row/" + vm.ID,
 						"hx-target":  "#charge-row-" + vm.ID,

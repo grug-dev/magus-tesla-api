@@ -14,7 +14,7 @@ templ ChargesList(d ChargesPageData) {
 				<h2 class="text-lg font-semibold">Your entries</h2>
 				@ui.Button(ui.ButtonProps{
 					Variant: "ghost",
-					Class:   "btn-sm",
+					Size:    "sm",
 					Attrs: templ.Attributes{
 						"hx-get":    "/ui/charges/list",
 						"hx-target": "#charges-list",

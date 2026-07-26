@@ -2,23 +2,27 @@ package ui
 
 // ButtonProps configures a Button. Attrs carries htmx (hx-get/hx-target/hx-swap) or
 // any other attributes. If Href is set the component renders an <a>, otherwise a
-// <button>. Variant/Type are mapped to safe values by btnClass/btnType.
+// <button>. Variant/Type/Size are mapped to safe DaisyUI classes by btnClass/btnType/
+// btnSize; Outline adds the DaisyUI `btn-outline` modifier. Every DaisyUI button
+// class is owned here, so Class is for extra LAYOUT utilities only (never `btn-*`).
 type ButtonProps struct {
 	Variant string           // "primary"|"secondary"|"accent"|"ghost"|"outline"|"error" (default primary)
+	Size    string           // "xs"|"sm"|"md"|"lg"|"xl" (default md — no class)
+	Outline bool             // adds btn-outline (combine with a color Variant, e.g. error)
 	Type    string           // "button"|"submit" (default button)
 	Href    string           // if set, renders <a> instead of <button>
-	Class   string           // extra layout utilities only
+	Class   string           // extra layout utilities only — never a btn-* class
 	Attrs   templ.Attributes // hx-* and other attributes
 }
 
 // Button renders a themed action as either a link or a button.
 templ Button(p ButtonProps) {
 	if p.Href != "" {
-		<a href={ templ.SafeURL(p.Href) } class={ btnClass(p.Variant), p.Class } { p.Attrs... }>
+		<a href={ templ.SafeURL(p.Href) } class={ btnClass(p.Variant), btnSize(p.Size), templ.KV("btn-outline", p.Outline), p.Class } { p.Attrs... }>
 			{ children... }
 		</a>
 	} else {
-		<button type={ btnType(p.Type) } class={ btnClass(p.Variant), p.Class } { p.Attrs... }>
+		<button type={ btnType(p.Type) } class={ btnClass(p.Variant), btnSize(p.Size), templ.KV("btn-outline", p.Outline), p.Class } { p.Attrs... }>
 			{ children... }
 		</button>
 	}

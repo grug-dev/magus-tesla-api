@@ -308,7 +308,10 @@ build: ## Compile every package + command in the monolith (go build ./...)
 vet: ## Static analysis across all packages (go vet ./...)
 	go vet ./...
 
-test: ## Run all tests (manualcharge auto-provisions a disposable Postgres via testcontainers when DATABASE_URL is unset)
+test: ## Run all tests against disposable testcontainer Postgres (never the real magus DB; ignores .env DATABASE_URL)
+	env -u DATABASE_URL go test ./...
+
+test-with-db: ## Run all tests against the configured DATABASE_URL (opt-in; CI with a managed Postgres)
 	go test ./...
 
 check: build vet ui-guard test ## Full local gate: build + vet + ui-guard + test

@@ -77,7 +77,7 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 				<div class="flex gap-2">
 					@ui.Button(ui.ButtonProps{
 						Variant: "primary",
-						Class:   "btn-sm",
+						Size:    "sm",
 						Attrs: templ.Attributes{
 							"hx-put":     "/ui/charges/row/" + vm.ID,
 							"hx-target":  "#charge-row-" + vm.ID,
@@ -89,7 +89,7 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 					}
 					@ui.Button(ui.ButtonProps{
 						Variant: "ghost",
-						Class:   "btn-sm",
+						Size:    "sm",
 						Attrs: templ.Attributes{
 							"hx-get":    "/ui/charges/row/" + vm.ID,
 							"hx-target": "#charge-row-" + vm.ID,

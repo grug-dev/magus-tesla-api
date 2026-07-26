@@ -10,12 +10,16 @@ import templruntime "github.com/a-h/templ/runtime"
 
 // ButtonProps configures a Button. Attrs carries htmx (hx-get/hx-target/hx-swap) or
 // any other attributes. If Href is set the component renders an <a>, otherwise a
-// <button>. Variant/Type are mapped to safe values by btnClass/btnType.
+// <button>. Variant/Type/Size are mapped to safe DaisyUI classes by btnClass/btnType/
+// btnSize; Outline adds the DaisyUI `btn-outline` modifier. Every DaisyUI button
+// class is owned here, so Class is for extra LAYOUT utilities only (never `btn-*`).
 type ButtonProps struct {
 	Variant string           // "primary"|"secondary"|"accent"|"ghost"|"outline"|"error" (default primary)
+	Size    string           // "xs"|"sm"|"md"|"lg"|"xl" (default md — no class)
+	Outline bool             // adds btn-outline (combine with a color Variant, e.g. error)
 	Type    string           // "button"|"submit" (default button)
 	Href    string           // if set, renders <a> instead of <button>
-	Class   string           // extra layout utilities only
+	Class   string           // extra layout utilities only — never a btn-* class
 	Attrs   templ.Attributes // hx-* and other attributes
 }
 
@@ -42,7 +46,7 @@ func Button(p ButtonProps) templ.Component {
 		}
 		ctx = templ.ClearChildren(ctx)
 		if p.Href != "" {
-			var templ_7745c5c3_Var2 = []any{btnClass(p.Variant), p.Class}
+			var templ_7745c5c3_Var2 = []any{btnClass(p.Variant), btnSize(p.Size), templ.KV("btn-outline", p.Outline), p.Class}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -54,7 +58,7 @@ func Button(p ButtonProps) templ.Component {
 			var templ_7745c5c3_Var3 templ.SafeURL
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(p.Href))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/button.templ`, Line: 17, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/button.templ`, Line: 21, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -94,7 +98,7 @@ func Button(p ButtonProps) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			var templ_7745c5c3_Var5 = []any{btnClass(p.Variant), p.Class}
+			var templ_7745c5c3_Var5 = []any{btnClass(p.Variant), btnSize(p.Size), templ.KV("btn-outline", p.Outline), p.Class}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var5...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -106,7 +110,7 @@ func Button(p ButtonProps) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(btnType(p.Type))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/button.templ`, Line: 21, Col: 32}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/button.templ`, Line: 25, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
