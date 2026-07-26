@@ -12,7 +12,7 @@
     "done": []
   },
   "created_at": "2026-07-26T10:13:57Z",
-  "updated_at": "2026-07-26T10:43:06Z",
+  "updated_at": "2026-07-26T10:52:30Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -81,11 +81,6 @@
       "agent": "leader",
       "event": "Reconciliation after user D5 (supersedes D2): Stitch MCP connection moves from project-scoped to GLOBAL user config. Reverted project opencode.jsonc and .mcp.json (back to codegraph-only), removed STITCH_API_TOKEN from .env.example. Added stitch REMOTE server (https://stitch.googleapis.com/mcp, X-Goog-Api-Key: {env:STITCH_API_KEY}) to global ~/.config/opencode/opencode.json (additive to context7). Reworded ai/htmx-conventions.md step 1 to point at the global Stitch MCP, not .mcp.json. The literal API key stays OUT of all tracked files (env-indirected); user must export STITCH_API_KEY in shell profile and restart opencode. SECURITY: user pasted a live key in chat earlier -> flagged for rotation. Project repo now carries only the translation CONVENTION; the connection is global."
     },
-{
-      "at": "2026-07-26T10:22:00Z",
-      "agent": "leader",
-      "event": "Reconciliation after user D5 (supersedes D2): Stitch MCP connection moves from project-scoped to GLOBAL user config. Reverted project opencode.jsonc and .mcp.json (back to codegraph-only), removed STITCH_API_TOKEN from .env.example. Added stitch REMOTE server (https://stitch.googleapis.com/mcp, X-Goog-Api-Key: {env:STITCH_API_KEY}) to global ~/.config/opencode/opencode.json (additive to context7). Reworded ai/htmx-conventions.md step 1 to point at the global Stitch MCP, not .mcp.json. The literal API key stays OUT of all tracked files (env-indirected); user must export STITCH_API_KEY in shell profile and restart opencode. SECURITY: user pasted a live key in chat earlier -> flagged for rotation. Project repo now carries only the translation CONVENTION; the connection is global."
-    },
     {
       "at": "2026-07-26T10:37:29Z",
       "agent": "leader",
@@ -95,6 +90,16 @@
       "at": "2026-07-26T10:43:06Z",
       "agent": "leader",
       "event": "Resume pass 2. Git clean, on ft/gateway-add-stitch-design-handoff (committed prior progress.json). Probed stitch MCP -> still 'missing required authentication credential'. Root cause corrected: ENV NAME MISMATCH. Global opencode config referenced {env:STITCH_API_KEY} but the exported var is STITCH_API_TOKEN (53 chars, confirmed set in opencode process env and inherited by bash subshell). The prior session's claim 'env var IS exported for the opencode process' was true for STITCH_API_TOKEN, not STITCH_API_KEY. Fix (leader-owned, global, outside repo): changed X-Goog-Api-Key header in ~/.config/opencode/opencode.json from {env:STITCH_API_KEY} -> {env:STITCH_API_TOKEN} to match the exported name; D5's intent (X-Goog-Api-Key header, env-indirected) unchanged. BLOCKER: config not hot-reloaded and the running opencode session holds the old empty-header MCP connection -> user must fully QUIT and restart opencode for {env:STITCH_API_TOKEN} to resolve and the MCP connection to rebuild with the correct header. Status stays proposed; grill-me (D3) and worker artifacts deferred until Stitch MCP confirmed working. SECURITY: the live STITCH_API_TOKEN value was printed into this session's tool output -> the earlier rotation flag still stands."
+    },
+    {
+      "at": "2026-07-26T10:49:38Z",
+      "agent": "leader",
+      "event": "Resume pass 3. DEFINITIVE ROOT CAUSE via curl + timestamps. curl POST to https://stitch.googleapis.com/mcp with -H 'X-Goog-Api-Key: $STITCH_API_TOKEN' returns HTTP 200 + valid MCP initialize response -> credential IS valid and X-Goog-Api-Key is the correct header name. opencode process (PID 23518) started at 10:42:03Z; config file mtime 10:42:58Z -> config was edited 55s AFTER opencode started, so the running opencode loaded the PRE-fix config (env name STITCH_API_KEY, unset -> empty header) and never rebuilt the MCP connection. The user's prior 'restart' did not actually restart the opencode PROCESS (still PID 23518 from before the fix). opencode DOES support {env:...} in remote MCP headers (docs confirm via Context7 example) and STITCH_API_TOKEN IS in the opencode process env (confirmed via ps -E). Therefore no further diagnosis is needed: the fix is correct, only a true process restart is missing. BLOCKER stands: user must fully QUIT opencode (Ctrl+C / quit, not /clear) and relaunch from a shell that has STITCH_API_TOKEN exported, then resume. SECURITY: live STITCH_API_TOKEN printed into tool output AGAIN this session (ps -E) -> rotation is now urgent and unavoidable before any Stitch work proceeds. Status stays proposed."
+    },
+    {
+      "at": "2026-07-26T10:52:30Z",
+      "agent": "leader",
+      "event": "Resume pass 4 under fresh opencode session. Stitch MCP CONFIRMED WORKING: stitch_list_projects returned project 'Tesla Insights Dashboard' (id 1959646399633310328, DESKTOP, dark 'Kinetic Precision' theme) with 8 screen instances. stitch_list_screens identified the Login screen (593dc9d2dea647808643aa29935151c3 'Login - Tesla Core') and the authenticated Dashboard (db4901e044c54869972239f92534cedc 'Dashboard - Tesla Core (Apex Theme)') carrying the Menu/navigation. Prior blocker (stale process env-name mismatch) RESOLVED by user's true restart. Deduped a duplicate 10:22 event entry left by a prior session. Budget: opencode runtime => statusline cache is foreign => budget UNAVAILABLE (treated as null, checkpoints warn-only) per skill Step 0.7, even though scripts/budget.sh returned a payload. Runtime probe: subagent dispatch available (kkpa-module-worker/reviewer), no live SendMessage. Status stays proposed; next step = grill-me (D3) on Login+Menu data model/read paths, then dispatch worker for design.md/specs/tasks.md."
     }
   ]
 }
