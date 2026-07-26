@@ -7,12 +7,12 @@
   "status": "proposed",
   "rollup": {
     "current": [],
-    "pending": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5"],
     "blocked": [],
-    "done": []
+    "done": ["T6"]
   },
   "created_at": "2026-07-26T10:13:57Z",
-  "updated_at": "2026-07-26T11:28:46Z",
+  "updated_at": "2026-07-26T11:39:05Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -20,7 +20,98 @@
     "base": "main",
     "created_at": "2026-07-26T10:13:00Z"
   },
-  "tasks": [],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Strip home.templ debug bits + dead health fragment",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "Redesign login.templ (visual re-skin, markup only)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "Evolve ui.NavShell + add ui.Icon + nav-item model",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "Nav-header fragment handler + view model + freshness logic",
+      "module": "gateway",
+      "depends_on": ["T3"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Reconcile home.templ Home handler after T1 (compile closure)",
+      "module": "gateway",
+      "depends_on": ["T1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Backlog entries for Supercharger Stats + Settings (future work)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": null,
+      "started_at": "2026-07-26T11:34:00Z",
+      "completed_at": "2026-07-26T11:36:00Z",
+      "duration_seconds": 120,
+      "notes": "Done at artifact time per D9: backlog #4 Supercharger Stats + #5 Settings appended (PROPOSAL+ORIGIN), committed in 3e3371d. No apply dispatch needed.",
+      "budget": null
+    }
+  ],
   "review": {
     "status": "not-started",
     "agent": null,
@@ -112,6 +203,20 @@
       "at": "2026-07-26T11:28:00Z",
       "scope": "grill:no-js-asset",
       "decision": "Stitch's inline <script> (parallax + focus-scale) and ALL inline JS are DROPPED (zero-JS convention). The Stitch background image references an external googleusercontent URL — replaced by an embedded local asset OR a CSS gradient per the no-external-CDN/embedded-asset rule. Exact treatment decided in design.md."
+    },
+    {
+      "id": "D13",
+      "made_by": "leader",
+      "at": "2026-07-26T11:39:00Z",
+      "scope": "design:multi-vehicle",
+      "decision": "Nav header shows the PRIMARY vehicle only = first entry of account.RegisteredVehicles (design DD4). A multi-vehicle SELECTOR (Stitch top-bar button) is DEFERRED. The worker did NOT add a backlog entry for it (flagged for leader). GAP: project rule says future-work goes to backlog — pending user decision whether to add backlog #6 'gateway — Vehicle selector'."
+    },
+    {
+      "id": "D14",
+      "made_by": "leader",
+      "at": "2026-07-26T11:39:00Z",
+      "scope": "design:worker-self-decisions",
+      "decision": "Worker authored design.md DD1-DD11 (gradient bg, nav-header htmx fragment, 48h freshness window, primary=first, ui.Icon inline SVG, placeholder 'Soon' badge, Manual Records relabel, drop wake, login keep/drop, semantic status tokens, home cleanup incl. dead health route/fragment/tests). Non-DB design decisions; no gated user confirmation required. Active-nav highlighting threaded via BaseAuth(title,path) (worker add). Safety-net T5 added for compile closure after T1."
     }
   ],
   "events": [
@@ -154,6 +259,11 @@
       "at": "2026-07-26T11:28:46Z",
       "agent": "leader",
       "event": "Grill-me pass COMPLETED (D3). Leader read the Stitch Login + Dashboard HTML exports and the existing login.templ (Google login -> /auth/google/login), home.templ (debug 'VisitCount'/'Check database'), telemetry.Snapshot (BatteryLevel+ChargingState+CapturedAt), layouts.BaseAuth drawer + ui.NavShell. Recorded binding decisions D6-D12: re-skin Google login (drop email/password/SignIn/OR), keep 'Continue with Google'; nav header reuses existing telemetry.Reader.LatestSnapshotsByAccount + account vehicle name, freshness-derived 'Connected'; drop 'Wake Vehicle'; nav items Dashboard->/dashboard, Manual Records->/charges (autopilot D10), Supercharger Stats+Settings ->placeholder (->backlog); strip home.templ debug bits; drop all Stitch inline JS + replace external bg image with embedded asset/gradient. NO DB object touched -> database design gate NOT tripped. Next: dispatch gateway worker for design.md + specs + tasks.md."
+    },
+    {
+      "at": "2026-07-26T11:39:05Z",
+      "agent": "leader",
+      "event": "Step 3+4: worker (kkpa-module-worker ses_061cf34c) produced design.md (DD1-DD11), specs/gateway delta (Login, Nav Shell, Nav Header, Nav Items, Home Debug Cleanup), tasks.md (T1-T6). openspec validate initially FAILED (spec used ## Requirement/### Scenario instead of delta format); leader fixed mechanically to ## ADDED Requirements / ### Requirement: / #### Scenario: -> validate --strict PASSES. proposal.md reconciled to D5/D6-D12 (open questions -> Resolved decisions). backlog #4 Supercharger Stats + #5 Settings appended (D9) => T6 seeded DONE. Registered D13 (multi-vehicle selector deferred, backlog gap) + D14 (worker DD1-DD11 self-decisions, no DB gate). Design gate NOT tripped (no DB object). Artifacts committed 3e3371d. progress.json tasks[] seeded: T1-T5 pending, T6 done; rollup pending[T1-T5]/done[T6]. PRE-EXISTING TREE DIRT: internal/gateway/static/app.css locally modified (minified-blob regen, @@-1,2+1,2@@) NOT touched by the worker — pending user disposition before apply wave runs make css. Next: resolve app.css + multi-vehicle backlog, then Step 5 apply."
     }
   ]
 }
