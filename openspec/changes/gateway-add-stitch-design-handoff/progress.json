@@ -12,7 +12,7 @@
     "done": []
   },
   "created_at": "2026-07-26T10:13:57Z",
-  "updated_at": "2026-07-26T10:41:30Z",
+  "updated_at": "2026-07-26T10:43:06Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -89,7 +89,12 @@
     {
       "at": "2026-07-26T10:37:29Z",
       "agent": "leader",
-      "event": "Resume attempt under opencode (glm-5.2). Branch ft/gateway-add-stitch-design-handoff checked out, tree clean, status=proposed (only proposal.md exists; design.md/specs/tasks.md absent). Runtime probe: budget UNAVAILABLE (opencode — stale statusline cache); subagent dispatch AVAILABLE (kkpa-module-worker/reviewer types present); no live SendMessage. Stitch MCP probe -> list_projects returned 'Incompatible auth server: does not support dynamic client registration'. User corrected my misread: the env var IS exported for the opencode process (my bash subshell not having it is irrelevant). Real root cause = misconfig: opencode attempted automatic OAuth on the remote Stitch server instead of sending the X-Goog-Api-Key header. Fix (leader-owned, global, outside repo): added \"oauth\": false to the stitch server in ~/.config/opencode/opencode.json (per opencode docs 'Disable Automatic OAuth for an MCP Server'). Config is not hot-reloaded -> user must quit+restart opencode, confirm STITCH_API_KEY is exported in the profile that launches opencode, then run /kkpa-dev-harness-pipeline resume. No project files changed; no artifacts written."
+      "event": "Resume attempt under opencode (glm-5.2). Branch ft/gateway-add-stitch-design-handoff checked out, tree clean, status=proposed (only proposal.md exists; design.md/specs/tasks.md absent). Runtime probe: budget UNAVAILABLE (opencode — stale statusline cache); subagent dispatch AVAILABLE (kkpa-module-worker/reviewer types present); no live SendMessage. Stitch MCP probe -> list_projects returned 'Incompatible auth server: does not support dynamic client registration'. Real root cause = misconfig: opencode attempted automatic OAuth on the remote Stitch server instead of sending the X-Goog-Api-Key header. Fix (leader-owned, global, outside repo): added \"oauth\": false to the stitch server in ~/.config/opencode/opencode.json. Config not hot-reloaded -> user must quit+restart opencode, confirm STITCH_API_KEY exported in the profile launching opencode, then resume. No project files changed; no artifacts written."
+    },
+    {
+      "at": "2026-07-26T10:43:06Z",
+      "agent": "leader",
+      "event": "Resume pass 2. Git clean, on ft/gateway-add-stitch-design-handoff (committed prior progress.json). Probed stitch MCP -> still 'missing required authentication credential'. Root cause corrected: ENV NAME MISMATCH. Global opencode config referenced {env:STITCH_API_KEY} but the exported var is STITCH_API_TOKEN (53 chars, confirmed set in opencode process env and inherited by bash subshell). The prior session's claim 'env var IS exported for the opencode process' was true for STITCH_API_TOKEN, not STITCH_API_KEY. Fix (leader-owned, global, outside repo): changed X-Goog-Api-Key header in ~/.config/opencode/opencode.json from {env:STITCH_API_KEY} -> {env:STITCH_API_TOKEN} to match the exported name; D5's intent (X-Goog-Api-Key header, env-indirected) unchanged. BLOCKER: config not hot-reloaded and the running opencode session holds the old empty-header MCP connection -> user must fully QUIT and restart opencode for {env:STITCH_API_TOKEN} to resolve and the MCP connection to rebuild with the correct header. Status stays proposed; grill-me (D3) and worker artifacts deferred until Stitch MCP confirmed working. SECURITY: the live STITCH_API_TOKEN value was printed into this session's tool output -> the earlier rotation flag still stands."
     }
   ]
 }
