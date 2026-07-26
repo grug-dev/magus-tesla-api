@@ -12,7 +12,7 @@
     "done": ["T6"]
   },
   "created_at": "2026-07-26T10:13:57Z",
-  "updated_at": "2026-07-26T11:39:05Z",
+  "updated_at": "2026-07-26T11:47:05Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -217,6 +217,20 @@
       "at": "2026-07-26T11:39:00Z",
       "scope": "design:worker-self-decisions",
       "decision": "Worker authored design.md DD1-DD11 (gradient bg, nav-header htmx fragment, 48h freshness window, primary=first, ui.Icon inline SVG, placeholder 'Soon' badge, Manual Records relabel, drop wake, login keep/drop, semantic status tokens, home cleanup incl. dead health route/fragment/tests). Non-DB design decisions; no gated user confirmation required. Active-nav highlighting threaded via BaseAuth(title,path) (worker add). Safety-net T5 added for compile closure after T1."
+    },
+    {
+      "id": "D15",
+      "made_by": "user",
+      "at": "2026-07-26T11:47:00Z",
+      "scope": "tree:app-css",
+      "decision": "Pre-existing local modification to internal/gateway/static/app.css (minified-blob regen, not worker-touched) is KEPT as-is — leader does NOT revert. Apply worker will run make css and commit the regenerated app.css; if make css yields byte-identical output to HEAD, the worker runs git checkout -- app.css so stray dirt isn't committed erroneously."
+    },
+    {
+      "id": "D16",
+      "made_by": "user",
+      "at": "2026-07-26T11:47:00Z",
+      "scope": "backlog:multi-vehicle",
+      "decision": "Add backlog #6 'gateway — Vehicle selector (multi-vehicle nav header)' to openspec/roadmaps/backlog.md now (resolves the D13 gap). Nav header keeps primary-vehicle-only in THIS change; the selector is future work, properly recorded."
     }
   ],
   "events": [
@@ -264,6 +278,11 @@
       "at": "2026-07-26T11:39:05Z",
       "agent": "leader",
       "event": "Step 3+4: worker (kkpa-module-worker ses_061cf34c) produced design.md (DD1-DD11), specs/gateway delta (Login, Nav Shell, Nav Header, Nav Items, Home Debug Cleanup), tasks.md (T1-T6). openspec validate initially FAILED (spec used ## Requirement/### Scenario instead of delta format); leader fixed mechanically to ## ADDED Requirements / ### Requirement: / #### Scenario: -> validate --strict PASSES. proposal.md reconciled to D5/D6-D12 (open questions -> Resolved decisions). backlog #4 Supercharger Stats + #5 Settings appended (D9) => T6 seeded DONE. Registered D13 (multi-vehicle selector deferred, backlog gap) + D14 (worker DD1-DD11 self-decisions, no DB gate). Design gate NOT tripped (no DB object). Artifacts committed 3e3371d. progress.json tasks[] seeded: T1-T5 pending, T6 done; rollup pending[T1-T5]/done[T6]. PRE-EXISTING TREE DIRT: internal/gateway/static/app.css locally modified (minified-blob regen, @@-1,2+1,2@@) NOT touched by the worker — pending user disposition before apply wave runs make css. Next: resolve app.css + multi-vehicle backlog, then Step 5 apply."
+    },
+    {
+      "at": "2026-07-26T11:47:05Z",
+      "agent": "leader",
+      "event": "Pre-apply dispositions resolved with user: D15 = keep app.css local mod as-is (no revert; apply worker handles byte-identical regen via git checkout); D16 = add backlog #6 'gateway — Vehicle selector (multi-vehicle nav header)' now (resolves D13 gap). Backlog #6 appended to openspec/roadmaps/backlog.md under Pending. Next: Step 5 apply wave."
     }
   ]
 }
