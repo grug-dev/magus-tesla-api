@@ -13,7 +13,7 @@ import (
 // Chrome comes from the owned ui/ kit (PageHeader, Button); the fragments carry
 // their own Card surfaces so they stay styled when swapped in standalone.
 templ ChargePage(d fragments.ChargesPageData) {
-	@layouts.BaseAuth("Charge log — Magus") {
+	@layouts.BaseAuth("Charge log — Magus", "/charges") {
 		@ui.PageHeader(ui.PageHeaderProps{Title: "Charge log"}) {
 			@ui.Button(ui.ButtonProps{Variant: "ghost", Href: "/dashboard"}) {
 				Back to dashboard

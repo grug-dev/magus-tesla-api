@@ -4,15 +4,15 @@
   "change": "gateway-add-stitch-design-handoff",
   "module": "gateway",
   "request": "Wire the Stitch (Google Labs AI UI design tool) MCP server into Claude Code; document the Stitch -> ui/ kit translation convention; apply it to build one screen (Login + Menu navigation) the user designed in Stitch, mirroring the charges gold-standard slice.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5"],
+    "pending": ["T4", "T5"],
     "blocked": [],
-    "done": ["T6"]
+    "done": ["T1", "T2", "T3", "T6"]
   },
   "created_at": "2026-07-26T10:13:57Z",
-  "updated_at": "2026-07-26T11:47:05Z",
+  "updated_at": "2026-07-26T11:54:08Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -27,13 +27,13 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "gateway",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "started_at": "2026-07-26T11:48:56Z",
+      "completed_at": "2026-07-26T11:52:22Z",
+      "duration_seconds": 206,
+      "notes": "Done. Removed HomeView.VisitCount + HomeView.Health + 'Visits this session' <p> + 'Check database' <button hx-get=/ui/health> + @templ.Fragment(\"health\") block from home.templ; kept SignedIn/Email + signed-in/anonymous content. Dropped visits session read/increment/save + Health field from Home handler; deleted HealthFragment handler + health() helper. Removed r.GET(\"/ui/health\", h.HealthFragment) from gateway.go. Deleted fragments/health.templ + stale health_templ.go. Removed TestHealthFragment_ReturnsFragmentOnly + TestSession_VisitCounterRoundTrips; updated TestHome_RendersLayoutAndHtmx to assert the debug bits are GONE; added TestHealthRoute_Removed asserting GET /ui/health -> 404. make templ + make css run. go build/vet/test ./internal/gateway/... green + ui-guard green. Self-decision: did NOT add an HTTP signed-in-home test (no easy way to forge an encrypted session cookie in testEngine without going through Google OAuth); signed-in branch is structurally unchanged (only VisitCount/Health fields removed) and compile-verified.",
       "budget": null
     },
     {
@@ -42,13 +42,13 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "gateway",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "started_at": "2026-07-26T11:49:43Z",
+      "completed_at": "2026-07-26T11:52:22Z",
+      "duration_seconds": 159,
+      "notes": "Done. Rewrote login.templ per design.md §2: @layouts.Base(\"Sign in — Magus\") shell; login-local bg gradient wrapper <div fixed inset-0 -z-10 bg-gradient-to-br from-base-200 via-base-100 to-base-300> (semantic tokens, no hex, no external image, NOT in Base); centered <main> with TESLA CORE branding + Precision Fleet Monitoring tagline (static); @ui.Card holding @ui.Button{Variant:primary, Href:/auth/google/login, Class:w-full} with inline Google G SVG (4 brand fills #4285F4/#34A853/#FBBC05/#EA4335 — the ONE permitted hardcoded-color exception, commented) + 'Continue with Google' label; optional <footer> with three null-href Privacy/Terms/Support links. DROPPED email/password inputs, 'Sign In' button, 'OR' divider, googleusercontent bg image, ALL inline <script>. pages.Login() is zero-arg; LoginPage handler + GET /login route unchanged (no port call). make templ + make css run. go build/vet/test green + ui-guard green. Added TestLogin_RendersContinueWithGoogle asserting 'Continue with Google' + href=/auth/google/login present and type=email/password/googleusercontent/<script> absent.",
       "budget": null
     },
     {
@@ -57,13 +57,13 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "gateway",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "started_at": "2026-07-26T11:49:43Z",
+      "completed_at": "2026-07-26T11:52:22Z",
+      "duration_seconds": 159,
+      "notes": "Done. Extended ui.NavItem with Icon string + Placeholder bool; NavShell renders icon <span>@ui.Icon</span> + label <span> + 'Soon' @ui.Badge{warning} only on placeholders, menu-active when Active, Href forced to '#' for placeholders (navHref helper). New ui/icon.templ: ui.Icon(IconProps{Name,Class}) switch of inline <svg> fill=currentColor, glyphs dashboard/ev_station/analytics/settings/menu/battery; unknown -> blank (closed vocabulary). layouts/nav.go: navItems() -> navItems(active string) []ui.NavItem, four entries (Dashboard /dashboard, Manual Records /charges, Supercharger Stats placeholder, Settings placeholder), Active by Href==active, glyph names set. layouts/base.templ: BaseAuth(title, path string); replaced inline hamburger svg with @ui.Icon{menu}; added <div id=nav-header hx-get=/ui/nav-header hx-trigger=load hx-swap=outerHTML> placeholder slot ABOVE @ui.NavShell(navItems(path)) in the drawer side. Self-decision (FLAGGED for leader): task T3 text lists pages/dashboard.templ as a BaseAuth call site, but it used @layouts.Base (not BaseAuth). Converted dashboard.templ to @layouts.BaseAuth(\"Your vehicles — Magus\", \"/dashboard\") and dropped its nested <main> (BaseAuth renders its own <main class=p-4>) so the active-nav highlighting reaches the Dashboard entry and the spec scenario '/dashboard renders the nav shell' holds. charges.templ now passes \"/charges\". NOTE: between T3 and T4 (wave 2) the nav-header placeholder fires GET /ui/nav-header which is 404 until T4 lands — intended intermediate state per the wave design (htmx async swap; page shell still paints). make templ + make css run. go build/vet/test green + ui-guard green. Added ui/nav_shell_test.go: TestNavShell_RendersIconsAndSoonBadges (4 <svg>, 2 'Soon', 2 '#', 1 menu-active, no external CDN) + TestIcon_ClosedVocabulary (all 6 glyphs render svg+currentColor, unknown->blank).",
       "budget": null
     },
     {
@@ -231,6 +231,13 @@
       "at": "2026-07-26T11:47:00Z",
       "scope": "backlog:multi-vehicle",
       "decision": "Add backlog #6 'gateway — Vehicle selector (multi-vehicle nav header)' to openspec/roadmaps/backlog.md now (resolves the D13 gap). Nav header keeps primary-vehicle-only in THIS change; the selector is future work, properly recorded."
+    },
+    {
+      "id": "D17",
+      "made_by": "leader",
+      "at": "2026-07-26T11:54:00Z",
+      "scope": "apply:wave-1",
+      "decision": "Accepted worker self-decision (T3): pages/dashboard.templ was using @layouts.Base, NOT BaseAuth. Converted it to @layouts.BaseAuth(\"Your vehicles — Magus\", \"/dashboard\") and dropped its nested <main> (BaseAuth renders its own <main class=p-4>) so the nav shell + active-nav highlighting reach /dashboard — required by the spec scenario 'GIVEN a signed-in user requesting any authenticated page (/dashboard, /charges) ... the response contains the drawer sidebar'. Behavior change: /dashboard now renders the drawer/sidebar. Presented to user before wave 2. NOTE: between wave 1 and wave 2 the nav-header placeholder fires GET /ui/nav-header which 404s until T4 lands — intended intermediate state on the feature branch (htmx async; page shell still paints)."
     }
   ],
   "events": [
@@ -283,6 +290,11 @@
       "at": "2026-07-26T11:47:05Z",
       "agent": "leader",
       "event": "Pre-apply dispositions resolved with user: D15 = keep app.css local mod as-is (no revert; apply worker handles byte-identical regen via git checkout); D16 = add backlog #6 'gateway — Vehicle selector (multi-vehicle nav header)' now (resolves D13 gap). Backlog #6 appended to openspec/roadmaps/backlog.md under Pending. Next: Step 5 apply wave."
+    },
+    {
+      "at": "2026-07-26T11:54:08Z",
+      "agent": "leader",
+      "event": "WAVE 1 COMPLETE (one serial worker, kkpa-module-worker ses_061beddb). T1+T2+T3 done: home.templ debug bits + dead /ui/health route/fragment/tests stripped; login.templ re-skinned (Continue with Google -> /auth/google/login, no email/password/SignIn/OR/script, CSS gradient bg per DD1); ui.NavShell evolved + new ui.Icon (inline SVG closed vocab) + navItems(active) + BaseAuth(title,path) with #nav-header htmx placeholder. Leader verified go build ./... + go test ./internal/gateway/... GREEN; ui-guard green. app.css regenerated to 98507 bytes (legitimately changed — new classes; NOT the stray dirt) — left in place per D15 (not byte-identical to HEAD). Registered D17 (accepted worker self-decision: dashboard.templ Base->BaseAuth so nav shell reaches /dashboard per spec). Budget UNAVAILABLE (opencode) => budget:null for T1/T2/T3, checkpoint warn-only. Status -> in-progress; rollup done[T1,T2,T3,T6] pending[T4,T5]. Next: checkpoint recommendation to user, then wave 2 (T4 depends T3 + T5 depends T1)."
     }
   ]
 }

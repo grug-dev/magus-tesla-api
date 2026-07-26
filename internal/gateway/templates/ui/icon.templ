@@ -1,0 +1,54 @@
+package ui
+
+// IconProps configures an Icon. Name is a closed glyph vocabulary (extended in the
+// switch in iconMarkup below); Class is extra layout utilities (e.g. "h-5 w-5") —
+// never a color class, since the SVG uses fill="currentColor" driven by the
+// surrounding text color semantic token (text-base-content / text-primary / …).
+type IconProps struct {
+	Name  string // "dashboard"|"ev_station"|"analytics"|"settings"|"menu"|"battery"
+	Class string
+}
+
+// Icon renders an inline SVG glyph from a closed vocabulary. No external CDN, no
+// icon-font webfont, no client-side JS — only inline SVG with fill="currentColor"
+// so semantic theme tokens drive its color and the whole app re-skins from one
+// <html data-theme>. Add a glyph by extending the switch in iconMarkup (one place).
+templ Icon(p IconProps) {
+	@iconMarkup(p)
+}
+
+// iconMarkup maps a glyph name to its inline SVG path data. A closed vocabulary so
+// an agent looks up the name instead of re-drawing SVG — AI-efficiency + the
+// ui.Icon abstraction means a glyph can be refined here without touching pages.
+templ iconMarkup(p IconProps) {
+	switch p.Name {
+	case "menu":
+		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<path d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/>
+		</svg>
+	case "dashboard":
+		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<path d="M3 3h8v8H3zM13 3h8v8h-8zM3 13h8v8H3zM13 13h8v8h-8z"/>
+		</svg>
+	case "ev_station":
+		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<path d="M7 2v11h3v9l7-12h-4l4-8z"/>
+		</svg>
+	case "analytics":
+		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<path d="M4 20V10h3v10zm6 0V4h3v16zm6 0v-7h3v7z"/>
+		</svg>
+	case "settings":
+		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+		</svg>
+	case "battery":
+		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<rect x="2" y="7" width="17" height="10" rx="2"/>
+			<rect x="20" y="10" width="2" height="4"/>
+		</svg>
+	default:
+		// Unknown glyph: render nothing (closed-vocabulary contract — pages pass a
+		// known name; a typo degrades to blank rather than a broken glyph).
+	}
+}

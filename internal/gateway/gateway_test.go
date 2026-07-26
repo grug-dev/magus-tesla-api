@@ -65,6 +65,34 @@ func TestTeslaCallback_AnonymousRedirectedToLogin(t *testing.T) {
 	}
 }
 
+// TestLogin_RendersContinueWithGoogle asserts the re-skinned login page offers the
+// existing Google OAuth flow as a single "Continue with Google" affordance and drops
+// the Stitch email/password/"Sign In"/"OR" elements, the external bg image, and all
+// inline <script>.
+func TestLogin_RendersContinueWithGoogle(t *testing.T) {
+	eng := testEngine(t)
+	w := httptest.NewRecorder()
+	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/login", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /login status = %d, want 200", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{"Continue with Google", `href="/auth/google/login"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("login body missing %q\n%s", want, body)
+		}
+	}
+	for _, gone := range []string{
+		`type="email"`, `type="password"`,
+		`googleusercontent.com`,
+		"<script>",
+	} {
+		if strings.Contains(body, gone) {
+			t.Errorf("login body should NOT contain %q", gone)
+		}
+	}
+}
+
 func TestGoogleLogin_RedirectsToGoogleWithState(t *testing.T) {
 	eng := testEngine(t)
 	w := httptest.NewRecorder()
@@ -111,6 +139,17 @@ func TestHome_AnonymousOffersSignIn(t *testing.T) {
 	}
 }
 
+// TestHealthRoute_Removed asserts the dead /ui/health route was unregistered by
+// the home-debug cleanup — the router now returns 404, not a fragment.
+func TestHealthRoute_Removed(t *testing.T) {
+	eng := testEngine(t)
+	w := httptest.NewRecorder()
+	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ui/health", nil))
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("GET /ui/health should be 404 after the health-fragment removal, got %d", w.Code)
+	}
+}
+
 func TestHome_RendersLayoutAndHtmx(t *testing.T) {
 	eng := testEngine(t)
 	w := httptest.NewRecorder()
@@ -120,27 +159,17 @@ func TestHome_RendersLayoutAndHtmx(t *testing.T) {
 		t.Fatalf("status = %d, want 200", w.Code)
 	}
 	body := w.Body.String()
-	for _, want := range []string{"<title>Magus</title>", "/static/htmx.min.js", "Visits this session", `id="health"`} {
+	for _, want := range []string{"<title>Magus</title>", "/static/htmx.min.js"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("home body missing %q", want)
 		}
 	}
-}
-
-func TestHealthFragment_ReturnsFragmentOnly(t *testing.T) {
-	eng := testEngine(t)
-	w := httptest.NewRecorder()
-	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ui/health", nil))
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", w.Code)
-	}
-	body := w.Body.String()
-	if !strings.Contains(body, `id="health"`) {
-		t.Errorf("fragment missing the health region:\n%s", body)
-	}
-	if strings.Contains(body, "<html") || strings.Contains(body, "<title>") {
-		t.Errorf("fragment must not include the page shell:\n%s", body)
+	// The debug bits are gone: no visit counter, no health fragment region, no
+	// /ui/health trigger.
+	for _, gone := range []string{"Visits this session", `id="health"`, "Check database"} {
+		if strings.Contains(body, gone) {
+			t.Errorf("home body should no longer contain %q", gone)
+		}
 	}
 }
 
@@ -162,31 +191,5 @@ func TestStaticAsset_ServedFromEmbeddedFS(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "htmx") {
 		t.Errorf("served asset does not look like htmx")
-	}
-}
-
-func TestSession_VisitCounterRoundTrips(t *testing.T) {
-	eng := testEngine(t)
-
-	w1 := httptest.NewRecorder()
-	eng.ServeHTTP(w1, httptest.NewRequest(http.MethodGet, "/", nil))
-	if !strings.Contains(w1.Body.String(), "Visits this session: 1.") {
-		t.Fatalf("first visit should show 1:\n%s", w1.Body.String())
-	}
-	cookies := w1.Result().Cookies()
-	if len(cookies) == 0 {
-		t.Fatal("expected a session cookie to be set")
-	}
-
-	// Second visit carrying the session cookie — the counter must advance, proving
-	// the signed+encrypted cookie round-trips with no server-side state.
-	req2 := httptest.NewRequest(http.MethodGet, "/", nil)
-	for _, ck := range cookies {
-		req2.AddCookie(ck)
-	}
-	w2 := httptest.NewRecorder()
-	eng.ServeHTTP(w2, req2)
-	if !strings.Contains(w2.Body.String(), "Visits this session: 2.") {
-		t.Fatalf("second visit should show 2:\n%s", w2.Body.String())
 	}
 }

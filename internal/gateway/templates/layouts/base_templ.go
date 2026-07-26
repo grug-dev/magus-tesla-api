@@ -69,7 +69,12 @@ func Base(title string) templ.Component {
 // <head>/theme, then wraps the page body in a responsive DaisyUI drawer: a persistent
 // sidebar on lg+ screens, a hamburger-triggered slide-out on smaller ones. The sidebar
 // menu is the owned ui.NavShell component so pages/agents never re-author nav markup.
-func BaseAuth(title string) templ.Component {
+//
+// path is the current request path; it lights the active nav item (navItems(path)).
+// The vehicle header slot is an htmx-swappable placeholder (#nav-header) served by
+// GET /ui/nav-header — the shell paints identity-only immediately and the header
+// swaps in after, keeping the telemetry+account reads off the critical render path.
+func BaseAuth(title, path string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -102,7 +107,15 @@ func BaseAuth(title string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"drawer lg:drawer-open\"><input id=\"nav-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"drawer-content flex flex-col\"><nav class=\"navbar bg-base-300 w-full\"><label for=\"nav-drawer\" aria-label=\"open sidebar\" class=\"btn btn-square btn-ghost lg:hidden\"><svg xmlns=\"http://www.w3.org/2000/svg\" class=\"inline-block h-6 w-6 stroke-current\" fill=\"none\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 12h16M4 18h16\"></path></svg></label><div class=\"mx-2 flex-1 px-2 text-lg font-semibold\">Magus</div></nav><main class=\"p-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"drawer lg:drawer-open\"><input id=\"nav-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"drawer-content flex flex-col\"><nav class=\"navbar bg-base-300 w-full\"><label for=\"nav-drawer\" aria-label=\"open sidebar\" class=\"btn btn-square btn-ghost lg:hidden\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = ui.Icon(ui.IconProps{Name: "menu", Class: "h-6 w-6"}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</label><div class=\"mx-2 flex-1 px-2 text-lg font-semibold\">Magus</div></nav><main class=\"p-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -110,15 +123,15 @@ func BaseAuth(title string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</main></div><div class=\"drawer-side\"><label for=\"nav-drawer\" aria-label=\"close sidebar\" class=\"drawer-overlay\"></label>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</main></div><div class=\"drawer-side\"><label for=\"nav-drawer\" aria-label=\"close sidebar\" class=\"drawer-overlay\"></label><div id=\"nav-header\" hx-get=\"/ui/nav-header\" hx-trigger=\"load\" hx-swap=\"outerHTML\"><!-- placeholder: the nav-header fragment (GET /ui/nav-header)\n\t\t\t\t\t     is swapped in by htmx on load; until then this slot is empty. --></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = ui.NavShell(navItems()).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = ui.NavShell(navItems(path)).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -311,22 +311,16 @@ func (h *Handler) TeslaCallback(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/")
 }
 
-// Home renders the landing page: auth state from the session plus the htmx health demo.
+// Home renders the landing page: auth state from the session (sign-in link when
+// anonymous; email + dashboard/connect/log-out links when signed in).
 func (h *Handler) Home(c *gin.Context) {
 	sess := sessions.Default(c)
-	visits, _ := sess.Get("visits").(int)
-	visits++
-	sess.Set("visits", visits)
-	_ = sess.Save()
-
 	uid, _ := sess.Get("uid").(string)
 	email, _ := sess.Get("email").(string)
 
 	render(c, http.StatusOK, pages.Home(pages.HomeView{
-		VisitCount: visits,
-		SignedIn:   uid != "",
-		Email:      email,
-		Health:     h.health(c),
+		SignedIn: uid != "",
+		Email:    email,
 	}))
 }
 
@@ -398,19 +392,6 @@ func (h *Handler) Healthz(c *gin.Context) {
 		return
 	}
 	c.String(http.StatusOK, "ok")
-}
-
-// HealthFragment renders ONLY the "health" fragment of the home page (htmx swap).
-func (h *Handler) HealthFragment(c *gin.Context) {
-	renderFragment(c, http.StatusOK, pages.Home(pages.HomeView{Health: h.health(c)}), "health")
-}
-
-// health pings the DB and returns the presentation model for the health region.
-func (h *Handler) health(c *gin.Context) fragments.Health {
-	if err := h.pool.Ping(c.Request.Context()); err != nil {
-		return fragments.Health{OK: false, Detail: err.Error()}
-	}
-	return fragments.Health{OK: true}
 }
 
 // randomState returns a hex-encoded 256-bit CSRF state for the OAuth flow.
