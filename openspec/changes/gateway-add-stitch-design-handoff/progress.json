@@ -55,6 +55,14 @@
       "at": "2026-07-26T10:10:00Z",
       "scope": "design-system-theme",
       "decision": "DESIGN.md -> custom DaisyUI theme mapping is DEFERRED (not part of this change). Will be recorded in openspec/roadmaps/backlog.md when wanted; this change only translates one Stitch screen into a ui/-kit slice."
+    },
+    {
+      "id": "D5",
+      "made_by": "user",
+      "at": "2026-07-26T10:22:00Z",
+      "scope": "mcp-scope",
+      "supersedes": "D2",
+      "decision": "SUPersedes D2: the Stitch MCP connection is GLOBAL (user's global opencode/Claude Code MCP config, available to any project), NOT project-scoped. Rationale: Stitch is a general design tool, not this project's infrastructure. This repo keeps only the translation-convention doc (ai/htmx-conventions.md) and no Stitch config or secret. Also corrects the transport: Stitch is a REMOTE server at https://stitch.googleapis.com/mcp with an X-Goog-Api-Key header (env-indirected via {env:STITCH_API_KEY}), not the @google/stitch-mcp stdio wrapper D2 assumed."
     }
   ],
   "events": [
@@ -67,6 +75,11 @@
       "at": "2026-07-26T10:13:57Z",
       "agent": "leader",
       "event": "Resume under opencode (glm-5.2). Tree was dirty (proposal + ~14 unrelated UI files staged on main); user pushed them as 79499a6 \"Redesign\" -> clean tree. Created branch ft/gateway-add-stitch-design-handoff off main HEAD. User answered the 4 open questions -> decisions D1-D4 (made_by=user). Phase A leader-owned wiring done: .mcp.json stitch entry (additive to codegraph), .env.example STITCH_API_TOKEN, ai/htmx-conventions.md Stitch->ui/kit translation section. No DB gate (proposal confirms none). Grill + worker artifacts (design.md/specs/tasks) + Login+Menu build deferred to a Claude Code session now that .mcp.json is wired (per D3 \"grill after connecting\" + opencode cannot reach the Stitch MCP directly)."
+    },
+    {
+      "at": "2026-07-26T10:22:00Z",
+      "agent": "leader",
+      "event": "Reconciliation after user D5 (supersedes D2): Stitch MCP connection moves from project-scoped to GLOBAL user config. Reverted project opencode.jsonc and .mcp.json (back to codegraph-only), removed STITCH_API_TOKEN from .env.example. Added stitch REMOTE server (https://stitch.googleapis.com/mcp, X-Goog-Api-Key: {env:STITCH_API_KEY}) to global ~/.config/opencode/opencode.json (additive to context7). Reworded ai/htmx-conventions.md step 1 to point at the global Stitch MCP, not .mcp.json. The literal API key stays OUT of all tracked files (env-indirected); user must export STITCH_API_KEY in shell profile and restart opencode. SECURITY: user pasted a live key in chat earlier -> flagged for rotation. Project repo now carries only the translation CONVENTION; the connection is global."
     }
   ]
 }

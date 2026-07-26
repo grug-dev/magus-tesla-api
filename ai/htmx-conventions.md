@@ -150,10 +150,12 @@ would violate the closed vocabulary above and break one-`data-theme` re-skinning
 Stitch design is **translated**, not merged. The same procedure every time, so an agent or
 human does not improvise:
 
-1. **Read the design.** Via the `stitch` MCP server declared in `.mcp.json` (preferred —
-   it exposes the design structure and the project's `DESIGN.md` design system), or via a
-   screenshot when MCP is unavailable. Identify layout regions, repeated components, and
-   per-state variants (empty / loading / error / authenticated).
+1. **Read the design.** Via the `stitch` MCP server (configured once in the user's global
+   opencode/Claude Code MCP config — not this repo's project config; Stitch is a general
+   design tool, not this project's infrastructure) — preferred, because it exposes the
+   design structure and the project's `DESIGN.md` design system; or via a screenshot when
+   MCP is unavailable. Identify layout regions, repeated components, and per-state variants
+   (empty / loading / error / authenticated).
 2. **Map to the `ui/` kit, never inline.** Rebuild the design as a Templ component
    composed from existing `ui.*` wrappers (`ui.Card`, `ui.StatTile`, `ui.Button`,
    `ui.Table`, `ui.Field` + `ui.Input`, …). If a repeated element has no wrapper yet,
