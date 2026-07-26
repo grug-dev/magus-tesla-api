@@ -12,7 +12,7 @@
     "done": []
   },
   "created_at": "2026-07-26T10:13:57Z",
-  "updated_at": "2026-07-26T10:52:30Z",
+  "updated_at": "2026-07-26T11:28:46Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -63,6 +63,55 @@
       "scope": "mcp-scope",
       "supersedes": "D2",
       "decision": "SUPersedes D2: the Stitch MCP connection is GLOBAL (user's global opencode/Claude Code MCP config, available to any project), NOT project-scoped. Rationale: Stitch is a general design tool, not this project's infrastructure. This repo keeps only the translation-convention doc (ai/htmx-conventions.md) and no Stitch config or secret. Also corrects the transport: Stitch is a REMOTE server at https://stitch.googleapis.com/mcp with an X-Goog-Api-Key header (env-indirected via {env:STITCH_API_KEY}), not the @google/stitch-mcp stdio wrapper D2 assumed."
+    },
+    {
+      "id": "D6",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:auth-model",
+      "decision": "Login is a VISUAL re-skin of the EXISTING Google login flow (login.templ already links /auth/google/login). Stitch's email+password inputs, the 'Sign In' primary button, and the 'OR' divider are DROPPED. The 'Continue with Google' button is kept, wired to /auth/google/login. No new auth module, no DB change, no Google OIDC password flow introduced."
+    },
+    {
+      "id": "D7",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:nav-header-read",
+      "decision": "Nav header (vehicle name + battery % + status dot) reads the LATEST vehicle snapshot via the EXISTING telemetry.Reader.LatestSnapshotsByAccount port (BatteryLevel) joined with account's vehicle name (account port). Status/label derived from snapshot FRESHNESS (CapturedAt within recent window => 'Connected'+green; else 'Asleep'/'Last seen'). No new read path, no new module, no DB object."
+    },
+    {
+      "id": "D8",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:wake-vehicle",
+      "decision": "The Stitch nav's 'Wake Vehicle' button is DROPPED. It conflicts with AGENTS.md's Data Access Model ('users never trigger Tesla API calls on demand', exception is only listing vehicles at first connect). No button is rendered."
+    },
+    {
+      "id": "D9",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:nav-items-placeholder",
+      "decision": "Stitch nav items 'Supercharger Stats' and 'Settings' are rendered as dead/placeholder links (route present or stub, page NOT built this change). Both recorded in openspec/roadmaps/backlog.md as future work (Supercharger Stats screen + Settings page)."
+    },
+    {
+      "id": "D10",
+      "made_by": "leader",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:nav-items-existing",
+      "decision": "Stitch nav items 'Dashboard' => /dashboard and 'Manual Records' => /charges are mapped to the EXISTING pages. Reasonable alternative existed (drop/relabel); user only confirmed the two placeholders in the multi-select, so taken as the obvious default to avoid a third grill round."
+    },
+    {
+      "id": "D11",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:home-debug",
+      "decision": "home.templ debug artifacts ('Visits this session' line + the 'Check database' htmx health-fragment demo) are REMOVED in this change. Rest of the landing (signed-in state, Connect Tesla link, Log out) untouched. No 'NO DB Change' text exists in any gateway .templ (confirmed by grep)."
+    },
+    {
+      "id": "D12",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:no-js-asset",
+      "decision": "Stitch's inline <script> (parallax + focus-scale) and ALL inline JS are DROPPED (zero-JS convention). The Stitch background image references an external googleusercontent URL — replaced by an embedded local asset OR a CSS gradient per the no-external-CDN/embedded-asset rule. Exact treatment decided in design.md."
     }
   ],
   "events": [
@@ -100,6 +149,11 @@
       "at": "2026-07-26T10:52:30Z",
       "agent": "leader",
       "event": "Resume pass 4 under fresh opencode session. Stitch MCP CONFIRMED WORKING: stitch_list_projects returned project 'Tesla Insights Dashboard' (id 1959646399633310328, DESKTOP, dark 'Kinetic Precision' theme) with 8 screen instances. stitch_list_screens identified the Login screen (593dc9d2dea647808643aa29935151c3 'Login - Tesla Core') and the authenticated Dashboard (db4901e044c54869972239f92534cedc 'Dashboard - Tesla Core (Apex Theme)') carrying the Menu/navigation. Prior blocker (stale process env-name mismatch) RESOLVED by user's true restart. Deduped a duplicate 10:22 event entry left by a prior session. Budget: opencode runtime => statusline cache is foreign => budget UNAVAILABLE (treated as null, checkpoints warn-only) per skill Step 0.7, even though scripts/budget.sh returned a payload. Runtime probe: subagent dispatch available (kkpa-module-worker/reviewer), no live SendMessage. Status stays proposed; next step = grill-me (D3) on Login+Menu data model/read paths, then dispatch worker for design.md/specs/tasks.md."
+    },
+    {
+      "at": "2026-07-26T11:28:46Z",
+      "agent": "leader",
+      "event": "Grill-me pass COMPLETED (D3). Leader read the Stitch Login + Dashboard HTML exports and the existing login.templ (Google login -> /auth/google/login), home.templ (debug 'VisitCount'/'Check database'), telemetry.Snapshot (BatteryLevel+ChargingState+CapturedAt), layouts.BaseAuth drawer + ui.NavShell. Recorded binding decisions D6-D12: re-skin Google login (drop email/password/SignIn/OR), keep 'Continue with Google'; nav header reuses existing telemetry.Reader.LatestSnapshotsByAccount + account vehicle name, freshness-derived 'Connected'; drop 'Wake Vehicle'; nav items Dashboard->/dashboard, Manual Records->/charges (autopilot D10), Supercharger Stats+Settings ->placeholder (->backlog); strip home.templ debug bits; drop all Stitch inline JS + replace external bg image with embedded asset/gradient. NO DB object touched -> database design gate NOT tripped. Next: dispatch gateway worker for design.md + specs + tasks.md."
     }
   ]
 }
