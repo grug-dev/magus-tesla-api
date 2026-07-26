@@ -77,6 +77,10 @@ func alertClass(kind string) string {
 }
 
 // badgeClass maps a Badge kind to its DaisyUI class. Unknown/empty → neutral.
+// "ghost" maps to DaisyUI's badge-ghost (used by the nav-header status dot for the
+// awaiting/unavailable states — a neutral, low-emphasis pill). Add a kind here
+// rather than inlining a raw badge-* class in a page/fragment (the ui/ kit is the
+// anti-corruption adapter around DaisyUI component classes).
 func badgeClass(kind string) string {
 	switch kind {
 	case "primary":
@@ -87,6 +91,8 @@ func badgeClass(kind string) string {
 		return "badge-warning"
 	case "error":
 		return "badge-error"
+	case "ghost":
+		return "badge-ghost"
 	default:
 		return "badge-neutral"
 	}

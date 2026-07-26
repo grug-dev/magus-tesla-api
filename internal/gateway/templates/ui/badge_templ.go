@@ -11,7 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 // BadgeProps configures a Badge. Kind maps to a DaisyUI status color; Text is the
 // pre-formatted label (e.g. charging state, "Sentry on").
 type BadgeProps struct {
-	Kind  string // "neutral"|"primary"|"success"|"warning"|"error" (default neutral)
+	Kind  string // "neutral"|"primary"|"success"|"warning"|"error"|"ghost" (default neutral)
 	Text  string
 	Class string
 }

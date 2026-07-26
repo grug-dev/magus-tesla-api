@@ -1,0 +1,114 @@
+package fragments
+
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+
+// NavHeaderStatusKind is the closed status vocabulary the nav-header fragment can
+// render. The handler computes it (DD3/DD10); the template maps it to a ui.Badge
+// kind (presentation-only mapping — no time arithmetic, no domain-method calls).
+type NavHeaderStatusKind string
+
+const (
+	// NavStatusConnected is shown when the primary vehicle's latest snapshot is
+	// within connectedFreshnessWindow (48 h). Renders a success-colored dot.
+	NavStatusConnected NavHeaderStatusKind = "connected"
+	// NavStatusAsleep is shown when the snapshot is older than the window. Renders
+	// a warning-colored dot and a pre-computed "Last seen" label.
+	NavStatusAsleep NavHeaderStatusKind = "asleep"
+	// NavStatusAwaiting is shown when the vehicle is registered but has no stored
+	// snapshot yet. Renders a neutral (ghost) dot, no battery %.
+	NavStatusAwaiting NavHeaderStatusKind = "awaiting"
+	// NavStatusUnavailable is the degraded state when a read port errors. Renders a
+	// ghost dot; the vehicle name may still be present (account read ok, telemetry
+	// failed) or empty (account read failed).
+	NavStatusUnavailable NavHeaderStatusKind = "unavailable"
+)
+
+// NavHeaderVM is the nav-header presentation model. Every display field is
+// pre-computed by the handler so the template does no business logic — it only
+// maps Status to a ui.Badge color and lays out the pre-formed strings.
+//
+// NeedsConnect is the no-vehicles state: it renders a "Connect your Tesla" link
+// and NO status dot / battery / vehicle name (mirrors the dashboard's
+// NeedsConnect). It is distinct from Status (which carries a dot).
+type NavHeaderVM struct {
+	// NeedsConnect is true when the account has no registered vehicles.
+	NeedsConnect bool
+
+	// VehicleName is the primary vehicle's display name (first
+	// account.RegisteredVehicles entry, DD4). Empty when NeedsConnect or when the
+	// account read itself failed.
+	VehicleName string
+
+	// Status is the connected/asleep/awaiting/unavailable kind (DD10). Drives the
+	// status-dot color. Ignored when NeedsConnect is true.
+	Status NavHeaderStatusKind
+
+	// StatusLabel is the pre-computed status word ("Connected", "Asleep",
+	// "Awaiting first snapshot", "Unavailable") shown next to the dot.
+	StatusLabel string
+
+	// BatteryPct is the pre-computed "94%" string shown only when connected; empty
+	// otherwise (the template composes "Connected • 94%" — display assembly, not
+	// arithmetic).
+	BatteryPct string
+
+	// LastSeenLabel is the pre-computed relative label (e.g. "2 days ago") shown
+	// only when asleep; empty otherwise. The template composes
+	// "Asleep • Last seen 2 days ago".
+	LastSeenLabel string
+}
+
+// NavHeader is the nav-header region swapped in by htmx at GET /ui/nav-header.
+// Its body is wrapped in a @templ.Fragment("nav-header") block whose root
+// <div id="nav-header"> matches the fragment id (and the #nav-header placeholder
+// rendered by layouts.BaseAuth) — the required htmx-swap invariant. As a
+// standalone fragment (not nested in a page), the @templ.Fragment declaration is
+// what lets renderFragment(..., "nav-header") emit only this region. It composes
+// the ui/ kit (ui.Badge for the status dot) and semantic tokens only; never a raw
+// DaisyUI component class, never a hex color.
+templ NavHeader(vm NavHeaderVM) {
+	@templ.Fragment("nav-header") {
+		<div id="nav-header" class="px-4 py-3">
+			if vm.NeedsConnect {
+				<div class="text-base-300 text-sm">
+					<span>No Tesla connected.</span>
+				</div>
+				<a href="/connect/tesla" class="text-sm link link-primary">Connect your Tesla</a>
+			} else {
+				<div class="flex flex-col gap-1">
+					if vm.VehicleName != "" {
+						<span class="font-semibold text-base-content text-sm truncate">{ vm.VehicleName }</span>
+					}
+					<div class="flex items-center gap-2">
+						@ui.Badge(ui.BadgeProps{Kind: navBadgeKind(vm.Status), Text: ""})
+						<span class="text-xs text-base-300">
+							{ vm.StatusLabel }
+							if vm.BatteryPct != "" {
+								<span>• { vm.BatteryPct }</span>
+							}
+							if vm.LastSeenLabel != "" {
+								<span>• Last seen { vm.LastSeenLabel }</span>
+							}
+						</span>
+					</div>
+				</div>
+			}
+		</div>
+	}
+}
+
+// navBadgeKind maps a NavHeaderStatusKind to the ui.Badge Kind that colors the
+// status dot (DD10 — semantic tokens only): connected → success, asleep →
+// warning, awaiting/unavailable → ghost. This is presentation logic (StatusKind
+// → badge color), which the template owns; the closed status vocabulary is
+// defined above (the constants). No business logic, no time math.
+func navBadgeKind(s NavHeaderStatusKind) string {
+	switch s {
+	case NavStatusConnected:
+		return "success"
+	case NavStatusAsleep:
+		return "warning"
+	default:
+		return "ghost"
+	}
+}

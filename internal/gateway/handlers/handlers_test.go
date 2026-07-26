@@ -5,9 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
@@ -361,6 +367,29 @@ func TestIsStale(t *testing.T) {
 	}
 }
 
+// TestConnectedAt verifies the exact-at-threshold and boundary semantics of the
+// connectedAt nav-header helper using a fixed clock — fully deterministic. This
+// mirrors TestIsStale, but for the 48 h connectedFreshnessWindow boundary (DD3).
+func TestConnectedAt(t *testing.T) {
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	// Exactly at window: duration == connectedFreshnessWindow, STILL connected
+	// (<= window — the strict inverse of isStale's strict >).
+	if !connectedAt(now.Add(-connectedFreshnessWindow), now) {
+		t.Errorf("want connectedAt true at exactly window (<= boundary), got false")
+	}
+
+	// One nanosecond past the window: duration > window, NOT connected (asleep).
+	if connectedAt(now.Add(-connectedFreshnessWindow-time.Nanosecond), now) {
+		t.Errorf("want connectedAt false one nanosecond past window, got true")
+	}
+
+	// One nanosecond within the window: connected.
+	if !connectedAt(now.Add(-connectedFreshnessWindow+time.Nanosecond), now) {
+		t.Errorf("want connectedAt true one nanosecond within window, got false")
+	}
+}
+
 func TestVehiclesFor_SentryModeThreeStates(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "Nil"},
@@ -442,5 +471,225 @@ func TestSeedAccessTypeMapping_Empty(t *testing.T) {
 	sv := acct.lastSeedVehicles[0]
 	if sv.AccessType != nil {
 		t.Errorf("want nil AccessType for empty-string vehicle, got %q", *sv.AccessType)
+	}
+}
+
+// --- nav-header fragment (T4) ---
+//
+// navHeaderFor is the gin-free helper; these unit tests cover the six enumerated
+// cases purely (no HTTP, no session), mirroring the vehiclesFor tests above. The
+// fragment route's anonymous -> /login redirect is covered in gateway_test.go.
+
+// newNavHeaderHandler builds a Handler wired with account + telemetry fakes for
+// the nav-header helper tests (Tesla is never reached by navHeaderFor).
+func newNavHeaderHandler(acct account.Service, reader telemetry.Reader) *Handler {
+	return newHandlerWithReader(acct, fakeTesla{}, reader)
+}
+
+func TestNavHeaderFor_Connected(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	// 1 h old — well within the 48 h window.
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevel: 94},
+	}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New())
+
+	if vm.NeedsConnect {
+		t.Fatalf("want NeedsConnect false, got true")
+	}
+	if vm.VehicleName != "Magus" {
+		t.Errorf("want VehicleName Magus, got %q", vm.VehicleName)
+	}
+	if vm.Status != "connected" {
+		t.Errorf("want Status connected, got %q", vm.Status)
+	}
+	if vm.StatusLabel != "Connected" {
+		t.Errorf("want StatusLabel Connected, got %q", vm.StatusLabel)
+	}
+	if vm.BatteryPct != "94%" {
+		t.Errorf("want BatteryPct 94%%, got %q", vm.BatteryPct)
+	}
+	if vm.LastSeenLabel != "" {
+		t.Errorf("want no LastSeenLabel when connected, got %q", vm.LastSeenLabel)
+	}
+}
+
+func TestNavHeaderFor_Asleep(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	// 3 days old — past the 48 h window -> asleep.
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 42, CapturedAt: time.Now().Add(-72 * time.Hour), BatteryLevel: 50},
+	}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New())
+
+	if vm.VehicleName != "Magus" {
+		t.Errorf("want VehicleName Magus, got %q", vm.VehicleName)
+	}
+	if vm.Status != "asleep" {
+		t.Errorf("want Status asleep, got %q", vm.Status)
+	}
+	if vm.StatusLabel != "Asleep" {
+		t.Errorf("want StatusLabel Asleep, got %q", vm.StatusLabel)
+	}
+	if vm.BatteryPct != "" {
+		t.Errorf("want no BatteryPct when asleep, got %q", vm.BatteryPct)
+	}
+	// Relative label pre-computed by the handler, present, and references "days".
+	if vm.LastSeenLabel == "" {
+		t.Errorf("want non-empty LastSeenLabel when asleep, got empty")
+	}
+	if !strings.Contains(vm.LastSeenLabel, "days ago") {
+		t.Errorf("want LastSeenLabel to be a days-ago relative label (72 h old), got %q", vm.LastSeenLabel)
+	}
+}
+
+func TestNavHeaderFor_Awaiting(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	// Reader returns an empty slice — no snapshot for the primary vehicle.
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New())
+
+	if vm.NeedsConnect {
+		t.Fatalf("want NeedsConnect false (vehicle registered), got true")
+	}
+	if vm.VehicleName != "Magus" {
+		t.Errorf("want VehicleName Magus, got %q", vm.VehicleName)
+	}
+	if vm.Status != "awaiting" {
+		t.Errorf("want Status awaiting, got %q", vm.Status)
+	}
+	if vm.StatusLabel == "" {
+		t.Errorf("want non-empty StatusLabel for awaiting, got empty")
+	}
+	if vm.BatteryPct != "" || vm.LastSeenLabel != "" {
+		t.Errorf("want no battery/last-seen for awaiting, got battery=%q lastSeen=%q", vm.BatteryPct, vm.LastSeenLabel)
+	}
+}
+
+func TestNavHeaderFor_NeedsConnect(t *testing.T) {
+	// No registered vehicles -> NeedsConnect state (connect link, no dot/name).
+	acct := &fakeAccount{registered: nil}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New())
+
+	if !vm.NeedsConnect {
+		t.Fatalf("want NeedsConnect true when no vehicles registered, got false")
+	}
+	if vm.VehicleName != "" {
+		t.Errorf("want no VehicleName in NeedsConnect state, got %q", vm.VehicleName)
+	}
+	if vm.Status != "" {
+		t.Errorf("want empty Status in NeedsConnect state (no dot rendered), got %q", vm.Status)
+	}
+	if vm.BatteryPct != "" {
+		t.Errorf("want no BatteryPct in NeedsConnect state, got %q", vm.BatteryPct)
+	}
+}
+
+func TestNavHeaderFor_AccountError(t *testing.T) {
+	// RegisteredVehicles errors -> degraded Unavailable, no name.
+	acct := &fakeAccount{regErr: errFake}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New())
+
+	if vm.NeedsConnect {
+		t.Errorf("want NeedsConnect false on account error (don't pretend to know), got true")
+	}
+	if vm.VehicleName != "" {
+		t.Errorf("want no VehicleName on account error, got %q", vm.VehicleName)
+	}
+	if vm.Status != "unavailable" {
+		t.Errorf("want Status unavailable, got %q", vm.Status)
+	}
+	if vm.StatusLabel == "" {
+		t.Errorf("want non-empty StatusLabel for unavailable, got empty")
+	}
+}
+
+func TestNavHeaderFor_TelemetryReaderError(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{err: errFake}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New())
+
+	// Name preserved (account read ok), status degraded, no battery.
+	if vm.VehicleName != "Magus" {
+		t.Errorf("want VehicleName preserved on telemetry error, got %q", vm.VehicleName)
+	}
+	if vm.Status != "unavailable" {
+		t.Errorf("want Status unavailable on telemetry error, got %q", vm.Status)
+	}
+	if vm.BatteryPct != "" {
+		t.Errorf("want no BatteryPct on telemetry error, got %q", vm.BatteryPct)
+	}
+}
+
+// navHeaderEngine builds a minimal Gin engine with session middleware, a /_session
+// route that seeds the uid (matching the sessionCookie contract from
+// charges_test.go), and the nav-header fragment route. Reuses sessionCookie.
+func navHeaderEngine(h *Handler, uid uuid.UUID) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", uid.String())
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/ui/nav-header", h.NavHeaderFragment)
+	return r
+}
+
+// TestNavHeaderFragment_ConnectedHTTP exercises the full fragment route with a
+// seeded session: an authenticated GET /ui/nav-header returns 200 and the rendered
+// fragment contains the vehicle name, the success-colored status dot
+// (badge-success), and the pre-computed battery percentage.
+func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevel: 94},
+	}}
+	h := newNavHeaderHandler(acct, reader)
+	eng := navHeaderEngine(h, uid)
+	cookie := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/nav-header", nil)
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for authenticated nav-header fragment, got %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{
+		`id="nav-header"`,
+		"Magus",
+		"badge-success",
+		"94%",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("nav-header body missing %q\n%s", want, body)
+		}
 	}
 }

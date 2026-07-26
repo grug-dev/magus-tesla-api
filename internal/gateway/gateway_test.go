@@ -130,6 +130,18 @@ func TestDashboard_AnonymousRedirectedToLogin(t *testing.T) {
 	}
 }
 
+// TestNavHeaderFragment_AnonymousRedirectedToLogin asserts the nav-header fragment
+// route is auth-guarded (spec: a request without an authenticated session is
+// redirected to /login — no header served to anonymous callers).
+func TestNavHeaderFragment_AnonymousRedirectedToLogin(t *testing.T) {
+	eng := testEngine(t)
+	w := httptest.NewRecorder()
+	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/ui/nav-header", nil))
+	if w.Code != http.StatusFound || w.Header().Get("Location") != "/login" {
+		t.Fatalf("anonymous /ui/nav-header should redirect to /login, got %d -> %q", w.Code, w.Header().Get("Location"))
+	}
+}
+
 func TestHome_AnonymousOffersSignIn(t *testing.T) {
 	eng := testEngine(t)
 	w := httptest.NewRecorder()

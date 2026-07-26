@@ -7,12 +7,12 @@
   "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["T4", "T5"],
+    "pending": [],
     "blocked": [],
-    "done": ["T1", "T2", "T3", "T6"]
+    "done": ["T1", "T2", "T3", "T4", "T5", "T6"]
   },
   "created_at": "2026-07-26T10:13:57Z",
-  "updated_at": "2026-07-26T11:54:08Z",
+  "updated_at": "2026-07-26T12:16:25Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -72,13 +72,13 @@
       "module": "gateway",
       "depends_on": ["T3"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "gateway",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "started_at": "2026-07-26T12:01:00Z",
+      "completed_at": "2026-07-26T12:16:25Z",
+      "duration_seconds": 925,
+      "notes": "Done. navHeaderFor gin-free helper + NavHeaderFragment handler + GET /ui/nav-header route + fragments/nav_header.templ (root div#nav-header matches @templ.Fragment). connectedFreshnessWindow=48h named const, pure connectedAt(capturedAt,now). Primary=first RegisteredVehicles entry; empty->NeedsConnect; error->Unavailable. NavHeaderVM presentation-only (strings+NavHeaderStatusKind). ui.Badge ghost kind added (badgeClass). Six httptest cases (Connected/Asleep/Awaiting/NeedsConnect/Unavailable/anonymous->/login). go build/vet/test ./internal/gateway/... GREEN. No telemetrydb/accountdb import, no pgtype. DD2/DD3/DD4/DD10 compliant.",
       "budget": null
     },
     {
@@ -87,13 +87,13 @@
       "module": "gateway",
       "depends_on": ["T1"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "gateway",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "started_at": "2026-07-26T12:16:00Z",
+      "completed_at": "2026-07-26T12:16:25Z",
+      "duration_seconds": 25,
+      "notes": "Done (closure confirmed). handlers.Home builds HomeView{SignedIn,Email} only. grep internal/gateway for fragments.Health/HealthCard/VisitCount/visits shows zero live refs (only /ui/health mention is TestHealthRoute_Removed asserting 404). go build/vet/test ./internal/gateway/... GREEN. DD11 closed.",
       "budget": null
     },
     {
@@ -295,6 +295,16 @@
       "at": "2026-07-26T11:54:08Z",
       "agent": "leader",
       "event": "WAVE 1 COMPLETE (one serial worker, kkpa-module-worker ses_061beddb). T1+T2+T3 done: home.templ debug bits + dead /ui/health route/fragment/tests stripped; login.templ re-skinned (Continue with Google -> /auth/google/login, no email/password/SignIn/OR/script, CSS gradient bg per DD1); ui.NavShell evolved + new ui.Icon (inline SVG closed vocab) + navItems(active) + BaseAuth(title,path) with #nav-header htmx placeholder. Leader verified go build ./... + go test ./internal/gateway/... GREEN; ui-guard green. app.css regenerated to 98507 bytes (legitimately changed — new classes; NOT the stray dirt) — left in place per D15 (not byte-identical to HEAD). Registered D17 (accepted worker self-decision: dashboard.templ Base->BaseAuth so nav shell reaches /dashboard per spec). Budget UNAVAILABLE (opencode) => budget:null for T1/T2/T3, checkpoint warn-only. Status -> in-progress; rollup done[T1,T2,T3,T6] pending[T4,T5]. Next: checkpoint recommendation to user, then wave 2 (T4 depends T3 + T5 depends T1)."
+    },
+    {
+      "at": "2026-07-26T12:00:00Z",
+      "agent": "leader",
+      "event": "WAVE 2 DISPATCH (resume). T4+T5 batched into ONE serial worker (both touch handlers.go -> not disjoint files per Step 5.1 default). T1+T3 already done -> T4 (deps T3) + T5 (deps T1) both unblocked. Budget UNAVAILABLE (opencode runtime -> foreign statusline cache per skill Step 0.7) => budget:null, checkpoint warn-only. rollup current[T4,T5] pending[]. Dispatching kkpa-module-worker scoped to internal/gateway/."
+    },
+    {
+      "at": "2026-07-26T12:16:25Z",
+      "agent": "leader",
+      "event": "WAVE 2 COMPLETE (T4+T5). Worker dispatch reported Tool execution aborted but the work LANDED (tree dirty with nav_header.templ+nav_header_templ.go created, handlers.go +134, handlers_test.go +249 six cases, gateway.go +1 route, badge.templ/ui.go ghost kind). Worker had set T4 in-progress only (aborted before closing its entries); T5 untouched. Leader reconciliation: verified go build ./... + go vet ./internal/gateway/... + go test ./internal/gateway/... ALL GREEN. Cross-checked design-decision compliance vs design.md: DD2 (htmx fragment /ui/nav-header + gin-free navHeaderFor + renderFragment + root div#nav-header==@templ.Fragment id), DD3 (connectedFreshnessWindow=48h named const + pure connectedAt(capturedAt,now), distinct from 36h stalenessThreshold), DD4 (primary=first RegisteredVehicles, empty->NeedsConnect, error->Unavailable degraded), DD10 (ui.Badge ghost kind added, badge-success/warning/ghost semantic tokens, no hex) — all compliant. Boundary: no telemetrydb/accountdb import, no pgtype (only doc comment mentioning NEVER-import). Template presentation-only (StatusKind->badge kind mapping; all strings pre-computed). T5 closure grep clean (only TestHealthRoute_Removed asserts /ui/health 404). Set T4 done + T5 done, rollup all-done. Budget UNAVAILABLE (opencode) => no 5h/context numbers. Status -> applied-ready (pending Step 6 verify + Step 7 review). Next: wave commit, then Step 6 verify."
     }
   ]
 }

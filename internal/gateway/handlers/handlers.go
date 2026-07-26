@@ -34,6 +34,14 @@ import (
 // At ~36 h a missed 03:30 nightly poll has elapsed (24 h cycle + 12 h buffer).
 const stalenessThreshold = 36 * time.Hour
 
+// connectedFreshnessWindow is how recent a snapshot's CapturedAt must be for the
+// primary vehicle to show as "Connected" in the nav header (DD3). It tolerates
+// ONE missed nightly poll (24 h cycle + 24 h buffer); the vehicle only flips to
+// "Asleep" after two missed polls. DISTINCT from stalenessThreshold (≈36 h),
+// which gates the dashboard CARD stale marker — a stricter signal about a single
+// reading's freshness, not ongoing connectivity. Both are named (no magic 48).
+const connectedFreshnessWindow = 48 * time.Hour
+
 // Deps are the gateway handlers' dependencies.
 type Deps struct {
 	Pool    *pgxpool.Pool
@@ -197,6 +205,45 @@ func isStale(capturedAt, now time.Time) bool {
 	return now.Sub(capturedAt) > stalenessThreshold
 }
 
+// connectedAt reports whether a snapshot captured at capturedAt is fresh enough
+// (within connectedFreshnessWindow) for the nav header to show "Connected". Pure
+// function of (capturedAt, now) so the exact-at-threshold boundary is
+// deterministically testable, mirroring isStale. Boundary semantics: at exactly
+// the window the snapshot is still connected (<= window, strict inverse of
+// isStale's strict >), one nanosecond older is asleep.
+func connectedAt(capturedAt, now time.Time) bool {
+	return now.Sub(capturedAt) <= connectedFreshnessWindow
+}
+
+// relativeLastSeen returns a human-readable "N days ago" / "N hours ago" /
+// "N minutes ago" label for a captured-at time relative to now. Pre-computed by
+// the handler so the template does no time arithmetic (gateway spec invariant).
+// Whole units, rounded down. Used for the "Asleep • Last seen …" label (>=48 h,
+// so typically "2 days ago" or coarser); the same helper works for any age.
+func relativeLastSeen(capturedAt, now time.Time) string {
+	d := now.Sub(capturedAt)
+	switch {
+	case d >= 48*time.Hour:
+		days := int(d.Hours() / 24)
+		if days == 1 {
+			return "1 day ago"
+		}
+		return fmt.Sprintf("%d days ago", days)
+	case d >= time.Hour:
+		hours := int(d.Hours())
+		if hours == 1 {
+			return "1 hour ago"
+		}
+		return fmt.Sprintf("%d hours ago", hours)
+	default:
+		minutes := int(d.Minutes())
+		if minutes <= 1 {
+			return "just now"
+		}
+		return fmt.Sprintf("%d minutes ago", minutes)
+	}
+}
+
 // mergeSnapshots builds a map from TeslaID to Snapshot for O(1) lookup per vehicle.
 // A nil or empty slice produces an empty map (no panic on range).
 func mergeSnapshots(snaps []telemetry.Snapshot) map[int64]telemetry.Snapshot {
@@ -246,6 +293,93 @@ func mapTeslasToVehicles(vs []tesla.VehicleTesla) []fragments.Vehicle {
 		out = append(out, fragments.Vehicle{DisplayName: v.DisplayName, VIN: v.VIN})
 	}
 	return out
+}
+
+// NavHeaderFragment renders ONLY the nav-header fragment (htmx swap served by
+// GET /ui/nav-header). The #nav-header placeholder is rendered by layouts.BaseAuth
+// on every authed page; htmx fetches this fragment on load and swaps it in, keeping
+// the account + telemetry reads OFF the critical page-render path (DD2).
+func (h *Handler) NavHeaderFragment(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	vm := h.navHeaderFor(c.Request.Context(), uid)
+	renderFragment(c, http.StatusOK, fragments.NavHeader(vm), "nav-header")
+}
+
+// navHeaderFor is the nav-header's core logic, decoupled from gin/session so it
+// is unit-testable with fake account/telemetry implementations. It calls ONLY
+// Reader ports — account.RegisteredVehicles + telemetry.Reader.LatestSnapshotsBy
+// Account (never a Writer/Collector, never Tesla). It never imports a DB package.
+//
+// Degradation rules (DD2 resilience): a read error never returns a 500 — the
+// fragment degrades to a name-only "unavailable" state (telemetry error) or a
+// no-name "unavailable" state (account error), so the page that already rendered
+// stays intact.
+func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID) fragments.NavHeaderVM {
+	registered, err := h.acct.RegisteredVehicles(ctx, uid)
+	if err != nil {
+		log.Printf("gateway: nav-header RegisteredVehicles error for account %s: %v", uid, err)
+		// No vehicles, no name — degraded Unavailable state (no dot color useful
+		// since there is no vehicle to describe). NeedsConnect stays false: we
+		// don't know the account state, so the connect-prompt is misleading.
+		return fragments.NavHeaderVM{
+			Status:      fragments.NavStatusUnavailable,
+			StatusLabel: "Unavailable",
+		}
+	}
+	if len(registered) == 0 {
+		// No vehicles registered → "awaiting connect" state: connect link, no
+		// dot, no name, no battery (mirrors the dashboard's NeedsConnect).
+		return fragments.NavHeaderVM{NeedsConnect: true}
+	}
+
+	// Primary vehicle = first RegisteredVehicles entry (DD4).
+	primary := registered[0]
+
+	// Read the latest snapshot per vehicle for this account. On error: degrade —
+	// keep the vehicle name, show "Unavailable", no battery. Never return early.
+	snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
+	if snapErr != nil {
+		log.Printf("gateway: nav-header telemetry reader error for account %s: %v", uid, snapErr)
+		return fragments.NavHeaderVM{
+			VehicleName: primary.DisplayName,
+			Status:      fragments.NavStatusUnavailable,
+			StatusLabel: "Unavailable",
+		}
+	}
+
+	// Merge by TeslaID to find the primary vehicle's latest snapshot.
+	snapMap := mergeSnapshots(snaps)
+	snap, ok := snapMap[primary.TeslaID]
+	if !ok {
+		// Registered vehicle, but no stored snapshot yet → awaiting.
+		return fragments.NavHeaderVM{
+			VehicleName: primary.DisplayName,
+			Status:      fragments.NavStatusAwaiting,
+			StatusLabel: "Awaiting first snapshot",
+		}
+	}
+
+	now := time.Now()
+	if connectedAt(snap.CapturedAt, now) {
+		// Fresh snapshot → Connected + battery %.
+		return fragments.NavHeaderVM{
+			VehicleName: primary.DisplayName,
+			Status:      fragments.NavStatusConnected,
+			StatusLabel: "Connected",
+			BatteryPct:  fmt.Sprintf("%d%%", snap.BatteryLevel),
+		}
+	}
+	// Stale snapshot → Asleep + relative "Last seen" label.
+	return fragments.NavHeaderVM{
+		VehicleName:   primary.DisplayName,
+		Status:        fragments.NavStatusAsleep,
+		StatusLabel:   "Asleep",
+		LastSeenLabel: relativeLastSeen(snap.CapturedAt, now),
+	}
 }
 
 // currentUID returns the signed-in account id from the session, if any.
