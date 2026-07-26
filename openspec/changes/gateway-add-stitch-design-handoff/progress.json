@@ -12,7 +12,7 @@
     "done": []
   },
   "created_at": "2026-07-26T10:13:57Z",
-  "updated_at": "2026-07-26T10:13:57Z",
+  "updated_at": "2026-07-26T10:41:30Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -81,10 +81,15 @@
       "agent": "leader",
       "event": "Reconciliation after user D5 (supersedes D2): Stitch MCP connection moves from project-scoped to GLOBAL user config. Reverted project opencode.jsonc and .mcp.json (back to codegraph-only), removed STITCH_API_TOKEN from .env.example. Added stitch REMOTE server (https://stitch.googleapis.com/mcp, X-Goog-Api-Key: {env:STITCH_API_KEY}) to global ~/.config/opencode/opencode.json (additive to context7). Reworded ai/htmx-conventions.md step 1 to point at the global Stitch MCP, not .mcp.json. The literal API key stays OUT of all tracked files (env-indirected); user must export STITCH_API_KEY in shell profile and restart opencode. SECURITY: user pasted a live key in chat earlier -> flagged for rotation. Project repo now carries only the translation CONVENTION; the connection is global."
     },
-    {
-      "at": "2026-07-26T10:36:45Z",
+{
+      "at": "2026-07-26T10:22:00Z",
       "agent": "leader",
-      "event": "Claude Code wired to the same global Stitch connection for parity with opencode (per D5). Ran: claude mcp add stitch https://stitch.googleapis.com/mcp --scope user --transport http --header 'X-Goog-Api-Key: ${STITCH_API_KEY}'. Stored in ~/.claude.json (user scope, all projects) with the literal ${STITCH_API_KEY} reference (single-quoted so the shell did not expand it; Claude Code expands at load time). Verified verbatim via python json read. Repo untouched; user restarts Claude Code to load."
+      "event": "Reconciliation after user D5 (supersedes D2): Stitch MCP connection moves from project-scoped to GLOBAL user config. Reverted project opencode.jsonc and .mcp.json (back to codegraph-only), removed STITCH_API_TOKEN from .env.example. Added stitch REMOTE server (https://stitch.googleapis.com/mcp, X-Goog-Api-Key: {env:STITCH_API_KEY}) to global ~/.config/opencode/opencode.json (additive to context7). Reworded ai/htmx-conventions.md step 1 to point at the global Stitch MCP, not .mcp.json. The literal API key stays OUT of all tracked files (env-indirected); user must export STITCH_API_KEY in shell profile and restart opencode. SECURITY: user pasted a live key in chat earlier -> flagged for rotation. Project repo now carries only the translation CONVENTION; the connection is global."
+    },
+    {
+      "at": "2026-07-26T10:37:29Z",
+      "agent": "leader",
+      "event": "Resume attempt under opencode (glm-5.2). Branch ft/gateway-add-stitch-design-handoff checked out, tree clean, status=proposed (only proposal.md exists; design.md/specs/tasks.md absent). Runtime probe: budget UNAVAILABLE (opencode — stale statusline cache); subagent dispatch AVAILABLE (kkpa-module-worker/reviewer types present); no live SendMessage. Stitch MCP probe -> list_projects returned 'Incompatible auth server: does not support dynamic client registration'. User corrected my misread: the env var IS exported for the opencode process (my bash subshell not having it is irrelevant). Real root cause = misconfig: opencode attempted automatic OAuth on the remote Stitch server instead of sending the X-Goog-Api-Key header. Fix (leader-owned, global, outside repo): added \"oauth\": false to the stitch server in ~/.config/opencode/opencode.json (per opencode docs 'Disable Automatic OAuth for an MCP Server'). Config is not hot-reloaded -> user must quit+restart opencode, confirm STITCH_API_KEY is exported in the profile that launches opencode, then run /kkpa-dev-harness-pipeline resume. No project files changed; no artifacts written."
     }
   ]
 }
