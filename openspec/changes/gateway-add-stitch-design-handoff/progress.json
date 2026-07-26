@@ -80,6 +80,11 @@
       "at": "2026-07-26T10:22:00Z",
       "agent": "leader",
       "event": "Reconciliation after user D5 (supersedes D2): Stitch MCP connection moves from project-scoped to GLOBAL user config. Reverted project opencode.jsonc and .mcp.json (back to codegraph-only), removed STITCH_API_TOKEN from .env.example. Added stitch REMOTE server (https://stitch.googleapis.com/mcp, X-Goog-Api-Key: {env:STITCH_API_KEY}) to global ~/.config/opencode/opencode.json (additive to context7). Reworded ai/htmx-conventions.md step 1 to point at the global Stitch MCP, not .mcp.json. The literal API key stays OUT of all tracked files (env-indirected); user must export STITCH_API_KEY in shell profile and restart opencode. SECURITY: user pasted a live key in chat earlier -> flagged for rotation. Project repo now carries only the translation CONVENTION; the connection is global."
+    },
+    {
+      "at": "2026-07-26T10:36:45Z",
+      "agent": "leader",
+      "event": "Claude Code wired to the same global Stitch connection for parity with opencode (per D5). Ran: claude mcp add stitch https://stitch.googleapis.com/mcp --scope user --transport http --header 'X-Goog-Api-Key: ${STITCH_API_KEY}'. Stored in ~/.claude.json (user scope, all projects) with the literal ${STITCH_API_KEY} reference (single-quoted so the shell did not expand it; Claude Code expands at load time). Verified verbatim via python json read. Repo untouched; user restarts Claude Code to load."
     }
   ]
 }
