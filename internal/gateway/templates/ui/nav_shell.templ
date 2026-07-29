@@ -24,8 +24,13 @@ func navHref(it NavItem) string {
 // markup. The caller (layouts.navItems) owns the link list and active state. The
 // `menu`/`menu-active`/`badge` DaisyUI component classes live ONLY here — pages
 // compose this wrapper, never the raw classes.
-templ NavShell(items []NavItem) {
-	<ul class="menu bg-base-200 min-h-full w-64 p-4">
+//
+// footer is an optional slot rendered as a trailing <li> pinned to the bottom of
+// the menu, used by BaseAuth for the logout form. Stays inside the <ul> so the
+// `menu` class still owns all sidebar styling; a post is a <form>, not a link, so
+// it can't be a normal NavItem.
+templ NavShell(items []NavItem, footer templ.Component) {
+	<ul class="menu bg-base-200 flex-1 min-h-0 w-64 p-4">
 		for _, it := range items {
 			<li>
 				<a href={ templ.SafeURL(navHref(it)) } class={ templ.KV("menu-active", it.Active) }>
@@ -39,6 +44,11 @@ templ NavShell(items []NavItem) {
 						@Badge(BadgeProps{Kind: "warning", Text: "Soon"})
 					}
 				</a>
+			</li>
+		}
+		if footer != nil {
+			<li>
+				@footer
 			</li>
 		}
 	</ul>

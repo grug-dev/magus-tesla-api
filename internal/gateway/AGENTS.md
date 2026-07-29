@@ -270,6 +270,18 @@ design is wrong — add a method to the owning module instead.
 Never hand-edit generated files (`db/*.go`, `*_templ.go`, `static/app.css`). `make generate`
 runs **sqlc + templ + css** together — prefer it after a template change so nothing is missed.
 
+### Hot-reload dev loop (`make dev`)
+
+`make dev` is the UI hot-reload path — it starts three watchers in parallel and runs the
+web server with `MAGUS_DEV=1`, which flips the `/static` handler from the `//go:embed` FS to
+on-disk `internal/gateway/static` (see `gateway.go`). CSS edits surface on the **next
+browser refresh** with NO Go rebuild, because `tailwindcss --watch` writes a fresh `app.css`
+to disk and the running server serves that disk copy. `*_templ.go` changes (from saving a
+`.templ`) still require a Go rebuild; `air` does that in ~1s and restarts the server. Cookie
+sessions survive, so you do not re-login. `make dev` does NOT run migrations — apply them
+once with `make migrate-up` before. `make up` (full regenerate + build + run) stays the
+correct path for non-UI Go logic changes.
+
 > **Gotcha — stale CSS silently ships unstyled markup.** `static/app.css` is a committed,
 > `//go:embed`-ed artifact: only classes present in it at build time are styled. If you add a
 > class to a `.templ` but skip `make css`, that class ships **unstyled in production** — the

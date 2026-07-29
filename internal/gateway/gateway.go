@@ -8,6 +8,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"os"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -74,12 +75,26 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	})
 	r.Use(sessions.Sessions("magus", store))
 
-	// Embedded static assets at /static (strip the "static" prefix from the embed FS).
-	sub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		return nil, err
+	// Static assets at /static — dev vs production.
+	//
+	// Production: serve from the //go:embed copy (self-contained deploy, no
+	// runtime file dependency).
+	//
+	// Dev (MAGUS_DEV truthy): serve from the on-disk internal/gateway/static
+	// directory instead, so `tailwindcss --watch` can rewrite app.css on every
+	// .templ/class edit and a browser refresh picks up the new CSS WITHOUT a Go
+	// rebuild or a server restart. Templ edits still need `air` to rebuild the
+	// server (the generated *_templ.go is Go source), but CSS-only changes hot-
+	// reload without the rebuild pause.
+	if os.Getenv("MAGUS_DEV") != "" {
+		r.Static("/static", "internal/gateway/static")
+	} else {
+		sub, err := fs.Sub(staticFS, "static")
+		if err != nil {
+			return nil, err
+		}
+		r.StaticFS("/static", http.FS(sub))
 	}
-	r.StaticFS("/static", http.FS(sub))
 
 	h := handlers.New(handlers.Deps{
 		Pool:               d.Pool,
@@ -102,8 +117,8 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/connect/tesla", h.ConnectTesla)
 	r.GET("/connect/tesla/callback", h.TeslaCallback)
 	r.GET("/dashboard", h.Dashboard)
-	r.GET("/ui/vehicles", h.VehiclesFragment)
 	r.GET("/ui/nav-header", h.NavHeaderFragment)
+	r.POST("/ui/vehicle/select", h.VehicleSelect)
 	r.GET("/healthz", h.Healthz)
 
 	r.GET("/charges", h.ChargePage)

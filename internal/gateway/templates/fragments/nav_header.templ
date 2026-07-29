@@ -56,6 +56,20 @@ type NavHeaderVM struct {
 	// only when asleep; empty otherwise. The template composes
 	// "Asleep • Last seen 2 days ago".
 	LastSeenLabel string
+
+	// Vehicles is the account's registered vehicle list, for the context-switcher
+	// <select>. Empty when NeedsConnect (the connect prompt replaces it). The
+	// handler pre-marks SelectedVehicleTeslaID so exactly one option is selected.
+	Vehicles []VehicleOptionVM
+
+	// SelectedVehicleTeslaID is the TeslaID of the currently selected vehicle
+	// (0 when none / NeedsConnect). Used to mark the <option selected> on render
+	// and as the form value the switcher submits.
+	SelectedVehicleTeslaID int64
+
+	// CSRFToken is the session CSRF token the switcher form posts with the
+	// vehicle selection so the POST /ui/vehicle/select handler can validate it.
+	CSRFToken string
 }
 
 // NavHeader is the nav-header region swapped in by htmx at GET /ui/nav-header.
@@ -91,6 +105,22 @@ templ NavHeader(vm NavHeaderVM) {
 							}
 						</span>
 					</div>
+					if len(vm.Vehicles) > 1 {
+						<form
+							hx-post="/ui/vehicle/select"
+							hx-target="#nav-header"
+							hx-swap="outerHTML"
+							hx-trigger="change from:find select"
+							class="mt-1"
+						>
+							<input type="hidden" name="csrf_token" value={ vm.CSRFToken }/>
+							@ui.Select(ui.SelectProps{Name: "vehicle", Size: "xs", Attrs: templ.Attributes{"aria-label": "Switch vehicle"}}) {
+								for _, opt := range vm.Vehicles {
+									<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
+								}
+							}
+						</form>
+					}
 				</div>
 			}
 		</div>

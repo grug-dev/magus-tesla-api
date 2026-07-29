@@ -3,13 +3,14 @@ package layouts
 import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 
 // Base is the full-page HTML shell for unauthenticated pages (home, login). It sets
-// the DaisyUI theme via <html data-theme>, loads the vendored, minified Tailwind+DaisyUI
+// the DaisyUI theme via <html data-theme> (name must match a registered theme in
+// input.css), loads the vendored, minified Tailwind+DaisyUI
 // stylesheet (/static/app.css) and the pinned htmx (/static/htmx.min.js) — both embedded
 // in the binary, never an external CDN. DaisyUI is pure CSS with zero component
 // JavaScript, so htmx fragment swaps stay styled with nothing to re-initialize.
 templ Base(title string) {
 	<!DOCTYPE html>
-	<html lang="en" data-theme="lemonade">
+	<html lang="en" data-theme="apex">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -47,13 +48,19 @@ templ BaseAuth(title, path string) {
 					{ children... }
 				</main>
 			</div>
-			<div class="drawer-side">
-				<label for="nav-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+<div class="drawer-side">
+			<label for="nav-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+			// Flex column so the nav-header (auto) and the menu (flex-1) share the
+			// sidebar's full height instead of stacking. The drawer-side grid aligns
+			// items to its start; without this wrapper the menu's min-h-full would
+			// push the footer logout BELOW the viewport and off-screen.
+			<div class="flex flex-col h-full w-64">
 				// placeholder: the nav-header fragment (GET /ui/nav-header) is swapped in by
 				// htmx on load; until then this slot is empty.
 				<div id="nav-header" hx-get="/ui/nav-header" hx-trigger="load" hx-swap="outerHTML"></div>
-				@ui.NavShell(navItems(path))
+				@ui.NavShell(navItems(path), ui.NavLogout())
 			</div>
+		</div>
 		</div>
 	}
 }

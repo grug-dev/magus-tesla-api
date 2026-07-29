@@ -1,0 +1,42 @@
+# .air.toml — air (https://github.com/air-verse/air) live-reloads the Go web
+# server. Used by `make dev` together with `templ generate --watch` and
+# `tailwindcss --watch`.
+#
+# What air does here: on ANY .go file change in the workspace (including the
+# generated *_templ.go that the templ watcher rewrites on .templ save), air
+# re-runs `cmd/web` and restarts the server in ~1s. Cookie sessions survive the
+# restart, so you do not re-login. Pure .css / .templ class tweaks are served to
+# the browser from disk (MAGUS_DEV=1 in gateway.go), so they hot-reload on the
+# next refresh WITHOUT air needing to rebuild — air only kicks in when the
+# generated *_templ.go bytes actually change.
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+# Build the web server only (not the poller/setup/explore binaries — dev loop
+# is for the gateway UI).
+cmd = "go build -o ./tmp/web ./cmd/web"
+bin = "./tmp/web"
+# Watch only Go source — the templ watcher rewrites *_templ.go, which air
+# detects as a .go change and rebuilds. We deliberately do NOT watch .templ
+# here (air can't render templ; building on a raw .templ change would compile
+# stale generated code).
+include_ext = ["go"]
+# Skip the generated artifacts, vendored tooling, and DB migrations folders so
+# we don't rebuild on irrecoverable churn.
+exclude_dir = ["tmp", "bin", "internal/gateway/tools", "internal/gateway/static", "internal/account/db/migrations", "internal/manualcharge/db/migrations", "internal/telemetry/db/migrations"]
+# Small delay so a templ --watch batch of *_templ.go writes (one per .templ
+# edit, often several files) lands as a single rebuild instead of multiples.
+delay = 400
+stop_on_error = true
+log = "tmp/build-errors.log"
+send_interrupt = true
+# Give the old server's DB pool ~100ms to close before air re-binds $PORT.
+kill_delay = "100ns"
+
+[log]
+time = false
+
+[misc]
+clean_on_exit = true

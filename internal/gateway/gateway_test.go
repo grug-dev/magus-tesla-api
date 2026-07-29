@@ -121,7 +121,7 @@ func TestGoogleCallback_RejectsMismatchedState(t *testing.T) {
 
 func TestDashboard_AnonymousRedirectedToLogin(t *testing.T) {
 	eng := testEngine(t)
-	for _, path := range []string{"/dashboard", "/ui/vehicles"} {
+	for _, path := range []string{"/dashboard"} {
 		w := httptest.NewRecorder()
 		eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 		if w.Code != http.StatusFound || w.Header().Get("Location") != "/login" {
@@ -162,26 +162,18 @@ func TestHealthRoute_Removed(t *testing.T) {
 	}
 }
 
-func TestHome_RendersLayoutAndHtmx(t *testing.T) {
+// TestHome redirects anonymous users to the sign-in page and authenticated users
+// to the dashboard — the landing page no longer renders its own body; /dashboard
+// IS the default authenticated experience (the old pages.Home view is retired).
+func TestHome_AnonymousRedirectsToLogin(t *testing.T) {
 	eng := testEngine(t)
 	w := httptest.NewRecorder()
 	eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/", nil))
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", w.Code)
+	if w.Code != http.StatusFound {
+		t.Fatalf("status = %d, want 302 (redirect to /login)", w.Code)
 	}
-	body := w.Body.String()
-	for _, want := range []string{"<title>Magus</title>", "/static/htmx.min.js"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("home body missing %q", want)
-		}
-	}
-	// The debug bits are gone: no visit counter, no health fragment region, no
-	// /ui/health trigger.
-	for _, gone := range []string{"Visits this session", `id="health"`, "Check database"} {
-		if strings.Contains(body, gone) {
-			t.Errorf("home body should no longer contain %q", gone)
-		}
+	if loc := w.Header().Get("Location"); loc != "/login" {
+		t.Fatalf("Location = %q, want /login", loc)
 	}
 }
 

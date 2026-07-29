@@ -21,7 +21,7 @@ func TestNavShell_RendersIconsAndSoonBadges(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := templ.Handler(NavShell(items)).Component.Render(context.Background(), &buf); err != nil {
+	if err := templ.Handler(NavShell(items, nil)).Component.Render(context.Background(), &buf); err != nil {
 		t.Fatalf("render NavShell: %v", err)
 	}
 	body := buf.String()

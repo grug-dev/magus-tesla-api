@@ -9,8 +9,14 @@
 
 /* Node-less DaisyUI: load the committed bundles by LOCAL path — never the bare
    `@plugin "daisyui"` (that resolves to the npm package we deliberately do not use).
-   lemonade is the default light theme; dark auto-applies via prefers-color-scheme. */
+   `halloween` (a daisyUI builtin) is registered without --default so it stays
+   available as a one-line switch fallback. The active default is the custom Apex
+   palette imported below — Tesla-red primary, charcoal surfaces, dark-mode-first.
+   To re-skin: swap the @import line AND the data-theme attribute in
+   templates/layouts/base.templ (regen via `make templ && make css`). Both names
+   must match. */
 @plugin "./daisyui.mjs" {
-  themes: lemonade --default, dark --prefersdark;
+  themes: halloween;
 }
 @plugin "./daisyui-theme.mjs";
+@import "./themes/apex.css";

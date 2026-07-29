@@ -5,7 +5,7 @@ package ui
 // never a color class, since the SVG uses fill="currentColor" driven by the
 // surrounding text color semantic token (text-base-content / text-primary / …).
 type IconProps struct {
-	Name  string // "dashboard"|"ev_station"|"analytics"|"settings"|"menu"|"battery"
+	Name  string // "dashboard"|"ev_station"|"analytics"|"settings"|"menu"|"battery"|"logout"|"car"
 	Class string
 }
 
@@ -46,6 +46,14 @@ templ iconMarkup(p IconProps) {
 		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
 			<rect x="2" y="7" width="17" height="10" rx="2"/>
 			<rect x="20" y="10" width="2" height="4"/>
+		</svg>
+	case "logout":
+		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+		</svg>
+	case "car":
+		<svg xmlns="http://www.w3.org/2000/svg" class={ p.Class } viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+			<path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11h1a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-1v1a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-1H8v1a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zm0 2h14v2H5zm2.5-4.5L7 9h10l-.5-.5A.5.5 0 0 0 16 8H8a.5.5 0 0 0-.5.5zM6.5 15a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm11 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"/>
 		</svg>
 	default:
 		// Unknown glyph: render nothing (closed-vocabulary contract — pages pass a
