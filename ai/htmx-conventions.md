@@ -139,3 +139,76 @@ re-run `make css`.
   handler stay in sync.
 - Load htmx from a pinned version (documented when the layout is created), not an unpinned
   CDN latest.
+
+### Cross-region refresh via `HX-Trigger` (event-driven, not out-of-band)
+
+When one action must refresh a **different** region on the page, have the handler emit an
+`HX-Trigger` response header and let the other region subscribe — do **not** couple the
+acting handler to the other region's markup.
+
+- **The actor fires an event.** The handler sets `c.Header("HX-Trigger", "<event>")` alongside
+  its own fragment render. htmx bubbles that event up to `<body>`.
+- **Subscribers listen with `from:body`.** Any region that should react declares
+  `hx-trigger="<event> from:body"` + `hx-get="/ui/<region>"` and re-fetches itself. Because
+  the event bubbles to `<body>`, the `from:body` modifier is required.
+- **Why this over an out-of-band (`hx-swap-oob`) swap:** the actor stays page-agnostic — it
+  fires one event and every page opts in independently, so adding a new subscriber touches
+  only that region (change-locality), and the actor wastes no work on pages where the region
+  isn't present.
+
+Gold standard: the sidebar **vehicle switcher**. `POST /ui/vehicle/select`
+(`handlers.VehicleSelect`) persists the selection, renders the `nav-header` fragment, and
+sets `HX-Trigger: vehicle-changed`. The dashboard's `#dashboard-content` region subscribes
+with `hx-trigger="vehicle-changed from:body"` + `hx-get="/ui/dashboard"` and swaps its
+`innerHTML`, so switching the active vehicle refreshes the bento with no full-page reload.
+The `#dashboard-content` wrapper sits **outside** the `@templ.Fragment("dashboard")` block so
+the `innerHTML` swap keeps the listening element (and its `hx-trigger`) in the DOM.
+
+The manual-records page follows the same shape: `#charges-content` subscribes to
+`vehicle-changed` and re-fetches `GET /ui/charges`, which renders the create-form **and** list
+fragments together (`renderFragment(…, "charges-create-form", "charges-list")`) so both the
+vehicle-scoped entry list and the create form's vehicle default follow the switch. Any new
+per-vehicle page must do likewise — see `internal/gateway/AGENTS.md` §"Vehicle-scoped reads".
+
+## Stitch designs → `ui/` kit translation (closed handoff procedure)
+
+Google Stitch (stitch.withgoogle.com) is a **visual / design source only** for this
+project. Its exported Tailwind/HTML (or JSX/Vue/…) is **reference, never committed**:
+Stitch hardcodes palette colors and inline utility classes, knows nothing of DaisyUI,
+Templ, or this project's `internal/gateway/templates/ui/` kit. Pasting a Stitch export
+would violate the closed vocabulary above and break one-`data-theme` re-skinning. So every
+Stitch design is **translated**, not merged. The same procedure every time, so an agent or
+human does not improvise:
+
+1. **Read the design.** Via the `stitch` MCP server (configured once in the user's global
+   opencode/Claude Code MCP config — not this repo's project config; Stitch is a general
+   design tool, not this project's infrastructure) — preferred, because it exposes the
+   design structure and the project's `DESIGN.md` design system; or via a screenshot when
+   MCP is unavailable. Identify layout regions, repeated components, and per-state variants
+   (empty / loading / error / authenticated).
+2. **Map to the `ui/` kit, never inline.** Rebuild the design as a Templ component
+   composed from existing `ui.*` wrappers (`ui.Card`, `ui.StatTile`, `ui.Button`,
+   `ui.Table`, `ui.Field` + `ui.Input`, …). If a repeated element has no wrapper yet,
+   **add one to `internal/gateway/templates/ui/`** — never inline a raw DaisyUI component
+   class in a page or fragment. This is the same closed-vocabulary rule as everywhere else
+   in this doc.
+3. **Replace Stitch colors with semantic theme tokens.** Strip every hardcoded hex/rgb
+   from the Stitch export and use DaisyUI semantic tokens (`bg-base-100`, `primary`,
+   `text-error`, …). Keep only Tailwind **layout** utilities inline (`grid`, `gap-4`,
+   `flex`, breakpoints). The output must re-skin from one `data-theme` with no per-page
+   color edits.
+4. **Structure swappable regions as htmx fragments.** State changes (login → logged-in
+   menu, menu open → closed, …) become htmx-swapped fragments following the attribute
+   conventions above — **no client-side JS**. Prefer a CSS-only DaisyUI pattern
+   (`dropdown`, `<dialog>`, `collapse`, `tabs`) when a state is purely presentational.
+5. **Mirror the `charges` gold-standard slice.** View model → page/fragments → Gin
+   handler → routes, the same layering. `kkpa-goth-scaffold-ui scaffold <concept>` is the
+   scaffolding entry point — it generates the slice skeleton against the `ui/` kit and the
+   themed shell, after which the Stitch translation fills in the composed components.
+
+### DESIGN.md → custom DaisyUI theme (out of scope here)
+
+Stitch's per-project `DESIGN.md` (colors / typography / spacing) can be mapped into a
+custom DaisyUI theme so the whole app re-skins from one `data-theme`. That mapping is a
+**separate change** — record it in `openspec/roadmaps/backlog.md` when wanted; this
+section only covers translating one Stitch screen into a `ui/`-kit slice.

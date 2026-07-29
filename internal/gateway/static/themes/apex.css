@@ -1,0 +1,48 @@
+/* Apex Performance — custom DaisyUI theme derived from the Stitch design system
+ * "Apex Performance" (assets/449bb4578ef34426a2e7fa5e239f33a7): dark-mode-first,
+ * Tesla-red primary, charcoal surfaces, Electric-Blue accent.
+ *
+ * This file is the SINGLE source of truth for the apex palette. To re-skin the app
+ * to a different theme, see input.css (swap the @import) AND templates/layouts/base.templ
+ * (data-theme attribute) — both names must match.
+ *
+ * info/success/warning are borrowed from the daisyUI "halloween" builtin because the
+ * Apex spec defines them in prose only (emerald/amber) with no exact hex. Replace them
+ * with exact Apex values if/when they are pinned.
+ *
+ * Tailwind v4 inlines @import before processing, so the @plugin directive below resolves
+ * as if it were written in input.css itself.
+ */
+@plugin "../daisyui-theme.mjs" {
+  name: "apex";
+  default: true;
+  color-scheme: dark;
+  --color-base-100: #121414;
+  --color-base-200: #1a1c1c;
+  --color-base-300: #1e2020;
+  --color-base-content: #e2e2e2;
+  --color-primary: #e82127;
+  --color-primary-content: #ffffff;
+  --color-secondary: #c8c6c5;
+  --color-secondary-content: #313030;
+  --color-accent: #3d5afe;
+  --color-accent-content: #ffffff;
+  --color-neutral: #4a4949;
+  --color-neutral-content: #e2e2e2;
+  --color-info: oklch(54.615% 0.215 262.88);
+  --color-info-content: oklch(90.923% 0.043 262.88);
+  --color-success: oklch(62.705% 0.169 149.213);
+  --color-success-content: oklch(12.541% 0.033 149.213);
+  --color-warning: oklch(66.584% 0.157 58.318);
+  --color-warning-content: oklch(13.316% 0.031 58.318);
+  --color-error: #ffb4ab;
+  --color-error-content: #690005;
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}

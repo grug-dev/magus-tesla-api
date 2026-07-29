@@ -132,6 +132,32 @@ call — an unnecessary layer when the gateway is already the only HTML surface.
 The write is intentional (form POST), narrow (one module's Writer port),
 CSRF-protected, and tenant-scoped.
 
+## Vehicle-scoped reads — always send the selected TeslaID
+
+The gateway is multi-tenant **and** multi-vehicle: the user picks the active vehicle with
+the sidebar switcher (nav-header `<select>` → `POST /ui/vehicle/select`, persisted in the
+session by `setCurrentVehicle`). **Every handler that fetches or filters PER-VEHICLE data
+MUST scope that read to the SELECTED vehicle**, identified by its **`TeslaID`** (`int64` —
+Tesla's numeric vehicle `id`, `account.Vehicle.TeslaID`). This is a tenancy-correctness rule:
+a read that ignores the selection silently shows a *different* car's data.
+
+1. **Resolve once, pass the TeslaID down.** Call `h.resolveSelectedVehicle(ctx, c, uid)` (it
+   auto-selects the first OWNER when the session has none) and hand its `.TeslaID` to the
+   module port — e.g. filter `manualcharge.Reader.ListEntriesByVehicle(ctx, uid, teslaID, …)`,
+   pick the snapshot for that TeslaID out of `telemetry.Reader.LatestSnapshotsByAccount`, or
+   pass it to a `tesla` adapter per-vehicle call. **Never** default a per-vehicle read to
+   `registered[0]` or to "all vehicles" when a selection exists.
+2. **Identity is the numeric `TeslaID`, not the VIN and not the list index.** The VIN travels
+   only as a tenant-ownership check alongside it (the switcher submits `{TeslaID}:{VIN}`; the
+   write handlers validate the pair belongs to the account).
+3. **Every per-vehicle page/fragment must refresh on switch.** Wrap its per-vehicle content in
+   a swappable region that subscribes to the `vehicle-changed` event
+   (`hx-trigger="vehicle-changed from:body"`, re-fetching its `/ui/…` fragment); `VehicleSelect`
+   emits `HX-Trigger: vehicle-changed`. See
+   [`ai/htmx-conventions.md`](../../ai/htmx-conventions.md) §"Cross-region refresh via
+   `HX-Trigger`". Gold standards: the dashboard `#dashboard-content` and the manual-records
+   `#charges-content` regions (each re-fetches `GET /ui/dashboard` / `GET /ui/charges`).
+
 ## Testing
 
 - `httptest` against `NewEngine` with fakes for the `Deps` interfaces — the existing
@@ -269,6 +295,18 @@ design is wrong — add a method to the owning module instead.
 
 Never hand-edit generated files (`db/*.go`, `*_templ.go`, `static/app.css`). `make generate`
 runs **sqlc + templ + css** together — prefer it after a template change so nothing is missed.
+
+### Hot-reload dev loop (`make dev`)
+
+`make dev` is the UI hot-reload path — it starts three watchers in parallel and runs the
+web server with `MAGUS_DEV=1`, which flips the `/static` handler from the `//go:embed` FS to
+on-disk `internal/gateway/static` (see `gateway.go`). CSS edits surface on the **next
+browser refresh** with NO Go rebuild, because `tailwindcss --watch` writes a fresh `app.css`
+to disk and the running server serves that disk copy. `*_templ.go` changes (from saving a
+`.templ`) still require a Go rebuild; `air` does that in ~1s and restarts the server. Cookie
+sessions survive, so you do not re-login. `make dev` does NOT run migrations — apply them
+once with `make migrate-up` before. `make up` (full regenerate + build + run) stays the
+correct path for non-UI Go logic changes.
 
 > **Gotcha — stale CSS silently ships unstyled markup.** `static/app.css` is a committed,
 > `//go:embed`-ed artifact: only classes present in it at build time are styled. If you add a

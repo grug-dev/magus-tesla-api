@@ -1,0 +1,426 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "gateway-add-stitch-design-handoff",
+  "module": "gateway",
+  "request": "Wire the Stitch (Google Labs AI UI design tool) MCP server into Claude Code; document the Stitch -> ui/ kit translation convention; apply it to build one screen (Login + Menu navigation) the user designed in Stitch, mirroring the charges gold-standard slice.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ]
+  },
+  "created_at": "2026-07-26T10:13:57Z",
+  "updated_at": "2026-07-26T12:56:30Z",
+  "leader": {
+    "assistant": "opencode",
+    "model": "glm-5.2"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/gateway-add-stitch-design-handoff",
+    "base": "main",
+    "created_at": "2026-07-26T10:13:00Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Strip home.templ debug bits + dead health fragment",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": null,
+      "started_at": "2026-07-26T11:48:56Z",
+      "completed_at": "2026-07-26T11:52:22Z",
+      "duration_seconds": 206,
+      "notes": "Done. Removed HomeView.VisitCount + HomeView.Health + 'Visits this session' <p> + 'Check database' <button hx-get=/ui/health> + @templ.Fragment(\"health\") block from home.templ; kept SignedIn/Email + signed-in/anonymous content. Dropped visits session read/increment/save + Health field from Home handler; deleted HealthFragment handler + health() helper. Removed r.GET(\"/ui/health\", h.HealthFragment) from gateway.go. Deleted fragments/health.templ + stale health_templ.go. Removed TestHealthFragment_ReturnsFragmentOnly + TestSession_VisitCounterRoundTrips; updated TestHome_RendersLayoutAndHtmx to assert the debug bits are GONE; added TestHealthRoute_Removed asserting GET /ui/health -> 404. Signed-in home criterion (F2/review-requested): added TestHome_SignedInRendersUserContent + homeEngine() helper in internal/gateway/handlers/handlers_test.go — mirrors navHeaderEngine pattern, seeds uid+email via /_session, GET /, asserts email/View your vehicles/Connect your Tesla/Log out present and debug bits absent. make templ + make css run. go build/vet/test ./internal/gateway/... green.",
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "Redesign login.templ (visual re-skin, markup only)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": null,
+      "started_at": "2026-07-26T11:49:43Z",
+      "completed_at": "2026-07-26T11:52:22Z",
+      "duration_seconds": 159,
+      "notes": "Done. Rewrote login.templ per design.md §2: @layouts.Base(\"Sign in — Magus\") shell; login-local bg gradient wrapper <div fixed inset-0 -z-10 bg-gradient-to-br from-base-200 via-base-100 to-base-300> (semantic tokens, no hex, no external image, NOT in Base); centered <main> with TESLA CORE branding + Precision Fleet Monitoring tagline (static); @ui.Card holding @ui.Button{Variant:primary, Href:/auth/google/login, Class:w-full} with inline Google G SVG (4 brand fills #4285F4/#34A853/#FBBC05/#EA4335 — the ONE permitted hardcoded-color exception, commented) + 'Continue with Google' label; optional <footer> with three null-href Privacy/Terms/Support links. DROPPED email/password inputs, 'Sign In' button, 'OR' divider, googleusercontent bg image, ALL inline <script>. pages.Login() is zero-arg; LoginPage handler + GET /login route unchanged (no port call). make templ + make css run. go build/vet/test green + ui-guard green. Added TestLogin_RendersContinueWithGoogle asserting 'Continue with Google' + href=/auth/google/login present and type=email/password/googleusercontent/<script> absent.",
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "Evolve ui.NavShell + add ui.Icon + nav-item model",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": null,
+      "started_at": "2026-07-26T11:49:43Z",
+      "completed_at": "2026-07-26T11:52:22Z",
+      "duration_seconds": 159,
+      "notes": "Done. Extended ui.NavItem with Icon string + Placeholder bool; NavShell renders icon <span>@ui.Icon</span> + label <span> + 'Soon' @ui.Badge{warning} only on placeholders, menu-active when Active, Href forced to '#' for placeholders (navHref helper). New ui/icon.templ: ui.Icon(IconProps{Name,Class}) switch of inline <svg> fill=currentColor, glyphs dashboard/ev_station/analytics/settings/menu/battery; unknown -> blank (closed vocabulary). layouts/nav.go: navItems() -> navItems(active string) []ui.NavItem, four entries (Dashboard /dashboard, Manual Records /charges, Supercharger Stats placeholder, Settings placeholder), Active by Href==active, glyph names set. layouts/base.templ: BaseAuth(title, path string); replaced inline hamburger svg with @ui.Icon{menu}; added <div id=nav-header hx-get=/ui/nav-header hx-trigger=load hx-swap=outerHTML> placeholder slot ABOVE @ui.NavShell(navItems(path)) in the drawer side. Self-decision (FLAGGED for leader): task T3 text lists pages/dashboard.templ as a BaseAuth call site, but it used @layouts.Base (not BaseAuth). Converted dashboard.templ to @layouts.BaseAuth(\"Your vehicles — Magus\", \"/dashboard\") and dropped its nested <main> (BaseAuth renders its own <main class=p-4>) so the active-nav highlighting reaches the Dashboard entry and the spec scenario '/dashboard renders the nav shell' holds. charges.templ now passes \"/charges\". NOTE: between T3 and T4 (wave 2) the nav-header placeholder fires GET /ui/nav-header which is 404 until T4 lands — intended intermediate state per the wave design (htmx async swap; page shell still paints). make templ + make css run. go build/vet/test green + ui-guard green. Added ui/nav_shell_test.go: TestNavShell_RendersIconsAndSoonBadges (4 <svg>, 2 'Soon', 2 '#', 1 menu-active, no external CDN) + TestIcon_ClosedVocabulary (all 6 glyphs render svg+currentColor, unknown->blank).",
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "Nav-header fragment handler + view model + freshness logic",
+      "module": "gateway",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": null,
+      "started_at": "2026-07-26T12:01:00Z",
+      "completed_at": "2026-07-26T12:16:25Z",
+      "duration_seconds": 925,
+      "notes": "Done. navHeaderFor gin-free helper + NavHeaderFragment handler + GET /ui/nav-header route + fragments/nav_header.templ (root div#nav-header matches @templ.Fragment). connectedFreshnessWindow=48h named const, pure connectedAt(capturedAt,now). Primary=first RegisteredVehicles entry; empty->NeedsConnect; error->Unavailable. NavHeaderVM presentation-only (strings+NavHeaderStatusKind). ui.Badge ghost kind added (badgeClass). Six httptest cases (Connected/Asleep/Awaiting/NeedsConnect/Unavailable/anonymous->/login). go build/vet/test ./internal/gateway/... GREEN. No telemetrydb/accountdb import, no pgtype. DD2/DD3/DD4/DD10 compliant.",
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Reconcile home.templ Home handler after T1 (compile closure)",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": null,
+      "started_at": "2026-07-26T12:16:00Z",
+      "completed_at": "2026-07-26T12:16:25Z",
+      "duration_seconds": 25,
+      "notes": "Done (closure confirmed). handlers.Home builds HomeView{SignedIn,Email} only. grep internal/gateway for fragments.Health/HealthCard/VisitCount/visits shows zero live refs (only /ui/health mention is TestHealthRoute_Removed asserting 404). go build/vet/test ./internal/gateway/... GREEN. DD11 closed.",
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Backlog entries for Supercharger Stats + Settings (future work)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": null,
+      "started_at": "2026-07-26T11:34:00Z",
+      "completed_at": "2026-07-26T11:36:00Z",
+      "duration_seconds": 120,
+      "notes": "Done at artifact time per D9: backlog #4 Supercharger Stats + #5 Settings appended (PROPOSAL+ORIGIN), committed in 3e3371d. No apply dispatch needed.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Validations required for gateway-add-stitch-design-handoff:\n1. Module-boundary compliance (internal/gateway/AGENTS.md): navHeaderFor calls ONLY Reader ports (account.RegisteredVehicles + telemetry.Reader.LatestSnapshotsByAccount); no import of internal/telemetry/db or internal/account/db; no pgtype in any gateway file; no writes, no Tesla live calls.\n2. Doc-pack conventions (CLAUDE.md + ai/architecture.md + ai/go-conventions.md + ai/htmx-conventions.md + ai/htmx-go-integration.md + internal/gateway/AGENTS.md): ui/ kit composed (ui.Badge, no inlined DaisyUI component class in pages/fragments); semantic tokens only (badge-success/warning/ghost, text-base-300) never hex (Google SVG brand fills in login.templ are the ONE documented exception); zero client-side JS; root <div id=\"nav-header\"> matches @templ.Fragment(\"nav-header\") id (htmx swap invariant); templates contain no business logic (no time math, no domain-method calls).\n3. Spec/tasks coverage (specs/gateway/spec.md): Login Page re-skinned, Authenticated Navigation Shell (no Wake Vehicle), Navigation Vehicle Header (Connected/Asleep/Awaiting/NeedsConnect/Unavailable/anonymous-redirect/htmx-fragment/no-DB-import/semantic-tokens), Navigation Items (4 entries, placeholder Soon badges, icons via ui.Icon), Home Page Debug Cleanup — each scenario has a test.\n4. Design.md compliance:DD2 (htmx fragment + gin-free navHeaderFor + renderFragment), DD3 (connectedFreshnessWindow=48h named const distinct from stalenessThreshold, pure connectedAt(capturedAt,now)), DD4 (primary=first RegisteredVehicles), DD10 (StatusKind->ui.Badge semantic tokens), DD11 (home cleanup). Wave-1 already shipped DD1/DD5/DD6/DD7/DD8/DD9.\n5. DB objects match the user-confirmed design (none — no DB gate tripped; design.md §4 says no DB object; verify ZERO new/changed table/column/index/migration: any DB object is a BLOCKER finding).\n6. Performance-Profile compliance (read-heavy): nav-header fragment reuses 2 existing indexed reads; hot-path isolation (page shell paints first, header swaps in); no cache added (out of scope, accepted).\n7. Anti-gaming: no task title/criterion weakened or deleted; go build/vet/test + ui-guard + stale-CSS guard actually green (the leader claims so — re-run to confirm); tasks.md not edited to game done-ness.",
+    "reviewer": "Read the DIFF of the change (git diff main..HEAD -- internal/gateway/ + openspec/changes/gateway-add-stitch-design-handoff/), NOT the whole module. Repo at /Users/cristianpena/cpena/sw/github/magus-tesla-api, branch ft/gateway-add-stitch-design-handoff. Run make check + make css && git diff --exit-code to confirm guards green.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "model": "sonnet",
+        "started_at": "2026-07-26T12:44:12Z",
+        "completed_at": "2026-07-26T12:44:15Z",
+        "duration_seconds": 3,
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "location": "internal/gateway/templates/layouts/base.templ:53",
+            "issue": "HTML comment <!-- placeholder: the nav-header fragment ... --> was introduced by this change and is compiled verbatim into base_templ.go (line 126), shipping developer notes to the browser. Violates the non-negotiable CLAUDE.md rule: 'Never write HTML comments in markup you create or edit.'",
+            "recommendation": "Replace the HTML comment with a Go-style // comment immediately above the <div> element (Templ strips // comments; HTML <!-- --> is emitted as-is). Regenerate make templ + make css and commit app.css.",
+            "status": "fixed"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "location": "internal/gateway/gateway_test.go (home signed-in test missing)",
+            "issue": "T1 acceptance criterion states 'The signed-in state (email, View your vehicles, Connect your Tesla, Log out) and the anonymous Sign in with Google link still render (httptest with a session / without).' Only the anonymous path is tested (TestHome_AnonymousOffersSignIn). The signed-in path test was skipped by the worker citing difficulty forging an encrypted session cookie — but sessionCookie() already exists in handlers_test.go and is reused by TestNavHeaderFragment_ConnectedHTTP in the same PR.",
+            "recommendation": "Add a TestHome_SignedIn test using a minimal Gin engine with session middleware (matching the navHeaderEngine pattern), seed uid + email, GET /, assert 'Log out' and 'View your vehicles' are present and 'Visits this session' / 'Check database' are absent.",
+            "status": "fixed"
+          }
+        ],
+        "budget": {
+          "five_hour_pct_start": 10,
+          "five_hour_pct_end": 20,
+          "context_pct_start": 7,
+          "context_pct_end": 8,
+          "cost_usd_start": 0.8617,
+          "cost_usd_end": 3.2924,
+          "cost_usd_delta": 2.4307,
+          "note": "leader-owned bracket; reviewer round on Sonnet under Claude Code (budget now live). Round duration_seconds=3 is the reviewer's own start/end stamps; wall ~317s."
+        },
+        "fix": {
+          "by": "leader+gateway-worker",
+          "at": "2026-07-26T12:53:30Z",
+          "F1": "base.templ HTML comment -> // Go comments (stripped by templ); base_templ.go now has zero <!--; nav-header div slot + htmx swap invariant unchanged.",
+          "F2": "added handlers.TestHome_SignedInRendersUserContent + homeEngine helper (mirrors navHeaderEngine+sessionCookie); asserts signed-in content present + debug bits/login link absent.",
+          "budget": {
+            "five_hour_pct_start": 24,
+            "five_hour_pct_end": 31,
+            "context_pct_start": 10,
+            "context_pct_end": 10,
+            "cost_usd_start": 4.1679,
+            "cost_usd_end": 5.5788,
+            "cost_usd_delta": 1.4109
+          }
+        }
+      },
+      {
+        "round": 2,
+        "agent": "gateway-reviewer",
+        "model": "sonnet",
+        "started_at": "2026-07-26T12:55:11Z",
+        "completed_at": "2026-07-26T12:55:16Z",
+        "duration_seconds": 5,
+        "verdict": "approved",
+        "reverify_of": [
+          "F1",
+          "F2"
+        ],
+        "findings": [],
+        "budget": {
+          "five_hour_pct_start": 32,
+          "five_hour_pct_end": 42,
+          "context_pct_start": 11,
+          "context_pct_end": 11,
+          "cost_usd_start": 5.886,
+          "cost_usd_end": 7.6217,
+          "cost_usd_delta": 1.7357
+        }
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "made_by": "user",
+      "at": "2026-07-26T10:10:00Z",
+      "scope": "screen-choice",
+      "decision": "The Stitch screen to translate is the Login screen plus the Menu navigation (redesign-or-new TBD by the design at grill time; data + read paths pinned then)."
+    },
+    {
+      "id": "D2",
+      "made_by": "user",
+      "at": "2026-07-26T10:10:00Z",
+      "scope": "mcp-scope",
+      "decision": "MCP scope is the committed project .mcp.json (shared; token via ${STITCH_API_TOKEN} env expansion), NOT user-level ~/.claude/mcp_servers.json."
+    },
+    {
+      "id": "D3",
+      "made_by": "user",
+      "at": "2026-07-26T10:10:00Z",
+      "scope": "grill-timing",
+      "decision": "The grill-me pass (required by openspec/config.yaml) runs AFTER the Stitch MCP is connected (Claude Code restart + confirm Stitch tools), so the Login+Menu data model and read paths are grilled against the actual design."
+    },
+    {
+      "id": "D4",
+      "made_by": "user",
+      "at": "2026-07-26T10:10:00Z",
+      "scope": "design-system-theme",
+      "decision": "DESIGN.md -> custom DaisyUI theme mapping is DEFERRED (not part of this change). Will be recorded in openspec/roadmaps/backlog.md when wanted; this change only translates one Stitch screen into a ui/-kit slice."
+    },
+    {
+      "id": "D5",
+      "made_by": "user",
+      "at": "2026-07-26T10:22:00Z",
+      "scope": "mcp-scope",
+      "supersedes": "D2",
+      "decision": "SUPersedes D2: the Stitch MCP connection is GLOBAL (user's global opencode/Claude Code MCP config, available to any project), NOT project-scoped. Rationale: Stitch is a general design tool, not this project's infrastructure. This repo keeps only the translation-convention doc (ai/htmx-conventions.md) and no Stitch config or secret. Also corrects the transport: Stitch is a REMOTE server at https://stitch.googleapis.com/mcp with an X-Goog-Api-Key header (env-indirected via {env:STITCH_API_KEY}), not the @google/stitch-mcp stdio wrapper D2 assumed."
+    },
+    {
+      "id": "D6",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:auth-model",
+      "decision": "Login is a VISUAL re-skin of the EXISTING Google login flow (login.templ already links /auth/google/login). Stitch's email+password inputs, the 'Sign In' primary button, and the 'OR' divider are DROPPED. The 'Continue with Google' button is kept, wired to /auth/google/login. No new auth module, no DB change, no Google OIDC password flow introduced."
+    },
+    {
+      "id": "D7",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:nav-header-read",
+      "decision": "Nav header (vehicle name + battery % + status dot) reads the LATEST vehicle snapshot via the EXISTING telemetry.Reader.LatestSnapshotsByAccount port (BatteryLevel) joined with account's vehicle name (account port). Status/label derived from snapshot FRESHNESS (CapturedAt within recent window => 'Connected'+green; else 'Asleep'/'Last seen'). No new read path, no new module, no DB object."
+    },
+    {
+      "id": "D8",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:wake-vehicle",
+      "decision": "The Stitch nav's 'Wake Vehicle' button is DROPPED. It conflicts with AGENTS.md's Data Access Model ('users never trigger Tesla API calls on demand', exception is only listing vehicles at first connect). No button is rendered."
+    },
+    {
+      "id": "D9",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:nav-items-placeholder",
+      "decision": "Stitch nav items 'Supercharger Stats' and 'Settings' are rendered as dead/placeholder links (route present or stub, page NOT built this change). Both recorded in openspec/roadmaps/backlog.md as future work (Supercharger Stats screen + Settings page)."
+    },
+    {
+      "id": "D10",
+      "made_by": "leader",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:nav-items-existing",
+      "decision": "Stitch nav items 'Dashboard' => /dashboard and 'Manual Records' => /charges are mapped to the EXISTING pages. Reasonable alternative existed (drop/relabel); user only confirmed the two placeholders in the multi-select, so taken as the obvious default to avoid a third grill round."
+    },
+    {
+      "id": "D11",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:home-debug",
+      "decision": "home.templ debug artifacts ('Visits this session' line + the 'Check database' htmx health-fragment demo) are REMOVED in this change. Rest of the landing (signed-in state, Connect Tesla link, Log out) untouched. No 'NO DB Change' text exists in any gateway .templ (confirmed by grep)."
+    },
+    {
+      "id": "D12",
+      "made_by": "user",
+      "at": "2026-07-26T11:28:00Z",
+      "scope": "grill:no-js-asset",
+      "decision": "Stitch's inline <script> (parallax + focus-scale) and ALL inline JS are DROPPED (zero-JS convention). The Stitch background image references an external googleusercontent URL — replaced by an embedded local asset OR a CSS gradient per the no-external-CDN/embedded-asset rule. Exact treatment decided in design.md."
+    },
+    {
+      "id": "D13",
+      "made_by": "leader",
+      "at": "2026-07-26T11:39:00Z",
+      "scope": "design:multi-vehicle",
+      "decision": "Nav header shows the PRIMARY vehicle only = first entry of account.RegisteredVehicles (design DD4). A multi-vehicle SELECTOR (Stitch top-bar button) is DEFERRED. The worker did NOT add a backlog entry for it (flagged for leader). GAP: project rule says future-work goes to backlog — pending user decision whether to add backlog #6 'gateway — Vehicle selector'."
+    },
+    {
+      "id": "D14",
+      "made_by": "leader",
+      "at": "2026-07-26T11:39:00Z",
+      "scope": "design:worker-self-decisions",
+      "decision": "Worker authored design.md DD1-DD11 (gradient bg, nav-header htmx fragment, 48h freshness window, primary=first, ui.Icon inline SVG, placeholder 'Soon' badge, Manual Records relabel, drop wake, login keep/drop, semantic status tokens, home cleanup incl. dead health route/fragment/tests). Non-DB design decisions; no gated user confirmation required. Active-nav highlighting threaded via BaseAuth(title,path) (worker add). Safety-net T5 added for compile closure after T1."
+    },
+    {
+      "id": "D15",
+      "made_by": "user",
+      "at": "2026-07-26T11:47:00Z",
+      "scope": "tree:app-css",
+      "decision": "Pre-existing local modification to internal/gateway/static/app.css (minified-blob regen, not worker-touched) is KEPT as-is — leader does NOT revert. Apply worker will run make css and commit the regenerated app.css; if make css yields byte-identical output to HEAD, the worker runs git checkout -- app.css so stray dirt isn't committed erroneously."
+    },
+    {
+      "id": "D16",
+      "made_by": "user",
+      "at": "2026-07-26T11:47:00Z",
+      "scope": "backlog:multi-vehicle",
+      "decision": "Add backlog #6 'gateway — Vehicle selector (multi-vehicle nav header)' to openspec/roadmaps/backlog.md now (resolves the D13 gap). Nav header keeps primary-vehicle-only in THIS change; the selector is future work, properly recorded."
+    },
+    {
+      "id": "D17",
+      "made_by": "leader",
+      "at": "2026-07-26T11:54:00Z",
+      "scope": "apply:wave-1",
+      "decision": "Accepted worker self-decision (T3): pages/dashboard.templ was using @layouts.Base, NOT BaseAuth. Converted it to @layouts.BaseAuth(\"Your vehicles — Magus\", \"/dashboard\") and dropped its nested <main> (BaseAuth renders its own <main class=p-4>) so the nav shell + active-nav highlighting reach /dashboard — required by the spec scenario 'GIVEN a signed-in user requesting any authenticated page (/dashboard, /charges) ... the response contains the drawer sidebar'. Behavior change: /dashboard now renders the drawer/sidebar. Presented to user before wave 2. NOTE: between wave 1 and wave 2 the nav-header placeholder fires GET /ui/nav-header which 404s until T4 lands — intended intermediate state on the feature branch (htmx async; page shell still paints)."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-07-25T09:38:00Z",
+      "agent": "leader",
+      "event": "Prior session: proposal.md created (proposal-only stop, per user 2026-07-25 request: \"save the proposal, not more artifacts\"). design.md, specs, tasks.md, and progress.json intentionally absent. Proposal's 4 open questions (screen, MCP scope, grill-me pass, DESIGN.md theme) deferred to this resume pass."
+    },
+    {
+      "at": "2026-07-26T10:13:57Z",
+      "agent": "leader",
+      "event": "Resume under opencode (glm-5.2). Tree was dirty (proposal + ~14 unrelated UI files staged on main); user pushed them as 79499a6 \"Redesign\" -> clean tree. Created branch ft/gateway-add-stitch-design-handoff off main HEAD. User answered the 4 open questions -> decisions D1-D4 (made_by=user). Phase A leader-owned wiring done: .mcp.json stitch entry (additive to codegraph), .env.example STITCH_API_TOKEN, ai/htmx-conventions.md Stitch->ui/kit translation section. No DB gate (proposal confirms none). Grill + worker artifacts (design.md/specs/tasks) + Login+Menu build deferred to a Claude Code session now that .mcp.json is wired (per D3 \"grill after connecting\" + opencode cannot reach the Stitch MCP directly)."
+    },
+    {
+      "at": "2026-07-26T10:22:00Z",
+      "agent": "leader",
+      "event": "Reconciliation after user D5 (supersedes D2): Stitch MCP connection moves from project-scoped to GLOBAL user config. Reverted project opencode.jsonc and .mcp.json (back to codegraph-only), removed STITCH_API_TOKEN from .env.example. Added stitch REMOTE server (https://stitch.googleapis.com/mcp, X-Goog-Api-Key: {env:STITCH_API_KEY}) to global ~/.config/opencode/opencode.json (additive to context7). Reworded ai/htmx-conventions.md step 1 to point at the global Stitch MCP, not .mcp.json. The literal API key stays OUT of all tracked files (env-indirected); user must export STITCH_API_KEY in shell profile and restart opencode. SECURITY: user pasted a live key in chat earlier -> flagged for rotation. Project repo now carries only the translation CONVENTION; the connection is global."
+    },
+    {
+      "at": "2026-07-26T10:37:29Z",
+      "agent": "leader",
+      "event": "Resume attempt under opencode (glm-5.2). Branch ft/gateway-add-stitch-design-handoff checked out, tree clean, status=proposed (only proposal.md exists; design.md/specs/tasks.md absent). Runtime probe: budget UNAVAILABLE (opencode — stale statusline cache); subagent dispatch AVAILABLE (kkpa-module-worker/reviewer types present); no live SendMessage. Stitch MCP probe -> list_projects returned 'Incompatible auth server: does not support dynamic client registration'. Real root cause = misconfig: opencode attempted automatic OAuth on the remote Stitch server instead of sending the X-Goog-Api-Key header. Fix (leader-owned, global, outside repo): added \"oauth\": false to the stitch server in ~/.config/opencode/opencode.json. Config not hot-reloaded -> user must quit+restart opencode, confirm STITCH_API_KEY exported in the profile launching opencode, then resume. No project files changed; no artifacts written."
+    },
+    {
+      "at": "2026-07-26T10:43:06Z",
+      "agent": "leader",
+      "event": "Resume pass 2. Git clean, on ft/gateway-add-stitch-design-handoff (committed prior progress.json). Probed stitch MCP -> still 'missing required authentication credential'. Root cause corrected: ENV NAME MISMATCH. Global opencode config referenced {env:STITCH_API_KEY} but the exported var is STITCH_API_TOKEN (53 chars, confirmed set in opencode process env and inherited by bash subshell). The prior session's claim 'env var IS exported for the opencode process' was true for STITCH_API_TOKEN, not STITCH_API_KEY. Fix (leader-owned, global, outside repo): changed X-Goog-Api-Key header in ~/.config/opencode/opencode.json from {env:STITCH_API_KEY} -> {env:STITCH_API_TOKEN} to match the exported name; D5's intent (X-Goog-Api-Key header, env-indirected) unchanged. BLOCKER: config not hot-reloaded and the running opencode session holds the old empty-header MCP connection -> user must fully QUIT and restart opencode for {env:STITCH_API_TOKEN} to resolve and the MCP connection to rebuild with the correct header. Status stays proposed; grill-me (D3) and worker artifacts deferred until Stitch MCP confirmed working. SECURITY: the live STITCH_API_TOKEN value was printed into this session's tool output -> the earlier rotation flag still stands."
+    },
+    {
+      "at": "2026-07-26T10:49:38Z",
+      "agent": "leader",
+      "event": "Resume pass 3. DEFINITIVE ROOT CAUSE via curl + timestamps. curl POST to https://stitch.googleapis.com/mcp with -H 'X-Goog-Api-Key: $STITCH_API_TOKEN' returns HTTP 200 + valid MCP initialize response -> credential IS valid and X-Goog-Api-Key is the correct header name. opencode process (PID 23518) started at 10:42:03Z; config file mtime 10:42:58Z -> config was edited 55s AFTER opencode started, so the running opencode loaded the PRE-fix config (env name STITCH_API_KEY, unset -> empty header) and never rebuilt the MCP connection. The user's prior 'restart' did not actually restart the opencode PROCESS (still PID 23518 from before the fix). opencode DOES support {env:...} in remote MCP headers (docs confirm via Context7 example) and STITCH_API_TOKEN IS in the opencode process env (confirmed via ps -E). Therefore no further diagnosis is needed: the fix is correct, only a true process restart is missing. BLOCKER stands: user must fully QUIT opencode (Ctrl+C / quit, not /clear) and relaunch from a shell that has STITCH_API_TOKEN exported, then resume. SECURITY: live STITCH_API_TOKEN printed into tool output AGAIN this session (ps -E) -> rotation is now urgent and unavoidable before any Stitch work proceeds. Status stays proposed."
+    },
+    {
+      "at": "2026-07-26T10:52:30Z",
+      "agent": "leader",
+      "event": "Resume pass 4 under fresh opencode session. Stitch MCP CONFIRMED WORKING: stitch_list_projects returned project 'Tesla Insights Dashboard' (id 1959646399633310328, DESKTOP, dark 'Kinetic Precision' theme) with 8 screen instances. stitch_list_screens identified the Login screen (593dc9d2dea647808643aa29935151c3 'Login - Tesla Core') and the authenticated Dashboard (db4901e044c54869972239f92534cedc 'Dashboard - Tesla Core (Apex Theme)') carrying the Menu/navigation. Prior blocker (stale process env-name mismatch) RESOLVED by user's true restart. Deduped a duplicate 10:22 event entry left by a prior session. Budget: opencode runtime => statusline cache is foreign => budget UNAVAILABLE (treated as null, checkpoints warn-only) per skill Step 0.7, even though scripts/budget.sh returned a payload. Runtime probe: subagent dispatch available (kkpa-module-worker/reviewer), no live SendMessage. Status stays proposed; next step = grill-me (D3) on Login+Menu data model/read paths, then dispatch worker for design.md/specs/tasks.md."
+    },
+    {
+      "at": "2026-07-26T11:28:46Z",
+      "agent": "leader",
+      "event": "Grill-me pass COMPLETED (D3). Leader read the Stitch Login + Dashboard HTML exports and the existing login.templ (Google login -> /auth/google/login), home.templ (debug 'VisitCount'/'Check database'), telemetry.Snapshot (BatteryLevel+ChargingState+CapturedAt), layouts.BaseAuth drawer + ui.NavShell. Recorded binding decisions D6-D12: re-skin Google login (drop email/password/SignIn/OR), keep 'Continue with Google'; nav header reuses existing telemetry.Reader.LatestSnapshotsByAccount + account vehicle name, freshness-derived 'Connected'; drop 'Wake Vehicle'; nav items Dashboard->/dashboard, Manual Records->/charges (autopilot D10), Supercharger Stats+Settings ->placeholder (->backlog); strip home.templ debug bits; drop all Stitch inline JS + replace external bg image with embedded asset/gradient. NO DB object touched -> database design gate NOT tripped. Next: dispatch gateway worker for design.md + specs + tasks.md."
+    },
+    {
+      "at": "2026-07-26T11:39:05Z",
+      "agent": "leader",
+      "event": "Step 3+4: worker (kkpa-module-worker ses_061cf34c) produced design.md (DD1-DD11), specs/gateway delta (Login, Nav Shell, Nav Header, Nav Items, Home Debug Cleanup), tasks.md (T1-T6). openspec validate initially FAILED (spec used ## Requirement/### Scenario instead of delta format); leader fixed mechanically to ## ADDED Requirements / ### Requirement: / #### Scenario: -> validate --strict PASSES. proposal.md reconciled to D5/D6-D12 (open questions -> Resolved decisions). backlog #4 Supercharger Stats + #5 Settings appended (D9) => T6 seeded DONE. Registered D13 (multi-vehicle selector deferred, backlog gap) + D14 (worker DD1-DD11 self-decisions, no DB gate). Design gate NOT tripped (no DB object). Artifacts committed 3e3371d. progress.json tasks[] seeded: T1-T5 pending, T6 done; rollup pending[T1-T5]/done[T6]. PRE-EXISTING TREE DIRT: internal/gateway/static/app.css locally modified (minified-blob regen, @@-1,2+1,2@@) NOT touched by the worker — pending user disposition before apply wave runs make css. Next: resolve app.css + multi-vehicle backlog, then Step 5 apply."
+    },
+    {
+      "at": "2026-07-26T11:47:05Z",
+      "agent": "leader",
+      "event": "Pre-apply dispositions resolved with user: D15 = keep app.css local mod as-is (no revert; apply worker handles byte-identical regen via git checkout); D16 = add backlog #6 'gateway — Vehicle selector (multi-vehicle nav header)' now (resolves D13 gap). Backlog #6 appended to openspec/roadmaps/backlog.md under Pending. Next: Step 5 apply wave."
+    },
+    {
+      "at": "2026-07-26T11:54:08Z",
+      "agent": "leader",
+      "event": "WAVE 1 COMPLETE (one serial worker, kkpa-module-worker ses_061beddb). T1+T2+T3 done: home.templ debug bits + dead /ui/health route/fragment/tests stripped; login.templ re-skinned (Continue with Google -> /auth/google/login, no email/password/SignIn/OR/script, CSS gradient bg per DD1); ui.NavShell evolved + new ui.Icon (inline SVG closed vocab) + navItems(active) + BaseAuth(title,path) with #nav-header htmx placeholder. Leader verified go build ./... + go test ./internal/gateway/... GREEN; ui-guard green. app.css regenerated to 98507 bytes (legitimately changed — new classes; NOT the stray dirt) — left in place per D15 (not byte-identical to HEAD). Registered D17 (accepted worker self-decision: dashboard.templ Base->BaseAuth so nav shell reaches /dashboard per spec). Budget UNAVAILABLE (opencode) => budget:null for T1/T2/T3, checkpoint warn-only. Status -> in-progress; rollup done[T1,T2,T3,T6] pending[T4,T5]. Next: checkpoint recommendation to user, then wave 2 (T4 depends T3 + T5 depends T1)."
+    },
+    {
+      "at": "2026-07-26T12:00:00Z",
+      "agent": "leader",
+      "event": "WAVE 2 DISPATCH (resume). T4+T5 batched into ONE serial worker (both touch handlers.go -> not disjoint files per Step 5.1 default). T1+T3 already done -> T4 (deps T3) + T5 (deps T1) both unblocked. Budget UNAVAILABLE (opencode runtime -> foreign statusline cache per skill Step 0.7) => budget:null, checkpoint warn-only. rollup current[T4,T5] pending[]. Dispatching kkpa-module-worker scoped to internal/gateway/."
+    },
+    {
+      "at": "2026-07-26T12:16:25Z",
+      "agent": "leader",
+      "event": "WAVE 2 COMPLETE (T4+T5). Worker dispatch reported Tool execution aborted but the work LANDED (tree dirty with nav_header.templ+nav_header_templ.go created, handlers.go +134, handlers_test.go +249 six cases, gateway.go +1 route, badge.templ/ui.go ghost kind). Worker had set T4 in-progress only (aborted before closing its entries); T5 untouched. Leader reconciliation: verified go build ./... + go vet ./internal/gateway/... + go test ./internal/gateway/... ALL GREEN. Cross-checked design-decision compliance vs design.md: DD2 (htmx fragment /ui/nav-header + gin-free navHeaderFor + renderFragment + root div#nav-header==@templ.Fragment id), DD3 (connectedFreshnessWindow=48h named const + pure connectedAt(capturedAt,now), distinct from 36h stalenessThreshold), DD4 (primary=first RegisteredVehicles, empty->NeedsConnect, error->Unavailable degraded), DD10 (ui.Badge ghost kind added, badge-success/warning/ghost semantic tokens, no hex) — all compliant. Boundary: no telemetrydb/accountdb import, no pgtype (only doc comment mentioning NEVER-import). Template presentation-only (StatusKind->badge kind mapping; all strings pre-computed). T5 closure grep clean (only TestHealthRoute_Removed asserts /ui/health 404). Set T4 done + T5 done, rollup all-done. Budget UNAVAILABLE (opencode) => no 5h/context numbers. Status -> applied-ready (pending Step 6 verify + Step 7 review). Next: wave commit, then Step 6 verify."
+    },
+    {
+      "at": "2026-07-26T12:25:00Z",
+      "agent": "leader",
+      "event": "WAVE 2 COMMIT: f009e51 feat(gateway): wave 2 — nav-header fragment handler + freshness VM (T4+T5, 11 files +785/-18)."
+    },
+    {
+      "at": "2026-07-26T12:30:00Z",
+      "agent": "leader",
+      "event": "STEP 6 VERIFY PASSED. openspec validate --strict -> Change is valid. make check (build+vet+ui-guard+test) ALL GREEN repo-wide (account/config/gateway/gateway/handlers/gateway/templates/ui/manualcharge/telemetry/tesla ok; db/* no test files). make css yields byte-identical app.css (clean match — no stray dirt; stale-CSS guard green). status -> verified. Next: Step 7 review (dispatch gateway-reviewer)."
+    },
+    {
+      "at": "2026-07-26T12:47:00Z",
+      "agent": "leader",
+      "event": "RESUME under Claude Code (Opus 4.8) — prior sessions ran opencode/glm-5.2; budget now LIVE (5h 20%, ctx 8%). STEP 7 review round 1: dispatched gateway-reviewer (Sonnet, native kkpa-module-reviewer) -> verdict changes-requested, 2 findings. Leader TRIAGE: F1 (major, HTML comment in base.templ:53-54 shipped to browser) ACCEPTED — verified directly, violates non-negotiable CLAUDE.md HTML-comment rule. F2 (minor, signed-in TestHome missing per T1 criterion) ACCEPTED — reviewer's cited helpers all real (handlers/handlers_test.go sessionCookie/navHeaderEngine/TestNavHeaderFragment_ConnectedHTTP); leader's initial doubt was a non-recursive-grep scoping error, retracted. Both accepted -> re-dispatching gateway worker (Sonnet) to fix, then signal same reviewer to re-verify."
+    },
+    {
+      "at": "2026-07-26T12:53:30Z",
+      "agent": "leader",
+      "event": "Review round 1 fixes LANDED (gateway worker, Sonnet). F1: base.templ HTML comment removed (//-comments, templ-stripped; base_templ.go grep <!-- = 0). F2: handlers.TestHome_SignedInRendersUserContent + homeEngine added, signed-in home criterion now met. Leader re-verified: make check GREEN (build+vet+ui-guard+test), stale-CSS guard GREEN (app.css byte-identical). Findings F1/F2 -> fixed. Committing fix, then signalling gateway-reviewer (agentId a69f9fe78655b0b66) to re-verify prior findings + changed files only."
+    },
+    {
+      "at": "2026-07-26T12:56:30Z",
+      "agent": "leader",
+      "event": "REVIEW round 2 APPROVED. Runtime degradation (Step 0.7): Claude Code exposes no SendMessage tool, so round-2 re-verify was a FRESH kkpa-module-reviewer (Sonnet) with round-1 findings inline (scoped to F1/F2 + fix diff), not a live reuse of the round-1 reviewer. Reviewer independently re-ran make check + stale-CSS guard (green), confirmed base_templ.go <!-- count=0 and TestHome_SignedInRendersUserContent asserts the real signed-in state; set review.status=approved + status=reviewer-approved. Next: Step 8 archive (standalone change; no kkpa/context KB -> KB spec-sync skipped)."
+    }
+  ]
+}

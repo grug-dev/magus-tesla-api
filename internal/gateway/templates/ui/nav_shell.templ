@@ -1,21 +1,54 @@
 package ui
 
-// NavItem is one sidebar link. Active lights the current page's entry.
+// NavItem is one sidebar link. Active lights the current page's entry; Icon is the
+// glyph name passed to ui.Icon ("" renders no icon); Placeholder renders the item
+// as a dead "#" link with a "Soon" badge (future-work nav entries).
 type NavItem struct {
-	Label  string
-	Href   string
-	Active bool
+	Label       string
+	Href        string
+	Active      bool
+	Icon        string // glyph name for ui.Icon (closed vocabulary); "" → no icon
+	Placeholder bool   // when true, Href is forced to "#" and a "Soon" Badge is appended
+}
+
+// navHref returns the href a nav item links to. Placeholder items always link to "#"
+// (no stub route is built this change); live items link to their Href.
+func navHref(it NavItem) string {
+	if it.Placeholder {
+		return "#"
+	}
+	return it.Href
 }
 
 // NavShell renders the drawer sidebar menu so BaseAuth and pages never re-author nav
-// markup. The caller (layouts.navItems) owns the link list and active state.
-templ NavShell(items []NavItem) {
-	<ul class="menu bg-base-200 min-h-full w-64 p-4">
+// markup. The caller (layouts.navItems) owns the link list and active state. The
+// `menu`/`menu-active`/`badge` DaisyUI component classes live ONLY here — pages
+// compose this wrapper, never the raw classes.
+//
+// footer is an optional slot rendered as a trailing <li> pinned to the bottom of
+// the menu, used by BaseAuth for the logout form. Stays inside the <ul> so the
+// `menu` class still owns all sidebar styling; a post is a <form>, not a link, so
+// it can't be a normal NavItem.
+templ NavShell(items []NavItem, footer templ.Component) {
+	<ul class="menu bg-base-200 flex-1 min-h-0 w-64 p-4">
 		for _, it := range items {
 			<li>
-				<a href={ templ.SafeURL(it.Href) } class={ templ.KV("menu-active", it.Active) }>
-					{ it.Label }
+				<a href={ templ.SafeURL(navHref(it)) } class={ templ.KV("menu-active", it.Active) }>
+					if it.Icon != "" {
+						<span>
+							@Icon(IconProps{Name: it.Icon, Class: "h-5 w-5"})
+						</span>
+					}
+					<span>{ it.Label }</span>
+					if it.Placeholder {
+						@Badge(BadgeProps{Kind: "warning", Text: "Soon"})
+					}
 				</a>
+			</li>
+		}
+		if footer != nil {
+			<li>
+				@footer
 			</li>
 		}
 	</ul>

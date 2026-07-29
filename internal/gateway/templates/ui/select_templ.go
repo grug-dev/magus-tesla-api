@@ -10,18 +10,20 @@ import templruntime "github.com/a-h/templ/runtime"
 
 // SelectProps configures a Select. Required/Disabled map to the HTML boolean
 // attributes. Attrs carries any extra attributes; Class is for extra layout
-// utilities. The caller supplies the <option> elements as the slot (they are
-// data-driven, so they stay with the caller).
+// utilities. Size adds a DaisyUI size modifier ("sm" | "xs" | "lg"), owned here
+// so a size class never leaks into a fragment. The caller supplies the <option>
+// elements as the slot (they are data-driven, so they stay with the caller).
 type SelectProps struct {
 	Name     string
 	Required bool
 	Disabled bool
 	Class    string
+	Size     string // "sm" | "xs" | "lg" | "" (default)
 	Attrs    templ.Attributes
 }
 
-// Select renders a themed dropdown. The DaisyUI `select` class is OWNED here so
-// a version bump is a one-file change.
+// Select renders a themed dropdown. The DaisyUI `select` class and its size/border
+// modifiers are OWNED here so a version bump is a one-file change.
 func Select(p SelectProps) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -43,7 +45,7 @@ func Select(p SelectProps) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var2 = []any{"select w-full", p.Class}
+		var templ_7745c5c3_Var2 = []any{"select select-bordered w-full", selectSizeClass(p.Size), p.Class}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -55,7 +57,7 @@ func Select(p SelectProps) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/select.templ`, Line: 19, Col: 15}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/select.templ`, Line: 21, Col: 15}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 		if templ_7745c5c3_Err != nil {
@@ -108,6 +110,21 @@ func Select(p SelectProps) templ.Component {
 		}
 		return nil
 	})
+}
+
+// selectSizeClass maps the Size prop to the DaisyUI size modifier class. Closed
+// vocabulary — unknown sizes degrade to the default (no size class).
+func selectSizeClass(size string) string {
+	switch size {
+	case "xs":
+		return "select-xs"
+	case "sm":
+		return "select-sm"
+	case "lg":
+		return "select-lg"
+	default:
+		return ""
+	}
 }
 
 var _ = templruntime.GeneratedTemplate

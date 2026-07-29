@@ -29,6 +29,12 @@ import (
 // csrfManualChargeKey is the session key for the manual charge CSRF token.
 const csrfManualChargeKey = "csrf_manualcharge"
 
+// csrfVehicleSelectKey is the session key for the vehicle-context-switcher CSRF
+// token. Issued by NavHeaderFragment, validated by VehicleSelect — both live in
+// handlers.go, but the key sits here with its sibling so the CSRF vocabulary has
+// one home.
+const csrfVehicleSelectKey = "csrf_vehicle_select"
+
 // defaultChargeLimit is the default max number of entries returned for a list call.
 const defaultChargeLimit = 100
 
@@ -50,7 +56,16 @@ func (h *Handler) ChargePage(c *gin.Context) {
 	sess.Set(csrfManualChargeKey, csrfToken)
 	_ = sess.Save()
 
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, 0)
+	// Scope the list + default the create-form picker to the selected vehicle
+	// context (sidebar switcher). resolveSelectedVehicle auto-selects the first
+	// OWNER vehicle when the session has none, so this page never lands without
+	// a context. Falls back to 0 (all vehicles) only when the account has no
+	// vehicles — but then there's nothing to log a charge against anyway.
+	filterTeslaID := int64(0)
+	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+		filterTeslaID = sel.TeslaID
+	}
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
 	render(c, http.StatusOK, pages.ChargePage(d))
 }
 
@@ -63,8 +78,46 @@ func (h *Handler) ChargesListFragment(c *gin.Context) {
 	}
 	sess := sessions.Default(c)
 	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, 0)
+	// Scope the htmx-refreshed list to the selected vehicle context, same as the
+	// full ChargePage render, so the list stays consistent with the switcher.
+	filterTeslaID := int64(0)
+	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+		filterTeslaID = sel.TeslaID
+	}
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
 	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-list")
+}
+
+// ChargesContentFragment renders the whole vehicle-scoped charges content region —
+// the create form + the entry list — for the SELECTED vehicle (htmx swap served by
+// GET /ui/charges). The #charges-content region subscribes to the "vehicle-changed"
+// event the sidebar switcher fires (HX-Trigger on VehicleSelect) and re-fetches this
+// so BOTH the list (filtered by the selected TeslaID) and the create form's vehicle
+// default follow the newly-selected vehicle without a full page reload. It mirrors
+// ChargePage exactly — issue a fresh manual-charge CSRF token (the re-rendered create
+// form embeds it) and scope to the resolved vehicle — but emits only the two content
+// fragments instead of the full page.
+func (h *Handler) ChargesContentFragment(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		c.String(http.StatusInternalServerError, "could not refresh charge log")
+		return
+	}
+	sess := sessions.Default(c)
+	sess.Set(csrfManualChargeKey, csrfToken)
+	_ = sess.Save()
+
+	filterTeslaID := int64(0)
+	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+		filterTeslaID = sel.TeslaID
+	}
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
+	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-create-form", "charges-list")
 }
 
 // ChargeRowStatic renders the static row for one entry (used by cancel-edit path).
@@ -141,7 +194,16 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 		if validationErrors == nil {
 			return
 		}
-		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, 0)
+		// Pre-select the vehicle the user just submitted (entry.TeslaID) so the
+		// re-rendered create form keeps their pick; fall back to the session-
+		// selected context, then to the auto-pick (0) when nothing parsed.
+		filterTeslaID := entry.TeslaID
+		if filterTeslaID == 0 {
+			if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+				filterTeslaID = sel.TeslaID
+			}
+		}
+		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
 		render(c, http.StatusUnprocessableEntity, fragments.ChargeCreateForm(d, validationErrors))
 		return
 	}
@@ -149,7 +211,14 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 	created, err := h.manualChargeWriter.Create(c.Request.Context(), entry)
 	if err != nil {
 		log.Printf("gateway: ChargeCreate writer error for account %s: %v", uid, err)
-		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, 0)
+		// Keep the picker on the vehicle the user submitted.
+		filterTeslaID := entry.TeslaID
+		if filterTeslaID == 0 {
+			if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+				filterTeslaID = sel.TeslaID
+			}
+		}
+		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
 		render(c, http.StatusInternalServerError, fragments.ChargeCreateForm(d, map[string]string{
 			"_top": "Could not save your entry — please try again.",
 		}))
@@ -157,7 +226,15 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 	}
 
 	_ = created
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, 0)
+	// Reset form defaults to the submitted vehicle so the user can log another
+	// charge for the same car without re-picking.
+	filterTeslaID := entry.TeslaID
+	if filterTeslaID == 0 {
+		if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+			filterTeslaID = sel.TeslaID
+		}
+	}
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
 	render(c, http.StatusOK, fragments.ChargeCreateSuccessOOB(d))
 }
 
@@ -251,6 +328,10 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		}
 	}
 
+	// The manual-records page is scoped to the selected vehicle context (the
+	// sidebar switcher). When a filter is explicitly passed (non-zero) it wins;
+	// otherwise we show all entries by account and pre-select no vehicle — the
+	// caller (ChargePage) normally passes the session-selected TeslaID.
 	var entries []manualcharge.Entry
 	if teslaIDFilter != 0 {
 		entries, err = h.manualChargeReader.ListEntriesByVehicle(ctx, uid, teslaIDFilter, defaultChargeLimit)
@@ -270,6 +351,16 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 	}
 
 	opts, singleVehicle := buildVehicleOptions(vehicles)
+
+	// Re-mark the picker Selected flag to the resolved context vehicle (the
+	// filter) instead of buildVehicleOptions' default (first OWNER). With the
+	// sidebar switcher driving context, the create form must default to the
+	// vehicle the user currently has selected, not the auto-pick.
+	if teslaIDFilter != 0 && !singleVehicle {
+		for i := range opts {
+			opts[i].Selected = opts[i].TeslaID == teslaIDFilter
+		}
+	}
 
 	return fragments.ChargesPageData{
 		Entries:        vms,
@@ -300,11 +391,21 @@ func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID)
 }
 
 // checkCSRF reads the submitted csrf_token (from form body or hx-csrf-token
-// header), compares it to the session value via constant-time compare, and
-// writes 403 + error fragment on mismatch. Returns true if CSRF is valid.
+// header), compares it to the manualcharge session value via constant-time
+// compare, and writes 403 on mismatch. Returns true if CSRF is valid.
 func (h *Handler) checkCSRF(c *gin.Context) bool {
+	return h.checkCSRFKey(c, csrfManualChargeKey)
+}
+
+// checkCSRFKey is the generic per-form CSRF check. keyed by the session key the
+// issuing handler stored the token under (e.g. csrfManualChargeKey,
+// csrfVehicleSelectKey). Same fail-closed contract as checkCSRF: an empty session
+// token never matches, so a write before the issuing GET was ever loaded is
+// rejected. Reads csrf_token from the form body, falling back to the
+// X-CSRF-Token header.
+func (h *Handler) checkCSRFKey(c *gin.Context, key string) bool {
 	sess := sessions.Default(c)
-	want, _ := sess.Get(csrfManualChargeKey).(string)
+	want, _ := sess.Get(key).(string)
 	got := c.PostForm("csrf_token")
 	if got == "" {
 		got = c.GetHeader("X-CSRF-Token")

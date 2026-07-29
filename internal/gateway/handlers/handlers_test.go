@@ -5,9 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
@@ -361,6 +368,29 @@ func TestIsStale(t *testing.T) {
 	}
 }
 
+// TestConnectedAt verifies the exact-at-threshold and boundary semantics of the
+// connectedAt nav-header helper using a fixed clock — fully deterministic. This
+// mirrors TestIsStale, but for the 48 h connectedFreshnessWindow boundary (DD3).
+func TestConnectedAt(t *testing.T) {
+	now := time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	// Exactly at window: duration == connectedFreshnessWindow, STILL connected
+	// (<= window — the strict inverse of isStale's strict >).
+	if !connectedAt(now.Add(-connectedFreshnessWindow), now) {
+		t.Errorf("want connectedAt true at exactly window (<= boundary), got false")
+	}
+
+	// One nanosecond past the window: duration > window, NOT connected (asleep).
+	if connectedAt(now.Add(-connectedFreshnessWindow-time.Nanosecond), now) {
+		t.Errorf("want connectedAt false one nanosecond past window, got true")
+	}
+
+	// One nanosecond within the window: connected.
+	if !connectedAt(now.Add(-connectedFreshnessWindow+time.Nanosecond), now) {
+		t.Errorf("want connectedAt true one nanosecond within window, got false")
+	}
+}
+
 func TestVehiclesFor_SentryModeThreeStates(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "Nil"},
@@ -393,6 +423,264 @@ func TestVehiclesFor_SentryModeThreeStates(t *testing.T) {
 	}
 	if byName["On"] == nil || *byName["On"] != true {
 		t.Errorf("want SentryMode *true for 'On' vehicle, got %v", byName["On"])
+	}
+}
+
+// --- dashboardFor tests (single-vehicle bento VM) ---
+//
+// dashboardFor is the single-vehicle dashboard's core logic. These mirror the
+// vehiclesFor coverage for the degradation paths (NeedsConnect, telemetry error,
+// placeholder) and add the enriched-snapshot + status/limit/version formatting
+// cases unique to the dashboard VM. All drive the handler directly (no HTTP, no
+// session), like the vehiclesFor tests above.
+
+func TestDashboardFor_NoConnectionPromptsConnect(t *testing.T) {
+	// No registered vehicles and no Tesla token → NeedsConnect (the dashboard
+	// does not seed here; seeding is a vehiclesFor side effect called by the
+	// Dashboard handler before dashboardFor).
+	h := newHandler(&fakeAccount{tokenErr: account.ErrNoTeslaConnection}, fakeTesla{})
+	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	if !d.NeedsConnect {
+		t.Fatalf("want NeedsConnect, got %+v", d)
+	}
+}
+
+func TestDashboardFor_RegisteredEmptyPromptsConnect(t *testing.T) {
+	// Registered list is empty (already-seeded account with zero vehicles) →
+	// NeedsConnect, not an error.
+	acct := &fakeAccount{registered: nil}
+	reader := &fakeReader{snapshots: nil}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	if !d.NeedsConnect {
+		t.Fatalf("want NeedsConnect for empty registry, got %+v", d)
+	}
+}
+
+func TestDashboardFor_AccountReadErrorShowsNotice(t *testing.T) {
+	acct := &fakeAccount{regErr: errors.New("db down")}
+	h := newHandlerWithReader(acct, fakeTesla{}, &fakeReader{})
+	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	if d.NeedsConnect {
+		t.Errorf("want NeedsConnect false on account error, got true")
+	}
+	if d.Notice == "" {
+		t.Errorf("want a degradation Notice on account error, got empty")
+	}
+	if d.HasSnapshot {
+		t.Errorf("want HasSnapshot false on account error")
+	}
+}
+
+func TestDashboardFor_TelemetryErrorIsUnavailable(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{err: errors.New("db unavailable")}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+
+	if !d.TelemetryUnavailable {
+		t.Fatalf("want TelemetryUnavailable true, got false")
+	}
+	if d.Notice == "" {
+		t.Errorf("want a Notice on telemetry error, got empty")
+	}
+	if d.HasSnapshot {
+		t.Errorf("want HasSnapshot false on telemetry error")
+	}
+	if d.VehicleName != "Magus" {
+		t.Errorf("want VehicleName preserved on telemetry error, got %q", d.VehicleName)
+	}
+}
+
+func TestDashboardFor_PlaceholderWhenNoSnapshot(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 7, VIN: "VIN7", DisplayName: "Ghost"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+
+	if d.HasSnapshot {
+		t.Fatalf("want HasSnapshot false, got true")
+	}
+	if d.TelemetryUnavailable {
+		t.Errorf("want TelemetryUnavailable false for a normal no-snapshot state")
+	}
+	if d.Notice != "" {
+		t.Errorf("want no Notice for placeholder state, got %q", d.Notice)
+	}
+	if d.VehicleName != "Ghost" {
+		t.Errorf("want VehicleName Ghost, got %q", d.VehicleName)
+	}
+	// All metric fields must be empty (the template renders "—" placeholders).
+	for name, v := range map[string]string{
+		"StatusLabel": d.StatusLabel, "SoftwareVer": d.SoftwareVer,
+		"Odometer": d.Odometer, "InsideTemp": d.InsideTemp,
+		"Battery": d.Battery, "BatteryPct": d.BatteryPct,
+		"RangeNow": d.RangeNow, "ChargeLimit": d.ChargeLimit,
+		"LastUpdated": d.LastUpdated,
+	} {
+		if v != "" {
+			t.Errorf("want %s empty for placeholder, got %q", name, v)
+		}
+	}
+	if d.IsStale {
+		t.Errorf("want IsStale false for placeholder")
+	}
+}
+
+func TestDashboardFor_EnrichedBento(t *testing.T) {
+	capturedAt := time.Now().Add(-1 * time.Hour) // fresh, within 36 h
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+		// A second vehicle confirms selectedTeslaID selection, not just [0].
+		{TeslaID: 99, VIN: "VIN99", DisplayName: "Other"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{
+			TeslaID:       42,
+			CapturedAt:    capturedAt,
+			BatteryLevel:  80,
+			BatteryRange:  200.0,  // miles → ~321.87 km → "322 km"
+			ChargingState: "Disconnected", // → "Parked"
+			ChargeLimitSoc: 80,
+			Odometer:      12000.0, // miles → ~19312.07 km → round 19312 → "19,312 km"
+			InsideTemp:    22.0,
+			OutsideTemp:   15.0,
+			CarVersion:    "2024.32.5",
+		},
+	}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.dashboardFor(context.Background(), uuid.New(), 42)
+
+	if !d.HasSnapshot {
+		t.Fatalf("want HasSnapshot true, got false")
+	}
+	if d.NeedsConnect || d.TelemetryUnavailable {
+		t.Fatalf("want a clean enriched state, got NeedsConnect=%v Unavailable=%v", d.NeedsConnect, d.TelemetryUnavailable)
+	}
+	if d.VehicleName != "Magus" {
+		t.Errorf("want VehicleName Magus (selectedTeslaID=42), got %q", d.VehicleName)
+	}
+	if d.StatusLabel != "Parked" {
+		t.Errorf("want StatusLabel Parked for Disconnected, got %q", d.StatusLabel)
+	}
+	if d.SoftwareVer != "Software v2024.32.5" {
+		t.Errorf("want SoftwareVer %q, got %q", "Software v2024.32.5", d.SoftwareVer)
+	}
+	if d.Battery != "80%" {
+		t.Errorf("want Battery %q, got %q", "80%", d.Battery)
+	}
+	if d.BatteryPct != "80" {
+		t.Errorf("want BatteryPct %q (bare), got %q", "80", d.BatteryPct)
+	}
+	wantRange := fmt.Sprintf("%.0f km", (telemetry.Snapshot{BatteryRange: 200.0}).BatteryRangeKm())
+	if d.RangeNow != wantRange {
+		t.Errorf("want RangeNow %q, got %q", wantRange, d.RangeNow)
+	}
+	if d.ChargeLimit != "Limit 80%" {
+		t.Errorf("want ChargeLimit %q, got %q", "Limit 80%", d.ChargeLimit)
+	}
+	// formatKm rounds 19312.069... → 19312, then comma-groups → "19,312 km".
+	wantOdo := "19,312 km"
+	if d.Odometer != wantOdo {
+		t.Errorf("want Odometer %q, got %q", wantOdo, d.Odometer)
+	}
+	if d.InsideTemp != "22 °C" {
+		t.Errorf("want InsideTemp %q, got %q", "22 °C", d.InsideTemp)
+	}
+	if d.OutsideTemp != "15 °C" {
+		t.Errorf("want OutsideTemp %q, got %q", "15 °C", d.OutsideTemp)
+	}
+	if d.LastUpdated == "" {
+		t.Errorf("want LastUpdated set, got empty")
+	}
+	if d.IsStale {
+		t.Errorf("want IsStale false for a 1h-old snapshot, got true")
+	}
+}
+
+func TestDashboardFor_ChargingStatus(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{{TeslaID: 1, VIN: "V1", DisplayName: "ChargingCar"}}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 1, CapturedAt: time.Now(), ChargingState: "Charging"},
+	}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	if d.StatusLabel != "Charging" {
+		t.Fatalf("want StatusLabel Charging, got %q", d.StatusLabel)
+	}
+}
+
+func TestDashboardFor_StaleSnapshot(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{{TeslaID: 1, VIN: "V1", DisplayName: "StaleCar"}}}
+	past := time.Now().Add(-stalenessThreshold - time.Second)
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 1, CapturedAt: past, BatteryLevel: 50, Odometer: 1000.0, InsideTemp: 20},
+	}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	if !d.HasSnapshot || !d.IsStale {
+		t.Fatalf("want HasSnapshot + IsStale, got HasSnapshot=%v IsStale=%v", d.HasSnapshot, d.IsStale)
+	}
+}
+
+func TestDashboardFor_SelectsDefaultsToFirst(t *testing.T) {
+	// selectedTeslaID == 0 (no session selection yet) → dashboardFor uses
+	// registered[0], mirroring resolveSelectedVehicle's auto-select.
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 5, VIN: "V5", DisplayName: "First"},
+		{TeslaID: 6, VIN: "V6", DisplayName: "Second"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 5, CapturedAt: time.Now(), BatteryLevel: 30, Odometer: 1, InsideTemp: 21},
+	}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	if d.VehicleName != "First" {
+		t.Fatalf("want default to first vehicle, got %q", d.VehicleName)
+	}
+}
+
+// --- dashboardFor formatters (pure helpers) ---
+
+func TestCommaGroup(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"0", "0"}, {"12", "12"}, {"123", "123"},
+		{"1234", "1,234"}, {"12345", "12,345"}, {"123456", "123,456"},
+		{"1234567", "1,234,567"},
+	}
+	for _, c := range cases {
+		if got := commaGroup(c.in); got != c.want {
+			t.Errorf("commaGroup(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestFormatKm(t *testing.T) {
+	// 19312.07 → whole 19312 → "19,312 km"; 321.5 → "322 km".
+	if got := formatKm(19312.069321); got != "19,312 km" {
+		t.Errorf("formatKm(19312.07) = %q, want %q", got, "19,312 km")
+	}
+	if got := formatKm(321.5); got != "322 km" {
+		t.Errorf("formatKm(321.5) = %q, want %q", got, "322 km")
+	}
+	if got := formatKm(999.4); got != "999 km" {
+		t.Errorf("formatKm(999.4) = %q, want %q", got, "999 km")
+	}
+}
+
+func TestDashStatus(t *testing.T) {
+	for _, tc := range []struct{ charge, want string }{
+		{"Charging", "Charging"},
+		{"Stopped", "Parked"}, {"Disconnected", "Parked"}, {"Complete", "Parked"}, {"", "Parked"},
+	} {
+		s := telemetry.Snapshot{ChargingState: tc.charge}
+		if got := dashStatus(s); got != tc.want {
+			t.Errorf("dashStatus(ChargingState=%q) = %q, want %q", tc.charge, got, tc.want)
+		}
 	}
 }
 
@@ -442,5 +730,383 @@ func TestSeedAccessTypeMapping_Empty(t *testing.T) {
 	sv := acct.lastSeedVehicles[0]
 	if sv.AccessType != nil {
 		t.Errorf("want nil AccessType for empty-string vehicle, got %q", *sv.AccessType)
+	}
+}
+
+// --- nav-header fragment (T4) ---
+//
+// navHeaderFor is the gin-free helper; these unit tests cover the six enumerated
+// cases purely (no HTTP, no session), mirroring the vehiclesFor tests above. The
+// fragment route's anonymous -> /login redirect is covered in gateway_test.go.
+
+// newNavHeaderHandler builds a Handler wired with account + telemetry fakes for
+// the nav-header helper tests (Tesla is never reached by navHeaderFor).
+func newNavHeaderHandler(acct account.Service, reader telemetry.Reader) *Handler {
+	return newHandlerWithReader(acct, fakeTesla{}, reader)
+}
+
+func TestNavHeaderFor_Connected(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	// 1 h old — well within the 48 h window.
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevel: 94},
+	}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+
+	if vm.NeedsConnect {
+		t.Fatalf("want NeedsConnect false, got true")
+	}
+	if vm.VehicleName != "Magus" {
+		t.Errorf("want VehicleName Magus, got %q", vm.VehicleName)
+	}
+	if vm.Status != "connected" {
+		t.Errorf("want Status connected, got %q", vm.Status)
+	}
+	if vm.StatusLabel != "Connected" {
+		t.Errorf("want StatusLabel Connected, got %q", vm.StatusLabel)
+	}
+	if vm.BatteryPct != "94%" {
+		t.Errorf("want BatteryPct 94%%, got %q", vm.BatteryPct)
+	}
+	if vm.LastSeenLabel != "" {
+		t.Errorf("want no LastSeenLabel when connected, got %q", vm.LastSeenLabel)
+	}
+}
+
+func TestNavHeaderFor_Asleep(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	// 3 days old — past the 48 h window -> asleep.
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 42, CapturedAt: time.Now().Add(-72 * time.Hour), BatteryLevel: 50},
+	}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+
+	if vm.VehicleName != "Magus" {
+		t.Errorf("want VehicleName Magus, got %q", vm.VehicleName)
+	}
+	if vm.Status != "asleep" {
+		t.Errorf("want Status asleep, got %q", vm.Status)
+	}
+	if vm.StatusLabel != "Asleep" {
+		t.Errorf("want StatusLabel Asleep, got %q", vm.StatusLabel)
+	}
+	if vm.BatteryPct != "" {
+		t.Errorf("want no BatteryPct when asleep, got %q", vm.BatteryPct)
+	}
+	// Relative label pre-computed by the handler, present, and references "days".
+	if vm.LastSeenLabel == "" {
+		t.Errorf("want non-empty LastSeenLabel when asleep, got empty")
+	}
+	if !strings.Contains(vm.LastSeenLabel, "days ago") {
+		t.Errorf("want LastSeenLabel to be a days-ago relative label (72 h old), got %q", vm.LastSeenLabel)
+	}
+}
+
+func TestNavHeaderFor_Awaiting(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	// Reader returns an empty slice — no snapshot for the primary vehicle.
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+
+	if vm.NeedsConnect {
+		t.Fatalf("want NeedsConnect false (vehicle registered), got true")
+	}
+	if vm.VehicleName != "Magus" {
+		t.Errorf("want VehicleName Magus, got %q", vm.VehicleName)
+	}
+	if vm.Status != "awaiting" {
+		t.Errorf("want Status awaiting, got %q", vm.Status)
+	}
+	if vm.StatusLabel == "" {
+		t.Errorf("want non-empty StatusLabel for awaiting, got empty")
+	}
+	if vm.BatteryPct != "" || vm.LastSeenLabel != "" {
+		t.Errorf("want no battery/last-seen for awaiting, got battery=%q lastSeen=%q", vm.BatteryPct, vm.LastSeenLabel)
+	}
+}
+
+func TestNavHeaderFor_NeedsConnect(t *testing.T) {
+	// No registered vehicles -> NeedsConnect state (connect link, no dot/name).
+	acct := &fakeAccount{registered: nil}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+
+	if !vm.NeedsConnect {
+		t.Fatalf("want NeedsConnect true when no vehicles registered, got false")
+	}
+	if vm.VehicleName != "" {
+		t.Errorf("want no VehicleName in NeedsConnect state, got %q", vm.VehicleName)
+	}
+	if vm.Status != "" {
+		t.Errorf("want empty Status in NeedsConnect state (no dot rendered), got %q", vm.Status)
+	}
+	if vm.BatteryPct != "" {
+		t.Errorf("want no BatteryPct in NeedsConnect state, got %q", vm.BatteryPct)
+	}
+}
+
+func TestNavHeaderFor_AccountError(t *testing.T) {
+	// RegisteredVehicles errors -> degraded Unavailable, no name.
+	acct := &fakeAccount{regErr: errFake}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+
+	if vm.NeedsConnect {
+		t.Errorf("want NeedsConnect false on account error (don't pretend to know), got true")
+	}
+	if vm.VehicleName != "" {
+		t.Errorf("want no VehicleName on account error, got %q", vm.VehicleName)
+	}
+	if vm.Status != "unavailable" {
+		t.Errorf("want Status unavailable, got %q", vm.Status)
+	}
+	if vm.StatusLabel == "" {
+		t.Errorf("want non-empty StatusLabel for unavailable, got empty")
+	}
+}
+
+func TestNavHeaderFor_TelemetryReaderError(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{err: errFake}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+
+	// Name preserved (account read ok), status degraded, no battery.
+	if vm.VehicleName != "Magus" {
+		t.Errorf("want VehicleName preserved on telemetry error, got %q", vm.VehicleName)
+	}
+	if vm.Status != "unavailable" {
+		t.Errorf("want Status unavailable on telemetry error, got %q", vm.Status)
+	}
+	if vm.BatteryPct != "" {
+		t.Errorf("want no BatteryPct on telemetry error, got %q", vm.BatteryPct)
+	}
+}
+
+// navHeaderEngine builds a minimal Gin engine with session middleware, a /_session
+// route that seeds the uid (matching the sessionCookie contract from
+// charges_test.go), and the nav-header fragment route. Reuses sessionCookie.
+func navHeaderEngine(h *Handler, uid uuid.UUID) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", uid.String())
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/ui/nav-header", h.NavHeaderFragment)
+	return r
+}
+
+// TestNavHeaderFragment_ConnectedHTTP exercises the full fragment route with a
+// seeded session: an authenticated GET /ui/nav-header returns 200 and the rendered
+// fragment contains the vehicle name, the success-colored status dot
+// (badge-success), and the pre-computed battery percentage.
+func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevel: 94},
+	}}
+	h := newNavHeaderHandler(acct, reader)
+	eng := navHeaderEngine(h, uid)
+	cookie := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/nav-header", nil)
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for authenticated nav-header fragment, got %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{
+		`id="nav-header"`,
+		"Magus",
+		"badge-success",
+		"94%",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("nav-header body missing %q\n%s", want, body)
+		}
+	}
+}
+
+// --- dashboard fragment + vehicle-switch refresh (GET /ui/dashboard, HX-Trigger) ---
+//
+// These cover the switcher → dashboard refresh wiring: the switch persists the new
+// selection and fires "vehicle-changed" (VehicleSelect); the dashboard region then
+// re-fetches GET /ui/dashboard for the newly-selected vehicle. The navHeaderEngine
+// above seeds only uid; dashboardEngine additionally seeds the selected-vehicle
+// context and the vehicle-select CSRF token so both routes can be exercised.
+
+// dashboardEngine builds a minimal Gin engine with session middleware, a /_session
+// route that seeds uid (plus an optional selected-vehicle context and vehicle-select
+// CSRF token), and the dashboard fragment + vehicle-select routes. Mirrors
+// navHeaderEngine. selTeslaID == 0 leaves the session with no selection (so the
+// handler auto-selects); non-zero seeds the switcher's persisted choice.
+func dashboardEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN, csrf string) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", uid.String())
+		if selTeslaID != 0 {
+			sess.Set(sessionTeslaIDKey, selTeslaID)
+			sess.Set(sessionVINKey, selVIN)
+		}
+		if csrf != "" {
+			sess.Set(csrfVehicleSelectKey, csrf)
+		}
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/ui/dashboard", h.DashboardFragment)
+	r.POST("/ui/vehicle/select", h.VehicleSelect)
+	return r
+}
+
+// TestDashboardFragment_RendersSelectedVehicle verifies GET /ui/dashboard renders the
+// SELECTED vehicle's bento (not registered[0]) and emits ONLY the swappable region —
+// no page shell and no #dashboard-content wrapper (the innerHTML-swap contract keeps
+// the listening wrapper in the DOM; the fragment is just its inner content).
+func TestDashboardFragment_RendersSelectedVehicle(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
+		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 2, CapturedAt: time.Now().Add(-time.Hour), BatteryLevel: 77, Odometer: 1000, InsideTemp: 20},
+	}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	eng := dashboardEngine(h, uid, 2, "VIN2", "")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for authenticated dashboard fragment, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Second") {
+		t.Errorf("want SELECTED vehicle name 'Second' in fragment, got:\n%s", body)
+	}
+	if !strings.Contains(body, "77%") {
+		t.Errorf("want SELECTED vehicle battery '77%%' in fragment, got:\n%s", body)
+	}
+	if strings.Contains(body, "First") {
+		t.Errorf("fragment must render the selected vehicle only, not registered[0] 'First'")
+	}
+	if strings.Contains(body, "<html") {
+		t.Errorf("dashboard fragment must not contain the full-page shell (<html>)")
+	}
+	if strings.Contains(body, `id="dashboard-content"`) {
+		t.Errorf("dashboard fragment is the innerHTML of #dashboard-content; it must not re-emit the wrapper")
+	}
+}
+
+// TestVehicleSelect_FiresVehicleChangedTrigger verifies a successful switch responds
+// with the HX-Trigger: vehicle-changed header so the dashboard region (and any other
+// subscriber) refreshes for the newly-selected vehicle.
+func TestVehicleSelect_FiresVehicleChangedTrigger(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
+		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	eng := dashboardEngine(h, uid, 0, "", "tok")
+	c := sessionCookie(eng, uid, "")
+
+	form := url.Values{"csrf_token": {"tok"}, "vehicle": {"2:VIN2"}}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/vehicle/select", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for a valid vehicle switch, got %d (%s)", w.Code, w.Body.String())
+	}
+	if got := w.Header().Get("HX-Trigger"); got != "vehicle-changed" {
+		t.Errorf("want HX-Trigger: vehicle-changed so subscribed regions refresh, got %q", got)
+	}
+}
+
+// homeEngine builds a minimal Gin engine with session middleware, a /_session route
+// that seeds uid + email (so sessionCookie can forge a signed-in cookie), and the
+// home route wired to h.Home. Mirrors the navHeaderEngine pattern.
+func homeEngine(h *Handler, uid uuid.UUID, email string) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", uid.String())
+		sess.Set("email", email)
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/", h.Home)
+	return r
+}
+
+// TestHome_SignedInRedirectsToDashboard verifies the signed-in home state: a
+// logged-in user hitting "/" is redirected straight to /dashboard (the default
+// authenticated experience). The old pages.Home content view is retired.
+func TestHome_SignedInRedirectsToDashboard(t *testing.T) {
+	uid := uuid.New()
+	const email = "driver@example.com"
+
+	h := New(Deps{Account: &fakeAccount{}, Tesla: &fakeTesla{}, TelemetryReader: &fakeReader{}})
+	eng := homeEngine(h, uid, email)
+
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusFound {
+		t.Fatalf("want 302 redirect to /dashboard for signed-in home, got %d", w.Code)
+	}
+	if loc := w.Header().Get("Location"); loc != "/dashboard" {
+		t.Fatalf("Location = %q, want /dashboard", loc)
 	}
 }

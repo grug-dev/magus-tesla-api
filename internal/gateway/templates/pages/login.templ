@@ -1,17 +1,47 @@
 package pages
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
 
-// Login is the sign-in page. The button links to the gateway's Google login route,
-// which redirects to Google's consent screen.
+// Login is the sign-in page. It is a visual re-skin of the existing Google login
+// flow: a single "Continue with Google" affordance wired to /auth/google/login
+// (the pre-existing route). No email/password fields, no "Sign In" button, no "OR"
+// divider, no external background image, and no inline <script>. The handler
+// LoginPage renders this page with no view model — pure static markup + one link.
 templ Login() {
 	@layouts.Base("Sign in — Magus") {
-		<main>
-			<h1>Sign in to Magus</h1>
-			<p>Connect your Google account to continue.</p>
-			<a href="/auth/google/login">
-				<button type="button">Sign in with Google</button>
-			</a>
+		// Login-local background gradient (change-locality: lives here, not in
+		// layouts.Base, so home/Base stay untouched). Semantic tokens only — the
+		// gradient re-skins with <html data-theme>; no hex, no external asset.
+		<div class="fixed inset-0 -z-10 bg-gradient-to-br from-base-200 via-base-100 to-base-300"></div>
+		<main class="flex min-h-screen flex-col items-center justify-center gap-8 px-4 py-16">
+			// Branding block — static text, inline typography utilities only.
+			<div class="flex flex-col items-center gap-2 text-center">
+				<h1 class="text-3xl font-bold uppercase tracking-[0.2em] text-base-content">TESLA CORE</h1>
+				<p class="text-base-content/70">Precision Fleet Monitoring</p>
+			</div>
+			@ui.Card(ui.CardProps{}) {
+				@ui.Button(ui.ButtonProps{Variant: "primary", Href: "/auth/google/login", Class: "w-full"}) {
+					// The Google "G" SVG brand fills (#4285F4 / #34A853 / #FBBC05 /
+					// #EA4335) are the ONE permitted hardcoded-color exception: a
+					// third-party logo's official brand colors, not the app palette.
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 48 48" aria-hidden="true">
+						<path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.84 6.56-9.5 6.56-16.17z"/>
+						<path fill="#34A853" d="M24 46c5.92 0 10.9-1.96 14.53-5.32l-7.11-5.52c-1.97 1.32-4.49 2.1-7.42 2.1-5.7 0-10.52-3.84-12.24-9.01H4.5v5.7C8.11 41.07 15.48 46 24 46z"/>
+						<path fill="#FBBC05" d="M11.76 28.25c-.44-1.32-.69-2.73-.69-4.25s.25-2.93.69-4.25v-5.7H4.5C3.06 16.81 2 20.28 2 24s1.06 7.19 2.5 9.95l7.26-5.7z"/>
+						<path fill="#EA4335" d="M24 10.75c3.22 0 6.1 1.11 8.38 3.29l6.26-6.26C34.9 4.18 29.92 2 24 2 15.48 2 8.11 6.93 4.5 14.05l7.26 5.7c1.72-5.17 6.54-9.01 12.24-9.01z"/>
+					</svg>
+					Continue with Google
+				}
+			}
+			// Cosmetic footer — static null-href links; no pages exist yet.
+			<footer class="flex gap-6 text-sm text-base-content/60">
+				<a href={ templ.SafeURL("#") }>Privacy</a>
+				<a href={ templ.SafeURL("#") }>Terms</a>
+				<a href={ templ.SafeURL("#") }>Support</a>
+			</footer>
 		</main>
 	}
 }

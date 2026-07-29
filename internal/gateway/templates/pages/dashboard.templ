@@ -3,22 +3,100 @@ package pages
 import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// Dashboard lists the signed-in user's vehicles. The list is wrapped in a Templ
-// fragment named "vehicles" so the handler renders the whole page on load and just
-// the fragment for the htmx Refresh button.
-templ Dashboard(d fragments.VehiclesData) {
-	@layouts.Base("Your vehicles — Magus") {
-		<main>
-			<h1>Your vehicles</h1>
-			<button hx-get="/ui/vehicles" hx-target="#vehicles" hx-swap="outerHTML">
-				Refresh
-			</button>
-			@templ.Fragment("vehicles") {
-				@fragments.VehiclesList(d)
+// Dashboard renders the single-vehicle dashboard for the SELECTED vehicle, mirroring
+// the Stitch "Dashboard - Read-Only Metric Monitor" screen within the gateway's
+// DaisyUI/Tailwind conventions: a 12-col bento grid — an 8-col "Vehicle Status" hero
+// with a mini-stat grid, and a 4-col vital-stats column with a battery card plus two
+// history placeholders. The shell (top nav + left sidebar) comes from
+// layouts.BaseAuth; chrome comes from the owned ui/ kit (PageHeader, Card, StatTile,
+// Badge, Button, Alert, Icon) — semantic theme tokens only, never a hex/class
+// soup. The Stitch 30-day history charts have no backing read port yet, so they
+// degrade to an honest "Awaiting nightly snapshots" placeholder rather than fake
+// bars. All values are pre-computed display strings on fragments.DashboardData.
+templ Dashboard(d fragments.DashboardData) {
+	@layouts.BaseAuth("Dashboard — Magus", "/dashboard") {
+		<div id="dashboard-content" hx-get="/ui/dashboard" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">
+			@templ.Fragment("dashboard") {
+				@ui.PageHeader(ui.PageHeaderProps{Title: "Dashboard", Subtitle: d.VehicleName}) {
+					@ui.Button(ui.ButtonProps{Variant: "ghost", Href: "/dashboard", Class: "btn-sm"}) {
+						Refresh
+					}
+				}
+				if d.NeedsConnect {
+					@ui.Card(ui.CardProps{}) {
+						<p class="text-base-content/70 mb-4">No Tesla connected.</p>
+						@ui.Button(ui.ButtonProps{Variant: "primary", Href: "/connect/tesla"}) {
+							Connect your Tesla
+						}
+					}
+				} else {
+					if d.TelemetryUnavailable {
+						@ui.Alert(ui.AlertProps{Kind: "warning", Class: "mb-4"}) {
+							{ d.Notice }
+						}
+					}
+					<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+						// Hero — Vehicle Status (col-span-8 on desktop).
+						<div class="md:col-span-8">
+							@ui.Card(ui.CardProps{Title: "Vehicle Status", Class: "h-full"}) {
+								<div class="flex items-center justify-between">
+									<p class="text-sm text-base-content/60 uppercase tracking-wider">
+										{ dashSubtitle(d) }
+									</p>
+									if d.HasSnapshot && d.IsStale {
+										@ui.Badge(ui.BadgeProps{Kind: "warning", Text: "Stale"})
+									}
+								</div>
+								<div class="flex-1 flex items-center justify-center py-10">
+									@ui.Icon(ui.IconProps{Name: "car", Class: "h-40 w-40 text-primary/20"})
+								</div>
+								<div class="grid grid-cols-2 gap-3">
+									@ui.StatTile(ui.StatTileProps{Label: "Odometer", Value: dashStat(d.HasSnapshot, d.Odometer)})
+									@ui.StatTile(ui.StatTileProps{Label: "Interior", Value: dashStat(d.HasSnapshot, d.InsideTemp)})
+									@ui.StatTile(ui.StatTileProps{Label: "Exterior", Value: dashStat(d.HasSnapshot, d.OutsideTemp)})
+									@ui.StatTile(ui.StatTileProps{Label: "Status", Value: dashStat(d.HasSnapshot, d.StatusLabel)})
+								</div>
+								if d.HasSnapshot && d.LastUpdated != "" {
+									<p class="text-xs text-base-content/50 mt-4">Last updated { d.LastUpdated }</p>
+								}
+							}
+						</div>
+						// Vital-stats column (col-span-4 on desktop).
+						<div class="md:col-span-4 flex flex-col gap-6">
+							@ui.Card(ui.CardProps{Title: "Battery"}) {
+								<div class="flex items-end justify-between mb-4">
+									<span class="text-4xl font-extrabold text-primary">{ dashStat(d.HasSnapshot, d.Battery) }</span>
+									@ui.Icon(ui.IconProps{Name: "battery", Class: "h-8 w-8 text-primary/60"})
+								</div>
+								<progress class="progress progress-primary w-full" max="100" value={ dashPctAttr(d) }></progress>
+								<div class="flex justify-between mt-3 text-sm text-base-content/70">
+									<span>Range { dashStat(d.HasSnapshot, d.RangeNow) }</span>
+									<span>{ dashChargeLimit(d) }</span>
+								</div>
+							}
+							@ui.Card(ui.CardProps{Title: "Odometer history"}) {
+								@dashHistoryEmpty()
+							}
+							@ui.Card(ui.CardProps{Title: "Battery history"}) {
+								@dashHistoryEmpty()
+							}
+						</div>
+					</div>
+				}
 			}
-			<p><a href="/">Home</a></p>
-		</main>
+		</div>
 	}
+}
+
+// dashHistoryEmpty is the honest placeholder for the Stitch 30-day history charts:
+// the platform has no history read port yet, so the cards show a tasteful empty
+// state instead of fabricated bars. When a history reader is added later, replace
+// this component's body with the chart markup — the cards stay.
+templ dashHistoryEmpty() {
+	<div class="h-24 flex items-center justify-center text-sm text-base-content/40 border border-dashed border-base-300 rounded-box">
+		Awaiting nightly snapshots
+	</div>
 }

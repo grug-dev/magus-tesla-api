@@ -14,6 +14,10 @@ cmd/explore-tesla-api/output/
 
 bin/
 
+# Air (live-reload) build outputs and log — created by `make dev`.
+tmp/
+.air/
+
 # Node-less Tailwind CLI binary for the gateway UI. Platform-specific and large
 # (~80 MB), re-fetchable with `make ui-toolchain`. Only this native binary is ignored:
 # the DaisyUI .mjs bundles, input.css, and the generated app.css under

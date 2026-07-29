@@ -331,6 +331,21 @@ up: generate migrate-up ## Refresh & run: regenerate code (sqlc + templ + css), 
 	go build -o bin/web ./cmd/web
 	./bin/web
 
+dev: ## Hot-reload the web server for UI work. Three watchers run in parallel: tailwind --watch (writes app.css to disk), templ --watch (regenerates *_templ.go), and air (rebuilds + restarts the server on any .go change). MAGUS_DEV=1 serves /static from internal/gateway/static ON DISK so CSS hot-reloads on browser refresh WITHOUT a Go rebuild. Migrations are NOT re-run — run `make migrate-up` once before. Cookie sessions survive air's restart, so you do not re-login. Ctrl-C exits all watchers.
+	@command -v air >/dev/null 2>&1 || go install github.com/air-verse/air@latest
+	@mkdir -p tmp
+	@export MAGUS_DEV=1; \
+		echo "==> tailwind: watching .templ + static/themes for class changes (writes app.css to disk; served live via MAGUS_DEV=1)"; \
+		internal/gateway/tools/tailwindcss -i internal/gateway/static/input.css -o internal/gateway/static/app.css --watch & TW_PID=$$!; \
+		echo "==> templ: watching .templ (regenerates *_templ.go → air rebuilds the server)"; \
+		go tool templ generate --watch & TL_PID=$$!; \
+		trap 'kill $$TW_PID $$TL_PID 2>/dev/null' EXIT; \
+		echo "==> air: rebuilding ./cmd/web on .go changes (incl. regenerated *_templ.go); serving on :$$PORT"; \
+		air; \
+		exit_code=$$?; \
+		kill $$TW_PID $$TL_PID 2>/dev/null; \
+		exit $$exit_code
+
 cmd-explore-tesla: ## Build cmd/explore-tesla-api into ./bin and run it (COSTS a real API call; WAKES the car). Needs a fresh TESLA_ACCESS_TOKEN in .env
 	@mkdir -p bin
 	go build -o bin/explore-tesla-api ./cmd/explore-tesla-api
