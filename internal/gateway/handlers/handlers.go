@@ -127,6 +127,31 @@ func (h *Handler) Dashboard(c *gin.Context) {
 	render(c, http.StatusOK, pages.Dashboard(h.dashboardFor(c.Request.Context(), uid, selectedTeslaID)))
 }
 
+// DashboardFragment renders ONLY the dashboard bento fragment (htmx swap served by
+// GET /ui/dashboard). The #dashboard-content region on the dashboard page
+// subscribes to the "vehicle-changed" event the sidebar switcher fires (via the
+// HX-Trigger response header on VehicleSelect) and re-fetches this fragment so the
+// bento reflects the newly-selected vehicle WITHOUT a full page reload. It mirrors
+// the Dashboard full-page handler's vehicle resolution, then renders only the
+// "dashboard" fragment of pages.Dashboard — the same template tree, filtered to the
+// swappable region (mirrors ChargesListFragment / NavHeaderFragment).
+func (h *Handler) DashboardFragment(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	// Resolve the session's selected vehicle (auto-selecting the first OWNER when
+	// none). The switch that triggered this fetch has already persisted the new
+	// selection via VehicleSelect, so this reads the just-chosen vehicle.
+	selected, sOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
+	selectedTeslaID := int64(0)
+	if sOK {
+		selectedTeslaID = selected.TeslaID
+	}
+	renderFragment(c, http.StatusOK, pages.Dashboard(h.dashboardFor(c.Request.Context(), uid, selectedTeslaID)), "dashboard")
+}
+
 // vehiclesFor is the dashboard's core logic, decoupled from gin/session so it is
 // unit-testable with fake account/tesla implementations. It reads the account's
 // registered vehicles through the account module first; only when none are
@@ -530,6 +555,13 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 		_ = sess.Save()
 		vm.CSRFToken = csrf
 	}
+	// Fire the cross-region refresh event. htmx bubbles "vehicle-changed" to <body>;
+	// any page region listening with hx-trigger="vehicle-changed from:body" (the
+	// dashboard's #dashboard-content) then re-fetches itself for the newly-selected
+	// vehicle. The switcher stays page-agnostic — it fires one event, regions opt in.
+	// Set before renderFragment: templ.Handler only sets Content-Type/status and does
+	// not clear already-set response headers.
+	c.Header("HX-Trigger", "vehicle-changed")
 	renderFragment(c, http.StatusOK, fragments.NavHeader(vm), "nav-header")
 }
 
@@ -877,6 +909,18 @@ func render(c *gin.Context, status int, comp templ.Component) {
 	_ = comp.Render(c.Request.Context(), c.Writer)
 }
 
-func renderFragment(c *gin.Context, status int, comp templ.Component, fragment string) {
-	templ.Handler(comp, templ.WithStatus(status), templ.WithFragments(fragment)).ServeHTTP(c.Writer, c.Request)
+// renderFragment emits only the named templ fragment(s) of comp — the htmx-swap path
+// (contrast with render, which emits the whole page). Pass one name for a single
+// region (the common case), or several to emit multiple sibling fragments in one
+// response body (e.g. GET /ui/charges returns the create-form + list regions that
+// live inside #charges-content). fragmentNames (not "fragments") avoids shadowing the
+// imported templates/fragments package.
+func renderFragment(c *gin.Context, status int, comp templ.Component, fragmentNames ...string) {
+	// templ.WithFragments takes ...any, so widen the []string. Passing several names
+	// emits each sibling fragment in one response body.
+	ids := make([]any, len(fragmentNames))
+	for i, n := range fragmentNames {
+		ids[i] = n
+	}
+	templ.Handler(comp, templ.WithStatus(status), templ.WithFragments(ids...)).ServeHTTP(c.Writer, c.Request)
 }

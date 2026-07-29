@@ -20,6 +20,13 @@ import (
 // (initial load) or a single fragment (htmx swap) from the same template tree.
 // Chrome comes from the owned ui/ kit (PageHeader, Button); the fragments carry
 // their own Card surfaces so they stay styled when swapped in standalone.
+//
+// Both fragments sit inside the #charges-content region, which is vehicle-scoped:
+// it subscribes to the sidebar switcher's "vehicle-changed" event (from:body) and
+// re-fetches GET /ui/charges so the entry list (filtered by the selected TeslaID)
+// AND the create form's vehicle default follow the newly-selected vehicle — no full
+// page reload. GET /ui/charges renders both fragments back into the region's
+// innerHTML; the region element (with its flex layout + hx-trigger) persists.
 func ChargePage(d fragments.ChargesPageData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -93,7 +100,7 @@ func ChargePage(d fragments.ChargesPageData) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div class=\"flex flex-col gap-6\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <div id=\"charges-content\" class=\"flex flex-col gap-6\" hx-get=\"/ui/charges\" hx-trigger=\"vehicle-changed from:body\" hx-swap=\"innerHTML\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -140,6 +140,36 @@ re-run `make css`.
 - Load htmx from a pinned version (documented when the layout is created), not an unpinned
   CDN latest.
 
+### Cross-region refresh via `HX-Trigger` (event-driven, not out-of-band)
+
+When one action must refresh a **different** region on the page, have the handler emit an
+`HX-Trigger` response header and let the other region subscribe — do **not** couple the
+acting handler to the other region's markup.
+
+- **The actor fires an event.** The handler sets `c.Header("HX-Trigger", "<event>")` alongside
+  its own fragment render. htmx bubbles that event up to `<body>`.
+- **Subscribers listen with `from:body`.** Any region that should react declares
+  `hx-trigger="<event> from:body"` + `hx-get="/ui/<region>"` and re-fetches itself. Because
+  the event bubbles to `<body>`, the `from:body` modifier is required.
+- **Why this over an out-of-band (`hx-swap-oob`) swap:** the actor stays page-agnostic — it
+  fires one event and every page opts in independently, so adding a new subscriber touches
+  only that region (change-locality), and the actor wastes no work on pages where the region
+  isn't present.
+
+Gold standard: the sidebar **vehicle switcher**. `POST /ui/vehicle/select`
+(`handlers.VehicleSelect`) persists the selection, renders the `nav-header` fragment, and
+sets `HX-Trigger: vehicle-changed`. The dashboard's `#dashboard-content` region subscribes
+with `hx-trigger="vehicle-changed from:body"` + `hx-get="/ui/dashboard"` and swaps its
+`innerHTML`, so switching the active vehicle refreshes the bento with no full-page reload.
+The `#dashboard-content` wrapper sits **outside** the `@templ.Fragment("dashboard")` block so
+the `innerHTML` swap keeps the listening element (and its `hx-trigger`) in the DOM.
+
+The manual-records page follows the same shape: `#charges-content` subscribes to
+`vehicle-changed` and re-fetches `GET /ui/charges`, which renders the create-form **and** list
+fragments together (`renderFragment(…, "charges-create-form", "charges-list")`) so both the
+vehicle-scoped entry list and the create form's vehicle default follow the switch. Any new
+per-vehicle page must do likewise — see `internal/gateway/AGENTS.md` §"Vehicle-scoped reads".
+
 ## Stitch designs → `ui/` kit translation (closed handoff procedure)
 
 Google Stitch (stitch.withgoogle.com) is a **visual / design source only** for this

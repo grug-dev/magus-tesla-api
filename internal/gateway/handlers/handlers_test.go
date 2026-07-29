@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -949,6 +950,118 @@ func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("nav-header body missing %q\n%s", want, body)
 		}
+	}
+}
+
+// --- dashboard fragment + vehicle-switch refresh (GET /ui/dashboard, HX-Trigger) ---
+//
+// These cover the switcher → dashboard refresh wiring: the switch persists the new
+// selection and fires "vehicle-changed" (VehicleSelect); the dashboard region then
+// re-fetches GET /ui/dashboard for the newly-selected vehicle. The navHeaderEngine
+// above seeds only uid; dashboardEngine additionally seeds the selected-vehicle
+// context and the vehicle-select CSRF token so both routes can be exercised.
+
+// dashboardEngine builds a minimal Gin engine with session middleware, a /_session
+// route that seeds uid (plus an optional selected-vehicle context and vehicle-select
+// CSRF token), and the dashboard fragment + vehicle-select routes. Mirrors
+// navHeaderEngine. selTeslaID == 0 leaves the session with no selection (so the
+// handler auto-selects); non-zero seeds the switcher's persisted choice.
+func dashboardEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN, csrf string) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", uid.String())
+		if selTeslaID != 0 {
+			sess.Set(sessionTeslaIDKey, selTeslaID)
+			sess.Set(sessionVINKey, selVIN)
+		}
+		if csrf != "" {
+			sess.Set(csrfVehicleSelectKey, csrf)
+		}
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/ui/dashboard", h.DashboardFragment)
+	r.POST("/ui/vehicle/select", h.VehicleSelect)
+	return r
+}
+
+// TestDashboardFragment_RendersSelectedVehicle verifies GET /ui/dashboard renders the
+// SELECTED vehicle's bento (not registered[0]) and emits ONLY the swappable region —
+// no page shell and no #dashboard-content wrapper (the innerHTML-swap contract keeps
+// the listening wrapper in the DOM; the fragment is just its inner content).
+func TestDashboardFragment_RendersSelectedVehicle(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
+		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 2, CapturedAt: time.Now().Add(-time.Hour), BatteryLevel: 77, Odometer: 1000, InsideTemp: 20},
+	}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	eng := dashboardEngine(h, uid, 2, "VIN2", "")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for authenticated dashboard fragment, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Second") {
+		t.Errorf("want SELECTED vehicle name 'Second' in fragment, got:\n%s", body)
+	}
+	if !strings.Contains(body, "77%") {
+		t.Errorf("want SELECTED vehicle battery '77%%' in fragment, got:\n%s", body)
+	}
+	if strings.Contains(body, "First") {
+		t.Errorf("fragment must render the selected vehicle only, not registered[0] 'First'")
+	}
+	if strings.Contains(body, "<html") {
+		t.Errorf("dashboard fragment must not contain the full-page shell (<html>)")
+	}
+	if strings.Contains(body, `id="dashboard-content"`) {
+		t.Errorf("dashboard fragment is the innerHTML of #dashboard-content; it must not re-emit the wrapper")
+	}
+}
+
+// TestVehicleSelect_FiresVehicleChangedTrigger verifies a successful switch responds
+// with the HX-Trigger: vehicle-changed header so the dashboard region (and any other
+// subscriber) refreshes for the newly-selected vehicle.
+func TestVehicleSelect_FiresVehicleChangedTrigger(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
+		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	eng := dashboardEngine(h, uid, 0, "", "tok")
+	c := sessionCookie(eng, uid, "")
+
+	form := url.Values{"csrf_token": {"tok"}, "vehicle": {"2:VIN2"}}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/vehicle/select", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for a valid vehicle switch, got %d (%s)", w.Code, w.Body.String())
+	}
+	if got := w.Header().Get("HX-Trigger"); got != "vehicle-changed" {
+		t.Errorf("want HX-Trigger: vehicle-changed so subscribed regions refresh, got %q", got)
 	}
 }
 

@@ -1095,3 +1095,112 @@ func TestBuildVehicleOptions_NilAccessType(t *testing.T) {
 		t.Errorf("want second option Selected=false when all AccessType=nil, got true")
 	}
 }
+
+// --- charges content fragment + vehicle-switch refresh (GET /ui/charges) ---
+
+// chargesContentEngine builds a Gin engine seeding uid + a selected-vehicle context,
+// wired to GET /ui/charges. Mirrors dashboardEngine but for the manual-records page.
+func chargesContentEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN string) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", uid.String())
+		if selTeslaID != 0 {
+			sess.Set(sessionTeslaIDKey, selTeslaID)
+			sess.Set(sessionVINKey, selVIN)
+		}
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/charges", h.ChargePage)
+	r.GET("/ui/charges", h.ChargesContentFragment)
+	return r
+}
+
+// TestChargesContentFragment_ScopedToSelectedVehicle verifies GET /ui/charges emits
+// BOTH content fragments (create form + list) for the SELECTED vehicle, with a fresh
+// CSRF token and no page shell, and that the create form's vehicle picker defaults to
+// the selected vehicle (the switch-refresh contract for manual records).
+func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
+		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
+	}}
+	h := New(Deps{
+		Account:            acct,
+		Tesla:              &fakeTesla{},
+		TelemetryReader:    &fakeReader{},
+		ManualChargeWriter: &fakeChargeWriter{},
+		ManualChargeReader: &fakeChargeReader{},
+	})
+	eng := chargesContentEngine(h, uid, 2, "VIN2")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/charges", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for authenticated charges content fragment, got %d (%s)", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	for _, want := range []string{`id="charges-create-form"`, `id="charges-list"`, `name="csrf_token"`, "2:VIN2"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("charges content fragment missing %q\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, "<html") {
+		t.Errorf("charges content fragment must not contain the full-page shell (<html>)")
+	}
+	// The picker must default to the SELECTED vehicle (2), not the first registered.
+	if !strings.Contains(body, `value="2:VIN2" selected`) {
+		t.Errorf("want the selected vehicle option (2:VIN2) marked selected in the create form\n%s", body)
+	}
+}
+
+// TestChargePage_SubscribesToVehicleChanged verifies the full manual-records page
+// wraps its content in the #charges-content region wired to refresh on the sidebar
+// switcher's "vehicle-changed" event.
+func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
+	}}
+	h := New(Deps{
+		Account:            acct,
+		Tesla:              &fakeTesla{},
+		TelemetryReader:    &fakeReader{},
+		ManualChargeWriter: &fakeChargeWriter{},
+		ManualChargeReader: &fakeChargeReader{},
+	})
+	eng := chargesContentEngine(h, uid, 1, "VIN1")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for the charge page, got %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{
+		`id="charges-content"`,
+		`hx-get="/ui/charges"`,
+		`hx-trigger="vehicle-changed from:body"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("charge page missing switch-refresh wiring %q", want)
+		}
+	}
+}

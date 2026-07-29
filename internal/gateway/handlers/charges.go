@@ -88,6 +88,38 @@ func (h *Handler) ChargesListFragment(c *gin.Context) {
 	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-list")
 }
 
+// ChargesContentFragment renders the whole vehicle-scoped charges content region —
+// the create form + the entry list — for the SELECTED vehicle (htmx swap served by
+// GET /ui/charges). The #charges-content region subscribes to the "vehicle-changed"
+// event the sidebar switcher fires (HX-Trigger on VehicleSelect) and re-fetches this
+// so BOTH the list (filtered by the selected TeslaID) and the create form's vehicle
+// default follow the newly-selected vehicle without a full page reload. It mirrors
+// ChargePage exactly — issue a fresh manual-charge CSRF token (the re-rendered create
+// form embeds it) and scope to the resolved vehicle — but emits only the two content
+// fragments instead of the full page.
+func (h *Handler) ChargesContentFragment(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		c.String(http.StatusInternalServerError, "could not refresh charge log")
+		return
+	}
+	sess := sessions.Default(c)
+	sess.Set(csrfManualChargeKey, csrfToken)
+	_ = sess.Save()
+
+	filterTeslaID := int64(0)
+	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+		filterTeslaID = sel.TeslaID
+	}
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
+	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-create-form", "charges-list")
+}
+
 // ChargeRowStatic renders the static row for one entry (used by cancel-edit path).
 func (h *Handler) ChargeRowStatic(c *gin.Context) {
 	uid, ok := currentUID(c)
