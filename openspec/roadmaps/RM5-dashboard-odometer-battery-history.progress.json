@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM5-dashboard-odometer-battery-history",
+  "intention": "Dashboard 'Odometer history' and 'Battery history' cards render responsive SVG bar charts for the selected vehicle over a user-chosen window (default 6 days; presets 6/14/30). Odometer bars = km driven per day; battery bars = level %. Same window drives both, fetched from one new gateway API.",
+  "request": "On the dashboard, show an odometer history bar chart (like Stitch) for the latest N days, with an easily-changeable day count (same number of bars) that also applies to battery level history. Odometer in kilometers. Likely needs a new API + a new port; the vehicle selector sends the Tesla ID. Read battery_range/battery_level/odometer from the latest X records of vehicle_snapshots. Build the chart bars (vanilla JS + a library if needed). Important library/architecture decisions must update the corresponding AGENTS.md.",
+  "autopilot": true,
+  "status": "in-progress",
+  "created_at": "2026-07-29T16:19:20Z",
+  "updated_at": "2026-07-31T09:30:12Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "manual",
+    "branch": "main",
+    "base": "main",
+    "created_at": "2026-07-29T16:19:20Z",
+    "note": "Resumed 2026-07-31: user chose autopilot ON + stay on main (RD9). No feature branch; all RM5 commits land on main."
+  },
+  "rollup": {
+    "current": [1],
+    "pending": [2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-07-29T16:19:20Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Window controlled at the gateway edge: telemetry port takes `since time.Time`; the gateway computes it from the `days` query param. Resolves tier-1 D1.",
+      "why": "Brainstorm outcome; keeps the port a pure data accessor so every future consumer picks its own window, and makes the window 'sent to the API' as the user asked.",
+      "covered_by": null
+    },
+    {
+      "id": "RD2",
+      "at": "2026-07-29T16:19:20Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Port method takes accountID; query filters account_id = $1 AND tesla_id = $2 (defense-in-depth). Resolves tier-1 D2.",
+      "why": "Brainstorm outcome; belt-and-braces tenant isolation over a microsecond, even though the gateway already resolves tesla_id from the account's registered vehicles.",
+      "covered_by": null
+    },
+    {
+      "id": "RD3",
+      "at": "2026-07-29T16:19:20Z",
+      "scope": "roadmap",
+      "made_by": "leader-verified",
+      "decision": "No new index, no migration: the existing idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at) already serves the ascending range scan. Tier 1 adds only a sqlc query + Reader method, so the database design gate does NOT trigger. Resolves tier-1 D3 and corrects the original proposal's 'one new index' assumption.",
+      "why": "Verified against internal/telemetry/db/migrations/20260710000002_init_telemetry.sql; the index is ascending on captured_at with (account_id, tesla_id) as the leading exact-match columns.",
+      "covered_by": null
+    },
+    {
+      "id": "RD4",
+      "at": "2026-07-29T16:19:20Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Safety LIMIT (e.g. 400) baked into the sqlc query as a guard against an oversized result if capture cadence increases. Resolves tier-1 D4.",
+      "why": "Brainstorm outcome; cheap guard, the 30-day window already bounds normal results to ~30 rows.",
+      "covered_by": null
+    },
+    {
+      "id": "RD5",
+      "at": "2026-07-29T16:19:20Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Odometer bars = km driven per day (delta = OdometerKm(dayN) - OdometerKm(dayN-1)). To render N delta bars the gateway fetches N+1 snapshots; days selector value = number of bars. Tooltip: date + km driven + cumulative odometer.",
+      "why": "Brainstorm outcome; cumulative odometer bars are near-flat/dull, deltas match the Stitch varying-bars look and answer 'how much did I drive'.",
+      "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-07-29T16:19:20Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Battery bars = battery_level % (absolute 0-100, not a delta); tooltip: date + level% + rated range km.",
+      "why": "Brainstorm outcome; battery level is naturally an absolute 0-100 series.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-07-29T16:19:20Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Rendering = hand-rolled responsive SVG (Templ-generated, viewBox + width:100%, native <title> tooltips), NO chart library. Handler pre-computes heights + tooltip strings (no math in templates). A vanilla-JS chart lib is rejected for now.",
+      "why": "Brainstorm outcome; best fit for the Node-less stack + simple bars and the most AI-efficient (no vendored asset, fully server-rendered). User asked for responsive charts; SVG scales natively.",
+      "covered_by": null
+    },
+    {
+      "id": "RD8",
+      "at": "2026-07-29T16:19:20Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Important library/architecture decisions update the owning module's AGENTS.md in the same change. Tier 2 records the no-chart-lib decision in internal/gateway/AGENTS.md and adds a standing convention line requiring this for any client-side library / rendering-approach decision.",
+      "why": "User's explicit ask; keeps durable architecture facts discoverable where an agent already looks.",
+      "covered_by": null
+    },
+    {
+      "id": "RD9",
+      "at": "2026-07-31T09:30:12Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Resume in autopilot for BOTH tiers, committing on main (no feature branch).",
+      "why": "User's explicit resume choice: implement tier 1 then auto-advance to tier 2; keep the manual git strategy already recorded (work stays on main).",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "telemetry-add-snapshot-history-read-port",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-29T16:19:20Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Adopted the pre-existing standalone proposal. Completed proposal (D1-D4 resolved), design.md (no-migration query plan, DB gate not triggered), tasks.md, and specs/telemetry/spec.md delta (ADDED 'Snapshot History Read Port'). NOT implemented per user instruction."
+    },
+    {
+      "id": 2,
+      "change": "gateway-dashboard-history-charts",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "artifacts-authored",
+      "assistant": "Claude Code",
+      "model": "claude-opus-4-8",
+      "started_at": "2026-07-29T16:19:20Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Created proposal.md, design.md, tasks.md, and specs/gateway/spec.md delta (ADDED 'Dashboard History Charts' — the history mini-charts had no prior spec requirement, so ADDED-only, no MODIFIED). NOT implemented per user instruction; blocked on tier 1's port existing."
+    }
+  ],
+  "events": [
+    { "at": "2026-07-29T16:19:20Z", "agent": "leader", "event": "RM5 roadmap created (2 tiers) from the brainstorm; rm-counter 5->6. Decisions RD1-RD8 captured (RD3 leader-verified against the migration). Tier 1 adopts the pre-existing telemetry proposal; tier 2 (gateway-dashboard-history-charts) is new. Artifacts authored for both tiers; NOT implemented per the user's 'do not implement' instruction. autopilot off; work on main (no feature branch) for review." },
+    { "at": "2026-07-31T09:30:12Z", "agent": "leader", "event": "Resumed via /kkpa-dev-harness-pipeline resume. User chose autopilot ON + commit on main (RD9). Tier 1 status -> in-progress; starting implementation." }
+  ]
+}
