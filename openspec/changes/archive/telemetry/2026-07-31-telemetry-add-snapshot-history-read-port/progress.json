@@ -5,9 +5,9 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM5-dashboard-odometer-battery-history.md",
   "request": "RM5 tier 1: add a per-vehicle history read port telemetry.Reader.SnapshotsByVehicleSince(ctx, accountID, teslaID, since) returning []Snapshot oldest-first, empty-non-nil on no data. New sqlc query on vehicle_snapshots reusing the existing index (no migration). Decisions RM5 RD1-RD4/D1-D4.",
-  "status": "verified",
+  "status": "archived",
   "created_at": "2026-07-31T09:30:12Z",
-  "updated_at": "2026-07-31T09:44:16Z",
+  "updated_at": "2026-07-31T09:49:03Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "manual",
@@ -160,14 +160,26 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review RM5 tier 1 (telemetry-add-snapshot-history-read-port), diff at commit 522b9b2. Validate: (1) module-boundary compliance — no edits outside internal/telemetry except the granted one-line fake stub in internal/gateway/handlers/handlers_test.go; telemetry imports only allowed ports; (2) design compliance — D1 since time.Time (no window math in port), D2 query filters account_id AND tesla_id, D3 NO migration/new index (reuses idx_vehicle_snapshots_vehicle_time as forward range scan), D4 LIMIT 400 present; return type existing Snapshot oldest-first, reuses rowToSnapshot (no duplicated mapping); (3) miles→km rule intact (km derived, never stored/JSON); (4) empty-non-nil contract; (5) tests — offline unit (ordering/empty/params) + DATABASE_URL-gated integration (cross-account exclusion, inclusive since boundary), NO paid Tesla/Raw* calls; (6) doc delta (spec + AGENTS.md) accurate; (7) Performance-Profile (read-heavy) respected; (8) anti-gaming: no weakened criteria/tasks, no self-approved statuses. Escalate on any doubt (changes-requested) rather than approving.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-31T09:49:03Z",
+        "duration_seconds": 166,
+        "verdict": "approved",
+        "findings": [],
+        "budget": { "five_hour_pct_start": 23, "five_hour_pct_end": 30, "five_hour_pct_delta": 7, "cost_usd_delta": 1.742, "context_pct_end": 12, "source": "statusline-cache", "approx": false, "note": "review round 1 (telemetry-reviewer, Sonnet)" },
+        "notes": "APPROVED, zero findings. All 8 brief checks passed. Reviewer independently ran build+vet+full test suite green (incl. testcontainers integration); confirmed no Raw*/paid Tesla calls, no migration/index, D1-D4 compliant."
+      }
+    ]
   },
   "decisions": [],
   "events": [
     { "at": "2026-07-31T09:30:12Z", "agent": "leader", "event": "progress.json created from tasks.md (9 sub-tasks). Artifacts pre-authored + openspec-valid. RM5 tier 1; commits on main (RD9). Next: commit artifacts, dispatch one serial telemetry worker (single wave)." },
-    { "at": "2026-07-31T09:33:11Z", "agent": "leader", "event": "Wave 1 dispatched: one serial telemetry worker (Sonnet) for all 9 sub-tasks (single overlapping file set per tasks.md). Budget start 5h=11%, ctx=9%, cost=$2.093." }
+    { "at": "2026-07-31T09:33:11Z", "agent": "leader", "event": "Wave 1 dispatched: one serial telemetry worker (Sonnet) for all 9 sub-tasks (single overlapping file set per tasks.md). Budget start 5h=11%, ctx=9%, cost=$2.093." },
+    { "at": "2026-07-31T09:44:16Z", "agent": "leader", "event": "Wave 1 complete: all 9 tasks done, D1-D4 compliance confirmed. Leader-verified openspec validate --strict + make check green. Commit 522b9b2. Wave budget: 5h +12% (11->23), cost +$2.784. Status -> verified." },
+    { "at": "2026-07-31T09:49:03Z", "agent": "leader", "event": "Review round 1: telemetry-reviewer APPROVED, zero findings. review.status/change status -> reviewer-approved. Round budget: 5h +7% (23->30), cost +$1.742. Next: archive (Step 8), then advance to tier 2 (autopilot)." }
   ]
 }

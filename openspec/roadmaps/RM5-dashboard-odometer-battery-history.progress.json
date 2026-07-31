@@ -17,10 +17,10 @@
     "note": "Resumed 2026-07-31: user chose autopilot ON + stay on main (RD9). No feature branch; all RM5 commits land on main."
   },
   "rollup": {
-    "current": [1],
+    "current": [],
     "pending": [2],
     "blocked": [],
-    "done": []
+    "done": [1]
   },
   "decisions": [
     {
@@ -112,14 +112,14 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": "claude-opus-4-8",
-      "started_at": "2026-07-29T16:19:20Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Adopted the pre-existing standalone proposal. Completed proposal (D1-D4 resolved), design.md (no-migration query plan, DB gate not triggered), tasks.md, and specs/telemetry/spec.md delta (ADDED 'Snapshot History Read Port'). NOT implemented per user instruction."
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:33:11Z",
+      "completed_at": "2026-07-31T09:49:03Z",
+      "duration_seconds": 952,
+      "budget": { "five_hour_pct_delta": 19, "cost_usd_delta": 4.526, "spanned_sessions": 1, "source": "statusline-cache", "approx": true, "note": "sum of wave-1 (+12%, $2.784) and review round 1 (+7%, $1.742); single session" },
+      "notes": "Implemented (1 serial Sonnet worker, 9 tasks), reviewer-approved (0 findings), archived to archive/telemetry/2026-07-31-telemetry-add-snapshot-history-read-port. SnapshotsByVehicleSince read port; no migration (D3). Spec merged into openspec/specs/telemetry."
     },
     {
       "id": 2,
@@ -139,6 +139,7 @@
   ],
   "events": [
     { "at": "2026-07-29T16:19:20Z", "agent": "leader", "event": "RM5 roadmap created (2 tiers) from the brainstorm; rm-counter 5->6. Decisions RD1-RD8 captured (RD3 leader-verified against the migration). Tier 1 adopts the pre-existing telemetry proposal; tier 2 (gateway-dashboard-history-charts) is new. Artifacts authored for both tiers; NOT implemented per the user's 'do not implement' instruction. autopilot off; work on main (no feature branch) for review." },
-    { "at": "2026-07-31T09:30:12Z", "agent": "leader", "event": "Resumed via /kkpa-dev-harness-pipeline resume. User chose autopilot ON + commit on main (RD9). Tier 1 status -> in-progress; starting implementation." }
+    { "at": "2026-07-31T09:30:12Z", "agent": "leader", "event": "Resumed via /kkpa-dev-harness-pipeline resume. User chose autopilot ON + commit on main (RD9). Tier 1 status -> in-progress; starting implementation." },
+    { "at": "2026-07-31T09:49:03Z", "agent": "leader", "event": "Tier 1 (telemetry-add-snapshot-history-read-port) archived: implemented, reviewer-approved (0 findings), spec merged. Tier budget 5h +19%, cost +$4.526. Autopilot: advancing to tier 2 (gateway-dashboard-history-charts), now unblocked. Budget healthy (5h ~30%)." }
   ]
 }
