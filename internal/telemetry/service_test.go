@@ -222,6 +222,13 @@ func (s *fakeStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]
 	return []Snapshot{}, nil
 }
 
+// snapshotsByVehicleSince satisfies the store seam added by
+// telemetry-add-snapshot-history-read-port. The collection service never calls it;
+// this stub keeps fakeStore implementing the full store interface.
+func (s *fakeStore) snapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+	return []Snapshot{}, nil
+}
+
 // upsertedSessions holds all sessions upserted via upsertSuperchargerSession.
 // It is a separate field so B7 tests can inspect what was upserted.
 //

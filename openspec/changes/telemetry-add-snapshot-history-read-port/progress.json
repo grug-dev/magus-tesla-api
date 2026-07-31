@@ -5,9 +5,9 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM5-dashboard-odometer-battery-history.md",
   "request": "RM5 tier 1: add a per-vehicle history read port telemetry.Reader.SnapshotsByVehicleSince(ctx, accountID, teslaID, since) returning []Snapshot oldest-first, empty-non-nil on no data. New sqlc query on vehicle_snapshots reusing the existing index (no migration). Decisions RM5 RD1-RD4/D1-D4.",
-  "status": "proposed",
+  "status": "verified",
   "created_at": "2026-07-31T09:30:12Z",
-  "updated_at": "2026-07-31T09:30:12Z",
+  "updated_at": "2026-07-31T09:44:16Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "manual",
@@ -18,9 +18,9 @@
   },
   "rollup": {
     "current": [],
-    "pending": ["1.1", "1.2", "2.1", "2.2", "3.1", "4.1", "4.2", "4.3", "5.1"],
+    "pending": [],
     "blocked": [],
-    "done": []
+    "done": ["1.1", "1.2", "2.1", "2.2", "3.1", "4.1", "4.2", "4.3", "5.1"]
   },
   "tasks": [
     {
@@ -29,14 +29,14 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:35:15Z",
+      "completed_at": "2026-07-31T09:36:21Z",
+      "duration_seconds": 66,
+      "notes": "Added SnapshotsByVehicleSince :many query with full column list, D3 index-reuse comment, D4 LIMIT 400 rationale.",
+      "budget": { "five_hour_pct_start": 11, "five_hour_pct_end": 23, "five_hour_pct_delta": 12, "cost_usd_delta": 2.784, "context_pct_end": 10, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial telemetry worker ran tasks 1.1-5.1; per-task split not measurable" }
     },
     {
       "id": "1.2",
@@ -44,14 +44,14 @@
       "module": "telemetry",
       "depends_on": ["1.1"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:36:05Z",
+      "completed_at": "2026-07-31T09:36:21Z",
+      "duration_seconds": 16,
+      "notes": "make sqlc ran clean; SnapshotsByVehicleSinceParams{AccountID, TeslaID int64, Since pgtype.Timestamptz} generated, method returns []VehicleSnapshot.",
+      "budget": { "five_hour_pct_start": 11, "five_hour_pct_end": 23, "five_hour_pct_delta": 12, "cost_usd_delta": 2.784, "context_pct_end": 10, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial telemetry worker ran tasks 1.1-5.1; per-task split not measurable" }
     },
     {
       "id": "2.1",
@@ -59,14 +59,14 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:36:21Z",
+      "completed_at": "2026-07-31T09:37:00Z",
+      "duration_seconds": 39,
+      "notes": "Added SnapshotsByVehicleSince to Reader interface in telemetry.go with D1/D2 doc comment, oldest-first, empty-non-nil contract.",
+      "budget": { "five_hour_pct_start": 11, "five_hour_pct_end": 23, "five_hour_pct_delta": 12, "cost_usd_delta": 2.784, "context_pct_end": 10, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial telemetry worker ran tasks 1.1-5.1; per-task split not measurable" }
     },
     {
       "id": "2.2",
@@ -74,14 +74,14 @@
       "module": "telemetry",
       "depends_on": ["1.2", "2.1"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:37:00Z",
+      "completed_at": "2026-07-31T09:38:00Z",
+      "duration_seconds": 60,
+      "notes": "Added snapshotsByVehicleSince to store seam + dbStore impl in service.go; reader.go delegates to store seam. Reuses rowToSnapshot mapper.",
+      "budget": { "five_hour_pct_start": 11, "five_hour_pct_end": 23, "five_hour_pct_delta": 12, "cost_usd_delta": 2.784, "context_pct_end": 10, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial telemetry worker ran tasks 1.1-5.1; per-task split not measurable" }
     },
     {
       "id": "3.1",
@@ -89,14 +89,14 @@
       "module": "telemetry",
       "depends_on": ["2.1"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:38:00Z",
+      "completed_at": "2026-07-31T09:39:00Z",
+      "duration_seconds": 60,
+      "notes": "Added stub to fakeReader in handlers_test.go (telemetry.Reader fake). Added stub to fakeReadStore in reader_test.go (store seam fake). No other Reader fakes found in-tree.",
+      "budget": { "five_hour_pct_start": 11, "five_hour_pct_end": 23, "five_hour_pct_delta": 12, "cost_usd_delta": 2.784, "context_pct_end": 10, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial telemetry worker ran tasks 1.1-5.1; per-task split not measurable" }
     },
     {
       "id": "4.1",
@@ -104,14 +104,14 @@
       "module": "telemetry",
       "depends_on": ["2.2"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:39:00Z",
+      "completed_at": "2026-07-31T09:40:30Z",
+      "duration_seconds": 90,
+      "notes": "Added fakeHistoryStore + 4 offline tests in reader_test.go: OldestFirst, EmptyNonNil, ParamsPassedThrough, StoreError.",
+      "budget": { "five_hour_pct_start": 11, "five_hour_pct_end": 23, "five_hour_pct_delta": 12, "cost_usd_delta": 2.784, "context_pct_end": 10, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial telemetry worker ran tasks 1.1-5.1; per-task split not measurable" }
     },
     {
       "id": "4.2",
@@ -119,14 +119,14 @@
       "module": "telemetry",
       "depends_on": ["2.2"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:40:30Z",
+      "completed_at": "2026-07-31T09:41:30Z",
+      "duration_seconds": 60,
+      "notes": "Added 3 integration tests: OldestFirstAndSinceBoundary (inclusive), CrossAccountExcluded (D2), EmptyWindow (non-nil).",
+      "budget": { "five_hour_pct_start": 11, "five_hour_pct_end": 23, "five_hour_pct_delta": 12, "cost_usd_delta": 2.784, "context_pct_end": 10, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial telemetry worker ran tasks 1.1-5.1; per-task split not measurable" }
     },
     {
       "id": "4.3",
@@ -134,14 +134,14 @@
       "module": "telemetry",
       "depends_on": ["3.1", "4.1", "4.2"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:41:30Z",
+      "completed_at": "2026-07-31T09:42:32Z",
+      "duration_seconds": 62,
+      "notes": "make check green: build + vet + all tests pass. telemetry package 3.473s (testcontainers DB auto-provisioned). gateway/handlers 0.403s.",
+      "budget": { "five_hour_pct_start": 11, "five_hour_pct_end": 23, "five_hour_pct_delta": 12, "cost_usd_delta": 2.784, "context_pct_end": 10, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial telemetry worker ran tasks 1.1-5.1; per-task split not measurable" }
     },
     {
       "id": "5.1",
@@ -149,14 +149,14 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-07-31T09:41:30Z",
+      "completed_at": "2026-07-31T09:42:00Z",
+      "duration_seconds": 30,
+      "notes": "Updated AGENTS.md Reader bullet to list both LatestSnapshotsByAccount and new SnapshotsByVehicleSince with D1-D4 notes.",
+      "budget": { "five_hour_pct_start": 11, "five_hour_pct_end": 23, "five_hour_pct_delta": 12, "cost_usd_delta": 2.784, "context_pct_end": 10, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial telemetry worker ran tasks 1.1-5.1; per-task split not measurable" }
     }
   ],
   "review": {
@@ -167,6 +167,7 @@
   },
   "decisions": [],
   "events": [
-    { "at": "2026-07-31T09:30:12Z", "agent": "leader", "event": "progress.json created from tasks.md (9 sub-tasks). Artifacts pre-authored + openspec-valid. RM5 tier 1; commits on main (RD9). Next: commit artifacts, dispatch one serial telemetry worker (single wave)." }
+    { "at": "2026-07-31T09:30:12Z", "agent": "leader", "event": "progress.json created from tasks.md (9 sub-tasks). Artifacts pre-authored + openspec-valid. RM5 tier 1; commits on main (RD9). Next: commit artifacts, dispatch one serial telemetry worker (single wave)." },
+    { "at": "2026-07-31T09:33:11Z", "agent": "leader", "event": "Wave 1 dispatched: one serial telemetry worker (Sonnet) for all 9 sub-tasks (single overlapping file set per tasks.md). Budget start 5h=11%, ctx=9%, cost=$2.093." }
   ]
 }

@@ -172,6 +172,17 @@ type Reader interface {
 	// snapshots it returns an empty (non-nil) slice and a nil error. Order of
 	// the returned slice is unspecified.
 	LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)
+
+	// SnapshotsByVehicleSince returns the nightly snapshots captured for the
+	// given vehicle (within the given account) at or after `since`, ordered
+	// oldest-first. Returns an empty (non-nil) slice and nil error when no
+	// snapshots exist in the window (design D1: caller supplies the window
+	// boundary; this port is a pure data accessor). The account_id AND tesla_id
+	// filter provides defense-in-depth tenant isolation (D2) even when the
+	// gateway already resolves tesla_id from account.RegisteredVehicles(uid).
+	// Distance and range fields are miles-native; callers use BatteryRangeKm()
+	// / OdometerKm() for metric equivalents.
+	SnapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
 }
 
 // --- Source B: Supercharger sessions ---

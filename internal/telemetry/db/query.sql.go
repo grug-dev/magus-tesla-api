@@ -287,6 +287,85 @@ func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsB
 	return items, nil
 }
 
+const snapshotsByVehicleSince = `-- name: SnapshotsByVehicleSince :many
+SELECT
+    id, account_id, tesla_id, captured_at, raw_data,
+    battery_level, battery_range, charging_state, charge_limit_soc,
+    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    car_version, latitude, longitude,
+    charge_energy_added, charger_power, charger_voltage,
+    charger_actual_current, usable_battery_level, fast_charger_type
+FROM vehicle_snapshots
+WHERE account_id = $1
+  AND tesla_id   = $2
+  AND captured_at >= $3
+ORDER BY captured_at ASC
+LIMIT 400
+`
+
+type SnapshotsByVehicleSinceParams struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	Since     pgtype.Timestamptz
+}
+
+// Return all snapshots for a single vehicle (within the given account) captured at or
+// after `since`, ordered oldest-first. Used by telemetry.Reader.SnapshotsByVehicleSince
+// to power the odometer/battery history charts (RM5 tier 1).
+//
+// Index reuse (D3): the existing idx_vehicle_snapshots_vehicle_time
+// (account_id, tesla_id, captured_at) is an ASCENDING index. The query's
+// (account_id = $1 AND tesla_id = $2 AND captured_at >= $3 ORDER BY captured_at ASC)
+// is a forward range scan: the planner seeks to (account_id, tesla_id, since) and
+// reads forward in index order, satisfying both WHERE and ORDER BY with no sort step.
+//
+// LIMIT 400 (D4): safety cap against an accidentally large result set if capture
+// cadence ever increases. A 30-day window returns ~30 rows under the current nightly
+// schedule — 400 comfortably exceeds any realistic dashboard window (~13 months).
+func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVehicleSinceParams) ([]VehicleSnapshot, error) {
+	rows, err := q.db.Query(ctx, snapshotsByVehicleSince, arg.AccountID, arg.TeslaID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VehicleSnapshot
+	for rows.Next() {
+		var i VehicleSnapshot
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.TeslaID,
+			&i.CapturedAt,
+			&i.RawData,
+			&i.BatteryLevel,
+			&i.BatteryRange,
+			&i.ChargingState,
+			&i.ChargeLimitSoc,
+			&i.Odometer,
+			&i.InsideTemp,
+			&i.OutsideTemp,
+			&i.Locked,
+			&i.SentryMode,
+			&i.CarVersion,
+			&i.Latitude,
+			&i.Longitude,
+			&i.ChargeEnergyAdded,
+			&i.ChargerPower,
+			&i.ChargerVoltage,
+			&i.ChargerActualCurrent,
+			&i.UsableBatteryLevel,
+			&i.FastChargerType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const superchargerSessionsByAccount = `-- name: SuperchargerSessionsByAccount :many
 SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at FROM supercharger_sessions
 WHERE account_id = $1

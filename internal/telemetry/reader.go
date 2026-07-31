@@ -3,6 +3,7 @@ package telemetry
 import (
 	"context"
 	"math"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -38,6 +39,17 @@ func NewReader(pool *pgxpool.Pool) Reader {
 // result safely (design D5).
 func (r *reader) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error) {
 	return r.store.latestSnapshotsByAccount(ctx, accountID)
+}
+
+// SnapshotsByVehicleSince implements Reader. It returns all snapshots captured for the
+// given vehicle (within the given account) at or after since, ordered oldest-first.
+// Returns a non-nil empty slice (never nil) when no snapshots exist in the window
+// (parity with LatestSnapshotsByAccount's empty contract — callers range safely).
+// Reuses the store.snapshotsByVehicleSince seam so it is fully offline-testable via a
+// fake store, mirroring the LatestSnapshotsByAccount pattern (design D3/D7 of
+// telemetry-add-snapshot-read-port).
+func (r *reader) SnapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
+	return r.store.snapshotsByVehicleSince(ctx, accountID, teslaID, since)
 }
 
 // --- Source B: SuperchargerReader ---

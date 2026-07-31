@@ -52,6 +52,34 @@ SELECT * FROM poll_attempts
 WHERE account_id = @account_id AND tesla_id = @tesla_id
 ORDER BY attempted_at DESC;
 
+-- name: SnapshotsByVehicleSince :many
+-- Return all snapshots for a single vehicle (within the given account) captured at or
+-- after `since`, ordered oldest-first. Used by telemetry.Reader.SnapshotsByVehicleSince
+-- to power the odometer/battery history charts (RM5 tier 1).
+--
+-- Index reuse (D3): the existing idx_vehicle_snapshots_vehicle_time
+-- (account_id, tesla_id, captured_at) is an ASCENDING index. The query's
+-- (account_id = $1 AND tesla_id = $2 AND captured_at >= $3 ORDER BY captured_at ASC)
+-- is a forward range scan: the planner seeks to (account_id, tesla_id, since) and
+-- reads forward in index order, satisfying both WHERE and ORDER BY with no sort step.
+--
+-- LIMIT 400 (D4): safety cap against an accidentally large result set if capture
+-- cadence ever increases. A 30-day window returns ~30 rows under the current nightly
+-- schedule — 400 comfortably exceeds any realistic dashboard window (~13 months).
+SELECT
+    id, account_id, tesla_id, captured_at, raw_data,
+    battery_level, battery_range, charging_state, charge_limit_soc,
+    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    car_version, latitude, longitude,
+    charge_energy_added, charger_power, charger_voltage,
+    charger_actual_current, usable_battery_level, fast_charger_type
+FROM vehicle_snapshots
+WHERE account_id = @account_id
+  AND tesla_id   = @tesla_id
+  AND captured_at >= @since
+ORDER BY captured_at ASC
+LIMIT 400;
+
 -- name: LatestSnapshotsByAccount :many
 -- Return the latest stored snapshot for each vehicle owned by the given account.
 -- DISTINCT ON (tesla_id) with ORDER BY tesla_id, captured_at DESC picks the row

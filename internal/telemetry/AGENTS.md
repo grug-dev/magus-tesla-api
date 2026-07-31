@@ -39,12 +39,20 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
 - The in-app `Scheduler` (constructed with a `Collector` + schedule config) drives `CollectAll`
   daily at 03:30 local; `Run(ctx)` blocks until `ctx` is cancelled (graceful shutdown).
 
-- `Reader` — `LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)`:
-  return the latest stored `Snapshot` for each vehicle owned by the given account (batch, single
-  Postgres `DISTINCT ON` query — no N+1); empty (non-nil) slice when the account has no snapshots.
+- `Reader` — two read methods:
+  - `LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)`:
+    return the latest stored `Snapshot` for each vehicle owned by the given account (batch, single
+    Postgres `DISTINCT ON` query — no N+1); empty (non-nil) slice when the account has no snapshots.
+    Added by tier 4 (`telemetry-add-snapshot-read-port`).
+  - `SnapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)`:
+    return all snapshots for one vehicle within the given account captured at or after `since`,
+    oldest-first; empty (non-nil) slice on no data. Reuses the existing
+    `idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at)` ascending index as a
+    forward range scan — no new DB object (D3). Safety cap: LIMIT 400 (D4). Window math stays in
+    the caller (D1); account_id filter is defense-in-depth tenant isolation (D2).
+    Added by RM5 tier 1 (`telemetry-add-snapshot-history-read-port`).
   `NewReader(pool *pgxpool.Pool) Reader` is the constructor. The gateway (tier 5,
   `gateway-read-stored-vehicles`) depends on this interface, never on `telemetrydb` directly.
-  Added by tier 4 (`telemetry-add-snapshot-read-port`).
 
 No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3).
 

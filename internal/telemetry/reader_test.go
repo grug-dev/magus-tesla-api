@@ -39,6 +39,13 @@ func (f *fakeReadStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID)
 	return out, nil
 }
 
+// snapshotsByVehicleSince satisfies the store seam for reader tests that exercise
+// SnapshotsByVehicleSince. Base fakeReadStore returns nil, nil; extend with
+// fakeHistoryStore for history-specific tests.
+func (f *fakeReadStore) snapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+	return nil, nil
+}
+
 func (f *fakeReadStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
 	panic("fakeReadStore: upsertSuperchargerSession must not be called from the reader path")
 }
@@ -201,5 +208,145 @@ func TestReader_KmCompanions(t *testing.T) {
 	}
 	if diff := got[0].OdometerKm() - wantKm; diff > 1e-9 || diff < -1e-9 {
 		t.Errorf("OdometerKm: want %v, got %v", wantKm, got[0].OdometerKm())
+	}
+}
+
+// --- SnapshotsByVehicleSince unit tests (offline, fake store) ---
+
+// fakeHistoryStore extends the read-only fake store seam to return configurable
+// snapshots for SnapshotsByVehicleSince, capturing the params passed by the reader
+// for assertion. Write methods and latestSnapshotsByAccount panic to catch accidental
+// calls — history tests exercise only the history method.
+type fakeHistoryStore struct {
+	snapshots  []Snapshot
+	err        error
+	gotAccount uuid.UUID
+	gotTeslaID int64
+	gotSince   time.Time
+}
+
+func (f *fakeHistoryStore) insertSnapshot(_ context.Context, _ Snapshot) error {
+	panic("fakeHistoryStore: insertSnapshot must not be called")
+}
+
+func (f *fakeHistoryStore) insertPollAttempt(_ context.Context, _ Attempt) error {
+	panic("fakeHistoryStore: insertPollAttempt must not be called")
+}
+
+func (f *fakeHistoryStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]Snapshot, error) {
+	panic("fakeHistoryStore: latestSnapshotsByAccount must not be called from history path")
+}
+
+func (f *fakeHistoryStore) snapshotsByVehicleSince(_ context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
+	f.gotAccount = accountID
+	f.gotTeslaID = teslaID
+	f.gotSince = since
+	if f.err != nil {
+		return nil, f.err
+	}
+	out := make([]Snapshot, len(f.snapshots))
+	copy(out, f.snapshots)
+	return out, nil
+}
+
+func (f *fakeHistoryStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
+	panic("fakeHistoryStore: upsertSuperchargerSession must not be called")
+}
+
+// TestReader_SnapshotsByVehicleSince_OldestFirst asserts that the reader returns
+// snapshots in the order the store delivers them (oldest-first is enforced at the
+// query level — the reader passes through the order without re-sorting).
+func TestReader_SnapshotsByVehicleSince_OldestFirst(t *testing.T) {
+	now := time.Now().UTC()
+	day1 := now.Add(-48 * time.Hour)
+	day2 := now.Add(-24 * time.Hour)
+	day3 := now
+
+	accountID := uuid.New()
+	const teslaID = int64(111)
+	since := day1
+
+	// Store returns snapshots already oldest-first (as the DB query guarantees).
+	want := []Snapshot{
+		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day1, BatteryLevel: 70, Odometer: 1000},
+		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day2, BatteryLevel: 68, Odometer: 1050},
+		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day3, BatteryLevel: 65, Odometer: 1100},
+	}
+
+	fake := &fakeHistoryStore{snapshots: want}
+	r := &reader{store: fake}
+
+	got, err := r.SnapshotsByVehicleSince(context.Background(), accountID, teslaID, since)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("want 3 snapshots, got %d", len(got))
+	}
+	// Oldest-first: day1 < day2 < day3
+	if !got[0].CapturedAt.Equal(day1) {
+		t.Errorf("got[0].CapturedAt: want %v, got %v", day1, got[0].CapturedAt)
+	}
+	if !got[1].CapturedAt.Equal(day2) {
+		t.Errorf("got[1].CapturedAt: want %v, got %v", day2, got[1].CapturedAt)
+	}
+	if !got[2].CapturedAt.Equal(day3) {
+		t.Errorf("got[2].CapturedAt: want %v, got %v", day3, got[2].CapturedAt)
+	}
+}
+
+// TestReader_SnapshotsByVehicleSince_EmptyNonNil asserts that an empty window
+// returns a non-nil empty slice and nil error (D5 parity: no nil-slice footgun).
+func TestReader_SnapshotsByVehicleSince_EmptyNonNil(t *testing.T) {
+	fake := &fakeHistoryStore{snapshots: nil}
+	r := &reader{store: fake}
+
+	got, err := r.SnapshotsByVehicleSince(context.Background(), uuid.New(), 42, time.Now())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got == nil {
+		t.Fatal("empty window must return non-nil empty slice, got nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("empty window must return 0 elements, got %d", len(got))
+	}
+}
+
+// TestReader_SnapshotsByVehicleSince_ParamsPassedThrough asserts that accountID,
+// teslaID, and since are forwarded to the store unchanged (no silent mutation).
+func TestReader_SnapshotsByVehicleSince_ParamsPassedThrough(t *testing.T) {
+	accountID := uuid.New()
+	const teslaID = int64(9999)
+	since := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+
+	fake := &fakeHistoryStore{}
+	r := &reader{store: fake}
+
+	_, err := r.SnapshotsByVehicleSince(context.Background(), accountID, teslaID, since)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fake.gotAccount != accountID {
+		t.Errorf("accountID not passed through: want %v, got %v", accountID, fake.gotAccount)
+	}
+	if fake.gotTeslaID != teslaID {
+		t.Errorf("teslaID not passed through: want %d, got %d", teslaID, fake.gotTeslaID)
+	}
+	if !fake.gotSince.Equal(since) {
+		t.Errorf("since not passed through: want %v, got %v", since, fake.gotSince)
+	}
+}
+
+// TestReader_SnapshotsByVehicleSince_StoreError asserts that a store error is
+// propagated to the caller without wrapping (same contract as LatestSnapshotsByAccount).
+func TestReader_SnapshotsByVehicleSince_StoreError(t *testing.T) {
+	wantErr := errors.New("store: connection reset")
+	fake := &fakeHistoryStore{err: wantErr}
+	r := &reader{store: fake}
+
+	_, err := r.SnapshotsByVehicleSince(context.Background(), uuid.New(), 1, time.Now())
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("want store error %v propagated, got %v", wantErr, err)
 	}
 }
