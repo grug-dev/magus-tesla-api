@@ -5,9 +5,9 @@
   "intention": "Dashboard 'Odometer history' and 'Battery history' cards render responsive SVG bar charts for the selected vehicle over a user-chosen window (default 6 days; presets 6/14/30). Odometer bars = km driven per day; battery bars = level %. Same window drives both, fetched from one new gateway API.",
   "request": "On the dashboard, show an odometer history bar chart (like Stitch) for the latest N days, with an easily-changeable day count (same number of bars) that also applies to battery level history. Odometer in kilometers. Likely needs a new API + a new port; the vehicle selector sends the Tesla ID. Read battery_range/battery_level/odometer from the latest X records of vehicle_snapshots. Build the chart bars (vanilla JS + a library if needed). Important library/architecture decisions must update the corresponding AGENTS.md.",
   "autopilot": true,
-  "status": "in-progress",
+  "status": "complete",
   "created_at": "2026-07-29T16:19:20Z",
-  "updated_at": "2026-07-31T09:30:12Z",
+  "updated_at": "2026-07-31T10:18:24Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "manual",
@@ -17,10 +17,10 @@
     "note": "Resumed 2026-07-31: user chose autopilot ON + stay on main (RD9). No feature branch; all RM5 commits land on main."
   },
   "rollup": {
-    "current": [2],
+    "current": [],
     "pending": [],
     "blocked": [],
-    "done": [1]
+    "done": [1, 2]
   },
   "decisions": [
     {
@@ -127,19 +127,20 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [1],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-07-31T09:50:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Tier 1 archived (port live). Autopilot started tier 2. Artifacts pre-authored + openspec-valid. Preset values 6/14/30 default 6 resolved by roadmap (design.md open question closed). One serial gateway worker."
+      "completed_at": "2026-07-31T10:18:24Z",
+      "duration_seconds": 1704,
+      "budget": { "five_hour_pct_delta": 28, "cost_usd_delta": 6.813, "spanned_sessions": 1, "source": "statusline-cache", "approx": true, "note": "sum of wave-1 (+18%, $4.062) and review round 1 (+10%, $2.751); single session" },
+      "notes": "Implemented (1 serial Sonnet worker, 16 tasks A-E), reviewer-approved (0 findings), archived to archive/gateway/2026-07-31-gateway-dashboard-history-charts. Dashboard odometer+battery SVG history charts, no chart lib (RD7); new ui.Join kit wrapper. Spec merged into openspec/specs/gateway."
     }
   ],
   "events": [
     { "at": "2026-07-29T16:19:20Z", "agent": "leader", "event": "RM5 roadmap created (2 tiers) from the brainstorm; rm-counter 5->6. Decisions RD1-RD8 captured (RD3 leader-verified against the migration). Tier 1 adopts the pre-existing telemetry proposal; tier 2 (gateway-dashboard-history-charts) is new. Artifacts authored for both tiers; NOT implemented per the user's 'do not implement' instruction. autopilot off; work on main (no feature branch) for review." },
     { "at": "2026-07-31T09:30:12Z", "agent": "leader", "event": "Resumed via /kkpa-dev-harness-pipeline resume. User chose autopilot ON + commit on main (RD9). Tier 1 status -> in-progress; starting implementation." },
-    { "at": "2026-07-31T09:49:03Z", "agent": "leader", "event": "Tier 1 (telemetry-add-snapshot-history-read-port) archived: implemented, reviewer-approved (0 findings), spec merged. Tier budget 5h +19%, cost +$4.526. Autopilot: advancing to tier 2 (gateway-dashboard-history-charts), now unblocked. Budget healthy (5h ~30%)." }
+    { "at": "2026-07-31T09:49:03Z", "agent": "leader", "event": "Tier 1 (telemetry-add-snapshot-history-read-port) archived: implemented, reviewer-approved (0 findings), spec merged. Tier budget 5h +19%, cost +$4.526. Autopilot: advancing to tier 2 (gateway-dashboard-history-charts), now unblocked. Budget healthy (5h ~30%)." },
+    { "at": "2026-07-31T10:18:24Z", "agent": "leader", "event": "Tier 2 (gateway-dashboard-history-charts) archived: implemented, reviewer-approved (0 findings), spec merged. Tier budget 5h +28%, cost +$6.813. ROADMAP COMPLETE (both tiers archived) -> status complete; archiving roadmap files to archive/RM5-dashboard-odometer-battery-history/. Total 5h ~+47%, cost ~+$11.339." }
   ]
 }

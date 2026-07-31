@@ -85,15 +85,17 @@ These were confirmed by the user and are authoritative for every tier's design/s
 | Status | Change | Module | Scope | depends_on | Proposal prompt |
 |---|---|---|---|---|---|
 | `[x]` | `telemetry-add-snapshot-history-read-port` | `telemetry` | Add `Reader.SnapshotsByVehicleSince(ctx, accountID, teslaID, since)` returning the existing `Snapshot` domain type oldest-first; new sqlc query on `vehicle_snapshots` (Decisions 1–4). **No migration, no new index, no design gate.** | — | Add the per-vehicle history read port per Decisions 1–4: `since time.Time`, `account_id` defense-in-depth filter, reuse the existing `(account_id, tesla_id, captured_at)` index (no migration), `LIMIT 400` safety cap. Return `[]Snapshot` oldest-first, empty-non-nil on no data. |
-| `[~]` | `gateway-dashboard-history-charts` | `gateway` | New `GET /ui/dashboard/history?days=N` fragment (session-scoped vehicle, default 6); two responsive hand-rolled SVG bar charts (odometer km/day delta + battery %) replacing both `dashHistoryEmpty()`; `[6·14·30]` preset selector; handler pre-computes heights + tooltips (Decisions 5–8). No DB. | `telemetry-add-snapshot-history-read-port` | Wire the charts per Decisions 5–8: `GET /ui/dashboard/history?days=N` resolving the selected vehicle from session, fetching N+1 snapshots and computing km/day deltas; responsive SVG bars with `<title>` tooltips; preset days selector defaulting to 6; record the no-chart-lib decision + the AGENTS.md convention in `internal/gateway/AGENTS.md`. |
+| `[x]` | `gateway-dashboard-history-charts` | `gateway` | New `GET /ui/dashboard/history?days=N` fragment (session-scoped vehicle, default 6); two responsive hand-rolled SVG bar charts (odometer km/day delta + battery %) replacing both `dashHistoryEmpty()`; `[6·14·30]` preset selector; handler pre-computes heights + tooltips (Decisions 5–8). No DB. | `telemetry-add-snapshot-history-read-port` | Wire the charts per Decisions 5–8: `GET /ui/dashboard/history?days=N` resolving the selected vehicle from session, fetching N+1 snapshots and computing km/day deltas; responsive SVG bars with `<title>` tooltips; preset days selector defaulting to 6; record the no-chart-lib decision + the AGENTS.md convention in `internal/gateway/AGENTS.md`. |
 
 **Legend:** `[ ]` pending (change not created) · `[~]` in progress (change created, not archived) ·
 `[x]` done (archived).
 
-> **Status note (2026-07-31):** resumed under autopilot, commits on `main` (RD9). **Tier 1
-> implemented, reviewer-approved, and archived** (`archive/telemetry/2026-07-31-telemetry-add-snapshot-history-read-port`;
-> the `SnapshotsByVehicleSince` read port + spec merged into `openspec/specs/telemetry/spec.md`).
-> **Tier 2** (`gateway-dashboard-history-charts`) is next — artifacts already authored, now unblocked.
+> **Status note (2026-07-31):** COMPLETE. Both tiers implemented, reviewer-approved (0 findings each),
+> and archived under autopilot with commits on `main` (RD9). Tier 1 →
+> `archive/telemetry/2026-07-31-telemetry-add-snapshot-history-read-port` (`SnapshotsByVehicleSince`
+> read port); tier 2 → `archive/gateway/2026-07-31-gateway-dashboard-history-charts` (dashboard
+> odometer + battery SVG history charts). This roadmap is archived to
+> `openspec/roadmaps/archive/RM5-dashboard-odometer-battery-history/`.
 
 ## Future work
 

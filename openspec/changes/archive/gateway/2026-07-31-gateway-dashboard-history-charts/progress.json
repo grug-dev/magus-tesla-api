@@ -5,9 +5,9 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM5-dashboard-odometer-battery-history.md",
   "request": "RM5 tier 2: replace the dashboard's two dashHistoryEmpty() placeholders with responsive hand-rolled SVG bar charts (odometer km/day delta + battery level %), a 6/14/30 days selector (default 6), served by GET /ui/dashboard/history?days=N reading telemetry.Reader.SnapshotsByVehicleSince. No chart lib (RD7), no DB. Record the no-chart-lib decision + convention in gateway AGENTS.md (RD8).",
-  "status": "verified",
+  "status": "archived",
   "created_at": "2026-07-31T09:50:00Z",
-  "updated_at": "2026-07-31T10:10:45Z",
+  "updated_at": "2026-07-31T10:18:24Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
   "git": {
     "strategy": "manual",
@@ -41,10 +41,22 @@
     { "id": "E.3", "title": "make check passes (build + vet + ui-guard + tests); no DB, no migration", "module": "gateway", "depends_on": ["C.2", "D.1", "E.1", "E.2"], "parallel_ok": false, "status": "done", "agent": "gateway", "model": "claude-sonnet-4-6", "started_at": "2026-07-31T10:07:53Z", "completed_at": "2026-07-31T10:07:53Z", "duration_seconds": 0, "notes": "make check green: build + vet + ui-guard (no inlined classes) + all tests. No DB, no migration.", "budget": { "five_hour_pct_start": 37, "five_hour_pct_end": 55, "five_hour_pct_delta": 18, "cost_usd_delta": 4.062, "context_pct_end": 17, "source": "statusline-cache", "approx": true, "note": "wave-1 shared delta: one serial gateway worker ran tasks A.1-E.3" } }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM5 tier 2 (gateway-dashboard-history-charts), diff at commit 26ab9de. Validate: (1) module-boundary — ALL edits inside internal/gateway; NO import of internal/telemetry/db; telemetry consumed only via Deps.TelemetryReader (the tier-1 SnapshotsByVehicleSince port); no business data owned. (2) Read-only-at-request-time — handler is auth-guard -> resolveSelectedVehicle -> ONE Reader call -> render; no writes/Tesla calls/side effects. (3) Vehicle-scoping — read scoped to the SELECTED vehicle's TeslaID (resolveSelectedVehicle), not registered[0]. (4) Design: RD5 odometer = N clamped-nonneg km/day deltas from N+1 pts via OdometerKm()+formatKm, tooltip format; RD6 battery = absolute BatteryLevel bars, BatteryRangeKm() tooltip; RD7 hand-rolled <svg viewBox preserveAspectRatio=none> + <rect>/<title>, NO chart lib, NO client JS, semantic fill tokens (fill-primary/fill-secondary), no hex; same bar count N; 0-bar charts fall back to dashHistoryEmpty(); days set {6,14,30} default 6 in named consts; since=startOfDay(now)-days; region #dashboard-history self-loads (hx-trigger=load) inside #dashboard-content, days buttons hx-swap=innerHTML target #dashboard-history. (5) Template-dumb — NO OdometerKm()/formatKm/time calls reachable from .templ; all heights/tooltips precomputed in handler. (6) UI-kit rule — NO inlined DaisyUI component class in pages/fragments (new ui.Join wrapper is the right pattern); ui-guard green. (7) Codegen — *_templ.go regenerated, static/app.css fresh & committed (no drift). (8) Units — km always via *Km() companions, never stored/JSON. (9) Tests — handler tests (days clamp, since, N deltas, N battery bars, empty states, reader-error degrades no-500, anonymous->/login) + render test (viewBox+<title>, active preset, self-load region inside #dashboard-content); httptest with fakes, NO paid Tesla/Raw* calls. (10) Docs — AGENTS.md RD8 decision + standing convention present & accurate; spec delta matches. (11) Performance-Profile (read-heavy) — one read, precomputed. (12) Anti-gaming — no weakened criteria/tasks, no self-approved statuses, worker ran no git. Escalate on any doubt (changes-requested) rather than approving.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-07-31T10:20:00Z",
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-4-6",
+        "verdict": "approved",
+        "findings": [],
+        "duration_seconds": 346,
+        "budget": { "five_hour_pct_start": 55, "five_hour_pct_end": 65, "five_hour_pct_delta": 10, "cost_usd_delta": 2.751, "context_pct_end": 18, "source": "statusline-cache", "approx": false, "note": "review round 1 (gateway-reviewer, Sonnet)" },
+        "summary": "All 12 review brief criteria pass. Module boundary clean (all 16 changed files in internal/gateway/ or openspec/changes/gateway-dashboard-history-charts/; no telemetrydb import; no pgtype). Read-only at request time (auth guard -> resolveSelectedVehicle -> one SnapshotsByVehicleSince call -> render; no writes). Vehicle-scoping via resolveSelectedVehicle TeslaID. RD5/RD6/RD7 design: odometer N clamped-nonneg km/day deltas from N+1 pts via OdometerKm()+formatKm, battery absolute BatteryLevel bars with BatteryRangeKm() tooltip, hand-rolled SVG viewBox+preserveAspectRatio=none, fill-primary/fill-secondary semantic tokens, no hex, no chart lib, no client JS, same bar count, dashHistoryEmpty() fallback. Template dumb: no OdometerKm/formatKm/time calls in any .templ. UI-kit: ui.Join wrapper owns the 'join' class; join-item is a modifier passed via Class prop to ui.Button (not inlined); ui-guard green. CSS fresh: make css + git diff --exit-code confirmed no drift. Units via Km() companions only. Tests: 23 history-specific tests all pass including days clamp, correct since, N deltas/bars, empty states, reader error degrades gracefully (no 500), anonymous->redirect /login, SVG viewBox + title tooltips present, active preset marked, #dashboard-history inside #dashboard-content with hx-trigger=load. No Raw*/paid Tesla calls in tests. Docs: AGENTS.md has RD7 decision with rejected alternative and RD8 standing convention. Anti-gaming: no task/criterion weakened, no self-approved statuses. make check green (build + vet + ui-guard + tests)."
+      }
+    ]
   },
   "decisions": [
     {
@@ -69,6 +81,7 @@
   "events": [
     { "at": "2026-07-31T09:50:00Z", "agent": "leader", "event": "progress.json created from tasks.md (16 sub-tasks A-E). Tier 1 archived so the port is live. Artifacts pre-authored + openspec-valid. Commits on main (RD9). D1: serialize into one gateway worker; D2: presets 6/14/30 resolved by roadmap." },
     { "at": "2026-07-31T09:53:31Z", "agent": "leader", "event": "Wave 1 dispatched: one serial gateway worker (Sonnet) for all 16 tasks. Budget start 5h=37%, ctx=15%, cost=$8.978." },
-    { "at": "2026-07-31T10:10:45Z", "agent": "leader", "event": "Wave 1 complete: all 16 tasks done, RD5-RD8 + days-validation + region-wiring compliant. New ui.Join wrapper added (no inlined join class); dashHistoryEmpty moved pages->fragments. Leader-verified openspec validate + make check green; re-ran make css (fresh app.css). Wave budget 5h +18% (37->55), cost +$4.062. Status -> verified." }
+    { "at": "2026-07-31T10:10:45Z", "agent": "leader", "event": "Wave 1 complete: all 16 tasks done, RD5-RD8 + days-validation + region-wiring compliant. New ui.Join wrapper added (no inlined join class); dashHistoryEmpty moved pages->fragments. Leader-verified openspec validate + make check green; re-ran make css (fresh app.css). Wave budget 5h +18% (37->55), cost +$4.062. Status -> verified." },
+    { "at": "2026-07-31T10:18:24Z", "agent": "leader", "event": "Review round 1: gateway-reviewer APPROVED, zero findings (all 12 checks). review.status/change status -> reviewer-approved. Round budget 5h +10% (55->65), cost +$2.751. Next: archive tier 2, then roadmap complete -> archive roadmap." }
   ]
 }
