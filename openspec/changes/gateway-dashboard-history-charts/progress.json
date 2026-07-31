@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "gateway-dashboard-history-charts",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM5-dashboard-odometer-battery-history.md",
+  "request": "RM5 tier 2: replace the dashboard's two dashHistoryEmpty() placeholders with responsive hand-rolled SVG bar charts (odometer km/day delta + battery level %), a 6/14/30 days selector (default 6), served by GET /ui/dashboard/history?days=N reading telemetry.Reader.SnapshotsByVehicleSince. No chart lib (RD7), no DB. Record the no-chart-lib decision + convention in gateway AGENTS.md (RD8).",
+  "status": "in-progress",
+  "created_at": "2026-07-31T09:50:00Z",
+  "updated_at": "2026-07-31T09:50:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "manual",
+    "branch": "main",
+    "base": "main",
+    "created_at": "2026-07-31T09:50:00Z",
+    "note": "RM5 roadmap commits on main per user (RD9); no feature branch."
+  },
+  "rollup": {
+    "current": ["A.1", "A.2", "A.3", "A.4", "A.5", "B.1", "B.2", "B.3", "C.1", "C.2", "D.1", "D.2", "D.3", "E.1", "E.2", "E.3"],
+    "pending": [],
+    "blocked": [],
+    "done": []
+  },
+  "tasks": [
+    { "id": "A.1", "title": "Add HistoryView/HistoryChart/HistoryBar view-model types in templates/fragments (pre-computed strings/ints, no domain-method calls reachable from template)", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "A.2", "title": "Add historyDayPresets=[]int{6,14,30}, defaultHistoryDays=6, clampHistoryDays(raw string) int helper (non-preset -> default)", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "A.3", "title": "Add DashboardHistoryFragment handler: auth guard, resolveSelectedVehicle -> (accountID,teslaID), clampHistoryDays, since=startOfDay(now).AddDate(0,0,-days), call SnapshotsByVehicleSince", "module": "gateway", "depends_on": ["A.1", "A.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "A.4", "title": "Build view model: odometer = last days+1 pts -> days clamped-nonneg km deltas via OdometerKm()+formatKm w/ tooltip; battery = last days pts level-% bars via BatteryLevel (+BatteryRangeKm() tooltip); heights precomputed; Empty on 0 bars; reader error degrades (no 500)", "module": "gateway", "depends_on": ["A.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "A.5", "title": "Register GET /ui/dashboard/history in gateway.go behind the same auth middleware as other /ui/* fragments", "module": "gateway", "depends_on": ["A.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "B.1", "title": "Add reusable historyBarChart(chart, colorClass) Templ component: responsive <svg viewBox preserveAspectRatio=none class=w-full h-24>, one <rect> per bar at HeightPct + child <title>; dashHistoryEmpty() when Empty; layout only, DaisyUI semantic fill tokens (no hex)", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "B.2", "title": "Add historyDaysSelector(active, presets) Templ component: DaisyUI join of buttons, active marked, each hx-get=/ui/dashboard/history?days=N, hx-target=#dashboard-history, hx-swap=innerHTML", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "B.3", "title": "Add dashboardHistory(v HistoryView) block: selector + two ui.Cards (Odometer/Battery) each wrapping historyBarChart (odometer=primary, battery=secondary token). Endpoint returns this.", "module": "gateway", "depends_on": ["B.1", "B.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "C.1", "title": "In pages/dashboard.templ replace the two @dashHistoryEmpty() cards with a single #dashboard-history region: hx-get=/ui/dashboard/history?days=6, hx-trigger=load, hx-swap=innerHTML inside #dashboard-content (inherits vehicle-changed refresh); keep dashHistoryEmpty() as per-chart empty state", "module": "gateway", "depends_on": ["B.3", "A.5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "C.2", "title": "Run make templ (+ make css if new classes) to regen *_templ.go; confirm make check ui-guard passes (semantic tokens only)", "module": "gateway", "depends_on": ["C.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "D.1", "title": "gateway AGENTS.md: add 'Charts are hand-rolled SVG - no chart library' decision (rejected vanilla-JS-lib alt + reason) AND standing convention that client-side-library/rendering-approach decisions are recorded here in the same change (RD8)", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "D.2", "title": "If ai/htmx-conventions.md documents chart/data-viz patterns, add one-line pointer to the SVG-bar-chart pattern; else skip (no invented section)", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "D.3", "title": "No root README structure-tree change; confirm any gateway README bento-card enumeration mentions the history charts", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "E.1", "title": "Handler tests (fake telemetry.Reader): days clamp (missing/invalid/out-of-set->6; 6/14/30 pass), correct since, odometer N clamped-nonneg deltas from N+1 pts, battery N level bars, empty-state <2/0 pts, reader error degrades (no 500), anonymous->redirect /login", "module": "gateway", "depends_on": ["A.4", "A.5"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "E.2", "title": "Render test: fragment contains responsive <svg viewBox + <title> tooltips and selector marks active preset; and #dashboard-history in dashboard page carries hx-trigger=load and sits inside #dashboard-content", "module": "gateway", "depends_on": ["B.3", "C.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "E.3", "title": "make check passes (build + vet + ui-guard + tests); no DB, no migration", "module": "gateway", "depends_on": ["C.2", "D.1", "E.1", "E.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-07-31T09:50:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Dispatch tier 2 as ONE serial gateway worker rather than parallel A/B workers, despite tasks.md marking A (handler/VM) and B (templates) as disjoint/parallel-ok.",
+      "why": "The gateway doc pack (base + htmx-conventions + htmx-go-integration + AGENTS.md) is heavy; two parallel workers would each re-read it and drain the same 5-hour bucket concurrently. One serial worker amortizes the read and keeps a coherent view of the charges gold-standard slice. Budget is low (5h ~30%), so no time pressure forces parallelism.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-07-31T09:50:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Treat design.md's 'confirm preset values at apply' open question as already resolved: presets 6/14/30, default 6.",
+      "why": "The roadmap intention line, RM5 Decision 5 context, and tasks.md A.2 (historyDayPresets=[]int{6,14,30}, defaultHistoryDays=6) all commit to these values with the user; it is not a new decision, so autopilot proceeds without a fresh interview.",
+      "covered_by": "RM5 roadmap intention + tasks A.2"
+    }
+  ],
+  "events": [
+    { "at": "2026-07-31T09:50:00Z", "agent": "leader", "event": "progress.json created from tasks.md (16 sub-tasks A-E). Tier 1 archived so the port is live. Artifacts pre-authored + openspec-valid. Commits on main (RD9). D1: serialize into one gateway worker; D2: presets 6/14/30 resolved by roadmap." }
+  ]
+}
