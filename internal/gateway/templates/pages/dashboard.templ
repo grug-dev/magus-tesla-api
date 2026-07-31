@@ -9,13 +9,13 @@ import (
 // Dashboard renders the single-vehicle dashboard for the SELECTED vehicle, mirroring
 // the Stitch "Dashboard - Read-Only Metric Monitor" screen within the gateway's
 // DaisyUI/Tailwind conventions: a 12-col bento grid — an 8-col "Vehicle Status" hero
-// with a mini-stat grid, and a 4-col vital-stats column with a battery card plus two
-// history placeholders. The shell (top nav + left sidebar) comes from
+// with a mini-stat grid, and a 4-col vital-stats column with a battery card plus the
+// history charts region. The shell (top nav + left sidebar) comes from
 // layouts.BaseAuth; chrome comes from the owned ui/ kit (PageHeader, Card, StatTile,
-// Badge, Button, Alert, Icon) — semantic theme tokens only, never a hex/class
-// soup. The Stitch 30-day history charts have no backing read port yet, so they
-// degrade to an honest "Awaiting nightly snapshots" placeholder rather than fake
-// bars. All values are pre-computed display strings on fragments.DashboardData.
+// Badge, Button, Alert, Icon) — semantic theme tokens only, never a hex/class soup.
+// The #dashboard-history region self-loads via hx-trigger="load" (GET
+// /ui/dashboard/history) to render the odometer km/day and battery % bar charts
+// (RM5 tier 2). All values are pre-computed display strings on fragments.DashboardData.
 templ Dashboard(d fragments.DashboardData) {
 	@layouts.BaseAuth("Dashboard — Magus", "/dashboard") {
 		<div id="dashboard-content" hx-get="/ui/dashboard" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">
@@ -77,12 +77,12 @@ templ Dashboard(d fragments.DashboardData) {
 									<span>{ dashChargeLimit(d) }</span>
 								</div>
 							}
-							@ui.Card(ui.CardProps{Title: "Odometer history"}) {
-								@dashHistoryEmpty()
-							}
-							@ui.Card(ui.CardProps{Title: "Battery history"}) {
-								@dashHistoryEmpty()
-							}
+							// History region: self-loads on first render via hx-trigger="load"
+							// and inherits vehicle-changed re-renders because it lives inside
+							// #dashboard-content (htmx-conventions.md §"Cross-region refresh").
+							// hx-swap="innerHTML" keeps this wrapper element (and its hx-trigger)
+							// in the DOM across selector clicks.
+							<div id="dashboard-history" hx-get="/ui/dashboard/history?days=6" hx-trigger="load" hx-swap="innerHTML"></div>
 						</div>
 					</div>
 				}
@@ -91,12 +91,3 @@ templ Dashboard(d fragments.DashboardData) {
 	}
 }
 
-// dashHistoryEmpty is the honest placeholder for the Stitch 30-day history charts:
-// the platform has no history read port yet, so the cards show a tasteful empty
-// state instead of fabricated bars. When a history reader is added later, replace
-// this component's body with the chart markup — the cards stay.
-templ dashHistoryEmpty() {
-	<div class="h-24 flex items-center justify-center text-sm text-base-content/40 border border-dashed border-base-300 rounded-box">
-		Awaiting nightly snapshots
-	</div>
-}

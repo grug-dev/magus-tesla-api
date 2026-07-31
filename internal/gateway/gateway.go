@@ -118,6 +118,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/connect/tesla/callback", h.TeslaCallback)
 	r.GET("/dashboard", h.Dashboard)
 	r.GET("/ui/dashboard", h.DashboardFragment)
+	r.GET("/ui/dashboard/history", h.DashboardHistoryFragment)
 	r.GET("/ui/nav-header", h.NavHeaderFragment)
 	r.POST("/ui/vehicle/select", h.VehicleSelect)
 	r.GET("/healthz", h.Healthz)

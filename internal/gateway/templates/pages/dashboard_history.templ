@@ -1,0 +1,18 @@
+package pages
+
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+
+// DashboardHistory is the entry-point Templ component for the
+// GET /ui/dashboard/history handler. It wraps the history region's content in a
+// @templ.Fragment("dashboard-history") block so renderFragment can emit only the
+// fragment's inner HTML — which htmx injects into the #dashboard-history region's
+// innerHTML on initial load and on each days-selector button click.
+//
+// The #dashboard-history container itself lives in pages/dashboard.templ (the bento
+// grid); this template only produces the content that goes inside it. No full-page
+// layout wrapper is needed here — the response is an HTML fragment, not a page.
+templ DashboardHistory(v fragments.HistoryView) {
+	@templ.Fragment("dashboard-history") {
+		@fragments.DashboardHistoryContent(v)
+	}
+}

@@ -1,0 +1,14 @@
+package ui
+
+// Join wraps its children in a DaisyUI `join` container, grouping sibling
+// elements (typically buttons) into a connected visual unit. Child elements must
+// carry the `join-item` class — use `ui.Button` with `Class: "join-item"` for
+// each item inside.
+//
+// This is the anti-corruption wrapper for DaisyUI's `join` component class so
+// page/fragment templates never inline it directly (ai/htmx-conventions.md §"Styling").
+templ Join() {
+	<div class="join">
+		{ children... }
+	</div>
+}

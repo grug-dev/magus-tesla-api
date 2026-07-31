@@ -17,13 +17,13 @@ import (
 // Dashboard renders the single-vehicle dashboard for the SELECTED vehicle, mirroring
 // the Stitch "Dashboard - Read-Only Metric Monitor" screen within the gateway's
 // DaisyUI/Tailwind conventions: a 12-col bento grid — an 8-col "Vehicle Status" hero
-// with a mini-stat grid, and a 4-col vital-stats column with a battery card plus two
-// history placeholders. The shell (top nav + left sidebar) comes from
+// with a mini-stat grid, and a 4-col vital-stats column with a battery card plus the
+// history charts region. The shell (top nav + left sidebar) comes from
 // layouts.BaseAuth; chrome comes from the owned ui/ kit (PageHeader, Card, StatTile,
-// Badge, Button, Alert, Icon) — semantic theme tokens only, never a hex/class
-// soup. The Stitch 30-day history charts have no backing read port yet, so they
-// degrade to an honest "Awaiting nightly snapshots" placeholder rather than fake
-// bars. All values are pre-computed display strings on fragments.DashboardData.
+// Badge, Button, Alert, Icon) — semantic theme tokens only, never a hex/class soup.
+// The #dashboard-history region self-loads via hx-trigger="load" (GET
+// /ui/dashboard/history) to render the odometer km/day and battery % bar charts
+// (RM5 tier 2). All values are pre-computed display strings on fragments.DashboardData.
 func Dashboard(d fragments.DashboardData) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -374,51 +374,7 @@ func Dashboard(d fragments.DashboardData) templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Var18 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-						templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-						templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-						if !templ_7745c5c3_IsBuffer {
-							defer func() {
-								templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-								if templ_7745c5c3_Err == nil {
-									templ_7745c5c3_Err = templ_7745c5c3_BufErr
-								}
-							}()
-						}
-						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = dashHistoryEmpty().Render(ctx, templ_7745c5c3_Buffer)
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						return nil
-					})
-					templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: "Odometer history"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Var19 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-						templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-						templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-						if !templ_7745c5c3_IsBuffer {
-							defer func() {
-								templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-								if templ_7745c5c3_Err == nil {
-									templ_7745c5c3_Err = templ_7745c5c3_BufErr
-								}
-							}()
-						}
-						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = dashHistoryEmpty().Render(ctx, templ_7745c5c3_Buffer)
-						if templ_7745c5c3_Err != nil {
-							return templ_7745c5c3_Err
-						}
-						return nil
-					})
-					templ_7745c5c3_Err = ui.Card(ui.CardProps{Title: "Battery history"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</div></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<div id=\"dashboard-history\" hx-get=\"/ui/dashboard/history?days=6\" hx-trigger=\"load\" hx-swap=\"innerHTML\"></div></div></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -436,39 +392,6 @@ func Dashboard(d fragments.DashboardData) templ.Component {
 			return nil
 		})
 		templ_7745c5c3_Err = layouts.BaseAuth("Dashboard — Magus", "/dashboard").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
-// dashHistoryEmpty is the honest placeholder for the Stitch 30-day history charts:
-// the platform has no history read port yet, so the cards show a tasteful empty
-// state instead of fabricated bars. When a history reader is added later, replace
-// this component's body with the chart markup — the cards stay.
-func dashHistoryEmpty() templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var20 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var20 == nil {
-			templ_7745c5c3_Var20 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"h-24 flex items-center justify-center text-sm text-base-content/40 border border-dashed border-base-300 rounded-box\">Awaiting nightly snapshots</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

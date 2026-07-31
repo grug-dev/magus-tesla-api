@@ -1,0 +1,117 @@
+package fragments
+
+import (
+	"fmt"
+	"strconv"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// dashHistoryEmpty is the tasteful empty-state placeholder used by historyBarChart
+// when a chart has too few snapshots to draw (odometer needs ≥2, battery needs ≥1).
+// Kept in the fragments package so both dashboard.templ (via fragments import) and
+// historyBarChart (same package) can reference it without a cross-package call.
+templ dashHistoryEmpty() {
+	<div class="h-24 flex items-center justify-center text-sm text-base-content/40 border border-dashed border-base-300 rounded-box">
+		Awaiting nightly snapshots
+	</div>
+}
+
+// historyBarChart renders a responsive SVG bar chart from the pre-computed
+// HistoryChart view model (RD7: hand-rolled SVG, no chart library). The template
+// does NO arithmetic — all heights and tooltip strings arrive fully computed on
+// the view model.
+//
+// When chart.Empty is true (too few snapshots), it falls back to dashHistoryEmpty().
+//
+// SVG semantics: viewBox="0 0 N 100" with preserveAspectRatio="none" and
+// class="w-full h-24" makes the chart fill its container horizontally while
+// keeping a fixed visual height — purely CSS-responsive, no JS resize handler.
+// Each bar is a <rect> at a pre-computed HeightPct; a child <title> provides the
+// native browser hover tooltip (no JS tooltip library).
+//
+// Bar fills use DaisyUI semantic fill tokens (e.g. "fill-primary", "fill-secondary"),
+// never hardcoded hex — the chart re-skins from one data-theme (RD7).
+templ historyBarChart(chart HistoryChart, colorClass string) {
+	if chart.Empty {
+		@dashHistoryEmpty()
+	} else {
+		<svg
+			viewBox={ fmt.Sprintf("0 0 %d 100", len(chart.Bars)) }
+			preserveAspectRatio="none"
+			class="w-full h-24"
+			aria-hidden="true"
+		>
+			for i, bar := range chart.Bars {
+				<rect
+					x={ strconv.Itoa(i) }
+					y={ strconv.Itoa(100 - bar.HeightPct) }
+					width="0.8"
+					height={ strconv.Itoa(bar.HeightPct) }
+					class={ colorClass }
+				>
+					<title>{ bar.Tooltip }</title>
+				</rect>
+			}
+		</svg>
+	}
+}
+
+// historyDaysSelector renders the days-count preset control — three buttons (e.g.
+// 6 · 14 · 30) grouped via ui.Join. The active preset uses the "primary" Button
+// variant; inactive presets use "ghost". Each button carries htmx attributes to
+// re-fetch GET /ui/dashboard/history?days=N and swap the #dashboard-history region's
+// innerHTML so both charts and the selector refresh together. No JavaScript.
+templ historyDaysSelector(active int, presets []int) {
+	<div class="flex justify-end mb-4">
+		@ui.Join() {
+			for _, p := range presets {
+				if p == active {
+					@ui.Button(ui.ButtonProps{
+						Variant: "primary",
+						Size:    "sm",
+						Class:   "join-item",
+						Attrs: templ.Attributes{
+							"hx-get":    fmt.Sprintf("/ui/dashboard/history?days=%d", p),
+							"hx-target": "#dashboard-history",
+							"hx-swap":   "innerHTML",
+						},
+					}) {
+						{ fmt.Sprintf("%d days", p) }
+					}
+				} else {
+					@ui.Button(ui.ButtonProps{
+						Variant: "ghost",
+						Size:    "sm",
+						Class:   "join-item",
+						Attrs: templ.Attributes{
+							"hx-get":    fmt.Sprintf("/ui/dashboard/history?days=%d", p),
+							"hx-target": "#dashboard-history",
+							"hx-swap":   "innerHTML",
+						},
+					}) {
+						{ fmt.Sprintf("%d days", p) }
+					}
+				}
+			}
+		}
+	</div>
+}
+
+// DashboardHistoryContent renders the full content of the #dashboard-history region:
+// the days selector + the Odometer and Battery chart cards. This is what the handler
+// injects into the region's innerHTML on load and on each selector click (B.3).
+//
+// All values on HistoryView are pre-computed by the handler; this template is purely
+// presentational — no arithmetic, no domain-type method calls.
+templ DashboardHistoryContent(v HistoryView) {
+	@historyDaysSelector(v.Days, v.Presets)
+	<div class="flex flex-col gap-4">
+		@ui.Card(ui.CardProps{Title: "Odometer history"}) {
+			@historyBarChart(v.Odometer, "fill-primary")
+		}
+		@ui.Card(ui.CardProps{Title: "Battery history"}) {
+			@historyBarChart(v.Battery, "fill-secondary")
+		}
+	</div>
+}
