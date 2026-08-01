@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": null,
   "request": "resume — retroactively formalize the already-merged vehicle-switch cross-region refresh behavior in the gateway spec",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -33,10 +33,28 @@
     { "id": "5.2", "title": "make check (build + vet + ui-guard + tests) passes", "module": "gateway", "depends_on": ["5.1"], "parallel_ok": false, "status": "done", "agent": "gateway", "model": null, "started_at": "2026-08-01T11:43:07Z", "completed_at": "2026-08-01T11:43:07Z", "duration_seconds": 0, "notes": "Retroactive: re-verified at Step 6 of this resume.", "budget": null }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": "",
-    "rounds": []
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Retroactive/docs change: implementation already merged+tested; the ONLY new artifact is the gateway spec delta. Validate: (1) the delta accurately describes SHIPPED behavior; (2) removing 'multi-vehicle selector is out of scope' is correct; (3) the four named tests exist and honestly assert; (4) gateway boundary + read-heavy profile compliance; (5) anti-gaming. No DB objects touched (design gate N/A).",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-01T11:47:04Z",
+        "duration_seconds": 153,
+        "verdict": "approved",
+        "findings": [],
+        "budget": {
+          "five_hour_pct_start": 9.0,
+          "five_hour_pct_end": 14.0,
+          "five_hour_pct_delta": 5.0,
+          "cost_usd_delta": 1.08,
+          "context_pct_end": 11,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": "gateway-reviewer round 1 on Sonnet; verified spec delta against real handlers/templates/tests, no findings."
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -51,6 +69,7 @@
   ],
   "events": [
     { "at": "2026-08-01T11:43:07Z", "agent": "leader", "event": "resume: no progress.json existed for this committed retroactive change; created it on new branch ft/gateway-vehicle-switch-refresh (base 923a2f2). openspec validate --strict passes." },
-    { "at": "2026-08-01T11:44:30Z", "agent": "leader", "event": "Step 6 verify: make check (build + vet + ui-guard + test) passed; all gateway tests green. status -> verified." }
+    { "at": "2026-08-01T11:44:30Z", "agent": "leader", "event": "Step 6 verify: make check (build + vet + ui-guard + test) passed; all gateway tests green. status -> verified." },
+    { "at": "2026-08-01T11:47:04Z", "agent": "gateway-reviewer", "event": "Step 7 review round 1: APPROVED, zero findings. Spec delta verified against shipped handlers/templates/tests; boundaries + read-heavy profile compliant; anti-gaming clean. status -> reviewer-approved." }
   ]
 }
