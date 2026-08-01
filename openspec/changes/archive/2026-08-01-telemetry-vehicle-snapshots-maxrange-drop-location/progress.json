@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Drive the telemetry-vehicle-snapshots-maxrange-drop-location proposal through the pipeline: ADD max_range_charge_counter (nullable, backfilled) and DROP latitude/longitude/fast_charger_type from vehicle_snapshots.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -31,7 +31,23 @@
     { "id": "5.1", "title": "Fix telemetry test fixtures; add max_range_charge_counter nil<->NULL + backfill coverage", "module": "telemetry", "depends_on": ["4.2", "4.3"], "parallel_ok": false, "status": "done", "agent": "telemetry", "model": "claude-sonnet-4-6", "started_at": "2026-08-01T13:35:00Z", "completed_at": "2026-08-01T13:40:00Z", "duration_seconds": 300, "notes": "Removed lat/lng from db_integration + db_read_integration fixtures; removed FastChargerType from db_sourcea fixtures/assertions. Added 5 tests: NonNilNonZeroRoundTrip, TruthfulZeroStoredAsNonNil, NilStoresAsNullAndRoundTripsNil, BackfillFromRawData, BackfillSkipsRowsWithoutPath. All pass.", "budget": { "five_hour_pct_start": 41.0, "five_hour_pct_end": 55.0, "five_hour_pct_delta": 14.0, "cost_usd_delta": 3.60, "context_pct_end": 17, "source": "statusline-cache", "approx": true, "note": "Wave delta covers the single serial telemetry worker dispatch (tasks 2.1-5.1) plus the leader's make-check verify (6.1)." } },
     { "id": "6.1", "title": "make check (build + vet + ui-guard + test) passes", "module": "telemetry", "depends_on": ["1.1", "5.1"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "claude-opus-4-8", "started_at": "2026-08-01T13:10:57Z", "completed_at": "2026-08-01T13:11:00Z", "duration_seconds": 3, "notes": "make check green: build + vet + ui-guard + full test suite (telemetry container tests included). Step 6 verify.", "budget": null }
   ],
-  "review": { "status": "pending", "agent": null, "brief": "", "rounds": [] },
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Validate the telemetry vehicle_snapshots refactor against the USER-CONFIRMED design (D1) — any deviation is a blocker: (1) migration 20260801000001 ADDs max_range_charge_counter INTEGER nullable, backfills from raw_data->'charge_state'->>'max_range_charge_counter' guarded by jsonb_typeof(...)='number', DROPs latitude/longitude/fast_charger_type, and Down re-adds the 3 nullable IF NOT EXISTS + drops the counter; (2) NULL-fidelity: a reported 0 stores non-nil *0 (ptr helper) and reads back non-nil; not-reported/pre-extraction reads back nil (pgNullableInt32AsInt) — the 5 new tests must actually prove this, not be trivial; (3) NO new index added (matches confirmed design); (4) sqlc: ONLY queries.sql hand-edited, db/*.go regenerated via make sqlc (not hand-edited); (5) boundaries: pgtype confined to service.go/mapping.go, domain Snapshot carries MaxRangeChargeCounter *int with no ...Tesla suffix, telemetry worker did NOT edit internal/tesla (leader owns the 1-line ChargeStateTesla field, D2), no forbidden db imports; reused EXISTING RM2 helpers (ptr/intPtrToPgInt4/pgNullableInt32AsInt) not reinvented; (6) read-heavy profile respected; (7) docs-track-change: internal/telemetry/AGENTS.md data-ownership updated to reflect dropped/added columns, and the spec delta matches shipped behavior; (8) anti-gaming: tasks/assertions append-only, no criterion weakened. Read the diff of e3614c3 + the change artifacts; you need not re-read the whole module.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-01T13:15:40Z",
+        "agent": "telemetry-reviewer",
+        "model": "claude-sonnet-4-6",
+        "duration_seconds": 165,
+        "verdict": "approved",
+        "findings": [],
+        "budget": { "five_hour_pct_start": 59.0, "five_hour_pct_end": 64.0, "five_hour_pct_delta": 5.0, "cost_usd_delta": 1.07, "context_pct_end": 20, "source": "statusline-cache", "approx": false, "note": "telemetry-reviewer round 1 on Sonnet; verified impl vs user-confirmed design, zero findings." }
+      }
+    ]
+  },
   "decisions": [
     {
       "id": "D1",
@@ -67,5 +83,6 @@
     { "at": "2026-08-01T12:58:16Z", "agent": "leader", "event": "Step 3: authored tasks.md (D3), openspec validate --strict passes, database design gate CONFIRMED by user (D1). Committed artifacts (b9e8755). progress.json created." },
     { "at": "2026-08-01T12:58:45Z", "agent": "leader", "event": "Step 5 wave 1a: leader completed cross-module task 1.1 (ChargeStateTesla.MaxRangeChargeCounter, D2)." },
     { "at": "2026-08-01T13:10:00Z", "agent": "telemetry", "event": "Step 5 wave 1b: telemetry worker (Sonnet) completed 2.1-5.1 in one serial dispatch — migration+backfill, sqlc regen, Snapshot struct, snapshotFrom/insertSnapshot, mapping.go, tests (+5 NULL-fidelity/backfill). Reused ptr/intPtrToPgInt4/pgNullableInt32AsInt helpers. Enumerated all 4 design decisions with compliance. go build/vet/telemetry-tests green." },
-    { "at": "2026-08-01T13:11:00Z", "agent": "leader", "event": "Step 6 verify: make check (build + vet + ui-guard + full test suite incl. telemetry container tests) PASSED. Worker decision enumeration cross-checked vs design.md — all 4 decisions honored. status -> verified. Wave delta 5h 41%->55%, ~$3.60." }
+    { "at": "2026-08-01T13:11:00Z", "agent": "leader", "event": "Step 6 verify: make check (build + vet + ui-guard + full test suite incl. telemetry container tests) PASSED. Worker decision enumeration cross-checked vs design.md — all 4 decisions honored. status -> verified. Wave delta 5h 41%->55%, ~$3.60." },
+    { "at": "2026-08-01T13:15:40Z", "agent": "telemetry-reviewer", "event": "Step 7 review round 1: APPROVED, zero findings. Migration matches user-confirmed design; NULL-fidelity + 5 tests genuine; no new index; sqlc discipline; boundaries + reused RM2 helpers; docs-track-change; anti-gaming clean. status -> reviewer-approved. Round delta 5h 59%->64%, ~$1.07." }
 }
