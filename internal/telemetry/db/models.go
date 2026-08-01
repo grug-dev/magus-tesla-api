@@ -42,27 +42,25 @@ type SuperchargerSession struct {
 }
 
 type VehicleSnapshot struct {
-	ID                   uuid.UUID
-	AccountID            uuid.UUID
-	TeslaID              int64
-	CapturedAt           pgtype.Timestamptz
-	RawData              []byte
-	BatteryLevel         int32
-	BatteryRange         float64
-	ChargingState        string
-	ChargeLimitSoc       int32
-	Odometer             float64
-	InsideTemp           float64
-	OutsideTemp          float64
-	Locked               bool
-	SentryMode           pgtype.Bool
-	CarVersion           string
-	Latitude             float64
-	Longitude            float64
-	ChargeEnergyAdded    pgtype.Float8
-	ChargerPower         pgtype.Int4
-	ChargerVoltage       pgtype.Int4
-	ChargerActualCurrent pgtype.Int4
-	UsableBatteryLevel   pgtype.Int4
-	FastChargerType      pgtype.Text
+	ID                    uuid.UUID
+	AccountID             uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevel          int32
+	BatteryRange          float64
+	ChargingState         string
+	ChargeLimitSoc        int32
+	Odometer              float64
+	InsideTemp            float64
+	OutsideTemp           float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAdded     pgtype.Float8
+	ChargerPower          pgtype.Int4
+	ChargerVoltage        pgtype.Int4
+	ChargerActualCurrent  pgtype.Int4
+	UsableBatteryLevel    pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
 }

@@ -76,6 +76,9 @@ type ChargeStateTesla struct {
 	ChargerActualCurrent int     `json:"charger_actual_current"` // A
 	UsableBatteryLevel   int     `json:"usable_battery_level"`   // %
 	FastChargerType      string  `json:"fast_charger_type"`
+	// Lifetime count of charges to the true 100% Maximum-Battery-Range limit — a
+	// charging-habits health signal telemetry promotes to a typed snapshot column.
+	MaxRangeChargeCounter int `json:"max_range_charge_counter"`
 }
 
 // BatteryRangeKm returns the estimated range converted from miles to kilometers.

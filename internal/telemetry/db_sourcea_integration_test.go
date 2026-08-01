@@ -53,13 +53,13 @@ func TestSourceA_ChargeEnrichment_NonNilRoundTrip(t *testing.T) {
 		ChargingState: "Charging",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{"charge_state":{"charging_state":"Charging"}}`),
-		// All 6 Source A fields — non-nil, non-zero values.
-		ChargeEnergyAdded:    ptrFloat64(12.5),  // kWh
-		ChargerPower:         ptrInt(11),         // kW
-		ChargerVoltage:       ptrInt(240),        // V
-		ChargerActualCurrent: ptrInt(48),         // A
-		UsableBatteryLevel:   ptrInt(73),         // %
-		FastChargerType:      ptrString("Tesla"), // charger brand
+		// All 5 Source A fields — non-nil, non-zero values.
+		// fast_charger_type was dropped in 20260801000001; lossless in raw_data JSONB.
+		ChargeEnergyAdded:    ptrFloat64(12.5), // kWh
+		ChargerPower:         ptrInt(11),        // kW
+		ChargerVoltage:       ptrInt(240),       // V
+		ChargerActualCurrent: ptrInt(48),        // A
+		UsableBatteryLevel:   ptrInt(73),        // %
 	}
 
 	// A helper that reads back via the dbStore read seam (same path as LatestSnapshotsByAccount).
@@ -105,12 +105,8 @@ func TestSourceA_ChargeEnrichment_NonNilRoundTrip(t *testing.T) {
 	} else if *s.UsableBatteryLevel != 73 {
 		t.Errorf("UsableBatteryLevel: want 73, got %v", *s.UsableBatteryLevel)
 	}
-
-	if s.FastChargerType == nil {
-		t.Fatal("FastChargerType: want non-nil, got nil")
-	} else if *s.FastChargerType != "Tesla" {
-		t.Errorf("FastChargerType: want \"Tesla\", got %q", *s.FastChargerType)
-	}
+	// fast_charger_type dropped in 20260801000001 — not asserted here;
+	// value remains recoverable from raw_data->'charge_state'->'fast_charger_type'.
 }
 
 // TestSourceA_ChargeEnrichment_NilRoundTrip verifies that when all 6 charge-enrichment
@@ -131,13 +127,13 @@ func TestSourceA_ChargeEnrichment_NilRoundTrip(t *testing.T) {
 		ChargingState: "Disconnected",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{"charge_state":{"charging_state":"Disconnected"}}`),
-		// All 6 Source A fields are nil — simulates inserting NULL params (pre-enrichment row).
+		// All 5 Source A fields are nil — simulates inserting NULL params (pre-enrichment row).
+		// fast_charger_type was dropped in 20260801000001; lossless in raw_data JSONB.
 		ChargeEnergyAdded:    nil,
 		ChargerPower:         nil,
 		ChargerVoltage:       nil,
 		ChargerActualCurrent: nil,
 		UsableBatteryLevel:   nil,
-		FastChargerType:      nil,
 	}
 
 	if err := st.insertSnapshot(ctx, snap); err != nil {
@@ -168,9 +164,7 @@ func TestSourceA_ChargeEnrichment_NilRoundTrip(t *testing.T) {
 	if s.UsableBatteryLevel != nil {
 		t.Errorf("UsableBatteryLevel: want nil, got %v", *s.UsableBatteryLevel)
 	}
-	if s.FastChargerType != nil {
-		t.Errorf("FastChargerType: want nil, got %q", *s.FastChargerType)
-	}
+	// fast_charger_type dropped in 20260801000001 — not asserted here.
 }
 
 // TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead verifies D12: a truthful
@@ -195,14 +189,14 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{"charge_state":{"charging_state":"Charging"}}`),
 		// Truthful zeros — NOT nil. D12: these must be stored non-NULL and returned
-		// as non-nil pointers pointing to 0 (or ""). A nil would falsely mean
+		// as non-nil pointers pointing to 0. A nil would falsely mean
 		// "pre-migration row that was never backfilled".
+		// fast_charger_type dropped in 20260801000001; not included here.
 		ChargeEnergyAdded:    ptrFloat64(0.0),
 		ChargerPower:         ptrInt(0),
 		ChargerVoltage:       ptrInt(0),
 		ChargerActualCurrent: ptrInt(0),
 		UsableBatteryLevel:   ptrInt(0),
-		FastChargerType:      ptrString(""),
 	}
 
 	if err := st.insertSnapshot(ctx, snap); err != nil {
@@ -245,12 +239,8 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 	if !row.UsableBatteryLevel.Valid {
 		t.Error("UsableBatteryLevel: want Valid=true (non-NULL), got Valid=false")
 	}
-	if !row.FastChargerType.Valid {
-		t.Error("FastChargerType: want Valid=true (non-NULL), got Valid=false")
-	}
-	if row.FastChargerType.String != "" {
-		t.Errorf("FastChargerType: want empty string, got %q", row.FastChargerType.String)
-	}
+	// fast_charger_type dropped in 20260801000001 — not asserted here.
+	// MaxRangeChargeCounter nil round-trip is tested separately in TestMaxRangeChargeCounter_NilAndNonNilFidelity.
 
 	// Also verify the domain read path (rowToSnapshot / latestSnapshotsByAccount).
 	got, err := st.latestSnapshotsByAccount(ctx, accountID)
@@ -280,9 +270,286 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 	if s.UsableBatteryLevel == nil {
 		t.Error("UsableBatteryLevel: want non-nil *0, got nil — D12 violated")
 	}
-	if s.FastChargerType == nil {
-		t.Error("FastChargerType: want non-nil *\"\", got nil — D12 violated")
-	} else if *s.FastChargerType != "" {
-		t.Errorf("FastChargerType: want *\"\", got *%q", *s.FastChargerType)
+	// fast_charger_type dropped in 20260801000001 — not asserted here.
+}
+
+// --- MaxRangeChargeCounter nil↔NULL fidelity (telemetry-vehicle-snapshots-maxrange-drop-location) ---
+//
+// These tests verify the D12/DSA3 pointer-wrap semantics for max_range_charge_counter:
+//   - A reported non-zero value round-trips as non-nil.
+//   - A reported 0 (new vehicle, never charged to max-range) is stored as non-NULL *0
+//     (truthful zero, NOT collapsed into nil).
+//   - A nil in the domain Snapshot (pre-extraction / pre-migration row) stores as SQL NULL
+//     and comes back as nil.
+// They also verify the migration backfill: a row whose raw_data contains
+// charge_state.max_range_charge_counter as a number gets its typed column populated.
+// Requires migration 20260801000001_add_maxrange_drop_location_fastchargertype.sql applied.
+
+// TestMaxRangeChargeCounter_NonNilNonZeroRoundTrip verifies that a non-nil, non-zero
+// MaxRangeChargeCounter (e.g. 3 = charged to max-range three times) round-trips
+// faithfully through the store → DB → read path.
+func TestMaxRangeChargeCounter_NonNilNonZeroRoundTrip(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(920001)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	snap := Snapshot{
+		AccountID:             accountID,
+		TeslaID:               teslaID,
+		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		ChargingState:         "Disconnected",
+		CarVersion:            "2026.20.1",
+		RawData:               []byte(`{"charge_state":{"max_range_charge_counter":3}}`),
+		MaxRangeChargeCounter: ptrInt(3),
+	}
+	if err := st.insertSnapshot(ctx, snap); err != nil {
+		t.Fatalf("insertSnapshot: %v", err)
+	}
+
+	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("latestSnapshotsByAccount: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 snapshot, got %d", len(got))
+	}
+	s := got[0]
+	if s.MaxRangeChargeCounter == nil {
+		t.Fatal("MaxRangeChargeCounter: want non-nil *3, got nil")
+	}
+	if *s.MaxRangeChargeCounter != 3 {
+		t.Errorf("MaxRangeChargeCounter: want *3, got *%d", *s.MaxRangeChargeCounter)
+	}
+}
+
+// TestMaxRangeChargeCounter_TruthfulZeroStoredAsNonNil verifies the D12/DSA3 invariant:
+// a reported counter of 0 (new vehicle, never charged to max-range) is stored as non-NULL
+// and comes back as a non-nil pointer to 0 — never as nil. Collapsing *0 into nil would
+// lose the distinction between "new vehicle" and "row predates this extraction".
+func TestMaxRangeChargeCounter_TruthfulZeroStoredAsNonNil(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(920002)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	snap := Snapshot{
+		AccountID:             accountID,
+		TeslaID:               teslaID,
+		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		ChargingState:         "Disconnected",
+		CarVersion:            "2026.20.1",
+		RawData:               []byte(`{"charge_state":{"max_range_charge_counter":0}}`),
+		MaxRangeChargeCounter: ptrInt(0), // truthful 0: new vehicle, never charged to max-range
+	}
+	if err := st.insertSnapshot(ctx, snap); err != nil {
+		t.Fatalf("insertSnapshot: %v", err)
+	}
+
+	// Check the raw pgtype column: it must be Valid=true (non-NULL), Int32=0.
+	q := telemetrydb.New(pool)
+	rows, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
+		AccountID: accountID,
+		TeslaID:   teslaID,
+	})
+	if err != nil {
+		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	row := rows[0]
+	if !row.MaxRangeChargeCounter.Valid {
+		t.Error("MaxRangeChargeCounter: want Valid=true (non-NULL) for a truthful 0, got Valid=false — D12 violated: zero stored as NULL")
+	}
+	if row.MaxRangeChargeCounter.Int32 != 0 {
+		t.Errorf("MaxRangeChargeCounter: want Int32=0, got %d", row.MaxRangeChargeCounter.Int32)
+	}
+
+	// Also verify the domain read path: must come back as non-nil *0.
+	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("latestSnapshotsByAccount: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 snapshot, got %d", len(got))
+	}
+	s := got[0]
+	if s.MaxRangeChargeCounter == nil {
+		t.Error("MaxRangeChargeCounter: want non-nil *0, got nil — D12 violated: *0 collapsed into nil")
+	} else if *s.MaxRangeChargeCounter != 0 {
+		t.Errorf("MaxRangeChargeCounter: want *0, got *%d", *s.MaxRangeChargeCounter)
+	}
+}
+
+// TestMaxRangeChargeCounter_NilStoresAsNullAndRoundTripsNil verifies that a nil
+// MaxRangeChargeCounter (pre-extraction row simulation) stores as SQL NULL and comes
+// back as nil through the full read path. NULL means "row predates the
+// 20260801000001 migration or vehicle did not report the field".
+func TestMaxRangeChargeCounter_NilStoresAsNullAndRoundTripsNil(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(920003)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	snap := Snapshot{
+		AccountID:             accountID,
+		TeslaID:               teslaID,
+		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		ChargingState:         "Disconnected",
+		CarVersion:            "2026.20.1",
+		RawData:               []byte(`{}`),
+		MaxRangeChargeCounter: nil, // pre-extraction row: no counter → SQL NULL
+	}
+	if err := st.insertSnapshot(ctx, snap); err != nil {
+		t.Fatalf("insertSnapshot: %v", err)
+	}
+
+	// Raw pgtype: must be Valid=false (SQL NULL).
+	q := telemetrydb.New(pool)
+	rows, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
+		AccountID: accountID,
+		TeslaID:   teslaID,
+	})
+	if err != nil {
+		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	if rows[0].MaxRangeChargeCounter.Valid {
+		t.Errorf("MaxRangeChargeCounter: want Valid=false (SQL NULL) for nil domain value, got Valid=true (value=%d)", rows[0].MaxRangeChargeCounter.Int32)
+	}
+
+	// Domain read path: must come back as nil.
+	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("latestSnapshotsByAccount: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 snapshot, got %d", len(got))
+	}
+	if got[0].MaxRangeChargeCounter != nil {
+		t.Errorf("MaxRangeChargeCounter: want nil (SQL NULL round-trips to nil), got *%d", *got[0].MaxRangeChargeCounter)
+	}
+}
+
+// TestMaxRangeChargeCounter_BackfillFromRawData verifies the migration backfill
+// behavior: a row inserted with nil MaxRangeChargeCounter but with a numeric
+// charge_state.max_range_charge_counter in its raw_data gets its typed column
+// populated when the migration UP backfill UPDATE runs. Since we cannot re-run
+// the migration in a test, this test simulates the backfill with a direct UPDATE
+// matching the migration's exact WHERE and SET logic — proving the JSONB path and
+// the ::INTEGER cast are correct.
+func TestMaxRangeChargeCounter_BackfillFromRawData(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(920004)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	// Insert a "pre-migration" row: typed column is nil (NULL) but raw_data
+	// contains the counter value under the correct JSONB path.
+	rawWithCounter := []byte(`{"charge_state":{"max_range_charge_counter":5}}`)
+	snap := Snapshot{
+		AccountID:             accountID,
+		TeslaID:               teslaID,
+		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		ChargingState:         "Disconnected",
+		CarVersion:            "2026.20.1",
+		RawData:               rawWithCounter,
+		MaxRangeChargeCounter: nil, // simulates pre-migration row where typed col didn't exist
+	}
+	if err := st.insertSnapshot(ctx, snap); err != nil {
+		t.Fatalf("insertSnapshot: %v", err)
+	}
+
+	// Simulate the migration backfill UPDATE using the exact SQL from the migration Up.
+	// This tests that the JSONB path, the jsonb_typeof guard, and the ::INTEGER cast work.
+	_, err := pool.Exec(ctx, `
+		UPDATE vehicle_snapshots
+		SET max_range_charge_counter =
+		        (raw_data -> 'charge_state' ->> 'max_range_charge_counter')::INTEGER
+		WHERE account_id = $1
+		  AND tesla_id = $2
+		  AND jsonb_typeof(raw_data -> 'charge_state' -> 'max_range_charge_counter') = 'number'`,
+		accountID, teslaID)
+	if err != nil {
+		t.Fatalf("backfill UPDATE: %v", err)
+	}
+
+	// After backfill, the typed column must be non-NULL and equal to the value in raw_data.
+	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("latestSnapshotsByAccount after backfill: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 snapshot, got %d", len(got))
+	}
+	s := got[0]
+	if s.MaxRangeChargeCounter == nil {
+		t.Fatal("MaxRangeChargeCounter: want non-nil *5 after backfill, got nil")
+	}
+	if *s.MaxRangeChargeCounter != 5 {
+		t.Errorf("MaxRangeChargeCounter: want *5 after backfill, got *%d", *s.MaxRangeChargeCounter)
+	}
+}
+
+// TestMaxRangeChargeCounter_BackfillSkipsRowsWithoutPath verifies that rows whose
+// raw_data lacks the charge_state.max_range_charge_counter path are NOT affected by
+// the backfill UPDATE — they remain NULL after the migration runs.
+func TestMaxRangeChargeCounter_BackfillSkipsRowsWithoutPath(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(920005)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	// raw_data has no charge_state.max_range_charge_counter — the JSONB path does not exist.
+	rawWithoutCounter := []byte(`{"charge_state":{"charging_state":"Disconnected"}}`)
+	snap := Snapshot{
+		AccountID:             accountID,
+		TeslaID:               teslaID,
+		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		ChargingState:         "Disconnected",
+		CarVersion:            "2026.20.1",
+		RawData:               rawWithoutCounter,
+		MaxRangeChargeCounter: nil,
+	}
+	if err := st.insertSnapshot(ctx, snap); err != nil {
+		t.Fatalf("insertSnapshot: %v", err)
+	}
+
+	// Run the migration backfill logic — the jsonb_typeof guard must exclude this row.
+	_, err := pool.Exec(ctx, `
+		UPDATE vehicle_snapshots
+		SET max_range_charge_counter =
+		        (raw_data -> 'charge_state' ->> 'max_range_charge_counter')::INTEGER
+		WHERE account_id = $1
+		  AND tesla_id = $2
+		  AND jsonb_typeof(raw_data -> 'charge_state' -> 'max_range_charge_counter') = 'number'`,
+		accountID, teslaID)
+	if err != nil {
+		t.Fatalf("backfill UPDATE: %v", err)
+	}
+
+	// The row must still have NULL after the backfill (the UPDATE must be a no-op for it).
+	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("latestSnapshotsByAccount after backfill: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 snapshot, got %d", len(got))
+	}
+	if got[0].MaxRangeChargeCounter != nil {
+		t.Errorf("MaxRangeChargeCounter: want nil (row without JSONB path must not be touched), got *%d", *got[0].MaxRangeChargeCounter)
 	}
 }

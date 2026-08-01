@@ -46,9 +46,8 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 		Locked:         false,
 		SentryMode:     nil,
 		CarVersion:     "2026.10.1",
-		Latitude:       37.7749,
-		Longitude:      -122.4194,
-		RawData:        []byte(`{"vehicle":"A-old"}`),
+		// latitude/longitude dropped in 20260801000001; lossless in raw_data JSONB.
+		RawData: []byte(`{"vehicle":"A-old"}`),
 	}
 	if err := st.insertSnapshot(ctx, snapAOlder); err != nil {
 		t.Fatalf("insertSnapshot (A older): %v", err)
@@ -71,9 +70,8 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 		Locked:         true,
 		SentryMode:     &sentryOn,
 		CarVersion:     "2026.20.1",
-		Latitude:       37.7750,
-		Longitude:      -122.4195,
-		RawData:        []byte(`{"vehicle":"A-new"}`),
+		// latitude/longitude dropped in 20260801000001; lossless in raw_data JSONB.
+		RawData: []byte(`{"vehicle":"A-new"}`),
 	}
 	if err := st.insertSnapshot(ctx, snapANewer); err != nil {
 		t.Fatalf("insertSnapshot (A newer): %v", err)
@@ -96,9 +94,8 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 		Locked:         true,
 		SentryMode:     &sentryOff,
 		CarVersion:     "2026.18.3",
-		Latitude:       40.7128,
-		Longitude:      -74.0060,
-		RawData:        []byte(`{"vehicle":"B"}`),
+		// latitude/longitude dropped in 20260801000001; lossless in raw_data JSONB.
+		RawData: []byte(`{"vehicle":"B"}`),
 	}
 	if err := st.insertSnapshot(ctx, snapB); err != nil {
 		t.Fatalf("insertSnapshot (B): %v", err)
@@ -149,9 +146,8 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	if a.CarVersion != "2026.20.1" {
 		t.Errorf("vehicle A: want CarVersion=2026.20.1, got %q", a.CarVersion)
 	}
-	if a.Latitude != 37.7750 || a.Longitude != -122.4195 {
-		t.Errorf("vehicle A: lat/lng wrong: %v/%v", a.Latitude, a.Longitude)
-	}
+	// latitude/longitude dropped in 20260801000001 — not asserted here;
+	// values remain recoverable from raw_data->'drive_state'.
 	if a.AccountID != accountID {
 		t.Errorf("vehicle A: AccountID wrong: %v", a.AccountID)
 	}

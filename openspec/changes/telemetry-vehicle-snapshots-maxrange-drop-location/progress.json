@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "telemetry-vehicle-snapshots-maxrange-drop-location",
+  "module": "telemetry",
+  "roadmap": null,
+  "request": "Drive the telemetry-vehicle-snapshots-maxrange-drop-location proposal through the pipeline: ADD max_range_charge_counter (nullable, backfilled) and DROP latitude/longitude/fast_charger_type from vehicle_snapshots.",
+  "status": "verified",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": ["1.1", "2.1", "3.1", "4.1", "4.2", "4.3", "5.1", "6.1"]
+  },
+  "created_at": "2026-08-01T12:58:16Z",
+  "updated_at": "2026-08-01T13:11:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/telemetry-vehicle-snapshots-maxrange-drop-location",
+    "base": "0fee62d",
+    "created_at": "2026-08-01T12:12:36Z"
+  },
+  "tasks": [
+    { "id": "1.1", "title": "Add MaxRangeChargeCounter field (json:max_range_charge_counter) to ChargeStateTesla in internal/tesla/types.go", "module": "tesla", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "leader", "model": "claude-opus-4-8", "started_at": "2026-08-01T12:58:30Z", "completed_at": "2026-08-01T12:58:45Z", "duration_seconds": 15, "notes": "Leader-owned cross-module integration (D2). Added field; FastChargerType retained (adapter stays faithful).", "budget": null },
+    { "id": "2.1", "title": "New goose migration: ADD max_range_charge_counter + backfill; DROP latitude/longitude/fast_charger_type", "module": "telemetry", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "telemetry", "model": "claude-sonnet-4-6", "started_at": "2026-08-01T13:30:00Z", "completed_at": "2026-08-01T13:30:30Z", "duration_seconds": 30, "notes": "Created 20260801000001_add_maxrange_drop_location_fastchargertype.sql exactly per design.md §Schema change. Up: ADD COLUMN max_range_charge_counter INTEGER (nullable) + one-shot backfill UPDATE guarded by jsonb_typeof + DROP COLUMN IF EXISTS latitude/longitude/fast_charger_type. Down: re-add 3 cols nullable IF NOT EXISTS + DROP COLUMN IF EXISTS max_range_charge_counter.", "budget": null },
+    { "id": "3.1", "title": "Update queries.sql (Insert + 3 SELECT projections) and run make sqlc", "module": "telemetry", "depends_on": ["2.1"], "parallel_ok": false, "status": "done", "agent": "telemetry", "model": "claude-sonnet-4-6", "started_at": "2026-08-01T13:30:30Z", "completed_at": "2026-08-01T13:32:00Z", "duration_seconds": 90, "notes": "Updated InsertVehicleSnapshot (add max_range_charge_counter, remove latitude/longitude/fast_charger_type), SnapshotsByVehicleSince, LatestSnapshotsByAccount, and ListSnapshotsByVehicle (made explicit column list). Ran make sqlc — no errors. Generated VehicleSnapshot model now has MaxRangeChargeCounter pgtype.Int4, no Latitude/Longitude/FastChargerType.", "budget": null },
+    { "id": "4.1", "title": "Snapshot struct: add MaxRangeChargeCounter *int, remove Latitude/Longitude/FastChargerType", "module": "telemetry", "depends_on": ["3.1"], "parallel_ok": false, "status": "done", "agent": "telemetry", "model": "claude-sonnet-4-6", "started_at": "2026-08-01T13:32:00Z", "completed_at": "2026-08-01T13:33:00Z", "duration_seconds": 60, "notes": "Added MaxRangeChargeCounter *int to Snapshot struct with nil-means-pre-extraction semantics. Removed Latitude float64, Longitude float64, FastChargerType *string. Updated comment to explain raw_data hedge for dropped fields.", "budget": null },
+    { "id": "4.2", "title": "service.go snapshotFrom extract pointer-wrapped counter; drop 3 fields; insertSnapshot params", "module": "telemetry", "depends_on": ["4.1", "1.1"], "parallel_ok": true, "status": "done", "agent": "telemetry", "model": "claude-sonnet-4-6", "started_at": "2026-08-01T13:33:00Z", "completed_at": "2026-08-01T13:35:00Z", "duration_seconds": 120, "notes": "snapshotFrom: removed Latitude/Longitude/FastChargerType assignments; added MaxRangeChargeCounter: ptr(data.ChargeState.MaxRangeChargeCounter) following D12/DSA3 pointer-wrap convention via existing ptr[T] helper. insertSnapshot: removed Latitude/Longitude/FastChargerType params; added MaxRangeChargeCounter: intPtrToPgInt4(s.MaxRangeChargeCounter). go build ./internal/telemetry/... clean after mapping.go fix.", "budget": null },
+    { "id": "4.3", "title": "mapping.go read-side: map max_range_charge_counter (pgtype.Int4->*int); drop 3 fields", "module": "telemetry", "depends_on": ["4.1"], "parallel_ok": true, "status": "done", "agent": "telemetry", "model": "claude-sonnet-4-6", "started_at": "2026-08-01T13:33:00Z", "completed_at": "2026-08-01T13:35:00Z", "duration_seconds": 120, "notes": "rowToSnapshot: removed Latitude/Longitude/FastChargerType fields; added MaxRangeChargeCounter: pgNullableInt32AsInt(r.MaxRangeChargeCounter) reusing the existing RM2 helper (same DSA4/D12 semantics). pgtype.Int4 never leaks out of mapping.go. pgNullableText helper retained (no Go error for unused functions; it remains available for future text nullable columns).", "budget": null },
+    { "id": "5.1", "title": "Fix telemetry test fixtures; add max_range_charge_counter nil<->NULL + backfill coverage", "module": "telemetry", "depends_on": ["4.2", "4.3"], "parallel_ok": false, "status": "done", "agent": "telemetry", "model": "claude-sonnet-4-6", "started_at": "2026-08-01T13:35:00Z", "completed_at": "2026-08-01T13:40:00Z", "duration_seconds": 300, "notes": "Removed lat/lng from db_integration + db_read_integration fixtures; removed FastChargerType from db_sourcea fixtures/assertions. Added 5 tests: NonNilNonZeroRoundTrip, TruthfulZeroStoredAsNonNil, NilStoresAsNullAndRoundTripsNil, BackfillFromRawData, BackfillSkipsRowsWithoutPath. All pass.", "budget": { "five_hour_pct_start": 41.0, "five_hour_pct_end": 55.0, "five_hour_pct_delta": 14.0, "cost_usd_delta": 3.60, "context_pct_end": 17, "source": "statusline-cache", "approx": true, "note": "Wave delta covers the single serial telemetry worker dispatch (tasks 2.1-5.1) plus the leader's make-check verify (6.1)." } },
+    { "id": "6.1", "title": "make check (build + vet + ui-guard + test) passes", "module": "telemetry", "depends_on": ["1.1", "5.1"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "claude-opus-4-8", "started_at": "2026-08-01T13:10:57Z", "completed_at": "2026-08-01T13:11:00Z", "duration_seconds": 3, "notes": "make check green: build + vet + ui-guard + full test suite (telemetry container tests included). Step 6 verify.", "budget": null }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": "", "rounds": [] },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-01T12:56:33Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate confirmed: ADD max_range_charge_counter INTEGER nullable + one-shot raw_data->charge_state backfill; DROP latitude/longitude/fast_charger_type (recoverable from raw_data, best-effort schema-only Down); NO new index (no read pattern filters/sorts on the counter under the read-heavy profile).",
+      "why": "User approved the design, rationale, and index plan presented at Step 3 (option 'Confirm — proceed').",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-01T12:56:33Z",
+      "scope": "task:1.1",
+      "made_by": "leader",
+      "decision": "Handle the required one-line ChargeStateTesla DTO field addition (internal/tesla) as leader-owned cross-module integration rather than promoting the change into a 2-tier roadmap.",
+      "why": "The tesla touch is a single supporting DTO field for the telemetry extraction, with no new API call (so no raw.go/explorer sync per CLAUDE.md). A full roadmap would be over-engineering; the leader-owns-integration guardrail covers it. Telemetry worker stays sandboxed.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-01T12:58:16Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "The artifact-creation worker dispatch dropped mid-response (API connection closed) after writing design.md + the delta spec but before tasks.md. The runtime has no live-subagent messaging (SendMessage unavailable), so the leader authored tasks.md directly from the completed, validated design.md instead of re-dispatching a cold worker.",
+      "why": "tasks.md is decomposition fully determined by the finished design; re-dispatching a fresh worker to re-read the whole doc pack for one mechanical artifact costs more for the same result. Reviewer independently validates all artifacts at Step 7.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    { "at": "2026-08-01T12:12:36Z", "agent": "leader", "event": "resume: picked telemetry-vehicle-snapshots-maxrange-drop-location (was proposal-only, untracked). Created branch ft/telemetry-vehicle-snapshots-maxrange-drop-location off main (0fee62d)." },
+    { "at": "2026-08-01T12:56:00Z", "agent": "telemetry", "event": "artifact worker (Sonnet) wrote design.md + specs/telemetry/spec.md then dropped (API connection closed). Resolved raw_data path = charge_state.max_range_charge_counter; index plan = no new index. Runtime degradation: no SendMessage, could not resume the subagent (see D3)." },
+    { "at": "2026-08-01T12:58:16Z", "agent": "leader", "event": "Step 3: authored tasks.md (D3), openspec validate --strict passes, database design gate CONFIRMED by user (D1). Committed artifacts (b9e8755). progress.json created." },
+    { "at": "2026-08-01T12:58:45Z", "agent": "leader", "event": "Step 5 wave 1a: leader completed cross-module task 1.1 (ChargeStateTesla.MaxRangeChargeCounter, D2)." },
+    { "at": "2026-08-01T13:10:00Z", "agent": "telemetry", "event": "Step 5 wave 1b: telemetry worker (Sonnet) completed 2.1-5.1 in one serial dispatch — migration+backfill, sqlc regen, Snapshot struct, snapshotFrom/insertSnapshot, mapping.go, tests (+5 NULL-fidelity/backfill). Reused ptr/intPtrToPgInt4/pgNullableInt32AsInt helpers. Enumerated all 4 design decisions with compliance. go build/vet/telemetry-tests green." },
+    { "at": "2026-08-01T13:11:00Z", "agent": "leader", "event": "Step 6 verify: make check (build + vet + ui-guard + full test suite incl. telemetry container tests) PASSED. Worker decision enumeration cross-checked vs design.md — all 4 decisions honored. status -> verified. Wave delta 5h 41%->55%, ~$3.60." }
+}
