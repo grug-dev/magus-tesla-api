@@ -423,6 +423,13 @@ func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, data
 		// MaxRangeChargeCounter: same D12/DSA3 pointer-wrap convention. A reported 0
 		// (new vehicle, never charged to max-range) is stored non-NULL as *0.
 		MaxRangeChargeCounter: ptr(data.ChargeState.MaxRangeChargeCounter),
+		// TPMS pressure enrichment — actual DTO values, pointer-wrapped (D12/DSA3).
+		// ptr(v) returns &v; a 0.0 bar is a truthful reading and is stored non-NULL.
+		// NULL is reserved for pre-migration rows (values remain in raw_data).
+		TpmsPressureFL: ptr(data.VehicleState.TpmsPressureFL),
+		TpmsPressureFR: ptr(data.VehicleState.TpmsPressureFR),
+		TpmsPressureRL: ptr(data.VehicleState.TpmsPressureRL),
+		TpmsPressureRR: ptr(data.VehicleState.TpmsPressureRR),
 	}
 }
 
@@ -469,6 +476,13 @@ func (d *dbStore) insertSnapshot(ctx context.Context, s Snapshot) error {
 		UsableBatteryLevel:   intPtrToPgInt4(s.UsableBatteryLevel),
 		// MaxRangeChargeCounter: same nil→NULL / non-nil→valid pattern (D12/DSA3).
 		MaxRangeChargeCounter: intPtrToPgInt4(s.MaxRangeChargeCounter),
+		// TPMS pressure fields: nullable REAL (pgtype.Float4). nil → invalid (NULL);
+		// non-nil → valid Float32. Uses float64PtrToPgFloat4 (not Float8) because
+		// the schema columns are REAL (float4). Precision is adequate for bar readings.
+		TpmsPressureFl: float64PtrToPgFloat4(s.TpmsPressureFL),
+		TpmsPressureFr: float64PtrToPgFloat4(s.TpmsPressureFR),
+		TpmsPressureRl: float64PtrToPgFloat4(s.TpmsPressureRL),
+		TpmsPressureRr: float64PtrToPgFloat4(s.TpmsPressureRR),
 	})
 }
 
@@ -479,6 +493,18 @@ func float64PtrToPgFloat8(v *float64) pgtype.Float8 {
 		return pgtype.Float8{Valid: false}
 	}
 	return pgtype.Float8{Float64: *v, Valid: true}
+}
+
+// float64PtrToPgFloat4 maps a *float64 to a nullable pgtype.Float4 (REAL / float32).
+// nil → invalid (SQL NULL); non-nil → valid with the value narrowed to float32.
+// Used for TPMS pressure columns, which are PostgreSQL REAL (single-precision).
+// Precision loss is acceptable: tire pressure at float32 is ~7 significant digits,
+// more than enough for bar/PSI readings.
+func float64PtrToPgFloat4(v *float64) pgtype.Float4 {
+	if v == nil {
+		return pgtype.Float4{Valid: false}
+	}
+	return pgtype.Float4{Float32: float32(*v), Valid: true}
 }
 
 // intPtrToPgInt4 maps a *int to a nullable pgtype.Int4. nil → invalid (SQL NULL);

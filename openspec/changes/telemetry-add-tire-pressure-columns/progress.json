@@ -5,12 +5,12 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "resume/continue the tire-pressure change (telemetry-add-tire-pressure-columns) picked from the open OpenSpec proposals to drive through the dev-harness pipeline",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
     "current": [],
-    "pending": ["T2", "T3", "T4", "T5", "T6"],
+    "pending": [],
     "blocked": [],
-    "done": ["T1"]
+    "done": ["T1", "T2", "T3", "T4", "T5", "T6"]
   },
   "created_at": "2026-08-02T11:40:07Z",
   "updated_at": "2026-08-02T11:40:07Z",
@@ -51,14 +51,23 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "telemetry",
       "model": "claude-sonnet-4-6",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "started_at": "2026-08-02T11:45:32Z",
+      "completed_at": "2026-08-02T11:45:56Z",
+      "duration_seconds": 24,
+      "notes": "Created 20260802000001_add_tpms_pressure_columns.sql with 4 nullable REAL columns (tpms_pressure_fl/fr/rl/rr), full header comment per design.md, no DEFAULT/NOT NULL/CHECK.",
+      "budget": {
+        "five_hour_pct_start": 33.0,
+        "five_hour_pct_end": 47.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 4.08,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-2 delta: one serial telemetry dispatch covered T2-T6; per-task split not separable"
+      }
     },
     {
       "id": "T3",
@@ -66,14 +75,14 @@
       "module": "telemetry",
       "depends_on": ["T1"],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "telemetry",
       "model": "claude-sonnet-4-6",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "started_at": "2026-08-02T11:45:56Z",
+      "completed_at": "2026-08-02T11:47:18Z",
+      "duration_seconds": 82,
+      "notes": "Added barToPSI=14.503773773 after milesToKm; 4 *float64 TPMS fields on Snapshot after MaxRangeChargeCounter; 4 nil-safe PSI companions after OdometerKm(). Unit tests (nil→nil, 2.5bar→PSI, 0.0bar→non-nil *0.0) pass.",
+      "budget": { "source": "statusline-cache", "approx": true, "note": "included in T2 shared wave-2 delta" }
     },
     {
       "id": "T4",
@@ -81,14 +90,14 @@
       "module": "telemetry",
       "depends_on": ["T1", "T2", "T3"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "telemetry",
       "model": "claude-sonnet-4-6",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "started_at": "2026-08-02T11:47:18Z",
+      "completed_at": "2026-08-02T11:49:57Z",
+      "duration_seconds": 159,
+      "notes": "T4.1: Extended snapshotFrom with 4 TPMS ptr() fields. T4.2: Added float64PtrToPgFloat4 helper + mapped TpmsPressureFl/Fr/Rl/Rr in insertSnapshot with pgtype.Float4 (REAL schema type). go build/vet clean.",
+      "budget": { "source": "statusline-cache", "approx": true, "note": "included in T2 shared wave-2 delta" }
     },
     {
       "id": "T5",
@@ -96,14 +105,14 @@
       "module": "telemetry",
       "depends_on": ["T2", "T4"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "telemetry",
       "model": "claude-sonnet-4-6",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "started_at": "2026-08-02T11:47:18Z",
+      "completed_at": "2026-08-02T11:49:57Z",
+      "duration_seconds": 159,
+      "notes": "T5.1: Added 4 TPMS columns to InsertVehicleSnapshot, ListSnapshotsByVehicle, SnapshotsByVehicleSince, LatestSnapshotsByAccount in query.sql. make sqlc generated pgtype.Float4 fields (REAL→Float4). T5.2: Added pgNullableFloat4AsFloat64 helper + rowToSnapshot mapping. go build/vet clean.",
+      "budget": { "source": "statusline-cache", "approx": true, "note": "included in T2 shared wave-2 delta" }
     },
     {
       "id": "T6",
@@ -111,14 +120,14 @@
       "module": "telemetry",
       "depends_on": ["T2", "T5"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "telemetry",
       "model": "claude-sonnet-4-6",
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "started_at": "2026-08-02T11:49:57Z",
+      "completed_at": "2026-08-02T11:53:38Z",
+      "duration_seconds": 221,
+      "notes": "Created db_tpms_integration_test.go with 4 tests (NonNilRoundTrip, NilRoundTrip, ZeroNonNilRoundTrip, PSICompanionConversion). All pass with Docker-provisioned Postgres. No live Tesla API call. go test ./internal/telemetry/... PASS.",
+      "budget": { "source": "statusline-cache", "approx": true, "note": "included in T2 shared wave-2 delta" }
     }
   ],
   "review": {
@@ -152,6 +161,9 @@
     { "at": "2026-08-02T11:39:30Z", "agent": "leader", "event": "artifact worker (telemetry) created design.md, tasks.md, specs/telemetry/spec.md; openspec validate --strict passed; committed f8a6077 (Pipeline-Step: artifacts)" },
     { "at": "2026-08-02T11:39:45Z", "agent": "leader", "event": "database design gate passed (user-confirmed, decision D1)" },
     { "at": "2026-08-02T11:41:15Z", "agent": "leader", "event": "dispatched tesla worker for wave 1 (T1) on Haiku; budget_start 5h=30% ctx=13%" },
-    { "at": "2026-08-02T11:43:15Z", "agent": "leader", "event": "wave 1 (T1) done: 4 TPMS fields on VehicleStateTesla; build+vet clean; committed <sha> (Pipeline-Step: wave-1)" }
+    { "at": "2026-08-02T11:43:15Z", "agent": "leader", "event": "wave 1 (T1) done: 4 TPMS fields on VehicleStateTesla; build+vet clean; committed 2a4296e (Pipeline-Step: wave-1)" },
+    { "at": "2026-08-02T11:43:30Z", "agent": "leader", "event": "dispatched telemetry worker for wave 2 (T2-T6, serial single dispatch) on Sonnet; budget_start 5h=33% ctx=14%" },
+    { "at": "2026-08-02T11:55:10Z", "agent": "leader", "event": "wave 2 (T2-T6) done: migration + Snapshot fields/barToPSI/PSI companions + snapshotFrom/insertSnapshot + sqlc(query.sql, make sqlc→pgtype.Float4) + rowToSnapshot + unit & DB integration tests; worker corrected Float8→Float4 for REAL columns (float64PtrToPgFloat4/pgNullableFloat4AsFloat64 helpers)" },
+    { "at": "2026-08-02T11:55:15Z", "agent": "leader", "event": "Step 6 verify: leader-run go build ./... (0), go vet ./... (0), go test ./internal/telemetry/... ok; DB integration tests self-skip without DATABASE_URL (pass under Docker per worker); status→verified" }
   ]
 }

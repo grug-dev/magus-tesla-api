@@ -50,7 +50,8 @@ INSERT INTO vehicle_snapshots (
     car_version,
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8,
@@ -58,7 +59,8 @@ INSERT INTO vehicle_snapshots (
     $14,
     $15, $16, $17,
     $18, $19,
-    $20
+    $20,
+    $21, $22, $23, $24
 )
 `
 
@@ -83,6 +85,10 @@ type InsertVehicleSnapshotParams struct {
 	ChargerActualCurrent  pgtype.Int4
 	UsableBatteryLevel    pgtype.Int4
 	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFl        pgtype.Float4
+	TpmsPressureFr        pgtype.Float4
+	TpmsPressureRl        pgtype.Float4
+	TpmsPressureRr        pgtype.Float4
 }
 
 // Queries for the telemetry module. sqlc generates package `telemetrydb` from
@@ -101,6 +107,10 @@ type InsertVehicleSnapshotParams struct {
 // max_range_charge_counter: nullable int, lifetime count of charges to max-range.
 // NULL for rows written before 20260801000001 migration (pre-extraction). A real 0
 // is stored as non-NULL via pointer-wrap in snapshotFrom (D12/DSA3 convention).
+// tpms_pressure_{fl,fr,rl,rr}: nullable REAL, tire pressure in bar (API-native).
+// NULL for rows written before 20260802000001 migration (pre-extraction) or when the
+// vehicle did not report TPMS. A 0.0 bar is stored non-NULL (D12/DSA3 convention).
+// No new index: tpms columns ride along on the existing heap row fetch.
 // latitude/longitude/fast_charger_type dropped in 20260801000001 — lossless in raw_data.
 func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSnapshotParams) error {
 	_, err := q.db.Exec(ctx, insertVehicleSnapshot,
@@ -124,6 +134,10 @@ func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSn
 		arg.ChargerActualCurrent,
 		arg.UsableBatteryLevel,
 		arg.MaxRangeChargeCounter,
+		arg.TpmsPressureFl,
+		arg.TpmsPressureFr,
+		arg.TpmsPressureRl,
+		arg.TpmsPressureRr,
 	)
 	return err
 }
@@ -136,7 +150,8 @@ SELECT DISTINCT ON (tesla_id)
     car_version,
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
 FROM vehicle_snapshots
 WHERE account_id = $1
 ORDER BY tesla_id, captured_at DESC
@@ -180,6 +195,10 @@ func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.U
 			&i.ChargerActualCurrent,
 			&i.UsableBatteryLevel,
 			&i.MaxRangeChargeCounter,
+			&i.TpmsPressureFl,
+			&i.TpmsPressureFr,
+			&i.TpmsPressureRl,
+			&i.TpmsPressureRr,
 		); err != nil {
 			return nil, err
 		}
@@ -239,7 +258,8 @@ SELECT
     car_version,
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
 FROM vehicle_snapshots
 WHERE account_id = $1 AND tesla_id = $2
 ORDER BY captured_at DESC
@@ -285,6 +305,10 @@ func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsB
 			&i.ChargerActualCurrent,
 			&i.UsableBatteryLevel,
 			&i.MaxRangeChargeCounter,
+			&i.TpmsPressureFl,
+			&i.TpmsPressureFr,
+			&i.TpmsPressureRl,
+			&i.TpmsPressureRr,
 		); err != nil {
 			return nil, err
 		}
@@ -304,7 +328,8 @@ SELECT
     car_version,
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
 FROM vehicle_snapshots
 WHERE account_id = $1
   AND tesla_id   = $2
@@ -363,6 +388,10 @@ func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVe
 			&i.ChargerActualCurrent,
 			&i.UsableBatteryLevel,
 			&i.MaxRangeChargeCounter,
+			&i.TpmsPressureFl,
+			&i.TpmsPressureFr,
+			&i.TpmsPressureRl,
+			&i.TpmsPressureRr,
 		); err != nil {
 			return nil, err
 		}

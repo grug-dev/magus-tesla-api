@@ -20,6 +20,18 @@ func pgNullableFloat64(v pgtype.Float8) *float64 {
 	return &f
 }
 
+// pgNullableFloat4AsFloat64 converts a nullable pgtype.Float4 (REAL / float32) to
+// *float64. Returns nil when !v.Valid (SQL NULL → nil pointer); widens the stored
+// float32 to float64 otherwise. Used for TPMS pressure columns, which are PostgreSQL
+// REAL. Design DSA4/D12: same nil-means-pre-migration semantics as pgNullableFloat64.
+func pgNullableFloat4AsFloat64(v pgtype.Float4) *float64 {
+	if !v.Valid {
+		return nil
+	}
+	f := float64(v.Float32)
+	return &f
+}
+
 // pgNullableInt32AsInt converts a nullable pgtype.Int4 to *int.
 // Returns nil when !v.Valid; returns a pointer to int(v.Int32) otherwise.
 // Design DSA4/D12: same nil-means-pre-migration semantics as pgNullableFloat64.
@@ -92,6 +104,13 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 		// MaxRangeChargeCounter: pgtype.Int4 → *int. Same DSA4/D12 semantics:
 		// SQL NULL → nil (pre-extraction row); non-NULL 0 → non-nil *0 (truthful).
 		MaxRangeChargeCounter: pgNullableInt32AsInt(r.MaxRangeChargeCounter),
+		// TPMS pressure fields: pgtype.Float4 → *float64. SQL NULL → nil (pre-migration
+		// row or vehicle did not report TPMS). Non-NULL 0.0 → non-nil *0.0 (truthful).
+		// pgNullableFloat4AsFloat64 widens float32 → float64 at the mapping boundary.
+		TpmsPressureFL: pgNullableFloat4AsFloat64(r.TpmsPressureFl),
+		TpmsPressureFR: pgNullableFloat4AsFloat64(r.TpmsPressureFr),
+		TpmsPressureRL: pgNullableFloat4AsFloat64(r.TpmsPressureRl),
+		TpmsPressureRR: pgNullableFloat4AsFloat64(r.TpmsPressureRr),
 	}
 }
 

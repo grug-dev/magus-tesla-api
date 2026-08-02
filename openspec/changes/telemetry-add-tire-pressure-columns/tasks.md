@@ -48,7 +48,7 @@
 
 ## T2. Goose migration (`internal/telemetry/db/migrations/`) — no dependencies
 
-- [ ] T2.1 Create `internal/telemetry/db/migrations/20260802000001_add_tpms_pressure_columns.sql`
+- [x] T2.1 Create `internal/telemetry/db/migrations/20260802000001_add_tpms_pressure_columns.sql`
       with the exact DDL from design.md (reproduced here for implementer convenience):
 
       ```sql
@@ -75,7 +75,7 @@
 
 ## T3. `Snapshot` struct + `barToPSI` + PSI companions + unit tests (`internal/telemetry/telemetry.go`) — depends on T1
 
-- [ ] T3.1 Add the `barToPSI` constant to `internal/telemetry/telemetry.go`, immediately
+- [x] T3.1 Add the `barToPSI` constant to `internal/telemetry/telemetry.go`, immediately
       after the `milesToKm` constant:
       ```go
       // barToPSI is the exact bar→PSI conversion factor. Every bar field on a domain
@@ -87,7 +87,7 @@
       Acceptance: `go build ./...` green; constant is exported and accessible to callers
       that need to verify the conversion factor in tests.
 
-- [ ] T3.2 Add four `*float64` pointer fields to `Snapshot`, immediately after
+- [x] T3.2 Add four `*float64` pointer fields to `Snapshot`, immediately after
       `MaxRangeChargeCounter` (the last existing field). Doc comment block per design D1:
       ```go
       // TPMS (tire-pressure monitoring system) pressure fields in bar (API-native).
@@ -104,7 +104,7 @@
       Acceptance: existing `Snapshot` struct literals that do not name these fields
       remain compile-compatible (additive named fields, zero value is nil).
 
-- [ ] T3.3 Add four nil-safe value-receiver PSI companion methods on `Snapshot`, placed
+- [x] T3.3 Add four nil-safe value-receiver PSI companion methods on `Snapshot`, placed
       after `OdometerKm()` (the existing last companion). One per corner:
       ```go
       // TpmsPressureFLPSI returns the front-left tire pressure converted from bar to
@@ -121,7 +121,7 @@
       0.0-in returns non-nil *0.0 (not nil — `ptr(0.0 * barToPSI)` is `ptr(0.0)` which
       is non-nil, representing a truthfully reported zero pressure).
 
-- [ ] T3.4 Add unit tests for the four PSI companion methods in an appropriate
+- [x] T3.4 Add unit tests for the four PSI companion methods in an appropriate
       `*_test.go` file under `internal/telemetry/`. Tests must NOT make any live Tesla
       API call or require `DATABASE_URL`. Cover:
       (a) nil input → nil output for each of the four companions.
@@ -133,7 +133,7 @@
 
 ## T4. `snapshotFrom` + `dbStore.insertSnapshot` (`internal/telemetry/service.go`) — depends on T1, T2, T3
 
-- [ ] T4.1 Extend `snapshotFrom` in `service.go` to map the four new TPMS DTO fields
+- [x] T4.1 Extend `snapshotFrom` in `service.go` to map the four new TPMS DTO fields
       into the `Snapshot`, immediately after the `MaxRangeChargeCounter` line:
       ```go
       // TPMS pressure enrichment — actual DTO values, pointer-wrapped (D12/DSA3).
@@ -146,7 +146,7 @@
       ```
       Acceptance: `go build ./...` green; `go vet ./...` clean.
 
-- [ ] T4.2 Extend `dbStore.insertSnapshot` in `service.go` to pass the four new fields
+- [x] T4.2 Extend `dbStore.insertSnapshot` in `service.go` to pass the four new fields
       to `InsertVehicleSnapshotParams`. Map `*float64 → pgtype.Float8` using the
       existing `float64PtrToPgFloat8` helper (already in `service.go`):
       ```go
@@ -163,7 +163,7 @@
 
 ## T5. sqlc query edits + regenerate + `rowToSnapshot` (`internal/telemetry/db/query.sql`, `mapping.go`) — depends on T2, T4.1
 
-- [ ] T5.1 Edit `internal/telemetry/db/query.sql` to project the four new columns in all
+- [x] T5.1 Edit `internal/telemetry/db/query.sql` to project the four new columns in all
       four relevant queries. For each query, add the four column names to the explicit
       SELECT list (or the INSERT/VALUES lists for `InsertVehicleSnapshot`):
 
@@ -188,7 +188,7 @@
       generated `telemetrydb.InsertVehicleSnapshotParams` and
       `telemetrydb.VehicleSnapshot` structs include the four `pgtype.Float8` fields.
 
-- [ ] T5.2 Extend `rowToSnapshot` in `internal/telemetry/mapping.go` to map the four
+- [x] T5.2 Extend `rowToSnapshot` in `internal/telemetry/mapping.go` to map the four
       new nullable sqlc columns to `Snapshot` pointer fields using the existing
       `pgNullableFloat64` helper:
       ```go
@@ -202,7 +202,7 @@
 
 ## T6. Integration tests (`internal/telemetry/db_integration_test.go`) — depends on T2, T5
 
-- [ ] T6.1 Add `DATABASE_URL`-gated integration tests (self-skip when unset; the
+- [x] T6.1 Add `DATABASE_URL`-gated integration tests (self-skip when unset; the
       existing `testdb_test.go` / testcontainers helper provisions Postgres automatically
       when Docker is available) for the four new TPMS columns. Cover:
       (a) **Non-nil round-trip:** insert a snapshot with all four TPMS fields set to
@@ -226,18 +226,18 @@
 
 ## Verification — depends on all tasks
 
-- [ ] V1. `go build ./...` and `go vet ./...` pass after all tasks are complete.
-- [ ] V2. `go test ./...` green and fast. DB integration tests self-skip without
+- [x] V1. `go build ./...` and `go vet ./...` pass after all tasks are complete.
+- [x] V2. `go test ./...` green and fast. DB integration tests self-skip without
       `DATABASE_URL`; with Docker the testcontainers helper provisions Postgres and
       applies goose migrations automatically. NO Tesla API call fires.
 - [ ] V3. Nil fidelity: a snapshot row inserted with nil TPMS fields reads back as nil
       (not zero); a row with `ptr(0.0)` reads back as non-nil `*0.0`. Verified by T6.1
       (b) and (c).
-- [ ] V4. PSI companion nil-safety: `TpmsPressureFLPSI()` (and FR/RL/RR) returns nil
+- [x] V4. PSI companion nil-safety: `TpmsPressureFLPSI()` (and FR/RL/RR) returns nil
       when the field is nil; returns `*float64` otherwise. Verified by T3.4 and T6.1 (d/e).
 - [ ] V5. Boundary check: `internal/telemetry` still imports only `account` + `tesla`
       public packages; no `accountdb` or `internal/tesla` internals; `pgtype` does not
       appear in any public type or interface. The `tesla` module change (T1) is a leaf
       additive DTO field — no new interface method, no `Raw*` method, no explore-tesla-api
       surface change.
-- [ ] V6. `openspec validate telemetry-add-tire-pressure-columns --strict` passes.
+- [x] V6. `openspec validate telemetry-add-tire-pressure-columns --strict` passes.

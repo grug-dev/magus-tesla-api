@@ -63,4 +63,8 @@ type VehicleSnapshot struct {
 	ChargerActualCurrent  pgtype.Int4
 	UsableBatteryLevel    pgtype.Int4
 	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFl        pgtype.Float4
+	TpmsPressureFr        pgtype.Float4
+	TpmsPressureRl        pgtype.Float4
+	TpmsPressureRr        pgtype.Float4
 }
