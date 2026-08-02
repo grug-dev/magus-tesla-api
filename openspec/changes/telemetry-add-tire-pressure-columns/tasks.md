@@ -23,7 +23,7 @@
 
 ## T1. Tesla adapter DTO enrichment (`internal/tesla/types.go`) — no dependencies
 
-- [ ] T1.1 Add four plain `float64` fields to `VehicleStateTesla` in
+- [x] T1.1 Add four plain `float64` fields to `VehicleStateTesla` in
       `internal/tesla/types.go` (design D0). Fields:
       `TpmsPressureFL float64 \`json:"tpms_pressure_fl"\``,
       `TpmsPressureFR float64 \`json:"tpms_pressure_fr"\``,
