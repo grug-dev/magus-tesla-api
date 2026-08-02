@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "telemetry-add-tire-pressure-columns",
+  "module": "telemetry",
+  "roadmap": null,
+  "request": "resume/continue the tire-pressure change (telemetry-add-tire-pressure-columns) picked from the open OpenSpec proposals to drive through the dev-harness pipeline",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": ["T1", "T2", "T3", "T4", "T5", "T6"]
+  },
+  "created_at": "2026-08-02T11:40:07Z",
+  "updated_at": "2026-08-02T11:40:07Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-4-8" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/telemetry-add-tire-pressure-columns",
+    "base": "c0e309e65a9f6c4105f6b68c8db765981d108458",
+    "created_at": "2026-08-02T11:38:00Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Tesla adapter DTO enrichment — add 4 TPMS fields to VehicleStateTesla",
+      "module": "tesla",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "tesla",
+      "model": "claude-haiku-4-5-20251001",
+      "started_at": "2026-08-02T11:40:07Z",
+      "completed_at": "2026-08-02T11:42:22Z",
+      "duration_seconds": 135,
+      "notes": "Added TpmsPressureFL, TpmsPressureFR, TpmsPressureRL, TpmsPressureRR plain float64 fields to VehicleStateTesla struct after CarVersion. go build ./... and go vet ./... passed.",
+      "budget": {
+        "five_hour_pct_start": 30.0,
+        "five_hour_pct_end": 33.0,
+        "five_hour_pct_delta": 3.0,
+        "cost_usd_delta": 0.54,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": false
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Goose migration — 4 nullable REAL tpms_pressure_* columns on vehicle_snapshots",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-02T11:45:32Z",
+      "completed_at": "2026-08-02T11:45:56Z",
+      "duration_seconds": 24,
+      "notes": "Created 20260802000001_add_tpms_pressure_columns.sql with 4 nullable REAL columns (tpms_pressure_fl/fr/rl/rr), full header comment per design.md, no DEFAULT/NOT NULL/CHECK.",
+      "budget": {
+        "five_hour_pct_start": 33.0,
+        "five_hour_pct_end": 47.0,
+        "five_hour_pct_delta": 14.0,
+        "cost_usd_delta": 4.08,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-2 delta: one serial telemetry dispatch covered T2-T6; per-task split not separable"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Snapshot fields + barToPSI constant + 4 nil-safe PSI companions + unit tests",
+      "module": "telemetry",
+      "depends_on": ["T1"],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-02T11:45:56Z",
+      "completed_at": "2026-08-02T11:47:18Z",
+      "duration_seconds": 82,
+      "notes": "Added barToPSI=14.503773773 after milesToKm; 4 *float64 TPMS fields on Snapshot after MaxRangeChargeCounter; 4 nil-safe PSI companions after OdometerKm(). Unit tests (nil→nil, 2.5bar→PSI, 0.0bar→non-nil *0.0) pass.",
+      "budget": { "source": "statusline-cache", "approx": true, "note": "included in T2 shared wave-2 delta" }
+    },
+    {
+      "id": "T4",
+      "title": "snapshotFrom + dbStore.insertSnapshot write-path extension",
+      "module": "telemetry",
+      "depends_on": ["T1", "T2", "T3"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-02T11:47:18Z",
+      "completed_at": "2026-08-02T11:49:57Z",
+      "duration_seconds": 159,
+      "notes": "T4.1: Extended snapshotFrom with 4 TPMS ptr() fields. T4.2: Added float64PtrToPgFloat4 helper + mapped TpmsPressureFl/Fr/Rl/Rr in insertSnapshot with pgtype.Float4 (REAL schema type). go build/vet clean.",
+      "budget": { "source": "statusline-cache", "approx": true, "note": "included in T2 shared wave-2 delta" }
+    },
+    {
+      "id": "T5",
+      "title": "sqlc query edits (4 queries) + make sqlc regen + rowToSnapshot mapping",
+      "module": "telemetry",
+      "depends_on": ["T2", "T4"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-02T11:47:18Z",
+      "completed_at": "2026-08-02T11:49:57Z",
+      "duration_seconds": 159,
+      "notes": "T5.1: Added 4 TPMS columns to InsertVehicleSnapshot, ListSnapshotsByVehicle, SnapshotsByVehicleSince, LatestSnapshotsByAccount in query.sql. make sqlc generated pgtype.Float4 fields (REAL→Float4). T5.2: Added pgNullableFloat4AsFloat64 helper + rowToSnapshot mapping. go build/vet clean.",
+      "budget": { "source": "statusline-cache", "approx": true, "note": "included in T2 shared wave-2 delta" }
+    },
+    {
+      "id": "T6",
+      "title": "DATABASE_URL-gated integration tests (nil/non-nil/zero round-trip + PSI nil-safety)",
+      "module": "telemetry",
+      "depends_on": ["T2", "T5"],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-02T11:49:57Z",
+      "completed_at": "2026-08-02T11:53:38Z",
+      "duration_seconds": 221,
+      "notes": "Created db_tpms_integration_test.go with 4 tests (NonNilRoundTrip, NilRoundTrip, ZeroNonNilRoundTrip, PSICompanionConversion). All pass with Docker-provisioned Postgres. No live Tesla API call. go test ./internal/telemetry/... PASS.",
+      "budget": { "source": "statusline-cache", "approx": true, "note": "included in T2 shared wave-2 delta" }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Validate telemetry-add-tire-pressure-columns (diff c0e309e..HEAD). (1) Module boundaries: telemetry edits only its module; the only tesla edit is the additive VehicleStateTesla DTO fields (T1); no HTML, no cross-module DB access, no new Reader method; pgtype confined to service.go/mapping.go (not in any public type). (2) Conventions: bar→PSI honors the go-conventions companion non-negotiable (nil-safe *float64 value-receiver methods mirroring OdometerKm), barToPSI is a package constant, ptr()/NULL semantics match the charge-enrichment precedent (nil=not reported/pre-migration, reported 0.0 stored non-NULL). (3) DB vs user-confirmed design (D1): exactly 4 nullable REAL columns, no DEFAULT/NOT NULL/CHECK, NO new index; a mismatch is a blocker. SPECIAL ATTENTION: columns are REAL so the impl uses pgtype.Float4 + float64PtrToPgFloat4/pgNullableFloat4AsFloat64 (design text mentioned Float8) — verify the float64↔float32 narrowing/widening is correct and lossless enough, and that this is a sound resolution, not a bug. (4) tesla-exploration test-free rule: no _test.go calls the live Fleet API / Raw* methods; go test ./... incurs no paid call. (5) Spec delta coverage: specs/telemetry/spec.md scenarios match the implemented behavior; D2/D3 (gateway display) correctly OUT of scope (no gateway edits). (6) Anti-gaming: tasks/criteria not weakened; no self-approved statuses. Read the diff, not the whole module. Default to changes-requested on any doubt.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-02T14:02:00Z",
+        "duration_seconds": 420,
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-02T11:39:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "database design gate confirmed: 4 nullable REAL columns on vehicle_snapshots, no new index, no DEFAULT/NOT NULL/CHECK; Tesla DTO fields kept plain float64 (charge-enrichment convention)",
+      "why": "user approved the design at the blocking database gate (SKILL.md Step 3); mirrors the RM2 charge-enrichment precedent and the read-heavy no-new-predicate index rationale",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-02T11:40:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "single telemetry-owned change (not a roadmap) with T1 dispatched to a tesla-scoped worker and T2-T6 to a telemetry-scoped worker",
+      "why": "the tesla part is a leaf additive DTO field enrichment riding a single telemetry extraction change, matching the archived maxrange precedent; module sandboxes still respected by using one worker per module",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    { "at": "2026-08-02T11:38:00Z", "agent": "leader", "event": "cut branch ft/telemetry-add-tire-pressure-columns off main c0e309e after committing the temporary logAPIError diagnostic on main" },
+    { "at": "2026-08-02T11:39:30Z", "agent": "leader", "event": "artifact worker (telemetry) created design.md, tasks.md, specs/telemetry/spec.md; openspec validate --strict passed; committed f8a6077 (Pipeline-Step: artifacts)" },
+    { "at": "2026-08-02T11:39:45Z", "agent": "leader", "event": "database design gate passed (user-confirmed, decision D1)" },
+    { "at": "2026-08-02T11:41:15Z", "agent": "leader", "event": "dispatched tesla worker for wave 1 (T1) on Haiku; budget_start 5h=30% ctx=13%" },
+    { "at": "2026-08-02T11:43:15Z", "agent": "leader", "event": "wave 1 (T1) done: 4 TPMS fields on VehicleStateTesla; build+vet clean; committed 2a4296e (Pipeline-Step: wave-1)" },
+    { "at": "2026-08-02T11:43:30Z", "agent": "leader", "event": "dispatched telemetry worker for wave 2 (T2-T6, serial single dispatch) on Sonnet; budget_start 5h=33% ctx=14%" },
+    { "at": "2026-08-02T11:55:10Z", "agent": "leader", "event": "wave 2 (T2-T6) done: migration + Snapshot fields/barToPSI/PSI companions + snapshotFrom/insertSnapshot + sqlc(query.sql, make sqlc→pgtype.Float4) + rowToSnapshot + unit & DB integration tests; worker corrected Float8→Float4 for REAL columns (float64PtrToPgFloat4/pgNullableFloat4AsFloat64 helpers)" },
+    { "at": "2026-08-02T11:55:15Z", "agent": "leader", "event": "Step 6 verify: leader-run go build ./... (0), go vet ./... (0), go test ./internal/telemetry/... ok; DB integration tests self-skip without DATABASE_URL (pass under Docker per worker); status→verified" },
+    { "at": "2026-08-02T11:55:20Z", "agent": "leader", "event": "wave 2 committed 952e478 (Pipeline-Step: wave-2); dispatched telemetry-reviewer (Sonnet) for review round 1; budget_start 5h=47% ctx=15%" }
+  ]
+}

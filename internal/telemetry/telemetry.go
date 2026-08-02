@@ -27,6 +27,12 @@ import (
 // never stored as a column or a struct field.
 const milesToKm = 1.609344
 
+// barToPSI is the exact bar→PSI conversion factor. Every bar field on a domain
+// type exposes a companion *float64 value-receiver method (ai/go-conventions.md
+// non-negotiable). Tesla sends tire pressure in bar; PSI is derived on read,
+// never stored as a column or a struct field.
+const barToPSI = 14.503773773
+
 // Snapshot is one immutable capture of a vehicle's state — our own domain model
 // (no vendor suffix). It carries the owning account id, the vehicle's Tesla id,
 // the platform capture time, the extracted typed fields, and the lossless raw
@@ -78,6 +84,17 @@ type Snapshot struct {
 	// pointer-wrap in snapshotFrom (D12/DSA3 convention — same as the 5 Source A
 	// fields above). nil = not yet extracted / row predates this extraction.
 	MaxRangeChargeCounter *int // count; nil = pre-extraction row or not reported
+
+	// TPMS (tire-pressure monitoring system) pressure fields in bar (API-native).
+	// nil when the vehicle did not report TPMS at capture (no sensors, absent
+	// reading) OR the row predates this extraction (pre-migration). A truthfully
+	// reported 0.0 bar is stored non-NULL (pointer-wrapped via ptr() in snapshotFrom —
+	// D12/DSA3 convention). Use the companion PSI() methods for display in PSI.
+	// NULL is reserved exclusively for pre-migration rows / not reported.
+	TpmsPressureFL *float64 // bar — see TpmsPressureFLPSI
+	TpmsPressureFR *float64 // bar — see TpmsPressureFRPSI
+	TpmsPressureRL *float64 // bar — see TpmsPressureRLPSI
+	TpmsPressureRR *float64 // bar — see TpmsPressureRRPSI
 }
 
 // BatteryRangeKm returns the rated range converted from miles to kilometers.
@@ -88,6 +105,42 @@ func (s Snapshot) BatteryRangeKm() float64 {
 // OdometerKm returns the odometer reading converted from miles to kilometers.
 func (s Snapshot) OdometerKm() float64 {
 	return s.Odometer * milesToKm
+}
+
+// TpmsPressureFLPSI returns the front-left tire pressure converted from bar to
+// PSI. Returns nil when TpmsPressureFL is nil (not reported / pre-migration row).
+func (s Snapshot) TpmsPressureFLPSI() *float64 {
+	if s.TpmsPressureFL == nil {
+		return nil
+	}
+	return ptr(*s.TpmsPressureFL * barToPSI)
+}
+
+// TpmsPressureFRPSI returns the front-right tire pressure converted from bar to
+// PSI. Returns nil when TpmsPressureFR is nil (not reported / pre-migration row).
+func (s Snapshot) TpmsPressureFRPSI() *float64 {
+	if s.TpmsPressureFR == nil {
+		return nil
+	}
+	return ptr(*s.TpmsPressureFR * barToPSI)
+}
+
+// TpmsPressureRLPSI returns the rear-left tire pressure converted from bar to
+// PSI. Returns nil when TpmsPressureRL is nil (not reported / pre-migration row).
+func (s Snapshot) TpmsPressureRLPSI() *float64 {
+	if s.TpmsPressureRL == nil {
+		return nil
+	}
+	return ptr(*s.TpmsPressureRL * barToPSI)
+}
+
+// TpmsPressureRRPSI returns the rear-right tire pressure converted from bar to
+// PSI. Returns nil when TpmsPressureRR is nil (not reported / pre-migration row).
+func (s Snapshot) TpmsPressureRRPSI() *float64 {
+	if s.TpmsPressureRR == nil {
+		return nil
+	}
+	return ptr(*s.TpmsPressureRR * barToPSI)
 }
 
 // Outcome is the result of a single collection attempt on one vehicle.

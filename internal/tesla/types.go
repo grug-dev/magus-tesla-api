@@ -121,6 +121,14 @@ type VehicleStateTesla struct {
 	Locked     bool    `json:"locked"`
 	Odometer   float64 `json:"odometer"`
 	CarVersion string  `json:"car_version"`
+	// TPMS (tire-pressure monitoring system) pressures in bar — API-native. Plain
+	// float64 (not pointer) in the DTO: the Fleet API includes these in vehicle_state
+	// when the vehicle has TPMS sensors. snapshotFrom pointer-wraps them via ptr() so a
+	// reported 0.0 bar is stored non-NULL and pre-migration rows stay NULL (D12/DSA3).
+	TpmsPressureFL float64 `json:"tpms_pressure_fl"`
+	TpmsPressureFR float64 `json:"tpms_pressure_fr"`
+	TpmsPressureRL float64 `json:"tpms_pressure_rl"`
+	TpmsPressureRR float64 `json:"tpms_pressure_rr"`
 	// SentryMode is a pointer so an absent field (a vehicle that does not report
 	// sentry) stays distinguishable from a reported-off sentry: nil = not reported,
 	// *false = off, *true = on. Collapsing absent into false would lose that

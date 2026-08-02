@@ -16,6 +16,10 @@
 -- max_range_charge_counter: nullable int, lifetime count of charges to max-range.
 -- NULL for rows written before 20260801000001 migration (pre-extraction). A real 0
 -- is stored as non-NULL via pointer-wrap in snapshotFrom (D12/DSA3 convention).
+-- tpms_pressure_{fl,fr,rl,rr}: nullable REAL, tire pressure in bar (API-native).
+-- NULL for rows written before 20260802000001 migration (pre-extraction) or when the
+-- vehicle did not report TPMS. A 0.0 bar is stored non-NULL (D12/DSA3 convention).
+-- No new index: tpms columns ride along on the existing heap row fetch.
 -- latitude/longitude/fast_charger_type dropped in 20260801000001 — lossless in raw_data.
 INSERT INTO vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
@@ -24,7 +28,8 @@ INSERT INTO vehicle_snapshots (
     car_version,
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
 ) VALUES (
     @account_id, @tesla_id, @captured_at, @raw_data,
     @battery_level, @battery_range, @charging_state, @charge_limit_soc,
@@ -32,7 +37,8 @@ INSERT INTO vehicle_snapshots (
     @car_version,
     @charge_energy_added, @charger_power, @charger_voltage,
     @charger_actual_current, @usable_battery_level,
-    @max_range_charge_counter
+    @max_range_charge_counter,
+    @tpms_pressure_fl, @tpms_pressure_fr, @tpms_pressure_rl, @tpms_pressure_rr
 );
 
 -- name: InsertPollAttempt :exec
@@ -56,7 +62,8 @@ SELECT
     car_version,
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
 FROM vehicle_snapshots
 WHERE account_id = @account_id AND tesla_id = @tesla_id
 ORDER BY captured_at DESC;
@@ -89,7 +96,8 @@ SELECT
     car_version,
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
 FROM vehicle_snapshots
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
@@ -112,7 +120,8 @@ SELECT DISTINCT ON (tesla_id)
     car_version,
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
-    max_range_charge_counter
+    max_range_charge_counter,
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
 FROM vehicle_snapshots
 WHERE account_id = @account_id
 ORDER BY tesla_id, captured_at DESC;
