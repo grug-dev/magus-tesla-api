@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -308,7 +309,7 @@ func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, a
 		// already-online vehicle bypasses this entirely, saving a paid WakeUp.
 		online, err := waitUntilOnline(ctx, s.tsla, creds, teslaID, s.cfg.WakeTimeout)
 		if err != nil {
-			return reasonFor(err)
+			return s.logAPIError(teslaID, "wake", err, reasonFor(err))
 		}
 		if !online {
 			// The bounded wake window elapsed before the vehicle reported online.
@@ -318,15 +319,28 @@ func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, a
 
 	data, raw, err := s.tsla.VehicleData(ctx, creds, teslaID)
 	if err != nil {
-		return reasonFor(err)
+		return s.logAPIError(teslaID, "VehicleData", err, reasonFor(err))
 	}
 
 	snap := snapshotFrom(accountID, teslaID, s.now(), data, raw)
 	if err := s.store.insertSnapshot(ctx, snap); err != nil {
 		// A store failure is transient from the cycle's point of view (retry once).
-		return ReasonAPIError
+		return s.logAPIError(teslaID, "insertSnapshot", err, ReasonAPIError)
 	}
 	return ReasonOK
+}
+
+// logAPIError is a TEMPORARY diagnostic seam. The per-cycle summary (LogCycle)
+// intentionally collapses failures to a reason bucket and drops the underlying error
+// text, which makes an `api-error` count opaque. When a step maps to ReasonAPIError this
+// logs the real Tesla/decode/store error keyed by tesla_id, so an operator can see *why*
+// a vehicle failed; non-api-error reasons (unauthorized/asleep-timeout) stay quiet since
+// they are already self-explanatory in the summary. Remove once the failure is diagnosed.
+func (s *service) logAPIError(teslaID int64, step string, err error, reason Reason) Reason {
+	if reason == ReasonAPIError {
+		log.Printf("telemetry: vehicle %d %s failed: %v", teslaID, step, err)
+	}
+	return reason
 }
 
 // reasonFor maps a tesla/account error to its poll_attempts Reason. An unauthorized
