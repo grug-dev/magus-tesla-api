@@ -68,9 +68,8 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 		Locked:         true,
 		SentryMode:     nil, // not reported → must round-trip as SQL NULL
 		CarVersion:     "2026.20.1",
-		Latitude:       40.7128,
-		Longitude:      -74.0060,
-		RawData:        []byte(`{"response":{"id":900001,"charge_state":{"battery_level":64}}}`),
+		// latitude/longitude dropped in 20260801000001; lossless in raw_data JSONB.
+		RawData: []byte(`{"response":{"id":900001,"charge_state":{"battery_level":64}}}`),
 	}
 	if err := st.insertSnapshot(ctx, snap); err != nil {
 		t.Fatalf("insertSnapshot: %v", err)
@@ -96,9 +95,8 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 	if row.ChargingState != "Disconnected" || row.CarVersion != "2026.20.1" || !row.Locked {
 		t.Errorf("string/bool columns wrong: %+v", row)
 	}
-	if row.Latitude != 40.7128 || row.Longitude != -74.0060 {
-		t.Errorf("lat/lng wrong: %v/%v", row.Latitude, row.Longitude)
-	}
+	// latitude/longitude dropped in 20260801000001 — not asserted here;
+	// values remain recoverable from raw_data->'drive_state'.
 	// The nil *bool must persist as SQL NULL (invalid pgtype.Bool).
 	if row.SentryMode.Valid {
 		t.Errorf("nil SentryMode should round-trip as SQL NULL, got Valid=%t value=%t", row.SentryMode.Valid, row.SentryMode.Bool)

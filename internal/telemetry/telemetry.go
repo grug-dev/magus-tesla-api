@@ -50,10 +50,11 @@ type Snapshot struct {
 	// collapsing absent into false would lose history (design D1).
 	SentryMode *bool
 	CarVersion string
-	Latitude   float64
-	Longitude  float64
 	// RawData is the lossless vehicle_data JSON, stored verbatim in the JSONB
 	// column so any field not extracted above can be back-filled later.
+	// Note: latitude/longitude (raw_data->'drive_state') and fast_charger_type
+	// (raw_data->'charge_state') are NOT extracted as typed columns — they were
+	// dropped in migration 20260801000001 (unused columns, lossless in raw_data).
 	RawData []byte
 
 	// Charge enrichment fields (Source A of RM2-telemetry-add-charging-stats).
@@ -62,14 +63,21 @@ type Snapshot struct {
 	// snapshotFrom always stores the actual DTO value pointer-wrapped, so a 0 or ""
 	// is a truthful reading and is stored as non-NULL (D12, design DSA3).
 	// NULL is reserved exclusively for pre-migration rows that were never backfilled.
-	// No Km()/Kmh() companions — these fields are kWh, kW, V, A, %, and string:
+	// No Km()/Kmh() companions — these fields are kWh, kW, V, A, %:
 	// none are distances or speeds (design DSA1, ai/go-conventions.md).
 	ChargeEnergyAdded    *float64 // kWh added this charge session; nil = not reported / pre-enrichment
 	ChargerPower         *int     // kW; nil = not reported / pre-enrichment
 	ChargerVoltage       *int     // V; nil = not reported / pre-enrichment
 	ChargerActualCurrent *int     // A; nil = not reported / pre-enrichment
 	UsableBatteryLevel   *int     // %; nil = not reported / pre-enrichment
-	FastChargerType      *string  // e.g. "Tesla", "Combo"; nil = not reported / pre-enrichment
+
+	// MaxRangeChargeCounter is the lifetime count of times the vehicle has been
+	// charged to its true 100% Maximum-Battery-Range limit. Nullable so a pre-
+	// migration row (before 20260801000001) stays NULL rather than falsely claiming
+	// "zero charges to max-range". A real reported 0 is stored as non-nil *0 via
+	// pointer-wrap in snapshotFrom (D12/DSA3 convention — same as the 5 Source A
+	// fields above). nil = not yet extracted / row predates this extraction.
+	MaxRangeChargeCounter *int // count; nil = pre-extraction row or not reported
 }
 
 // BatteryRangeKm returns the rated range converted from miles to kilometers.

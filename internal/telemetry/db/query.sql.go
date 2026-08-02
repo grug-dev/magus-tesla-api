@@ -47,42 +47,42 @@ INSERT INTO vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
     battery_level, battery_range, charging_state, charge_limit_soc,
     odometer, inside_temp, outside_temp, locked, sentry_mode,
-    car_version, latitude, longitude,
+    car_version,
     charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level, fast_charger_type
+    charger_actual_current, usable_battery_level,
+    max_range_charge_counter
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8,
     $9, $10, $11, $12, $13,
-    $14, $15, $16,
-    $17, $18, $19,
-    $20, $21, $22
+    $14,
+    $15, $16, $17,
+    $18, $19,
+    $20
 )
 `
 
 type InsertVehicleSnapshotParams struct {
-	AccountID            uuid.UUID
-	TeslaID              int64
-	CapturedAt           pgtype.Timestamptz
-	RawData              []byte
-	BatteryLevel         int32
-	BatteryRange         float64
-	ChargingState        string
-	ChargeLimitSoc       int32
-	Odometer             float64
-	InsideTemp           float64
-	OutsideTemp          float64
-	Locked               bool
-	SentryMode           pgtype.Bool
-	CarVersion           string
-	Latitude             float64
-	Longitude            float64
-	ChargeEnergyAdded    pgtype.Float8
-	ChargerPower         pgtype.Int4
-	ChargerVoltage       pgtype.Int4
-	ChargerActualCurrent pgtype.Int4
-	UsableBatteryLevel   pgtype.Int4
-	FastChargerType      pgtype.Text
+	AccountID             uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevel          int32
+	BatteryRange          float64
+	ChargingState         string
+	ChargeLimitSoc        int32
+	Odometer              float64
+	InsideTemp            float64
+	OutsideTemp           float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAdded     pgtype.Float8
+	ChargerPower          pgtype.Int4
+	ChargerVoltage        pgtype.Int4
+	ChargerActualCurrent  pgtype.Int4
+	UsableBatteryLevel    pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
 }
 
 // Queries for the telemetry module. sqlc generates package `telemetrydb` from
@@ -94,10 +94,14 @@ type InsertVehicleSnapshotParams struct {
 // (miles); km is derived on read by the domain type's Km() companions, never a
 // column. sentry_mode is bound as a nullable boolean (nil = vehicle did not
 // report sentry) so absent stays distinct from a reported off.
-// Source A (RM2-telemetry-add-charging-stats): the 6 charge-enrichment columns are
+// Source A (RM2-telemetry-add-charging-stats): the 5 charge-enrichment columns are
 // always non-NULL for rows written after the 20260716000002 migration — snapshotFrom
 // stores the actual DTO value pointer-wrapped (D12: no zero-is-absent heuristic).
 // NULL is reserved for pre-migration rows only; see design DSA1/DSA3.
+// max_range_charge_counter: nullable int, lifetime count of charges to max-range.
+// NULL for rows written before 20260801000001 migration (pre-extraction). A real 0
+// is stored as non-NULL via pointer-wrap in snapshotFrom (D12/DSA3 convention).
+// latitude/longitude/fast_charger_type dropped in 20260801000001 — lossless in raw_data.
 func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSnapshotParams) error {
 	_, err := q.db.Exec(ctx, insertVehicleSnapshot,
 		arg.AccountID,
@@ -114,14 +118,12 @@ func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSn
 		arg.Locked,
 		arg.SentryMode,
 		arg.CarVersion,
-		arg.Latitude,
-		arg.Longitude,
 		arg.ChargeEnergyAdded,
 		arg.ChargerPower,
 		arg.ChargerVoltage,
 		arg.ChargerActualCurrent,
 		arg.UsableBatteryLevel,
-		arg.FastChargerType,
+		arg.MaxRangeChargeCounter,
 	)
 	return err
 }
@@ -131,9 +133,10 @@ SELECT DISTINCT ON (tesla_id)
     id, account_id, tesla_id, captured_at, raw_data,
     battery_level, battery_range, charging_state, charge_limit_soc,
     odometer, inside_temp, outside_temp, locked, sentry_mode,
-    car_version, latitude, longitude,
+    car_version,
     charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level, fast_charger_type
+    charger_actual_current, usable_battery_level,
+    max_range_charge_counter
 FROM vehicle_snapshots
 WHERE account_id = $1
 ORDER BY tesla_id, captured_at DESC
@@ -171,14 +174,12 @@ func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.U
 			&i.Locked,
 			&i.SentryMode,
 			&i.CarVersion,
-			&i.Latitude,
-			&i.Longitude,
 			&i.ChargeEnergyAdded,
 			&i.ChargerPower,
 			&i.ChargerVoltage,
 			&i.ChargerActualCurrent,
 			&i.UsableBatteryLevel,
-			&i.FastChargerType,
+			&i.MaxRangeChargeCounter,
 		); err != nil {
 			return nil, err
 		}
@@ -231,7 +232,15 @@ func (q *Queries) ListPollAttemptsByVehicle(ctx context.Context, arg ListPollAtt
 }
 
 const listSnapshotsByVehicle = `-- name: ListSnapshotsByVehicle :many
-SELECT id, account_id, tesla_id, captured_at, raw_data, battery_level, battery_range, charging_state, charge_limit_soc, odometer, inside_temp, outside_temp, locked, sentry_mode, car_version, latitude, longitude, charge_energy_added, charger_power, charger_voltage, charger_actual_current, usable_battery_level, fast_charger_type FROM vehicle_snapshots
+SELECT
+    id, account_id, tesla_id, captured_at, raw_data,
+    battery_level, battery_range, charging_state, charge_limit_soc,
+    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    car_version,
+    charge_energy_added, charger_power, charger_voltage,
+    charger_actual_current, usable_battery_level,
+    max_range_charge_counter
+FROM vehicle_snapshots
 WHERE account_id = $1 AND tesla_id = $2
 ORDER BY captured_at DESC
 `
@@ -243,6 +252,8 @@ type ListSnapshotsByVehicleParams struct {
 
 // Read helper for the DATABASE_URL-gated store tests: every snapshot for one
 // vehicle, newest first. Not consumed by another module (module-scoped).
+// Explicit column list (no SELECT *) so sqlc generates a stable struct even when
+// schema evolves; latitude/longitude/fast_charger_type removed in 20260801000001.
 func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsByVehicleParams) ([]VehicleSnapshot, error) {
 	rows, err := q.db.Query(ctx, listSnapshotsByVehicle, arg.AccountID, arg.TeslaID)
 	if err != nil {
@@ -268,14 +279,12 @@ func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsB
 			&i.Locked,
 			&i.SentryMode,
 			&i.CarVersion,
-			&i.Latitude,
-			&i.Longitude,
 			&i.ChargeEnergyAdded,
 			&i.ChargerPower,
 			&i.ChargerVoltage,
 			&i.ChargerActualCurrent,
 			&i.UsableBatteryLevel,
-			&i.FastChargerType,
+			&i.MaxRangeChargeCounter,
 		); err != nil {
 			return nil, err
 		}
@@ -292,9 +301,10 @@ SELECT
     id, account_id, tesla_id, captured_at, raw_data,
     battery_level, battery_range, charging_state, charge_limit_soc,
     odometer, inside_temp, outside_temp, locked, sentry_mode,
-    car_version, latitude, longitude,
+    car_version,
     charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level, fast_charger_type
+    charger_actual_current, usable_battery_level,
+    max_range_charge_counter
 FROM vehicle_snapshots
 WHERE account_id = $1
   AND tesla_id   = $2
@@ -347,14 +357,12 @@ func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVe
 			&i.Locked,
 			&i.SentryMode,
 			&i.CarVersion,
-			&i.Latitude,
-			&i.Longitude,
 			&i.ChargeEnergyAdded,
 			&i.ChargerPower,
 			&i.ChargerVoltage,
 			&i.ChargerActualCurrent,
 			&i.UsableBatteryLevel,
-			&i.FastChargerType,
+			&i.MaxRangeChargeCounter,
 		); err != nil {
 			return nil, err
 		}

@@ -369,12 +369,20 @@ func (s *service) record(ctx context.Context, accountID uuid.UUID, teslaID int64
 // on read via the Snapshot Km() companions, never stored. SentryMode stays *bool so an
 // absent field remains distinct from a reported-off sentry (nil ≠ *false, D1).
 //
-// Source A (RM2-telemetry-add-charging-stats): the 6 charge-enrichment fields are
+// Source A (RM2-telemetry-add-charging-stats): the 5 charge-enrichment fields are
 // stored as the ACTUAL DTO value pointer-wrapped — NO zero-is-absent heuristic (D12,
-// design DSA3). The plain DTO fields always carry a concrete value (0 / "" when idle),
+// design DSA3). The plain DTO fields always carry a concrete value (0 when idle),
 // so every new row is non-NULL. A truthful 0 must be preserved; interpreting a 0 in
 // context (e.g. against ChargingState) is the dashboard's responsibility. NULL is
 // reserved exclusively for pre-migration rows that were never backfilled (DSA1).
+//
+// MaxRangeChargeCounter follows the same D12/DSA3 pointer-wrap convention: the DTO
+// field is a plain int (0 when never charged to max-range), so ptr() stores *0 as
+// non-NULL — a truthful zero is preserved, not collapsed into NULL. NULL means the
+// row predates migration 20260801000001 (backfilled from raw_data in the migration Up).
+//
+// latitude/longitude and fast_charger_type are NOT extracted here — those typed columns
+// were dropped in migration 20260801000001. Values remain lossless in raw_data JSONB.
 func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, data *tesla.VehicleDataTesla, raw []byte) Snapshot {
 	return Snapshot{
 		AccountID:      accountID,
@@ -390,17 +398,17 @@ func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, data
 		Locked:         data.VehicleState.Locked,
 		SentryMode:     data.VehicleState.SentryMode,
 		CarVersion:     data.VehicleState.CarVersion,
-		Latitude:       data.DriveState.Latitude,
-		Longitude:      data.DriveState.Longitude,
 		RawData:        raw,
 		// Source A enrichment — actual DTO values, pointer-wrapped (D12/DSA3).
-		// ptr(v) returns &v; a 0 or "" is a truthful reading and is stored non-NULL.
+		// ptr(v) returns &v; a 0 is a truthful reading and is stored non-NULL.
 		ChargeEnergyAdded:    ptr(data.ChargeState.ChargeEnergyAdded),
 		ChargerPower:         ptr(data.ChargeState.ChargerPower),
 		ChargerVoltage:       ptr(data.ChargeState.ChargerVoltage),
 		ChargerActualCurrent: ptr(data.ChargeState.ChargerActualCurrent),
 		UsableBatteryLevel:   ptr(data.ChargeState.UsableBatteryLevel),
-		FastChargerType:      ptr(data.ChargeState.FastChargerType),
+		// MaxRangeChargeCounter: same D12/DSA3 pointer-wrap convention. A reported 0
+		// (new vehicle, never charged to max-range) is stored non-NULL as *0.
+		MaxRangeChargeCounter: ptr(data.ChargeState.MaxRangeChargeCounter),
 	}
 }
 
@@ -436,17 +444,17 @@ func (d *dbStore) insertSnapshot(ctx context.Context, s Snapshot) error {
 		Locked:         s.Locked,
 		SentryMode:     boolPtrToPgBool(s.SentryMode),
 		CarVersion:     s.CarVersion,
-		Latitude:       s.Latitude,
-		Longitude:      s.Longitude,
 		// Source A (RM2-telemetry-add-charging-stats): nullable charge-enrichment columns.
 		// nil → invalid pgtype (SQL NULL); non-nil → valid with the concrete value.
 		// Same Valid-field pattern as boolPtrToPgBool. pgtype never leaks past this boundary.
+		// latitude/longitude/fast_charger_type dropped in 20260801000001; not sent here.
 		ChargeEnergyAdded:    float64PtrToPgFloat8(s.ChargeEnergyAdded),
 		ChargerPower:         intPtrToPgInt4(s.ChargerPower),
 		ChargerVoltage:       intPtrToPgInt4(s.ChargerVoltage),
 		ChargerActualCurrent: intPtrToPgInt4(s.ChargerActualCurrent),
 		UsableBatteryLevel:   intPtrToPgInt4(s.UsableBatteryLevel),
-		FastChargerType:      stringPtrToPgText(s.FastChargerType),
+		// MaxRangeChargeCounter: same nil→NULL / non-nil→valid pattern (D12/DSA3).
+		MaxRangeChargeCounter: intPtrToPgInt4(s.MaxRangeChargeCounter),
 	})
 }
 

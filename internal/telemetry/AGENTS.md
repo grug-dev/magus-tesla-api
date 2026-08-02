@@ -82,7 +82,10 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
 - `vehicle_snapshots` — one immutable row per successful capture: `account_id`, `tesla_id`,
   `captured_at`, `raw_data JSONB` (lossless `vehicle_data`), plus extracted typed columns
   (battery level, rated range, charging state, charge limit, odometer, inside/outside temp, locked,
-  `sentry_mode` **nullable**, car version, lat/lng). Never overwritten or deleted.
+  `sentry_mode` **nullable**, car version, 5 charge-enrichment fields, and
+  `max_range_charge_counter` **nullable** — see migration 20260801000001). Dropped columns
+  (`latitude`, `longitude`, `fast_charger_type`) remain lossless in `raw_data`. Never overwritten
+  or deleted.
 - `poll_attempts` — one row per (vehicle, run): `account_id`, `tesla_id`, `attempted_at`, `outcome`
   (`success`|`failure`), `reason` (`ok`|`asleep-timeout`|`unauthorized`|`api-error`). Doubles as
   future availability / sleep-behavior data.
@@ -102,6 +105,11 @@ never leaves the module — convert to/from plain domain types at the DB→domai
   `...Tesla` DTOs unmarshal Tesla JSON, and this module maps them into clean `Snapshot`s.
 - `SentryMode` is `*bool` end to end (nil = not reported, `*false` = off, `*true` = on) mapping to a
   nullable column — preserve the fidelity, never collapse absent into false.
+- `MaxRangeChargeCounter` is `*int` end to end (nil = pre-migration row / not reported, `*0` = new
+  vehicle / never charged to max-range, `*N` = charged to max-range N times). Mirrors the same
+  pointer-wrap convention as the 5 Source A charge-enrichment fields (D12/DSA3). SQL NULL for
+  pre-migration rows; the Up migration backfills from `raw_data->'charge_state'->'max_range_charge_counter'`
+  where the JSONB path exists.
 
 ## Testing notes
 

@@ -51,8 +51,14 @@ func pgNullableText(v pgtype.Text) *string {
 //   - SentryMode: pgtype.Bool → *bool: {Valid: false} → nil, {Valid: true, Bool: v} → &v
 //   - BatteryLevel, ChargeLimitSoc: int32 → int (sqlc generates int32; domain uses int)
 //   - All other fields are value-compatible (float64, string, bool, uuid.UUID, []byte)
-//   - Source A charge fields: pgtype nullable → *float64/*int/*string via pgNullable* helpers.
+//   - Source A charge fields: pgtype nullable → *float64/*int via pgNullable* helpers.
 //     nil means "pre-migration row" (never backfilled); a stored 0 round-trips as a non-nil *0.
+//   - MaxRangeChargeCounter: pgtype.Int4 → *int via pgNullableInt32AsInt (same DSA4/D12
+//     convention). nil = column is SQL NULL (pre-20260801000001 row not backfilled from
+//     raw_data, or vehicle did not report the field). *0 = truthful zero (new vehicle).
+//   - latitude/longitude and fast_charger_type were dropped in migration 20260801000001;
+//     they are not present on VehicleSnapshot and not mapped here. Values are lossless
+//     in raw_data JSONB.
 func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 	var sentryMode *bool
 	if r.SentryMode.Valid {
@@ -75,17 +81,17 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 		Locked:         r.Locked,
 		SentryMode:     sentryMode,
 		CarVersion:     r.CarVersion,
-		Latitude:       r.Latitude,
-		Longitude:      r.Longitude,
 		// Source A charge enrichment (RM2-telemetry-add-charging-stats/DSA4):
 		// nullable columns → domain pointer fields. nil iff the column is SQL NULL
-		// (pre-migration row). A stored 0 / "" comes back as a non-nil pointer to 0/"".
+		// (pre-migration row). A stored 0 comes back as a non-nil pointer to 0.
 		ChargeEnergyAdded:    pgNullableFloat64(r.ChargeEnergyAdded),
 		ChargerPower:         pgNullableInt32AsInt(r.ChargerPower),
 		ChargerVoltage:       pgNullableInt32AsInt(r.ChargerVoltage),
 		ChargerActualCurrent: pgNullableInt32AsInt(r.ChargerActualCurrent),
 		UsableBatteryLevel:   pgNullableInt32AsInt(r.UsableBatteryLevel),
-		FastChargerType:      pgNullableText(r.FastChargerType),
+		// MaxRangeChargeCounter: pgtype.Int4 → *int. Same DSA4/D12 semantics:
+		// SQL NULL → nil (pre-extraction row); non-NULL 0 → non-nil *0 (truthful).
+		MaxRangeChargeCounter: pgNullableInt32AsInt(r.MaxRangeChargeCounter),
 	}
 }
 

@@ -9,19 +9,23 @@ across all accounts on each scheduled run. In addition to the fields already req
 vehicles that are actively charging or have charge telemetry available at capture time, the
 snapshot SHALL also store the following charge-telemetry fields: the energy added to the
 battery since the charge session started (in kWh), the charger power (in kW), the charger
-voltage (in V), the charger actual current (in A), the usable battery level (in percent),
-and the fast-charger type string. These six fields SHALL be stored as nullable values; a
-NULL value means the vehicle did not report the field (or the snapshot predates this
-extraction), and SHALL NOT be interpreted as zero. All other snapshot requirements
-(raw_data, append-only, miles storage, Km-companion derivation, sentry-mode fidelity)
-remain unchanged.
+voltage (in V), the charger actual current (in A), and the usable battery level (in percent).
+These five fields SHALL be stored as nullable values; a NULL value means the vehicle did not
+report the field (or the snapshot predates this extraction), and SHALL NOT be interpreted as
+zero. The snapshot SHALL also store the vehicle's lifetime max-range charge counter
+(`max_range_charge_counter`) as a nullable integer — the count of how many times the vehicle
+has been charged to its true 100% Maximum-Battery-Range limit. A NULL value for this field
+means the vehicle did not report the counter at capture time or the snapshot predates this
+extraction; a stored value of zero (non-NULL) means the vehicle reported zero such charges.
+All other snapshot requirements (raw_data, append-only, miles storage, Km-companion
+derivation, sentry-mode fidelity) remain unchanged.
 
 #### Scenario: A snapshot for a charging vehicle includes charge-telemetry fields
 - **GIVEN** a registered vehicle that is actively charging when the nightly snapshot is
   captured and its vehicle_data reports charge_energy_added, charger_power,
-  charger_voltage, charger_actual_current, usable_battery_level, and fast_charger_type
+  charger_voltage, charger_actual_current, and usable_battery_level
 - **WHEN** a collection cycle captures the snapshot
-- **THEN** the stored snapshot includes non-NULL values for all six charge-telemetry
+- **THEN** the stored snapshot includes non-NULL values for all five charge-telemetry
   fields matching the reported values
 - **AND** the snapshot's raw_data still contains the full vehicle_data payload
 
@@ -29,17 +33,42 @@ remain unchanged.
 - **GIVEN** a registered vehicle that is parked and not charging when the snapshot is
   captured, so the vehicle_data reports no meaningful charge-telemetry values
 - **WHEN** a collection cycle captures the snapshot
-- **THEN** the six charge-telemetry fields on the stored snapshot are NULL
+- **THEN** the five charge-telemetry fields on the stored snapshot are NULL
 - **AND** all existing snapshot fields (battery level, range, odometer, etc.) are still
   populated normally
 
-#### Scenario: Pre-enrichment snapshot rows have NULL for the new fields
+#### Scenario: Pre-enrichment snapshot rows have NULL for the charge-telemetry fields
 - **GIVEN** a vehicle_snapshots row written before the charge-enrichment migration was
   applied
 - **WHEN** a caller reads that snapshot through the telemetry read port
-- **THEN** the six charge-telemetry fields are NULL
+- **THEN** the five charge-telemetry fields are NULL
 - **AND** the caller can still read the raw_data to extract the values retroactively
   if needed
+
+#### Scenario: max_range_charge_counter is stored as a non-NULL value when reported
+- **GIVEN** a registered vehicle whose vehicle_data reports a max_range_charge_counter
+  value (including a value of zero) at capture time
+- **WHEN** a collection cycle captures the snapshot
+- **THEN** the stored snapshot includes a non-NULL max_range_charge_counter matching
+  the reported counter value
+- **AND** a reported value of zero is stored as non-NULL zero, distinguishable from
+  NULL (which means not reported or row predates extraction)
+
+#### Scenario: max_range_charge_counter is NULL for pre-extraction rows without backfill
+- **GIVEN** a vehicle_snapshots row written before the max_range_charge_counter column
+  was added AND whose raw_data does not contain a charge_state.max_range_charge_counter
+  field (e.g. an older Tesla that did not report it)
+- **WHEN** a caller reads that snapshot through the telemetry read port
+- **THEN** max_range_charge_counter on the returned snapshot is nil (unknown), distinct
+  from a value of zero
+- **AND** the caller can still read the raw_data to check the charge_state path directly
+
+#### Scenario: max_range_charge_counter is backfilled for pre-migration rows whose raw_data contains it
+- **GIVEN** a vehicle_snapshots row written before the max_range_charge_counter column
+  was added, but whose raw_data contains charge_state.max_range_charge_counter as a number
+- **WHEN** the migration runs the one-shot backfill UPDATE
+- **THEN** the row's max_range_charge_counter column is populated with the value from raw_data
+- **AND** rows whose raw_data lacks that path remain NULL
 
 ### Requirement: Waking Sleeping Vehicles Within A Bounded Timeout
 The telemetry capability SHALL wake a sleeping vehicle before capturing it, polling for the vehicle
@@ -150,8 +179,10 @@ an error) when the account has no stored snapshots.
 - **AND** the returned snapshot for each vehicle is the one with the most recent
   capture time
 - **AND** all extracted fields (battery level, range, charging state, charge limit,
-  odometer, temperatures, locked, sentry mode, car version, latitude, longitude) are
-  present and match the stored values for that snapshot
+  odometer, temperatures, locked, sentry mode, car version, max_range_charge_counter)
+  are present and match the stored values for that snapshot
+- **AND** max_range_charge_counter is nil when the stored value is NULL (pre-extraction
+  row or vehicle did not report it), and non-nil when the stored value is non-NULL
 - **AND** the distance and range fields are returned in miles (the Tesla-native unit)
   with no kilometre field on the returned type
 
