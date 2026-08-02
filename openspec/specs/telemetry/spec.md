@@ -5,70 +5,48 @@ TBD - created by archiving change telemetry-add-nightly-snapshots. Update Purpos
 ## Requirements
 ### Requirement: Nightly Vehicle Snapshot Capture
 The telemetry capability SHALL capture one immutable snapshot of every registered vehicle
-across all accounts on each scheduled run. In addition to the fields already required, for
-vehicles that are actively charging or have charge telemetry available at capture time, the
-snapshot SHALL also store the following charge-telemetry fields: the energy added to the
-battery since the charge session started (in kWh), the charger power (in kW), the charger
-voltage (in V), the charger actual current (in A), and the usable battery level (in percent).
-These five fields SHALL be stored as nullable values; a NULL value means the vehicle did not
-report the field (or the snapshot predates this extraction), and SHALL NOT be interpreted as
-zero. The snapshot SHALL also store the vehicle's lifetime max-range charge counter
-(`max_range_charge_counter`) as a nullable integer — the count of how many times the vehicle
-has been charged to its true 100% Maximum-Battery-Range limit. A NULL value for this field
-means the vehicle did not report the counter at capture time or the snapshot predates this
-extraction; a stored value of zero (non-NULL) means the vehicle reported zero such charges.
-All other snapshot requirements (raw_data, append-only, miles storage, Km-companion
-derivation, sentry-mode fidelity) remain unchanged.
+across all accounts on each scheduled run. In addition to the fields already required,
+the snapshot SHALL also store the tire pressure monitoring system (TPMS) readings for all
+four corners of the vehicle (front-left, front-right, rear-left, rear-right) in bar, the
+Tesla Fleet API's native unit for tire pressure. These four fields SHALL be stored as
+nullable values; a NULL value means the vehicle did not report TPMS at capture (e.g. the
+vehicle has no TPMS sensors, or the field was absent in the response) OR the row predates
+this extraction, and a NULL value SHALL NOT be interpreted as zero pressure. A truthfully
+reported 0.0 bar SHALL be stored as a non-NULL value. All other snapshot requirements
+(raw_data, append-only, miles storage, Km-companion derivation, sentry-mode fidelity)
+remain unchanged.
 
-#### Scenario: A snapshot for a charging vehicle includes charge-telemetry fields
-- **GIVEN** a registered vehicle that is actively charging when the nightly snapshot is
-  captured and its vehicle_data reports charge_energy_added, charger_power,
-  charger_voltage, charger_actual_current, and usable_battery_level
+#### Scenario: A snapshot captures TPMS pressure for all four corners
+- **GIVEN** a registered vehicle that is parked and its vehicle_data reports
+  tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, and tpms_pressure_rr values in
+  bar when the nightly snapshot is captured
 - **WHEN** a collection cycle captures the snapshot
-- **THEN** the stored snapshot includes non-NULL values for all five charge-telemetry
-  fields matching the reported values
+- **THEN** the stored snapshot includes non-NULL values for all four TPMS pressure fields
+- **AND** each stored value matches the corresponding value reported by the vehicle (in
+  bar, the API-native unit)
 - **AND** the snapshot's raw_data still contains the full vehicle_data payload
 
-#### Scenario: A snapshot for a parked non-charging vehicle stores NULL charge-telemetry
-- **GIVEN** a registered vehicle that is parked and not charging when the snapshot is
-  captured, so the vehicle_data reports no meaningful charge-telemetry values
+#### Scenario: A snapshot stores NULL TPMS pressure when the vehicle does not report TPMS
+- **GIVEN** a registered vehicle whose vehicle_data does not include TPMS pressure values
+  at capture time (e.g. the vehicle has no TPMS sensors)
 - **WHEN** a collection cycle captures the snapshot
-- **THEN** the five charge-telemetry fields on the stored snapshot are NULL
+- **THEN** the stored TPMS pressure fields on the snapshot are NULL for all four corners
 - **AND** all existing snapshot fields (battery level, range, odometer, etc.) are still
   populated normally
 
-#### Scenario: Pre-enrichment snapshot rows have NULL for the charge-telemetry fields
-- **GIVEN** a vehicle_snapshots row written before the charge-enrichment migration was
-  applied
-- **WHEN** a caller reads that snapshot through the telemetry read port
-- **THEN** the five charge-telemetry fields are NULL
-- **AND** the caller can still read the raw_data to extract the values retroactively
-  if needed
-
-#### Scenario: max_range_charge_counter is stored as a non-NULL value when reported
-- **GIVEN** a registered vehicle whose vehicle_data reports a max_range_charge_counter
-  value (including a value of zero) at capture time
+#### Scenario: A truthfully reported zero bar pressure is stored as non-NULL
+- **GIVEN** a registered vehicle that reports a TPMS pressure of exactly 0.0 bar for
+  one or more corners (e.g. a flat tire)
 - **WHEN** a collection cycle captures the snapshot
-- **THEN** the stored snapshot includes a non-NULL max_range_charge_counter matching
-  the reported counter value
-- **AND** a reported value of zero is stored as non-NULL zero, distinguishable from
-  NULL (which means not reported or row predates extraction)
+- **THEN** the stored TPMS pressure value for the affected corner is non-NULL
+- **AND** the stored value is 0.0 bar (not NULL — zero is a truthful reading)
 
-#### Scenario: max_range_charge_counter is NULL for pre-extraction rows without backfill
-- **GIVEN** a vehicle_snapshots row written before the max_range_charge_counter column
-  was added AND whose raw_data does not contain a charge_state.max_range_charge_counter
-  field (e.g. an older Tesla that did not report it)
+#### Scenario: Pre-extraction snapshot rows have NULL for the TPMS pressure fields
+- **GIVEN** a vehicle_snapshots row written before the TPMS column migration was applied
 - **WHEN** a caller reads that snapshot through the telemetry read port
-- **THEN** max_range_charge_counter on the returned snapshot is nil (unknown), distinct
-  from a value of zero
-- **AND** the caller can still read the raw_data to check the charge_state path directly
-
-#### Scenario: max_range_charge_counter is backfilled for pre-migration rows whose raw_data contains it
-- **GIVEN** a vehicle_snapshots row written before the max_range_charge_counter column
-  was added, but whose raw_data contains charge_state.max_range_charge_counter as a number
-- **WHEN** the migration runs the one-shot backfill UPDATE
-- **THEN** the row's max_range_charge_counter column is populated with the value from raw_data
-- **AND** rows whose raw_data lacks that path remain NULL
+- **THEN** the four TPMS pressure fields on the Snapshot are NULL
+- **AND** the caller can still access the raw_data payload to extract the TPMS values
+  retroactively if needed
 
 ### Requirement: Waking Sleeping Vehicles Within A Bounded Timeout
 The telemetry capability SHALL wake a sleeping vehicle before capturing it, polling for the vehicle
@@ -162,59 +140,44 @@ SHALL shut down gracefully when the process receives a termination signal.
 - **AND** no new collection cycle is started after the shutdown begins
 
 ### Requirement: Latest Snapshot Read Port
+The telemetry capability's read port SHALL return snapshots that include the TPMS tire
+pressure fields for all four corners alongside the existing snapshot fields. The read port
+SHALL also expose four value-receiver companion methods — one per corner — that derive the
+tire pressure in PSI (pounds per square inch) from the stored bar value. These companion
+methods SHALL return a nil pointer when the stored bar field is nil (preserving the
+nil/not-reported distinction through the conversion), and SHALL return a non-nil pointer
+to the derived PSI value otherwise. Callers SHALL NOT receive a loss of nil fidelity when
+converting from bar to PSI. No new read method is introduced; the four TPMS fields ride on
+the existing Snapshot returned by the existing read port methods.
 
-The telemetry capability SHALL expose a read port through which other modules (the
-gateway in particular) can retrieve the most recently stored snapshot for each vehicle
-belonging to a given account, without accessing the telemetry module's database tables
-directly. The read port SHALL return the existing `Snapshot` domain type (including all
-extracted typed fields and the raw payload). Callers SHALL receive an empty result (not
-an error) when the account has no stored snapshots.
+#### Scenario: Nil fidelity is preserved through the bar-to-PSI companion conversion
+- **GIVEN** a snapshot row for which TPMS pressure was not reported (NULL in the database)
+- **WHEN** a caller retrieves the snapshot through LatestSnapshotsByAccount or
+  SnapshotsByVehicleSince and calls any of the four PSI companion methods
+- **THEN** each PSI companion method returns nil
+- **AND** the caller can distinguish "not reported" from "reported 0.0 PSI"
 
-#### Scenario: Latest snapshot is returned for each vehicle of an account
+#### Scenario: Non-nil bar value is correctly converted to PSI by the companion method
+- **GIVEN** a snapshot row with a non-nil TPMS pressure value stored in bar
+- **WHEN** a caller retrieves the snapshot through the read port and calls the PSI
+  companion for that corner
+- **THEN** the companion method returns a non-nil PSI value
+- **AND** the returned PSI value is the bar value multiplied by the barToPSI conversion
+  factor (14.503773773)
 
-- **GIVEN** an account that has stored snapshots for two vehicles, where each vehicle
-  has at least two snapshots from different collection runs
-- **WHEN** the caller requests the latest snapshots for that account
-- **THEN** exactly one snapshot is returned per vehicle
-- **AND** the returned snapshot for each vehicle is the one with the most recent
-  capture time
-- **AND** all extracted fields (battery level, range, charging state, charge limit,
-  odometer, temperatures, locked, sentry mode, car version, max_range_charge_counter)
-  are present and match the stored values for that snapshot
-- **AND** max_range_charge_counter is nil when the stored value is NULL (pre-extraction
-  row or vehicle did not report it), and non-nil when the stored value is non-NULL
-- **AND** the distance and range fields are returned in miles (the Tesla-native unit)
-  with no kilometre field on the returned type
-
-#### Scenario: Empty result for an account with no snapshots
-
-- **GIVEN** an account that has never had a snapshot stored (e.g. the nightly
-  collection has not run yet, or the account just connected)
-- **WHEN** the caller requests the latest snapshots for that account
-- **THEN** an empty collection is returned
-- **AND** no error is returned
-
-#### Scenario: Per-account scoping — another account's data is not returned
-
-- **GIVEN** two accounts each owning vehicles with stored snapshots
-- **WHEN** the caller requests the latest snapshots for account A
-- **THEN** only snapshots belonging to account A are returned
-- **AND** no snapshot belonging to account B appears in the result
-
-#### Scenario: Sentry-mode nil fidelity is preserved on read
-
-- **GIVEN** a stored snapshot whose sentry-mode value was recorded as absent (unknown)
-  because the vehicle did not report it at capture time
-- **WHEN** that snapshot is returned through the read port
-- **THEN** the sentry-mode field on the returned snapshot is nil (unknown), distinct
-  from a value of off
-
-#### Scenario: Callers never access the telemetry database directly
-
-- **GIVEN** any caller that needs to display or use telemetry snapshot data
+#### Scenario: Callers never access the telemetry database directly for TPMS data
+- **GIVEN** any caller that needs to display or process TPMS tire pressure data
 - **WHEN** it obtains that data
-- **THEN** it does so exclusively through the telemetry module's read port interface
-- **AND** it imports no package from `internal/telemetry/db`
+- **THEN** it does so exclusively through the Reader port interface (LatestSnapshotsByAccount
+  or SnapshotsByVehicleSince), reading the TpmsPressure* fields on the returned Snapshot
+- **AND** it imports no package from internal/telemetry/db
+
+#### Scenario: Snapshot struct literals are not broken by the new TPMS fields
+- **GIVEN** existing code that constructs a Snapshot struct literal by naming fields
+  (not positionally)
+- **WHEN** the four new TpmsPressure* fields are added to the Snapshot struct
+- **THEN** the existing code continues to compile without modification
+- **AND** the new fields default to nil (zero value for *float64)
 
 ### Requirement: Supercharger Session Ledger
 The telemetry capability SHALL, on each nightly collection cycle, fetch the complete

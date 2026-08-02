@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "resume/continue the tire-pressure change (telemetry-add-tire-pressure-columns) picked from the open OpenSpec proposals to drive through the dev-harness pipeline",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -131,10 +131,18 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Validate telemetry-add-tire-pressure-columns (diff c0e309e..HEAD). (1) Module boundaries: telemetry edits only its module; the only tesla edit is the additive VehicleStateTesla DTO fields (T1); no HTML, no cross-module DB access, no new Reader method; pgtype confined to service.go/mapping.go (not in any public type). (2) Conventions: bar→PSI honors the go-conventions companion non-negotiable (nil-safe *float64 value-receiver methods mirroring OdometerKm), barToPSI is a package constant, ptr()/NULL semantics match the charge-enrichment precedent (nil=not reported/pre-migration, reported 0.0 stored non-NULL). (3) DB vs user-confirmed design (D1): exactly 4 nullable REAL columns, no DEFAULT/NOT NULL/CHECK, NO new index; a mismatch is a blocker. SPECIAL ATTENTION: columns are REAL so the impl uses pgtype.Float4 + float64PtrToPgFloat4/pgNullableFloat4AsFloat64 (design text mentioned Float8) — verify the float64↔float32 narrowing/widening is correct and lossless enough, and that this is a sound resolution, not a bug. (4) tesla-exploration test-free rule: no _test.go calls the live Fleet API / Raw* methods; go test ./... incurs no paid call. (5) Spec delta coverage: specs/telemetry/spec.md scenarios match the implemented behavior; D2/D3 (gateway display) correctly OUT of scope (no gateway edits). (6) Anti-gaming: tasks/criteria not weakened; no self-approved statuses. Read the diff, not the whole module. Default to changes-requested on any doubt.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-02T14:02:00Z",
+        "duration_seconds": 420,
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
   },
   "decisions": [
     {
@@ -164,6 +172,7 @@
     { "at": "2026-08-02T11:43:15Z", "agent": "leader", "event": "wave 1 (T1) done: 4 TPMS fields on VehicleStateTesla; build+vet clean; committed 2a4296e (Pipeline-Step: wave-1)" },
     { "at": "2026-08-02T11:43:30Z", "agent": "leader", "event": "dispatched telemetry worker for wave 2 (T2-T6, serial single dispatch) on Sonnet; budget_start 5h=33% ctx=14%" },
     { "at": "2026-08-02T11:55:10Z", "agent": "leader", "event": "wave 2 (T2-T6) done: migration + Snapshot fields/barToPSI/PSI companions + snapshotFrom/insertSnapshot + sqlc(query.sql, make sqlc→pgtype.Float4) + rowToSnapshot + unit & DB integration tests; worker corrected Float8→Float4 for REAL columns (float64PtrToPgFloat4/pgNullableFloat4AsFloat64 helpers)" },
-    { "at": "2026-08-02T11:55:15Z", "agent": "leader", "event": "Step 6 verify: leader-run go build ./... (0), go vet ./... (0), go test ./internal/telemetry/... ok; DB integration tests self-skip without DATABASE_URL (pass under Docker per worker); status→verified" }
+    { "at": "2026-08-02T11:55:15Z", "agent": "leader", "event": "Step 6 verify: leader-run go build ./... (0), go vet ./... (0), go test ./internal/telemetry/... ok; DB integration tests self-skip without DATABASE_URL (pass under Docker per worker); status→verified" },
+    { "at": "2026-08-02T11:55:20Z", "agent": "leader", "event": "wave 2 committed 952e478 (Pipeline-Step: wave-2); dispatched telemetry-reviewer (Sonnet) for review round 1; budget_start 5h=47% ctx=15%" }
   ]
 }
