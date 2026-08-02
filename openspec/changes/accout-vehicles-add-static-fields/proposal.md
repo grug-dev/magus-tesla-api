@@ -1,0 +1,33 @@
+# OpenSpec Proposal Plan
+Change name: account-vehicles-add-static-config-fields
+(prefixed with the owning module account- per the project rule; verb-noun slug)
+Location: openspec/changes/account-vehicles-add-static-config-fields/
+Artifacts (in OpenSpec dependency order): proposal.md → design.md → tasks.md → specs/*/spec.md deltas → progress.json
+proposal.md — shape
+Why
+- vehicles table (the per-account vehicle registry) stores only identity + display fields. exterior_color and car_type are static attributes Tesla only returns via vehicle_data, not ListVehicles. They currently live only inside vehicle_snapshots.raw_data JSONB, unreachable by the registry read port.
+- The nightly telemetry collector already calls tesla.VehicleData(...) per vehicle (after the wake flow). It's the zero-extra-API-cost place to also read the vehicle_config object and write those two static fields back to vehicles, once per vehicle — config doesn't change, so the write is skipped when vehicles.exterior_color/car_type are already populated.
+What changes
+- (a) Tesla adapter (internal/tesla/types.go): add a VehicleConfigTesla struct (ExteriorColor string, CarType string) and a field VehicleConfig VehicleConfigTesla json:"vehicle_config" on VehicleDataTesla. The Raw* sibling and explorer sync rule (per internal/tesla/AGENTS.md) don't require a new Raw* method — VehicleDataRaw already returns the verbatim payload that includes vehicle_config; only the typed DTO gains a sub-struct.
+- (b) Migration (internal/account/db/migrations/2026MMDD_vehicles_add_static_config_fields.sql): ALTER TABLE vehicles ADD COLUMN exterior_color TEXT, ADD COLUMN car_type TEXT. Both nullable, no default, no CHECK (string values are open-ended Tesla enums like PearlWhite, modely). No index — read as part of the existing heap row already located by account_id/tesla_id (mirrors the access_type migration's no-index rationale).
+- (c) Account module port (internal/account/account.go + service.go + query.sql): add one method to account.Service — SetVehicleConfigIfEmpty(ctx, accountID, teslaID, exteriorColor, carType) error — implemented as a single UPDATE vehicles SET exterior_color = $, car_type = $, updated_at = now() WHERE account_id = $ AND tesla_id = $ AND (exterior_color IS NULL AND car_type IS NULL) query (UpdateVehicleConfigIfEmpty), only when both columns are NULL (true once-per-vehicle write; resumable on a failed prior partial state). Domain structs Vehicle and OwnedVehicle gain ExteriorColor *string and CarType *string (nullable-over-port, same convention as AccessType); ListAllVehicles / ListVehiclesByAccount SELECT the new columns.
+- (d) Telemetry collector (internal/telemetry/service.go attemptVehicle): after s.tsla.VehicleData(...) succeeds, call s.acct.SetVehicleConfigIfEmpty(ctx, accountID, teslaID, data.VehicleConfig.ExteriorColor, data.VehicleConfig.CarType). Best-effort: a failure is logged and swallowed — it never changes the Reason of the cycle (the snapshot write remains the primary job). Retried for free on the next nightly cycle until both columns are non-NULL.
+Breaking: none — additive column + additive port method + additive DTO sub-struct. Reader/Collector interfaces unchanged. SQLc Vehicle/ListAllVehiclesRow gain two nullable columns (NULL for all pre-migration rows, the honest "not yet captured" state).
+Modules affected: internal/tesla/ (DTO enrichment — leaf, no new method on the port), internal/account/ (migration + one port method + domain struct fields), internal/telemetry/ (one side-effect call in attemptVehicle, best-effort). No gateway change — display wiring is a follow-on gateway change if/when the dashboard wants to show color/model.
+Database changes: two nullable TEXT columns on vehicles (internal/account/db); no index. design.md REQUIRED and will include full DDL, no-DEFAULT-no-CHECK rationale, no-index justification (read on the same heap row), NULL-as-"not yet captured" semantics mirroring the access_type precedent, and the rejection of the "parse from raw_data JSONB at query time" alternative (account module does not own vehicle_snapshots; would require cross-module table access — a boundary violation).
+Read paths affected: none new, none changed in shape. RegisteredVehicles and AllRegisteredVehicles return two more nullable columns per row (same plans, same joins — none).
+Capabilities
+- Modified: account-vehicle-registry — "Per-Account Vehicle Registry Storage" requirement gains exterior_color + car_type as persisted static attributes; new requirement "Static Vehicle Config Back-Fill From Nightly Telemetry" covers the once-per-vehicle capture, the NULL-means-not-yet-captured semantics, the best-effort-retry-next-night failure mode, and the module-boundary rule (telemetry collector reads from tesla, writes via the account port; account still does not import tesla).
+- No change to telemetry, tesla, or gateway specs.
+Open decisions (resolved by your answers; will be cited as D1–D4 in design.md):
+- D1 — Capture location: nightly telemetry collector (free-rides the existing VehicleData call) over a separate one-shot job. ✅
+- D2 — Write-back trigger condition: both exterior_color IS NULL AND car_type IS NULL (so a partial write from a failed prior cycle self-heals — also car_type written on the next cycle even if exterior_color was already set, OR use OR-semantics). To be nailed down in design.md — likely "either column IS NULL → write both, idempotent overwrite-to-same-value is harmless".
+- D3 — Field set scope: just exterior_color + car_type. Future config fields are a separate change. ✅
+- D4 — Failure mode: best-effort, retry next nightly cycle, never changes the cycle Reason. ✅
+Run-through of what I'd execute once you approve plan mode lifting
+openspec new change "account-vehicles-add-static-config-fields"
+openspec status --change "account-vehicles-add-static-config-fields" --json   # get artifact order
+# loop: openspec instructions <artifact-id> --change "..." --json ; write file
+# create proposal.md → design.md → tasks.md → spec deltas → progress.json
+openspec status --change "account-vehicles-add-static-config-fields"
+The one thing I'd surface for your attention in the design step (not now — when I scaffold design.md): the exact WHERE-clause for the conditional update. My recommendation is WHERE account_id = $ AND tesla_id = $ AND (exterior_color IS NULL OR car_type IS NULL) so a partially-written row self-heals even though Tesla config is immutable; writing the same value twice is harmless. I'll write that into design.md as D2 unless you object.
