@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM6-telemetry-capture-vehicle-config",
+  "module": "telemetry",
+  "roadmap": "openspec/roadmaps/RM6-static-vehicle-config-fields.md",
+  "request": "Tier 2 of RM6: back-fill the two static registry columns added by tier 1, once per vehicle, from the VehicleData payload the nightly collector already fetches. Leaf DTO addition to internal/tesla (granted path), collectVehicle/attemptVehicle re-signatured to take account.OwnedVehicle and return the observed config, and the guard + SetVehicleConfigIfEmpty call + ConfigCaptureFailures counter in collectAccount.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-03T16:58:00Z",
+  "updated_at": "2026-08-03T16:58:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM6-static-vehicle-config-fields",
+    "base": "main",
+    "created_at": "2026-08-03T13:41:36Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Tesla adapter DTO enrichment (internal/tesla/types.go)",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "CycleReport.ConfigCaptureFailures field (telemetry.go)",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "Scheduler cycle log line (scheduler.go)",
+      "module": "telemetry",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "service.go re-signature + captureVehicleConfig + wiring",
+      "module": "telemetry",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Recording fakeAccount double + 6 new tests (service_test.go)",
+      "module": "telemetry",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Verification: build/vet/test, boundary, spec coverage, validate",
+      "module": "telemetry",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-03T16:58:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Skipped a fresh user interview for tier 2 and proceeded straight to artifacts on the roadmap Decisions alone; also skipped the performance-design grill.",
+      "why": "Roadmap RD1/RD2/RD4/RD5/RD6/RD7/RD8 were user-confirmed with grill-me and cover every design choice this tier makes. The tier touches zero database objects and adds no query, so neither the database design gate nor the read-heavy Performance-Profile leaves a genuine design choice open.",
+      "covered_by": "roadmap RD1-RD8"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-03T16:58:00Z",
+      "agent": "leader",
+      "event": "Dispatched telemetry worker (Sonnet) to author tier-2 artifacts. Returned proposal/design/tasks/spec-delta; openspec validate --strict green. Leader verified the artifacts against live code (OwnedVehicle.AccountID exists, collectAccount loop matches T4.5) and confirmed no DB object is touched, so the database design gate does not trigger."
+    }
+  ]
+}
