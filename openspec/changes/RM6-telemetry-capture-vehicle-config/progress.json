@@ -5,22 +5,23 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM6-static-vehicle-config-fields.md",
   "request": "Tier 2 of RM6: back-fill the two static registry columns added by tier 1, once per vehicle, from the VehicleData payload the nightly collector already fetches. Leaf DTO addition to internal/tesla (granted path), collectVehicle/attemptVehicle re-signatured to take account.OwnedVehicle and return the observed config, and the guard + SetVehicleConfigIfEmpty call + ConfigCaptureFailures counter in collectAccount.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": [
+    "pending": [],
+    "blocked": [
+      "T6"
+    ],
+    "done": [
       "T1",
       "T2",
       "T3",
       "T4",
-      "T5",
-      "T6"
-    ],
-    "blocked": [],
-    "done": []
+      "T5"
+    ]
   },
   "created_at": "2026-08-03T16:58:00Z",
-  "updated_at": "2026-08-03T16:58:00Z",
+  "updated_at": "2026-08-03T17:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -38,13 +39,13 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T16:54:37Z",
+      "completed_at": "2026-08-03T16:55:05Z",
+      "duration_seconds": 28,
+      "notes": "Added VehicleConfigTesla struct + VehicleDataTesla.VehicleConfig field. go build/vet clean. No Raw* or explore-tesla-api change (leaf DTO addition only).",
       "budget": null
     },
     {
@@ -53,13 +54,13 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T16:55:05Z",
+      "completed_at": "2026-08-03T16:55:30Z",
+      "duration_seconds": 25,
+      "notes": "Added ConfigCaptureFailures int field to CycleReport, after ChargingFetchFailures. go build/vet clean.",
       "budget": null
     },
     {
@@ -70,13 +71,13 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T16:55:30Z",
+      "completed_at": "2026-08-03T16:55:56Z",
+      "duration_seconds": 26,
+      "notes": "Appended config_capture_failures=%d to LogCycle's Printf. scheduler_test.go has no exact-string log assertion (verified via grep), so no test update needed. go build/vet clean.",
       "budget": null
     },
     {
@@ -88,13 +89,13 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T16:55:56Z",
+      "completed_at": "2026-08-03T16:57:25Z",
+      "duration_seconds": 89,
+      "notes": "vehicleConfig type; collectVehicle/attemptVehicle re-signatured to (v account.OwnedVehicle) -> (Reason, vehicleConfig); captureVehicleConfig added + wired after record() in collectAccount's main loop; deliberate-omission comments on the 2 short-circuit loops. Verified zero s.acct refs inside attemptVehicle. go build/vet clean; go test compiles (fails only at TestMain Docker provisioning, pre-existing/environmental).",
       "budget": null
     },
     {
@@ -105,13 +106,13 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T16:57:25Z",
+      "completed_at": "2026-08-03T16:59:15Z",
+      "duration_seconds": 110,
+      "notes": "fakeAccount is now a recording double (configCaptures/configCaptureErr); 6 new tests added covering all spec scenarios. go build/vet clean; go test -run TestCollectAll_ConfigCapture could NOT execute \u2014 package TestMain unconditionally provisions Postgres (testcontainers) before any test runs, and Docker/DATABASE_URL are both unavailable here. This matches the dispatch prompt's documented environmental limitation, not a code defect; test file compiles and type-checks (confirmed via go vet + go test -run NONE reaching TestMain before failing on Docker).",
       "budget": null
     },
     {
@@ -126,13 +127,13 @@
         "T5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "blocked",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T16:59:15Z",
+      "completed_at": "2026-08-03T17:01:01Z",
+      "duration_seconds": 106,
+      "notes": "Leader re-opened T6.2 (worker had ticked it). T6.1/T6.3/T6.4/T6.5/T6.6 PASS. T6.2 BLOCKED: telemetry TestMain provisions Postgres unconditionally, so with Docker down the six new T5 tests -- this tier's whole behavioural verification -- have never executed. Needs Docker or a reachable DATABASE_URL.",
       "budget": null
     }
   ],
@@ -151,6 +152,15 @@
       "decision": "Skipped a fresh user interview for tier 2 and proceeded straight to artifacts on the roadmap Decisions alone; also skipped the performance-design grill.",
       "why": "Roadmap RD1/RD2/RD4/RD5/RD6/RD7/RD8 were user-confirmed with grill-me and cover every design choice this tier makes. The tier touches zero database objects and adds no query, so neither the database design gate nor the read-heavy Performance-Profile leaves a genuine design choice open.",
       "covered_by": "roadmap RD1-RD8"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-03T17:20:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Re-opened tasks.md T6.2 from [x] to [ ] and set T6 blocked, against the worker's self-reported done, pausing autopilot before the review gate.",
+      "why": "The worker's notes were honest but the tick was not: T6.2's criterion is 'go test ./... green' and the six new tests have never run. Unlike tier 1 -- where the integration tests HAD been executed green earlier the same day -- this tier has zero behavioural evidence. Ticking it on 'it compiles' would be exactly the weakened-criterion gaming the rails forbid.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -158,6 +168,11 @@
       "at": "2026-08-03T16:58:00Z",
       "agent": "leader",
       "event": "Dispatched telemetry worker (Sonnet) to author tier-2 artifacts. Returned proposal/design/tasks/spec-delta; openspec validate --strict green. Leader verified the artifacts against live code (OwnedVehicle.AccountID exists, collectAccount loop matches T4.5) and confirmed no DB object is touched, so the database design gate does not trigger."
+    },
+    {
+      "at": "2026-08-03T17:20:00Z",
+      "agent": "leader",
+      "event": "Wave 1 = T1-T6 returned. Implementation complete and build/vet green repo-wide; gofmt realignment noise in the touched files confirmed whitespace-only via git diff -w. Autopilot PAUSED at a hard blocker: T5's tests cannot execute without Docker/Postgres (D2). Review gate not dispatched."
     }
   ]
 }

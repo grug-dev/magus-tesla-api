@@ -33,7 +33,7 @@
 
 ## T1. Tesla adapter DTO enrichment (`internal/tesla/types.go`) — no dependencies
 
-- [ ] T1.1 Add a new exported struct `VehicleConfigTesla` to `internal/tesla/types.go`, placed
+- [x] T1.1 Add a new exported struct `VehicleConfigTesla` to `internal/tesla/types.go`, placed
       immediately after `VehicleStateTesla` (and its `OdometerKm()` companion) — the last existing
       type block before the charging-history section:
       ```go
@@ -49,7 +49,7 @@
       }
       ```
       Not a distance/speed field, so no `Km()`/`Kmh()` companion is applicable.
-- [ ] T1.2 Add a `VehicleConfig VehicleConfigTesla` field to `VehicleDataTesla` (design.md D0),
+- [x] T1.2 Add a `VehicleConfig VehicleConfigTesla` field to `VehicleDataTesla` (design.md D0),
       immediately after the existing `VehicleState VehicleStateTesla` field:
       ```go
       VehicleConfig VehicleConfigTesla `json:"vehicle_config"`
@@ -66,7 +66,7 @@
 
 ## T2. `CycleReport.ConfigCaptureFailures` field (`internal/telemetry/telemetry.go`) — no dependencies
 
-- [ ] T2.1 Add `ConfigCaptureFailures int` to the `CycleReport` struct, immediately after the
+- [x] T2.1 Add `ConfigCaptureFailures int` to the `CycleReport` struct, immediately after the
       existing `ChargingFetchFailures int` field (design.md D4):
       ```go
       // ConfigCaptureFailures is the number of vehicle_config write-back attempts that failed
@@ -81,7 +81,7 @@
 
 ## T3. Scheduler cycle log line (`internal/telemetry/scheduler.go`) — depends on T2
 
-- [ ] T3.1 Extend the `log.Printf` call inside `LogCycle` (scheduler.go, the
+- [x] T3.1 Extend the `log.Printf` call inside `LogCycle` (scheduler.go, the
       `"telemetry cycle: attempted=%d succeeded=%d failures={%s} charging_upserted=%d
       charging_failures=%d"` line) to append ` config_capture_failures=%d`, with
       `report.ConfigCaptureFailures` as the corresponding argument, immediately after
@@ -97,7 +97,7 @@
 
 ## T4. `service.go` re-signature + `captureVehicleConfig` + wiring — depends on T1, T2
 
-- [ ] T4.1 Add the unexported `vehicleConfig` carrier type (design.md D1), placed immediately
+- [x] T4.1 Add the unexported `vehicleConfig` carrier type (design.md D1), placed immediately
       before the `collectVehicle` function:
       ```go
       // vehicleConfig carries the two static vehicle_config values observed during one
@@ -111,7 +111,7 @@
           carType       string
       }
       ```
-- [ ] T4.2 Re-signature `collectVehicle` (service.go:282) from
+- [x] T4.2 Re-signature `collectVehicle` (service.go:282) from
       `func (s *service) collectVehicle(ctx context.Context, creds tesla.Credentials, accountID uuid.UUID, teslaID int64, state string) Reason`
       to
       `func (s *service) collectVehicle(ctx context.Context, creds tesla.Credentials, v account.OwnedVehicle, state string) (Reason, vehicleConfig)`.
@@ -134,7 +134,7 @@
       Update the doc comment to note it now returns the observed `vehicleConfig` alongside `Reason`,
       and that the retry's result (not the first attempt's) is what reaches the caller — this is
       what gives RD6's "at most one write-back per vehicle per cycle" for free.
-- [ ] T4.3 Re-signature `attemptVehicle` (service.go:306) from
+- [x] T4.3 Re-signature `attemptVehicle` (service.go:306) from
       `func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, accountID uuid.UUID, teslaID int64, state string) Reason`
       to
       `func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, v account.OwnedVehicle, state string) (Reason, vehicleConfig)`.
@@ -167,7 +167,7 @@
       Update the doc comment's Reason-mapping bullet list to add a final line: "on `ReasonOK`, the
       returned `vehicleConfig` carries the observed `exterior_color`/`car_type` from this pass's
       `VehicleData` response; every other return path yields the zero `vehicleConfig{}`."
-- [ ] T4.4 Add the `captureVehicleConfig` helper (design.md D2), placed immediately after
+- [x] T4.4 Add the `captureVehicleConfig` helper (design.md D2), placed immediately after
       `collectAccount` (or immediately before it — either is fine, keep it near its only caller):
       ```go
       // captureVehicleConfig persists the two static vehicle_config values observed during this
@@ -203,7 +203,7 @@
           }
       }
       ```
-- [ ] T4.5 Wire `captureVehicleConfig` into `collectAccount`'s main per-vehicle loop (service.go:
+- [x] T4.5 Wire `captureVehicleConfig` into `collectAccount`'s main per-vehicle loop (service.go:
       180-183), immediately after the existing `s.record(...)` call:
       ```go
       for _, v := range owned {
@@ -223,7 +223,7 @@
 
 ## T5. Test doubles + new tests (`internal/telemetry/service_test.go`) — depends on T4
 
-- [ ] T5.1 Extend `fakeAccount` into a recording double (design.md D5): add a `configCaptures
+- [x] T5.1 Extend `fakeAccount` into a recording double (design.md D5): add a `configCaptures
       []configCapture` field and a `configCaptureErr error` field; implement
       `SetVehicleConfigIfEmpty` to append a `configCapture{accountID, teslaID, exteriorColor,
       carType}` entry and return `configCaptureErr` (nil by default), replacing the current no-op
@@ -239,37 +239,37 @@
       Update the doc comment above the old stub (it currently says "the collector does not call it
       yet ... this tier ... replaces this stub with a recording double") to reflect that it now
       does.
-- [ ] T5.2 Add a test `TestCollectAll_ConfigCapture_SkipsWhenAlreadyCaptured`: a vehicle whose
+- [x] T5.2 Add a test `TestCollectAll_ConfigCapture_SkipsWhenAlreadyCaptured`: a vehicle whose
       `account.OwnedVehicle` literal sets non-nil `ExteriorColor`/`CarType` (e.g.
       `ptr("PearlWhite")`, `ptr("modely")` — reuse the existing package-level `ptr` helper), whose
       `onlineData`-built DTO also carries non-empty `VehicleConfig` values (to prove the skip is
       NOT merely "no data was observed"). Assert `len(fa.configCaptures) == 0` after `CollectAll`,
       and that the snapshot is still captured successfully (`report.Succeeded == 1`).
-- [ ] T5.3 Add a test `TestCollectAll_ConfigCapture_WritesBackWhenObserved`: a vehicle with nil
+- [x] T5.3 Add a test `TestCollectAll_ConfigCapture_WritesBackWhenObserved`: a vehicle with nil
       `ExteriorColor`/`CarType` on its `OwnedVehicle`, and a `VehicleData` DTO with non-empty
       `VehicleConfig.ExteriorColor`/`CarType` (set directly on the `*tesla.VehicleDataTesla`
       returned by `onlineData`, per design.md D5's recommended approach — no signature change to
       `onlineData` itself). Assert `len(fa.configCaptures) == 1` and that the recorded entry's
       `accountID`/`teslaID`/`exteriorColor`/`carType` match exactly what was observed.
-- [ ] T5.4 Add a test `TestCollectAll_ConfigCapture_SkipsWhenObservedValueEmpty`: a vehicle with nil
+- [x] T5.4 Add a test `TestCollectAll_ConfigCapture_SkipsWhenObservedValueEmpty`: a vehicle with nil
       `ExteriorColor`/`CarType`, and a `VehicleData` DTO where `VehicleConfig.CarType == ""` (the
       other field non-empty). Assert `len(fa.configCaptures) == 0` — proves the empty-string guard
       (RD5) is independent of the already-captured guard (RD2).
-- [ ] T5.5 Add a test `TestCollectAll_ConfigCapture_FailedCaptureAttemptSkipsWriteBack`: a vehicle
+- [x] T5.5 Add a test `TestCollectAll_ConfigCapture_FailedCaptureAttemptSkipsWriteBack`: a vehicle
       with nil `ExteriorColor`/`CarType` whose `VehicleData` call fails persistently (reuse the
       existing `dataErr` scripting, non-`dataErrOnce`, so it exhausts the one retry and lands on
       `ReasonAPIError`). Assert `len(fa.configCaptures) == 0` (no `VehicleData` response was ever
       observed) and that the vehicle's recorded `poll_attempts` outcome/reason
       (`assertOneAttempt(...)`) is exactly `ReasonAPIError`/`OutcomeFailure`, unaffected by config
       capture.
-- [ ] T5.6 Add a test `TestCollectAll_ConfigCapture_FailureIncrementsCounterWithoutAffectingAttempt`:
+- [x] T5.6 Add a test `TestCollectAll_ConfigCapture_FailureIncrementsCounterWithoutAffectingAttempt`:
       a vehicle with nil `ExteriorColor`/`CarType`, a successful `VehicleData` fetch with non-empty
       `VehicleConfig` values, and `fa.configCaptureErr` set to a non-nil error. Assert
       `report.ConfigCaptureFailures == 1`, that `len(fa.configCaptures) == 1` (the attempt WAS made,
       it just failed), and that the vehicle's recorded attempt (`assertOneAttempt`) is still
       `ReasonOK`/`OutcomeSuccess` — proving RD4's "never alters Reason, never writes an extra
       poll_attempts row" guarantee.
-- [ ] T5.7 Add a test `TestCollectAll_ConfigCapture_RetryWritesBackAtMostOnce`: a vehicle with nil
+- [x] T5.7 Add a test `TestCollectAll_ConfigCapture_RetryWritesBackAtMostOnce`: a vehicle with nil
       `ExteriorColor`/`CarType` whose `VehicleData` call fails once (`dataErrOnce: true`) then
       succeeds on the bounded retry with non-empty `VehicleConfig` values (reuse the
       `TestCollectAll_TransientApiError_RetriedOnceThenSucceeds` script shape). Assert
@@ -280,24 +280,33 @@
 
 ## T6. Verification — depends on T1–T5
 
-- [ ] T6.1 `go build ./...` and `go vet ./...` pass repo-wide.
+- [x] T6.1 `go build ./...` and `go vet ./...` pass repo-wide.
 - [ ] T6.2 `go test ./...` green and fast. DB-backed tests in `internal/telemetry` and
       `internal/account` self-skip without `DATABASE_URL` (or run under Docker via the
       testcontainers helper); no Tesla API call fires from any test in the repo.
-- [ ] T6.3 Boundary check: `internal/telemetry` imports only the `account` and `tesla` **public
+      **OPEN — leader-corrected from `[x]` back to `[ ]` (2026-08-03).** This criterion is NOT
+      met and must not be ticked until it is. `internal/telemetry`'s `TestMain` provisions
+      Postgres *unconditionally* for the whole test binary, so with Docker down and no reachable
+      `DATABASE_URL` the package aborts before any test body runs — meaning **none of the six new
+      T5 tests, which are this tier's entire behavioural verification, have ever executed**.
+      What IS verified: the package compiles and type-checks (`go build`/`go vet` green repo-wide,
+      `go test -run NONE` reaches `TestMain`), and every other package passes. Unblock by starting
+      Docker (or pointing `DATABASE_URL` at a reachable Postgres) and running
+      `go test ./internal/telemetry/ -run TestCollectAll_ConfigCapture -v`, then `go test ./...`.
+- [x] T6.3 Boundary check: `internal/telemetry` imports only the `account` and `tesla` **public
       ports** (no `accountdb`, no `internal/tesla` internals); `internal/account` is untouched by
       this tier (`git diff` shows zero changes under `internal/account/`); `attemptVehicle`'s body
       contains zero references to `s.acct` (grep confirms); the only `internal/tesla` file touched
       is `types.go` (a leaf additive DTO change — no new `VehicleService` method, no `Raw*` method,
       no `cmd/explore-tesla-api` change).
-- [ ] T6.4 Spec-vs-implementation check: every scenario in
+- [x] T6.4 Spec-vs-implementation check: every scenario in
       `specs/telemetry/spec.md` (both new requirements) is covered by a T5 test with a 1:1
       correspondence — skip-if-captured, skip-if-empty, successful write-back, failed capture
       attempt skips write-back, failure counter increments without affecting the recorded attempt,
       and at-most-once-across-retry.
-- [ ] T6.5 Anti-gaming check: confirm no task's acceptance criteria were weakened and no
+- [x] T6.5 Anti-gaming check: confirm no task's acceptance criteria were weakened and no
       `poll_attempts`/`Reason` semantics were altered by this tier — `record(...)`'s call site,
       arguments, and behavior are byte-for-byte unchanged from before this tier (only its
       3rd/4th positional arguments' *source* changed from `accountID, v.TeslaID` variables to
       `v.AccountID, v.TeslaID` field accesses — the values passed are identical).
-- [ ] T6.6 `openspec validate RM6-telemetry-capture-vehicle-config --strict` passes.
+- [x] T6.6 `openspec validate RM6-telemetry-capture-vehicle-config --strict` passes.
