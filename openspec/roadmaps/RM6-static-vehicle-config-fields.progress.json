@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM6-static-vehicle-config-fields",
+  "intention": "Every registered vehicle carries its two static Tesla attributes (exterior_color, car_type) on the vehicles registry row, captured once per vehicle from the nightly collector's existing VehicleData call, so the registry read port serves them with no Tesla call and no cross-module access.",
+  "request": "/kkpa-dev-harness-pipeline continue -> user selected the pre-existing plan doc openspec/changes/accout-vehicles-add-static-fields/proposal.md ('account - static vehicle fields'): persist exterior_color + car_type on the account vehicles registry, back-filled from the nightly telemetry collector's existing VehicleData call. Then: 'execute the openspec plan with autopilot mode'.",
+  "autopilot": true,
+  "status": "in-progress",
+  "created_at": "2026-08-03T13:41:36Z",
+  "updated_at": "2026-08-03T13:41:36Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM6-static-vehicle-config-fields",
+    "base": "main",
+    "created_at": "2026-08-03T13:41:36Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-08-03T13:41:36Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Capture rides on the nightly telemetry collector's existing tesla.VehicleData call, not a separate one-shot job.",
+      "why": "Zero extra paid Fleet API cost; the collector already fetches the payload per vehicle after the wake flow.",
+      "covered_by": null
+    },
+    {
+      "id": "RD2",
+      "at": "2026-08-03T13:41:36Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Write trigger is a Go guard on the already-fetched OwnedVehicle (skip when both fields non-nil) PLUS an OR-semantics SQL condition: AND (exterior_color IS NULL OR car_type IS NULL).",
+      "why": "Defense-in-depth. The Go guard means zero DB traffic after night 1; the SQL condition self-heals a partial row and prevents clobbering. updated_at moves only on a real write. Mirrors RM5 RD2.",
+      "covered_by": null
+    },
+    {
+      "id": "RD3",
+      "at": "2026-08-03T13:41:36Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Field scope is exactly exterior_color + car_type. A curated 7-field display set and a full vehicle_config JSONB column were both rejected.",
+      "why": "Strict YAGNI; the live payload has 47 keys but no consumer needs more than these two. Further fields are a separate change.",
+      "covered_by": null
+    },
+    {
+      "id": "RD4",
+      "at": "2026-08-03T13:41:36Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Failure mode is best-effort AND counted: never changes Reason, never writes a poll_attempts row, retried next cycle, increments a new CycleReport.ConfigCaptureFailures surfaced in the scheduler's cycle log.",
+      "why": "Mirrors the existing ChargingFetchFailures precedent in the same module; without the counter a permanently failing back-fill would be log-only and invisible.",
+      "covered_by": null
+    },
+    {
+      "id": "RD5",
+      "at": "2026-08-03T13:41:36Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "An empty string from Tesla means skip the write and leave NULL; the collector calls the port only when both observed values are non-empty.",
+      "why": "Writing \"\" would satisfy both the Go guard and the SQL IS NULL condition, permanently marking the vehicle captured with a non-value that can never self-heal. NULL keeps 'not yet captured' literally true and retries next cycle.",
+      "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-08-03T13:41:36Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "attemptVehicle returns (Reason, vehicleConfig) and never calls s.acct; the nil/empty guard, the SetVehicleConfigIfEmpty call and the ConfigCaptureFailures increment all live in collectAccount beside record(...).",
+      "why": "Preserves both existing invariants: exactly one capture per vehicle per cycle (retry-safe, since collectVehicle may call attemptVehicle twice) and all account-port access at the level where AccessTokenFor already lives. attemptVehicle stays a pure [wake->]fetch->map->store pass.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-08-03T13:41:36Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "collectVehicle/attemptVehicle take v account.OwnedVehicle in place of the separate accountID + teslaID params.",
+      "why": "Net parameter reduction; the nil-check sits next to the data it tests, and future registry-driven behaviour needs no further signature churn. Rejected: a needsConfig bool param (encodes a check performed elsewhere).",
+      "covered_by": null
+    },
+    {
+      "id": "RD8",
+      "at": "2026-08-03T13:41:36Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The internal/tesla VehicleConfigTesla DTO addition is a leaf granted path inside tier 2, not a tier of its own; RM6 therefore has 2 tiers, not 3.",
+      "why": "Additive ...Tesla DTO field with no new VehicleService method and no Raw*/explorer change. Follows the merged telemetry-add-tire-pressure-columns T1 precedent verbatim; a ~10-line struct addition should not pay a full tier's proposal/design/tasks/spec/review overhead.",
+      "covered_by": null
+    },
+    {
+      "id": "RD9",
+      "at": "2026-08-03T13:41:36Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Removed the superseded plan doc folder openspec/changes/accout-vehicles-add-static-fields/ in the roadmap commit; its content is carried forward into this roadmap and the tier proposal prompts.",
+      "why": "It was a planning note (proposal.md only, no design/tasks/specs, no progress.json, misspelled 'accout-'), not a validated OpenSpec change. Leaving it would leave a second, stale source of truth for the same work.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM6-account-add-vehicle-config-fields",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 2,
+      "change": "RM6-telemetry-capture-vehicle-config",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-03T13:41:36Z",
+      "agent": "leader",
+      "event": "RM6 roadmap created (2 tiers) from the grill-me interview; rm-counter 6->7. Decisions RD1-RD9 captured (RD1-RD8 user, RD9 leader). Adopts and supersedes the accout-vehicles-add-static-fields plan doc. Branch ft/RM6-static-vehicle-config-fields off main@2608f15. Autopilot ON per the user's 'execute the openspec plan with autopilot mode'. Runtime: Claude Code (native subagents + SendMessage + statusline budget all available; no degradations)."
+    }
+  ]
+}
