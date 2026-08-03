@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM6-account-add-vehicle-config-fields",
+  "module": "account",
+  "roadmap": "openspec/roadmaps/RM6-static-vehicle-config-fields.md",
+  "request": "Tier 1 of RM6: persist two static Tesla vehicle_config attributes (exterior_color, car_type) on the per-account vehicles registry, so the registry read port serves them with no Tesla call and no cross-module JSONB access. Adds the migration, the domain fields, and the SetVehicleConfigIfEmpty port method the tier-2 telemetry collector will call.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5", "T6"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-03T14:08:24Z",
+  "updated_at": "2026-08-03T14:08:24Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM6-static-vehicle-config-fields",
+    "base": "main",
+    "created_at": "2026-08-03T13:41:36Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Goose migration: two nullable TEXT columns on vehicles",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "Domain types + Service port interface (account.go)",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "sqlc query edits + regeneration (query.sql, make sqlc)",
+      "module": "account",
+      "depends_on": ["T1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "Service implementation + row mapping (service.go)",
+      "module": "account",
+      "depends_on": ["T2", "T3"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "DATABASE_URL-gated integration tests (incl. the OR self-heal case)",
+      "module": "account",
+      "depends_on": ["T4"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Verification: build/vet/test, boundary check, openspec validate",
+      "module": "account",
+      "depends_on": ["T1", "T2", "T3", "T4", "T5"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-03T14:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate CONFIRMED: two nullable TEXT columns (exterior_color, car_type) on vehicles, no DEFAULT, no CHECK, no new index, and the OR-semantics conditional UPDATE.",
+      "why": "User confirmed the design, the per-query index justification (every access locates its row via the existing UNIQUE (account_id, tesla_id) index; neither column is ever a predicate), and the deliberate no-CHECK divergence from the access_type precedent (open-ended Tesla enums).",
+      "covered_by": "roadmap RD2/RD3/RD5"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-03T14:00:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Kept the uppercase change/folder name RM6-account-add-vehicle-config-fields despite the worker's report that the OpenSpec CLI rejects it.",
+      "why": "Verified directly: `openspec validate --strict` (the gate the pipeline uses) ACCEPTS the uppercase name; only `new change` and `status --change` reject it, and neither is needed again. Archiving here is a manual domain-grouped git mv, so nothing downstream depends on the CLI. Matches the skill contract and the RM1-RM4 archive precedent.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-03T14:06:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader-corrected four defects in the worker's artifacts before implementation rather than re-dispatching: (a) a doc comment falsely claiming the method never overwrites a captured value, (b) an unverified assertion about sqlc's inferred bind-param Go type, (c) a vague/skippable self-heal test, (d) a lowercase change name in T6.4.",
+      "why": "All four are small factual corrections, not design changes; fixing them inline costs a fraction of a re-dispatch, and (a) and (c) would otherwise have been copied verbatim into the implementation and the test suite.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-03T13:52:00Z",
+      "agent": "leader",
+      "event": "Dispatched account worker (Sonnet) to author tier-1 artifacts. Returned proposal/design/tasks/spec-delta; openspec validate --strict green."
+    },
+    {
+      "at": "2026-08-03T14:06:00Z",
+      "agent": "leader",
+      "event": "Leader-fixed 4 artifact defects (see D3); re-validated --strict green."
+    },
+    {
+      "at": "2026-08-03T14:08:24Z",
+      "agent": "leader",
+      "event": "Database design gate PASSED with the user (D1). Budget instrumentation went DEGRADED at this boundary: scripts/budget.sh returned available:true but all-null readings under a foreign session_id (5ed135f7... vs this session b06f1d8a...), so this tier's task budgets are null/unavailable and the auto-checkpoint gate is warn-only. Proceeding to wave 1."
+    }
+  ]
+}
