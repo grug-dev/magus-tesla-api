@@ -193,29 +193,46 @@ in-memory map hit — no DB.
 
 ## Resolved decisions
 
-None yet — **proposal only** (per the user's 2026-07-28 "create the proposals"
-ask). Open questions for the `grill-me` pass before `design.md` authoring:
+Resolved in the 2026-08-03 grill-me pass (leader ↔ user). Full rationale + rejected
+alternatives for each: `design.md`.
 
-- **D1** — Capacity source: reference table (source 1, recommended) vs auto-
-  calibration from charge sessions (source 3, deferred) vs both. Recommendation:
-  reference table now; auto-calibration as a future enhancement.
-- **D2** — `UsableBatteryLevel` vs `BatteryLevel` fallback when usable is NULL
-  (pre-enrichment rows). Recommendation: usable when present, fall back to
-  `BatteryLevel` with a documented approximation, never refuse the metric when
-  only `BatteryLevel` is available.
-- **D3** — Window length: 30 days (matches the dashboard's history cards, and
-  the Stitch "Avg" framing) vs 7 days (more responsive, noisier) vs a constructor
-  knob. Recommendation: constructor const, default 30d, so a future analytics page
-  can tune it without interface change.
-- **D4** — Metric signature: single `RecentEfficiency(teslaID)` (window baked
-  into the constructor, recommended — pure accessor) vs `EfficiencySince(teslaID,
-  since)` (caller controls window). Recommendation: the former; keeps the port
-  surface a pure accessor and the window a deployment-time tuning.
-- **D5** — Rounded display value returned by the port vs raw float64 the gateway
-  rounds. Recommendation: return raw `WhPerKm float64`; the gateway formats
-  (mirroring how `Snapshot.OdometerKm()` returns raw km and the gateway's
-  `formatKm` rounds) — keeps formatting in the presentation layer and lets a
-  future chart use the same value at full precision.
+- **D1 — Energy numerator: hybrid (measured kWh + capacity SoC correction).**
+  `energy = kWh_in − (capacity_kWh × ΔSoC / 100)`, where `kWh_in` sums
+  `telemetry.SuperchargerSession.EnergyKWh` + `manualcharge.Entry.EnergyAddedKWh`
+  over the window, and `ΔSoC = SoC_end − SoC_start`. NOT the proposal's original
+  "capacity × ΔSoC" for the whole numerator — pack capacity is only known at MODEL
+  granularity (D1b), so confining it to the leftover SoC-drift correction term
+  keeps its ~25% error band applied to a small term, not the whole result.
+- **D1b — Capacity source: in-package table keyed on `car_type`; unknown → drop
+  the correction, still return a value.** A human-maintained
+  `map[string]float64` in `internal/battery/capacity.go` (public spec sheets),
+  NOT a database object. When `car_type` is nil or not in the table, the SoC
+  correction is skipped and `Efficiency.Approximate=true` — the dashboard is
+  never blanked over a table gap. Model-coarse, not trim-exact (`trim_badging`
+  is not extracted anywhere in the platform today); trim-exact capacity is
+  explicitly out of scope, deferred to `openspec/roadmaps/backlog.md` item 7.
+- **D2 — SoC endpoints: consistent pair, never mixed.** Uses
+  `UsableBatteryLevel` at BOTH window endpoints when both are non-nil, else
+  `BatteryLevel` at BOTH — never usable at one endpoint and nominal at the
+  other (a per-endpoint fallback manufactures a phantom ΔSoC of a few percent
+  in cold weather).
+- **D3 — Window: a constructor-time duration, default 30 days.** `NewReader`
+  takes `window time.Duration`; `DefaultWindow = 30 * 24 * time.Hour` is an
+  exported constant matching the dashboard's 30-day history cards. Not a
+  per-call argument to `RecentEfficiency` — the window is deployment-time
+  tuning.
+- **D4 — Port signature carries `accountID`.**
+  `RecentEfficiency(ctx, accountID uuid.UUID, teslaID int64) (Efficiency, bool, error)`.
+  The original `RecentEfficiency(ctx, teslaID)` cannot compile: every port this
+  module consumes (`telemetry.Reader.SnapshotsByVehicleSince`,
+  `telemetry.SuperchargerReader.SuperchargerSessionsByVehicle`,
+  `manualcharge.Reader.ListEntriesByVehicle`, `account.Service.RegisteredVehicles`)
+  is `accountID`-scoped; this is mandatory defense-in-depth tenant isolation, not
+  an optional nicety.
+- **D5 — Return the raw `float64`; the gateway formats.** `Efficiency.WhPerKm`
+  is unrounded — mirrors `Snapshot.OdometerKm()` returning raw km with the
+  gateway's `formatKm` doing the rounding. Formatting stays in the presentation
+  layer; a future chart can use the value at full precision.
 
 ### Out of scope (explicitly deferred)
 
