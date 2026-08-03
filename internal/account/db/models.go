@@ -31,12 +31,14 @@ type TeslaToken struct {
 }
 
 type Vehicle struct {
-	ID          uuid.UUID
-	AccountID   uuid.UUID
-	TeslaID     int64
-	Vin         string
-	DisplayName pgtype.Text
-	CreatedAt   pgtype.Timestamptz
-	UpdatedAt   pgtype.Timestamptz
-	AccessType  pgtype.Text
+	ID            uuid.UUID
+	AccountID     uuid.UUID
+	TeslaID       int64
+	Vin           string
+	DisplayName   pgtype.Text
+	CreatedAt     pgtype.Timestamptz
+	UpdatedAt     pgtype.Timestamptz
+	AccessType    pgtype.Text
+	ExteriorColor pgtype.Text
+	CarType       pgtype.Text
 }

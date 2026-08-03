@@ -63,6 +63,14 @@ type Vehicle struct {
 	// or "DRIVER". nil means the value was not captured at seed time (predates this
 	// change or the caller supplied nil).
 	AccessType *string
+	// ExteriorColor is the vehicle's static Tesla vehicle_config paint colour (e.g.
+	// "PearlWhite"). nil means the value has not yet been captured — the vehicle
+	// predates capture, or the nightly telemetry collector has not yet run for it
+	// since seeding. A non-nil value is the Tesla-reported value verbatim.
+	ExteriorColor *string
+	// CarType is the vehicle's static Tesla vehicle_config model code (e.g.
+	// "modely"). Same nil-means-not-yet-captured semantics as ExteriorColor.
+	CarType *string
 }
 
 // OwnedVehicle is one registered Tesla vehicle in the CROSS-ACCOUNT view: unlike
@@ -81,6 +89,14 @@ type OwnedVehicle struct {
 	// or "DRIVER". nil means the value was not captured at seed time (predates this
 	// change or the caller supplied nil).
 	AccessType *string
+	// ExteriorColor is the vehicle's static Tesla vehicle_config paint colour (e.g.
+	// "PearlWhite"). nil means the value has not yet been captured — the vehicle
+	// predates capture, or the nightly telemetry collector has not yet run for it
+	// since seeding. A non-nil value is the Tesla-reported value verbatim.
+	ExteriorColor *string
+	// CarType is the vehicle's static Tesla vehicle_config model code (e.g.
+	// "modely"). Same nil-means-not-yet-captured semantics as ExteriorColor.
+	CarType *string
 }
 
 // SeedVehicle is the mapped slice the gateway hands the account module when
@@ -140,4 +156,17 @@ type Service interface {
 	// stored display_name is NOT overwritten), and only truly new vehicles are
 	// inserted. It returns the account's full registered set after the seed.
 	SeedVehicles(ctx context.Context, accountID uuid.UUID, vehicles []SeedVehicle) ([]Vehicle, error)
+
+	// SetVehicleConfigIfEmpty persists exteriorColor and carType for the vehicle identified by
+	// (accountID, teslaID), but ONLY while at least one of the two is still uncaptured. Once
+	// a vehicle has both exterior_color and car_type non-NULL, subsequent calls are no-ops (the
+	// underlying WHERE clause matches zero rows). On a partially-captured row the write DOES
+	// rewrite both columns, including the one already set — harmless, because both values are
+	// immutable and come from the same vehicle_config payload, and it is what lets a partial
+	// row self-heal (design.md D4/RD2). Callers MUST pass non-empty strings; this module does not
+	// reject an empty string itself (it does not import internal/tesla and treats its inputs as
+	// opaque strings) — skipping the call when either observed value is empty is the caller's
+	// responsibility (see the account-vehicle-registry spec delta, "Static Vehicle Config
+	// Capture").
+	SetVehicleConfigIfEmpty(ctx context.Context, accountID uuid.UUID, teslaID int64, exteriorColor, carType string) error
 }

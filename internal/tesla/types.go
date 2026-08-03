@@ -48,14 +48,15 @@ type VehicleTesla struct {
 
 // VehicleDataTesla is the full snapshot from the vehicle_data endpoint.
 type VehicleDataTesla struct {
-	ID           int64             `json:"id"`
-	VIN          string            `json:"vin"`
-	DisplayName  string            `json:"display_name"`
-	State        string            `json:"state"`
-	ChargeState  ChargeStateTesla  `json:"charge_state"`
-	ClimateState ClimateStateTesla `json:"climate_state"`
-	DriveState   DriveStateTesla   `json:"drive_state"`
-	VehicleState VehicleStateTesla `json:"vehicle_state"`
+	ID            int64              `json:"id"`
+	VIN           string             `json:"vin"`
+	DisplayName   string             `json:"display_name"`
+	State         string             `json:"state"`
+	ChargeState   ChargeStateTesla   `json:"charge_state"`
+	ClimateState  ClimateStateTesla  `json:"climate_state"`
+	DriveState    DriveStateTesla    `json:"drive_state"`
+	VehicleState  VehicleStateTesla  `json:"vehicle_state"`
+	VehicleConfig VehicleConfigTesla `json:"vehicle_config"`
 }
 
 type ChargeStateTesla struct {
@@ -142,6 +143,17 @@ func (v VehicleStateTesla) OdometerKm() float64 {
 	return v.Odometer * milesToKm
 }
 
+// VehicleConfigTesla carries the subset of the vehicle_config sub-object this platform
+// extracts today (RD3 of RM6-static-vehicle-config-fields — exactly these two fields; the
+// live payload has ~47 keys). Both values are static: they never change for a given
+// vehicle after manufacture.
+type VehicleConfigTesla struct {
+	// ExteriorColor is the paint colour code (e.g. "PearlWhite").
+	ExteriorColor string `json:"exterior_color"`
+	// CarType is the model code (e.g. "modely").
+	CarType string `json:"car_type"`
+}
+
 // --- Charging history types ---
 
 // chargingHistoryResponseTesla is the unexported HTTP envelope returned by
@@ -168,17 +180,17 @@ type ChargingHistoryTesla struct {
 // none expressed in miles or mph. The mandatory milesToKm companion rule (DES3,
 // ai/go-conventions.md) is inapplicable to this struct.
 type ChargingSessionTesla struct {
-	SessionID            int64                   `json:"sessionId"`
-	VIN                  string                  `json:"vin"`
-	SiteLocationName     string                  `json:"siteLocationName"`
-	ChargeStartDateTime  time.Time               // parsed from RFC3339 by UnmarshalJSON below
-	ChargeStopDateTime   time.Time               // parsed from RFC3339 by UnmarshalJSON below
-	UnlatchDateTime      time.Time               // parsed from RFC3339 by UnmarshalJSON below
-	CountryCode          string                  `json:"countryCode"`
-	Fees                 []ChargingFeeTesla      `json:"fees"`
-	BillingType          string                  `json:"billingType"`
-	Invoices             []ChargingInvoiceTesla  `json:"invoices"`
-	VehicleMakeType      string                  `json:"vehicleMakeType"`
+	SessionID           int64                  `json:"sessionId"`
+	VIN                 string                 `json:"vin"`
+	SiteLocationName    string                 `json:"siteLocationName"`
+	ChargeStartDateTime time.Time              // parsed from RFC3339 by UnmarshalJSON below
+	ChargeStopDateTime  time.Time              // parsed from RFC3339 by UnmarshalJSON below
+	UnlatchDateTime     time.Time              // parsed from RFC3339 by UnmarshalJSON below
+	CountryCode         string                 `json:"countryCode"`
+	Fees                []ChargingFeeTesla     `json:"fees"`
+	BillingType         string                 `json:"billingType"`
+	Invoices            []ChargingInvoiceTesla `json:"invoices"`
+	VehicleMakeType     string                 `json:"vehicleMakeType"`
 	// Raw is the verbatim JSON of this session object, captured in UnmarshalJSON so
 	// callers can persist a lossless copy (mirroring how VehicleData exposes raw
 	// bytes). Excluded from (un)marshalling — it is populated manually, not from a

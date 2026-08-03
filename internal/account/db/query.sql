@@ -65,6 +65,20 @@ INSERT INTO vehicles (account_id, tesla_id, vin, display_name, access_type)
 VALUES (@account_id, @tesla_id, @vin, @display_name, @access_type)
 ON CONFLICT (account_id, tesla_id) DO NOTHING;
 
+-- name: UpdateVehicleConfigIfEmpty :exec
+-- Conditional write-back for the two static vehicle_config attributes (design.md D4). The
+-- WHERE clause uses OR (not AND): a row missing only one of the two values is still eligible
+-- for a self-healing write, and a row with both already captured never matches (defense in
+-- depth — RD2 — independent of whatever Go-side guard the caller applies). updated_at only
+-- moves when the WHERE clause actually matches a row.
+UPDATE vehicles
+SET exterior_color = @exterior_color,
+    car_type        = @car_type,
+    updated_at      = now()
+WHERE account_id = @account_id
+  AND tesla_id    = @tesla_id
+  AND (exterior_color IS NULL OR car_type IS NULL);
+
 -- name: ListVehiclesByAccount :many
 -- All vehicles registered to an account, ordered by tesla_id for stable output.
 SELECT * FROM vehicles
@@ -76,5 +90,5 @@ ORDER BY tesla_id;
 -- for background collection jobs (nightly telemetry). Ordered (account_id, tesla_id)
 -- for stable, testable output. No join to tesla_tokens: enumeration is decoupled
 -- from connection liveness (that is the caller's job via AccessTokenFor).
-SELECT account_id, tesla_id, vin, display_name, access_type FROM vehicles
+SELECT account_id, tesla_id, vin, display_name, access_type, exterior_color, car_type FROM vehicles
 ORDER BY account_id, tesla_id;

@@ -174,6 +174,18 @@ func (s *service) SeedVehicles(ctx context.Context, accountID uuid.UUID, vehicle
 	return s.RegisteredVehicles(ctx, accountID)
 }
 
+func (s *service) SetVehicleConfigIfEmpty(ctx context.Context, accountID uuid.UUID, teslaID int64, exteriorColor, carType string) error {
+	if err := s.q.UpdateVehicleConfigIfEmpty(ctx, accountdb.UpdateVehicleConfigIfEmptyParams{
+		ExteriorColor: textFromString(exteriorColor),
+		CarType:       textFromString(carType),
+		AccountID:     accountID,
+		TeslaID:       teslaID,
+	}); err != nil {
+		return fmt.Errorf("setting vehicle config for tesla_id=%d: %w", teslaID, err)
+	}
+	return nil
+}
+
 // --- pure helpers (unit-tested without a database) ---
 
 // needsRefresh reports whether a token expiring at expiresAt should be refreshed
@@ -192,10 +204,12 @@ func accessExpiry(now time.Time, expiresIn int) time.Time {
 
 func vehicleFromRow(v accountdb.Vehicle) Vehicle {
 	return Vehicle{
-		TeslaID:     v.TeslaID,
-		VIN:         v.Vin,
-		DisplayName: v.DisplayName.String, // "" when NULL
-		AccessType:  nullableTextToPtr(v.AccessType),
+		TeslaID:       v.TeslaID,
+		VIN:           v.Vin,
+		DisplayName:   v.DisplayName.String, // "" when NULL
+		AccessType:    nullableTextToPtr(v.AccessType),
+		ExteriorColor: nullableTextToPtr(v.ExteriorColor),
+		CarType:       nullableTextToPtr(v.CarType),
 	}
 }
 
@@ -205,11 +219,13 @@ func vehicleFromRow(v accountdb.Vehicle) Vehicle {
 // pgtype never leaves the module.
 func ownedVehicleFromRow(v accountdb.ListAllVehiclesRow) OwnedVehicle {
 	return OwnedVehicle{
-		AccountID:   v.AccountID,
-		TeslaID:     v.TeslaID,
-		VIN:         v.Vin,
-		DisplayName: v.DisplayName.String, // "" when NULL
-		AccessType:  nullableTextToPtr(v.AccessType),
+		AccountID:     v.AccountID,
+		TeslaID:       v.TeslaID,
+		VIN:           v.Vin,
+		DisplayName:   v.DisplayName.String, // "" when NULL
+		AccessType:    nullableTextToPtr(v.AccessType),
+		ExteriorColor: nullableTextToPtr(v.ExteriorColor),
+		CarType:       nullableTextToPtr(v.CarType),
 	}
 }
 

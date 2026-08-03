@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM6-account-add-vehicle-config-fields",
+  "module": "account",
+  "roadmap": "openspec/roadmaps/RM6-static-vehicle-config-fields.md",
+  "request": "Tier 1 of RM6: persist two static Tesla vehicle_config attributes (exterior_color, car_type) on the per-account vehicles registry, so the registry read port serves them with no Tesla call and no cross-module JSONB access. Adds the migration, the domain fields, and the SetVehicleConfigIfEmpty port method the tier-2 telemetry collector will call.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ]
+  },
+  "created_at": "2026-08-03T14:08:24Z",
+  "updated_at": "2026-08-03T16:50:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM6-static-vehicle-config-fields",
+    "base": "main",
+    "created_at": "2026-08-03T13:41:36Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Goose migration: two nullable TEXT columns on vehicles",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T14:12:00Z",
+      "completed_at": "2026-08-03T14:13:00Z",
+      "duration_seconds": 60,
+      "notes": "Created 20260803000001_vehicles_add_config_fields.sql per design.md D1 DDL verbatim, nullable, no DEFAULT/CHECK/index.",
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "Domain types + Service port interface (account.go)",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T14:13:00Z",
+      "completed_at": "2026-08-03T14:14:00Z",
+      "duration_seconds": 60,
+      "notes": "Added ExteriorColor/CarType *string to Vehicle+OwnedVehicle, SetVehicleConfigIfEmpty to Service. go build fails exactly as expected (missing method), confirmed.",
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "sqlc query edits + regeneration (query.sql, make sqlc)",
+      "module": "account",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T14:14:00Z",
+      "completed_at": "2026-08-03T14:16:00Z",
+      "duration_seconds": 120,
+      "notes": "Added UpdateVehicleConfigIfEmpty query; appended cols to ListAllVehicles (ListVehiclesByAccount already SELECT *). make sqlc ran clean. sqlc generated pgtype.Text for both config bind params, not string.",
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "Service implementation + row mapping (service.go)",
+      "module": "account",
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T14:16:00Z",
+      "completed_at": "2026-08-03T14:18:00Z",
+      "duration_seconds": 120,
+      "notes": "Implemented SetVehicleConfigIfEmpty using textFromString (sqlc gave pgtype.Text, not string). Mapped both row funcs via nullableTextToPtr. go build/vet clean scoped to internal/account; repo-wide vet fails elsewhere (see T6 finding).",
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "DATABASE_URL-gated integration tests (incl. the OR self-heal case)",
+      "module": "account",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T14:18:00Z",
+      "completed_at": "2026-08-03T14:24:00Z",
+      "duration_seconds": 360,
+      "notes": "Added TestSetVehicleConfigIfEmpty_RoundTrip covering fresh capture, no-op, self-heal (raw pool.Exec partial row), AllRegisteredVehicles, nil case. Ran against reachable DATABASE_URL from .env: all PASS, self-heal case PASS.",
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Verification: build/vet/test, boundary check, openspec validate",
+      "module": "account",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-03T14:24:00Z",
+      "completed_at": "2026-08-03T16:42:00Z",
+      "duration_seconds": 240,
+      "notes": "Unblocked by the leader's cross-module fake fix (D4). build+vet now PASS repo-wide; openspec validate --strict PASS; boundary check PASS. DB-backed packages unrunnable in the leader env (no Postgres, no Docker) -- identical failure on a stashed pre-change baseline, so no regression.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "account-reviewer",
+    "brief": "Review commit 3a0cb20 (diff vs 7e5743e) for RM6 tier 1. Validate: (1) module boundaries -- internal/account does not import internal/tesla; pgtype confined to service.go + accountdb; the only non-account edits are the two leader-owned test-fake stubs. (2) design.md fidelity -- DDL nullable TEXT, no DEFAULT/CHECK/index (D1/D2); UpdateVehicleConfigIfEmpty carries OR not AND (D4/RD2); NULL = not-yet-captured; SeedVehicle/SeedVehicles UNCHANGED (RD3/RD5). (3) spec-delta + tasks coverage, all boxes truthful. (4) Tests -- T5 covers fresh capture, no-op, OR self-heal, AllRegisteredVehicles, nil round-trip; no Tesla API call. (5) Performance-Profile (read-heavy): reads add two heap columns to existing row lookups, no new index -- confirm justified. (6) Anti-gaming: no weakened/deleted criteria, no self-approved statuses; check the T6.2 caveat in tasks.md is honest, not a cover for skipped verification.",
+    "rounds": [
+      {
+        "at": "2026-08-03T16:42:49Z",
+        "agent": "account-reviewer",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/account/AGENTS.md"
+        ],
+        "findings": [],
+        "notes": "Diff (7e5743e..3a0cb20) matches design.md D1/D2/D4 verbatim: nullable TEXT, no DEFAULT/CHECK/index; OR-semantics WHERE clause. No internal/tesla import, no pgtype outside service.go/accountdb. Only files touched: the 9 account-module files + the 2 leader-owned test-fake stubs (minimal, correct). SeedVehicle/SeedVehicles unchanged. T5 test genuinely covers fresh capture, no-op, OR self-heal (via raw pool.Exec), AllRegisteredVehicles, nil round-trip. go build/go vet clean repo-wide; gofmt flags pre-existing drift in 3 files, none in this diff's added lines (verified against 7e5743e baseline). tasks.md: only checkboxes flipped + notes appended, no task text edited/deleted. T6.2 note is honest disclosure (specific env failure, cross-checked against pre-change baseline, not a false green claim). Could not independently run DB-backed tests (no Postgres/Docker in this env) -- reviewed by reading code only, consistent with the stated environment note."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-03T14:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate CONFIRMED: two nullable TEXT columns (exterior_color, car_type) on vehicles, no DEFAULT, no CHECK, no new index, and the OR-semantics conditional UPDATE.",
+      "why": "User confirmed the design, the per-query index justification (every access locates its row via the existing UNIQUE (account_id, tesla_id) index; neither column is ever a predicate), and the deliberate no-CHECK divergence from the access_type precedent (open-ended Tesla enums).",
+      "covered_by": "roadmap RD2/RD3/RD5"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-03T14:00:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Kept the uppercase change/folder name RM6-account-add-vehicle-config-fields despite the worker's report that the OpenSpec CLI rejects it.",
+      "why": "Verified directly: `openspec validate --strict` (the gate the pipeline uses) ACCEPTS the uppercase name; only `new change` and `status --change` reject it, and neither is needed again. Archiving here is a manual domain-grouped git mv, so nothing downstream depends on the CLI. Matches the skill contract and the RM1-RM4 archive precedent.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-03T14:06:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader-corrected four defects in the worker's artifacts before implementation rather than re-dispatching: (a) a doc comment falsely claiming the method never overwrites a captured value, (b) an unverified assertion about sqlc's inferred bind-param Go type, (c) a vague/skippable self-heal test, (d) a lowercase change name in T6.4.",
+      "why": "All four are small factual corrections, not design changes; fixing them inline costs a fraction of a re-dispatch, and (a) and (c) would otherwise have been copied verbatim into the implementation and the test suite.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-03T16:40:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader added the SetVehicleConfigIfEmpty stub to the fakeAccount doubles in internal/gateway/handlers/handlers_test.go and internal/telemetry/service_test.go, and closed T6 as done rather than re-dispatching the worker.",
+      "why": "The widened account.Service interface broke those two sibling modules' test compilation -- cross-module integration code is leader-owned by contract, and the account worker is sandboxed out of both. Two stub methods; a re-dispatch could not have done it.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-03T16:41:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted T6.2 as satisfied without a live green run of the DB-backed packages, and proceeded to review instead of blocking on the database.",
+      "why": "localhost:5432 refuses connections and Docker is down in this session, so neither the DATABASE_URL path nor the testcontainers fallback can run. Verified via a stashed pre-change baseline that internal/telemetry fails identically without the change, so this is environmental, not a regression; the T5 tests were run green by the worker earlier the same day against a then-reachable DATABASE_URL. Recorded verbatim in tasks.md T6.2 rather than silently ticking it.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-03T13:52:00Z",
+      "agent": "leader",
+      "event": "Dispatched account worker (Sonnet) to author tier-1 artifacts. Returned proposal/design/tasks/spec-delta; openspec validate --strict green."
+    },
+    {
+      "at": "2026-08-03T14:06:00Z",
+      "agent": "leader",
+      "event": "Leader-fixed 4 artifact defects (see D3); re-validated --strict green."
+    },
+    {
+      "at": "2026-08-03T14:08:24Z",
+      "agent": "leader",
+      "event": "Database design gate PASSED with the user (D1). Budget instrumentation went DEGRADED at this boundary: scripts/budget.sh returned available:true but all-null readings under a foreign session_id (5ed135f7... vs this session b06f1d8a...), so this tier's task budgets are null/unavailable and the auto-checkpoint gate is warn-only. Proceeding to wave 1."
+    },
+    {
+      "at": "2026-08-03T14:12:00Z",
+      "agent": "leader",
+      "event": "Dispatched account worker (Sonnet, serial) for wave 1 = all tasks T1-T6. Batched rather than split into 5 dependency waves: the graph is near-sequential (only T1/T2 are parallel-ok) so separate dispatches would re-read the doc pack for no concurrency gain."
+    },
+    {
+      "at": "2026-08-03T16:42:00Z",
+      "agent": "leader",
+      "event": "Resumed after a dead session (wave 1 had returned but was never reconciled/committed). Fixed 2 sibling test fakes (D4) + a gofmt nit in handlers_test.go; build/vet/validate green; T6 done; status -> verified. DB tests unrunnable in this env (D5)."
+    },
+    {
+      "at": "2026-08-03T16:50:00Z",
+      "agent": "leader",
+      "event": "Reviewer-approved round 1, zero findings. Delta merged into openspec/specs/account-vehicle-registry/spec.md; change moved to the domain-grouped archive path openspec/changes/archive/account/. Roadmap RM6 tier 1 -> [x]."
+    }
+  ]
+}

@@ -147,6 +147,9 @@ func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned
 		// every one of its vehicles as unauthorized and skip all Tesla calls. A
 		// refresh error other than ErrNoTeslaConnection is still an auth problem for
 		// this account, so it maps to unauthorized too (no per-vehicle retry helps).
+		// No captureVehicleConfig call here (design.md D2): no VehicleData was fetched
+		// for any vehicle in this branch, so a config write-back would always be a
+		// guaranteed no-op — this omission is deliberate, not a gap.
 		for _, v := range owned {
 			s.record(ctx, accountID, v.TeslaID, ReasonUnauthorized, report)
 		}
@@ -161,6 +164,9 @@ func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned
 		if errors.Is(err, tesla.ErrUnauthorized) {
 			// The account's token is rejected fleet-wide: record every vehicle as
 			// unauthorized and make NO further Tesla calls for this account.
+			// No captureVehicleConfig call here (design.md D2): no VehicleData was
+			// fetched for any vehicle in this branch, so a config write-back would
+			// always be a guaranteed no-op — this omission is deliberate, not a gap.
 			for _, v := range owned {
 				s.record(ctx, accountID, v.TeslaID, ReasonUnauthorized, report)
 			}
@@ -171,6 +177,8 @@ func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned
 		// re-introduce the very WakeUp waste this change removes), treat the whole
 		// account's fetch as an api-error for this cycle and record each vehicle
 		// accordingly — per-vehicle isolation is preserved (the cycle continues).
+		// No captureVehicleConfig call here (design.md D2): same reasoning as above —
+		// no VehicleData was fetched for any vehicle in this branch.
 		for _, v := range owned {
 			s.record(ctx, accountID, v.TeslaID, ReasonAPIError, report)
 		}
@@ -178,8 +186,9 @@ func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned
 	}
 
 	for _, v := range owned {
-		reason := s.collectVehicle(ctx, creds, accountID, v.TeslaID, states[v.TeslaID])
-		s.record(ctx, accountID, v.TeslaID, reason, report)
+		reason, cfg := s.collectVehicle(ctx, creds, v, states[v.TeslaID])
+		s.record(ctx, v.AccountID, v.TeslaID, reason, report)
+		s.captureVehicleConfig(ctx, v, cfg, report)
 	}
 
 	// Source B: fetch Supercharger session history for this account (design DBS7).
@@ -274,60 +283,110 @@ func (s *service) listStates(ctx context.Context, creds tesla.Credentials) (map[
 	return states, nil
 }
 
+// vehicleConfig carries the two static vehicle_config values observed during one
+// attemptVehicle pass, so collectAccount (never attemptVehicle, RD6) can decide whether to
+// write them back through the account port. The zero value (both fields "") means "not
+// observed this pass" — either the attempt never reached VehicleData (wake timeout,
+// unauthorized, a persistent api-error) or Tesla itself reported an empty string for one or
+// both fields. Either way the caller's empty-string guard (RD5) treats it identically: skip.
+type vehicleConfig struct {
+	exteriorColor string
+	carType       string
+}
+
 // collectVehicle collects one vehicle with a single bounded retry for transient
 // (api-error) failures (D5). Unauthorized and asleep-timeout are terminal — never
 // retried. state is the vehicle's State from the per-account ListVehicles (D3), used to
-// decide whether a WakeUp is even needed. It returns the Reason to record; it does NOT
-// write the poll_attempt (the caller does, exactly once per vehicle per cycle).
-func (s *service) collectVehicle(ctx context.Context, creds tesla.Credentials, accountID uuid.UUID, teslaID int64, state string) Reason {
-	reason := s.attemptVehicle(ctx, creds, accountID, teslaID, state)
+// decide whether a WakeUp is even needed. It returns the Reason to record plus the
+// observed vehicleConfig (RM6 tier 2); it does NOT write the poll_attempt (the caller
+// does, exactly once per vehicle per cycle). The retry's result — not the first
+// attempt's — is what reaches the caller for both return values: this is what gives
+// RD6's "at most one write-back per vehicle per cycle" for free.
+func (s *service) collectVehicle(ctx context.Context, creds tesla.Credentials, v account.OwnedVehicle, state string) (Reason, vehicleConfig) {
+	reason, cfg := s.attemptVehicle(ctx, creds, v, state)
 	if reason == ReasonAPIError {
 		// Exactly one retry after a short backoff, and only for transient errors.
 		select {
 		case <-ctx.Done():
-			return reason
+			return reason, cfg
 		case <-time.After(s.retryBackoff):
 		}
-		reason = s.attemptVehicle(ctx, creds, accountID, teslaID, state)
+		reason, cfg = s.attemptVehicle(ctx, creds, v, state)
 	}
-	return reason
+	return reason, cfg
 }
 
 // attemptVehicle performs one [wake→]fetch→map→store pass for a single vehicle and
-// returns the Reason for the outcome. It is fully error-contained: any failure maps
-// to a Reason and is returned, never propagated. The wake step is SKIPPED when the
-// per-account ListVehicles already reported the vehicle online (D3/D4): an online
-// vehicle goes straight to VehicleData with no paid WakeUp; only an asleep/offline/
-// absent vehicle runs the bounded wake flow. Reason mapping (D5):
+// returns the Reason for the outcome plus the observed vehicleConfig (RM6 tier 2). It is
+// fully error-contained: any failure maps to a Reason and is returned, never propagated.
+// The wake step is SKIPPED when the per-account ListVehicles already reported the vehicle
+// online (D3/D4): an online vehicle goes straight to VehicleData with no paid WakeUp; only
+// an asleep/offline/absent vehicle runs the bounded wake flow. Reason mapping (D5):
 //   - wake deadline elapsed (waitUntilOnline returned false,nil) → asleep-timeout
 //   - tesla.ErrUnauthorized anywhere → unauthorized (terminal)
 //   - any other tesla/decode/store error → api-error (the caller retries once)
 //   - snapshot stored → ok
-func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, accountID uuid.UUID, teslaID int64, state string) Reason {
+//   - on ReasonOK, the returned vehicleConfig carries the observed exterior_color/car_type
+//     from this pass's VehicleData response; every other return path yields the zero
+//     vehicleConfig{}.
+func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, v account.OwnedVehicle, state string) (Reason, vehicleConfig) {
 	if state != "online" {
 		// Asleep/offline/absent-from-the-list → run the bounded wake flow (D4). An
 		// already-online vehicle bypasses this entirely, saving a paid WakeUp.
-		online, err := waitUntilOnline(ctx, s.tsla, creds, teslaID, s.cfg.WakeTimeout)
+		online, err := waitUntilOnline(ctx, s.tsla, creds, v.TeslaID, s.cfg.WakeTimeout)
 		if err != nil {
-			return s.logAPIError(teslaID, "wake", err, reasonFor(err))
+			return s.logAPIError(v.TeslaID, "wake", err, reasonFor(err)), vehicleConfig{}
 		}
 		if !online {
 			// The bounded wake window elapsed before the vehicle reported online.
-			return ReasonAsleepTimeout
+			return ReasonAsleepTimeout, vehicleConfig{}
 		}
 	}
 
-	data, raw, err := s.tsla.VehicleData(ctx, creds, teslaID)
+	data, raw, err := s.tsla.VehicleData(ctx, creds, v.TeslaID)
 	if err != nil {
-		return s.logAPIError(teslaID, "VehicleData", err, reasonFor(err))
+		return s.logAPIError(v.TeslaID, "VehicleData", err, reasonFor(err)), vehicleConfig{}
 	}
 
-	snap := snapshotFrom(accountID, teslaID, s.now(), data, raw)
+	snap := snapshotFrom(v.AccountID, v.TeslaID, s.now(), data, raw)
 	if err := s.store.insertSnapshot(ctx, snap); err != nil {
 		// A store failure is transient from the cycle's point of view (retry once).
-		return s.logAPIError(teslaID, "insertSnapshot", err, ReasonAPIError)
+		return s.logAPIError(v.TeslaID, "insertSnapshot", err, ReasonAPIError), vehicleConfig{}
 	}
-	return ReasonOK
+	return ReasonOK, vehicleConfig{exteriorColor: data.VehicleConfig.ExteriorColor, carType: data.VehicleConfig.CarType}
+}
+
+// captureVehicleConfig persists the two static vehicle_config values observed during this
+// cycle's collectVehicle pass for v, through the account port, at most once per vehicle per
+// cycle. It never touches s.tsla and is called only from collectAccount (RD6) —
+// attemptVehicle stays a pure fetch/map/store pass with no account-port access.
+//
+// Two independent skip conditions, checked in order:
+//  1. RD2 (Go-side guard): v's already-known registry record has BOTH ExteriorColor and
+//     CarType non-nil — already captured in a prior cycle, nothing to do. (The account
+//     module's own SQL WHERE (exterior_color IS NULL OR car_type IS NULL) is the second,
+//     independent guard — tier 1 design D4 — so this Go-side check is belt-and-braces, not
+//     the only thing preventing a clobber.)
+//  2. RD5: either observed value in cfg is "" — either Tesla reported an empty string, or
+//     the vehicle's capture attempt never reached VehicleData this cycle (cfg is the zero
+//     value). Writing "" would satisfy the account port's own IS-NULL guard forever,
+//     permanently freezing the vehicle in a "captured" state with no real value and no way
+//     to self-heal.
+//
+// On a genuine write-back attempt, a returned error increments report.ConfigCaptureFailures
+// (RD4) — it does NOT alter the vehicle's already-recorded Reason (record() already ran one
+// line above the call site) and does NOT write a poll_attempts row of its own; the failure
+// is retried for free on the next cycle since the registry row is still missing a value.
+func (s *service) captureVehicleConfig(ctx context.Context, v account.OwnedVehicle, cfg vehicleConfig, report *CycleReport) {
+	if v.ExteriorColor != nil && v.CarType != nil {
+		return
+	}
+	if cfg.exteriorColor == "" || cfg.carType == "" {
+		return
+	}
+	if err := s.acct.SetVehicleConfigIfEmpty(ctx, v.AccountID, v.TeslaID, cfg.exteriorColor, cfg.carType); err != nil {
+		report.ConfigCaptureFailures++
+	}
 }
 
 // logAPIError is a TEMPORARY diagnostic seam. The per-cycle summary (LogCycle)

@@ -550,6 +550,121 @@ func TestAccessType_InvalidValueRejectedByCheckConstraint(t *testing.T) {
 	}
 }
 
+// TestSetVehicleConfigIfEmpty_RoundTrip verifies the conditional-update port method
+// (design.md D4, DATABASE_URL-gated) through the full seed -> capture -> read path.
+// Mirrors TestAccessType_RoundTrip's setup. Covers: fresh capture, no-op once fully
+// captured, self-heal of a partially-captured row (the OR-semantics case that
+// distinguishes design.md D4 from the rejected AND), both read paths, and the nil
+// (never-captured) case.
+func TestSetVehicleConfigIfEmpty_RoundTrip(t *testing.T) {
+	s, pool := newTestService(t)
+	ctx := context.Background()
+
+	acct, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "vehicle-config-roundtrip@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account: %v", err)
+	}
+	deleteAccount(t, pool, acct.ID)
+
+	const (
+		freshCaptureID  int64 = 10001 // fresh capture, then a no-op re-call
+		selfHealID      int64 = 10002 // partially-captured row, self-heals via OR
+		neverCapturedID int64 = 10003 // nil round-trip: capture never called
+	)
+
+	if _, err := s.SeedVehicles(ctx, acct.ID, []SeedVehicle{
+		{TeslaID: freshCaptureID, VIN: "VIN10001", DisplayName: "Fresh Capture Car"},
+		{TeslaID: selfHealID, VIN: "VIN10002", DisplayName: "Self Heal Car"},
+		{TeslaID: neverCapturedID, VIN: "VIN10003", DisplayName: "Never Captured Car"},
+	}); err != nil {
+		t.Fatalf("seeding vehicles: %v", err)
+	}
+	// SeedVehicles never sets exterior_color/car_type: all three start NULL.
+
+	// --- Fresh capture: both NULL -> both set ---
+	if err := s.SetVehicleConfigIfEmpty(ctx, acct.ID, freshCaptureID, "PearlWhite", "modely"); err != nil {
+		t.Fatalf("SetVehicleConfigIfEmpty (fresh capture): %v", err)
+	}
+
+	byID := func() map[int64]Vehicle {
+		vehicles, err := s.RegisteredVehicles(ctx, acct.ID)
+		if err != nil {
+			t.Fatalf("RegisteredVehicles: %v", err)
+		}
+		m := map[int64]Vehicle{}
+		for _, v := range vehicles {
+			m[v.TeslaID] = v
+		}
+		return m
+	}
+
+	got := byID()
+	if v := got[freshCaptureID]; v.ExteriorColor == nil || *v.ExteriorColor != "PearlWhite" || v.CarType == nil || *v.CarType != "modely" {
+		t.Fatalf("fresh capture: want ExteriorColor=PearlWhite CarType=modely, got %+v", v)
+	}
+
+	// --- No-op on a fully-captured row: a second call with different values must not overwrite ---
+	if err := s.SetVehicleConfigIfEmpty(ctx, acct.ID, freshCaptureID, "SolidBlack", "modelx"); err != nil {
+		t.Fatalf("SetVehicleConfigIfEmpty (no-op attempt): %v", err)
+	}
+	got = byID()
+	if v := got[freshCaptureID]; v.ExteriorColor == nil || *v.ExteriorColor != "PearlWhite" || v.CarType == nil || *v.CarType != "modely" {
+		t.Fatalf("expected no-op to leave PearlWhite/modely unchanged, got %+v", v)
+	}
+
+	// --- Self-heal on a partially-captured row ---
+	// A partial state is unreachable through the port (SetVehicleConfigIfEmpty always
+	// sets both columns together), so construct it directly with a raw exec: leave
+	// car_type NULL while exterior_color is already set.
+	if _, err := pool.Exec(ctx,
+		"UPDATE vehicles SET exterior_color = $1 WHERE account_id = $2 AND tesla_id = $3",
+		"PearlWhite", acct.ID, selfHealID,
+	); err != nil {
+		t.Fatalf("constructing partially-captured row: %v", err)
+	}
+	// Confirm the partial state landed before exercising the method under test.
+	partial := byID()
+	if v := partial[selfHealID]; v.ExteriorColor == nil || *v.ExteriorColor != "PearlWhite" || v.CarType != nil {
+		t.Fatalf("expected partial row exterior_color=PearlWhite car_type=nil before self-heal, got %+v", v)
+	}
+
+	if err := s.SetVehicleConfigIfEmpty(ctx, acct.ID, selfHealID, "PearlWhite", "modely"); err != nil {
+		t.Fatalf("SetVehicleConfigIfEmpty (self-heal): %v", err)
+	}
+	got = byID()
+	if v := got[selfHealID]; v.ExteriorColor == nil || *v.ExteriorColor != "PearlWhite" || v.CarType == nil || *v.CarType != "modely" {
+		t.Fatalf("self-heal: want BOTH columns populated (PearlWhite/modely) proving the OR condition matched, got %+v", v)
+	}
+
+	// --- nil round-trip: capture never called for this vehicle ---
+	if v := got[neverCapturedID]; v.ExteriorColor != nil || v.CarType != nil {
+		t.Fatalf("never-captured vehicle: want ExteriorColor=nil CarType=nil, got %+v", v)
+	}
+
+	// --- AllRegisteredVehicles surfaces the same two fields correctly ---
+	all, err := s.AllRegisteredVehicles(ctx)
+	if err != nil {
+		t.Fatalf("AllRegisteredVehicles: %v", err)
+	}
+	mine := vehiclesForAccount(all, acct.ID)
+	if len(mine) != 3 {
+		t.Fatalf("expected 3 owned vehicles, got %d (%+v)", len(mine), mine)
+	}
+	if v := mine[freshCaptureID]; v.ExteriorColor == nil || *v.ExteriorColor != "PearlWhite" || v.CarType == nil || *v.CarType != "modely" {
+		t.Errorf("AllRegisteredVehicles fresh-capture vehicle: want PearlWhite/modely, got %+v", v)
+	}
+	if v := mine[selfHealID]; v.ExteriorColor == nil || *v.ExteriorColor != "PearlWhite" || v.CarType == nil || *v.CarType != "modely" {
+		t.Errorf("AllRegisteredVehicles self-heal vehicle: want PearlWhite/modely, got %+v", v)
+	}
+	if v := mine[neverCapturedID]; v.ExteriorColor != nil || v.CarType != nil {
+		t.Errorf("AllRegisteredVehicles never-captured vehicle: want nil/nil, got %+v", v)
+	}
+}
+
 func TestSeedVehicles_IdempotentAndDoesNotOverwrite(t *testing.T) {
 	s, pool := newTestService(t)
 	ctx := context.Background()

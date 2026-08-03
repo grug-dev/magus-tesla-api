@@ -29,6 +29,19 @@ type fakeAccount struct {
 	tokens map[uuid.UUID]string
 	// allErr, when set, makes AllRegisteredVehicles fail (whole-cycle failure path).
 	allErr error
+	// configCaptures records every SetVehicleConfigIfEmpty call (RM6 tier 2).
+	configCaptures []configCapture
+	// configCaptureErr, when set, is returned by every SetVehicleConfigIfEmpty call.
+	configCaptureErr error
+}
+
+// configCapture records one SetVehicleConfigIfEmpty call observed by fakeAccount
+// (RM6 tier 2, design.md D5).
+type configCapture struct {
+	accountID     uuid.UUID
+	teslaID       int64
+	exteriorColor string
+	carType       string
 }
 
 func (f *fakeAccount) AllRegisteredVehicles(_ context.Context) ([]account.OwnedVehicle, error) {
@@ -57,6 +70,17 @@ func (f *fakeAccount) RegisteredVehicles(context.Context, uuid.UUID) ([]account.
 }
 func (f *fakeAccount) SeedVehicles(context.Context, uuid.UUID, []account.SeedVehicle) ([]account.Vehicle, error) {
 	return nil, nil
+}
+
+// SetVehicleConfigIfEmpty is the recording double consumed by RM6 tier 2
+// (RM6-telemetry-capture-vehicle-config): every call is appended to configCaptures, and
+// configCaptureErr (nil by default) is returned so tests can script a write-back failure.
+func (f *fakeAccount) SetVehicleConfigIfEmpty(_ context.Context, accountID uuid.UUID, teslaID int64, exteriorColor, carType string) error {
+	f.configCaptures = append(f.configCaptures, configCapture{accountID, teslaID, exteriorColor, carType})
+	if f.configCaptureErr != nil {
+		return f.configCaptureErr
+	}
+	return nil
 }
 
 // --- fake tesla.VehicleService, programmable per vehicle id ---
@@ -188,9 +212,9 @@ type fakeStore struct {
 	attempts  []recordedAttempt
 	// snapErr, when set, fails the Nth insertSnapshot (1-based) — used to test the
 	// store-error → api-error → retry path.
-	snapErr      error
-	snapErrOnce  bool
-	snapInserts  int
+	snapErr     error
+	snapErrOnce bool
+	snapInserts int
 	// upsertedSessions records all SuperchargerSession upserts (B7 tests inspect this).
 	upsertedSessions []SuperchargerSession
 	// upsertErr, when set, is returned by every upsertSuperchargerSession call.
@@ -680,6 +704,195 @@ func TestCollectAll_SentryModeFidelityPreserved(t *testing.T) {
 	}
 	if byID[112] != nil {
 		t.Errorf("vehicle 112 sentry should stay nil (not reported), got %v", *byID[112])
+	}
+}
+
+// --- RM6 tier 2: config-capture offline tests (RM6-telemetry-capture-vehicle-config) ---
+
+// TestCollectAll_ConfigCapture_SkipsWhenAlreadyCaptured proves the RD2 Go-side guard: a
+// vehicle whose registry record already has both ExteriorColor and CarType non-nil is never
+// re-written, even though this cycle's VehicleData response also carries non-empty
+// vehicle_config values (proving the skip is the already-captured guard, not merely "no
+// data was observed").
+func TestCollectAll_ConfigCapture_SkipsWhenAlreadyCaptured(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	d := onlineData(200, nil)
+	d.VehicleConfig = tesla.VehicleConfigTesla{ExteriorColor: "PearlWhite", CarType: "modely"}
+	ft.set(200, &vehicleScript{state: "online", data: d})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{
+			AccountID: acctID, TeslaID: 200,
+			ExteriorColor: ptr("PearlWhite"), CarType: ptr("modely"),
+		}},
+		tokens: map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectAll(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected whole-cycle error: %v", err)
+	}
+	if len(fa.configCaptures) != 0 {
+		t.Errorf("want 0 config captures for an already-captured vehicle, got %d: %+v", len(fa.configCaptures), fa.configCaptures)
+	}
+	if report.Succeeded != 1 {
+		t.Errorf("want the snapshot still captured normally (Succeeded=1), got %+v", report)
+	}
+	// Spec scenario "Cycle report's config capture counter is zero when nothing needed
+	// writing back": this test's GIVEN (registry record already fully captured) is exactly
+	// that scenario's GIVEN, so the same run proves both requirements at once.
+	if report.ConfigCaptureFailures != 0 {
+		t.Errorf("want ConfigCaptureFailures=0 when nothing needed writing back, got %d", report.ConfigCaptureFailures)
+	}
+}
+
+// TestCollectAll_ConfigCapture_WritesBackWhenObserved proves the successful write-back path:
+// a vehicle with nil ExteriorColor/CarType whose VehicleData response reports non-empty
+// values gets exactly one SetVehicleConfigIfEmpty call with the observed values.
+func TestCollectAll_ConfigCapture_WritesBackWhenObserved(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	d := onlineData(201, nil)
+	d.VehicleConfig = tesla.VehicleConfigTesla{ExteriorColor: "SolidBlack", CarType: "model3"}
+	ft.set(201, &vehicleScript{state: "online", data: d})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 201}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	if _, err := svc.CollectAll(context.Background()); err != nil {
+		t.Fatalf("unexpected whole-cycle error: %v", err)
+	}
+	if len(fa.configCaptures) != 1 {
+		t.Fatalf("want exactly 1 config capture, got %d: %+v", len(fa.configCaptures), fa.configCaptures)
+	}
+	got := fa.configCaptures[0]
+	if got.accountID != acctID || got.teslaID != 201 || got.exteriorColor != "SolidBlack" || got.carType != "model3" {
+		t.Errorf("config capture recorded wrong values: %+v", got)
+	}
+}
+
+// TestCollectAll_ConfigCapture_SkipsWhenObservedValueEmpty proves RD5: an empty observed
+// value (Tesla reported "" for one of the two fields) is never written back, independent of
+// the already-captured guard (RD2), since this vehicle's registry record has nil fields.
+func TestCollectAll_ConfigCapture_SkipsWhenObservedValueEmpty(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	d := onlineData(202, nil)
+	d.VehicleConfig = tesla.VehicleConfigTesla{ExteriorColor: "SolidBlack", CarType: ""}
+	ft.set(202, &vehicleScript{state: "online", data: d})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 202}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	if _, err := svc.CollectAll(context.Background()); err != nil {
+		t.Fatalf("unexpected whole-cycle error: %v", err)
+	}
+	if len(fa.configCaptures) != 0 {
+		t.Errorf("want 0 config captures when an observed value is empty, got %d: %+v", len(fa.configCaptures), fa.configCaptures)
+	}
+}
+
+// TestCollectAll_ConfigCapture_FailedCaptureAttemptSkipsWriteBack proves that a vehicle
+// whose capture attempt fails persistently (exhausting the bounded retry, landing on
+// ReasonAPIError) never observes a vehicle_config this cycle, so no write-back is attempted
+// — and its recorded poll_attempts outcome/reason is unaffected by config capture.
+func TestCollectAll_ConfigCapture_FailedCaptureAttemptSkipsWriteBack(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	// Persistent (non-dataErrOnce) VehicleData failure exhausts the one bounded retry.
+	ft.set(203, &vehicleScript{state: "online", dataErr: errors.New("tesla: 503")})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 203}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	if _, err := svc.CollectAll(context.Background()); err != nil {
+		t.Fatalf("unexpected whole-cycle error: %v", err)
+	}
+	if len(fa.configCaptures) != 0 {
+		t.Errorf("want 0 config captures when VehicleData never succeeds, got %d: %+v", len(fa.configCaptures), fa.configCaptures)
+	}
+	assertOneAttempt(t, fs, 203, ReasonAPIError, OutcomeFailure)
+}
+
+// TestCollectAll_ConfigCapture_FailureIncrementsCounterWithoutAffectingAttempt proves RD4:
+// a failed SetVehicleConfigIfEmpty call increments CycleReport.ConfigCaptureFailures without
+// altering the vehicle's already-recorded Reason/Outcome (still ReasonOK/OutcomeSuccess),
+// and the attempt to write back still happened (len(configCaptures) == 1).
+func TestCollectAll_ConfigCapture_FailureIncrementsCounterWithoutAffectingAttempt(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	d := onlineData(204, nil)
+	d.VehicleConfig = tesla.VehicleConfigTesla{ExteriorColor: "MidnightSilver", CarType: "modelx"}
+	ft.set(204, &vehicleScript{state: "online", data: d})
+
+	fa := &fakeAccount{
+		vehicles:         []account.OwnedVehicle{{AccountID: acctID, TeslaID: 204}},
+		tokens:           map[uuid.UUID]string{acctID: "tok"},
+		configCaptureErr: errors.New("account: db write failed"),
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectAll(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected whole-cycle error: %v", err)
+	}
+	if report.ConfigCaptureFailures != 1 {
+		t.Errorf("want ConfigCaptureFailures=1, got %d", report.ConfigCaptureFailures)
+	}
+	if len(fa.configCaptures) != 1 {
+		t.Errorf("want the write-back attempt to have happened once, got %d", len(fa.configCaptures))
+	}
+	assertOneAttempt(t, fs, 204, ReasonOK, OutcomeSuccess)
+}
+
+// TestCollectAll_ConfigCapture_RetryWritesBackAtMostOnce proves RD6: even though
+// collectVehicle's bounded retry calls attemptVehicle twice (first transient failure, then
+// success), captureVehicleConfig is only invoked once per vehicle per cycle — using the
+// retry's observed values, never the first (failed) attempt's.
+func TestCollectAll_ConfigCapture_RetryWritesBackAtMostOnce(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	d := onlineData(205, nil)
+	d.VehicleConfig = tesla.VehicleConfigTesla{ExteriorColor: "DeepBlue", CarType: "modely"}
+	ft.set(205, &vehicleScript{
+		state:       "online",
+		dataErr:     errors.New("tesla: 500 upstream"),
+		dataErrOnce: true,
+		data:        d,
+	})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 205}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	if _, err := svc.CollectAll(context.Background()); err != nil {
+		t.Fatalf("unexpected whole-cycle error: %v", err)
+	}
+	if len(fa.configCaptures) != 1 {
+		t.Fatalf("want exactly 1 config capture across the retry, got %d: %+v", len(fa.configCaptures), fa.configCaptures)
+	}
+	got := fa.configCaptures[0]
+	if got.exteriorColor != "DeepBlue" || got.carType != "modely" {
+		t.Errorf("want the retry's observed values, got %+v", got)
 	}
 }
 

@@ -89,9 +89,9 @@ func LogCycle(report CycleReport, err error) {
 	if err != nil {
 		log.Printf("telemetry cycle: whole-cycle error: %v", err)
 	}
-	log.Printf("telemetry cycle: attempted=%d succeeded=%d failures={%s} charging_upserted=%d charging_failures=%d",
+	log.Printf("telemetry cycle: attempted=%d succeeded=%d failures={%s} charging_upserted=%d charging_failures=%d config_capture_failures=%d",
 		report.Attempted, report.Succeeded, formatFailures(report.FailuresByReason),
-		report.ChargingSessionsUpserted, report.ChargingFetchFailures)
+		report.ChargingSessionsUpserted, report.ChargingFetchFailures, report.ConfigCaptureFailures)
 }
 
 // formatFailures renders the failures-by-reason map in a stable (reason-sorted) order so

@@ -206,6 +206,11 @@ type CycleReport struct {
 	// ChargingHistory call failed (network error, 401, etc.). A non-zero value
 	// signals partial data for those accounts.
 	ChargingFetchFailures int
+	// ConfigCaptureFailures is the number of vehicle_config write-back attempts that failed
+	// (the account port's SetVehicleConfigIfEmpty call returned an error). A failed write-back
+	// never changes the vehicle's Reason and never writes a poll_attempts row — it is retried
+	// for free on the next cycle since the registry row is still missing at least one column.
+	ConfigCaptureFailures int
 }
 
 // Collector runs one collection cycle over every registered vehicle across all
@@ -256,10 +261,10 @@ type Reader interface {
 // of these fields are distances or speeds (design DBS5).
 type SuperchargerSession struct {
 	ID                  uuid.UUID
-	SessionID           int64      // Tesla's globally-unique session id
+	SessionID           int64 // Tesla's globally-unique session id
 	AccountID           uuid.UUID
 	VIN                 string
-	TeslaID             *int64     // NULL when VIN not a current registered vehicle
+	TeslaID             *int64 // NULL when VIN not a current registered vehicle
 	SiteLocationName    string
 	CountryCode         string
 	ChargeStartDateTime time.Time
@@ -267,11 +272,11 @@ type SuperchargerSession struct {
 	UnlatchDateTime     *time.Time // NULL when not present in response
 	BillingType         string
 	VehicleMakeType     string
-	EnergyKWh           *float64   // derived; NULL when no kWh fee (design DBS2)
-	TotalCost           *float64   // derived; NULL when fees empty
-	Currency            *string    // derived; NULL when fees empty
-	IsPaid              *bool      // derived; NULL when fees empty
-	RawData             []byte     // verbatim session JSON (fees[] + invoices[])
+	EnergyKWh           *float64 // derived; NULL when no kWh fee (design DBS2)
+	TotalCost           *float64 // derived; NULL when fees empty
+	Currency            *string  // derived; NULL when fees empty
+	IsPaid              *bool    // derived; NULL when fees empty
+	RawData             []byte   // verbatim session JSON (fees[] + invoices[])
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 }
