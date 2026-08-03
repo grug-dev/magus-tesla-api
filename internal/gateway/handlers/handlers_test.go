@@ -58,6 +58,13 @@ func (f fakeAccount) RegisteredVehicles(context.Context, uuid.UUID) ([]account.V
 func (f fakeAccount) AllRegisteredVehicles(context.Context) ([]account.OwnedVehicle, error) {
 	return nil, nil
 }
+
+// SetVehicleConfigIfEmpty satisfies the widened account.Service (written by the telemetry
+// collector, not by the gateway); the gateway never calls it, so a stub suffices.
+func (f fakeAccount) SetVehicleConfigIfEmpty(context.Context, uuid.UUID, int64, string, string) error {
+	return nil
+}
+
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {
 	f.seedCalls++
 	f.lastSeedVehicles = vs

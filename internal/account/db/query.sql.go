@@ -119,16 +119,18 @@ func (q *Queries) InsertVehicleIfMissing(ctx context.Context, arg InsertVehicleI
 }
 
 const listAllVehicles = `-- name: ListAllVehicles :many
-SELECT account_id, tesla_id, vin, display_name, access_type FROM vehicles
+SELECT account_id, tesla_id, vin, display_name, access_type, exterior_color, car_type FROM vehicles
 ORDER BY account_id, tesla_id
 `
 
 type ListAllVehiclesRow struct {
-	AccountID   uuid.UUID
-	TeslaID     int64
-	Vin         string
-	DisplayName pgtype.Text
-	AccessType  pgtype.Text
+	AccountID     uuid.UUID
+	TeslaID       int64
+	Vin           string
+	DisplayName   pgtype.Text
+	AccessType    pgtype.Text
+	ExteriorColor pgtype.Text
+	CarType       pgtype.Text
 }
 
 // Every registered vehicle across ALL accounts, each with its owning account_id,
@@ -150,6 +152,8 @@ func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, er
 			&i.Vin,
 			&i.DisplayName,
 			&i.AccessType,
+			&i.ExteriorColor,
+			&i.CarType,
 		); err != nil {
 			return nil, err
 		}
@@ -162,7 +166,7 @@ func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, er
 }
 
 const listVehiclesByAccount = `-- name: ListVehiclesByAccount :many
-SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at, access_type FROM vehicles
+SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at, access_type, exterior_color, car_type FROM vehicles
 WHERE account_id = $1
 ORDER BY tesla_id
 `
@@ -186,6 +190,8 @@ func (q *Queries) ListVehiclesByAccount(ctx context.Context, accountID uuid.UUID
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.AccessType,
+			&i.ExteriorColor,
+			&i.CarType,
 		); err != nil {
 			return nil, err
 		}
@@ -234,6 +240,38 @@ func (q *Queries) UpdateTeslaToken(ctx context.Context, arg UpdateTeslaTokenPara
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateVehicleConfigIfEmpty = `-- name: UpdateVehicleConfigIfEmpty :exec
+UPDATE vehicles
+SET exterior_color = $1,
+    car_type        = $2,
+    updated_at      = now()
+WHERE account_id = $3
+  AND tesla_id    = $4
+  AND (exterior_color IS NULL OR car_type IS NULL)
+`
+
+type UpdateVehicleConfigIfEmptyParams struct {
+	ExteriorColor pgtype.Text
+	CarType       pgtype.Text
+	AccountID     uuid.UUID
+	TeslaID       int64
+}
+
+// Conditional write-back for the two static vehicle_config attributes (design.md D4). The
+// WHERE clause uses OR (not AND): a row missing only one of the two values is still eligible
+// for a self-healing write, and a row with both already captured never matches (defense in
+// depth — RD2 — independent of whatever Go-side guard the caller applies). updated_at only
+// moves when the WHERE clause actually matches a row.
+func (q *Queries) UpdateVehicleConfigIfEmpty(ctx context.Context, arg UpdateVehicleConfigIfEmptyParams) error {
+	_, err := q.db.Exec(ctx, updateVehicleConfigIfEmpty,
+		arg.ExteriorColor,
+		arg.CarType,
+		arg.AccountID,
+		arg.TeslaID,
+	)
+	return err
 }
 
 const upsertAccountFromOAuth = `-- name: UpsertAccountFromOAuth :one

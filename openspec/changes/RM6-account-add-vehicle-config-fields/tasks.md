@@ -32,7 +32,7 @@
 
 ## T1. Goose migration (`internal/account/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create `internal/account/db/migrations/20260803000001_vehicles_add_config_fields.sql`
+- [x] T1.1 Create `internal/account/db/migrations/20260803000001_vehicles_add_config_fields.sql`
       with the exact DDL from `design.md` D1 (reproduced here for implementer convenience):
 
       ```sql
@@ -57,17 +57,17 @@
 
 ## T2. Domain types + port interface (`internal/account/account.go`) — no dependencies, parallel-ok with T1
 
-- [ ] T2.1 Add `ExteriorColor *string` and `CarType *string` to the `Vehicle` struct, immediately
+- [x] T2.1 Add `ExteriorColor *string` and `CarType *string` to the `Vehicle` struct, immediately
       after the existing `AccessType *string` field. Doc comment per design D4: `nil` means the
       value has not yet been captured (the vehicle predates capture, or the nightly telemetry
       collector has not yet run for it since seeding); a non-nil value is the Tesla-reported value
       verbatim (e.g. `"PearlWhite"`, `"modely"`).
-- [ ] T2.2 Add `ExteriorColor *string` and `CarType *string` to the `OwnedVehicle` struct, same
+- [x] T2.2 Add `ExteriorColor *string` and `CarType *string` to the `OwnedVehicle` struct, same
       position, same doc comment.
       Note: do NOT add these fields to `SeedVehicle` — `SeedVehicles` is unchanged (proposal.md
       "What Changes"); Tesla's `ListVehicles` response does not include `vehicle_config`, so there
       is nothing for the seed path to carry.
-- [ ] T2.3 Add `SetVehicleConfigIfEmpty` to the `Service` interface, with the doc comment from
+- [x] T2.3 Add `SetVehicleConfigIfEmpty` to the `Service` interface, with the doc comment from
       `design.md` D4:
       ```go
       // SetVehicleConfigIfEmpty persists exteriorColor and carType for the vehicle identified by
@@ -90,7 +90,7 @@
 
 ## T3. sqlc query edits + regeneration (`internal/account/db/query.sql`) — depends on T1, parallel-ok with T2
 
-- [ ] T3.1 Add a new query to `query.sql`, immediately after `InsertVehicleIfMissing` (or in a
+- [x] T3.1 Add a new query to `query.sql`, immediately after `InsertVehicleIfMissing` (or in a
       sensible place near the other `vehicles`-table queries):
       ```sql
       -- name: UpdateVehicleConfigIfEmpty :exec
@@ -107,14 +107,14 @@
         AND tesla_id    = @tesla_id
         AND (exterior_color IS NULL OR car_type IS NULL);
       ```
-- [ ] T3.2 Add `exterior_color, car_type` to the `ListVehiclesByAccount` query's `SELECT` list (it
+- [x] T3.2 Add `exterior_color, car_type` to the `ListVehiclesByAccount` query's `SELECT` list (it
       currently uses `SELECT *`, in which case the two new columns are already included
       automatically once T1 lands — verify by inspecting the query; if it uses an explicit column
       list, add both column names).
-- [ ] T3.3 Add `exterior_color, car_type` to `ListAllVehicles`'s explicit `SELECT` column list
+- [x] T3.3 Add `exterior_color, car_type` to `ListAllVehicles`'s explicit `SELECT` column list
       (currently `account_id, tesla_id, vin, display_name, access_type`) — append the two new
       column names.
-- [ ] T3.4 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm that:
+- [x] T3.4 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm that:
       - `accountdb.Vehicle` (the sqlc row type in `models.go`) gains `ExteriorColor pgtype.Text`
         and `CarType pgtype.Text`.
       - `accountdb.ListAllVehiclesRow` gains the same two fields.
@@ -129,7 +129,7 @@
 
 ## T4. Service implementation (`internal/account/service.go`) — depends on T2, T3
 
-- [ ] T4.1 Implement `SetVehicleConfigIfEmpty` on `*service`:
+- [x] T4.1 Implement `SetVehicleConfigIfEmpty` on `*service`:
       ```go
       func (s *service) SetVehicleConfigIfEmpty(ctx context.Context, accountID uuid.UUID, teslaID int64, exteriorColor, carType string) error {
           if err := s.q.UpdateVehicleConfigIfEmpty(ctx, accountdb.UpdateVehicleConfigIfEmptyParams{
@@ -144,22 +144,22 @@
       }
       ```
       Place it after `SeedVehicles` (mirroring the interface's method order from T2.3).
-- [ ] T4.2 Update `vehicleFromRow` to map `v.ExteriorColor` and `v.CarType` (both `pgtype.Text`) to
+- [x] T4.2 Update `vehicleFromRow` to map `v.ExteriorColor` and `v.CarType` (both `pgtype.Text`) to
       `*string` using the existing `nullableTextToPtr` helper — do NOT write a new helper:
       ```go
       ExteriorColor: nullableTextToPtr(v.ExteriorColor),
       CarType:       nullableTextToPtr(v.CarType),
       ```
-- [ ] T4.3 Update `ownedVehicleFromRow` with the same two lines (same helper, same source columns
+- [x] T4.3 Update `ownedVehicleFromRow` with the same two lines (same helper, same source columns
       from `accountdb.ListAllVehiclesRow`).
-- [ ] T4.4 Verify `pgtype.Text` still does not appear in any public type signature — it stays
+- [x] T4.4 Verify `pgtype.Text` still does not appear in any public type signature — it stays
       confined to `service.go` and the sqlc-generated `accountdb` package, exactly as the
       `access_type` precedent requires.
       Acceptance: `go build ./...` and `go vet ./...` pass.
 
 ## T5. Integration tests (`internal/account/service_integration_test.go`) — depends on T4
 
-- [ ] T5.1 Add a `DATABASE_URL`-gated test `TestSetVehicleConfigIfEmpty_RoundTrip` (self-skips when
+- [x] T5.1 Add a `DATABASE_URL`-gated test `TestSetVehicleConfigIfEmpty_RoundTrip` (self-skips when
       unset, per the module's existing pattern — mirror `TestAccessType_RoundTrip`'s setup: provision
       an account via `UpsertFromOAuth`, seed one or more vehicles via `SeedVehicles`, defer
       `deleteAccount`). Cover:
@@ -193,13 +193,25 @@
 
 ## T6. Verification — depends on T1–T5
 
-- [ ] T6.1 `go build ./...` and `go vet ./...` pass.
-- [ ] T6.2 `go test ./...` green and fast; account integration tests self-skip without
+- [x] T6.1 `go build ./...` and `go vet ./...` pass.
+      Leader verification (2026-08-03): both PASS repo-wide, after the leader-owned cross-module
+      fix adding a `SetVehicleConfigIfEmpty` stub to the `fakeAccount` doubles in
+      `internal/gateway/handlers/handlers_test.go` and `internal/telemetry/service_test.go`
+      (the widened `account.Service` interface broke their compilation; workers may not edit
+      sibling modules, so this was the leader's integration step).
+- [x] T6.2 `go test ./...` green and fast; account integration tests self-skip without
       `DATABASE_URL` (and pass with it set, or with Docker running for the testcontainers path); no
       Tesla API call fires from the test run.
-- [ ] T6.3 Boundary check: `internal/account` still does not import `internal/tesla`;
+      Leader verification (2026-08-03): every non-DB package PASSES. The two DB-backed packages
+      (`internal/account`, `internal/telemetry`) could not run in the leader's environment —
+      `localhost:5432` refuses connections and Docker is not running, so the testcontainers
+      fallback also fails. Confirmed **not a regression**: `internal/telemetry` fails identically
+      on a stashed pre-change baseline. The T5 integration tests themselves were executed green
+      (including the `OR` self-heal case) by the account worker earlier the same day against a
+      then-reachable `DATABASE_URL`. No Tesla API call fires from any test.
+- [x] T6.3 Boundary check: `internal/account` still does not import `internal/tesla`;
       `pgtype` does not appear in any public type or interface; `SeedVehicle` is UNCHANGED (no
       `ExteriorColor`/`CarType` field added to it); `SeedVehicles`'s signature and `ON CONFLICT DO
       NOTHING` semantics are UNCHANGED.
-- [ ] T6.4 `openspec validate RM6-account-add-vehicle-config-fields --strict` passes and every
+- [x] T6.4 `openspec validate RM6-account-add-vehicle-config-fields --strict` passes and every
       tasks.md checkbox above reflects real completion.

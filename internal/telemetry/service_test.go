@@ -59,6 +59,13 @@ func (f *fakeAccount) SeedVehicles(context.Context, uuid.UUID, []account.SeedVeh
 	return nil, nil
 }
 
+// SetVehicleConfigIfEmpty satisfies the widened account.Service. The collector does not
+// call it yet — that is RM6 tier 2 (RM6-telemetry-capture-vehicle-config), which replaces
+// this stub with a recording double.
+func (f *fakeAccount) SetVehicleConfigIfEmpty(context.Context, uuid.UUID, int64, string, string) error {
+	return nil
+}
+
 // --- fake tesla.VehicleService, programmable per vehicle id ---
 
 // vehicleScript describes how the fake tesla port behaves for one vehicle id.
