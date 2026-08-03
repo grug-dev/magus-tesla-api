@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM6-static-vehicle-config-fields.md",
   "request": "Tier 2 of RM6: back-fill the two static registry columns added by tier 1, once per vehicle, from the VehicleData payload the nightly collector already fetches. Leaf DTO addition to internal/tesla (granted path), collectVehicle/attemptVehicle re-signatured to take account.OwnedVehicle and return the observed config, and the guard + SetVehicleConfigIfEmpty call + ConfigCaptureFailures counter in collectAccount.",
-  "status": "in-progress",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -21,7 +21,7 @@
     ]
   },
   "created_at": "2026-08-03T16:58:00Z",
-  "updated_at": "2026-08-03T17:20:00Z",
+  "updated_at": "2026-08-03T17:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -138,10 +138,18 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review commit a200949 (diff vs f4fd89d) for RM6 tier 2. Validate: (1) boundaries -- only internal/telemetry + the granted leaf path internal/tesla/types.go touched; internal/account untouched; no accountdb import; attemptVehicle contains zero s.acct references (RD6). (2) design.md D0-D5 fidelity, especially the guard/call/counter living in collectAccount not attemptVehicle (RD6), the OwnedVehicle re-signature (RD7), the both-non-nil skip (RD2) and empty-string skip (RD5), and RD4's never-alter-Reason/never-write-poll_attempts guarantee. (3) The six T5 tests must be read CRITICALLY as static code -- they have NEVER executed (T6.2 open, no Docker/Postgres), so the reviewer is the only check on them; verify each genuinely asserts its spec scenario and would fail if the behaviour regressed. (4) Performance-Profile (read-heavy): the write-back must add zero Tesla calls and no per-read cost. (5) Anti-gaming: leader already re-opened T6.2 from [x] to [ ]; check no other criterion was weakened.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-03T17:09:58Z",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Approval CONTINGENT on T6.2: the 6 new tests were verified only as static code (never executed, Docker down). Diff scoped to internal/telemetry + internal/tesla/types.go only; internal/account untouched; zero s.acct refs in attemptVehicle; no Raw*/explore-tesla-api change. build/vet/gofmt clean; go test ./... shows every other package green, telemetry aborts at TestMain (Docker missing) as expected. tasks.md diff is checkbox flips + honest T6.2 re-open note only -- no criteria weakened."
+      }
+    ]
   },
   "decisions": [
     {
@@ -161,6 +169,15 @@
       "decision": "Re-opened tasks.md T6.2 from [x] to [ ] and set T6 blocked, against the worker's self-reported done, pausing autopilot before the review gate.",
       "why": "The worker's notes were honest but the tick was not: T6.2's criterion is 'go test ./... green' and the six new tests have never run. Unlike tier 1 -- where the integration tests HAD been executed green earlier the same day -- this tier has zero behavioural evidence. Ticking it on 'it compiles' would be exactly the weakened-criterion gaming the rails forbid.",
       "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-03T17:25:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Proceed to the review gate with T6.2 open rather than starting Docker to execute the six new tests first; the user will run them afterwards.",
+      "why": "User's explicit choice when the leader surfaced the blocker and offered to start Docker Desktop. The reviewer is therefore the only gate on the new tests' correctness, and the review brief says so.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -173,6 +190,16 @@
       "at": "2026-08-03T17:20:00Z",
       "agent": "leader",
       "event": "Wave 1 = T1-T6 returned. Implementation complete and build/vet green repo-wide; gofmt realignment noise in the touched files confirmed whitespace-only via git diff -w. Autopilot PAUSED at a hard blocker: T5's tests cannot execute without Docker/Postgres (D2). Review gate not dispatched."
+    },
+    {
+      "at": "2026-08-03T17:25:00Z",
+      "agent": "leader",
+      "event": "Autopilot resumed by user decision (D3): review now, verify later. Dispatching telemetry-reviewer with T6.2 flagged open in the brief."
+    },
+    {
+      "at": "2026-08-03T17:35:00Z",
+      "agent": "leader",
+      "event": "Reviewer-approved round 1, zero findings, approval CONTINGENT on the six new tests passing when finally run (T6.2 still open). Delta merged into openspec/specs/telemetry/spec.md; change moved to openspec/changes/archive/telemetry/. Roadmap RM6 tier 2 -> [x]; roadmap complete."
     }
   ]
 }
