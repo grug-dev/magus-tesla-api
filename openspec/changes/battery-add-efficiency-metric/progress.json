@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "battery-add-efficiency-metric",
+  "module": "battery",
+  "roadmap": null,
+  "request": "continue with autopilot mode activated. The /goal is to finish pending proposals from openspec",
+  "status": "in-progress",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "T4",
+      "T5",
+      "T6",
+      "T8"
+    ],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T7"
+    ]
+  },
+  "created_at": "2026-08-03T23:55:28Z",
+  "updated_at": "2026-08-03T23:59:10Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/battery-add-efficiency-metric",
+    "base": "main",
+    "created_at": "2026-08-03T23:30:00Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Module skeleton - Reader, Efficiency, DefaultWindow (internal/battery/battery.go)",
+      "module": "battery",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-03T23:56:00Z",
+      "completed_at": "2026-08-03T23:58:25Z",
+      "duration_seconds": 145,
+      "notes": "battery.go: Reader, Efficiency, DefaultWindow per design.md Public Surface, doc comments copied verbatim. go build/vet clean.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 22.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.487,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1+T2+T3+T7 jointly; delta split is approximate"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Pack-capacity reference table (internal/battery/capacity.go)",
+      "module": "battery",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-03T23:56:00Z",
+      "completed_at": "2026-08-03T23:58:25Z",
+      "duration_seconds": 145,
+      "notes": "capacity.go: packCapacityKWh map + capacityFor per design.md D1b, model-coarse doc comment. go build/vet clean.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 22.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.487,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1+T2+T3+T7 jointly; delta split is approximate"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "Pure derivation functions - socReadings, deriveEfficiency (internal/battery/derive.go)",
+      "module": "battery",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-03T23:56:00Z",
+      "completed_at": "2026-08-03T23:58:25Z",
+      "duration_seconds": 145,
+      "notes": "derive.go: socReadings (D2 consistent-pair), deriveEfficiency (D1/D1b/D-ok), sign convention preserved per T3.1 note. go build/vet clean.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 22.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.487,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1+T2+T3+T7 jointly; delta split is approximate"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "Port wiring - vehicleLookup, reader, NewReader, RecentEfficiency (internal/battery/reader.go)",
+      "module": "battery",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Pure-function unit tests (internal/battery/derive_test.go)",
+      "module": "battery",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "Fake-port unit tests (internal/battery/reader_test.go)",
+      "module": "battery",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "Module AGENTS.md completeness pass (internal/battery/AGENTS.md)",
+      "module": "battery",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-03T23:56:00Z",
+      "completed_at": "2026-08-03T23:58:25Z",
+      "duration_seconds": 145,
+      "notes": "Reviewed existing AGENTS.md against T7.1 checklist (header, Doc-Pack, Responsibility, Public interface, imports, Data ownership, Testing) - all present, no gap; left unchanged, no duplication.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 22.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.487,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1+T2+T3+T7 jointly; delta split is approximate"
+      }
+    },
+    {
+      "id": "T8",
+      "title": "Verification - build, vet, offline tests, boundary and spec-coverage checks",
+      "module": "battery",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-A1",
+      "at": "2026-08-03T23:30:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Wh/km numerator is the HYBRID measured-kWh minus capacity-SoC-correction, not the proposal's original capacity x dSoC",
+      "why": "car_type is model-coarse (no trim), so capacity carries a ~25% error band; the hybrid confines that error to a small correction term instead of the whole numerator",
+      "covered_by": "grill-me interview 2026-08-03 (D1)"
+    },
+    {
+      "id": "D-A2",
+      "at": "2026-08-03T23:32:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Unknown pack capacity drops the SoC correction and sets Approximate=true; it is NOT an ok=false case",
+      "why": "account.Vehicle.CarType is NULL for every vehicle not re-polled since RM6, so the unknown case is common at first and must not blank the dashboard tile",
+      "covered_by": "grill-me interview 2026-08-03 (D1b)"
+    },
+    {
+      "id": "D-A3",
+      "at": "2026-08-03T23:34:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "SoC endpoints use a consistent field family - usable only when BOTH endpoints have it, else nominal for both",
+      "why": "a per-endpoint fallback can mix usable with nominal; usable runs 1-3 points lower, manufacturing a phantom dSoC worth ~1.5 kWh of fake energy at 75 kWh",
+      "covered_by": "grill-me interview 2026-08-03 (D2)"
+    },
+    {
+      "id": "D-A4",
+      "at": "2026-08-03T23:36:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "D3/D4/D5 taken without further interview: 30d constructor const window; RecentEfficiency carries accountID; WhPerKm returned raw",
+      "why": "user switched on autopilot mid-interview; all three had clear recommendations and accountID is forced by the account-scoped telemetry/manualcharge ports",
+      "covered_by": null
+    },
+    {
+      "id": "D-A5",
+      "at": "2026-08-03T23:50:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted the artifact worker's self-made D6 (bounded limit 200 + Go-side date filter) instead of re-dispatching",
+      "why": "verified both charging ports are newest-first (manualcharge ORDER BY charged_on DESC, supercharger charge_start_date_time DESC), so 200 rows covers any 30-day window",
+      "covered_by": null
+    },
+    {
+      "id": "D-A6",
+      "at": "2026-08-03T23:56:04Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "batched T1+T2+T3+T7 into one serial worker and T4+T5+T6 into a second, instead of five dependency-strict waves",
+      "why": "all deps are intra-package and tasks.md already carries the code; two dispatches amortize the doc-pack read instead of five re-reads",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-03T23:30:00Z",
+      "agent": "leader",
+      "event": "resumed pipeline on existing proposal-only change; branch ft/battery-add-efficiency-metric created off main (0fb19ae) after user confirmed RM6 merged via PR #9"
+    },
+    {
+      "at": "2026-08-03T23:36:00Z",
+      "agent": "leader",
+      "event": "grill-me interview completed with user (D1, D1b, D2 answered; D3/D4/D5 taken on autopilot)"
+    },
+    {
+      "at": "2026-08-03T23:55:28Z",
+      "agent": "leader",
+      "event": "artifacts created by battery worker (sonnet) and committed d587c71; openspec validate --strict passes; database design gate recorded n/a (zero DB objects)"
+    },
+    {
+      "at": "2026-08-03T23:56:04Z",
+      "agent": "leader",
+      "event": "dispatched battery worker (sonnet) for wave 1 (T1, T2, T3, T7)"
+    },
+    {
+      "at": "2026-08-03T23:59:10Z",
+      "agent": "leader",
+      "event": "wave 1 complete: T1/T2/T3/T7 done; go build + go vet clean repo-wide; worker enumerated D1/D1b/D2/D3/D5/D-ok compliance"
+    }
+  ]
+}

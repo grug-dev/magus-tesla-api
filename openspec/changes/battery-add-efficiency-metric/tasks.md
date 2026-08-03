@@ -32,7 +32,7 @@
 
 ## T1. Module skeleton — `Reader`, `Efficiency`, `DefaultWindow` (`internal/battery/battery.go`) — no dependencies
 
-- [ ] T1.1 Create `internal/battery/battery.go` with the package doc comment (module
+- [x] T1.1 Create `internal/battery/battery.go` with the package doc comment (module
       responsibility, one-line summary of what it derives and from what — mirror the doc-comment
       style at the top of `internal/manualcharge/manualcharge.go` / `internal/telemetry/telemetry.go`),
       and:
@@ -74,7 +74,7 @@
 
 ## T2. Pack-capacity reference table (`internal/battery/capacity.go`) — no dependencies
 
-- [ ] T2.1 Create `internal/battery/capacity.go` with a doc comment explaining this is a
+- [x] T2.1 Create `internal/battery/capacity.go` with a doc comment explaining this is a
       human-maintained reference table, not a database object (design.md D1b — link it), sourced
       from public Tesla spec sheets, and is model-coarse (keyed on `car_type`), not trim-exact
       (`trim_badging` is not extracted anywhere in the platform — see backlog item 7).
@@ -105,7 +105,7 @@
 
 ## T3. Pure derivation functions (`internal/battery/derive.go`) — depends on T1
 
-- [ ] T3.1 Create `internal/battery/derive.go` implementing `socReadings` (design.md D2) and
+- [x] T3.1 Create `internal/battery/derive.go` implementing `socReadings` (design.md D2) and
       `deriveEfficiency` (design.md D1/D1b/D-ok). Import `internal/telemetry` for the `Snapshot`
       type only (no port, no pgxpool — this file has zero I/O).
       ```go
@@ -387,7 +387,7 @@
 
 ## T7. Module `AGENTS.md` (`internal/battery/AGENTS.md`) — no functional dependencies
 
-- [ ] T7.1 Author `internal/battery/AGENTS.md` per the project's per-module doc convention
+- [x] T7.1 Author `internal/battery/AGENTS.md` per the project's per-module doc convention
       (mirror `internal/telemetry/AGENTS.md` / `internal/gateway/AGENTS.md` structure): an
       `Agent-Name: battery` header, `## Doc-Pack (module)` (additive to the base pack — may list
       nothing extra), `## Responsibility`, `## Public interface` (the `Reader` port +
