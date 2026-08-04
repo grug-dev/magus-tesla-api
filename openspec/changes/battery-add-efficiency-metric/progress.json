@@ -5,25 +5,24 @@
   "module": "battery",
   "roadmap": null,
   "request": "continue with autopilot mode activated. The /goal is to finish pending proposals from openspec",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
     "current": [],
-    "pending": [
-      "T4",
-      "T5",
-      "T6",
-      "T8"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "T1",
       "T2",
       "T3",
-      "T7"
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8"
     ]
   },
   "created_at": "2026-08-03T23:55:28Z",
-  "updated_at": "2026-08-03T23:59:10Z",
+  "updated_at": "2026-08-04T00:05:19Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -119,14 +118,23 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-04T00:00:00Z",
+      "completed_at": "2026-08-04T00:03:47Z",
+      "duration_seconds": 227,
+      "notes": "reader.go: vehicleLookup, reader, NewReader, carTypeFor, sumSuperchargerKWh, sumManualKWh, RecentEfficiency. Fixed tasks.md's 2-value deriveEfficiency return vs 3-value RecentEfficiency signature. go build/vet clean.",
+      "budget": {
+        "five_hour_pct_start": 22.0,
+        "five_hour_pct_end": 33.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.201,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T4+T5+T6 jointly; delta split is approximate"
+      }
     },
     {
       "id": "T5",
@@ -136,14 +144,23 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-04T00:00:00Z",
+      "completed_at": "2026-08-04T00:03:47Z",
+      "duration_seconds": 227,
+      "notes": "derive_test.go: T5.1-T5.7 all pass, hand-computed expected values (never via deriveEfficiency itself), 1e-9 epsilon. Sign convention (D2/T5.7) locked in both directions.",
+      "budget": {
+        "five_hour_pct_start": 22.0,
+        "five_hour_pct_end": 33.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.201,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T4+T5+T6 jointly; delta split is approximate"
+      }
     },
     {
       "id": "T6",
@@ -153,14 +170,23 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-04T00:00:00Z",
+      "completed_at": "2026-08-04T00:03:47Z",
+      "duration_seconds": 227,
+      "notes": "reader_test.go: 4 fakes (mirrors telemetry/reader_test.go), T6.1-T6.6 all pass incl. D4 accountID-scoping and unwrapped errors.Is propagation for all 4 ports.",
+      "budget": {
+        "five_hour_pct_start": 22.0,
+        "five_hour_pct_end": 33.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.201,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T4+T5+T6 jointly; delta split is approximate"
+      }
     },
     {
       "id": "T7",
@@ -200,14 +226,23 @@
         "T7"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-04T00:03:00Z",
+      "completed_at": "2026-08-04T00:05:19Z",
+      "duration_seconds": 139,
+      "notes": "Leader-run verification: build/vet clean, 25 offline assertions pass with DATABASE_URL unset, no *db import, internal/battery/db absent, no consumers by design.",
+      "budget": {
+        "five_hour_pct_start": 33.0,
+        "five_hour_pct_end": 33.0,
+        "five_hour_pct_delta": 0.0,
+        "cost_usd_delta": 0.0,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "leader-run, no dispatch"
+      }
     }
   ],
   "review": {
@@ -270,6 +305,24 @@
       "decision": "batched T1+T2+T3+T7 into one serial worker and T4+T5+T6 into a second, instead of five dependency-strict waves",
       "why": "all deps are intra-package and tasks.md already carries the code; two dispatches amortize the doc-pack read instead of five re-reads",
       "covered_by": null
+    },
+    {
+      "id": "D-A7",
+      "at": "2026-08-04T00:04:00Z",
+      "scope": "task:T8",
+      "made_by": "autopilot",
+      "decision": "ran T8 verification as leader instead of dispatching a worker",
+      "why": "T8 is check-only with no file output; the project authorizes the assistant to run go build/vet/test directly, so a dispatch would only re-read the doc pack",
+      "covered_by": null
+    },
+    {
+      "id": "D-A8",
+      "at": "2026-08-04T00:02:00Z",
+      "scope": "task:T4",
+      "made_by": "autopilot",
+      "decision": "accepted the worker's fix to tasks.md's T4 snippet (deriveEfficiency returns 2 values, RecentEfficiency needs 3)",
+      "why": "the snippet was internally inconsistent with T3's committed signature and would not compile; the fix matches the design.md port contract exactly",
+      "covered_by": null
     }
   ],
   "events": [
@@ -297,6 +350,16 @@
       "at": "2026-08-03T23:59:10Z",
       "agent": "leader",
       "event": "wave 1 complete: T1/T2/T3/T7 done; go build + go vet clean repo-wide; worker enumerated D1/D1b/D2/D3/D5/D-ok compliance"
+    },
+    {
+      "at": "2026-08-03T23:59:30Z",
+      "agent": "leader",
+      "event": "dispatched battery worker (sonnet) for wave 2 (T4, T5, T6)"
+    },
+    {
+      "at": "2026-08-04T00:05:19Z",
+      "agent": "leader",
+      "event": "wave 2 complete + T8 verified by leader: build/vet clean, 25 offline assertions pass, boundary clean (no *db import, no internal/battery/db, no consumers)"
     }
   ]
 }

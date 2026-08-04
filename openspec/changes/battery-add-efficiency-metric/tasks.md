@@ -171,7 +171,7 @@
 
 ## T4. Port wiring (`internal/battery/reader.go`) — depends on T1, T2, T3
 
-- [ ] T4.1 Create `internal/battery/reader.go` with the `vehicleLookup` narrow interface, the
+- [x] T4.1 Create `internal/battery/reader.go` with the `vehicleLookup` narrow interface, the
       `reader` struct, `NewReader`, and `RecentEfficiency`. Import `internal/telemetry`,
       `internal/manualcharge`, `internal/account`, `uuid`, `context`, `time`.
       ```go
@@ -301,26 +301,26 @@
 
 ## T5. Pure-function unit tests (`internal/battery/derive_test.go`) — depends on T3
 
-- [ ] T5.1 Add `TestDeriveEfficiency_KnownCapacity_NetConsumption` — two snapshots with a known
+- [x] T5.1 Add `TestDeriveEfficiency_KnownCapacity_NetConsumption` — two snapshots with a known
       capacity and net SoC decrease; assert `ok=true`, `Approximate=false`, and the returned
       `WhPerKm`/`BatteryDeltaPct` match a hand-computed expected value (assert with a small
       epsilon, mirroring `TestReader_KmCompanions`'s `1e-9` pattern in
       `internal/telemetry/reader_test.go`).
-- [ ] T5.2 Add `TestDeriveEfficiency_UnknownCapacity_ApproximateTrue` — same shape but
+- [x] T5.2 Add `TestDeriveEfficiency_UnknownCapacity_ApproximateTrue` — same shape but
       `capacityKnown=false`; assert `ok=true`, `Approximate=true`, and `WhPerKm` equals
       `kWhIn*1000/distance` with NO capacity term subtracted.
-- [ ] T5.3 Add `TestDeriveEfficiency_FewerThanTwoSnapshots_NotOK` — 0 and 1-element slices;
+- [x] T5.3 Add `TestDeriveEfficiency_FewerThanTwoSnapshots_NotOK` — 0 and 1-element slices;
       assert `ok=false` for both, zero-value `Efficiency`.
-- [ ] T5.4 Add `TestDeriveEfficiency_NonIncreasingOdometer_NotOK` — end odometer <= start
+- [x] T5.4 Add `TestDeriveEfficiency_NonIncreasingOdometer_NotOK` — end odometer <= start
       odometer; assert `ok=false`.
-- [ ] T5.5 Add `TestDeriveEfficiency_NetChargeExceedsConsumption_NotOK` — capacity known, `kWhIn`
+- [x] T5.5 Add `TestDeriveEfficiency_NetChargeExceedsConsumption_NotOK` — capacity known, `kWhIn`
       small, large positive `deltaSoC` (net charge) driving `energy <= 0`; assert `ok=false`.
-- [ ] T5.6 Add `TestSocReadings_UsableAtBothEndpoints` and
+- [x] T5.6 Add `TestSocReadings_UsableAtBothEndpoints` and
       `TestSocReadings_FallsBackWhenEitherEndpointNil` (one test per case: nil at start only, nil
       at end only, nil at both) — assert `socReadings` never mixes `UsableBatteryLevel` from one
       endpoint with `BatteryLevel` from the other (design.md D2 — the phantom-ΔSoC bug this
       guards against).
-- [ ] T5.7 Add `TestDeriveEfficiency_BatteryDeltaPctSignConvention` — asserts
+- [x] T5.7 Add `TestDeriveEfficiency_BatteryDeltaPctSignConvention` — asserts
       `Efficiency.BatteryDeltaPct` is negative when the vehicle net-charged (SoC end > SoC start)
       and positive when it net-consumed (SoC end < SoC start) — locks in the sign-flip documented
       in T3.1's acceptance note so a future refactor cannot silently invert it.
@@ -329,7 +329,7 @@
 
 ## T6. Fake-port unit tests (`internal/battery/reader_test.go`) — depends on T4
 
-- [ ] T6.1 Define fakes for the four dependencies, one per interface, inline in this file
+- [x] T6.1 Define fakes for the four dependencies, one per interface, inline in this file
       (mirror `fakeReadStore`/`fakeHistoryStore` in `internal/telemetry/reader_test.go` — a
       struct holding canned return values / errors, plus captured call arguments where the test
       needs to assert pass-through):
@@ -359,27 +359,27 @@
       }
       // RegisteredVehicles returns vehicles/err.
       ```
-- [ ] T6.2 Add `TestRecentEfficiency_HappyPath_ComputesValue` — wires all four fakes with a
+- [x] T6.2 Add `TestRecentEfficiency_HappyPath_ComputesValue` — wires all four fakes with a
       coherent scenario (2+ snapshots, a matching `account.Vehicle` with a known `CarType`, one
       supercharger session and one manual entry inside the window), a fixed `now` (inject via
       `&reader{..., now: func() time.Time { return fixed }}`, constructed directly — mirrors
       `r := &reader{store: fake}` in `internal/telemetry/reader_test.go`, NOT through
       `NewReader`). Assert `ok=true` and the returned `Efficiency` matches a hand-computed value.
-- [ ] T6.3 Add `TestRecentEfficiency_WindowExcludesOldEntries` — a supercharger session and a
+- [x] T6.3 Add `TestRecentEfficiency_WindowExcludesOldEntries` — a supercharger session and a
       manual entry both dated BEFORE the window's `since`; assert they are excluded from the
       summed `kWhIn` (i.e. the computed result differs from a version where they'd been
       included) — proves the D6 in-Go date filter actually filters.
-- [ ] T6.4 Add `TestRecentEfficiency_UnknownVehicle_ApproximateTrue` — `fakeVehicleLookup`
+- [x] T6.4 Add `TestRecentEfficiency_UnknownVehicle_ApproximateTrue` — `fakeVehicleLookup`
       returns a vehicle list with no entry for the requested `teslaID` (or `CarType=nil`); assert
       `ok=true`, `Approximate=true`.
-- [ ] T6.5 Add one test per port-error propagation case —
+- [x] T6.5 Add one test per port-error propagation case —
       `TestRecentEfficiency_TelemetryError_Propagates`,
       `TestRecentEfficiency_SuperchargerError_Propagates`,
       `TestRecentEfficiency_ManualChargeError_Propagates`,
       `TestRecentEfficiency_AccountError_Propagates` — each fake returns a distinct sentinel
       error; assert `RecentEfficiency` returns it via `errors.Is`, unwrapped (same contract as
       `TestReader_StoreError_PropagatesError` in `internal/telemetry/reader_test.go`).
-- [ ] T6.6 Add `TestRecentEfficiency_AccountIDScoping_PassedToEveryPort` — asserts the same
+- [x] T6.6 Add `TestRecentEfficiency_AccountIDScoping_PassedToEveryPort` — asserts the same
       `accountID` argument reaches all four fakes' captured call arguments unchanged (design.md
       D4 / spec.md "Multi-Tenant Scoping").
       Acceptance for T6.1–T6.6: `go test ./internal/battery/... -run TestRecentEfficiency`
