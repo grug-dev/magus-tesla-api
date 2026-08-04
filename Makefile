@@ -24,9 +24,17 @@ export
 endif
 
 # Each module owns its goose migrations dir (ai/architecture.md §2). goose shares a
-# single goose_db_version table across dirs, so this list MUST stay in global version
-# (timestamp) order — dirs are applied left-to-right on `up`, reverse on `down`. Add a
-# module's dir here, in timestamp order, when it gains a DB.
+# single goose_db_version table across ALL dirs, so the table's "current version" is
+# global while each dir's migrations are versioned independently — a module can easily
+# have a pending migration older than another module's already-applied one (e.g.
+# telemetry 20260802 pending while account 20260803 is applied). Ordering this list
+# CANNOT fix that: it orders directories, not the migrations inside them.
+#
+# Both `up` loops therefore pass -allow-missing, which applies a pending migration even
+# when its version sits below the global current version. That is safe here because
+# modules never share tables or FKs (ai/architecture.md boundary rules), so cross-module
+# version order carries no meaning; within a dir, goose still applies in version order.
+# Add a module's dir here when it gains a DB — position no longer matters.
 MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migrations internal/manualcharge/db/migrations
 
 # goose binary: prefer one on PATH, else the `go install` location (GOPATH/bin).
@@ -77,10 +85,10 @@ check-goose:
 		echo "Then add \"$$(go env GOPATH)/bin\" to PATH, or run: make <target> GOOSE=/path/to/goose"; \
 		exit 1; }
 
-migrate-up: check-goose ## Apply all pending migrations (every module dir, in version order)
+migrate-up: check-goose ## Apply all pending migrations (every module dir; -allow-missing, see MIGRATIONS_DIRS note)
 	@for dir in $(MIGRATIONS_DIRS); do \
 		echo "goose up: $$dir"; \
-		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" up; \
+		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" up -allow-missing; \
 	done
 
 migrate-down: check-goose ## Roll back the newest migration in each module dir (reverse order)
@@ -137,7 +145,7 @@ db-setup: check-goose ## ONE COMMAND: create the app role + database (both if mi
 	if [ -n "$$PW" ]; then export PGUSER="$$ROLE" PGPASSWORD="$$PW"; fi; \
 	for dir in $(MIGRATIONS_DIRS); do \
 		echo "goose up: $$dir"; \
-		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" up; \
+		$(GOOSE) -dir $$dir postgres "$(DATABASE_URL)" up -allow-missing; \
 	done; \
 	echo; echo "✓ Database setup complete."; \
 	PRINT_DSN=$$(echo "$(DATABASE_URL)" | sed -E "s#^(postgres(ql)?://)([^/@]*@)?#\1$$ROLE:<password>@#"); \
