@@ -22,7 +22,8 @@ make up
 `make up` is the single entrypoint. It runs, in order:
 
 1. `make generate` — regenerate **all** codegen (`sqlc generate` + `go tool templ generate ./...`),
-2. `make migrate-up` — apply any pending goose migrations (all module dirs, in version order),
+2. `make migrate-up` — apply any pending goose migrations (all module dirs; each dir in its
+   own version order, `-allow-missing` so cross-module version order can't block one),
 3. `go build -o bin/web ./cmd/web` and run `./bin/web` (listens on `$PORT`, default `8080`).
 
 Because it always regenerates and migrates, `make up` is safe after **any** change —
@@ -51,9 +52,23 @@ Prereqs on the host: a running PostgreSQL, and the `sqlc` and `goose` binaries o
 Migrations live per module under `internal/<module>/db/migrations`, and goose shares
 a **single** version table across them. So when a new module gains a DB:
 
-1. Add its migrations dir to `MIGRATIONS_DIRS` in the `Makefile` — **in global
-   timestamp order** (dirs apply left-to-right on `up`, reverse on `down`).
+1. Add its migrations dir to `MIGRATIONS_DIRS` in the `Makefile` — **position does not
+   matter**. goose keeps ONE `goose_db_version` table for the whole database, so its
+   "current version" is global while each module versions its migrations independently;
+   a module can hold a pending migration older than another module's applied one. No
+   ordering of *directories* can fix that, so both `up` loops pass `-allow-missing`,
+   which applies a pending migration even when its version sits below the global
+   current version. Safe here because modules share no tables or FKs, so cross-module
+   version order is meaningless; within a dir, goose still applies in version order.
 2. Then `make up` (or `make migrate-up` + `make sqlc`) picks it up.
+
+If you ever see `goose run: error: found N missing migrations before current version`,
+that is this situation on a checkout predating the `-allow-missing` fix. Apply the
+stragglers with:
+
+```bash
+goose -dir internal/<module>/db/migrations postgres "$DATABASE_URL" up -allow-missing
+```
 
 Current list: `internal/account/db/migrations`, `internal/telemetry/db/migrations`,
 `internal/manualcharge/db/migrations`.
