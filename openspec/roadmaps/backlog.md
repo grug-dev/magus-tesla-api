@@ -175,6 +175,42 @@ Reuses the existing `account.RegisteredVehicles` + `telemetry.Reader.LatestSnaps
 `gateway-add-stitch-design-handoff` design decision **DD4** + leader decision **D13** (2026-07-26): the nav header was scoped to the primary vehicle in this change; the multi-vehicle selector was deferred and recorded here per the project's future-work rule. See the change's `design.md` §3.2 and `progress.json` `decisions[]` D13.
 
 
+## 7. battery / tesla / account / telemetry — Trim-exact pack capacity
+
+### PROPOSAL
+
+`internal/battery`'s pack-capacity reference table (`internal/battery/capacity.go`) is keyed
+only on the Fleet API's `vehicle_config.car_type` (e.g. `"model3"`, `"modely"`) — it cannot
+distinguish trims of the same model (e.g. Model 3 Standard Range vs. Long Range), which have
+materially different usable pack capacities. This makes the Wh/km efficiency metric's capacity
+correction model-coarse, not trim-exact, whenever `car_type` IS known (the "unknown" case is
+already handled — `Efficiency.Approximate=true`, no correction — that is NOT what this item is
+about).
+
+The live `vehicle_config` payload carries `trim_badging` (confirmed present, ~47 keys total),
+but `internal/tesla/types.go`'s `VehicleConfigTesla` extracts only `exterior_color` + `car_type`
+(`RM6-telemetry-capture-vehicle-config`, archived). Closing this gap needs: (1) extracting
+`trim_badging` in `internal/tesla` (leaf DTO field addition, same shape as
+`VehicleConfigTesla.CarType`); (2) a new `account.Vehicle`/`account.OwnedVehicle` field +
+`SetVehicleConfigIfEmpty`-equivalent port method to persist it (mirrors the `RM6` tier-1/tier-2
+split — a schema-touching tier plus an application-wiring tier); (3) the nightly collector
+capturing it (`internal/telemetry/service.go`, same `captureVehicleConfig` shape); (4) a
+trim-keyed (or trim+car_type-keyed) `packCapacityKWh` table in `internal/battery/capacity.go`,
+replacing or supplementing the model-coarse one.
+
+**TRIGGER — pick this up when** trim-exact pack capacity is wanted (i.e. the model-coarse
+~±10-15% capacity error within a single `car_type` is judged material enough to fix). Until
+then, `internal/battery` returns a value with a documented model-coarse approximation
+(`Efficiency.Approximate` stays reserved for the separate "capacity fully unknown" case).
+
+### ORIGIN
+
+`battery-add-efficiency-metric` design.md decision **D1b** (leader ↔ user grill-me pass,
+2026-08-03): pack capacity is sourced from an in-package table keyed on `car_type` only,
+because `trim_badging` extraction was explicitly scoped out of that change. Recorded here per
+the project's future-work rule.
+
+
 # BRAINSTORMING
 
 
