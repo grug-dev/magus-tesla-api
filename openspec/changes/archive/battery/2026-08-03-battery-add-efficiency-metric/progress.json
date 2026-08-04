@@ -5,7 +5,7 @@
   "module": "battery",
   "roadmap": null,
   "request": "continue with autopilot mode activated. The /goal is to finish pending proposals from openspec",
-  "status": "in-review",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -22,7 +22,7 @@
     ]
   },
   "created_at": "2026-08-03T23:55:28Z",
-  "updated_at": "2026-08-04T00:12:00Z",
+  "updated_at": "2026-08-04T00:16:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -246,7 +246,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "battery-reviewer",
     "brief": "Validate battery-add-efficiency-metric (new module internal/battery/, first derived-metrics module). Must check: (1) module-boundary compliance - battery imports only the PUBLIC ports of telemetry/manualcharge/account, never their db packages; internal/battery/db must not exist; no HTML; no DB of its own. (2) Every doc-pack convention: ai/go-conventions.md (interface-first port, accept-interfaces narrow vehicleLookup, km companions, doc comments) and ai/architecture.md boundaries. (3) Design-decision fidelity: D1/D1b hybrid numerator with Approximate on unknown capacity (never ok=false); D2 consistent never-mixed SoC pair; D3 constructor window; D4 accountID on all four port calls; D5 raw unrounded WhPerKm; D6 bounded-limit + Go-side date filter; D-ok exactly three ok=false cases; and the DELIBERATE opposite sign conventions of deltaSoC vs Efficiency.BatteryDeltaPct - flag any unification as a blocker. (4) Read-heavy Performance-Profile: exactly one call per consumed port per RecentEfficiency, no N+1. (5) Spec/tasks coverage: every specs/battery/spec.md scenario has a real test; tests are offline (no DB/Docker/network) and none self-skip; expected values are hand-computed, not recomputed via the production path. (6) Anti-gaming: no acceptance criterion was weakened or deleted, no task marked done without the work passing. (7) DB gate: confirm zero database objects were created and design.md records the n/a rationale.",
     "rounds": [
@@ -281,6 +281,37 @@
             "note": "tasks.md T8.1-T8.6 checkboxes are all unchecked ('- [ ]') while progress.json's tasks[] marks task T8 status='done' with notes claiming the verification passed. Per ai/agentic-workflow.md, 'progress.json complements tasks.md, never replaces it: tasks.md wins on implementation done-ness.' I independently re-ran all six checks (go build ./..., go vet ./..., go test ./internal/battery/... -v with DATABASE_URL unset, boundary grep, spec-coverage mapping, openspec validate --strict) and every one passes, so this is a bookkeeping gap rather than a false completion claim - but tasks.md should be updated to check T8.1-T8.6 before archive so the two state files agree.",
             "status": "fixed",
             "triage": "accepted"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-08-04T00:30:00Z",
+        "agent": "battery-reviewer",
+        "verdict": "reviewer-approved",
+        "scope": "re-verification of round-1 findings only, per leader's request: README.md, openspec/changes/battery-add-efficiency-metric/tasks.md, and progress.json (commit b839a89); module source (internal/battery/) not re-reviewed since its diff vs round 1 is empty",
+        "checked": [
+          "git show --stat b839a89 confirms only README.md, tasks.md, progress.json changed \u2014 no internal/battery/*.go touched",
+          "R1-F1: README.md 'Project Structure' tree now lists '\u2502   \u251c\u2500\u2500 battery/        # Derived battery metrics (rolling Wh/km) \u2014 owns no store' between manualcharge/ and gateway/; 'Architecture' table now lists '| internal/battery | Derived battery metrics (rolling Wh/km) computed over stored telemetry. Owns no database \u2014 a pure read-side derivation over sibling ports. |' in the same position \u2014 both required sections now cover the module",
+          "module-README clause: only internal/tesla/README.md exists platform-wide (find internal -maxdepth 2 -iname README.md); CLAUDE.md requires a module README only 'where one exists', so no internal/battery/README.md is required \u2014 AGENTS.md correctly covers it, confirms leader's reading",
+          "R1-F2: tasks.md diff shows only '- [ ]' -> '- [x]' on T8.1-T8.6, zero title/criterion/scope text changed \u2014 confirmed via git show b839a89 -- openspec/changes/battery-add-efficiency-metric/tasks.md",
+          "re-ran go build ./..., go vet ./... \u2014 clean",
+          "re-ran env -u DATABASE_URL go test ./... \u2014 all packages ok, internal/battery ok, none self-skip",
+          "re-ran openspec validate battery-add-efficiency-metric --strict \u2014 valid",
+          "git status confirms no other uncommitted changes beyond this review edit"
+        ],
+        "findings": [
+          {
+            "id": "R1-F1",
+            "severity": "blocker",
+            "note": "Verified fixed as claimed \u2014 see 'checked' above.",
+            "status": "fixed"
+          },
+          {
+            "id": "R1-F2",
+            "severity": "minor",
+            "note": "Verified fixed as claimed \u2014 see 'checked' above.",
+            "status": "fixed"
           }
         ]
       }
@@ -414,6 +445,16 @@
       "at": "2026-08-04T00:12:00Z",
       "agent": "leader",
       "event": "review round 1 triage: both findings ACCEPTED and fixed by leader - README.md structure tree + architecture table now list internal/battery (R1-F1, outside every worker sandbox by design); tasks.md T8.1-T8.6 boxes checked (R1-F2)"
+    },
+    {
+      "at": "2026-08-04T00:14:00Z",
+      "agent": "battery-reviewer",
+      "event": "review round 2: reviewer-approved; both round-1 findings confirmed fixed, build/vet/test and openspec validate clean"
+    },
+    {
+      "at": "2026-08-04T00:16:00Z",
+      "agent": "leader",
+      "event": "archived: battery delta merged into openspec/specs/battery/spec.md (new capability); change moved to openspec/changes/archive/battery/2026-08-03-battery-add-efficiency-metric"
     }
   ]
 }
