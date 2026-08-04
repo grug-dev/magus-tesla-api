@@ -99,6 +99,7 @@ magus-tesla-api/
 │   ├── tesla/          # State-less Fleet API adapter (handed creds per call)
 │   ├── telemetry/      # Nightly vehicle snapshot collection + storage (poller)
 │   ├── manualcharge/   # User-asserted charge entries (home/work/3rd-party sessions)
+│   ├── battery/        # Derived battery metrics (rolling Wh/km) — owns no store
 │   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
 │   │   ├── handlers/       #   thin handlers: session/auth → module interface → render
 │   │   ├── templates/      #   Templ: layouts/ (drawer shell) · pages/ · fragments/ · ui/ (typed DaisyUI kit)
@@ -182,6 +183,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/tesla` | Stateless Fleet API adapter (handed credentials per call) |
 | `internal/telemetry` | Nightly per-vehicle snapshot collection + storage |
 | `internal/manualcharge` | User-asserted charge entries (home/work/3rd-party) |
+| `internal/battery` | Derived battery metrics (rolling Wh/km) computed over stored telemetry. Owns no database — a pure read-side derivation over sibling ports. |
 | `internal/gateway` | Gin + Templ + htmx web layer, styled with Node-less Tailwind + DaisyUI (drawer nav, typed `ui/` component kit). The only package allowed to produce HTML. |
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |

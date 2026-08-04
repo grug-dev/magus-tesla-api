@@ -399,20 +399,20 @@
 
 ## T8. Verification — depends on T1–T7
 
-- [ ] T8.1 `go build ./...` and `go vet ./...` pass repo-wide.
-- [ ] T8.2 `go test ./...` green and fast. `internal/battery` introduces no `DATABASE_URL`/Docker
+- [x] T8.1 `go build ./...` and `go vet ./...` pass repo-wide.
+- [x] T8.2 `go test ./...` green and fast. `internal/battery` introduces no `DATABASE_URL`/Docker
       dependency — confirm by running `go test ./internal/battery/... -v` with `DATABASE_URL`
       unset and Docker down; every test must still run and pass (none may self-skip, since none
       needs a DB).
-- [ ] T8.3 Boundary check: `internal/battery` imports only the public ports of `telemetry`,
+- [x] T8.3 Boundary check: `internal/battery` imports only the public ports of `telemetry`,
       `manualcharge`, `account` (no `*db` package from any of the three); `internal/battery/db`
       does not exist; no other module imports `internal/battery` yet (this change ships the
       module with zero consumers, by design — proposal.md "Breaking").
-- [ ] T8.4 Spec-vs-implementation check: every scenario in `specs/battery/spec.md` is covered by
+- [x] T8.4 Spec-vs-implementation check: every scenario in `specs/battery/spec.md` is covered by
       a T5 or T6 test with a 1:1 correspondence — known/unknown capacity, usable-vs-nominal SoC
       selection, all three `ok=false` cases, account-scoping on every port call, and the
       no-cross-module-DB-access boundary check (T8.3 covers the last one).
-- [ ] T8.5 Anti-gaming check: confirm no task's acceptance criteria were weakened, and that
+- [x] T8.5 Anti-gaming check: confirm no task's acceptance criteria were weakened, and that
       `deriveEfficiency`'s sign conventions (`deltaSoC` vs. `Efficiency.BatteryDeltaPct`, T3.1's
       note) were NOT unified/simplified away — T5.7 must still pass.
-- [ ] T8.6 `openspec validate battery-add-efficiency-metric --strict` passes.
+- [x] T8.6 `openspec validate battery-add-efficiency-metric --strict` passes.

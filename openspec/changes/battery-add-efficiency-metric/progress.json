@@ -5,7 +5,7 @@
   "module": "battery",
   "roadmap": null,
   "request": "continue with autopilot mode activated. The /goal is to finish pending proposals from openspec",
-  "status": "verified",
+  "status": "in-review",
   "rollup": {
     "current": [],
     "pending": [],
@@ -22,7 +22,7 @@
     ]
   },
   "created_at": "2026-08-03T23:55:28Z",
-  "updated_at": "2026-08-04T00:05:19Z",
+  "updated_at": "2026-08-04T00:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -246,10 +246,45 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "battery-reviewer",
+    "brief": "Validate battery-add-efficiency-metric (new module internal/battery/, first derived-metrics module). Must check: (1) module-boundary compliance - battery imports only the PUBLIC ports of telemetry/manualcharge/account, never their db packages; internal/battery/db must not exist; no HTML; no DB of its own. (2) Every doc-pack convention: ai/go-conventions.md (interface-first port, accept-interfaces narrow vehicleLookup, km companions, doc comments) and ai/architecture.md boundaries. (3) Design-decision fidelity: D1/D1b hybrid numerator with Approximate on unknown capacity (never ok=false); D2 consistent never-mixed SoC pair; D3 constructor window; D4 accountID on all four port calls; D5 raw unrounded WhPerKm; D6 bounded-limit + Go-side date filter; D-ok exactly three ok=false cases; and the DELIBERATE opposite sign conventions of deltaSoC vs Efficiency.BatteryDeltaPct - flag any unification as a blocker. (4) Read-heavy Performance-Profile: exactly one call per consumed port per RecentEfficiency, no N+1. (5) Spec/tasks coverage: every specs/battery/spec.md scenario has a real test; tests are offline (no DB/Docker/network) and none self-skip; expected values are hand-computed, not recomputed via the production path. (6) Anti-gaming: no acceptance criterion was weakened or deleted, no task marked done without the work passing. (7) DB gate: confirm zero database objects were created and design.md records the n/a rationale.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-04T00:20:00Z",
+        "agent": "battery-reviewer",
+        "verdict": "changes-requested",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/battery/AGENTS.md",
+          "openspec/changes/battery-add-efficiency-metric/proposal.md",
+          "openspec/changes/battery-add-efficiency-metric/design.md",
+          "openspec/changes/battery-add-efficiency-metric/tasks.md",
+          "openspec/changes/battery-add-efficiency-metric/progress.json",
+          "openspec/changes/battery-add-efficiency-metric/specs/battery/spec.md"
+        ],
+        "findings": [
+          {
+            "id": "R1-F1",
+            "severity": "blocker",
+            "note": "README.md 'Project Structure' tree (lines 88-117) and 'Architecture' table (lines 179-188) do not list internal/battery/, even though this change adds the module. CLAUDE.md's non-negotiable 'Docs track structural change' rule requires this update IN THE SAME CHANGE, and ai/agentic-workflow.md's reviewer-role section names this exact scenario explicitly as a changes-requested finding, not a nit ('if it added/removed/renamed a module ... without updating the root README.md structure/architecture sections ... that is a changes-requested finding'). No module-level README.md exists for battery (consistent with sibling modules, so none required there), and no cmd/ changed (so cmd/README.md is not implicated) - only the two root README.md sections need the internal/battery/ entry.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R1-F2",
+            "severity": "minor",
+            "note": "tasks.md T8.1-T8.6 checkboxes are all unchecked ('- [ ]') while progress.json's tasks[] marks task T8 status='done' with notes claiming the verification passed. Per ai/agentic-workflow.md, 'progress.json complements tasks.md, never replaces it: tasks.md wins on implementation done-ness.' I independently re-ran all six checks (go build ./..., go vet ./..., go test ./internal/battery/... -v with DATABASE_URL unset, boundary grep, spec-coverage mapping, openspec validate --strict) and every one passes, so this is a bookkeeping gap rather than a false completion claim - but tasks.md should be updated to check T8.1-T8.6 before archive so the two state files agree.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -323,6 +358,15 @@
       "decision": "accepted the worker's fix to tasks.md's T4 snippet (deriveEfficiency returns 2 values, RecentEfficiency needs 3)",
       "why": "the snippet was internally inconsistent with T3's committed signature and would not compile; the fix matches the design.md port contract exactly",
       "covered_by": null
+    },
+    {
+      "id": "D-A9",
+      "at": "2026-08-04T00:12:00Z",
+      "scope": "review:R1-F1",
+      "made_by": "autopilot",
+      "decision": "leader fixed the README structure docs directly rather than re-dispatching a worker",
+      "why": "root README.md is outside every module worker's sandbox; CLAUDE.md assigns cross-module integration to the leader",
+      "covered_by": null
     }
   ],
   "events": [
@@ -360,6 +404,16 @@
       "at": "2026-08-04T00:05:19Z",
       "agent": "leader",
       "event": "wave 2 complete + T8 verified by leader: build/vet clean, 25 offline assertions pass, boundary clean (no *db import, no internal/battery/db, no consumers)"
+    },
+    {
+      "at": "2026-08-04T00:07:00Z",
+      "agent": "leader",
+      "event": "review brief written; dispatching battery-reviewer (sonnet)"
+    },
+    {
+      "at": "2026-08-04T00:12:00Z",
+      "agent": "leader",
+      "event": "review round 1 triage: both findings ACCEPTED and fixed by leader - README.md structure tree + architecture table now list internal/battery (R1-F1, outside every worker sandbox by design); tasks.md T8.1-T8.6 boxes checked (R1-F2)"
     }
   ]
 }
