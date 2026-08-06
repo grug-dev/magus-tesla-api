@@ -60,6 +60,10 @@ func pgNullableText(v pgtype.Text) *string {
 // (ai/go-conventions.md §persistence). Mapping rules:
 //
 //   - CapturedAt: pgtype.Timestamptz.Time → time.Time (UTC via the stored value)
+//   - CapturedDate: pgtype.Date.Time → time.Time (calendar date, UTC-midnight
+//     normalized; design D2 of telemetry-dedupe-daily-snapshots). updated_at is
+//     selected in every query for struct-sharing but intentionally NOT mapped
+//     onto Snapshot, mirroring the existing id-selected-but-unsurfaced precedent.
 //   - SentryMode: pgtype.Bool → *bool: {Valid: false} → nil, {Valid: true, Bool: v} → &v
 //   - BatteryLevel, ChargeLimitSoc: int32 → int (sqlc generates int32; domain uses int)
 //   - All other fields are value-compatible (float64, string, bool, uuid.UUID, []byte)
@@ -82,6 +86,7 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 		AccountID:      r.AccountID,
 		TeslaID:        r.TeslaID,
 		CapturedAt:     r.CapturedAt.Time,
+		CapturedDate:   r.CapturedDate.Time,
 		RawData:        r.RawData,
 		BatteryLevel:   int(r.BatteryLevel),
 		BatteryRange:   r.BatteryRange,

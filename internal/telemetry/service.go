@@ -532,6 +532,7 @@ func (d *dbStore) insertSnapshot(ctx context.Context, s Snapshot) error {
 		AccountID:      s.AccountID,
 		TeslaID:        s.TeslaID,
 		CapturedAt:     timestamptzFrom(s.CapturedAt),
+		CapturedDate:   dateFrom(s.CapturedDate),
 		RawData:        s.RawData,
 		BatteryLevel:   int32(s.BatteryLevel),
 		BatteryRange:   s.BatteryRange,

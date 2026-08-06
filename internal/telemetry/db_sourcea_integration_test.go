@@ -46,10 +46,12 @@ func TestSourceA_ChargeEnrichment_NonNilRoundTrip(t *testing.T) {
 	const teslaID = int64(910001)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:     accountID,
 		TeslaID:       teslaID,
-		CapturedAt:    time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:    captured,
+		CapturedDate:  dateOnly(captured, time.UTC),
 		ChargingState: "Charging",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{"charge_state":{"charging_state":"Charging"}}`),
@@ -120,10 +122,12 @@ func TestSourceA_ChargeEnrichment_NilRoundTrip(t *testing.T) {
 	const teslaID = int64(910002)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:     accountID,
 		TeslaID:       teslaID,
-		CapturedAt:    time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:    captured,
+		CapturedDate:  dateOnly(captured, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{"charge_state":{"charging_state":"Disconnected"}}`),
@@ -181,10 +185,12 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 
 	// The vehicle is plugged in but just started charging — energy added is 0,
 	// power and current are 0 (charge hasn't ramped yet). These are real readings.
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:     accountID,
 		TeslaID:       teslaID,
-		CapturedAt:    time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:    captured,
+		CapturedDate:  dateOnly(captured, time.UTC),
 		ChargingState: "Charging",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{"charge_state":{"charging_state":"Charging"}}`),
@@ -296,10 +302,12 @@ func TestMaxRangeChargeCounter_NonNilNonZeroRoundTrip(t *testing.T) {
 	const teslaID = int64(920001)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:             accountID,
 		TeslaID:               teslaID,
-		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:            captured,
+		CapturedDate:          dateOnly(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               []byte(`{"charge_state":{"max_range_charge_counter":3}}`),
@@ -337,10 +345,12 @@ func TestMaxRangeChargeCounter_TruthfulZeroStoredAsNonNil(t *testing.T) {
 	const teslaID = int64(920002)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:             accountID,
 		TeslaID:               teslaID,
-		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:            captured,
+		CapturedDate:          dateOnly(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               []byte(`{"charge_state":{"max_range_charge_counter":0}}`),
@@ -398,10 +408,12 @@ func TestMaxRangeChargeCounter_NilStoresAsNullAndRoundTripsNil(t *testing.T) {
 	const teslaID = int64(920003)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:             accountID,
 		TeslaID:               teslaID,
-		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:            captured,
+		CapturedDate:          dateOnly(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               []byte(`{}`),
@@ -458,10 +470,12 @@ func TestMaxRangeChargeCounter_BackfillFromRawData(t *testing.T) {
 	// Insert a "pre-migration" row: typed column is nil (NULL) but raw_data
 	// contains the counter value under the correct JSONB path.
 	rawWithCounter := []byte(`{"charge_state":{"max_range_charge_counter":5}}`)
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:             accountID,
 		TeslaID:               teslaID,
-		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:            captured,
+		CapturedDate:          dateOnly(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               rawWithCounter,
@@ -515,10 +529,12 @@ func TestMaxRangeChargeCounter_BackfillSkipsRowsWithoutPath(t *testing.T) {
 
 	// raw_data has no charge_state.max_range_charge_counter — the JSONB path does not exist.
 	rawWithoutCounter := []byte(`{"charge_state":{"charging_state":"Disconnected"}}`)
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:             accountID,
 		TeslaID:               teslaID,
-		CapturedAt:            time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:            captured,
+		CapturedDate:          dateOnly(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               rawWithoutCounter,

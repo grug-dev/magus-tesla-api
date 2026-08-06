@@ -91,7 +91,7 @@
       mirroring `timestamptzFrom` exactly (per design.md's Write Path section).
       Acceptance: `go build ./...` green.
 
-- [ ] T3.5 Extend `dbStore.insertSnapshot` to pass `CapturedDate:
+- [x] T3.5 Extend `dbStore.insertSnapshot` to pass `CapturedDate:
       dateFrom(s.CapturedDate)` to `InsertVehicleSnapshotParams`. This step depends on T4.1
       (the sqlc query must include `captured_date` in the INSERT list before `make sqlc`
       regenerates the params struct) — implement after T4.1 and `make sqlc` have run.
@@ -125,7 +125,7 @@
 
 ## T5. `mapping.go`: `rowToSnapshot` — depends on T3, T4
 
-- [ ] T5.1 Extend `rowToSnapshot` in `internal/telemetry/mapping.go` to map
+- [x] T5.1 Extend `rowToSnapshot` in `internal/telemetry/mapping.go` to map
       `CapturedDate: r.CapturedDate.Time` onto the returned `Snapshot`, immediately after
       `CapturedAt`. Do NOT map `r.UpdatedAt` onto `Snapshot` — it stays unexposed, mirroring
       the existing precedent that `r.ID` is likewise selected but never surfaced on
@@ -197,7 +197,7 @@ task separately. See design.md's "Scope Boundary" section.**
 **Read design.md's "Test Blast Radius" section before starting — this is not limited to
 the one test named below.**
 
-- [ ] T9.1 In `internal/telemetry/db_integration_test.go`: replace
+- [x] T9.1 In `internal/telemetry/db_integration_test.go`: replace
       `TestStore_SnapshotAppendOnly` with two tests reflecting the new upsert semantics
       (naming is illustrative, keep it descriptive):
       - `TestStore_SnapshotUpsert_SameDayReplaces` — insert a snapshot with a given
@@ -219,7 +219,7 @@ the one test named below.**
       Acceptance: `go test ./internal/telemetry/...` (DB-gated) passes; no test relies on
       the old append-only assumption.
 
-- [ ] T9.2 In `internal/telemetry/db_read_integration_test.go`: audit every `Snapshot{}`
+- [x] T9.2 In `internal/telemetry/db_read_integration_test.go`: audit every `Snapshot{}`
       literal passed to `st.insertSnapshot`. Several tests intentionally build MULTIPLE
       snapshots per vehicle across different `CapturedAt` values to exercise
       `SnapshotsByVehicleSince`'s window filter and `LatestSnapshotsByAccount`'s
@@ -235,12 +235,12 @@ the one test named below.**
       multi-day; any test whose fixtures turn out to be same-day is updated to assert the
       new (correct) one-row-replace outcome instead.
 
-- [ ] T9.3 In `internal/telemetry/db_sourcea_integration_test.go`: same audit as T9.2 —
+- [x] T9.3 In `internal/telemetry/db_sourcea_integration_test.go`: same audit as T9.2 —
       set `CapturedDate` explicitly and consistently with each literal's `CapturedAt` on
       every `Snapshot{}` passed to `st.insertSnapshot`.
       Acceptance: `go test ./internal/telemetry/...` (DB-gated) passes.
 
-- [ ] T9.4 In `internal/telemetry/db_tpms_integration_test.go`: same audit as T9.2 — set
+- [x] T9.4 In `internal/telemetry/db_tpms_integration_test.go`: same audit as T9.2 — set
       `CapturedDate` explicitly and consistently with each literal's `CapturedAt` on every
       `Snapshot{}` passed to `st.insertSnapshot`.
       Acceptance: `go test ./internal/telemetry/...` (DB-gated) passes.

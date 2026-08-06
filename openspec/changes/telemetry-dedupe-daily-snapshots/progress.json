@@ -5,16 +5,9 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "I need you to create a proposal. I had thought we had a validation when running the cmd-poller (once or nightliy) to avoid saving duplicated records for the same captured date. I mean, If I run the cmd-poller-once twice, The second attempted should either not be saved or replace the existing one. THere should be only one record per captured date on the vehicle snapshots table. Can that be fixed?",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
-    "current": [
-      "T3.5",
-      "T5.1",
-      "T9.1",
-      "T9.2",
-      "T9.3",
-      "T9.4"
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
@@ -25,15 +18,21 @@
       "T3.2",
       "T3.3",
       "T3.4",
+      "T3.5",
       "T4.1",
+      "T5.1",
+      "T6.1",
       "T7.1",
       "T8.1",
       "T8.2",
-      "T6.1"
+      "T9.1",
+      "T9.2",
+      "T9.3",
+      "T9.4"
     ]
   },
   "created_at": "2026-08-05T16:22:59Z",
-  "updated_at": "2026-08-06T09:55:02Z",
+  "updated_at": "2026-08-06T10:02:36Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -231,14 +230,23 @@
         "T4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:56:00Z",
+      "completed_at": "2026-08-06T10:00:31Z",
+      "duration_seconds": 271,
+      "notes": "dbStore.insertSnapshot now passes CapturedDate: dateFrom(s.CapturedDate); UpdatedAt deliberately not sent (DB-owned, D5). go build/vet green.",
+      "budget": {
+        "five_hour_pct_start": 22.0,
+        "five_hour_pct_end": 29.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.96,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto all 6 tasks (single serial worker)"
+      }
     },
     {
       "id": "T4.1",
@@ -275,14 +283,23 @@
         "T4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:56:00Z",
+      "completed_at": "2026-08-06T10:00:31Z",
+      "duration_seconds": 271,
+      "notes": "rowToSnapshot maps CapturedDate: r.CapturedDate.Time after CapturedAt; r.UpdatedAt intentionally left unmapped (mirrors r.ID precedent). go build/vet green.",
+      "budget": {
+        "five_hour_pct_start": 22.0,
+        "five_hour_pct_end": 29.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.96,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto all 6 tasks (single serial worker)"
+      }
     },
     {
       "id": "T6.1",
@@ -398,14 +415,23 @@
         "T5.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:56:00Z",
+      "completed_at": "2026-08-06T10:00:31Z",
+      "duration_seconds": 271,
+      "notes": "Replaced TestStore_SnapshotAppendOnly with SameDayReplaces + DifferentDayCreatesNewRow using fixed non-midnight-straddling times; added CapturedDate to both sentry round-trip literals.",
+      "budget": {
+        "five_hour_pct_start": 22.0,
+        "five_hour_pct_end": 29.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.96,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto all 6 tasks (single serial worker)"
+      }
     },
     {
       "id": "T9.2",
@@ -417,14 +443,23 @@
         "T5.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:56:00Z",
+      "completed_at": "2026-08-06T10:00:31Z",
+      "duration_seconds": 271,
+      "notes": "Audited 12 Snapshot{} literals across 6 tests; all 12 needed CapturedDate added. MultiVehicleLatestWins' snapAOlder/snapANewer are same-day by construction (now-2h/now-1h) - assertions still hold under upsert-replace.",
+      "budget": {
+        "five_hour_pct_start": 22.0,
+        "five_hour_pct_end": 29.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.96,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto all 6 tasks (single serial worker)"
+      }
     },
     {
       "id": "T9.3",
@@ -436,14 +471,23 @@
         "T5.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:56:00Z",
+      "completed_at": "2026-08-06T10:00:31Z",
+      "duration_seconds": 271,
+      "notes": "Audited 8 Snapshot{} literals across 7 tests (Source A + MaxRangeChargeCounter); all 8 needed CapturedDate added. Each test uses a distinct teslaID, single snapshot - no collision risk, hygiene only.",
+      "budget": {
+        "five_hour_pct_start": 22.0,
+        "five_hour_pct_end": 29.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.96,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto all 6 tasks (single serial worker)"
+      }
     },
     {
       "id": "T9.4",
@@ -455,14 +499,23 @@
         "T5.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:56:00Z",
+      "completed_at": "2026-08-06T10:00:31Z",
+      "duration_seconds": 271,
+      "notes": "Audited 4 Snapshot{} literals across 4 TPMS tests; all 4 needed CapturedDate added. Each test uses a distinct teslaID, single snapshot - no collision risk, hygiene only.",
+      "budget": {
+        "five_hour_pct_start": 22.0,
+        "five_hour_pct_end": 29.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.96,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto all 6 tasks (single serial worker)"
+      }
     }
   ],
   "review": {
@@ -552,6 +605,15 @@
       "decision": "Batched each wave into ONE serial Sonnet worker instead of parallel workers",
       "why": "Tasks share service.go/telemetry.go and the wave is small; one dispatch reads the doc pack once and avoids concurrent edits to the same files.",
       "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-06T10:02:36Z",
+      "scope": "task:T9.2",
+      "made_by": "leader",
+      "decision": "Leader-fixed TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins: vehicle A's two fixtures moved from -2h/-1h to -26h/-1h so they land on different calendar days",
+      "why": "Worker reported the same-day fixtures as 'assertions still hold' but T9.2 requires confirming same-day fixtures are intended. They were not: the upsert collapsed them to one row, so DISTINCT ON latest-wins stopped being exercised, and the test's outcome depended on whether it ran just after UTC midnight. >24h apart is date-distinct always.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -599,6 +661,21 @@
       "at": "2026-08-06T09:55:02Z",
       "agent": "leader",
       "event": "BLOCKER for verification (not for implementation): Docker daemon is down AND .env sets DATABASE_URL to the LIVE database, so running the DB integration suite would apply the destructive migration (deletes 2 duplicate rows) to production. Tests deferred to a user-gated step; workers forbidden from `make test`/`make check`."
+    },
+    {
+      "at": "2026-08-06T10:02:36Z",
+      "agent": "leader",
+      "event": "wave 1 commit sha d1919d5."
+    },
+    {
+      "at": "2026-08-06T10:02:36Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled: 6/6 tasks done, build+vet green repo-wide. All 18 tasks now done; status -> applied. Budget delta: five_hour 22->29, cost ~3.96 USD."
+    },
+    {
+      "at": "2026-08-06T10:02:36Z",
+      "agent": "leader",
+      "event": "leader cross-check caught a hand-waved item in the wave-2 report (Step 5.6) and fixed it before review: see decision D10."
     }
   ]
 }

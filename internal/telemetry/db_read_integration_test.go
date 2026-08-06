@@ -15,11 +15,20 @@ import (
 // (`make migrate-up`).
 
 // TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins inserts two snapshots
-// for vehicle A (different captured_at) and one for vehicle B, then asserts:
+// for vehicle A (different captured_at, on DIFFERENT calendar days) and one for
+// vehicle B, then asserts:
 //   - exactly two rows returned (one per vehicle — the DISTINCT ON batch semantics)
 //   - vehicle A returns the NEWER snapshot (latest-wins)
 //   - vehicle B returns its only snapshot
 //   - all typed fields round-trip faithfully
+//
+// Vehicle A's two snapshots MUST land on different calendar days: since
+// telemetry-dedupe-daily-snapshots, two same-day captures for one vehicle collapse
+// into a single row via the upsert (design D1), which would leave DISTINCT ON with
+// only one row to choose from and silently stop exercising latest-wins at all. The
+// 26h/1h offsets below are >24h apart, so they are always on different dates
+// regardless of what time of day the suite runs — the earlier 2h/1h fixtures made
+// this test's behavior depend on whether it ran side of UTC midnight.
 func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
@@ -30,12 +39,14 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	cleanupVehicle(t, pool, accountID, vehicleA)
 	cleanupVehicle(t, pool, accountID, vehicleB)
 
-	// Vehicle A — older snapshot (lower battery).
-	olderTime := time.Now().UTC().Add(-2 * time.Hour).Truncate(time.Microsecond)
+	// Vehicle A — older snapshot (lower battery), on the PREVIOUS calendar day so it
+	// coexists with the newer one instead of being replaced by it (see doc comment).
+	olderTime := time.Now().UTC().Add(-26 * time.Hour).Truncate(time.Microsecond)
 	snapAOlder := Snapshot{
 		AccountID:      accountID,
 		TeslaID:        vehicleA,
 		CapturedAt:     olderTime,
+		CapturedDate:   dateOnly(olderTime, time.UTC),
 		BatteryLevel:   40,
 		BatteryRange:   120.0,
 		ChargingState:  "Disconnected",
@@ -60,6 +71,7 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 		AccountID:      accountID,
 		TeslaID:        vehicleA,
 		CapturedAt:     newerTime,
+		CapturedDate:   dateOnly(newerTime, time.UTC),
 		BatteryLevel:   75,
 		BatteryRange:   240.5,
 		ChargingState:  "Charging",
@@ -84,6 +96,7 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 		AccountID:      accountID,
 		TeslaID:        vehicleB,
 		CapturedAt:     snapBTime,
+		CapturedDate:   dateOnly(snapBTime, time.UTC),
 		BatteryLevel:   60,
 		BatteryRange:   180.0,
 		ChargingState:  "Disconnected",
@@ -179,10 +192,12 @@ func TestReadStore_LatestSnapshotsByAccount_SentryNilRoundTrip(t *testing.T) {
 	const teslaID = int64(800010)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:     accountID,
 		TeslaID:       teslaID,
-		CapturedAt:    time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:    captured,
+		CapturedDate:  dateOnly(captured, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "2026.1.0",
 		SentryMode:    nil, // absent field — must round-trip as SQL NULL → nil *bool
@@ -237,18 +252,22 @@ func TestReadStore_LatestSnapshotsByAccount_DifferentAccountExcluded(t *testing.
 	cleanupVehicle(t, pool, acctA, vehicleA)
 	cleanupVehicle(t, pool, acctB, vehicleB)
 
+	capturedA := time.Now().UTC().Truncate(time.Microsecond)
 	snapA := Snapshot{
 		AccountID:     acctA,
 		TeslaID:       vehicleA,
-		CapturedAt:    time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:    capturedA,
+		CapturedDate:  dateOnly(capturedA, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "v",
 		RawData:       []byte(`{}`),
 	}
+	capturedB := time.Now().UTC().Truncate(time.Microsecond)
 	snapB := Snapshot{
 		AccountID:     acctB,
 		TeslaID:       vehicleB,
-		CapturedAt:    time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:    capturedB,
+		CapturedDate:  dateOnly(capturedB, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "v",
 		RawData:       []byte(`{}`),
@@ -308,6 +327,7 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 		AccountID:     accountID,
 		TeslaID:       vehicleA,
 		CapturedAt:    before,
+		CapturedDate:  dateOnly(before, time.UTC),
 		BatteryLevel:  50,
 		BatteryRange:  150.0,
 		ChargingState: "Disconnected",
@@ -325,6 +345,7 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 		AccountID:     accountID,
 		TeslaID:       vehicleA,
 		CapturedAt:    day0,
+		CapturedDate:  dateOnly(day0, time.UTC),
 		BatteryLevel:  60,
 		BatteryRange:  180.0,
 		ChargingState: "Disconnected",
@@ -342,6 +363,7 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 		AccountID:     accountID,
 		TeslaID:       vehicleA,
 		CapturedAt:    day1,
+		CapturedDate:  dateOnly(day1, time.UTC),
 		BatteryLevel:  72,
 		BatteryRange:  220.0,
 		ChargingState: "Disconnected",
@@ -359,6 +381,7 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 		AccountID:     accountID,
 		TeslaID:       vehicleA,
 		CapturedAt:    day2,
+		CapturedDate:  dateOnly(day2, time.UTC),
 		BatteryLevel:  80,
 		BatteryRange:  240.0,
 		ChargingState: "Charging",
@@ -427,19 +450,23 @@ func TestReadStore_SnapshotsByVehicleSince_CrossAccountExcluded(t *testing.T) {
 
 	since := time.Now().UTC().Add(-24 * time.Hour).Truncate(time.Microsecond)
 
+	capturedA := time.Now().UTC().Truncate(time.Microsecond)
 	snapA := Snapshot{
 		AccountID:     acctA,
 		TeslaID:       vehicleID,
-		CapturedAt:    time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:    capturedA,
+		CapturedDate:  dateOnly(capturedA, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "v",
 		BatteryLevel:  55,
 		RawData:       []byte(`{}`),
 	}
+	capturedB := time.Now().UTC().Truncate(time.Microsecond)
 	snapB := Snapshot{
 		AccountID:     acctB,
 		TeslaID:       vehicleID,
-		CapturedAt:    time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:    capturedB,
+		CapturedDate:  dateOnly(capturedB, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "v",
 		BatteryLevel:  77,
