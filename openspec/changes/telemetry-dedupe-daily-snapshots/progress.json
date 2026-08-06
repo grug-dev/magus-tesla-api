@@ -5,10 +5,19 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "I need you to create a proposal. I had thought we had a validation when running the cmd-poller (once or nightliy) to avoid saving duplicated records for the same captured date. I mean, If I run the cmd-poller-once twice, The second attempted should either not be saved or replace the existing one. THere should be only one record per captured date on the vehicle snapshots table. Can that be fixed?",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
+      "T3.5",
+      "T5.1",
+      "T9.1",
+      "T9.2",
+      "T9.3",
+      "T9.4"
+    ],
+    "pending": [],
+    "blocked": [],
+    "done": [
       "T1.1",
       "T2.1",
       "T2.2",
@@ -16,24 +25,19 @@
       "T3.2",
       "T3.3",
       "T3.4",
-      "T3.5",
       "T4.1",
-      "T5.1",
-      "T6.1",
       "T7.1",
       "T8.1",
       "T8.2",
-      "T9.1",
-      "T9.2",
-      "T9.3",
-      "T9.4"
-    ],
-    "blocked": [],
-    "done": []
+      "T6.1"
+    ]
   },
   "created_at": "2026-08-05T16:22:59Z",
-  "updated_at": "2026-08-05T16:22:59Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-08-06T09:55:02Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/CH1-telemetry-dedupe-daily-snapshots",
@@ -47,14 +51,23 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "Migration created verbatim from design.md DDL (Up: add col, backfill, dedupe delete, UNIQUE constraint, NOT NULL, updated_at; Down: reverse). Not applied (no migrate-up run).",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T2.1",
@@ -62,14 +75,23 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "Added Location *time.Location to Config after Clock, doc comment per D2a. go build green.",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T2.2",
@@ -77,80 +99,137 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "Added CapturedDate time.Time to Snapshot after CapturedAt, doc comment per design.md. go build green.",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T3.1",
       "title": "Add (*service).location() helper mirroring now()",
       "module": "telemetry",
-      "depends_on": ["T2.1"],
+      "depends_on": [
+        "T2.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "Added location() helper mirroring now(); nil Config.Location falls back to time.Local. go build green.",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T3.2",
       "title": "Add pure dateOnly(t, loc) function",
       "module": "telemetry",
-      "depends_on": ["T2.1"],
+      "depends_on": [
+        "T2.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "Added dateOnly(t, loc) pure function near snapshotFrom/ptr; verified via standalone script (Docker unavailable for go test).",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T3.3",
       "title": "snapshotFrom accepts loc and sets CapturedDate",
       "module": "telemetry",
-      "depends_on": ["T2.2", "T3.2"],
+      "depends_on": [
+        "T2.2",
+        "T3.2"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "snapshotFrom takes loc param after capturedAt, sets CapturedDate: dateOnly(...). Call site in attemptVehicle updated. go build/vet green.",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T3.4",
       "title": "Add dateFrom(t) pgtype.Date boundary helper",
       "module": "telemetry",
-      "depends_on": ["T2.2"],
+      "depends_on": [
+        "T2.2"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "Added dateFrom(t) mirroring timestamptzFrom, placed next to it. go build green. Unused until T3.5 wires it (not mine).",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T3.5",
       "title": "dbStore.insertSnapshot passes CapturedDate",
       "module": "telemetry",
-      "depends_on": ["T3.4", "T4.1"],
+      "depends_on": [
+        "T3.4",
+        "T4.1"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -165,22 +244,36 @@
       "id": "T4.1",
       "title": "Rewrite InsertVehicleSnapshot as upsert + sqlc generate",
       "module": "telemetry",
-      "depends_on": ["T1.1"],
+      "depends_on": [
+        "T1.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "Rewrote InsertVehicleSnapshot as ON CONFLICT upsert; appended captured_date, updated_at to 3 SELECT lists. Fixed the 2 double-space typos. sqlc generate is leader's step (not run by me).",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T5.1",
       "title": "rowToSnapshot maps captured_date",
       "module": "telemetry",
-      "depends_on": ["T3.3", "T4.1"],
+      "depends_on": [
+        "T3.3",
+        "T4.1"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -195,67 +288,115 @@
       "id": "T6.1",
       "title": "cmd/poller wires Location for both --once and nightly paths",
       "module": "cmd/poller",
-      "depends_on": ["T2.1"],
+      "depends_on": [
+        "T2.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "OUTSIDE the telemetry sandbox - leader owns this file.",
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-06T09:55:02Z",
+      "completed_at": "2026-08-06T09:55:02Z",
+      "duration_seconds": 0,
+      "notes": "Leader-owned (outside telemetry sandbox). time.LoadLocation moved before tcfg, unconditional; Location: loc added; duplicate load removed; doc comment updated. build+vet green.",
+      "budget": {
+        "five_hour_pct_start": 19.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 0.0,
+        "cost_usd_delta": 0.0,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-implemented inline; too small to separate from the wave bracket"
+      }
     },
     {
       "id": "T7.1",
       "title": "Rewrite AGENTS.md Data ownership (append-only superseded)",
       "module": "telemetry",
-      "depends_on": ["T1.1"],
+      "depends_on": [
+        "T1.1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "Rewrote vehicle_snapshots bullet: no longer append-only, D1/D2/D5 documented; poll_attempts explicitly stated unaffected/append-only (D4); pointer to this change added.",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T8.1",
       "title": "Offline unit tests for dateOnly",
       "module": "telemetry",
-      "depends_on": ["T3.2"],
+      "depends_on": [
+        "T3.2"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "3 tests in new dedupe_test.go covering (a)(b)(c). go build/vet green; go test blocked package-wide by TestMain needing Docker (unavailable here) - logic verified via standalone script.",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T8.2",
       "title": "Offline unit test for location() fallback to time.Local",
       "module": "telemetry",
-      "depends_on": ["T3.1"],
+      "depends_on": [
+        "T3.1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-06T09:47:00Z",
+      "completed_at": "2026-08-06T09:52:10Z",
+      "duration_seconds": 310,
+      "notes": "2 tests in dedupe_test.go: Config{} -> time.Local, Config{Location: loc} -> loc unchanged. Same Docker-blocked go test caveat as T8.1.",
+      "budget": {
+        "five_hour_pct_start": 12.0,
+        "five_hour_pct_end": 19.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.67,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta copied onto all 11 tasks (single serial worker); includes the leader's own bracket reads"
+      }
     },
     {
       "id": "T9.1",
       "title": "Replace TestStore_SnapshotAppendOnly with upsert/new-day tests",
       "module": "telemetry",
-      "depends_on": ["T1.1", "T4.1", "T5.1"],
+      "depends_on": [
+        "T1.1",
+        "T4.1",
+        "T5.1"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -270,7 +411,11 @@
       "id": "T9.2",
       "title": "Audit db_read_integration_test.go for collapsing same-day rows",
       "module": "telemetry",
-      "depends_on": ["T1.1", "T4.1", "T5.1"],
+      "depends_on": [
+        "T1.1",
+        "T4.1",
+        "T5.1"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -285,7 +430,11 @@
       "id": "T9.3",
       "title": "Audit db_sourcea_integration_test.go for collapsing same-day rows",
       "module": "telemetry",
-      "depends_on": ["T1.1", "T4.1", "T5.1"],
+      "depends_on": [
+        "T1.1",
+        "T4.1",
+        "T5.1"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -300,7 +449,11 @@
       "id": "T9.4",
       "title": "Audit db_tpms_integration_test.go for collapsing same-day rows",
       "module": "telemetry",
-      "depends_on": ["T1.1", "T4.1", "T5.1"],
+      "depends_on": [
+        "T1.1",
+        "T4.1",
+        "T5.1"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -381,6 +534,24 @@
       "decision": "Pipeline stops at the proposal; Apply is deferred to a later resume",
       "why": "User asked for a proposal only and wants to review before implementation",
       "covered_by": "scope question, Step 3"
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-06T09:55:02Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Do NOT run the DB integration suite while DATABASE_URL points at the live DB and Docker is unavailable; defer test execution to a user-gated step",
+      "why": "testdb.Provision applies goose migrations to DATABASE_URL when set; the new migration deletes 2 rows from live vehicle_snapshots. Destructive action requires explicit user go-ahead per CLAUDE.md.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-06T09:55:02Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Batched each wave into ONE serial Sonnet worker instead of parallel workers",
+      "why": "Tasks share service.go/telemetry.go and the wave is small; one dispatch reads the doc pack once and avoids concurrent edits to the same files.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -408,6 +579,26 @@
       "at": "2026-08-05T16:23:00Z",
       "agent": "leader",
       "event": "artifacts committed; pipeline paused at status=proposed per user decision D7. Resume with: /kkpa-dev-harness-pipeline resume telemetry-dedupe-daily-snapshots"
+    },
+    {
+      "at": "2026-08-06T09:47:00Z",
+      "agent": "leader",
+      "event": "RESUMED (Step R) on user request 'execute the pending openspec change'. Runtime Claude Code, no degradations. Budget clear at resume: five_hour_pct 7, context_pct 8. status proposed -> in-progress."
+    },
+    {
+      "at": "2026-08-06T09:47:00Z",
+      "agent": "leader",
+      "event": "wave plan: W1 = T1.1,T2.1,T2.2,T3.1,T3.2,T3.3,T3.4,T4.1,T7.1,T8.1,T8.2 (one serial telemetry worker); leader then runs make sqlc + T6.1 (cmd/poller, outside sandbox); W2 = T3.5,T5.1,T9.1,T9.2,T9.3,T9.4."
+    },
+    {
+      "at": "2026-08-06T09:55:02Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled: 11/11 tasks done, build+vet green. Leader ran `make sqlc` (regenerated models.go + query.sql.go) and implemented T6.1 in cmd/poller/main.go. Budget delta: five_hour 12->19, cost ~3.67 USD."
+    },
+    {
+      "at": "2026-08-06T09:55:02Z",
+      "agent": "leader",
+      "event": "BLOCKER for verification (not for implementation): Docker daemon is down AND .env sets DATABASE_URL to the LIVE database, so running the DB integration suite would apply the destructive migration (deletes 2 duplicate rows) to production. Tests deferred to a user-gated step; workers forbidden from `make test`/`make check`."
     }
   ]
 }

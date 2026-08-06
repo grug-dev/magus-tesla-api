@@ -31,7 +31,7 @@
 
 ## T1. Goose migration (`internal/telemetry/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create
+- [x] T1.1 Create
       `internal/telemetry/db/migrations/20260805000001_dedupe_vehicle_snapshots_daily.sql`
       with the exact DDL from design.md's "Schema" section (Up: add `captured_date`
       nullable → backfill from `captured_at AT TIME ZONE 'America/Bogota'` → delete the
@@ -52,13 +52,13 @@
 
 ## T2. `Config.Location` + `Snapshot.CapturedDate` (`internal/telemetry/telemetry.go`) — no dependencies
 
-- [ ] T2.1 Add `Location *time.Location` to `Config`, immediately after `Clock`, with the
+- [x] T2.1 Add `Location *time.Location` to `Config`, immediately after `Clock`, with the
       doc comment from design.md D2a (nil → `time.Local`, same `*time.Location` as
       `NewScheduler`'s `loc` param, set once in `cmd/poller/main.go`).
       Acceptance: `go build ./...` green; existing `Config{...}` literals across the
       codebase (tests, `cmd/poller`) remain compile-compatible (additive field).
 
-- [ ] T2.2 Add `CapturedDate time.Time` to `Snapshot`, immediately after `CapturedAt`, with
+- [x] T2.2 Add `CapturedDate time.Time` to `Snapshot`, immediately after `CapturedAt`, with
       the doc comment from design.md (calendar-date semantics, UTC-midnight normalized,
       backs the UNIQUE constraint, `CapturedAt` remains the authoritative "when").
       Acceptance: `go build ./...` green; existing named-field `Snapshot{...}` literals
@@ -67,19 +67,19 @@
 
 ## T3. `service.go`: location seam + write-path wiring — depends on T2
 
-- [ ] T3.1 Add the `location()` helper method on `*service`, mirroring the existing `now()`
+- [x] T3.1 Add the `location()` helper method on `*service`, mirroring the existing `now()`
       helper exactly (falls back to `time.Local` when `s.cfg.Location` is nil), per
       design.md D2a.
       Acceptance: `go build ./...` green.
 
-- [ ] T3.2 Add the `dateOnly(t time.Time, loc *time.Location) time.Time` pure function to
+- [x] T3.2 Add the `dateOnly(t time.Time, loc *time.Location) time.Time` pure function to
       `service.go` (near `snapshotFrom`/`ptr`), per design.md D2a: returns the calendar
       date of `t` in `loc`, normalized to UTC midnight via
       `time.Date(y, m, d, 0, 0, 0, 0, time.UTC)`.
       Acceptance: `go build ./...` green; this function has no DB/network dependency and
       is directly unit-testable (see T8).
 
-- [ ] T3.3 Change `snapshotFrom`'s signature to accept a `loc *time.Location` parameter
+- [x] T3.3 Change `snapshotFrom`'s signature to accept a `loc *time.Location` parameter
       (immediately after `capturedAt`) and set `CapturedDate: dateOnly(capturedAt, loc)`
       on the returned `Snapshot`, immediately after the `CapturedAt` field. Update the
       call site in `attemptVehicle` to `snapshotFrom(v.AccountID, v.TeslaID, s.now(),
@@ -87,7 +87,7 @@
       Acceptance: `go build ./...` and `go vet ./...` green; every other `snapshotFrom`
       field assignment is unchanged.
 
-- [ ] T3.4 Add the `dateFrom(t time.Time) pgtype.Date` boundary helper to `service.go`,
+- [x] T3.4 Add the `dateFrom(t time.Time) pgtype.Date` boundary helper to `service.go`,
       mirroring `timestamptzFrom` exactly (per design.md's Write Path section).
       Acceptance: `go build ./...` green.
 
@@ -102,7 +102,7 @@
 
 ## T4. sqlc query edits + regenerate (`internal/telemetry/db/query.sql`) — depends on T1
 
-- [ ] T4.1 Rewrite `InsertVehicleSnapshot` in `query.sql` into the upsert from design.md's
+- [x] T4.1 Rewrite `InsertVehicleSnapshot` in `query.sql` into the upsert from design.md's
       "Write Path" section: add `captured_date` to the INSERT column list and
       `@captured_date` to VALUES (at the end, matching the migration's physical
       column-append order), then add
@@ -158,7 +158,7 @@ task separately. See design.md's "Scope Boundary" section.**
 
 ## T7. `internal/telemetry/AGENTS.md` — "Data ownership" rewrite — depends on T1
 
-- [ ] T7.1 Rewrite the "Data ownership" section's `vehicle_snapshots` bullet to remove the
+- [x] T7.1 Rewrite the "Data ownership" section's `vehicle_snapshots` bullet to remove the
       "one immutable row per successful capture … Never overwritten or deleted
       (append-only)" framing and replace it with: at most one row per (account_id,
       tesla_id, captured_date); a same-day re-capture REPLACES the row (latest wins,
@@ -174,7 +174,7 @@ task separately. See design.md's "Scope Boundary" section.**
 
 ## T8. New offline unit tests — depends on T3
 
-- [ ] T8.1 Add unit tests for `dateOnly` in a new small file,
+- [x] T8.1 Add unit tests for `dateOnly` in a new small file,
       `internal/telemetry/dedupe_test.go` (no DB, no network — pure function tests). Cover:
       (a) a capture comfortably inside a calendar day in a non-UTC zone (e.g.
           `America/Bogota`, UTC-5) returns that same local calendar date;
@@ -186,7 +186,7 @@ task separately. See design.md's "Scope Boundary" section.**
       Acceptance: `go test ./internal/telemetry/...` passes; tests are fast (no DB, no
       network, no live Tesla API call).
 
-- [ ] T8.2 Add a unit test for `(*service).location()`'s fallback behavior: `Config{}`
+- [x] T8.2 Add a unit test for `(*service).location()`'s fallback behavior: `Config{}`
       (zero value, `Location` nil) returns `time.Local`; `Config{Location: someLoc}`
       returns `someLoc` unchanged. Place alongside the existing `now()`-fallback test if
       one exists in `service_test.go`, or in `dedupe_test.go`.

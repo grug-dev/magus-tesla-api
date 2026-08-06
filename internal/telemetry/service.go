@@ -85,6 +85,16 @@ func (s *service) now() time.Time {
 	return time.Now()
 }
 
+// location returns the configured timezone for calendar-day derivation, honoring
+// the injected Config.Location when present so CapturedDate is deterministic in
+// tests; production falls back to time.Local (D2a).
+func (s *service) location() *time.Location {
+	if s.cfg.Location != nil {
+		return s.cfg.Location
+	}
+	return time.Local
+}
+
 // CollectAll runs one collection cycle over every registered vehicle across all
 // accounts (the Collector port). It enumerates vehicles via the account port, groups
 // them by account for per-account token batching (D3), and collects each vehicle with
@@ -348,7 +358,7 @@ func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, v
 		return s.logAPIError(v.TeslaID, "VehicleData", err, reasonFor(err)), vehicleConfig{}
 	}
 
-	snap := snapshotFrom(v.AccountID, v.TeslaID, s.now(), data, raw)
+	snap := snapshotFrom(v.AccountID, v.TeslaID, s.now(), s.location(), data, raw)
 	if err := s.store.insertSnapshot(ctx, snap); err != nil {
 		// A store failure is transient from the cycle's point of view (retry once).
 		return s.logAPIError(v.TeslaID, "insertSnapshot", err, ReasonAPIError), vehicleConfig{}
@@ -456,11 +466,12 @@ func (s *service) record(ctx context.Context, accountID uuid.UUID, teslaID int64
 //
 // latitude/longitude and fast_charger_type are NOT extracted here — those typed columns
 // were dropped in migration 20260801000001. Values remain lossless in raw_data JSONB.
-func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, data *tesla.VehicleDataTesla, raw []byte) Snapshot {
+func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, loc *time.Location, data *tesla.VehicleDataTesla, raw []byte) Snapshot {
 	return Snapshot{
 		AccountID:      accountID,
 		TeslaID:        teslaID,
 		CapturedAt:     capturedAt,
+		CapturedDate:   dateOnly(capturedAt, loc),
 		BatteryLevel:   data.ChargeState.BatteryLevel,
 		BatteryRange:   data.ChargeState.BatteryRange,
 		ChargingState:  data.ChargeState.ChargingState,
@@ -496,6 +507,14 @@ func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, data
 // store the actual DTO value (including a truthful 0/"") into a *T field without
 // a zero-is-absent heuristic (design DSA3/D12 of RM2-telemetry-add-charging-stats).
 func ptr[T any](v T) *T { return &v }
+
+// dateOnly returns the calendar date of t in loc, normalized to UTC midnight — the
+// representation pgtype.Date expects. This is the single place the poller's
+// configured timezone determines which calendar day a snapshot belongs to (D2).
+func dateOnly(t time.Time, loc *time.Location) time.Time {
+	y, m, d := t.In(loc).Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
 
 // --- telemetrydb-backed store (the ONLY place pgtype is touched) ---
 
@@ -644,6 +663,13 @@ func (d *dbStore) snapshotsByVehicleSince(ctx context.Context, accountID uuid.UU
 // DB boundary, so the domain never carries a pgtype value.
 func timestamptzFrom(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
+// dateFrom converts a plain time.Time (already normalized to a calendar date
+// by dateOnly) into a valid pgtype.Date at the DB boundary, mirroring
+// timestamptzFrom. Lives here so pgtype stays confined to service.go/mapping.go.
+func dateFrom(t time.Time) pgtype.Date {
+	return pgtype.Date{Time: t, Valid: true}
 }
 
 // boolPtrToPgBool maps a *bool to a nullable pgtype.Bool preserving nil↔SQL NULL: a

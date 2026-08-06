@@ -76,19 +76,29 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 
 ## Data ownership
 
-Owns two append-only tables in the module-scoped `internal/telemetry/db` (goose migrations are the
+Owns two tables in the module-scoped `internal/telemetry/db` (goose migrations are the
 single schema source; sqlc generates `telemetrydb`, which **no other module imports**):
 
-- `vehicle_snapshots` — one immutable row per successful capture: `account_id`, `tesla_id`,
-  `captured_at`, `raw_data JSONB` (lossless `vehicle_data`), plus extracted typed columns
-  (battery level, rated range, charging state, charge limit, odometer, inside/outside temp, locked,
-  `sentry_mode` **nullable**, car version, 5 charge-enrichment fields, and
-  `max_range_charge_counter` **nullable** — see migration 20260801000001). Dropped columns
-  (`latitude`, `longitude`, `fast_charger_type`) remain lossless in `raw_data`. Never overwritten
-  or deleted.
-- `poll_attempts` — one row per (vehicle, run): `account_id`, `tesla_id`, `attempted_at`, `outcome`
-  (`success`|`failure`), `reason` (`ok`|`asleep-timeout`|`unauthorized`|`api-error`). Doubles as
-  future availability / sleep-behavior data.
+- `vehicle_snapshots` — **no longer append-only** (superseded by
+  `telemetry-dedupe-daily-snapshots`, migration `20260805000001` — see below): at most one row
+  per `(account_id, tesla_id, captured_date)`, enforced by the
+  `vehicle_snapshots_account_tesla_date_unique` constraint. A same-day re-capture **REPLACES**
+  the existing row via `ON CONFLICT ... DO UPDATE` — the newest capture for a calendar day always
+  wins (design D1). Columns: `account_id`, `tesla_id`, `captured_at` (the precise capture
+  instant), `captured_date DATE` (the calendar day, **Go-computed** from `captured_at` in the
+  poller's configured timezone — `Config.Location`/`dateOnly`, design D2; never a DB expression,
+  since a UNIQUE index cannot depend on the runtime `POLLER_TIMEZONE` env var), `raw_data JSONB`
+  (lossless `vehicle_data`), plus extracted typed columns (battery level, rated range, charging
+  state, charge limit, odometer, inside/outside temp, locked, `sentry_mode` **nullable**, car
+  version, 5 charge-enrichment fields, and `max_range_charge_counter` **nullable** — see migration
+  20260801000001). Dropped columns (`latitude`, `longitude`, `fast_charger_type`) remain lossless
+  in `raw_data`. `updated_at TIMESTAMPTZ` is the audit trail for a replace: `DEFAULT now()` on a
+  fresh insert, explicitly set to `now()` on a same-day conflict-update (design D5).
+- `poll_attempts` — **unaffected, still append-only/immutable** (design D4): one row per
+  (vehicle, run): `account_id`, `tesla_id`, `attempted_at`, `outcome` (`success`|`failure`),
+  `reason` (`ok`|`asleep-timeout`|`unauthorized`|`api-error`). Doubles as future availability /
+  sleep-behavior data — a daily collapse would destroy that signal, so this table is explicitly
+  out of scope for the dedupe change.
 
 `account_id`/`tesla_id` are plain columns (no cross-module FK, D2 of the change design). `pgtype`
 never leaves the module — convert to/from plain domain types at the DB→domain mapping boundary
