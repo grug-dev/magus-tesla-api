@@ -39,9 +39,18 @@ const barToPSI = 14.503773773
 // vehicle_data payload. Distance/range fields are held API-native (miles); the
 // kilometre equivalent is derived via the Km() companions below, never a field.
 type Snapshot struct {
-	AccountID      uuid.UUID
-	TeslaID        int64
-	CapturedAt     time.Time
+	AccountID  uuid.UUID
+	TeslaID    int64
+	CapturedAt time.Time
+	// CapturedDate is the calendar date CapturedAt falls on, computed in the
+	// poller's configured timezone (Config.Location) at write time (design D2 of
+	// telemetry-dedupe-daily-snapshots). It backs the UNIQUE (account_id,
+	// tesla_id, captured_date) constraint that collapses repeated same-day
+	// captures into one row (design D1: latest capture wins). Represented as a
+	// time.Time normalized to UTC midnight (the pgtype.Date convention) — treat
+	// it as a plain calendar date, not a timestamp; CapturedAt remains the
+	// authoritative "when."
+	CapturedDate   time.Time
 	BatteryLevel   int
 	BatteryRange   float64 // miles — see BatteryRangeKm
 	ChargingState  string
@@ -186,6 +195,15 @@ type Config struct {
 	// Clock returns the current time; nil means time.Now. Injected in tests so
 	// captured_at and timeout math are deterministic without waiting.
 	Clock func() time.Time
+	// Location is the timezone used to derive CapturedDate — the calendar day a
+	// snapshot belongs to — from CapturedAt at write time (D2 of
+	// telemetry-dedupe-daily-snapshots). Nil means the poller's local timezone
+	// (time.Local), mirroring NewScheduler's own "nil loc falls back to
+	// time.Local" convention. cmd/poller sets this from config.PollerTimezone via
+	// time.LoadLocation — the SAME *time.Location passed to NewScheduler — so the
+	// day a snapshot is dated always agrees with the day the scheduler considers
+	// "today" for that run.
+	Location *time.Location
 }
 
 // CycleReport summarizes one collection cycle: how many vehicles were attempted

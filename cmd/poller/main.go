@@ -3,6 +3,11 @@
 // then runs the in-app daily scheduler with graceful shutdown. Thin by design — all
 // collection logic lives in internal/telemetry (ai/go-conventions.md).
 //
+// BOTH paths load and validate POLLER_TIMEZONE: the nightly path schedules in it, and
+// both paths date each capture by it (telemetry.Config.Location). An invalid value is
+// therefore fatal for --once too, which was not the case before this timezone became
+// part of the write path.
+//
 //	go run ./cmd/poller                # nightly scheduled collection (blocks)
 //	go run ./cmd/poller --once          # one immediate cycle, then exit
 package main
@@ -50,20 +55,23 @@ func main() {
 
 	acct := account.NewService(pool, cfg.ClientID, cfg.ClientSecret)
 
-	// One telemetry.Config drives both the collector (wake timeout) and the scheduler
-	// (clock seam, left nil here so both use the wall clock).
-	tcfg := telemetry.Config{WakeTimeout: cfg.PollerWakeTimeout}
+	// Loaded unconditionally, before tcfg: BOTH paths need this timezone now. The
+	// nightly path schedules in it, and both paths date every capture by it —
+	// telemetry derives a snapshot's calendar day (CapturedDate) from this same
+	// *time.Location, so the day a snapshot is dated always agrees with the day the
+	// scheduler considers "today". "Local" resolves to the host's zone.
+	loc, err := time.LoadLocation(cfg.PollerTimezone)
+	if err != nil {
+		log.Fatalf("invalid POLLER_TIMEZONE %q: %v", cfg.PollerTimezone, err)
+	}
+
+	// One telemetry.Config drives both the collector (wake timeout, calendar-day
+	// timezone) and the scheduler (clock seam, left nil here so both use the wall
+	// clock).
+	tcfg := telemetry.Config{WakeTimeout: cfg.PollerWakeTimeout, Location: loc}
 	collector := telemetry.NewService(pool, acct, tesla.NewClient(), tcfg)
 
 	if !*once {
-		// The scheduler runs in this timezone; "Local" resolves to the host's zone.
-		// Only the nightly path needs it — a --once run never schedules, so it never
-		// loads or validates POLLER_TIMEZONE.
-		loc, err := time.LoadLocation(cfg.PollerTimezone)
-		if err != nil {
-			log.Fatalf("invalid POLLER_TIMEZONE %q: %v", cfg.PollerTimezone, err)
-		}
-
 		scheduler := telemetry.NewScheduler(collector, cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, tcfg)
 
 		log.Printf("poller started: nightly collection at %02d:%02d %s (wake timeout %s)",

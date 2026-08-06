@@ -58,6 +58,7 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 		AccountID:      accountID,
 		TeslaID:        teslaID,
 		CapturedAt:     captured,
+		CapturedDate:   dateOnly(captured, time.UTC),
 		BatteryLevel:   64,
 		BatteryRange:   210.5,
 		ChargingState:  "Disconnected",
@@ -128,10 +129,12 @@ func TestStore_SentryTrueAndFalseRoundTripFaithfully(t *testing.T) {
 			accountID := uuid.New()
 			cleanupVehicle(t, pool, accountID, tc.teslaID)
 
+			captured := time.Now().UTC()
 			snap := Snapshot{
 				AccountID:     accountID,
 				TeslaID:       tc.teslaID,
-				CapturedAt:    time.Now().UTC(),
+				CapturedAt:    captured,
+				CapturedDate:  dateOnly(captured, time.UTC),
 				ChargingState: "Charging",
 				CarVersion:    "v",
 				SentryMode:    tc.sentry,
@@ -162,7 +165,12 @@ func TestStore_SentryTrueAndFalseRoundTripFaithfully(t *testing.T) {
 	}
 }
 
-func TestStore_SnapshotAppendOnly(t *testing.T) {
+// TestStore_SnapshotUpsert_SameDayReplaces verifies design D1 of
+// telemetry-dedupe-daily-snapshots: a second capture for the SAME vehicle on
+// the SAME captured_date REPLACES the existing row (latest capture wins),
+// rather than appending a second row (the superseded append-only behavior of
+// RM1-telemetry-add-nightly-snapshots design D1).
+func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 	q := telemetrydb.New(pool)
@@ -171,23 +179,31 @@ func TestStore_SnapshotAppendOnly(t *testing.T) {
 	const teslaID = int64(900020)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
+	// Fixed, deterministic day (not "now") so the two captures cannot
+	// accidentally straddle a UTC midnight boundary.
+	day := time.Date(2026, 1, 15, 4, 0, 0, 0, time.UTC)
+
 	base := Snapshot{
 		AccountID:     accountID,
 		TeslaID:       teslaID,
 		ChargingState: "Disconnected",
 		CarVersion:    "v1",
-		RawData:       []byte(`{}`),
+		RawData:       []byte(`{"pass":1}`),
 	}
 	first := base
-	first.CapturedAt = time.Now().UTC().Add(-time.Hour)
+	first.CapturedAt = day
+	first.CapturedDate = dateOnly(first.CapturedAt, time.UTC)
 	first.BatteryLevel = 50
 	if err := st.insertSnapshot(ctx, first); err != nil {
 		t.Fatalf("first insertSnapshot: %v", err)
 	}
 
 	second := base
-	second.CapturedAt = time.Now().UTC()
+	second.CapturedAt = day.Add(time.Hour) // same calendar day, later instant
+	second.CapturedDate = dateOnly(second.CapturedAt, time.UTC)
 	second.BatteryLevel = 55
+	second.CarVersion = "v2"
+	second.RawData = []byte(`{"pass":2}`)
 	if err := st.insertSnapshot(ctx, second); err != nil {
 		t.Fatalf("second insertSnapshot: %v", err)
 	}
@@ -199,13 +215,80 @@ func TestStore_SnapshotAppendOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListSnapshotsByVehicle: %v", err)
 	}
-	// Append-only: a second insert adds a row and leaves the first intact.
-	if len(got) != 2 {
-		t.Fatalf("want 2 snapshots after a second insert, got %d", len(got))
+	// Same-day replace: exactly ONE row survives (design D1).
+	if len(got) != 1 {
+		t.Fatalf("want 1 snapshot after a same-day replace, got %d", len(got))
 	}
-	// Newest first (ORDER BY captured_at DESC): battery levels 55 then 50.
+	row := got[0]
+	// The surviving row must carry the SECOND capture's values, not the first's.
+	if row.BatteryLevel != 55 {
+		t.Errorf("battery_level wrong: want 55 (second capture), got %d", row.BatteryLevel)
+	}
+	if row.CarVersion != "v2" {
+		t.Errorf("car_version wrong: want v2 (second capture), got %q", row.CarVersion)
+	}
+	if !row.CapturedAt.Time.UTC().Equal(second.CapturedAt) {
+		t.Errorf("captured_at wrong: want %v (second capture), got %v", second.CapturedAt, row.CapturedAt.Time.UTC())
+	}
+}
+
+// TestStore_SnapshotInsert_DifferentDayCreatesNewRow verifies that a capture
+// on a NEW captured_date always inserts a new row and never touches a prior
+// day's row — the dedupe constraint is scoped to (account_id, tesla_id,
+// captured_date), not the vehicle alone.
+func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+	q := telemetrydb.New(pool)
+
+	accountID := uuid.New()
+	const teslaID = int64(900021)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	day1 := time.Date(2026, 1, 15, 4, 0, 0, 0, time.UTC)
+	day2 := day1.AddDate(0, 0, 1)
+
+	base := Snapshot{
+		AccountID:     accountID,
+		TeslaID:       teslaID,
+		ChargingState: "Disconnected",
+		CarVersion:    "v1",
+		RawData:       []byte(`{}`),
+	}
+	first := base
+	first.CapturedAt = day1
+	first.CapturedDate = dateOnly(first.CapturedAt, time.UTC)
+	first.BatteryLevel = 50
+	if err := st.insertSnapshot(ctx, first); err != nil {
+		t.Fatalf("day-1 insertSnapshot: %v", err)
+	}
+
+	second := base
+	second.CapturedAt = day2
+	second.CapturedDate = dateOnly(second.CapturedAt, time.UTC)
+	second.BatteryLevel = 55
+	if err := st.insertSnapshot(ctx, second); err != nil {
+		t.Fatalf("day-2 insertSnapshot: %v", err)
+	}
+
+	got, err := q.ListSnapshotsByVehicle(ctx, telemetrydb.ListSnapshotsByVehicleParams{
+		AccountID: accountID,
+		TeslaID:   teslaID,
+	})
+	if err != nil {
+		t.Fatalf("ListSnapshotsByVehicle: %v", err)
+	}
+	// Different days: both rows coexist.
+	if len(got) != 2 {
+		t.Fatalf("want 2 snapshots across two different days, got %d", len(got))
+	}
+	// Newest first (ORDER BY captured_at DESC): day2 (55) then day1 (50).
 	if got[0].BatteryLevel != 55 || got[1].BatteryLevel != 50 {
-		t.Errorf("append-only order wrong: got %d then %d (want 55 then 50)", got[0].BatteryLevel, got[1].BatteryLevel)
+		t.Errorf("order/values wrong: got %d then %d (want 55 then 50)", got[0].BatteryLevel, got[1].BatteryLevel)
+	}
+	// The day-1 row must be unchanged by the day-2 insert.
+	if !got[1].CapturedAt.Time.UTC().Equal(day1) {
+		t.Errorf("day-1 row's captured_at was altered: want %v, got %v", day1, got[1].CapturedAt.Time.UTC())
 	}
 }
 

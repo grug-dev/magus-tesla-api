@@ -51,7 +51,8 @@ INSERT INTO vehicle_snapshots (
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    captured_date
 ) VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8,
@@ -60,8 +61,33 @@ INSERT INTO vehicle_snapshots (
     $15, $16, $17,
     $18, $19,
     $20,
-    $21, $22, $23, $24
+    $21, $22, $23, $24,
+    $25
 )
+ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
+    captured_at              = EXCLUDED.captured_at,
+    raw_data                 = EXCLUDED.raw_data,
+    battery_level            = EXCLUDED.battery_level,
+    battery_range            = EXCLUDED.battery_range,
+    charging_state           = EXCLUDED.charging_state,
+    charge_limit_soc         = EXCLUDED.charge_limit_soc,
+    odometer                 = EXCLUDED.odometer,
+    inside_temp              = EXCLUDED.inside_temp,
+    outside_temp             = EXCLUDED.outside_temp,
+    locked                   = EXCLUDED.locked,
+    sentry_mode              = EXCLUDED.sentry_mode,
+    car_version              = EXCLUDED.car_version,
+    charge_energy_added      = EXCLUDED.charge_energy_added,
+    charger_power            = EXCLUDED.charger_power,
+    charger_voltage          = EXCLUDED.charger_voltage,
+    charger_actual_current   = EXCLUDED.charger_actual_current,
+    usable_battery_level     = EXCLUDED.usable_battery_level,
+    max_range_charge_counter = EXCLUDED.max_range_charge_counter,
+    tpms_pressure_fl         = EXCLUDED.tpms_pressure_fl,
+    tpms_pressure_fr         = EXCLUDED.tpms_pressure_fr,
+    tpms_pressure_rl         = EXCLUDED.tpms_pressure_rl,
+    tpms_pressure_rr         = EXCLUDED.tpms_pressure_rr,
+    updated_at               = now()
 `
 
 type InsertVehicleSnapshotParams struct {
@@ -89,6 +115,7 @@ type InsertVehicleSnapshotParams struct {
 	TpmsPressureFr        pgtype.Float4
 	TpmsPressureRl        pgtype.Float4
 	TpmsPressureRr        pgtype.Float4
+	CapturedDate          pgtype.Date
 }
 
 // Queries for the telemetry module. sqlc generates package `telemetrydb` from
@@ -96,10 +123,19 @@ type InsertVehicleSnapshotParams struct {
 // (module-scoped DB access — ai/architecture.md §2, ai/go-conventions.md
 // §persistence). All writes are append-only inserts (no UPDATE/DELETE): the two
 // tables are immutable history.
-// Insert one immutable snapshot row. Distance/range columns are stored API-native
-// (miles); km is derived on read by the domain type's Km() companions, never a
-// column. sentry_mode is bound as a nullable boolean (nil = vehicle did not
-// report sentry) so absent stays distinct from a reported off.
+// Upsert one snapshot: inserts a new row, or REPLACES the existing row for
+// the same (account_id, tesla_id, captured_date) if one already exists — the
+// newest capture for a calendar day always wins (design D1 of
+// telemetry-dedupe-daily-snapshots, which SUPERSEDES the table's prior
+// append-only invariant — migration 20260710000002 design D1 of
+// RM1-telemetry-add-nightly-snapshots). captured_date is Go-computed
+// (snapshotFrom/dateOnly, service.go) from captured_at in the poller's
+// configured timezone (design D2) — never a DB expression, because a UNIQUE
+// index cannot depend on the runtime POLLER_TIMEZONE env var.
+// Distance/range columns are stored API-native (miles); km is derived on read
+// by the domain type's Km() companions, never a column. sentry_mode is bound
+// as a nullable boolean (nil = vehicle did not report sentry) so absent stays
+// distinct from a reported off.
 // Source A (RM2-telemetry-add-charging-stats): the 5 charge-enrichment columns are
 // always non-NULL for rows written after the 20260716000002 migration — snapshotFrom
 // stores the actual DTO value pointer-wrapped (D12: no zero-is-absent heuristic).
@@ -112,6 +148,10 @@ type InsertVehicleSnapshotParams struct {
 // vehicle did not report TPMS. A 0.0 bar is stored non-NULL (D12/DSA3 convention).
 // No new index: tpms columns ride along on the existing heap row fetch.
 // latitude/longitude/fast_charger_type dropped in 20260801000001 — lossless in raw_data.
+// updated_at is NOT sent as a param: DEFAULT now() handles a fresh INSERT;
+// the ON CONFLICT clause explicitly refreshes it to now() on a same-day
+// replace (design D5), mirroring UpsertSuperchargerSession's own
+// `updated_at = now()`.
 func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSnapshotParams) error {
 	_, err := q.db.Exec(ctx, insertVehicleSnapshot,
 		arg.AccountID,
@@ -138,6 +178,7 @@ func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSn
 		arg.TpmsPressureFr,
 		arg.TpmsPressureRl,
 		arg.TpmsPressureRr,
+		arg.CapturedDate,
 	)
 	return err
 }
@@ -151,7 +192,8 @@ SELECT DISTINCT ON (tesla_id)
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = $1
 ORDER BY tesla_id, captured_at DESC
@@ -199,6 +241,8 @@ func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.U
 			&i.TpmsPressureFr,
 			&i.TpmsPressureRl,
 			&i.TpmsPressureRr,
+			&i.CapturedDate,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -259,7 +303,8 @@ SELECT
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = $1 AND tesla_id = $2
 ORDER BY captured_at DESC
@@ -309,6 +354,8 @@ func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsB
 			&i.TpmsPressureFr,
 			&i.TpmsPressureRl,
 			&i.TpmsPressureRr,
+			&i.CapturedDate,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -329,7 +376,8 @@ SELECT
     charge_energy_added, charger_power, charger_voltage,
     charger_actual_current, usable_battery_level,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr
+    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = $1
   AND tesla_id   = $2
@@ -392,6 +440,8 @@ func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVe
 			&i.TpmsPressureFr,
 			&i.TpmsPressureRl,
 			&i.TpmsPressureRr,
+			&i.CapturedDate,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

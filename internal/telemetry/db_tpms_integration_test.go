@@ -39,10 +39,12 @@ func TestTPMS_NonNilRoundTrip(t *testing.T) {
 	cleanupVehicle(t, pool, accountID, teslaID)
 
 	fl, fr, rl, rr := 2.5, 2.6, 2.4, 2.5
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:      accountID,
 		TeslaID:        teslaID,
-		CapturedAt:     time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:     captured,
+		CapturedDate:   dateOnly(captured, time.UTC),
 		ChargingState:  "Disconnected",
 		CarVersion:     "2026.20.1",
 		RawData:        []byte(`{"vehicle_state":{"tpms_pressure_fl":2.5,"tpms_pressure_fr":2.6,"tpms_pressure_rl":2.4,"tpms_pressure_rr":2.5}}`),
@@ -97,10 +99,12 @@ func TestTPMS_NilRoundTrip(t *testing.T) {
 	const teslaID = int64(930002)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:      accountID,
 		TeslaID:        teslaID,
-		CapturedAt:     time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:     captured,
+		CapturedDate:   dateOnly(captured, time.UTC),
 		ChargingState:  "Disconnected",
 		CarVersion:     "2026.20.1",
 		RawData:        []byte(`{}`),
@@ -187,10 +191,12 @@ func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 	cleanupVehicle(t, pool, accountID, teslaID)
 
 	zero := 0.0
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:      accountID,
 		TeslaID:        teslaID,
-		CapturedAt:     time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:     captured,
+		CapturedDate:   dateOnly(captured, time.UTC),
 		ChargingState:  "Disconnected",
 		CarVersion:     "2026.20.1",
 		RawData:        []byte(`{}`),
@@ -268,10 +274,12 @@ func TestTPMS_PSICompanionConversion(t *testing.T) {
 
 	const inputBar = 2.5
 	fl := inputBar
+	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
 		AccountID:      accountID,
 		TeslaID:        teslaID,
-		CapturedAt:     time.Now().UTC().Truncate(time.Microsecond),
+		CapturedAt:     captured,
+		CapturedDate:   dateOnly(captured, time.UTC),
 		ChargingState:  "Disconnected",
 		CarVersion:     "2026.20.1",
 		RawData:        []byte(`{}`),

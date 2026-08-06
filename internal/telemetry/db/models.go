@@ -67,4 +67,6 @@ type VehicleSnapshot struct {
 	TpmsPressureFr        pgtype.Float4
 	TpmsPressureRl        pgtype.Float4
 	TpmsPressureRr        pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
 }
