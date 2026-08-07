@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM7-store-display-units",
+  "intention": "vehicle_snapshots stores display units (km, Celsius, PSI) under unit-suffixed column names, converted once at write time by the nightly poller. No read path performs unit arithmetic: the gateway dashboard, the history charts, and the battery efficiency derivation read plain fields off telemetry.Snapshot. All unit conversion in the codebase ends up in one module, internal/tesla.",
+  "request": "The vision of this project is to be faster in read, slow in writes. So if we are doing data transformations for units of measure when reading them, that's not good. Move the conversion logic to write time so vehicle_snapshots holds distance in km, temperature in C, and tire pressure in PSI. Rename the affected core columns to carry a unit suffix (XXX_km, XXX_psi, etc). No conversions when reading. Thousand separators stay in the UI scope, but the stored value must be unformatted.",
+  "autopilot": false,
+  "status": "planned",
+  "created_at": "2026-08-06T00:00:00Z",
+  "updated_at": "2026-08-06T00:00:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "manual",
+    "branch": "main",
+    "base": "main",
+    "created_at": "2026-08-06T00:00:00Z",
+    "note": "Not yet chosen by the user. NOTE (RD8): tiers 2-4 must land on the SAME branch \u2014 the tree does not compile between tier 2 and tier 4, so splitting them across branches leaves a broken build."
+  },
+  "rollup": {
+    "current": [],
+    "pending": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Unit conversion moves from read time to write time. vehicle_snapshots stores km, Celsius and PSI; no read path performs arithmetic.",
+      "why": "CLAUDE.md Performance-Profile is read-heavy: reads are mandatory-fast, writes run via midnight pollers and may pay the cost. Today every dashboard render and every history chart bar converts (telemetry.go:110-155, battery/derive.go:32,54-55, gateway/handlers/handlers.go:311,313,400,405, gateway/handlers/history.go:147,154,196); writes happen once nightly per vehicle.",
+      "covered_by": null
+    },
+    {
+      "id": "RD2",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Suffix EVERY unit-bearing column, including ones needing no conversion (temperature, percentages, kWh/kW/V/A). Columns carrying no unit are untouched, including max_range_charge_counter (a count).",
+      "why": "One consistent rule an agent never has to look up, versus a smaller diff that leaves columns whose unit is only discoverable from a migration comment.",
+      "covered_by": null
+    },
+    {
+      "id": "RD3",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Backfill existing rows by in-place arithmetic in the migration: ALTER TABLE ... RENAME COLUMN for all 15, then one UPDATE multiplying the 6 value-changing columns. Down divides by the same constants.",
+      "why": "Single pass, no JSONB parsing. Rejected re-deriving from raw_data: far heavier (JSONB extraction per row per column) and would NULL any row whose payload lacks the path, losing data the typed column still holds.",
+      "covered_by": null
+    },
+    {
+      "id": "RD4",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Scope is vehicle_snapshots only. supercharger_sessions and internal/manualcharge are explicitly out of scope.",
+      "why": "supercharger_sessions already stores energy_kwh (suffixed) and total_cost (paired with a currency column) and holds no miles or bar, so it has nothing to convert. manualcharge is a separate module boundary.",
+      "covered_by": null
+    },
+    {
+      "id": "RD5",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "leader-verified",
+      "decision": "This is a roadmap with one module-prefixed change per tier, not one change. Four tiers: tesla -> telemetry -> battery -> gateway.",
+      "why": "openspec/config.yaml:32 (proposal rule) requires it for a multi-module change, and RM5 set the precedent. Independently forced by the pipeline: kkpa-dev-harness-pipeline sandboxes each worker to exactly one child of internal/, so a four-module change could not be dispatched at all.",
+      "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "All unit conversion lives in internal/tesla. Tier 1 adds TpmsPressure{FL,FR,RL,RR}PSI() and the barToPSI constant to the adapter; tier 2's snapshotFrom calls the adapter companions and internal/telemetry drops both milesToKm and barToPSI.",
+      "why": "One lookup location for every conversion in the codebase, beside the DTOs that own the API-native values. Rejected keeping barToPSI inside telemetry: one fewer tier, but conversion logic split across two modules.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "leader-verified",
+      "decision": "Domain field names absorb the unit suffix and the six read companions at telemetry.go:110-155 are deleted.",
+      "why": "Snapshot.Odometer -> Snapshot.OdometerKm collides with the existing OdometerKm() method, so deleting the methods is required for the package to compile \u2014 not optional cleanup. Same for BatteryRange, InsideTemp/OutsideTemp, and the four TPMS fields.",
+      "covered_by": null
+    },
+    {
+      "id": "RD8",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "leader-verified",
+      "decision": "The tree does not build between tier 2 and tier 4, by construction. Tier 2's verification is scoped to `go build ./internal/telemetry/... ./internal/tesla/...` plus that module's tests; the full-tree `go build ./... && go test ./...` is tier 4's gate. Tiers 2-4 must land on the same branch.",
+      "why": "This roadmap is a breaking rename, unlike the additive RM1-RM6. Tier 2 renames the domain fields and deletes the companions, which stops internal/battery and internal/gateway compiling until tiers 3 and 4 adopt the new fields. Recording it here prevents a reviewer from blocking tier 2 on a full-tree build that cannot pass yet.",
+      "covered_by": null
+    },
+    {
+      "id": "RD9",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "tier-2",
+      "made_by": "leader-verified",
+      "decision": "The `database` design gate triggers on tier 2 and must be confirmed by the user before Apply. No index is rebuilt.",
+      "why": "CLAUDE.md Design-Gates lists `database` as always-on. Verified against the migrations: vehicle_snapshots_account_tesla_date_unique is on (account_id, tesla_id, captured_date) and idx_vehicle_snapshots_vehicle_time on (account_id, tesla_id, captured_at) \u2014 none of the 15 renamed columns appears in either, so the renames touch no index.",
+      "covered_by": null
+    },
+    {
+      "id": "RD10",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "raw_data remains the lossless API-native record; the converted typed columns are not required to be bit-exactly reversible.",
+      "why": "User-accepted trade-off. The full vehicle_data payload stays in raw_data in miles/bar, so any row can be re-derived retroactively and nothing is destroyed by the conversion.",
+      "covered_by": null
+    },
+    {
+      "id": "RD11",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "tier-4",
+      "made_by": "user",
+      "decision": "formatKm (gateway/handlers/handlers.go:425) stays, doing rounding and thousands-grouping only. Stored columns and domain fields are plain unformatted numbers.",
+      "why": "User's explicit instruction: 'Thousand separator is something on the UI scope, that's good.. but the value should be without it.' Formatting is presentation and belongs in the gateway; conversion is not.",
+      "covered_by": null
+    },
+    {
+      "id": "RD12",
+      "at": "2026-08-06T00:00:00Z",
+      "scope": "tier-2",
+      "made_by": "leader-verified",
+      "decision": "Tier 2 re-scopes only its module-local internal/telemetry/AGENTS.md. AMENDED 2026-08-06: the platform-wide rewrite of ai/go-conventions.md:44-47 and the root CLAUDE.md non-negotiable moved OUT of tier 2 into the separate change platform-unit-of-measure-convention, which generalises RM7's decision to every table and every module. Tier 2 tasks 6.2 and 6.3 were removed accordingly.",
+      "why": "Both docs currently mandate a <Field>Km() companion for EVERY miles field, which this roadmap deliberately reverses for persisted types, and CLAUDE.md's 'Docs track structural change' rule makes leaving them stale incomplete. Splitting ownership: two authored-but-unapplied changes editing the same lines is a conflict waiting to happen, and the rule is platform-wide, not telemetry-specific. No apply-order dependency, but platform-unit-of-measure-convention is archived AFTER tier 4 so the merged spec never asserts a compliance vehicle_snapshots has not reached.",
+      "covered_by": "platform-unit-of-measure-convention"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "tesla-add-tpms-psi-companions",
+      "module": "tesla",
+      "optional": false,
+      "depends_on": [],
+      "status": "artifacts-authored",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "notes": "Additive only: 4 nil-safe bar->PSI companions + the barToPSI constant on tesla.VehicleStateTesla. Compiles and ships standalone. No new Fleet API call, so raw.go / cmd/explore-tesla-api are untouched (tesla-exploration sync rule does not trigger)."
+    },
+    {
+      "id": 2,
+      "change": "telemetry-store-display-units",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "artifacts-authored",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "notes": "DATABASE DESIGN GATE (RD9) \u2014 migration + index plan need explicit user confirmation before Apply. BREAKING (RD8): stops internal/battery and internal/gateway compiling; tier-2 verification is module-scoped, full-tree build is tier 4's gate."
+    },
+    {
+      "id": 3,
+      "change": "battery-adopt-snapshot-unit-fields",
+      "module": "battery",
+      "optional": false,
+      "depends_on": [
+        2
+      ],
+      "status": "artifacts-authored",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "notes": "Mechanical adoption, no behavior change and no spec-level change: the battery spec describes Wh/km behavior and never names the companion methods. derive.go:32,54-55 plus AGENTS.md:48-50."
+    },
+    {
+      "id": 4,
+      "change": "gateway-adopt-snapshot-unit-fields",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        2
+      ],
+      "status": "artifacts-authored",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "notes": "Restores `go build ./...`. Companion calls become field reads in handlers.go and history.go; formatKm stays presentation-only (RD11); gateway spec wording that names the companion methods is corrected; AGENTS.md:188 updated."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-06T00:00:00Z",
+      "agent": "leader",
+      "event": "RM7 roadmap created (4 tiers) from the user's write-time-conversion request; rm-counter 6->7. Decisions RD1-RD12 captured (RD5, RD7, RD8, RD9, RD12 leader-verified against config.yaml, the migrations, and the current source). Started as a single change 'telemetry-store-display-units' before openspec/config.yaml:32 surfaced the multi-module roadmap rule; that change is adopted unchanged as tier 2, mirroring how RM5 adopted its tier 1. Artifacts authored for all four tiers; NOT implemented. autopilot off; git strategy not yet chosen."
+    },
+    {
+      "at": "2026-08-06T00:00:00Z",
+      "agent": "leader",
+      "event": "Schema-wide unit audit run at the user's request across all 7 tables (accounts, tesla_tokens, vehicles, poll_attempts, manual_charge_entries, supercharger_sessions, vehicle_snapshots). Result: vehicle_snapshots is the ONLY non-compliant table and the only place any value needs converting - no other miles/bar/Fahrenheit column exists. manual_charge_entries (energy_added_kwh, start_battery_pct, end_battery_pct) and supercharger_sessions (energy_kwh) already comply; price and total_cost are exempt monetary amounts paired with a currency column. Audit produced the docs-only change platform-unit-of-measure-convention (new unit-of-measure capability spec, zero migrations), which takes over tier 2's platform doc edits - RD12 amended, tier-2 tasks 6.2/6.3 removed."
+    }
+  ]
+}
