@@ -1,0 +1,313 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "tesla-add-tpms-psi-companions",
+  "module": "tesla",
+  "roadmap": "RM7-store-display-units",
+  "tier": 1,
+  "request": "RM7 tier 1: add bar->PSI companions for all four TPMS corners to the tesla adapter per RM7 Decisions 5, 6 and 12, following the existing OdometerKm() value-receiver pattern. Own the barToPSI constant (14.503773773) here so it lives beside milesToKm.",
+  "status": "applied",
+  "created_at": "2026-08-07T10:26:33Z",
+  "updated_at": "2026-08-07T10:31:02Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM7-store-display-units",
+    "base": "c2cf0ab",
+    "created_at": "2026-08-07T10:26:33Z",
+    "note": "ONE shared branch for all four RM7 tiers (RD8: the tree does not compile between tier 2 and tier 4, so tiers must not be split across branches)."
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Add barToPSI constant beside milesToKm in types.go",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "Added barToPSI = 14.503773773 beside milesToKm in types.go with doc comment (D3).",
+      "depends_on": []
+    },
+    {
+      "id": "1.2",
+      "title": "TpmsPressureFLPSI() companion",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "Added value-receiver method after OdometerKm(), mirroring its doc-comment style.",
+      "depends_on": []
+    },
+    {
+      "id": "1.3",
+      "title": "TpmsPressureFRPSI() companion",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "Added, same pattern as FL.",
+      "depends_on": []
+    },
+    {
+      "id": "1.4",
+      "title": "TpmsPressureRLPSI() companion",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "Added, same pattern as FL.",
+      "depends_on": []
+    },
+    {
+      "id": "1.5",
+      "title": "TpmsPressureRRPSI() companion",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "Added, same pattern as FL.",
+      "depends_on": []
+    },
+    {
+      "id": "1.6",
+      "title": "Confirm plain float64 returns; bar DTO fields untouched",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "Confirmed by construction: all four methods return plain float64; TpmsPressureFL/FR/RL/RR bar fields on the DTO left byte-identical (D2).",
+      "depends_on": []
+    },
+    {
+      "id": "2.1",
+      "title": "Unit test: each corner x 14.503773773, distinct value per corner",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "TestTpmsPressurePSICompanions in vehicles_test.go, distinct bar value per corner (2.9/2.8/2.7/2.6), asserted against barToPSI. Passes.",
+      "depends_on": []
+    },
+    {
+      "id": "2.2",
+      "title": "Unit test: 0.0 bar -> 0.0 PSI as an ordinary value",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "TestTpmsPressurePSICompanions_ZeroBarIsZeroPSI in vehicles_test.go. Passes.",
+      "depends_on": []
+    },
+    {
+      "id": "2.3",
+      "title": "Verify no Raw*/explorer call in added tests (tesla-exploration stays test-free)",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "Verified: both new tests only construct VehicleStateTesla and call the PSI companions; no Raw* method or explorer command referenced anywhere.",
+      "depends_on": []
+    },
+    {
+      "id": "3.1",
+      "title": "Update internal/tesla/AGENTS.md companion-convention section for bar->PSI",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "Added a Bar to PSI bullet to the DTO conventions section, naming barToPSI as the second conversion constant, alongside the existing Miles to km bullet.",
+      "depends_on": []
+    },
+    {
+      "id": "3.2",
+      "title": "Confirm raw.go / explorer README need no change; record conclusion in notes",
+      "status": "done",
+      "agent": "tesla",
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:27:00Z",
+      "completed_at": "2026-08-07T10:29:01Z",
+      "duration_seconds": 121,
+      "budget": null,
+      "notes": "Confirmed (D4): this tier adds a derived accessor over data RawVehicleData already returns, no new Fleet API call. raw.go and cmd/explore-tesla-api/README.md left untouched; sync rule does not fire.",
+      "depends_on": []
+    },
+    {
+      "id": "4.1",
+      "title": "go build + go vet ./internal/tesla/...",
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-07T10:31:02Z",
+      "completed_at": "2026-08-07T10:31:02Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": null,
+      "depends_on": []
+    },
+    {
+      "id": "4.2",
+      "title": "go test ./internal/tesla/...",
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-07T10:31:02Z",
+      "completed_at": "2026-08-07T10:31:02Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": null,
+      "depends_on": []
+    },
+    {
+      "id": "4.3",
+      "title": "go build ./... (full tree; tier is additive, RD8)",
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-07T10:31:02Z",
+      "completed_at": "2026-08-07T10:31:02Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": "Full tree builds: tier 1 is additive (RD8). Tiers 2-4 will break it until tier 4.",
+      "depends_on": []
+    },
+    {
+      "id": "4.4",
+      "title": "openspec validate tesla-add-tpms-psi-companions --strict",
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-07T10:31:02Z",
+      "completed_at": "2026-08-07T10:31:02Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": null,
+      "depends_on": []
+    }
+  ],
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4"
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-07T10:26:33Z",
+      "scope": "dispatch",
+      "made_by": "leader",
+      "decision": "One serial Sonnet worker for all of groups 1-3; no parallel split.",
+      "why": "tasks.md header already states groups 1 and 2 touch the same file (internal/tesla/types.go), so a parallel split would contend on one file. Sonnet is the SKILL Step 5.2 default: this is normal implementation plus tests plus a doc edit, not a trivial single-line mechanical change (Haiku) and not cross-cutting or ambiguous (Opus).",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-07T10:26:33Z",
+      "scope": "dispatch",
+      "made_by": "leader",
+      "decision": "Group 4 (4.1-4.4) is run by the leader, not the worker.",
+      "why": "It is the verification gate, and 4.3 (`go build ./...`) reaches outside the worker's internal/tesla sandbox. CLAUDE.md authorises the assistant to run build/vet/test in THIS project.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-07T10:26:33Z",
+      "scope": "doc-pack",
+      "made_by": "leader",
+      "decision": "Dropped `docs/layer2-user-vehicle-access.md` from the dispatch pack and substituted the real path `docs/0-set-up/layer2-user-vehicle-access.md`.",
+      "why": "internal/tesla/AGENTS.md (and the root CLAUDE.md) declare a path that no longer exists - the file moved under docs/0-set-up/. SKILL Step 0.5 says drop a missing declared path and note it rather than failing the dispatch. The stale references are real doc rot but belong to neither this tier nor the worker's sandbox; reported to the user instead.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-07T10:31:02Z",
+      "scope": "wave-1-crosscheck",
+      "made_by": "leader",
+      "decision": "Leader rewrote TestTpmsPressurePSICompanions' expectations from `2.9*barToPSI` to the literals 42.0609439417 / 40.6105665644 / 39.1601891871 / 37.7098118098.",
+      "why": "Step 5.6 cross-check: the worker asserted against the same constant the method multiplies by, so the test pinned the field wiring but NOT the factor - it would pass even if barToPSI were wrong. tasks.md 2.1 says 'multiplied by 14.503773773', and the gold-standard TestMetricCompanions spells out 80.4672 rather than 50*milesToKm. Test strengthened, no criterion altered.",
+      "covered_by": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-08-07T10:26:33Z",
+      "agent": "leader",
+      "event": "RM7 tier 1 started. Artifacts were already authored (openspec validate --strict passes), so Step 3 was a validation-only pass; roadmap Decisions RD1-RD12 stand as the binding interview outcomes (SKILL Step 9.3). No NEW decision needed: tier 1 is additive, touches no DB object, so the always-on `database` design gate does not fire (it fires on tier 2, RD9)."
+    },
+    {
+      "at": "2026-08-07T10:26:33Z",
+      "agent": "leader",
+      "event": "Created the shared roadmap branch ft/RM7-store-display-units off main (c2cf0ab). All four tiers commit here per RD8."
+    },
+    {
+      "at": "2026-08-07T10:27:00Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched: one serial tesla worker (sonnet) for tasks 1.1-1.6, 2.1-2.3, 3.1-3.2. Group 4 is the leader-run verification gate (D2). Budget at dispatch: five_hour_pct 14, context_pct 13."
+    },
+    {
+      "at": "2026-08-07T10:31:02Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled: 11/11 worker tasks done. Worker report enumerated design decisions D1-D4 with compliance statements; leader verified each against design.md and the diff. Cross-check caught a self-referential assertion in test 2.1 and fixed it before review - see decision D4."
+    },
+    {
+      "at": "2026-08-07T10:31:02Z",
+      "agent": "leader",
+      "event": "Group 4 verification gate PASSED (leader-run, D2): go build+vet ./internal/tesla/... ok; go test ./internal/tesla/... ok incl. both new tests; go build ./... ok (full tree, RD8 - tier 1 additive); openspec validate --strict valid. Confirmed 2.3: no Raw* adapter call in any tesla test and no _test.go under cmd/explore-tesla-api. All 15 tasks done; status -> applied. Budget: five_hour_pct 20, cost_usd 7.27."
+    }
+  ]
+}

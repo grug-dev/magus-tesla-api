@@ -5,24 +5,25 @@
   "intention": "vehicle_snapshots stores display units (km, Celsius, PSI) under unit-suffixed column names, converted once at write time by the nightly poller. No read path performs unit arithmetic: the gateway dashboard, the history charts, and the battery efficiency derivation read plain fields off telemetry.Snapshot. All unit conversion in the codebase ends up in one module, internal/tesla.",
   "request": "The vision of this project is to be faster in read, slow in writes. So if we are doing data transformations for units of measure when reading them, that's not good. Move the conversion logic to write time so vehicle_snapshots holds distance in km, temperature in C, and tire pressure in PSI. Rename the affected core columns to carry a unit suffix (XXX_km, XXX_psi, etc). No conversions when reading. Thousand separators stay in the UI scope, but the stored value must be unformatted.",
   "autopilot": false,
-  "status": "planned",
+  "status": "in-progress",
   "created_at": "2026-08-06T00:00:00Z",
-  "updated_at": "2026-08-06T00:00:00Z",
+  "updated_at": "2026-08-07T10:26:33Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
   },
   "git": {
-    "strategy": "manual",
-    "branch": "main",
-    "base": "main",
-    "created_at": "2026-08-06T00:00:00Z",
-    "note": "Not yet chosen by the user. NOTE (RD8): tiers 2-4 must land on the SAME branch \u2014 the tree does not compile between tier 2 and tier 4, so splitting them across branches leaves a broken build."
+    "strategy": "auto",
+    "branch": "ft/RM7-store-display-units",
+    "base": "c2cf0ab",
+    "created_at": "2026-08-07T10:26:33Z",
+    "note": "ALL four tiers land on this one branch (RD8: the tree does not compile between tier 2 and tier 4)."
   },
   "rollup": {
-    "current": [],
+    "current": [
+      1
+    ],
     "pending": [
-      1,
       2,
       3,
       4
@@ -147,10 +148,10 @@
       "module": "tesla",
       "optional": false,
       "depends_on": [],
-      "status": "artifacts-authored",
+      "status": "in-progress",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "sonnet",
+      "started_at": "2026-08-07T10:26:33Z",
       "completed_at": null,
       "notes": "Additive only: 4 nil-safe bar->PSI companions + the barToPSI constant on tesla.VehicleStateTesla. Compiles and ships standalone. No new Fleet API call, so raw.go / cmd/explore-tesla-api are untouched (tesla-exploration sync rule does not trigger)."
     },
@@ -210,6 +211,11 @@
       "at": "2026-08-06T00:00:00Z",
       "agent": "leader",
       "event": "Schema-wide unit audit run at the user's request across all 7 tables (accounts, tesla_tokens, vehicles, poll_attempts, manual_charge_entries, supercharger_sessions, vehicle_snapshots). Result: vehicle_snapshots is the ONLY non-compliant table and the only place any value needs converting - no other miles/bar/Fahrenheit column exists. manual_charge_entries (energy_added_kwh, start_battery_pct, end_battery_pct) and supercharger_sessions (energy_kwh) already comply; price and total_cost are exempt monetary amounts paired with a currency column. Audit produced the docs-only change platform-unit-of-measure-convention (new unit-of-measure capability spec, zero migrations), which takes over tier 2's platform doc edits - RD12 amended, tier-2 tasks 6.2/6.3 removed."
+    },
+    {
+      "at": "2026-08-07T10:26:33Z",
+      "agent": "leader",
+      "event": "Tier 1 (tesla-add-tpms-psi-companions) started on the new shared branch ft/RM7-store-display-units off main c2cf0ab. autopilot stays false: the leader will check in with the user before tier 2, which carries both the breaking rename (RD8) and the database design gate (RD9)."
     }
   ]
 }
