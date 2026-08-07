@@ -125,8 +125,8 @@ func TestRecentEfficiency_HappyPath_ComputesValue(t *testing.T) {
 	window := 30 * 24 * time.Hour
 	since := fixedNow.Add(-window)
 
-	start := snap(1000, 80, nil)
-	end := snap(1100, 60, nil)
+	start := snap(1000, 80, nil) // km
+	end := snap(1100, 60, nil)   // km
 
 	// One supercharger session and one manual entry, both inside the window.
 	sessionEnergy := 3.0
@@ -153,8 +153,8 @@ func TestRecentEfficiency_HappyPath_ComputesValue(t *testing.T) {
 
 	// Hand-computed: kWhIn = 3 + 2 = 5; capacity known ("model3" = 75 kWh);
 	// deltaSoC = 60-80 = -20; energy = 5 - 75*(-20)/100 = 20;
-	// distance = 100 * milesToKmTest; WhPerKm = 20*1000/distance.
-	wantDistance := 100.0 * milesToKmTest
+	// distance = 1100-1000 = 100 km; WhPerKm = 20*1000/100 = 200.
+	wantDistance := 100.0
 	wantWhPerKm := 20.0 * 1000 / wantDistance
 
 	got, ok, err := r.RecentEfficiency(context.Background(), accountID, teslaID)
@@ -181,8 +181,8 @@ func TestRecentEfficiency_WindowExcludesOldEntries(t *testing.T) {
 	window := 30 * 24 * time.Hour
 	since := fixedNow.Add(-window)
 
-	start := snap(1000, 80, nil)
-	end := snap(1100, 60, nil)
+	start := snap(1000, 80, nil) // km
+	end := snap(1100, 60, nil)   // km
 
 	// One in-window session/entry, one out-of-window (before since) each.
 	telemetryFake := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{start, end}}
@@ -209,7 +209,8 @@ func TestRecentEfficiency_WindowExcludesOldEntries(t *testing.T) {
 
 	// If the out-of-window rows had been included, kWhIn would be 3+100+2+50=155,
 	// giving energy = 155-75*(-20)/100 = 170. With correct filtering kWhIn=5, energy=20.
-	wantDistance := 100.0 * milesToKmTest
+	// distance = 1100-1000 = 100 km.
+	wantDistance := 100.0
 	wantWhPerKm := 20.0 * 1000 / wantDistance
 	excludedWhPerKm := 170.0 * 1000 / wantDistance
 

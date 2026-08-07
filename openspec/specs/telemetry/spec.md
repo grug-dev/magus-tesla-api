@@ -4,80 +4,46 @@
 TBD - created by archiving change telemetry-add-nightly-snapshots. Update Purpose after archive.
 ## Requirements
 ### Requirement: Nightly Vehicle Snapshot Capture
-The telemetry capability SHALL capture and store the state of every registered vehicle
-across all accounts on each scheduled or on-demand run, keyed to the calendar day the
-capture happened on in the poller's configured timezone. At most one stored snapshot
-SHALL exist per (account, vehicle, calendar day): if a collection run captures a vehicle
-for a day that already has a stored snapshot, the existing row SHALL be replaced with the
-new capture's values — including its raw payload and captured timestamp — so the most
-recent capture for a given day always wins, rather than an additional row being created
-for that day. A capture for a calendar day that does not yet have a stored snapshot SHALL
-always create a new row; it SHALL NOT replace any other day's row. The snapshot SHALL also
-store the tire pressure monitoring system (TPMS) readings for all four corners of the
-vehicle (front-left, front-right, rear-left, rear-right) in bar, the Tesla Fleet API's
-native unit for tire pressure. These four fields SHALL be stored as nullable values; a
-NULL value means the vehicle did not report TPMS at capture (e.g. the vehicle has no TPMS
-sensors, or the field was absent in the response) OR the row predates this extraction, and
-a NULL value SHALL NOT be interpreted as zero pressure. A truthfully reported 0.0 bar SHALL
-be stored as a non-NULL value. This requirement SUPERSEDES the capability's prior
-"immutable"/"append-only" snapshot semantics: a stored snapshot row for a given day CAN now
-be overwritten by a later same-day capture. The per-attempt collection record (one row per
-vehicle per run, success or failure, used for availability/sleep-behavior tracking) is a
-separate capability concern and SHALL remain wholly unaffected by this dedupe behavior —
-every collection attempt SHALL still be individually recorded regardless of whether it
-results in a new snapshot row or a replace. All other snapshot requirements (raw_data,
-miles storage, Km-companion derivation, sentry-mode fidelity) remain unchanged.
-
-#### Scenario: A vehicle's first capture on a given day creates a new snapshot row
-- **GIVEN** a registered vehicle with no stored snapshot for the current calendar day (in
-  the poller's configured timezone)
-- **WHEN** a collection run captures the vehicle
-- **THEN** a new snapshot row is stored for that vehicle and day
-- **AND** the row's fields match the values reported by the vehicle at capture time
-
-#### Scenario: A second capture on the same calendar day replaces the existing row
-- **GIVEN** a registered vehicle that already has a stored snapshot for the current
-  calendar day (in the poller's configured timezone)
-- **WHEN** a new collection run captures the same vehicle again on that same calendar day
-- **THEN** exactly one snapshot row exists for that vehicle and day after the run
-- **AND** that row's fields reflect the newer capture's values, not the earlier capture's
-- **AND** that row's raw_data reflects the newer capture's full payload
-- **AND** that row's captured timestamp reflects the newer capture's time, not the earlier one's
-
-#### Scenario: A capture on a new calendar day creates an additional row, never replacing a prior day
-- **GIVEN** a registered vehicle with a stored snapshot for a previous calendar day
-- **WHEN** a collection run captures the vehicle on a calendar day that does not yet have a
-  stored snapshot
-- **THEN** a new snapshot row is created for the new day
-- **AND** the previous day's snapshot row is left completely unchanged
-- **AND** both rows remain independently retrievable
-
-#### Scenario: The calendar day is determined by the poller's configured timezone, not a fixed zone
-- **GIVEN** the poller is configured with a specific timezone
-- **AND** a vehicle is captured at a moment that falls on different calendar dates
-  depending on which timezone is used to interpret it (e.g. shortly before or after
-  midnight UTC)
-- **WHEN** the capture is stored
-- **THEN** the calendar day the snapshot is attributed to is the day in the poller's
-  configured timezone, not necessarily the UTC calendar day
-
-#### Scenario: Per-vehicle collection attempts remain individually recorded regardless of the dedupe behavior
-- **GIVEN** a registered vehicle that is captured more than once within the same calendar
-  day across separate collection runs
-- **WHEN** each run completes
-- **THEN** each run records its own individual collection attempt (success or failure)
-- **AND** the number of recorded attempts for that vehicle equals the number of collection
-  runs, even though at most one snapshot row exists for that day
+The telemetry capability SHALL capture one snapshot of every registered vehicle across all
+accounts on each scheduled run, and SHALL store every unit-bearing value in the unit it is
+displayed in — distance and range in kilometres, temperature in degrees Celsius, and tire
+pressure in PSI — converting at capture time. Every stored unit-bearing value SHALL be identified
+by a name that carries its unit, and the capability SHALL NOT store a unit-bearing value under a
+name that leaves its unit implicit. In addition to the fields already required, the snapshot SHALL
+also store the tire pressure monitoring system (TPMS) readings for all four corners of the vehicle
+(front-left, front-right, rear-left, rear-right). These four fields SHALL be stored as nullable
+values; a NULL value means the vehicle did not report TPMS at capture (e.g. the vehicle has no
+TPMS sensors, or the field was absent in the response) OR the row predates this extraction, and a
+NULL value SHALL NOT be interpreted as zero pressure. A truthfully reported zero pressure SHALL be
+stored as a non-NULL value. The capability SHALL continue to store the complete raw payload
+unconverted, in the units the Fleet API reported, so that no information is lost by the
+conversion. All other snapshot requirements (daily-replace upsert semantics, sentry-mode fidelity)
+remain unchanged.
 
 #### Scenario: A snapshot captures TPMS pressure for all four corners
-- **GIVEN** a registered vehicle that is parked and its vehicle_data reports
-  tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, and tpms_pressure_rr values in
-  bar when the nightly snapshot is captured
+- **GIVEN** a registered vehicle that is parked and its vehicle_data reports tire pressure values
+  for all four corners when the nightly snapshot is captured
 - **WHEN** a collection cycle captures the snapshot
 - **THEN** the stored snapshot includes non-NULL values for all four TPMS pressure fields
-- **AND** each stored value matches the corresponding value reported by the vehicle (in
-  bar, the API-native unit)
-- **AND** the snapshot's raw_data still contains the full vehicle_data payload
+- **AND** each stored value is the corresponding value reported by the vehicle converted to PSI
+- **AND** the snapshot's raw_data still contains the full vehicle_data payload with the pressure
+  values in the unit the Fleet API reported
+
+#### Scenario: Distance and range are stored in kilometres
+- **GIVEN** a registered vehicle whose vehicle_data reports an odometer reading and an estimated
+  battery range
+- **WHEN** a collection cycle captures the snapshot
+- **THEN** the stored odometer and battery range are expressed in kilometres
+- **AND** each stored value is the reported value converted from the Fleet API's native distance
+  unit exactly once, at capture time
+- **AND** the snapshot's raw_data still contains the values in the unit the Fleet API reported
+
+#### Scenario: Temperature is stored as reported, without conversion
+- **GIVEN** a registered vehicle whose vehicle_data reports inside and outside temperatures
+- **WHEN** a collection cycle captures the snapshot
+- **THEN** the stored inside and outside temperatures are expressed in degrees Celsius
+- **AND** the stored values equal the reported values, because the Fleet API already reports
+  temperature in degrees Celsius and no conversion is applied
 
 #### Scenario: A snapshot stores NULL TPMS pressure when the vehicle does not report TPMS
 - **GIVEN** a registered vehicle whose vehicle_data does not include TPMS pressure values
@@ -87,12 +53,12 @@ miles storage, Km-companion derivation, sentry-mode fidelity) remain unchanged.
 - **AND** all existing snapshot fields (battery level, range, odometer, etc.) are still
   populated normally
 
-#### Scenario: A truthfully reported zero bar pressure is stored as non-NULL
-- **GIVEN** a registered vehicle that reports a TPMS pressure of exactly 0.0 bar for
-  one or more corners (e.g. a flat tire)
+#### Scenario: A truthfully reported zero pressure is stored as non-NULL
+- **GIVEN** a registered vehicle that reports a tire pressure of exactly zero for one or more
+  corners (e.g. a flat tire)
 - **WHEN** a collection cycle captures the snapshot
 - **THEN** the stored TPMS pressure value for the affected corner is non-NULL
-- **AND** the stored value is 0.0 bar (not NULL — zero is a truthful reading)
+- **AND** the stored value is 0.0 PSI (not NULL — zero is a truthful reading)
 
 #### Scenario: Pre-extraction snapshot rows have NULL for the TPMS pressure fields
 - **GIVEN** a vehicle_snapshots row written before the TPMS column migration was applied
@@ -100,6 +66,15 @@ miles storage, Km-companion derivation, sentry-mode fidelity) remain unchanged.
 - **THEN** the four TPMS pressure fields on the Snapshot are NULL
 - **AND** the caller can still access the raw_data payload to extract the TPMS values
   retroactively if needed
+
+#### Scenario: Rows captured before the unit change are converted, not left mixed
+- **GIVEN** snapshot rows that were captured while values were stored in the Fleet API's native
+  units
+- **WHEN** the display-unit change is applied
+- **THEN** those rows' distance, range, and tire-pressure values are converted in place to the
+  display units
+- **AND** no row remains stored in a different unit from any other row
+- **AND** rows whose tire-pressure values were NULL remain NULL rather than becoming zero
 
 ### Requirement: Waking Sleeping Vehicles Within A Bounded Timeout
 The telemetry capability SHALL wake a sleeping vehicle before capturing it, polling for the vehicle
@@ -193,44 +168,37 @@ SHALL shut down gracefully when the process receives a termination signal.
 - **AND** no new collection cycle is started after the shutdown begins
 
 ### Requirement: Latest Snapshot Read Port
-The telemetry capability's read port SHALL return snapshots that include the TPMS tire
-pressure fields for all four corners alongside the existing snapshot fields. The read port
-SHALL also expose four value-receiver companion methods — one per corner — that derive the
-tire pressure in PSI (pounds per square inch) from the stored bar value. These companion
-methods SHALL return a nil pointer when the stored bar field is nil (preserving the
-nil/not-reported distinction through the conversion), and SHALL return a non-nil pointer
-to the derived PSI value otherwise. Callers SHALL NOT receive a loss of nil fidelity when
-converting from bar to PSI. No new read method is introduced; the four TPMS fields ride on
-the existing Snapshot returned by the existing read port methods.
+The telemetry capability's read port SHALL return snapshots whose values are already expressed in
+their display units, and SHALL NOT perform, or require its callers to perform, any unit conversion
+on read. The read port SHALL return the TPMS tire pressure fields for all four corners, expressed
+in PSI, alongside the existing snapshot fields. The capability SHALL NOT expose companion
+conversion methods on the returned snapshot type; every returned field SHALL be directly usable in
+the unit its name declares. The pressure fields SHALL remain nullable, preserving the
+nil/not-reported distinction from the stored value itself rather than re-deriving it per call. No
+new read method is introduced; the four TPMS fields ride on the existing Snapshot returned by the
+existing read port methods.
 
-#### Scenario: Nil fidelity is preserved through the bar-to-PSI companion conversion
+#### Scenario: Values are returned ready to use, with no conversion on read
+- **GIVEN** a stored snapshot for a registered vehicle
+- **WHEN** a caller retrieves it through LatestSnapshotsByAccount or SnapshotsByVehicleSince
+- **THEN** the odometer and battery range fields are expressed in kilometres, the temperature
+  fields in degrees Celsius, and the tire pressure fields in PSI
+- **AND** the caller performs no arithmetic and calls no conversion method to obtain those units
+- **AND** the returned type exposes no companion conversion method for any of those fields
+
+#### Scenario: Nil fidelity is preserved by the stored pressure value
 - **GIVEN** a snapshot row for which TPMS pressure was not reported (NULL in the database)
 - **WHEN** a caller retrieves the snapshot through LatestSnapshotsByAccount or
-  SnapshotsByVehicleSince and calls any of the four PSI companion methods
-- **THEN** each PSI companion method returns nil
+  SnapshotsByVehicleSince and reads any of the four pressure fields
+- **THEN** each pressure field is nil
 - **AND** the caller can distinguish "not reported" from "reported 0.0 PSI"
-
-#### Scenario: Non-nil bar value is correctly converted to PSI by the companion method
-- **GIVEN** a snapshot row with a non-nil TPMS pressure value stored in bar
-- **WHEN** a caller retrieves the snapshot through the read port and calls the PSI
-  companion for that corner
-- **THEN** the companion method returns a non-nil PSI value
-- **AND** the returned PSI value is the bar value multiplied by the barToPSI conversion
-  factor (14.503773773)
 
 #### Scenario: Callers never access the telemetry database directly for TPMS data
 - **GIVEN** any caller that needs to display or process TPMS tire pressure data
 - **WHEN** it obtains that data
 - **THEN** it does so exclusively through the Reader port interface (LatestSnapshotsByAccount
-  or SnapshotsByVehicleSince), reading the TpmsPressure* fields on the returned Snapshot
+  or SnapshotsByVehicleSince), reading the pressure fields on the returned Snapshot
 - **AND** it imports no package from internal/telemetry/db
-
-#### Scenario: Snapshot struct literals are not broken by the new TPMS fields
-- **GIVEN** existing code that constructs a Snapshot struct literal by naming fields
-  (not positionally)
-- **WHEN** the four new TpmsPressure* fields are added to the Snapshot struct
-- **THEN** the existing code continues to compile without modification
-- **AND** the new fields default to nil (zero value for *float64)
 
 ### Requirement: Supercharger Session Ledger
 The telemetry capability SHALL, on each nightly collection cycle, fetch the complete
@@ -354,7 +322,6 @@ occurred.
 - **AND** snapshot collection succeeded normally for both accounts
 
 ### Requirement: Snapshot History Read Port
-
 The telemetry capability SHALL expose a read port through which other modules (the gateway in
 particular) can retrieve the **history** of stored snapshots for a single vehicle — all snapshots
 captured at or after a caller-supplied instant — without accessing the telemetry module's database
@@ -363,8 +330,8 @@ SHALL return the existing `Snapshot` domain type (including all extracted typed 
 payload), ordered **oldest-first** by capture time. The window boundary is supplied by the caller
 as an absolute instant (`since`, inclusive); the port SHALL NOT compute the window itself. Callers
 SHALL receive an empty result (not an error) when the vehicle has no snapshots in the window. The
-distance and range fields SHALL be returned in miles (the Tesla-native unit) with no kilometre
-field on the returned type.
+distance and range fields SHALL be returned in kilometres, already converted at capture time, and
+the returned type SHALL carry no companion method for deriving them.
 
 #### Scenario: History is returned oldest-first for a vehicle within its account
 
@@ -376,8 +343,8 @@ field on the returned type.
 - **AND** the snapshots are ordered oldest-first by capture time
 - **AND** all extracted fields (including odometer, battery level, and battery range) match the
   stored values for each snapshot
-- **AND** the distance and range fields are returned in miles with no kilometre field on the
-  returned type
+- **AND** the distance and range fields are returned in kilometres with no companion conversion
+  method on the returned type
 
 #### Scenario: The `since` boundary is inclusive
 

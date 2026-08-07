@@ -144,14 +144,14 @@ func buildOdometerChart(snaps []telemetry.Snapshot, days int) fragments.HistoryC
 	deltas := make([]delta, 0, len(pts)-1)
 	maxKm := 0.0
 	for i := 1; i < len(pts); i++ {
-		d := pts[i].OdometerKm() - pts[i-1].OdometerKm()
+		d := pts[i].OdometerKm - pts[i-1].OdometerKm
 		if d < 0 {
 			d = 0 // clamp negative (RD5: clock skew / odometer anomaly)
 		}
 		deltas = append(deltas, delta{
 			date:       pts[i].CapturedAt.UTC(),
 			kmDriven:   d,
-			odometerKm: pts[i].OdometerKm(),
+			odometerKm: pts[i].OdometerKm,
 		})
 		if d > maxKm {
 			maxKm = d
@@ -175,7 +175,7 @@ func buildOdometerChart(snaps []telemetry.Snapshot, days int) fragments.HistoryC
 }
 
 // buildBatteryChart computes battery-level-% bars from the N most recent snapshots
-// (RD6). Bar height = BatteryLevel directly (already 0–100). Empty when no points.
+// (RD6). Bar height = BatteryLevelPct directly (already 0–100). Empty when no points.
 func buildBatteryChart(snaps []telemetry.Snapshot, days int) fragments.HistoryChart {
 	// Take up to days of the most recent snapshots.
 	start := 0
@@ -192,10 +192,10 @@ func buildBatteryChart(snaps []telemetry.Snapshot, days int) fragments.HistoryCh
 	for _, s := range pts {
 		tooltip := fmt.Sprintf("%s · %d%% · %s km range",
 			s.CapturedAt.UTC().Format("2006-01-02"),
-			s.BatteryLevel,
-			formatKmRaw(s.BatteryRangeKm()),
+			s.BatteryLevelPct,
+			formatKmRaw(s.BatteryRangeKm),
 		)
-		bars = append(bars, fragments.HistoryBar{HeightPct: s.BatteryLevel, Tooltip: tooltip})
+		bars = append(bars, fragments.HistoryBar{HeightPct: s.BatteryLevelPct, Tooltip: tooltip})
 	}
 	return fragments.HistoryChart{Bars: bars, Empty: false}
 }

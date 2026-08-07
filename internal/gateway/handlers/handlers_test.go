@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -223,16 +222,16 @@ func TestVehiclesFor_EnrichedCard(t *testing.T) {
 	}}
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{
 		{
-			TeslaID:       42,
-			CapturedAt:    capturedAt,
-			BatteryLevel:  80,
-			BatteryRange:  200.0, // miles → BatteryRangeKm = 200 * 1.609344
-			ChargingState: "Disconnected",
-			Odometer:      12000.0, // miles → OdometerKm = 12000 * 1.609344
-			InsideTemp:    22.5,
-			OutsideTemp:   15.0,
-			Locked:        true,
-			SentryMode:    boolPtr(true),
+			TeslaID:         42,
+			CapturedAt:      capturedAt,
+			BatteryLevelPct: 80,
+			BatteryRangeKm:  321.8688, // already km — 200 mi * 1.609344, converted at capture time (tier 2)
+			ChargingState:   "Disconnected",
+			OdometerKm:      19312.128, // already km — 12000 mi * 1.609344, converted at capture time (tier 2)
+			InsideTempC:     22.5,
+			OutsideTempC:    15.0,
+			Locked:          true,
+			SentryMode:      boolPtr(true),
 		},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
@@ -248,17 +247,16 @@ func TestVehiclesFor_EnrichedCard(t *testing.T) {
 	if v.Battery != "80%" {
 		t.Errorf("want Battery %q, got %q", "80%", v.Battery)
 	}
-	snap := telemetry.Snapshot{BatteryRange: 200.0, Odometer: 12000.0}
-	wantBatteryRange := fmt.Sprintf("%.1f km", snap.BatteryRangeKm())
-	if v.BatteryRange != wantBatteryRange {
-		t.Errorf("want BatteryRange %q, got %q", wantBatteryRange, v.BatteryRange)
+	// Literal expected strings (design D1/3.3): mapVehicles formats with "%.1f km"
+	// directly off the already-km fields — no method to re-derive from.
+	if v.BatteryRange != "321.9 km" {
+		t.Errorf("want BatteryRange %q, got %q", "321.9 km", v.BatteryRange)
 	}
 	if v.ChargingState != "Disconnected" {
 		t.Errorf("want ChargingState Disconnected, got %q", v.ChargingState)
 	}
-	wantOdometer := fmt.Sprintf("%.1f km", snap.OdometerKm())
-	if v.Odometer != wantOdometer {
-		t.Errorf("want Odometer %q, got %q", wantOdometer, v.Odometer)
+	if v.Odometer != "19312.1 km" {
+		t.Errorf("want Odometer %q, got %q", "19312.1 km", v.Odometer)
 	}
 	if v.InsideTemp != "22.5 °C" {
 		t.Errorf("want InsideTemp %q, got %q", "22.5 °C", v.InsideTemp)
@@ -554,16 +552,16 @@ func TestDashboardFor_EnrichedBento(t *testing.T) {
 	}}
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{
 		{
-			TeslaID:       42,
-			CapturedAt:    capturedAt,
-			BatteryLevel:  80,
-			BatteryRange:  200.0,  // miles → ~321.87 km → "322 km"
-			ChargingState: "Disconnected", // → "Parked"
-			ChargeLimitSoc: 80,
-			Odometer:      12000.0, // miles → ~19312.07 km → round 19312 → "19,312 km"
-			InsideTemp:    22.0,
-			OutsideTemp:   15.0,
-			CarVersion:    "2024.32.5",
+			TeslaID:           42,
+			CapturedAt:        capturedAt,
+			BatteryLevelPct:   80,
+			BatteryRangeKm:    321.8688, // already km — %.0f rounds → "322 km"
+			ChargingState:     "Disconnected", // → "Parked"
+			ChargeLimitSocPct: 80,
+			OdometerKm:        19312.128, // already km — formatKm rounds → "19,312 km"
+			InsideTempC:       22.0,
+			OutsideTempC:      15.0,
+			CarVersion:        "2024.32.5",
 		},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
@@ -590,9 +588,10 @@ func TestDashboardFor_EnrichedBento(t *testing.T) {
 	if d.BatteryPct != "80" {
 		t.Errorf("want BatteryPct %q (bare), got %q", "80", d.BatteryPct)
 	}
-	wantRange := fmt.Sprintf("%.0f km", (telemetry.Snapshot{BatteryRange: 200.0}).BatteryRangeKm())
-	if d.RangeNow != wantRange {
-		t.Errorf("want RangeNow %q, got %q", wantRange, d.RangeNow)
+	// Literal expected string (design D1/3.3): mapDashboardSnapshot formats with
+	// "%.0f km" directly off the already-km BatteryRangeKm field.
+	if d.RangeNow != "322 km" {
+		t.Errorf("want RangeNow %q, got %q", "322 km", d.RangeNow)
 	}
 	if d.ChargeLimit != "Limit 80%" {
 		t.Errorf("want ChargeLimit %q, got %q", "Limit 80%", d.ChargeLimit)
@@ -632,7 +631,7 @@ func TestDashboardFor_StaleSnapshot(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{{TeslaID: 1, VIN: "V1", DisplayName: "StaleCar"}}}
 	past := time.Now().Add(-stalenessThreshold - time.Second)
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 1, CapturedAt: past, BatteryLevel: 50, Odometer: 1000.0, InsideTemp: 20},
+		{TeslaID: 1, CapturedAt: past, BatteryLevelPct: 50, OdometerKm: 1000.0, InsideTempC: 20},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
 	d := h.dashboardFor(context.Background(), uuid.New(), 0)
@@ -649,7 +648,7 @@ func TestDashboardFor_SelectsDefaultsToFirst(t *testing.T) {
 		{TeslaID: 6, VIN: "V6", DisplayName: "Second"},
 	}}
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 5, CapturedAt: time.Now(), BatteryLevel: 30, Odometer: 1, InsideTemp: 21},
+		{TeslaID: 5, CapturedAt: time.Now(), BatteryLevelPct: 30, OdometerKm: 1, InsideTempC: 21},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
 	d := h.dashboardFor(context.Background(), uuid.New(), 0)
@@ -765,7 +764,7 @@ func TestNavHeaderFor_Connected(t *testing.T) {
 	}}
 	// 1 h old — well within the 48 h window.
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevel: 94},
+		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevelPct: 94},
 	}}
 	h := newNavHeaderHandler(acct, reader)
 	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
@@ -796,7 +795,7 @@ func TestNavHeaderFor_Asleep(t *testing.T) {
 	}}
 	// 3 days old — past the 48 h window -> asleep.
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 42, CapturedAt: time.Now().Add(-72 * time.Hour), BatteryLevel: 50},
+		{TeslaID: 42, CapturedAt: time.Now().Add(-72 * time.Hour), BatteryLevelPct: 50},
 	}}
 	h := newNavHeaderHandler(acct, reader)
 	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
@@ -938,7 +937,7 @@ func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevel: 94},
+		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevelPct: 94},
 	}}
 	h := newNavHeaderHandler(acct, reader)
 	eng := navHeaderEngine(h, uid)
@@ -1014,7 +1013,7 @@ func TestDashboardFragment_RendersSelectedVehicle(t *testing.T) {
 		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
 	}}
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 2, CapturedAt: time.Now().Add(-time.Hour), BatteryLevel: 77, Odometer: 1000, InsideTemp: 20},
+		{TeslaID: 2, CapturedAt: time.Now().Add(-time.Hour), BatteryLevelPct: 77, OdometerKm: 1000, InsideTempC: 20},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
 	eng := dashboardEngine(h, uid, 2, "VIN2", "")

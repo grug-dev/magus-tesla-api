@@ -85,10 +85,10 @@ func dailySnaps(n int, odometerBase float64, odometerStep float64, batteryBase i
 	base := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	for i := range snaps {
 		snaps[i] = telemetry.Snapshot{
-			Odometer:     odometerBase + float64(i)*odometerStep,
-			BatteryLevel: batteryBase + i,
-			BatteryRange: 300,
-			CapturedAt:   base.AddDate(0, 0, i),
+			OdometerKm:      odometerBase + float64(i)*odometerStep,
+			BatteryLevelPct: batteryBase + i,
+			BatteryRangeKm:  300,
+			CapturedAt:      base.AddDate(0, 0, i),
 		}
 	}
 	return snaps
@@ -131,7 +131,7 @@ func TestBuildOdometerChart_EmptyWhenFewerThanTwoSnapshots(t *testing.T) {
 		t.Error("want Empty=true for 0 snapshots")
 	}
 	// 1 snapshot.
-	c = buildOdometerChart([]telemetry.Snapshot{{Odometer: 100}}, 6)
+	c = buildOdometerChart([]telemetry.Snapshot{{OdometerKm: 100}}, 6)
 	if !c.Empty {
 		t.Error("want Empty=true for 1 snapshot")
 	}
@@ -151,8 +151,8 @@ func TestBuildOdometerChart_NDeltas_FromNPlusOnePoints(t *testing.T) {
 
 func TestBuildOdometerChart_NegativeDeltaClampedToZero(t *testing.T) {
 	snaps := []telemetry.Snapshot{
-		{Odometer: 1000, CapturedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
-		{Odometer: 900, CapturedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)}, // negative
+		{OdometerKm: 1000, CapturedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{OdometerKm: 900, CapturedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)}, // negative
 	}
 	c := buildOdometerChart(snaps, 6)
 	if c.Empty {
@@ -165,8 +165,8 @@ func TestBuildOdometerChart_NegativeDeltaClampedToZero(t *testing.T) {
 
 func TestBuildOdometerChart_TooltipContainsDateAndKeywords(t *testing.T) {
 	snaps := []telemetry.Snapshot{
-		{Odometer: 12000, CapturedAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)},
-		{Odometer: 12100, CapturedAt: time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC)},
+		{OdometerKm: 12000, CapturedAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)},
+		{OdometerKm: 12100, CapturedAt: time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC)},
 	}
 	c := buildOdometerChart(snaps, 6)
 	if c.Empty || len(c.Bars) == 0 {
@@ -219,20 +219,20 @@ func TestBuildBatteryChart_NBarsFromLastNSnapshots(t *testing.T) {
 
 func TestBuildBatteryChart_HeightPctEqualsLevel(t *testing.T) {
 	snaps := []telemetry.Snapshot{
-		{BatteryLevel: 75, BatteryRange: 300, CapturedAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)},
+		{BatteryLevelPct: 75, BatteryRangeKm: 300, CapturedAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)},
 	}
 	c := buildBatteryChart(snaps, 6)
 	if c.Empty || len(c.Bars) == 0 {
 		t.Fatal("want 1 bar")
 	}
 	if c.Bars[0].HeightPct != 75 {
-		t.Errorf("want HeightPct=75 (== BatteryLevel), got %d", c.Bars[0].HeightPct)
+		t.Errorf("want HeightPct=75 (== BatteryLevelPct), got %d", c.Bars[0].HeightPct)
 	}
 }
 
 func TestBuildBatteryChart_TooltipContainsDateLevelAndRange(t *testing.T) {
 	snaps := []telemetry.Snapshot{
-		{BatteryLevel: 82, BatteryRange: 300, CapturedAt: time.Date(2026, 7, 3, 0, 0, 0, 0, time.UTC)},
+		{BatteryLevelPct: 82, BatteryRangeKm: 300, CapturedAt: time.Date(2026, 7, 3, 0, 0, 0, 0, time.UTC)},
 	}
 	c := buildBatteryChart(snaps, 6)
 	if c.Empty || len(c.Bars) == 0 {
@@ -511,7 +511,7 @@ func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "Test"},
 	}}
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 1, CapturedAt: time.Now().Add(-time.Hour), BatteryLevel: 80, Odometer: 1000},
+		{TeslaID: 1, CapturedAt: time.Now().Add(-time.Hour), BatteryLevelPct: 80, OdometerKm: 1000},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
 	eng := dashboardEngine(h, uid, 1, "VIN1", "")

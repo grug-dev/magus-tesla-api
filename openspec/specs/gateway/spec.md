@@ -231,10 +231,12 @@ on a normal dashboard render. Every registered vehicle SHALL appear on the dashb
 regardless of whether a snapshot exists.
 
 The Extended field set displayed per enriched vehicle card is: battery % (integer),
-range in kilometres (float, via `BatteryRangeKm()` companion), charging state (string),
-odometer in kilometres (float, via `OdometerKm()` companion), inside temperature in °C
-(float), outside temperature in °C (float), locked status (boolean), sentry mode
-(three-state: nil / off / on), and last-updated timestamp (`CapturedAt`).
+range in kilometres (float), charging state (string), odometer in kilometres (float),
+inside temperature in °C (float), outside temperature in °C (float), locked status
+(boolean), sentry mode (three-state: nil / off / on), and last-updated timestamp
+(`CapturedAt`). The gateway SHALL read every one of these values in its display unit as
+the telemetry read port provides it, and SHALL NOT perform any unit conversion of its
+own.
 
 ---
 
@@ -246,11 +248,11 @@ odometer in kilometres (float, via `OdometerKm()` companion), inside temperature
   htmx fragment `GET /ui/vehicles`)
 - **THEN** the vehicle card displays:
   - Battery level as an integer percentage
-  - Battery range in kilometres (converted from the stored miles value via the
-    `BatteryRangeKm()` companion method)
+  - Battery range in kilometres (read directly from the snapshot, already stored in
+    kilometres — no conversion in the gateway)
   - Charging state as a string (e.g. "Charging", "Disconnected")
-  - Odometer in kilometres (converted from the stored miles value via the
-    `OdometerKm()` companion method)
+  - Odometer in kilometres (read directly from the snapshot, already stored in
+    kilometres — no conversion in the gateway)
   - Inside temperature in degrees Celsius (displayed as stored — no conversion)
   - Outside temperature in degrees Celsius (displayed as stored — no conversion)
   - Locked status (shown as locked / unlocked)
@@ -354,9 +356,11 @@ odometer in kilometres (float, via `OdometerKm()` companion), inside temperature
 
 - **GIVEN** any Templ template in `internal/gateway/templates/`
 - **WHEN** it renders a vehicle card (enriched or placeholder)
-- **THEN** all km conversion, staleness computation, sentry-nil state, and timestamp
-  formatting have already been computed by the Go handler before the template receives
-  the view model
+- **THEN** number formatting (rounding and thousands separators), staleness computation,
+  sentry-nil state, and timestamp formatting have already been computed by the Go handler
+  before the template receives the view model
+- **AND** no unit conversion happens anywhere in the render path — neither in the template
+  nor in the handler, because the snapshot already carries display units
 - **AND** the template uses only presentation logic (if/for/display) — no arithmetic,
   no method calls on domain types, no time calculations
 
@@ -972,12 +976,13 @@ out-of-set value SHALL fall back to the default of **6**. The same `days` window
 **both** charts, which SHALL render the **same number of bars**.
 
 The "Odometer history" bars SHALL represent **kilometres driven per day** — the difference between
-consecutive daily odometer readings converted to kilometres via the `OdometerKm()` companion — not
-the cumulative odometer value. A negative computed delta SHALL be shown as zero. The "Battery
+consecutive daily odometer readings, which the telemetry port already provides in kilometres — not
+the cumulative odometer value. The gateway SHALL NOT convert units when building either chart.
+A negative computed delta SHALL be shown as zero. The "Battery
 history" bars SHALL represent the **battery level percentage** at each snapshot (absolute 0–100).
 Each bar SHALL carry a hover tooltip: the odometer bar's tooltip SHALL include the date, the
 kilometres driven that day, and the cumulative odometer in kilometres; the battery bar's tooltip
-SHALL include the date, the level percentage, and the rated range in kilometres (`BatteryRangeKm()`).
+SHALL include the date, the level percentage, and the rated range in kilometres.
 
 The charts SHALL be rendered as **responsive inline SVG** (scaling to the container width) using no
 client-side charting library. All numeric values — bar heights, deltas, percentages, and tooltip
@@ -1015,7 +1020,8 @@ fabricated bars.
 - **GIVEN** a selected vehicle whose consecutive snapshots have increasing odometer readings
 - **WHEN** the odometer history chart is rendered
 - **THEN** each bar represents the kilometres driven between two consecutive daily snapshots
-  (the odometer delta converted via `OdometerKm()`)
+  (the delta between the snapshots' stored kilometre odometer readings, computed without any
+  unit conversion)
 - **AND** a bar whose computed delta is negative is shown as zero
 - **AND** each bar's tooltip shows the date, the kilometres driven that day, and the cumulative
   odometer in kilometres
@@ -1026,7 +1032,7 @@ fabricated bars.
 - **WHEN** the battery history chart is rendered
 - **THEN** each bar's height represents that snapshot's battery level percentage (0–100)
 - **AND** each bar's tooltip shows the date, the battery level percentage, and the rated range in
-  kilometres (`BatteryRangeKm()`)
+  kilometres, read directly from the snapshot
 
 #### Scenario: Changing the day count re-fetches both charts
 

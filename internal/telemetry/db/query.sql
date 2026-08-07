@@ -14,10 +14,11 @@
 -- (snapshotFrom/dateOnly, service.go) from captured_at in the poller's
 -- configured timezone (design D2) — never a DB expression, because a UNIQUE
 -- index cannot depend on the runtime POLLER_TIMEZONE env var.
--- Distance/range columns are stored API-native (miles); km is derived on read
--- by the domain type's Km() companions, never a column. sentry_mode is bound
--- as a nullable boolean (nil = vehicle did not report sentry) so absent stays
--- distinct from a reported off.
+-- Distance/range columns store DISPLAY units (km), converted exactly once at
+-- capture time by calling the tesla adapter's Km() companions — never derived
+-- on read (telemetry-store-display-units design D1/D3, RM7 Decision 1).
+-- sentry_mode is bound as a nullable boolean (nil = vehicle did not report
+-- sentry) so absent stays distinct from a reported off.
 -- Source A (RM2-telemetry-add-charging-stats): the 5 charge-enrichment columns are
 -- always non-NULL for rows written after the 20260716000002 migration — snapshotFrom
 -- stores the actual DTO value pointer-wrapped (D12: no zero-is-absent heuristic).
@@ -25,10 +26,13 @@
 -- max_range_charge_counter: nullable int, lifetime count of charges to max-range.
 -- NULL for rows written before 20260801000001 migration (pre-extraction). A real 0
 -- is stored as non-NULL via pointer-wrap in snapshotFrom (D12/DSA3 convention).
--- tpms_pressure_{fl,fr,rl,rr}: nullable REAL, tire pressure in bar (API-native).
--- NULL for rows written before 20260802000001 migration (pre-extraction) or when the
--- vehicle did not report TPMS. A 0.0 bar is stored non-NULL (D12/DSA3 convention).
--- No new index: tpms columns ride along on the existing heap row fetch.
+-- tpms_pressure_{fl,fr,rl,rr}_psi: nullable REAL, tire pressure in PSI — converted
+-- exactly once at capture time from the Fleet API's native bar reading by calling
+-- the tesla adapter's TpmsPressure*PSI() companions (telemetry-store-display-units
+-- design D1/D3). NULL for rows written before 20260802000001 migration
+-- (pre-extraction) or when the vehicle did not report TPMS. A 0.0 PSI is stored
+-- non-NULL (D12/DSA3 convention). No new index: tpms columns ride along on the
+-- existing heap row fetch.
 -- latitude/longitude/fast_charger_type dropped in 20260801000001 — lossless in raw_data.
 -- updated_at is NOT sent as a param: DEFAULT now() handles a fresh INSERT;
 -- the ON CONFLICT clause explicitly refreshes it to now() on a same-day
@@ -36,49 +40,49 @@
 -- `updated_at = now()`.
 INSERT INTO vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
-    battery_level, battery_range, charging_state, charge_limit_soc,
-    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
-    charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date
 ) VALUES (
     @account_id, @tesla_id, @captured_at, @raw_data,
-    @battery_level, @battery_range, @charging_state, @charge_limit_soc,
-    @odometer, @inside_temp, @outside_temp, @locked, @sentry_mode,
+    @battery_level_pct, @battery_range_km, @charging_state, @charge_limit_soc_pct,
+    @odometer_km, @inside_temp_c, @outside_temp_c, @locked, @sentry_mode,
     @car_version,
-    @charge_energy_added, @charger_power, @charger_voltage,
-    @charger_actual_current, @usable_battery_level,
+    @charge_energy_added_kwh, @charger_power_kw, @charger_voltage_v,
+    @charger_actual_current_a, @usable_battery_level_pct,
     @max_range_charge_counter,
-    @tpms_pressure_fl, @tpms_pressure_fr, @tpms_pressure_rl, @tpms_pressure_rr,
+    @tpms_pressure_fl_psi, @tpms_pressure_fr_psi, @tpms_pressure_rl_psi, @tpms_pressure_rr_psi,
     @captured_date
 )
 ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
-    captured_at              = EXCLUDED.captured_at,
-    raw_data                 = EXCLUDED.raw_data,
-    battery_level            = EXCLUDED.battery_level,
-    battery_range            = EXCLUDED.battery_range,
-    charging_state           = EXCLUDED.charging_state,
-    charge_limit_soc         = EXCLUDED.charge_limit_soc,
-    odometer                 = EXCLUDED.odometer,
-    inside_temp              = EXCLUDED.inside_temp,
-    outside_temp             = EXCLUDED.outside_temp,
-    locked                   = EXCLUDED.locked,
-    sentry_mode              = EXCLUDED.sentry_mode,
-    car_version              = EXCLUDED.car_version,
-    charge_energy_added      = EXCLUDED.charge_energy_added,
-    charger_power            = EXCLUDED.charger_power,
-    charger_voltage          = EXCLUDED.charger_voltage,
-    charger_actual_current   = EXCLUDED.charger_actual_current,
-    usable_battery_level     = EXCLUDED.usable_battery_level,
-    max_range_charge_counter = EXCLUDED.max_range_charge_counter,
-    tpms_pressure_fl         = EXCLUDED.tpms_pressure_fl,
-    tpms_pressure_fr         = EXCLUDED.tpms_pressure_fr,
-    tpms_pressure_rl         = EXCLUDED.tpms_pressure_rl,
-    tpms_pressure_rr         = EXCLUDED.tpms_pressure_rr,
-    updated_at               = now();
+    captured_at               = EXCLUDED.captured_at,
+    raw_data                  = EXCLUDED.raw_data,
+    battery_level_pct         = EXCLUDED.battery_level_pct,
+    battery_range_km          = EXCLUDED.battery_range_km,
+    charging_state            = EXCLUDED.charging_state,
+    charge_limit_soc_pct      = EXCLUDED.charge_limit_soc_pct,
+    odometer_km               = EXCLUDED.odometer_km,
+    inside_temp_c              = EXCLUDED.inside_temp_c,
+    outside_temp_c             = EXCLUDED.outside_temp_c,
+    locked                     = EXCLUDED.locked,
+    sentry_mode                = EXCLUDED.sentry_mode,
+    car_version                = EXCLUDED.car_version,
+    charge_energy_added_kwh    = EXCLUDED.charge_energy_added_kwh,
+    charger_power_kw           = EXCLUDED.charger_power_kw,
+    charger_voltage_v          = EXCLUDED.charger_voltage_v,
+    charger_actual_current_a   = EXCLUDED.charger_actual_current_a,
+    usable_battery_level_pct   = EXCLUDED.usable_battery_level_pct,
+    max_range_charge_counter   = EXCLUDED.max_range_charge_counter,
+    tpms_pressure_fl_psi       = EXCLUDED.tpms_pressure_fl_psi,
+    tpms_pressure_fr_psi       = EXCLUDED.tpms_pressure_fr_psi,
+    tpms_pressure_rl_psi       = EXCLUDED.tpms_pressure_rl_psi,
+    tpms_pressure_rr_psi       = EXCLUDED.tpms_pressure_rr_psi,
+    updated_at                 = now();
 
 -- name: InsertPollAttempt :exec
 -- Record one attempt per (vehicle, run), success or failure. outcome is
@@ -96,13 +100,13 @@ INSERT INTO poll_attempts (
 -- schema evolves; latitude/longitude/fast_charger_type removed in 20260801000001.
 SELECT
     id, account_id, tesla_id, captured_at, raw_data,
-    battery_level, battery_range, charging_state, charge_limit_soc,
-    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
-    charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = @account_id AND tesla_id = @tesla_id
@@ -131,13 +135,13 @@ ORDER BY attempted_at DESC;
 -- schedule — 400 comfortably exceeds any realistic dashboard window (~13 months).
 SELECT
     id, account_id, tesla_id, captured_at, raw_data,
-    battery_level, battery_range, charging_state, charge_limit_soc,
-    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
-    charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = @account_id
@@ -156,13 +160,13 @@ LIMIT 400;
 -- it avoids the N+1 that would result from calling ListSnapshotsByVehicle per vehicle.
 SELECT DISTINCT ON (tesla_id)
     id, account_id, tesla_id, captured_at, raw_data,
-    battery_level, battery_range, charging_state, charge_limit_soc,
-    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
-    charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = @account_id

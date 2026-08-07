@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "battery-adopt-snapshot-unit-fields",
+  "module": "battery",
+  "roadmap": "RM7-store-display-units",
+  "tier": 3,
+  "request": "RM7 tier 3: adopt the renamed telemetry.Snapshot fields in internal/battery - replace the OdometerKm() method calls in deriveEfficiency with plain field reads, update AGENTS.md. No behaviour change.",
+  "status": "reviewer-approved",
+  "created_at": "2026-08-07T11:34:16Z",
+  "updated_at": "2026-08-07T11:44:31Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM7-store-display-units",
+    "base": "5f9db6c",
+    "created_at": "2026-08-07T11:34:16Z",
+    "note": "Shared RM7 branch. This tier does NOT restore go build ./... - gateway (tier 4) is still broken until it lands."
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "end.OdometerKm - start.OdometerKm replaces the OdometerKm() call pair in deriveEfficiency.",
+      "depends_on": []
+    },
+    {
+      "id": "1.2",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "FromKm/ToKm now read start.OdometerKm/end.OdometerKm directly (no method call).",
+      "depends_on": []
+    },
+    {
+      "id": "1.3",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "Grepped module: UsableBatteryLevel->UsableBatteryLevelPct, BatteryLevel->BatteryLevelPct in socReadings; also fixed stale OdometerKm() doc comment in battery.go.",
+      "depends_on": []
+    },
+    {
+      "id": "1.4",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "Confirmed via grep: no 1.609344/milesToKm/OdometerKm()/BatteryRangeKm() anywhere in internal/battery, including tests.",
+      "depends_on": []
+    },
+    {
+      "id": "1.5",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "Efficiency struct in battery.go unchanged: WhPerKm, FromKm, ToKm, BatteryDeltaPct, Approximate - same names/types/meanings.",
+      "depends_on": []
+    },
+    {
+      "id": "2.1",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "derive_test.go and reader_test.go snap() literals updated to OdometerKm/BatteryLevelPct/UsableBatteryLevelPct.",
+      "depends_on": []
+    },
+    {
+      "id": "2.2",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "Reviewed each fixture for meaning per D2; recomputed expected Wh/km fresh from km-native fixtures (see worker report) rather than reinterpreting old mile-based numbers.",
+      "depends_on": []
+    },
+    {
+      "id": "2.3",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "TestDeriveEfficiency_KnownCapacity_NetConsumption adapted: 100km distance, 20kWh energy, hand-computed WhPerKm=200, independent of prior implementation.",
+      "depends_on": []
+    },
+    {
+      "id": "2.4",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "Verified NotOK tests (fewer-than-two snapshots, non-increasing odometer, net-charge-exceeds-consumption) still exercise their guard conditions after fixture edits.",
+      "depends_on": []
+    },
+    {
+      "id": "3.1",
+      "title": null,
+      "status": "done",
+      "agent": "battery",
+      "model": "sonnet",
+      "started_at": "2026-08-07T11:34:16Z",
+      "completed_at": "2026-08-07T11:39:29Z",
+      "duration_seconds": 313,
+      "budget": null,
+      "notes": "internal/battery/AGENTS.md:48-51 updated: FromKm/ToKm now documented as direct reads of telemetry.Snapshot.OdometerKm, no conversion performed.",
+      "depends_on": []
+    },
+    {
+      "id": "4.1",
+      "title": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-07T11:41:07Z",
+      "completed_at": "2026-08-07T11:41:07Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": null,
+      "depends_on": []
+    },
+    {
+      "id": "4.2",
+      "title": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-07T11:41:07Z",
+      "completed_at": "2026-08-07T11:41:07Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": null,
+      "depends_on": []
+    },
+    {
+      "id": "4.3",
+      "title": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-07T11:41:07Z",
+      "completed_at": "2026-08-07T11:41:07Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": null,
+      "depends_on": []
+    },
+    {
+      "id": "4.4",
+      "title": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-07T11:41:07Z",
+      "completed_at": "2026-08-07T11:41:07Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": "Prohibition honoured: full-tree build deliberately NOT run as this tier gate. gateway still fails until tier 4 (RD8).",
+      "depends_on": []
+    },
+    {
+      "id": "4.5",
+      "title": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-07T11:41:07Z",
+      "completed_at": "2026-08-07T11:41:07Z",
+      "duration_seconds": 0,
+      "budget": null,
+      "notes": null,
+      "depends_on": []
+    }
+  ],
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "3.1",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "4.5"
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-07T11:34:16Z",
+      "scope": "dispatch",
+      "made_by": "leader",
+      "decision": "One serial Sonnet worker for groups 1-3; group 4 is the leader's gate. Not Haiku despite the change looking mechanical.",
+      "why": "Task 2.2 is the real risk and is not mechanical: a fixture that meant 1000 MILES now reads as 1000 km and feeds a 1.609x smaller distance into the Wh/km formula, so a find-and-replace passes while testing the wrong thing. That needs reasoning about test intent, not pattern substitution. Group 4 is the leader's because 4.4 is a prohibition (do NOT run the full-tree build) that the leader must enforce."
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-07T11:41:07Z",
+      "scope": "wave-1-crosscheck",
+      "made_by": "leader",
+      "decision": "Accepted the worker's choice to treat the existing 1000/1100 fixtures as km-native and RECOMPUTE every distance-dependent expectation, rather than converting the old mile values.",
+      "why": "Task 2.2's trap was handled with reasoning, not substitution: the worker recomputed WhPerKm from the km fixtures (100km, 20kWh -> 200 Wh/km) and left the three ok=false guard tests' values alone after checking each guard is still reached before distance is read. Leader independently re-derived 20 kWh x 1000 / 100 km = 200 Wh/km. It also deleted the test-only milesToKmTest constant, which gate 4.3 forbids module-wide.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-07T11:44:31Z",
+      "scope": "review:R1-1",
+      "made_by": "leader",
+      "decision": "Accepted reviewer finding R1-1 and renamed the stale startMiles/endMiles table fields to startKm/endKm in TestDeriveEfficiency_NonIncreasingOdometer_NotOK.",
+      "why": "Non-blocking and scale-invariant, but leaving 'Miles' identifiers in the one module whose stated property is 'contains zero unit conversion' is exactly the naming rot that makes a future agent re-derive the unit. Two-line fix, tests still green. The only remaining 'miles' in the module is a historical comment explaining why the expectations were re-derived - that one is accurate and stays.",
+      "covered_by": null
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "battery-reviewer",
+    "brief": "Review the DIFF of commit d27145d (`git show d27145d`). Small, mechanical-looking tier - but the risk is NOT in the call-site swap. Validate in priority order:\n(1) TEST HONESTY - the whole point of this review. RM7 tier 2 renamed telemetry.Snapshot.Odometer -> OdometerKm, so a fixture literal that used to mean 1000 MILES now reads as 1000 km: a distance 1.609x smaller feeding the Wh/km formula. A blind find-and-replace makes the suite green while asserting something different from what the test was written to assert. Walk EVERY changed fixture in derive_test.go and reader_test.go and confirm each was either converted or had its expected value recomputed, and that the recomputation is arithmetically correct. The leader independently re-derived the headline case: distance 1100-1000 = 100 km, energy = 5 kWh - 75 kWh x (-20)/100 = 20 kWh, WhPerKm = 20 x 1000 / 100 = 200. Check the others yourself.\n(2) The three ok=false guard tests (fewer than two snapshots, non-increasing odometer, net charge exceeds consumption) must still REACH their guards after the fixture edits. A fixture change can silently stop a guard test from exercising its guard while still passing. Verify each still asserts ok=false for the same reason it always did.\n(3) Zero unit conversion left in the module: no 1.609344, no milesToKm, no factor of any kind, tests included. The worker deleted a test-only milesToKmTest constant for exactly this reason - confirm that removal lost no coverage.\n(4) The Efficiency type is unchanged (design D3): WhPerKm, FromKm, ToKm, BatteryDeltaPct, Approximate keep names, types and meanings. Only its doc comment - which named the now-deleted OdometerKm() method - should have changed. Any behavioural or signature change is a finding.\n(5) Boundaries: internal/battery consumes telemetry through its public types only; nothing outside internal/battery was edited. internal/gateway is RM7 tier 4 - it must NOT have been touched.\n(6) BUILD EXPECTATION - do not block on this. `go build ./...` STILL FAILS in internal/gateway and that is planned (RM7 Decision 8); tier 4 restores it. The correct scope is `go build ./internal/battery/...`. Do NOT run the full-tree build as a gate.\n(7) Anti-gaming: no task title, criterion or assertion weakened or deleted; tasks.md checkboxes match reality - check all 15 independently.\nLeader already verified: build+vet+test green for ./internal/battery/...; grep gate clean; openspec validate --strict valid. You may re-run `env -u DATABASE_URL go test ./internal/battery/...`. NEVER run make migrate-*/db-* or psql - .env points at the user's real database. Never call the live Tesla API. Escalate on doubt.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "battery-reviewer",
+        "model": "sonnet",
+        "started_at": "2026-08-07T12:05:00Z",
+        "completed_at": "2026-08-07T12:20:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/battery/AGENTS.md"
+        ],
+        "checks": {
+          "test_honesty": "Walked every changed fixture in derive_test.go and reader_test.go (TestDeriveEfficiency_KnownCapacity_NetConsumption, TestDeriveEfficiency_UnknownCapacity_ApproximateTrue, TestRecentEfficiency_HappyPath_ComputesValue, TestRecentEfficiency_WindowExcludesOldEntries). All were recomputed, not renamed-in-place: distance=1100-1000=100km, energy=5-75*(-20)/100=20kWh, WhPerKm=20*1000/100=200 - matches leader's independent derivation and the code's actual output (test run confirms). milesToKmTest constant removal cost no coverage - it existed only to compute expected miles->km distances, which are no longer needed since fixtures are km-native.",
+          "guard_tests": "TestDeriveEfficiency_FewerThanTwoSnapshots_NotOK, TestDeriveEfficiency_NonIncreasingOdometer_NotOK, TestDeriveEfficiency_NetChargeExceedsConsumption_NotOK all still trip their respective guard (len<2; distance<=0; energy<=0) - verified by reading derive.go's guard order and confirming each test's fixture values still produce the same guard outcome regardless of miles-vs-km interpretation (guards are scale-invariant on sign/count, not magnitude).",
+          "zero_unit_conversion": "grep -rn 'OdometerKm()|BatteryRangeKm()|1.609344|milesToKm' internal/battery returned nothing (exit 1). Confirmed no stray old field names (.Odometer, .BatteryLevel, .UsableBatteryLevel without Pct/Km suffix) remain anywhere in the module.",
+          "efficiency_type_unchanged": "diffed the Efficiency struct block pre/post commit - byte-identical except doc comments naming the deleted OdometerKm() method, which were updated to reference the field read. No field/type/name change.",
+          "boundaries": "git show d27145d --stat: only internal/battery/*, internal/battery/AGENTS.md, and the change's own openspec/ files touched. internal/gateway untouched.",
+          "build_gate": "env -u DATABASE_URL go build/vet/test ./internal/battery/... all pass. Did not run go build ./... per brief item 6.",
+          "anti_gaming": "diffed tasks.md: all 15 changes are '- [ ]' -> '- [x]' only, task text byte-identical. progress.json task entries and rollup match reality."
+        },
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "minor",
+            "note": "internal/battery/derive_test.go:139-140,147-148 - TestDeriveEfficiency_NonIncreasingOdometer_NotOK's table fields are still named startMiles/endMiles, left over from before the snap() parameter was renamed to odometerKm. Not a correctness bug (the distance<=0 guard is scale-invariant, so 1000/1000 and 1000/900 trip it whether read as miles or km), but it's stale terminology in a module whose whole point this tier is 'contains zero unit conversion' - a future reader could misread these as still-miles fixtures. Rename to startKm/endKm for consistency with the rest of the file.",
+            "status": "open"
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-08-07T11:34:16Z",
+      "agent": "leader",
+      "event": "RM7 tier 3 started on ft/RM7-store-display-units (base 5f9db6c). Tier 2 archived, so the renamed telemetry.Snapshot fields exist and this module can be made to compile again. Budget at dispatch: five_hour_pct 67, context_pct 24."
+    },
+    {
+      "at": "2026-08-07T11:41:07Z",
+      "agent": "leader",
+      "event": "Tier 3 wave reconciled and group 4 gate PASSED: build+vet+test green for ./internal/battery/...; grep gate clean (no OdometerKm()/BatteryRangeKm()/1.609344/milesToKm anywhere in the module); openspec validate --strict valid; full-tree build deliberately NOT run per 4.4. Efficiency struct unchanged - only its doc comment, which named the deleted method. All 15 tasks done; status -> applied. Budget: five_hour_pct 75, cost_usd 30.51."
+    },
+    {
+      "at": "2026-08-07T11:41:30Z",
+      "agent": "leader",
+      "event": "Step 7 round 1: dispatched battery-reviewer (sonnet) against d27145d."
+    },
+    {
+      "at": "2026-08-07T11:44:31Z",
+      "agent": "leader",
+      "event": "Reviewer round 1 APPROVED (battery-reviewer) with one minor finding R1-1, triaged as ACCEPTED and fixed (decision D3). Tests re-run green after the fix."
+    }
+  ]
+}

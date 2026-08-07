@@ -47,26 +47,26 @@ type VehicleSnapshot struct {
 	TeslaID               int64
 	CapturedAt            pgtype.Timestamptz
 	RawData               []byte
-	BatteryLevel          int32
-	BatteryRange          float64
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
 	ChargingState         string
-	ChargeLimitSoc        int32
-	Odometer              float64
-	InsideTemp            float64
-	OutsideTemp           float64
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
 	Locked                bool
 	SentryMode            pgtype.Bool
 	CarVersion            string
-	ChargeEnergyAdded     pgtype.Float8
-	ChargerPower          pgtype.Int4
-	ChargerVoltage        pgtype.Int4
-	ChargerActualCurrent  pgtype.Int4
-	UsableBatteryLevel    pgtype.Int4
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
 	MaxRangeChargeCounter pgtype.Int4
-	TpmsPressureFl        pgtype.Float4
-	TpmsPressureFr        pgtype.Float4
-	TpmsPressureRl        pgtype.Float4
-	TpmsPressureRr        pgtype.Float4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
 	CapturedDate          pgtype.Date
 	UpdatedAt             pgtype.Timestamptz
 }

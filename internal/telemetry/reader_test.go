@@ -67,22 +67,22 @@ func TestReader_LatestSnapshotsByAccount_ReturnsFakeSnapshots(t *testing.T) {
 
 	want := []Snapshot{
 		{
-			AccountID:    acctID,
-			TeslaID:      10,
-			CapturedAt:   now,
-			BatteryLevel: 80,
-			BatteryRange: 250.0,
-			Odometer:     12345.6,
-			SentryMode:   &sentryon,
+			AccountID:       acctID,
+			TeslaID:         10,
+			CapturedAt:      now,
+			BatteryLevelPct: 80,
+			BatteryRangeKm:  402.336,       // 250.0 mi * 1.609344 — already display-unit, no companion
+			OdometerKm:      19868.3172864, // 12345.6 mi * 1.609344
+			SentryMode:      &sentryon,
 		},
 		{
-			AccountID:    acctID,
-			TeslaID:      20,
-			CapturedAt:   older,
-			BatteryLevel: 55,
-			BatteryRange: 150.0,
-			Odometer:     8000.0,
-			SentryMode:   nil,
+			AccountID:       acctID,
+			TeslaID:         20,
+			CapturedAt:      older,
+			BatteryLevelPct: 55,
+			BatteryRangeKm:  241.4016,
+			OdometerKm:      12874.752,
+			SentryMode:      nil,
 		},
 	}
 
@@ -103,8 +103,8 @@ func TestReader_LatestSnapshotsByAccount_ReturnsFakeSnapshots(t *testing.T) {
 			if !s.CapturedAt.Equal(now) {
 				t.Errorf("vehicle 10: want CapturedAt=%v, got %v", now, s.CapturedAt)
 			}
-			if s.BatteryLevel != 80 {
-				t.Errorf("vehicle 10: want BatteryLevel=80, got %d", s.BatteryLevel)
+			if s.BatteryLevelPct != 80 {
+				t.Errorf("vehicle 10: want BatteryLevelPct=80, got %d", s.BatteryLevelPct)
 			}
 			if s.SentryMode == nil || !*s.SentryMode {
 				t.Errorf("vehicle 10: want SentryMode=*true, got %v", s.SentryMode)
@@ -180,17 +180,25 @@ func TestReader_SentryModeNilFidelity(t *testing.T) {
 	}
 }
 
-// TestReader_KmCompanions asserts that the BatteryRangeKm() and OdometerKm() companion
-// methods return the correct metric values (miles × 1.609344), exercising the milesToKm
-// constant defined in telemetry.go.
-func TestReader_KmCompanions(t *testing.T) {
-	const miles = 200.0
+// TestReader_NoConversionOnRead asserts that the reader returns BatteryRangeKm and
+// OdometerKm exactly as the store supplied them — no arithmetic, no companion method
+// call. This replaces the old TestReader_KmCompanions, which exercised
+// BatteryRangeKm()/OdometerKm() companion methods; design D4 deliberately removed
+// those (the renamed fields collide with the method names), and the spec's "Latest
+// Snapshot Read Port" requirement now states the read port "SHALL NOT perform, or
+// require its callers to perform, any unit conversion on read" and "SHALL NOT expose
+// companion conversion methods". The values below are already-converted km (as
+// snapshotFrom would have stored them at capture time) — the reader's only job is to
+// pass them through unmodified.
+func TestReader_NoConversionOnRead(t *testing.T) {
+	const wantKm = 321.8688 // an arbitrary already-converted km value, not derived
+	// from a miles literal here — proving the reader does no further arithmetic on it.
 	snap := Snapshot{
-		AccountID:    uuid.New(),
-		TeslaID:      1,
-		CapturedAt:   time.Now().UTC(),
-		BatteryRange: miles,
-		Odometer:     miles,
+		AccountID:      uuid.New(),
+		TeslaID:        1,
+		CapturedAt:     time.Now().UTC(),
+		BatteryRangeKm: wantKm,
+		OdometerKm:     wantKm,
 	}
 	r := newFakeReader(&fakeReadStore{snapshots: []Snapshot{snap}})
 
@@ -202,12 +210,11 @@ func TestReader_KmCompanions(t *testing.T) {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
 	}
 
-	const wantKm = miles * milesToKm
-	if diff := got[0].BatteryRangeKm() - wantKm; diff > 1e-9 || diff < -1e-9 {
-		t.Errorf("BatteryRangeKm: want %v, got %v", wantKm, got[0].BatteryRangeKm())
+	if got[0].BatteryRangeKm != wantKm {
+		t.Errorf("BatteryRangeKm: want %v unmodified, got %v", wantKm, got[0].BatteryRangeKm)
 	}
-	if diff := got[0].OdometerKm() - wantKm; diff > 1e-9 || diff < -1e-9 {
-		t.Errorf("OdometerKm: want %v, got %v", wantKm, got[0].OdometerKm())
+	if got[0].OdometerKm != wantKm {
+		t.Errorf("OdometerKm: want %v unmodified, got %v", wantKm, got[0].OdometerKm)
 	}
 }
 
@@ -268,9 +275,9 @@ func TestReader_SnapshotsByVehicleSince_OldestFirst(t *testing.T) {
 
 	// Store returns snapshots already oldest-first (as the DB query guarantees).
 	want := []Snapshot{
-		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day1, BatteryLevel: 70, Odometer: 1000},
-		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day2, BatteryLevel: 68, Odometer: 1050},
-		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day3, BatteryLevel: 65, Odometer: 1100},
+		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day1, BatteryLevelPct: 70, OdometerKm: 1609.344},  // 1000 mi * 1.609344
+		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day2, BatteryLevelPct: 68, OdometerKm: 1689.8112}, // 1050 mi * 1.609344
+		{AccountID: accountID, TeslaID: teslaID, CapturedAt: day3, BatteryLevelPct: 65, OdometerKm: 1770.2784}, // 1100 mi * 1.609344
 	}
 
 	fake := &fakeHistoryStore{snapshots: want}

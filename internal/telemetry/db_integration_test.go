@@ -55,20 +55,20 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:      accountID,
-		TeslaID:        teslaID,
-		CapturedAt:     captured,
-		CapturedDate:   dateOnly(captured, time.UTC),
-		BatteryLevel:   64,
-		BatteryRange:   210.5,
-		ChargingState:  "Disconnected",
-		ChargeLimitSoc: 80,
-		Odometer:       54321.75,
-		InsideTemp:     21.5,
-		OutsideTemp:    17.0,
-		Locked:         true,
-		SentryMode:     nil, // not reported → must round-trip as SQL NULL
-		CarVersion:     "2026.20.1",
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        captured,
+		CapturedDate:      dateOnly(captured, time.UTC),
+		BatteryLevelPct:   64,
+		BatteryRangeKm:    338.766912, // 210.5 mi * 1.609344 (was miles pre-display-units)
+		ChargingState:     "Disconnected",
+		ChargeLimitSocPct: 80,
+		OdometerKm:        87422.382432, // 54321.75 mi * 1.609344
+		InsideTempC:       21.5,
+		OutsideTempC:      17.0,
+		Locked:            true,
+		SentryMode:        nil, // not reported → must round-trip as SQL NULL
+		CarVersion:        "2026.20.1",
 		// latitude/longitude dropped in 20260801000001; lossless in raw_data JSONB.
 		RawData: []byte(`{"response":{"id":900001,"charge_state":{"battery_level":64}}}`),
 	}
@@ -87,11 +87,11 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
 	}
 	row := got[0]
-	if row.BatteryLevel != 64 || row.ChargeLimitSoc != 80 {
-		t.Errorf("integer columns wrong: battery=%d limit=%d", row.BatteryLevel, row.ChargeLimitSoc)
+	if row.BatteryLevelPct != 64 || row.ChargeLimitSocPct != 80 {
+		t.Errorf("integer columns wrong: battery=%d limit=%d", row.BatteryLevelPct, row.ChargeLimitSocPct)
 	}
-	if row.BatteryRange != 210.5 || row.Odometer != 54321.75 {
-		t.Errorf("float columns wrong: range=%v odo=%v", row.BatteryRange, row.Odometer)
+	if row.BatteryRangeKm != 338.766912 || row.OdometerKm != 87422.382432 {
+		t.Errorf("float columns wrong: range=%v odo=%v", row.BatteryRangeKm, row.OdometerKm)
 	}
 	if row.ChargingState != "Disconnected" || row.CarVersion != "2026.20.1" || !row.Locked {
 		t.Errorf("string/bool columns wrong: %+v", row)
@@ -193,7 +193,7 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 	first := base
 	first.CapturedAt = day
 	first.CapturedDate = dateOnly(first.CapturedAt, time.UTC)
-	first.BatteryLevel = 50
+	first.BatteryLevelPct = 50
 	if err := st.insertSnapshot(ctx, first); err != nil {
 		t.Fatalf("first insertSnapshot: %v", err)
 	}
@@ -201,7 +201,7 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 	second := base
 	second.CapturedAt = day.Add(time.Hour) // same calendar day, later instant
 	second.CapturedDate = dateOnly(second.CapturedAt, time.UTC)
-	second.BatteryLevel = 55
+	second.BatteryLevelPct = 55
 	second.CarVersion = "v2"
 	second.RawData = []byte(`{"pass":2}`)
 	if err := st.insertSnapshot(ctx, second); err != nil {
@@ -221,8 +221,8 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 	}
 	row := got[0]
 	// The surviving row must carry the SECOND capture's values, not the first's.
-	if row.BatteryLevel != 55 {
-		t.Errorf("battery_level wrong: want 55 (second capture), got %d", row.BatteryLevel)
+	if row.BatteryLevelPct != 55 {
+		t.Errorf("battery_level wrong: want 55 (second capture), got %d", row.BatteryLevelPct)
 	}
 	if row.CarVersion != "v2" {
 		t.Errorf("car_version wrong: want v2 (second capture), got %q", row.CarVersion)
@@ -258,7 +258,7 @@ func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 	first := base
 	first.CapturedAt = day1
 	first.CapturedDate = dateOnly(first.CapturedAt, time.UTC)
-	first.BatteryLevel = 50
+	first.BatteryLevelPct = 50
 	if err := st.insertSnapshot(ctx, first); err != nil {
 		t.Fatalf("day-1 insertSnapshot: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 	second := base
 	second.CapturedAt = day2
 	second.CapturedDate = dateOnly(second.CapturedAt, time.UTC)
-	second.BatteryLevel = 55
+	second.BatteryLevelPct = 55
 	if err := st.insertSnapshot(ctx, second); err != nil {
 		t.Fatalf("day-2 insertSnapshot: %v", err)
 	}
@@ -283,8 +283,8 @@ func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 		t.Fatalf("want 2 snapshots across two different days, got %d", len(got))
 	}
 	// Newest first (ORDER BY captured_at DESC): day2 (55) then day1 (50).
-	if got[0].BatteryLevel != 55 || got[1].BatteryLevel != 50 {
-		t.Errorf("order/values wrong: got %d then %d (want 55 then 50)", got[0].BatteryLevel, got[1].BatteryLevel)
+	if got[0].BatteryLevelPct != 55 || got[1].BatteryLevelPct != 50 {
+		t.Errorf("order/values wrong: got %d then %d (want 55 then 50)", got[0].BatteryLevelPct, got[1].BatteryLevelPct)
 	}
 	// The day-1 row must be unchanged by the day-2 insert.
 	if !got[1].CapturedAt.Time.UTC().Equal(day1) {

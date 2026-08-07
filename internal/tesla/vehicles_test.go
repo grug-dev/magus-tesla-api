@@ -533,3 +533,44 @@ func TestMetricCompanions(t *testing.T) {
 		t.Errorf("SpeedKmh(60) = %v, want 96.56064", got)
 	}
 }
+
+// TestTpmsPressurePSICompanions covers RM7 tier 1 (tesla-add-tpms-psi-companions):
+// each corner's PSI companion equals its bar value times 14.503773773.
+// A distinct value per corner catches a copy-paste error that reads the wrong field.
+// The expectations are literals, not barToPSI: asserting against the same constant the
+// method uses would pass even if the constant itself were wrong, so it would pin the
+// field wiring but not the factor. Same reason TestMetricCompanions above spells out
+// 80.4672 rather than 50*milesToKm.
+func TestTpmsPressurePSICompanions(t *testing.T) {
+	const eps = 1e-9
+
+	vs := VehicleStateTesla{
+		TpmsPressureFL: 2.9,
+		TpmsPressureFR: 2.8,
+		TpmsPressureRL: 2.7,
+		TpmsPressureRR: 2.6,
+	}
+	if got := vs.TpmsPressureFLPSI(); math.Abs(got-42.0609439417) > eps {
+		t.Errorf("TpmsPressureFLPSI(2.9) = %v, want 42.0609439417", got)
+	}
+	if got := vs.TpmsPressureFRPSI(); math.Abs(got-40.6105665644) > eps {
+		t.Errorf("TpmsPressureFRPSI(2.8) = %v, want 40.6105665644", got)
+	}
+	if got := vs.TpmsPressureRLPSI(); math.Abs(got-39.1601891871) > eps {
+		t.Errorf("TpmsPressureRLPSI(2.7) = %v, want 39.1601891871", got)
+	}
+	if got := vs.TpmsPressureRRPSI(); math.Abs(got-37.7098118098) > eps {
+		t.Errorf("TpmsPressureRRPSI(2.6) = %v, want 37.7098118098", got)
+	}
+}
+
+// TestTpmsPressurePSICompanions_ZeroBarIsZeroPSI covers the spec scenario "A
+// truthfully reported zero bar converts to zero PSI": a genuine 0.0 bar
+// reading (e.g. a flat tire) must convert to an ordinary 0.0 PSI value, not
+// be treated as an absent reading.
+func TestTpmsPressurePSICompanions_ZeroBarIsZeroPSI(t *testing.T) {
+	vs := VehicleStateTesla{TpmsPressureFL: 0.0}
+	if got := vs.TpmsPressureFLPSI(); got != 0.0 {
+		t.Errorf("TpmsPressureFLPSI() with 0.0 bar = %v, want 0.0", got)
+	}
+}

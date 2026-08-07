@@ -39,9 +39,10 @@ type Reader interface {
 }
 
 // Efficiency is one computed rolling-efficiency result — our own domain model,
-// no vendor suffix (ai/architecture.md §6). FromKm/ToKm are already km-native
-// (derived from telemetry.Snapshot.OdometerKm()), so no further Km() companion
-// applies here.
+// no vendor suffix (ai/architecture.md §6). FromKm/ToKm are read directly from
+// telemetry.Snapshot.OdometerKm — already km-native at capture time
+// (telemetry-store-display-units design D1/D3) — so this module performs no
+// unit conversion and no further Km() companion applies here.
 type Efficiency struct {
 	// WhPerKm is the derived energy-per-kilometre figure in watt-hours,
 	// raw and unrounded (design.md D5) — the gateway formats it for display.

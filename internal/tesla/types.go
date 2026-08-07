@@ -11,6 +11,13 @@ import (
 // The Fleet API only sends miles, so km values are always derived, never fields.
 const milesToKm = 1.609344
 
+// barToPSI is the exact bar→PSI (pounds per square inch) factor. Every
+// tire-pressure field on a ...Tesla DTO exposes a companion PSI method (RM7
+// tier 1, design D3). This factor must never be written inline at a call
+// site — it is the same value used anywhere else in the platform that
+// converts bar to PSI.
+const barToPSI = 14.503773773
+
 // --- Response envelopes (mirror the Tesla JSON wrapper shape) ---
 
 type listResponseTesla struct {
@@ -141,6 +148,26 @@ type VehicleStateTesla struct {
 // OdometerKm returns the odometer reading converted from miles to kilometers.
 func (v VehicleStateTesla) OdometerKm() float64 {
 	return v.Odometer * milesToKm
+}
+
+// TpmsPressureFLPSI returns the front-left tire pressure converted from bar to PSI.
+func (v VehicleStateTesla) TpmsPressureFLPSI() float64 {
+	return v.TpmsPressureFL * barToPSI
+}
+
+// TpmsPressureFRPSI returns the front-right tire pressure converted from bar to PSI.
+func (v VehicleStateTesla) TpmsPressureFRPSI() float64 {
+	return v.TpmsPressureFR * barToPSI
+}
+
+// TpmsPressureRLPSI returns the rear-left tire pressure converted from bar to PSI.
+func (v VehicleStateTesla) TpmsPressureRLPSI() float64 {
+	return v.TpmsPressureRL * barToPSI
+}
+
+// TpmsPressureRRPSI returns the rear-right tire pressure converted from bar to PSI.
+func (v VehicleStateTesla) TpmsPressureRRPSI() float64 {
+	return v.TpmsPressureRR * barToPSI
 }
 
 // VehicleConfigTesla carries the subset of the vehicle_config sub-object this platform

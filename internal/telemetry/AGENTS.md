@@ -106,13 +106,34 @@ never leaves the module — convert to/from plain domain types at the DB→domai
 
 ## DTO / units conventions
 
-- Miles → km is mandatory and non-negotiable (`ai/go-conventions.md`): every miles/mph field on a
-  domain type has a companion value-receiver `Km()`/`Kmh()` method using a package-level
-  `milesToKm = 1.609344` constant. **km is NEVER a stored column and never a struct field** — the
-  Fleet API sends miles; km is always derived on read. Pointer fields are nil-safe.
-- Units are stored API-native (miles) in `vehicle_snapshots`; Tesla temperatures are already
-  Celsius (no conversion). Domain types carry **no** vendor suffix; only the `tesla` adapter's
+- **SUPERSEDED (telemetry-store-display-units, migration `20260806000001`): units are now stored
+  in their DISPLAY unit, converted exactly once at capture time.** `vehicle_snapshots` stores km /
+  °C / PSI, not miles/bar — the opposite of the rule this section used to state. Every unit-bearing
+  column and `Snapshot` field carries its unit as a name suffix (`OdometerKm`, `TpmsPressureFLPSI`,
+  `InsideTempC`, …), so the unit is self-describing at every call site. This module holds **zero**
+  conversion constants and exposes **zero** read-time conversion methods — `milesToKm` and
+  `barToPSI` were deleted from `telemetry.go`; the six companion methods that used to convert
+  `BatteryRange`/`Odometer`/`TpmsPressure*` on read were deleted too (a field and a method of the
+  same name cannot coexist in Go, so renaming the fields to carry the unit forced the deletion —
+  design D4). Conversion happens exactly once, in `snapshotFrom` (`service.go`), by calling the
+  `tesla` adapter's `Km()`/`PSI()` companions on the vendor DTO — **never** by multiplying inline
+  here. `internal/tesla` remains the single owner of `milesToKm` / `barToPSI`; this module only
+  calls its companions.
+- This inverts the prior "API-native storage, derived on read" rule specifically because reads
+  vastly outnumber writes (CLAUDE.md's read-heavy Performance-Profile): the nightly poller writes
+  once per vehicle per night, while every dashboard render, chart, and API consumer used to pay
+  the conversion cost on every read. Converting once at write time and never on read matches that
+  asymmetry.
+- The **NULL-vs-zero invariant is unchanged and still binding**: for nullable columns (the four
+  TPMS pressure fields and the Source A charge-enrichment fields), NULL means "not reported at
+  capture, or the row predates this extraction"; a truthfully reported `0` is stored non-NULL via
+  `ptr()` in `snapshotFrom`, applied to the ALREADY-CONVERTED value (D12/DSA3 convention).
+- Tesla temperatures are already Celsius — `InsideTempC`/`OutsideTempC` are assigned straight from
+  the DTO with no conversion. Domain types carry **no** vendor suffix; only the `tesla` adapter's
   `...Tesla` DTOs unmarshal Tesla JSON, and this module maps them into clean `Snapshot`s.
+- `raw_data JSONB` is UNCHANGED by this and stays lossless in the Fleet API's native units (miles/
+  bar) — only the typed, extracted columns moved to display units. A backfill from `raw_data` must
+  still apply the conversion itself; the raw payload was never converted.
 - `SentryMode` is `*bool` end to end (nil = not reported, `*false` = off, `*true` = on) mapping to a
   nullable column — preserve the fidelity, never collapse absent into false.
 - `MaxRangeChargeCounter` is `*int` end to end (nil = pre-migration row / not reported, `*0` = new

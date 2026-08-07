@@ -43,20 +43,20 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	// coexists with the newer one instead of being replaced by it (see doc comment).
 	olderTime := time.Now().UTC().Add(-26 * time.Hour).Truncate(time.Microsecond)
 	snapAOlder := Snapshot{
-		AccountID:      accountID,
-		TeslaID:        vehicleA,
-		CapturedAt:     olderTime,
-		CapturedDate:   dateOnly(olderTime, time.UTC),
-		BatteryLevel:   40,
-		BatteryRange:   120.0,
-		ChargingState:  "Disconnected",
-		ChargeLimitSoc: 80,
-		Odometer:       10000.0,
-		InsideTemp:     20.0,
-		OutsideTemp:    15.0,
-		Locked:         false,
-		SentryMode:     nil,
-		CarVersion:     "2026.10.1",
+		AccountID:         accountID,
+		TeslaID:           vehicleA,
+		CapturedAt:        olderTime,
+		CapturedDate:      dateOnly(olderTime, time.UTC),
+		BatteryLevelPct:   40,
+		BatteryRangeKm:    193.12128, // 120.0 mi * 1.609344
+		ChargingState:     "Disconnected",
+		ChargeLimitSocPct: 80,
+		OdometerKm:        16093.44, // 10000.0 mi * 1.609344
+		InsideTempC:       20.0,
+		OutsideTempC:      15.0,
+		Locked:            false,
+		SentryMode:        nil,
+		CarVersion:        "2026.10.1",
 		// latitude/longitude dropped in 20260801000001; lossless in raw_data JSONB.
 		RawData: []byte(`{"vehicle":"A-old"}`),
 	}
@@ -68,20 +68,20 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	newerTime := time.Now().UTC().Add(-time.Hour).Truncate(time.Microsecond)
 	sentryOn := true
 	snapANewer := Snapshot{
-		AccountID:      accountID,
-		TeslaID:        vehicleA,
-		CapturedAt:     newerTime,
-		CapturedDate:   dateOnly(newerTime, time.UTC),
-		BatteryLevel:   75,
-		BatteryRange:   240.5,
-		ChargingState:  "Charging",
-		ChargeLimitSoc: 90,
-		Odometer:       10050.5,
-		InsideTemp:     22.5,
-		OutsideTemp:    18.0,
-		Locked:         true,
-		SentryMode:     &sentryOn,
-		CarVersion:     "2026.20.1",
+		AccountID:         accountID,
+		TeslaID:           vehicleA,
+		CapturedAt:        newerTime,
+		CapturedDate:      dateOnly(newerTime, time.UTC),
+		BatteryLevelPct:   75,
+		BatteryRangeKm:    387.047232, // 240.5 mi * 1.609344
+		ChargingState:     "Charging",
+		ChargeLimitSocPct: 90,
+		OdometerKm:        16174.711872, // 10050.5 mi * 1.609344
+		InsideTempC:       22.5,
+		OutsideTempC:      18.0,
+		Locked:            true,
+		SentryMode:        &sentryOn,
+		CarVersion:        "2026.20.1",
 		// latitude/longitude dropped in 20260801000001; lossless in raw_data JSONB.
 		RawData: []byte(`{"vehicle":"A-new"}`),
 	}
@@ -93,20 +93,20 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	snapBTime := time.Now().UTC().Add(-30 * time.Minute).Truncate(time.Microsecond)
 	sentryOff := false
 	snapB := Snapshot{
-		AccountID:      accountID,
-		TeslaID:        vehicleB,
-		CapturedAt:     snapBTime,
-		CapturedDate:   dateOnly(snapBTime, time.UTC),
-		BatteryLevel:   60,
-		BatteryRange:   180.0,
-		ChargingState:  "Disconnected",
-		ChargeLimitSoc: 85,
-		Odometer:       5000.0,
-		InsideTemp:     19.0,
-		OutsideTemp:    14.0,
-		Locked:         true,
-		SentryMode:     &sentryOff,
-		CarVersion:     "2026.18.3",
+		AccountID:         accountID,
+		TeslaID:           vehicleB,
+		CapturedAt:        snapBTime,
+		CapturedDate:      dateOnly(snapBTime, time.UTC),
+		BatteryLevelPct:   60,
+		BatteryRangeKm:    289.68192, // 180.0 mi * 1.609344
+		ChargingState:     "Disconnected",
+		ChargeLimitSocPct: 85,
+		OdometerKm:        8046.72, // 5000.0 mi * 1.609344
+		InsideTempC:       19.0,
+		OutsideTempC:      14.0,
+		Locked:            true,
+		SentryMode:        &sentryOff,
+		CarVersion:        "2026.18.3",
 		// latitude/longitude dropped in 20260801000001; lossless in raw_data JSONB.
 		RawData: []byte(`{"vehicle":"B"}`),
 	}
@@ -135,20 +135,20 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	if !a.CapturedAt.UTC().Equal(newerTime) {
 		t.Errorf("vehicle A: want newer CapturedAt=%v, got %v", newerTime, a.CapturedAt.UTC())
 	}
-	if a.BatteryLevel != 75 {
-		t.Errorf("vehicle A: want BatteryLevel=75 (newer), got %d", a.BatteryLevel)
+	if a.BatteryLevelPct != 75 {
+		t.Errorf("vehicle A: want BatteryLevelPct=75 (newer), got %d", a.BatteryLevelPct)
 	}
-	if a.BatteryRange != 240.5 {
-		t.Errorf("vehicle A: want BatteryRange=240.5, got %v", a.BatteryRange)
+	if a.BatteryRangeKm != 387.047232 {
+		t.Errorf("vehicle A: want BatteryRangeKm=387.047232, got %v", a.BatteryRangeKm)
 	}
 	if a.ChargingState != "Charging" {
 		t.Errorf("vehicle A: want ChargingState=Charging, got %q", a.ChargingState)
 	}
-	if a.ChargeLimitSoc != 90 {
-		t.Errorf("vehicle A: want ChargeLimitSoc=90, got %d", a.ChargeLimitSoc)
+	if a.ChargeLimitSocPct != 90 {
+		t.Errorf("vehicle A: want ChargeLimitSocPct=90, got %d", a.ChargeLimitSocPct)
 	}
-	if a.Odometer != 10050.5 {
-		t.Errorf("vehicle A: want Odometer=10050.5, got %v", a.Odometer)
+	if a.OdometerKm != 16174.711872 {
+		t.Errorf("vehicle A: want OdometerKm=16174.711872, got %v", a.OdometerKm)
 	}
 	if !a.Locked {
 		t.Error("vehicle A: want Locked=true")
@@ -173,8 +173,8 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 	if !b.CapturedAt.UTC().Equal(snapBTime) {
 		t.Errorf("vehicle B: want CapturedAt=%v, got %v", snapBTime, b.CapturedAt.UTC())
 	}
-	if b.BatteryLevel != 60 {
-		t.Errorf("vehicle B: want BatteryLevel=60, got %d", b.BatteryLevel)
+	if b.BatteryLevelPct != 60 {
+		t.Errorf("vehicle B: want BatteryLevelPct=60, got %d", b.BatteryLevelPct)
 	}
 	if b.SentryMode == nil || *b.SentryMode {
 		t.Errorf("vehicle B: want SentryMode=*false, got %v", b.SentryMode)
@@ -324,16 +324,16 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	// Snapshot BEFORE since — must NOT appear in results.
 	before := baseTime.Add(-24 * time.Hour).Truncate(time.Microsecond)
 	snapBefore := Snapshot{
-		AccountID:     accountID,
-		TeslaID:       vehicleA,
-		CapturedAt:    before,
-		CapturedDate:  dateOnly(before, time.UTC),
-		BatteryLevel:  50,
-		BatteryRange:  150.0,
-		ChargingState: "Disconnected",
-		CarVersion:    "v",
-		Odometer:      500.0,
-		RawData:       []byte(`{"day":"before"}`),
+		AccountID:       accountID,
+		TeslaID:         vehicleA,
+		CapturedAt:      before,
+		CapturedDate:    dateOnly(before, time.UTC),
+		BatteryLevelPct: 50,
+		BatteryRangeKm:  241.4016, // 150.0 mi * 1.609344
+		ChargingState:   "Disconnected",
+		CarVersion:      "v",
+		OdometerKm:      804.672, // 500.0 mi * 1.609344
+		RawData:         []byte(`{"day":"before"}`),
 	}
 	if err := st.insertSnapshot(ctx, snapBefore); err != nil {
 		t.Fatalf("insertSnapshot (before): %v", err)
@@ -342,16 +342,16 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	// Snapshot AT since — inclusive boundary, must appear first.
 	day0 := baseTime.Truncate(time.Microsecond)
 	snap0 := Snapshot{
-		AccountID:     accountID,
-		TeslaID:       vehicleA,
-		CapturedAt:    day0,
-		CapturedDate:  dateOnly(day0, time.UTC),
-		BatteryLevel:  60,
-		BatteryRange:  180.0,
-		ChargingState: "Disconnected",
-		CarVersion:    "v",
-		Odometer:      600.0,
-		RawData:       []byte(`{"day":"0"}`),
+		AccountID:       accountID,
+		TeslaID:         vehicleA,
+		CapturedAt:      day0,
+		CapturedDate:    dateOnly(day0, time.UTC),
+		BatteryLevelPct: 60,
+		BatteryRangeKm:  289.68192, // 180.0 mi * 1.609344
+		ChargingState:   "Disconnected",
+		CarVersion:      "v",
+		OdometerKm:      965.6064, // 600.0 mi * 1.609344
+		RawData:         []byte(`{"day":"0"}`),
 	}
 	if err := st.insertSnapshot(ctx, snap0); err != nil {
 		t.Fatalf("insertSnapshot (day0): %v", err)
@@ -360,16 +360,16 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	// Snapshot +1 day after since.
 	day1 := baseTime.Add(24 * time.Hour).Truncate(time.Microsecond)
 	snap1 := Snapshot{
-		AccountID:     accountID,
-		TeslaID:       vehicleA,
-		CapturedAt:    day1,
-		CapturedDate:  dateOnly(day1, time.UTC),
-		BatteryLevel:  72,
-		BatteryRange:  220.0,
-		ChargingState: "Disconnected",
-		CarVersion:    "v",
-		Odometer:      650.0,
-		RawData:       []byte(`{"day":"1"}`),
+		AccountID:       accountID,
+		TeslaID:         vehicleA,
+		CapturedAt:      day1,
+		CapturedDate:    dateOnly(day1, time.UTC),
+		BatteryLevelPct: 72,
+		BatteryRangeKm:  354.05568, // 220.0 mi * 1.609344
+		ChargingState:   "Disconnected",
+		CarVersion:      "v",
+		OdometerKm:      1046.0736, // 650.0 mi * 1.609344
+		RawData:         []byte(`{"day":"1"}`),
 	}
 	if err := st.insertSnapshot(ctx, snap1); err != nil {
 		t.Fatalf("insertSnapshot (day1): %v", err)
@@ -378,16 +378,16 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	// Snapshot +2 days after since.
 	day2 := baseTime.Add(48 * time.Hour).Truncate(time.Microsecond)
 	snap2 := Snapshot{
-		AccountID:     accountID,
-		TeslaID:       vehicleA,
-		CapturedAt:    day2,
-		CapturedDate:  dateOnly(day2, time.UTC),
-		BatteryLevel:  80,
-		BatteryRange:  240.0,
-		ChargingState: "Charging",
-		CarVersion:    "v",
-		Odometer:      700.0,
-		RawData:       []byte(`{"day":"2"}`),
+		AccountID:       accountID,
+		TeslaID:         vehicleA,
+		CapturedAt:      day2,
+		CapturedDate:    dateOnly(day2, time.UTC),
+		BatteryLevelPct: 80,
+		BatteryRangeKm:  386.24256, // 240.0 mi * 1.609344
+		ChargingState:   "Charging",
+		CarVersion:      "v",
+		OdometerKm:      1126.5408, // 700.0 mi * 1.609344
+		RawData:         []byte(`{"day":"2"}`),
 	}
 	if err := st.insertSnapshot(ctx, snap2); err != nil {
 		t.Fatalf("insertSnapshot (day2): %v", err)
@@ -406,25 +406,25 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 	if !got[0].CapturedAt.UTC().Equal(day0) {
 		t.Errorf("got[0]: want CapturedAt=%v, got %v", day0, got[0].CapturedAt.UTC())
 	}
-	if got[0].BatteryLevel != 60 {
-		t.Errorf("got[0]: want BatteryLevel=60, got %d", got[0].BatteryLevel)
+	if got[0].BatteryLevelPct != 60 {
+		t.Errorf("got[0]: want BatteryLevelPct=60, got %d", got[0].BatteryLevelPct)
 	}
-	if got[0].Odometer != 600.0 {
-		t.Errorf("got[0]: want Odometer=600.0, got %v", got[0].Odometer)
+	if got[0].OdometerKm != 965.6064 {
+		t.Errorf("got[0]: want OdometerKm=965.6064, got %v", got[0].OdometerKm)
 	}
 
 	if !got[1].CapturedAt.UTC().Equal(day1) {
 		t.Errorf("got[1]: want CapturedAt=%v, got %v", day1, got[1].CapturedAt.UTC())
 	}
-	if got[1].BatteryLevel != 72 {
-		t.Errorf("got[1]: want BatteryLevel=72, got %d", got[1].BatteryLevel)
+	if got[1].BatteryLevelPct != 72 {
+		t.Errorf("got[1]: want BatteryLevelPct=72, got %d", got[1].BatteryLevelPct)
 	}
 
 	if !got[2].CapturedAt.UTC().Equal(day2) {
 		t.Errorf("got[2]: want CapturedAt=%v, got %v", day2, got[2].CapturedAt.UTC())
 	}
-	if got[2].BatteryLevel != 80 {
-		t.Errorf("got[2]: want BatteryLevel=80, got %d", got[2].BatteryLevel)
+	if got[2].BatteryLevelPct != 80 {
+		t.Errorf("got[2]: want BatteryLevelPct=80, got %d", got[2].BatteryLevelPct)
 	}
 
 	// The snapshot before the since boundary must NOT appear.
@@ -452,25 +452,25 @@ func TestReadStore_SnapshotsByVehicleSince_CrossAccountExcluded(t *testing.T) {
 
 	capturedA := time.Now().UTC().Truncate(time.Microsecond)
 	snapA := Snapshot{
-		AccountID:     acctA,
-		TeslaID:       vehicleID,
-		CapturedAt:    capturedA,
-		CapturedDate:  dateOnly(capturedA, time.UTC),
-		ChargingState: "Disconnected",
-		CarVersion:    "v",
-		BatteryLevel:  55,
-		RawData:       []byte(`{}`),
+		AccountID:       acctA,
+		TeslaID:         vehicleID,
+		CapturedAt:      capturedA,
+		CapturedDate:    dateOnly(capturedA, time.UTC),
+		ChargingState:   "Disconnected",
+		CarVersion:      "v",
+		BatteryLevelPct: 55,
+		RawData:         []byte(`{}`),
 	}
 	capturedB := time.Now().UTC().Truncate(time.Microsecond)
 	snapB := Snapshot{
-		AccountID:     acctB,
-		TeslaID:       vehicleID,
-		CapturedAt:    capturedB,
-		CapturedDate:  dateOnly(capturedB, time.UTC),
-		ChargingState: "Disconnected",
-		CarVersion:    "v",
-		BatteryLevel:  77,
-		RawData:       []byte(`{}`),
+		AccountID:       acctB,
+		TeslaID:         vehicleID,
+		CapturedAt:      capturedB,
+		CapturedDate:    dateOnly(capturedB, time.UTC),
+		ChargingState:   "Disconnected",
+		CarVersion:      "v",
+		BatteryLevelPct: 77,
+		RawData:         []byte(`{}`),
 	}
 	if err := st.insertSnapshot(ctx, snapA); err != nil {
 		t.Fatalf("insertSnapshot (acctA): %v", err)
@@ -490,8 +490,8 @@ func TestReadStore_SnapshotsByVehicleSince_CrossAccountExcluded(t *testing.T) {
 	if gotA[0].AccountID != acctA {
 		t.Errorf("acctA: returned row belongs to wrong account: %v", gotA[0].AccountID)
 	}
-	if gotA[0].BatteryLevel != 55 {
-		t.Errorf("acctA: want BatteryLevel=55, got %d", gotA[0].BatteryLevel)
+	if gotA[0].BatteryLevelPct != 55 {
+		t.Errorf("acctA: want BatteryLevelPct=55, got %d", gotA[0].BatteryLevelPct)
 	}
 
 	// Query for acctB only — must not see acctA's row.
@@ -505,8 +505,8 @@ func TestReadStore_SnapshotsByVehicleSince_CrossAccountExcluded(t *testing.T) {
 	if gotB[0].AccountID != acctB {
 		t.Errorf("acctB: returned row belongs to wrong account: %v", gotB[0].AccountID)
 	}
-	if gotB[0].BatteryLevel != 77 {
-		t.Errorf("acctB: want BatteryLevel=77, got %d", gotB[0].BatteryLevel)
+	if gotB[0].BatteryLevelPct != 77 {
+		t.Errorf("acctB: want BatteryLevelPct=77, got %d", gotB[0].BatteryLevelPct)
 	}
 }
 

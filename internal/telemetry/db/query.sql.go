@@ -45,13 +45,13 @@ const insertVehicleSnapshot = `-- name: InsertVehicleSnapshot :exec
 
 INSERT INTO vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
-    battery_level, battery_range, charging_state, charge_limit_soc,
-    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
-    charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date
 ) VALUES (
     $1, $2, $3, $4,
@@ -65,29 +65,29 @@ INSERT INTO vehicle_snapshots (
     $25
 )
 ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
-    captured_at              = EXCLUDED.captured_at,
-    raw_data                 = EXCLUDED.raw_data,
-    battery_level            = EXCLUDED.battery_level,
-    battery_range            = EXCLUDED.battery_range,
-    charging_state           = EXCLUDED.charging_state,
-    charge_limit_soc         = EXCLUDED.charge_limit_soc,
-    odometer                 = EXCLUDED.odometer,
-    inside_temp              = EXCLUDED.inside_temp,
-    outside_temp             = EXCLUDED.outside_temp,
-    locked                   = EXCLUDED.locked,
-    sentry_mode              = EXCLUDED.sentry_mode,
-    car_version              = EXCLUDED.car_version,
-    charge_energy_added      = EXCLUDED.charge_energy_added,
-    charger_power            = EXCLUDED.charger_power,
-    charger_voltage          = EXCLUDED.charger_voltage,
-    charger_actual_current   = EXCLUDED.charger_actual_current,
-    usable_battery_level     = EXCLUDED.usable_battery_level,
-    max_range_charge_counter = EXCLUDED.max_range_charge_counter,
-    tpms_pressure_fl         = EXCLUDED.tpms_pressure_fl,
-    tpms_pressure_fr         = EXCLUDED.tpms_pressure_fr,
-    tpms_pressure_rl         = EXCLUDED.tpms_pressure_rl,
-    tpms_pressure_rr         = EXCLUDED.tpms_pressure_rr,
-    updated_at               = now()
+    captured_at               = EXCLUDED.captured_at,
+    raw_data                  = EXCLUDED.raw_data,
+    battery_level_pct         = EXCLUDED.battery_level_pct,
+    battery_range_km          = EXCLUDED.battery_range_km,
+    charging_state            = EXCLUDED.charging_state,
+    charge_limit_soc_pct      = EXCLUDED.charge_limit_soc_pct,
+    odometer_km               = EXCLUDED.odometer_km,
+    inside_temp_c              = EXCLUDED.inside_temp_c,
+    outside_temp_c             = EXCLUDED.outside_temp_c,
+    locked                     = EXCLUDED.locked,
+    sentry_mode                = EXCLUDED.sentry_mode,
+    car_version                = EXCLUDED.car_version,
+    charge_energy_added_kwh    = EXCLUDED.charge_energy_added_kwh,
+    charger_power_kw           = EXCLUDED.charger_power_kw,
+    charger_voltage_v          = EXCLUDED.charger_voltage_v,
+    charger_actual_current_a   = EXCLUDED.charger_actual_current_a,
+    usable_battery_level_pct   = EXCLUDED.usable_battery_level_pct,
+    max_range_charge_counter   = EXCLUDED.max_range_charge_counter,
+    tpms_pressure_fl_psi       = EXCLUDED.tpms_pressure_fl_psi,
+    tpms_pressure_fr_psi       = EXCLUDED.tpms_pressure_fr_psi,
+    tpms_pressure_rl_psi       = EXCLUDED.tpms_pressure_rl_psi,
+    tpms_pressure_rr_psi       = EXCLUDED.tpms_pressure_rr_psi,
+    updated_at                 = now()
 `
 
 type InsertVehicleSnapshotParams struct {
@@ -95,26 +95,26 @@ type InsertVehicleSnapshotParams struct {
 	TeslaID               int64
 	CapturedAt            pgtype.Timestamptz
 	RawData               []byte
-	BatteryLevel          int32
-	BatteryRange          float64
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
 	ChargingState         string
-	ChargeLimitSoc        int32
-	Odometer              float64
-	InsideTemp            float64
-	OutsideTemp           float64
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
 	Locked                bool
 	SentryMode            pgtype.Bool
 	CarVersion            string
-	ChargeEnergyAdded     pgtype.Float8
-	ChargerPower          pgtype.Int4
-	ChargerVoltage        pgtype.Int4
-	ChargerActualCurrent  pgtype.Int4
-	UsableBatteryLevel    pgtype.Int4
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
 	MaxRangeChargeCounter pgtype.Int4
-	TpmsPressureFl        pgtype.Float4
-	TpmsPressureFr        pgtype.Float4
-	TpmsPressureRl        pgtype.Float4
-	TpmsPressureRr        pgtype.Float4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
 	CapturedDate          pgtype.Date
 }
 
@@ -132,10 +132,11 @@ type InsertVehicleSnapshotParams struct {
 // (snapshotFrom/dateOnly, service.go) from captured_at in the poller's
 // configured timezone (design D2) — never a DB expression, because a UNIQUE
 // index cannot depend on the runtime POLLER_TIMEZONE env var.
-// Distance/range columns are stored API-native (miles); km is derived on read
-// by the domain type's Km() companions, never a column. sentry_mode is bound
-// as a nullable boolean (nil = vehicle did not report sentry) so absent stays
-// distinct from a reported off.
+// Distance/range columns store DISPLAY units (km), converted exactly once at
+// capture time by calling the tesla adapter's Km() companions — never derived
+// on read (telemetry-store-display-units design D1/D3, RM7 Decision 1).
+// sentry_mode is bound as a nullable boolean (nil = vehicle did not report
+// sentry) so absent stays distinct from a reported off.
 // Source A (RM2-telemetry-add-charging-stats): the 5 charge-enrichment columns are
 // always non-NULL for rows written after the 20260716000002 migration — snapshotFrom
 // stores the actual DTO value pointer-wrapped (D12: no zero-is-absent heuristic).
@@ -143,10 +144,13 @@ type InsertVehicleSnapshotParams struct {
 // max_range_charge_counter: nullable int, lifetime count of charges to max-range.
 // NULL for rows written before 20260801000001 migration (pre-extraction). A real 0
 // is stored as non-NULL via pointer-wrap in snapshotFrom (D12/DSA3 convention).
-// tpms_pressure_{fl,fr,rl,rr}: nullable REAL, tire pressure in bar (API-native).
-// NULL for rows written before 20260802000001 migration (pre-extraction) or when the
-// vehicle did not report TPMS. A 0.0 bar is stored non-NULL (D12/DSA3 convention).
-// No new index: tpms columns ride along on the existing heap row fetch.
+// tpms_pressure_{fl,fr,rl,rr}_psi: nullable REAL, tire pressure in PSI — converted
+// exactly once at capture time from the Fleet API's native bar reading by calling
+// the tesla adapter's TpmsPressure*PSI() companions (telemetry-store-display-units
+// design D1/D3). NULL for rows written before 20260802000001 migration
+// (pre-extraction) or when the vehicle did not report TPMS. A 0.0 PSI is stored
+// non-NULL (D12/DSA3 convention). No new index: tpms columns ride along on the
+// existing heap row fetch.
 // latitude/longitude/fast_charger_type dropped in 20260801000001 — lossless in raw_data.
 // updated_at is NOT sent as a param: DEFAULT now() handles a fresh INSERT;
 // the ON CONFLICT clause explicitly refreshes it to now() on a same-day
@@ -158,26 +162,26 @@ func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSn
 		arg.TeslaID,
 		arg.CapturedAt,
 		arg.RawData,
-		arg.BatteryLevel,
-		arg.BatteryRange,
+		arg.BatteryLevelPct,
+		arg.BatteryRangeKm,
 		arg.ChargingState,
-		arg.ChargeLimitSoc,
-		arg.Odometer,
-		arg.InsideTemp,
-		arg.OutsideTemp,
+		arg.ChargeLimitSocPct,
+		arg.OdometerKm,
+		arg.InsideTempC,
+		arg.OutsideTempC,
 		arg.Locked,
 		arg.SentryMode,
 		arg.CarVersion,
-		arg.ChargeEnergyAdded,
-		arg.ChargerPower,
-		arg.ChargerVoltage,
-		arg.ChargerActualCurrent,
-		arg.UsableBatteryLevel,
+		arg.ChargeEnergyAddedKwh,
+		arg.ChargerPowerKw,
+		arg.ChargerVoltageV,
+		arg.ChargerActualCurrentA,
+		arg.UsableBatteryLevelPct,
 		arg.MaxRangeChargeCounter,
-		arg.TpmsPressureFl,
-		arg.TpmsPressureFr,
-		arg.TpmsPressureRl,
-		arg.TpmsPressureRr,
+		arg.TpmsPressureFlPsi,
+		arg.TpmsPressureFrPsi,
+		arg.TpmsPressureRlPsi,
+		arg.TpmsPressureRrPsi,
 		arg.CapturedDate,
 	)
 	return err
@@ -186,13 +190,13 @@ func (q *Queries) InsertVehicleSnapshot(ctx context.Context, arg InsertVehicleSn
 const latestSnapshotsByAccount = `-- name: LatestSnapshotsByAccount :many
 SELECT DISTINCT ON (tesla_id)
     id, account_id, tesla_id, captured_at, raw_data,
-    battery_level, battery_range, charging_state, charge_limit_soc,
-    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
-    charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = $1
@@ -221,26 +225,26 @@ func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.U
 			&i.TeslaID,
 			&i.CapturedAt,
 			&i.RawData,
-			&i.BatteryLevel,
-			&i.BatteryRange,
+			&i.BatteryLevelPct,
+			&i.BatteryRangeKm,
 			&i.ChargingState,
-			&i.ChargeLimitSoc,
-			&i.Odometer,
-			&i.InsideTemp,
-			&i.OutsideTemp,
+			&i.ChargeLimitSocPct,
+			&i.OdometerKm,
+			&i.InsideTempC,
+			&i.OutsideTempC,
 			&i.Locked,
 			&i.SentryMode,
 			&i.CarVersion,
-			&i.ChargeEnergyAdded,
-			&i.ChargerPower,
-			&i.ChargerVoltage,
-			&i.ChargerActualCurrent,
-			&i.UsableBatteryLevel,
+			&i.ChargeEnergyAddedKwh,
+			&i.ChargerPowerKw,
+			&i.ChargerVoltageV,
+			&i.ChargerActualCurrentA,
+			&i.UsableBatteryLevelPct,
 			&i.MaxRangeChargeCounter,
-			&i.TpmsPressureFl,
-			&i.TpmsPressureFr,
-			&i.TpmsPressureRl,
-			&i.TpmsPressureRr,
+			&i.TpmsPressureFlPsi,
+			&i.TpmsPressureFrPsi,
+			&i.TpmsPressureRlPsi,
+			&i.TpmsPressureRrPsi,
 			&i.CapturedDate,
 			&i.UpdatedAt,
 		); err != nil {
@@ -297,13 +301,13 @@ func (q *Queries) ListPollAttemptsByVehicle(ctx context.Context, arg ListPollAtt
 const listSnapshotsByVehicle = `-- name: ListSnapshotsByVehicle :many
 SELECT
     id, account_id, tesla_id, captured_at, raw_data,
-    battery_level, battery_range, charging_state, charge_limit_soc,
-    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
-    charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = $1 AND tesla_id = $2
@@ -334,26 +338,26 @@ func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsB
 			&i.TeslaID,
 			&i.CapturedAt,
 			&i.RawData,
-			&i.BatteryLevel,
-			&i.BatteryRange,
+			&i.BatteryLevelPct,
+			&i.BatteryRangeKm,
 			&i.ChargingState,
-			&i.ChargeLimitSoc,
-			&i.Odometer,
-			&i.InsideTemp,
-			&i.OutsideTemp,
+			&i.ChargeLimitSocPct,
+			&i.OdometerKm,
+			&i.InsideTempC,
+			&i.OutsideTempC,
 			&i.Locked,
 			&i.SentryMode,
 			&i.CarVersion,
-			&i.ChargeEnergyAdded,
-			&i.ChargerPower,
-			&i.ChargerVoltage,
-			&i.ChargerActualCurrent,
-			&i.UsableBatteryLevel,
+			&i.ChargeEnergyAddedKwh,
+			&i.ChargerPowerKw,
+			&i.ChargerVoltageV,
+			&i.ChargerActualCurrentA,
+			&i.UsableBatteryLevelPct,
 			&i.MaxRangeChargeCounter,
-			&i.TpmsPressureFl,
-			&i.TpmsPressureFr,
-			&i.TpmsPressureRl,
-			&i.TpmsPressureRr,
+			&i.TpmsPressureFlPsi,
+			&i.TpmsPressureFrPsi,
+			&i.TpmsPressureRlPsi,
+			&i.TpmsPressureRrPsi,
 			&i.CapturedDate,
 			&i.UpdatedAt,
 		); err != nil {
@@ -370,13 +374,13 @@ func (q *Queries) ListSnapshotsByVehicle(ctx context.Context, arg ListSnapshotsB
 const snapshotsByVehicleSince = `-- name: SnapshotsByVehicleSince :many
 SELECT
     id, account_id, tesla_id, captured_at, raw_data,
-    battery_level, battery_range, charging_state, charge_limit_soc,
-    odometer, inside_temp, outside_temp, locked, sentry_mode,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
     car_version,
-    charge_energy_added, charger_power, charger_voltage,
-    charger_actual_current, usable_battery_level,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
-    tpms_pressure_fl, tpms_pressure_fr, tpms_pressure_rl, tpms_pressure_rr,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = $1
@@ -420,26 +424,26 @@ func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVe
 			&i.TeslaID,
 			&i.CapturedAt,
 			&i.RawData,
-			&i.BatteryLevel,
-			&i.BatteryRange,
+			&i.BatteryLevelPct,
+			&i.BatteryRangeKm,
 			&i.ChargingState,
-			&i.ChargeLimitSoc,
-			&i.Odometer,
-			&i.InsideTemp,
-			&i.OutsideTemp,
+			&i.ChargeLimitSocPct,
+			&i.OdometerKm,
+			&i.InsideTempC,
+			&i.OutsideTempC,
 			&i.Locked,
 			&i.SentryMode,
 			&i.CarVersion,
-			&i.ChargeEnergyAdded,
-			&i.ChargerPower,
-			&i.ChargerVoltage,
-			&i.ChargerActualCurrent,
-			&i.UsableBatteryLevel,
+			&i.ChargeEnergyAddedKwh,
+			&i.ChargerPowerKw,
+			&i.ChargerVoltageV,
+			&i.ChargerActualCurrentA,
+			&i.UsableBatteryLevelPct,
 			&i.MaxRangeChargeCounter,
-			&i.TpmsPressureFl,
-			&i.TpmsPressureFr,
-			&i.TpmsPressureRl,
-			&i.TpmsPressureRr,
+			&i.TpmsPressureFlPsi,
+			&i.TpmsPressureFrPsi,
+			&i.TpmsPressureRlPsi,
+			&i.TpmsPressureRrPsi,
 			&i.CapturedDate,
 			&i.UpdatedAt,
 		); err != nil {

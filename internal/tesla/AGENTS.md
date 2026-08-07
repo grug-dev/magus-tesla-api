@@ -102,6 +102,16 @@ None. No database, no tables, no persisted state, no cached tokens. Anything wor
   `milesToKm` constant (1.609344). Never a JSON-tagged km field (km is derived, never
   unmarshalled). Pointer fields get nil-safe companions (nil in → nil out), e.g.
   `DriveStateTesla.SpeedKmh()`.
+- **Bar → PSI is mandatory for tire pressure** (RM7 tier 1,
+  `tesla-add-tpms-psi-companions`): every tire-pressure field in bar gets a
+  value-receiver companion `<Field>PSI()` multiplying by the package `barToPSI`
+  constant (14.503773773), declared beside `milesToKm` in `types.go`. Never a
+  JSON-tagged PSI field. The four `VehicleStateTesla.TpmsPressure*` fields are plain
+  `float64` (not pointer) — the companions return plain `float64` too; the
+  nil/not-reported distinction is created one layer up, in `internal/telemetry`, not
+  here. This is the same rule as Miles → km, generalized to any vendor-unit field the
+  adapter exposes: one named constant, one companion method per value, never an
+  inline conversion factor at a call site.
 - Response envelopes (`listResponseTesla`, `dataResponseTesla`, `wakeResponseTesla`) stay
   unexported.
 

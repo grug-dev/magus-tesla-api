@@ -448,9 +448,12 @@ func (s *service) record(ctx context.Context, accountID uuid.UUID, teslaID int64
 
 // snapshotFrom maps the tesla adapter's ...Tesla DTO (plus the lossless raw payload)
 // into our clean domain Snapshot (ai/architecture.md §6 — the adapter's DTO never
-// flows into domain logic un-mapped). Distances stay API-native (miles); km is derived
-// on read via the Snapshot Km() companions, never stored. SentryMode stays *bool so an
-// absent field remains distinct from a reported-off sentry (nil ≠ *false, D1).
+// flows into domain logic un-mapped). Distance/range/pressure fields are converted to
+// their DISPLAY unit exactly once here, by calling the tesla adapter's Km()/PSI()
+// companions — never by multiplying inline (telemetry-store-display-units design D3).
+// Temperature is assigned straight from the DTO with no conversion: the Fleet API
+// already reports Celsius. SentryMode stays *bool so an absent field remains distinct
+// from a reported-off sentry (nil ≠ *false, D1).
 //
 // Source A (RM2-telemetry-add-charging-stats): the 5 charge-enrichment fields are
 // stored as the ACTUAL DTO value pointer-wrapped — NO zero-is-absent heuristic (D12,
@@ -468,38 +471,39 @@ func (s *service) record(ctx context.Context, accountID uuid.UUID, teslaID int64
 // were dropped in migration 20260801000001. Values remain lossless in raw_data JSONB.
 func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, loc *time.Location, data *tesla.VehicleDataTesla, raw []byte) Snapshot {
 	return Snapshot{
-		AccountID:      accountID,
-		TeslaID:        teslaID,
-		CapturedAt:     capturedAt,
-		CapturedDate:   dateOnly(capturedAt, loc),
-		BatteryLevel:   data.ChargeState.BatteryLevel,
-		BatteryRange:   data.ChargeState.BatteryRange,
-		ChargingState:  data.ChargeState.ChargingState,
-		ChargeLimitSoc: data.ChargeState.ChargeLimitSoc,
-		Odometer:       data.VehicleState.Odometer,
-		InsideTemp:     data.ClimateState.InsideTemp,
-		OutsideTemp:    data.ClimateState.OutsideTemp,
-		Locked:         data.VehicleState.Locked,
-		SentryMode:     data.VehicleState.SentryMode,
-		CarVersion:     data.VehicleState.CarVersion,
-		RawData:        raw,
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        capturedAt,
+		CapturedDate:      dateOnly(capturedAt, loc),
+		BatteryLevelPct:   data.ChargeState.BatteryLevel,
+		BatteryRangeKm:    data.ChargeState.BatteryRangeKm(),
+		ChargingState:     data.ChargeState.ChargingState,
+		ChargeLimitSocPct: data.ChargeState.ChargeLimitSoc,
+		OdometerKm:        data.VehicleState.OdometerKm(),
+		InsideTempC:       data.ClimateState.InsideTemp,
+		OutsideTempC:      data.ClimateState.OutsideTemp,
+		Locked:            data.VehicleState.Locked,
+		SentryMode:        data.VehicleState.SentryMode,
+		CarVersion:        data.VehicleState.CarVersion,
+		RawData:           raw,
 		// Source A enrichment — actual DTO values, pointer-wrapped (D12/DSA3).
 		// ptr(v) returns &v; a 0 is a truthful reading and is stored non-NULL.
-		ChargeEnergyAdded:    ptr(data.ChargeState.ChargeEnergyAdded),
-		ChargerPower:         ptr(data.ChargeState.ChargerPower),
-		ChargerVoltage:       ptr(data.ChargeState.ChargerVoltage),
-		ChargerActualCurrent: ptr(data.ChargeState.ChargerActualCurrent),
-		UsableBatteryLevel:   ptr(data.ChargeState.UsableBatteryLevel),
+		ChargeEnergyAddedKWh:  ptr(data.ChargeState.ChargeEnergyAdded),
+		ChargerPowerKW:        ptr(data.ChargeState.ChargerPower),
+		ChargerVoltageV:       ptr(data.ChargeState.ChargerVoltage),
+		ChargerActualCurrentA: ptr(data.ChargeState.ChargerActualCurrent),
+		UsableBatteryLevelPct: ptr(data.ChargeState.UsableBatteryLevel),
 		// MaxRangeChargeCounter: same D12/DSA3 pointer-wrap convention. A reported 0
 		// (new vehicle, never charged to max-range) is stored non-NULL as *0.
 		MaxRangeChargeCounter: ptr(data.ChargeState.MaxRangeChargeCounter),
-		// TPMS pressure enrichment — actual DTO values, pointer-wrapped (D12/DSA3).
-		// ptr(v) returns &v; a 0.0 bar is a truthful reading and is stored non-NULL.
-		// NULL is reserved for pre-migration rows (values remain in raw_data).
-		TpmsPressureFL: ptr(data.VehicleState.TpmsPressureFL),
-		TpmsPressureFR: ptr(data.VehicleState.TpmsPressureFR),
-		TpmsPressureRL: ptr(data.VehicleState.TpmsPressureRL),
-		TpmsPressureRR: ptr(data.VehicleState.TpmsPressureRR),
+		// TPMS pressure enrichment — converted to PSI via the tesla adapter's
+		// TpmsPressure*PSI() companions BEFORE ptr() wraps (design D3), then
+		// pointer-wrapped exactly as before (D12/DSA3): a truthful 0.0 PSI is a
+		// non-NULL reading; NULL is reserved for pre-migration rows.
+		TpmsPressureFLPSI: ptr(data.VehicleState.TpmsPressureFLPSI()),
+		TpmsPressureFRPSI: ptr(data.VehicleState.TpmsPressureFRPSI()),
+		TpmsPressureRLPSI: ptr(data.VehicleState.TpmsPressureRLPSI()),
+		TpmsPressureRRPSI: ptr(data.VehicleState.TpmsPressureRRPSI()),
 	}
 }
 
@@ -529,39 +533,40 @@ type dbStore struct {
 
 func (d *dbStore) insertSnapshot(ctx context.Context, s Snapshot) error {
 	return d.q.InsertVehicleSnapshot(ctx, telemetrydb.InsertVehicleSnapshotParams{
-		AccountID:      s.AccountID,
-		TeslaID:        s.TeslaID,
-		CapturedAt:     timestamptzFrom(s.CapturedAt),
-		CapturedDate:   dateFrom(s.CapturedDate),
-		RawData:        s.RawData,
-		BatteryLevel:   int32(s.BatteryLevel),
-		BatteryRange:   s.BatteryRange,
-		ChargingState:  s.ChargingState,
-		ChargeLimitSoc: int32(s.ChargeLimitSoc),
-		Odometer:       s.Odometer,
-		InsideTemp:     s.InsideTemp,
-		OutsideTemp:    s.OutsideTemp,
-		Locked:         s.Locked,
-		SentryMode:     boolPtrToPgBool(s.SentryMode),
-		CarVersion:     s.CarVersion,
+		AccountID:         s.AccountID,
+		TeslaID:           s.TeslaID,
+		CapturedAt:        timestamptzFrom(s.CapturedAt),
+		CapturedDate:      dateFrom(s.CapturedDate),
+		RawData:           s.RawData,
+		BatteryLevelPct:   int32(s.BatteryLevelPct),
+		BatteryRangeKm:    s.BatteryRangeKm,
+		ChargingState:     s.ChargingState,
+		ChargeLimitSocPct: int32(s.ChargeLimitSocPct),
+		OdometerKm:        s.OdometerKm,
+		InsideTempC:       s.InsideTempC,
+		OutsideTempC:      s.OutsideTempC,
+		Locked:            s.Locked,
+		SentryMode:        boolPtrToPgBool(s.SentryMode),
+		CarVersion:        s.CarVersion,
 		// Source A (RM2-telemetry-add-charging-stats): nullable charge-enrichment columns.
 		// nil → invalid pgtype (SQL NULL); non-nil → valid with the concrete value.
 		// Same Valid-field pattern as boolPtrToPgBool. pgtype never leaks past this boundary.
 		// latitude/longitude/fast_charger_type dropped in 20260801000001; not sent here.
-		ChargeEnergyAdded:    float64PtrToPgFloat8(s.ChargeEnergyAdded),
-		ChargerPower:         intPtrToPgInt4(s.ChargerPower),
-		ChargerVoltage:       intPtrToPgInt4(s.ChargerVoltage),
-		ChargerActualCurrent: intPtrToPgInt4(s.ChargerActualCurrent),
-		UsableBatteryLevel:   intPtrToPgInt4(s.UsableBatteryLevel),
+		ChargeEnergyAddedKwh:  float64PtrToPgFloat8(s.ChargeEnergyAddedKWh),
+		ChargerPowerKw:        intPtrToPgInt4(s.ChargerPowerKW),
+		ChargerVoltageV:       intPtrToPgInt4(s.ChargerVoltageV),
+		ChargerActualCurrentA: intPtrToPgInt4(s.ChargerActualCurrentA),
+		UsableBatteryLevelPct: intPtrToPgInt4(s.UsableBatteryLevelPct),
 		// MaxRangeChargeCounter: same nil→NULL / non-nil→valid pattern (D12/DSA3).
 		MaxRangeChargeCounter: intPtrToPgInt4(s.MaxRangeChargeCounter),
-		// TPMS pressure fields: nullable REAL (pgtype.Float4). nil → invalid (NULL);
-		// non-nil → valid Float32. Uses float64PtrToPgFloat4 (not Float8) because
-		// the schema columns are REAL (float4). Precision is adequate for bar readings.
-		TpmsPressureFl: float64PtrToPgFloat4(s.TpmsPressureFL),
-		TpmsPressureFr: float64PtrToPgFloat4(s.TpmsPressureFR),
-		TpmsPressureRl: float64PtrToPgFloat4(s.TpmsPressureRL),
-		TpmsPressureRr: float64PtrToPgFloat4(s.TpmsPressureRR),
+		// TPMS pressure fields: nullable REAL (pgtype.Float4), now storing PSI (converted
+		// at capture time, telemetry-store-display-units design D1/D3). nil → invalid
+		// (NULL); non-nil → valid Float32. Uses float64PtrToPgFloat4 (not Float8) because
+		// the schema columns are REAL (float4). Precision is adequate for PSI readings.
+		TpmsPressureFlPsi: float64PtrToPgFloat4(s.TpmsPressureFLPSI),
+		TpmsPressureFrPsi: float64PtrToPgFloat4(s.TpmsPressureFRPSI),
+		TpmsPressureRlPsi: float64PtrToPgFloat4(s.TpmsPressureRLPSI),
+		TpmsPressureRrPsi: float64PtrToPgFloat4(s.TpmsPressureRRPSI),
 	})
 }
 

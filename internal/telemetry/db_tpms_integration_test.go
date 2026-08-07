@@ -12,24 +12,36 @@ import (
 )
 
 // These tests exercise the four TPMS pressure columns added by migration
-// 20260802000001_add_tpms_pressure_columns.sql. They require a running Postgres
-// provisioned by TestMain (see testdb_test.go — auto-provisioned via testcontainers-go
-// when DATABASE_URL is unset). go test ./... is green with no manual DB setup as long
-// as Docker is running locally (ai/go-conventions.md §persistence).
+// 20260802000001_add_tpms_pressure_columns.sql and renamed/rescaled to PSI by
+// migration 20260806000001_store_display_units_vehicle_snapshots.sql
+// (telemetry-store-display-units design D1). The columns now store PSI directly —
+// conversion happens once, at capture time, in snapshotFrom (design D3) — so these
+// store-level tests insert Snapshot literals with PSI values directly (bypassing
+// snapshotFrom, which is unit-tested separately in service_snapshot_from_test.go)
+// and assert the DB round-trip preserves them faithfully. There is no read-time PSI
+// companion any more (design D4): TpmsPressureFLPSI etc. are plain *float64 fields,
+// not methods.
 //
-// Coverage (T6.1 per tasks.md):
-//   (a) Non-nil round-trip: non-zero values survive insert → read faithfully.
-//   (b) Nil round-trip: nil → SQL NULL → nil (not zero).
-//   (c) Zero-value non-nil: ptr(0.0) → non-NULL *0.0 (D12/DSA3 truthful zero).
-//   (d) PSI companion nil-safety: nil field → companion returns nil.
-//   (e) PSI companion conversion: non-nil bar field → correct PSI (within 1e-5).
+// go test ./... is green with no manual DB setup as long as Docker is running
+// locally (ai/go-conventions.md §persistence). No live Tesla API call fires in any
+// of these tests.
 //
-// No live Tesla API call fires in any of these tests.
+// Coverage (T6.1 per tasks.md, updated for telemetry-store-display-units T5.4):
+//   (a) Non-nil round-trip: non-zero PSI values survive insert -> read faithfully.
+//   (b) Nil round-trip: nil -> SQL NULL -> nil (not zero) — the "not reported /
+//       pre-migration" invariant.
+//   (c) Zero-value non-nil: ptr(0.0) -> non-NULL *0.0 (D12/DSA3 truthful zero).
+//   (d) A realistic PSI value (as snapshotFrom would compute via the tesla
+//       adapter's TpmsPressure*PSI() companions) round-trips within float32
+//       precision through the REAL column.
 
-const tpmsFloatTol = 1e-5 // float32→float64 widening may lose sub-1e-5 precision
+const tpmsFloatTol = 1e-5 // float32->float64 widening may lose sub-1e-5 precision
 
-// TestTPMS_NonNilRoundTrip verifies that all four TPMS fields with non-zero values
-// round-trip faithfully through the store → DB → read path (T6.1a).
+// TestTPMS_NonNilRoundTrip verifies that all four TPMS PSI fields with non-zero
+// values round-trip faithfully through the store -> DB -> read path (T6.1a).
+// The stored typed values are the PSI equivalents of the bar readings still visible,
+// unconverted, in raw_data — mirroring what snapshotFrom actually computes via the
+// tesla adapter's TpmsPressure*PSI() companions (2.5/2.6/2.4/2.5 bar * 14.503773773).
 func TestTPMS_NonNilRoundTrip(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
@@ -38,20 +50,23 @@ func TestTPMS_NonNilRoundTrip(t *testing.T) {
 	const teslaID = int64(930001)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
-	fl, fr, rl, rr := 2.5, 2.6, 2.4, 2.5
+	// PSI equivalents of 2.5/2.6/2.4/2.5 bar (the values still visible, unconverted,
+	// in raw_data below) — literals, not barToPSI (that constant no longer exists in
+	// this module, design D3/telemetry AGENTS.md).
+	fl, fr, rl, rr := 36.2594344325, 37.7098118098, 34.8090570552, 36.2594344325
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:      accountID,
-		TeslaID:        teslaID,
-		CapturedAt:     captured,
-		CapturedDate:   dateOnly(captured, time.UTC),
-		ChargingState:  "Disconnected",
-		CarVersion:     "2026.20.1",
-		RawData:        []byte(`{"vehicle_state":{"tpms_pressure_fl":2.5,"tpms_pressure_fr":2.6,"tpms_pressure_rl":2.4,"tpms_pressure_rr":2.5}}`),
-		TpmsPressureFL: &fl,
-		TpmsPressureFR: &fr,
-		TpmsPressureRL: &rl,
-		TpmsPressureRR: &rr,
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        captured,
+		CapturedDate:      dateOnly(captured, time.UTC),
+		ChargingState:     "Disconnected",
+		CarVersion:        "2026.20.1",
+		RawData:           []byte(`{"vehicle_state":{"tpms_pressure_fl":2.5,"tpms_pressure_fr":2.6,"tpms_pressure_rl":2.4,"tpms_pressure_rr":2.5}}`),
+		TpmsPressureFLPSI: &fl,
+		TpmsPressureFRPSI: &fr,
+		TpmsPressureRLPSI: &rl,
+		TpmsPressureRRPSI: &rr,
 	}
 	if err := st.insertSnapshot(ctx, snap); err != nil {
 		t.Fatalf("insertSnapshot: %v", err)
@@ -67,30 +82,32 @@ func TestTPMS_NonNilRoundTrip(t *testing.T) {
 	s := got[0]
 
 	// (a) All four must be non-nil and within float tolerance (float32 round-trip).
-	if s.TpmsPressureFL == nil {
-		t.Fatal("TpmsPressureFL: want non-nil, got nil")
-	} else if math.Abs(*s.TpmsPressureFL-fl) > tpmsFloatTol {
-		t.Errorf("TpmsPressureFL: want ~%v, got %v", fl, *s.TpmsPressureFL)
+	if s.TpmsPressureFLPSI == nil {
+		t.Fatal("TpmsPressureFLPSI: want non-nil, got nil")
+	} else if math.Abs(*s.TpmsPressureFLPSI-fl) > tpmsFloatTol {
+		t.Errorf("TpmsPressureFLPSI: want ~%v, got %v", fl, *s.TpmsPressureFLPSI)
 	}
-	if s.TpmsPressureFR == nil {
-		t.Fatal("TpmsPressureFR: want non-nil, got nil")
-	} else if math.Abs(*s.TpmsPressureFR-fr) > tpmsFloatTol {
-		t.Errorf("TpmsPressureFR: want ~%v, got %v", fr, *s.TpmsPressureFR)
+	if s.TpmsPressureFRPSI == nil {
+		t.Fatal("TpmsPressureFRPSI: want non-nil, got nil")
+	} else if math.Abs(*s.TpmsPressureFRPSI-fr) > tpmsFloatTol {
+		t.Errorf("TpmsPressureFRPSI: want ~%v, got %v", fr, *s.TpmsPressureFRPSI)
 	}
-	if s.TpmsPressureRL == nil {
-		t.Fatal("TpmsPressureRL: want non-nil, got nil")
-	} else if math.Abs(*s.TpmsPressureRL-rl) > tpmsFloatTol {
-		t.Errorf("TpmsPressureRL: want ~%v, got %v", rl, *s.TpmsPressureRL)
+	if s.TpmsPressureRLPSI == nil {
+		t.Fatal("TpmsPressureRLPSI: want non-nil, got nil")
+	} else if math.Abs(*s.TpmsPressureRLPSI-rl) > tpmsFloatTol {
+		t.Errorf("TpmsPressureRLPSI: want ~%v, got %v", rl, *s.TpmsPressureRLPSI)
 	}
-	if s.TpmsPressureRR == nil {
-		t.Fatal("TpmsPressureRR: want non-nil, got nil")
-	} else if math.Abs(*s.TpmsPressureRR-rr) > tpmsFloatTol {
-		t.Errorf("TpmsPressureRR: want ~%v, got %v", rr, *s.TpmsPressureRR)
+	if s.TpmsPressureRRPSI == nil {
+		t.Fatal("TpmsPressureRRPSI: want non-nil, got nil")
+	} else if math.Abs(*s.TpmsPressureRRPSI-rr) > tpmsFloatTol {
+		t.Errorf("TpmsPressureRRPSI: want ~%v, got %v", rr, *s.TpmsPressureRRPSI)
 	}
 }
 
-// TestTPMS_NilRoundTrip verifies that nil TPMS fields store as SQL NULL and come
+// TestTPMS_NilRoundTrip verifies that nil TPMS PSI fields store as SQL NULL and come
 // back as nil — never as zero (T6.1b). D12: nil means "pre-migration / not reported".
+// There is no PSI companion method to check any more (design D4: the field itself
+// carries the unit) — the field-nil assertions below are the complete check.
 func TestTPMS_NilRoundTrip(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
@@ -101,17 +118,17 @@ func TestTPMS_NilRoundTrip(t *testing.T) {
 
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:      accountID,
-		TeslaID:        teslaID,
-		CapturedAt:     captured,
-		CapturedDate:   dateOnly(captured, time.UTC),
-		ChargingState:  "Disconnected",
-		CarVersion:     "2026.20.1",
-		RawData:        []byte(`{}`),
-		TpmsPressureFL: nil,
-		TpmsPressureFR: nil,
-		TpmsPressureRL: nil,
-		TpmsPressureRR: nil,
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        captured,
+		CapturedDate:      dateOnly(captured, time.UTC),
+		ChargingState:     "Disconnected",
+		CarVersion:        "2026.20.1",
+		RawData:           []byte(`{}`),
+		TpmsPressureFLPSI: nil,
+		TpmsPressureFRPSI: nil,
+		TpmsPressureRLPSI: nil,
+		TpmsPressureRRPSI: nil,
 	}
 	if err := st.insertSnapshot(ctx, snap); err != nil {
 		t.Fatalf("insertSnapshot: %v", err)
@@ -130,17 +147,17 @@ func TestTPMS_NilRoundTrip(t *testing.T) {
 		t.Fatalf("want 1 row, got %d", len(rows))
 	}
 	row := rows[0]
-	if row.TpmsPressureFl.Valid {
-		t.Errorf("TpmsPressureFl: want Valid=false (SQL NULL), got Valid=true (value=%v)", row.TpmsPressureFl.Float32)
+	if row.TpmsPressureFlPsi.Valid {
+		t.Errorf("TpmsPressureFlPsi: want Valid=false (SQL NULL), got Valid=true (value=%v)", row.TpmsPressureFlPsi.Float32)
 	}
-	if row.TpmsPressureFr.Valid {
-		t.Errorf("TpmsPressureFr: want Valid=false (SQL NULL), got Valid=true (value=%v)", row.TpmsPressureFr.Float32)
+	if row.TpmsPressureFrPsi.Valid {
+		t.Errorf("TpmsPressureFrPsi: want Valid=false (SQL NULL), got Valid=true (value=%v)", row.TpmsPressureFrPsi.Float32)
 	}
-	if row.TpmsPressureRl.Valid {
-		t.Errorf("TpmsPressureRl: want Valid=false (SQL NULL), got Valid=true (value=%v)", row.TpmsPressureRl.Float32)
+	if row.TpmsPressureRlPsi.Valid {
+		t.Errorf("TpmsPressureRlPsi: want Valid=false (SQL NULL), got Valid=true (value=%v)", row.TpmsPressureRlPsi.Float32)
 	}
-	if row.TpmsPressureRr.Valid {
-		t.Errorf("TpmsPressureRr: want Valid=false (SQL NULL), got Valid=true (value=%v)", row.TpmsPressureRr.Float32)
+	if row.TpmsPressureRrPsi.Valid {
+		t.Errorf("TpmsPressureRrPsi: want Valid=false (SQL NULL), got Valid=true (value=%v)", row.TpmsPressureRrPsi.Float32)
 	}
 
 	// Verify domain read path: all must be nil.
@@ -152,36 +169,23 @@ func TestTPMS_NilRoundTrip(t *testing.T) {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
 	}
 	s := got[0]
-	if s.TpmsPressureFL != nil {
-		t.Errorf("TpmsPressureFL: want nil, got *%v", *s.TpmsPressureFL)
+	if s.TpmsPressureFLPSI != nil {
+		t.Errorf("TpmsPressureFLPSI: want nil, got *%v", *s.TpmsPressureFLPSI)
 	}
-	if s.TpmsPressureFR != nil {
-		t.Errorf("TpmsPressureFR: want nil, got *%v", *s.TpmsPressureFR)
+	if s.TpmsPressureFRPSI != nil {
+		t.Errorf("TpmsPressureFRPSI: want nil, got *%v", *s.TpmsPressureFRPSI)
 	}
-	if s.TpmsPressureRL != nil {
-		t.Errorf("TpmsPressureRL: want nil, got *%v", *s.TpmsPressureRL)
+	if s.TpmsPressureRLPSI != nil {
+		t.Errorf("TpmsPressureRLPSI: want nil, got *%v", *s.TpmsPressureRLPSI)
 	}
-	if s.TpmsPressureRR != nil {
-		t.Errorf("TpmsPressureRR: want nil, got *%v", *s.TpmsPressureRR)
-	}
-
-	// (d) PSI companions on a nil-field snapshot must also return nil.
-	if s.TpmsPressureFLPSI() != nil {
-		t.Errorf("TpmsPressureFLPSI: want nil for nil field, got *%v", *s.TpmsPressureFLPSI())
-	}
-	if s.TpmsPressureFRPSI() != nil {
-		t.Errorf("TpmsPressureFRPSI: want nil for nil field, got *%v", *s.TpmsPressureFRPSI())
-	}
-	if s.TpmsPressureRLPSI() != nil {
-		t.Errorf("TpmsPressureRLPSI: want nil for nil field, got *%v", *s.TpmsPressureRLPSI())
-	}
-	if s.TpmsPressureRRPSI() != nil {
-		t.Errorf("TpmsPressureRRPSI: want nil for nil field, got *%v", *s.TpmsPressureRRPSI())
+	if s.TpmsPressureRRPSI != nil {
+		t.Errorf("TpmsPressureRRPSI: want nil, got *%v", *s.TpmsPressureRRPSI)
 	}
 }
 
 // TestTPMS_ZeroNonNilRoundTrip verifies the D12/DSA3 invariant: ptr(0.0) is stored
 // as non-NULL and read back as a non-nil *0.0 — never collapsed into nil (T6.1c).
+// 0.0 bar converts to 0.0 PSI, so the zero-fidelity check is unit-agnostic.
 func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
@@ -193,17 +197,17 @@ func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 	zero := 0.0
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:      accountID,
-		TeslaID:        teslaID,
-		CapturedAt:     captured,
-		CapturedDate:   dateOnly(captured, time.UTC),
-		ChargingState:  "Disconnected",
-		CarVersion:     "2026.20.1",
-		RawData:        []byte(`{}`),
-		TpmsPressureFL: &zero,
-		TpmsPressureFR: &zero,
-		TpmsPressureRL: &zero,
-		TpmsPressureRR: &zero,
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        captured,
+		CapturedDate:      dateOnly(captured, time.UTC),
+		ChargingState:     "Disconnected",
+		CarVersion:        "2026.20.1",
+		RawData:           []byte(`{}`),
+		TpmsPressureFLPSI: &zero,
+		TpmsPressureFRPSI: &zero,
+		TpmsPressureRLPSI: &zero,
+		TpmsPressureRRPSI: &zero,
 	}
 	if err := st.insertSnapshot(ctx, snap); err != nil {
 		t.Fatalf("insertSnapshot: %v", err)
@@ -222,19 +226,19 @@ func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 		t.Fatalf("want 1 row, got %d", len(rows))
 	}
 	row := rows[0]
-	if !row.TpmsPressureFl.Valid {
-		t.Error("TpmsPressureFl: want Valid=true (non-NULL for truthful 0.0), got Valid=false — D12 violated")
-	} else if row.TpmsPressureFl.Float32 != 0 {
-		t.Errorf("TpmsPressureFl: want Float32=0, got %v", row.TpmsPressureFl.Float32)
+	if !row.TpmsPressureFlPsi.Valid {
+		t.Error("TpmsPressureFlPsi: want Valid=true (non-NULL for truthful 0.0), got Valid=false — D12 violated")
+	} else if row.TpmsPressureFlPsi.Float32 != 0 {
+		t.Errorf("TpmsPressureFlPsi: want Float32=0, got %v", row.TpmsPressureFlPsi.Float32)
 	}
-	if !row.TpmsPressureFr.Valid {
-		t.Error("TpmsPressureFr: want Valid=true, got Valid=false — D12 violated")
+	if !row.TpmsPressureFrPsi.Valid {
+		t.Error("TpmsPressureFrPsi: want Valid=true, got Valid=false — D12 violated")
 	}
-	if !row.TpmsPressureRl.Valid {
-		t.Error("TpmsPressureRl: want Valid=true, got Valid=false — D12 violated")
+	if !row.TpmsPressureRlPsi.Valid {
+		t.Error("TpmsPressureRlPsi: want Valid=true, got Valid=false — D12 violated")
 	}
-	if !row.TpmsPressureRr.Valid {
-		t.Error("TpmsPressureRr: want Valid=true, got Valid=false — D12 violated")
+	if !row.TpmsPressureRrPsi.Valid {
+		t.Error("TpmsPressureRrPsi: want Valid=true, got Valid=false — D12 violated")
 	}
 
 	// Verify domain read path: all must be non-nil *0.0.
@@ -246,25 +250,33 @@ func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 		t.Fatalf("want 1 snapshot, got %d", len(got))
 	}
 	s := got[0]
-	if s.TpmsPressureFL == nil {
-		t.Error("TpmsPressureFL: want non-nil *0.0, got nil — D12 violated")
-	} else if *s.TpmsPressureFL != 0.0 {
-		t.Errorf("TpmsPressureFL: want *0.0, got *%v", *s.TpmsPressureFL)
+	if s.TpmsPressureFLPSI == nil {
+		t.Error("TpmsPressureFLPSI: want non-nil *0.0, got nil — D12 violated")
+	} else if *s.TpmsPressureFLPSI != 0.0 {
+		t.Errorf("TpmsPressureFLPSI: want *0.0, got *%v", *s.TpmsPressureFLPSI)
 	}
-	if s.TpmsPressureFR == nil {
-		t.Error("TpmsPressureFR: want non-nil *0.0, got nil — D12 violated")
+	if s.TpmsPressureFRPSI == nil {
+		t.Error("TpmsPressureFRPSI: want non-nil *0.0, got nil — D12 violated")
 	}
-	if s.TpmsPressureRL == nil {
-		t.Error("TpmsPressureRL: want non-nil *0.0, got nil — D12 violated")
+	if s.TpmsPressureRLPSI == nil {
+		t.Error("TpmsPressureRLPSI: want non-nil *0.0, got nil — D12 violated")
 	}
-	if s.TpmsPressureRR == nil {
-		t.Error("TpmsPressureRR: want non-nil *0.0, got nil — D12 violated")
+	if s.TpmsPressureRRPSI == nil {
+		t.Error("TpmsPressureRRPSI: want non-nil *0.0, got nil — D12 violated")
 	}
 }
 
-// TestTPMS_PSICompanionConversion verifies the PSI companion returns a correct PSI
-// value for a non-nil bar field from the DB round-trip (T6.1e).
-func TestTPMS_PSICompanionConversion(t *testing.T) {
+// TestTPMS_PSIValueRoundTripPrecision verifies that a realistic PSI value — the kind
+// snapshotFrom actually produces by calling the tesla adapter's TpmsPressureFLPSI()
+// companion on a 2.9 bar reading (design D3) — survives the REAL (float4) column
+// round-trip within float32 precision. This replaces the old
+// TestTPMS_PSICompanionConversion, which exercised a read-time bar->PSI companion
+// method that design D4 deliberately removed: conversion now happens exactly once,
+// at capture time, so there is nothing left to convert on the read path (spec
+// "Latest Snapshot Read Port": no companion method is exposed). What remains
+// testable and true at the store layer is that the already-converted PSI value is
+// not corrupted by the float64->float32->float64 round-trip through the DB.
+func TestTPMS_PSIValueRoundTripPrecision(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -272,18 +284,21 @@ func TestTPMS_PSICompanionConversion(t *testing.T) {
 	const teslaID = int64(930004)
 	cleanupVehicle(t, pool, accountID, teslaID)
 
-	const inputBar = 2.5
-	fl := inputBar
+	// 2.9 bar * 14.503773773 = 42.0609439417 PSI (literal, not barToPSI — that
+	// constant no longer exists in this module; the value mirrors
+	// TestTpmsPressurePSICompanions in internal/tesla, which owns the conversion).
+	const inputPSI = 42.0609439417
+	fl := inputPSI
 	captured := time.Now().UTC().Truncate(time.Microsecond)
 	snap := Snapshot{
-		AccountID:      accountID,
-		TeslaID:        teslaID,
-		CapturedAt:     captured,
-		CapturedDate:   dateOnly(captured, time.UTC),
-		ChargingState:  "Disconnected",
-		CarVersion:     "2026.20.1",
-		RawData:        []byte(`{}`),
-		TpmsPressureFL: &fl,
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        captured,
+		CapturedDate:      dateOnly(captured, time.UTC),
+		ChargingState:     "Disconnected",
+		CarVersion:        "2026.20.1",
+		RawData:           []byte(`{"vehicle_state":{"tpms_pressure_fl":2.9}}`),
+		TpmsPressureFLPSI: &fl,
 	}
 	if err := st.insertSnapshot(ctx, snap); err != nil {
 		t.Fatalf("insertSnapshot: %v", err)
@@ -298,15 +313,13 @@ func TestTPMS_PSICompanionConversion(t *testing.T) {
 	}
 	s := got[0]
 
-	// (e) PSI companion for the read-back value must be non-nil and approximately correct.
-	psi := s.TpmsPressureFLPSI()
-	if psi == nil {
+	if s.TpmsPressureFLPSI == nil {
 		t.Fatal("TpmsPressureFLPSI: want non-nil *float64, got nil")
 	}
-	// Expected PSI from the float32 round-tripped bar value (precision may differ slightly).
-	expectedPSI := float64(float32(inputBar)) * barToPSI
-	const tol = 1e-4 // relaxed tolerance to accommodate float32 round-trip
-	if math.Abs(*psi-expectedPSI) > tol {
-		t.Errorf("TpmsPressureFLPSI: want ~%v (within %v), got %v", expectedPSI, tol, *psi)
+	// The float32 round-trip loses precision beyond ~7 significant digits (design D5:
+	// REAL stays REAL — adequate for PSI readings).
+	const tol = 1e-4
+	if math.Abs(*s.TpmsPressureFLPSI-inputPSI) > tol {
+		t.Errorf("TpmsPressureFLPSI: want ~%v (within %v), got %v", inputPSI, tol, *s.TpmsPressureFLPSI)
 	}
 }

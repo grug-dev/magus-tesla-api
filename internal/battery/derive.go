@@ -3,16 +3,17 @@ package battery
 import "github.com/cristianpena/magus-tesla-api/internal/telemetry"
 
 // socReadings returns the state-of-charge percent at the window's start and
-// end, choosing UsableBatteryLevel for BOTH endpoints when both are non-nil,
-// else BatteryLevel for both — never a mixed pair (design.md D2). A
-// per-endpoint fallback would risk manufacturing a phantom ΔSoC of a few
-// percent whenever UsableBatteryLevel and BatteryLevel diverge (cold-weather
-// derating), so the field family is chosen once for the whole computation.
+// end, choosing UsableBatteryLevelPct for BOTH endpoints when both are
+// non-nil, else BatteryLevelPct for both — never a mixed pair (design.md D2).
+// A per-endpoint fallback would risk manufacturing a phantom ΔSoC of a few
+// percent whenever UsableBatteryLevelPct and BatteryLevelPct diverge
+// (cold-weather derating), so the field family is chosen once for the whole
+// computation.
 func socReadings(start, end telemetry.Snapshot) (socStart, socEnd float64) {
-	if start.UsableBatteryLevel != nil && end.UsableBatteryLevel != nil {
-		return float64(*start.UsableBatteryLevel), float64(*end.UsableBatteryLevel)
+	if start.UsableBatteryLevelPct != nil && end.UsableBatteryLevelPct != nil {
+		return float64(*start.UsableBatteryLevelPct), float64(*end.UsableBatteryLevelPct)
 	}
-	return float64(start.BatteryLevel), float64(end.BatteryLevel)
+	return float64(start.BatteryLevelPct), float64(end.BatteryLevelPct)
 }
 
 // deriveEfficiency computes the Wh/km result from a window's ordered
@@ -29,7 +30,7 @@ func deriveEfficiency(snapshots []telemetry.Snapshot, kWhIn float64, capacityKWh
 	}
 	start, end := snapshots[0], snapshots[len(snapshots)-1]
 
-	distance := end.OdometerKm() - start.OdometerKm()
+	distance := end.OdometerKm - start.OdometerKm
 	if distance <= 0 {
 		return Efficiency{}, false
 	}
@@ -51,8 +52,8 @@ func deriveEfficiency(snapshots []telemetry.Snapshot, kWhIn float64, capacityKWh
 
 	return Efficiency{
 		WhPerKm:         energy * 1000 / distance,
-		FromKm:          start.OdometerKm(),
-		ToKm:            end.OdometerKm(),
+		FromKm:          start.OdometerKm,
+		ToKm:            end.OdometerKm,
 		BatteryDeltaPct: socStart - socEnd, // negative = net charge (Efficiency doc comment)
 		Approximate:     approximate,
 	}, true
