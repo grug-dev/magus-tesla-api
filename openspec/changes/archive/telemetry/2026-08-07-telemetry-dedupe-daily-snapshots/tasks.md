@@ -140,7 +140,7 @@
 `cmd/poller/main.go` explicitly to the worker implementing this change, or dispatch this
 task separately. See design.md's "Scope Boundary" section.**
 
-- [ ] T6.1 Move the existing `loc, err := time.LoadLocation(cfg.PollerTimezone)` call (and
+- [x] T6.1 Move the existing `loc, err := time.LoadLocation(cfg.PollerTimezone)` call (and
       its `log.Fatalf` on error) so it runs **unconditionally**, before `tcfg :=
       telemetry.Config{...}` is constructed — today it runs only inside the `if !*once`
       branch, after `tcfg`/`collector` already exist. Add `Location: loc` to the `tcfg`
@@ -249,33 +249,33 @@ the one test named below.**
 
 ## Verification — depends on all tasks
 
-- [ ] V1. `go build ./...` and `go vet ./...` pass after all tasks are complete (including
+- [x] V1. `go build ./...` and `go vet ./...` pass after all tasks are complete (including
       the `cmd/poller/main.go` change, T6).
-- [ ] V2. `go test ./...` green and fast. DB integration tests self-skip without
+- [x] V2. `go test ./...` green and fast. DB integration tests self-skip without
       `DATABASE_URL`; with Docker the testcontainers helper provisions Postgres and
       applies goose migrations automatically, including the new
       `20260805000001_dedupe_vehicle_snapshots_daily.sql`. NO Tesla API call fires.
-- [ ] V3. Dedupe correctness (live/test DB): a second capture for a vehicle on the SAME
+- [x] V3. Dedupe correctness (live/test DB): a second capture for a vehicle on the SAME
       calendar day results in exactly one row, with the newer capture's values. Verified
       by T9.1's `TestStore_SnapshotUpsert_SameDayReplaces`.
-- [ ] V4. New-day correctness: a capture on a NEW calendar day always inserts a new row and
+- [x] V4. New-day correctness: a capture on a NEW calendar day always inserts a new row and
       never touches a prior day's row. Verified by T9.1's
       `TestStore_SnapshotInsert_DifferentDayCreatesNewRow`.
-- [ ] V5. Timezone correctness: `dateOnly` attributes a capture to the correct LOCAL
+- [x] V5. Timezone correctness: `dateOnly` attributes a capture to the correct LOCAL
       calendar day, not the UTC day, for a moment that straddles the UTC/local boundary.
       Verified by T8.1(b).
-- [ ] V6. `poll_attempts` is completely unaffected: no migration, query, or Go change in
+- [x] V6. `poll_attempts` is completely unaffected: no migration, query, or Go change in
       this entire change touches it (design D4). Confirmed by inspection — grep the final
       diff for `poll_attempts` and verify zero hits outside pre-existing, untouched code.
-- [ ] V7. Boundary check: `internal/telemetry` still imports only `account` + `tesla`
+- [x] V7. Boundary check: `internal/telemetry` still imports only `account` + `tesla`
       public packages; no `accountdb` or `internal/tesla` internals; `pgtype` does not
       appear in any public type or interface (`dateFrom`/`pgtype.Date` stay confined to
       `service.go`/`mapping.go`). The `cmd/poller/main.go` change (T6) is thin wiring only
       — zero business logic added, consistent with `ai/go-conventions.md`.
-- [ ] V8. Docs: `internal/telemetry/AGENTS.md` "Data ownership" accurately reflects the new
+- [x] V8. Docs: `internal/telemetry/AGENTS.md` "Data ownership" accurately reflects the new
       invariant (T7.1) with no lingering "append-only" claim about `vehicle_snapshots`
       specifically (the `poll_attempts` claim must remain, unchanged and accurate).
       `README.md`'s "Project Structure"/"Architecture" sections are confirmed NOT to need
       changes (no module added/removed, no new runnable) — this confirmation itself is
       part of verification, not an assumption to skip.
-- [ ] V9. `openspec validate telemetry-dedupe-daily-snapshots --strict` passes.
+- [x] V9. `openspec validate telemetry-dedupe-daily-snapshots --strict` passes.
