@@ -41,11 +41,25 @@ Standard Go project layout — modular monolith:
 - The user wants **modular packages** as a hard requirement — enforce this on every suggestion.
 - **Interface-first module contract.** Every module's mandatory, always-present public API is a **Go interface** (its "port") — this is how the gateway and sibling modules call it (in-process, no HTTP). An HTTP `/api/{version}` JSON endpoint is a secondary, optional adapter added per module only when a real external consumer exists (see [`architecture.md`](./architecture.md) §3).
 - **Vendor DTOs carry a service-name suffix.** Any struct that mirrors an external service's JSON ends in that service's name (`...Tesla`); our own domain models never carry a vendor suffix. Full rule + rationale in [`architecture.md`](./architecture.md) §6.
-- **Miles → km conversion is mandatory.** Every struct field expressed in miles (or a miles-derived unit like mph) **must** have a companion value-receiver method that returns the metric equivalent, following the `OdometerKm()` pattern:
-  - Name it `<Field>Km` for distances and `<Field>Kmh` for speeds/rates (e.g. `BatteryRangeKm()`, `ChargeRateKmh()`, `SpeedKmh()`).
-  - Multiply by the package-level `milesToKm` constant (`1.609344`) — never hardcode the factor inline.
-  - **Never** add the km value as a JSON-tagged struct field: the Fleet API only sends miles, so km is always **derived**, not unmarshalled.
-  - For pointer fields (e.g. `*float64` speed), the method returns a nil-safe pointer (`nil` in → `nil` out).
+- **Vendor adapter DTOs stay in the external service's native units.** Every `...Tesla` struct
+  field expressed in a non-metric unit (miles, mph, bar) **must** have a companion value-receiver
+  method that returns the platform display unit, following the `OdometerKm()` pattern:
+  - Name it `<Field>Km` / `<Field>Kmh` for distance/speed and `<Field>PSI` for pressure (e.g.
+    `BatteryRangeKm()`, `ChargeRateKmh()`, `SpeedKmh()`, `TpmsPressureFLPSI()`).
+  - Multiply by the package-level `milesToKm` / `barToPSI` constants — never hardcode the factor
+    inline. These constants and their companions live in `internal/tesla` only; it is the
+    platform's single owner of every conversion factor (`architecture.md` §6).
+  - For pointer fields (e.g. `*float64` speed), the method returns a nil-safe pointer (`nil` in →
+    `nil` out).
+- **Persisted types and columns store display units, converted once on write.** Every domain
+  field and database column that carries a unit — outside a vendor adapter DTO — is stored in the
+  platform's display unit (kilometres `_km`, km/h `_kmh`, °C `_c`, PSI `_psi`, kWh `_kwh`, kW
+  `_kw`, V `_v`, A `_a`, percent `_pct`), converted from the adapter's native unit exactly once, on
+  the write path, by calling the adapter's `Km()`/`Kmh()`/`PSI()` companion — never by
+  re-deriving the factor. No read path converts; formatting (rounding, symbols) happens only in
+  the gateway, on an already-converted, plain unformatted stored number. Two exemptions: vendor
+  adapter DTOs (above) and monetary amounts, which take no suffix and must instead be paired with
+  a `currency` column. Full rule: `openspec/specs/unit-of-measure/spec.md`.
 
 ---
 
@@ -90,6 +104,14 @@ module:
   dashboard read scopes by account; an index without `account_id` first forces a
   scan when the planner can't pre-filter by tenant. Reference: the
   `(account_id, tesla_id, captured_at)` index in `internal/telemetry/db/migrations/`.
+- **Unit-bearing columns are named with their unit suffix.** Every column storing a value with a
+  unit ends in `_km`, `_kmh`, `_c`, `_psi`, `_kwh`, `_kw`, `_v`, `_a`, or `_pct` — the unit is
+  readable from the column name alone, no migration or comment required. Identifiers, timestamps,
+  dates, counts, names, states, and flags (`captured_at`, `tesla_id`,
+  `max_range_charge_counter`) carry no unit and take **no** suffix. Two categories are exempt from
+  the suffix by design: vendor adapter DTOs (native units — see §Coding Rules) and monetary
+  amounts, which take no suffix and must instead be paired with a `currency` column. Full rule:
+  `openspec/specs/unit-of-measure/spec.md`.
 - **Always store raw `JSONB` when ingesting external API responses — it is the
   insurance policy, not an optional companion.** Any table that persists a response
   from an external API (Tesla Fleet API, any third-party) MUST include a

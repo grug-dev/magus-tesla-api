@@ -94,6 +94,16 @@ None. No database, no tables, no persisted state, no cached tokens. Anything wor
 
 ## DTO conventions
 
+**This module is the platform's one named exception to the unit-of-measure rule**
+(`openspec/specs/unit-of-measure/spec.md` — "Vendor Adapter DTOs Are Exempt And Own The
+Conversion"; `ai/go-conventions.md` §Coding Rules). Every other module stores display units
+(km, °C, PSI); this adapter's `...Tesla` DTOs deliberately stay in the Fleet API's **native**
+units (miles, bar) because they mirror the vendor payload field-for-field (`ai/architecture.md`
+§6) — a DTO that silently converted would stop mirroring the vendor. `internal/tesla` is
+therefore the platform's **single owner of every conversion factor**; do not "fix" this adapter
+to store km/PSI directly, and do not add a second copy of `milesToKm`/`barToPSI` in any
+persisting module — they call this module's companions instead.
+
 - Every struct mirroring Tesla JSON carries the `...Tesla` suffix and lives in `types.go`;
   these are the **only** structs that unmarshal Tesla JSON (`ai/architecture.md` §6). Never
   build domain logic directly on them.

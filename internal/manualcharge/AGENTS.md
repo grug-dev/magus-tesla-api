@@ -88,6 +88,14 @@ This module MUST NOT import:
 
 ---
 
+## Units convention
+
+Platform-wide unit rule: `openspec/specs/unit-of-measure/spec.md` / `ai/go-conventions.md`
+§Coding Rules — display units, unit-suffixed column names, converted once on write. This table
+is **compliant**: `energy_added_kwh`, `start_battery_pct`, `end_battery_pct` already carry their
+unit suffix. `price` is the platform's named monetary exemption — it takes no suffix and is
+paired with the `currency` column instead of a unit.
+
 ## Data Ownership
 
 `internal/manualcharge` is the **sole owner** of the `manual_charge_entries` table.

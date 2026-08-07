@@ -106,6 +106,11 @@ never leaves the module — convert to/from plain domain types at the DB→domai
 
 ## DTO / units conventions
 
+Platform-wide unit rule (normative): `openspec/specs/unit-of-measure/spec.md` and
+`ai/go-conventions.md` §Coding Rules / §Persistence — display units, unit-suffixed names,
+conversion once on write, never on read. This section records `telemetry`'s own application of
+that rule: `vehicle_snapshots` is the table the platform rule was generalised from.
+
 - **SUPERSEDED (telemetry-store-display-units, migration `20260806000001`): units are now stored
   in their DISPLAY unit, converted exactly once at capture time.** `vehicle_snapshots` stores km /
   °C / PSI, not miles/bar — the opposite of the rule this section used to state. Every unit-bearing

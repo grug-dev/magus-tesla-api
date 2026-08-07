@@ -32,6 +32,13 @@ Consumers (e.g. the gateway) call these — never this module's tables
   calls (refreshing behind the scenes when needed)
 - `RegisteredVehicles` — the user's persisted vehicle registry
 
+## Units convention
+
+Platform-wide unit rule: `openspec/specs/unit-of-measure/spec.md` / `ai/go-conventions.md`
+§Persistence — unit-suffixed column names, display units, converted once on write. `accounts`,
+`tesla_tokens` and `vehicles` currently hold **no** unit-bearing columns, so the rule has nothing
+to apply to today — it governs any unit-bearing column added to this module in the future.
+
 ## Boundaries
 
 - Data lives in `internal/account/db/` (goose migrations + `query.sql`, sqlc-generated
