@@ -136,16 +136,16 @@ func TestDeriveEfficiency_FewerThanTwoSnapshots_NotOK(t *testing.T) {
 func TestDeriveEfficiency_NonIncreasingOdometer_NotOK(t *testing.T) {
 	cases := []struct {
 		name       string
-		startMiles float64
-		endMiles   float64
+		startKm float64
+		endKm   float64
 	}{
 		{"equal odometer", 1000, 1000},
 		{"decreasing odometer", 1000, 900},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			start := snap(tc.startMiles, 80, nil)
-			end := snap(tc.endMiles, 60, nil)
+			start := snap(tc.startKm, 80, nil)
+			end := snap(tc.endKm, 60, nil)
 
 			got, ok := deriveEfficiency([]telemetry.Snapshot{start, end}, 5.0, 75.0, true)
 			if ok {

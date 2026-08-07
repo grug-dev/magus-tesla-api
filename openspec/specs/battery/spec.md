@@ -5,15 +5,15 @@ Derived battery analytics over stored telemetry — the platform's metrics layer
 what `telemetry` captures and what the dashboard renders. It owns no database and no capture: it
 reads sibling modules' public ports and computes values none of them store. Its first metric is
 rolling energy-per-kilometre (Wh/km).
-
 ## Requirements
-
 ### Requirement: Recent Energy-Per-Kilometre Derivation
 The battery capability SHALL derive a rolling energy-per-kilometre (Wh/km) value for a given
 vehicle over a fixed window (default 30 days, fixed at construction time), from that vehicle's
 stored telemetry snapshots plus its Supercharger sessions and manually-logged charge entries
-within the window. The capability SHALL compute the energy numerator as measured charging energy
-(kWh) minus a pack-capacity correction for net SoC drift over the window, using whichever of
+within the window. The capability SHALL consume the distance values in the unit the telemetry read
+port already provides them in, and SHALL NOT perform any unit conversion of its own. The
+capability SHALL compute the energy numerator as measured charging energy (kWh) minus a
+pack-capacity correction for net SoC drift over the window, using whichever of
 `UsableBatteryLevel` or `BatteryLevel` is consistently available at BOTH window endpoints (never a
 mixed pair). The capability SHALL scope every underlying read to the given account, even when the
 vehicle identifier alone would suffice, as defense-in-depth tenant isolation.
@@ -26,6 +26,14 @@ vehicle identifier alone would suffice, as defense-in-depth tenant isolation.
 - **WHEN** the capability derives recent efficiency for that vehicle
 - **THEN** it returns a Wh/km value derived from measured charging energy corrected by the
   pack-capacity SoC-drift term, `ok=true`, and `Approximate=false`
+
+#### Scenario: Distance is read, not converted
+- **GIVEN** a vehicle with at least two telemetry snapshots inside the window
+- **WHEN** the capability computes the distance travelled over the window
+- **THEN** it takes the kilometre values directly from the snapshots returned by the telemetry
+  read port
+- **AND** it applies no unit-conversion factor and calls no conversion method to obtain them
+- **AND** the derived Wh/km value is the same as it was when the conversion was performed on read
 
 #### Scenario: Usable battery level is used only when present at both window endpoints
 - **GIVEN** a vehicle whose first snapshot in the window has a non-nil `UsableBatteryLevel` and
@@ -109,3 +117,4 @@ module boundary.
   `internal/telemetry`, the public `Reader` interface of `internal/manualcharge`, and the public
   `Service` interface of `internal/account` — never `internal/telemetry/db`,
   `internal/manualcharge/db`, or `internal/account/db`
+
