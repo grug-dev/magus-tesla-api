@@ -46,8 +46,10 @@ interface-first):
   unknown — the SoC-drift correction term is dropped, not the whole computation
   (`design.md` D1b).
 - `Efficiency` — the domain result: `WhPerKm` (raw `float64`, unrounded — the gateway
-  formats it), `FromKm`/`ToKm` (already km-native, derived from
-  `telemetry.Snapshot.OdometerKm()`), `BatteryDeltaPct` (net SoC over the window,
+  formats it), `FromKm`/`ToKm` (read directly from `telemetry.Snapshot.OdometerKm` —
+  already km-native at capture time, `telemetry-store-display-units` design D1/D3; this
+  module performs no unit conversion of its own, per
+  `battery-adopt-snapshot-unit-fields`), `BatteryDeltaPct` (net SoC over the window,
   `start − end`; negative means net charge), `Approximate`.
 - `DefaultWindow` — exported `time.Duration` constant, 30 days. Deployment code passes
   it (or a different duration) to `NewReader` at construction; the window is NOT a

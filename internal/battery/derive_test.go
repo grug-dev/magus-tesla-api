@@ -11,11 +11,12 @@ import (
 // D1/D1b/D2/D-ok), so there is no I/O seam to fake. Expected values are hand-computed
 // from the design.md formulas below, never by calling deriveEfficiency/socReadings
 // themselves, so the test actually proves the arithmetic rather than restating it.
-
-// milesToKmTest mirrors telemetry's unexported milesToKm constant (1.609344,
-// ai/go-conventions.md) so expected distances can be hand-computed here without
-// depending on telemetry internals.
-const milesToKmTest = 1.609344
+//
+// telemetry.Snapshot.OdometerKm is already kilometre-native as of RM7 tier 2
+// (battery-adopt-snapshot-unit-fields design D1/D2): the fixtures below supply km
+// values directly, and every expected distance/energy/Wh-per-km figure is
+// hand-computed from those km values. This module — including its tests —
+// performs no mile-to-km conversion of its own.
 
 const epsilon = 1e-9
 
@@ -25,36 +26,39 @@ func approxEqual(a, b float64) bool {
 }
 
 // snap builds a minimal telemetry.Snapshot with only the fields deriveEfficiency and
-// socReadings read: Odometer (miles) and BatteryLevel, with UsableBatteryLevel left
+// socReadings read: OdometerKm and BatteryLevelPct, with UsableBatteryLevelPct left
 // nil unless usable is non-nil.
-func snap(odometerMiles float64, batteryLevel int, usable *int) telemetry.Snapshot {
+func snap(odometerKm float64, batteryLevelPct int, usable *int) telemetry.Snapshot {
 	return telemetry.Snapshot{
-		Odometer:           odometerMiles,
-		BatteryLevel:       batteryLevel,
-		UsableBatteryLevel: usable,
+		OdometerKm:            odometerKm,
+		BatteryLevelPct:       batteryLevelPct,
+		UsableBatteryLevelPct: usable,
 	}
 }
 
 func intPtr(v int) *int { return &v }
 
 // TestDeriveEfficiency_KnownCapacity_NetConsumption covers spec.md "A vehicle with two
-// or more snapshots, known capacity, and net consumption gets a computed value".
+// or more snapshots, known capacity, and net consumption gets a computed value". Also
+// serves as task 2.3's independently-derived case: the expected Wh/km below is
+// hand-computed from a known km distance and known kWh, not carried over from any
+// prior (miles-based) implementation.
 func TestDeriveEfficiency_KnownCapacity_NetConsumption(t *testing.T) {
-	start := snap(1000, 80, nil)
-	end := snap(1100, 60, nil)
+	start := snap(1000, 80, nil) // km
+	end := snap(1100, 60, nil)   // km
 	const kWhIn = 5.0
 	const capacityKWh = 75.0
 
-	// Hand-computed per design.md D1:
-	// distance = (1100-1000) * milesToKm = 160.9344 km
+	// Hand-computed per design.md D1, straight from the km-native fixtures:
+	// distance = 1100 - 1000 = 100 km
 	// deltaSoC = socEnd - socStart = 60 - 80 = -20 (net discharge)
 	// energy   = kWhIn - capacityKWh*deltaSoC/100 = 5 - 75*(-20)/100 = 5 + 15 = 20 kWh
-	// WhPerKm  = energy*1000/distance = 20000 / 160.9344
-	wantDistance := 100.0 * milesToKmTest
+	// WhPerKm  = energy*1000/distance = 20000 / 100 = 200
+	wantDistance := 100.0
 	wantEnergy := kWhIn - capacityKWh*(-20.0)/100.0
 	wantWhPerKm := wantEnergy * 1000 / wantDistance
-	wantFromKm := 1000.0 * milesToKmTest
-	wantToKm := 1100.0 * milesToKmTest
+	wantFromKm := 1000.0
+	wantToKm := 1100.0
 	wantBatteryDeltaPct := 80.0 - 60.0 // start - end, positive = net consumption
 
 	got, ok := deriveEfficiency([]telemetry.Snapshot{start, end}, kWhIn, capacityKWh, true)
@@ -83,13 +87,13 @@ func TestDeriveEfficiency_KnownCapacity_NetConsumption(t *testing.T) {
 // case, but capacityKnown=false must drop the capacity term entirely — a non-zero
 // capacityKWh argument passed in must have zero effect on the result.
 func TestDeriveEfficiency_UnknownCapacity_ApproximateTrue(t *testing.T) {
-	start := snap(1000, 80, nil)
-	end := snap(1100, 60, nil)
+	start := snap(1000, 80, nil) // km
+	end := snap(1100, 60, nil)   // km
 	const kWhIn = 5.0
 	const capacityKWh = 75.0 // must be ignored since capacityKnown=false
 
-	// Hand-computed: energy = kWhIn alone (no capacity term); distance as above.
-	wantDistance := 100.0 * milesToKmTest
+	// Hand-computed: energy = kWhIn alone (no capacity term); distance = 1100-1000 = 100 km.
+	wantDistance := 100.0
 	wantWhPerKm := kWhIn * 1000 / wantDistance
 
 	got, ok := deriveEfficiency([]telemetry.Snapshot{start, end}, kWhIn, capacityKWh, false)
@@ -190,8 +194,8 @@ func TestSocReadings_UsableAtBothEndpoints(t *testing.T) {
 
 // TestSocReadings_FallsBackWhenEitherEndpointNil covers spec.md "Usable battery level
 // is used only when present at both window endpoints" — one subtest per case where
-// UsableBatteryLevel is nil at start only, end only, or both: socReadings must fall
-// back to BatteryLevel at BOTH endpoints in every case, never mixing usable at one
+// UsableBatteryLevelPct is nil at start only, end only, or both: socReadings must fall
+// back to BatteryLevelPct at BOTH endpoints in every case, never mixing usable at one
 // endpoint with nominal at the other (design.md D2 phantom-ΔSoC guard).
 func TestSocReadings_FallsBackWhenEitherEndpointNil(t *testing.T) {
 	cases := []struct {
