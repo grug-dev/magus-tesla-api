@@ -57,11 +57,11 @@ func TestSourceA_ChargeEnrichment_NonNilRoundTrip(t *testing.T) {
 		RawData:       []byte(`{"charge_state":{"charging_state":"Charging"}}`),
 		// All 5 Source A fields — non-nil, non-zero values.
 		// fast_charger_type was dropped in 20260801000001; lossless in raw_data JSONB.
-		ChargeEnergyAdded:    ptrFloat64(12.5), // kWh
-		ChargerPower:         ptrInt(11),        // kW
-		ChargerVoltage:       ptrInt(240),       // V
-		ChargerActualCurrent: ptrInt(48),        // A
-		UsableBatteryLevel:   ptrInt(73),        // %
+		ChargeEnergyAddedKWh:  ptrFloat64(12.5), // kWh
+		ChargerPowerKW:        ptrInt(11),       // kW
+		ChargerVoltageV:       ptrInt(240),      // V
+		ChargerActualCurrentA: ptrInt(48),       // A
+		UsableBatteryLevelPct: ptrInt(73),       // %
 	}
 
 	// A helper that reads back via the dbStore read seam (same path as LatestSnapshotsByAccount).
@@ -78,34 +78,34 @@ func TestSourceA_ChargeEnrichment_NonNilRoundTrip(t *testing.T) {
 	s := got[0]
 
 	// A5.1a: all 6 fields must be non-nil and carry the correct value.
-	if s.ChargeEnergyAdded == nil {
-		t.Fatal("ChargeEnergyAdded: want non-nil, got nil")
-	} else if *s.ChargeEnergyAdded != 12.5 {
-		t.Errorf("ChargeEnergyAdded: want 12.5, got %v", *s.ChargeEnergyAdded)
+	if s.ChargeEnergyAddedKWh == nil {
+		t.Fatal("ChargeEnergyAddedKWh: want non-nil, got nil")
+	} else if *s.ChargeEnergyAddedKWh != 12.5 {
+		t.Errorf("ChargeEnergyAddedKWh: want 12.5, got %v", *s.ChargeEnergyAddedKWh)
 	}
 
-	if s.ChargerPower == nil {
-		t.Fatal("ChargerPower: want non-nil, got nil")
-	} else if *s.ChargerPower != 11 {
-		t.Errorf("ChargerPower: want 11, got %v", *s.ChargerPower)
+	if s.ChargerPowerKW == nil {
+		t.Fatal("ChargerPowerKW: want non-nil, got nil")
+	} else if *s.ChargerPowerKW != 11 {
+		t.Errorf("ChargerPowerKW: want 11, got %v", *s.ChargerPowerKW)
 	}
 
-	if s.ChargerVoltage == nil {
-		t.Fatal("ChargerVoltage: want non-nil, got nil")
-	} else if *s.ChargerVoltage != 240 {
-		t.Errorf("ChargerVoltage: want 240, got %v", *s.ChargerVoltage)
+	if s.ChargerVoltageV == nil {
+		t.Fatal("ChargerVoltageV: want non-nil, got nil")
+	} else if *s.ChargerVoltageV != 240 {
+		t.Errorf("ChargerVoltageV: want 240, got %v", *s.ChargerVoltageV)
 	}
 
-	if s.ChargerActualCurrent == nil {
-		t.Fatal("ChargerActualCurrent: want non-nil, got nil")
-	} else if *s.ChargerActualCurrent != 48 {
-		t.Errorf("ChargerActualCurrent: want 48, got %v", *s.ChargerActualCurrent)
+	if s.ChargerActualCurrentA == nil {
+		t.Fatal("ChargerActualCurrentA: want non-nil, got nil")
+	} else if *s.ChargerActualCurrentA != 48 {
+		t.Errorf("ChargerActualCurrentA: want 48, got %v", *s.ChargerActualCurrentA)
 	}
 
-	if s.UsableBatteryLevel == nil {
-		t.Fatal("UsableBatteryLevel: want non-nil, got nil")
-	} else if *s.UsableBatteryLevel != 73 {
-		t.Errorf("UsableBatteryLevel: want 73, got %v", *s.UsableBatteryLevel)
+	if s.UsableBatteryLevelPct == nil {
+		t.Fatal("UsableBatteryLevelPct: want non-nil, got nil")
+	} else if *s.UsableBatteryLevelPct != 73 {
+		t.Errorf("UsableBatteryLevelPct: want 73, got %v", *s.UsableBatteryLevelPct)
 	}
 	// fast_charger_type dropped in 20260801000001 — not asserted here;
 	// value remains recoverable from raw_data->'charge_state'->'fast_charger_type'.
@@ -133,11 +133,11 @@ func TestSourceA_ChargeEnrichment_NilRoundTrip(t *testing.T) {
 		RawData:       []byte(`{"charge_state":{"charging_state":"Disconnected"}}`),
 		// All 5 Source A fields are nil — simulates inserting NULL params (pre-enrichment row).
 		// fast_charger_type was dropped in 20260801000001; lossless in raw_data JSONB.
-		ChargeEnergyAdded:    nil,
-		ChargerPower:         nil,
-		ChargerVoltage:       nil,
-		ChargerActualCurrent: nil,
-		UsableBatteryLevel:   nil,
+		ChargeEnergyAddedKWh:  nil,
+		ChargerPowerKW:        nil,
+		ChargerVoltageV:       nil,
+		ChargerActualCurrentA: nil,
+		UsableBatteryLevelPct: nil,
 	}
 
 	if err := st.insertSnapshot(ctx, snap); err != nil {
@@ -153,20 +153,20 @@ func TestSourceA_ChargeEnrichment_NilRoundTrip(t *testing.T) {
 	s := got[0]
 
 	// A5.1b: all 6 fields must come back as nil (SQL NULL → nil pointer), not zero.
-	if s.ChargeEnergyAdded != nil {
-		t.Errorf("ChargeEnergyAdded: want nil, got %v", *s.ChargeEnergyAdded)
+	if s.ChargeEnergyAddedKWh != nil {
+		t.Errorf("ChargeEnergyAddedKWh: want nil, got %v", *s.ChargeEnergyAddedKWh)
 	}
-	if s.ChargerPower != nil {
-		t.Errorf("ChargerPower: want nil, got %v", *s.ChargerPower)
+	if s.ChargerPowerKW != nil {
+		t.Errorf("ChargerPowerKW: want nil, got %v", *s.ChargerPowerKW)
 	}
-	if s.ChargerVoltage != nil {
-		t.Errorf("ChargerVoltage: want nil, got %v", *s.ChargerVoltage)
+	if s.ChargerVoltageV != nil {
+		t.Errorf("ChargerVoltageV: want nil, got %v", *s.ChargerVoltageV)
 	}
-	if s.ChargerActualCurrent != nil {
-		t.Errorf("ChargerActualCurrent: want nil, got %v", *s.ChargerActualCurrent)
+	if s.ChargerActualCurrentA != nil {
+		t.Errorf("ChargerActualCurrentA: want nil, got %v", *s.ChargerActualCurrentA)
 	}
-	if s.UsableBatteryLevel != nil {
-		t.Errorf("UsableBatteryLevel: want nil, got %v", *s.UsableBatteryLevel)
+	if s.UsableBatteryLevelPct != nil {
+		t.Errorf("UsableBatteryLevelPct: want nil, got %v", *s.UsableBatteryLevelPct)
 	}
 	// fast_charger_type dropped in 20260801000001 — not asserted here.
 }
@@ -198,11 +198,11 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 		// as non-nil pointers pointing to 0. A nil would falsely mean
 		// "pre-migration row that was never backfilled".
 		// fast_charger_type dropped in 20260801000001; not included here.
-		ChargeEnergyAdded:    ptrFloat64(0.0),
-		ChargerPower:         ptrInt(0),
-		ChargerVoltage:       ptrInt(0),
-		ChargerActualCurrent: ptrInt(0),
-		UsableBatteryLevel:   ptrInt(0),
+		ChargeEnergyAddedKWh:  ptrFloat64(0.0),
+		ChargerPowerKW:        ptrInt(0),
+		ChargerVoltageV:       ptrInt(0),
+		ChargerActualCurrentA: ptrInt(0),
+		UsableBatteryLevelPct: ptrInt(0),
 	}
 
 	if err := st.insertSnapshot(ctx, snap); err != nil {
@@ -224,26 +224,26 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 	row := rows[0]
 
 	// The pgtype.Float8/Int4/Text columns must be Valid (non-NULL in the DB).
-	if !row.ChargeEnergyAdded.Valid {
-		t.Error("ChargeEnergyAdded: want Valid=true (non-NULL), got Valid=false — zero was wrongly stored as NULL")
+	if !row.ChargeEnergyAddedKwh.Valid {
+		t.Error("ChargeEnergyAddedKWh: want Valid=true (non-NULL), got Valid=false — zero was wrongly stored as NULL")
 	}
-	if row.ChargeEnergyAdded.Float64 != 0.0 {
-		t.Errorf("ChargeEnergyAdded: want 0.0, got %v", row.ChargeEnergyAdded.Float64)
+	if row.ChargeEnergyAddedKwh.Float64 != 0.0 {
+		t.Errorf("ChargeEnergyAddedKWh: want 0.0, got %v", row.ChargeEnergyAddedKwh.Float64)
 	}
-	if !row.ChargerPower.Valid {
-		t.Error("ChargerPower: want Valid=true (non-NULL), got Valid=false")
+	if !row.ChargerPowerKw.Valid {
+		t.Error("ChargerPowerKW: want Valid=true (non-NULL), got Valid=false")
 	}
-	if row.ChargerPower.Int32 != 0 {
-		t.Errorf("ChargerPower: want 0, got %v", row.ChargerPower.Int32)
+	if row.ChargerPowerKw.Int32 != 0 {
+		t.Errorf("ChargerPowerKW: want 0, got %v", row.ChargerPowerKw.Int32)
 	}
-	if !row.ChargerVoltage.Valid {
-		t.Error("ChargerVoltage: want Valid=true (non-NULL), got Valid=false")
+	if !row.ChargerVoltageV.Valid {
+		t.Error("ChargerVoltageV: want Valid=true (non-NULL), got Valid=false")
 	}
-	if !row.ChargerActualCurrent.Valid {
-		t.Error("ChargerActualCurrent: want Valid=true (non-NULL), got Valid=false")
+	if !row.ChargerActualCurrentA.Valid {
+		t.Error("ChargerActualCurrentA: want Valid=true (non-NULL), got Valid=false")
 	}
-	if !row.UsableBatteryLevel.Valid {
-		t.Error("UsableBatteryLevel: want Valid=true (non-NULL), got Valid=false")
+	if !row.UsableBatteryLevelPct.Valid {
+		t.Error("UsableBatteryLevelPct: want Valid=true (non-NULL), got Valid=false")
 	}
 	// fast_charger_type dropped in 20260801000001 — not asserted here.
 	// MaxRangeChargeCounter nil round-trip is tested separately in TestMaxRangeChargeCounter_NilAndNonNilFidelity.
@@ -259,22 +259,22 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 	s := got[0]
 
 	// D12: each field must be non-nil (pointing to 0 / ""), never nil.
-	if s.ChargeEnergyAdded == nil {
-		t.Error("ChargeEnergyAdded: want non-nil *0.0, got nil — D12 violated: zero stored as nil")
-	} else if *s.ChargeEnergyAdded != 0.0 {
-		t.Errorf("ChargeEnergyAdded: want *0.0, got *%v", *s.ChargeEnergyAdded)
+	if s.ChargeEnergyAddedKWh == nil {
+		t.Error("ChargeEnergyAddedKWh: want non-nil *0.0, got nil — D12 violated: zero stored as nil")
+	} else if *s.ChargeEnergyAddedKWh != 0.0 {
+		t.Errorf("ChargeEnergyAddedKWh: want *0.0, got *%v", *s.ChargeEnergyAddedKWh)
 	}
-	if s.ChargerPower == nil {
-		t.Error("ChargerPower: want non-nil *0, got nil — D12 violated")
+	if s.ChargerPowerKW == nil {
+		t.Error("ChargerPowerKW: want non-nil *0, got nil — D12 violated")
 	}
-	if s.ChargerVoltage == nil {
-		t.Error("ChargerVoltage: want non-nil *0, got nil — D12 violated")
+	if s.ChargerVoltageV == nil {
+		t.Error("ChargerVoltageV: want non-nil *0, got nil — D12 violated")
 	}
-	if s.ChargerActualCurrent == nil {
-		t.Error("ChargerActualCurrent: want non-nil *0, got nil — D12 violated")
+	if s.ChargerActualCurrentA == nil {
+		t.Error("ChargerActualCurrentA: want non-nil *0, got nil — D12 violated")
 	}
-	if s.UsableBatteryLevel == nil {
-		t.Error("UsableBatteryLevel: want non-nil *0, got nil — D12 violated")
+	if s.UsableBatteryLevelPct == nil {
+		t.Error("UsableBatteryLevelPct: want non-nil *0, got nil — D12 violated")
 	}
 	// fast_charger_type dropped in 20260801000001 — not asserted here.
 }

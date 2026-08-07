@@ -327,7 +327,7 @@ func TestCollectAll_OnlineVehicle_NoWakeStraightToFetch(t *testing.T) {
 	if len(fs.snapshots) != 1 {
 		t.Fatalf("want 1 snapshot stored, got %d", len(fs.snapshots))
 	}
-	if got := fs.snapshots[0]; got.TeslaID != 10 || got.BatteryLevel != 72 || got.AccountID != acctID {
+	if got := fs.snapshots[0]; got.TeslaID != 10 || got.BatteryLevelPct != 72 || got.AccountID != acctID {
 		t.Errorf("snapshot mapped wrong: %+v", got)
 	}
 	// R1-01: an already-online vehicle must receive ZERO WakeUp calls (D3/D4) but its

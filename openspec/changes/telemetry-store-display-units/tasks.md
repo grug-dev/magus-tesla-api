@@ -26,8 +26,8 @@
       `UPDATE`'s SET list.
 - [x] 1.4 Verify the Down block reverses both steps in the opposite order (divide, then rename
       back) and that no column or row is dropped anywhere in the migration.
-- [ ] 1.5 `make migrate-up` against a scratch database succeeds.
-- [ ] 1.6 `make migrate-down` then `make migrate-up` round-trips cleanly; spot-check one row that
+- [x] 1.5 `make migrate-up` against a scratch database succeeds.
+- [x] 1.6 `make migrate-down` then `make migrate-up` round-trips cleanly; spot-check one row that
       `odometer_km` ≈ `1.609344 ×` its pre-migration `odometer` and that a row whose TPMS values
       were NULL still has NULL (not 0) in all four `tpms_pressure_*_psi` columns.
 
@@ -81,18 +81,18 @@
 
 ## 5. Tests (module-scoped)
 
-- [ ] 5.1 Update every `telemetry.Snapshot` struct literal in the module's tests to the new field
+- [x] 5.1 Update every `telemetry.Snapshot` struct literal in the module's tests to the new field
       names, and change the values so they represent the display unit (a test that previously
       meant "12000 miles" now means "12000 km" or the converted equivalent — do not leave a value
       whose unit silently flipped meaning).
-- [ ] 5.2 Add a unit test on `snapshotFrom` asserting a known miles odometer and bar pressure DTO
+- [x] 5.2 Add a unit test on `snapshotFrom` asserting a known miles odometer and bar pressure DTO
       produces the converted km and PSI values on the resulting `Snapshot`.
-- [ ] 5.3 Add a unit test asserting an unreported TPMS reading stays nil through `snapshotFrom`
+- [x] 5.3 Add a unit test asserting an unreported TPMS reading stays nil through `snapshotFrom`
       and that a reported `0.0` produces a non-nil `0.0` PSI.
-- [ ] 5.4 Update the `DATABASE_URL`-gated integration tests (`db_integration_test.go`,
+- [x] 5.4 Update the `DATABASE_URL`-gated integration tests (`db_integration_test.go`,
       `db_read_integration_test.go`, `db_sourcea_integration_test.go`) for the renamed columns and
       fields; assert a round-trip write→read returns the converted values.
-- [ ] 5.5 Confirm no test in this module calls a `Raw*` method or `cmd/explore-tesla-api` — the
+- [x] 5.5 Confirm no test in this module calls a `Raw*` method or `cmd/explore-tesla-api` — the
       `tesla-exploration` capability must stay test-free (`CLAUDE.md`).
 
 ## 6. Docs — MODULE-LOCAL ONLY (independent of groups 2–5; can run in parallel)
@@ -102,31 +102,31 @@
 > rule has one owner and two changes never edit the same lines. This tier touches only its own
 > module's doc.
 
-- [ ] 6.1 Update `internal/telemetry/AGENTS.md:107-115` (DTO/units conventions), which currently
+- [x] 6.1 Update `internal/telemetry/AGENTS.md:107-115` (DTO/units conventions), which currently
       states the reversed rule ("Units are stored API-native (miles)... km is NEVER a stored
       column and never a struct field"). Replace with the display-unit rule and the unit-suffix
       naming convention.
-- [ ] 6.2 Do **not** edit `ai/go-conventions.md` or the root `CLAUDE.md` in this change — they
+- [x] 6.2 Do **not** edit `ai/go-conventions.md` or the root `CLAUDE.md` in this change — they
       belong to `platform-unit-of-measure-convention`. If that change has not landed yet, note in
       `progress.json` that those two files still state the superseded read-time-companion rule,
       so a reviewer does not read the mismatch as an incomplete tier.
-- [ ] 6.3 Confirm no structural doc needs updating: no module is added, removed, renamed or
+- [x] 6.3 Confirm no structural doc needs updating: no module is added, removed, renamed or
       re-scoped, so the root `README.md` "Project Structure"/"Architecture" tables and
       `cmd/README.md` are unaffected. Record that conclusion in `progress.json` rather than
       touching those files.
 
 ## 7. Verification gate (module-scoped — see RM7 Decision 8)
 
-- [ ] 7.1 `go build ./internal/telemetry/... ./internal/tesla/...` passes.
-- [ ] 7.2 `go vet ./internal/telemetry/... ./internal/tesla/...` passes.
-- [ ] 7.3 `go test ./internal/telemetry/... ./internal/tesla/...` passes, including the
+- [x] 7.1 `go build ./internal/telemetry/... ./internal/tesla/...` passes.
+- [x] 7.2 `go vet ./internal/telemetry/... ./internal/tesla/...` passes.
+- [x] 7.3 `go test ./internal/telemetry/... ./internal/tesla/...` passes, including the
       `DATABASE_URL`-gated integration tests against a migrated scratch DB.
-- [ ] 7.4 Confirm `go build ./...` FAILS only in `internal/battery` and `internal/gateway`, and
+- [x] 7.4 Confirm `go build ./...` FAILS only in `internal/battery` and `internal/gateway`, and
       only on the deleted companions / renamed fields. Any other failure is a real defect in this
       tier. Record the observed failure list in `progress.json` so tiers 3 and 4 have the exact
       call sites.
-- [ ] 7.5 `grep -rn "milesToKm\|barToPSI" internal/telemetry` returns nothing, and
+- [x] 7.5 `grep -rn "milesToKm\|barToPSI" internal/telemetry` returns nothing, and
       `grep -rn "battery_range\b\|\bodometer\b\|inside_temp\b\|tpms_pressure_fl\b" internal/telemetry`
       returns only historical migration files and `raw_data` JSON paths — never a live query or
       Go identifier.
-- [ ] 7.6 `openspec validate telemetry-store-display-units --strict` passes.
+- [x] 7.6 `openspec validate telemetry-store-display-units --strict` passes.
