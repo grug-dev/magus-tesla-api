@@ -16,15 +16,15 @@
 
 ## 1. Migration (DESIGN GATE — user confirmation required before applying)
 
-- [ ] 1.1 Present `design.md` D1 (full migration SQL) and D2 (index plan) to the user and record
+- [x] 1.1 Present `design.md` D1 (full migration SQL) and D2 (index plan) to the user and record
       explicit confirmation in `progress.json` before writing any file in this group.
-- [ ] 1.2 Create `internal/telemetry/db/migrations/20260806000001_store_display_units_vehicle_snapshots.sql`
+- [x] 1.2 Create `internal/telemetry/db/migrations/20260806000001_store_display_units_vehicle_snapshots.sql`
       with the Up/Down exactly as specified in `design.md` D1, including the header comment that
       records what it supersedes and why.
-- [ ] 1.3 Verify the Up block renames all 15 columns listed in D1 and that the `UPDATE` rescales
+- [x] 1.3 Verify the Up block renames all 15 columns listed in D1 and that the `UPDATE` rescales
       exactly the 6 value-changing ones — the 9 rename-only columns must NOT appear in the
       `UPDATE`'s SET list.
-- [ ] 1.4 Verify the Down block reverses both steps in the opposite order (divide, then rename
+- [x] 1.4 Verify the Down block reverses both steps in the opposite order (divide, then rename
       back) and that no column or row is dropped anywhere in the migration.
 - [ ] 1.5 `make migrate-up` against a scratch database succeeds.
 - [ ] 1.6 `make migrate-down` then `make migrate-up` round-trips cleanly; spot-check one row that
@@ -33,50 +33,50 @@
 
 ## 2. Generated query layer
 
-- [ ] 2.1 Update `internal/telemetry/db/query.sql`: rename every affected column in
+- [x] 2.1 Update `internal/telemetry/db/query.sql`: rename every affected column in
       `InsertVehicleSnapshot`'s column list, its `VALUES` parameter names, and its
       `ON CONFLICT ... DO UPDATE SET` block.
-- [ ] 2.2 Update the explicit column lists in `ListSnapshotsByVehicle` and
+- [x] 2.2 Update the explicit column lists in `ListSnapshotsByVehicle` and
       `SnapshotsByVehicleSince` (and any other query in the file that names an affected column).
-- [ ] 2.3 Rewrite the `InsertVehicleSnapshot` header comment at `query.sql:20-21`, which currently
+- [x] 2.3 Rewrite the `InsertVehicleSnapshot` header comment at `query.sql:20-21`, which currently
       asserts the opposite rule ("stored API-native (miles); km is derived on read by the domain
       type's Km() companions"), plus the TPMS comment block that says the columns are in bar.
-- [ ] 2.4 Run `make sqlc` and confirm `db/query.sql.go` regenerates with the renamed struct fields
+- [x] 2.4 Run `make sqlc` and confirm `db/query.sql.go` regenerates with the renamed struct fields
       (e.g. `Odometer` → `OdometerKm`, `TpmsPressureFl` → `TpmsPressureFlPsi`).
 
 ## 3. Domain type and write path
 
-- [ ] 3.1 In `internal/telemetry/telemetry.go`, rename the `Snapshot` fields to carry their unit:
+- [x] 3.1 In `internal/telemetry/telemetry.go`, rename the `Snapshot` fields to carry their unit:
       `BatteryRange`→`BatteryRangeKm`, `Odometer`→`OdometerKm`, `InsideTemp`→`InsideTempC`,
       `OutsideTemp`→`OutsideTempC`, `BatteryLevel`→`BatteryLevelPct`,
       `UsableBatteryLevel`→`UsableBatteryLevelPct`, `ChargeLimitSoc`→`ChargeLimitSocPct`,
       `ChargeEnergyAdded`→`ChargeEnergyAddedKWh`, `ChargerPower`→`ChargerPowerKW`,
       `ChargerVoltage`→`ChargerVoltageV`, `ChargerActualCurrent`→`ChargerActualCurrentA`,
       `TpmsPressureFL`→`TpmsPressureFLPSI` (and FR/RL/RR). Update each field's unit comment.
-- [ ] 3.2 Delete the six companion methods at `telemetry.go:110-155` (`BatteryRangeKm`,
+- [x] 3.2 Delete the six companion methods at `telemetry.go:110-155` (`BatteryRangeKm`,
       `OdometerKm`, and the four `TpmsPressure*PSI`). Required for the package to compile —
       the new field names collide with them (design D4).
-- [ ] 3.3 Delete the `milesToKm` and `barToPSI` constants from `telemetry.go`. After this the
+- [x] 3.3 Delete the `milesToKm` and `barToPSI` constants from `telemetry.go`. After this the
       module must contain no conversion factor at all.
-- [ ] 3.4 In `snapshotFrom` (`service.go:469-503`), populate the converted fields by calling the
+- [x] 3.4 In `snapshotFrom` (`service.go:469-503`), populate the converted fields by calling the
       `tesla` adapter's companions — `data.ChargeState.BatteryRangeKm()`,
       `data.VehicleState.OdometerKm()`, and `data.VehicleState.TpmsPressure{FL,FR,RL,RR}PSI()` —
       never by multiplying inline (design D3).
-- [ ] 3.5 Confirm the TPMS conversion is applied BEFORE `ptr()` wraps, so a reported zero still
+- [x] 3.5 Confirm the TPMS conversion is applied BEFORE `ptr()` wraps, so a reported zero still
       stores non-NULL and an unreported value still stores NULL (design D3, spec scenario
       "A truthfully reported zero pressure is stored as non-NULL").
-- [ ] 3.6 Confirm `InsideTempC`/`OutsideTempC` are assigned straight from the DTO with no
+- [x] 3.6 Confirm `InsideTempC`/`OutsideTempC` are assigned straight from the DTO with no
       conversion — the Fleet API already reports Celsius (spec scenario "Temperature is stored as
       reported, without conversion").
-- [ ] 3.7 Update `mapping.go:104-118` (row → domain) for both the renamed generated-struct fields
+- [x] 3.7 Update `mapping.go:104-118` (row → domain) for both the renamed generated-struct fields
       and the renamed domain fields.
 
 ## 4. Reader port
 
-- [ ] 4.1 Verify the `Reader` interface signatures are unchanged — this tier changes field names
+- [x] 4.1 Verify the `Reader` interface signatures are unchanged — this tier changes field names
       on the returned `Snapshot`, not the port's method set (spec: "No new read method is
       introduced").
-- [ ] 4.2 Grep `internal/telemetry` for any remaining in-module caller of a deleted companion and
+- [x] 4.2 Grep `internal/telemetry` for any remaining in-module caller of a deleted companion and
       convert it to a field read.
 
 ## 5. Tests (module-scoped)

@@ -65,7 +65,7 @@ func pgNullableText(v pgtype.Text) *string {
 //     selected in every query for struct-sharing but intentionally NOT mapped
 //     onto Snapshot, mirroring the existing id-selected-but-unsurfaced precedent.
 //   - SentryMode: pgtype.Bool → *bool: {Valid: false} → nil, {Valid: true, Bool: v} → &v
-//   - BatteryLevel, ChargeLimitSoc: int32 → int (sqlc generates int32; domain uses int)
+//   - BatteryLevelPct, ChargeLimitSocPct: int32 → int (sqlc generates int32; domain uses int)
 //   - All other fields are value-compatible (float64, string, bool, uuid.UUID, []byte)
 //   - Source A charge fields: pgtype nullable → *float64/*int via pgNullable* helpers.
 //     nil means "pre-migration row" (never backfilled); a stored 0 round-trips as a non-nil *0.
@@ -83,39 +83,41 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 	}
 
 	return Snapshot{
-		AccountID:      r.AccountID,
-		TeslaID:        r.TeslaID,
-		CapturedAt:     r.CapturedAt.Time,
-		CapturedDate:   r.CapturedDate.Time,
-		RawData:        r.RawData,
-		BatteryLevel:   int(r.BatteryLevel),
-		BatteryRange:   r.BatteryRange,
-		ChargingState:  r.ChargingState,
-		ChargeLimitSoc: int(r.ChargeLimitSoc),
-		Odometer:       r.Odometer,
-		InsideTemp:     r.InsideTemp,
-		OutsideTemp:    r.OutsideTemp,
-		Locked:         r.Locked,
-		SentryMode:     sentryMode,
-		CarVersion:     r.CarVersion,
+		AccountID:         r.AccountID,
+		TeslaID:           r.TeslaID,
+		CapturedAt:        r.CapturedAt.Time,
+		CapturedDate:      r.CapturedDate.Time,
+		RawData:           r.RawData,
+		BatteryLevelPct:   int(r.BatteryLevelPct),
+		BatteryRangeKm:    r.BatteryRangeKm,
+		ChargingState:     r.ChargingState,
+		ChargeLimitSocPct: int(r.ChargeLimitSocPct),
+		OdometerKm:        r.OdometerKm,
+		InsideTempC:       r.InsideTempC,
+		OutsideTempC:      r.OutsideTempC,
+		Locked:            r.Locked,
+		SentryMode:        sentryMode,
+		CarVersion:        r.CarVersion,
 		// Source A charge enrichment (RM2-telemetry-add-charging-stats/DSA4):
 		// nullable columns → domain pointer fields. nil iff the column is SQL NULL
 		// (pre-migration row). A stored 0 comes back as a non-nil pointer to 0.
-		ChargeEnergyAdded:    pgNullableFloat64(r.ChargeEnergyAdded),
-		ChargerPower:         pgNullableInt32AsInt(r.ChargerPower),
-		ChargerVoltage:       pgNullableInt32AsInt(r.ChargerVoltage),
-		ChargerActualCurrent: pgNullableInt32AsInt(r.ChargerActualCurrent),
-		UsableBatteryLevel:   pgNullableInt32AsInt(r.UsableBatteryLevel),
+		ChargeEnergyAddedKWh:  pgNullableFloat64(r.ChargeEnergyAddedKwh),
+		ChargerPowerKW:        pgNullableInt32AsInt(r.ChargerPowerKw),
+		ChargerVoltageV:       pgNullableInt32AsInt(r.ChargerVoltageV),
+		ChargerActualCurrentA: pgNullableInt32AsInt(r.ChargerActualCurrentA),
+		UsableBatteryLevelPct: pgNullableInt32AsInt(r.UsableBatteryLevelPct),
 		// MaxRangeChargeCounter: pgtype.Int4 → *int. Same DSA4/D12 semantics:
 		// SQL NULL → nil (pre-extraction row); non-NULL 0 → non-nil *0 (truthful).
 		MaxRangeChargeCounter: pgNullableInt32AsInt(r.MaxRangeChargeCounter),
-		// TPMS pressure fields: pgtype.Float4 → *float64. SQL NULL → nil (pre-migration
-		// row or vehicle did not report TPMS). Non-NULL 0.0 → non-nil *0.0 (truthful).
-		// pgNullableFloat4AsFloat64 widens float32 → float64 at the mapping boundary.
-		TpmsPressureFL: pgNullableFloat4AsFloat64(r.TpmsPressureFl),
-		TpmsPressureFR: pgNullableFloat4AsFloat64(r.TpmsPressureFr),
-		TpmsPressureRL: pgNullableFloat4AsFloat64(r.TpmsPressureRl),
-		TpmsPressureRR: pgNullableFloat4AsFloat64(r.TpmsPressureRr),
+		// TPMS pressure fields: pgtype.Float4 → *float64, now PSI (converted at
+		// capture time, telemetry-store-display-units design D1/D3). SQL NULL → nil
+		// (pre-migration row or vehicle did not report TPMS). Non-NULL 0.0 → non-nil
+		// *0.0 (truthful). pgNullableFloat4AsFloat64 widens float32 → float64 at the
+		// mapping boundary.
+		TpmsPressureFLPSI: pgNullableFloat4AsFloat64(r.TpmsPressureFlPsi),
+		TpmsPressureFRPSI: pgNullableFloat4AsFloat64(r.TpmsPressureFrPsi),
+		TpmsPressureRLPSI: pgNullableFloat4AsFloat64(r.TpmsPressureRlPsi),
+		TpmsPressureRRPSI: pgNullableFloat4AsFloat64(r.TpmsPressureRrPsi),
 	}
 }
 
