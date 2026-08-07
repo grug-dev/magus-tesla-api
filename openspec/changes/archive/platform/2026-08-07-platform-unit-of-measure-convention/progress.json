@@ -4,9 +4,9 @@
   "change": "platform-unit-of-measure-convention",
   "module": "platform",
   "request": "platform-unit-of-measure-convention - generalise RM7's unit rule to every table and module. Docs and spec only: zero migrations, zero Go changes, zero schema objects.",
-  "status": "applied",
+  "status": "archived",
   "created_at": "2026-08-07T15:13:30Z",
-  "updated_at": "2026-08-07T15:19:05Z",
+  "updated_at": "2026-08-07T15:23:06Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -370,10 +370,35 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "platform-reviewer",
+    "brief": "Review the DIFF of commit 2cc1902 (`git show 2cc1902`). Docs-and-spec only. Validate in priority order:\n(1) TRUTHFULNESS OF THE NEW RULE - the point of the change. The old rule was FALSE after RM7; the new one must be TRUE. Check the rewritten text in CLAUDE.md and ai/go-conventions.md against the SHIPPED code on main: internal/tesla keeps native units (miles/bar) behind Km()/Kmh()/PSI() companions backed by milesToKm and barToPSI; internal/telemetry holds zero conversion; vehicle_snapshots stores km/C/PSI under suffixed names. Any clause that misdescribes the code is a BLOCKER - a doc that is wrong in a new way is worse than the stale one it replaced.\n(2) The rule must be CHECKABLE, not vague: the concrete suffix list (_km, _kmh, _c, _psi, _kwh, _kw, _v, _a, _pct), both named exemptions (vendor adapter DTOs; monetary amounts paired with a currency column), and the NEGATIVE half (identifiers, timestamps, dates, counts, names, states, flags take NO suffix - so captured_at, tesla_id and max_range_charge_counter are not violations). A rule an agent cannot apply mechanically fails task 2.2.\n(3) CLAUDE.md is loaded on EVERY request, so per task 3.2 it must carry the rule compressed and point at ai/go-conventions.md for the rationale. If the CLAUDE.md bullet is bloated or duplicates the long-form rationale, that is a finding - bloating it wastes the tokens the AI-efficiency non-negotiable exists to save. Also verify task 3.3: no contradiction with the Performance-Profile line it follows from.\n(4) Task 4.5 - the four module AGENTS.md edits must be POINTERS plus that module's own fact, NOT five copies of one paragraph. Verify each carries a genuinely module-specific fact: telemetry (the table the rule was generalised from), manualcharge (compliant columns + price as the monetary exemption), account (no unit-bearing columns today, future-only), tesla (the named exception, sole owner of the conversion factors, with the warning against 'fixing' it to store km). Verify the AUDIT FACTS are true, not asserted - check the actual migrations.\n(5) Task 4.6 is a prohibition: internal/battery/AGENTS.md and internal/gateway/AGENTS.md must NOT be edited. Confirm they are absent from the diff.\n(6) RM7 tier 2 already rewrote internal/telemetry/AGENTS.md's DTO/units section. Confirm this change ADDED a pointer without clobbering that module-local content.\n(7) Scope: no .go, .sql, sqlc.yaml or template file touched, and NOTHING under openspec/changes/archive/ or openspec/roadmaps/archive/ - those are immutable.\n(8) ANTI-GAMING, verify independently: tasks 5.1 and 5.2 are recorded BLOCKED as obsolete (decision D3), and 5.4 was satisfied by a different method than its text says (decision D5). Do NOT take the leader's word for either. For 5.1/5.2, confirm telemetry-store-display-units really is archived and RD12 really was amended in-flight during RM7 - if the work was actually skippable-but-doable, that is a finding. For 5.4, the leader audited the resulting schema on a disposable container instead of grepping migrations, because migrations are append-only history and older statements legitimately name pre-rename columns; sanity-check that reasoning. No task title or criterion may have been edited or deleted.\nThis is a docs change: there is nothing to build or test. Do NOT run make migrate-*/db-* or psql - .env points at the user's real database. Never call the live Tesla API. Escalate on doubt: return changes-requested rather than approving anything you are unsure of.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "platform-reviewer",
+        "model": "sonnet",
+        "at": "2026-08-07T15:21:46Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/telemetry/AGENTS.md",
+          "internal/manualcharge/AGENTS.md",
+          "internal/account/AGENTS.md",
+          "internal/tesla/AGENTS.md",
+          "openspec/changes/platform-unit-of-measure-convention/proposal.md",
+          "openspec/changes/platform-unit-of-measure-convention/design.md",
+          "openspec/changes/platform-unit-of-measure-convention/tasks.md",
+          "openspec/changes/platform-unit-of-measure-convention/specs/unit-of-measure/spec.md",
+          "openspec/changes/platform-unit-of-measure-convention/progress.json"
+        ],
+        "findings": [],
+        "notes": "Reviewed `git show 2cc1902` cold against the doc pack and the shipped code on main. (1) Truthfulness verified against source: internal/tesla/types.go defines milesToKm (1.609344) and barToPSI (14.503773773) as the ONLY conversion constants in the repo (grep across internal/ found no other definition), backing Km()/Kmh()/PSI() companions; internal/telemetry has zero conversion factors (grep clean; only test-file comments noting the constants no longer exist there); migration 20260806000001_store_display_units_vehicle_snapshots.sql renames all 15 unit-bearing vehicle_snapshots columns to _km/_psi/_c/_pct/_kwh/_kw/_v/_a suffixes and converts the 6 value-changing ones in place. The new CLAUDE.md/go-conventions.md text matches this exactly. (2) The rule is mechanical: concrete suffix list, both exemptions, and the negative half (captured_at, tesla_id, max_range_charge_counter named as non-violations) all present verbatim in ai/go-conventions.md \u00a7Persistence (task 2.2). (3) CLAUDE.md:60 is a single compressed bullet (suffix list + 2 exemptions + pointer to ai/go-conventions.md) - no rationale duplicated, not bloated; no contradiction with the Performance-Profile block it follows from (read-heavy \u2192 write-once/read-never is a direct consequence, not a conflict). (4) Verified against migrations directly: manual_charge_entries has energy_added_kwh/start_battery_pct/end_battery_pct suffixed and price+currency paired (20260718000001); supercharger_sessions has energy_kwh suffixed and total_cost+currency paired (20260716000001); account module's 5 migrations contain no unit-bearing columns at all (grep clean). All four AGENTS.md edits are short pointers with a distinct module-specific fact, not copies. (5) Confirmed via `git show 2cc1902 --name-only`: internal/battery/AGENTS.md and internal/gateway/AGENTS.md (both exist on disk) are absent from the diff. (6) Diffed telemetry/AGENTS.md against pre-change (04f7aab): the entire RM7 SUPERSEDED block is preserved byte-for-byte; only a new pointer paragraph was prepended. (7) `git show --stat` confirms only .md files plus this change's own progress.json/tasks.md were touched - no .go/.sql/sqlc.yaml, nothing under openspec/changes/archive/ or openspec/roadmaps/archive/. (8) Anti-gaming verified independently: telemetry-store-display-units exists ONLY at openspec/changes/archive/telemetry/2026-08-07-telemetry-store-display-units (no live copy) with tasks 6.1-6.3 all [x] - and its task 6.2 TEXT already reads 'Do NOT edit ai/go-conventions.md or the root CLAUDE.md in this change - they belong to platform-unit-of-measure-convention', confirming the deferral was made in-flight during RM7 authoring, not invented after the fact to excuse skipped work. RM7's roadmap progress.json RD12 shows 'AMENDED 2026-08-06' with covered_by='platform-unit-of-measure-convention', consistent with the same timeline. D5's schema-vs-migration-grep reasoning is sound: 20260806000001 literally RENAMEs pre-existing miles-named columns (odometer, inside_temp, tpms_pressure_fl, etc.) that legitimately appear unsuffixed in earlier migrations, so a naive grep across all migration files would produce false positives on history; auditing the live/resulting schema is the correct check for a rule that governs current state. `openspec validate platform-unit-of-measure-convention --strict` re-run clean. Diffed tasks.md: only checkbox glyphs changed ([ ]->[x]) on 1.1-4.6/5.3-5.6; task title/criterion text is byte-identical to the pre-change version; 5.1/5.2 remain unchecked, consistent with their blocked status. No blockers, no majors, no minors found."
+      }
+    ]
   },
   "events": [
     {
@@ -395,6 +420,16 @@
       "at": "2026-08-07T15:19:05Z",
       "agent": "leader",
       "event": "Wave 1 reconciled (15/15 worker tasks) and group 5 gate run. Leader verified independently: both stale bullets gone from CLAUDE.md and ai/go-conventions.md; the four module AGENTS.md edits are differentiated pointers+local facts, not five copies (task 4.5); diff touches only .md plus this change's progress.json. Schema audit clean (D5). 19/21 tasks done, 5.1/5.2 honestly BLOCKED as obsolete (D3). status -> applied. Budget: five_hour_pct 19, cost_usd 49.30."
+    },
+    {
+      "at": "2026-08-07T15:19:30Z",
+      "agent": "leader",
+      "event": "Step 7 round 1: dispatched platform-reviewer (sonnet) against 2cc1902."
+    },
+    {
+      "at": "2026-08-07T15:23:06Z",
+      "agent": "leader",
+      "event": "Reviewer round 1 APPROVED, zero findings - it independently confirmed the 5.1/5.2 obsolescence by finding that archived tier 2's own task 6.2 already reads 'Do NOT edit ai/go-conventions.md... they belong to platform-unit-of-measure-convention', proving the deferral happened in-flight rather than being invented afterwards. ARCHIVED to openspec/changes/archive/platform/2026-08-07-...; new unit-of-measure capability spec merged into openspec/specs/."
     }
   ]
 }
