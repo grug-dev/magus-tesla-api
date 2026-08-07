@@ -185,7 +185,10 @@ convention below).
 
 **Key invariants (mirror these on every chart you add):**
 - Handler pre-computes ALL heights (as int %) and tooltip strings; the template
-  does **no** arithmetic, no `OdometerKm()`/`formatKm`/time calls.
+  does **no** arithmetic, no unit handling, no formatting, and no time calls — the
+  handler has already done all of it (RM7: `telemetry.Snapshot` fields arrive
+  pre-converted in kilometres; the read-time companion conversion methods were
+  removed in tier 2 of `RM7-store-display-units`).
 - Bar fills use DaisyUI semantic fill tokens (`fill-primary`, `fill-secondary`, …),
   never hardcoded hex — re-skins from one `data-theme`.
 - Empty state (too few data points) falls back to the existing `dashHistoryEmpty()`

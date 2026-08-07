@@ -307,12 +307,12 @@ func mapVehicles(vs []account.Vehicle, snapMap map[int64]telemetry.Snapshot) []f
 		}
 		if snap, ok := snapMap[v.TeslaID]; ok {
 			fv.HasSnapshot = true
-			fv.Battery = fmt.Sprintf("%d%%", snap.BatteryLevel)
-			fv.BatteryRange = fmt.Sprintf("%.1f km", snap.BatteryRangeKm())
+			fv.Battery = fmt.Sprintf("%d%%", snap.BatteryLevelPct)
+			fv.BatteryRange = fmt.Sprintf("%.1f km", snap.BatteryRangeKm)
 			fv.ChargingState = snap.ChargingState
-			fv.Odometer = fmt.Sprintf("%.1f km", snap.OdometerKm())
-			fv.InsideTemp = fmt.Sprintf("%.1f °C", snap.InsideTemp)
-			fv.OutsideTemp = fmt.Sprintf("%.1f °C", snap.OutsideTemp)
+			fv.Odometer = fmt.Sprintf("%.1f km", snap.OdometerKm)
+			fv.InsideTemp = fmt.Sprintf("%.1f °C", snap.InsideTempC)
+			fv.OutsideTemp = fmt.Sprintf("%.1f °C", snap.OutsideTempC)
 			fv.Locked = snap.Locked
 			fv.SentryMode = snap.SentryMode
 			fv.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02 15:04 UTC")
@@ -397,14 +397,14 @@ func mapDashboardSnapshot(vm *fragments.DashboardData, snap telemetry.Snapshot, 
 	}
 	vm.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02 15:04 UTC")
 	vm.IsStale = isStale(snap.CapturedAt, now)
-	vm.Odometer = formatKm(snap.OdometerKm())
-	vm.InsideTemp = fmt.Sprintf("%.0f °C", snap.InsideTemp)
-	vm.OutsideTemp = fmt.Sprintf("%.0f °C", snap.OutsideTemp)
-	vm.Battery = fmt.Sprintf("%d%%", snap.BatteryLevel)
-	vm.BatteryPct = strconv.Itoa(snap.BatteryLevel)
-	vm.RangeNow = fmt.Sprintf("%.0f km", snap.BatteryRangeKm())
-	if snap.ChargeLimitSoc > 0 {
-		vm.ChargeLimit = fmt.Sprintf("Limit %d%%", snap.ChargeLimitSoc)
+	vm.Odometer = formatKm(snap.OdometerKm)
+	vm.InsideTemp = fmt.Sprintf("%.0f °C", snap.InsideTempC)
+	vm.OutsideTemp = fmt.Sprintf("%.0f °C", snap.OutsideTempC)
+	vm.Battery = fmt.Sprintf("%d%%", snap.BatteryLevelPct)
+	vm.BatteryPct = strconv.Itoa(snap.BatteryLevelPct)
+	vm.RangeNow = fmt.Sprintf("%.0f km", snap.BatteryRangeKm)
+	if snap.ChargeLimitSocPct > 0 {
+		vm.ChargeLimit = fmt.Sprintf("Limit %d%%", snap.ChargeLimitSocPct)
 	}
 }
 
@@ -421,8 +421,9 @@ func dashStatus(s telemetry.Snapshot) string {
 }
 
 // formatKm renders a kilometre value as a whole, thousands-separated "N,NNN km"
-// string — e.g. 19312.07 → "19,312 km". The value arrives already converted from
-// miles via Snapshot.OdometerKm(); this helper only rounds and groups.
+// string — e.g. 19312.07 → "19,312 km". The value arrives already in kilometres
+// from the telemetry.Reader port (converted once at capture time, not here);
+// this helper only rounds and groups.
 func formatKm(km float64) string {
 	whole := int(math.Round(km))
 	return commaGroup(strconv.Itoa(whole)) + " km"
@@ -655,7 +656,7 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		vm.VehicleName = primary.DisplayName
 		vm.Status = fragments.NavStatusConnected
 		vm.StatusLabel = "Connected"
-		vm.BatteryPct = fmt.Sprintf("%d%%", snap.BatteryLevel)
+		vm.BatteryPct = fmt.Sprintf("%d%%", snap.BatteryLevelPct)
 		return vm
 	}
 	// Stale snapshot → Asleep + relative "Last seen" label.
