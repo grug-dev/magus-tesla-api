@@ -7,7 +7,7 @@
   "autopilot": false,
   "status": "in-progress",
   "created_at": "2026-08-06T00:00:00Z",
-  "updated_at": "2026-08-07T10:26:33Z",
+  "updated_at": "2026-08-07T10:34:52Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -20,16 +20,16 @@
     "note": "ALL four tiers land on this one branch (RD8: the tree does not compile between tier 2 and tier 4)."
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
       2,
       3,
       4
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -148,12 +148,12 @@
       "module": "tesla",
       "optional": false,
       "depends_on": [],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "sonnet",
       "started_at": "2026-08-07T10:26:33Z",
-      "completed_at": null,
-      "notes": "Additive only: 4 nil-safe bar->PSI companions + the barToPSI constant on tesla.VehicleStateTesla. Compiles and ships standalone. No new Fleet API call, so raw.go / cmd/explore-tesla-api are untouched (tesla-exploration sync rule does not trigger)."
+      "completed_at": "2026-08-07T10:34:52Z",
+      "notes": "Archived 2026-08-07. barToPSI + 4 companions on VehicleStateTesla, plain float64 per RD12. Reviewer approved round 1 (1 minor, fixed). Full tree still builds - tier 1 is additive."
     },
     {
       "id": 2,
@@ -216,6 +216,11 @@
       "at": "2026-08-07T10:26:33Z",
       "agent": "leader",
       "event": "Tier 1 (tesla-add-tpms-psi-companions) started on the new shared branch ft/RM7-store-display-units off main c2cf0ab. autopilot stays false: the leader will check in with the user before tier 2, which carries both the breaking rename (RD8) and the database design gate (RD9)."
+    },
+    {
+      "at": "2026-08-07T10:34:52Z",
+      "agent": "leader",
+      "event": "Tier 1 (tesla-add-tpms-psi-companions) ARCHIVED to openspec/changes/archive/tesla/2026-08-07-tesla-add-tpms-psi-companions; spec synced (+1 requirement added to openspec/specs/tesla/spec.md). Roadmap Status flipped to [x]. Tier 2 is now unblocked but autopilot is false AND tier 2 carries the database design gate (RD9), so the leader stops here for the user."
     }
   ]
 }
