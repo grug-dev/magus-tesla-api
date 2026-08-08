@@ -510,6 +510,99 @@ func TestReadStore_SnapshotsByVehicleSince_CrossAccountExcluded(t *testing.T) {
 	}
 }
 
+// --- EffectiveDate (telemetry-add-effective-date, task 2.3) ---
+
+// TestReadStore_LatestSnapshotsByAccount_EffectiveDate inserts a real row via
+// insertSnapshot and asserts that latestSnapshotsByAccount — which maps every
+// row through rowToSnapshot (service.go) — returns a Snapshot whose
+// EffectiveDate is non-zero and equals CapturedAt minus one calendar day, end
+// to end against a live Postgres row (not just the pure-function unit test in
+// reader_test.go).
+func TestReadStore_LatestSnapshotsByAccount_EffectiveDate(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(800030)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	captured := time.Now().UTC().Truncate(time.Microsecond)
+	snap := Snapshot{
+		AccountID:     accountID,
+		TeslaID:       teslaID,
+		CapturedAt:    captured,
+		CapturedDate:  dateOnly(captured, time.UTC),
+		ChargingState: "Disconnected",
+		CarVersion:    "2026.20.1",
+		RawData:       []byte(`{}`),
+	}
+	if err := st.insertSnapshot(ctx, snap); err != nil {
+		t.Fatalf("insertSnapshot: %v", err)
+	}
+
+	got, err := st.latestSnapshotsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("latestSnapshotsByAccount: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 snapshot, got %d", len(got))
+	}
+
+	if got[0].EffectiveDate.IsZero() {
+		t.Fatal("EffectiveDate must be non-zero for a real DB row")
+	}
+	wantEffective := captured.AddDate(0, 0, -1)
+	if !got[0].EffectiveDate.UTC().Equal(wantEffective) {
+		t.Errorf("EffectiveDate: want %v, got %v", wantEffective, got[0].EffectiveDate.UTC())
+	}
+	if !got[0].CapturedAt.UTC().Equal(captured) {
+		t.Errorf("CapturedAt must round-trip unchanged: want %v, got %v", captured, got[0].CapturedAt.UTC())
+	}
+}
+
+// TestReadStore_SnapshotsByVehicleSince_EffectiveDate mirrors the assertion
+// above for the history read path, which shares the same rowToSnapshot mapper
+// (design D4) — proving both Reader methods carry EffectiveDate on real rows.
+func TestReadStore_SnapshotsByVehicleSince_EffectiveDate(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(800031)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	captured := time.Now().UTC().Truncate(time.Microsecond)
+	snap := Snapshot{
+		AccountID:     accountID,
+		TeslaID:       teslaID,
+		CapturedAt:    captured,
+		CapturedDate:  dateOnly(captured, time.UTC),
+		ChargingState: "Disconnected",
+		CarVersion:    "2026.20.1",
+		RawData:       []byte(`{}`),
+	}
+	if err := st.insertSnapshot(ctx, snap); err != nil {
+		t.Fatalf("insertSnapshot: %v", err)
+	}
+
+	since := captured.Add(-time.Hour)
+	got, err := st.snapshotsByVehicleSince(ctx, accountID, teslaID, since)
+	if err != nil {
+		t.Fatalf("snapshotsByVehicleSince: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want 1 snapshot, got %d", len(got))
+	}
+
+	if got[0].EffectiveDate.IsZero() {
+		t.Fatal("EffectiveDate must be non-zero for a real DB row")
+	}
+	wantEffective := captured.AddDate(0, 0, -1)
+	if !got[0].EffectiveDate.UTC().Equal(wantEffective) {
+		t.Errorf("EffectiveDate: want %v, got %v", wantEffective, got[0].EffectiveDate.UTC())
+	}
+}
+
 // TestReadStore_SnapshotsByVehicleSince_EmptyWindow asserts that no error and a
 // non-nil empty slice are returned when no snapshots exist at or after since.
 func TestReadStore_SnapshotsByVehicleSince_EmptyWindow(t *testing.T) {

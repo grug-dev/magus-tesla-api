@@ -64,6 +64,12 @@ func pgNullableText(v pgtype.Text) *string {
 //     normalized; design D2 of telemetry-dedupe-daily-snapshots). updated_at is
 //     selected in every query for struct-sharing but intentionally NOT mapped
 //     onto Snapshot, mirroring the existing id-selected-but-unsurfaced precedent.
+//   - EffectiveDate: derived here (no DB column) as CapturedAt.AddDate(0, 0, -1) —
+//     calendar-day arithmetic, not a 24h duration, so DST does not shift it
+//     (telemetry-add-effective-date design D3/D4). This is the ONLY place
+//     EffectiveDate is set; the write path (insertSnapshot) never goes through
+//     this mapper, so a write-built Snapshot leaves EffectiveDate at its zero
+//     value.
 //   - SentryMode: pgtype.Bool → *bool: {Valid: false} → nil, {Valid: true, Bool: v} → &v
 //   - BatteryLevelPct, ChargeLimitSocPct: int32 → int (sqlc generates int32; domain uses int)
 //   - All other fields are value-compatible (float64, string, bool, uuid.UUID, []byte)
@@ -87,6 +93,7 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 		TeslaID:           r.TeslaID,
 		CapturedAt:        r.CapturedAt.Time,
 		CapturedDate:      r.CapturedDate.Time,
+		EffectiveDate:     r.CapturedAt.Time.AddDate(0, 0, -1),
 		RawData:           r.RawData,
 		BatteryLevelPct:   int(r.BatteryLevelPct),
 		BatteryRangeKm:    r.BatteryRangeKm,

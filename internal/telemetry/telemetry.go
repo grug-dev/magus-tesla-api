@@ -41,7 +41,21 @@ type Snapshot struct {
 	// time.Time normalized to UTC midnight (the pgtype.Date convention) — treat
 	// it as a plain calendar date, not a timestamp; CapturedAt remains the
 	// authoritative "when."
-	CapturedDate      time.Time
+	CapturedDate time.Time
+	// EffectiveDate is the calendar day this snapshot REPRESENTS, not the day it
+	// was read: CapturedAt − 1 calendar day (the nightly poller runs at ≈03:30
+	// local and captures the vehicle's state accumulated over the PRIOR day).
+	// Read-derived: there is no matching DB column and no migration — it is
+	// computed once, in rowToSnapshot, and never persisted. A write-built
+	// Snapshot (insertSnapshot) does not set it, so it stays the zero time.Time
+	// on the write path; nothing reads it before storage. It is a full
+	// time.Time preserving the time-of-day component (same shape as
+	// CapturedAt) — NOT a pre-formatted display string; formatting (e.g.
+	// MM-DD) is a caller/gateway concern. Distinct from both CapturedDate
+	// (the capture's own calendar day, used only for the dedupe UNIQUE
+	// constraint) and CapturedAt (the precise read instant): EffectiveDate is
+	// the day the data describes.
+	EffectiveDate     time.Time
 	BatteryLevelPct   int
 	BatteryRangeKm    float64 // km — converted from miles at capture time via tesla.ChargeStateTesla.BatteryRangeKm()
 	ChargingState     string
