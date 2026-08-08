@@ -10,15 +10,15 @@
 
 *No dependencies — can start immediately, in parallel with group B (disjoint files).*
 
-- [ ] A.1 Add `SuperchargerReader telemetry.SuperchargerReader` field to `gateway.Deps` in
+- [x] A.1 Add `SuperchargerReader telemetry.SuperchargerReader` field to `gateway.Deps` in
   `internal/gateway/gateway.go`, with a doc comment mirroring `TelemetryReader`'s ("NEVER import
   internal/telemetry/db — all access through this interface only").
-- [ ] A.2 Add the same field to `handlers.Deps` and to the `Handler` struct (unexported
+- [x] A.2 Add the same field to `handlers.Deps` and to the `Handler` struct (unexported
   `superchargerReader`) in `internal/gateway/handlers/handlers.go`; thread it through `New(d
   Deps)`.
-- [ ] A.3 Thread `d.SuperchargerReader` from `gateway.Deps` into the `handlers.Deps{...}` literal
+- [x] A.3 Thread `d.SuperchargerReader` from `gateway.Deps` into the `handlers.Deps{...}` literal
   inside `gateway.NewEngine`.
-- [ ] A.4 In `cmd/web/main.go`, add `SuperchargerReader: telemetry.NewSuperchargerReader(pool),`
+- [x] A.4 In `cmd/web/main.go`, add `SuperchargerReader: telemetry.NewSuperchargerReader(pool),`
   to the `gateway.Deps{...}` literal passed to `gateway.NewEngine` (one line, zero business
   logic — the explicitly granted path for this change).
 
@@ -26,15 +26,15 @@
 
 *No dependencies — can start immediately, in parallel with group A (disjoint files).*
 
-- [ ] B.1 Add `SuperchargerStatsView`, `SuperchargerTiles`, `SuperchargerRowVM` types in
+- [x] B.1 Add `SuperchargerStatsView`, `SuperchargerTiles`, `SuperchargerRowVM` types in
   `internal/gateway/templates/fragments/` (design.md "View model" section) — all fields
   pre-computed strings/ints, no domain-type methods reachable from the template. Reuse the
   existing `fragments.HistoryChart`/`fragments.HistoryBar` types for the chart field verbatim —
   do not introduce a new chart-bar type.
-- [ ] B.2 Add `superchargerMonthPresets = []int{3, 6, 12}` and `defaultSuperchargerMonths = 6` as
+- [x] B.2 Add `superchargerMonthPresets = []int{3, 6, 12}` and `defaultSuperchargerMonths = 6` as
   named handler constants, and a `clampSuperchargerMonths(raw string) int` helper, mirroring
   `historyDayPresets`/`defaultHistoryDays`/`clampHistoryDays` exactly (D5).
-- [ ] B.3 Add `const superchargerReadLimit = 500` as a named handler constant (D6).
+- [x] B.3 Add `const superchargerReadLimit = 500` as a named handler constant (D6).
 
 ## C. Handler logic + unit tests
 
