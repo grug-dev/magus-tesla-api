@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": null,
   "request": "let's create a proposal for #4 Supercharger Stats from backlog and after creating the prposal removing that section from backlog.md",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -40,7 +40,7 @@
     ]
   },
   "created_at": "2026-08-08T11:12:42Z",
-  "updated_at": "2026-08-08T11:50:51Z",
+  "updated_at": "2026-08-08T11:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -738,10 +738,28 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review the full diff of ft/CH3-gateway-add-supercharger-stats vs main (commits 480d180..HEAD), not the whole module. Validate: (1) MODULE BOUNDARIES \u2014 no HTML outside internal/gateway; no import of internal/telemetry/db or any other module's db package; telemetry reached only via the SuperchargerReader port; cmd/web/main.go changed by exactly one DI line. (2) PERFORMANCE PROFILE (read-heavy) \u2014 exactly ONE SuperchargerSessionsByVehicle read per render, capped at superchargerReadLimit=500; no second read added (D2 explicitly rejected an account-wide disclosure read); no N+1. (3) DECISION FIDELITY \u2014 D1 per-selected-vehicle scope; D2 unattributed sessions excluded AND covered by a spec scenario + test; D3 three sections; D4 cost grouped per currency and NEVER summed across currencies, nil cost/currency excluded from cost but still counted in Sessions/Energy; D5 month presets {3,6,12} default 6 with window math in Go; D6 the 500 cap; D7 tiles/chart/table all derived from ONE filtered slice, table unpaginated, avg divide-by-zero guarded. (4) DOC-PACK CONVENTIONS \u2014 no HTML comments in markup, semantic theme tokens only (no hex), zero client JS, no arithmetic/currency formatting/domain-method calls in templates, ui/ kit composed rather than inlined DaisyUI component classes. (5) SPEC COVERAGE \u2014 every GIVEN/WHEN/THEN scenario in specs/gateway/spec.md has a corresponding test; tests assert real behavior rather than restating fixtures. (6) LEADER DECISIONS TO SCRUTINIZE \u2014 D10 (multi-line cost rendered by newline-joining CostLines + whitespace-pre-line instead of extending ui.StatTile) and D11 (chart zero-fills every month in the window; number formatting differs between tiles and table rows \u2014 cost grouped with thousands separators in the tile, ungrouped in the table). Judge whether either is a real defect or acceptable; say so explicitly. (7) ANTI-GAMING \u2014 no task, acceptance criterion, spec scenario, or pre-existing test was edited, weakened, or deleted; verify against git history. (8) SCOPE AUDIT \u2014 the wave-1..4 workers were told to stay inside internal/gateway (+ cmd/web/main.go for one line, + this change's tasks.md/progress.json). An EARLIER dispatch on this change silently deleted two unrelated entries from openspec/roadmaps/backlog.md and did not report it; the leader caught and reverted that. Check the diff for ANY out-of-sandbox edit that was not reported. (9) NO DB OBJECT \u2014 confirm the change adds no table/column/index/constraint/view/migration; a DB object here would be a blocker since the design gate was never run. Escalate on doubt: return changes-requested rather than approving anything you are unsure of.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-08T12:15:00Z",
+        "verdict": "approved",
+        "findings": [],
+        "duration_seconds": 139,
+        "budget": {
+          "five_hour_pct_start": 64.0,
+          "five_hour_pct_end": 73.0,
+          "five_hour_pct_delta": 9.0,
+          "cost_usd_delta": 3.511,
+          "context_pct_end": 25,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": "review round 1 incl. the follow-up message that set the top-level status"
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -927,6 +945,16 @@
       "at": "2026-08-08T11:50:51Z",
       "agent": "leader",
       "event": "wave 4 complete (E.1-E.2, F.1-F.4, G.1). Leader verified make check green, nav entry live with Settings placeholder intact, both routes registered, AGENTS.md documents Deps.SuperchargerReader. All 26 tasks done -> status applied. 5h 55->63%, cost +$2.93."
+    },
+    {
+      "at": "2026-08-08T11:52:00Z",
+      "agent": "leader",
+      "event": "status verified (openspec validate --strict clean; make check green; no openspec verify subcommand exists in this CLI). Review brief written; dispatching gateway-reviewer (claude-sonnet)."
+    },
+    {
+      "at": "2026-08-08T11:56:00Z",
+      "agent": "leader",
+      "event": "review round 1: approved, zero findings. Reviewer confirmed boundaries, one-read-per-render, D1-D7 fidelity, spec coverage, scope audit clean (backlog shows only the intended -#4/+#8), and no DB object. Leader filled round duration/budget only."
     }
   ]
 }
