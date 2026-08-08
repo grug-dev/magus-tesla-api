@@ -5,17 +5,10 @@
   "module": "gateway",
   "roadmap": null,
   "request": "let's create a proposal for #4 Supercharger Stats from backlog and after creating the prposal removing that section from backlog.md",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "E.1",
-      "E.2",
-      "F.1",
-      "F.2",
-      "F.3",
-      "F.4"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "A.1",
@@ -36,11 +29,18 @@
       "C.3",
       "C.4",
       "C.5",
-      "C.6"
+      "C.6",
+      "E.1",
+      "E.2",
+      "F.1",
+      "F.2",
+      "F.3",
+      "F.4",
+      "G.1"
     ]
   },
   "created_at": "2026-08-08T11:12:42Z",
-  "updated_at": "2026-08-08T11:44:23Z",
+  "updated_at": "2026-08-08T11:50:51Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -556,14 +556,23 @@
         "D.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:43:00Z",
+      "completed_at": "2026-08-08T11:43:20Z",
+      "duration_seconds": 20,
+      "notes": "Registered GET /supercharger-stats and GET /ui/supercharger-stats in gateway.go alongside the other authenticated /ui/* routes.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 2.929,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered E.1-E.2, F.1-F.4, G.1; delta is the whole wave"
+      }
     },
     {
       "id": "E.2",
@@ -573,14 +582,23 @@
         "E.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:43:20Z",
+      "completed_at": "2026-08-08T11:43:35Z",
+      "duration_seconds": 15,
+      "notes": "Replaced the nav.go Placeholder entry with a live Href/Active entry; Settings placeholder left untouched.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 2.929,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered E.1-E.2, F.1-F.4, G.1; delta is the whole wave"
+      }
     },
     {
       "id": "F.1",
@@ -591,14 +609,23 @@
         "E.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:43:35Z",
+      "completed_at": "2026-08-08T11:47:00Z",
+      "duration_seconds": 205,
+      "notes": "Added render test in supercharger_test.go: svg viewBox + <title> tooltips, active preset btn-primary, tbody <tr> count cross-checked against the parsed Sessions tile value (D7).",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 2.929,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered E.1-E.2, F.1-F.4, G.1; delta is the whole wave"
+      }
     },
     {
       "id": "F.2",
@@ -609,14 +636,23 @@
         "E.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:47:00Z",
+      "completed_at": "2026-08-08T11:48:30Z",
+      "duration_seconds": 90,
+      "notes": "Added render test for D2: unattributed (TeslaID nil) session never rendered in table/tiles; attributed session and correct Sessions/Energy tile values confirmed.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 2.929,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered E.1-E.2, F.1-F.4, G.1; delta is the whole wave"
+      }
     },
     {
       "id": "F.3",
@@ -626,14 +662,23 @@
         "E.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:48:30Z",
+      "completed_at": "2026-08-08T11:48:55Z",
+      "duration_seconds": 25,
+      "notes": "Added router-level test in gateway_test.go via gateway.NewEngine: both routes redirect anonymous callers to /login.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 2.929,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered E.1-E.2, F.1-F.4, G.1; delta is the whole wave"
+      }
     },
     {
       "id": "F.4",
@@ -646,14 +691,50 @@
         "E.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:48:55Z",
+      "completed_at": "2026-08-08T11:49:15Z",
+      "duration_seconds": 20,
+      "notes": "make check passes (build+vet+ui-guard+tests). Confirmed git diff --stat internal/telemetry/db is empty (no telemetry DB changes).",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 2.929,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered E.1-E.2, F.1-F.4, G.1; delta is the whole wave"
+      }
+    },
+    {
+      "id": "G.1",
+      "title": "Document Deps.SuperchargerReader (+ new routes) in internal/gateway/AGENTS.md",
+      "module": "gateway",
+      "depends_on": [
+        "A.1",
+        "E.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:49:15Z",
+      "completed_at": "2026-08-08T11:49:35Z",
+      "duration_seconds": 20,
+      "notes": "Documented Deps.SuperchargerReader under Public interface in AGENTS.md, mirroring TelemetryReader/ManualChargeReader entries. AGENTS.md has no dedicated routes list to append to.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 2.929,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered E.1-E.2, F.1-F.4, G.1; delta is the whole wave"
+      }
     }
   ],
   "review": {
@@ -761,6 +842,24 @@
       "decision": "Accepted the worker's chart zero-fill (one bar per month in the window, including months with no sessions) and its split number formatting",
       "why": "Zero-fill matches design.md's literal 'one bar per month in the window' and avoids a compressed timeline. Formatting follows two precedents: design.md examples for tiles, charges.go for table rows \u2014 leaving cost grouped in the tile but ungrouped in the table. Flagged for reviewer as a cosmetic inconsistency.",
       "covered_by": "D3, D7"
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-08T11:45:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Appended task G.1 (document Deps.SuperchargerReader in internal/gateway/AGENTS.md) \u2014 not present in the original tasks.md",
+      "why": "Group A changed the gateway's public surface (gateway.Deps gained a port), and CLAUDE.md requires a module's public-surface change to be documented in the same change. Caught at the wave-4 boundary rather than in review. Append-only: no existing task was edited.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-08T11:50:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Accepted that no doc beyond internal/gateway/AGENTS.md needs updating for this change",
+      "why": "The root README's Project Structure tree and Architecture table describe modules, not per-module Deps fields; this change adds no module and no folder. Worker raised it rather than editing; leader confirmed.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -818,6 +917,16 @@
       "at": "2026-08-08T11:44:23Z",
       "agent": "leader",
       "event": "wave 3 complete (C.1-C.6). Leader verified exactly one ByVehicle read, no ByAccount call in production code, no telemetrydb import, go test ./... green, 20 new test funcs. Logged D11 for chart zero-fill + formatting split. 5h 42->53%, cost +$4.00."
+    },
+    {
+      "at": "2026-08-08T11:45:30Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (claude-sonnet) for wave 4 = E.1-E.2, F.1-F.4, G.1 (routes, nav, render/route tests, make check, AGENTS.md doc update)"
+    },
+    {
+      "at": "2026-08-08T11:50:51Z",
+      "agent": "leader",
+      "event": "wave 4 complete (E.1-E.2, F.1-F.4, G.1). Leader verified make check green, nav entry live with Settings placeholder intact, both routes registered, AGENTS.md documents Deps.SuperchargerReader. All 26 tasks done -> status applied. 5h 55->63%, cost +$2.93."
     }
   ]
 }

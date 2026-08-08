@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -533,5 +535,149 @@ func TestSuperchargerStatsFragment_ValidPresetsAccepted(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Errorf("months=%d: want 200, got %d", p, w.Code)
 		}
+	}
+}
+
+// --- F.1: render test — SVG/title/active-preset + table/tile single-source-of-truth (D7) ---
+
+// sessionsTileValueRe extracts the rendered Sessions ui.StatTile value, e.g.
+// `stat-title">Sessions</div><div class="stat-value">3</div>` -> "3". Templ
+// emits no whitespace between adjacent tags (confirmed in
+// templates/ui/stat_tile_templ.go), so the pattern matches the compact output
+// verbatim.
+var sessionsTileValueRe = regexp.MustCompile(`stat-title">Sessions</div><div class="stat-value">(\d+)</div>`)
+
+// TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile
+// covers F.1: the fragment contains the responsive <svg viewBox …> chart with
+// <title> tooltips, the month selector marks the active preset, and — the D7
+// single-source-of-truth check — the number of <tr> rows inside the sessions
+// table's <tbody> equals the Sessions tile's own rendered value, both parsed
+// independently out of the rendered HTML (not out of the test fixture).
+func TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile(t *testing.T) {
+	uid := uuid.New()
+	// Anchor to the SAME window-start formula the handler itself computes for
+	// months=6 (startOfMonth(now).AddDate(0, -months+1, 0)) so the fixture
+	// dates land inside the live window regardless of what "now" is when the
+	// test runs.
+	since := startOfMonth(time.Now()).AddDate(0, -6+1, 0)
+	reader := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
+		{SessionID: 1, TeslaID: ptrInt64(42), SiteLocationName: "Site A", ChargeStartDateTime: since.AddDate(0, 0, 2), EnergyKWh: ptrF64(10)},
+		{SessionID: 2, TeslaID: ptrInt64(42), SiteLocationName: "Site B", ChargeStartDateTime: since.AddDate(0, 1, 2), EnergyKWh: ptrF64(20)},
+		{SessionID: 3, TeslaID: ptrInt64(42), SiteLocationName: "Site C", ChargeStartDateTime: since.AddDate(0, 2, 2), EnergyKWh: ptrF64(30)},
+	}}
+	h := newHandlerForSupercharger(reader, 42, "VIN42")
+	eng := superchargerEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats?months=6", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+
+	if !strings.Contains(body, "viewBox") {
+		t.Error("fragment must contain the responsive <svg viewBox …> chart")
+	}
+	if !strings.Contains(body, "<title>") {
+		t.Error("fragment must contain <title> tooltip elements inside the SVG bars")
+	}
+	if !strings.Contains(body, "btn-primary") {
+		t.Error("month selector must mark the active preset with btn-primary")
+	}
+	if !strings.Contains(body, "6 months") {
+		t.Error("month selector must render the active 6-month preset label")
+	}
+
+	m := sessionsTileValueRe.FindStringSubmatch(body)
+	if m == nil {
+		t.Fatalf("could not find the rendered Sessions tile value in body:\n%s", body)
+	}
+	wantRows, err := strconv.Atoi(m[1])
+	if err != nil {
+		t.Fatalf("Sessions tile value %q is not an int: %v", m[1], err)
+	}
+	if wantRows != 3 {
+		t.Fatalf("want Sessions tile = 3 for this fixture, got %d", wantRows)
+	}
+
+	tbodyIdx := strings.Index(body, "<tbody>")
+	if tbodyIdx == -1 {
+		t.Fatal("body missing <tbody>")
+	}
+	gotRows := strings.Count(body[tbodyIdx:], "<tr>")
+	if gotRows != wantRows {
+		t.Errorf("table row count (%d) must equal the Sessions tile's own rendered count (%d) — single source of truth (D7)", gotRows, wantRows)
+	}
+}
+
+// --- F.2: render test — D2 unattributed sessions never appear in the rendered output ---
+
+// TestSuperchargerStatsFragment_UnattributedSessionNeverRendered covers F.2:
+// with a fake reader whose SuperchargerSessionsByVehicle honors the real
+// port's contract (a session is only returned when its TeslaID matches the
+// requested filter — an unattributed, TeslaID == nil session is simply never
+// returned to any filter), the rendered fragment must not show that session
+// anywhere: not in the table, not in the Sessions/Energy tiles.
+func TestSuperchargerStatsFragment_UnattributedSessionNeverRendered(t *testing.T) {
+	uid := uuid.New()
+	// Same window-anchor rationale as the F.1 render test above.
+	since := startOfMonth(time.Now()).AddDate(0, -6+1, 0)
+	reader := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
+		{ // unattributed — TeslaID nil, VIN not matched to a registered vehicle.
+			SessionID:           1,
+			TeslaID:             nil,
+			SiteLocationName:    "Ghost Site",
+			ChargeStartDateTime: since.AddDate(0, 0, 5),
+			EnergyKWh:           ptrF64(999),
+		},
+		{ // attributed to the selected vehicle.
+			SessionID:           2,
+			TeslaID:             ptrInt64(42),
+			SiteLocationName:    "Real Site",
+			ChargeStartDateTime: since.AddDate(0, 0, 6),
+			EnergyKWh:           ptrF64(10),
+		},
+	}}
+	h := newHandlerForSupercharger(reader, 42, "VIN42")
+	eng := superchargerEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats?months=6", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+
+	if strings.Contains(body, "Ghost Site") {
+		t.Error("unattributed session's site must never appear in the rendered table")
+	}
+	if !strings.Contains(body, "Real Site") {
+		t.Error("the attributed session's site must appear in the rendered table")
+	}
+
+	m := sessionsTileValueRe.FindStringSubmatch(body)
+	if m == nil {
+		t.Fatalf("could not find the rendered Sessions tile value in body:\n%s", body)
+	}
+	if m[1] != "1" {
+		t.Errorf("want Sessions tile = 1 (unattributed session excluded), got %q", m[1])
+	}
+	if !strings.Contains(body, "10.0 kWh") {
+		t.Errorf("want Energy tile to reflect only the attributed session's 10 kWh, body:\n%s", body)
+	}
+	if strings.Contains(body, "999") {
+		t.Error("the unattributed session's 999 kWh must not appear anywhere in the rendered output")
 	}
 }

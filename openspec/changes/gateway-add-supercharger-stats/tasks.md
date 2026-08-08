@@ -108,10 +108,10 @@ constants).*
 
 *Depends on: C (handlers must exist), D (page component must exist).*
 
-- [ ] E.1 Register `r.GET("/supercharger-stats", h.SuperchargerStatsPage)` and `r.GET(
+- [x] E.1 Register `r.GET("/supercharger-stats", h.SuperchargerStatsPage)` and `r.GET(
   "/ui/supercharger-stats", h.SuperchargerStatsFragment)` in `internal/gateway/gateway.go`,
   alongside the other authenticated `/ui/*` routes.
-- [ ] E.2 In `internal/gateway/templates/layouts/nav.go`, replace the `{Label: "Supercharger
+- [x] E.2 In `internal/gateway/templates/layouts/nav.go`, replace the `{Label: "Supercharger
   Stats", Icon: "analytics", Placeholder: true}` entry with `{Label: "Supercharger Stats", Href:
   "/supercharger-stats", Active: active == "/supercharger-stats", Icon: "analytics"}`. Leave the
   "Settings" placeholder entry untouched.
@@ -120,14 +120,30 @@ constants).*
 
 *Depends on: C, D, E all complete.*
 
-- [ ] F.1 A render test asserting the fragment contains the responsive `<svg viewBox` + `<title>`
+- [x] F.1 A render test asserting the fragment contains the responsive `<svg viewBox` + `<title>`
   tooltips, the month selector marks the active preset, and the table row count matches the
   Sessions tile count for a given fake dataset (single-source-of-truth check, D7).
-- [ ] F.2 A render test for the D2 scenario: a fake dataset containing a session the fake reader
+- [x] F.2 A render test for the D2 scenario: a fake dataset containing a session the fake reader
   would only return for a matching `TeslaID` filter (i.e. simulate the port's own contract —
   the fake's `SuperchargerSessionsByVehicle` never returns an unattributed session to any
   `teslaID` filter) confirms no such session appears in the rendered table or tile counts.
-- [ ] F.3 A route test confirming `GET /supercharger-stats` and `GET /ui/supercharger-stats`
+- [x] F.3 A route test confirming `GET /supercharger-stats` and `GET /ui/supercharger-stats`
   both redirect anonymous callers to `/login`.
-- [ ] F.4 `make check` passes (build + vet + ui-guard + tests). No DB, no migration — confirm no
+- [x] F.4 `make check` passes (build + vet + ui-guard + tests). No DB, no migration — confirm no
   `internal/telemetry/db` changes were introduced by this change.
+
+## G. Docs (public-surface change)
+
+*Depends on: A (the Deps field must exist), E (routes must exist). Appended by the leader
+at the wave-4 boundary — `CLAUDE.md`'s "Docs track structural change" rule requires a
+module's public-surface change to be documented in the SAME change, and group A altered
+`gateway.Deps`.*
+
+- [x] G.1 In `internal/gateway/AGENTS.md`, document `Deps.SuperchargerReader
+  telemetry.SuperchargerReader` under "Public interface", mirroring the existing
+  `Deps.TelemetryReader` / `Deps.ManualChargeReader` entries: what it is, that it is
+  injected at construction, which handler calls it and how often (one
+  `SuperchargerSessionsByVehicle` read per Supercharger Stats render), the change that
+  added it, and the "NEVER import internal/telemetry/db" rule. Also add the two new
+  routes (`GET /supercharger-stats`, `GET /ui/supercharger-stats`) wherever that file
+  lists the module's routes/pages, if it does.

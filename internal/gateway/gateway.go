@@ -139,5 +139,8 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.PUT("/ui/charges/row/:id", h.ChargeRowUpdate)
 	r.DELETE("/ui/charges/row/:id", h.ChargeRowDelete)
 
+	r.GET("/supercharger-stats", h.SuperchargerStatsPage)
+	r.GET("/ui/supercharger-stats", h.SuperchargerStatsFragment)
+
 	return r, nil
 }

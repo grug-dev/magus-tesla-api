@@ -14,7 +14,7 @@ func navItems(active string) []ui.NavItem {
 	return []ui.NavItem{
 		{Label: "Dashboard", Href: "/dashboard", Active: active == "/dashboard", Icon: "dashboard"},
 		{Label: "Manual Records", Href: "/charges", Active: active == "/charges", Icon: "ev_station"},
-		{Label: "Supercharger Stats", Icon: "analytics", Placeholder: true},
+		{Label: "Supercharger Stats", Href: "/supercharger-stats", Active: active == "/supercharger-stats", Icon: "analytics"},
 		{Label: "Settings", Icon: "settings", Placeholder: true},
 	}
 }
