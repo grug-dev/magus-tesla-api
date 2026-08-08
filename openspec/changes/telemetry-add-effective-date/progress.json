@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM7-history-graph-improvements.md",
   "request": "MAG-6 (history graph change): add EffectiveDate to telemetry.Snapshot (= CapturedAt - 1 calendar day) so gateway tier can format MM-DD tooltip/label from the represented day.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
@@ -21,7 +21,7 @@
     ]
   },
   "created_at": "2026-08-08T13:42:48Z",
-  "updated_at": "2026-08-08T14:02:00Z",
+  "updated_at": "2026-08-08T16:42:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -222,7 +222,7 @@
   "review": {
     "status": "pending",
     "agent": null,
-    "brief": null,
+    "brief": "Review the tier-1 diff for change telemetry-add-effective-date (commits 85a78c8, 4032511) against: (1) design.md D1-D4 - field named exactly EffectiveDate of type time.Time (D1); offset lives on the telemetry DTO with NO DB column, NO migration, NO schema change (D2) - any schema touch is a BLOCKER; full time.Time preserving time-of-day, never a formatted MM-DD string (D3); computed once in rowToSnapshot, not per read method, write path leaves it zero (D4). (2) Module boundary: all edits confined to internal/telemetry/; no HTML; no other module's internals touched. (3) ai/go-conventions.md + ai/architecture.md conventions, including the unit-suffix rule - confirm EffectiveDate is correctly exempt (it is a date, not a unit-bearing value). (4) Spec coverage: every scenario in specs/telemetry/spec.md has a corresponding test, incl. the DST scenario. (5) Performance-Profile compliance: read-heavy - the per-row AddDate on the read path must not regress the batch read queries; confirm no N+1 or per-row DB work was introduced. (6) Anti-gaming: no task title, acceptance criterion, or existing test was edited, weakened, or deleted; the 7 tasks marked done are genuinely done. Escalate on doubt: return changes-requested rather than approving anything you are not sure about.",
     "rounds": []
   },
   "decisions": [
@@ -233,6 +233,15 @@
       "made_by": "leader",
       "decision": "Dispatched the full tier as ONE serial Sonnet worker (tasks 1.1-3.2) rather than splitting into three dependency waves.",
       "why": "Tier is 2 small edits + 3 tests in one module; a single dispatch reads the doc pack once. 5-hour bucket at 85% (gate 90) makes amortizing setup the cheaper path.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-08T16:42:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Proceeded with the Step 7 reviewer dispatch despite five_hour_pct 95 (>= gate 90).",
+      "why": "Conflicting signals: now (16:39Z) is past the recorded five_hour_resets_at (15:10Z) which Step R.3 accepts as reset, but the pct rose 93->95 instead of dropping. User explicitly re-invoked resume. Diff is small and Sonnet-scoped; if the limit cuts the review off, progress.json stays truthful and the round simply re-runs.",
       "covered_by": null
     }
   ],
@@ -261,6 +270,11 @@
       "at": "2026-08-08T14:02:30Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT: five_hour_pct 93 >= Budget-Checkpoint-At 90 (context_pct 10, well under 60). Stopping cleanly before the Step 6 verify + Step 7 reviewer dispatch. five_hour_resets_at 2026-08-08T15:10:00Z. Resume with: /kkpa-dev-harness-pipeline resume telemetry-add-effective-date"
+    },
+    {
+      "at": "2026-08-08T16:42:00Z",
+      "agent": "leader",
+      "event": "RESUME 2: Step 6 verify complete - openspec validate --strict passed; go build/vet clean; go test -count=1 ./internal/telemetry/... green with all 4 new EffectiveDate tests confirmed running (2 unit incl. DST, 2 testcontainers integration). status -> verified. review.brief written."
     }
   ]
 }
