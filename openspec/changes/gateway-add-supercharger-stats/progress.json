@@ -15,12 +15,6 @@
       "C.4",
       "C.5",
       "C.6",
-      "D.1",
-      "D.2",
-      "D.3",
-      "D.4",
-      "D.5",
-      "D.6",
       "E.1",
       "E.2",
       "F.1",
@@ -36,11 +30,17 @@
       "A.4",
       "B.1",
       "B.2",
-      "B.3"
+      "B.3",
+      "D.1",
+      "D.2",
+      "D.3",
+      "D.4",
+      "D.5",
+      "D.6"
     ]
   },
   "created_at": "2026-08-08T11:12:42Z",
-  "updated_at": "2026-08-08T11:26:13Z",
+  "updated_at": "2026-08-08T11:34:53Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -342,14 +342,23 @@
         "B.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:27:00Z",
+      "completed_at": "2026-08-08T11:33:11Z",
+      "duration_seconds": 371,
+      "notes": "New fragments/supercharger_stats.templ; mirrors historyDaysSelector exactly, targets #supercharger-stats-content.",
+      "budget": {
+        "five_hour_pct_start": 30.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.186,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered D.1-D.6; delta is the whole wave"
+      }
     },
     {
       "id": "D.2",
@@ -359,14 +368,23 @@
         "B.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:27:00Z",
+      "completed_at": "2026-08-08T11:33:11Z",
+      "duration_seconds": 371,
+      "notes": "4 ui.StatTile in a Tailwind grid; Cost value = superchargerCostValue(CostLines) join, whitespace-pre-line class for multi-line.",
+      "budget": {
+        "five_hour_pct_start": 30.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.186,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered D.1-D.6; delta is the whole wave"
+      }
     },
     {
       "id": "D.3",
@@ -376,14 +394,23 @@
         "B.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:27:00Z",
+      "completed_at": "2026-08-08T11:33:11Z",
+      "duration_seconds": 371,
+      "notes": "Thin wrapper delegating directly to historyBarChart (same fragments package) with fill-primary; no new SVG code.",
+      "budget": {
+        "five_hour_pct_start": 30.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.186,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered D.1-D.6; delta is the whole wave"
+      }
     },
     {
       "id": "D.4",
@@ -393,14 +420,23 @@
         "B.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:27:00Z",
+      "completed_at": "2026-08-08T11:33:11Z",
+      "duration_seconds": 371,
+      "notes": "ui.Table headers Date/Site/Country/Energy/Cost/Billing Type; one <tr> per SuperchargerRowVM, no logic.",
+      "budget": {
+        "five_hour_pct_start": 30.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.186,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered D.1-D.6; delta is the whole wave"
+      }
     },
     {
       "id": "D.5",
@@ -413,14 +449,23 @@
         "D.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:27:00Z",
+      "completed_at": "2026-08-08T11:33:11Z",
+      "duration_seconds": 371,
+      "notes": "New pages/supercharger_stats.templ; layouts.BaseAuth + ui.PageHeader, #supercharger-stats-content wraps @templ.Fragment(\"supercharger-stats\"), mirrors ChargePage.",
+      "budget": {
+        "five_hour_pct_start": 30.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.186,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered D.1-D.6; delta is the whole wave"
+      }
     },
     {
       "id": "D.6",
@@ -430,14 +475,23 @@
         "D.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:27:00Z",
+      "completed_at": "2026-08-08T11:33:11Z",
+      "duration_seconds": 371,
+      "notes": "make templ clean; make css regenerated app.css (whitespace-pre-line/grid-cols-4 were new); build+vet+ui-guard+go test ./internal/gateway/... all pass.",
+      "budget": {
+        "five_hour_pct_start": 30.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.186,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered D.1-D.6; delta is the whole wave"
+      }
     },
     {
       "id": "E.1",
@@ -626,6 +680,24 @@
       "decision": "Granted the worker cmd/web/main.go as an explicit extra path beyond the module sandbox",
       "why": "The DI wiring is one field with zero business logic; splitting it out to the leader would fragment a 4-line change across two agents.",
       "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-08T11:27:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Split wave 2 into templates (D) first, then handler logic (C), instead of one combined C+D wave",
+      "why": "C.5's handlers render pages.SuperchargerStatsPage (D.5), so C-first leaves a non-compiling tree; D depends only on B, so templates-first keeps every wave green. Also keeps each dispatch ~6 tasks rather than 12.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-08T11:34:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Accepted multi-line cost rendering via newline-joined CostLines + whitespace-pre-line, rather than extending ui.StatTile with a children slot",
+      "why": "Keeps the shared ui/ component signature stable and the template math-free; changing a kit primitive is a wider design call than this change authorizes. Flagged for reviewer scrutiny as the weakest of wave 2's calls.",
+      "covered_by": "D4"
     }
   ],
   "events": [
@@ -663,6 +735,16 @@
       "at": "2026-08-08T11:26:13Z",
       "agent": "leader",
       "event": "wave 1 complete (A.1-A.4, B.1-B.3). Leader verified go build + go vet pass, and cross-checked D5/D6 against design.md. Worker respected sandbox and write-ownership this time. 5h 23->29%, cost +$2.20."
+    },
+    {
+      "at": "2026-08-08T11:27:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (claude-sonnet) for wave 2 = D.1-D.6 (Templ components + page). Reordered ahead of group C per decision D9."
+    },
+    {
+      "at": "2026-08-08T11:34:53Z",
+      "agent": "leader",
+      "event": "wave 2 complete (D.1-D.6). Leader verified build/vet/ui-guard, and confirmed no HTML comments, no hex colors, no client JS in the new markup. Triaged 3 worker judgment calls: selector-visible-when-empty and grid-over-daisy-stats accepted as routine precedent; cost rendering logged as D10. 5h 30->41%, cost +$3.19."
     }
   ]
 }

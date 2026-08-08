@@ -79,28 +79,28 @@ constants).*
 
 *Depends on: B (needs the view-model field names/types to reference).*
 
-- [ ] D.1 Add a `superchargerMonthsSelector(active int, presets []int)` Templ component — a
+- [x] D.1 Add a `superchargerMonthsSelector(active int, presets []int)` Templ component — a
   DaisyUI `join` of buttons (mirrors `historyDaysSelector`), each button `hx-get`ting
   `/ui/supercharger-stats?months=N`, `hx-target` the stats region, `hx-swap="innerHTML"`.
-- [ ] D.2 Add a `superchargerTiles(t fragments.SuperchargerTiles)` component: a `ui.StatTile` row
+- [x] D.2 Add a `superchargerTiles(t fragments.SuperchargerTiles)` component: a `ui.StatTile` row
   (Sessions, Energy, Cost, Avg kWh/session), composing `ui.StatTile` — never inline DaisyUI
   `stat` classes. The Cost tile renders each `CostLines` entry on its own line inside the
   `Desc`/value area (no template-side currency math — the lines arrive pre-formatted).
-- [ ] D.3 Add a `superchargerChart(chart fragments.HistoryChart)` component reusing the existing
+- [x] D.3 Add a `superchargerChart(chart fragments.HistoryChart)` component reusing the existing
   `historyBarChart`-style SVG rendering (or call the existing `historyBarChart` directly if its
   package-visibility allows reuse across files in the same `fragments` package) — one `<rect>`
   per bar at its pre-computed `HeightPct`, DaisyUI semantic fill token, `<title>` tooltip. Falls
   back to the existing `dashHistoryEmpty()`-style placeholder when `chart.Empty`.
-- [ ] D.4 Add a `superchargerTable(sessions []fragments.SuperchargerRowVM)` component composing
+- [x] D.4 Add a `superchargerTable(sessions []fragments.SuperchargerRowVM)` component composing
   `ui.Table` (headers: Date, Site, Country, Energy, Cost, Billing Type) with one `<tr>` per
   `SuperchargerRowVM` — no arithmetic, no conditionals beyond simple presence display.
-- [ ] D.5 Add `internal/gateway/templates/pages/supercharger_stats.templ`: `templ
+- [x] D.5 Add `internal/gateway/templates/pages/supercharger_stats.templ`: `templ
   SuperchargerStatsPage(v fragments.SuperchargerStatsView)` using `layouts.BaseAuth` + `ui.
   PageHeader`, wrapping the month selector + tiles + chart + table inside a
   `#supercharger-stats-content` region marked with `@templ.Fragment("supercharger-stats")`
   (mirrors the `#charges-content` / `ChargePage` shape) so the same tree serves both the full
   page and the fragment route.
-- [ ] D.6 Run `make templ` (pinned `go tool templ generate`) so `*_templ.go` regenerates; run
+- [x] D.6 Run `make templ` (pinned `go tool templ generate`) so `*_templ.go` regenerates; run
   `make css` if any new DaisyUI/Tailwind class was introduced. Confirm `make check`'s ui-guard
   passes (semantic tokens only, no hardcoded colors).
 
