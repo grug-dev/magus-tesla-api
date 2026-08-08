@@ -1,0 +1,129 @@
+package fragments
+
+import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// superchargerMonthsSelector renders the month-count preset control — three
+// buttons (3 · 6 · 12) grouped via ui.Join, mirroring historyDaysSelector
+// exactly (D5: closed vocabulary, one gold-standard pattern to reuse). The
+// active preset uses the "primary" Button variant; inactive presets use
+// "ghost". Each button re-fetches GET /ui/supercharger-stats?months=N and
+// swaps the #supercharger-stats-content region's innerHTML so the selector,
+// tiles, chart, and table all refresh together. No JavaScript.
+templ superchargerMonthsSelector(active int, presets []int) {
+	<div class="flex justify-end mb-4">
+		@ui.Join() {
+			for _, p := range presets {
+				if p == active {
+					@ui.Button(ui.ButtonProps{
+						Variant: "primary",
+						Size:    "sm",
+						Class:   "join-item",
+						Attrs: templ.Attributes{
+							"hx-get":    fmt.Sprintf("/ui/supercharger-stats?months=%d", p),
+							"hx-target": "#supercharger-stats-content",
+							"hx-swap":   "innerHTML",
+						},
+					}) {
+						{ fmt.Sprintf("%d months", p) }
+					}
+				} else {
+					@ui.Button(ui.ButtonProps{
+						Variant: "ghost",
+						Size:    "sm",
+						Class:   "join-item",
+						Attrs: templ.Attributes{
+							"hx-get":    fmt.Sprintf("/ui/supercharger-stats?months=%d", p),
+							"hx-target": "#supercharger-stats-content",
+							"hx-swap":   "innerHTML",
+						},
+					}) {
+						{ fmt.Sprintf("%d months", p) }
+					}
+				}
+			}
+		}
+	</div>
+}
+
+// superchargerTiles renders the four KPI tiles — Sessions, Energy, Cost, Avg
+// kWh/session — composing ui.StatTile (never inline DaisyUI `stat` classes,
+// D7). Laid out with a Tailwind grid (layout utility only, mirrors the
+// Vehicle Status stat grid in dashboard.templ) rather than DaisyUI's own
+// `stats` container class, keeping every DaisyUI component class routed
+// through the ui/ kit.
+//
+// The Cost tile's Value is superchargerCostValue(t.CostLines) — the
+// per-currency lines joined with "\n"; the tile carries the Tailwind
+// `whitespace-pre-line` layout utility so each currency renders on its own
+// line (D4). No currency math happens here: every line arrives pre-formatted
+// from the handler, this only joins already-formatted strings for display.
+templ superchargerTiles(t SuperchargerTiles) {
+	<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+		@ui.StatTile(ui.StatTileProps{Label: "Sessions", Value: t.Sessions})
+		@ui.StatTile(ui.StatTileProps{Label: "Energy", Value: t.Energy})
+		@ui.StatTile(ui.StatTileProps{Label: "Cost", Value: superchargerCostValue(t.CostLines), Class: "whitespace-pre-line"})
+		@ui.StatTile(ui.StatTileProps{Label: "Avg kWh / session", Value: t.AvgKWh})
+	</div>
+}
+
+// superchargerChart renders the kWh-per-month trend chart by delegating
+// directly to the existing historyBarChart SVG renderer (same package,
+// AGENTS.md §"Charts are hand-rolled SVG") — no new chart-rendering code is
+// introduced. Falls back to dashHistoryEmpty() via historyBarChart when
+// chart.Empty is true (too few months of data).
+templ superchargerChart(chart HistoryChart) {
+	@historyBarChart(chart, "fill-primary")
+}
+
+// superchargerTable renders the unpaginated sessions table (D7 — the month
+// window + read cap already bound the row count) composing ui.Table, never
+// inline table/tr/td class soup. No arithmetic, no conditionals beyond the
+// presence-driven "—" placeholders already baked into each row's labels by
+// the handler.
+templ superchargerTable(sessions []SuperchargerRowVM) {
+	@ui.Table(ui.TableProps{Headers: []string{"Date", "Site", "Country", "Energy", "Cost", "Billing Type"}}) {
+		for _, s := range sessions {
+			<tr>
+				<td>{ s.DateLabel }</td>
+				<td>{ s.SiteLabel }</td>
+				<td>{ s.CountryCode }</td>
+				<td>{ s.EnergyLabel }</td>
+				<td>{ s.CostLabel }</td>
+				<td>{ s.BillingType }</td>
+			</tr>
+		}
+	}
+}
+
+// SuperchargerStatsContent renders the full content of the
+// #supercharger-stats-content region: the month selector, then either the
+// tasteful empty state (v.Empty — mirrors dashboard.templ's NeedsConnect
+// Card) or the KPI tiles, kWh/month chart, and sessions table, each in its
+// own ui.Card surface. The selector always renders (Months/Presets are
+// always populated per design.md's data-flow section) so a user landing on
+// an empty window can still pick a longer one. All values on
+// SuperchargerStatsView are pre-computed by the handler — this template
+// does no arithmetic, unit conversion, or domain-type method calls
+// (ai/htmx-conventions.md §"No business logic in templates").
+templ SuperchargerStatsContent(v SuperchargerStatsView) {
+	@superchargerMonthsSelector(v.Months, v.Presets)
+	if v.Empty {
+		@ui.Card(ui.CardProps{}) {
+			<p class="text-base-content/70">No Supercharger sessions in this window.</p>
+		}
+	} else {
+		@ui.Card(ui.CardProps{}) {
+			@superchargerTiles(v.Tiles)
+		}
+		@ui.Card(ui.CardProps{Title: "kWh per month"}) {
+			@superchargerChart(v.Chart)
+		}
+		@ui.Card(ui.CardProps{Title: "Sessions"}) {
+			@superchargerTable(v.Sessions)
+		}
+	}
+}

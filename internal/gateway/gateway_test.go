@@ -177,6 +177,22 @@ func TestHome_AnonymousRedirectsToLogin(t *testing.T) {
 	}
 }
 
+// TestSuperchargerStats_AnonymousRedirectedToLogin covers F.3: the router-level
+// check that both registered Supercharger Stats routes (the full page and the
+// htmx fragment) are auth-guarded through the real gateway.NewEngine router —
+// not just the handler tested directly (handlers/supercharger_test.go already
+// covers that). Mirrors TestDashboard_AnonymousRedirectedToLogin.
+func TestSuperchargerStats_AnonymousRedirectedToLogin(t *testing.T) {
+	eng := testEngine(t)
+	for _, path := range []string{"/supercharger-stats", "/ui/supercharger-stats"} {
+		w := httptest.NewRecorder()
+		eng.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
+		if w.Code != http.StatusFound || w.Header().Get("Location") != "/login" {
+			t.Errorf("%s: anonymous should redirect to /login, got %d -> %q", path, w.Code, w.Header().Get("Location"))
+		}
+	}
+}
+
 func TestHealthz_UnhealthyWhenDBUnreachable(t *testing.T) {
 	eng := testEngine(t)
 	w := httptest.NewRecorder()

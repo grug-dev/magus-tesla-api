@@ -1,0 +1,40 @@
+package pages
+
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// SuperchargerStatsPage renders the full Supercharger Stats page for the
+// session-selected vehicle: a month-preset selector, four KPI tiles
+// (Sessions/Energy/Cost/Avg kWh per session), a kWh-per-month trend chart,
+// and the unpaginated sessions table (openspec/changes/
+// gateway-add-supercharger-stats/design.md D1-D7). Uses layouts.BaseAuth
+// (the authenticated drawer shell) and composes the ui/ kit; every value on
+// fragments.SuperchargerStatsView is pre-computed by the handler — this
+// template does no arithmetic, unit conversion, or currency math.
+//
+// The #supercharger-stats-content region is vehicle-scoped: it subscribes
+// to the sidebar switcher's "vehicle-changed" event (from:body) and
+// re-fetches GET /ui/supercharger-stats so the page follows the newly
+// selected vehicle (mirrors #charges-content / ChargePage and
+// #dashboard-content / Dashboard — ai/htmx-conventions.md §"Cross-region
+// refresh"). GET /ui/supercharger-stats also renders this same region on
+// month-preset clicks (superchargerMonthsSelector's hx-get), so one
+// template tree serves the full page load, the vehicle switch, and the
+// month-preset swap — the same @templ.Fragment shape as ChargePage.
+templ SuperchargerStatsPage(v fragments.SuperchargerStatsView) {
+	@layouts.BaseAuth("Supercharger Stats — Magus", "/supercharger-stats") {
+		@ui.PageHeader(ui.PageHeaderProps{Title: "Supercharger Stats"}) {
+			@ui.Button(ui.ButtonProps{Variant: "ghost", Href: "/dashboard"}) {
+				Back to dashboard
+			}
+		}
+		<div id="supercharger-stats-content" class="flex flex-col gap-6" hx-get="/ui/supercharger-stats" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">
+			@templ.Fragment("supercharger-stats") {
+				@fragments.SuperchargerStatsContent(v)
+			}
+		</div>
+	}
+}

@@ -42,6 +42,15 @@ It renders what other modules expose; it owns no business data.
   ChargeRowStatic, ChargeRowEditFragment) and the `buildChargesPage` helper to list
   charge entries. NEVER import `internal/manualcharge/db` — all access through this
   interface only.
+- `Deps.SuperchargerReader telemetry.SuperchargerReader` — the telemetry
+  Supercharger-sessions read port; injected at construction via
+  `gateway.Deps`/`handlers.Deps` (wired from `cmd/web` via
+  `telemetry.NewSuperchargerReader(pool)`). Called by `SuperchargerStatsPage` /
+  `SuperchargerStatsFragment` (via `superchargerStatsViewFor` /
+  `buildSuperchargerStatsView`) — ONE `SuperchargerSessionsByVehicle` read per
+  Supercharger Stats render, capped at `superchargerReadLimit` (500 rows). Added by
+  `gateway-add-supercharger-stats`. NEVER import `internal/telemetry/db`
+  (`telemetrydb`) — all access through this interface only.
 
 ## Boundaries
 

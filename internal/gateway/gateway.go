@@ -41,6 +41,12 @@ type Deps struct {
 	// NEVER import internal/telemetry/db (telemetrydb) — all access through this
 	// interface only.
 	TelemetryReader telemetry.Reader
+	// SuperchargerReader is the telemetry Supercharger-sessions read port. The
+	// gateway calls SuperchargerSessionsByVehicle once per Supercharger Stats
+	// page render. Injected from cmd/web via telemetry.NewSuperchargerReader(pool).
+	// NEVER import internal/telemetry/db (telemetrydb) — all access through this
+	// interface only.
+	SuperchargerReader telemetry.SuperchargerReader
 	// ManualChargeWriter is the manualcharge write port. Called by write handlers
 	// (create/update/delete) on explicit user-initiated form submissions only.
 	// See AGENTS.md "Exception: user-initiated writes" for the full amendment.
@@ -102,6 +108,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 		Google:             d.Google,
 		Tesla:              d.Tesla,
 		TelemetryReader:    d.TelemetryReader,
+		SuperchargerReader: d.SuperchargerReader,
 		ManualChargeWriter: d.ManualChargeWriter,
 		ManualChargeReader: d.ManualChargeReader,
 		TeslaClientID:      d.TeslaClientID,
@@ -131,6 +138,9 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.POST("/ui/charges/create", h.ChargeCreate)
 	r.PUT("/ui/charges/row/:id", h.ChargeRowUpdate)
 	r.DELETE("/ui/charges/row/:id", h.ChargeRowDelete)
+
+	r.GET("/supercharger-stats", h.SuperchargerStatsPage)
+	r.GET("/ui/supercharger-stats", h.SuperchargerStatsFragment)
 
 	return r, nil
 }

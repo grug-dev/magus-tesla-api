@@ -105,33 +105,6 @@ was `approved`; the mandated T6.2 criteria were met, so the added coverage was d
 rather than reopening the review. Recorded in the RM3 tier-1 progress.json review round 1.
 
 
-## 4. gateway — Supercharger Stats screen
-
-### PROPOSAL
-
-Build the "Supercharger Stats" page the navigation sidebar has been pointing to as a
-placeholder ("soon") since `gateway-add-stitch-design-handoff`. The nav entry currently
-renders as `Href="#"` with a "Soon" badge (the Stitch design's "Supercharger Stats" item,
-icon `analytics`); this change makes it a live route + page.
-
-Likely consumes the existing `telemetry.Reader` and/or `tesla` charging-history data
-(read-only, same indexed reads as the dashboard). The concrete metrics/layout are a
-design-time decision for the change that picks this up; mirror the `charges`
-gold-standard slice (view model → page/fragments → Gin handler → routes) composed from
-the `ui/` kit, semantic tokens only.
-
-**TRIGGER — pick up when** the user wants the "Supercharger Stats" nav entry to become a
-live page (replace the placeholder link + "Soon" badge with a real `/supercharger-stats`
-route + page). The placeholder wiring (nav item + `ui.NavItem.Placeholder`) was added by
-`gateway-add-stitch-design-handoff`.
-
-### ORIGIN
-
-`gateway-add-stitch-design-handoff` grill decision **D9** (user, 2026-07-26): Stitch nav
-items "Supercharger Stats" and "Settings" are placeholders in this change, both recorded
-as future work here. See the change's `tasks.md` T6 and `design.md` §3.4.
-
-
 ## 5. gateway — Settings page
 
 ### PROPOSAL
@@ -209,6 +182,32 @@ then, `internal/battery` returns a value with a documented model-coarse approxim
 2026-08-03): pack capacity is sourced from an in-package table keyed on `car_type` only,
 because `trim_badging` extraction was explicitly scoped out of that change. Recorded here per
 the project's future-work rule.
+
+
+## 8. gateway — Top charging sites breakdown
+
+### PROPOSAL
+
+Add a fourth section to the Supercharger Stats page ranking the most-used Supercharger
+locations — `SiteLocationName` grouped by session count and summed energy (e.g. "Bogota
+Norte · 12 visits · 340 kWh"). `SiteLocationName` and `CountryCode` are already on the
+`telemetry.SuperchargerSession` domain type, so this is **pure in-Go grouping over the
+slice the page already reads** — no new port method, no new query, no DB object.
+
+Deferred to keep the initial page to three sections (tiles + kWh-per-month chart +
+sessions table); a fourth section is another view-model type, Templ component, and test
+group for a metric that is interesting rather than essential.
+
+**TRIGGER — pick up when** the user wants to know *where* they charge, not just how much —
+most naturally once the Supercharger Stats page has been in use for a while and the
+sessions table has grown long enough that scanning it stops answering the question.
+
+### ORIGIN
+
+`gateway-add-supercharger-stats` grill decision **D3** (leader ↔ user grill-me pass,
+2026-08-08): the "tiles + chart + table + top sites" composition was offered and the
+three-section variant chosen. Recorded per the project's future-work rule; see that
+change's `design.md` "Future work".
 
 
 # BRAINSTORMING

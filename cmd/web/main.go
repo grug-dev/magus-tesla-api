@@ -55,6 +55,7 @@ func main() {
 		Google:             google,
 		Tesla:              tesla.NewClient(),
 		TelemetryReader:    telemetry.NewReader(pool),
+		SuperchargerReader: telemetry.NewSuperchargerReader(pool),
 		ManualChargeWriter: manualcharge.NewWriter(pool),
 		ManualChargeReader: manualcharge.NewReader(pool),
 		SessionSecret:      cfg.SessionSecret,
