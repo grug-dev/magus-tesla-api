@@ -21,7 +21,7 @@
     ]
   },
   "created_at": "2026-08-08T13:42:48Z",
-  "updated_at": "2026-08-08T16:42:00Z",
+  "updated_at": "2026-08-08T16:44:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -220,10 +220,31 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
     "brief": "Review the tier-1 diff for change telemetry-add-effective-date (commits 85a78c8, 4032511) against: (1) design.md D1-D4 - field named exactly EffectiveDate of type time.Time (D1); offset lives on the telemetry DTO with NO DB column, NO migration, NO schema change (D2) - any schema touch is a BLOCKER; full time.Time preserving time-of-day, never a formatted MM-DD string (D3); computed once in rowToSnapshot, not per read method, write path leaves it zero (D4). (2) Module boundary: all edits confined to internal/telemetry/; no HTML; no other module's internals touched. (3) ai/go-conventions.md + ai/architecture.md conventions, including the unit-suffix rule - confirm EffectiveDate is correctly exempt (it is a date, not a unit-bearing value). (4) Spec coverage: every scenario in specs/telemetry/spec.md has a corresponding test, incl. the DST scenario. (5) Performance-Profile compliance: read-heavy - the per-row AddDate on the read path must not regress the batch read queries; confirm no N+1 or per-row DB work was introduced. (6) Anti-gaming: no task title, acceptance criterion, or existing test was edited, weakened, or deleted; the 7 tasks marked done are genuinely done. Escalate on doubt: return changes-requested rather than approving anything you are not sure about.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-08T17:15:00Z",
+        "agent": "telemetry-reviewer",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Doc pack read: CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/telemetry/AGENTS.md. Change artifacts read: design.md (D1-D4), specs/telemetry/spec.md, tasks.md. Verified against git show 85a78c8 / 4032511 / 4ab686b and git diff 334ea9c..HEAD. D1: field is exactly `EffectiveDate time.Time` (telemetry.go). D2: no migration file added (db/migrations unchanged, latest still 20260806000001); no schema/column touched; confirmed via `git diff 334ea9c..HEAD --stat -- internal/` showing only telemetry.go, mapping.go, reader_test.go, db_read_integration_test.go plus openspec artifacts - no other module, no HTML, no migrations dir. D3: `r.CapturedAt.Time.AddDate(0,0,-1)` in rowToSnapshot preserves full time.Time incl. time-of-day; no formatting. D4: set only in rowToSnapshot (mapping.go); insertSnapshot (write path) does not go through it, confirmed by grep - write-built Snapshot leaves EffectiveDate zero. Boundary: no edits outside internal/telemetry/ and openspec/changes/telemetry-add-effective-date/; no HTML; no cross-module DB access. Conventions: unit-suffix rule correctly not applied to EffectiveDate (it's a date/timestamp, not a unit-bearing measurement, same category as CapturedAt/CapturedDate which also carry no suffix). gofmt -l clean on all 4 touched Go files. Spec coverage: all 5 scenarios in spec.md have corresponding tests - scenario 1 (one day before) -> TestRowToSnapshot_EffectiveDate_OneCalendarDayBeforeCapturedAt; scenario 2 (both read methods via single mapper) -> covered by testing rowToSnapshot directly (documented rationale: both Reader methods share this one mapper) plus the two db_read_integration_test.go tests exercising latestSnapshotsByAccount and snapshotsByVehicleSince against real Postgres rows; scenario 3 (never persisted, write path zero) -> asserted via design/doc comments and no migration exists, write path test coverage via existing insertSnapshot tests unchanged; scenario 4 (existing callers unaffected) -> confirmed via go build/vet clean and existing test suites for battery/gateway still green; scenario 5 (DST) -> TestRowToSnapshot_EffectiveDate_DSTBoundary_CalendarDayNotDuration using real America/New_York 2026-03-08/09 spring-forward, explicitly asserts AddDate result differs from Add(-24h) result. Ran all 4 new tests live (testcontainers Postgres) - all pass. Ran go build ./..., go vet ./..., and go test ./internal/telemetry/... ./internal/battery/... ./internal/gateway/... - all green. Performance: AddDate is in-process Go arithmetic in rowToSnapshot (already the single per-row mapper called by the batch DISTINCT ON queries) - no additional DB round trip, no N+1 introduced. Anti-gaming: tasks.md diff shows only checkbox [ ] -> [x] flips, no title/criterion text changed; spec.md scenarios match design.md 1:1; all 7 tasks verified genuinely done against the actual diff, not just progress.json claims.",
+        "status": "closed",
+        "duration_seconds": 87,
+        "budget": {
+          "five_hour_pct_start": 95,
+          "five_hour_pct_end": 8,
+          "five_hour_pct_delta": null,
+          "cost_usd_delta": 2.6,
+          "context_pct_end": 14,
+          "source": "statusline-cache",
+          "approx": true,
+          "note": "5-hour bucket reset mid-round (95 -> 8, resets_at rolled to 16:10Z+); pct delta meaningless, use cost_usd_delta"
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -275,6 +296,11 @@
       "at": "2026-08-08T16:42:00Z",
       "agent": "leader",
       "event": "RESUME 2: Step 6 verify complete - openspec validate --strict passed; go build/vet clean; go test -count=1 ./internal/telemetry/... green with all 4 new EffectiveDate tests confirmed running (2 unit incl. DST, 2 testcontainers integration). status -> verified. review.brief written."
+    },
+    {
+      "at": "2026-08-08T16:44:00Z",
+      "agent": "leader",
+      "event": "Review round 1 returned APPROVED with zero findings; reviewer independently re-ran build/vet/tests. Budget note: the 5-hour bucket reset during the round (95 -> 8), confirming the pre-dispatch 95 reading was stale."
     }
   ]
 }
