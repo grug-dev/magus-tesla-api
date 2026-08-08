@@ -41,32 +41,32 @@
 *Depends on: A (needs `superchargerReader` on `Handler`), B (needs the view-model types and
 constants).*
 
-- [ ] C.1 Add `buildSuperchargerStatsView(ctx, uid, teslaID int64, months int, since time.Time)
+- [x] C.1 Add `buildSuperchargerStatsView(ctx, uid, teslaID int64, months int, since time.Time)
   fragments.SuperchargerStatsView` in `internal/gateway/handlers/` (mirrors `buildHistoryView`):
   calls `h.superchargerReader.SuperchargerSessionsByVehicle(ctx, uid, teslaID,
   superchargerReadLimit)` — **one read** — then, on success, filters to `ChargeStartDateTime >=
   since` and builds the view model in Go (D5 window math stays in the caller). On a reader
   error, log and return an empty/degraded view (never propagate to a 500).
-- [ ] C.2 Implement the tiles computation (D7): Sessions = `len(filtered)`; Energy = sum of
+- [x] C.2 Implement the tiles computation (D7): Sessions = `len(filtered)`; Energy = sum of
   non-nil `EnergyKWh`; Avg kWh/session = Energy / count(non-nil `EnergyKWh`), zero-guarded;
   Cost = per-currency map built only from sessions with non-nil `TotalCost` AND non-nil
   `Currency` (D4), rendered as one formatted line per currency, sorted deterministically (e.g.
   by currency code) so output order is stable across renders.
-- [ ] C.3 Implement the kWh-per-month chart bucketing: group filtered sessions by calendar month
+- [x] C.3 Implement the kWh-per-month chart bucketing: group filtered sessions by calendar month
   of `ChargeStartDateTime`, sum non-nil `EnergyKWh` per bucket, compute each bar's `HeightPct`
   relative to the tallest bucket (mirrors `buildOdometerChart`'s max-relative height math), and
   a `<title>`-ready tooltip string per bar (e.g. `"<month> · <kWh> kWh"`). Empty when the
   filtered slice is empty.
-- [ ] C.4 Implement the sessions table row mapping: one `SuperchargerRowVM` per filtered session
+- [x] C.4 Implement the sessions table row mapping: one `SuperchargerRowVM` per filtered session
   (unpaginated, D7) — date label, site label, country code, energy label (`"N.NN kWh"` or
   `"—"`), cost label (`"N.NN <currency>"` or `"—"`), billing type.
-- [ ] C.5 Add `SuperchargerStatsPage(c *gin.Context)` and `SuperchargerStatsFragment(c
+- [x] C.5 Add `SuperchargerStatsPage(c *gin.Context)` and `SuperchargerStatsFragment(c
   *gin.Context)` handlers: auth guard (redirect `/login` for anonymous) →
   `resolveSelectedVehicle` (empty-state render when `false`, no vehicle) →
   `clampSuperchargerMonths(c.Query("months"))` → compute `since` (month-floor, `months` back) →
   `buildSuperchargerStatsView` → render (full page vs. fragment, mirroring
   `DashboardHistoryFragment`'s two-entry-point shape).
-- [ ] C.6 Handler tests with a fake `telemetry.SuperchargerReader`: months clamp
+- [x] C.6 Handler tests with a fake `telemetry.SuperchargerReader`: months clamp
   (missing/invalid/out-of-set → 6; 3/6/12 pass); correct `since` computed; tiles math (Sessions,
   Energy skip-nil, Avg divide-by-zero guard); D4 multi-currency cost lines never summed; D4
   nil-cost/nil-currency sessions excluded from Cost but counted in Sessions/Energy; D2

@@ -9,12 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "C.1",
-      "C.2",
-      "C.3",
-      "C.4",
-      "C.5",
-      "C.6",
       "E.1",
       "E.2",
       "F.1",
@@ -36,11 +30,17 @@
       "D.3",
       "D.4",
       "D.5",
-      "D.6"
+      "D.6",
+      "C.1",
+      "C.2",
+      "C.3",
+      "C.4",
+      "C.5",
+      "C.6"
     ]
   },
   "created_at": "2026-08-08T11:12:42Z",
-  "updated_at": "2026-08-08T11:34:53Z",
+  "updated_at": "2026-08-08T11:44:23Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -237,14 +237,23 @@
         "B.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:36:00Z",
+      "completed_at": "2026-08-08T11:42:59Z",
+      "duration_seconds": 419,
+      "notes": "one read (SuperchargerSessionsByVehicle, cap 500), Go-side since filter, degrade-to-empty on reader error. go build/vet/test pass.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 53.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.997,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered C.1-C.6; delta is the whole wave"
+      }
     },
     {
       "id": "C.2",
@@ -254,14 +263,23 @@
         "C.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:36:00Z",
+      "completed_at": "2026-08-08T11:42:59Z",
+      "duration_seconds": 419,
+      "notes": "buildSuperchargerTiles: Sessions/Energy nil-skip, Avg zero-guarded, per-currency map sorted by code, never summed across currencies. Unit-tested.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 53.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.997,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered C.1-C.6; delta is the whole wave"
+      }
     },
     {
       "id": "C.3",
@@ -271,14 +289,23 @@
         "C.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:36:00Z",
+      "completed_at": "2026-08-08T11:42:59Z",
+      "duration_seconds": 419,
+      "notes": "buildSuperchargerChart: one zero-filled bucket per month in window, max-relative HeightPct, pre-computed tooltip. Empty only when filtered slice is empty.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 53.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.997,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered C.1-C.6; delta is the whole wave"
+      }
     },
     {
       "id": "C.4",
@@ -288,14 +315,23 @@
         "C.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:36:00Z",
+      "completed_at": "2026-08-08T11:42:59Z",
+      "duration_seconds": 419,
+      "notes": "buildSuperchargerRows: one SuperchargerRowVM per filtered session, unpaginated, dash fallback for nil energy/cost.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 53.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.997,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered C.1-C.6; delta is the whole wave"
+      }
     },
     {
       "id": "C.5",
@@ -305,14 +341,23 @@
         "C.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:36:00Z",
+      "completed_at": "2026-08-08T11:42:59Z",
+      "duration_seconds": 419,
+      "notes": "Both handlers share superchargerStatsViewFor: auth guard -> resolveSelectedVehicle (empty state if false) -> clamp -> since -> buildSuperchargerStatsView -> render/renderFragment.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 53.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.997,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered C.1-C.6; delta is the whole wave"
+      }
     },
     {
       "id": "C.6",
@@ -325,14 +370,23 @@
         "C.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet",
+      "started_at": "2026-08-08T11:36:00Z",
+      "completed_at": "2026-08-08T11:42:59Z",
+      "duration_seconds": 419,
+      "notes": "19 new tests in supercharger_test.go covering clamp, tiles math, D2/D4, chart bucketing, degrade, auth guard, empty state. All pass.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 53.0,
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 3.997,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered C.1-C.6; delta is the whole wave"
+      }
     },
     {
       "id": "D.1",
@@ -698,6 +752,15 @@
       "decision": "Accepted multi-line cost rendering via newline-joined CostLines + whitespace-pre-line, rather than extending ui.StatTile with a children slot",
       "why": "Keeps the shared ui/ component signature stable and the template math-free; changing a kit primitive is a wider design call than this change authorizes. Flagged for reviewer scrutiny as the weakest of wave 2's calls.",
       "covered_by": "D4"
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-08T11:44:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Accepted the worker's chart zero-fill (one bar per month in the window, including months with no sessions) and its split number formatting",
+      "why": "Zero-fill matches design.md's literal 'one bar per month in the window' and avoids a compressed timeline. Formatting follows two precedents: design.md examples for tiles, charges.go for table rows \u2014 leaving cost grouped in the tile but ungrouped in the table. Flagged for reviewer as a cosmetic inconsistency.",
+      "covered_by": "D3, D7"
     }
   ],
   "events": [
@@ -745,6 +808,16 @@
       "at": "2026-08-08T11:34:53Z",
       "agent": "leader",
       "event": "wave 2 complete (D.1-D.6). Leader verified build/vet/ui-guard, and confirmed no HTML comments, no hex colors, no client JS in the new markup. Triaged 3 worker judgment calls: selector-visible-when-empty and grid-over-daisy-stats accepted as routine precedent; cost rendering logged as D10. 5h 30->41%, cost +$3.19."
+    },
+    {
+      "at": "2026-08-08T11:35:30Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (claude-sonnet) for wave 3 = C.1-C.6 (handler logic, aggregation, unit tests) \u2014 implements D2/D4/D7"
+    },
+    {
+      "at": "2026-08-08T11:44:23Z",
+      "agent": "leader",
+      "event": "wave 3 complete (C.1-C.6). Leader verified exactly one ByVehicle read, no ByAccount call in production code, no telemetrydb import, go test ./... green, 20 new test funcs. Logged D11 for chart zero-fill + formatting split. 5h 42->53%, cost +$4.00."
     }
   ]
 }
