@@ -61,7 +61,13 @@ These were confirmed by the user and are authoritative for every tier's design/s
 
 ## Tiers
 
-### Tier 1 — `telemetry-add-effective-date` (module: `telemetry`)
+Status legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, not archived)
+· `[x]` done (archived).
+
+### Tier 1 — `[x]` `telemetry-add-effective-date` (module: `telemetry`)
+
+Archived `2026-08-08` as `openspec/changes/archive/2026-08-08-telemetry-add-effective-date/`;
+reviewer-approved round 1, zero findings. Branch `ft/RM7-history-graph-improvements`.
 
 Add `EffectiveDate time.Time` to `telemetry.Snapshot` (= `CapturedAt.AddDate(0, 0, -1)`, DST-safe
 calendar-day arithmetic), populated once in the single DB→domain mapper `rowToSnapshot` so both
@@ -70,7 +76,10 @@ read-derived. Additive / non-breaking; existing callers ignore it. Files: `inter
 telemetry.go`, `internal/telemetry/mapping.go`, read tests. Artifacts: proposal, design, specs
 (ADDED "Snapshot Effective Date"), tasks — all valid.
 
-### Tier 2 — `gateway-history-graph-labels-tooltips` (module: `gateway`; depends on tier 1)
+### Tier 2 — `[~]` `gateway-history-graph-labels-tooltips` (module: `gateway`; depends on tier 1)
+
+Artifacts exist and are valid; implementation not started. Tier 1 is archived, so this tier is
+unblocked.
 
 Consume `Snapshot.EffectiveDate` in the history handler: tooltip date → `EffectiveDate.Format("01-02")`
 (MM-DD); add a per-bar `Label` (`MM-DD` from `EffectiveDate`) to `fragments.HistoryBar`; add a
