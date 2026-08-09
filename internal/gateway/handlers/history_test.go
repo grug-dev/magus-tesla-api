@@ -79,16 +79,21 @@ func newHandlerForHistory(reader *fakeHistoryReader, teslaID int64, vin string) 
 }
 
 // dailySnaps builds N+1 snapshots oldest-first: a fixed odometer step + battery
-// level, useful for building chart test inputs.
+// level, useful for building chart test inputs. EffectiveDate mirrors the real
+// telemetry mapping (CapturedAt minus one calendar day — internal/telemetry/
+// mapping.go) so tests exercising Label/Tooltip content see realistic,
+// non-zero EffectiveDate values.
 func dailySnaps(n int, odometerBase float64, odometerStep float64, batteryBase int) []telemetry.Snapshot {
 	snaps := make([]telemetry.Snapshot, n+1)
 	base := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
 	for i := range snaps {
+		capturedAt := base.AddDate(0, 0, i)
 		snaps[i] = telemetry.Snapshot{
 			OdometerKm:      odometerBase + float64(i)*odometerStep,
 			BatteryLevelPct: batteryBase + i,
 			BatteryRangeKm:  300,
-			CapturedAt:      base.AddDate(0, 0, i),
+			CapturedAt:      capturedAt,
+			EffectiveDate:   capturedAt.AddDate(0, 0, -1),
 		}
 	}
 	return snaps
@@ -118,6 +123,28 @@ func TestClampHistoryDays_Presets(t *testing.T) {
 		got := clampHistoryDays(tc.raw)
 		if got != tc.want {
 			t.Errorf("clampHistoryDays(%q): want %d, got %d", tc.raw, tc.want, got)
+		}
+	}
+}
+
+// --- labelVerticalFor unit tests (task 4.2) ---
+
+// TestLabelVerticalFor_OrientationByDaysPreset asserts the closed-vocabulary
+// wide/narrow split (design D2/D3): horizontal (false) for the wide 6-day
+// preset, rotated vertical (true) for the narrow 14- and 30-day presets.
+func TestLabelVerticalFor_OrientationByDaysPreset(t *testing.T) {
+	tests := []struct {
+		days int
+		want bool
+	}{
+		{6, false},
+		{14, true},
+		{30, true},
+	}
+	for _, tc := range tests {
+		got := labelVerticalFor(tc.days)
+		if got != tc.want {
+			t.Errorf("labelVerticalFor(%d): want %v, got %v", tc.days, tc.want, got)
 		}
 	}
 }
@@ -164,19 +191,25 @@ func TestBuildOdometerChart_NegativeDeltaClampedToZero(t *testing.T) {
 }
 
 func TestBuildOdometerChart_TooltipContainsDateAndKeywords(t *testing.T) {
+	// CapturedAt and EffectiveDate deliberately differ (D1): the tooltip date
+	// must come from EffectiveDate, not CapturedAt — the mismatch here is what
+	// proves the source, not a coincidence of matching values.
 	snaps := []telemetry.Snapshot{
-		{OdometerKm: 12000, CapturedAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)},
-		{OdometerKm: 12100, CapturedAt: time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC)},
+		{OdometerKm: 12000, CapturedAt: time.Date(2026, 7, 2, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 7, 1, 3, 30, 0, 0, time.UTC)},
+		{OdometerKm: 12100, CapturedAt: time.Date(2026, 7, 3, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 7, 2, 3, 30, 0, 0, time.UTC)},
 	}
 	c := buildOdometerChart(snaps, 6)
 	if c.Empty || len(c.Bars) == 0 {
 		t.Fatal("want bars")
 	}
 	tt := c.Bars[0].Tooltip
-	for _, want := range []string{"2026-07-02", "km driven", "odometer"} {
+	for _, want := range []string{"07-02", "km driven", "odometer"} {
 		if !strings.Contains(tt, want) {
 			t.Errorf("tooltip missing %q, got: %q", want, tt)
 		}
+	}
+	if strings.Contains(tt, "2026-07-03") || strings.Contains(tt, "07-03") {
+		t.Errorf("tooltip must NOT contain the CapturedAt-derived date, got: %q", tt)
 	}
 }
 
@@ -189,6 +222,32 @@ func TestBuildOdometerChart_FewerThanNPlusOneSnapshots(t *testing.T) {
 	}
 	if len(c.Bars) != 3 {
 		t.Errorf("want 3 bars (data-limited), got %d", len(c.Bars))
+	}
+}
+
+// TestBuildOdometerChart_LabelAndTooltipUseEffectiveDate is the design.md /
+// spec.md scenario "Tooltip date is the EffectiveDate in MM-DD, not the
+// capture morning" (task 4.1): CapturedAt=2026-08-08 03:30 UTC,
+// EffectiveDate=2026-08-07 → Label=="08-07" and the tooltip contains "08-07"
+// but NOT "2026-08-08" (proves CapturedAt is not the source).
+func TestBuildOdometerChart_LabelAndTooltipUseEffectiveDate(t *testing.T) {
+	snaps := []telemetry.Snapshot{
+		{OdometerKm: 12000, CapturedAt: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 6, 3, 30, 0, 0, time.UTC)},
+		{OdometerKm: 12100, CapturedAt: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC)},
+	}
+	c := buildOdometerChart(snaps, 6)
+	if c.Empty || len(c.Bars) == 0 {
+		t.Fatal("want bars")
+	}
+	bar := c.Bars[0]
+	if bar.Label != "08-07" {
+		t.Errorf("want Label=%q (from EffectiveDate), got %q", "08-07", bar.Label)
+	}
+	if !strings.Contains(bar.Tooltip, "08-07") {
+		t.Errorf("want tooltip to contain %q, got: %q", "08-07", bar.Tooltip)
+	}
+	if strings.Contains(bar.Tooltip, "2026-08-08") {
+		t.Errorf("tooltip must NOT contain the CapturedAt morning %q, got: %q", "2026-08-08", bar.Tooltip)
 	}
 }
 
@@ -231,18 +290,48 @@ func TestBuildBatteryChart_HeightPctEqualsLevel(t *testing.T) {
 }
 
 func TestBuildBatteryChart_TooltipContainsDateLevelAndRange(t *testing.T) {
+	// CapturedAt and EffectiveDate deliberately differ (D1): the tooltip date
+	// must come from EffectiveDate, not CapturedAt.
 	snaps := []telemetry.Snapshot{
-		{BatteryLevelPct: 82, BatteryRangeKm: 300, CapturedAt: time.Date(2026, 7, 3, 0, 0, 0, 0, time.UTC)},
+		{BatteryLevelPct: 82, BatteryRangeKm: 300, CapturedAt: time.Date(2026, 7, 4, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 7, 3, 3, 30, 0, 0, time.UTC)},
 	}
 	c := buildBatteryChart(snaps, 6)
 	if c.Empty || len(c.Bars) == 0 {
 		t.Fatal("want bars")
 	}
 	tt := c.Bars[0].Tooltip
-	for _, want := range []string{"2026-07-03", "82%", "km range"} {
+	for _, want := range []string{"07-03", "82%", "km range"} {
 		if !strings.Contains(tt, want) {
 			t.Errorf("battery tooltip missing %q, got: %q", want, tt)
 		}
+	}
+	if strings.Contains(tt, "2026-07-04") || strings.Contains(tt, "07-04") {
+		t.Errorf("battery tooltip must NOT contain the CapturedAt-derived date, got: %q", tt)
+	}
+}
+
+// TestBuildBatteryChart_LabelAndTooltipUseEffectiveDate is the design.md /
+// spec.md scenario "Tooltip date is the EffectiveDate in MM-DD, not the
+// capture morning" (task 4.1) for the battery chart: CapturedAt=2026-08-08
+// 03:30 UTC, EffectiveDate=2026-08-07 → Label=="08-07" and the tooltip
+// contains "08-07" but NOT "2026-08-08".
+func TestBuildBatteryChart_LabelAndTooltipUseEffectiveDate(t *testing.T) {
+	snaps := []telemetry.Snapshot{
+		{BatteryLevelPct: 80, BatteryRangeKm: 300, CapturedAt: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC)},
+	}
+	c := buildBatteryChart(snaps, 6)
+	if c.Empty || len(c.Bars) == 0 {
+		t.Fatal("want bars")
+	}
+	bar := c.Bars[0]
+	if bar.Label != "08-07" {
+		t.Errorf("want Label=%q (from EffectiveDate), got %q", "08-07", bar.Label)
+	}
+	if !strings.Contains(bar.Tooltip, "08-07") {
+		t.Errorf("want tooltip to contain %q, got: %q", "08-07", bar.Tooltip)
+	}
+	if strings.Contains(bar.Tooltip, "2026-08-08") {
+		t.Errorf("tooltip must NOT contain the CapturedAt morning %q, got: %q", "2026-08-08", bar.Tooltip)
 	}
 }
 
@@ -535,5 +624,107 @@ func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
 	// It carries hx-trigger="load" so it self-fetches on render.
 	if !strings.Contains(body, `hx-trigger="load"`) {
 		t.Error("#dashboard-history must carry hx-trigger=\"load\" for self-fetch")
+	}
+}
+
+// TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowPresets
+// (task 4.3, retargeted by task 6.5 for design D4-R1): httptest against
+// NewEngine with a fake telemetry.Reader whose snapshots carry known
+// EffectiveDates. Asserts the rendered fragment HTML contains each bar's
+// MM-DD label (computed via the same production buildOdometerChart/
+// buildBatteryChart functions the handler calls, not re-derived date math),
+// and that the vertical-label CSS class `[writing-mode:vertical-rl]` is
+// present ONLY for the 14- and 30-day presets, never for 6 (design D2/D3).
+// D4-R1 moved orientation from an SVG `transform="rotate(-90 ...)"` (illegible
+// under preserveAspectRatio="none" non-uniform scaling) to this CSS class on
+// the HTML label cell — this test now asserts the CSS class instead.
+func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowPresets(t *testing.T) {
+	uid := uuid.New()
+	snaps := dailySnaps(6, 1000, 10, 70) // 7 points, EffectiveDate set by dailySnaps
+	reader := &fakeHistoryReader{historySnaps: snaps}
+	h := newHandlerForHistory(reader, 42, "VIN42")
+	eng := historyEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	for _, tc := range []struct {
+		days         int
+		wantVertical bool
+	}{
+		{6, false},
+		{14, true},
+		{30, true},
+	} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/ui/dashboard/history?days=%d", tc.days), nil)
+		if c != nil {
+			req.AddCookie(c)
+		}
+		eng.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("days=%d: want 200, got %d", tc.days, w.Code)
+		}
+		body := w.Body.String()
+
+		odo := buildOdometerChart(snaps, tc.days)
+		bat := buildBatteryChart(snaps, tc.days)
+		for _, bar := range odo.Bars {
+			if !strings.Contains(body, bar.Label) {
+				t.Errorf("days=%d: odometer label %q missing from rendered body", tc.days, bar.Label)
+			}
+		}
+		for _, bar := range bat.Bars {
+			if !strings.Contains(body, bar.Label) {
+				t.Errorf("days=%d: battery label %q missing from rendered body", tc.days, bar.Label)
+			}
+		}
+
+		hasVerticalClass := strings.Contains(body, `[writing-mode:vertical-rl]`)
+		if hasVerticalClass != tc.wantVertical {
+			t.Errorf("days=%d: want vertical label class present=%v, got %v", tc.days, tc.wantVertical, hasVerticalClass)
+		}
+	}
+}
+
+// TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat
+// (task 4.4): the logic-free-template invariant. The labels the handler
+// pre-computed on the view model (HistoryBar.Label) must appear verbatim in
+// the rendered HTML — the template performs no reformatting — and the
+// long-form Go date layout "2006-01-02" must never appear in the response,
+// proving the template never falls back to CapturedAt-style formatting.
+func TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat(t *testing.T) {
+	uid := uuid.New()
+	snaps := dailySnaps(13, 1000, 10, 60) // 14 points, enough for the 14-day preset
+	reader := &fakeHistoryReader{historySnaps: snaps}
+	h := newHandlerForHistory(reader, 42, "VIN42")
+	eng := historyEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history?days=14", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+
+	v := h.buildHistoryView(context.Background(), uid, 42, 14, startOfDay(time.Now()).AddDate(0, 0, -14))
+	if len(v.Odometer.Bars) == 0 || len(v.Battery.Bars) == 0 {
+		t.Fatal("want non-empty odometer and battery bars for this fixture")
+	}
+	for _, bar := range v.Odometer.Bars {
+		if !strings.Contains(body, bar.Label) {
+			t.Errorf("odometer bar Label %q not found verbatim in rendered body", bar.Label)
+		}
+	}
+	for _, bar := range v.Battery.Bars {
+		if !strings.Contains(body, bar.Label) {
+			t.Errorf("battery bar Label %q not found verbatim in rendered body", bar.Label)
+		}
+	}
+	if strings.Contains(body, "2006-01-02") {
+		t.Error("body must not contain the Go long-date layout \"2006-01-02\" — the template must never format dates itself")
 	}
 }

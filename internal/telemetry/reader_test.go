@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
 
 // The reader tests exercise the Reader port fully OFFLINE: a fakeReadStore implements
@@ -355,5 +358,82 @@ func TestReader_SnapshotsByVehicleSince_StoreError(t *testing.T) {
 	_, err := r.SnapshotsByVehicleSince(context.Background(), uuid.New(), 1, time.Now())
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("want store error %v propagated, got %v", wantErr, err)
+	}
+}
+
+// --- EffectiveDate (telemetry-add-effective-date) ---
+//
+// rowToSnapshot (mapping.go) is the SINGLE DB→domain mapper both
+// dbStore.latestSnapshotsByAccount and dbStore.snapshotsByVehicleSince call per
+// row (service.go — design D4: computed once in the mapper, not per read
+// method). Testing rowToSnapshot directly therefore proves EffectiveDate for
+// both Reader methods without a database. TestReadStore_*_EffectiveDate in
+// db_read_integration_test.go additionally proves it end-to-end against a real
+// Postgres row (task 2.3).
+
+// TestRowToSnapshot_EffectiveDate_OneCalendarDayBeforeCapturedAt asserts that
+// for a row with a known captured_at, rowToSnapshot derives EffectiveDate as
+// exactly CapturedAt.AddDate(0,0,-1) and leaves CapturedAt itself unchanged —
+// the property both LatestSnapshotsByAccount and SnapshotsByVehicleSince
+// inherit for free since they share this one mapper.
+func TestRowToSnapshot_EffectiveDate_OneCalendarDayBeforeCapturedAt(t *testing.T) {
+	capturedAt := time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC)
+	row := telemetrydb.VehicleSnapshot{
+		AccountID:  uuid.New(),
+		TeslaID:    10,
+		CapturedAt: pgtype.Timestamptz{Time: capturedAt, Valid: true},
+	}
+
+	got := rowToSnapshot(row)
+
+	wantEffective := capturedAt.AddDate(0, 0, -1)
+	if !got.EffectiveDate.Equal(wantEffective) {
+		t.Errorf("EffectiveDate: want %v, got %v", wantEffective, got.EffectiveDate)
+	}
+	if !got.CapturedAt.Equal(capturedAt) {
+		t.Errorf("CapturedAt must stay unchanged: want %v, got %v", capturedAt, got.CapturedAt)
+	}
+}
+
+// TestRowToSnapshot_EffectiveDate_DSTBoundary_CalendarDayNotDuration asserts
+// that EffectiveDate steps one CALENDAR day, not a fixed 24-hour duration, on a
+// day adjacent to a US spring-forward transition (design D3/risk in
+// openspec/changes/telemetry-add-effective-date/design.md: AddDate(0,0,-1) vs.
+// Add(-24*time.Hour)).
+//
+// 2026-03-08 is the US spring-forward day in America/New_York: clocks jump
+// 02:00 EST -> 03:00 EDT, so the day has only 23 real hours. CapturedAt is set
+// to 2026-03-09 01:30 (a wall-clock time that exists unambiguously the day
+// AFTER the transition, fully in EDT). AddDate(0,0,-1) must land on
+// 2026-03-08 01:30 (same wall clock, offset auto-adjusted to EST) — the
+// calendar day before. Subtracting a fixed 24-hour duration instead would land
+// on 2026-03-08 00:30 (drifted back an extra hour by the missing 02:00-02:59
+// hour), which is what this test guards against.
+func TestRowToSnapshot_EffectiveDate_DSTBoundary_CalendarDayNotDuration(t *testing.T) {
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatalf("LoadLocation: %v", err)
+	}
+
+	capturedAt := time.Date(2026, 3, 9, 1, 30, 0, 0, loc)
+	row := telemetrydb.VehicleSnapshot{
+		AccountID:  uuid.New(),
+		TeslaID:    20,
+		CapturedAt: pgtype.Timestamptz{Time: capturedAt, Valid: true},
+	}
+
+	got := rowToSnapshot(row)
+
+	wantCalendarDay := time.Date(2026, 3, 8, 1, 30, 0, 0, loc) // AddDate: correct
+	wrongDurationDay := capturedAt.Add(-24 * time.Hour)        // Add(-24h): drifted
+
+	if !got.EffectiveDate.Equal(wantCalendarDay) {
+		t.Errorf("EffectiveDate must step one calendar day: want %v, got %v", wantCalendarDay, got.EffectiveDate)
+	}
+	if got.EffectiveDate.Equal(wrongDurationDay) {
+		t.Errorf("EffectiveDate must NOT equal the fixed-24h-duration result %v (DST drift)", wrongDurationDay)
+	}
+	if h, m := got.EffectiveDate.Hour(), got.EffectiveDate.Minute(); h != 1 || m != 30 {
+		t.Errorf("EffectiveDate wall-clock time must stay 01:30, got %02d:%02d", h, m)
 	}
 }

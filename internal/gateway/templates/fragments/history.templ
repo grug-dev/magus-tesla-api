@@ -17,43 +17,75 @@ templ dashHistoryEmpty() {
 	</div>
 }
 
-// historyBarChart renders a responsive SVG bar chart from the pre-computed
-// HistoryChart view model (RD7: hand-rolled SVG, no chart library). The template
-// does NO arithmetic — all heights and tooltip strings arrive fully computed on
-// the view model.
+// historyBarChart renders a responsive SVG bar chart plus an HTML date-label
+// row from the pre-computed HistoryChart view model (RD7: hand-rolled SVG, no
+// chart library). The template does NO arithmetic — all heights, tooltip
+// strings, and label strings arrive fully computed on the view model;
+// orientation is read from chart.LabelVertical only (no days comparison, no
+// rotation math here — design D3/D5).
 //
 // When chart.Empty is true (too few snapshots), it falls back to dashHistoryEmpty().
 //
-// SVG semantics: viewBox="0 0 N 100" with preserveAspectRatio="none" and
-// class="w-full h-24" makes the chart fill its container horizontally while
-// keeping a fixed visual height — purely CSS-responsive, no JS resize handler.
-// Each bar is a <rect> at a pre-computed HeightPct; a child <title> provides the
-// native browser hover tooltip (no JS tooltip library).
+// Layout (design D4-R1 — supersedes the original SVG <text> approach): bars
+// and labels share ONE CSS grid, `grid-template-columns: repeat(N, 1fr)` where
+// N = len(chart.Bars). The <svg> spans all columns (col-span-full) so it fills
+// row 1; the SVG keeps viewBox="0 0 N 100" + preserveAspectRatio="none" +
+// class="w-full h-24" — purely CSS-responsive, no JS resize handler. Each bar
+// is a <rect> at a pre-computed HeightPct; a child <title> provides the native
+// browser hover tooltip (no JS tooltip library).
 //
-// Bar fills use DaisyUI semantic fill tokens (e.g. "fill-primary", "fill-secondary"),
-// never hardcoded hex — the chart re-skins from one data-theme (RD7).
+// The label row is a SIBLING of the SVG inside the same grid, one <div> cell
+// per bar — real DOM text, not SVG glyphs, so it never passes through the
+// SVG's non-uniform preserveAspectRatio="none" stretch (that stretch is what
+// made the old SVG <text> approach illegible: bars stretch correctly but text
+// glyphs stretched with them). Both the SVG and the label cells derive their
+// columns from the same grid, so bar↔label alignment holds at every width.
+// Orientation is a CSS class toggle on chart.LabelVertical, not an SVG
+// transform: [writing-mode:vertical-rl] + rotate-180 reads the label
+// bottom-to-top for the narrow 14-/30-day presets; plain horizontal text
+// otherwise.
+//
+// Bar fills use DaisyUI semantic fill tokens (e.g. "fill-primary", "fill-secondary");
+// labels use the muted "text-base-content/60" content token — never hardcoded hex,
+// so the chart re-skins from one data-theme (RD7).
 templ historyBarChart(chart HistoryChart, colorClass string) {
 	if chart.Empty {
 		@dashHistoryEmpty()
 	} else {
-		<svg
-			viewBox={ fmt.Sprintf("0 0 %d 100", len(chart.Bars)) }
-			preserveAspectRatio="none"
-			class="w-full h-24"
-			aria-hidden="true"
+		<div
+			class="grid gap-y-1"
+			style={ fmt.Sprintf("grid-template-columns: repeat(%d, minmax(0, 1fr))", len(chart.Bars)) }
 		>
-			for i, bar := range chart.Bars {
-				<rect
-					x={ strconv.Itoa(i) }
-					y={ strconv.Itoa(100 - bar.HeightPct) }
-					width="0.8"
-					height={ strconv.Itoa(bar.HeightPct) }
-					class={ colorClass }
-				>
-					<title>{ bar.Tooltip }</title>
-				</rect>
+			<svg
+				viewBox={ fmt.Sprintf("0 0 %d 100", len(chart.Bars)) }
+				preserveAspectRatio="none"
+				class="w-full h-24 col-span-full"
+				aria-hidden="true"
+			>
+				for i, bar := range chart.Bars {
+					<rect
+						x={ strconv.Itoa(i) }
+						y={ strconv.Itoa(100 - bar.HeightPct) }
+						width="0.8"
+						height={ strconv.Itoa(bar.HeightPct) }
+						class={ colorClass }
+					>
+						<title>{ bar.Tooltip }</title>
+					</rect>
+				}
+			</svg>
+			for _, bar := range chart.Bars {
+				if chart.LabelVertical {
+					<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60 [writing-mode:vertical-rl] rotate-180">
+						{ bar.Label }
+					</div>
+				} else {
+					<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60">
+						{ bar.Label }
+					</div>
+				}
 			}
-		</svg>
+		</div>
 	}
 }
 

@@ -49,6 +49,16 @@ func clampHistoryDays(raw string) int {
 	return defaultHistoryDays
 }
 
+// labelVerticalFor decides per-bar label orientation for a history chart from
+// the days preset (design D2/D3: a single chart-level flag, computed once in
+// the handler — the template never compares days or computes rotation). This
+// is the one named location for the wide/narrow preset split: true (rotated
+// vertical labels) for the narrower 14- and 30-day presets, false (horizontal
+// labels) for the wide 6-day preset.
+func labelVerticalFor(days int) bool {
+	return days == 14 || days == 30
+}
+
 // startOfDay returns midnight UTC for the given time t (truncates to the day).
 func startOfDay(t time.Time) time.Time {
 	t = t.UTC()
@@ -75,8 +85,8 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		// No vehicle registered or account error — render an empty history block
 		// (both charts in empty state). Mirrors dashboardFor degradation.
 		v := fragments.HistoryView{
-			Days:    defaultHistoryDays,
-			Presets: historyDayPresets,
+			Days:     defaultHistoryDays,
+			Presets:  historyDayPresets,
 			Odometer: fragments.HistoryChart{Empty: true},
 			Battery:  fragments.HistoryChart{Empty: true},
 		}
@@ -137,8 +147,8 @@ func buildOdometerChart(snaps []telemetry.Snapshot, days int) fragments.HistoryC
 	}
 
 	type delta struct {
-		date      time.Time
-		kmDriven  float64
+		date       time.Time
+		kmDriven   float64
 		odometerKm float64
 	}
 	deltas := make([]delta, 0, len(pts)-1)
@@ -149,7 +159,10 @@ func buildOdometerChart(snaps []telemetry.Snapshot, days int) fragments.HistoryC
 			d = 0 // clamp negative (RD5: clock skew / odometer anomaly)
 		}
 		deltas = append(deltas, delta{
-			date:       pts[i].CapturedAt.UTC(),
+			// EffectiveDate (not CapturedAt): the calendar day the snapshot
+			// represents, not the capture morning (D1 — mixing sources here
+			// would re-introduce the 1-day mismatch MAG-6 fixes).
+			date:       pts[i].EffectiveDate,
 			kmDriven:   d,
 			odometerKm: pts[i].OdometerKm,
 		})
@@ -164,14 +177,15 @@ func buildOdometerChart(snaps []telemetry.Snapshot, days int) fragments.HistoryC
 		if maxKm > 0 {
 			pct = int(math.Round(d.kmDriven / maxKm * 100))
 		}
+		label := d.date.Format("01-02")
 		tooltip := fmt.Sprintf("%s · %s km driven · odometer %s",
-			d.date.Format("2006-01-02"),
+			label,
 			formatKmRaw(d.kmDriven),
 			formatKm(d.odometerKm),
 		)
-		bars = append(bars, fragments.HistoryBar{HeightPct: pct, Tooltip: tooltip})
+		bars = append(bars, fragments.HistoryBar{HeightPct: pct, Tooltip: tooltip, Label: label})
 	}
-	return fragments.HistoryChart{Bars: bars, Empty: len(bars) == 0}
+	return fragments.HistoryChart{Bars: bars, Empty: len(bars) == 0, LabelVertical: labelVerticalFor(days)}
 }
 
 // buildBatteryChart computes battery-level-% bars from the N most recent snapshots
@@ -190,14 +204,16 @@ func buildBatteryChart(snaps []telemetry.Snapshot, days int) fragments.HistoryCh
 
 	bars := make([]fragments.HistoryBar, 0, len(pts))
 	for _, s := range pts {
+		// EffectiveDate (not CapturedAt): see buildOdometerChart — same D1 rule.
+		label := s.EffectiveDate.Format("01-02")
 		tooltip := fmt.Sprintf("%s · %d%% · %s km range",
-			s.CapturedAt.UTC().Format("2006-01-02"),
+			label,
 			s.BatteryLevelPct,
 			formatKmRaw(s.BatteryRangeKm),
 		)
-		bars = append(bars, fragments.HistoryBar{HeightPct: s.BatteryLevelPct, Tooltip: tooltip})
+		bars = append(bars, fragments.HistoryBar{HeightPct: s.BatteryLevelPct, Tooltip: tooltip, Label: label})
 	}
-	return fragments.HistoryChart{Bars: bars, Empty: false}
+	return fragments.HistoryChart{Bars: bars, Empty: false, LabelVertical: labelVerticalFor(days)}
 }
 
 // formatKmRaw renders a kilometre value as a whole number string without the " km"

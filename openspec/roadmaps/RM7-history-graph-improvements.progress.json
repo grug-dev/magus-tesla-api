@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM7-history-graph-improvements",
+  "intention": "Dashboard history charts show the day the data represents (EffectiveDate = CapturedAt - 1 day) formatted MM-DD in every tooltip, and carry a per-bar MM-DD date label (adaptive horizontal for 6-day / vertical for 14- and 30-day presets), fixing the 'yesterday shown as today' mismatch (Linear MAG-6).",
+  "request": "Can you please create the openspec proposal for that ticket? MAG-6 (history graph change): tooltip date MM-DD; per-bar date label that fits in the 30-day view (vertical?); and the history graph should display the captured date - 1 day so the data makes sense. Use /grill-me to decide where the -1-day change lives.",
+  "autopilot": false,
+  "status": "in-progress",
+  "created_at": "2026-08-08T00:00:00Z",
+  "updated_at": "2026-08-08T16:45:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "manual",
+    "branch": "main",
+    "base": "main",
+    "created_at": "2026-08-08T00:00:00Z"
+  },
+  "rollup": {
+    "current": [
+      2
+    ],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1
+    ]
+  },
+  "decisions": [
+    {
+      "id": "RD1",
+      "at": "2026-08-08T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The 'captured_date - 1 day' adjustment lives on the telemetry Snapshot DTO as a new read-derived field (not in the gateway, not in a stored DB column). The offset is a property of the data's meaning; the owning module computes it once so all consumers stay consistent.",
+      "why": "grill-me MAG-6 Q1: gateway-only compute is divergent for future consumers; a stored column is schema churn for a cheap read-time derivation. Confirmed by user.",
+      "covered_by": "tier 1 design D2 / spec 'Snapshot Effective Date'"
+    },
+    {
+      "id": "RD2",
+      "at": "2026-08-08T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The new field is named EffectiveDate time.Time.",
+      "why": "grill-me MAG-6 Q2: cleanly separates 'when we read it' (CapturedAt) from 'which day it describes' (EffectiveDate); does not lock the name to the history-graph use case. SummaryDate/CoverageDate/ReportedDate rejected. Confirmed by user.",
+      "covered_by": "tier 1 design D1 / Snapshot struct field"
+    },
+    {
+      "id": "RD3",
+      "at": "2026-08-08T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The backend field is a full time.Time (same shape as CapturedAt, including the year, preserving time-of-day); MM-DD formatting is a cosmetic/UI concern owned by the gateway, NOT baked into the telemetry field.",
+      "why": "grill-me MAG-6 Q3: keeps the field reusable for any future caller/format. Confirmed by user.",
+      "covered_by": "tier 1 design D3 / tier 2 design D1"
+    },
+    {
+      "id": "RD4",
+      "at": "2026-08-08T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "leader-verified",
+      "decision": "Both the tooltip and the per-bar label use EffectiveDate formatted MM-DD. Showing the label from EffectiveDate and the tooltip from CapturedAt would re-introduce the 1-day mismatch MAG-6 fixes.",
+      "why": "Consistency between label and tooltip; the ticket fix only holds if both use the represented day.",
+      "covered_by": "tier 2 design D1 / spec scenarios"
+    },
+    {
+      "id": "RD5",
+      "at": "2026-08-08T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Per-bar label orientation is adaptive: horizontal MM-DD for the 6-day preset (wide bars), rotated vertical MM-DD for the 14- and 30-day presets (narrow bars). The handler decides orientation from the preset and exposes a single chart-level LabelVertical bool; the template reads only the flag.",
+      "why": "grill-me MAG-6 Q-labels: the ticket hints at vertical labels; adaptive gives readability at every preset. Template stays logic-free (no days comparison / rotation math). Confirmed by user.",
+      "covered_by": "tier 2 design D2/D3/D4 / spec 'Label orientation is adaptive'"
+    },
+    {
+      "id": "RD6",
+      "at": "2026-08-08T00:00:00Z",
+      "scope": "roadmap",
+      "made_by": "leader-verified",
+      "decision": "EffectiveDate is computed with CapturedAt.AddDate(0,0,-1) (calendar-day arithmetic), not Add(-24h) (duration), so DST does not shift the represented day.",
+      "why": "Nightly cadence is a calendar-day cadence; DST 23/25-hour days would offset a duration by an hour.",
+      "covered_by": "tier 1 design D4 / spec DST scenario"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "telemetry-add-effective-date",
+      "module": "telemetry",
+      "depends_on": [],
+      "optional": false,
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader) / claude-sonnet-4-6 (worker+reviewer)",
+      "started_at": "2026-08-08T13:42:48Z",
+      "completed_at": "2026-08-08T16:45:00Z",
+      "duration_seconds": 10932,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.54,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2.94 + review 2.60; spanned an opencode session and a 5-hour bucket reset"
+      },
+      "notes": "Snapshot.EffectiveDate added, derived once in rowToSnapshot. Reviewer-approved round 1, zero findings. Archived 2026-08-08-telemetry-add-effective-date."
+    },
+    {
+      "id": 2,
+      "change": "gateway-history-graph-labels-tooltips",
+      "module": "gateway",
+      "depends_on": [
+        1
+      ],
+      "optional": false,
+      "status": "proposed"
+    }
+  ]
+}
