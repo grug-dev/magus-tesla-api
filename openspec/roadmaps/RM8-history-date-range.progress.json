@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM8-history-date-range",
+  "intention": "Dashboard history charts are driven by start/end calendar-date range params (not a days count) with a fixed date axis on both charts, a remove-Refresh hygiene change, and a project-wide start/end-date-filter convention for gateway HTTP endpoints.",
+  "request": "MAG-7 — Date Filters. (1) Remove the Refresh button/action. (2) The history API ui/dashboard/history?days=6 should use start/end date filters instead of a days count — if either odometer or battery history is missing a record on a given day the count-based read creates a mismatch between the dates on the two graphs (odometer 08-01 vs battery 08-02) — and set a project-wide rule that date filters on APIs are handled by start/end date filters. Linear: https://linear.app/magus-monitor/issue/MAG-7/date-filters",
+  "status": "in-progress",
+  "updated_at": "2026-08-09T11:51:05Z",
+  "leader": { "assistant": "opencode", "model": "glm-5.2" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM8-history-date-range",
+    "base": "main",
+    "created_at": "2026-08-09T11:51:05Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-09T11:40:00Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "Add SnapshotsByVehicleBetween(start,end) to telemetry.Reader (roadmap) instead of clamping end in the gateway (single-module)",
+      "why": "The convention covers the internal Go read port too, not only the HTTP surface; bounded-window read as a first-class telemetry method.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-09T11:43:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "HTTP date params: ?start=YYYY-MM-DD&end=YYYY-MM-DD, end inclusive, default 6-day window, 400 on malformed/end<start/end>today, hard cap 90 days",
+      "why": "Calendar-day params (not datetime) avoid midnight mis-bucketing; the cap protects the read-heavy hot path from unbounded range scans.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-09T11:45:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Keep the 6/14/30 preset selector, server-render absolute start/end hrefs (no date-range picker, no client JS)",
+      "why": "Identical UX with no JS; a custom calendar picker is out of ticket scope and breaks the no-client-JS gateway invariant.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-09T11:47:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Fixed [start..end] date axis (1 bar/day, missing days = empty labeled slots), 1-day lookback for the first odometer delta only",
+      "why": "Removes the per-snapshot-shift offset between odometer (days+1 pts) and battery (days pts) — the root cause of the MAG-7 08-01/08-02 mismatch; port stays a clean Between(start,end), lookback is a gateway concern.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-09T11:49:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Remove only the dashboard page Refresh button (pages/dashboard.templ), keep the charges-list Refresh",
+      "why": "Dashboard Refresh is a vestigial page reload already superseded by htmx self-refresh; charges-list Refresh is a different feature out of ticket scope.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-09T11:50:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Convention doc canonical home: internal/gateway/AGENTS.md + one-line pointer in ai/go-conventions.md (not CLAUDE.md, not module-only)",
+      "why": "The module owning all HTTP endpoints owns the convention and is already in the gateway worker doc-pack; the go-conventions pointer keeps it discoverable cross-cutting without a CLAUDE.md context cost.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-09T11:51:05Z",
+      "agent": "leader",
+      "event": "roadmap RM8-history-date-range created on branch ft/RM8-history-date-range (base main) after the 6-question grill-me interview settled Decisions D1-D6; pickup skill HALT-AFTER-STEP-4 in effect — producing tier 1 artifacts next, then stopping."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM8-telemetry-between-range-port",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Unblocked; no same-files conflict with RM7. Bounded [start,end]-inclusive range scan on existing snapshots table, no schema change, keep Since (additive)."
+    },
+    {
+      "id": 2,
+      "change": "RM8-gateway-history-date-range",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "External dependency: RM7 tier 2 gateway-history-graph-labels-tooltips MUST be applied first — both modify history.go + history.templ. Param swap + fixed axis + 1-day lookback + Refresh removal + convention doc."
+    }
+  ]
+}
