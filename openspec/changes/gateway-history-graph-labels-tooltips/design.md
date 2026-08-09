@@ -91,6 +91,36 @@ no rendering approach changes — only a per-bar `<text>` is added to the existi
 **Alternatives rejected:** HTML `<div>` labels under the SVG (breaks the single responsive SVG
 contract and the bar↔label alignment under width scaling); a JS library (rejected by RD7).
 
+### D4-R1 — REVISION of D4: labels move to an HTML grid row under the SVG
+
+**Status:** supersedes D4's rendering mechanism. Confirmed by the user 2026-08-09 after the
+task 5.3 visual check. D4 above is kept for the record, not as the current contract.
+
+**What D4 got wrong.** The chart renders as `viewBox="0 0 <numBars> 120"` with
+`preserveAspectRatio="none"` and `class="w-full h-28"`. At the 14-day preset that stretches a
+14 × 120 user-space box into roughly 800 × 112 CSS px — x scaled ≈57×, y scaled ≈0.93×, a
+distortion ratio near 61:1. Axis-aligned `<rect>` bars are unaffected (stretching a bar is
+exactly what the chart wants), but every text glyph is stretched ~57× horizontally and squashed
+vertically into an illegible smear. `transform="rotate(-90 …)"` makes it worse, not better: the
+rotation is applied in user space *before* the non-uniform stretch, so vertical text renders as
+horizontal streaks. No font-size value can fix this — the defect is the scale factor, not the size.
+
+D4's rejection of HTML labels ("breaks bar↔label alignment under width scaling") was mistaken: a
+CSS grid with one column per bar keeps labels aligned to bars at *every* width, because both the
+SVG and the label cells derive their columns from the same grid.
+
+**Decision:** bars stay in the SVG (unchanged, still `preserveAspectRatio="none"` — correct for
+rects). Labels move OUT of the SVG into a sibling HTML row inside a shared
+`grid-template-columns: repeat(<numBars>, 1fr)` wrapper, one cell per bar, so the label text is
+ordinary DOM text at a real font size and never passes through the SVG transform. Vertical
+orientation becomes a CSS class toggled by the same `LabelVertical` flag
+(`[writing-mode:vertical-rl]` + rotation), not an SVG `transform`.
+
+**What is unchanged:** RD5 / D3 (orientation decided once in the handler, exposed as one
+chart-level bool), D5 (`Label` pre-formatted in the handler; the template emits it verbatim and
+branches only on the bool), D1 (both tooltip and label sourced from `EffectiveDate`), and RD8 /
+RD7 (no client-side charting library, no JS — this remains hand-rolled markup).
+
 ### D5 — `Label` is pre-formatted in the handler (template stays logic-free)
 
 **Decision:** The handler builds `fragments.HistoryBar{HeightPct, Tooltip, Label}` with `Label =

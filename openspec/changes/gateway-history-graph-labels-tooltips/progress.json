@@ -5,10 +5,16 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM7-history-graph-improvements.md",
   "request": "MAG-6 (history graph change): tooltip date MM-DD from EffectiveDate; per-bar MM-DD label; adaptive orientation (horizontal at 6-day, vertical at 14/30-day).",
-  "status": "verified",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": [],
+    "pending": [
+      "6.1",
+      "6.2",
+      "6.3",
+      "6.4",
+      "6.5"
+    ],
     "blocked": [
       "5.3"
     ],
@@ -31,7 +37,7 @@
     ]
   },
   "created_at": "2026-08-09T00:46:00Z",
-  "updated_at": "2026-08-09T01:03:00Z",
+  "updated_at": "2026-08-09T01:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -458,10 +464,96 @@
         "approx": true,
         "note": "one serial worker covered tasks 4.1-5.4 (excl. 5.3); delta is the whole wave, copied onto each task"
       }
+    },
+    {
+      "id": "6.1",
+      "title": "Grid wrapper; remove SVG text labels, restore viewBox height 100",
+      "module": "gateway",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.2",
+      "title": "Render labels as HTML grid row; vertical via CSS class on LabelVertical",
+      "module": "gateway",
+      "depends_on": [
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.3",
+      "title": "Legible font size at 30-day preset; no overflow/wrap",
+      "module": "gateway",
+      "depends_on": [
+        "6.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.4",
+      "title": "Re-run make templ + make css",
+      "module": "gateway",
+      "depends_on": [
+        "6.2",
+        "6.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.5",
+      "title": "Retarget 4.3 orientation assertion to the CSS class (never weaken)",
+      "module": "gateway",
+      "depends_on": [
+        "6.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
     }
   ],
   "review": {
-    "status": "reviewer-approved",
+    "status": "pending",
     "agent": "gateway-reviewer",
     "brief": "Review the tier-2 diff for gateway-history-graph-labels-tooltips (commits 8ee99ce wave-1, plus the wave-2 test commit) against: (1) design.md D1-D5 - tooltip AND label both sourced from EffectiveDate formatted MM-DD, with CapturedAt eliminated as a date source (D1; a surviving CapturedAt date path is a BLOCKER, it re-introduces the exact 1-day bug MAG-6 fixes); per-bar Label + adaptive orientation (D2); LabelVertical computed once in the handler, chart-level, never per-bar and never in the template (D3); SVG <text> + transform=rotate(-90 ...) with NO client-side charting library added (D4, gateway AGENTS.md RD8); Label pre-formatted in the handler, template logic-free - no time.Format, no days comparison, no rotation math in .templ (D5). (2) Module boundary: all edits inside internal/gateway/; no internal/telemetry/db (telemetrydb) import; gateway owns no business data. (3) ai/htmx-conventions.md + ai/htmx-go-integration.md compliance for the Templ markup; NO HTML comments in .templ (they ship to the browser). (4) Codegen guard: *_templ.go regenerated from .templ, and static/app.css regenerated and committed in this change (gateway AGENTS.md CI guard). Confirm the committed app.css actually contains any newly used classes. (5) Spec coverage: every scenario in specs/gateway/spec.md has a real test that ASSERTS the behaviour. (6) ANTI-GAMING - highest priority this round: two pre-existing tooltip tests (TestBuildOdometerChart_TooltipContainsDateAndKeywords, TestBuildBatteryChart_TooltipContainsDateLevelAndRange) were REPAIRED by the wave-2 worker because the contract deliberately changed. Verify they were strengthened, not weakened: every non-date assertion must survive, the date assertion must still assert a specific expected string, and a negative assertion proving CapturedAt is not the source should be present. Any dropped or loosened assertion is a blocker finding. Note task 5.3 (human visual check of the presets via make dev) is deliberately BLOCKED pending the user - do not treat it as an incomplete-work finding, and do not approve it yourself. Escalate on doubt: return changes-requested rather than approving anything you are not sure about.",
     "rounds": [
@@ -501,6 +593,15 @@
       "decision": "Accepted reviewer finding R1-1 as informational; not fixing it in this change.",
       "why": "Tailwind v4 auto content-detection scans the repo tree, so prose in progress.json containing class-like substrings can emit two unused classes on a from-scratch make css. Pre-existing tooling behaviour, unrelated to this change's markup, and the committed app.css already carries every class the new markup uses. Fixing it means narrowing the Tailwind source globs - a separate concern.",
       "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-09T01:12:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "REVISE design D4 (D4-R1): per-bar date labels move out of the SVG into a sibling HTML grid row; vertical orientation becomes a CSS class instead of an SVG rotate transform.",
+      "why": "Task 5.3's visual check found the labels render as an illegible smear. Root cause: the chart uses preserveAspectRatio=\"none\" with viewBox 0 0 <numBars> 120 in a w-full h-28 box, so at 14 days x scales ~57x and y ~0.93x (ratio ~61:1). Rects are unaffected; text glyphs are stretched flat. rotate(-90) is applied pre-stretch so vertical text becomes horizontal streaks. No font size can fix a scale-factor defect. User chose the HTML grid row over a second label-only SVG.",
+      "covered_by": "design.md D4-R1"
     }
   ],
   "events": [
@@ -528,6 +629,11 @@
       "at": "2026-08-09T01:03:00Z",
       "agent": "leader",
       "event": "Review round 1 APPROVED, zero blocking findings; reviewer independently re-ran build/vet/tests and diffed the repaired tests against 334ea9c to confirm they were strengthened. Minor finding R1-1 (Tailwind auto content-detection picks up class-like substrings in progress.json prose) triaged as informational - see decisions. Full repo test sweep green. ARCHIVE HELD: task 5.3 (human visual check of 6/14/30-day presets via make dev) is still blocked pending the user."
+    },
+    {
+      "at": "2026-08-09T01:12:00Z",
+      "agent": "leader",
+      "event": "VISUAL CHECK FAILED (task 5.3). Labels illegible due to non-uniform SVG scaling - diagnosed, root-caused, and taken to the user. User chose the HTML-grid-row fix. design.md gains D4-R1 (appended, D4 kept for the record); tasks.md gains group 6 (appended - existing tasks untouched). review.status reset to pending: the prior approval covered the superseded rendering. status -> in-progress."
     }
   ]
 }
