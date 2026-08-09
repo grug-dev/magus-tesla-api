@@ -10,9 +10,16 @@ type HistoryBar struct {
 	// For the battery chart: battery level % (0–100 directly).
 	HeightPct int
 	// Tooltip is the pre-rendered hover string shown in the bar's <title> element.
-	// Odometer: "<date> · <km> km driven · odometer <cumulative> km"
-	// Battery:  "<date> · <level>% · <range> km range"
+	// The date token is the snapshot's EffectiveDate formatted MM-DD (the calendar
+	// day the snapshot represents, not the capture morning — see telemetry.Snapshot).
+	// Odometer: "<MM-DD> · <km> km driven · odometer <cumulative> km"
+	// Battery:  "<MM-DD> · <level>% · <range> km range"
 	Tooltip string
+	// Label is the pre-formatted MM-DD date label rendered under the bar, derived
+	// from the same snapshot's EffectiveDate as Tooltip (never CapturedAt — mixing
+	// sources would re-introduce the 1-day mismatch MAG-6 fixes). Computed by the
+	// handler; the template emits it verbatim.
+	Label string
 }
 
 // HistoryChart holds the bars and empty-state flag for one chart panel.
@@ -21,6 +28,13 @@ type HistoryBar struct {
 type HistoryChart struct {
 	Bars  []HistoryBar
 	Empty bool
+	// LabelVertical selects the per-bar label orientation for this chart: false
+	// renders horizontal, centered labels (used for the 6-day preset, where bars
+	// are wide); true renders labels rotated -90° so they fit narrow bars (used
+	// for the 14- and 30-day presets). Set once by the handler from the days
+	// preset (labelVerticalFor) — the template reads only this flag, it never
+	// compares Days or computes rotation itself.
+	LabelVertical bool
 }
 
 // HistoryView is the complete view model for the #dashboard-history region —

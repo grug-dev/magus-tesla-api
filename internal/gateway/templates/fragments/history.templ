@@ -17,29 +17,53 @@ templ dashHistoryEmpty() {
 	</div>
 }
 
+// historyChartViewBoxHeight is the SVG viewBox height (in the same units as
+// HeightPct): 100 units for the bar canvas (unchanged — HeightPct stays 0-100)
+// plus historyLabelZoneHeight units reserved below for the per-bar date-label
+// row (task 3.2). One named location for the chart's vertical geometry.
+const historyChartViewBoxHeight = 120
+
+// historyLabelZoneHeight is the slice of historyChartViewBoxHeight reserved
+// for labels, below the bar canvas (y=100..historyChartViewBoxHeight).
+const historyLabelZoneHeight = historyChartViewBoxHeight - 100
+
+// historyLabelHorizontalY vertically centers a horizontal label within the
+// label zone.
+const historyLabelHorizontalY = 100 + historyLabelZoneHeight/2
+
+// historyLabelAnchorY is where a rotated vertical label anchors — the bottom
+// of the label zone — so the rotated text grows upward from the bar's base
+// (design D4) toward the bar canvas, never past the top of the SVG.
+const historyLabelAnchorY = historyChartViewBoxHeight - 2
+
 // historyBarChart renders a responsive SVG bar chart from the pre-computed
 // HistoryChart view model (RD7: hand-rolled SVG, no chart library). The template
-// does NO arithmetic — all heights and tooltip strings arrive fully computed on
-// the view model.
+// does NO arithmetic — all heights, tooltip strings, and label strings arrive
+// fully computed on the view model; orientation is read from chart.LabelVertical
+// only (no days comparison, no rotation math here — design D3/D5).
 //
 // When chart.Empty is true (too few snapshots), it falls back to dashHistoryEmpty().
 //
-// SVG semantics: viewBox="0 0 N 100" with preserveAspectRatio="none" and
-// class="w-full h-24" makes the chart fill its container horizontally while
-// keeping a fixed visual height — purely CSS-responsive, no JS resize handler.
-// Each bar is a <rect> at a pre-computed HeightPct; a child <title> provides the
-// native browser hover tooltip (no JS tooltip library).
+// SVG semantics: viewBox="0 0 N historyChartViewBoxHeight" with
+// preserveAspectRatio="none" and class="w-full h-28" makes the chart fill its
+// container horizontally while keeping a fixed visual height — purely
+// CSS-responsive, no JS resize handler. Each bar is a <rect> at a pre-computed
+// HeightPct; a child <title> provides the native browser hover tooltip (no JS
+// tooltip library). A sibling <text> per bar renders bar.Label — horizontal and
+// centered under the bar when chart.LabelVertical is false, or rotated -90°
+// around its anchor (growing upward from the bar's base) when true.
 //
-// Bar fills use DaisyUI semantic fill tokens (e.g. "fill-primary", "fill-secondary"),
-// never hardcoded hex — the chart re-skins from one data-theme (RD7).
+// Bar fills use DaisyUI semantic fill tokens (e.g. "fill-primary", "fill-secondary");
+// labels use the muted "fill-base-content/60" content token — never hardcoded hex,
+// so the chart re-skins from one data-theme (RD7).
 templ historyBarChart(chart HistoryChart, colorClass string) {
 	if chart.Empty {
 		@dashHistoryEmpty()
 	} else {
 		<svg
-			viewBox={ fmt.Sprintf("0 0 %d 100", len(chart.Bars)) }
+			viewBox={ fmt.Sprintf("0 0 %d %d", len(chart.Bars), historyChartViewBoxHeight) }
 			preserveAspectRatio="none"
-			class="w-full h-24"
+			class="w-full h-28"
 			aria-hidden="true"
 		>
 			for i, bar := range chart.Bars {
@@ -52,6 +76,25 @@ templ historyBarChart(chart HistoryChart, colorClass string) {
 				>
 					<title>{ bar.Tooltip }</title>
 				</rect>
+				if chart.LabelVertical {
+					<text
+						x={ fmt.Sprintf("%.1f", float64(i)+0.4) }
+						y={ strconv.Itoa(historyLabelAnchorY) }
+						transform={ fmt.Sprintf("rotate(-90 %.1f %d)", float64(i)+0.4, historyLabelAnchorY) }
+						class="fill-base-content/60 text-[7px]"
+					>
+						{ bar.Label }
+					</text>
+				} else {
+					<text
+						x={ fmt.Sprintf("%.1f", float64(i)+0.4) }
+						y={ strconv.Itoa(historyLabelHorizontalY) }
+						text-anchor="middle"
+						class="fill-base-content/60 text-[8px]"
+					>
+						{ bar.Label }
+					</text>
+				}
 			}
 		</svg>
 	}
