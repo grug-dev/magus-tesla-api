@@ -118,61 +118,37 @@ unchanged (additive). LIMIT 400 retained. Three downstream test fakes that imple
 tasks — all valid. `go vet ./...` exit 0; `go test ./internal/telemetry/... ./internal/battery/...
 ./internal/gateway/...` all green (testcontainers Postgres).
 
-### Tier 2 — `[~]` `RM8-gateway-history-date-range` (module: `gateway`; depends on tier 1 **and on RM7 tier 2 `gateway-history-graph-labels-tooltips` being applied first** — same-files ordering)
+### Tier 2 — `[x]` `RM8-gateway-history-date-range` (module: `gateway`; depends on tier 1 **and on RM7 tier 2 `gateway-history-graph-labels-tooltips` being applied first** — same-files ordering)
 
-1. Switch `DashboardHistoryFragment` (`internal/gateway/handlers/history.go`) from
-   `c.Query("days")` + `clampHistoryDays` to `parseHistoryRange(c)` returning a validated
-   `(start, end time.Time)` per Decision #2 (ISO date parse, `end` inclusive, default
-   `today-6`..`today`, 400 on malformed / `end < start` / `end > today` / window > 90 days).
-2. Compute a 1-day lookback `readStart = start.AddDate(0,0,-1)` (Decision #4) and call
-   `h.telemetryReader.SnapshotsByVehicleBetween(ctx, uid, teslaID, readStart, end)`.
-3. Rewrite `buildHistoryView` / `buildOdometerChart` / `buildBatteryChart` to bucket snapshots
-   by `EffectiveDate` into a **fixed `[start..end]` date axis** — one bar per calendar day,
-   identical labels on both charts; missing days render as empty slots holding their date
-   label; the `readStart-1` pre-window snapshot is consumed solely as the first odometer
-   delta's basis and is not displayed. `historyDayPresets`/`defaultHistoryDays` are replaced
-   by `historyRangeWindowDays = 6` (the default) and the regex/parse for the preset/preset
-   set is replaced by the date-range parser + the preset selector's server-rendered absolute
-   dates (Decision #3). `labelVerticalFor` moves from "days count" to "number of bars in the
-   window" (6 → horizontal, 14/30 → vertical) so the adaptive-orientation invariant from
-   RM7 is preserved on the new axis.
-4. Update the preset selector (`fragments/history.templ`) so each preset button's `hx-get`
-   emits `?start=<today-N>&end=<today>` as server-rendered absolute dates (the `HistoryView`
-   view model gains a `Presets []RangePreset{Label, Start, End}`; the templ renders the
-   hrefs). The `#dashboard-history` self-load in `pages/dashboard.templ` switches from
-   `?days=6` to `?start=<today-6>&end=<today>` (server-rendered).
-5. **Remove the dashboard page Refresh button** (`pages/dashboard.templ:24-26`) (Decision #5).
-6. **Record the start/end convention** in `internal/gateway/AGENTS.md` (canonical) and add a
-   one-line pointer in `ai/go-conventions.md` (Decision #6). Per CLAUDE.md's "Docs track
-   structural change" rule this happens **in the same change**.
-7. Regenerate: `make generate` (sqlc + templ + css) — `static/app.css` is committed in the
-   same change (gateway AGENTS.md CI guard). Tests: history handler tests rewritten for the
-   new parser (400 cases, default window, lookback bucketing, fixed-axis rendering, both
-   charts share dates; existing `days`-param tests are replaced).
+Archived `2026-08-09` as `openspec/changes/archive/gateway/2026-08-09-RM8-gateway-history-date-range/`;
+reviewer-approved round 1 (two minor informational findings M1 redundant test loop, M2 StartStr/EndStr D4 strengthening — neither blocking). Branch `ft/RM8-history-date-range`.
 
-Files: `internal/gateway/handlers/history.go` +
-`internal/gateway/handlers/history_test.go`, `internal/gateway/templates/fragments/history.templ`
-+ generated `*_templ.go`, `internal/gateway/templates/fragments/` view-model file
-(`history_vm.go` or equivalent), `internal/gateway/templates/pages/dashboard.templ` +
-generated `*_templ.go`, `internal/gateway/static/app.css` (via `make css`),
-`internal/gateway/AGENTS.md`, `ai/go-conventions.md`. Artifacts: proposal, design (MUST name
-the affected read path — `SnapshotsByVehicleBetween`, hot dashboard path — and the SSR
-htmx flow), specs (MODIFIED "Dashboard History Charts" for the new param/axis contract), tasks
-— validated.
-
-**Proposal prompt (paste into apply):** *"Implement `RM8-gateway-history-date-range`: switch
-`GET /ui/dashboard/history` to `?start=YYYY-MM-DD&end=YYYY-MM-DD` (inclusive `end`, default
-6-day window, 400 on malformed/`end<start`/`end>today`/window>90d), fetch via
-`SnapshotsByVehicleBetween` with a 1-day lookback for the first odometer delta, bucket both
-charts to a fixed `[start..end]` date axis (one bar/day, missing days = empty labeled slots,
-identical labels on both charts — fixes the MAG-7 odometer/battery offset), keep the 6/14/30
-preset selector but server-render absolute `start`/`end` hrefs, remove the dashboard Refresh
-button, and record the start/end convention in `internal/gateway/AGENTS.md` + a one-line
-pointer in `ai/go-conventions.md`. MUST be applied after RM7 tier 2
-`gateway-history-graph-labels-tooltips`. Follow every decision in the RM8-history-date-range
-roadmap. Regenerate (`make generate`), commit `static/app.css`. Performance-Profile:
-read-heavy — design.md names the affected read path and justifies the bucketing/render
-approach."*
+`GET /ui/dashboard/history` switched from `?days=N` to `?start=YYYY-MM-DD&end=YYYY-MM-DD`
+(`end` inclusive, default 6-day window, 400 on malformed / `end<start` / `end>today` / window>90d).
+The handler fetches via `telemetry.Reader.SnapshotsByVehicleBetween(readStart, end)` where
+`readStart = start-1day` (the 1-day lookback for the first odometer delta — D2). Both
+`buildOdometerChart` and `buildBatteryChart` now bucket snapshots by `EffectiveDate` into a
+**fixed `[start..end]` calendar-day axis** — exactly one bar per day, identical labels on both
+charts, missing days rendering as empty labeled `Present=false` zero-height slots; this
+removes the odometer/battery day-1 offset MAG-7 reports (`len(Odo.Bars)==len(Bat.Bars)==numDays`
+and `Bars[i].Label` per-index match — asserted by `TestBuildHistoryView_BothChartsShareFixedAxis`).
+The 6/14/30 preset selector keeps its buttons but each `hx-get` now emits a server-rendered
+absolute `?start=<today-N>&end=<today>` href from a new `RangePreset{Label, StartStr, EndStr,
+Active}` view model (D4). The dashboard page Refresh button is removed (`pages/dashboard.templ`;
+charges-list Refresh untouched). `labelVerticalFor` retargeted from `days` to `numBars`
+(true when `>=14`) so RM7 tier 2's adaptive-orientation invariant survives. The start/end
+convention is documented canonically in `internal/gateway/AGENTS.md` ("HTTP date-filter
+convention") with a one-line pointer in `ai/go-conventions.md`. Codegen (`make templ` + `make
+css`) regenerated and committed; CI guard `make css && git diff --exit-code` passes. Files:
+`internal/gateway/handlers/history.go` + `history_test.go`,
+`internal/gateway/templates/fragments/history_vm.go` + `history.templ` + generated
+`*_templ.go`, `internal/gateway/templates/pages/dashboard.templ` + generated `*_templ.go`,
+`internal/gateway/templates/fragments/dashboard_vm.go`, `internal/gateway/handlers/handlers.go`,
+`internal/gateway/static/app.css`, `internal/gateway/AGENTS.md`, `ai/go-conventions.md`.
+Artifacts: proposal (breaking-to-HTTP-API stated, `Source: MAG-7`), design (D1-D6, fixed-axis
+bucketing, read path named), specs (MODIFIED "Dashboard History Charts"), tasks — all valid.
+`go vet ./...` exit 0; `go test ./internal/gateway/... ./internal/telemetry/... ./internal/battery/...`
+all green.
 
 ## Ordering
 

@@ -4,8 +4,8 @@
   "roadmap": "RM8-history-date-range",
   "intention": "Dashboard history charts are driven by start/end calendar-date range params (not a days count) with a fixed date axis on both charts, a remove-Refresh hygiene change, and a project-wide start/end-date-filter convention for gateway HTTP endpoints.",
   "request": "MAG-7 — Date Filters. (1) Remove the Refresh button/action. (2) The history API ui/dashboard/history?days=6 should use start/end date filters instead of a days count — if either odometer or battery history is missing a record on a given day the count-based read creates a mismatch between the dates on the two graphs (odometer 08-01 vs battery 08-02) — and set a project-wide rule that date filters on APIs are handled by start/end date filters. Linear: https://linear.app/magus-monitor/issue/MAG-7/date-filters",
-  "status": "in-progress",
-  "updated_at": "2026-08-09T12:07:00Z",
+  "status": "complete",
+  "updated_at": "2026-08-09T12:45:08Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -14,10 +14,10 @@
     "created_at": "2026-08-09T11:51:05Z"
   },
   "rollup": {
-    "current": [2],
+    "current": [],
     "pending": [],
     "blocked": [],
-    "done": [1]
+    "done": [1, 2]
   },
   "decisions": [
     {
@@ -109,14 +109,14 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [1],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": "2026-08-09T12:08:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
+      "status": "archived",
+      "assistant": "opencode",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:45:08Z",
+      "duration_seconds": 1808,
       "budget": null,
-      "notes": "UNBLOCKED: RM7 tier 2 gateway-history-graph-labels-tooltips was merged to origin/main via PR #17 (commit 0fe2f0d) — its history.go + history.templ changes (EffectiveDate labels, labelVerticalFor, CSS grid writing-mode approach) are already on this branch (base main). Autopilot proceeding to tier 2 artifacts + implementation."
+      "notes": "Archived 2026-08-09. reviewer-approved round 1 (M1 redundant loop, M2 StartStr/EndStr strengthening, neither blocking). RM7 tier 2 already merged via PR #17. Worker cancelled mid-wave; leader completed convention docs (4.1/4.2) + app.css commit. go vet + tests green."
     }
   ]
 }

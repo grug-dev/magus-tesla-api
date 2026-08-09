@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM8-history-date-range.md",
   "request": "MAG-7 \u2014 Date Filters (tier 2 gateway). Switch /ui/dashboard/history to ?start&end=YYYY-MM-DD, fixed [start..end] date axis (fixes odometer/battery offset), server-rendered presets, remove dashboard Refresh, convention doc. Source: https://linear.app/magus-monitor/issue/MAG-7/date-filters",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -522,11 +522,34 @@
       "budget": null
     }
   ],
-  "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+"review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Validate RM8-gateway-history-date-range (tier 2 of RM8): (1) design.md D1-D6 compliance — D1 parseHistoryRange (ISO YYYY-MM-DD, end inclusive, default 6-day window, 400 on malformed/missing-partner/end<start/end>today/window>90d; historyRangeWindowDays=6, historyRangeMaxDays=90); D2 1-day lookback (readStart=start-1day) passed to SnapshotsByVehicleBetween, port stays clean Between(start,end); D3 fixed [start..end] axis 1 bar/day, both charts EXACTLY numDays bars, missing day = Present=false zero-height labeled slot, MAG-7 offset gone by construction (len(Odo.Bars)==len(Bat.Bars)==numDays AND Bars[i].Label per-index match); D4 preset selector renders absolute ?start=&end= from []RangePreset, Active->primary, NO ?days anywhere; D5 only the dashboard page Refresh removed (charges-list Refresh untouched); D6 convention doc in internal/gateway/AGENTS.md + one-line pointer in ai/go-conventions.md. (2) Module boundary — only internal/gateway/ + change folder + ai/go-conventions.md touched; no internal/telemetry/db import (grep empty); no migration. (3) Breaking change honestly stated in proposal.md (HTTP API ?days=N -> ?start=&end=). (4) Codegen guard — *_templ.go regenerated, static/app.css regenerated AND committed (CI guard make css && git diff --exit-code = exit 0 post-commit). (5) Logic-free template invariant — no time.Format / days comparison / rotation math in .templ; all Labels+Tooltips pre-computed in handler. (6) Spec coverage — every scenario in specs/gateway/spec.md has a real test. (7) ANTI-GAMING (highest priority): the existing days-param tooltip/label tests were REPLACED because the contract deliberately changed — verify the replacements STRENGTHEN not weaken: the fixed-axis assertions (len==numDays, Bars[i].Label per-index match = the MAG-7 fix) must be real and specific; the 400-case tests must assert every invalid case; the ?days-ignored test must assert the param is NOT honored; no test assertion was deleted to make work look done. Any dropped assertion is a blocker. (8) Traceability — proposal.md carries Source: MAG-7 — <url>. Read the diff on branch ft/RM8-history-date-range (commit 02426ca) vs its parent. Report verdict approved | changes-requested.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-09T12:45:08Z",
+        "duration_seconds": 150,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "M1",
+            "severity": "minor",
+            "note": "TestDashboardHistoryFragment_PresetsAreAbsoluteAndDefaultActive's inner loop iterates historyPresetDayCounts but doesn't use p, so it asserts the same strings.Contains condition 3x. Coverage is adequate elsewhere (DefaultWindowActivatesSixDayPreset asserts the 6-day-specific href; PresetsCarryAbsoluteHrefs asserts every preset has non-empty StartStr/EndStr), so the loop is redundant but not a gap. Optional cleanup on a future pass.",
+            "status": "open",
+            "triage": "accepted"
+          },
+          {
+            "id": "M2",
+            "severity": "minor",
+            "note": "Implementation chose StartStr/EndStr (pre-formatted strings) over design D4's canonical Start/End time.Time on RangePreset. This is the design's explicitly-permitted 'stricter option' for the logic-free-template invariant — a strengthening, not a deviation. Recorded for transparency only.",
+            "status": "open",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
