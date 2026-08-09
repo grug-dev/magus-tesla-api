@@ -28,5 +28,5 @@
 ## 6. Verification
 
 - [x] 6.1 Run `go test ./internal/telemetry/...` (and `make check` if available) and confirm the full telemetry suite is green (testcontainers Postgres auto-provisioned), including all new `Between` tests and the existing `Since`/`EffectiveDate` tests. No live Tesla call. Depends on: 5.4.
-- [ ] 6.2 Run `go vet ./...` and `go build ./...` repo-wide; confirm no other `telemetry.Reader` implementer broke (only `*reader` implements it today; grep callers). `SnapshotsByVehicleSince` callers continue to compile (additive). Depends on: 6.1.
+- [x] 6.2 Run `go vet ./...` and `go build ./...` repo-wide; confirm no other `telemetry.Reader` implementer broke (only `*reader` implements it today; grep callers). `SnapshotsByVehicleSince` callers continue to compile (additive). Depends on: 6.1.
 - [x] 6.3 Confirm `git status` shows changes only under `internal/telemetry/` and `openspec/changes/RM8-telemetry-between-range-port/` — no migration file created, no other module touched, no HTML. Depends on: 6.2.

@@ -5,7 +5,7 @@
   "intention": "Dashboard history charts are driven by start/end calendar-date range params (not a days count) with a fixed date axis on both charts, a remove-Refresh hygiene change, and a project-wide start/end-date-filter convention for gateway HTTP endpoints.",
   "request": "MAG-7 — Date Filters. (1) Remove the Refresh button/action. (2) The history API ui/dashboard/history?days=6 should use start/end date filters instead of a days count — if either odometer or battery history is missing a record on a given day the count-based read creates a mismatch between the dates on the two graphs (odometer 08-01 vs battery 08-02) — and set a project-wide rule that date filters on APIs are handled by start/end date filters. Linear: https://linear.app/magus-monitor/issue/MAG-7/date-filters",
   "status": "in-progress",
-  "updated_at": "2026-08-09T11:51:05Z",
+  "updated_at": "2026-08-09T12:07:00Z",
   "leader": { "assistant": "opencode", "model": "glm-5.2" },
   "git": {
     "strategy": "auto",
@@ -14,10 +14,10 @@
     "created_at": "2026-08-09T11:51:05Z"
   },
   "rollup": {
-    "current": [1],
+    "current": [],
     "pending": [2],
-    "blocked": [],
-    "done": []
+    "blocked": [2],
+    "done": [1]
   },
   "decisions": [
     {
@@ -80,6 +80,11 @@
       "at": "2026-08-09T11:51:05Z",
       "agent": "leader",
       "event": "roadmap RM8-history-date-range created on branch ft/RM8-history-date-range (base main) after the 6-question grill-me interview settled Decisions D1-D6; pickup skill HALT-AFTER-STEP-4 in effect — producing tier 1 artifacts next, then stopping."
+    },
+    {
+      "at": "2026-08-09T12:07:00Z",
+      "agent": "leader",
+      "event": "tier 1 RM8-telemetry-between-range-port ARCHIVED (reviewer-approved round 1, R1 minor fixed). Tier 2 (gateway) remains blocked: external dependency on RM7 tier 2 gateway-history-graph-labels-tooltips landing first (same-files history.go + history.templ). Autopilot stops here — prerequisites outside this roadmap."
     }
   ],
   "tiers": [
@@ -89,14 +94,14 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
-      "assistant": null,
-      "model": null,
-      "started_at": "2026-08-09T11:55:11Z",
-      "completed_at": null,
-      "duration_seconds": null,
+      "status": "archived",
+      "assistant": "opencode",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T11:51:05Z",
+      "completed_at": "2026-08-09T12:07:00Z",
+      "duration_seconds": 955,
       "budget": null,
-      "notes": "Artifacts created + validated; no DB schema change so database design gate does not trip. Autopilot ON — implementation next."
+      "notes": "Archived 2026-08-09. reviewer-approved round 1 (R1 minor checkbox glitch fixed). go vet + tests green. No schema change. Tier 2 (gateway) blocked on RM7 tier 2 landing first."
     },
     {
       "id": 2,
@@ -104,14 +109,14 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [1],
-      "status": "not-started",
+      "status": "blocked",
       "assistant": null,
       "model": null,
       "started_at": null,
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "External dependency: RM7 tier 2 gateway-history-graph-labels-tooltips MUST be applied first — both modify history.go + history.templ. Param swap + fixed axis + 1-day lookback + Refresh removal + convention doc."
+      "notes": "BLOCKED: external dependency — RM7 tier 2 gateway-history-graph-labels-tooltips MUST be applied first (both modify history.go + history.templ). Param swap + fixed axis + 1-day lookback + Refresh removal + convention doc."
     }
   ]
 }

@@ -93,32 +93,30 @@ These were confirmed by the user and are authoritative for every tier's design/s
 Status legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, not
 archived) · `[x]` done (archived).
 
-### Tier 1 — `[~]` `RM8-telemetry-between-range-port` (module: `telemetry`)
+### Tier 1 — `[x]` `RM8-telemetry-between-range-port` (module: `telemetry`)
+
+Archived `2026-08-09` as `openspec/changes/archive/telemetry/2026-08-09-RM8-telemetry-between-range-port/`;
+reviewer-approved round 1 (one minor finding R1 — tasks.md checkbox glitch — fixed by leader). Branch `ft/RM8-history-date-range`.
 
 Add `SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start,
-end time.Time) ([]Snapshot, error)` to the `telemetry.Reader` interface, implemented as a
-bounded range scan over the existing nightly-snapshots table (`captured_at` / the
-`EffectiveDate`-derived column the snapshots already key on). `start` and `end` are
-UTC-midnight-bounded; `end` is **inclusive** (mirroring the HTTP contract). The method
-returns snapshots with `EffectiveDate` in `[start, end]` inclusive, ordered ascending by the
-effective date. **No DB schema change is required**: this is a new sqlc query over existing
-columns + a new method on the existing `reader`. `SnapshotsByVehicleSince` is **kept**
-(existing callers/gateway not on the new contract still use it; it is not removed in this
-tier — deprecation/removal, if ever, is a separate change). Additive / non-breaking. Files:
-`internal/telemetry/telemetry.go` (interface), `internal/telemetry/reader.go` +
-`internal/telemetry/service.go` (impl), `internal/telemetry/db/queries.sql` (new query) +
-`make sqlc`, read tests. Artifacts: proposal, design (with the read path's index justification
-against the existing snapshots index — MUST name the affected read path), specs (ADDED
-"Snapshot range read"), tasks — validated.
-
-**Proposal prompt (paste into apply):** *"Implement `RM8-telemetry-between-range-port`: add
-`SnapshotsByVehicleBetween(ctx, uid, teslaID, start, end)` to `telemetry.Reader` as a bounded
-`[start, end]`-inclusive range scan over the existing nightly-snapshots table (no schema
-change), keep `SnapshotsByVehicleSince` (additive), regenerate sqlc, add read tests. No
-HTTP/UI changes — that is tier 2. Follow every decision in the RM8-history-date-range roadmap,
-especially Decisions #1, #2 (inclusive `end`, calendar-day UTC-midnight bounds) and #4
-(lookback is a gateway concern; the port is a plain window). Performance-Profile: read-heavy
-— index plan must be justified against the declared read patterns in design.md."*
+end time.Time) ([]Snapshot, error)` to `telemetry.Reader` as a bounded `[start, end]`-inclusive
+range scan over the existing nightly-snapshots table — **no schema change, no new index** (reuses
+`idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at)` ASC as a forward range
+scan). The query filters on `captured_at` (NOT `captured_date`, which would couple the port to
+`POLLER_TIMEZONE`); `dbStore` translates `(start, end)` → `(start+1day, end+2day)` half-open
+because `EffectiveDate = CapturedAt − 1 day`. The `reader` pass-through forwards raw
+`(start, end)` (translation is `dbStore`'s job — design D5). `SnapshotsByVehicleSince` is kept
+unchanged (additive). LIMIT 400 retained. Three downstream test fakes that implement
+`telemetry.Reader` (`battery`'s `fakeTelemetryReader`, `gateway`'s `fakeReader` +
+`fakeHistoryReader`) got one-line stubs added by the leader to satisfy the widened interface
+(cross-module integration is the leader's). Files: `internal/telemetry/telemetry.go`,
+`internal/telemetry/reader.go`, `internal/telemetry/service.go`, `internal/telemetry/db/query.sql`
++ generated `db/query.sql.go`, `internal/telemetry/reader_test.go` +
+`db_read_integration_test.go` + `service_test.go`, `internal/telemetry/AGENTS.md`, plus
+`internal/battery/reader_test.go` and `internal/gateway/handlers/handlers_test.go` +
+`history_test.go` (leader stubs). Artifacts: proposal, design, specs (ADDED "Snapshot Range Read"),
+tasks — all valid. `go vet ./...` exit 0; `go test ./internal/telemetry/... ./internal/battery/...
+./internal/gateway/...` all green (testcontainers Postgres).
 
 ### Tier 2 — `[ ]` `RM8-gateway-history-date-range` (module: `gateway`; depends on tier 1 **and on RM7 tier 2 `gateway-history-graph-labels-tooltips` being applied first** — same-files ordering)
 

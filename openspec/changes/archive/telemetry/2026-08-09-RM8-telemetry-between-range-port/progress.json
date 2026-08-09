@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM8-history-date-range.md",
   "request": "MAG-7 — Date Filters. Add a bounded [start,end]-inclusive range read to telemetry.Reader (tier 1 of RM8). Source: https://linear.app/magus-monitor/issue/MAG-7/date-filters",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -39,10 +39,26 @@
     { "id": "6.3", "title": "git status confirms only internal/telemetry/ + change folder touched — no migration, no other module, no HTML", "module": "telemetry", "depends_on": ["6.2"], "parallel_ok": false, "status": "done", "agent": "telemetry", "model": "glm-5.2", "started_at": "2026-08-09T11:58:06Z", "completed_at": "2026-08-09T11:58:40Z", "duration_seconds": 34, "notes": "`git status --porcelain` shows my footprint = 9 files under internal/telemetry/ (AGENTS.md, db/query.sql, db/query.sql.go, db_read_integration_test.go, reader.go, reader_test.go, service.go, service_test.go, telemetry.go) + openspec/changes/RM8-telemetry-between-range-port/{progress.json,tasks.md}. NO migration file created (no new file under db/migrations/), NO other module touched (internal/battery and internal/gateway ARE broken at their test fakes but I edited NEITHER — documented in task 6.2), NO HTML. Note: openspec/.ch-counter also appears modified but it is a PRE-EXISTING dirty state (trailing-newline-only diff, content '4' unchanged) I did NOT open/read/write — not in my footprint.", "budget": null }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Validate RM8-telemetry-between-range-port (tier 1 of RM8): (1) module-boundary compliance — only internal/telemetry/ + change folder touched; cross-module edits were 3 _test.go stubs added by the leader to satisfy the widened telemetry.Reader interface (battery/reader_test.go, gateway/handlers/handlers_test.go, gateway/handlers/history_test.go) — confirm each is a minimal stub and does not leak telemetry internals. (2) design.md D1-D5 compliance — query filters on captured_at (NOT captured_date) with +1day/+2day half-open bounds in dbStore; reader pass-through does NOT translate; SnapshotsByVehicleSince kept unchanged (additive); LIMIT 400 retained; existing idx_vehicle_snapshots_vehicle_time reused, NO new index/migration. (3) DB-design-gate: confirm NO new/changed DB object (no migration file under db/migrations/, models.go unchanged, no new index) — the database gate must NOT have been tripped. (4) Performance-Profile (read-heavy): index plan in design.md justified against the dashboard-history hot read path. (5) spec coverage: specs/telemetry/spec.md ADDED scenarios map to the integration tests (EffectiveDateInRange, inclusive boundaries, empty non-nil, tenant isolation). (6) tests: go test ./internal/telemetry/... green (testcontainers), go vet ./... repo-wide exit 0. (7) anti-gaming: no task weakened; tasks.md checkboxes match progress.json statuses. (8) traceability: proposal.md carries Source: MAG-7 — <url>. Read the diff on branch ft/RM8-history-date-range vs its base, not the whole module. Report verdict approved | changes-requested with findings.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-09T12:06:00Z",
+        "duration_seconds": 180,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "tasks.md line 31 showed 6.2 as - [ ] while progress.json marked it done — tracking glitch (under-report, not gaming). Fixed by leader: checkbox flipped to [x]. Reviewer had no shell under opencode so could not run go vet/test itself; leader ran go vet ./... exit 0 + go test telemetry/gateway/battery green and recorded those.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
