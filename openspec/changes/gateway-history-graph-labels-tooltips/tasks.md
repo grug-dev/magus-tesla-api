@@ -35,3 +35,7 @@
 - [x] 6.3 Pick a font size that is legible at the 30-day preset (labels are real DOM text now, so it is a genuine CSS size, not an SVG-scaled one) and ensure the label row does not overflow or wrap.
 - [x] 6.4 Re-run `make templ` and `make css`; leave regenerated `*_templ.go` and `static/app.css` on disk for the leader to commit.
 - [ ] 6.5 Update the affected tests: task 4.3's assertion that a rotated label appears only at the 14/30-day presets must now assert the CSS vertical class instead of the `transform="rotate(-90` SVG substring. Keep every other assertion (verbatim labels, no `2006-01-02`, orientation only at 14/30) intact — retarget, never weaken.
+
+## 7. Label width alignment (user request, 2026-08-09)
+
+- [x] 7.1 Make the label cell `w-4/5` (80%) so it matches the bar's `width="0.8"` span, left-aligned in its grid column like the bar, with the label text centered inside that 80% via flex centering (works in both writing modes).

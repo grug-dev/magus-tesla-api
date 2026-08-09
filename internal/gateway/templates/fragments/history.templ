@@ -76,11 +76,11 @@ templ historyBarChart(chart HistoryChart, colorClass string) {
 			</svg>
 			for _, bar := range chart.Bars {
 				if chart.LabelVertical {
-					<div class="text-[9px] leading-none text-base-content/60 text-center truncate [writing-mode:vertical-rl] rotate-180">
+					<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60 [writing-mode:vertical-rl] rotate-180">
 						{ bar.Label }
 					</div>
 				} else {
-					<div class="text-[9px] leading-none text-base-content/60 text-center truncate">
+					<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60">
 						{ bar.Label }
 					</div>
 				}

@@ -80,7 +80,7 @@ small lookup, one named location).
 positioned at the bar's x and just below the chart canvas. When `LabelVertical` is true, the text
 carries `transform="rotate(-90 x y)"` and is anchored so it grows upward within the bar's width
 slot; when false, it is horizontal and centered under the bar. Font size is small (e.g.
-`text-[8px]`/`text-[9px]` via the existing SVG sizing). Bar fills stay DaisyUI semantic tokens
+`text-[13px]`/`text-[§4px]` via the existing SVG sizing). Bar fills stay DaisyUI semantic tokens
 (`fill-primary`/`fill-secondary`); the label uses a muted content token (`fill-base-content/60`).
 
 **Rationale:** pure SVG, zero JS, consistent with RD7 (hand-rolled responsive SVG, no chart
