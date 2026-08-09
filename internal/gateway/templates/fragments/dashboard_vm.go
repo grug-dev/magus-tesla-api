@@ -47,4 +47,12 @@ type DashboardData struct {
 	BatteryPct  string // "94"   — bare value for the <progress value=""> attribute
 	RangeNow    string // "550 km"
 	ChargeLimit string // "Limit 80%"; "" when not set
+
+	// DefaultHistoryHref is the pre-formatted absolute href the #dashboard-history
+	// region self-loads on first render (`hx-trigger="load"`), pointing at the
+	// default 6-day window's start/end calendar dates. The handler computes it
+	// once (dashboardFor) so the page template emits it verbatim — no time math
+	// in the template (RM8 design D4, logic-free-template invariant). E.g.
+	// "/ui/dashboard/history?start=2026-08-03&end=2026-08-09".
+	DefaultHistoryHref string
 }

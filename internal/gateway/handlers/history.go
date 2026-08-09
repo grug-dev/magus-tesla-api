@@ -1,8 +1,11 @@
 // history.go contains the DashboardHistoryFragment handler for
-// GET /ui/dashboard/history?days=N, which returns the #dashboard-history region:
-// the days selector + two SVG bar charts (odometer km/day delta + battery level %).
-// All numeric computation happens in buildHistoryView — the Templ template is dumb.
-// Design decisions RD5-RD7 from openspec/changes/gateway-dashboard-history-charts/.
+// GET /ui/dashboard/history?start=YYYY-MM-DD&end=YYYY-MM-DD, which returns the
+// #dashboard-history region: the preset selector + two SVG bar charts (odometer
+// km/day delta + battery level %) rendered over a FIXED [start..end] calendar-day
+// axis (one bar/day, identical labels on both charts — the MAG-7 fix). All numeric
+// computation happens in buildHistoryView — the Templ template is dumb.
+// Design decisions: RM8-gateway-history-date-range (D1-D6) + RD5-RD7 from
+// openspec/changes/gateway-dashboard-history-charts/.
 package handlers
 
 import (
@@ -22,41 +25,30 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
-// historyDayPresets is the closed, small vocabulary of allowed day-count values
-// for the history charts selector. Validation rejects anything not in this list
-// (design: closed vocabulary, one named location — AI-efficiency principle).
-var historyDayPresets = []int{6, 14, 30}
+// historyRangeWindowDays is the default window size in days applied when both
+// start and end params are absent — the self-load and anonymous defaults.
+// Replaces the old defaultHistoryDays/day-count vocabulary (RM8 design D1).
+const historyRangeWindowDays = 6
 
-// defaultHistoryDays is the fallback when the days parameter is missing, invalid,
-// or not a member of historyDayPresets.
-const defaultHistoryDays = 6
+// historyRangeMaxDays is the hard cap on the window width, protecting the hot
+// read path from an unbounded range scan (Performance-Profile: read-heavy). A
+// wider request is rejected with 400 before the port is called (RM8 design D1).
+const historyRangeMaxDays = 90
 
-// clampHistoryDays parses raw and returns the nearest allowed preset. Any
-// missing/non-numeric/out-of-set value becomes defaultHistoryDays.
-func clampHistoryDays(raw string) int {
-	if raw == "" {
-		return defaultHistoryDays
-	}
-	n, err := strconv.Atoi(raw)
-	if err != nil {
-		return defaultHistoryDays
-	}
-	for _, p := range historyDayPresets {
-		if n == p {
-			return n
-		}
-	}
-	return defaultHistoryDays
-}
+// historyPresetDayCounts is the closed vocabulary of preset day counts the
+// selector renders. Each button's absolute ?start=<today-N>&end=<today> href is
+// built by the handler at render time — the closed vocabulary is a UI-only
+// convenience, not an HTTP contract (RM8 design D3/D4, Decision #3).
+var historyPresetDayCounts = []int{6, 14, 30}
 
 // labelVerticalFor decides per-bar label orientation for a history chart from
-// the days preset (design D2/D3: a single chart-level flag, computed once in
-// the handler — the template never compares days or computes rotation). This
-// is the one named location for the wide/narrow preset split: true (rotated
-// vertical labels) for the narrower 14- and 30-day presets, false (horizontal
-// labels) for the wide 6-day preset.
-func labelVerticalFor(days int) bool {
-	return days == 14 || days == 30
+// the number of bars in the fixed [start..end] window (design D3: a single
+// chart-level flag, computed once in the handler — the template never compares
+// the window or computes rotation). This is the one named location for the
+// wide/narrow split: true (rotated vertical labels) when numBars >= 14 (the
+// 14- and 30-day presets), false (horizontal labels) for the wide 6-bar default.
+func labelVerticalFor(numBars int) bool {
+	return numBars >= 14
 }
 
 // startOfDay returns midnight UTC for the given time t (truncates to the day).
@@ -65,14 +57,73 @@ func startOfDay(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
+// effectiveDayUTC returns the UTC-midnight calendar day of a snapshot's
+// EffectiveDate — the map key for fixed-axis bucketing (design D3).
+func effectiveDayUTC(t time.Time) time.Time {
+	return startOfDay(t)
+}
+
+// parseHistoryRange validates the ?start=&end= query params (RM8 design D1 /
+// Decision #2). It returns the parsed (start, end) calendar days and ok=true,
+// or the zero values and ok=false when the request is malformed. The handler
+// renders HTTP 400 on ok=false.
+//
+// Validation, in order:
+//  1. Both absent → default 6-day window (end = today UTC midnight,
+//     start = end.AddDate(0,0,-historyRangeWindowDays)), ok=true.
+//  2. Either present → both required and well-formed YYYY-MM-DD.
+//  3. end >= start (end.Before(start) → false).
+//  4. end <= today (end.After(startOfDay(now)) → false — no future dates).
+//  5. Window <= historyRangeMaxDays days (read-path protection).
+func parseHistoryRange(c *gin.Context) (start, end time.Time, ok bool) {
+	rawStart := c.Query("start")
+	rawEnd := c.Query("end")
+
+	// 1. Default window when both are absent.
+	if rawStart == "" && rawEnd == "" {
+		end = startOfDay(time.Now())
+		start = end.AddDate(0, 0, -historyRangeWindowDays)
+		return start, end, true
+	}
+
+	// 2. Either present → both must parse as YYYY-MM-DD.
+	s, err := time.Parse("2006-01-02", rawStart)
+	if err != nil {
+		return time.Time{}, time.Time{}, false
+	}
+	e, err := time.Parse("2006-01-02", rawEnd)
+	if err != nil {
+		return time.Time{}, time.Time{}, false
+	}
+	// time.Parse("2006-01-02", ...) yields a time.Time at 00:00 UTC for a bare
+	// date string, so start/end are already UTC-midnight-bounded.
+
+	// 3. end >= start.
+	if e.Before(s) {
+		return time.Time{}, time.Time{}, false
+	}
+	// 4. end <= today.
+	if e.After(startOfDay(time.Now())) {
+		return time.Time{}, time.Time{}, false
+	}
+	// 5. Window <= max days (inclusive end → width in days = end-start+1 ≤ max+1
+	// is allowed; equivalently end-start ≤ max days, reject when > max).
+	if e.Sub(s).Hours()/24 > float64(historyRangeMaxDays) {
+		return time.Time{}, time.Time{}, false
+	}
+	return s, e, true
+}
+
 // DashboardHistoryFragment is the handler for GET /ui/dashboard/history.
 // It authenticates the caller, resolves the selected vehicle, validates the
-// days parameter, calls telemetry.Reader once, builds a logic-free view model,
-// and renders the #dashboard-history fragment.
+// start/end params, calls telemetry.Reader once (SnapshotsByVehicleBetween with
+// a 1-day lookback), builds a logic-free view model over a fixed [start..end]
+// calendar-day axis, and renders the #dashboard-history fragment.
 //
-// Read-only: one read (SnapshotsByVehicleSince) per request; no writes, no Tesla
-// API calls, no side effects. Degrades gracefully on reader errors (empty charts,
-// no 500). Anonymous callers are redirected to /login (no data served).
+// Read-only: one read per request; no writes, no Tesla API calls, no side
+// effects. Degrades gracefully on reader errors (empty charts, no 500) and on
+// malformed params (400 with the empty-state placeholder). Anonymous callers
+// are redirected to /login (no data served).
 func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -80,13 +131,28 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		return
 	}
 
+	start, end, ok := parseHistoryRange(c)
+	if !ok {
+		// Malformed/invalid window → 400 with the empty-state placeholder and
+		// NO preset selector (the request shape was malformed; render a graceful
+		// degrade, not a 500 and not a selector). design D1 / spec scenario.
+		v := fragments.HistoryView{
+			Odometer: fragments.HistoryChart{Empty: true},
+			Battery:  fragments.HistoryChart{Empty: true},
+		}
+		renderFragment(c, http.StatusBadRequest, pages.DashboardHistory(v), "dashboard-history")
+		return
+	}
+
 	selected, sOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
 	if !sOK {
 		// No vehicle registered or account error — render an empty history block
-		// (both charts in empty state). Mirrors dashboardFor degradation.
+		// (both charts in empty state) but WITH the preset selector so the user
+		// can still switch windows. Mirrors dashboardFor degradation.
 		v := fragments.HistoryView{
-			Days:     defaultHistoryDays,
-			Presets:  historyDayPresets,
+			Start:   start,
+			End:     end,
+			Presets: buildHistoryPresets(start, end),
 			Odometer: fragments.HistoryChart{Empty: true},
 			Battery:  fragments.HistoryChart{Empty: true},
 		}
@@ -94,28 +160,54 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		return
 	}
 
-	days := clampHistoryDays(c.Query("days"))
-	since := startOfDay(time.Now()).AddDate(0, 0, -days)
-
-	v := h.buildHistoryView(c.Request.Context(), uid, selected.TeslaID, days, since)
+	v := h.buildHistoryView(c.Request.Context(), uid, selected.TeslaID, start, end)
 	renderFragment(c, http.StatusOK, pages.DashboardHistory(v), "dashboard-history")
+}
+
+// buildHistoryPresets builds the []RangePreset for the selector at render time
+// (design D4, Decision #3): for each n in {6, 14, 30}, End = today UTC midnight,
+// Start = End.AddDate(0,0,-n), the absolute href is pre-formatted, and Active is
+// true when (Start, End) matches the requested (start, end) window. A custom
+// (non-preset) window marks no preset active — the selector renders all-ghost.
+func buildHistoryPresets(start, end time.Time) []fragments.RangePreset {
+	today := startOfDay(time.Now())
+	out := make([]fragments.RangePreset, 0, len(historyPresetDayCounts))
+	for _, n := range historyPresetDayCounts {
+		pEnd := today
+		pStart := today.AddDate(0, 0, -n)
+		out = append(out, fragments.RangePreset{
+			Label:    fmt.Sprintf("%d days", n),
+			StartStr: pStart.Format("2006-01-02"),
+			EndStr:   pEnd.Format("2006-01-02"),
+			Active:   start.Equal(pStart) && end.Equal(pEnd),
+		})
+	}
+	return out
 }
 
 // buildHistoryView is the core logic for the history fragment, decoupled from
 // gin/session so it is unit-testable with a fake telemetry.Reader. It performs
-// ONE read (SnapshotsByVehicleSince) and maps the result into a logic-free view
-// model (HistoryView) — all heights and tooltip strings are pre-computed here;
-// the template does no arithmetic or domain-method calls (RD7).
+// ONE read (SnapshotsByVehicleBetween) with a 1-day lookback (readStart =
+// start-1day — design D2) to seed the first odometer delta, then buckets the
+// returned snapshots by EffectiveDate into a fixed [start..end] calendar-day
+// axis — one bar/day, identical MM-DD labels on both charts (the MAG-7 fix,
+// design D3). All heights and tooltip strings are pre-computed here; the
+// template does no arithmetic or domain-method calls (RD7).
 //
-// On reader error the function degrades (both charts empty) rather than panicking
-// or returning a 500 — resilience mirrors dashboardFor.
-func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID int64, days int, since time.Time) fragments.HistoryView {
+// On reader error the function degrades (both charts empty) rather than
+// panicking or returning a 500 — resilience mirrors dashboardFor.
+func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID int64, start, end time.Time) fragments.HistoryView {
 	v := fragments.HistoryView{
-		Days:    days,
-		Presets: historyDayPresets,
+		Start:   start,
+		End:     end,
+		Presets: buildHistoryPresets(start, end),
 	}
 
-	snaps, err := h.telemetryReader.SnapshotsByVehicleSince(ctx, uid, teslaID, since)
+	// 1-day lookback: fetch from readStart so the snapshot whose EffectiveDate
+	// == start-1 seeds the first odometer delta's km basis. The lookback is a
+	// gateway concern; the port stays a clean Between(start, end) (design D2).
+	readStart := start.AddDate(0, 0, -1)
+	snaps, err := h.telemetryReader.SnapshotsByVehicleBetween(ctx, uid, teslaID, readStart, end)
 	if err != nil {
 		log.Printf("gateway: history reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Odometer = fragments.HistoryChart{Empty: true}
@@ -123,97 +215,153 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 		return v
 	}
 
-	v.Odometer = buildOdometerChart(snaps, days)
-	v.Battery = buildBatteryChart(snaps, days)
+	v.Odometer = buildOdometerChart(snaps, start, end)
+	v.Battery = buildBatteryChart(snaps, start, end)
 	return v
 }
 
-// buildOdometerChart computes km-driven-per-day bars from snapshots (RD5).
-// It takes up to days+1 of the most recent snapshots to produce days consecutive
-// deltas. A negative delta (clock skew / odometer anomaly) is clamped to 0.
+// buildOdometerChart computes km-driven-per-day bars over a FIXED [start..end]
+// calendar-day axis (design D3 — the MAG-7 fix). It allocates exactly numDays
+// slots (one per calendar day, inclusive end), buckets the returned snapshots
+// by EffectiveDate into a map keyed by UTC midnight, and for each day d in
+// [start, end] computes the delta odometerKm(snap[d]) - odometerKm(snap[d-1])
+// when both exist (the lookback start-1 snapshot seeds the first bar). A
+// negative delta (clock skew / odometer anomaly) is clamped to 0. A day with no
+// snapshot for either d or d-1 renders as an empty labeled bar (Present=false,
+// HeightPct=0, "<MM-DD> · no snapshot" tooltip). The chart's Empty fires only
+// when fewer than 2 snapshots total exist in [start-1..end] (no delta possible).
 // Bar heights are expressed as a percentage of the maximum delta (so the tallest
-// bar is always 100%). When fewer than 2 snapshots exist, the chart is empty.
-func buildOdometerChart(snaps []telemetry.Snapshot, days int) fragments.HistoryChart {
-	// Take the last min(len(snaps), days+1) snapshots (oldest-first from the port).
-	want := days + 1
-	start := 0
-	if len(snaps) > want {
-		start = len(snaps) - want
-	}
-	pts := snaps[start:]
+// bar is always 100%).
+func buildOdometerChart(snaps []telemetry.Snapshot, start, end time.Time) fragments.HistoryChart {
+	numDays := int(end.Sub(start).Hours()/24) + 1
 
-	if len(pts) < 2 {
-		return fragments.HistoryChart{Empty: true}
+	// Empty when fewer than 2 snapshots in the lookback+window set (the
+	// returned slice covers [start-1..end]; < 2 → no delta possible).
+	if len(snaps) < 2 {
+		return fragments.HistoryChart{Empty: true, LabelVertical: labelVerticalFor(numDays)}
+	}
+
+	// Bucket by EffectiveDate UTC midnight — one entry per calendar day. The
+	// lookback snapshot (EffectiveDate == start-1) lands outside [start..end]
+	// and is consumed ONLY as the first bar's delta basis.
+	byDay := make(map[time.Time]telemetry.Snapshot, len(snaps))
+	for _, s := range snaps {
+		byDay[effectiveDayUTC(s.EffectiveDate)] = s
 	}
 
 	type delta struct {
-		date       time.Time
+		label      string
 		kmDriven   float64
 		odometerKm float64
+		present    bool
 	}
-	deltas := make([]delta, 0, len(pts)-1)
+	deltas := make([]delta, 0, numDays)
 	maxKm := 0.0
-	for i := 1; i < len(pts); i++ {
-		d := pts[i].OdometerKm - pts[i-1].OdometerKm
-		if d < 0 {
-			d = 0 // clamp negative (RD5: clock skew / odometer anomaly)
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		label := d.Format("01-02")
+		cur, curOK := byDay[d]
+		prev, prevOK := byDay[d.AddDate(0, 0, -1)]
+		if !curOK || !prevOK {
+			// Missing snapshot for d or d-1 → empty labeled bar.
+			deltas = append(deltas, delta{
+				label:   label,
+				present: false,
+			})
+			continue
+		}
+		km := cur.OdometerKm - prev.OdometerKm
+		if km < 0 {
+			km = 0 // clamp negative (RD5: clock skew / odometer anomaly)
 		}
 		deltas = append(deltas, delta{
-			// EffectiveDate (not CapturedAt): the calendar day the snapshot
-			// represents, not the capture morning (D1 — mixing sources here
-			// would re-introduce the 1-day mismatch MAG-6 fixes).
-			date:       pts[i].EffectiveDate,
-			kmDriven:   d,
-			odometerKm: pts[i].OdometerKm,
+			label:       label,
+			kmDriven:    km,
+			odometerKm:  cur.OdometerKm,
+			present:     true,
 		})
-		if d > maxKm {
-			maxKm = d
+		if km > maxKm {
+			maxKm = km
 		}
 	}
 
-	bars := make([]fragments.HistoryBar, 0, len(deltas))
+	bars := make([]fragments.HistoryBar, 0, numDays)
 	for _, d := range deltas {
+		if !d.present {
+			bars = append(bars, fragments.HistoryBar{
+				HeightPct: 0,
+				Tooltip:   fmt.Sprintf("%s · no snapshot", d.label),
+				Label:     d.label,
+				Present:   false,
+			})
+			continue
+		}
 		pct := 0
 		if maxKm > 0 {
 			pct = int(math.Round(d.kmDriven / maxKm * 100))
 		}
-		label := d.date.Format("01-02")
 		tooltip := fmt.Sprintf("%s · %s km driven · odometer %s",
-			label,
+			d.label,
 			formatKmRaw(d.kmDriven),
 			formatKm(d.odometerKm),
 		)
-		bars = append(bars, fragments.HistoryBar{HeightPct: pct, Tooltip: tooltip, Label: label})
+		bars = append(bars, fragments.HistoryBar{
+			HeightPct: pct,
+			Tooltip:   tooltip,
+			Label:     d.label,
+			Present:   true,
+		})
 	}
-	return fragments.HistoryChart{Bars: bars, Empty: len(bars) == 0, LabelVertical: labelVerticalFor(days)}
+	return fragments.HistoryChart{Bars: bars, Empty: len(bars) == 0, LabelVertical: labelVerticalFor(numDays)}
 }
 
-// buildBatteryChart computes battery-level-% bars from the N most recent snapshots
-// (RD6). Bar height = BatteryLevelPct directly (already 0–100). Empty when no points.
-func buildBatteryChart(snaps []telemetry.Snapshot, days int) fragments.HistoryChart {
-	// Take up to days of the most recent snapshots.
-	start := 0
-	if len(snaps) > days {
-		start = len(snaps) - days
-	}
-	pts := snaps[start:]
+// buildBatteryChart computes battery-level-% bars over a FIXED [start..end]
+// calendar-day axis (design D3 — the MAG-7 fix). It allocates exactly numDays
+// slots, buckets snapshots by EffectiveDate, and for each day d in [start, end]
+// emits a bar at HeightPct = snap.BatteryLevelPct when a snapshot exists, else
+// an empty labeled bar (Present=false, HeightPct=0, "<MM-DD> · no snapshot").
+// Bar height is the battery level percentage directly (already 0–100). The
+// chart's Empty fires only when zero snapshots exist in the window (a partial
+// axis is NOT an empty chart). Returns EXACTLY numDays bars so the odometer and
+// battery Label slices are identical by construction.
+func buildBatteryChart(snaps []telemetry.Snapshot, start, end time.Time) fragments.HistoryChart {
+	numDays := int(end.Sub(start).Hours()/24) + 1
 
-	if len(pts) == 0 {
-		return fragments.HistoryChart{Empty: true}
+	// Empty only when zero snapshots in the window (a partial axis is NOT empty).
+	if len(snaps) == 0 {
+		return fragments.HistoryChart{Empty: true, LabelVertical: labelVerticalFor(numDays)}
 	}
 
-	bars := make([]fragments.HistoryBar, 0, len(pts))
-	for _, s := range pts {
-		// EffectiveDate (not CapturedAt): see buildOdometerChart — same D1 rule.
-		label := s.EffectiveDate.Format("01-02")
+	byDay := make(map[time.Time]telemetry.Snapshot, len(snaps))
+	for _, s := range snaps {
+		byDay[effectiveDayUTC(s.EffectiveDate)] = s
+	}
+
+	bars := make([]fragments.HistoryBar, 0, numDays)
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		label := d.Format("01-02")
+		s, ok := byDay[d]
+		if !ok {
+			bars = append(bars, fragments.HistoryBar{
+				HeightPct: 0,
+				Tooltip:   fmt.Sprintf("%s · no snapshot", label),
+				Label:     label,
+				Present:   false,
+			})
+			continue
+		}
 		tooltip := fmt.Sprintf("%s · %d%% · %s km range",
 			label,
 			s.BatteryLevelPct,
 			formatKmRaw(s.BatteryRangeKm),
 		)
-		bars = append(bars, fragments.HistoryBar{HeightPct: s.BatteryLevelPct, Tooltip: tooltip, Label: label})
+		bars = append(bars, fragments.HistoryBar{
+			HeightPct: s.BatteryLevelPct,
+			Tooltip:   tooltip,
+			Label:     label,
+			Present:   true,
+		})
 	}
-	return fragments.HistoryChart{Bars: bars, Empty: false, LabelVertical: labelVerticalFor(days)}
+	return fragments.HistoryChart{Bars: bars, Empty: false, LabelVertical: labelVerticalFor(numDays)}
 }
 
 // formatKmRaw renders a kilometre value as a whole number string without the " km"

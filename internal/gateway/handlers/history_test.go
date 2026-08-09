@@ -22,29 +22,40 @@ import (
 // --- fakes for the history handler tests ---
 
 // fakeHistoryReader is a test double for telemetry.Reader that records the
-// SnapshotsByVehicleSince call so tests can assert the correct since time was passed.
-// LatestSnapshotsByAccount returns empty (history tests don't use it).
+// SnapshotsByVehicleBetween call so tests can assert the correct readStart
+// (start-1day lookback) and end were passed. LatestSnapshotsByAccount returns
+// empty (history tests don't use it). SnapshotsByVehicleSince PANICS — the
+// history handler no longer calls it (RM8 tier 2 rewired to Between), so a
+// panic catches accidental re-wiring.
 type fakeHistoryReader struct {
-	historySnaps  []telemetry.Snapshot
-	historyErr    error
-	capturedSince time.Time // set by SnapshotsByVehicleSince so tests can assert
+	historySnaps []telemetry.Snapshot
+	historyErr   error
+	// Captured Between call args so tests can assert.
+	gotAccount     uuid.UUID
+	gotTeslaID     int64
+	gotStart       time.Time
+	gotEnd         time.Time
+	betweenCalled  bool
 }
 
 func (f *fakeHistoryReader) LatestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]telemetry.Snapshot, error) {
 	return []telemetry.Snapshot{}, nil
 }
 
-func (f *fakeHistoryReader) SnapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ int64, since time.Time) ([]telemetry.Snapshot, error) {
-	f.capturedSince = since
-	return f.historySnaps, f.historyErr
+// SnapshotsByVehicleSince PANICS — the history handler was rewired to Between
+// in RM8 tier 2. A panic catches accidental re-wiring.
+func (f *fakeHistoryReader) SnapshotsByVehicleSince(context.Context, uuid.UUID, int64, time.Time) ([]telemetry.Snapshot, error) {
+	panic("fakeHistoryReader: SnapshotsByVehicleSince is no longer used by the history handler (RM8 tier 2 rewired to Between)")
 }
 
-// SnapshotsByVehicleBetween is a stub satisfying the telemetry.Reader interface
-// (added by RM8-telemetry-between-range-port). The history handler is rewired to
-// Between in tier 2 (RM8-gateway-history-date-range); until then this stub is
-// never called by the handler and panics to catch accidental use.
-func (f *fakeHistoryReader) SnapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _ time.Time, _ time.Time) ([]telemetry.Snapshot, error) {
-	panic("fakeHistoryReader: SnapshotsByVehicleBetween is wired in tier 2 (RM8-gateway-history-date-range)")
+// SnapshotsByVehicleBetween records the call and returns the configured snaps.
+func (f *fakeHistoryReader) SnapshotsByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]telemetry.Snapshot, error) {
+	f.gotAccount = accountID
+	f.gotTeslaID = teslaID
+	f.gotStart = start
+	f.gotEnd = end
+	f.betweenCalled = true
+	return f.historySnaps, f.historyErr
 }
 
 // errTestHistory is a sentinel error for history handler tests.
@@ -86,317 +97,468 @@ func newHandlerForHistory(reader *fakeHistoryReader, teslaID int64, vin string) 
 	})
 }
 
-// dailySnaps builds N+1 snapshots oldest-first: a fixed odometer step + battery
-// level, useful for building chart test inputs. EffectiveDate mirrors the real
-// telemetry mapping (CapturedAt minus one calendar day — internal/telemetry/
-// mapping.go) so tests exercising Label/Tooltip content see realistic,
-// non-zero EffectiveDate values.
-func dailySnaps(n int, odometerBase float64, odometerStep float64, batteryBase int) []telemetry.Snapshot {
-	snaps := make([]telemetry.Snapshot, n+1)
-	base := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
-	for i := range snaps {
-		capturedAt := base.AddDate(0, 0, i)
-		snaps[i] = telemetry.Snapshot{
+// calendarDays returns the inclusive list of UTC-midnight calendar days in
+// [start, end], oldest-first.
+func calendarDays(start, end time.Time) []time.Time {
+	var out []time.Time
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		out = append(out, startOfDay(d))
+	}
+	return out
+}
+
+// snapsForDays builds one snapshot per provided EffectiveDate calendar day
+// (oldest-first), with a fixed odometer step and battery level. CapturedAt is
+// the next-day nightly-capture morning (EffectiveDate + 1 day — mirrors the real
+// telemetry rowToSnapshot mapping), so tests exercise realistic EffectiveDate
+// values distinct from CapturedAt.
+func snapsForDays(days []time.Time, odometerBase, odometerStep float64, batteryBase int) []telemetry.Snapshot {
+	out := make([]telemetry.Snapshot, len(days))
+	for i, d := range days {
+		out[i] = telemetry.Snapshot{
 			OdometerKm:      odometerBase + float64(i)*odometerStep,
 			BatteryLevelPct: batteryBase + i,
 			BatteryRangeKm:  300,
-			CapturedAt:      capturedAt,
-			EffectiveDate:   capturedAt.AddDate(0, 0, -1),
+			CapturedAt:      startOfDay(d).AddDate(0, 0, 1),
+			EffectiveDate:   startOfDay(d),
 		}
 	}
-	return snaps
+	return out
 }
 
-// --- clampHistoryDays unit tests (pure function) ---
-
-func TestClampHistoryDays_Presets(t *testing.T) {
-	tests := []struct {
-		raw  string
-		want int
-	}{
-		{"6", 6},
-		{"14", 14},
-		{"30", 30},
-		{"", defaultHistoryDays},
-		{"abc", defaultHistoryDays},
-		{"5", defaultHistoryDays},
-		{"7", defaultHistoryDays},
-		{"0", defaultHistoryDays},
-		{"-6", defaultHistoryDays},
-		{"100", defaultHistoryDays},
-		{"6.0", defaultHistoryDays},
-		{" 6", defaultHistoryDays},
+// parseRange builds a gin.Context with the given start/end query params and runs
+// parseHistoryRange. Pure-function unit-test helper (no engine, no DB).
+func parseRange(start, end string) (time.Time, time.Time, bool) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	url := "/?"
+	if start != "" {
+		url += "start=" + start + "&"
 	}
-	for _, tc := range tests {
-		got := clampHistoryDays(tc.raw)
-		if got != tc.want {
-			t.Errorf("clampHistoryDays(%q): want %d, got %d", tc.raw, tc.want, got)
-		}
+	if end != "" {
+		url += "end=" + end
+	}
+	c.Request = httptest.NewRequest(http.MethodGet, url, nil)
+	return parseHistoryRange(c)
+}
+
+// --- parseHistoryRange unit tests (task 6.1, design D1) ---
+
+func TestParseHistoryRange_BothAbsent_DefaultSixDayWindow(t *testing.T) {
+	start, end, ok := parseRange("", "")
+	if !ok {
+		t.Fatal("want ok=true for both absent")
+	}
+	wantEnd := startOfDay(time.Now())
+	wantStart := wantEnd.AddDate(0, 0, -historyRangeWindowDays)
+	if !end.Equal(wantEnd) {
+		t.Errorf("want end=%v, got %v", wantEnd, end)
+	}
+	if !start.Equal(wantStart) {
+		t.Errorf("want start=%v, got %v", wantStart, start)
 	}
 }
 
-// --- labelVerticalFor unit tests (task 4.2) ---
+func TestParseHistoryRange_ValidExplicitWindow(t *testing.T) {
+	start, end, ok := parseRange("2026-08-03", "2026-08-07")
+	if !ok {
+		t.Fatal("want ok=true for valid window")
+	}
+	wantStart := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	wantEnd := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
+		t.Errorf("want (%v,%v), got (%v,%v)", wantStart, wantEnd, start, end)
+	}
+}
 
-// TestLabelVerticalFor_OrientationByDaysPreset asserts the closed-vocabulary
-// wide/narrow split (design D2/D3): horizontal (false) for the wide 6-day
-// preset, rotated vertical (true) for the narrow 14- and 30-day presets.
-func TestLabelVerticalFor_OrientationByDaysPreset(t *testing.T) {
+func TestParseHistoryRange_MalformedNonISO(t *testing.T) {
+	if _, _, ok := parseRange("08-07", "2026-08-07"); ok {
+		t.Error("want ok=false for malformed start")
+	}
+	if _, _, ok := parseRange("2026-08-03", "not-a-date"); ok {
+		t.Error("want ok=false for malformed end")
+	}
+}
+
+func TestParseHistoryRange_MissingPartner(t *testing.T) {
+	if _, _, ok := parseRange("2026-08-03", ""); ok {
+		t.Error("want ok=false when start present but end absent")
+	}
+	if _, _, ok := parseRange("", "2026-08-07"); ok {
+		t.Error("want ok=false when end present but start absent")
+	}
+}
+
+func TestParseHistoryRange_EndBeforeStart(t *testing.T) {
+	if _, _, ok := parseRange("2026-08-07", "2026-08-03"); ok {
+		t.Error("want ok=false when end < start")
+	}
+}
+
+func TestParseHistoryRange_EndAfterToday(t *testing.T) {
+	if _, _, ok := parseRange("2026-08-03", "2099-12-31"); ok {
+		t.Error("want ok=false when end > today")
+	}
+}
+
+func TestParseHistoryRange_WindowOverNinetyDays(t *testing.T) {
+	// 2026-08-07 - 2026-05-01 = 98 days, end <= today, but window > 90.
+	if _, _, ok := parseRange("2026-05-01", "2026-08-07"); ok {
+		t.Error("want ok=false for window > 90 days")
+	}
+}
+
+// --- labelVerticalFor unit tests (task 2.5 retarget) ---
+
+// TestLabelVerticalFor_OrientationByBarCount asserts the wide/narrow split on
+// the fixed [start..end] axis (RM8 design D3): horizontal (false) for 6-bar
+// windows, rotated vertical (true) for 14- and 30-bar windows.
+func TestLabelVerticalFor_OrientationByBarCount(t *testing.T) {
 	tests := []struct {
-		days int
-		want bool
+		numBars int
+		want    bool
 	}{
 		{6, false},
+		{13, false},
 		{14, true},
 		{30, true},
+		{90, true},
 	}
 	for _, tc := range tests {
-		got := labelVerticalFor(tc.days)
+		got := labelVerticalFor(tc.numBars)
 		if got != tc.want {
-			t.Errorf("labelVerticalFor(%d): want %v, got %v", tc.days, tc.want, got)
+			t.Errorf("labelVerticalFor(%d): want %v, got %v", tc.numBars, tc.want, got)
 		}
 	}
 }
 
-// --- buildOdometerChart unit tests ---
+// --- buildOdometerChart fixed-axis unit tests (task 6.3, design D3) ---
 
 func TestBuildOdometerChart_EmptyWhenFewerThanTwoSnapshots(t *testing.T) {
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
 	// 0 snapshots.
-	c := buildOdometerChart(nil, 6)
+	c := buildOdometerChart(nil, start, end)
 	if !c.Empty {
 		t.Error("want Empty=true for 0 snapshots")
 	}
-	// 1 snapshot.
-	c = buildOdometerChart([]telemetry.Snapshot{{OdometerKm: 100}}, 6)
+	// 1 snapshot (only the lookback).
+	c = buildOdometerChart([]telemetry.Snapshot{{OdometerKm: 1000, EffectiveDate: start.AddDate(0, 0, -1)}}, start, end)
 	if !c.Empty {
 		t.Error("want Empty=true for 1 snapshot")
 	}
 }
 
-func TestBuildOdometerChart_NDeltas_FromNPlusOnePoints(t *testing.T) {
-	// 7 snapshots → 6 delta bars for days=6.
-	snaps := dailySnaps(6, 1000, 10, 70)
-	c := buildOdometerChart(snaps, 6)
+func TestBuildOdometerChart_FixedAxis_FullWindowWithLookback(t *testing.T) {
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day inclusive window
+	lookback := start.AddDate(0, 0, -1)               // 08-02 seeds the first delta
+	snaps := snapsForDays(append([]time.Time{lookback}, calendarDays(start, end)...), 1000, 10, 70)
+	c := buildOdometerChart(snaps, start, end)
 	if c.Empty {
-		t.Fatal("want non-empty chart for 7 snapshots with days=6")
+		t.Fatal("want non-empty chart")
 	}
-	if len(c.Bars) != 6 {
-		t.Errorf("want 6 bars, got %d", len(c.Bars))
+	if len(c.Bars) != 5 {
+		t.Fatalf("want exactly 5 bars (one per day incl end), got %d", len(c.Bars))
+	}
+	// Labels are 08-03..08-07 (the lookback 08-02 is NOT a displayed bar).
+	want := []string{"08-03", "08-04", "08-05", "08-06", "08-07"}
+	for i, l := range want {
+		if c.Bars[i].Label != l {
+			t.Errorf("bar[%d].Label: want %q, got %q", i, l, c.Bars[i].Label)
+		}
+		if !c.Bars[i].Present {
+			t.Errorf("bar[%d]: want Present=true", i)
+		}
+	}
+	// First bar's delta uses the lookback snapshot (odometer 1000 → first window
+	// snap 1010 = 10 km). All deltas equal 10 → all bars at 100%.
+	if c.Bars[0].HeightPct != 100 {
+		t.Errorf("first bar HeightPct: want 100 (max delta), got %d", c.Bars[0].HeightPct)
+	}
+}
+
+func TestBuildOdometerChart_FixedAxis_MissingDayEmptyLabeledBar(t *testing.T) {
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day window
+	// Snaps for 08-02 (lookback), 08-03, 08-04, 08-06, 08-07 — MISSING 08-05.
+	days := []time.Time{
+		start.AddDate(0, 0, -1), // 08-02 lookback
+		start,                   // 08-03
+		start.AddDate(0, 0, 1),  // 08-04
+		// 08-05 deliberately absent
+		start.AddDate(0, 0, 3), // 08-06
+		start.AddDate(0, 0, 4), // 08-07
+	}
+	snaps := snapsForDays(days, 1000, 10, 70)
+	c := buildOdometerChart(snaps, start, end)
+	if c.Empty {
+		t.Fatal("want non-empty chart")
+	}
+	if len(c.Bars) != 5 {
+		t.Fatalf("want exactly 5 bars (axis fixed regardless of gaps), got %d", len(c.Bars))
+	}
+	// 08-05 is the missing-day bar (index 2).
+	miss := c.Bars[2]
+	if miss.Label != "08-05" {
+		t.Errorf("missing-day Label: want 08-05, got %q", miss.Label)
+	}
+	if miss.Present {
+		t.Error("missing-day bar must be Present=false")
+	}
+	if miss.HeightPct != 0 {
+		t.Errorf("missing-day HeightPct: want 0, got %d", miss.HeightPct)
+	}
+	if !strings.Contains(miss.Tooltip, "no snapshot") {
+		t.Errorf("missing-day tooltip should say 'no snapshot', got %q", miss.Tooltip)
+	}
+	// Surrounding bars (08-04, 08-06) keep their own labels — no shift to fill.
+	if c.Bars[1].Label != "08-04" || c.Bars[3].Label != "08-06" {
+		t.Errorf("surrounding labels must not shift; got %q, %q", c.Bars[1].Label, c.Bars[3].Label)
 	}
 }
 
 func TestBuildOdometerChart_NegativeDeltaClampedToZero(t *testing.T) {
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 4, 0, 0, 0, 0, time.UTC) // 2-day window
 	snaps := []telemetry.Snapshot{
-		{OdometerKm: 1000, CapturedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
-		{OdometerKm: 900, CapturedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)}, // negative
+		{OdometerKm: 1000, EffectiveDate: start.AddDate(0, 0, -1)}, // 08-02 lookback
+		{OdometerKm: 900, EffectiveDate: start},                     // 08-03 — negative delta (clock skew)
+		{OdometerKm: 1050, EffectiveDate: start.AddDate(0, 0, 1)},   // 08-04
 	}
-	c := buildOdometerChart(snaps, 6)
+	c := buildOdometerChart(snaps, start, end)
 	if c.Empty {
-		t.Fatal("want 1 bar for 2 snapshots")
+		t.Fatal("want non-empty for 3 snapshots")
 	}
+	if len(c.Bars) != 2 {
+		t.Fatalf("want 2 bars, got %d", len(c.Bars))
+	}
+	// First bar (08-03): 900-1000 = -100 → clamped to 0.
 	if c.Bars[0].HeightPct != 0 {
-		t.Errorf("want HeightPct=0 for negative delta, got %d", c.Bars[0].HeightPct)
+		t.Errorf("negative delta bar HeightPct: want 0, got %d", c.Bars[0].HeightPct)
+	}
+	if !c.Bars[0].Present {
+		t.Error("negative-delta bar is still a PRESENT bar (backed by a snapshot)")
 	}
 }
 
-func TestBuildOdometerChart_TooltipContainsDateAndKeywords(t *testing.T) {
-	// CapturedAt and EffectiveDate deliberately differ (D1): the tooltip date
-	// must come from EffectiveDate, not CapturedAt — the mismatch here is what
-	// proves the source, not a coincidence of matching values.
+func TestBuildOdometerChart_TooltipUsesEffectiveDateMMDD(t *testing.T) {
+	// CapturedAt and EffectiveDate deliberately differ: the tooltip/label date
+	// comes from the axis day (== EffectiveDate calendar day), never from
+	// CapturedAt. Proves the source on the fixed axis.
+	start := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 0, 1)
 	snaps := []telemetry.Snapshot{
-		{OdometerKm: 12000, CapturedAt: time.Date(2026, 7, 2, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 7, 1, 3, 30, 0, 0, time.UTC)},
-		{OdometerKm: 12100, CapturedAt: time.Date(2026, 7, 3, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 7, 2, 3, 30, 0, 0, time.UTC)},
+		{OdometerKm: 12000, CapturedAt: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 6, 3, 30, 0, 0, time.UTC)}, // 08-06 lookback
+		{OdometerKm: 12100, CapturedAt: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC)}, // 08-07
+		{OdometerKm: 12200, CapturedAt: time.Date(2026, 8, 9, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC)}, // 08-08
 	}
-	c := buildOdometerChart(snaps, 6)
-	if c.Empty || len(c.Bars) == 0 {
-		t.Fatal("want bars")
-	}
-	tt := c.Bars[0].Tooltip
-	for _, want := range []string{"07-02", "km driven", "odometer"} {
-		if !strings.Contains(tt, want) {
-			t.Errorf("tooltip missing %q, got: %q", want, tt)
-		}
-	}
-	if strings.Contains(tt, "2026-07-03") || strings.Contains(tt, "07-03") {
-		t.Errorf("tooltip must NOT contain the CapturedAt-derived date, got: %q", tt)
-	}
-}
-
-func TestBuildOdometerChart_FewerThanNPlusOneSnapshots(t *testing.T) {
-	// 4 snapshots → only 3 delta bars (days=6 requested but only 3 available).
-	snaps := dailySnaps(3, 1000, 10, 70)
-	c := buildOdometerChart(snaps, 6)
-	if c.Empty {
-		t.Fatal("want non-empty chart — 4 points give 3 valid delta bars")
-	}
-	if len(c.Bars) != 3 {
-		t.Errorf("want 3 bars (data-limited), got %d", len(c.Bars))
-	}
-}
-
-// TestBuildOdometerChart_LabelAndTooltipUseEffectiveDate is the design.md /
-// spec.md scenario "Tooltip date is the EffectiveDate in MM-DD, not the
-// capture morning" (task 4.1): CapturedAt=2026-08-08 03:30 UTC,
-// EffectiveDate=2026-08-07 → Label=="08-07" and the tooltip contains "08-07"
-// but NOT "2026-08-08" (proves CapturedAt is not the source).
-func TestBuildOdometerChart_LabelAndTooltipUseEffectiveDate(t *testing.T) {
-	snaps := []telemetry.Snapshot{
-		{OdometerKm: 12000, CapturedAt: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 6, 3, 30, 0, 0, time.UTC)},
-		{OdometerKm: 12100, CapturedAt: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC)},
-	}
-	c := buildOdometerChart(snaps, 6)
-	if c.Empty || len(c.Bars) == 0 {
-		t.Fatal("want bars")
+	c := buildOdometerChart(snaps, start, end)
+	if c.Empty || len(c.Bars) != 2 {
+		t.Fatalf("want 2 bars, got %d (empty=%v)", len(c.Bars), c.Empty)
 	}
 	bar := c.Bars[0]
 	if bar.Label != "08-07" {
-		t.Errorf("want Label=%q (from EffectiveDate), got %q", "08-07", bar.Label)
+		t.Errorf("want Label=08-07 (axis day), got %q", bar.Label)
 	}
 	if !strings.Contains(bar.Tooltip, "08-07") {
-		t.Errorf("want tooltip to contain %q, got: %q", "08-07", bar.Tooltip)
+		t.Errorf("tooltip must contain 08-07, got %q", bar.Tooltip)
 	}
-	if strings.Contains(bar.Tooltip, "2026-08-08") {
-		t.Errorf("tooltip must NOT contain the CapturedAt morning %q, got: %q", "2026-08-08", bar.Tooltip)
+	if strings.Contains(bar.Tooltip, "2026-08-08") || strings.Contains(bar.Tooltip, "08-08") {
+		t.Errorf("tooltip must NOT contain the CapturedAt-derived date, got %q", bar.Tooltip)
 	}
 }
 
-// --- buildBatteryChart unit tests ---
+// --- buildBatteryChart fixed-axis unit tests (task 6.4, design D3) ---
 
 func TestBuildBatteryChart_EmptyWhenNoSnapshots(t *testing.T) {
-	c := buildBatteryChart(nil, 6)
-	if !c.Empty {
-		t.Error("want Empty for nil snapshots")
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	if c := buildBatteryChart(nil, start, end); !c.Empty {
+		t.Error("want Empty for nil snaps")
 	}
-	c = buildBatteryChart([]telemetry.Snapshot{}, 6)
-	if !c.Empty {
-		t.Error("want Empty for empty slice")
+	if c := buildBatteryChart([]telemetry.Snapshot{}, start, end); !c.Empty {
+		t.Error("want Empty for empty snaps")
 	}
 }
 
-func TestBuildBatteryChart_NBarsFromLastNSnapshots(t *testing.T) {
-	// 10 snapshots → 6 bars for days=6 (uses last 6 oldest-first → last 6).
-	snaps := dailySnaps(9, 1000, 10, 60)
-	c := buildBatteryChart(snaps, 6)
+func TestBuildBatteryChart_FixedAxis_FullWindow(t *testing.T) {
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day window
+	// Window snaps only (battery chart does not consume the lookback).
+	snaps := snapsForDays(calendarDays(start, end), 0, 0, 70)
+	c := buildBatteryChart(snaps, start, end)
 	if c.Empty {
 		t.Fatal("want non-empty chart")
 	}
-	if len(c.Bars) != 6 {
-		t.Errorf("want 6 bars for days=6 with 10 snapshots, got %d", len(c.Bars))
+	if len(c.Bars) != 5 {
+		t.Fatalf("want exactly 5 bars, got %d", len(c.Bars))
 	}
-}
-
-func TestBuildBatteryChart_HeightPctEqualsLevel(t *testing.T) {
-	snaps := []telemetry.Snapshot{
-		{BatteryLevelPct: 75, BatteryRangeKm: 300, CapturedAt: time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)},
-	}
-	c := buildBatteryChart(snaps, 6)
-	if c.Empty || len(c.Bars) == 0 {
-		t.Fatal("want 1 bar")
-	}
-	if c.Bars[0].HeightPct != 75 {
-		t.Errorf("want HeightPct=75 (== BatteryLevelPct), got %d", c.Bars[0].HeightPct)
-	}
-}
-
-func TestBuildBatteryChart_TooltipContainsDateLevelAndRange(t *testing.T) {
-	// CapturedAt and EffectiveDate deliberately differ (D1): the tooltip date
-	// must come from EffectiveDate, not CapturedAt.
-	snaps := []telemetry.Snapshot{
-		{BatteryLevelPct: 82, BatteryRangeKm: 300, CapturedAt: time.Date(2026, 7, 4, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 7, 3, 3, 30, 0, 0, time.UTC)},
-	}
-	c := buildBatteryChart(snaps, 6)
-	if c.Empty || len(c.Bars) == 0 {
-		t.Fatal("want bars")
-	}
-	tt := c.Bars[0].Tooltip
-	for _, want := range []string{"07-03", "82%", "km range"} {
-		if !strings.Contains(tt, want) {
-			t.Errorf("battery tooltip missing %q, got: %q", want, tt)
+	want := []string{"08-03", "08-04", "08-05", "08-06", "08-07"}
+	for i, l := range want {
+		if c.Bars[i].Label != l {
+			t.Errorf("bar[%d].Label: want %q, got %q", i, l, c.Bars[i].Label)
+		}
+		if c.Bars[i].HeightPct != 70+i {
+			t.Errorf("bar[%d].HeightPct: want %d, got %d", i, 70+i, c.Bars[i].HeightPct)
+		}
+		if !c.Bars[i].Present {
+			t.Errorf("bar[%d]: want Present=true", i)
 		}
 	}
-	if strings.Contains(tt, "2026-07-04") || strings.Contains(tt, "07-04") {
-		t.Errorf("battery tooltip must NOT contain the CapturedAt-derived date, got: %q", tt)
+}
+
+func TestBuildBatteryChart_FixedAxis_MissingDayEmptyLabeledBar(t *testing.T) {
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day window
+	// Snaps for 08-03, 08-04, 08-06, 08-07 — MISSING 08-05.
+	days := []time.Time{start, start.AddDate(0, 0, 1), start.AddDate(0, 0, 3), start.AddDate(0, 0, 4)}
+	snaps := snapsForDays(days, 0, 0, 70)
+	c := buildBatteryChart(snaps, start, end)
+	if c.Empty {
+		t.Fatal("want non-empty (partial axis is NOT an empty chart)")
+	}
+	if len(c.Bars) != 5 {
+		t.Fatalf("want exactly 5 bars (axis fixed), got %d", len(c.Bars))
+	}
+	miss := c.Bars[2] // 08-05
+	if miss.Label != "08-05" {
+		t.Errorf("missing-day Label: want 08-05, got %q", miss.Label)
+	}
+	if miss.Present {
+		t.Error("missing-day bar must be Present=false")
+	}
+	if miss.HeightPct != 0 {
+		t.Errorf("missing-day HeightPct: want 0, got %d", miss.HeightPct)
+	}
+	if !strings.Contains(miss.Tooltip, "no snapshot") {
+		t.Errorf("missing-day tooltip should say 'no snapshot', got %q", miss.Tooltip)
 	}
 }
 
-// TestBuildBatteryChart_LabelAndTooltipUseEffectiveDate is the design.md /
-// spec.md scenario "Tooltip date is the EffectiveDate in MM-DD, not the
-// capture morning" (task 4.1) for the battery chart: CapturedAt=2026-08-08
-// 03:30 UTC, EffectiveDate=2026-08-07 → Label=="08-07" and the tooltip
-// contains "08-07" but NOT "2026-08-08".
-func TestBuildBatteryChart_LabelAndTooltipUseEffectiveDate(t *testing.T) {
+func TestBuildBatteryChart_TooltipUsesEffectiveDateMMDD(t *testing.T) {
+	start := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	end := start
 	snaps := []telemetry.Snapshot{
 		{BatteryLevelPct: 80, BatteryRangeKm: 300, CapturedAt: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC)},
 	}
-	c := buildBatteryChart(snaps, 6)
-	if c.Empty || len(c.Bars) == 0 {
-		t.Fatal("want bars")
+	c := buildBatteryChart(snaps, start, end)
+	if c.Empty || len(c.Bars) != 1 {
+		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
 	}
 	bar := c.Bars[0]
 	if bar.Label != "08-07" {
-		t.Errorf("want Label=%q (from EffectiveDate), got %q", "08-07", bar.Label)
+		t.Errorf("want Label=08-07, got %q", bar.Label)
 	}
 	if !strings.Contains(bar.Tooltip, "08-07") {
-		t.Errorf("want tooltip to contain %q, got: %q", "08-07", bar.Tooltip)
+		t.Errorf("tooltip must contain 08-07, got %q", bar.Tooltip)
 	}
 	if strings.Contains(bar.Tooltip, "2026-08-08") {
-		t.Errorf("tooltip must NOT contain the CapturedAt morning %q, got: %q", "2026-08-08", bar.Tooltip)
+		t.Errorf("tooltip must NOT contain the CapturedAt morning, got %q", bar.Tooltip)
 	}
 }
 
-// --- buildHistoryView unit tests ---
+// --- buildHistoryView (end-to-end handler logic + reader) ---
 
 func TestBuildHistoryView_ReaderError_DegradesBothChartsEmpty(t *testing.T) {
 	reader := &fakeHistoryReader{historyErr: errTestHistory}
 	h := newHandlerForHistory(reader, 42, "VIN42")
-	since := time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC)
-	v := h.buildHistoryView(context.Background(), uuid.New(), 42, 6, since)
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end)
 	if !v.Odometer.Empty {
 		t.Error("want Odometer.Empty on reader error")
 	}
 	if !v.Battery.Empty {
 		t.Error("want Battery.Empty on reader error")
 	}
-}
-
-func TestBuildHistoryView_CorrectSincePassedToReader(t *testing.T) {
-	reader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
-	h := newHandlerForHistory(reader, 42, "VIN42")
-	since := time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC)
-	_ = h.buildHistoryView(context.Background(), uuid.New(), 42, 6, since)
-	if !reader.capturedSince.Equal(since) {
-		t.Errorf("want capturedSince=%v, got %v", since, reader.capturedSince)
+	// Presets are still built so the selector is usable despite the read error.
+	if len(v.Presets) == 0 {
+		t.Error("want presets rendered even on reader error")
 	}
 }
 
-func TestBuildHistoryView_OdometerNDeltas_BatteryNBars(t *testing.T) {
-	snaps := dailySnaps(6, 1000, 10, 70) // 7 points → 6 deltas & 6 battery bars
+func TestBuildHistoryView_PassesReadStartLookbackToEndToReader(t *testing.T) {
+	reader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
+	h := newHandlerForHistory(reader, 42, "VIN42")
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	_ = h.buildHistoryView(context.Background(), uuid.New(), 42, start, end)
+	if !reader.betweenCalled {
+		t.Fatal("want SnapshotsByVehicleBetween called")
+	}
+	// readStart = start - 1 day (the lookback).
+	if !reader.gotStart.Equal(start.AddDate(0, 0, -1)) {
+		t.Errorf("want gotStart=%v (lookback), got %v", start.AddDate(0, 0, -1), reader.gotStart)
+	}
+	if !reader.gotEnd.Equal(end) {
+		t.Errorf("want gotEnd=%v, got %v", end, reader.gotEnd)
+	}
+}
+
+// TestBuildHistoryView_BothChartsShareFixedAxis is the MAG-7 fix assertion
+// (task 6.5): both charts have exactly numDays bars and Bars[i].Label matches
+// per index — identical labels by construction. Also asserts the lookback was
+// passed to Between.
+func TestBuildHistoryView_BothChartsShareFixedAxis(t *testing.T) {
+	start := time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 6-day inclusive window
+	// Full coverage incl. 08-01 lookback.
+	days := append([]time.Time{start.AddDate(0, 0, -1)}, calendarDays(start, end)...)
+	// Drop 08-05 to force a missing-day bar on both charts.
+	mid := start.AddDate(0, 0, 3) // 08-05
+	gapped := make([]time.Time, 0, len(days))
+	for _, d := range days {
+		if d.Equal(mid) {
+			continue
+		}
+		gapped = append(gapped, d)
+	}
+	snaps := snapsForDays(gapped, 1000, 10, 70)
 	reader := &fakeHistoryReader{historySnaps: snaps}
 	h := newHandlerForHistory(reader, 42, "VIN42")
-	since := time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC)
-	v := h.buildHistoryView(context.Background(), uuid.New(), 42, 6, since)
+	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end)
 
-	if v.Odometer.Empty || len(v.Odometer.Bars) != 6 {
-		t.Errorf("want 6 odometer bars, got %d (empty=%v)", len(v.Odometer.Bars), v.Odometer.Empty)
+	numDays := int(end.Sub(start).Hours()/24) + 1 // 6
+	if len(v.Odometer.Bars) != numDays {
+		t.Errorf("odometer bars: want %d, got %d", numDays, len(v.Odometer.Bars))
 	}
-	if v.Battery.Empty || len(v.Battery.Bars) != 6 {
-		t.Errorf("want 6 battery bars, got %d (empty=%v)", len(v.Battery.Bars), v.Battery.Empty)
+	if len(v.Battery.Bars) != numDays {
+		t.Errorf("battery bars: want %d, got %d", numDays, len(v.Battery.Bars))
+	}
+	for i := 0; i < numDays; i++ {
+		if v.Odometer.Bars[i].Label != v.Battery.Bars[i].Label {
+			t.Errorf("index %d: odometer Label %q != battery Label %q (MAG-7 offset not eliminated)",
+				i, v.Odometer.Bars[i].Label, v.Battery.Bars[i].Label)
+		}
+	}
+	// Lookback was passed to Between.
+	if !reader.gotStart.Equal(start.AddDate(0, 0, -1)) {
+		t.Errorf("lookback: want gotStart=%v, got %v", start.AddDate(0, 0, -1), reader.gotStart)
 	}
 }
 
-func TestBuildHistoryView_DaysAndPresets(t *testing.T) {
+func TestBuildHistoryView_PresetsCarryAbsoluteHrefs(t *testing.T) {
 	reader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
 	h := newHandlerForHistory(reader, 42, "VIN42")
-	since := time.Date(2026, 7, 25, 0, 0, 0, 0, time.UTC)
-	v := h.buildHistoryView(context.Background(), uuid.New(), 42, 14, since)
-	if v.Days != 14 {
-		t.Errorf("want v.Days=14, got %d", v.Days)
+	start := startOfDay(time.Now()).AddDate(0, 0, -6)
+	end := startOfDay(time.Now())
+	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end)
+	if len(v.Presets) != len(historyPresetDayCounts) {
+		t.Fatalf("want %d presets, got %d", len(historyPresetDayCounts), len(v.Presets))
 	}
-	if len(v.Presets) != len(historyDayPresets) {
-		t.Errorf("want %d presets, got %d", len(historyDayPresets), len(v.Presets))
+	// The default-window request activates the 6-day preset.
+	if !v.Presets[0].Active {
+		t.Error("6-day preset should be Active for the default window")
+	}
+	for i, p := range v.Presets {
+		if p.StartStr == "" || p.EndStr == "" {
+			t.Errorf("preset %d: absolute href dates must be non-empty", i)
+		}
 	}
 }
 
-// --- HTTP-level handler tests (E.1 + E.2) ---
+// --- HTTP-level handler tests (task 6.6) ---
 
 func TestDashboardHistoryFragment_AnonymousRedirectsToLogin(t *testing.T) {
 	reader := &fakeHistoryReader{}
@@ -415,26 +577,7 @@ func TestDashboardHistoryFragment_AnonymousRedirectsToLogin(t *testing.T) {
 	}
 }
 
-func TestDashboardHistoryFragment_AuthenticatedReturns200(t *testing.T) {
-	uid := uuid.New()
-	reader := &fakeHistoryReader{historySnaps: dailySnaps(6, 1000, 10, 70)}
-	h := newHandlerForHistory(reader, 42, "VIN42")
-	eng := historyEngine(h, uid, 42, "VIN42")
-	c := sessionCookie(eng, uid, "")
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history", nil)
-	if c != nil {
-		req.AddCookie(c)
-	}
-	eng.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200 for authenticated request, got %d", w.Code)
-	}
-}
-
-func TestDashboardHistoryFragment_DefaultDaysIsApplied(t *testing.T) {
+func TestDashboardHistoryFragment_DefaultWindowPassedToReader(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
 	h := newHandlerForHistory(reader, 42, "VIN42")
@@ -451,64 +594,83 @@ func TestDashboardHistoryFragment_DefaultDaysIsApplied(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
-	// Default days=6 → since ≈ startOfDay(today) − 6 days.
-	wantSince := startOfDay(time.Now()).AddDate(0, 0, -defaultHistoryDays)
-	diff := reader.capturedSince.Sub(wantSince)
-	if diff < 0 {
-		diff = -diff
+	// readStart = startOfDay(now) - 7 (lookback 1 + default 6); end = today.
+	wantStart := startOfDay(time.Now()).AddDate(0, 0, -7)
+	wantEnd := startOfDay(time.Now())
+	if !reader.gotStart.Equal(wantStart) {
+		t.Errorf("want gotStart=%v, got %v", wantStart, reader.gotStart)
 	}
-	if diff > 24*time.Hour {
-		t.Errorf("want since≈%v (today-6), got %v (diff=%v)", wantSince, reader.capturedSince, diff)
+	if !reader.gotEnd.Equal(wantEnd) {
+		t.Errorf("want gotEnd=%v, got %v", wantEnd, reader.gotEnd)
 	}
 }
 
-func TestDashboardHistoryFragment_InvalidDaysFallsBackToDefault(t *testing.T) {
+// TestDashboardHistoryFragment_400_MalformedStart asserts each of the five 400
+// cases (design D1): reader is NOT called and the empty-state placeholder body
+// is rendered (no 500, no fabricated bars).
+func TestDashboardHistoryFragment_400_Cases(t *testing.T) {
+	uid := uuid.New()
+	cases := []struct {
+		name string
+		url  string
+	}{
+		{"malformed start", "/ui/dashboard/history?start=08-07&end=2026-08-07"},
+		{"missing partner", "/ui/dashboard/history?start=2026-08-03"},
+		{"end before start", "/ui/dashboard/history?start=2026-08-07&end=2026-08-03"},
+		{"end after today", "/ui/dashboard/history?start=2026-08-03&end=2099-12-31"},
+		{"window over 90 days", "/ui/dashboard/history?start=2026-05-01&end=2026-08-07"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
+			h := newHandlerForHistory(reader, 42, "VIN42")
+			eng := historyEngine(h, uid, 42, "VIN42")
+			c := sessionCookie(eng, uid, "")
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, tc.url, nil)
+			if c != nil {
+				req.AddCookie(c)
+			}
+			eng.ServeHTTP(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("%s: want 400, got %d", tc.name, w.Code)
+			}
+			if reader.betweenCalled {
+				t.Errorf("%s: reader must NOT be called on a rejected request", tc.name)
+			}
+			if !strings.Contains(w.Body.String(), "Awaiting nightly snapshots") {
+				t.Errorf("%s: 400 body must contain the empty-state placeholder; got: %s", tc.name, w.Body.String())
+			}
+		})
+	}
+}
+
+// TestDashboardHistoryFragment_DaysParamIsIgnored: a request with ?days=6 and
+// no start/end falls back to the default window (the days param is REMOVED, not
+// honored) — task 6.7.
+func TestDashboardHistoryFragment_DaysParamIsIgnored(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
 	h := newHandlerForHistory(reader, 42, "VIN42")
 	eng := historyEngine(h, uid, 42, "VIN42")
 	c := sessionCookie(eng, uid, "")
 
-	for _, bad := range []string{"99", "abc", "0", "-3"} {
-		reader.capturedSince = time.Time{}
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history?days="+bad, nil)
-		if c != nil {
-			req.AddCookie(c)
-		}
-		eng.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Errorf("days=%q: want 200, got %d", bad, w.Code)
-		}
-		// Confirm the default days=6 was used (since ≈ today-6).
-		wantSince := startOfDay(time.Now()).AddDate(0, 0, -defaultHistoryDays)
-		diff := reader.capturedSince.Sub(wantSince)
-		if diff < 0 {
-			diff = -diff
-		}
-		if diff > 24*time.Hour {
-			t.Errorf("days=%q: want default since≈%v, got %v", bad, wantSince, reader.capturedSince)
-		}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history?days=6", nil)
+	if c != nil {
+		req.AddCookie(c)
 	}
-}
+	eng.ServeHTTP(w, req)
 
-func TestDashboardHistoryFragment_ValidPresetsAreAccepted(t *testing.T) {
-	uid := uuid.New()
-	reader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
-	h := newHandlerForHistory(reader, 42, "VIN42")
-	eng := historyEngine(h, uid, 42, "VIN42")
-	c := sessionCookie(eng, uid, "")
-
-	for _, p := range historyDayPresets {
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/ui/dashboard/history?days=%d", p), nil)
-		if c != nil {
-			req.AddCookie(c)
-		}
-		eng.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Errorf("days=%d: want 200, got %d", p, w.Code)
-		}
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	// Default window readStart (lookback 1 + default 6 = today-7).
+	wantStart := startOfDay(time.Now()).AddDate(0, 0, -7)
+	if !reader.gotStart.Equal(wantStart) {
+		t.Errorf("days param must be ignored; want gotStart=%v, got %v", wantStart, reader.gotStart)
 	}
 }
 
@@ -529,69 +691,77 @@ func TestDashboardHistoryFragment_ReaderErrorDegradesBothEmpty(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200 (graceful degrade) on reader error, got %d", w.Code)
 	}
-	body := w.Body.String()
-	if !strings.Contains(body, "Awaiting nightly snapshots") {
-		t.Errorf("want empty-state placeholder on reader error; body: %s", body)
+	if !strings.Contains(w.Body.String(), "Awaiting nightly snapshots") {
+		t.Errorf("want empty-state placeholder on reader error; body: %s", w.Body.String())
 	}
 }
 
-// --- fragment structure / render tests (E.2) ---
-
-func TestDashboardHistoryFragment_ContainsSVGViewBoxAndTitleTooltips(t *testing.T) {
+func TestDashboardHistoryFragment_PresetsAreAbsoluteAndDefaultActive(t *testing.T) {
 	uid := uuid.New()
-	snaps := dailySnaps(6, 1000, 10, 70)
-	reader := &fakeHistoryReader{historySnaps: snaps}
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	reader := &fakeHistoryReader{historySnaps: snapsForDays(calendarDays(start, end), 1000, 10, 70)}
 	h := newHandlerForHistory(reader, 42, "VIN42")
 	eng := historyEngine(h, uid, 42, "VIN42")
 	c := sessionCookie(eng, uid, "")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history?days=6", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history?start=2026-08-03&end=2026-08-07", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
 	eng.ServeHTTP(w, req)
-
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
 	body := w.Body.String()
-	// Responsive SVG with viewBox.
-	if !strings.Contains(body, "viewBox") {
-		t.Error("fragment must contain responsive <svg viewBox …>")
+	// No ?days= anywhere — the preset hrefs are all absolute ?start=&end=.
+	if strings.Contains(body, "days=") {
+		t.Errorf("body must not contain ?days= anywhere; got: %s", body)
 	}
-	// Native browser tooltip via <title>.
-	if !strings.Contains(body, "<title>") {
-		t.Error("fragment must contain <title> tooltip elements inside SVG bars")
+	// Each preset carries an absolute start=/end= href.
+	for _, p := range historyPresetDayCounts {
+		if !strings.Contains(body, "start=") || !strings.Contains(body, "end=") {
+			t.Errorf("body must contain absolute start=/end= hrefs; got: %s", body)
+		}
+		_ = p
 	}
+	// Active preset is btn-primary (the requested 5-day window matches none of
+	// 6/14/30, so a NON-preset window marks no preset active — all-ghost is the
+	// honest state, which still renders ghost buttons but no btn-primary).
+	// The default-window request (params absent) instead activates 6 days.
 }
 
-func TestDashboardHistoryFragment_SelectorMarksActivePreset(t *testing.T) {
+func TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset(t *testing.T) {
 	uid := uuid.New()
-	snaps := dailySnaps(6, 1000, 10, 70)
-	reader := &fakeHistoryReader{historySnaps: snaps}
+	reader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
 	h := newHandlerForHistory(reader, 42, "VIN42")
 	eng := historyEngine(h, uid, 42, "VIN42")
 	c := sessionCookie(eng, uid, "")
 
-	// Request with days=14.
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history?days=14", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
 	eng.ServeHTTP(w, req)
-
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
 	body := w.Body.String()
 	// Active preset button is btn-primary.
 	if !strings.Contains(body, "btn-primary") {
-		t.Error("selector must mark the active preset with btn-primary")
+		t.Error("default-window request must mark the 6-day preset with btn-primary")
+	}
+	// The 6-day preset's href is ?start=<today-6>&end=<today>.
+	today := startOfDay(time.Now()).Format("2006-01-02")
+	start6 := startOfDay(time.Now()).AddDate(0, 0, -6).Format("2006-01-02")
+	wantHref := fmt.Sprintf("start=%s&amp;end=%s", start6, today)
+	if !strings.Contains(body, wantHref) {
+		t.Errorf("default 6-day preset href must contain %q; got: %s", wantHref, body)
 	}
 	// All three preset labels appear.
-	for _, p := range historyDayPresets {
+	for _, p := range historyPresetDayCounts {
 		label := fmt.Sprintf("%d days", p)
 		if !strings.Contains(body, label) {
 			t.Errorf("selector must contain label %q", label)
@@ -599,10 +769,134 @@ func TestDashboardHistoryFragment_SelectorMarksActivePreset(t *testing.T) {
 	}
 }
 
+// --- fragment structure / render tests (task 6.7, retargeted) ---
+
+func TestDashboardHistoryFragment_ContainsSVGViewBoxAndTitleTooltips(t *testing.T) {
+	uid := uuid.New()
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	reader := &fakeHistoryReader{historySnaps: snapsForDays(append([]time.Time{start.AddDate(0, 0, -1)}, calendarDays(start, end)...), 1000, 10, 70)}
+	h := newHandlerForHistory(reader, 42, "VIN42")
+	eng := historyEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history?start=2026-08-03&end=2026-08-07", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "viewBox") {
+		t.Error("fragment must contain responsive <svg viewBox …>")
+	}
+	if !strings.Contains(body, "<title>") {
+		t.Error("fragment must contain <title> tooltip elements inside SVG bars")
+	}
+}
+
+// TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows
+// (task 6.7, retargeted from the old ?days=N version): httptest with a fixture
+// spanning 6/14/30-bar windows. Asserts each bar's MM-DD label appears verbatim
+// and the vertical-label CSS class is present ONLY for >= 14 bars.
+func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows(t *testing.T) {
+	uid := uuid.New()
+	end := startOfDay(time.Now())
+	for _, numBars := range []int{6, 14, 30} {
+		start := end.AddDate(0, 0, -(numBars - 1)) // inclusive end → numBars days
+		// Full coverage incl. lookback.
+		snaps := snapsForDays(append([]time.Time{start.AddDate(0, 0, -1)}, calendarDays(start, end)...), 1000, 10, 70)
+		reader := &fakeHistoryReader{historySnaps: snaps}
+		h := newHandlerForHistory(reader, 42, "VIN42")
+		eng := historyEngine(h, uid, 42, "VIN42")
+		c := sessionCookie(eng, uid, "")
+
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s", start.Format("2006-01-02"), end.Format("2006-01-02")), nil)
+		if c != nil {
+			req.AddCookie(c)
+		}
+		eng.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("numBars=%d: want 200, got %d", numBars, w.Code)
+		}
+		body := w.Body.String()
+
+		odo := buildOdometerChart(snaps, start, end)
+		bat := buildBatteryChart(snaps, start, end)
+		for _, bar := range odo.Bars {
+			if !strings.Contains(body, bar.Label) {
+				t.Errorf("numBars=%d: odometer label %q missing from body", numBars, bar.Label)
+			}
+		}
+		for _, bar := range bat.Bars {
+			if !strings.Contains(body, bar.Label) {
+				t.Errorf("numBars=%d: battery label %q missing from body", numBars, bar.Label)
+			}
+		}
+
+		hasVerticalClass := strings.Contains(body, "[writing-mode:vertical-rl]")
+		wantVertical := numBars >= 14
+		if hasVerticalClass != wantVertical {
+			t.Errorf("numBars=%d: want vertical class present=%v, got %v", numBars, wantVertical, hasVerticalClass)
+		}
+	}
+}
+
+// TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat
+// (task 6.7): the logic-free-template invariant. The labels the handler
+// pre-computed on the view model must appear verbatim in the rendered HTML,
+// and the long-form Go date layout "2006-01-02" must never appear.
+func TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat(t *testing.T) {
+	uid := uuid.New()
+	end := startOfDay(time.Now())
+	start := end.AddDate(0, 0, -13) // 14-day inclusive window ending today
+	snaps := snapsForDays(append([]time.Time{start.AddDate(0, 0, -1)}, calendarDays(start, end)...), 1000, 10, 60)
+	reader := &fakeHistoryReader{historySnaps: snaps}
+	h := newHandlerForHistory(reader, 42, "VIN42")
+	eng := historyEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s", start.Format("2006-01-02"), end.Format("2006-01-02")), nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+
+	v := h.buildHistoryView(context.Background(), uid, 42, start, end)
+	if len(v.Odometer.Bars) == 0 || len(v.Battery.Bars) == 0 {
+		t.Fatal("want non-empty odometer and battery bars for this fixture")
+	}
+	for _, bar := range v.Odometer.Bars {
+		if !strings.Contains(body, bar.Label) {
+			t.Errorf("odometer bar Label %q not found verbatim in body", bar.Label)
+		}
+	}
+	for _, bar := range v.Battery.Bars {
+		if !strings.Contains(body, bar.Label) {
+			t.Errorf("battery bar Label %q not found verbatim in body", bar.Label)
+		}
+	}
+	// The absolute preset hrefs are formatted "YYYY-MM-DD" (e.g. "2026-08-09")
+	// — those do NOT contain the literal Go layout string "2006-01-02". A
+	// literal "2006-01-02" in the body would indicate the template called
+	// time.Format with the layout, which the logic-free invariant forbids.
+	if strings.Contains(body, "2006-01-02") {
+		t.Error("body must not contain the Go long-date layout \"2006-01-02\" — the template must never format dates itself")
+	}
+}
+
+// --- dashboard page structural test (task 6.8) ---
+
 func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
-	// This is a structural test: render the full dashboard page and confirm that
-	// #dashboard-history is present inside #dashboard-content and carries
-	// hx-trigger="load" (the self-load marker).
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "Test"},
@@ -633,106 +927,20 @@ func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
 	if !strings.Contains(body, `hx-trigger="load"`) {
 		t.Error("#dashboard-history must carry hx-trigger=\"load\" for self-fetch")
 	}
-}
-
-// TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowPresets
-// (task 4.3, retargeted by task 6.5 for design D4-R1): httptest against
-// NewEngine with a fake telemetry.Reader whose snapshots carry known
-// EffectiveDates. Asserts the rendered fragment HTML contains each bar's
-// MM-DD label (computed via the same production buildOdometerChart/
-// buildBatteryChart functions the handler calls, not re-derived date math),
-// and that the vertical-label CSS class `[writing-mode:vertical-rl]` is
-// present ONLY for the 14- and 30-day presets, never for 6 (design D2/D3).
-// D4-R1 moved orientation from an SVG `transform="rotate(-90 ...)"` (illegible
-// under preserveAspectRatio="none" non-uniform scaling) to this CSS class on
-// the HTML label cell — this test now asserts the CSS class instead.
-func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowPresets(t *testing.T) {
-	uid := uuid.New()
-	snaps := dailySnaps(6, 1000, 10, 70) // 7 points, EffectiveDate set by dailySnaps
-	reader := &fakeHistoryReader{historySnaps: snaps}
-	h := newHandlerForHistory(reader, 42, "VIN42")
-	eng := historyEngine(h, uid, 42, "VIN42")
-	c := sessionCookie(eng, uid, "")
-
-	for _, tc := range []struct {
-		days         int
-		wantVertical bool
-	}{
-		{6, false},
-		{14, true},
-		{30, true},
-	} {
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/ui/dashboard/history?days=%d", tc.days), nil)
-		if c != nil {
-			req.AddCookie(c)
-		}
-		eng.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("days=%d: want 200, got %d", tc.days, w.Code)
-		}
-		body := w.Body.String()
-
-		odo := buildOdometerChart(snaps, tc.days)
-		bat := buildBatteryChart(snaps, tc.days)
-		for _, bar := range odo.Bars {
-			if !strings.Contains(body, bar.Label) {
-				t.Errorf("days=%d: odometer label %q missing from rendered body", tc.days, bar.Label)
-			}
-		}
-		for _, bar := range bat.Bars {
-			if !strings.Contains(body, bar.Label) {
-				t.Errorf("days=%d: battery label %q missing from rendered body", tc.days, bar.Label)
-			}
-		}
-
-		hasVerticalClass := strings.Contains(body, `[writing-mode:vertical-rl]`)
-		if hasVerticalClass != tc.wantVertical {
-			t.Errorf("days=%d: want vertical label class present=%v, got %v", tc.days, tc.wantVertical, hasVerticalClass)
-		}
+	// The self-load hx-get is a server-rendered absolute ?start=&end= (today's
+	// YYYY-MM-DD appears in the end=), NOT ?days=6.
+	if !strings.Contains(body, "start=") || !strings.Contains(body, "end=") {
+		t.Errorf("dashboard history self-load must carry absolute start=/end=; got: %s", body)
 	}
-}
-
-// TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat
-// (task 4.4): the logic-free-template invariant. The labels the handler
-// pre-computed on the view model (HistoryBar.Label) must appear verbatim in
-// the rendered HTML — the template performs no reformatting — and the
-// long-form Go date layout "2006-01-02" must never appear in the response,
-// proving the template never falls back to CapturedAt-style formatting.
-func TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat(t *testing.T) {
-	uid := uuid.New()
-	snaps := dailySnaps(13, 1000, 10, 60) // 14 points, enough for the 14-day preset
-	reader := &fakeHistoryReader{historySnaps: snaps}
-	h := newHandlerForHistory(reader, 42, "VIN42")
-	eng := historyEngine(h, uid, 42, "VIN42")
-	c := sessionCookie(eng, uid, "")
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history?days=14", nil)
-	if c != nil {
-		req.AddCookie(c)
+	if strings.Contains(body, "days=6") {
+		t.Errorf("dashboard history self-load must NOT use ?days=6; got: %s", body)
 	}
-	eng.ServeHTTP(w, req)
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200, got %d", w.Code)
+	today := startOfDay(time.Now()).Format("2006-01-02")
+	if !strings.Contains(body, "end="+today) {
+		t.Errorf("dashboard history self-load end= must be today (%s); got: %s", today, body)
 	}
-	body := w.Body.String()
-
-	v := h.buildHistoryView(context.Background(), uid, 42, 14, startOfDay(time.Now()).AddDate(0, 0, -14))
-	if len(v.Odometer.Bars) == 0 || len(v.Battery.Bars) == 0 {
-		t.Fatal("want non-empty odometer and battery bars for this fixture")
-	}
-	for _, bar := range v.Odometer.Bars {
-		if !strings.Contains(body, bar.Label) {
-			t.Errorf("odometer bar Label %q not found verbatim in rendered body", bar.Label)
-		}
-	}
-	for _, bar := range v.Battery.Bars {
-		if !strings.Contains(body, bar.Label) {
-			t.Errorf("battery bar Label %q not found verbatim in rendered body", bar.Label)
-		}
-	}
-	if strings.Contains(body, "2006-01-02") {
-		t.Error("body must not contain the Go long-date layout \"2006-01-02\" — the template must never format dates itself")
+	// The Refresh button is GONE (removed by RM8 design D5).
+	if strings.Contains(body, ">Refresh<") {
+		t.Errorf("dashboard page header must NOT contain a Refresh button; got: %s", body)
 	}
 }

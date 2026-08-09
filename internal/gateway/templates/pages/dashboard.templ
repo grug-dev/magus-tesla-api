@@ -20,11 +20,7 @@ templ Dashboard(d fragments.DashboardData) {
 	@layouts.BaseAuth("Dashboard — Magus", "/dashboard") {
 		<div id="dashboard-content" hx-get="/ui/dashboard" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">
 			@templ.Fragment("dashboard") {
-				@ui.PageHeader(ui.PageHeaderProps{Title: "Dashboard", Subtitle: d.VehicleName}) {
-					@ui.Button(ui.ButtonProps{Variant: "ghost", Href: "/dashboard", Class: "btn-sm"}) {
-						Refresh
-					}
-				}
+				@ui.PageHeader(ui.PageHeaderProps{Title: "Dashboard", Subtitle: d.VehicleName})
 				if d.NeedsConnect {
 					@ui.Card(ui.CardProps{}) {
 						<p class="text-base-content/70 mb-4">No Tesla connected.</p>
@@ -82,7 +78,7 @@ templ Dashboard(d fragments.DashboardData) {
 							// #dashboard-content (htmx-conventions.md §"Cross-region refresh").
 							// hx-swap="innerHTML" keeps this wrapper element (and its hx-trigger)
 							// in the DOM across selector clicks.
-							<div id="dashboard-history" hx-get="/ui/dashboard/history?days=6" hx-trigger="load" hx-swap="innerHTML"></div>
+							<div id="dashboard-history" hx-get={ d.DefaultHistoryHref } hx-trigger="load" hx-swap="innerHTML"></div>
 						</div>
 					</div>
 				}

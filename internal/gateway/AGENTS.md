@@ -167,6 +167,38 @@ a read that ignores the selection silently shows a *different* car's data.
    `HX-Trigger`". Gold standards: the dashboard `#dashboard-content` and the manual-records
    `#charges-content` regions (each re-fetches `GET /ui/dashboard` / `GET /ui/charges`).
 
+## HTTP date-filter convention
+
+**Every date-filtered gateway HTTP endpoint takes `?start=YYYY-MM-DD&end=YYYY-MM-DD`** — both
+whole calendar days, UTC-midnight-bounded, **`end` inclusive** — never a `?days=N` count.
+
+- **Rationale.** A `days` count couples the API to the caller's notion of "today" and makes the
+  read an open-ended `captured_at >= since` scan; absolute `start`/`end` date params decouple the
+  window from the caller, bound the read on **both** ends (protecting the read-heavy hot path —
+  the platform's Performance-Profile), and let the handler render a **fixed `[start..end]`
+  calendar-day axis** so two charts consuming the same window share identical day labels by
+  construction (the root cause of the MAG-7 odometer/battery day-1 axis offset was a count-based
+  read where the two chart builders consumed different slice offsets of the returned snapshots).
+- **Contract** (reference implementation: `GET /ui/dashboard/history`,
+  `RM8-gateway-history-date-range` / Linear MAG-7):
+  - Parse via a single `parseHistoryRange`-style helper (`internal/gateway/handlers/history.go`)
+    returning `(start, end time.Time, ok bool)`.
+  - Default when both `start` and `end` are absent: endpoint-specific (dashboard history default
+    6-day window → `today-6 .. today`).
+  - Reject with HTTP **400** on any of: malformed non-ISO date, only one of `start`/`end`
+    present, `end.Before(start)`, `end.After(startOfDay(now))`, or a window wider than **90 days**
+    (hard cap against unbounded range scans — see `historyRangeMaxDays`).
+  - On 400, render the empty-state placeholder (`dashHistoryEmpty`), **do not** call the read
+    port, and return no preset selector — a malformed request gets no chrome.
+  - The caller may fetch a bounded extra lookback (e.g. the dashboard's 1-day pre-window for the
+    first odometer delta) by passing `start-1day` to the owning module's bounded read port — the
+    lookback is a **gateway concern**, never a parameter on the owning module's port method.
+- **Every future date-filtered gateway endpoint follows the same contract** — a closed
+  vocabulary of one: `?start=&end=`. A new endpoint that needs date filtering reuses the
+  `parseHistoryRange` pattern and a bounded read port on the owning module.
+- See also the one-line pointer in
+  [`ai/go-conventions.md`](../../ai/go-conventions.md) §"Read optimization".
+
 ## Testing
 
 - `httptest` against `NewEngine` with fakes for the `Deps` interfaces — the existing
