@@ -36,7 +36,7 @@
     ]
   },
   "created_at": "2026-08-09T00:46:00Z",
-  "updated_at": "2026-08-09T09:38:00Z",
+  "updated_at": "2026-08-09T09:42:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -597,7 +597,7 @@
     }
   ],
   "review": {
-    "status": "pending",
+    "status": "reviewer-approved",
     "agent": "gateway-reviewer",
     "brief": "Review the tier-2 diff for gateway-history-graph-labels-tooltips (commits 8ee99ce wave-1, plus the wave-2 test commit) against: (1) design.md D1-D5 - tooltip AND label both sourced from EffectiveDate formatted MM-DD, with CapturedAt eliminated as a date source (D1; a surviving CapturedAt date path is a BLOCKER, it re-introduces the exact 1-day bug MAG-6 fixes); per-bar Label + adaptive orientation (D2); LabelVertical computed once in the handler, chart-level, never per-bar and never in the template (D3); SVG <text> + transform=rotate(-90 ...) with NO client-side charting library added (D4, gateway AGENTS.md RD8); Label pre-formatted in the handler, template logic-free - no time.Format, no days comparison, no rotation math in .templ (D5). (2) Module boundary: all edits inside internal/gateway/; no internal/telemetry/db (telemetrydb) import; gateway owns no business data. (3) ai/htmx-conventions.md + ai/htmx-go-integration.md compliance for the Templ markup; NO HTML comments in .templ (they ship to the browser). (4) Codegen guard: *_templ.go regenerated from .templ, and static/app.css regenerated and committed in this change (gateway AGENTS.md CI guard). Confirm the committed app.css actually contains any newly used classes. (5) Spec coverage: every scenario in specs/gateway/spec.md has a real test that ASSERTS the behaviour. (6) ANTI-GAMING - highest priority this round: two pre-existing tooltip tests (TestBuildOdometerChart_TooltipContainsDateAndKeywords, TestBuildBatteryChart_TooltipContainsDateLevelAndRange) were REPAIRED by the wave-2 worker because the contract deliberately changed. Verify they were strengthened, not weakened: every non-date assertion must survive, the date assertion must still assert a specific expected string, and a negative assertion proving CapturedAt is not the source should be present. Any dropped or loosened assertion is a blocker finding. Note task 5.3 (human visual check of the presets via make dev) is deliberately BLOCKED pending the user - do not treat it as an incomplete-work finding, and do not approve it yourself. Escalate on doubt: return changes-requested rather than approving anything you are not sure about.",
     "rounds": [
@@ -625,6 +625,38 @@
           "approx": false,
           "note": ""
         }
+      },
+      {
+        "round": 2,
+        "at": "2026-08-09T10:05:00Z",
+        "agent": "gateway-reviewer",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "minor",
+            "note": "Re-checked, still open, unrelated to this round's fix: unchanged by commit 61f5d43 (which does not touch static/input.css or progress.json's task-3.3 notes). Still informational only, not a blocker.",
+            "status": "open"
+          },
+          {
+            "id": "R2-1",
+            "severity": "minor",
+            "note": "Grid/bar centre offset (leader's item 2): a bar is drawn at x=i, width=0.8, so its visual centre is i+0.4 in the SVG's N-unit-wide user space; its sibling grid cell (column i of an N-column `repeat(N, minmax(0,1fr))` track) is centred at i+0.5 of that same N-unit width. That is a 0.1-unit offset out of a 1-unit column, i.e. bars sit fractionally left of their label at every width. At the widest gap (N=6, ~16.7% column width) this is ~1.7% of a bar-slot width; at N=30 it is ~0.33% of total chart width \u2014 visually negligible in both cases, and both cells scale together so the offset does not grow or drift at different widths. Not a code defect (the grid IS driving both), and the label CENTER text-align already absorbs sub-pixel misalignment for a 2-4 char label like \"08-07\". Recommend no code change; flagging so the leader/user can eyeball it on the pending visual re-check (task 5.3) and decide if it is worth a follow-up (e.g. shifting bar x to i+0.1, width 0.8 unchanged, to center bars at i+0.5) \u2014 not a blocker for this round.",
+            "status": "open"
+          }
+        ],
+        "notes": "Re-verified round-1 findings against commit 61f5d43 only (D4-R1 fix), per leader's re-review scope. D4-R1 compliance confirmed: history.templ wraps bars+labels in one CSS grid (grid-template-columns: repeat(N, minmax(0,1fr))); SVG viewBox restored to '0 0 N 100', preserveAspectRatio=\"none\" kept (correct for rects), class back to w-full h-24 col-span-full; all four label-zone consts (historyChartViewBoxHeight/historyLabelZoneHeight/historyLabelHorizontalY/historyLabelAnchorY) removed with `grep -n` confirming zero remaining references; labels are now sibling <div> cells (real DOM text, real font-size 9px) outside the SVG, one per bar; vertical orientation is [writing-mode:vertical-rl] + rotate-180 CSS classes gated on chart.LabelVertical (still a single if/else branch on the bool \u2014 no days comparison, no time.Format, no rotation math in the template). history.go and history_vm.go are untouched by this commit (confirmed via `git show 61f5d43 -- internal/gateway/handlers/history.go internal/gateway/templates/fragments/history_vm.go` \u2014 empty diff), so D1 (EffectiveDate-only date source), D3 (LabelVertical computed once, chart-level, in the handler), and D5 (Label pre-formatted, emitted verbatim) all still hold from round 1 with zero new risk. RD7/RD8: no client-side charting library, no <script>, go.mod/go.sum untouched, still hand-rolled markup (now SVG+CSS grid instead of pure SVG, which is exactly what D4-R1 documents as the approved revision, not a new library). No HTML comments anywhere in the current history.templ (grepped the full file) or anywhere in the commit diff (`git show 61f5d43 | grep '<!--'` empty) \u2014 the illustrative mockup comment was not reproduced. Anti-gaming: diffed the sole test change (TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowPresets) against its round-1 version \u2014 only the orientation assertion's needle changed, from the `transform=\"rotate(-90` substring to `[writing-mode:vertical-rl]`, still a specific string, still checked present at days=14/30 and absent at days=6; every other assertion in that test (per-bar Label presence for both charts, across the days table) and every assertion in 4.1/4.2/4.4 is byte-identical (confirmed via the 20-line diff touching only this one function). Codegen guard: `go tool templ generate ./internal/gateway/templates/fragments/` produced 0 updates (already committed correctly); grepped static/app.css and confirmed .col-span-full, .rotate-180, .truncate, .text-\\[9px\\], .text-base-content\\/60, and the [writing-mode:vertical-rl] arbitrary-property rule are all present. go build ./..., go vet ./..., go test ./internal/gateway/... all clean. Boundary: commit 61f5d43 touches only internal/gateway/ and openspec/changes/gateway-history-graph-labels-tooltips/ files; no telemetrydb/pgtype references. tasks.md group 6 checkboxes only (6.1-6.4 checked, 6.5 checked after this round's own re-verification of the retargeted test; task text unedited, task 5.3 still correctly unchecked/blocked). No blockers found; approving round 2. Task 5.3 (human visual re-check of the new HTML-grid rendering) remains blocked pending the user \u2014 not treated as incomplete work, and not approved by the reviewer.",
+        "duration_seconds": 125,
+        "budget": {
+          "five_hour_pct_start": 13,
+          "five_hour_pct_end": 16,
+          "five_hour_pct_delta": 3,
+          "cost_usd_delta": 1.9,
+          "context_pct_end": 21,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": "round 2, same reviewer resumed from transcript (context reused)"
+        }
       }
     ]
   },
@@ -646,6 +678,15 @@
       "decision": "REVISE design D4 (D4-R1): per-bar date labels move out of the SVG into a sibling HTML grid row; vertical orientation becomes a CSS class instead of an SVG rotate transform.",
       "why": "Task 5.3's visual check found the labels render as an illegible smear. Root cause: the chart uses preserveAspectRatio=\"none\" with viewBox 0 0 <numBars> 120 in a w-full h-28 box, so at 14 days x scales ~57x and y ~0.93x (ratio ~61:1). Rects are unaffected; text glyphs are stretched flat. rotate(-90) is applied pre-stretch so vertical text becomes horizontal streaks. No font size can fix a scale-factor defect. User chose the HTML grid row over a second label-only SVG.",
       "covered_by": "design.md D4-R1"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-09T09:42:00Z",
+      "scope": "review:R2-1",
+      "made_by": "leader",
+      "decision": "Accepted reviewer finding R2-1 as informational; not changing bar x-positions in this change.",
+      "why": "Bars draw at x=i width=0.8 (centre i+0.4) while grid cells centre at i+0.5, a <=1.7% bar-slot offset. Correcting it means nudging every bar's x, a visual change beyond the label scope the user approved. Surfaced to the user for the 5.3 visual re-check instead - their call, one-line fix if they want it.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -683,6 +724,11 @@
       "at": "2026-08-09T09:38:00Z",
       "agent": "leader",
       "event": "group 6 complete (D4-R1 fix). Leader verified: no HTML comments in .templ; SVG viewBox back to 0 0 N 100 with the 4 dead label consts removed; labels are HTML grid cells branching only on LabelVertical between two static class strings; go test -count=1 ./internal/gateway/... green. Sending back to the SAME reviewer (agent ada79a7916... is telemetry; gateway reviewer a3ad1eafbe2da4911) for round 2 to reuse context."
+    },
+    {
+      "at": "2026-08-09T09:42:00Z",
+      "agent": "leader",
+      "event": "Review round 2 APPROVED by the same reviewer (resumed from transcript, context reused per Step 7.3). Confirmed D4-R1 compliance, dead consts fully removed, handler/view-model untouched so D1/D3/D5 survive, test 4.3 retargeted not weakened (all other assertions byte-identical), templ regen zero-diff, app.css carries the new classes, no HTML comments. R2-1 (bar/label centre offset) triaged informational. ARCHIVE STILL HELD: task 5.3 human visual re-check of the NEW rendering is outstanding - no human input received yet."
     }
   ]
 }
