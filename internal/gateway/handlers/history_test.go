@@ -628,12 +628,16 @@ func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
 }
 
 // TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowPresets
-// (task 4.3): httptest against NewEngine with a fake telemetry.Reader whose
-// snapshots carry known EffectiveDates. Asserts the rendered fragment HTML
-// contains each bar's MM-DD label (computed via the same production
-// buildOdometerChart/buildBatteryChart functions the handler calls, not
-// re-derived date math), and that a `transform="rotate(-90` substring is
+// (task 4.3, retargeted by task 6.5 for design D4-R1): httptest against
+// NewEngine with a fake telemetry.Reader whose snapshots carry known
+// EffectiveDates. Asserts the rendered fragment HTML contains each bar's
+// MM-DD label (computed via the same production buildOdometerChart/
+// buildBatteryChart functions the handler calls, not re-derived date math),
+// and that the vertical-label CSS class `[writing-mode:vertical-rl]` is
 // present ONLY for the 14- and 30-day presets, never for 6 (design D2/D3).
+// D4-R1 moved orientation from an SVG `transform="rotate(-90 ...)"` (illegible
+// under preserveAspectRatio="none" non-uniform scaling) to this CSS class on
+// the HTML label cell — this test now asserts the CSS class instead.
 func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowPresets(t *testing.T) {
 	uid := uuid.New()
 	snaps := dailySnaps(6, 1000, 10, 70) // 7 points, EffectiveDate set by dailySnaps
@@ -674,9 +678,9 @@ func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowPresets(
 			}
 		}
 
-		hasRotate := strings.Contains(body, `transform="rotate(-90`)
-		if hasRotate != tc.wantVertical {
-			t.Errorf("days=%d: want rotate(-90 present=%v, got %v", tc.days, tc.wantVertical, hasRotate)
+		hasVerticalClass := strings.Contains(body, `[writing-mode:vertical-rl]`)
+		if hasVerticalClass != tc.wantVertical {
+			t.Errorf("days=%d: want vertical label class present=%v, got %v", tc.days, tc.wantVertical, hasVerticalClass)
 		}
 	}
 }

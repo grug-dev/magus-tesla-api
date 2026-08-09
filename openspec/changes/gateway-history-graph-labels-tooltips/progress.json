@@ -5,16 +5,10 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM7-history-graph-improvements.md",
   "request": "MAG-6 (history graph change): tooltip date MM-DD from EffectiveDate; per-bar MM-DD label; adaptive orientation (horizontal at 6-day, vertical at 14/30-day).",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
     "current": [],
-    "pending": [
-      "6.1",
-      "6.2",
-      "6.3",
-      "6.4",
-      "6.5"
-    ],
+    "pending": [],
     "blocked": [
       "5.3"
     ],
@@ -33,11 +27,16 @@
       "4.4",
       "5.1",
       "5.2",
-      "5.4"
+      "5.4",
+      "6.1",
+      "6.2",
+      "6.3",
+      "6.4",
+      "6.5"
     ]
   },
   "created_at": "2026-08-09T00:46:00Z",
-  "updated_at": "2026-08-09T01:12:00Z",
+  "updated_at": "2026-08-09T09:38:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -473,14 +472,23 @@
         "3.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T09:20:00Z",
+      "completed_at": "2026-08-09T09:24:00Z",
+      "duration_seconds": 240,
+      "notes": "history.templ: historyBarChart now wraps the SVG + label cells in one CSS grid (style=grid-template-columns:repeat(N,minmax(0,1fr)), N=len(chart.Bars)); SVG gets col-span-full, viewBox restored to '0 0 N 100', class back to w-full h-24. Dropped historyChartViewBoxHeight/historyLabelZoneHeight/historyLabelHorizontalY/historyLabelAnchorY consts and all per-bar <text>.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.06,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "5-hour bucket reset mid-wave (26 -> 13); pct delta meaningless, use cost_usd_delta. One serial worker covered 6.1-6.5."
+      }
     },
     {
       "id": "6.2",
@@ -490,14 +498,23 @@
         "6.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T09:24:00Z",
+      "completed_at": "2026-08-09T09:27:00Z",
+      "duration_seconds": 180,
+      "notes": "Added one <div> label cell per bar, sibling of the SVG in the same grid (auto-flows to row 2 under its column). Emits bar.Label verbatim. chart.LabelVertical branches only between two static class strings: one adds [writing-mode:vertical-rl] rotate-180 (reads bottom-to-top), the other is plain horizontal. No days comparison, no time.Format, no rotation math in the template.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.06,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "5-hour bucket reset mid-wave (26 -> 13); pct delta meaningless, use cost_usd_delta. One serial worker covered 6.1-6.5."
+      }
     },
     {
       "id": "6.3",
@@ -507,14 +524,23 @@
         "6.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T09:27:00Z",
+      "completed_at": "2026-08-09T09:28:00Z",
+      "duration_seconds": 60,
+      "notes": "Label cells use text-[9px] leading-none text-center truncate (real CSS font-size now, not SVG-scaled). truncate (nowrap+ellipsis+hidden) prevents any cell from wrapping or spilling into a neighboring column at the 30-day width. No browser available to this worker to eyeball it; visual confirmation is still a human step.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.06,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "5-hour bucket reset mid-wave (26 -> 13); pct delta meaningless, use cost_usd_delta. One serial worker covered 6.1-6.5."
+      }
     },
     {
       "id": "6.4",
@@ -525,14 +551,23 @@
         "6.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T09:28:00Z",
+      "completed_at": "2026-08-09T09:30:00Z",
+      "duration_seconds": 120,
+      "notes": "make templ regenerated history_templ.go (grid/col-span-full/writing-mode markup confirmed in generated Go). make css regenerated static/app.css; grepped it to confirm .col-span-full, .rotate-180, .truncate and the writing-mode:vertical-rl arbitrary-property rule are all present. Both files left on disk, uncommitted, for the leader.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.06,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "5-hour bucket reset mid-wave (26 -> 13); pct delta meaningless, use cost_usd_delta. One serial worker covered 6.1-6.5."
+      }
     },
     {
       "id": "6.5",
@@ -542,14 +577,23 @@
         "6.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T09:30:00Z",
+      "completed_at": "2026-08-09T09:33:00Z",
+      "duration_seconds": 180,
+      "notes": "history_test.go: TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowPresets now asserts strings.Contains(body, \"[writing-mode:vertical-rl]\") instead of transform=\"rotate(-90. All other assertions in that test (labels present per bar, per-days table 6/14/30) and every other 4.x test (4.1, 4.2, 4.4) untouched. go test ./internal/gateway/... green.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.06,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "5-hour bucket reset mid-wave (26 -> 13); pct delta meaningless, use cost_usd_delta. One serial worker covered 6.1-6.5."
+      }
     }
   ],
   "review": {
@@ -634,6 +678,11 @@
       "at": "2026-08-09T01:12:00Z",
       "agent": "leader",
       "event": "VISUAL CHECK FAILED (task 5.3). Labels illegible due to non-uniform SVG scaling - diagnosed, root-caused, and taken to the user. User chose the HTML-grid-row fix. design.md gains D4-R1 (appended, D4 kept for the record); tasks.md gains group 6 (appended - existing tasks untouched). review.status reset to pending: the prior approval covered the superseded rendering. status -> in-progress."
+    },
+    {
+      "at": "2026-08-09T09:38:00Z",
+      "agent": "leader",
+      "event": "group 6 complete (D4-R1 fix). Leader verified: no HTML comments in .templ; SVG viewBox back to 0 0 N 100 with the 4 dead label consts removed; labels are HTML grid cells branching only on LabelVertical between two static class strings; go test -count=1 ./internal/gateway/... green. Sending back to the SAME reviewer (agent ada79a7916... is telemetry; gateway reviewer a3ad1eafbe2da4911) for round 2 to reuse context."
     }
   ]
 }
