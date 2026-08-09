@@ -14,9 +14,9 @@
     "created_at": "2026-08-09T11:51:05Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [2],
-    "blocked": [2],
+    "current": [2],
+    "pending": [],
+    "blocked": [],
     "done": [1]
   },
   "decisions": [
@@ -109,14 +109,14 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [1],
-      "status": "blocked",
+      "status": "not-started",
       "assistant": null,
       "model": null,
-      "started_at": null,
+      "started_at": "2026-08-09T12:08:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "BLOCKED: external dependency — RM7 tier 2 gateway-history-graph-labels-tooltips MUST be applied first (both modify history.go + history.templ). Param swap + fixed axis + 1-day lookback + Refresh removal + convention doc."
+      "notes": "UNBLOCKED: RM7 tier 2 gateway-history-graph-labels-tooltips was merged to origin/main via PR #17 (commit 0fe2f0d) — its history.go + history.templ changes (EffectiveDate labels, labelVerticalFor, CSS grid writing-mode approach) are already on this branch (base main). Autopilot proceeding to tier 2 artifacts + implementation."
     }
   ]
 }

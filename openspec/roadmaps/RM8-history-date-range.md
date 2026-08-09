@@ -118,7 +118,7 @@ unchanged (additive). LIMIT 400 retained. Three downstream test fakes that imple
 tasks — all valid. `go vet ./...` exit 0; `go test ./internal/telemetry/... ./internal/battery/...
 ./internal/gateway/...` all green (testcontainers Postgres).
 
-### Tier 2 — `[ ]` `RM8-gateway-history-date-range` (module: `gateway`; depends on tier 1 **and on RM7 tier 2 `gateway-history-graph-labels-tooltips` being applied first** — same-files ordering)
+### Tier 2 — `[~]` `RM8-gateway-history-date-range` (module: `gateway`; depends on tier 1 **and on RM7 tier 2 `gateway-history-graph-labels-tooltips` being applied first** — same-files ordering)
 
 1. Switch `DashboardHistoryFragment` (`internal/gateway/handlers/history.go`) from
    `c.Query("days")` + `clampHistoryDays` to `parseHistoryRange(c)` returning a validated

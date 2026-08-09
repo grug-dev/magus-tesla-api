@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM8-gateway-history-date-range",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM8-history-date-range.md",
+  "request": "MAG-7 — Date Filters (tier 2 gateway). Switch /ui/dashboard/history to ?start&end=YYYY-MM-DD, fixed [start..end] date axis (fixes odometer/battery offset), server-rendered presets, remove dashboard Refresh, convention doc. Source: https://linear.app/magus-monitor/issue/MAG-7/date-filters",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["1.1","1.2","2.1","2.2","2.3","2.4","2.5","3.1","3.2","3.3","4.1","4.2","5.1","5.2","5.3","6.1","6.2","6.3","6.4","6.5","6.6","6.7","6.8","7.1","7.2","7.3","7.4"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-09T12:13:40Z",
+  "updated_at": "2026-08-09T12:13:40Z",
+  "leader": { "assistant": "opencode", "model": "glm-5.2" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM8-history-date-range",
+    "base": "main",
+    "created_at": "2026-08-09T11:51:05Z"
+  },
+  "tasks": [
+    { "id": "1.1", "title": "parseHistoryRange + historyRangeWindowDays (replace clampHistoryDays/defaultHistoryDays/historyDayPresets)", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "1.2", "title": "history_vm.go VM rewrite: Start/End time.Time, Presets []RangePreset, RangePreset struct, HistoryBar.Present", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.1", "title": "Rewrite DashboardHistoryFragment: parse -> 400 or readStart -> SnapshotsByVehicleBetween; build Presets", "module": "gateway", "depends_on": ["1.1","1.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.2", "title": "Rewrite buildHistoryView(ctx, uid, teslaID, start, end) — drop days/since params", "module": "gateway", "depends_on": ["2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.3", "title": "Rewrite buildOdometerChart(snaps, start, end) — fixed-axis bucketing, lookback delta", "module": "gateway", "depends_on": ["2.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.4", "title": "Rewrite buildBatteryChart(snaps, start, end) — fixed-axis bucketing", "module": "gateway", "depends_on": ["2.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.5", "title": "Retarget labelVerticalFor(numBars) — true when numBars >= 14", "module": "gateway", "depends_on": ["2.3","2.4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.1", "title": "history.templ: historyDaysSelector renders absolute ?start=&end= from []RangePreset", "module": "gateway", "depends_on": ["1.2","2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.2", "title": "history.templ: historyBarChart renders missing-day (Present=false) zero-height bar + label", "module": "gateway", "depends_on": ["1.2","2.3","2.4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.3", "title": "dashboard.templ: remove Refresh button + switch #dashboard-history self-load to absolute ?start&end href", "module": "gateway", "depends_on": ["1.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "4.1", "title": "internal/gateway/AGENTS.md: HTTP date-filter convention section", "module": "gateway", "depends_on": ["2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "4.2", "title": "ai/go-conventions.md: one-line pointer to gateway convention", "module": "gateway", "depends_on": ["4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "5.1", "title": "make templ regenerate *_templ.go from .templ edits", "module": "gateway", "depends_on": ["3.1","3.2","3.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "5.2", "title": "make css regenerate static/app.css; commit app.css in same change", "module": "gateway", "depends_on": ["5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "5.3", "title": "make generate (sqlc+templ+css) alternative single-step for 5.1+5.2", "module": "gateway", "depends_on": ["3.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "6.1", "title": "TestParseHistoryRange_* (replaces TestClampHistoryDays_*)", "module": "gateway", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "6.2", "title": "fakeHistoryReader.SnapshotsByVehicleBetween real capture (replace panic)", "module": "gateway", "depends_on": ["1.1","2.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "6.3", "title": "TestBuildOdometerChart_FixedAxis_* (lookback delta, missing-day, negative clamp)", "module": "gateway", "depends_on": ["2.3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "6.4", "title": "TestBuildBatteryChart_FixedAxis_* (present, missing-day, Empty only on zero snaps)", "module": "gateway", "depends_on": ["2.4"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "6.5", "title": "TestBuildHistoryView_BothChartsShareFixedAxis (MAG-7 fix: len + Labels match per index; lookback passed)", "module": "gateway", "depends_on": ["2.2","6.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "6.6", "title": "HTTP tests: default window, 5x 400 cases, preset btn-primary+absolute hrefs", "module": "gateway", "depends_on": ["2.1","3.1","5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "6.7", "title": "Retarget render/label tests (verbatim labels, vertical-only-at->=14, ?days ignored)", "module": "gateway", "depends_on": ["5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "6.8", "title": "TestDashboard_HistoryRegionInsideDashboardContent (absolute self-load href, no Refresh)", "module": "gateway", "depends_on": ["3.3","5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "7.1", "title": "go test ./internal/gateway/... green; no telemetrydb import", "module": "gateway", "depends_on": ["6.8"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "7.2", "title": "go vet ./... + go build ./... repo-wide; no Reader implementer broke", "module": "gateway", "depends_on": ["7.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "7.3", "title": "git status footprint: only internal/gateway/ + change folder + ai/go-conventions.md", "module": "gateway", "depends_on": ["7.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "7.4", "title": "CI guard: make css && git diff --exit-code internal/gateway/static/app.css", "module": "gateway", "depends_on": ["5.2","7.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [],
+  "events": [
+    { "at": "2026-08-09T12:13:40Z", "agent": "leader", "event": "tier 2 artifacts created + validated (openspec validate --strict OK). RM7 tier 2 confirmed already merged to main (PR #17) — prerequisite satisfied, no implementation needed. progress.json seeded; 27 tasks. Autopilot ON: implementation next." }
+  ]
+}
