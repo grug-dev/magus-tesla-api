@@ -17,14 +17,14 @@
 
 ## 4. Tests
 
-- [ ] 4.1 Add/extend a handler unit test in `internal/gateway/handlers/` asserting: for a snapshot with `CapturedAt=2026-08-08 03:30 UTC` / `EffectiveDate=2026-08-07`, the built `HistoryBar.Label` == `"08-07"` and the tooltip contains `08-07` (not `2026-08-08`), for both odometer and battery charts.
-- [ ] 4.2 Add a test asserting `LabelVertical` is false for `days=6` and true for `days=14` and `days=30` (covers `labelVerticalFor`).
-- [ ] 4.3 Add a test (httptest against `NewEngine` with a fake `telemetry.Reader` returning snapshots with known `EffectiveDate`s) asserting the rendered fragment HTML contains each bar's `MM-DD` label and a rotated `<text>` (i.e. a `transform="rotate(-90` substring) only when the preset is 14 or 30, and not when it is 6.
-- [ ] 4.4 Assert the template/logic-free invariant holds: the rendered labels match the pre-computed `Label` strings verbatim and there is no `2006-01-02` format string in the response.
+- [x] 4.1 Add/extend a handler unit test in `internal/gateway/handlers/` asserting: for a snapshot with `CapturedAt=2026-08-08 03:30 UTC` / `EffectiveDate=2026-08-07`, the built `HistoryBar.Label` == `"08-07"` and the tooltip contains `08-07` (not `2026-08-08`), for both odometer and battery charts.
+- [x] 4.2 Add a test asserting `LabelVertical` is false for `days=6` and true for `days=14` and `days=30` (covers `labelVerticalFor`).
+- [x] 4.3 Add a test (httptest against `NewEngine` with a fake `telemetry.Reader` returning snapshots with known `EffectiveDate`s) asserting the rendered fragment HTML contains each bar's `MM-DD` label and a rotated `<text>` (i.e. a `transform="rotate(-90` substring) only when the preset is 14 or 30, and not when it is 6.
+- [x] 4.4 Assert the template/logic-free invariant holds: the rendered labels match the pre-computed `Label` strings verbatim and there is no `2006-01-02` format string in the response.
 
 ## 5. Verification & docs
 
-- [ ] 5.1 Ensure tier 1 (`telemetry-add-effective-date`) is applied first (this tier references `Snapshot.EffectiveDate`); `go build ./...` should succeed only after tier 1 lands.
-- [ ] 5.2 Run `go test ./internal/gateway/...` and `make check` (if available); confirm no live Tesla call and `telemetrydb` is not imported by any gateway file.
+- [x] 5.1 Ensure tier 1 (`telemetry-add-effective-date`) is applied first (this tier references `Snapshot.EffectiveDate`); `go build ./...` should succeed only after tier 1 lands.
+- [x] 5.2 Run `go test ./internal/gateway/...` and `make check` (if available); confirm no live Tesla call and `telemetrydb` is not imported by any gateway file.
 - [ ] 5.3 Visually verify the 6/14/30-day presets render labels correctly (horizontal at 6, vertical at 14/30, no overlap, bar↔label aligned) using `make dev` against a vehicle with snapshot history.
-- [ ] 5.4 Per gateway `AGENTS.md` RD8, confirm no client-side library was added and the SVG rendering approach is unchanged (only a per-bar `<text>` added); no AGENTS.md convention update is required because no rendering approach changed — if any Tailwind class was added, `make css` already ran in 3.3.
+- [x] 5.4 Per gateway `AGENTS.md` RD8, confirm no client-side library was added and the SVG rendering approach is unchanged (only a per-bar `<text>` added); no AGENTS.md convention update is required because no rendering approach changed — if any Tailwind class was added, `make css` already ran in 3.3.

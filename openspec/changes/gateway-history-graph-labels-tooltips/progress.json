@@ -5,20 +5,13 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM7-history-graph-improvements.md",
   "request": "MAG-6 (history graph change): tooltip date MM-DD from EffectiveDate; per-bar MM-DD label; adaptive orientation (horizontal at 6-day, vertical at 14/30-day).",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
     "current": [],
-    "pending": [
-      "4.1",
-      "4.2",
-      "4.3",
-      "4.4",
-      "5.1",
-      "5.2",
-      "5.3",
-      "5.4"
+    "pending": [],
+    "blocked": [
+      "5.3"
     ],
-    "blocked": [],
     "done": [
       "1.1",
       "1.2",
@@ -27,11 +20,18 @@
       "2.3",
       "3.1",
       "3.2",
-      "3.3"
+      "3.3",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "5.1",
+      "5.2",
+      "5.4"
     ]
   },
   "created_at": "2026-08-09T00:46:00Z",
-  "updated_at": "2026-08-09T00:52:00Z",
+  "updated_at": "2026-08-09T00:59:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -262,14 +262,23 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T00:53:00Z",
+      "completed_at": "2026-08-09T00:54:00Z",
+      "duration_seconds": 60,
+      "notes": "Repaired the 2 red tests (set EffectiveDate on fixtures, assert MM-DD + absence of the CapturedAt-derived date). Added dedicated odometer+battery tests matching design.md's exact scenario (CapturedAt=08-08 03:30, EffectiveDate=08-07 -> Label/tooltip=08-07, no 2026-08-08).",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.47,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered tasks 4.1-5.4 (excl. 5.3); delta is the whole wave, copied onto each task"
+      }
     },
     {
       "id": "4.2",
@@ -279,14 +288,23 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T00:54:00Z",
+      "completed_at": "2026-08-09T00:54:30Z",
+      "duration_seconds": 30,
+      "notes": "Added TestLabelVerticalFor_OrientationByDaysPreset table test: false for 6, true for 14 and 30.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.47,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered tasks 4.1-5.4 (excl. 5.3); delta is the whole wave, copied onto each task"
+      }
     },
     {
       "id": "4.3",
@@ -296,14 +314,23 @@
         "3.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T00:54:30Z",
+      "completed_at": "2026-08-09T00:55:30Z",
+      "duration_seconds": 60,
+      "notes": "Added httptest against NewEngine with fakeHistoryReader (known EffectiveDates via dailySnaps). Asserts every bar Label from buildOdometerChart/buildBatteryChart appears in body, and transform=\"rotate(-90 present only for days=14/30, absent for days=6.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.47,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered tasks 4.1-5.4 (excl. 5.3); delta is the whole wave, copied onto each task"
+      }
     },
     {
       "id": "4.4",
@@ -313,14 +340,23 @@
         "3.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T00:55:30Z",
+      "completed_at": "2026-08-09T00:56:00Z",
+      "duration_seconds": 30,
+      "notes": "Added test asserting rendered body contains every view-model Label verbatim and never contains the Go long-date layout \"2006-01-02\", proving the template does no reformatting.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.47,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered tasks 4.1-5.4 (excl. 5.3); delta is the whole wave, copied onto each task"
+      }
     },
     {
       "id": "5.1",
@@ -333,14 +369,23 @@
         "4.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T00:56:00Z",
+      "completed_at": "2026-08-09T00:56:10Z",
+      "duration_seconds": 10,
+      "notes": "telemetry.Snapshot.EffectiveDate confirmed present (tier 1 applied). go build ./... clean.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.47,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered tasks 4.1-5.4 (excl. 5.3); delta is the whole wave, copied onto each task"
+      }
     },
     {
       "id": "5.2",
@@ -353,14 +398,23 @@
         "4.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T00:56:10Z",
+      "completed_at": "2026-08-09T00:57:00Z",
+      "duration_seconds": 50,
+      "notes": "go test ./internal/gateway/... all green (incl. the two repaired tests + 5 new ones). make check (build+vet+ui-guard+test w/ testcontainers Postgres) green repo-wide. grep confirms no telemetrydb import/pgtype leak in gateway (only doc comments mention it).",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.47,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered tasks 4.1-5.4 (excl. 5.3); delta is the whole wave, copied onto each task"
+      }
     },
     {
       "id": "5.3",
@@ -370,13 +424,13 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
+      "status": "blocked",
       "agent": null,
       "model": null,
       "started_at": null,
       "completed_at": null,
       "duration_seconds": null,
-      "notes": null,
+      "notes": "HUMAN-ONLY: visual check of 6/14/30-day presets via make dev in a browser. No agent can do this; handed to the user before archive.",
       "budget": null
     },
     {
@@ -387,20 +441,29 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-09T00:57:00Z",
+      "completed_at": "2026-08-09T00:57:08Z",
+      "duration_seconds": 8,
+      "notes": "Confirmed via diff: go.mod/go.sum unchanged, static/ gained only regenerated app.css (CSS, not JS), history.templ has no <script>/onclick/JS init - only the D4 per-bar <text>. RD8 satisfied, no AGENTS.md update needed.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 20,
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.47,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker covered tasks 4.1-5.4 (excl. 5.3); delta is the whole wave, copied onto each task"
+      }
     }
   ],
   "review": {
     "status": "pending",
     "agent": null,
-    "brief": null,
+    "brief": "Review the tier-2 diff for gateway-history-graph-labels-tooltips (commits 8ee99ce wave-1, plus the wave-2 test commit) against: (1) design.md D1-D5 - tooltip AND label both sourced from EffectiveDate formatted MM-DD, with CapturedAt eliminated as a date source (D1; a surviving CapturedAt date path is a BLOCKER, it re-introduces the exact 1-day bug MAG-6 fixes); per-bar Label + adaptive orientation (D2); LabelVertical computed once in the handler, chart-level, never per-bar and never in the template (D3); SVG <text> + transform=rotate(-90 ...) with NO client-side charting library added (D4, gateway AGENTS.md RD8); Label pre-formatted in the handler, template logic-free - no time.Format, no days comparison, no rotation math in .templ (D5). (2) Module boundary: all edits inside internal/gateway/; no internal/telemetry/db (telemetrydb) import; gateway owns no business data. (3) ai/htmx-conventions.md + ai/htmx-go-integration.md compliance for the Templ markup; NO HTML comments in .templ (they ship to the browser). (4) Codegen guard: *_templ.go regenerated from .templ, and static/app.css regenerated and committed in this change (gateway AGENTS.md CI guard). Confirm the committed app.css actually contains any newly used classes. (5) Spec coverage: every scenario in specs/gateway/spec.md has a real test that ASSERTS the behaviour. (6) ANTI-GAMING - highest priority this round: two pre-existing tooltip tests (TestBuildOdometerChart_TooltipContainsDateAndKeywords, TestBuildBatteryChart_TooltipContainsDateLevelAndRange) were REPAIRED by the wave-2 worker because the contract deliberately changed. Verify they were strengthened, not weakened: every non-date assertion must survive, the date assertion must still assert a specific expected string, and a negative assertion proving CapturedAt is not the source should be present. Any dropped or loosened assertion is a blocker finding. Note task 5.3 (human visual check of the presets via make dev) is deliberately BLOCKED pending the user - do not treat it as an incomplete-work finding, and do not approve it yourself. Escalate on doubt: return changes-requested rather than approving anything you are not sure about.",
     "rounds": []
   },
   "decisions": [],
@@ -419,6 +482,11 @@
       "at": "2026-08-09T00:52:00Z",
       "agent": "leader",
       "event": "wave 1 complete (1.1-3.3). Verified D1-D5 + RD4 against the diff: EffectiveDate is the sole date source for tooltip AND label, LabelVertical computed once in handler, template logic-free, SVG rotate(-90) only, no client-side lib. Boundary clean (no telemetrydb import), no HTML comments in .templ. make templ + make css ran; app.css regenerated. KNOWN: 2 pre-existing tooltip tests fail until task 4.1 updates them - anticipated in design.md."
+    },
+    {
+      "at": "2026-08-09T00:59:00Z",
+      "agent": "leader",
+      "event": "wave 2 complete (4.1-5.4 excl. 5.3). Leader verified: go test -count=1 ./internal/gateway/... green; openspec validate --strict passed. Anti-gaming spot-check on the 2 repaired tooltip tests - non-date assertions (km driven/odometer/82%/km range) all survived, date assertion retargeted to MM-DD, and a NEW negative assertion proving CapturedAt is not the source was added: strengthened, not weakened. Task 5.3 set blocked (human visual check). status -> verified."
     }
   ]
 }
