@@ -31,7 +31,7 @@
     ]
   },
   "created_at": "2026-08-09T00:46:00Z",
-  "updated_at": "2026-08-09T00:59:00Z",
+  "updated_at": "2026-08-09T01:03:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -461,12 +461,48 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
     "brief": "Review the tier-2 diff for gateway-history-graph-labels-tooltips (commits 8ee99ce wave-1, plus the wave-2 test commit) against: (1) design.md D1-D5 - tooltip AND label both sourced from EffectiveDate formatted MM-DD, with CapturedAt eliminated as a date source (D1; a surviving CapturedAt date path is a BLOCKER, it re-introduces the exact 1-day bug MAG-6 fixes); per-bar Label + adaptive orientation (D2); LabelVertical computed once in the handler, chart-level, never per-bar and never in the template (D3); SVG <text> + transform=rotate(-90 ...) with NO client-side charting library added (D4, gateway AGENTS.md RD8); Label pre-formatted in the handler, template logic-free - no time.Format, no days comparison, no rotation math in .templ (D5). (2) Module boundary: all edits inside internal/gateway/; no internal/telemetry/db (telemetrydb) import; gateway owns no business data. (3) ai/htmx-conventions.md + ai/htmx-go-integration.md compliance for the Templ markup; NO HTML comments in .templ (they ship to the browser). (4) Codegen guard: *_templ.go regenerated from .templ, and static/app.css regenerated and committed in this change (gateway AGENTS.md CI guard). Confirm the committed app.css actually contains any newly used classes. (5) Spec coverage: every scenario in specs/gateway/spec.md has a real test that ASSERTS the behaviour. (6) ANTI-GAMING - highest priority this round: two pre-existing tooltip tests (TestBuildOdometerChart_TooltipContainsDateAndKeywords, TestBuildBatteryChart_TooltipContainsDateLevelAndRange) were REPAIRED by the wave-2 worker because the contract deliberately changed. Verify they were strengthened, not weakened: every non-date assertion must survive, the date assertion must still assert a specific expected string, and a negative assertion proving CapturedAt is not the source should be present. Any dropped or loosened assertion is a blocker finding. Note task 5.3 (human visual check of the presets via make dev) is deliberately BLOCKED pending the user - do not treat it as an incomplete-work finding, and do not approve it yourself. Escalate on doubt: return changes-requested rather than approving anything you are not sure about.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-09T01:20:00Z",
+        "agent": "gateway-reviewer",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "minor",
+            "note": "internal/gateway/static/input.css only @source's ../templates/**/*.templ, but Tailwind v4's automatic content detection also scans the whole project tree (respecting .gitignore) for candidate utility strings. openspec/changes/gateway-history-graph-labels-tooltips/progress.json task 3.3's own notes field literally contains the substrings \"fill-base-content\" (bare, no /60) and \"text-[7px]/[8px]\", so a from-scratch `make css` run today emits two extra unused classes (`.fill-base-content` merged into the /60 rule, and a `.text-\\[7px\\]\\/\\[8px\\]{font-size:7px;line-height:8px}` rule) that are not in the committed internal/gateway/static/app.css and are not referenced by any markup. This is pre-existing Tailwind v4 CLI behavior (not something either wave worker did) and does not affect this change's correctness: the committed app.css already contains every class the new markup actually uses (fill-base-content/60, text-[7px], text-[8px], fill-primary, fill-secondary), verified by grep. Re-ran make css locally to confirm, then reverted the local diff with `git checkout -- internal/gateway/static/app.css` so no state was left dirty. Flagging only so the leader is aware the CI guard `make css && git diff --exit-code internal/gateway/static/app.css` is order-sensitive to progress.json prose and could someday false-positive; not a reason to request changes on this review.",
+            "status": "open"
+          }
+        ],
+        "duration_seconds": 195,
+        "budget": {
+          "five_hour_pct_start": 20,
+          "five_hour_pct_end": 26,
+          "five_hour_pct_delta": 6,
+          "cost_usd_delta": 2.34,
+          "context_pct_end": 18,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": ""
+        }
+      }
+    ]
   },
-  "decisions": [],
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-09T01:03:00Z",
+      "scope": "review:R1-1",
+      "made_by": "leader",
+      "decision": "Accepted reviewer finding R1-1 as informational; not fixing it in this change.",
+      "why": "Tailwind v4 auto content-detection scans the repo tree, so prose in progress.json containing class-like substrings can emit two unused classes on a from-scratch make css. Pre-existing tooling behaviour, unrelated to this change's markup, and the committed app.css already carries every class the new markup uses. Fixing it means narrowing the Tailwind source globs - a separate concern.",
+      "covered_by": null
+    }
+  ],
   "events": [
     {
       "at": "2026-08-09T00:46:00Z",
@@ -487,6 +523,11 @@
       "at": "2026-08-09T00:59:00Z",
       "agent": "leader",
       "event": "wave 2 complete (4.1-5.4 excl. 5.3). Leader verified: go test -count=1 ./internal/gateway/... green; openspec validate --strict passed. Anti-gaming spot-check on the 2 repaired tooltip tests - non-date assertions (km driven/odometer/82%/km range) all survived, date assertion retargeted to MM-DD, and a NEW negative assertion proving CapturedAt is not the source was added: strengthened, not weakened. Task 5.3 set blocked (human visual check). status -> verified."
+    },
+    {
+      "at": "2026-08-09T01:03:00Z",
+      "agent": "leader",
+      "event": "Review round 1 APPROVED, zero blocking findings; reviewer independently re-ran build/vet/tests and diffed the repaired tests against 334ea9c to confirm they were strengthened. Minor finding R1-1 (Tailwind auto content-detection picks up class-like substrings in progress.json prose) triaged as informational - see decisions. Full repo test sweep green. ARCHIVE HELD: task 5.3 (human visual check of 6/14/30-day presets via make dev) is still blocked pending the user."
     }
   ]
 }
