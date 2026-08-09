@@ -14,8 +14,8 @@
     "created_at": "2026-08-09T11:51:05Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2],
+    "current": [1],
+    "pending": [2],
     "blocked": [],
     "done": []
   },
@@ -89,14 +89,14 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": null,
       "model": null,
-      "started_at": null,
+      "started_at": "2026-08-09T11:55:11Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Unblocked; no same-files conflict with RM7. Bounded [start,end]-inclusive range scan on existing snapshots table, no schema change, keep Since (additive)."
+      "notes": "Artifacts created + validated; no DB schema change so database design gate does not trip. Autopilot ON — implementation next."
     },
     {
       "id": 2,

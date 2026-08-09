@@ -93,7 +93,7 @@ These were confirmed by the user and are authoritative for every tier's design/s
 Status legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, not
 archived) · `[x]` done (archived).
 
-### Tier 1 — `[ ]` `RM8-telemetry-between-range-port` (module: `telemetry`)
+### Tier 1 — `[~]` `RM8-telemetry-between-range-port` (module: `telemetry`)
 
 Add `SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start,
 end time.Time) ([]Snapshot, error)` to the `telemetry.Reader` interface, implemented as a
