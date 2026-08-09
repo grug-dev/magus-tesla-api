@@ -150,6 +150,77 @@ WHERE account_id = @account_id
 ORDER BY captured_at ASC
 LIMIT 400;
 
+-- name: SnapshotsByVehicleBetween :many
+-- Return the snapshots for a single vehicle (within the given account) whose
+-- **EffectiveDate calendar day** falls in the caller-supplied `[start, end]` window
+-- inclusive, ordered oldest-first (ascending by captured_at == ascending by
+-- EffectiveDate, since EffectiveDate is monotonic in CapturedAt). Used by
+-- telemetry.Reader.SnapshotsByVehicleBetween to power the bounded history charts
+-- (RM8 tier 1, MAG-7 date filters). `start` and `end` are whole UTC-midnight-bounded
+-- calendar days; `end` is inclusive.
+--
+-- Bounds derivation (design D1/D5): EffectiveDate = CapturedAt.AddDate(0,0,-1), i.e.
+-- EffectiveDate's UTC calendar day == CapturedAt's UTC calendar day minus 1. So
+-- `EffectiveDate ∈ [start, end]` inclusive ⟺ `CapturedAt ∈ [start+1 day, end+1 day]`
+-- (calendar days, inclusive both ends). Expressed as TIMESTAMPTZ predicates this is
+-- the half-open range `[start_bound, end_bound)`:
+--     start_bound = start + 1 calendar day   (start.AddDate(0,0,1)  — UTC midnight beginning the first eligible capture day)
+--     end_bound   = end   + 2 calendar days  (end  .AddDate(0,0,2)  — UTC midnight ending the last eligible capture day, exclusive)
+-- The half-open upper bound makes `end` inclusive without an off-by-one on a
+-- UTC-midnight `end` instant (design D3).
+-- The translation `(start, end) → (start_bound, end_bound)` lives INSIDE the dbStore
+-- implementation (service.go), NOT in the public Reader method (design D5): the
+-- reader/store seam passes the caller's raw `(start, end)` through unchanged, and the
+-- dbStore computes and binds the two bounds as pgtype.Timestamptz here.
+--
+-- Why captured_at (TIMESTAMPTZ) and NOT captured_date (DATE) (design D1): captured_at
+-- is the UTC capture instant EffectiveDate is derived from (rowToSnapshot:
+-- CapturedAt.Time.AddDate(0,0,-1)), so the query and the mapper are consistent by
+-- construction with zero timezone coupling. captured_date is Go-computed in the
+-- poller's configured timezone (POLLER_TIMEZONE, currently America/Bogota, UTC−5) and
+-- used solely for the (account_id, tesla_id, captured_date) dedupe UNIQUE constraint
+-- (telemetry-dedupe-daily-snapshots design D2). Filtering on captured_date would
+-- couple this port's correctness to the poller's timezone and break quietly the moment
+-- a capture straddles UTC midnight or POLLER_TIMEZONE changes — the exact fragility
+-- the dedupe change's D2 rejected. (The implicit (account_id, tesla_id, captured_date)
+-- unique index would *serve* such a query, but semantic correctness disqualifies it.)
+--
+-- Index reuse (D2): the existing idx_vehicle_snapshots_vehicle_time
+-- (account_id, tesla_id, captured_at) is an ASCENDING index. The query's
+-- (account_id = $1 AND tesla_id = $2 AND captured_at >= $3 AND captured_at < $4
+-- ORDER BY captured_at ASC) is a forward range scan: the planner seeks to
+-- (account_id, tesla_id, start_bound) and reads forward in index order, satisfying
+-- both WHERE and ORDER BY with no sort step; the upper bound `captured_at < end_bound`
+-- prunes the scan in-place. This is the identical access pattern SnapshotsByVehicleSince
+-- uses, with one extra range predicate — strictly cheaper than the open Since scan for
+-- the same dashboard window. No new index, no migration, no new column (design D2 —
+-- the `database` design-gate is NOT triggered).
+--
+-- LIMIT 400 (D3, parity with SnapshotsByVehicleSince's D4): safety cap against an
+-- accidentally large result set if capture cadence ever increases. The HTTP contract
+-- (Decision #2) caps the window at <= 90 days; the gateway's 1-day lookback (Decision
+-- #4) adds one day, so the realistic max return is ~91 rows (one nightly snapshot per
+-- calendar day under the current cadence). 400 comfortably exceeds that without being
+-- so large it re-introduces the unbounded-scan risk the cap exists to prevent; the
+-- bounded window itself (not the LIMIT) is the real protection on this path.
+SELECT
+    id, account_id, tesla_id, captured_at, raw_data,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
+    car_version,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    captured_date, updated_at
+FROM vehicle_snapshots
+WHERE account_id = @account_id
+  AND tesla_id   = @tesla_id
+  AND captured_at >= @start_bound
+  AND captured_at <  @end_bound
+ORDER BY captured_at ASC
+LIMIT 400;
+
 -- name: LatestSnapshotsByAccount :many
 -- Return the latest stored snapshot for each vehicle owned by the given account.
 -- DISTINCT ON (tesla_id) with ORDER BY tesla_id, captured_at DESC picks the row

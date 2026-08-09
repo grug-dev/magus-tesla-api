@@ -49,6 +49,14 @@ func (f *fakeReadStore) snapshotsByVehicleSince(_ context.Context, _ uuid.UUID, 
 	return nil, nil
 }
 
+// snapshotsByVehicleBetween satisfies the store seam (added by RM8 tier 1). Base
+// fakeReadStore returns nil, nil; extend with fakeBetweenStore for Between-specific
+// tests. Kept as a no-op return (not a panic) so existing LatestSnapshotsByAccount
+// tests that build a fakeReadStore keep compiling without touching the Between path.
+func (f *fakeReadStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]Snapshot, error) {
+	return nil, nil
+}
+
 func (f *fakeReadStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
 	panic("fakeReadStore: upsertSuperchargerSession must not be called from the reader path")
 }
@@ -259,6 +267,13 @@ func (f *fakeHistoryStore) snapshotsByVehicleSince(_ context.Context, accountID 
 	return out, nil
 }
 
+// snapshotsByVehicleBetween satisfies the store seam (added by RM8 tier 1).
+// fakeHistoryStore exercises only the Since path, so the Between path panics to
+// catch any accidental cross-path call.
+func (f *fakeHistoryStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]Snapshot, error) {
+	panic("fakeHistoryStore: snapshotsByVehicleBetween must not be called from the Since path")
+}
+
 func (f *fakeHistoryStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
 	panic("fakeHistoryStore: upsertSuperchargerSession must not be called")
 }
@@ -435,5 +450,166 @@ func TestRowToSnapshot_EffectiveDate_DSTBoundary_CalendarDayNotDuration(t *testi
 	}
 	if h, m := got.EffectiveDate.Hour(), got.EffectiveDate.Minute(); h != 1 || m != 30 {
 		t.Errorf("EffectiveDate wall-clock time must stay 01:30, got %02d:%02d", h, m)
+	}
+}
+
+// --- SnapshotsByVehicleBetween unit tests (offline, fake store — RM8 tier 1) ---
+
+// fakeBetweenStore extends the read-only fake store seam to return configurable
+// snapshots for SnapshotsByVehicleBetween, capturing the params passed by the reader
+// for assertion. Write methods, latestSnapshotsByAccount, and snapshotsByVehicleSince
+// panic to catch accidental cross-path calls — Between tests exercise only the
+// Between method (mirrors fakeHistoryStore's pattern for the Since path).
+type fakeBetweenStore struct {
+	snapshots  []Snapshot
+	err        error
+	gotAccount uuid.UUID
+	gotTeslaID int64
+	gotStart   time.Time
+	gotEnd     time.Time
+}
+
+func (f *fakeBetweenStore) insertSnapshot(_ context.Context, _ Snapshot) error {
+	panic("fakeBetweenStore: insertSnapshot must not be called")
+}
+
+func (f *fakeBetweenStore) insertPollAttempt(_ context.Context, _ Attempt) error {
+	panic("fakeBetweenStore: insertPollAttempt must not be called")
+}
+
+func (f *fakeBetweenStore) latestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]Snapshot, error) {
+	panic("fakeBetweenStore: latestSnapshotsByAccount must not be called from Between path")
+}
+
+func (f *fakeBetweenStore) snapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+	panic("fakeBetweenStore: snapshotsByVehicleSince must not be called from Between path")
+}
+
+// snapshotsByVehicleBetween is the seam the Between tests exercise: it captures the
+// reader's forwarded params and returns the configurable slice (or the injected error).
+func (f *fakeBetweenStore) snapshotsByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error) {
+	f.gotAccount = accountID
+	f.gotTeslaID = teslaID
+	f.gotStart = start
+	f.gotEnd = end
+	if f.err != nil {
+		return nil, f.err
+	}
+	out := make([]Snapshot, len(f.snapshots))
+	copy(out, f.snapshots)
+	return out, nil
+}
+
+func (f *fakeBetweenStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
+	panic("fakeBetweenStore: upsertSuperchargerSession must not be called")
+}
+
+// TestReader_SnapshotsByVehicleBetween_ParamsPassedThrough asserts that the reader
+// forwards (accountID, teslaID, start, end) to the store seam UNCHANGED — the reader
+// does NOT translate start/end into captured_at bounds. The +1day/+2day translation is
+// the dbStore implementation's job (design D5), not the reader's; the public port stays
+// a clean window. This mirrors TestReader_SnapshotsByVehicleSince_ParamsPassedThrough
+// for the bounded-window path (task 4.2).
+func TestReader_SnapshotsByVehicleBetween_ParamsPassedThrough(t *testing.T) {
+	accountID := uuid.New()
+	const teslaID = int64(7007)
+	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+
+	fake := &fakeBetweenStore{}
+	r := &reader{store: fake}
+
+	_, err := r.SnapshotsByVehicleBetween(context.Background(), accountID, teslaID, start, end)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fake.gotAccount != accountID {
+		t.Errorf("accountID not passed through: want %v, got %v", accountID, fake.gotAccount)
+	}
+	if fake.gotTeslaID != teslaID {
+		t.Errorf("teslaID not passed through: want %d, got %d", teslaID, fake.gotTeslaID)
+	}
+	if !fake.gotStart.Equal(start) {
+		t.Errorf("start not passed through unchanged: want %v, got %v", start, fake.gotStart)
+	}
+	if !fake.gotEnd.Equal(end) {
+		t.Errorf("end not passed through unchanged: want %v, got %v", end, fake.gotEnd)
+	}
+}
+
+// TestReader_SnapshotsByVehicleBetween_ReturnsStoreSliceVerbatim asserts that the
+// reader returns whatever the store returned, unmodified (parity with the
+// LatestSnapshotsByAccount / Since pass-through contract). The store's ordering
+// (oldest-first) is preserved by the reader; the reader does not re-sort.
+func TestReader_SnapshotsByVehicleBetween_ReturnsStoreSliceVerbatim(t *testing.T) {
+	acctID := uuid.New()
+	const teslaID = int64(7008)
+	day1 := time.Date(2026, 8, 2, 8, 30, 0, 0, time.UTC)
+	day2 := time.Date(2026, 8, 5, 8, 30, 0, 0, time.UTC)
+
+	want := []Snapshot{
+		{AccountID: acctID, TeslaID: teslaID, CapturedAt: day1, BatteryLevelPct: 70, OdometerKm: 1609.344},
+		{AccountID: acctID, TeslaID: teslaID, CapturedAt: day2, BatteryLevelPct: 68, OdometerKm: 1689.8112},
+	}
+
+	fake := &fakeBetweenStore{snapshots: want}
+	r := &reader{store: fake}
+
+	got, err := r.SnapshotsByVehicleBetween(context.Background(), acctID, teslaID,
+		time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("want 2 snapshots, got %d", len(got))
+	}
+	if !got[0].CapturedAt.Equal(day1) {
+		t.Errorf("got[0].CapturedAt: want %v, got %v", day1, got[0].CapturedAt)
+	}
+	if !got[1].CapturedAt.Equal(day2) {
+		t.Errorf("got[1].CapturedAt: want %v, got %v", day2, got[1].CapturedAt)
+	}
+	if got[0].BatteryLevelPct != 70 || got[1].BatteryLevelPct != 68 {
+		t.Errorf("battery levels not passed through verbatim: got %d, %d", got[0].BatteryLevelPct, got[1].BatteryLevelPct)
+	}
+}
+
+// TestReader_SnapshotsByVehicleBetween_EmptyNonNil asserts that an empty window
+// returns a non-nil empty slice and nil error (D5 parity — no nil-slice footgun).
+func TestReader_SnapshotsByVehicleBetween_EmptyNonNil(t *testing.T) {
+	fake := &fakeBetweenStore{snapshots: nil}
+	r := &reader{store: fake}
+
+	got, err := r.SnapshotsByVehicleBetween(context.Background(), uuid.New(), 42,
+		time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got == nil {
+		t.Fatal("empty window must return non-nil empty slice, got nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("empty window must return 0 elements, got %d", len(got))
+	}
+}
+
+// TestReader_SnapshotsByVehicleBetween_StoreError asserts that a store error is
+// propagated to the caller without wrapping (parity with Since /
+// LatestSnapshotsByAccount).
+func TestReader_SnapshotsByVehicleBetween_StoreError(t *testing.T) {
+	wantErr := errors.New("store: between query failed")
+	fake := &fakeBetweenStore{err: wantErr}
+	r := &reader{store: fake}
+
+	_, err := r.SnapshotsByVehicleBetween(context.Background(), uuid.New(), 1,
+		time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC),
+	)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("want store error %v propagated, got %v", wantErr, err)
 	}
 }

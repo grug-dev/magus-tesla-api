@@ -39,6 +39,14 @@ func (f *fakeHistoryReader) SnapshotsByVehicleSince(_ context.Context, _ uuid.UU
 	return f.historySnaps, f.historyErr
 }
 
+// SnapshotsByVehicleBetween is a stub satisfying the telemetry.Reader interface
+// (added by RM8-telemetry-between-range-port). The history handler is rewired to
+// Between in tier 2 (RM8-gateway-history-date-range); until then this stub is
+// never called by the handler and panics to catch accidental use.
+func (f *fakeHistoryReader) SnapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _ time.Time, _ time.Time) ([]telemetry.Snapshot, error) {
+	panic("fakeHistoryReader: SnapshotsByVehicleBetween is wired in tier 2 (RM8-gateway-history-date-range)")
+}
+
 // errTestHistory is a sentinel error for history handler tests.
 var errTestHistory = errors.New("test history reader error")
 

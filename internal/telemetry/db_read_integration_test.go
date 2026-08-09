@@ -622,3 +622,239 @@ func TestReadStore_SnapshotsByVehicleSince_EmptyWindow(t *testing.T) {
 		t.Fatalf("empty window must return 0 elements, got %d", len(got))
 	}
 }
+
+// --- SnapshotsByVehicleBetween store tests (RM8 tier 1) ---
+//
+// These exercise the real dbStore.snapshotsByVehicleBetween implementation against a
+// live Postgres (testcontainers-provisioned). The dbStore translates the caller's
+// (start, end) window into captured_at bounds (start+1day, end+2day) and runs the
+// forward-range-scan query; rowToSnapshot then derives EffectiveDate = CapturedAt-1day.
+// Together with the offline reader pass-through tests (reader_test.go), these prove
+// the full EffectiveDate ∈ [start, end] inclusive semantics end-to-end.
+
+// seedConsecutiveNights inserts count nightly snapshots for (accountID, teslaID),
+// starting at baseEffectiveDay (the EffectiveDate of the first snapshot), one per
+// calendar day. Each capture is at 08:30 UTC (mirrors the nightly 03:30-local /
+// America/Bogota UTC-5 cadence) so EffectiveDate = captureDay - 1 calendar day lands
+// exactly on baseEffectiveDay for the first row. BatteryLevelPct and OdometerKm are
+// uniquely tagged per night so a test can confirm it got the rows it expected.
+func seedConsecutiveNights(t *testing.T, st *dbStore, ctx context.Context, accountID uuid.UUID, teslaID int64, baseEffectiveDay time.Time, count int) {
+	t.Helper()
+	for i := 0; i < count; i++ {
+		effDay := baseEffectiveDay.AddDate(0, 0, i)
+		captured := effDay.AddDate(0, 0, 1).Add(8*time.Hour + 30*time.Minute)
+		snap := Snapshot{
+			AccountID:       accountID,
+			TeslaID:         teslaID,
+			CapturedAt:      captured.Truncate(time.Microsecond),
+			CapturedDate:    dateOnly(captured, time.UTC),
+			ChargingState:   "Disconnected",
+			CarVersion:      "v",
+			BatteryLevelPct: 50 + i, // tag per-night so the test can assert ordering/identity
+			OdometerKm:      float64(10000 + i),
+			RawData:         []byte(`{}`),
+		}
+		if err := st.insertSnapshot(ctx, snap); err != nil {
+			t.Fatalf("seedConsecutiveNights insert (%d, effDay=%v): %v", i, effDay, err)
+		}
+	}
+}
+
+// TestReadStore_SnapshotsByVehicleBetween_EffectiveDateInRange seeds 14 consecutive
+// nightly snapshots (EffectiveDate span Aug 1..Aug 14, 2026) for one vehicle in one
+// account, then requests a 7-day sub-window [Aug 3, Aug 9] inclusive and asserts:
+//   - exactly the 7 snapshots whose EffectiveDate calendar day ∈ [start, end] are returned
+//   - every returned EffectiveDate calendar day is within [start, end] inclusive
+//   - the result is ordered ascending by EffectiveDate (oldest-first)
+//   - each returned captured_at matches the stored row (EffectiveDate + 1 calendar day at 08:30 UTC)
+//
+// This is the core EffectiveDate-in-range + ascending-order scenario (task 5.1).
+func TestReadStore_SnapshotsByVehicleBetween_EffectiveDateInRange(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const vehicleA = int64(910001)
+	cleanupVehicle(t, pool, accountID, vehicleA)
+
+	// 14 nights: EffectiveDate Aug 1..Aug 14, 2026 (UTC).
+	baseEffectiveDay := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	seedConsecutiveNights(t, st, ctx, accountID, vehicleA, baseEffectiveDay, 14)
+
+	// 7-day sub-window, end inclusive: EffectiveDate ∈ [Aug 3, Aug 9].
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 9, 0, 0, 0, 0, time.UTC)
+
+	got, err := st.snapshotsByVehicleBetween(ctx, accountID, vehicleA, start, end)
+	if err != nil {
+		t.Fatalf("snapshotsByVehicleBetween: %v", err)
+	}
+
+	// Expected EffectiveDate calendar days: Aug 3, 4, 5, 6, 7, 8, 9 → 7 snapshots.
+	if len(got) != 7 {
+		t.Fatalf("want 7 snapshots (EffectiveDate Aug 3..Aug 9), got %d: %+v", len(got), got)
+	}
+
+	// Each returned EffectiveDate calendar day must be within [start, end] inclusive,
+	// the slice must be ascending by EffectiveDate calendar day, and captured_at must
+	// match the stored row (effDay + 1 calendar day at 08:30 UTC). dateNormalizes a
+	// full time.Time (EffectiveDate preserves time-of-day) to its UTC-midnight
+	// calendar day for comparison against the UTC-midnight start/end bounds.
+	for i, s := range got {
+		effCalDay := dateOnly(s.EffectiveDate, time.UTC)
+		if effCalDay.Before(start) || effCalDay.After(end) {
+			t.Errorf("got[%d]: EffectiveDate calendar day %v outside [%v, %v]", i, effCalDay, start, end)
+		}
+		wantDay := start.AddDate(0, 0, i)
+		if !effCalDay.Equal(wantDay) {
+			t.Errorf("got[%d]: want EffectiveDate calendar day %v (ascending), got %v", i, wantDay, effCalDay)
+		}
+		// captured_at for this row == wantDay + 1 calendar day at 08:30 UTC.
+		wantCaptured := wantDay.AddDate(0, 0, 1).Add(8*time.Hour + 30*time.Minute)
+		if !s.CapturedAt.UTC().Equal(wantCaptured) {
+			t.Errorf("got[%d]: want CapturedAt %v, got %v", i, wantCaptured, s.CapturedAt.UTC())
+		}
+		// BatteryLevelPct tag increments with the night (50 + i offset into the 14-day
+		// seed: Aug 3 is index 2 → BatteryLevelPct 52), confirming the right row.
+		if s.BatteryLevelPct != 50+2+i {
+			t.Errorf("got[%d]: want BatteryLevelPct=%d (seed tag), got %d", i, 50+2+i, s.BatteryLevelPct)
+		}
+	}
+}
+
+// TestReadStore_SnapshotsByVehicleBetween_BoundariesInclusive asserts the start and
+// end boundaries are both INCLUSIVE, and the just-outside snapshots are excluded
+// (task 5.2). Seed four snapshots with EffectiveDate calendar days spanning a 2-day
+// window [Aug 5, Aug 6]:
+//   - EffectiveDate Aug 4 (start-1) → EXCLUDED
+//   - EffectiveDate Aug 5 (==start) → INCLUDED
+//   - EffectiveDate Aug 6 (==end)   → INCLUDED
+//   - EffectiveDate Aug 7 (end+1)   → EXCLUDED
+//
+// Expect exactly 2 snapshots (Aug 5, Aug 6), proving start-inclusive, end-inclusive,
+// start-1 excluded, and end+1 excluded in one shot.
+func TestReadStore_SnapshotsByVehicleBetween_BoundariesInclusive(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const vehicleA = int64(910002)
+	cleanupVehicle(t, pool, accountID, vehicleA)
+
+	// Seed 4 nights: EffectiveDate Aug 4, 5, 6, 7 (UTC).
+	baseEffectiveDay := time.Date(2026, 8, 4, 0, 0, 0, 0, time.UTC)
+	seedConsecutiveNights(t, st, ctx, accountID, vehicleA, baseEffectiveDay, 4)
+
+	// 2-day window: EffectiveDate ∈ [Aug 5, Aug 6].
+	start := time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 6, 0, 0, 0, 0, time.UTC)
+
+	got, err := st.snapshotsByVehicleBetween(ctx, accountID, vehicleA, start, end)
+	if err != nil {
+		t.Fatalf("snapshotsByVehicleBetween: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("want exactly 2 snapshots (EffectiveDate Aug 5, Aug 6), got %d: %+v", len(got), got)
+	}
+
+	// got[0] = Aug 5 (== start, inclusive), got[1] = Aug 6 (== end, inclusive).
+	wantDays := []time.Time{start, end}
+	for i, s := range got {
+		effCalDay := dateOnly(s.EffectiveDate, time.UTC)
+		if !effCalDay.Equal(wantDays[i]) {
+			t.Errorf("got[%d]: want EffectiveDate calendar day %v, got %v", i, wantDays[i], effCalDay)
+		}
+	}
+	// Defense: no just-outside snapshot (Aug 4 or Aug 7) may appear.
+	for _, s := range got {
+		effCalDay := dateOnly(s.EffectiveDate, time.UTC)
+		if effCalDay.Equal(start.AddDate(0, 0, -1)) {
+			t.Errorf("start-1 (Aug 4) snapshot must NOT be included: %v", effCalDay)
+		}
+		if effCalDay.Equal(end.AddDate(0, 0, 1)) {
+			t.Errorf("end+1 (Aug 7) snapshot must NOT be included: %v", effCalDay)
+		}
+	}
+}
+
+// TestReadStore_SnapshotsByVehicleBetween_EmptyNonNil asserts that a window with no
+// snapshots returns an empty (non-nil) slice and nil error (task 5.3 / design D5
+// parity — no nil-slice footgun for the gateway).
+func TestReadStore_SnapshotsByVehicleBetween_EmptyNonNil(t *testing.T) {
+	st, _ := newTestStore(t)
+	ctx := context.Background()
+
+	// A far-future window no rows can satisfy (the vehicle has no snapshots at all).
+	start := time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2099, 1, 7, 0, 0, 0, 0, time.UTC)
+	got, err := st.snapshotsByVehicleBetween(ctx, uuid.New(), 910099, start, end)
+	if err != nil {
+		t.Fatalf("snapshotsByVehicleBetween: %v", err)
+	}
+	if got == nil {
+		t.Fatal("empty window must return non-nil empty slice, got nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("empty window must return 0 elements, got %d", len(got))
+	}
+}
+
+// TestReadStore_SnapshotsByVehicleBetween_TenantIsolation asserts per-account and
+// per-vehicle scoping (task 5.4). Seed snapshots for:
+//   - accountA, vehicleV  (in window)
+//   - accountA, vehicleW  (same account, sibling vehicle; must NOT appear)
+//   - accountB, vehicleV  (different account, same TeslaID; must NOT appear)
+//
+// Query (accountA, vehicleV) and assert only accountA+vehicleV rows are returned —
+// defense-in-depth tenant isolation even though the gateway already resolves
+// tesla_id from account.RegisteredVehicles(uid) (parity with Since's D2).
+func TestReadStore_SnapshotsByVehicleBetween_TenantIsolation(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	acctA := uuid.New()
+	acctB := uuid.New()
+	const vehicleV = int64(910010)
+	const vehicleW = int64(910011)
+	cleanupVehicle(t, pool, acctA, vehicleV)
+	cleanupVehicle(t, pool, acctA, vehicleW)
+	cleanupVehicle(t, pool, acctB, vehicleV)
+
+	// Shared window so all three seeds are in-range.
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC)
+
+	// Seed 2 nights for (acctA, vehicleV) — the requested (account, vehicle).
+	baseEffV := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	seedConsecutiveNights(t, st, ctx, acctA, vehicleV, baseEffV, 2)
+
+	// Seed 2 nights for (acctA, vehicleW) — same account, SIBLING vehicle.
+	seedConsecutiveNights(t, st, ctx, acctA, vehicleW, baseEffV, 2)
+
+	// Seed 2 nights for (acctB, vehicleV) — DIFFERENT account, same TeslaID.
+	seedConsecutiveNights(t, st, ctx, acctB, vehicleV, baseEffV, 2)
+
+	// Query (acctA, vehicleV) only.
+	got, err := st.snapshotsByVehicleBetween(ctx, acctA, vehicleV, start, end)
+	if err != nil {
+		t.Fatalf("snapshotsByVehicleBetween (acctA, vehicleV): %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("want exactly 2 snapshots for (acctA, vehicleV), got %d: %+v", len(got), got)
+	}
+	// Every returned row must belong to acctA AND vehicleV — no sibling, no cross-account.
+	for i, s := range got {
+		if s.AccountID != acctA {
+			t.Errorf("got[%d]: returned row belongs to wrong account: %v (want %v)", i, s.AccountID, acctA)
+		}
+		if s.TeslaID != vehicleV {
+			t.Errorf("got[%d]: returned row belongs to wrong vehicle: %d (want %d)", i, s.TeslaID, vehicleV)
+		}
+		// BatteryLevelPct tag for (acctA, vehicleV) seed: 50, 51 — confirms it is the
+		// right vehicle's rows, not vehicleW's or acctB's (which carry the same tags
+		// but are excluded by the account/vehicle filter).
+		if s.BatteryLevelPct != 50+i {
+			t.Errorf("got[%d]: want BatteryLevelPct=%d (acctA/vehicleV seed tag), got %d", i, 50+i, s.BatteryLevelPct)
+		}
+	}
+}
