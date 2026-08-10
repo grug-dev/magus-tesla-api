@@ -96,10 +96,10 @@
       "budget": null
     }
   ],
-  "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
+"review": {
+    "status": "in-review",
+    "agent": "gateway-reviewer",
+    "brief": "Small UI-only change: defaultHistoryHref + buildHistoryPresets shift end from today to today-1 (yesterday). Verify: (1) parseHistoryRange is byte-identical (API unchanged); (2) only defaultHistoryHref in handlers.go + buildHistoryPresets in history.go changed; (3) the 3 updated tests assert end=yesterday; (4) go vet + go test green; (5) no template/DB/other-module touch.",
     "rounds": []
   },
   "decisions": [],
