@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": null,
   "request": "UI follow-up to MAG-7: shift dashboard history end date from today to today-1day (yesterday) because today data loads tomorrow. API unchanged.",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -18,7 +18,7 @@
     ]
   },
   "created_at": "2026-08-10T17:33:52Z",
-  "updated_at": "2026-08-10T21:37:03Z",
+  "updated_at": "2026-08-10T21:39:11Z",
   "leader": {
     "assistant": "opencode",
     "model": "glm-5.2"
@@ -96,11 +96,34 @@
       "budget": null
     }
   ],
-"review": {
-    "status": "in-review",
+  "review": {
+    "status": "reviewer-approved",
     "agent": "gateway-reviewer",
     "brief": "Small UI-only change: defaultHistoryHref + buildHistoryPresets shift end from today to today-1 (yesterday). Verify: (1) parseHistoryRange is byte-identical (API unchanged); (2) only defaultHistoryHref in handlers.go + buildHistoryPresets in history.go changed; (3) the 3 updated tests assert end=yesterday; (4) go vet + go test green; (5) no template/DB/other-module touch.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-10T21:39:11Z",
+        "duration_seconds": 90,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "M-1",
+            "severity": "minor",
+            "note": "Reviewer had no shell tool; relied on leader go test/vet exit-0. Code reads clean.",
+            "status": "open",
+            "triage": "accepted"
+          },
+          {
+            "id": "M-2",
+            "severity": "minor",
+            "note": "No doc update needed \u2014 parseHistoryRange unchanged so the AGENTS.md convention text stays accurate.",
+            "status": "open",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [],
   "events": [
