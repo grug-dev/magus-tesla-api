@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": null,
   "request": "MAG-5 — New records improvements. Six gateway-side form/handler fixes for the manual charge 'Log a charge' page: (1) delete-row alert bug; (2) remove the vehicle field — sourced from the menu vehicle selector; (3) disable currency — always COP; (4) make start/end battery % required + suggest the latest telemetry battery % on the start field; (5) auto-fill today's date on optional started_at/ended_at and move them up from 'More details' to the main card; (6) allow 3 decimals on energy added, keeping the nearest-valid-range helper applied after 3 decimals. Single-module (internal/gateway), no DB object, no manualcharge/telemetry module change.",
-  "status": "in-progress",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -44,7 +44,7 @@
     ]
   },
   "created_at": "2026-08-11T16:34:28Z",
-  "updated_at": "2026-08-11T22:33:00Z",
+  "updated_at": "2026-08-11T22:38:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -675,7 +675,49 @@
           "status": "open"
         },
         "summary": "Re-verified round-1 findings against 76911a3: F1, F3, F4 are fixed correctly and confirmed via diff + independent build/vet/test/ui-guard (all green, fresh run with -count=1). F2's rejection is justified — gofmt-flagged status is repo-wide and pre-existing (22 files, confirmed independently), not introduced by this change; agree with decision D5, will not re-raise. F5 is appropriately escalated to the user rather than code-changed. Module boundary still holds (internal/manualcharge, internal/telemetry, internal/account diff-empty since c1a2bab). One new minor observation (F6, same D4-leftover class as F1) found while re-auditing the touched files per the leader's specific question about VehicleOptionVM's live-ness — recommend a same-change follow-up, not blocking. No task/criterion text was altered in this round's tasks.md-adjacent changes (none touched tasks.md). Verdict: approved.",
-        "duration_seconds": 660
+        "duration_seconds": 660,
+        "findings": [
+          {
+            "id": "F6",
+            "severity": "minor",
+            "note": "ChargeEntryVM.TeslaID / .VIN / .VehicleValue (charges_vm.go ~31-33, populated in charges.go's chargeEntryVMFromEntry ~546-548) and ChargesPageData.ActiveTeslaID (charges_vm.go ~51, set in buildChargesPage ~404) are genuinely dead: grep across every .templ file in fragments/ and pages/ finds zero references to vm.TeslaID, vm.VIN, vm.VehicleValue, or d.ActiveTeslaID, and no test asserts against them either. Same root cause as F1 (D4 vehicle-picker removal left plumbing behind) — ActiveTeslaID's own godoc comment still says 'used to pre-select the picker', a picker that no longer exists.",
+            "status": "fixed",
+            "triage": "accepted",
+            "leader_note": "Partially incorrect as filed: ChargeEntryVM.TeslaID/.VIN ARE asserted by TestChargeEntryVMFromEntry (charges_test.go:886-890), so only VehicleValue and ActiveTeslaID were dead. Leader verified at source; reviewer confirmed and withdrew that part in round 3. Fixed in 52dda71 by removing the two genuinely dead fields and keeping TeslaID/.VIN."
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "at": "2026-08-11T22:27:34Z",
+        "agent": "gateway-reviewer",
+        "verdict": "approved",
+        "scope_note": "Final round per leader decision D8 (polish loop capped). Scoped to F6 resolution only, against commit 52dda71 (2 files: charges.go, charges_vm.go).",
+        "verification_run": [
+          "git show 52dda71 (full diff read)",
+          "Read charges_test.go:827-892 (TestChargeEntryVMFromEntry) directly at source to check the coordinator's correction",
+          "git show 76911a3:internal/gateway/handlers/charges_test.go | grep VehicleValue|ActiveTeslaID -> no hits, confirming those two fields truly had zero test references pre-fix",
+          "go build ./...",
+          "go vet ./internal/gateway/...",
+          "go test -count=1 ./internal/gateway/...",
+          "make ui-guard",
+          "git diff --stat 76911a3 52dda71 -- internal/manualcharge internal/telemetry internal/account (empty)",
+          "grep -rn VehicleValue|ActiveTeslaID internal/gateway/ (zero hits)"
+        ],
+        "correction_acknowledged": {
+          "raised_by": "leader",
+          "content": "Round 2 said ChargeEntryVM.TeslaID/.VIN/.VehicleValue and ChargesPageData.ActiveTeslaID all had 'zero test references'. That was wrong for TeslaID/VIN.",
+          "verdict": "Confirmed and accepted — I was wrong in round 2. charges_test.go:886-890 (TestChargeEntryVMFromEntry) directly asserts vm.TeslaID == 1001 and vm.VIN == \"VIN1001\" on the chargeEntryVMFromEntry mapping result; I did not check the test file closely enough for those two specific fields when I lumped all four fields together in the round-2 note. Independently re-confirmed VehicleValue and ActiveTeslaID genuinely had zero test references (grepped the pre-fix 76911a3 test file — no hits), so the template-plus-test dead-code case only ever held for those two, not for TeslaID/VIN.",
+          "final_position": "Agree TeslaID/.VIN were right to keep, and do NOT think they should also be removed. They are meaningful identity fields on the per-entry VM (the entry's owning vehicle, carried straight from the domain entity), and TestChargeEntryVMFromEntry is a legitimate mapping-correctness assertion, not incidental scaffolding — deleting the fields would mean deleting that coverage for no functional gain (they are two cheap scalar fields, not a boundary, security, or performance concern). If I had still believed they should go, the correct move would have been to say so explicitly here and specify updating TestChargeEntryVMFromEntry to drop those two assertions before removing the fields — I am not doing that; I hold the opposite position, keep them."
+        },
+        "f6_resolution_check": {
+          "removed": "ChargeEntryVM.VehicleValue + its assignment in chargeEntryVMFromEntry; ChargesPageData.ActiveTeslaID + its assignment in buildChargesPage. Both confirmed gone via diff and a zero-hit repo grep.",
+          "kept_correctly": "ChargeEntryVM.TeslaID/.VIN (tested identity fields, per correction above); the teslaIDFilter parameter in buildChargesPage (still drives the ListEntriesByVehicle-vs-ListEntriesByAccount branch and the D2 telemetry-snapshot lookup — confirmed still referenced at charges.go, not dead).",
+          "godocs": "Stale comments referencing D4's removed picker ('for vehicle picker pre-selection', 'used to pre-select the picker') replaced with accurate descriptions. No stale picker language remains on these two fields.",
+          "regression_check": "go build/vet/test/ui-guard all green on a fresh (-count=1) run; module boundary (manualcharge/telemetry/account) diff-empty since the prior round; no other file touched by 52dda71 besides the two named plus progress.json."
+        },
+        "summary": "F6 is correctly and completely resolved: VehicleValue and ActiveTeslaID (the two fields with genuinely zero references anywhere, template or test) are removed cleanly; TeslaID/VIN are correctly kept because charges_test.go:886-890 asserts them directly — confirmed by reading the test at source, matching the leader's correction exactly. I acknowledge and correct my round-2 overstatement (I should not have generalized 'zero test references' across all four fields). No regression: build/vet/test/ui-guard green, boundary still holds, no stray files touched. Nothing else changed since round 2 — F2 stays rejected (pre-existing, repo-wide gofmt state, unchanged), F5 remains with the user, T7.4 remains blocked pending the user. This is the final round per D8; no further findings raised — any future cosmetic nit belongs in the backlog, not another round. Verdict: approved.",
+        "duration_seconds": 240
       }
     ]
   },
@@ -813,6 +855,16 @@
       "at": "2026-08-11T22:33:00Z",
       "agent": "leader",
       "event": "Review-round-2 fix wave: F6 done. Removed ChargeEntryVM.VehicleValue + ChargesPageData.ActiveTeslaID and both assignment sites. Worker KEPT ChargeEntryVM.TeslaID/.VIN against the reviewer's 'zero test references' claim — leader verified the worker is right: charges_test.go:886-890 asserts both on the mapping result. Stale godocs citing D4's removed picker updated. make check green."
+    },
+    {
+      "at": "2026-08-11T22:38:00Z",
+      "agent": "leader",
+      "event": "Bookkeeping: reviewer filed F6 under non-schema keys (round 2 new_observation, round 3 f6_resolution_check) instead of findings[], so the leader's F6 triage write had silently no-op'd. Normalized F6 into round 2 findings[] with triage=accepted/status=fixed, preserving the reviewer's original text verbatim and noting the withdrawn TeslaID/.VIN part. No verdict altered."
+    },
+    {
+      "at": "2026-08-11T22:38:30Z",
+      "agent": "leader",
+      "event": "Step 7 round 3: gateway-reviewer verdict APPROVED (final). Confirmed F6 resolution in 52dda71 and explicitly withdrew its 'zero test references' claim for ChargeEntryVM.TeslaID/.VIN, agreeing they were right to keep. Polish loop capped per D8. Proceeding to Step 8 archive."
     }
   ]
 }
