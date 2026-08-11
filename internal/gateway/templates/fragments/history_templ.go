@@ -50,35 +50,36 @@ func dashHistoryEmpty() templ.Component {
 
 // historyBarChart renders a responsive SVG bar chart plus an HTML date-label
 // row from the pre-computed HistoryChart view model (RD7: hand-rolled SVG, no
-// chart library). The template does NO arithmetic — all heights, tooltip
-// strings, and label strings arrive fully computed on the view model;
-// orientation is read from chart.LabelVertical only (no days comparison, no
-// rotation math here — design D3/D5).
+// chart library) over the FIXED [start..end] calendar-day axis (RM8 design D3).
+// The template does NO arithmetic — all heights, tooltip strings, and label
+// strings arrive fully computed on the view model; orientation is read from
+// chart.LabelVertical only (no window comparison, no rotation math here).
 //
-// When chart.Empty is true (too few snapshots), it falls back to dashHistoryEmpty().
+// A missing-day bar (HistoryBar.Present=false) renders as a zero-height <rect>
+// (invisible) PLUS its MM-DD label cell in the grid so the axis stays complete
+// — the calendar-day slot is retained even when no snapshot backed it (the
+// MAG-7 fix: the axis is calendar-driven, not snapshot-driven). No new CSS
+// class or structural change is needed — the grid's column count derives from
+// len(chart.Bars) (exactly numDays), so a missing-day bar is just a zero-height
+// rect + an ordinary label cell.
+//
+// When chart.Empty is true (zero snapshots in the window, or too few for a
+// delta), it falls back to dashHistoryEmpty().
 //
 // Layout (design D4-R1 — supersedes the original SVG <text> approach): bars
 // and labels share ONE CSS grid, `grid-template-columns: repeat(N, 1fr)` where
-// N = len(chart.Bars). The <svg> spans all columns (col-span-full) so it fills
-// row 1; the SVG keeps viewBox="0 0 N 100" + preserveAspectRatio="none" +
-// class="w-full h-24" — purely CSS-responsive, no JS resize handler. Each bar
-// is a <rect> at a pre-computed HeightPct; a child <title> provides the native
-// browser hover tooltip (no JS tooltip library).
+// N = len(chart.Bars) = numDays (the inclusive window). The <svg> spans all
+// columns (col-span-full) so it fills row 1; the SVG keeps viewBox="0 0 N 100"
+// + preserveAspectRatio="none" + class="w-full h-24" — purely CSS-responsive,
+// no JS resize handler. Each bar is a <rect> at a pre-computed HeightPct; a
+// child <title> provides the native browser hover tooltip (no JS tooltip
+// library). The label row is a SIBLING of the SVG inside the same grid, one
+// <div> cell per bar — real DOM text, not SVG glyphs, so it never passes
+// through the SVG's non-uniform preserveAspectRatio="none" stretch.
 //
-// The label row is a SIBLING of the SVG inside the same grid, one <div> cell
-// per bar — real DOM text, not SVG glyphs, so it never passes through the
-// SVG's non-uniform preserveAspectRatio="none" stretch (that stretch is what
-// made the old SVG <text> approach illegible: bars stretch correctly but text
-// glyphs stretched with them). Both the SVG and the label cells derive their
-// columns from the same grid, so bar↔label alignment holds at every width.
-// Orientation is a CSS class toggle on chart.LabelVertical, not an SVG
-// transform: [writing-mode:vertical-rl] + rotate-180 reads the label
-// bottom-to-top for the narrow 14-/30-day presets; plain horizontal text
-// otherwise.
-//
-// Bar fills use DaisyUI semantic fill tokens (e.g. "fill-primary", "fill-secondary");
-// labels use the muted "text-base-content/60" content token — never hardcoded hex,
-// so the chart re-skins from one data-theme (RD7).
+// Bar fills use DaisyUI semantic fill tokens (e.g. "fill-primary",
+// "fill-secondary"); labels use the muted "text-base-content/60" content
+// token — never hardcoded hex, so the chart re-skins from one data-theme (RD7).
 func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -113,7 +114,7 @@ func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(fmt.Sprintf("grid-template-columns: repeat(%d, minmax(0, 1fr))", len(chart.Bars)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 57, Col: 92}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 58, Col: 92}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -126,7 +127,7 @@ func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(fmt.Sprintf("0 0 %d 100", len(chart.Bars)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 60, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 61, Col: 56}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -149,7 +150,7 @@ func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(i))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 67, Col: 25}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 68, Col: 25}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 				if templ_7745c5c3_Err != nil {
@@ -162,7 +163,7 @@ func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(100 - bar.HeightPct))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 68, Col: 43}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 69, Col: 43}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 				if templ_7745c5c3_Err != nil {
@@ -175,7 +176,7 @@ func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(bar.HeightPct))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 70, Col: 42}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 71, Col: 42}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 				if templ_7745c5c3_Err != nil {
@@ -201,7 +202,7 @@ func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(bar.Tooltip)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 73, Col: 26}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 74, Col: 26}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -225,7 +226,7 @@ func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 					var templ_7745c5c3_Var11 string
 					templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(bar.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 80, Col: 17}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 81, Col: 17}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 					if templ_7745c5c3_Err != nil {
@@ -243,7 +244,7 @@ func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(bar.Label)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 84, Col: 17}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 85, Col: 17}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -264,12 +265,14 @@ func historyBarChart(chart HistoryChart, colorClass string) templ.Component {
 	})
 }
 
-// historyDaysSelector renders the days-count preset control — three buttons (e.g.
-// 6 · 14 · 30) grouped via ui.Join. The active preset uses the "primary" Button
-// variant; inactive presets use "ghost". Each button carries htmx attributes to
-// re-fetch GET /ui/dashboard/history?days=N and swap the #dashboard-history region's
-// innerHTML so both charts and the selector refresh together. No JavaScript.
-func historyDaysSelector(active int, presets []int) templ.Component {
+// historyDaysSelector renders the 6/14/30-day preset control (RM8 design D4,
+// Decision #3) — three buttons grouped via ui.Join. Each button's hx-get is a
+// SERVER-RENDERED absolute ?start=<today-N>&end=<today> href (pre-formatted on
+// RangePreset.StartStr/EndStr), with hx-target="#dashboard-history" and
+// hx-swap="innerHTML" so both charts and the selector refresh together. The
+// active preset (RangePreset.Active) uses the "primary" Button variant; inactive
+// presets use "ghost". No ?days= anywhere; no client JS, no <input type=date>.
+func historyDaysSelector(presets []RangePreset) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -307,7 +310,7 @@ func historyDaysSelector(active int, presets []int) templ.Component {
 			}
 			ctx = templ.InitializeContext(ctx)
 			for _, p := range presets {
-				if p == active {
+				if p.Active {
 					templ_7745c5c3_Var15 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 						templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 						templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
@@ -321,9 +324,9 @@ func historyDaysSelector(active int, presets []int) templ.Component {
 						}
 						ctx = templ.InitializeContext(ctx)
 						var templ_7745c5c3_Var16 string
-						templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d days", p))
+						templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 112, Col: 33}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 115, Col: 15}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 						if templ_7745c5c3_Err != nil {
@@ -336,7 +339,7 @@ func historyDaysSelector(active int, presets []int) templ.Component {
 						Size:    "sm",
 						Class:   "join-item",
 						Attrs: templ.Attributes{
-							"hx-get":    fmt.Sprintf("/ui/dashboard/history?days=%d", p),
+							"hx-get":    fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s", p.StartStr, p.EndStr),
 							"hx-target": "#dashboard-history",
 							"hx-swap":   "innerHTML",
 						},
@@ -358,9 +361,9 @@ func historyDaysSelector(active int, presets []int) templ.Component {
 						}
 						ctx = templ.InitializeContext(ctx)
 						var templ_7745c5c3_Var18 string
-						templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%d days", p))
+						templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 125, Col: 33}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/history.templ`, Line: 128, Col: 15}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 						if templ_7745c5c3_Err != nil {
@@ -373,7 +376,7 @@ func historyDaysSelector(active int, presets []int) templ.Component {
 						Size:    "sm",
 						Class:   "join-item",
 						Attrs: templ.Attributes{
-							"hx-get":    fmt.Sprintf("/ui/dashboard/history?days=%d", p),
+							"hx-get":    fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s", p.StartStr, p.EndStr),
 							"hx-target": "#dashboard-history",
 							"hx-swap":   "innerHTML",
 						},
@@ -398,11 +401,17 @@ func historyDaysSelector(active int, presets []int) templ.Component {
 }
 
 // DashboardHistoryContent renders the full content of the #dashboard-history region:
-// the days selector + the Odometer and Battery chart cards. This is what the handler
-// injects into the region's innerHTML on load and on each selector click (B.3).
+// the preset selector + the Odometer and Battery chart cards over the fixed
+// [start..end] axis. This is what the handler injects into the region's innerHTML
+// on load and on each preset click.
 //
-// All values on HistoryView are pre-computed by the handler; this template is purely
-// presentational — no arithmetic, no domain-type method calls.
+// On a malformed request (HTTP 400) the handler renders the region WITHOUT the
+// selector — it sets Presets to nil, so the selector renders no buttons; both
+// charts fall back to dashHistoryEmpty() (design D1).
+//
+// All values on HistoryView are pre-computed by the handler; this template is
+// purely presentational — no arithmetic, no domain-type method calls, no time
+// formatting.
 func DashboardHistoryContent(v HistoryView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -424,9 +433,11 @@ func DashboardHistoryContent(v HistoryView) templ.Component {
 			templ_7745c5c3_Var19 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = historyDaysSelector(v.Days, v.Presets).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if v.Presets != nil {
+			templ_7745c5c3_Err = historyDaysSelector(v.Presets).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div class=\"flex flex-col gap-4\">")
 		if templ_7745c5c3_Err != nil {

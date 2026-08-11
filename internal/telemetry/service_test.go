@@ -253,6 +253,13 @@ func (s *fakeStore) snapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ in
 	return []Snapshot{}, nil
 }
 
+// snapshotsByVehicleBetween satisfies the store seam added by
+// RM8-telemetry-between-range-port. The collection service never calls it; this stub
+// keeps fakeStore implementing the full store interface (the read seam widened).
+func (s *fakeStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]Snapshot, error) {
+	return []Snapshot{}, nil
+}
+
 // upsertedSessions holds all sessions upserted via upsertSuperchargerSession.
 // It is a separate field so B7 tests can inspect what was upserted.
 //

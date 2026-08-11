@@ -44,6 +44,10 @@ func (f *fakeTelemetryReader) SnapshotsByVehicleSince(_ context.Context, account
 	return f.snapshots, nil
 }
 
+func (f *fakeTelemetryReader) SnapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _ time.Time, _ time.Time) ([]telemetry.Snapshot, error) {
+	panic("fakeTelemetryReader: SnapshotsByVehicleBetween must not be called from RecentEfficiency")
+}
+
 // fakeSuperchargerReader is a fake telemetry.SuperchargerReader — only
 // SuperchargerSessionsByVehicle is exercised by battery.
 type fakeSuperchargerReader struct {

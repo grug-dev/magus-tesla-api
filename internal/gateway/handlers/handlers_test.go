@@ -113,6 +113,14 @@ func (f *fakeReader) SnapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ i
 	return nil, nil
 }
 
+// SnapshotsByVehicleBetween is a stub satisfying the telemetry.Reader interface
+// (added by RM8-telemetry-between-range-port). The history handler is rewired to
+// Between in tier 2 (RM8-gateway-history-date-range); until then the default
+// returns nil, nil.
+func (f *fakeReader) SnapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _ time.Time, _ time.Time) ([]telemetry.Snapshot, error) {
+	return nil, nil
+}
+
 // newHandler builds a Handler for tests that don't involve telemetry (seeds, connect
 // flows, etc.). The TelemetryReader is left nil — it won't be reached in those paths.
 func newHandler(acct account.Service, tsvc tesla.VehicleService) *Handler {

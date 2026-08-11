@@ -51,6 +51,26 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
     forward range scan — no new DB object (D3). Safety cap: LIMIT 400 (D4). Window math stays in
     the caller (D1); account_id filter is defense-in-depth tenant isolation (D2).
     Added by RM5 tier 1 (`telemetry-add-snapshot-history-read-port`).
+  - `SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error)`:
+    return the nightly snapshots for one vehicle within the given account whose
+    **`EffectiveDate` calendar day** falls in the caller-supplied `[start, end]` window
+    **inclusive**, ordered ascending by EffectiveDate (== ascending by `captured_at`).
+    `start`/`end` are whole UTC-midnight-bounded calendar days; `end` is inclusive
+    (Decision #2). The port is a clean bounded window with **no lookback parameter**
+    (lookback is a gateway concern — Decision #4); the caller supplies any lookback by
+    passing `start - 1 day` as `start`. Filters on `captured_at` TIMESTAMPTZ (NOT the
+    poller-zone `captured_date`) with bounds derived from the window
+    (`start_bound = start + 1 day`, `end_bound = end + 2 days`, half-open
+    `>= start_bound AND < end_bound`) so `EffectiveDate ∈ [start, end]` ⟺ `CapturedAt ∈
+    [start+1, end+2)` — the translation lives inside the `dbStore` impl (design D1/D5),
+    never in the public signature. Reuses the existing
+    `idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at)` ascending
+    index as a forward range scan — no new DB object (D2). Safety cap: LIMIT 400 (D3,
+    parity with `Since`'s D4). `account_id` filter is defense-in-depth tenant isolation.
+    Returns an empty (non-nil) slice and nil error on no data. Reuses the single
+    `rowToSnapshot` mapper (no per-method duplication). Additive alongside
+    `SnapshotsByVehicleSince` (kept unchanged — design D4).
+    Added by RM8 tier 1 (`RM8-telemetry-between-range-port`).
   `NewReader(pool *pgxpool.Pool) Reader` is the constructor. The gateway (tier 5,
   `gateway-read-stored-vehicles`) depends on this interface, never on `telemetrydb` directly.
 

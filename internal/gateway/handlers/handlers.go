@@ -371,8 +371,9 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		}
 	}
 	vm := fragments.DashboardData{
-		VehicleName: primary.DisplayName,
-		VIN:         primary.VIN,
+		VehicleName:        primary.DisplayName,
+		VIN:                primary.VIN,
+		DefaultHistoryHref: defaultHistoryHref(),
 	}
 	snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
 	if snapErr != nil {
@@ -433,6 +434,18 @@ func dashStatus(s telemetry.Snapshot) string {
 func formatKm(km float64) string {
 	whole := int(math.Round(km))
 	return commaGroup(strconv.Itoa(whole)) + " km"
+}
+
+// defaultHistoryHref returns the pre-formatted absolute href the #dashboard-history
+// region self-loads on first render: the default 6-day window (today-6 .. today,
+// end inclusive), formatted as /ui/dashboard/history?start=YYYY-MM-DD&end=YYYY-MM-DD.
+// Computed once by the dashboard handler so the page template emits it verbatim —
+// no time math in the template (RM8 design D4, logic-free-template invariant).
+func defaultHistoryHref() string {
+	end := startOfDay(time.Now())
+	start := end.AddDate(0, 0, -historyRangeWindowDays)
+	return fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s",
+		start.Format("2006-01-02"), end.Format("2006-01-02"))
 }
 
 // commaGroup inserts thousands separators into a non-negative integer string:

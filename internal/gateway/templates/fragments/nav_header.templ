@@ -95,7 +95,7 @@ templ NavHeader(vm NavHeaderVM) {
 					}
 					<div class="flex items-center gap-2">
 						@ui.Badge(ui.BadgeProps{Kind: navBadgeKind(vm.Status), Text: ""})
-						<span class="text-xs text-base-300">
+						<span class="text-xs">
 							{ vm.StatusLabel }
 							if vm.BatteryPct != "" {
 								<span>• { vm.BatteryPct }</span>

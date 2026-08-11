@@ -228,6 +228,39 @@ type Reader interface {
 	// time — no companion conversion method exists on the returned Snapshot
 	// (telemetry-store-display-units design D1/D3).
 	SnapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
+
+	// SnapshotsByVehicleBetween returns the nightly snapshots captured for the given
+	// vehicle (within the given account) whose **EffectiveDate calendar day** falls in
+	// the caller-supplied `[start, end]` window inclusive, ordered ascending by
+	// EffectiveDate (equivalently ascending by `captured_at`, since EffectiveDate is
+	// monotonic in CapturedAt — oldest-first). `start` and `end` are whole UTC-midnight-
+	// bounded calendar days; `end` is **inclusive** (Decision #2 of the RM8 roadmap
+	// grill-me interview). The port is a clean bounded window: there is **no lookback
+	// parameter** — the 1-day lookback the gateway needs for the first odometer delta is
+	// a gateway concern, expressed by the caller passing `start - 1 day` as `start`
+	// (Decision #4). The port does no validation of the UTC-midnight/inclusive-`end`
+	// contract; that is the HTTP layer's job in tier 2.
+	//
+	// The implementation honors `EffectiveDate ∈ [start, end]` by filtering on the
+	// `captured_at` TIMESTAMPTZ column (NOT the poller-zone `captured_date` — see design
+	// D1) with bounds derived from the window; that translation is an internal detail of
+	// the dbStore implementation (design D5) and never appears in this signature.
+	//
+	// Returns an empty (non-nil) slice and nil error when the vehicle has no snapshots
+	// in the window (parity with SnapshotsByVehicleSince / LatestSnapshotsByAccount — no
+	// nil-slice footgun for callers). Reuses the single `rowToSnapshot` mapper, so this
+	// method inherits EffectiveDate and every Extracted typed field for free with no
+	// per-method duplication. Distance and range fields are already in kilometres,
+	// converted at capture time — no companion conversion method exists on the returned
+	// Snapshot (telemetry-store-display-units design D1/D3).
+	//
+	// The account_id AND tesla_id filter provides defense-in-depth tenant isolation
+	// (parity with SnapshotsByVehicleSince's D2) even when the gateway already resolves
+	// tesla_id from account.RegisteredVehicles(uid). This method is ADDITIVE alongside
+	// SnapshotsByVehicleSince (kept unchanged — Decision #4 / design D4); the two serve
+	// different access patterns (open lower bound vs bounded window) and deprecation/
+	// removal of `Since`, if ever, is a separate change.
+	SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error)
 }
 
 // --- Source B: Supercharger sessions ---

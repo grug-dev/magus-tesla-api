@@ -1,0 +1,582 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM8-gateway-history-date-range",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM8-history-date-range.md",
+  "request": "MAG-7 \u2014 Date Filters (tier 2 gateway). Switch /ui/dashboard/history to ?start&end=YYYY-MM-DD, fixed [start..end] date axis (fixes odometer/battery offset), server-rendered presets, remove dashboard Refresh, convention doc. Source: https://linear.app/magus-monitor/issue/MAG-7/date-filters",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "3.1",
+      "3.2",
+      "3.3",
+      "4.1",
+      "4.2",
+      "5.1",
+      "5.2",
+      "5.3",
+      "6.1",
+      "6.2",
+      "6.3",
+      "6.4",
+      "6.5",
+      "6.6",
+      "6.7",
+      "6.8",
+      "7.1",
+      "7.2",
+      "7.3",
+      "7.4"
+    ]
+  },
+  "created_at": "2026-08-09T12:13:40Z",
+  "updated_at": "2026-08-09T12:42:33Z",
+  "leader": {
+    "assistant": "opencode",
+    "model": "glm-5.2"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM8-history-date-range",
+    "base": "main",
+    "created_at": "2026-08-09T11:51:05Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "parseHistoryRange + historyRangeWindowDays (replace clampHistoryDays/defaultHistoryDays/historyDayPresets)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "parseHistoryRange + historyRangeWindowDays=6 + historyRangeMaxDays=90 replace clampHistoryDays/historyDayPresets/defaultHistoryDays. 400 on 5 invalid cases.",
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "history_vm.go VM rewrite: Start/End time.Time, Presets []RangePreset, RangePreset struct, HistoryBar.Present",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "history_vm.go: HistoryView now Start/End time.Time + Presets []RangePreset; RangePreset{Label,Start,End,StartStr,EndStr,Active}; HistoryBar.Present bool.",
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "Rewrite DashboardHistoryFragment: parse -> 400 or readStart -> SnapshotsByVehicleBetween; build Presets",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "DashboardHistoryFragment calls parseHistoryRange -> 400 or readStart=start-1day -> SnapshotsByVehicleBetween; builds Presets with absolute dates.",
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "Rewrite buildHistoryView(ctx, uid, teslaID, start, end) \u2014 drop days/since params",
+      "module": "gateway",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "buildHistoryView(ctx,uid,teslaID,start,end) drops days/since; lookback passed to Between.",
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "Rewrite buildOdometerChart(snaps, start, end) \u2014 fixed-axis bucketing, lookback delta",
+      "module": "gateway",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "buildOdometerChart fixed-axis: numDays slots keyed by EffectiveDate; start-1 lookback seeds first delta; missing day = Present=false zero-height labeled bar.",
+      "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "Rewrite buildBatteryChart(snaps, start, end) \u2014 fixed-axis bucketing",
+      "module": "gateway",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "buildBatteryChart fixed-axis: Present=false on missing day; Empty only when zero snaps in window.",
+      "budget": null
+    },
+    {
+      "id": "2.5",
+      "title": "Retarget labelVerticalFor(numBars) \u2014 true when numBars >= 14",
+      "module": "gateway",
+      "depends_on": [
+        "2.3",
+        "2.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "labelVerticalFor(numBars): true when >=14 (was days==14||days==30).",
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "history.templ: historyDaysSelector renders absolute ?start=&end= from []RangePreset",
+      "module": "gateway",
+      "depends_on": [
+        "1.2",
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "historyDaysSelector renders absolute ?start=&end= from []RangePreset; Active->primary.",
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "history.templ: historyBarChart renders missing-day (Present=false) zero-height bar + label",
+      "module": "gateway",
+      "depends_on": [
+        "1.2",
+        "2.3",
+        "2.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "historyBarChart renders Present=false zero-height bar + label in the existing grid.",
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "dashboard.templ: remove Refresh button + switch #dashboard-history self-load to absolute ?start&end href",
+      "module": "gateway",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "dashboard.templ: Refresh button removed; #dashboard-history hx-get switched to DefaultHistoryHref (absolute, computed in dashboardFor).",
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "internal/gateway/AGENTS.md: HTTP date-filter convention section",
+      "module": "gateway",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "internal/gateway/AGENTS.md: HTTP date-filter convention section added adjacent to Vehicle-scoped reads. (leader-completed after worker cancellation)",
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "ai/go-conventions.md: one-line pointer to gateway convention",
+      "module": "gateway",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "ai/go-conventions.md: one-line pointer bullet under Read optimization section. (leader-completed)",
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "make templ regenerate *_templ.go from .templ edits",
+      "module": "gateway",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "make templ regenerated history_templ.go + dashboard_templ.go.",
+      "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "make css regenerate static/app.css; commit app.css in same change",
+      "module": "gateway",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "make css regenerated static/app.css (1-line drift vs prior); committed in this wave.",
+      "budget": null
+    },
+    {
+      "id": "5.3",
+      "title": "make generate (sqlc+templ+css) alternative single-step for 5.1+5.2",
+      "module": "gateway",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "make generate alternative covered 5.1+5.2 (sqlc no-op for gateway).",
+      "budget": null
+    },
+    {
+      "id": "6.1",
+      "title": "TestParseHistoryRange_* (replaces TestClampHistoryDays_*)",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "TestParseHistoryRange_* covers all 5 invalid cases + default window + valid explicit. Replaces TestClampHistoryDays_*.",
+      "budget": null
+    },
+    {
+      "id": "6.2",
+      "title": "fakeHistoryReader.SnapshotsByVehicleBetween real capture (replace panic)",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "fakeHistoryReader.SnapshotsByVehicleBetween real capture (replaces panic); asserts lookback.",
+      "budget": null
+    },
+    {
+      "id": "6.3",
+      "title": "TestBuildOdometerChart_FixedAxis_* (lookback delta, missing-day, negative clamp)",
+      "module": "gateway",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "TestBuildOdometerChart_FixedAxis_*: full-window-with-lookback + missing-day-empty-labeled + negative-clamp + tooltip EffectiveDate MM-DD.",
+      "budget": null
+    },
+    {
+      "id": "6.4",
+      "title": "TestBuildBatteryChart_FixedAxis_* (present, missing-day, Empty only on zero snaps)",
+      "module": "gateway",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "TestBuildBatteryChart_FixedAxis_*: full + missing-day + Empty-only-on-zero-snaps.",
+      "budget": null
+    },
+    {
+      "id": "6.5",
+      "title": "TestBuildHistoryView_BothChartsShareFixedAxis (MAG-7 fix: len + Labels match per index; lookback passed)",
+      "module": "gateway",
+      "depends_on": [
+        "2.2",
+        "6.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "TestBuildHistoryView_BothChartsShareFixedAxis: THE MAG-7 FIX \u2014 len(Odo.Bars)==len(Bat.Bars)==numDays AND Bars[i].Label match per index.",
+      "budget": null
+    },
+    {
+      "id": "6.6",
+      "title": "HTTP tests: default window, 5x 400 cases, preset btn-primary+absolute hrefs",
+      "module": "gateway",
+      "depends_on": [
+        "2.1",
+        "3.1",
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "HTTP tests: default window passes default-7-day (lookback) to reader; 5x 400 cases; presets absolute + Active primary.",
+      "budget": null
+    },
+    {
+      "id": "6.7",
+      "title": "Retarget render/label tests (verbatim labels, vertical-only-at->=14, ?days ignored)",
+      "module": "gateway",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "Retargeted render/label tests: verbatim labels, vertical-only-at->=14, ?days param ignored.",
+      "budget": null
+    },
+    {
+      "id": "6.8",
+      "title": "TestDashboard_HistoryRegionInsideDashboardContent (absolute self-load href, no Refresh)",
+      "module": "gateway",
+      "depends_on": [
+        "3.3",
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "TestDashboard_HistoryRegionInsideDashboardContent: absolute self-load href, no Refresh in dashboard header.",
+      "budget": null
+    },
+    {
+      "id": "7.1",
+      "title": "go test ./internal/gateway/... green; no telemetrydb import",
+      "module": "gateway",
+      "depends_on": [
+        "6.8"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "go test -count=1 ./internal/gateway/... green; grep internal/telemetry/db empty.",
+      "budget": null
+    },
+    {
+      "id": "7.2",
+      "title": "go vet ./... + go build ./... repo-wide; no Reader implementer broke",
+      "module": "gateway",
+      "depends_on": [
+        "7.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "go vet ./... exit 0 repo-wide.",
+      "budget": null
+    },
+    {
+      "id": "7.3",
+      "title": "git status footprint: only internal/gateway/ + change folder + ai/go-conventions.md",
+      "module": "gateway",
+      "depends_on": [
+        "7.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "Footprint: internal/gateway/ + change folder + ai/go-conventions.md. No migration, no internal/telemetry/, no DB object.",
+      "budget": null
+    },
+    {
+      "id": "7.4",
+      "title": "CI guard: make css && git diff --exit-code internal/gateway/static/app.css",
+      "module": "gateway",
+      "depends_on": [
+        "5.2",
+        "7.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-09T12:15:00Z",
+      "completed_at": "2026-08-09T12:42:33Z",
+      "duration_seconds": 1640,
+      "notes": "CI guard passes after wave commit with regenerated app.css.",
+      "budget": null
+    }
+  ],
+"review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Validate RM8-gateway-history-date-range (tier 2 of RM8): (1) design.md D1-D6 compliance — D1 parseHistoryRange (ISO YYYY-MM-DD, end inclusive, default 6-day window, 400 on malformed/missing-partner/end<start/end>today/window>90d; historyRangeWindowDays=6, historyRangeMaxDays=90); D2 1-day lookback (readStart=start-1day) passed to SnapshotsByVehicleBetween, port stays clean Between(start,end); D3 fixed [start..end] axis 1 bar/day, both charts EXACTLY numDays bars, missing day = Present=false zero-height labeled slot, MAG-7 offset gone by construction (len(Odo.Bars)==len(Bat.Bars)==numDays AND Bars[i].Label per-index match); D4 preset selector renders absolute ?start=&end= from []RangePreset, Active->primary, NO ?days anywhere; D5 only the dashboard page Refresh removed (charges-list Refresh untouched); D6 convention doc in internal/gateway/AGENTS.md + one-line pointer in ai/go-conventions.md. (2) Module boundary — only internal/gateway/ + change folder + ai/go-conventions.md touched; no internal/telemetry/db import (grep empty); no migration. (3) Breaking change honestly stated in proposal.md (HTTP API ?days=N -> ?start=&end=). (4) Codegen guard — *_templ.go regenerated, static/app.css regenerated AND committed (CI guard make css && git diff --exit-code = exit 0 post-commit). (5) Logic-free template invariant — no time.Format / days comparison / rotation math in .templ; all Labels+Tooltips pre-computed in handler. (6) Spec coverage — every scenario in specs/gateway/spec.md has a real test. (7) ANTI-GAMING (highest priority): the existing days-param tooltip/label tests were REPLACED because the contract deliberately changed — verify the replacements STRENGTHEN not weaken: the fixed-axis assertions (len==numDays, Bars[i].Label per-index match = the MAG-7 fix) must be real and specific; the 400-case tests must assert every invalid case; the ?days-ignored test must assert the param is NOT honored; no test assertion was deleted to make work look done. Any dropped assertion is a blocker. (8) Traceability — proposal.md carries Source: MAG-7 — <url>. Read the diff on branch ft/RM8-history-date-range (commit 02426ca) vs its parent. Report verdict approved | changes-requested.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-09T12:45:08Z",
+        "duration_seconds": 150,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "M1",
+            "severity": "minor",
+            "note": "TestDashboardHistoryFragment_PresetsAreAbsoluteAndDefaultActive's inner loop iterates historyPresetDayCounts but doesn't use p, so it asserts the same strings.Contains condition 3x. Coverage is adequate elsewhere (DefaultWindowActivatesSixDayPreset asserts the 6-day-specific href; PresetsCarryAbsoluteHrefs asserts every preset has non-empty StartStr/EndStr), so the loop is redundant but not a gap. Optional cleanup on a future pass.",
+            "status": "open",
+            "triage": "accepted"
+          },
+          {
+            "id": "M2",
+            "severity": "minor",
+            "note": "Implementation chose StartStr/EndStr (pre-formatted strings) over design D4's canonical Start/End time.Time on RangePreset. This is the design's explicitly-permitted 'stricter option' for the logic-free-template invariant — a strengthening, not a deviation. Recorded for transparency only.",
+            "status": "open",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-09T12:42:33Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Worker dispatch was cancelled mid-wave after completing code+tests+codegen but before updating tasks.md/progress.json, committing the wave, or adding convention docs (4.1/4.2). Leader completed 4.1/4.2 directly, regenerated app.css, verified go test + go vet green, and committed the wave.",
+      "why": "Re-dispatching a fresh gateway worker for two doc lines + git would cost a full doc-pack re-read for trivial edits; leader owns cross-module integration + git. Verified authentic via test names (TestBuildHistoryView_BothChartsShareFixedAxis=MAG-7 fix) and green go test/vet.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-09T12:13:40Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created + validated (openspec validate --strict OK). RM7 tier 2 confirmed already merged to main (PR #17) \u2014 prerequisite satisfied, no implementation needed. progress.json seeded; 27 tasks. Autopilot ON: implementation next."
+    },
+    {
+      "at": "2026-08-09T12:15:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker for all implementation tasks 1.1-7.4"
+    },
+    {
+      "at": "2026-08-09T12:42:33Z",
+      "agent": "leader",
+      "event": "worker dispatch cancelled mid-wave; leader confirmed tests/vet green on disk, completed tasks 4.1/4.2 (convention docs), regenerated app.css, marked all 27 tasks done. status -> applied."
+    }
+  ]
+}

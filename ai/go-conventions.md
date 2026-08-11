@@ -140,11 +140,16 @@ module:
   snapshot/history tables — they are immutable. Writes are cheap (blind `INSERT`);
   reads are indexed. Reference: `vehicle_snapshots`, `poll_attempts`.
 - **Pre-compute dashboard summaries during the nightly batch.** If a dashboard
-  needs an aggregation (daily distance, weekly energy, monthly cost), compute it in
-  the nightly `Collector` batch and write it to a summary table (or materialized
-  view). Dashboard reads do `SELECT ... FROM summary_table`, not a runtime
-  `GROUP BY` over months of raw rows. Summary tables live in the owning module's
-  `db/` package, written by `Collector`, read by `Reader`.
+  needs an aggregation (daily distance, weekly energy, monthly cost), compute it in the nightly
+  `Collector` batch and write it to a summary table (or materialized view). Dashboard reads do
+  `SELECT ... FROM summary_table`, not a runtime `GROUP BY` over months of raw rows. Summary
+  tables live in the owning module's `db/` package, written by `Collector`, read by `Reader`.
+- **HTTP date-filter convention (gateway).** Every date-filtered gateway HTTP endpoint takes
+  `?start=YYYY-MM-DD&end=YYYY-MM-DD` (both whole calendar days, UTC-midnight-bounded, `end`
+  inclusive), never a `?days=N` count. Canonical rule + the bounded-window rationale (90-day
+  cap protecting the read-heavy hot path): see `internal/gateway/AGENTS.md` "HTTP date-filter
+  convention". Reference: `GET /ui/dashboard/history`
+  (`RM8-gateway-history-date-range`, Linear MAG-7).
 
 ---
 

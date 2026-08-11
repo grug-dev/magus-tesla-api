@@ -52,6 +52,25 @@ func (r *reader) SnapshotsByVehicleSince(ctx context.Context, accountID uuid.UUI
 	return r.store.snapshotsByVehicleSince(ctx, accountID, teslaID, since)
 }
 
+// SnapshotsByVehicleBetween implements Reader. It returns the snapshots for the given
+// vehicle (within the given account) whose EffectiveDate calendar day falls in the
+// caller-supplied `[start, end]` window inclusive, ordered oldest-first (ascending by
+// EffectiveDate == ascending by captured_at). Returns a non-nil empty slice (never nil)
+// when no snapshots exist in the window (parity with SnapshotsByVehicleSince /
+// LatestSnapshotsByAccount — no nil-slice footgun for callers).
+//
+// This pass-through does NOT translate `(start, end)` into captured_at bounds — that
+// `+1day`/`+2day` translation is the dbStore implementation's job (design D5), so the
+// public port stays a clean bounded window and the offset math stays in one testable
+// place (service.go's dbStore.snapshotsByVehicleBetween). The reader forwards the
+// caller's raw `(accountID, teslaID, start, end)` to the store seam unchanged, mirroring
+// SnapshotsByVehicleSince's pattern (design D3/D7 of telemetry-add-snapshot-read-port).
+// The compile-time `var _ Reader = (*reader)(nil)` assertion above pins this new
+// interface method.
+func (r *reader) SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error) {
+	return r.store.snapshotsByVehicleBetween(ctx, accountID, teslaID, start, end)
+}
+
 // --- Source B: SuperchargerReader ---
 
 // superchargerReader is the concrete implementation of the SuperchargerReader port.

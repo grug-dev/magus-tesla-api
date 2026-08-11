@@ -1,25 +1,35 @@
 package fragments
 
+import "time"
+
 // HistoryBar represents one bar in a history chart. All values are pre-computed
-// by the handler — the template does NO arithmetic, unit conversion, or domain-type
-// method calls (gateway spec invariant / ai/htmx-conventions.md §"No business
-// logic in templates").
+// by the handler — the template does NO arithmetic, unit conversion, date
+// formatting, or domain-type method calls (gateway spec invariant /
+// ai/htmx-conventions.md §"No business logic in templates").
 type HistoryBar struct {
 	// HeightPct is the bar height as a percentage (0–100) of the chart canvas.
 	// For the odometer chart: (delta km / max delta km) * 100; clamped ≥ 0.
 	// For the battery chart: battery level % (0–100 directly).
+	// A missing-day bar carries HeightPct=0.
 	HeightPct int
 	// Tooltip is the pre-rendered hover string shown in the bar's <title> element.
-	// The date token is the snapshot's EffectiveDate formatted MM-DD (the calendar
-	// day the snapshot represents, not the capture morning — see telemetry.Snapshot).
-	// Odometer: "<MM-DD> · <km> km driven · odometer <cumulative> km"
-	// Battery:  "<MM-DD> · <level>% · <range> km range"
+	// The date token is the bar's calendar day (MM-DD) — derived from the fixed
+	// [start..end] axis in buildHistoryView, identical on both charts so the
+	// MAG-7 odometer/battery offset is gone. Odometer: "<MM-DD> · <km> km driven · odometer <cumulative> km";
+	// Battery: "<MM-DD> · <level>% · <range> km range"; a missing-day bar:
+	// "<MM-DD> · no snapshot".
 	Tooltip string
-	// Label is the pre-formatted MM-DD date label rendered under the bar, derived
-	// from the same snapshot's EffectiveDate as Tooltip (never CapturedAt — mixing
-	// sources would re-introduce the 1-day mismatch MAG-6 fixes). Computed by the
-	// handler; the template emits it verbatim.
+	// Label is the pre-formatted MM-DD date label rendered under the bar. On the
+	// fixed [start..end] axis, every calendar day in the inclusive window gets
+	// exactly one slot, so both charts always have identical Label slices by
+	// construction. Computed by the handler; the template emits it verbatim.
 	Label string
+	// Present is true when a stored snapshot backs this bar; false for a
+	// missing-day bar (no snapshot for that calendar day). The fixed axis keeps
+	// the missing-day slot labeled with its own date so the axis is calendar-
+	// driven, not snapshot-driven (RM8 design D3, MAG-7 fix). A Present=false
+	// bar renders at zero height with its MM-DD label retained.
+	Present bool
 }
 
 // HistoryChart holds the bars and empty-state flag for one chart panel.
@@ -29,28 +39,58 @@ type HistoryChart struct {
 	Bars  []HistoryBar
 	Empty bool
 	// LabelVertical selects the per-bar label orientation for this chart: false
-	// renders horizontal, centered labels (used for the 6-day preset, where bars
-	// are wide); true renders labels rotated -90° so they fit narrow bars (used
-	// for the 14- and 30-day presets). Set once by the handler from the days
-	// preset (labelVerticalFor) — the template reads only this flag, it never
-	// compares Days or computes rotation itself.
+	// renders horizontal, centered labels (used for the 6-bar default window,
+	// where bars are wide); true renders labels rotated -90° so they fit narrow
+	// bars (used for 14- and 30-bar windows). Set once by the handler from the
+	// fixed window's bar count (labelVerticalFor(numBars) — true when
+	// numBars >= 14); the template reads only this flag, it never compares the
+	// window size or computes rotation itself (RM8 design D3).
 	LabelVertical bool
 }
 
+// RangePreset is one button in the 6/14/30-day preset selector. The handler
+// computes the absolute (Start, End) calendar-day window at render time
+// (today-N .. today) and the template emits the absolute ?start=&end= href —
+// no ?days= anywhere (RM8 design D4, Decision #3). StartStr/EndStr are
+// pre-formatted YYYY-MM-DD strings so the template does no time formatting.
+type RangePreset struct {
+	// Label is the button copy ("6 days", "14 days", "30 days") — unchanged UX.
+	Label string
+	// StartStr is the pre-formatted YYYY-MM-DD start date (today-N, UTC midnight)
+	// for the preset's absolute href.
+	StartStr string
+	// EndStr is the pre-formatted YYYY-MM-DD end date (today, UTC midnight) for
+	// the preset's absolute href.
+	EndStr string
+	// Active is true when (Start, End) matches the window the handler is
+	// rendering — the template marks the active button with btn-primary. A
+	// custom (non-preset) window marks no preset active.
+	Active bool
+}
+
 // HistoryView is the complete view model for the #dashboard-history region —
-// the days selector plus both chart panels. ALL numeric values, heights, and
-// tooltip strings are pre-computed; the template renders them verbatim.
+// the preset selector plus both chart panels over the fixed [start..end] axis.
+// ALL numeric values, heights, tooltip strings, label strings, and preset
+// absolute-date hrefs are pre-computed by the handler; the template renders
+// them verbatim (RM8 design D3/D4 — logic-free template invariant).
 type HistoryView struct {
-	// Days is the selected/validated window (always one of Presets).
-	Days int
-	// Presets is the ordered list of allowed day-count presets (e.g. [6, 14, 30]).
-	// Passed through from the handler so the template renders the selector from data,
-	// not from embedded magic numbers.
-	Presets []int
-	// Odometer contains the km-driven-per-day bars (one delta per consecutive pair
-	// of snapshots). May have fewer bars than Days when data is sparse.
+	// Start is the requested window's start (UTC midnight, inclusive). Carried
+	// so the template can render the active window's dates if needed; the bar
+	// labels are the per-day MM-DD strings on the fixed axis.
+	Start time.Time
+	// End is the requested window's end (UTC midnight, inclusive).
+	End time.Time
+	// Presets is the ordered list of 6/14/30-day RangePreset entries the
+	// selector renders. Each carries a pre-formatted absolute ?start=&end= href
+	// and an Active flag.
+	Presets []RangePreset
+	// Odometer contains the km-driven-per-day bars over the fixed
+	// [start..end] axis — exactly numDays bars, one per calendar day, with
+	// missing-day bars Present=false at zero height. The pre-window start-1
+	// snapshot seeds the first delta's basis and is NOT displayed as a bar.
 	Odometer HistoryChart
-	// Battery contains the battery-level-% bars (one per snapshot).
-	// May have fewer bars than Days when data is sparse.
+	// Battery contains the battery-level-% bars over the same fixed
+	// [start..end] axis — exactly numDays bars, so its Label slice is identical
+	// to Odometer's by construction (the MAG-7 fix).
 	Battery HistoryChart
 }
