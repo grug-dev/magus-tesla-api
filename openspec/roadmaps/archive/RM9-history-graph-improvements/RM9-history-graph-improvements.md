@@ -5,7 +5,14 @@
 > spanning modules becomes a roadmap with one module-prefixed change per tier.
 > **Originating user prompt:** *"Can you please create the openspec proposal for that ticket? MAG-6"*
 > (Linear issue [MAG-6 — history graph change](https://linear.app/magus-monitor/issue/MAG-6/history-graph-change)).
-> **Date:** 2026-08-08
+> **Date:** 2026-08-08 · **Completed:** 2026-08-11
+>
+> **Renumbered `RM7` → `RM9` on archive (2026-08-11).** The authoring `opencode` session picked
+> `RM7` without drawing from the shared monotonic `openspec/.work-counter`, colliding with the
+> already-archived `RM7-store-display-units`. The number was reissued as `RM9` (counter 9 → 10) so
+> the archive holds no duplicate. **Historical references to `RM7` mean this roadmap**: the feature
+> branch `ft/RM7-history-graph-improvements`, both tiers' `progress.json` `git.branch`, and the
+> "RM7 tier 2" ordering prose in `RM8-history-date-range`.
 
 ## Intention
 
@@ -76,20 +83,45 @@ read-derived. Additive / non-breaking; existing callers ignore it. Files: `inter
 telemetry.go`, `internal/telemetry/mapping.go`, read tests. Artifacts: proposal, design, specs
 (ADDED "Snapshot Effective Date"), tasks — all valid.
 
-### Tier 2 — `[~]` `gateway-history-graph-labels-tooltips` (module: `gateway`; depends on tier 1)
+### Tier 2 — `[x]` `gateway-history-graph-labels-tooltips` (module: `gateway`; depends on tier 1)
 
-Artifacts exist and are valid; implementation not started. Tier 1 is archived, so this tier is
-unblocked.
+Archived `2026-08-11` as `openspec/changes/archive/2026-08-11-gateway-history-graph-labels-tooltips/`;
+reviewer-approved **round 2** (round 1 approved the original pure-SVG rendering; the human visual
+check then failed and the design was revised — see below). Branch `ft/RM7-history-graph-improvements`,
+merged via PR #17. Two minor findings left informational/open: **R1-1** (Tailwind v4 auto
+content-detection scans `progress.json` prose, so a from-scratch `make css` can emit unused
+class-like rules — pre-existing CLI behavior, makes the `make css && git diff --exit-code` guard
+order-sensitive) and **R2-1** (bars are centred at `i+0.4` in SVG user space while their grid label
+cell centres at `i+0.5` — a 0.1-unit offset, ~1.7% of a bar slot at 6 days and ~0.33% of chart width
+at 30, absorbed by the label's centre text-align; no code change recommended).
 
 Consume `Snapshot.EffectiveDate` in the history handler: tooltip date → `EffectiveDate.Format("01-02")`
 (MM-DD); add a per-bar `Label` (`MM-DD` from `EffectiveDate`) to `fragments.HistoryBar`; add a
 chart-level `LabelVertical bool` to `fragments.HistoryChart` set from the `days` preset (false for
-6, true for 14/30); render the label as an SVG `<text>` (rotated via `transform` when vertical) in
-`history.templ`. Endpoint, preset set, SVG approach (RD7), and the logic-free template invariant
-are all unchanged. Files: `internal/gateway/templates/fragments/history_vm.go`,
-`internal/gateway/handlers/history.go`, `internal/gateway/templates/fragments/history.templ` +
-generated `*_templ.go`, `internal/gateway/static/app.css` (via `make css`), tests. Artifacts:
-proposal, design, specs (MODIFIED "Dashboard History Charts"), tasks — all valid.
+6, true for 14/30). Endpoint, preset set, hand-rolled no-charting-library approach (RD7/RD8), and
+the logic-free template invariant are all unchanged. Files:
+`internal/gateway/templates/fragments/history_vm.go`, `internal/gateway/handlers/history.go`,
+`internal/gateway/templates/fragments/history.templ` + generated `*_templ.go`,
+`internal/gateway/static/app.css` (via `make css`), tests. Artifacts: proposal, design (D1–D5 plus
+the appended **D4-R1**), specs (MODIFIED "Dashboard History Charts"), tasks (groups 1–5 plus the
+appended 6 and 7.1) — all valid.
+
+**Design revision D4-R1 — labels are HTML, not SVG `<text>`.** The tier was designed to render each
+label as an SVG `<text>` rotated via `transform="rotate(-90 …)"`. Task 5.3 (human visual check)
+**failed**: the chart's `preserveAspectRatio="none"` scales the viewBox non-uniformly, which is
+correct for the bar `<rect>`s but stretches glyphs into illegibility. The user chose the HTML fix.
+Final shape: bars and labels share one CSS grid
+(`grid-template-columns: repeat(N, minmax(0,1fr))`), the SVG keeps `viewBox="0 0 N 100"` and spans
+`col-span-full` for the bars only, and each label is a sibling `<div>` cell with real DOM text —
+vertical orientation via `[writing-mode:vertical-rl] rotate-180` gated on the same single
+`LabelVertical` bool (no rotation math in markup, so D3/D5 survive). Four now-dead label-zone consts
+were removed. Task 7.1 then sized the label cells `w-4/5` (matching the bar `width=0.8`) and
+flex-centred them so text centres in both writing modes. Handler and view model were untouched by
+both follow-ups — D1 (EffectiveDate is the only date source) holds as approved in round 1.
+
+**Task 5.3 is the one unchecked task** — the human visual re-check of the final HTML-grid rendering.
+The reviewer explicitly declined to approve it on the user's behalf. The change was archived with it
+open because the user accepted the rendering in the app; nothing in the code is pending.
 
 ## Ordering
 

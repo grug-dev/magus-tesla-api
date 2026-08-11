@@ -1,31 +1,30 @@
 {
   "schema_version": 1,
   "kind": "roadmap",
-  "roadmap": "RM7-history-graph-improvements",
+  "roadmap": "RM9-history-graph-improvements",
   "intention": "Dashboard history charts show the day the data represents (EffectiveDate = CapturedAt - 1 day) formatted MM-DD in every tooltip, and carry a per-bar MM-DD date label (adaptive horizontal for 6-day / vertical for 14- and 30-day presets), fixing the 'yesterday shown as today' mismatch (Linear MAG-6).",
   "request": "Can you please create the openspec proposal for that ticket? MAG-6 (history graph change): tooltip date MM-DD; per-bar date label that fits in the 30-day view (vertical?); and the history graph should display the captured date - 1 day so the data makes sense. Use /grill-me to decide where the -1-day change lives.",
   "autopilot": false,
-  "status": "in-progress",
+  "status": "complete",
   "created_at": "2026-08-08T00:00:00Z",
-  "updated_at": "2026-08-08T16:45:00Z",
+  "updated_at": "2026-08-11T00:00:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
   },
   "git": {
     "strategy": "manual",
-    "branch": "main",
+    "branch": "ft/RM7-history-graph-improvements",
     "base": "main",
     "created_at": "2026-08-08T00:00:00Z"
   },
   "rollup": {
-    "current": [
-      2
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -115,7 +114,27 @@
         1
       ],
       "optional": false,
-      "status": "proposed"
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5 (leader) / gateway-worker + gateway-reviewer subagents",
+      "started_at": "2026-08-09T00:46:00Z",
+      "completed_at": "2026-08-11T00:00:00Z",
+      "budget": {
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 4.24,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "review rounds only (r1 2.34 + r2 1.90); worker-wave deltas not captured"
+      },
+      "notes": "Archived 2026-08-11 as openspec/changes/archive/2026-08-11-gateway-history-graph-labels-tooltips. Reviewer-approved round 2 (round 1 approved the pure-SVG rendering; task 5.3 human visual check then FAILED - preserveAspectRatio=\"none\" stretched SVG <text> glyphs illegibly - so design.md gained D4-R1 and tasks.md gained group 6: labels moved out of the SVG into sibling HTML cells in a shared CSS grid, vertical via [writing-mode:vertical-rl] rotate-180 on the same LabelVertical bool). Task 7.1 then sized the cells w-4/5 flex-centred. Handler + view model untouched by both follow-ups, so D1/D3/D5 hold from round 1. Two minor findings left open/informational: R1-1 (Tailwind v4 auto content-detection scans progress.json prose - make css guard is order-sensitive), R2-1 (0.1-unit bar/label-cell centre offset, visually negligible, no change recommended). Task 5.3 remains the sole unchecked task: the reviewer would not approve a human visual check on the user's behalf; the user accepted the rendering in the app. Merged via PR #17."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-11T00:00:00Z",
+      "agent": "leader",
+      "event": "Roadmap CLOSED OUT retroactively. Both tiers were archived (tier 1 on 2026-08-08, tier 2 on 2026-08-11) but the roadmap tracker was never updated or archived, so it sat in openspec/roadmaps/ still reading tier 2 \"proposed\" / status \"in-progress\". Set status complete, rollup done [1,2], tier 2 archived, and moved both files to openspec/roadmaps/archive/RM9-history-graph-improvements/. RENUMBERED RM7 -> RM9: the authoring opencode session took RM7 without drawing from the shared monotonic openspec/.work-counter, colliding with the already-archived RM7-store-display-units; reissued as RM9 and bumped the counter 9 -> 10. The branch (ft/RM7-...), both tiers' git.branch, and RM8's \"RM7 tier 2\" ordering prose keep the old number as historical references to this roadmap."
     }
   ]
 }

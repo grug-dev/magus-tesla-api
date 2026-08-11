@@ -1,7 +1,7 @@
 ## Why
 
-Follow-up to MAG-6 / RM7 (`openspec/roadmaps/RM7-history-graph-improvements.md`, archived
-2026-08-08). RM7 fixed the history charts' date labeling and tooltip formatting; it left the
+Follow-up to MAG-6 / RM9, formerly numbered RM7 (`openspec/roadmaps/archive/RM9-history-graph-improvements/RM9-history-graph-improvements.md`,
+archived 2026-08-11). RM9 fixed the history charts' date labeling and tooltip formatting; it left the
 "Battery history" bar's *meaning* untouched — each bar still plots the **absolute battery level
 %** captured that day (`buildBatteryChart` in `internal/gateway/handlers/history.go`).
 

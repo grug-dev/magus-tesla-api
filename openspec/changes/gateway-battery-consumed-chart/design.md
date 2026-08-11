@@ -2,7 +2,8 @@
 
 ## Context
 
-Follow-up to MAG-6 / RM7 (`openspec/roadmaps/RM7-history-graph-improvements.md`). The dashboard's
+Follow-up to MAG-6 / RM9, formerly numbered RM7 (`openspec/roadmaps/archive/RM9-history-graph-improvements/RM9-history-graph-improvements.md`).
+The dashboard's
 "Battery history" chart (`buildBatteryChart`, `internal/gateway/handlers/history.go`) currently
 plots the **absolute battery level %** of each snapshot. The user wants it to plot **battery %
 consumed per day** — the drop from the previous day's level to today's — the same "delta, not

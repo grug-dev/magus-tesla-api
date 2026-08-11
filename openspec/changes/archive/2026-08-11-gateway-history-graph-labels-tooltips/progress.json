@@ -3,7 +3,7 @@
   "kind": "change",
   "change": "gateway-history-graph-labels-tooltips",
   "module": "gateway",
-  "roadmap": "openspec/roadmaps/RM7-history-graph-improvements.md",
+  "roadmap": "openspec/roadmaps/archive/RM9-history-graph-improvements/RM9-history-graph-improvements.md",
   "request": "MAG-6 (history graph change): tooltip date MM-DD from EffectiveDate; per-bar MM-DD label; adaptive orientation (horizontal at 6-day, vertical at 14/30-day).",
   "status": "verified",
   "rollup": {

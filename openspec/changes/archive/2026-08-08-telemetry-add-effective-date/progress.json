@@ -3,7 +3,7 @@
   "kind": "change",
   "change": "telemetry-add-effective-date",
   "module": "telemetry",
-  "roadmap": "openspec/roadmaps/RM7-history-graph-improvements.md",
+  "roadmap": "openspec/roadmaps/archive/RM9-history-graph-improvements/RM9-history-graph-improvements.md",
   "request": "MAG-6 (history graph change): add EffectiveDate to telemetry.Snapshot (= CapturedAt - 1 calendar day) so gateway tier can format MM-DD tooltip/label from the represented day.",
   "status": "verified",
   "rollup": {
