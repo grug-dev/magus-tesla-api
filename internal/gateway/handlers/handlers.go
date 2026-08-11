@@ -130,7 +130,7 @@ func (h *Handler) Dashboard(c *gin.Context) {
 	if sOK {
 		selectedTeslaID = selected.TeslaID
 	}
-	render(c, http.StatusOK, pages.Dashboard(h.dashboardFor(c.Request.Context(), uid, selectedTeslaID)))
+	render(c, http.StatusOK, pages.Dashboard(h.dashboardFor(c.Request.Context(), uid, selectedTeslaID, browserToday(c))))
 }
 
 // DashboardFragment renders ONLY the dashboard bento fragment (htmx swap served by
@@ -155,7 +155,7 @@ func (h *Handler) DashboardFragment(c *gin.Context) {
 	if sOK {
 		selectedTeslaID = selected.TeslaID
 	}
-	renderFragment(c, http.StatusOK, pages.Dashboard(h.dashboardFor(c.Request.Context(), uid, selectedTeslaID)), "dashboard")
+	renderFragment(c, http.StatusOK, pages.Dashboard(h.dashboardFor(c.Request.Context(), uid, selectedTeslaID, browserToday(c))), "dashboard")
 }
 
 // vehiclesFor is the dashboard's core logic, decoupled from gin/session so it is
@@ -355,7 +355,7 @@ func mapTeslasToVehicles(vs []tesla.VehicleTesla) []fragments.Vehicle {
 //
 // selectedTeslaID is 0 when no selection persisted; the caller (Dashboard) has
 // already run resolveSelectedVehicle, so a non-zero id is the persisted choice.
-func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64) fragments.DashboardData {
+func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64, today time.Time) fragments.DashboardData {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
 		return fragments.DashboardData{Notice: "Could not load your dashboard. Please try again."}
@@ -373,7 +373,7 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 	vm := fragments.DashboardData{
 		VehicleName:        primary.DisplayName,
 		VIN:                primary.VIN,
-		DefaultHistoryHref: defaultHistoryHref(),
+		DefaultHistoryHref: defaultHistoryHref(today),
 	}
 	snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
 	if snapErr != nil {
@@ -437,16 +437,18 @@ func formatKm(km float64) string {
 }
 
 // defaultHistoryHref returns the pre-formatted absolute href the #dashboard-history
-// region self-loads on first render: the default 6-day-wide window ending YESTERDAY
-// (today-1), because the nightly batch captures today's data tomorrow — sending
-// end=today would render an always-empty last bar. The window is
+// region self-loads on first render: the default 6-day-wide window ending
+// YESTERDAY (today-1), because the nightly batch captures today's data tomorrow
+// — sending end=today would render an always-empty last bar. The window is
 // start = (today-1) - historyRangeWindowDays .. end = today-1 (end inclusive),
 // formatted as /ui/dashboard/history?start=YYYY-MM-DD&end=YYYY-MM-DD. Computed
-// once by the dashboard handler so the page template emits it verbatim — no time
-// math in the template. API contract unchanged (parseHistoryRange still accepts
-// end=today; the dashboard just defaults to yesterday).
-func defaultHistoryHref() string {
-	end := startOfDay(time.Now()).AddDate(0, 0, -1)
+// once by the dashboard handler so the page template emits it verbatim — no
+// time math in the template. today is the caller's "browser today"
+// (browserToday(c)) so "yesterday" is the user's local yesterday, not UTC's;
+// API contract unchanged (parseHistoryRange still accepts end=today; the
+// dashboard just defaults to yesterday).
+func defaultHistoryHref(today time.Time) string {
+	end := today.AddDate(0, 0, -1)
 	start := end.AddDate(0, 0, -historyRangeWindowDays)
 	return fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s",
 		start.Format("2006-01-02"), end.Format("2006-01-02"))

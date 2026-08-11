@@ -459,7 +459,7 @@ func TestDashboardFor_NoConnectionPromptsConnect(t *testing.T) {
 	// does not seed here; seeding is a vehiclesFor side effect called by the
 	// Dashboard handler before dashboardFor).
 	h := newHandler(&fakeAccount{tokenErr: account.ErrNoTeslaConnection}, fakeTesla{})
-	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if !d.NeedsConnect {
 		t.Fatalf("want NeedsConnect, got %+v", d)
 	}
@@ -471,7 +471,7 @@ func TestDashboardFor_RegisteredEmptyPromptsConnect(t *testing.T) {
 	acct := &fakeAccount{registered: nil}
 	reader := &fakeReader{snapshots: nil}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if !d.NeedsConnect {
 		t.Fatalf("want NeedsConnect for empty registry, got %+v", d)
 	}
@@ -480,7 +480,7 @@ func TestDashboardFor_RegisteredEmptyPromptsConnect(t *testing.T) {
 func TestDashboardFor_AccountReadErrorShowsNotice(t *testing.T) {
 	acct := &fakeAccount{regErr: errors.New("db down")}
 	h := newHandlerWithReader(acct, fakeTesla{}, &fakeReader{})
-	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if d.NeedsConnect {
 		t.Errorf("want NeedsConnect false on account error, got true")
 	}
@@ -498,7 +498,7 @@ func TestDashboardFor_TelemetryErrorIsUnavailable(t *testing.T) {
 	}}
 	reader := &fakeReader{err: errors.New("db unavailable")}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 
 	if !d.TelemetryUnavailable {
 		t.Fatalf("want TelemetryUnavailable true, got false")
@@ -520,7 +520,7 @@ func TestDashboardFor_PlaceholderWhenNoSnapshot(t *testing.T) {
 	}}
 	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 
 	if d.HasSnapshot {
 		t.Fatalf("want HasSnapshot false, got true")
@@ -573,7 +573,7 @@ func TestDashboardFor_EnrichedBento(t *testing.T) {
 		},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 42)
+	d := h.dashboardFor(context.Background(), uuid.New(), 42, startOfDay(time.Now()))
 
 	if !d.HasSnapshot {
 		t.Fatalf("want HasSnapshot true, got false")
@@ -629,7 +629,7 @@ func TestDashboardFor_ChargingStatus(t *testing.T) {
 		{TeslaID: 1, CapturedAt: time.Now(), ChargingState: "Charging"},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if d.StatusLabel != "Charging" {
 		t.Fatalf("want StatusLabel Charging, got %q", d.StatusLabel)
 	}
@@ -642,7 +642,7 @@ func TestDashboardFor_StaleSnapshot(t *testing.T) {
 		{TeslaID: 1, CapturedAt: past, BatteryLevelPct: 50, OdometerKm: 1000.0, InsideTempC: 20},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if !d.HasSnapshot || !d.IsStale {
 		t.Fatalf("want HasSnapshot + IsStale, got HasSnapshot=%v IsStale=%v", d.HasSnapshot, d.IsStale)
 	}
@@ -659,7 +659,7 @@ func TestDashboardFor_SelectsDefaultsToFirst(t *testing.T) {
 		{TeslaID: 5, CapturedAt: time.Now(), BatteryLevelPct: 30, OdometerKm: 1, InsideTempC: 21},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 0)
+	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if d.VehicleName != "First" {
 		t.Fatalf("want default to first vehicle, got %q", d.VehicleName)
 	}
