@@ -16,6 +16,28 @@ context: |
   internal/tesla use ...Tesla-suffixed DTOs (ai/architecture.md §6). Each OpenSpec
   domain maps to one internal/ module.
 
+  Branch, ticket & work-counter conventions (mirror of the kkpa-dev-harness-pipeline
+  skill, Step 1a — that skill is the source of truth; keep the two in sync):
+
+  - ONE shared counter: openspec/.work-counter, a plain-text file holding the NEXT
+    integer, used by BOTH standalone-change (CH<N>) and roadmap (RM<N>) branches, so a
+    number identifies exactly one piece of work. Read it, write N+1 back immediately,
+    and commit the bump with the artifacts. It is monotonic — never reused, never
+    decremented, untouched by archiving.
+  - openspec/.ch-counter and openspec/roadmaps/.rm-counter are RETIRED. Never read or
+    bump them. If one is still present alongside .work-counter it is a leftover to be
+    deleted — .work-counter always wins.
+  - Branch name: ft/CH<N>[-<TICKET>]-<change-name> for a standalone change (e.g.
+    ft/CH10-MAG-5-gateway-improve-manual-charge-form), or ONE shared
+    ft/RM<N>[-<TICKET>]-<feature-name> for a whole roadmap.
+  - CH<N> and the Linear ticket are BRANCH-ONLY: neither ever enters the change name,
+    the artifacts, or the archived folder. (RM<N> is the exception — it does prefix
+    roadmap-owned change names: RM<N>-<module>-<verb-noun-slug>.)
+  - The ticket is recorded in progress.json as git.ticket / git.ticket_url (both null
+    when there is none) — there is no source_ticket field — and on every commit as the
+    scope suffix plus a trailer: "docs(openspec/MAG-5): …" + "Ticket: MAG-5". The
+    proposal header additionally carries "Source: <TICKET> — <url>".
+
 rules:
   specs:
     - Use GIVEN/WHEN/THEN format for scenarios.
@@ -28,7 +50,8 @@ rules:
     - State whether the change is breaking and which modules it affects.
     - Must use grill-me skill
     - Performance-sensitive proposals (anything touching the database or a hot read path) must name the read path(s) they affect.
-    - Change names must start with the owning module name — <module>-<verb-noun-slug> (e.g. tesla-add-charge-state); use platform- for cross-cutting changes.
+    - Change names must start with the owning module name — <module>-<verb-noun-slug> (e.g. tesla-add-charge-state); use platform- for cross-cutting changes. The CH<N> branch number and the Linear ticket ID never appear in a change name (they are branch-only — see the branch/ticket conventions in context above); only a roadmap's RM<N> prefixes change names.
+    - Carry the Linear ticket in the proposal header as "Source: <TICKET> — <url>" whenever the change came from a ticket.
     - If the change spans multiple modules, do NOT create one big change — create openspec/roadmaps/<feature-name>.md (+ sibling .progress.json) with one module-prefixed change per tier, then proceed one module change at a time (see ai/agentic-workflow.md §pipeline).
   tasks:
     - Use the task list format (with checkboxes) for tasks.
