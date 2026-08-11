@@ -9,7 +9,7 @@
 
 ## T1. Root-cause and fix the delete-row alert bug — D3
 
-- [ ] T1.1 **Reproduce first, do not assume.** Load `GET /charges` against the
+- [x] T1.1 **Reproduce first, do not assume.** Load `GET /charges` against the
   running server; click Delete on an existing row and confirm the alert via the
   browser devtools (Network tab: the HTTP status code and response body the
   `hx-delete` request received). Capture which of the three candidate root causes
@@ -18,7 +18,7 @@
   `fragments.ChargeRowError` rendered as 500. File the observation as a code
   comment in `internal/gateway/handlers/charges.go` at the top of `ChargeRowDelete`
   before editing, so the fix is traceable to the actual failure.
-- [ ] T1.2 Fix the matching root cause in the gateway only:
+- [x] T1.2 Fix the matching root cause in the gateway only:
   - If **(a) stale CSRF**: align the delete button's embedded `csrf_token` (rendered
     in `fragments.ChargeRow` via `#csrf-delete-<id>`) with the live session token at
     delete time. The likely fix is to make the row's CSRF token re-issue on the
@@ -35,7 +35,7 @@
     (e.g. wrong account scoping) and not a `manualcharge` service issue — the latter
     is out of scope; if it is a `manualcharge` bug, STOP and flag it as a blocker
     per `design.md` (this change does not modify `manualcharge`).
-- [ ] T1.3 Add/extend a test in `internal/gateway/handlers/charges_test.go` (or the
+- [x] T1.3 Add/extend a test in `internal/gateway/handlers/charges_test.go` (or the
   existing `gateway_test.go`) covering the fixed path: an authenticated `DELETE
   /ui/charges/row/:id` with a valid CSRF token **returns 200, renders
   `fragments.ChargeRowEmpty`, and the row is no longer in the list on a subsequent
@@ -48,11 +48,11 @@ it touches `charges.go` `ChargeRowDelete` + the row fragments + tests).
 
 ## T2. Remove the Vehicle field; source TeslaID/VIN from the session selection — D4
 
-- [ ] T2.1 In `internal/gateway/templates/fragments/charge_create_form.templ`,
+- [x] T2.1 In `internal/gateway/templates/fragments/charge_create_form.templ`,
   delete the entire `@ui.Field(ui.FieldProps{Label: "Vehicle" …})` block (both the
   `SingleVehicle` disabled-`<select>`+hidden-input branch and the multi-vehicle
   `<select>` branch). The form no longer renders any vehicle picker.
-- [ ] T2.2 In `internal/gateway/handlers/charges.go` `parseChargeForm`:
+- [x] T2.2 In `internal/gateway/handlers/charges.go` `parseChargeForm`:
   - Remove the `vehicleVal := c.PostForm("vehicle")` / `parseVehicleValue` /
     `vehicleOwned` lines from the validation path.
   - Replace them with a resolution of `(teslaID, vin)` from the session-selected
@@ -68,11 +68,11 @@ it touches `charges.go` `ChargeRowDelete` + the row fragments + tests).
     "Please select a vehicle." (or similar — exact wording is an implementer choice)
     rendered via `fragments.ChargeCreateForm`, HTTP 422 — parity with today's
     ownership-403 path but reached earlier. Do NOT call the Writer.
-- [ ] T2.3 Confirm `fragments.ChargeCreateSuccessOOB` and the create-success flow
+- [x] T2.3 Confirm `fragments.ChargeCreateSuccessOOB` and the create-success flow
   still work: the success path re-renders the form (now without the vehicle field)
   and the OOB `#charges-list` refresh. No behavior change is required beyond the
   field removal; just verify it compiles and the success swap still fires.
-- [ ] T2.4 Update affected tests in `internal/gateway/handlers/charges_test.go`:
+- [x] T2.4 Update affected tests in `internal/gateway/handlers/charges_test.go`:
   any test that submits a `vehicle` form field in the create POST must drop that
   field and instead seed the session with a selected vehicle (via the existing
   vehicle-selection seam the test suite uses) so the ownership resolution succeeds.
@@ -90,17 +90,17 @@ T6 (energy already floats) — coordinate that function's edit serially.
 
 ## T3. Disable the Currency field; hardcode COP in the parser — D5
 
-- [ ] T3.1 In `charge_create_form.templ`, change the Currency `@ui.Field`/`@ui.Input`
+- [x] T3.1 In `charge_create_form.templ`, change the Currency `@ui.Field`/`@ui.Input`
   to a disabled input with `Value: "COP"`. Use the `ui.Input` `Disabled: true` flag
   (or whatever the `ui.InputProps` exposes for `disabled` — verify against
   `internal/gateway/templates/ui/`); do NOT add a new `ui/` wrapper for this —
   re-use the existing disabled affordance on `ui.Input`.
-- [ ] T3.2 In `charges.go` `parseChargeForm`: delete the
+- [x] T3.2 In `charges.go` `parseChargeForm`: delete the
   `currency := strings.TrimSpace(c.PostForm("currency"))` + `if currency == ""`
   validation branch. Hardcode `Currency: "COP"` on the built `manualcharge.Entry`.
   (A disabled input is not submitted, so reading `c.PostForm("currency")` would
   return `""` — hardcoding avoids that footgun entirely.)
-- [ ] T3.3 Update tests: any create-POST test that previously submitted
+- [x] T3.3 Update tests: any create-POST test that previously submitted
   `currency=COP` (or any currency) drops that form field; the assertion on the
   persisted `Entry.Currency` stays `COP`.
 
@@ -109,11 +109,11 @@ files; coordinate `parseChargeForm` serially with T2/T4 (see T2.4 note).
 
 ## T4. Make start/end battery % required + add the start-battery suggestion label — D6 + D2
 
-- [ ] T4.1 In `charges_vm.go`, add the `StartBatteryPctSuggestion string` field to
+- [x] T4.1 In `charges_vm.go`, add the `StartBatteryPctSuggestion string` field to
   `ChargesPageData` exactly as specified in `design.md` §"View model changes"
   (empty string = no suggestion; non-empty = the helper-label text). Document the
   graceful-empty contract (D2) in the field's godoc comment.
-- [ ] T4.2 In `charges.go` `buildChargesPage`, after the existing
+- [x] T4.2 In `charges.go` `buildChargesPage`, after the existing
   `manualcharge.Reader` list call, add ONE read of
   `h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)` (the port is already on
   `Deps.TelemetryReader`). Pick the `Snapshot` whose `TeslaID == teslaIDFilter` from
@@ -123,21 +123,21 @@ files; coordinate `parseChargeForm` serially with T2/T4 (see T2.4 note).
   empty (graceful — log the telemetry error at most; do NOT degrade the page).
   Reuse the existing `telemetry.Reader` interface; do NOT add a new reader method.
   Do NOT import `internal/telemetry/db`.
-- [ ] T4.3 In `charge_create_form.templ`, render the `start_battery_pct` field's
+- [x] T4.3 In `charge_create_form.templ`, render the `start_battery_pct` field's
   suggestion label using `d.StartBatteryPctSuggestion` — pass it as a helper label
   / placeholder on the `ui.Field`/`ui.Input` for that field (whichever the `ui/`
   kit supports for a hint string — verify against `ui.FieldProps`/`ui.InputProps`).
   When `d.StartBatteryPctSuggestion == ""`, render no hint. Also mark both
   `start_battery_pct` and `end_battery_pct` inputs `Required: true` (keep
   `min=0`, `max=100`, `step=1`).
-- [ ] T4.4 In `charges.go` `parseChargeForm`: make `start_battery_pct` and
+- [x] T4.4 In `charges.go` `parseChargeForm`: make `start_battery_pct` and
   `end_battery_pct` required. Empty → `errs["start_battery_pct"]` /
   `errs["end_battery_pct"] = "Battery percentage is required."`. Non-integer or out
   of [0, 100] → "<field> must be an integer between 0 and 100." Build non-nil
   `*int` pointers on the `manualcharge.Entry` as today. The 0–100 bound behavior
   `manual-charge-log` spec still allows nullable independently at the service —
   the gateway-required policy is a UI-layer check only; do not change the service.
-- [ ] T4.5 Tests in `charges_test.go`:
+- [x] T4.5 Tests in `charges_test.go`:
   - A `buildChargesPage` test with a fake `telemetryReader` returning a snapshot at
     `BatteryLevelPct = 73` for the selected TeslaID → asserts
     `StartBatteryPctSuggestion == "Latest: 73%"` (or the chosen format).
@@ -158,14 +158,14 @@ but coordinate the single template-file edit serially.
 
 ## T5. Move the optional date fields up + default today — D1
 
-- [ ] T5.1 In `charge_create_form.templ`, move the `started_at` and `ended_at`
+- [x] T5.1 In `charge_create_form.templ`, move the `started_at` and `ended_at`
   `@ui.Field`/`@ui.Input` blocks out of the `<details>` "More details" disclosure
   and into the main `grid gap-3 sm:grid-cols-2` card grid (alongside Date / Energy /
   Price / Location). Keep them `type="datetime-local"` (defaulted to today's date).
   Decide (implementer's call, scoped by `design.md` D1's implementation note)
   whether to keep `datetime-local` and default only the date portion, or simplify
   to `type="date"`. Either is acceptable; document the choice in the PR description.
-- [ ] T5.2 In `charges.go` where the create-form default values are computed
+- [x] T5.2 In `charges.go` where the create-form default values are computed
   (`buildChargesPage`, or wherever the form's initial `Value` strings are built —
   verify the current code path), set the `started_at` and `ended_at` defaults to
   today's date in `YYYY-MM-DD` form (e.g.
@@ -176,10 +176,10 @@ but coordinate the single template-file edit serially.
   handler. Add the VM fields if needed (e.g. `DefaultStartedAt`,
   `DefaultEndedAt` on `ChargesPageData`) — this is an additive VM change
   consistent with D1; update `charges_vm.go` accordingly.
-- [ ] T5.3 In `parseChargeForm`, the optional-handling for `started_at` /
+- [x] T5.3 In `parseChargeForm`, the optional-handling for `started_at` /
   `ended_at` stays — clearing either field is still allowed (the fields stay
   OPTIONAL, per D1). No change to the manualcharge nullable contract.
-- [ ] T5.4 Tests: assert the rendered create form's `started_at` / `ended_at`
+- [x] T5.4 Tests: assert the rendered create form's `started_at` / `ended_at`
   default values equal today's `YYYY-MM-DD` (UTC); and that submitting with both
   cleared still persists `nil` `StartedAt` / `EndedAt` (parity with today).
 
@@ -190,19 +190,19 @@ default-computation edits are disjoint at the line level from T4's
 
 ## T6. Allow 3 decimals on energy + keep nearest-valid-range after 3 — D7
 
-- [ ] T6.1 In `charge_create_form.templ`, change the `energy_added_kwh` input's
+- [x] T6.1 In `charge_create_form.templ`, change the `energy_added_kwh` input's
   `step` attribute from `"0.01"` to `"0.001"` (the `Attrs: templ.Attributes{"step":
   "0.01", "min": "0.01"}` line — also update `min` from `"0.01"` to `"0.001"` if
   you want the min to match the new step, but `min="0"` is also acceptable; keep
   the existing nearest-valid-range helper behavior by only widening the step, not
   removing it). Do NOT remove the `step` attribute.
-- [ ] T6.2 In `charges.go` `parseChargeForm`, no server-side rounding is applied —
+- [x] T6.2 In `charges.go` `parseChargeForm`, no server-side rounding is applied —
   `strconv.ParseFloat(energyStr, 64)` already accepts any precision; the 3-decimal
   cap is a UI-only affordance. The validation `energy <= 0` stays. (If a stricter
   server-side 3-decimal clamp is wanted, it is an implementer choice; the design
   does not gate it — keep parity with today's no-server-side-clamp behavior unless
   a reason to change it surfaces.)
-- [ ] T6.3 Tests: a create-POST submitting `energy_added_kwh = 7.345` is accepted
+- [x] T6.3 Tests: a create-POST submitting `energy_added_kwh = 7.345` is accepted
   and persisted with `EnergyAddedKWh = 7.345`. The existing
   non-positive-rejection test (`energy = 0` and negative) still passes unchanged.
 
@@ -211,31 +211,32 @@ template-edit serially with T2/T3/T4/T5.
 
 ## T7. Verification gate — depends on T1–T6
 
-- [ ] T7.1 `go vet ./internal/gateway/...` is clean.
-- [ ] T7.2 `go test ./internal/gateway/...` passes (all new and pre-existing tests).
+- [x] T7.1 `go vet ./internal/gateway/...` is clean.
+- [x] T7.2 `go test ./internal/gateway/...` passes (all new and pre-existing tests).
   DB-gated tests in this module self-skip when `DATABASE_URL` is unset; this change
   adds no new DB-gated test path (it uses fakes for the read ports).
-- [ ] T7.3 `make check` (build + vet + ui-guard + tests) passes — run only if the
+- [x] T7.3 `make check` (build + vet + ui-guard + tests) passes — run only if the
   project's build authorization (`CLAUDE.md` → "Builds & local checks") allows;
   otherwise list the commands for the leader/user to run.
-- [ ] T7.4 Manual smoke (optional but recommended for T1): load `GET /charges`,
+- [~] T7.4 Manual smoke (optional but recommended for T1): load `GET /charges`,
   create an entry, delete it, and confirm the row is removed with **no alert**;
   switch vehicles and confirm the create form, the entries list, the start-battery
   suggestion, and the date defaults all follow the switch.
 
 _depends_on: T1, T2, T3, T4, T5, T6_
 
+> **T7.4 status (worker note):** DEFERRED to the user — requires the running server + a browser session; a subagent cannot drive a live browser. T1.3 covers the static-equivalent assertion (200 + empty `<tr>` swap, no `<td>`, writer called), and the live reproduce for T1.1's root-cause confirmation is also punted here (`hx-headers` wire path fix in `charge_row.templ`); both surface together in the user's manual smoke.
 ## T8. Codegen regen — depends on T2–T6 (any `.templ` edit)
 
-- [ ] T8.1 Run `make templ` (pinned `go tool templ generate`) to regenerate the
+- [x] T8.1 Run `make templ` (pinned `go tool templ generate`) to regenerate the
   `*_templ.go` files for every edited `.templ` (at minimum
   `charge_create_form.templ`; `charge_create_form_templ.go` will be regenerated).
-- [ ] T8.2 If any new DaisyUI/Tailwind **class** was added to a `.templ` (unlikely
+- [x] T8.2 If any new DaisyUI/Tailwind **class** was added to a `.templ` (unlikely
   for this change — the edits reuse existing `ui.Field`/`ui.Input` wrappers and
   existing classes), run `make css` and commit `static/app.css` alongside the
   `.templ` edits per the gateway `AGENTS.md` "stale CSS" gotcha. Skip T8.2 if no
   new class was introduced (verify by inspecting the `.templ` diff).
-- [ ] T8.3 Confirm `internal/manualcharge/` and `internal/telemetry/` have **zero**
+- [x] T8.3 Confirm `internal/manualcharge/` and `internal/telemetry/` have **zero**
   file changes under this change (`git diff --stat internal/manualcharge
   internal/telemetry` is empty) — the boundary held.
 

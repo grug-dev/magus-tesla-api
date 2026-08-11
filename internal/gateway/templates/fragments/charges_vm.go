@@ -52,4 +52,21 @@ type ChargesPageData struct {
 	EmptyState     bool   // true when Entries is empty and no error occurred
 	Error          string // non-empty if a reader error degraded the page gracefully
 	SingleVehicle  bool   // true when len(VehicleOptions)==1; drives disabled+hidden-input branch
+
+	// DefaultStartedAt / DefaultEndedAt are the today's-date defaults (D1) for the
+	// optional started_at / ended_at inputs on the create form, pre-formatted by the
+	// handler as a datetime-local value "YYYY-MM-DDTHH:MM" (UTC midnight). The template
+	// emits them verbatim into the input's value attribute — no time math in markup
+	// (the gateway's standing "no business logic in templates" rule). Empty when there
+	// is no usable default; both inputs stay OPTIONAL — clearing either still submits.
+	DefaultStartedAt string
+	DefaultEndedAt   string
+
+	// StartBatteryPctSuggestion is a placeholder / helper-label string for the
+	// start_battery_pct field built from the active vehicle's latest telemetry
+	// snapshot BatteryLevelPct (D2). Empty string when no telemetry snapshot exists
+	// for the active vehicle (graceful empty — render no suggestion in that case).
+	// Example non-empty value: "Latest: 73%". The template renders it as the
+	// input's placeholder attribute; the field remains a normal required integer.
+	StartBatteryPctSuggestion string
 }

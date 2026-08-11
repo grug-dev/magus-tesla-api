@@ -8,6 +8,12 @@ import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 // validationErrors maps field names to error messages; nil or empty means no errors.
 // Every control is composed from the ui/ adapter kit (Field/Input/Select/Textarea)
 // — no raw DaisyUI component classes live here.
+//
+// MAG-5 alignment with the create form (D4/D5/D6/D7): currency is a disabled,
+// read-only COP input (D5); start/end battery % are REQUIRED (D6); energy is
+// 3-decimal (step=0.001, D7). The hidden `vehicle` form input was removed (D4 —
+// parseChargeForm sources the vehicle from the session selection); the
+// read-only VehicleLabel span stays for display transparency.
 templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[string]string) {
 	<tr id={ "charge-row-" + vm.ID }>
 		<td colspan="8">
@@ -24,33 +30,32 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: vm.RawChargedOn, Required: true})
 					}
 					@ui.Field(ui.FieldProps{Label: "Energy added (kWh)", Error: validationErrors["energy_added_kwh"]}) {
-						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: vm.RawEnergyKWh, Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0.01"}})
+						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: vm.RawEnergyKWh, Required: true, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})
 					}
 					@ui.Field(ui.FieldProps{Label: "Price", Error: validationErrors["price"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "price", Value: vm.RawPrice, Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
 					}
-					@ui.Field(ui.FieldProps{Label: "Currency", Error: validationErrors["currency"]}) {
-						@ui.Input(ui.InputProps{Name: "currency", Value: vm.Currency, Required: true})
+					@ui.Field(ui.FieldProps{Label: "Currency"}) {
+						@ui.Input(ui.InputProps{Name: "currency", Value: vm.Currency, Disabled: true})
 					}
 					@ui.Field(ui.FieldProps{Label: "Vehicle"}) {
-						<input type="hidden" name="vehicle" value={ vm.VehicleValue }/>
 						<span class="text-base-content/80">{ vm.VehicleLabel }</span>
+					}
+					@ui.Field(ui.FieldProps{Label: "Start battery %", Error: validationErrors["start_battery_pct"]}) {
+						@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Value: vm.RawStartBatteryPct, Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+					}
+					@ui.Field(ui.FieldProps{Label: "End battery %", Error: validationErrors["end_battery_pct"]}) {
+						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: vm.RawEndBatteryPct, Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 					}
 				</div>
 				<details>
 					<summary class="cursor-pointer font-medium">More details</summary>
 					<div class="grid gap-3 sm:grid-cols-2 mt-2">
-						@ui.Field(ui.FieldProps{Label: "Started at"}) {
+						@ui.Field(ui.FieldProps{Label: "Started at", Error: validationErrors["started_at"]}) {
 							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at", Value: vm.RawStartedAt})
 						}
-						@ui.Field(ui.FieldProps{Label: "Ended at"}) {
+						@ui.Field(ui.FieldProps{Label: "Ended at", Error: validationErrors["ended_at"]}) {
 							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: vm.RawEndedAt})
-						}
-						@ui.Field(ui.FieldProps{Label: "Start battery %"}) {
-							@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Value: vm.RawStartBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
-						}
-						@ui.Field(ui.FieldProps{Label: "End battery %"}) {
-							@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: vm.RawEndBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 						}
 						@ui.Field(ui.FieldProps{Label: "Charging type"}) {
 							@ui.Select(ui.SelectProps{Name: "charging_type"}) {

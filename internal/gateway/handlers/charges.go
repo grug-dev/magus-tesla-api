@@ -291,6 +291,27 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 
 // ChargeRowDelete handles DELETE /ui/charges/row/:id. Deletes the entry and
 // returns an empty <tr> so htmx outerHTML swap removes the row.
+//
+// Root cause of the MAG-5 delete-row alert (T1.1 — root-caused by STATIC analysis;
+// live reproduce deferred to T7.4 manual smoke, leader-authorized deviation, see
+// progress.json decisions): Go's net/http only parses request bodies for POST,
+// PUT, and PATCH (see http.Request.ParseForm switch). The previous delete button
+// in fragments.ChargeRow sent the csrf_token via hx-include on a hidden
+// #csrf-delete-<id> form input, which travels in the DELETE request BODY. Since
+// the body was never parsed into c.request.PostForm, checkCSRFKey's
+// c.PostForm("csrf_token") returned "" for DELETE even though the input carried a
+// valid token — the header fallback (X-CSRF-Token) was never set either, so the
+// constant-time compare failed -> HTTP 403 "invalid csrf token" -> htmx showed
+// the user a JS alert() (4xx + text/plain Content-Type triggers htmx's default
+// error-alert). CSRF lifecycle was NOT stale: the row's embedded token already
+// matched the session's csrf_manualcharge at render time (ChargePage and
+// ChargesContentFragment write the same token to the session and the form/rows in
+// one render). The fix lives in charge_row.templ: the delete button now sends the
+// token on the X-CSRF-Token HEADER via htmx hx-headers, which checkCSRFKey's
+// existing header fallback reads — no body parse needed. checkCSRF /
+// subtle.ConstantTimeCompare stay fail-closed. On a stale/missing token the
+// handler still returns HTTP 403 (intended, defense-in-depth); only the WIRE PATH
+// changed.
 func (h *Handler) ChargeRowDelete(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -362,14 +383,45 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		}
 	}
 
+	// D1: default started_at / ended_at to today's calendar day (UTC midnight) so
+	// the optional date fields on the create form render pre-populated. The
+	// template emits them verbatim into the input's value attribute — no time
+	// math in markup. The fields stay OPTIONAL: parseChargeForm still accepts a
+	// cleared field and persists nil StartedAt / EndedAt.
+	todayDate := time.Now().UTC().Format("2006-01-02") + "T00:00"
+
+	// D2: build the start_battery_pct suggestion label from the active vehicle's
+	// latest telemetry snapshot BatteryLevelPct. Reuses the SAME telemetry.Reader
+	// port the dashboard already calls once per render — one batched read, pick the
+	// snapshot matching the resolved teslaIDFilter. Graceful empty: a read error or
+	// no matching snapshot leaves the suggestion "" and the page still renders (no
+	// fabricated value). Log read errors at most; never degrade the page.
+	suggestion := ""
+	if teslaIDFilter != 0 && h.telemetryReader != nil {
+		snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
+		if snapErr != nil {
+			log.Printf("gateway: charges suggestion telemetry reader error for account %s: %v", uid, snapErr)
+		} else {
+			for _, s := range snaps {
+				if s.TeslaID == teslaIDFilter {
+					suggestion = fmt.Sprintf("Latest: %d%%", s.BatteryLevelPct)
+					break
+				}
+			}
+		}
+	}
+
 	return fragments.ChargesPageData{
-		Entries:        vms,
-		VehicleOptions: opts,
-		ActiveTeslaID:  teslaIDFilter,
-		CSRFToken:      csrfToken,
-		EmptyState:     len(vms) == 0 && pageError == "",
-		Error:          pageError,
-		SingleVehicle:  singleVehicle,
+		Entries:                  vms,
+		VehicleOptions:           opts,
+		ActiveTeslaID:            teslaIDFilter,
+		CSRFToken:                csrfToken,
+		EmptyState:               len(vms) == 0 && pageError == "",
+		Error:                    pageError,
+		SingleVehicle:            singleVehicle,
+		DefaultStartedAt:         todayDate,
+		DefaultEndedAt:           todayDate,
+		StartBatteryPctSuggestion: suggestion,
 	}
 }
 
@@ -568,18 +620,57 @@ func buildVehicleOptions(vehicles []account.Vehicle) ([]fragments.VehicleOptionV
 // Returns the entry, any validation errors, and whether parsing succeeded.
 // On a 403-level ownership failure it writes the response itself and returns
 // validationErrors=nil, ok=false so the caller knows to stop.
+//
+// MAG-5 form changes (D1/D4/D5/D6/D7) baked in here:
+//   - D4: vehicle is sourced from the session-selected vehicle via
+//     resolveSelectedVehicle (the same call ChargePage/List/ContentFragment make),
+//     NOT from a `vehicle` form field. The entries list is already scoped to the
+//     selected vehicle, so the create form is implicitly for that vehicle. The
+//     tenant-ownership check (vehicleOwned) is preserved as defense-in-depth —
+//     resolveSelectedVehicle only returns vehicles from the user's registered
+//     list, so this check is a belt-and-suspenders guard.
+//   - D5: Currency is HARDCODED "COP" — the form's disabled Currency input is
+//     for display transparency only (a disabled input is not submitted, so
+//     reading c.PostForm("currency") would always be ""). The
+//     manualcharge.Entry.Currency column stays a column the gateway always
+//     sends COP down; no service change.
+//   - D6: start_battery_pct and end_battery_pct are REQUIRED (empty or non-int /
+//     out-of-range -> validation error). The service contract stays nullable
+//     (manual-charge-log spec unchanged); the gateway just always sends a non-nil
+//     pair. Energy/Price/ChargedOn/LocationKind validation is unchanged.
+//   - D1: started_at / ended_at stay OPTIONAL — clearing either still persists
+//     nil StartedAt / EndedAt. The today's-date DEFAULT is a UI concern
+//     (DefaultStartedAt on ChargesPageData); parseChargeForm still accepts an
+//     empty (cleared) field.
+//   - D7: energy_added_kwh accepts 3-decimal precision (UI step=0.001). No
+//     server-side rounding — strconv.ParseFloat already accepts any precision.
+//     The energy <= 0 rejection stays (positive only).
 func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []account.Vehicle) (manualcharge.Entry, map[string]string, bool) {
 	errs := make(map[string]string)
 
-	vehicleVal := c.PostForm("vehicle")
-	teslaID, vin, vErr := parseVehicleValue(vehicleVal)
-	if vErr != nil {
-		errs["vehicle"] = "Please select a vehicle."
-	} else {
+	// D4: source (teslaID, vin) from the session-selected vehicle, not a form field.
+	var teslaID int64
+	var vin string
+	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+		teslaID = sel.TeslaID
+		vin = sel.VIN
+		// Defense-in-depth: confirm the resolved vehicle still belongs to the
+		// calling account (resolveSelectedVehicle already picks from the
+		// account's list, so this is a belt-and-suspenders guard).
 		if !vehicleOwned(teslaID, vin, vehicles) {
 			c.String(http.StatusForbidden, "vehicle not owned by this account")
 			return manualcharge.Entry{}, nil, false
 		}
+	} else {
+		// No resolvable selected vehicle (account has no registered vehicles or
+		// the session selection is stale). Reach the failure path earlier — parity
+		// with the old ownership-403 path but reached at validation time, without
+		// calling the Writer. Rendered via fragments.ChargeCreateForm as a 422.
+		// The form has no vehicle field anymore (D4 removed it), so the error is
+		// surfaced via the top-of-form Alert (_top key) — the only guaranteed-
+		// visible surface when there is no matching ui.Field to render the per-
+		// field error slot.
+		errs["_top"] = "Please select a vehicle."
 	}
 
 	chargedOnStr := c.PostForm("charged_on")
@@ -618,10 +709,12 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		}
 	}
 
-	currency := strings.TrimSpace(c.PostForm("currency"))
-	if currency == "" {
-		errs["currency"] = "Currency is required."
-	}
+	// D5: Currency is hardcoded COP — the form's disabled Currency input is for
+	// display transparency only; a disabled input is not submitted, so reading
+	// c.PostForm("currency") would return "". We always hand "COP" down the
+	// manualcharge.Writer port; the column's 'COP' default is now redundant from
+	// the gateway's perspective but stays as DB defense-in-depth.
+	currency := "COP"
 
 	// location_kind is required (tier 3 made the DB column NOT NULL; the gateway
 	// must enforce field-level feedback before calling the service). Valid values:
@@ -635,21 +728,57 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		errs["location_kind"] = "Location is required."
 	}
 
+	// D6: start_battery_pct + end_battery_pct are REQUIRED. The 0–100 bound check
+	// matches the manual-charge-log spec (BETWEEN 0 AND 100 when present); the
+	// gateway applies it unconditionally now (the service still accepts a nullable
+	// pair — the gateway just always sends a non-nil pair). No relative-order
+	// check (start < end): a partial charge with prior driving can legitimately
+	// start above the previous end; the user-asserted entry is the user's truth.
+	startPctStr := strings.TrimSpace(c.PostForm("start_battery_pct"))
+	var startPct int
+	if startPctStr == "" {
+		errs["start_battery_pct"] = "Battery percentage is required."
+	} else {
+		n, perr := strconv.Atoi(startPctStr)
+		if perr != nil || n < 0 || n > 100 {
+			errs["start_battery_pct"] = "Start battery percentage must be an integer between 0 and 100."
+		} else {
+			startPct = n
+		}
+	}
+
+	endPctStr := strings.TrimSpace(c.PostForm("end_battery_pct"))
+	var endPct int
+	if endPctStr == "" {
+		errs["end_battery_pct"] = "Battery percentage is required."
+	} else {
+		n, perr := strconv.Atoi(endPctStr)
+		if perr != nil || n < 0 || n > 100 {
+			errs["end_battery_pct"] = "End battery percentage must be an integer between 0 and 100."
+		} else {
+			endPct = n
+		}
+	}
+
 	if len(errs) > 0 {
 		return manualcharge.Entry{}, errs, false
 	}
 
 	entry := manualcharge.Entry{
-		AccountID:      uid,
-		TeslaID:        teslaID,
-		VIN:            vin,
-		ChargedOn:      chargedOn,
-		EnergyAddedKWh: energy,
-		Price:          price,
-		Currency:       currency,
-		LocationKind:   locationKindPtr,
+		AccountID:        uid,
+		TeslaID:          teslaID,
+		VIN:              vin,
+		ChargedOn:        chargedOn,
+		EnergyAddedKWh:   energy,
+		Price:            price,
+		Currency:         currency,
+		LocationKind:     locationKindPtr,
+		StartBatteryPct:  &startPct,
+		EndBatteryPct:    &endPct,
 	}
 
+	// D1: started_at / ended_at STAY optional — clearing either still persists a
+	// nil pointer (UTC parse only on a non-empty value).
 	if v := c.PostForm("started_at"); v != "" {
 		if t, err := time.Parse("2006-01-02T15:04", v); err == nil {
 			t = t.UTC()
@@ -660,16 +789,6 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		if t, err := time.Parse("2006-01-02T15:04", v); err == nil {
 			t = t.UTC()
 			entry.EndedAt = &t
-		}
-	}
-	if v := c.PostForm("start_battery_pct"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 && n <= 100 {
-			entry.StartBatteryPct = &n
-		}
-	}
-	if v := c.PostForm("end_battery_pct"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 && n <= 100 {
-			entry.EndBatteryPct = &n
 		}
 	}
 	if v := c.PostForm("charging_type"); v == "AC" || v == "DC" {

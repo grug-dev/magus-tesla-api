@@ -16,6 +16,7 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
+	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
 // --- fakes for manualcharge.Writer and manualcharge.Reader ---
@@ -300,11 +301,12 @@ func TestChargeCreate_CSRFMismatch(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":       {"wrongtoken"},
-		"vehicle":          {"1001:VIN1001"},
 		"charged_on":       {"2026-07-15"},
 		"energy_added_kwh": {"10.5"},
 		"price":            {"5000"},
-		"currency":         {"COP"},
+		"location_kind":    {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -319,20 +321,36 @@ func TestChargeCreate_CSRFMismatch(t *testing.T) {
 	}
 }
 
-// TestChargeCreate_UnownedVehicle verifies 403 when the vehicle is not owned by the user.
-func TestChargeCreate_UnownedVehicle(t *testing.T) {
+// TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter replaces the old
+// TestChargeCreate_UnownedVehicle (MAG-5 D4): the create form drops the vehicle
+// picker and sources (teslaID, vin) from the session-selected vehicle via
+// resolveSelectedVehicle. The "unowned vehicle" path is now unreachable from the
+// form (resolveSelectedVehicle only returns vehicles from the user's account);
+// the analogous failure becomes "no resolvable selected vehicle" (the account has
+// no registered vehicles, so resolveSelectedVehicle returns (_, false)) —
+// rendered as a 422 field-error, NOT a 403, and the Writer is NOT called.
+func TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
 	uid := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	// Account with NO registered vehicles → resolveSelectedVehicle returns false.
+	acct := &fakeAccount{registered: nil}
+	h := New(Deps{
+		Account:            acct,
+		Tesla:              &fakeTesla{},
+		TelemetryReader:    &fakeReader{},
+		ManualChargeWriter: &fakeChargeWriter{},
+		ManualChargeReader: &fakeChargeReader{},
+	})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":       {"tok"},
-		"vehicle":          {"9999:STRANGER_VIN"},
-		"charged_on":       {"2026-07-15"},
-		"energy_added_kwh": {"10.5"},
-		"price":            {"5000"},
-		"currency":         {"COP"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -342,8 +360,12 @@ func TestChargeCreate_UnownedVehicle(t *testing.T) {
 	}
 	r.ServeHTTP(w, req)
 
-	if w.Code != http.StatusForbidden {
-		t.Fatalf("want 403 on unowned vehicle, got %d", w.Code)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 when no vehicle is resolvable, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Please select a vehicle") {
+		t.Errorf("want 'Please select a vehicle' in body, got %q", body[:min(500, len(body))])
 	}
 }
 
@@ -356,9 +378,9 @@ func TestChargeCreate_MissingRequiredField(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token": {"tok"},
-		"vehicle":    {"1001:VIN1001"},
 		"price":      {"5000"},
-		"currency":   {"COP"},
+		// deliberately omit charged_on, energy_added_kwh, location_kind,
+		// start_battery_pct, end_battery_pct — every required field.
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -378,6 +400,10 @@ func TestChargeCreate_MissingRequiredField(t *testing.T) {
 }
 
 // TestChargeCreate_ValidInput verifies a valid POST creates an entry and returns the refreshed list.
+// MAG-5 D5: Currency is hardcoded "COP" even though the form no longer submits a
+// `currency` field (it renders a disabled, read-only COP input that is not
+// submitted). MAG-5 D6: start_battery_pct + end_battery_pct are REQUIRED and
+// persisted non-nil. D4: no `vehicle` form field — sourced from the session.
 func TestChargeCreate_ValidInput(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
@@ -387,13 +413,13 @@ func TestChargeCreate_ValidInput(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":       {"tok"},
-		"vehicle":          {"1001:VIN1001"},
-		"charged_on":       {"2026-07-15"},
-		"energy_added_kwh": {"10.5"},
-		"price":            {"5000"},
-		"currency":         {"COP"},
-		"location_kind":    {"HOME"},
+		"csrf_token":         {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -408,6 +434,23 @@ func TestChargeCreate_ValidInput(t *testing.T) {
 	}
 	if writer.createEntry.EnergyAddedKWh != 10.5 {
 		t.Errorf("want energy 10.5 persisted, got %f", writer.createEntry.EnergyAddedKWh)
+	}
+	// D5: Currency hardcoded COP despite no `currency` form field.
+	if writer.createEntry.Currency != "COP" {
+		t.Errorf("want Currency COP hardcoded, got %q", writer.createEntry.Currency)
+	}
+	// D6: required battery fields persisted non-nil with the submitted values.
+	if writer.createEntry.StartBatteryPct == nil || *writer.createEntry.StartBatteryPct != 50 {
+		t.Errorf("want StartBatteryPct=50 (non-nil), got %v", writer.createEntry.StartBatteryPct)
+	}
+	if writer.createEntry.EndBatteryPct == nil || *writer.createEntry.EndBatteryPct != 80 {
+		t.Errorf("want EndBatteryPct=80 (non-nil), got %v", writer.createEntry.EndBatteryPct)
+	}
+	// D4: TeslaID + VIN sourced from session-selected vehicle (the fake's lone
+	// registered vehicle, auto-picked as the first non-OWNER).
+	if writer.createEntry.TeslaID != 1001 || writer.createEntry.VIN != "VIN1001" {
+		t.Errorf("want vehicle sourced from session = 1001:VIN1001, got %d:%s",
+			writer.createEntry.TeslaID, writer.createEntry.VIN)
 	}
 }
 
@@ -472,12 +515,13 @@ func TestChargeRowUpdate_CSRFMismatch(t *testing.T) {
 	c := sessionCookie(r, uid, "goodtoken")
 
 	form := url.Values{
-		"csrf_token":       {"badtoken"},
-		"vehicle":          {"1001:VIN1001"},
-		"charged_on":       {"2026-07-15"},
-		"energy_added_kwh": {"10.5"},
-		"price":            {"5000"},
-		"currency":         {"COP"},
+		"csrf_token":        {"badtoken"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
@@ -502,9 +546,9 @@ func TestChargeRowUpdate_ValidationError(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token": {"tok"},
-		"vehicle":    {"1001:VIN1001"},
 		"price":      {"5000"},
-		"currency":   {"COP"},
+		// deliberately omit charged_on, energy_added_kwh, location_kind,
+		// start_battery_pct, end_battery_pct.
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
@@ -529,13 +573,13 @@ func TestChargeRowUpdate_ValidInput(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":       {"tok"},
-		"vehicle":          {"1001:VIN1001"},
-		"charged_on":       {"2026-07-16"},
-		"energy_added_kwh": {"20.0"},
-		"price":            {"9000"},
-		"currency":         {"COP"},
-		"location_kind":    {"WORK"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-16"},
+		"energy_added_kwh":  {"20.0"},
+		"price":             {"9000"},
+		"location_kind":     {"WORK"},
+		"start_battery_pct": {"40"},
+		"end_battery_pct":   {"75"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
@@ -552,13 +596,25 @@ func TestChargeRowUpdate_ValidInput(t *testing.T) {
 	if !strings.Contains(body, "charge-row-"+id.String()) {
 		t.Errorf("want static row with id in update response, body=%q", body[:min(500, len(body))])
 	}
+	// D5: Currency hardcoded COP even for the edit path.
+	if writer.updateEntry.Currency != "COP" {
+		t.Errorf("want update Currency COP hardcoded, got %q", writer.updateEntry.Currency)
+	}
+	// D6: battery persisted non-nil.
+	if writer.updateEntry.StartBatteryPct == nil || *writer.updateEntry.StartBatteryPct != 40 {
+		t.Errorf("want update StartBatteryPct=40, got %v", writer.updateEntry.StartBatteryPct)
+	}
+	if writer.updateEntry.EndBatteryPct == nil || *writer.updateEntry.EndBatteryPct != 75 {
+		t.Errorf("want update EndBatteryPct=75, got %v", writer.updateEntry.EndBatteryPct)
+	}
 }
 
 // TestChargeRowDelete_CSRFMismatch verifies 403 on CSRF mismatch for delete.
 func TestChargeRowDelete_CSRFMismatch(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	writer := &fakeChargeWriter{deleteErr: nil}
+	h := newHandlerForCharges(writer, &fakeChargeReader{})
 	r := engineWithSession(h, uid, "goodtoken")
 	c := sessionCookie(r, uid, "goodtoken")
 
@@ -575,10 +631,15 @@ func TestChargeRowDelete_CSRFMismatch(t *testing.T) {
 	}
 }
 
-// TestChargeRowDelete_ValidInput verifies a valid DELETE returns an empty row.
-// The CSRF token is passed as the X-CSRF-Token header since some HTTP clients
-// (and Gin) may not parse form bodies on DELETE requests.
-func TestChargeRowDelete_ValidInput(t *testing.T) {
+// TestChargeRowDelete_ValidInput_RendersEmptyRow verifies a valid DELETE returns
+// the empty-row fragment (T1.3 — MAG-5 D3). The success body is the empty
+// `<tr id="charge-row-<id>"></tr>` that htmx outerHTML-swaps in for the deleted
+// row; it must NOT contain a `<td>` (which would be the error-row variant). The
+// CSRF token is sent via the X-CSRF-Token HEADER (matching the charge_row.templ
+// fix that emits hx-headers carrying X-CSRF-Token — Go's net/http parses DELETE
+// request BODIES for no method, so the prior hx-include body path silently
+// 403'd; the header path is the fix — see ChargeRowDelete doc comment).
+func TestChargeRowDelete_ValidInput_RendersEmptyRow(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
@@ -598,8 +659,47 @@ func TestChargeRowDelete_ValidInput(t *testing.T) {
 		t.Fatalf("want 200 on valid delete, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "charge-row-"+id.String()) {
-		t.Errorf("want empty row with id in delete response, body=%q", body[:min(500, len(body))])
+	wantEmpty := `<tr id="charge-row-` + id.String() + `"></tr>`
+	if !strings.Contains(body, wantEmpty) {
+		t.Errorf("want empty row %q in delete response, got body=%q", wantEmpty, body[:min(500, len(body))])
+	}
+	// Stronger: an error-row (ChargeRowError) would contain a <td> child; the
+	// empty row must not.
+	if strings.Contains(body, "<td") {
+		t.Errorf("delete success response must NOT contain a <td> (would be the error-row variant), got body=%q",
+			body[:min(500, len(body))])
+	}
+}
+
+// TestChargeRowDelete_StaleCSRF_RejectedNotAlerted verifies the stale/missing
+// CSRF path returns 403 and the row is not deleted (D3 / spec scenario). The
+// response is a plain-text 403 (no inline error row), but per the spec the
+// correct fix is the wire-path (CSRF reaches the handler); an attacker
+// submitting a wrong token is rejected at the CSRF gate.
+func TestChargeRowDelete_StaleCSRF_RejectedNotAlerted(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{})
+	r := engineWithSession(h, uid, "freshsessiontoken")
+	c := sessionCookie(r, uid, "freshsessiontoken")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+id.String(), nil)
+	// Stale token: the row would have been rendered with an older token, but the
+	// session has since rotated.
+	req.Header.Set("X-CSRF-Token", "staletoken")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("want 403 on stale CSRF for delete, got %d", w.Code)
+	}
+	if strings.Contains(w.Body.String(), "<tr") {
+		t.Errorf("403 CSRF-rejection must not swap the row (no <tr> in body), got %q",
+			w.Body.String()[:min(200, w.Body.Len())])
 	}
 }
 
@@ -618,11 +718,13 @@ func TestChargeCreate_NoSessionToken(t *testing.T) {
 
 	form := url.Values{
 		// deliberately no csrf_token submitted
-		"vehicle":          {"1001:VIN1001"},
-		"charged_on":       {"2026-07-15"},
-		"energy_added_kwh": {"10.5"},
-		"price":            {"5000"},
-		"currency":         {"COP"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
+		// no `vehicle` (D4), no `currency` (D5 — hardcoded COP) form fields.
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -651,11 +753,12 @@ func TestChargeRowUpdate_NoSessionToken(t *testing.T) {
 
 	form := url.Values{
 		// deliberately no csrf_token submitted
-		"vehicle":          {"1001:VIN1001"},
-		"charged_on":       {"2026-07-16"},
-		"energy_added_kwh": {"20.0"},
-		"price":            {"9000"},
-		"currency":         {"COP"},
+		"charged_on":        {"2026-07-16"},
+		"energy_added_kwh":  {"20.0"},
+		"price":             {"9000"},
+		"location_kind":     {"WORK"},
+		"start_battery_pct": {"40"},
+		"end_battery_pct":   {"75"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
@@ -854,13 +957,14 @@ func TestChargeCreate_MissingLocationKind(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":       {"tok"},
-		"vehicle":          {"1001:VIN1001"},
-		"charged_on":       {"2026-07-15"},
-		"energy_added_kwh": {"10.5"},
-		"price":            {"5000"},
-		"currency":         {"COP"},
+		"csrf_token":         {"tok"},
+		"charged_on":         {"2026-07-15"},
+		"energy_added_kwh":   {"10.5"},
+		"price":              {"5000"},
+		"start_battery_pct":  {"50"},
+		"end_battery_pct":    {"80"},
 		// deliberately no location_kind
+		// no `vehicle` (D4), no `currency` (D5) form fields.
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -893,13 +997,13 @@ func TestChargeCreate_InvalidLocationKind(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":       {"tok"},
-		"vehicle":          {"1001:VIN1001"},
-		"charged_on":       {"2026-07-15"},
-		"energy_added_kwh": {"10.5"},
-		"price":            {"5000"},
-		"currency":         {"COP"},
-		"location_kind":    {"INVALID"},
+		"csrf_token":         {"tok"},
+		"charged_on":         {"2026-07-15"},
+		"energy_added_kwh":   {"10.5"},
+		"price":              {"5000"},
+		"location_kind":      {"INVALID"},
+		"start_battery_pct":  {"50"},
+		"end_battery_pct":    {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -926,14 +1030,15 @@ func TestChargeRowUpdate_MissingLocationKind(t *testing.T) {
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
-	form := url.Values{
-		"csrf_token":       {"tok"},
-		"vehicle":          {"1001:VIN1001"},
-		"charged_on":       {"2026-07-16"},
-		"energy_added_kwh": {"20.0"},
-		"price":            {"9000"},
-		"currency":         {"COP"},
+form := url.Values{
+		"csrf_token":         {"tok"},
+		"charged_on":         {"2026-07-16"},
+		"energy_added_kwh":   {"20.0"},
+		"price":              {"9000"},
+		"start_battery_pct":  {"40"},
+		"end_battery_pct":    {"75"},
 		// deliberately no location_kind
+		// no `vehicle` (D4), no `currency` (D5) form fields.
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPut, "/ui/charges/row/"+id.String(), strings.NewReader(form.Encode()))
@@ -961,13 +1066,13 @@ func TestChargeCreate_ValidLocationKind(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":       {"tok"},
-		"vehicle":          {"1001:VIN1001"},
-		"charged_on":       {"2026-07-15"},
-		"energy_added_kwh": {"10.5"},
-		"price":            {"5000"},
-		"currency":         {"COP"},
-		"location_kind":    {"HOME"},
+		"csrf_token":         {"tok"},
+		"charged_on":         {"2026-07-15"},
+		"energy_added_kwh":   {"10.5"},
+		"price":              {"5000"},
+		"location_kind":      {"HOME"},
+		"start_battery_pct":  {"50"},
+		"end_battery_pct":    {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1122,8 +1227,9 @@ func chargesContentEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN st
 
 // TestChargesContentFragment_ScopedToSelectedVehicle verifies GET /ui/charges emits
 // BOTH content fragments (create form + list) for the SELECTED vehicle, with a fresh
-// CSRF token and no page shell, and that the create form's vehicle picker defaults to
-// the selected vehicle (the switch-refresh contract for manual records).
+// CSRF token and no page shell. After MAG-5 D4 the create form no longer renders a
+// vehicle picker at all (the session determines the vehicle), so the assertion now
+// ALSO verifies D4: no `name="vehicle"` input is present in the create form.
 func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
@@ -1151,7 +1257,7 @@ func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 		t.Fatalf("want 200 for authenticated charges content fragment, got %d (%s)", w.Code, w.Body.String())
 	}
 	body := w.Body.String()
-	for _, want := range []string{`id="charges-create-form"`, `id="charges-list"`, `name="csrf_token"`, "2:VIN2"} {
+	for _, want := range []string{`id="charges-create-form"`, `id="charges-list"`, `name="csrf_token"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("charges content fragment missing %q\n%s", want, body)
 		}
@@ -1159,9 +1265,15 @@ func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 	if strings.Contains(body, "<html") {
 		t.Errorf("charges content fragment must not contain the full-page shell (<html>)")
 	}
-	// The picker must default to the SELECTED vehicle (2), not the first registered.
-	if !strings.Contains(body, `value="2:VIN2" selected`) {
-		t.Errorf("want the selected vehicle option (2:VIN2) marked selected in the create form\n%s", body)
+	// D4: there is no vehicle picker on the create form anymore — no `name="vehicle"`
+	// input is rendered. The vehicle is sourced from the session-selected vehicle.
+	if strings.Contains(body, `name="vehicle"`) {
+		t.Errorf("D4 violation: create form must not render a vehicle picker (name=%q), got body:\n%s",
+			"vehicle", body)
+	}
+	// D4 also removes the multi-vehicle selected-option marker the old test asserted.
+	if strings.Contains(body, `value="2:VIN2" selected`) {
+		t.Errorf("D4 violation: selected vehicle option should not be rendered; vehicle picker is gone")
 	}
 }
 
@@ -1202,5 +1314,436 @@ func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("charge page missing switch-refresh wiring %q", want)
 		}
+	}
+}
+
+// --- MAG-5 D2/D6: start-battery suggestion + required battery fields (T4.5) ---
+
+// TestChargePage_BatterySuggestionFromTelemetry verifies D2: when the selected
+// vehicle's latest telemetry snapshot reports BatteryLevelPct=73, the create
+// form's start_battery_pct input carries a placeholder helper label "Latest: 73%"
+// built via the existing telemetry.Reader.LatestSnapshotsByAccount port (the same
+// port the dashboard uses). The fakeReader seeds the snapshot; the buildChargesPage
+// helper picks the snapshot for the session-selected TeslaID.
+func TestChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+		{TeslaID: 1001, BatteryLevelPct: 73},
+	}}
+	h := New(Deps{
+		Account:            acct,
+		Tesla:              &fakeTesla{},
+		TelemetryReader:    reader,
+		ManualChargeWriter: &fakeChargeWriter{},
+		ManualChargeReader: &fakeChargeReader{},
+	})
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if want := `placeholder="Latest: 73%"`; !strings.Contains(body, want) {
+		t.Errorf("want %q in start_battery_pct placeholder (D2), got body:\n%s", want, body[:min(800, len(body))])
+	}
+	// Start AND end battery % must be Required (D6) — the input name="start_battery_pct"
+	// and name="end_battery_pct" rows should both carry the `required` boolean attr.
+	for _, name := range []string{"start_battery_pct", "end_battery_pct"} {
+		if !strings.Contains(body, `name="`+name+`"`) {
+			t.Errorf("D6: %q input missing in create form", name)
+		}
+	}
+}
+
+// TestChargePage_NoBatterySuggestionWhenNoSnapshot verifies D2's graceful-empty
+// contract: when the telemetry.Reader returns no snapshot for the selected
+// vehicle (empty slice, nil error), the create form's start_battery_pct input
+// does NOT carry a "Latest: N%" placeholder — no fabricated value — and the page
+// still renders 200.
+func TestChargePage_NoBatterySuggestionWhenNoSnapshot(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{snapshots: nil} // no telemetry snapshots
+	h := New(Deps{
+		Account:            acct,
+		Tesla:              &fakeTesla{},
+		TelemetryReader:    reader,
+		ManualChargeWriter: &fakeChargeWriter{},
+		ManualChargeReader: &fakeChargeReader{},
+	})
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 (graceful empty — no error), got %d", w.Code)
+	}
+	body := w.Body.String()
+	if strings.Contains(body, `placeholder="Latest:`) {
+		t.Errorf("D2 graceful-empty violation: a 'Latest:' placeholder must not render when no snapshot; got:\n%s",
+			body[:min(500, len(body))])
+	}
+}
+
+// TestChargePage_NoBatterySuggestionOnTelemetryError verifies that a telemetry
+// Reader error degrades gracefully — no suggestion is rendered, and the page
+// still returns 200 (the page never 500s from a telemetry read failure).
+func TestChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{err: errFake} // simulate a telemetry store failure
+	h := New(Deps{
+		Account:            acct,
+		Tesla:              &fakeTesla{},
+		TelemetryReader:    reader,
+		ManualChargeWriter: &fakeChargeWriter{},
+		ManualChargeReader: &fakeChargeReader{},
+	})
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 (telemetry error must not degrade the page), got %d", w.Code)
+	}
+	if strings.Contains(w.Body.String(), `placeholder="Latest:`) {
+		t.Errorf("D2: a telemetry error must NOT render a 'Latest:' placeholder")
+	}
+}
+
+// TestChargeCreate_MissingBatteryPct_Rejected verifies D6: submitting with
+// start_battery_pct or end_battery_pct empty is rejected (422) with a
+// "Battery percentage is required" message, and the Writer is not called.
+func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	h := newHandlerForCharges(writer, reader)
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":         {"tok"},
+		"charged_on":         {"2026-07-15"},
+		"energy_added_kwh":   {"10.5"},
+		"price":              {"5000"},
+		"location_kind":      {"HOME"},
+		"end_battery_pct":    {"80"},
+		// start_battery_pct deliberately omitted
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 on missing start_battery_pct, got %d", w.Code)
+	}
+	if writer.createEntry.EnergyAddedKWh != 0 {
+		t.Errorf("Writer.Create must NOT be called when start_battery_pct is missing")
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Battery percentage is required") {
+		t.Errorf("want 'Battery percentage is required' message, got body=%q", body[:min(500, len(body))])
+	}
+}
+
+// TestChargeCreate_OutOfRangeBatteryPct_Rejected verifies D6: out-of-range
+// start_battery_pct (e.g. 101 or -1) is rejected with the out-of-range message
+// and the Writer is not called. End battery % mirrors via the same check.
+func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	h := newHandlerForCharges(writer, reader)
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	for _, tc := range []struct {
+		name        string
+		start, end  string
+		wantInBody  string
+	}{
+		{"start=101", "101", "80", "Start battery percentage must be an integer between 0 and 100"},
+		{"start=-1", "-1", "80", "Start battery percentage must be an integer between 0 and 100"},
+		{"end=101", "50", "101", "End battery percentage must be an integer between 0 and 100"},
+		{"end=-1", "50", "-1", "End battery percentage must be an integer between 0 and 100"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			form := url.Values{
+				"csrf_token":         {"tok"},
+				"charged_on":         {"2026-07-15"},
+				"energy_added_kwh":   {"10.5"},
+				"price":              {"5000"},
+				"location_kind":      {"HOME"},
+				"start_battery_pct":  {tc.start},
+				"end_battery_pct":    {tc.end},
+			}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			if c != nil {
+				req.AddCookie(c)
+			}
+			r.ServeHTTP(w, req)
+
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("want 422 on out-of-range battery, got %d", w.Code)
+			}
+			if writer.createEntry.EnergyAddedKWh != 0 {
+				t.Errorf("Writer.Create must NOT be called on out-of-range battery")
+			}
+			if !strings.Contains(w.Body.String(), tc.wantInBody) {
+				t.Errorf("want %q in body, got %q", tc.wantInBody, w.Body.String()[:min(500, w.Body.Len())])
+			}
+		})
+	}
+}
+
+// --- MAG-5 D1: optional date fields default to today + cleared persists nil (T5.4) ---
+
+// TestChargePage_DateDefaultsToToday verifies D1: the create form's started_at
+// and ended_at inputs are pre-filled with today's date at UTC midnight
+// ("YYYY-MM-DDT00:00") via ChargesPageData.DefaultStartedAt / DefaultEndedAt.
+func TestChargePage_DateDefaultsToToday(t *testing.T) {
+	uid := uuid.New()
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	todayDefault := time.Now().UTC().Format("2006-01-02") + "T00:00"
+	// Both date inputs must be pre-filled with the today's-date default — D1.
+	// The create form renders them with value={ d.DefaultStartedAt } /
+	// value={ d.DefaultEndedAt }. We assert the default appears at least twice
+	// (once per input).
+	if wantCount := 2; strings.Count(body, `value="`+todayDefault+`"`) < wantCount {
+		t.Errorf("want >= %d occurrences of today's-date default %q (one per date input), got %d — body:\n%s",
+			wantCount, todayDefault, strings.Count(body, `value="`+todayDefault+`"`),
+			body[:min(800, len(body))])
+	}
+}
+
+// TestChargeCreate_ClearedDates_PersistedNil verifies D1's optional contract:
+// submitting the form with both started_at and ended_at cleared (empty strings)
+// still persists a created entry with nil StartedAt / nil EndedAt — the gateway
+// does not require these optional fields even with the today-default in place.
+func TestChargeCreate_ClearedDates_PersistedNil(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	h := newHandlerForCharges(writer, reader)
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":         {"tok"},
+		"charged_on":         {"2026-07-15"},
+		"energy_added_kwh":   {"10.5"},
+		"price":              {"5000"},
+		"location_kind":      {"HOME"},
+		"start_battery_pct":  {"50"},
+		"end_battery_pct":    {"80"},
+		// started_at and ended_at deliberately empty (clearing the today-default).
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 on optional cleared dates (D1), got %d body=%q",
+			w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	if writer.createEntry.StartedAt != nil {
+		t.Errorf("D1 optional contract violation: StartedAt must be nil when input cleared, got %v",
+			*writer.createEntry.StartedAt)
+	}
+	if writer.createEntry.EndedAt != nil {
+		t.Errorf("D1 optional contract violation: EndedAt must be nil when input cleared, got %v",
+			*writer.createEntry.EndedAt)
+	}
+}
+
+// --- MAG-5 D7: 3-decimal energy accepted (T6.3) ---
+
+// TestChargeCreate_3DecimalEnergy_Accepted verifies D7: submitting
+// energy_added_kwh=7.345 (a 3-decimal value) succeeds and persists
+// EnergyAddedKWh=7.345 (the UI step=0.001 permits 3 decimals; no server-side
+// rounding). The energy > 0 check still passes.
+func TestChargeCreate_3DecimalEnergy_Accepted(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	h := newHandlerForCharges(writer, reader)
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":         {"tok"},
+		"charged_on":         {"2026-07-15"},
+		"energy_added_kwh":   {"7.345"},
+		"price":              {"5000"},
+		"location_kind":      {"HOME"},
+		"start_battery_pct":  {"50"},
+		"end_battery_pct":    {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 on 3-decimal energy, got %d body=%q",
+			w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	if writer.createEntry.EnergyAddedKWh != 7.345 {
+		t.Errorf("want EnergyAddedKWh=7.345 persisted (no server-side rounding — D7), got %v",
+			writer.createEntry.EnergyAddedKWh)
+	}
+}
+
+// TestChargeCreate_NonPositiveEnergy_Rejected verifies the D7 parity contract:
+// the energy > 0 check is unchanged. energy=0 and energy=-1 are still rejected.
+func TestChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
+	uid := uuid.New()
+	for _, v := range []string{"0", "-1"} {
+		writer := &fakeChargeWriter{}
+		reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+		h := newHandlerForCharges(writer, reader)
+		r := engineWithSession(h, uid, "tok")
+		c := sessionCookie(r, uid, "tok")
+
+		form := url.Values{
+			"csrf_token":         {"tok"},
+			"charged_on":         {"2026-07-15"},
+			"energy_added_kwh":   {v},
+			"price":              {"5000"},
+			"location_kind":      {"HOME"},
+			"start_battery_pct":  {"50"},
+			"end_battery_pct":    {"80"},
+		}
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if c != nil {
+			req.AddCookie(c)
+		}
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Errorf("energy=%v: want 422 (non-positive rejected), got %d", v, w.Code)
+		}
+		if writer.createEntry.EnergyAddedKWh != 0 {
+			t.Errorf("energy=%v: Writer.Create must NOT be called", v)
+		}
+	}
+}
+
+// --- MAG-5 D3: delete-row removal is reflected in a subsequent list (T1.3) ---
+
+// TestChargeRowDelete_ThenListReflectsRemoval verifies D3's "row is no longer
+// present in a subsequent list render" scenario. The fakeReader.ListEntriesBy*
+// returns a static slice; we pre-seed the entry being deleted and assert the
+// charge-row-<id> marker is absent from a GET /ui/charges/list when the fake
+// reader's slice no longer carries that id (simulating the post-delete state).
+func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	// Pre-delete list carries the entry; post-delete list does not. We exercise
+	// both reads against the same fakeReader (the slice is a fixture per-call,
+	// so we re-set entries between the two GETs).
+	reader := &fakeChargeReader{entries: []manualcharge.Entry{
+		{ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
+			EnergyAddedKWh: 10.0, Price: 5000.0, Currency: "COP"},
+	}}
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, reader)
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	// Before delete: list render carries the row id.
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+	if !strings.Contains(w.Body.String(), "charge-row-"+id.String()) {
+		t.Fatalf("pre-delete list should contain the row id, got body=%q",
+			w.Body.String()[:min(400, w.Body.Len())])
+	}
+
+	// Delete the row.
+	wDel := httptest.NewRecorder()
+	reqDel := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+id.String(), nil)
+	reqDel.Header.Set("X-CSRF-Token", "tok")
+	if c != nil {
+		reqDel.AddCookie(c)
+	}
+	r.ServeHTTP(wDel, reqDel)
+	if wDel.Code != http.StatusOK {
+		t.Fatalf("want 200 on delete, got %d", wDel.Code)
+	}
+
+	// Post-delete list render: simulate the entry's removal from the read
+	// fixture — the gateway never deletes from the fakeReader (only the Writer
+	// deletes from the real store), so we update the fixture to reflect reality.
+	reader.entries = nil
+	wList := httptest.NewRecorder()
+	reqList := httptest.NewRequest(http.MethodGet, "/ui/charges/list", nil)
+	if c != nil {
+		reqList.AddCookie(c)
+	}
+	r.ServeHTTP(wList, reqList)
+	if strings.Contains(wList.Body.String(), "charge-row-"+id.String()) {
+		t.Errorf("post-delete list must NOT contain the row id, got body=%q",
+			wList.Body.String()[:min(400, wList.Body.Len())])
 	}
 }
