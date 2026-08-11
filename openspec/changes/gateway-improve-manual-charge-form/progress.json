@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": null,
   "request": "MAG-5 — New records improvements. Six gateway-side form/handler fixes for the manual charge 'Log a charge' page: (1) delete-row alert bug; (2) remove the vehicle field — sourced from the menu vehicle selector; (3) disable currency — always COP; (4) make start/end battery % required + suggest the latest telemetry battery % on the start field; (5) auto-fill today's date on optional started_at/ended_at and move them up from 'More details' to the main card; (6) allow 3 decimals on energy added, keeping the nearest-valid-range helper applied after 3 decimals. Single-module (internal/gateway), no DB object, no manualcharge/telemetry module change.",
-  "status": "reviewer-approved",
+  "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [],
@@ -44,7 +44,7 @@
     ]
   },
   "created_at": "2026-08-11T16:34:28Z",
-  "updated_at": "2026-08-11T22:38:00Z",
+  "updated_at": "2026-08-11T22:58:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -793,6 +793,33 @@
       "decision": "ACCEPTED F6 into this change rather than the backlog, and capped the polish loop: this is the last cleanup wave — any further minor cosmetic finding goes to openspec/roadmaps/backlog.md instead of another round.",
       "why": "Leader verified F6 independently (VehicleValue and ActiveTeslaID are assigned and never read; ActiveTeslaID's godoc still cites the picker D4 removed), and the reviewer judged it same-root-cause as F1 with zero test fallout. Capping the loop prevents unbounded polish rounds on an already-approved change.",
       "covered_by": "leader triage, review round 2"
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-11T22:45:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "ARCHIVE BLOCKED by an artifact defect: the delta spec declared '## MODIFIED Requirements -> ### Requirement: Manual charge log UI', a header absent from openspec/specs/gateway/spec.md; openspec archive aborts ('MODIFIED failed for header ... not found', no files changed). Delta restructured onto the real requirement headers, and the now-false 'Vehicle Auto-Select on the Charge Create Form' requirement REMOVED.",
+      "why": "openspec validate --strict passes because it checks delta FORMAT, not whether a MODIFIED target exists, so neither the artifacts step nor three review rounds caught it. Unfixed the change cannot archive; forced through with --skip-specs the main spec would keep asserting a vehicle picker the code no longer renders.",
+      "covered_by": "leader verification at Step 8"
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-11T22:58:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Two further stale assertions found in the main gateway spec and folded into the same delta: the 'location_kind Visible Without Expanding More Details' field list (worker's own catch — the battery and date fields moved to the always-visible grid per D1/D6), and 'Vehicle-Scoped Cross-Region Refresh', whose manual-records scenario still claimed the create form's vehicle picker defaults to the selected vehicle.",
+      "why": "A change must leave the main spec true. Archiving with these intact would have left three assertions describing a picker D4 deleted — exactly the rot that makes the spec untrustworthy as an agent's context.",
+      "covered_by": "leader verification at Step 8"
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-11T22:58:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "LEADER ERROR, recorded for audit: rolling back the test archive with 'git checkout -- openspec/' also destroyed the worker's uncommitted delta rewrite and this file's D9/blocked-event entries. Recovered by re-messaging the same worker (its rewrite was still in context) and re-adding the entries by hand.",
+      "why": "The rollback was scoped to a directory rather than to the specific files the archive touched, and the worker's output in that same directory had never been committed. Lesson for future waves: commit or stash worker output before running a reversible experiment over the same path.",
+      "covered_by": "leader self-check at Step 8"
     }
   ],
   "events": [
@@ -865,6 +892,21 @@
       "at": "2026-08-11T22:38:30Z",
       "agent": "leader",
       "event": "Step 7 round 3: gateway-reviewer verdict APPROVED (final). Confirmed F6 resolution in 52dda71 and explicitly withdrew its 'zero test references' claim for ChargeEntryVM.TeslaID/.VIN, agreeing they were right to keep. Polish loop capped per D8. Proceeding to Step 8 archive."
+    },
+    {
+      "at": "2026-08-11T22:45:00Z",
+      "agent": "leader",
+      "event": "Step 8 BLOCKED: openspec archive aborted safely (no files changed) — delta MODIFIED a header ('Manual charge log UI') absent from the main gateway spec. Real names: Charge Log Page, Charge List Fragment, Create Charge Entry, Inline Row Editing, Delete Charge Entry, Tenant Isolation, Gateway Imports No manualchargedb Package, Vehicle Auto-Select on the Charge Create Form, location_kind Visible Without Expanding 'More Details'."
+    },
+    {
+      "at": "2026-08-11T22:50:00Z",
+      "agent": "leader",
+      "event": "Trial archive of the restructured delta applied cleanly (5 modified, 1 removed) and revealed a third stale assertion in 'Vehicle-Scoped Cross-Region Refresh'. Leader rolled the trial back to fix the delta rather than patch the main spec off-process."
+    },
+    {
+      "at": "2026-08-11T22:58:00Z",
+      "agent": "leader",
+      "event": "Leader error (D11): the rollback wiped the worker's uncommitted delta rewrite plus D9 and the Step 8 events. Worker re-messaged to reproduce the file from its context and add the Vehicle-Scoped Cross-Region Refresh MODIFIED block; progress.json entries restored by hand. No committed work was affected — 8d12ec6 and all code commits intact."
     }
   ]
 }
