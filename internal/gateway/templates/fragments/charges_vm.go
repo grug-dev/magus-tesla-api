@@ -28,9 +28,8 @@ type ChargeEntryVM struct {
 	RawEndedAt         string // "2006-01-02T15:04" or ""
 	RawStartBatteryPct string // "80" or ""
 	RawEndBatteryPct   string // "92" or ""
-	TeslaID            int64  // for vehicle picker pre-selection in edit form
-	VIN                string // durable vehicle key for display
-	VehicleValue       string // "{TeslaID}:{VIN}" — pre-built form value for the edit form's hidden vehicle input (keeps the template logic-free, D6)
+	TeslaID            int64  // the entry's owning vehicle (identity key, not rendered — asserted by TestChargeEntryVMFromEntry)
+	VIN                string // durable vehicle key (identity key, not rendered — asserted by TestChargeEntryVMFromEntry)
 }
 
 // VehicleOptionVM is one option in the nav-header vehicle context-switcher <select>
@@ -47,11 +46,10 @@ type VehicleOptionVM struct {
 // ChargesPageData is the full-page data for the charge log page and its fragments.
 // All fields are presentation-ready; no domain types or pgtype values.
 type ChargesPageData struct {
-	Entries       []ChargeEntryVM
-	ActiveTeslaID int64  // 0 if no vehicle filter; used to pre-select the picker
-	CSRFToken     string // for form hidden inputs
-	EmptyState    bool   // true when Entries is empty and no error occurred
-	Error         string // non-empty if a reader error degraded the page gracefully
+	Entries    []ChargeEntryVM
+	CSRFToken  string // for form hidden inputs
+	EmptyState bool   // true when Entries is empty and no error occurred
+	Error      string // non-empty if a reader error degraded the page gracefully
 
 	// DefaultStartedAt / DefaultEndedAt are the today's-date defaults (D1) for the
 	// optional started_at / ended_at inputs on the create form, pre-formatted by the

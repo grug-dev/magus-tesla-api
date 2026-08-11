@@ -401,7 +401,6 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 
 	return fragments.ChargesPageData{
 		Entries:                   vms,
-		ActiveTeslaID:             teslaIDFilter,
 		CSRFToken:                 csrfToken,
 		EmptyState:                len(vms) == 0 && pageError == "",
 		Error:                     pageError,
@@ -545,7 +544,6 @@ func chargeEntryVMFromEntry(e manualcharge.Entry, vehicles []account.Vehicle) fr
 		RawEndBatteryPct:   rawEndPct,
 		TeslaID:         e.TeslaID,
 		VIN:             e.VIN,
-		VehicleValue:    fmt.Sprintf("%d:%s", e.TeslaID, e.VIN),
 	}
 }
 
