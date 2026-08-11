@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "gateway-improve-manual-charge-form",
+  "module": "gateway",
+  "roadmap": null,
+  "source_ticket": "MAG-5 — https://linear.app/magus-monitor/issue/MAG-5/new-records-improvements",
+  "request": "MAG-5 — New records improvements. Six gateway-side form/handler fixes for the manual charge 'Log a charge' page: (1) delete-row alert bug; (2) remove the vehicle field — sourced from the menu vehicle selector; (3) disable currency — always COP; (4) make start/end battery % required + suggest the latest telemetry battery % on the start field; (5) auto-fill today's date on optional started_at/ended_at and move them up from 'More details' to the main card; (6) allow 3 decimals on energy added, keeping the nearest-valid-range helper applied after 3 decimals. Single-module (internal/gateway), no DB object, no manualcharge/telemetry module change.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1.1","T1.2","T1.3","T2.1","T2.2","T2.3","T2.4","T3.1","T3.2","T3.3","T4.1","T4.2","T4.3","T4.4","T4.5","T5.1","T5.2","T5.3","T5.4","T6.1","T6.2","T6.3","T7.1","T7.2","T7.3","T7.4","T8.1","T8.2","T8.3"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-11T16:34:28Z",
+  "updated_at": "2026-08-11T16:34:28Z",
+  "leader": {
+    "assistant": "opencode",
+    "model": "opencode-go/glm-5.2"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH10-MAG-5-gateway-improve-manual-charge-form",
+    "base": "main",
+    "created_at": "2026-08-11T16:30:00Z"
+  },
+  "tasks": [
+    { "id": "T1.1", "title": "Reproduce delete-row alert; identify which of D3's 3 candidate root causes fires", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T1.2", "title": "Fix the matching delete root cause in the gateway only (CSRF / target-swap / Writer-error path)", "module": "gateway", "depends_on": ["T1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T1.3", "title": "Test: authenticated DELETE with valid CSRF -> 200 ChargeRowEmpty; stale/missing CSRF -> 403, Writer not called", "module": "gateway", "depends_on": ["T1.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+
+    { "id": "T2.1", "title": "Remove the entire Vehicle @ui.Field block from charge_create_form.templ (both single + multi-vehicle branches)", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares charge_create_form.templ — serial template edits", "budget": null },
+    { "id": "T2.2", "title": "parseChargeForm: drop vehicle form field; resolve TeslaID/VIN from session-selected vehicle; keep ownership check", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares parseChargeForm with T3.2/T4.4/T6.2 — serial", "budget": null },
+    { "id": "T2.3", "title": "Verify create-success flow still re-renders form (no vehicle field) + OOB #charges-list refresh", "module": "gateway", "depends_on": ["T2.1","T2.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T2.4", "title": "Tests: drop vehicle form field from create-POST tests; seed session selection; add no-resolvable-vehicle rejection test", "module": "gateway", "depends_on": ["T2.1","T2.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+
+    { "id": "T3.1", "title": "charge_create_form.templ: change Currency input to disabled with Value 'COP' (reuse ui disabled affordance)", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares charge_create_form.templ — serial", "budget": null },
+    { "id": "T3.2", "title": "parseChargeForm: drop currency PostForm read; hardcode Currency:'COP' on the built Entry", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares parseChargeForm — serial", "budget": null },
+    { "id": "T3.3", "title": "Tests: create-POST tests drop currency field; assert persisted Entry.Currency == 'COP'", "module": "gateway", "depends_on": ["T3.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+
+    { "id": "T4.1", "title": "charges_vm.go: add StartBatteryPctSuggestion string to ChargesPageData (empty = no suggestion); document graceful-empty contract (D2)", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares charges_vm.go with T5.2 — coordinate", "budget": null },
+    { "id": "T4.2", "title": "buildChargesPage: read telemetryReader.LatestSnapshotsByAccount; set StartBatteryPctSuggestion for selected TeslaID; graceful empty on miss/error", "module": "gateway", "depends_on": ["T4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares charges.go buildChargesPage with T5.2 — coordinate", "budget": null },
+    { "id": "T4.3", "title": "charge_create_form.templ: render start_battery_pct suggestion label from d.StartBatteryPctSuggestion; mark start+end battery Required", "module": "gateway", "depends_on": ["T4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares charge_create_form.templ — serial", "budget": null },
+    { "id": "T4.4", "title": "parseChargeForm: make start_battery_pct + end_battery_pct required (empty -> validation error; non-int / out of [0,100] -> error); keep service nullable contract", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares parseChargeForm — serial", "budget": null },
+    { "id": "T4.5", "title": "Tests: suggestion == 'Latest: N%' when snapshot present; '' when absent; required + out-of-range rejection on create-POST", "module": "gateway", "depends_on": ["T4.1","T4.2","T4.4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+
+    { "id": "T5.1", "title": "charge_create_form.templ: move started_at + ended_at fields out of 'More details' <details> into the main card grid", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares charge_create_form.templ — serial", "budget": null },
+    { "id": "T5.2", "title": "charges.go buildChargesPage + charges_vm.go: compute started_at/ended_at defaults = today YYYY-MM-DD (UTC); add DefaultStartedAt/DefaultEndedAt VM fields", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares charges.go + charges_vm.go — coordinate with T4", "budget": null },
+    { "id": "T5.3", "title": "parseChargeForm: optional-handling for started_at/ended_at stays — clearing either still persists nil (D1 optional)", "module": "gateway", "depends_on": ["T5.1","T5.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares parseChargeForm — serial", "budget": null },
+    { "id": "T5.4", "title": "Tests: rendered defaults == today YYYY-MM-DD; submitting both cleared still persists nil StartedAt/EndedAt", "module": "gateway", "depends_on": ["T5.1","T5.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+
+    { "id": "T6.1", "title": "charge_create_form.templ: energy_added_kwh input step 0.01 -> 0.001 (widen precision; keep nearest-valid-range helper)", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares charge_create_form.templ — serial", "budget": null },
+    { "id": "T6.2", "title": "parseChargeForm: no server-side rounding; strconv.ParseFloat accepts 3+ decimals; keep energy<=0 rejection", "module": "gateway", "depends_on": [], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "shares parseChargeForm — serial", "budget": null },
+    { "id": "T6.3", "title": "Tests: create-POST energy_added_kwh=7.345 accepted + persisted; non-positive rejection unchanged", "module": "gateway", "depends_on": ["T6.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+
+    { "id": "T7.1", "title": "go vet ./internal/gateway/... clean", "module": "gateway", "depends_on": ["T1.3","T2.4","T3.3","T4.5","T5.4","T6.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T7.2", "title": "go test ./internal/gateway/... passes (fakes for read ports; DB-gated tests self-skip w/o DATABASE_URL)", "module": "gateway", "depends_on": ["T7.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T7.3", "title": "make check passes (build+vet+ui-guard+tests) — authorized for this repo per CLAUDE.md", "module": "gateway", "depends_on": ["T7.2","T8.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T7.4", "title": "Manual smoke (optional, recommended for T1): create+delete row no alert; vehicle switch flows through form/list/suggestion/defaults", "module": "gateway", "depends_on": ["T7.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+
+    { "id": "T8.1", "title": "make templ: regenerate *_templ.go for every edited .templ (at least charge_create_form_templ.go)", "module": "gateway", "depends_on": ["T2.1","T3.1","T4.3","T5.1","T6.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T8.2", "title": "If a new DaisyUI/Tailwind class was added to a .templ, make css + commit static/app.css; skip if no new class", "module": "gateway", "depends_on": ["T8.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null },
+    { "id": "T8.3", "title": "Confirm git diff --stat internal/manualcharge internal/telemetry is empty — module boundary held", "module": "gateway", "depends_on": ["T8.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": "", "budget": null }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-11T16:34:28Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Move the optional started_at/ended_at fields out of 'More details' up into the main 'Log a charge' section; auto-fill today's date (YYYY-MM-DD) as default; keep both optional.",
+      "why": "The MAG-5 author leaned this way ('I think worth moving up'); user confirmed. Improves discoverability of optional timing fields.",
+      "covered_by": "Step 2 interview (item 5); design.md D1"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-11T16:34:28Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Suggest the active vehicle's latest telemetry snapshot battery % as the start_battery_pct default (helper label), via the existing telemetry.Reader.LatestSnapshotsByAccount port; render no suggestion when no snapshot exists.",
+      "why": "Multiple plausible sources existed (latest telemetry, last entry's end_battery_pct, both); user chose latest telemetry for fidelity to 'current battery percentage'. Reuses an existing port — no telemetry-module change.",
+      "covered_by": "Step 2 interview (item 4); design.md D2"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-11T16:34:28Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Treat the delete-row alert (T1) as a gateway-scoped root-cause task (reproduce-then-fix) rather than prescribing a fix up front; if the root cause turns out to be a manualcharge Writer/service bug, mark T1 blocked and re-dispatch as a separate manualcharge-* change.",
+      "why": "The alert has three plausible gateway root causes (stale CSRF → 403, target/swap mismatch, Writer-error → ChargeRowError 500); fixing blind would bake in a guess. The boundary 'no manualcharge change' holds only if the bug is gateway-side.",
+      "covered_by": "design.md D3 + tasks.md 'Blocker note'"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-11T16:34:28Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Run the dev-harness pipeline under opencode in degraded budget mode (budget: null, checkpoints warn-only) but with real kkpa-module-worker / kkpa-module-reviewer subagent dispatch via the Task tool.",
+      "why": "opencode exposes the module-scoped worker/reviewer agent types, so roles are real subagents (not serial hats). The statusline budget cache is a Codex payload and is foreign under opencode, so per-task budget and auto-checkpoint degrade to warn-only — the pipeline never blocks on budget unavailability.",
+      "covered_by": "Step 0.7 runtime capability probe"
+    }
+  ],
+  "events": [
+    { "at": "2026-08-11T16:30:00Z", "agent": "leader", "event": "Step 0: discovered project — Modules-Root=internal/, Doc-Pack base=CLAUDE.md+ai/architecture.md+ai/go-conventions.md, Design-Gates=database, Performance-Profile=read-heavy. Runtime=opencode (real subagents, budget degraded)." },
+    { "at": "2026-08-11T16:31:00Z", "agent": "leader", "event": "Step 1: owning module = gateway (single-module, all 6 items are gateway UI/handler changes; no DB object). Created branch off main; bumped openspec/.work-counter 10 -> 11 (project override of the skill's default .ch-counter)." },
+    { "at": "2026-08-11T16:33:00Z", "agent": "leader", "event": "Step 2: user interview. Settled D1 (move date fields up + today default) and D2 (latest-telemetry battery % suggestion). No design gate (no DB)." },
+    { "at": "2026-08-11T16:34:00Z", "agent": "leader", "event": "Step 3: dispatched gateway worker (kkpa-module-worker) to create artifacts. Worker read full doc-pack, wrote proposal/design/specs/gateway/spec/tasks (29 tasks, D1-D7), openspec validate --strict clean. No DB, no manualcharge change, no impl code. Committed artifacts + work-counter bump (later amended: branch renamed ft/CH1-... -> ft/CH10-MAG-5-..., .ch-counter(2) removed as wrong default, .work-counter 10->11 used per project convention)." },
+    { "at": "2026-08-11T16:34:28Z", "agent": "leader", "event": "Step 4: created progress.json (29 tasks pending, status=proposed). PICKUP HALT: implementation deferred to an explicit /kkpa-dev-harness-pipeline resume gateway-improve-manual-charge-form." }
+  ]
+}
