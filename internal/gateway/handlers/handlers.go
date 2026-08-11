@@ -437,12 +437,16 @@ func formatKm(km float64) string {
 }
 
 // defaultHistoryHref returns the pre-formatted absolute href the #dashboard-history
-// region self-loads on first render: the default 6-day window (today-6 .. today,
-// end inclusive), formatted as /ui/dashboard/history?start=YYYY-MM-DD&end=YYYY-MM-DD.
-// Computed once by the dashboard handler so the page template emits it verbatim —
-// no time math in the template (RM8 design D4, logic-free-template invariant).
+// region self-loads on first render: the default 6-day-wide window ending YESTERDAY
+// (today-1), because the nightly batch captures today's data tomorrow — sending
+// end=today would render an always-empty last bar. The window is
+// start = (today-1) - historyRangeWindowDays .. end = today-1 (end inclusive),
+// formatted as /ui/dashboard/history?start=YYYY-MM-DD&end=YYYY-MM-DD. Computed
+// once by the dashboard handler so the page template emits it verbatim — no time
+// math in the template. API contract unchanged (parseHistoryRange still accepts
+// end=today; the dashboard just defaults to yesterday).
 func defaultHistoryHref() string {
-	end := startOfDay(time.Now())
+	end := startOfDay(time.Now()).AddDate(0, 0, -1)
 	start := end.AddDate(0, 0, -historyRangeWindowDays)
 	return fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s",
 		start.Format("2006-01-02"), end.Format("2006-01-02"))

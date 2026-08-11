@@ -165,16 +165,18 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 }
 
 // buildHistoryPresets builds the []RangePreset for the selector at render time
-// (design D4, Decision #3): for each n in {6, 14, 30}, End = today UTC midnight,
-// Start = End.AddDate(0,0,-n), the absolute href is pre-formatted, and Active is
-// true when (Start, End) matches the requested (start, end) window. A custom
-// (non-preset) window marks no preset active — the selector renders all-ghost.
+// (design D4, Decision #3): for each n in {6, 14, 30}, pEnd = YESTERDAY (today-1,
+// because the nightly batch captures today's data tomorrow — an end=today preset
+// would always show an empty last bar), pStart = pEnd.AddDate(0,0,-n), the
+// absolute href is pre-formatted, and Active is true when (Start, End) matches
+// the requested (start, end) window. A custom (non-preset) window marks no
+// preset active — the selector renders all-ghost.
 func buildHistoryPresets(start, end time.Time) []fragments.RangePreset {
-	today := startOfDay(time.Now())
+	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)
 	out := make([]fragments.RangePreset, 0, len(historyPresetDayCounts))
 	for _, n := range historyPresetDayCounts {
-		pEnd := today
-		pStart := today.AddDate(0, 0, -n)
+		pEnd := yesterday
+		pStart := yesterday.AddDate(0, 0, -n)
 		out = append(out, fragments.RangePreset{
 			Label:    fmt.Sprintf("%d days", n),
 			StartStr: pStart.Format("2006-01-02"),

@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "gateway-history-endate-yesterday",
+  "module": "gateway",
+  "roadmap": null,
+  "request": "UI follow-up to MAG-7: shift dashboard history end date from today to today-1day (yesterday) because today data loads tomorrow. API unchanged.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "3.1"
+    ]
+  },
+  "created_at": "2026-08-10T17:33:52Z",
+  "updated_at": "2026-08-10T21:39:11Z",
+  "leader": {
+    "assistant": "opencode",
+    "model": "glm-5.2"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH5-gateway-history-endate-yesterday",
+    "base": "main",
+    "created_at": "2026-08-10T17:33:52Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "defaultHistoryHref: end = today-1day, start = end-historyRangeWindowDays",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-10T21:37:03Z",
+      "completed_at": "2026-08-10T21:37:03Z",
+      "duration_seconds": 300,
+      "notes": "defaultHistoryHref: end = today-1 (yesterday). API parseHistoryRange unchanged (still defaults to today when params absent).",
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "buildHistoryPresets: pEnd = today-1day, pStart = pEnd-n",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-10T21:37:03Z",
+      "completed_at": "2026-08-10T21:37:03Z",
+      "duration_seconds": 300,
+      "notes": "buildHistoryPresets: pEnd = today-1 (yesterday). Active still matches the shifted presets.",
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "Update tests: PresetsCarryAbsoluteHrefs (end=today-1), DefaultWindowActivatesSixDayPreset (send explicit params), HistoryRegionInsideDashboardContent (end=yesterday)",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-10T21:37:03Z",
+      "completed_at": "2026-08-10T21:37:03Z",
+      "duration_seconds": 300,
+      "notes": "Updated 3 tests: PresetsCarryAbsoluteHrefs, DefaultWindowActivatesSixDayPreset, HistoryRegionInsideDashboardContent.",
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "go test + go vet green",
+      "module": "gateway",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "glm-5.2",
+      "started_at": "2026-08-10T21:37:03Z",
+      "completed_at": "2026-08-10T21:37:03Z",
+      "duration_seconds": 300,
+      "notes": "go test -count=1 ./internal/gateway/... green; go vet ./... exit 0.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Small UI-only change: defaultHistoryHref + buildHistoryPresets shift end from today to today-1 (yesterday). Verify: (1) parseHistoryRange is byte-identical (API unchanged); (2) only defaultHistoryHref in handlers.go + buildHistoryPresets in history.go changed; (3) the 3 updated tests assert end=yesterday; (4) go vet + go test green; (5) no template/DB/other-module touch.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-10T21:39:11Z",
+        "duration_seconds": 90,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "M-1",
+            "severity": "minor",
+            "note": "Reviewer had no shell tool; relied on leader go test/vet exit-0. Code reads clean.",
+            "status": "open",
+            "triage": "accepted"
+          },
+          {
+            "id": "M-2",
+            "severity": "minor",
+            "note": "No doc update needed \u2014 parseHistoryRange unchanged so the AGENTS.md convention text stays accurate.",
+            "status": "open",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [],
+  "events": [
+    {
+      "at": "2026-08-10T17:33:52Z",
+      "agent": "leader",
+      "event": "standalone change created for the dashboard UI end-date shift (today -> today-1). API unchanged. Autopilot ON: implementing directly."
+    }
+  ]
+}

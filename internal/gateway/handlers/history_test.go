@@ -541,15 +541,15 @@ func TestBuildHistoryView_BothChartsShareFixedAxis(t *testing.T) {
 func TestBuildHistoryView_PresetsCarryAbsoluteHrefs(t *testing.T) {
 	reader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
 	h := newHandlerForHistory(reader, 42, "VIN42")
-	start := startOfDay(time.Now()).AddDate(0, 0, -6)
-	end := startOfDay(time.Now())
+	end := startOfDay(time.Now()).AddDate(0, 0, -1)
+	start := end.AddDate(0, 0, -historyRangeWindowDays)
 	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end)
 	if len(v.Presets) != len(historyPresetDayCounts) {
 		t.Fatalf("want %d presets, got %d", len(historyPresetDayCounts), len(v.Presets))
 	}
-	// The default-window request activates the 6-day preset.
+	// The default-window request (yesterday-6 .. yesterday) activates 6-day preset.
 	if !v.Presets[0].Active {
-		t.Error("6-day preset should be Active for the default window")
+		t.Error("6-day preset should be Active for the default window (ending yesterday)")
 	}
 	for i, p := range v.Presets {
 		if p.StartStr == "" || p.EndStr == "" {
@@ -739,8 +739,17 @@ func TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset(t *testing.
 	eng := historyEngine(h, uid, 42, "VIN42")
 	c := sessionCookie(eng, uid, "")
 
+	// The dashboard UI sends explicit params from defaultHistoryHref(): the
+	// default 6-day window ending YESTERDAY (today-1), because today's data
+	// loads tomorrow. The API default (both-absent → end=today) is unchanged;
+	// this test exercises the dashboard's actual self-load href.
+	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)
+	start6 := yesterday.AddDate(0, 0, -historyRangeWindowDays)
+	href := fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s",
+		start6.Format("2006-01-02"), yesterday.Format("2006-01-02"))
+
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard/history", nil)
+	req := httptest.NewRequest(http.MethodGet, href, nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -753,10 +762,9 @@ func TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset(t *testing.
 	if !strings.Contains(body, "btn-primary") {
 		t.Error("default-window request must mark the 6-day preset with btn-primary")
 	}
-	// The 6-day preset's href is ?start=<today-6>&end=<today>.
-	today := startOfDay(time.Now()).Format("2006-01-02")
-	start6 := startOfDay(time.Now()).AddDate(0, 0, -6).Format("2006-01-02")
-	wantHref := fmt.Sprintf("start=%s&amp;end=%s", start6, today)
+	// The 6-day preset's href is ?start=<yesterday-6>&end=<yesterday>.
+	wantHref := fmt.Sprintf("start=%s&amp;end=%s",
+		start6.Format("2006-01-02"), yesterday.Format("2006-01-02"))
 	if !strings.Contains(body, wantHref) {
 		t.Errorf("default 6-day preset href must contain %q; got: %s", wantHref, body)
 	}
@@ -927,17 +935,17 @@ func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
 	if !strings.Contains(body, `hx-trigger="load"`) {
 		t.Error("#dashboard-history must carry hx-trigger=\"load\" for self-fetch")
 	}
-	// The self-load hx-get is a server-rendered absolute ?start=&end= (today's
-	// YYYY-MM-DD appears in the end=), NOT ?days=6.
+	// The self-load hx-get is a server-rendered absolute ?start=&end= ending at
+	// YESTERDAY (today-1) because today's data loads tomorrow — NOT ?days=6.
 	if !strings.Contains(body, "start=") || !strings.Contains(body, "end=") {
 		t.Errorf("dashboard history self-load must carry absolute start=/end=; got: %s", body)
 	}
 	if strings.Contains(body, "days=6") {
 		t.Errorf("dashboard history self-load must NOT use ?days=6; got: %s", body)
 	}
-	today := startOfDay(time.Now()).Format("2006-01-02")
-	if !strings.Contains(body, "end="+today) {
-		t.Errorf("dashboard history self-load end= must be today (%s); got: %s", today, body)
+	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1).Format("2006-01-02")
+	if !strings.Contains(body, "end="+yesterday) {
+		t.Errorf("dashboard history self-load end= must be yesterday (%s); got: %s", yesterday, body)
 	}
 	// The Refresh button is GONE (removed by RM8 design D5).
 	if strings.Contains(body, ">Refresh<") {
