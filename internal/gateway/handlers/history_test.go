@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -142,6 +143,27 @@ func parseRange(start, end string) (time.Time, time.Time, bool) {
 	return parseHistoryRange(c)
 }
 
+// parseRangeWithTZ is parseRange with a browser_tz cookie — exercises the
+// browser-TZ-aware path of parseHistoryRange (the default end / the end<=today
+// cap). tz == "" leaves the cookie unset (UTC fallback).
+func parseRangeWithTZ(start, end, tz string) (time.Time, time.Time, bool) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	url := "/?"
+	if start != "" {
+		url += "start=" + start + "&"
+	}
+	if end != "" {
+		url += "end=" + end
+	}
+	req := httptest.NewRequest(http.MethodGet, url, nil)
+	if tz != "" {
+		req.AddCookie(&http.Cookie{Name: "browser_tz", Value: tz})
+	}
+	c.Request = req
+	return parseHistoryRange(c)
+}
+
 // --- parseHistoryRange unit tests (task 6.1, design D1) ---
 
 func TestParseHistoryRange_BothAbsent_DefaultSixDayWindow(t *testing.T) {
@@ -205,6 +227,122 @@ func TestParseHistoryRange_WindowOverNinetyDays(t *testing.T) {
 	// 2026-08-07 - 2026-05-01 = 98 days, end <= today, but window > 90.
 	if _, _, ok := parseRange("2026-05-01", "2026-08-07"); ok {
 		t.Error("want ok=false for window > 90 days")
+	}
+}
+
+// --- browser-TZ tests (gateway-browser-tz-cookie) ---
+
+func TestBrowserLocation_Fallbacks(t *testing.T) {
+	// No cookie -> UTC.
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	if loc := browserLocationFromHeader(r); loc != time.UTC {
+		t.Errorf("missing cookie: want UTC, got %v", loc)
+	}
+	// Valid IANA name -> that location.
+	r = httptest.NewRequest(http.MethodGet, "/", nil)
+	r.AddCookie(&http.Cookie{Name: "browser_tz", Value: "America/Bogota"})
+	if loc := browserLocationFromHeader(r); loc.String() != "America/Bogota" {
+		t.Errorf("valid cookie: want America/Bogota, got %v", loc)
+	}
+	// Malformed / not-in-IANA name -> UTC.
+	r = httptest.NewRequest(http.MethodGet, "/", nil)
+	r.AddCookie(&http.Cookie{Name: "browser_tz", Value: "Not/A/Zone"})
+	if loc := browserLocationFromHeader(r); loc != time.UTC {
+		t.Errorf("malformed cookie: want UTC, got %v", loc)
+	}
+	// Empty value -> UTC.
+	r = httptest.NewRequest(http.MethodGet, "/", nil)
+	r.AddCookie(&http.Cookie{Name: "browser_tz", Value: ""})
+	if loc := browserLocationFromHeader(r); loc != time.UTC {
+		t.Errorf("empty cookie: want UTC, got %v", loc)
+	}
+}
+
+// TestParseHistoryRange_DefaultUsesBrowserToday asserts that with a browser_tz
+// cookie, the default-absent window's end == browser-today (in the browser's
+// timezone), not UTC today. This proves parseHistoryRange consulted the cookie.
+func TestParseHistoryRange_DefaultUsesBrowserToday(t *testing.T) {
+	_, end, ok := parseRangeWithTZ("", "", "America/Bogota")
+	if !ok {
+		t.Fatal("want ok=true for both absent with a TZ cookie")
+	}
+	// Compute the expected browser-today the same way the helper does — in
+	// the test this is a deterministic mirror of what parseHistoryRange did.
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request.AddCookie(&http.Cookie{Name: "browser_tz", Value: "America/Bogota"})
+	wantEnd := browserToday(c)
+	if !end.Equal(wantEnd) {
+		t.Errorf("default end: want browser-today %v (loc %s), got %v (loc %s)",
+			wantEnd, wantEnd.Location(), end, end.Location())
+	}
+	if end.Location().String() != "America/Bogota" {
+		t.Errorf("default end Location: want America/Bogota, got %v", end.Location())
+	}
+}
+
+// TestParseHistoryRange_EndCapUsesBrowserToday asserts the end<=today cap
+// honors the browser's today. A direct UTC request with end=UTC-today is
+// accepted (UTC fallback); the same date in a TZ where UTC-today is already
+// tomorrow may be rejected — to keep the test deterministic, we compute the
+// cap boundary as browserToday+1day for the SAME cookie the handler sees.
+func TestParseHistoryRange_EndCapUsesBrowserToday(t *testing.T) {
+	// Build the same context the handler will see so the test's "browserToday"
+	// is the exact same instant the handler computes.
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	c.Request.AddCookie(&http.Cookie{Name: "browser_tz", Value: "America/Bogota"})
+	today := browserToday(c)
+	tomorrow := today.AddDate(0, 0, 1).Format("2006-01-02")
+	todayStr := today.Format("2006-01-02")
+
+	// end = browser-today → accepted.
+	if _, _, ok := parseRangeWithTZ(todayStr, todayStr, "America/Bogota"); !ok {
+		t.Errorf("end=today (browser): want ok=true, got false")
+	}
+	// end = browser-tomorrow → rejected (future in the browser's frame).
+	if _, _, ok := parseRangeWithTZ(todayStr, tomorrow, "America/Bogota"); ok {
+		t.Errorf("end=browser-tomorrow: want ok=false (future in browser TZ), got true")
+	}
+}
+
+// TestParseHistoryRange_NoCookieFallsBackToUTC asserts the UTC fallback: with
+// no browser_tz cookie, the default end == UTC-today (the pre-browser-TZ behavior).
+func TestParseHistoryRange_NoCookieFallsBackToUTC(t *testing.T) {
+	_, end, ok := parseRangeWithTZ("", "", "")
+	if !ok {
+		t.Fatal("want ok=true for both absent, no TZ cookie")
+	}
+	wantEnd := startOfDay(time.Now())
+	if !end.Equal(wantEnd) {
+		t.Errorf("no cookie: want UTC end %v, got %v", wantEnd, end)
+	}
+	if end.Location() != time.UTC {
+		t.Errorf("no cookie: want UTC location, got %v", end.Location())
+	}
+}
+
+// TestBaseAuth_RendersBrowserTZScript asserts the inline <script> that sets
+// the browser_tz cookie is present in the BaseAuth shell's rendered HTML, so
+// every authenticated page (dashboard, charges, supercharger, …) carries the
+// cookie setter. The script uses Intl.DateTimeFormat().resolvedOptions()
+// and persists the IANA name in a 1-year SameSite=Lax cookie.
+func TestBaseAuth_RendersBrowserTZScript(t *testing.T) {
+	w := httptest.NewRecorder()
+	if err := layouts.BaseAuth("Test", "/dashboard").Render(context.Background(), w); err != nil {
+		t.Fatalf("BaseAuth render: %v", err)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "browser_tz=") {
+		t.Errorf("BaseAuth must set the browser_tz cookie; got: %s", body)
+	}
+	if !strings.Contains(body, "Intl.DateTimeFormat().resolvedOptions().timeZone") {
+		t.Errorf("BaseAuth must read the IANA TZ via Intl.DateTimeFormat; got: %s", body)
+	}
+	if !strings.Contains(body, "SameSite=Lax") {
+		t.Errorf("BaseAuth cookie must be SameSite=Lax; got: %s", body)
 	}
 }
 
@@ -465,7 +603,7 @@ func TestBuildHistoryView_ReaderError_DegradesBothChartsEmpty(t *testing.T) {
 	h := newHandlerForHistory(reader, 42, "VIN42")
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
-	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end)
+	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
 	if !v.Odometer.Empty {
 		t.Error("want Odometer.Empty on reader error")
 	}
@@ -483,7 +621,7 @@ func TestBuildHistoryView_PassesReadStartLookbackToEndToReader(t *testing.T) {
 	h := newHandlerForHistory(reader, 42, "VIN42")
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
-	_ = h.buildHistoryView(context.Background(), uuid.New(), 42, start, end)
+	_ = h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
 	if !reader.betweenCalled {
 		t.Fatal("want SnapshotsByVehicleBetween called")
 	}
@@ -517,7 +655,7 @@ func TestBuildHistoryView_BothChartsShareFixedAxis(t *testing.T) {
 	snaps := snapsForDays(gapped, 1000, 10, 70)
 	reader := &fakeHistoryReader{historySnaps: snaps}
 	h := newHandlerForHistory(reader, 42, "VIN42")
-	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end)
+	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
 
 	numDays := int(end.Sub(start).Hours()/24) + 1 // 6
 	if len(v.Odometer.Bars) != numDays {
@@ -543,7 +681,7 @@ func TestBuildHistoryView_PresetsCarryAbsoluteHrefs(t *testing.T) {
 	h := newHandlerForHistory(reader, 42, "VIN42")
 	end := startOfDay(time.Now()).AddDate(0, 0, -1)
 	start := end.AddDate(0, 0, -historyRangeWindowDays)
-	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end)
+	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
 	if len(v.Presets) != len(historyPresetDayCounts) {
 		t.Fatalf("want %d presets, got %d", len(historyPresetDayCounts), len(v.Presets))
 	}
@@ -879,7 +1017,7 @@ func TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat(
 	}
 	body := w.Body.String()
 
-	v := h.buildHistoryView(context.Background(), uid, 42, start, end)
+	v := h.buildHistoryView(context.Background(), uid, 42, start, end, startOfDay(time.Now()))
 	if len(v.Odometer.Bars) == 0 || len(v.Battery.Bars) == 0 {
 		t.Fatal("want non-empty odometer and battery bars for this fixture")
 	}

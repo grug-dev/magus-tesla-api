@@ -68,20 +68,25 @@ func effectiveDayUTC(t time.Time) time.Time {
 // or the zero values and ok=false when the request is malformed. The handler
 // renders HTTP 400 on ok=false.
 //
+// "Today" is the browser's today (browserToday(c)), so a user in PST at 10pm
+// local can still request end=their-local-today without a spurious 400 from
+// the UTC cap. Direct API callers without a browser_tz cookie get UTC today.
+//
 // Validation, in order:
-//  1. Both absent → default 6-day window (end = today UTC midnight,
+//  1. Both absent → default 6-day window (end = browser-today UTC midnight,
 //     start = end.AddDate(0,0,-historyRangeWindowDays)), ok=true.
 //  2. Either present → both required and well-formed YYYY-MM-DD.
 //  3. end >= start (end.Before(start) → false).
-//  4. end <= today (end.After(startOfDay(now)) → false — no future dates).
+//  4. end <= browser-today (end.After(browserToday(c)) → false — no future dates).
 //  5. Window <= historyRangeMaxDays days (read-path protection).
 func parseHistoryRange(c *gin.Context) (start, end time.Time, ok bool) {
 	rawStart := c.Query("start")
 	rawEnd := c.Query("end")
+	today := browserToday(c)
 
 	// 1. Default window when both are absent.
 	if rawStart == "" && rawEnd == "" {
-		end = startOfDay(time.Now())
+		end = today
 		start = end.AddDate(0, 0, -historyRangeWindowDays)
 		return start, end, true
 	}
@@ -102,8 +107,13 @@ func parseHistoryRange(c *gin.Context) (start, end time.Time, ok bool) {
 	if e.Before(s) {
 		return time.Time{}, time.Time{}, false
 	}
-	// 4. end <= today.
-	if e.After(startOfDay(time.Now())) {
+	// 4. end <= browser-today (compare calendar days — both are midnight in
+	// their respective locations, so .After is a clean day compare once they
+	// share a frame; today is in browser TZ, e is UTC midnight — direct .After
+	// compares wall-clock instants, which is right here: a UTC-midnight e that
+	// is later than browser-today's midnight instant is a future day in the
+	// browser's frame).
+	if e.After(today) {
 		return time.Time{}, time.Time{}, false
 	}
 	// 5. Window <= max days (inclusive end → width in days = end-start+1 ≤ max+1
@@ -152,7 +162,7 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		v := fragments.HistoryView{
 			Start:   start,
 			End:     end,
-			Presets: buildHistoryPresets(start, end),
+			Presets: buildHistoryPresets(start, end, browserToday(c)),
 			Odometer: fragments.HistoryChart{Empty: true},
 			Battery:  fragments.HistoryChart{Empty: true},
 		}
@@ -160,7 +170,7 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		return
 	}
 
-	v := h.buildHistoryView(c.Request.Context(), uid, selected.TeslaID, start, end)
+	v := h.buildHistoryView(c.Request.Context(), uid, selected.TeslaID, start, end, browserToday(c))
 	renderFragment(c, http.StatusOK, pages.DashboardHistory(v), "dashboard-history")
 }
 
@@ -170,9 +180,11 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 // would always show an empty last bar), pStart = pEnd.AddDate(0,0,-n), the
 // absolute href is pre-formatted, and Active is true when (Start, End) matches
 // the requested (start, end) window. A custom (non-preset) window marks no
-// preset active — the selector renders all-ghost.
-func buildHistoryPresets(start, end time.Time) []fragments.RangePreset {
-	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)
+// preset active — the selector renders all-ghost. today is the caller's
+// "browser today" (browserToday(c)) so "yesterday" is the user's local
+// yesterday, not UTC's — direct API callers without a cookie pass UTC today.
+func buildHistoryPresets(start, end, today time.Time) []fragments.RangePreset {
+	yesterday := today.AddDate(0, 0, -1)
 	out := make([]fragments.RangePreset, 0, len(historyPresetDayCounts))
 	for _, n := range historyPresetDayCounts {
 		pEnd := yesterday
@@ -198,11 +210,11 @@ func buildHistoryPresets(start, end time.Time) []fragments.RangePreset {
 //
 // On reader error the function degrades (both charts empty) rather than
 // panicking or returning a 500 — resilience mirrors dashboardFor.
-func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID int64, start, end time.Time) fragments.HistoryView {
+func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID int64, start, end, today time.Time) fragments.HistoryView {
 	v := fragments.HistoryView{
 		Start:   start,
 		End:     end,
-		Presets: buildHistoryPresets(start, end),
+		Presets: buildHistoryPresets(start, end, today),
 	}
 
 	// 1-day lookback: fetch from readStart so the snapshot whose EffectiveDate
