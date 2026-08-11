@@ -33,7 +33,9 @@ type ChargeEntryVM struct {
 	VehicleValue       string // "{TeslaID}:{VIN}" — pre-built form value for the edit form's hidden vehicle input (keeps the template logic-free, D6)
 }
 
-// VehicleOptionVM is one option in the vehicle picker <select> of the create/edit form.
+// VehicleOptionVM is one option in the nav-header vehicle context-switcher <select>
+// (see fragments.NavHeaderVM.Vehicles). The manual-charge create/edit form has no
+// vehicle picker of its own — it sources the vehicle from the switcher (design.md D4).
 type VehicleOptionVM struct {
 	TeslaID     int64
 	VIN         string
@@ -45,13 +47,11 @@ type VehicleOptionVM struct {
 // ChargesPageData is the full-page data for the charge log page and its fragments.
 // All fields are presentation-ready; no domain types or pgtype values.
 type ChargesPageData struct {
-	Entries        []ChargeEntryVM
-	VehicleOptions []VehicleOptionVM
-	ActiveTeslaID  int64  // 0 if no vehicle filter; used to pre-select the picker
-	CSRFToken      string // for form hidden inputs
-	EmptyState     bool   // true when Entries is empty and no error occurred
-	Error          string // non-empty if a reader error degraded the page gracefully
-	SingleVehicle  bool   // true when len(VehicleOptions)==1; drives disabled+hidden-input branch
+	Entries       []ChargeEntryVM
+	ActiveTeslaID int64  // 0 if no vehicle filter; used to pre-select the picker
+	CSRFToken     string // for form hidden inputs
+	EmptyState    bool   // true when Entries is empty and no error occurred
+	Error         string // non-empty if a reader error degraded the page gracefully
 
 	// DefaultStartedAt / DefaultEndedAt are the today's-date defaults (D1) for the
 	// optional started_at / ended_at inputs on the create form, pre-formatted by the

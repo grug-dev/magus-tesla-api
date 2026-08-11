@@ -27,6 +27,7 @@ type fakeChargeWriter struct {
 	updateEntry manualcharge.Entry
 	updateErr   error
 	deleteErr   error
+	deleteCalls int // count of Delete invocations — lets tests assert a rejected write never reached the port
 }
 
 func (f *fakeChargeWriter) Create(_ context.Context, e manualcharge.Entry) (manualcharge.Entry, error) {
@@ -50,6 +51,7 @@ func (f *fakeChargeWriter) Update(_ context.Context, e manualcharge.Entry) (manu
 }
 
 func (f *fakeChargeWriter) Delete(_ context.Context, _ uuid.UUID, _ uuid.UUID) error {
+	f.deleteCalls++
 	return f.deleteErr
 }
 
@@ -701,6 +703,13 @@ func TestChargeRowDelete_StaleCSRF_RejectedNotAlerted(t *testing.T) {
 		t.Errorf("403 CSRF-rejection must not swap the row (no <tr> in body), got %q",
 			w.Body.String()[:min(200, w.Body.Len())])
 	}
+	// F4 (MAG-5 follow-up): the stale-CSRF path must fail BEFORE reaching
+	// manualcharge.Writer.Delete — asserting only the HTTP response left this
+	// test blind to a bug where checkCSRF rejects the response but the handler
+	// still called Delete. Assert the write never happened.
+	if writer.deleteCalls != 0 {
+		t.Errorf("Writer.Delete must NOT be called on stale/missing CSRF, got %d call(s)", writer.deleteCalls)
+	}
 }
 
 // --- R1/R2 regression: empty-session CSRF must fail closed ---
@@ -814,40 +823,6 @@ func min(a, b int) int {
 
 // --- unit tests for pure helpers ---
 
-// TestParseVehicleValue verifies the combined "{teslaID}:{vin}" parser.
-func TestParseVehicleValue(t *testing.T) {
-	cases := []struct {
-		input   string
-		wantID  int64
-		wantVIN string
-		wantErr bool
-	}{
-		{"1001:VIN1001", 1001, "VIN1001", false},
-		{"42:5YJSA1E67MF123456", 42, "5YJSA1E67MF123456", false},
-		{"", 0, "", true},
-		{"abc:VIN", 0, "", true},
-		{"1001:", 0, "", true},
-		{"999", 0, "", true},
-	}
-	for _, tc := range cases {
-		id, vin, err := parseVehicleValue(tc.input)
-		if tc.wantErr {
-			if err == nil {
-				t.Errorf("parseVehicleValue(%q): want error, got id=%d vin=%q", tc.input, id, vin)
-			}
-			continue
-		}
-		if err != nil {
-			t.Errorf("parseVehicleValue(%q): unexpected error: %v", tc.input, err)
-			continue
-		}
-		if id != tc.wantID || vin != tc.wantVIN {
-			t.Errorf("parseVehicleValue(%q): want id=%d vin=%q, got id=%d vin=%q",
-				tc.input, tc.wantID, tc.wantVIN, id, vin)
-		}
-	}
-}
-
 // TestChargeEntryVMFromEntry verifies the view model mapping pre-computes derived fields.
 func TestChargeEntryVMFromEntry(t *testing.T) {
 	start := time.Date(2026, 7, 15, 10, 0, 0, 0, time.UTC)
@@ -913,35 +888,6 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 	}
 	if vm.VIN != "VIN1001" {
 		t.Errorf("want VIN VIN1001, got %q", vm.VIN)
-	}
-}
-
-// TestBuildVehicleOptions verifies vehicle picker option generation (legacy two-vehicle case).
-func TestBuildVehicleOptions(t *testing.T) {
-	owner := "OWNER"
-	vehicles := []account.Vehicle{
-		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus", AccessType: &owner},
-		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "Other"},
-	}
-	opts, single := buildVehicleOptions(vehicles)
-	if len(opts) != 2 {
-		t.Fatalf("want 2 options, got %d", len(opts))
-	}
-	if single {
-		t.Errorf("want SingleVehicle false for 2 vehicles, got true")
-	}
-	// First vehicle is OWNER — should be selected.
-	if !opts[0].Selected {
-		t.Errorf("want first (OWNER) option Selected=true, got false")
-	}
-	if opts[1].Selected {
-		t.Errorf("want second option Selected=false, got true")
-	}
-	if opts[0].Value != "1001:VIN1001" {
-		t.Errorf("want value 1001:VIN1001, got %q", opts[0].Value)
-	}
-	if opts[1].Value != "2002:VIN2002" {
-		t.Errorf("want value 2002:VIN2002, got %q", opts[1].Value)
 	}
 }
 
@@ -1091,115 +1037,10 @@ func TestChargeCreate_ValidLocationKind(t *testing.T) {
 	}
 }
 
-// --- Sub-task D: vehicle auto-select unit tests ---
-
-// ptrStr is a helper to take the address of a string literal in tests.
+// ptrStr is a helper to take the address of a string literal in tests. Still used
+// by supercharger_test.go after the vehicle-auto-select tests (buildVehicleOptions,
+// removed with its dead call chain — MAG-5 follow-up F1) were deleted here.
 func ptrStr(s string) *string { return &s }
-
-// TestBuildVehicleOptions_SingleVehicle: one vehicle → Selected=true, SingleVehicle=true.
-func TestBuildVehicleOptions_SingleVehicle(t *testing.T) {
-	vehicles := []account.Vehicle{
-		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
-	}
-	opts, single := buildVehicleOptions(vehicles)
-	if !single {
-		t.Errorf("want SingleVehicle=true for 1 vehicle, got false")
-	}
-	if len(opts) != 1 {
-		t.Fatalf("want 1 option, got %d", len(opts))
-	}
-	if !opts[0].Selected {
-		t.Errorf("want sole vehicle Selected=true, got false")
-	}
-}
-
-// TestBuildVehicleOptions_MultiVehicleOwnerFirst: second vehicle is OWNER → second Selected.
-func TestBuildVehicleOptions_MultiVehicleOwnerFirst(t *testing.T) {
-	vehicles := []account.Vehicle{
-		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Driver", AccessType: ptrStr("DRIVER")},
-		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "Owner", AccessType: ptrStr("OWNER")},
-	}
-	opts, single := buildVehicleOptions(vehicles)
-	if single {
-		t.Errorf("want SingleVehicle=false for 2 vehicles, got true")
-	}
-	if len(opts) != 2 {
-		t.Fatalf("want 2 options, got %d", len(opts))
-	}
-	if opts[0].Selected {
-		t.Errorf("want first (DRIVER) option Selected=false, got true")
-	}
-	if !opts[1].Selected {
-		t.Errorf("want second (OWNER) option Selected=true, got false")
-	}
-}
-
-// TestBuildVehicleOptions_MultiVehicleNoOwner: no OWNER → first vehicle Selected.
-func TestBuildVehicleOptions_MultiVehicleNoOwner(t *testing.T) {
-	vehicles := []account.Vehicle{
-		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "First"},
-		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "Second"},
-	}
-	opts, single := buildVehicleOptions(vehicles)
-	if single {
-		t.Errorf("want SingleVehicle=false for 2 vehicles, got true")
-	}
-	if !opts[0].Selected {
-		t.Errorf("want first option Selected=true when no OWNER, got false")
-	}
-	if opts[1].Selected {
-		t.Errorf("want second option Selected=false when no OWNER, got true")
-	}
-}
-
-// TestBuildVehicleOptions_MultiVehicleFirstOwner: first vehicle is OWNER → first Selected.
-func TestBuildVehicleOptions_MultiVehicleFirstOwner(t *testing.T) {
-	vehicles := []account.Vehicle{
-		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "First", AccessType: ptrStr("OWNER")},
-		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "Second"},
-	}
-	opts, single := buildVehicleOptions(vehicles)
-	if single {
-		t.Errorf("want SingleVehicle=false for 2 vehicles, got true")
-	}
-	if !opts[0].Selected {
-		t.Errorf("want first (OWNER) option Selected=true, got false")
-	}
-	if opts[1].Selected {
-		t.Errorf("want second option Selected=false, got true")
-	}
-}
-
-// TestBuildVehicleOptions_NilAccessType: nil AccessType treated as non-OWNER;
-// when sole vehicle, still Selected=true with SingleVehicle=true.
-func TestBuildVehicleOptions_NilAccessType(t *testing.T) {
-	vehicles := []account.Vehicle{
-		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus", AccessType: nil},
-	}
-	opts, single := buildVehicleOptions(vehicles)
-	if !single {
-		t.Errorf("want SingleVehicle=true for 1 vehicle with nil AccessType, got false")
-	}
-	if !opts[0].Selected {
-		t.Errorf("want sole vehicle Selected=true even with nil AccessType, got false")
-	}
-
-	// Multi-vehicle with nil AccessType on all → first selected.
-	vehicles2 := []account.Vehicle{
-		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "A", AccessType: nil},
-		{TeslaID: 2002, VIN: "VIN2002", DisplayName: "B", AccessType: nil},
-	}
-	opts2, single2 := buildVehicleOptions(vehicles2)
-	if single2 {
-		t.Errorf("want SingleVehicle=false for 2 vehicles, got true")
-	}
-	if !opts2[0].Selected {
-		t.Errorf("want first option Selected=true when all AccessType=nil, got false")
-	}
-	if opts2[1].Selected {
-		t.Errorf("want second option Selected=false when all AccessType=nil, got true")
-	}
-}
 
 // --- charges content fragment + vehicle-switch refresh (GET /ui/charges) ---
 

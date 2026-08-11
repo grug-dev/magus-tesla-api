@@ -371,18 +371,6 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		vms = append(vms, chargeEntryVMFromEntry(e, vehicles))
 	}
 
-	opts, singleVehicle := buildVehicleOptions(vehicles)
-
-	// Re-mark the picker Selected flag to the resolved context vehicle (the
-	// filter) instead of buildVehicleOptions' default (first OWNER). With the
-	// sidebar switcher driving context, the create form must default to the
-	// vehicle the user currently has selected, not the auto-pick.
-	if teslaIDFilter != 0 && !singleVehicle {
-		for i := range opts {
-			opts[i].Selected = opts[i].TeslaID == teslaIDFilter
-		}
-	}
-
 	// D1: default started_at / ended_at to today's calendar day (UTC midnight) so
 	// the optional date fields on the create form render pre-populated. The
 	// template emits them verbatim into the input's value attribute — no time
@@ -412,15 +400,13 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 	}
 
 	return fragments.ChargesPageData{
-		Entries:                  vms,
-		VehicleOptions:           opts,
-		ActiveTeslaID:            teslaIDFilter,
-		CSRFToken:                csrfToken,
-		EmptyState:               len(vms) == 0 && pageError == "",
-		Error:                    pageError,
-		SingleVehicle:            singleVehicle,
-		DefaultStartedAt:         todayDate,
-		DefaultEndedAt:           todayDate,
+		Entries:                   vms,
+		ActiveTeslaID:             teslaIDFilter,
+		CSRFToken:                 csrfToken,
+		EmptyState:                len(vms) == 0 && pageError == "",
+		Error:                     pageError,
+		DefaultStartedAt:          todayDate,
+		DefaultEndedAt:            todayDate,
 		StartBatteryPctSuggestion: suggestion,
 	}
 }
@@ -572,48 +558,6 @@ func vehicleLabelFor(teslaID int64, vehicles []account.Vehicle) string {
 		}
 	}
 	return strconv.FormatInt(teslaID, 10)
-}
-
-// buildVehicleOptions converts registered vehicles to form picker options and applies
-// the RD4 auto-select rule. It returns the options slice and a singleVehicle flag.
-//
-// Auto-select rule (RD4):
-//  1. Exactly one vehicle → select it; singleVehicle = true (template renders disabled+hidden).
-//  2. Multiple vehicles: find first where AccessType == "OWNER" → select it.
-//  3. Multiple vehicles, no OWNER → select the first.
-//
-// Exactly one option has Selected = true when len > 0. Templates must not
-// inspect AccessType — the Selected flag is the only presentation signal.
-func buildVehicleOptions(vehicles []account.Vehicle) ([]fragments.VehicleOptionVM, bool) {
-	if len(vehicles) == 0 {
-		return nil, false
-	}
-
-	opts := make([]fragments.VehicleOptionVM, 0, len(vehicles))
-	for _, v := range vehicles {
-		opts = append(opts, fragments.VehicleOptionVM{
-			TeslaID:     v.TeslaID,
-			VIN:         v.VIN,
-			DisplayName: v.DisplayName,
-			Value:       fmt.Sprintf("%d:%s", v.TeslaID, v.VIN),
-		})
-	}
-
-	if len(opts) == 1 {
-		opts[0].Selected = true
-		return opts, true
-	}
-
-	// Multiple vehicles: find the first OWNER (nil-safe pointer deref).
-	selectedIdx := 0
-	for i, v := range vehicles {
-		if v.AccessType != nil && *v.AccessType == "OWNER" {
-			selectedIdx = i
-			break
-		}
-	}
-	opts[selectedIdx].Selected = true
-	return opts, false
 }
 
 // parseChargeForm parses and validates the charge form from a Gin context.
@@ -802,23 +746,6 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 	}
 
 	return entry, nil, true
-}
-
-// parseVehicleValue splits a combined "{teslaID}:{vin}" form value.
-func parseVehicleValue(v string) (int64, string, error) {
-	idx := strings.Index(v, ":")
-	if idx < 1 {
-		return 0, "", fmt.Errorf("invalid vehicle value: %q", v)
-	}
-	id, err := strconv.ParseInt(v[:idx], 10, 64)
-	if err != nil {
-		return 0, "", fmt.Errorf("invalid tesla id in vehicle value: %w", err)
-	}
-	vin := v[idx+1:]
-	if vin == "" {
-		return 0, "", fmt.Errorf("empty vin in vehicle value: %q", v)
-	}
-	return id, vin, nil
 }
 
 // vehicleOwned returns true if the (teslaID, vin) pair belongs to the user's

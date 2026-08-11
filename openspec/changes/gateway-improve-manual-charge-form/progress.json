@@ -4,8 +4,8 @@
   "change": "gateway-improve-manual-charge-form",
   "module": "gateway",
   "roadmap": null,
-  "request": "MAG-5 \u2014 New records improvements. Six gateway-side form/handler fixes for the manual charge 'Log a charge' page: (1) delete-row alert bug; (2) remove the vehicle field \u2014 sourced from the menu vehicle selector; (3) disable currency \u2014 always COP; (4) make start/end battery % required + suggest the latest telemetry battery % on the start field; (5) auto-fill today's date on optional started_at/ended_at and move them up from 'More details' to the main card; (6) allow 3 decimals on energy added, keeping the nearest-valid-range helper applied after 3 decimals. Single-module (internal/gateway), no DB object, no manualcharge/telemetry module change.",
-  "status": "applied",
+  "request": "MAG-5 — New records improvements. Six gateway-side form/handler fixes for the manual charge 'Log a charge' page: (1) delete-row alert bug; (2) remove the vehicle field — sourced from the menu vehicle selector; (3) disable currency — always COP; (4) make start/end battery % required + suggest the latest telemetry battery % on the start field; (5) auto-fill today's date on optional started_at/ended_at and move them up from 'More details' to the main card; (6) allow 3 decimals on energy added, keeping the nearest-valid-range helper applied after 3 decimals. Single-module (internal/gateway), no DB object, no manualcharge/telemetry module change.",
+  "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [],
@@ -44,7 +44,7 @@
     ]
   },
   "created_at": "2026-08-11T16:34:28Z",
-  "updated_at": "2026-08-11T22:05:11Z",
+  "updated_at": "2026-08-11T22:22:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -185,7 +185,7 @@
       "started_at": "2026-08-11T20:38:23Z",
       "completed_at": "2026-08-11T20:43:44Z",
       "duration_seconds": 321,
-      "notes": "Currency input is now a disabled, read-only COP input (added Disabled bool to ui.InputProps mirroring ui.SelectProps.Disabled \u2014 not a new wrapper).",
+      "notes": "Currency input is now a disabled, read-only COP input (added Disabled bool to ui.InputProps mirroring ui.SelectProps.Disabled — not a new wrapper).",
       "budget": null
     },
     {
@@ -335,7 +335,7 @@
     },
     {
       "id": "T5.3",
-      "title": "parseChargeForm: optional-handling for started_at/ended_at stays \u2014 clearing either still persists nil (D1 optional)",
+      "title": "parseChargeForm: optional-handling for started_at/ended_at stays — clearing either still persists nil (D1 optional)",
       "module": "gateway",
       "depends_on": [
         "T5.1",
@@ -457,7 +457,7 @@
     },
     {
       "id": "T7.3",
-      "title": "make check passes (build+vet+ui-guard+tests) \u2014 authorized for this repo per CLAUDE.md",
+      "title": "make check passes (build+vet+ui-guard+tests) — authorized for this repo per CLAUDE.md",
       "module": "gateway",
       "depends_on": [
         "T7.2",
@@ -530,7 +530,7 @@
     },
     {
       "id": "T8.3",
-      "title": "Confirm git diff --stat internal/manualcharge internal/telemetry is empty \u2014 module boundary held",
+      "title": "Confirm git diff --stat internal/manualcharge internal/telemetry is empty — module boundary held",
       "module": "gateway",
       "depends_on": [
         "T8.1"
@@ -542,15 +542,90 @@
       "started_at": "2026-08-11T20:38:23Z",
       "completed_at": "2026-08-11T20:43:44Z",
       "duration_seconds": 321,
-      "notes": "git diff --stat internal/manualcharge internal/telemetry internal/account is EMPTY \u2014 boundary held.",
+      "notes": "git diff --stat internal/manualcharge internal/telemetry internal/account is EMPTY — boundary held.",
       "budget": null
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review commit c1a2bab (wave 1) for gateway-improve-manual-charge-form, MAG-5. Read the diff, not the whole module. Validate: (1) D1-D7 in design.md are each implemented as specified — flag any deviation, especially D2's suggestion rendered as an input placeholder rather than a helper label, and D5's new Disabled flag on ui.InputProps; (2) the D3 CSRF fix is genuinely fail-closed — checkCSRF/subtle.ConstantTimeCompare must not be weakened, and the hx-headers path must not open a bypass; (3) module boundary — no edits outside internal/gateway, other modules reached only via their public ports (telemetry.Reader, manualcharge.Reader/Writer), no internal/*/db import; (4) doc-pack conventions: ai/htmx-conventions.md and ai/htmx-go-integration.md for the markup and fragment wiring, ai/go-conventions.md incl. the km/percent unit-suffix rule, no business logic in templates (today's date is handler-computed); (5) Performance-Profile read-heavy — the added LatestSnapshotsByAccount call must be ONE read per page build, no per-row or per-request N+1, and graceful on error; (6) tests actually assert the new behavior (battery required + out-of-range, 3-decimal energy persisted, date defaults, suggestion present/absent, delete 200 + empty row, stale-CSRF 403 with no writer call) rather than restating it; (7) anti-gaming — no acceptance criterion in tasks.md was weakened, deleted, or self-approved, and every [x] matches real code. Known-open and NOT a finding: T7.4 (live browser smoke) is blocked pending the user. No DB object exists in this change; the database design gate does not apply. Escalate on doubt: return changes-requested for leader re-review rather than approving anything uncertain.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-11T22:11:52Z",
+        "agent": "gateway-reviewer",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "internal/gateway/AGENTS.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "ai/agentic-workflow.md",
+          "openspec/changes/gateway-improve-manual-charge-form/proposal.md",
+          "openspec/changes/gateway-improve-manual-charge-form/design.md",
+          "openspec/changes/gateway-improve-manual-charge-form/tasks.md",
+          "openspec/changes/gateway-improve-manual-charge-form/specs/gateway/spec.md"
+        ],
+        "verification_run": [
+          "go build ./...",
+          "go vet ./internal/gateway/...",
+          "go test ./internal/gateway/...",
+          "make ui-guard",
+          "gofmt -l (spot check)"
+        ],
+        "design_crosscheck": {
+          "D1": "match — dates moved into main grid, today default computed in handler (charges.go buildChargesPage), fields stay optional (parseChargeForm unchanged optional handling).",
+          "D2": "match — suggestion rendered as HTML placeholder attribute; design.md itself says 'a placeholder / helper-label string' and spec.md scenario says 'a helper label or placeholder' — placeholder is explicitly authorized, not a deviation. Graceful empty on miss/error verified in code and tests.",
+          "D3": "match — root cause (DELETE body not parsed by net/http, only POST/PUT/PATCH are, per Go's ParseForm) is technically accurate; fix moves the CSRF token to the X-CSRF-Token header via hx-headers in charge_row.templ. checkCSRF/checkCSRFKey/subtle.ConstantTimeCompare are byte-for-byte unchanged (confirmed via diff) — fail-closed preserved, no bypass introduced (empty want still rejects, header fallback pre-existed).",
+          "D4": "match — vehicle sourced via resolveSelectedVehicle in parseChargeForm (shared by Create and Update), ownership check kept as defense-in-depth, no-resolvable-vehicle path returns 422 with _top error, Writer not called. Note: because parseChargeForm is shared, ChargeRowUpdate also now re-resolves vehicle from the CURRENT session selection rather than the entry's original vehicle — this is exactly what design.md's D4 text specifies (no create/update carve-out) and no spec scenario contradicts it, so not a deviation, but flagged below for leader awareness.",
+          "D5": "match — ui.InputProps gained Disabled bool mirroring the pre-existing ui.SelectProps.Disabled (verified SelectProps.Disabled predates this change); tasks.md T3.1 explicitly authorized reusing/extending ui.Input's disabled affordance and forbade a new ui/ wrapper. Currency hardcoded 'COP' in parseChargeForm; disabled input confirmed not submitted.",
+          "D6": "match — start/end battery % required + 0-100 range validated in parseChargeForm, non-nil *int on success, no relative-order check (matches rejected-alternative note). Applied consistently to both create and edit forms since parseChargeForm is shared.",
+          "D7": "match — step widened 0.01 -> 0.001 in both charge_create_form.templ and charge_row_edit.templ, no server-side rounding added, ParseFloat unchanged, energy<=0 rejection preserved."
+        },
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "Dead code left from D4's vehicle-field removal: buildVehicleOptions() (charges.go:587), ChargesPageData.VehicleOptions/SingleVehicle (charges_vm.go), and parseVehicleValue() (charges.go:808) are still computed/defined but no .templ file references VehicleOptions or SingleVehicle anymore (verified via grep — zero hits). Recommend removing in a follow-up cleanup.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/charges.go is not gofmt-clean after this diff — gofmt -l flags it; gofmt -d shows misaligned struct-literal fields in the ChargesPageData{} (~L412) and ChargeEntryVM{} (~L537) literals this change touched. Run gofmt -w before merge.",
+            "status": "rejected",
+            "triage": "rejected"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "charge_row.templ:47-56 has broken/inconsistent indentation around the Delete button's Attrs map (not run through `templ fmt`); charge_row_edit.templ and charge_create_form.templ are both missing a trailing newline at EOF. Cosmetic only — compiles clean, make check green.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "F4",
+            "severity": "minor",
+            "note": "TestChargeRowDelete_StaleCSRF_RejectedNotAlerted (charges_test.go:679) asserts 403 + no <tr in body but does NOT assert 'Writer never called' as the review brief's item 6 required — fakeChargeWriter.Delete has no call-tracking state to verify this. I independently confirmed via code (charges.go:321-323: checkCSRF returning false hits `return` before the Delete call) that the behavior is correct, but the test doesn't lock it in against regression. Recommend adding a deleteCalled bool to the fake.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "F5",
+            "severity": "minor",
+            "note": "Informational, not a functional bug: because parseChargeForm (D4) is shared by ChargeCreate and ChargeRowUpdate, editing an existing row now re-derives TeslaID/VIN from the CURRENT session-selected vehicle rather than preserving the entry's original vehicle — a stale multi-tab edit could silently reassign an entry to a different (still same-account) vehicle. Matches design.md's literal D4 instruction and no spec scenario contradicts it; not a tenant-boundary violation (vehicleOwned still scopes to the account). Flagging for the leader/user's awareness as a possible follow-up hardening item, not blocking this change.",
+            "status": "rejected",
+            "triage": "rejected"
+          }
+        ],
+        "summary": "D1-D7 all implemented as design.md authorizes, including the two flagged judgment calls (D2 placeholder, D5 Disabled-on-InputProps) which design.md/tasks.md explicitly permit. D3's CSRF fix is genuinely fail-closed: checkCSRF/checkCSRFKey/subtle.ConstantTimeCompare are untouched by the diff; only the wire path (header vs body) changed, and the root-cause diagnosis (Go's net/http ParseForm only reads the body for POST/PUT/PATCH, not DELETE) is technically correct. Module boundary is clean: commit touches only internal/gateway files + change artifacts; no internal/manualcharge or internal/telemetry file changed; no telemetrydb/manualchargedb/pgtype import in the gateway. LatestSnapshotsByAccount is called exactly once per buildChargesPage (not per-row), degrades gracefully to an empty suggestion on miss or reader error without failing the page. Tests are honest and substantive (exact-value assertions, not just status codes) with one minor coverage gap (F4). No task or acceptance criterion was reworded/weakened — tasks.md diff shows only checkbox flips. Independently re-ran go build/vet/test + make ui-guard, all green. Five minor findings recorded for optional cleanup; none rise to major/blocker.",
+        "duration_seconds": 355
+      }
+    ]
   },
   "decisions": [
     {
@@ -568,7 +643,7 @@
       "scope": "change",
       "made_by": "user",
       "decision": "Suggest the active vehicle's latest telemetry snapshot battery % as the start_battery_pct default (helper label), via the existing telemetry.Reader.LatestSnapshotsByAccount port; render no suggestion when no snapshot exists.",
-      "why": "Multiple plausible sources existed (latest telemetry, last entry's end_battery_pct, both); user chose latest telemetry for fidelity to 'current battery percentage'. Reuses an existing port \u2014 no telemetry-module change.",
+      "why": "Multiple plausible sources existed (latest telemetry, last entry's end_battery_pct, both); user chose latest telemetry for fidelity to 'current battery percentage'. Reuses an existing port — no telemetry-module change.",
       "covered_by": "Step 2 interview (item 4); design.md D2"
     },
     {
@@ -577,7 +652,7 @@
       "scope": "change",
       "made_by": "leader",
       "decision": "Treat the delete-row alert (T1) as a gateway-scoped root-cause task (reproduce-then-fix) rather than prescribing a fix up front; if the root cause turns out to be a manualcharge Writer/service bug, mark T1 blocked and re-dispatch as a separate manualcharge-* change.",
-      "why": "The alert has three plausible gateway root causes (stale CSRF \u2192 403, target/swap mismatch, Writer-error \u2192 ChargeRowError 500); fixing blind would bake in a guess. The boundary 'no manualcharge change' holds only if the bug is gateway-side.",
+      "why": "The alert has three plausible gateway root causes (stale CSRF → 403, target/swap mismatch, Writer-error → ChargeRowError 500); fixing blind would bake in a guess. The boundary 'no manualcharge change' holds only if the bug is gateway-side.",
       "covered_by": "design.md D3 + tasks.md 'Blocker note'"
     },
     {
@@ -586,15 +661,42 @@
       "scope": "change",
       "made_by": "leader",
       "decision": "Run the dev-harness pipeline under opencode in degraded budget mode (budget: null, checkpoints warn-only) but with real kkpa-module-worker / kkpa-module-reviewer subagent dispatch via the Task tool.",
-      "why": "opencode exposes the module-scoped worker/reviewer agent types, so roles are real subagents (not serial hats). The statusline budget cache is a Codex payload and is foreign under opencode, so per-task budget and auto-checkpoint degrade to warn-only \u2014 the pipeline never blocks on budget unavailability.",
+      "why": "opencode exposes the module-scoped worker/reviewer agent types, so roles are real subagents (not serial hats). The statusline budget cache is a Codex payload and is foreign under opencode, so per-task budget and auto-checkpoint degrade to warn-only — the pipeline never blocks on budget unavailability.",
       "covered_by": "Step 0.7 runtime capability probe"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-11T22:15:00Z",
+      "scope": "review:F2",
+      "made_by": "leader",
+      "decision": "REJECTED review finding F2 (charges.go not gofmt-clean). Not fixed in this change; logged for a separate repo-wide cleanup.",
+      "why": "Verified pre-existing, not introduced here: the HEAD~1 copy of charges.go is already listed by gofmt -l, 22 files repo-wide are unformatted, the Makefile has no fmt/gofmt target, and ai/go-conventions.md never mandates gofmt. Formatting only this one file would be an inconsistent, diff-noisy fix to a repo-wide condition.",
+      "covered_by": "leader triage, review round 1"
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-11T22:15:00Z",
+      "scope": "review:F5",
+      "made_by": "leader",
+      "decision": "REJECTED F5 as a code change in this round; escalated to the user as a behavior question instead. Row EDIT re-derives the vehicle from the CURRENT session selection because parseChargeForm is shared with create.",
+      "why": "Reviewer itself rated it informational and confirmed it matches design.md's literal text with no spec scenario contradicting it, and it is not a tenant-boundary hole (vehicleOwned still applies). Changing edit semantics after approval is a user decision, not a leader one.",
+      "covered_by": "leader triage, review round 1"
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-11T22:15:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Ran a post-approval cleanup wave for F1/F3/F4 and set status back to in-progress, requiring the reviewer to re-verify (round 2) before archive.",
+      "why": "The findings are cheap and are residue of this change's own D4 removal; archiving on a round-1 approval that predates new code would be a stale gate.",
+      "covered_by": "SKILL.md Step 7.3"
     }
   ],
   "events": [
     {
       "at": "2026-08-11T16:30:00Z",
       "agent": "leader",
-      "event": "Step 0: discovered project \u2014 Modules-Root=internal/, Doc-Pack base=CLAUDE.md+ai/architecture.md+ai/go-conventions.md, Design-Gates=database, Performance-Profile=read-heavy. Runtime=opencode (real subagents, budget degraded)."
+      "event": "Step 0: discovered project — Modules-Root=internal/, Doc-Pack base=CLAUDE.md+ai/architecture.md+ai/go-conventions.md, Design-Gates=database, Performance-Profile=read-heavy. Runtime=opencode (real subagents, budget degraded)."
     },
     {
       "at": "2026-08-11T16:31:00Z",
@@ -625,6 +727,21 @@
       "at": "2026-08-11T22:05:11Z",
       "agent": "leader",
       "event": "Step 5 reconcile (wave 1, implemented under opencode, never reconciled): tasks[] showed 28 done + T7.4 blocked while rollup/status still read proposed — tasks win per Step R.2. Rollup rebuilt, status proposed -> applied. Verified independently: make check green (build+vet+ui-guard+tests), git diff --stat over internal/manualcharge, internal/telemetry, internal/account empty (boundary held). Design cross-check: D1-D7 each carry task-level coverage and matching notes. Per-task budget stays null — the wave ran under a foreign runtime."
+    },
+    {
+      "at": "2026-08-11T22:06:30Z",
+      "agent": "leader",
+      "event": "Step 6: openspec validate --strict clean; make check green (run at reconcile). status applied -> verified -> in-review. Step 7: review brief written; dispatching gateway-reviewer (kkpa-module-reviewer, Sonnet) on the wave-1 diff c1a2bab."
+    },
+    {
+      "at": "2026-08-11T22:15:00Z",
+      "agent": "leader",
+      "event": "Step 7 round 1: gateway-reviewer verdict APPROVED with 5 minor findings. Leader triage: F1/F3/F4 accepted -> cleanup wave; F2 rejected (gofmt is pre-existing repo-wide, verified at HEAD~1 + 22 files + no Makefile fmt target); F5 rejected as code change, escalated to user. Status reviewer-approved -> in-progress; re-verification required before archive."
+    },
+    {
+      "at": "2026-08-11T22:22:00Z",
+      "agent": "leader",
+      "event": "Review-round-1 fix wave: gateway worker (Sonnet) fixed F1/F3/F4. F1 removed buildVehicleOptions, parseVehicleValue and the VehicleOptions/SingleVehicle VM fields plus their 7 dedicated tests; kept VehicleOptionVM (live — nav_header.templ + handlers.go navHeaderFor). Leader re-verified: make check green, boundary empty, gofmt state unchanged (F2 respected), delete tests pass. Worker flagged ChargeEntryVM.TeslaID/VIN/VehicleValue + ActiveTeslaID as possibly-unreferenced — NOT touched, left for triage."
     }
   ]
 }
