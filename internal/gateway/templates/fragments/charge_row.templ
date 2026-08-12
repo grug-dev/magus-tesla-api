@@ -32,17 +32,28 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 					Size:    "sm",
 					Outline: true,
 					Attrs: templ.Attributes{
-						"hx-delete":  "/ui/charges/row/" + vm.ID,
-						"hx-target":  "#charge-row-" + vm.ID,
-						"hx-swap":    "outerHTML",
-						"hx-confirm": "Delete this entry?",
-						"hx-include": "#csrf-delete-" + vm.ID,
+						"hx-delete":   "/ui/charges/row/" + vm.ID,
+						"hx-target":   "#charge-row-" + vm.ID,
+						"hx-swap":     "outerHTML",
+						"hx-confirm":  "Delete this entry?",
+						// D3 — send the CSRF token on the X-CSRF-Token HEADER, not the
+						// form body. Go's net/http only parses request bodies for POST/
+						// PUT/PATCH (not DELETE), so the previous hx-include + hidden
+						// #csrf-delete-<id> form input never reached checkCSRFKey's
+						// c.PostForm("csrf_token") on a DELETE -> empty -> 403 ->
+						// htmx alert(). checkCSRFKey already supports the header
+						// fallback (X-CSRF-Token), so switching the wire path fixes the
+						// delete-row alert (MAG-5 / D3, root-caused by static analysis).
+						"hx-headers":  `{"X-CSRF-Token": "` + csrfToken + `"}`,
+						// csrfToken is the page-level ChargesPageData.CSRFToken carried
+						// down here from buildChargesPage; it matches the live session
+						// value (the issuing handler writes it to the session and the
+						// row in the same render — see ChargesContentFragment).
 					},
 				}) {
 					Delete
 				}
 			</div>
-			<input type="hidden" id={ "csrf-delete-" + vm.ID } name="csrf_token" value={ csrfToken }/>
 		</td>
 	</tr>
 }

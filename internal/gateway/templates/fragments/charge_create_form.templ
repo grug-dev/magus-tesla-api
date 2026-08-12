@@ -9,6 +9,24 @@ import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 // Every form control is composed from the ui/ adapter kit (Field/Input/Select/
 // Textarea) — no raw DaisyUI component classes live here, so a DaisyUI upgrade is
 // a one-file change in ui/, not a sweep across this form.
+//
+// MAG-5 / D1-D7 form wiring (see openspec/changes/gateway-improve-manual-charge-form):
+//   - D1: charged_on ("Date"), started_at and ended_at are in the main card grid (not
+//     behind "More details") and all three are pre-filled with the user's current
+//     calendar day from ChargesPageData.DefaultChargedOn / DefaultStartedAt /
+//     DefaultEndedAt — one day value in buildChargesPage feeds all three, so they
+//     cannot drift. charged_on is REQUIRED; started_at / ended_at stay OPTIONAL —
+//     clearing either still submits.
+//   - D2/D6: start_battery_pct + end_battery_pct are REQUIRED (UI + handler). The
+//     start input carries a telemetry-sourced suggestion via its placeholder
+//     (ChargesPageData.StartBatteryPctSuggestion); empty placeholder when no
+//     snapshot — no fabricated value (graceful empty).
+//   - D4: there is NO Vehicle picker — the vehicle is sourced from the sidebar
+//     switcher's session-selected vehicle (resolveSelectedVehicle in parseChargeForm).
+//   - D5: Currency is a disabled, read-only input pre-filled with "COP". A
+//     disabled input is not submitted; parseChargeForm hardcodes Currency:"COP".
+//   - D7: energy_added_kwh step is 0.001 (3-decimal precision preserved), keeping
+//     the browser's nearest-valid-range helper behavior (now after 3 decimals).
 templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 	<div id="charges-create-form">
 		@ui.Card(ui.CardProps{Title: "Log a charge"}) {
@@ -26,16 +44,16 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
 				<div class="grid gap-3 sm:grid-cols-2">
 					@ui.Field(ui.FieldProps{Label: "Date", Error: validationErrors["charged_on"]}) {
-						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Required: true})
+						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true})
 					}
 					@ui.Field(ui.FieldProps{Label: "Energy added (kWh)", Error: validationErrors["energy_added_kwh"]}) {
-						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0.01"}})
+						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Required: true, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})
 					}
 					@ui.Field(ui.FieldProps{Label: "Price", Error: validationErrors["price"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "price", Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
 					}
-					@ui.Field(ui.FieldProps{Label: "Currency", Error: validationErrors["currency"]}) {
-						@ui.Input(ui.InputProps{Name: "currency", Value: "COP", Required: true})
+					@ui.Field(ui.FieldProps{Label: "Currency"}) {
+						@ui.Input(ui.InputProps{Name: "currency", Value: "COP", Disabled: true})
 					}
 					@ui.Field(ui.FieldProps{Label: "Location", Error: validationErrors["location_kind"]}) {
 						@ui.Select(ui.SelectProps{Name: "location_kind", Required: true}) {
@@ -44,42 +62,29 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 							<option value="OTHER">Other</option>
 						}
 					}
-					@ui.Field(ui.FieldProps{Label: "Vehicle", Error: validationErrors["vehicle"]}) {
-						if d.SingleVehicle {
-							@ui.Select(ui.SelectProps{Name: "vehicle", Disabled: true}) {
-								for _, opt := range d.VehicleOptions {
-									<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
-								}
-							}
-							for _, opt := range d.VehicleOptions {
-								if opt.Selected {
-									<input type="hidden" name="vehicle" value={ opt.Value }/>
-								}
-							}
-						} else {
-							@ui.Select(ui.SelectProps{Name: "vehicle", Required: true}) {
-								for _, opt := range d.VehicleOptions {
-									<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
-								}
-							}
-						}
+					// D1: optional date fields moved up from "More details"; default to today (pre-computed by the handler).
+					@ui.Field(ui.FieldProps{Label: "Started at", Error: validationErrors["started_at"]}) {
+						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at", Value: d.DefaultStartedAt})
+					}
+					@ui.Field(ui.FieldProps{Label: "Ended at", Error: validationErrors["ended_at"]}) {
+						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: d.DefaultEndedAt})
+					}
+					// D6 + D2: required battery fields; start has a telemetry-sourced suggestion label (graceful empty when no snapshot).
+					@ui.Field(ui.FieldProps{Label: "Start battery %", Error: validationErrors["start_battery_pct"]}) {
+						@ui.Input(ui.InputProps{
+							Type:     "number",
+							Name:     "start_battery_pct",
+							Required: true,
+							Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1", "placeholder": d.StartBatteryPctSuggestion},
+						})
+					}
+					@ui.Field(ui.FieldProps{Label: "End battery %", Error: validationErrors["end_battery_pct"]}) {
+						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 					}
 				</div>
 				<details>
 					<summary class="cursor-pointer font-medium">More details</summary>
 					<div class="grid gap-3 sm:grid-cols-2 mt-2">
-						@ui.Field(ui.FieldProps{Label: "Started at"}) {
-							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at"})
-						}
-						@ui.Field(ui.FieldProps{Label: "Ended at"}) {
-							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at"})
-						}
-						@ui.Field(ui.FieldProps{Label: "Start battery %"}) {
-							@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
-						}
-						@ui.Field(ui.FieldProps{Label: "End battery %"}) {
-							@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
-						}
 						@ui.Field(ui.FieldProps{Label: "Charging type"}) {
 							@ui.Select(ui.SelectProps{Name: "charging_type"}) {
 								<option value="">-</option>

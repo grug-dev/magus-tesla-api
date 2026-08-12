@@ -72,6 +72,14 @@ layer is each module's own `AGENTS.md`, added to the pack by the leader per disp
 - **Modules-Root:** `internal/` — the only folder whose direct children are the monolith's
   modules. Pipeline module resolution considers only these; each worker is sandboxed to
   exactly one child of this folder (plus explicitly granted paths).
+- **Change-Counter:** `openspec/.work-counter` — the monotonic next-number file the
+  pipeline reads and bumps for each **standalone** (single-module) change to number its
+  `ft/CH<N>-…` branch. This **overrides** the `kkpa-dev-harness-pipeline` skill's default
+  `openspec/.ch-counter` — the project renamed it; existing branches `ft/CH1…ft/CH6`
+  already consume `.work-counter`. The skill's monotonic rules still apply (missing ⇒ `1`;
+  numbers are never reused or decremented; archiving never touches it). Roadmap numbering
+  still uses `openspec/roadmaps/.rm-counter` (unchanged). Step 0.4's "Declared always beats
+  inferred" means the leader uses THIS path and does NOT fall back to `.ch-counter`.
 - **Doc-Pack (base — every worker AND reviewer, all modules):** `CLAUDE.md`,
   `ai/architecture.md`, `ai/go-conventions.md`. Lean on purpose — every dispatch
   re-reads it in full. Module-specific docs are declared per module in the

@@ -80,6 +80,18 @@ HTML — ideal for `hx-target`/`hx-swap`. Source of truth for this API: Context7
 - **Status codes:** use `templ.WithStatus(...)` for non-200 responses.
 - **Errors:** render an error *fragment* the target can swap in, or use
   `templ.WithErrorHandler(...)`; never leak a Go error string or a stack trace to the page.
+- **A non-2xx error fragment MUST be rendered with `renderError` / `renderFragmentError`,
+  never plain `render` / `renderFragment`.** htmx's default
+  `responseHandling` config is
+  `[{204,swap:false},{"[23]..",swap:true},{"[45]..",swap:false,error:true}]`, so it
+  **discards the body of every 4xx/5xx response**. A validation form rendered at 422 with
+  plain `render` is therefore invisible: the request completes, nothing swaps, and the user
+  sees no feedback at all. `renderError` sets the `HX-Error-Fragment: true` header, and the
+  `htmx:beforeSwap` listener in `internal/gateway/static/app.js` flips `shouldSwap` for
+  exactly those responses. The opt-in is per response on purpose — a body we did *not*
+  author (a proxy's 502 page, a gin panic's plain-text 500) is still never swapped into the
+  DOM. `HX-Reswap` does **not** solve this: it only overrides the swap *style*
+  (`swapOverride`), never the `shouldSwap` decision.
 - **Auth failures across the boundary:** a `vehicle`/`tesla` 401 (the `ErrUnauthorized`
   pattern in [`go-conventions.md`](./go-conventions.md)) surfaces as an htmx-friendly
   fragment prompting re-connect — not as a raw 500.

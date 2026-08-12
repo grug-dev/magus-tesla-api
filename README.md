@@ -103,7 +103,7 @@ magus-tesla-api/
 │   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
 │   │   ├── handlers/       #   thin handlers: session/auth → module interface → render
 │   │   ├── templates/      #   Templ: layouts/ (drawer shell) · pages/ · fragments/ · ui/ (typed DaisyUI kit)
-│   │   ├── static/         #   embedded: htmx.min.js · DaisyUI .mjs bundles · input.css · generated app.css
+│   │   ├── static/         #   embedded: htmx.min.js · app.js · DaisyUI .mjs bundles · input.css · generated app.css
 │   │   └── tools/          #   git-ignored Node-less Tailwind CLI binary (make ui-toolchain)
 │   ├── googleauth/     # Google OAuth for user login
 │   ├── config/         # .env loading and token persistence

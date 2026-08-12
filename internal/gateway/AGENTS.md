@@ -333,6 +333,25 @@ runs the whole template but emits only the `@templ.Fragment("<region>")` subtree
 duplicate partial template. See
 [`ai/htmx-go-integration.md`](../../ai/htmx-go-integration.md).
 
+### Non-2xx error fragments — use the `*Error` variants
+
+```go
+func renderError(c *gin.Context, status int, comp templ.Component)
+func renderFragmentError(c *gin.Context, status int, comp templ.Component, fragmentNames ...string)
+```
+
+Rendering a validation form or error row at 4xx/5xx with plain `render` makes it
+**invisible**: htmx never swaps a 4xx/5xx body, so the response arrives and nothing happens
+on screen. The `*Error` variants set `HX-Error-Fragment: true`, which the `htmx:beforeSwap`
+listener in `static/app.js` honours. Rule of thumb: **if the non-2xx body is a component,
+it goes through `renderError`; if it's bare text (`c.String`), it doesn't.** Full rationale
+in [`ai/htmx-go-integration.md`](../../ai/htmx-go-integration.md) §Response conventions.
+
+Companion markup rule: a submitting form carries `hx-post`/`hx-put` on the `<form>` with a
+`Type: "submit"` button, never `hx-*` on the button — otherwise htmx skips HTML5 validation
+entirely and every `Required` prop is inert. See
+[`ai/htmx-conventions.md`](../../ai/htmx-conventions.md) §htmx attribute conventions.
+
 ### Auth guard pattern — same on every page
 
 ```go

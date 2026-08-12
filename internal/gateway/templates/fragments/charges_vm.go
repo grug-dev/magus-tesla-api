@@ -28,12 +28,13 @@ type ChargeEntryVM struct {
 	RawEndedAt         string // "2006-01-02T15:04" or ""
 	RawStartBatteryPct string // "80" or ""
 	RawEndBatteryPct   string // "92" or ""
-	TeslaID            int64  // for vehicle picker pre-selection in edit form
-	VIN                string // durable vehicle key for display
-	VehicleValue       string // "{TeslaID}:{VIN}" — pre-built form value for the edit form's hidden vehicle input (keeps the template logic-free, D6)
+	TeslaID            int64  // the entry's owning vehicle (identity key, not rendered — asserted by TestChargeEntryVMFromEntry)
+	VIN                string // durable vehicle key (identity key, not rendered — asserted by TestChargeEntryVMFromEntry)
 }
 
-// VehicleOptionVM is one option in the vehicle picker <select> of the create/edit form.
+// VehicleOptionVM is one option in the nav-header vehicle context-switcher <select>
+// (see fragments.NavHeaderVM.Vehicles). The manual-charge create/edit form has no
+// vehicle picker of its own — it sources the vehicle from the switcher (design.md D4).
 type VehicleOptionVM struct {
 	TeslaID     int64
 	VIN         string
@@ -45,11 +46,35 @@ type VehicleOptionVM struct {
 // ChargesPageData is the full-page data for the charge log page and its fragments.
 // All fields are presentation-ready; no domain types or pgtype values.
 type ChargesPageData struct {
-	Entries        []ChargeEntryVM
-	VehicleOptions []VehicleOptionVM
-	ActiveTeslaID  int64  // 0 if no vehicle filter; used to pre-select the picker
-	CSRFToken      string // for form hidden inputs
-	EmptyState     bool   // true when Entries is empty and no error occurred
-	Error          string // non-empty if a reader error degraded the page gracefully
-	SingleVehicle  bool   // true when len(VehicleOptions)==1; drives disabled+hidden-input branch
+	Entries    []ChargeEntryVM
+	CSRFToken  string // for form hidden inputs
+	EmptyState bool   // true when Entries is empty and no error occurred
+	Error      string // non-empty if a reader error degraded the page gracefully
+
+	// DefaultChargedOn is the today's-date default for the REQUIRED charged_on input
+	// on the create form, pre-formatted by the handler as a date value "YYYY-MM-DD".
+	//
+	// DefaultStartedAt / DefaultEndedAt are the same day for the optional started_at /
+	// ended_at inputs (D1), pre-formatted as a datetime-local value "YYYY-MM-DDTHH:MM"
+	// (local midnight). All three are derived from ONE day value in buildChargesPage,
+	// so the "Date" field can never drift from "Started/Ended at".
+	//
+	// The day is the BROWSER's calendar day (browserToday), not UTC's — for a UTC-5
+	// user, UTC has already rolled over to tomorrow after 19:00 local.
+	//
+	// The template emits all three verbatim into the input's value attribute — no time
+	// math in markup (the gateway's standing "no business logic in templates" rule).
+	// Empty when there is no usable default; started_at / ended_at stay OPTIONAL —
+	// clearing either still submits.
+	DefaultChargedOn string
+	DefaultStartedAt string
+	DefaultEndedAt   string
+
+	// StartBatteryPctSuggestion is a placeholder / helper-label string for the
+	// start_battery_pct field built from the active vehicle's latest telemetry
+	// snapshot BatteryLevelPct (D2). Empty string when no telemetry snapshot exists
+	// for the active vehicle (graceful empty — render no suggestion in that case).
+	// Example non-empty value: "Latest: 73%". The template renders it as the
+	// input's placeholder attribute; the field remains a normal required integer.
+	StartBatteryPctSuggestion string
 }

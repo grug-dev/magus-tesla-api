@@ -1,13 +1,14 @@
 package ui
 
-// InputProps configures an Input. Type defaults to "text". Required maps to the
-// HTML boolean attribute. Attrs carries the less-common attributes (min, max,
-// step, placeholder, …) as string values. Class is for extra layout utilities.
+// InputProps configures an Input. Type defaults to "text". Required/Disabled map
+// to the HTML boolean attributes. Attrs carries the less-common attributes (min,
+// max, step, placeholder, …) as string values. Class is for extra layout utilities.
 type InputProps struct {
 	Type     string           // "text"|"number"|"date"|"datetime-local"|… (default text)
 	Name     string
 	Value    string
 	Required bool
+	Disabled bool             // rendered as the HTML boolean attribute (mirrors SelectProps.Disabled)
 	Class    string           // extra layout utilities only
 	Attrs    templ.Attributes // min/max/step/placeholder/etc. (string values)
 }
@@ -22,6 +23,7 @@ templ Input(p InputProps) {
 		value={ p.Value }
 		class={ "input w-full", p.Class }
 		required?={ p.Required }
+		disabled?={ p.Disabled }
 		{ p.Attrs... }
 	/>
 }
