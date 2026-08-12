@@ -11,9 +11,12 @@ import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 // a one-file change in ui/, not a sweep across this form.
 //
 // MAG-5 / D1-D7 form wiring (see openspec/changes/gateway-improve-manual-charge-form):
-//   - D1: started_at / ended_at are in the main card grid (not behind "More
-//     details") and pre-filled with today's date by ChargesPageData.DefaultStartedAt
-//     / DefaultEndedAt. Both stay OPTIONAL — clearing either still submits.
+//   - D1: charged_on ("Date"), started_at and ended_at are in the main card grid (not
+//     behind "More details") and all three are pre-filled with the user's current
+//     calendar day from ChargesPageData.DefaultChargedOn / DefaultStartedAt /
+//     DefaultEndedAt — one day value in buildChargesPage feeds all three, so they
+//     cannot drift. charged_on is REQUIRED; started_at / ended_at stay OPTIONAL —
+//     clearing either still submits.
 //   - D2/D6: start_battery_pct + end_battery_pct are REQUIRED (UI + handler). The
 //     start input carries a telemetry-sourced suggestion via its placeholder
 //     (ChargesPageData.StartBatteryPctSuggestion); empty placeholder when no
@@ -41,7 +44,7 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
 				<div class="grid gap-3 sm:grid-cols-2">
 					@ui.Field(ui.FieldProps{Label: "Date", Error: validationErrors["charged_on"]}) {
-						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Required: true})
+						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true})
 					}
 					@ui.Field(ui.FieldProps{Label: "Energy added (kWh)", Error: validationErrors["energy_added_kwh"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Required: true, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})

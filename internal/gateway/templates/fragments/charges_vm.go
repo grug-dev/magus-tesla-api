@@ -51,12 +51,22 @@ type ChargesPageData struct {
 	EmptyState bool   // true when Entries is empty and no error occurred
 	Error      string // non-empty if a reader error degraded the page gracefully
 
-	// DefaultStartedAt / DefaultEndedAt are the today's-date defaults (D1) for the
-	// optional started_at / ended_at inputs on the create form, pre-formatted by the
-	// handler as a datetime-local value "YYYY-MM-DDTHH:MM" (UTC midnight). The template
-	// emits them verbatim into the input's value attribute — no time math in markup
-	// (the gateway's standing "no business logic in templates" rule). Empty when there
-	// is no usable default; both inputs stay OPTIONAL — clearing either still submits.
+	// DefaultChargedOn is the today's-date default for the REQUIRED charged_on input
+	// on the create form, pre-formatted by the handler as a date value "YYYY-MM-DD".
+	//
+	// DefaultStartedAt / DefaultEndedAt are the same day for the optional started_at /
+	// ended_at inputs (D1), pre-formatted as a datetime-local value "YYYY-MM-DDTHH:MM"
+	// (local midnight). All three are derived from ONE day value in buildChargesPage,
+	// so the "Date" field can never drift from "Started/Ended at".
+	//
+	// The day is the BROWSER's calendar day (browserToday), not UTC's — for a UTC-5
+	// user, UTC has already rolled over to tomorrow after 19:00 local.
+	//
+	// The template emits all three verbatim into the input's value attribute — no time
+	// math in markup (the gateway's standing "no business logic in templates" rule).
+	// Empty when there is no usable default; started_at / ended_at stay OPTIONAL —
+	// clearing either still submits.
+	DefaultChargedOn string
 	DefaultStartedAt string
 	DefaultEndedAt   string
 

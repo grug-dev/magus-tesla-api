@@ -929,10 +929,42 @@ func randomState() (string, error) {
 
 // --- render helpers: Templ component -> gin response ---
 
+// errorFragmentHeader marks a non-2xx response whose body is a deliberately
+// re-rendered app fragment (a form carrying field-level validation errors, an
+// error row, …) rather than an incidental error page.
+//
+// Why it exists: htmx's default responseHandling config
+// ([{204,swap:false},{[23]..,swap:true},{[45]..,swap:false,error:true}]) does NOT
+// swap 4xx/5xx bodies, and HX-Reswap cannot change that — it only overrides the
+// swap STYLE (swapOverride); the shouldSwap decision comes solely from
+// responseHandling and is only mutable from an htmx:beforeSwap listener. So every
+// error fragment a handler renders is discarded by the browser unless we opt it in.
+//
+// The listener in layouts.Base honours this header by setting shouldSwap. Keeping
+// the opt-in per response (instead of globally swapping 4xx/5xx) means an
+// incidental error body we did NOT author — a proxy's 502 HTML page, a gin panic's
+// plain-text 500 — is still never swapped into the DOM.
+const errorFragmentHeader = "HX-Error-Fragment"
+
 func render(c *gin.Context, status int, comp templ.Component) {
 	c.Status(status)
 	c.Header("Content-Type", "text/html; charset=utf-8")
 	_ = comp.Render(c.Request.Context(), c.Writer)
+}
+
+// renderError is render for a non-2xx response whose body IS a renderable app
+// fragment. Identical to render except it sets errorFragmentHeader so htmx swaps
+// the body in instead of dropping it. Use it for every validation/error fragment;
+// use c.String for bare error text that has no fragment to show.
+func renderError(c *gin.Context, status int, comp templ.Component) {
+	c.Header(errorFragmentHeader, "true")
+	render(c, status, comp)
+}
+
+// renderFragmentError is renderFragment's non-2xx sibling — see renderError.
+func renderFragmentError(c *gin.Context, status int, comp templ.Component, fragmentNames ...string) {
+	c.Header(errorFragmentHeader, "true")
+	renderFragment(c, status, comp, fragmentNames...)
 }
 
 // renderFragment emits only the named templ fragment(s) of comp — the htmx-swap path

@@ -150,7 +150,7 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 			Odometer: fragments.HistoryChart{Empty: true},
 			Battery:  fragments.HistoryChart{Empty: true},
 		}
-		renderFragment(c, http.StatusBadRequest, pages.DashboardHistory(v), "dashboard-history")
+		renderFragmentError(c, http.StatusBadRequest, pages.DashboardHistory(v), "dashboard-history")
 		return
 	}
 

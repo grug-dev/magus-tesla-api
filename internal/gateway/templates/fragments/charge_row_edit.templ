@@ -9,6 +9,14 @@ import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 // Every control is composed from the ui/ adapter kit (Field/Input/Select/Textarea)
 // — no raw DaisyUI component classes live here.
 //
+// The hx-put lives on the <form> and Save is type="submit" — NOT hx-put on the
+// button. This is load-bearing, not style: htmx only runs HTML5 constraint
+// validation when the element issuing the request is the form itself
+// (`elt instanceof HTMLFormElement || hx-validate="true"`), and a type="button"
+// never triggers the browser's own submit-time validation either. With hx-put on
+// the button, every `Required: true` below was inert and an empty required field
+// went straight to the server as a 422. Keep the request on the form.
+//
 // MAG-5 alignment with the create form (D4/D5/D6/D7): currency is a disabled,
 // read-only COP input (D5); start/end battery % are REQUIRED (D6); energy is
 // 3-decimal (step=0.001, D7). The hidden `vehicle` form input was removed (D4 —
@@ -22,7 +30,12 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 					{ validationErrors["_top"] }
 				}
 			}
-			<form class="flex flex-col gap-3">
+			<form
+				hx-put={ "/ui/charges/row/" + vm.ID }
+				hx-target={ "#charge-row-" + vm.ID }
+				hx-swap="outerHTML"
+				class="flex flex-col gap-3"
+			>
 				<input type="hidden" name="csrf_token" value={ csrfToken }/>
 				<input type="hidden" name="id" value={ vm.ID }/>
 				<div class="grid gap-3 sm:grid-cols-2">
@@ -80,16 +93,7 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 					</div>
 				</details>
 				<div class="flex gap-2">
-					@ui.Button(ui.ButtonProps{
-						Variant: "primary",
-						Size:    "sm",
-						Attrs: templ.Attributes{
-							"hx-put":     "/ui/charges/row/" + vm.ID,
-							"hx-target":  "#charge-row-" + vm.ID,
-							"hx-swap":    "outerHTML",
-							"hx-include": "closest form",
-						},
-					}) {
+					@ui.Button(ui.ButtonProps{Type: "submit", Variant: "primary", Size: "sm"}) {
 						Save
 					}
 					@ui.Button(ui.ButtonProps{

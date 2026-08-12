@@ -65,7 +65,7 @@ func (h *Handler) ChargePage(c *gin.Context) {
 	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
 		filterTeslaID = sel.TeslaID
 	}
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
 	render(c, http.StatusOK, pages.ChargePage(d))
 }
 
@@ -84,7 +84,7 @@ func (h *Handler) ChargesListFragment(c *gin.Context) {
 	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
 		filterTeslaID = sel.TeslaID
 	}
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
 	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-list")
 }
 
@@ -116,7 +116,7 @@ func (h *Handler) ChargesContentFragment(c *gin.Context) {
 	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
 		filterTeslaID = sel.TeslaID
 	}
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
 	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-create-form", "charges-list")
 }
 
@@ -203,8 +203,8 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 				filterTeslaID = sel.TeslaID
 			}
 		}
-		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
-		render(c, http.StatusUnprocessableEntity, fragments.ChargeCreateForm(d, validationErrors))
+		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+		renderError(c, http.StatusUnprocessableEntity, fragments.ChargeCreateForm(d, validationErrors))
 		return
 	}
 
@@ -218,8 +218,8 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 				filterTeslaID = sel.TeslaID
 			}
 		}
-		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
-		render(c, http.StatusInternalServerError, fragments.ChargeCreateForm(d, map[string]string{
+		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+		renderError(c, http.StatusInternalServerError, fragments.ChargeCreateForm(d, map[string]string{
 			"_top": "Could not save your entry — please try again.",
 		}))
 		return
@@ -234,7 +234,7 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 			filterTeslaID = sel.TeslaID
 		}
 	}
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID)
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
 	render(c, http.StatusOK, fragments.ChargeCreateSuccessOOB(d))
 }
 
@@ -270,7 +270,7 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 			return
 		}
 		vm := chargeEntryVMFromEntry(entry, vehicles)
-		render(c, http.StatusUnprocessableEntity, fragments.ChargeRowEdit(vm, csrfToken, validationErrors))
+		renderError(c, http.StatusUnprocessableEntity, fragments.ChargeRowEdit(vm, csrfToken, validationErrors))
 		return
 	}
 	entry.ID = id
@@ -280,7 +280,7 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	if err != nil {
 		log.Printf("gateway: ChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
 		vm := chargeEntryVMFromEntry(entry, vehicles)
-		render(c, http.StatusInternalServerError, fragments.ChargeRowEdit(vm, csrfToken, map[string]string{
+		renderError(c, http.StatusInternalServerError, fragments.ChargeRowEdit(vm, csrfToken, map[string]string{
 			"_top": "Could not save your entry — please try again.",
 		}))
 		return
@@ -330,7 +330,7 @@ func (h *Handler) ChargeRowDelete(c *gin.Context) {
 
 	if err := h.manualChargeWriter.Delete(c.Request.Context(), uid, id); err != nil {
 		log.Printf("gateway: ChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
-		render(c, http.StatusInternalServerError, fragments.ChargeRowError(id.String(), "Could not delete entry — please try again."))
+		renderError(c, http.StatusInternalServerError, fragments.ChargeRowError(id.String(), "Could not delete entry — please try again."))
 		return
 	}
 	render(c, http.StatusOK, fragments.ChargeRowEmpty(id.String()))
@@ -339,7 +339,10 @@ func (h *Handler) ChargeRowDelete(c *gin.Context) {
 // buildChargesPage is the gin-free helper that calls module ports and builds
 // ChargesPageData. Decoupled from Gin so it can be called with fake port
 // implementations in tests.
-func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken string, teslaIDFilter int64) fragments.ChargesPageData {
+// today is the user's LOCAL calendar day (browserToday(c)), passed in rather than
+// computed here so the helper stays gin-free and testable — the same shape as
+// dashboardFor(ctx, uid, teslaID, browserToday(c)).
+func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken string, teslaIDFilter int64, today time.Time) fragments.ChargesPageData {
 	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
 		log.Printf("gateway: RegisteredVehicles error for account %s: %v", uid, err)
@@ -371,12 +374,18 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		vms = append(vms, chargeEntryVMFromEntry(e, vehicles))
 	}
 
-	// D1: default started_at / ended_at to today's calendar day (UTC midnight) so
-	// the optional date fields on the create form render pre-populated. The
-	// template emits them verbatim into the input's value attribute — no time
-	// math in markup. The fields stay OPTIONAL: parseChargeForm still accepts a
-	// cleared field and persists nil StartedAt / EndedAt.
-	todayDate := time.Now().UTC().Format("2006-01-02") + "T00:00"
+	// D1: default charged_on / started_at / ended_at to the user's current calendar
+	// day so the create form's date fields render pre-populated. The template emits
+	// these verbatim into the input's value attribute — no time math in markup.
+	// charged_on is REQUIRED; started_at / ended_at stay OPTIONAL (parseChargeForm
+	// still accepts a cleared field and persists nil StartedAt / EndedAt).
+	//
+	// All three derive from ONE `day` value so the "Date" field can never drift from
+	// the "Started/Ended at" fields. `today` is the BROWSER's local day (browserToday),
+	// not UTC: for a UTC-5 user, time.Now().UTC() has already rolled to tomorrow after
+	// 19:00 local, which would default the form to the wrong date every evening.
+	day := today.Format("2006-01-02")
+	todayDate := day + "T00:00"
 
 	// D2: build the start_battery_pct suggestion label from the active vehicle's
 	// latest telemetry snapshot BatteryLevelPct. Reuses the SAME telemetry.Reader
@@ -404,6 +413,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		CSRFToken:                 csrfToken,
 		EmptyState:                len(vms) == 0 && pageError == "",
 		Error:                     pageError,
+		DefaultChargedOn:          day,
 		DefaultStartedAt:          todayDate,
 		DefaultEndedAt:            todayDate,
 		StartBatteryPctSuggestion: suggestion,

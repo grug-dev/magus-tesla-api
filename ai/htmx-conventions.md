@@ -38,7 +38,7 @@ interfaces give the domain.
 ```
 internal/gateway/
 ├── handlers/     # Go: receive /ui requests, call module interfaces, render components
-├── static/       # embedded assets: htmx.min.js, DaisyUI .mjs bundles, input.css, generated app.css
+├── static/       # embedded assets: htmx.min.js, app.js (htmx error-fragment listener), DaisyUI .mjs bundles, input.css, generated app.css
 ├── tools/        # git-ignored Node-less Tailwind CLI binary (re-fetch: make ui-toolchain)
 └── templates/    # .templ files only
     ├── layouts/  # full-page shells (html, head, themed DaisyUI drawer shell)
@@ -139,6 +139,17 @@ re-run `make css`.
   handler stay in sync.
 - Load htmx from a pinned version (documented when the layout is created), not an unpinned
   CDN latest.
+- **A form that submits data puts its `hx-post`/`hx-put`/`hx-patch` on the `<form>` element,
+  with a `Type: "submit"` button inside — never `hx-*` on the button with
+  `hx-include="closest form"`.** This is correctness, not style. htmx only runs HTML5
+  constraint validation when the element issuing the request *is* the form
+  (`elt instanceof HTMLFormElement || hx-validate="true"`), and a `type="button"` never
+  triggers the browser's own submit-time validation either. Put the verb on the button and
+  every `Required: true` in that form goes silently inert — empty required fields sail past
+  the browser and land on the server as a 422. (`ui.Button` defaults to `type="button"`, so
+  a submit button must pass `Type: "submit"` explicitly.) Non-submitting row actions
+  (delete, cancel, load-a-fragment) correctly stay as `hx-*` on the button.
+  `fragments.ChargeRowEdit` is the gold standard for an inline edit form.
 
 ### Cross-region refresh via `HX-Trigger` (event-driven, not out-of-band)
 

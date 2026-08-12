@@ -19,9 +19,12 @@ import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 // a one-file change in ui/, not a sweep across this form.
 //
 // MAG-5 / D1-D7 form wiring (see openspec/changes/gateway-improve-manual-charge-form):
-//   - D1: started_at / ended_at are in the main card grid (not behind "More
-//     details") and pre-filled with today's date by ChargesPageData.DefaultStartedAt
-//     / DefaultEndedAt. Both stay OPTIONAL — clearing either still submits.
+//   - D1: charged_on ("Date"), started_at and ended_at are in the main card grid (not
+//     behind "More details") and all three are pre-filled with the user's current
+//     calendar day from ChargesPageData.DefaultChargedOn / DefaultStartedAt /
+//     DefaultEndedAt — one day value in buildChargesPage feeds all three, so they
+//     cannot drift. charged_on is REQUIRED; started_at / ended_at stay OPTIONAL —
+//     clearing either still submits.
 //   - D2/D6: start_battery_pct + end_battery_pct are REQUIRED (UI + handler). The
 //     start input carries a telemetry-sourced suggestion via its placeholder
 //     (ChargesPageData.StartBatteryPctSuggestion); empty placeholder when no
@@ -85,7 +88,7 @@ func ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) tem
 					var templ_7745c5c3_Var4 string
 					templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(validationErrors["_top"])
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_create_form.templ`, Line: 32, Col: 31}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_create_form.templ`, Line: 35, Col: 31}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 					if templ_7745c5c3_Err != nil {
@@ -105,7 +108,7 @@ func ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) tem
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(d.CSRFToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_create_form.templ`, Line: 41, Col: 62}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_create_form.templ`, Line: 44, Col: 62}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -127,7 +130,7 @@ func ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) tem
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Required: true}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
