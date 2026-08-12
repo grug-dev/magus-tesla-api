@@ -1,0 +1,356 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "gateway-browser-tz-cookie",
+  "module": "gateway",
+  "roadmap": null,
+  "request": "Dashboard history default window was derived in UTC, so a user in PST at 10pm local saw the previous UTC day. The browser contributes its IANA timezone once via a browser_tz cookie set in layouts.BaseAuth; the server computes today/yesterday in that zone (parseHistoryRange, defaultHistoryHref, buildHistoryPresets), falling back to UTC when the cookie is absent.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "3.1",
+      "3.2",
+      "3.3",
+      "4.1",
+      "4.2",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.5",
+      "6.1",
+      "6.2",
+      "7.1",
+      "7.2",
+      "7.3"
+    ]
+  },
+  "created_at": "2026-08-12T11:08:04Z",
+  "updated_at": "2026-08-12T11:29:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH6-gateway-browser-tz-cookie",
+    "base": "390fd08 (main)",
+    "ticket": "MAG-7",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-7/date-filters",
+    "created_at": "2026-08-12T11:00:00Z"
+  },
+  "retroactive": {
+    "implemented_outside_pipeline": true,
+    "implementation_commit": "dd364e3",
+    "implementation_date": "2026-08-11",
+    "note": "Code shipped to main in one manual commit that bypassed the pipeline. Sections 1-6 of tasks.md are reconstructed from the shipped diff, not tracked live. Section 7 (OpenSpec paperwork) is the only work this pipeline run actually performed."
+  },
+  "tasks": [
+    {
+      "id": "1.1-1.4",
+      "title": "Browser-timezone helper: browserLocation, browserLocationFromHeader, startOfDayIn, browserToday (handlers/tz.go)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "human (outside pipeline)",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-11T10:56:13Z",
+      "duration_seconds": null,
+      "notes": "Shipped in dd364e3. Verified present and correct by the gateway worker against live source.",
+      "budget": null
+    },
+    {
+      "id": "2.1-2.4",
+      "title": "Wire browserToday into parseHistoryRange, buildHistoryPresets, buildHistoryView, DashboardHistoryFragment (handlers/history.go)",
+      "module": "gateway",
+      "depends_on": [
+        "1.1-1.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "human (outside pipeline)",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-11T10:56:13Z",
+      "duration_seconds": null,
+      "notes": "Shipped in dd364e3.",
+      "budget": null
+    },
+    {
+      "id": "3.1-3.3",
+      "title": "Wire browserToday into defaultHistoryHref and dashboardFor (handlers/handlers.go)",
+      "module": "gateway",
+      "depends_on": [
+        "1.1-1.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "human (outside pipeline)",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-11T10:56:13Z",
+      "duration_seconds": null,
+      "notes": "Shipped in dd364e3.",
+      "budget": null
+    },
+    {
+      "id": "4.1-4.2",
+      "title": "Inline browser_tz cookie script in layouts.BaseAuth + regenerate base_templ.go",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "human (outside pipeline)",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-11T10:56:13Z",
+      "duration_seconds": null,
+      "notes": "Shipped in dd364e3. BaseAuth only, never the anonymous Base shell.",
+      "budget": null
+    },
+    {
+      "id": "5.1-5.5",
+      "title": "Tests: fallbacks, default window, end<=today cap, no-cookie UTC, BaseAuth script present",
+      "module": "gateway",
+      "depends_on": [
+        "1.1-1.4",
+        "2.1-2.4",
+        "3.1-3.3",
+        "4.1-4.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "human (outside pipeline)",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-11T10:56:13Z",
+      "duration_seconds": null,
+      "notes": "Shipped in dd364e3 (history_test.go:146-339).",
+      "budget": null
+    },
+    {
+      "id": "6.1-6.2",
+      "title": "Verification: go test ./internal/gateway/... and go vet ./...",
+      "module": "gateway",
+      "depends_on": [
+        "5.1-5.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-12T11:07:00Z",
+      "completed_at": "2026-08-12T11:08:04Z",
+      "duration_seconds": 64,
+      "notes": "Leader re-ran both on the current tree: tests green, vet exit 0.",
+      "budget": null
+    },
+    {
+      "id": "7.1-7.3",
+      "title": "Retroactive OpenSpec paperwork: spec delta + tasks.md (no design.md — no DB object)",
+      "module": "gateway",
+      "depends_on": [
+        "6.1-6.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-12T11:00:37Z",
+      "completed_at": "2026-08-12T11:07:30Z",
+      "duration_seconds": 413,
+      "notes": "Delta modifies 'Dashboard History Charts', 23 scenarios. openspec validate --strict passes.",
+      "budget": {
+        "five_hour_pct_start": 40,
+        "five_hour_pct_end": 50,
+        "cost_usd_start": 1.571035,
+        "cost_usd_end": 3.89096575,
+        "approx": false
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Retroactive review of the shipped-outside-pipeline commit dd364e3 (code) + the retroactive artifacts commit b30ce15 (spec/tasks/progress.json) for gateway-browser-tz-cookie / MAG-7. First-ever review of this code.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-12T00:00:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "blocker",
+            "note": "internal/gateway/handlers/history.go:110-118 (parseHistoryRange step 4, e.After(today)): compares a UTC-parsed `end` against a location-local `today` as absolute instants. For every IANA zone with a POSITIVE UTC offset (most of Europe/Africa/Asia/Australia/NZ), a request carrying end=<the user's own local calendar today> is always spuriously rejected with HTTP 400, because UTC-midnight-of-D is always later, in absolute-instant terms, than local-midnight-of-D when the offset is positive. Verified with runnable Go code against Pacific/Auckland (+12), Europe/London (+1 BST), Asia/Tokyo (+9) — all show e.After(today)==true for end=local-today; America/Bogota (-5), America/Los_Angeles (-7), Pacific/Midway (-11), UTC all show false (correct). The in-code comment asserting this comparison is 'right here' is incorrect — .After compares absolute instants, not calendar dates, so correctness silently depends on the sign of the offset.",
+            "status": "open"
+          },
+          {
+            "id": "R1-2",
+            "severity": "major",
+            "note": "openspec/changes/gateway-browser-tz-cookie/specs/gateway/spec.md:109-117 (scenario 'The default window and the end<=today cap honor the browser_tz cookie') + internal/gateway/handlers/history_test.go:293-309 (TestParseHistoryRange_EndCapUsesBrowserToday): both the reconstructed spec scenario and the only test of the end<=today cap exercise exclusively America/Bogota (UTC-5, a negative-offset zone), where the cap happens to work. Neither exercises a positive-offset zone, so both the spec text and the test suite are blind to R1-1's bug. The spec's claim that 'a request carrying end equal to that same browser-local today is accepted' is stated as a general guarantee but is false for positive-offset zones — this is spec/code drift the retroactive artifacts were supposed to catch (worker's task 7.1 note claims verification 'against the shipped source and tests', but that verification did not extend past the pre-existing single-zone fixture).",
+            "status": "open"
+          },
+          {
+            "id": "R1-3",
+            "severity": "major",
+            "note": "internal/gateway/templates/layouts/base.templ (new <script> in BaseAuth) + internal/gateway/AGENTS.md / ai/htmx-conventions.md (undocumented): this change ships the gateway's first-ever client-side <script>, directly departing from the module's declared 'zero JS' DaisyUI foundation ('No client-side JS init... prefer CSS-only DaisyUI... before any JS' in ai/htmx-conventions.md; mirrored in internal/gateway/AGENTS.md). CLAUDE.md's non-negotiable 'Workflow & architectural decisions are documented with their steps' requires this decision (what changed, why, rejected alternative) to be recorded in the module's AGENTS.md in the SAME change — AGENTS.md's own RD8 rule sets exactly this precedent for gateway JS/rendering decisions. Grep confirms zero mentions of browser_tz/Intl.DateTimeFormat/the script anywhere in internal/gateway/AGENTS.md or ai/htmx-conventions.md, even after the retroactive artifacts commit. tasks.md task 4.1 documents that the script was added but no task updates the docs.",
+            "status": "open"
+          },
+          {
+            "id": "R1-4",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/tz.go (new file, missing trailing newline) and internal/gateway/handlers/history.go:162-168 (the fragments.HistoryView{} literal touched by this diff, misaligned struct colons): `gofmt -l` flags both files as not gofmt-clean. go vet is clean and go test passes, but the code should be `gofmt -w`'d before archiving.",
+            "status": "open"
+          },
+          {
+            "id": "R1-5",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/history_test.go (TestBaseAuth_RendersBrowserTZScript, ~line 328): the spec (spec.md scenario 'The browser_tz cookie is set on every authenticated page load') asserts the anonymous layouts.Base shell does NOT contain the script; manual inspection of the base.templ diff confirms this is true today (script is inside templ BaseAuth only), but no test actually renders layouts.Base and asserts the script's absence. Add a companion negative assertion to guard against a future shell refactor moving the script.",
+            "status": "open"
+          },
+          {
+            "id": "R1-6",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/tz.go (startOfDayIn / browserToday): time.Date(Y,M,D,0,0,0,0,loc) is not guaranteed to represent an existing wall-clock instant when a zone's DST transition lands at exactly 00:00 local; Go silently normalizes such invalid times. Empirically reproduced with America/Sao_Paulo and America/Havana on their historical spring-forward-at-midnight dates: startOfDayIn's returned time's own .Day() rolls back to the previous calendar day on that one day. Low real-world likelihood (most current zones transition at 1am/2am local, not midnight) and untested; worth a documented known-limitation note rather than blocking on its own.",
+            "status": "open"
+          },
+          {
+            "id": "R1-7",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/history.go DashboardHistoryFragment (lines ~165, ~173) + parseHistoryRange (line 85): browserToday(c) is invoked up to 3 times per request (once inside parseHistoryRange, once more for buildHistoryPresets in the no-vehicle branch, once more for buildHistoryView), each re-running time.LoadLocation (measured ~14.7us/call on this machine — not a Performance-Profile violation given the DB read dominates, but avoidable duplication). Resolving once per request and threading the value would also remove a theoretical day-boundary race between repeated time.Now() calls within one request.",
+            "status": "fixed"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-08-12T00:00:00Z",
+        "verdict": "approved",
+        "reviewed_commit": "e438545",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "blocker",
+            "status": "fixed",
+            "note": "history.go:66-94/145-149 adds calendarDateAfter(a,b) comparing Y/M/D in each side's own Location and uses it for the end<=today cap. Independently re-verified by running Go code (not inspection): calendarDateAfter is correct across Pacific/Auckland, Asia/Tokyo, Europe/London, America/Bogota, America/Los_Angeles, Pacific/Midway, UTC, and across year (Dec31->Jan1) and month (Jan31->Feb1, Feb28->Mar1) boundaries — today-equal always false, tomorrow always true, yesterday always false, as required. Additionally: temporarily reinstated the old `e.After(today)` line in the working tree, ran the new AcrossOffsets test, confirmed it FAILS for Pacific/Auckland and Asia/Tokyo and PASSES for America/Bogota (matching the leader's claim exactly), then git-checkout-restored the file to the committed fix. go build/go vet/go test all green on the restored tree."
+          },
+          {
+            "id": "R1-2",
+            "severity": "major",
+            "status": "fixed",
+            "note": "TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets (table-driven, Bogota/Auckland/Tokyo, both directions) confirmed passing on the fixed code and confirmed (see R1-1) to fail on the pre-fix comparison for both positive-offset zones. specs/gateway/spec.md's 'end<=today cap' scenario reworded to state the guarantee for any UTC-offset sign and correctly names the mechanism (calendar-date comparison in each side's own frame) — matches the shipped calendarDateAfter implementation."
+          },
+          {
+            "id": "R1-3",
+            "severity": "major",
+            "status": "fixed",
+            "note": "internal/gateway/AGENTS.md gained RD9 (what/why/rejected-alternative/boundary/graceful-degradation, matching the RD7/RD8 shape) documenting the browser_tz script as the module's one sanctioned zero-JS exception; ai/htmx-conventions.md gained a one-sentence carve-out pointing at RD9 next to the 'no client-side JS init' rule. Satisfies CLAUDE.md's 'workflow/architectural decisions documented with their steps' non-negotiable."
+          },
+          {
+            "id": "R1-4",
+            "severity": "minor",
+            "status": "fixed",
+            "note": "gofmt -l on tz.go, history.go, history_test.go returns clean (verified directly). Scope-reduction to only this change's three touched files is reasonable: independently confirmed 8 other gateway files are gofmt-dirty pre-existing this change (e.g. charges.go dates to 2026-07-18, well before dd364e3), and Makefile's `check` target (build vet ui-guard test) has no gofmt step. Leader said '9' other files; I count 8 — immaterial to the reasoning or the accept decision, noting only for the record."
+          },
+          {
+            "id": "R1-5",
+            "severity": "minor",
+            "status": "fixed",
+            "note": "TestBase_DoesNotRenderBrowserTZScript added and passing; renders layouts.Base and asserts absence of both the cookie string and the Intl.DateTimeFormat call."
+          },
+          {
+            "id": "R1-6",
+            "severity": "minor",
+            "status": "fixed",
+            "note": "Accepted as documentation-only per my own round-1 recommendation. Known-limitation comment added to startOfDayIn in tz.go explaining the midnight-DST normalization edge case and why it is not being fixed."
+          },
+          {
+            "id": "R1-7",
+            "severity": "minor",
+            "status": "fixed",
+            "note": "DashboardHistoryFragment now resolves today := browserToday(c) once and threads it into parseHistoryRange(c, today), buildHistoryPresets(..., today), and buildHistoryView(..., today). Confirmed no behavior change: threading one deterministic value is equivalent to (and strictly more consistent than) three independent same-request calls. go build ./... succeeds, confirming the parseHistoryRange signature change was updated at every call site (2 production, 2 test)."
+          }
+        ],
+        "verification_notes": "Read internal/gateway/AGENTS.md, ai/htmx-conventions.md, specs/gateway/spec.md, tasks.md, and reviewed git show e438545 in full. Ran go build ./..., go vet ./..., go test ./internal/gateway/... (all packages ok, all TZ-related tests individually confirmed passing). Confirmed via `git diff 390fd08 e438545 -- tasks.md` that no existing checkbox (sections 1-7) was edited or removed, only section 8 appended. No acceptance criterion weakened. tasks.md section 8 (8.1-8.7) accurately maps 1:1 to the R1 findings and to the actual diff. Full go test ./... shows only pre-existing, out-of-module Docker-dependent DB test failures (account/manualcharge/telemetry testcontainers — no local Docker in this environment), unrelated to gateway and unrelated to this change."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-12T11:00:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Reused the existing branch name ft/CH6-gateway-browser-tz-cookie (no MAG-7 segment), re-cut locally off main (390fd08), instead of creating ft/CH6-MAG-7-gateway-browser-tz-cookie.",
+      "why": "origin/ft/CH6-gateway-browser-tz-cookie already exists for this change and holds no commits main does not. A second branch for one change would be worse than a name missing its ticket segment; the ticket is recorded in git.ticket and every commit trailer.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-12T11:00:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Did NOT bump openspec/.work-counter (stays 23).",
+      "why": "CH6 was allocated when this change was first opened. The counter is monotonic and never reused; re-bumping would burn number 23 for work that already has a number.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-12T11:00:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Skipped the Step 2 grill-me / performance-design interview.",
+      "why": "No database object is touched, so no design gate applies, and the implementation already shipped and is under test — there is no open design choice left to grill. openspec/config.yaml's 'proposal must use grill-me' rule was satisfied when the original proposal was written.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-12T11:07:30Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "The spec delta reproduces 'Dashboard History Charts' against the TRUE current shipped behavior (RM8 start/end contract + endate-yesterday + this change's browser-TZ layer), not against the text currently in openspec/specs/gateway/spec.md.",
+      "why": "The main spec is stale — it still describes the pre-RM8 ?days=N contract with default 6. A MODIFIED header replaces the whole named requirement on sync, so reproducing the stale text would have written a spec contradicting the shipped code. Consequence: archiving this change repairs the drift rather than compounding it.",
+      "covered_by": "specs/gateway/spec.md"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-12T11:07:30Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Excluded charges.go's six browserToday(c) call sites from this change's delta and tasks.md.",
+      "why": "The leader's dispatch asserted they shipped in dd364e3 as scope creep. The worker disproved that with git: charges.go was untouched by dd364e3; the adoption came from the later commit 69eb299, entangled with the already-archived MAG-5 manual-charge-form change. Documenting it here would misattribute another change's work.",
+      "covered_by": "tasks.md banner"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-12T11:00:00Z",
+      "agent": "leader",
+      "event": "Picked up CH6 for close-out after discovering the change was already fully implemented on main via manual commit dd364e3 (2026-08-11), bypassing the pipeline. Code + 5 tests present and green; missing artifacts were the spec delta (specs/gateway/ was an empty directory), tasks.md, and progress.json. User chose the full close-out path: spec delta + reviewer pass + archive."
+    },
+    {
+      "at": "2026-08-12T11:07:30Z",
+      "agent": "leader",
+      "event": "Gateway worker (sonnet) returned the spec delta + retroactive tasks.md. openspec validate --strict passes. Worker acknowledged the full doc pack. Two leader-accepted corrections: charges.go misattribution (D5) and the stale main spec (D4). Worker also flagged that 2026-08-10-gateway-history-endate-yesterday was archived with an EMPTY specs/gateway/ directory — the same husk pattern as this change — so the drift is systemic, not a one-off. Escalated to the user separately."
+    },
+    {
+      "at": "2026-08-12T11:29:00Z",
+      "agent": "leader",
+      "event": "Review round 2 approved (all 7 findings fixed, reviewer independently reproduced the pre-fix failure). Archived via `openspec archive`; the gateway spec sync REPAIRED the stale 'Dashboard History Charts' requirement, which had still described the pre-RM8 ?days=N contract. CLI archived flat; leader moved it to archive/gateway/ per openspec/config.yaml. Note: 7 other archived changes remain flat and 2026-08-10-gateway-history-endate-yesterday is archived with an empty specs/ dir — pre-existing drift, out of scope here, escalated to the user."
+    }
+  ]
+}

@@ -242,6 +242,47 @@ this `AGENTS.md` in the SAME change — never in a commit message alone. The rat
 and the rejected alternative must both be documented. This makes the decision visible
 to every future AI agent or human who reads this doc at the start of a session.
 
+## Client-side JS exception: browser_tz cookie script (RD9)
+
+The gateway's declared **zero-JS** DaisyUI foundation (`ai/htmx-conventions.md`
+§"Styling" — "Do not introduce a component that needs client-side JS init") has
+exactly **ONE** sanctioned exception: a single inline `<script>` in
+`layouts.BaseAuth` that sets the `browser_tz` cookie. Added by
+`gateway-browser-tz-cookie` (MAG-7, shipped 2026-08-11; documented here in the
+MAG-7 review fix round, 2026-08-12).
+
+**What:** One `<script>` block, inside `templ BaseAuth` only (never the
+anonymous `Base` shell), wrapped in `try/catch`. It reads
+`Intl.DateTimeFormat().resolvedOptions().timeZone` and sets
+`document.cookie = "browser_tz=" + encodeURIComponent(tz) + ";path=/;max-age=31536000;SameSite=Lax"`.
+No library, no `fetch`, no event listener — a single synchronous read plus one
+cookie write, on every authenticated page load.
+
+**Why:** The server has no other way to learn the browser's IANA timezone —
+unlike, say, `Accept-Language`, no HTTP header or cookie carries it
+unprompted. Without it, the dashboard's date math (`parseHistoryRange`,
+`defaultHistoryHref`, `buildHistoryPresets`) computed "today"/"yesterday" in
+UTC, which diverges from the user's local calendar day (the MAG-7 bug: a user
+in PST at 10pm local saw the previous UTC day). The **rejected alternative**
+was moving date computation/rendering to the client (JS computes and formats
+the dates the browser displays): a far larger departure that would move date
+math out of Templ/Go entirely, contradicting "no business logic in
+templates, no time math in markup" (`ai/htmx-conventions.md`) for every
+date-touching page, not just this one. A single cookie write is the
+minimal-surface-area way to hand the server the ONE fact it is missing (the
+IANA zone name) while keeping all date arithmetic server-side.
+
+**Boundary — this is NOT an opening for general client-side JS.** It is a
+narrow, sanctioned exception (one script, one cookie write, one fact), not a
+precedent. Any future addition of client-side JS to the gateway needs its own
+RD entry here, per RD8, with its own rationale and rejected alternative —
+this entry does not grandfather it in.
+
+**Graceful degradation:** the script is wrapped in `try/catch`; on any JS
+failure, or in a `<noscript>` browser, the cookie is simply never set and the
+server falls back to `time.UTC` (`browserLocation`'s fallback rule) — no
+error surfaces to the user and no page render breaks.
+
 ---
 
 ## How to add or modify a page

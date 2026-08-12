@@ -87,6 +87,10 @@ Rules:
 - **Do not introduce a component that needs client-side JS init.** If a genuinely interactive
   widget is unavoidable, prefer a CSS-only DaisyUI pattern (`dropdown`, `<dialog>` modal,
   `collapse`, `tabs`) before any JS — that is the whole reason DaisyUI was chosen over templUI.
+  This rule has exactly **one** sanctioned exception, recorded where every future decision must
+  be recorded: `internal/gateway/AGENTS.md` RD9 (the `browser_tz` cookie script in
+  `layouts.BaseAuth`). It does not open the door to further client-side JS — any new instance
+  needs its own recorded decision per the module's RD8 convention.
 - After editing `.templ` or adding new classes, run **`make css`** (regenerates `app.css` via
   the Node-less binary) alongside **`make templ`**. `make generate` runs both. `app.css` is a
   **committed** vendored artifact (like `htmx.min.js`), so `go build ./...` needs no pre-step.

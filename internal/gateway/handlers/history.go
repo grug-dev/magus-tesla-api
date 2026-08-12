@@ -63,26 +63,61 @@ func effectiveDayUTC(t time.Time) time.Time {
 	return startOfDay(t)
 }
 
-// parseHistoryRange validates the ?start=&end= query params (RM8 design D1 /
-// Decision #2). It returns the parsed (start, end) calendar days and ok=true,
-// or the zero values and ok=false when the request is malformed. The handler
-// renders HTTP 400 on ok=false.
+// calendarDateAfter reports whether a's calendar date (Y/M/D, evaluated in a's
+// own Location) is strictly later than b's calendar date (evaluated in b's own
+// Location). Unlike time.Time.After — which compares absolute instants — this
+// compares each side's wall-clock calendar day in its own frame, which is the
+// comparison parseHistoryRange's end<=today cap actually needs: e is
+// UTC-midnight-of-D (from time.Parse), today is midnight-of-D in the browser's
+// own timezone (browserToday(c)) — two different frames whose INSTANTS are not
+// safely comparable with .After.
 //
-// "Today" is the browser's today (browserToday(c)), so a user in PST at 10pm
-// local can still request end=their-local-today without a spurious 400 from
-// the UTC cap. Direct API callers without a browser_tz cookie get UTC today.
+// Do NOT simplify this back to e.After(today): for any IANA zone with a
+// POSITIVE UTC offset (most of Europe/Africa/Asia/Australia/NZ),
+// UTC-midnight-of-D is always a LATER instant than local-midnight-of-D, so
+// e.After(today) spuriously rejects a request carrying the user's own
+// browser-local "today" with an HTTP 400 — confirmed against Pacific/Auckland
+// (+12), Asia/Tokyo (+9), and Europe/London (+1 BST) in MAG-7 review finding
+// R1-1. Negative-offset zones (America/Bogota, America/Los_Angeles, …) and UTC
+// happened to work with .After, which is exactly what made the bug invisible
+// until a positive-offset zone was tested.
+func calendarDateAfter(a, b time.Time) bool {
+	aY, aM, aD := a.Date()
+	bY, bM, bD := b.Date()
+	if aY != bY {
+		return aY > bY
+	}
+	if aM != bM {
+		return aM > bM
+	}
+	return aD > bD
+}
+
+// parseHistoryRange validates the ?start=&end= query params (RM8 design D1 /
+// Decision #2). today is the caller's "browser today" (browserToday(c)),
+// resolved ONCE by the caller (DashboardHistoryFragment) rather than re-derived
+// here, so a single request never re-runs time.LoadLocation more than once. It
+// returns the parsed (start, end) calendar days and ok=true, or the zero values
+// and ok=false when the request is malformed. The handler renders HTTP 400 on
+// ok=false.
+//
+// "Today" is the browser's today, so a user in PST at 10pm local can still
+// request end=their-local-today without a spurious 400 from the UTC cap.
+// Direct API callers without a browser_tz cookie get UTC today (browserToday's
+// fallback).
 //
 // Validation, in order:
 //  1. Both absent → default 6-day window (end = browser-today UTC midnight,
 //     start = end.AddDate(0,0,-historyRangeWindowDays)), ok=true.
 //  2. Either present → both required and well-formed YYYY-MM-DD.
 //  3. end >= start (end.Before(start) → false).
-//  4. end <= browser-today (end.After(browserToday(c)) → false — no future dates).
+//  4. end's calendar date <= browser-today's calendar date
+//     (calendarDateAfter(e, today) → false — no future dates, compared as
+//     calendar days, not instants; see calendarDateAfter).
 //  5. Window <= historyRangeMaxDays days (read-path protection).
-func parseHistoryRange(c *gin.Context) (start, end time.Time, ok bool) {
+func parseHistoryRange(c *gin.Context, today time.Time) (start, end time.Time, ok bool) {
 	rawStart := c.Query("start")
 	rawEnd := c.Query("end")
-	today := browserToday(c)
 
 	// 1. Default window when both are absent.
 	if rawStart == "" && rawEnd == "" {
@@ -107,13 +142,9 @@ func parseHistoryRange(c *gin.Context) (start, end time.Time, ok bool) {
 	if e.Before(s) {
 		return time.Time{}, time.Time{}, false
 	}
-	// 4. end <= browser-today (compare calendar days — both are midnight in
-	// their respective locations, so .After is a clean day compare once they
-	// share a frame; today is in browser TZ, e is UTC midnight — direct .After
-	// compares wall-clock instants, which is right here: a UTC-midnight e that
-	// is later than browser-today's midnight instant is a future day in the
-	// browser's frame).
-	if e.After(today) {
+	// 4. end's calendar date <= browser-today's calendar date. See
+	// calendarDateAfter for why this must NOT be e.After(today).
+	if calendarDateAfter(e, today) {
 		return time.Time{}, time.Time{}, false
 	}
 	// 5. Window <= max days (inclusive end → width in days = end-start+1 ≤ max+1
@@ -141,7 +172,15 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		return
 	}
 
-	start, end, ok := parseHistoryRange(c)
+	// Resolve "browser today" ONCE per request and thread it through —
+	// parseHistoryRange, buildHistoryPresets (no-vehicle branch), and
+	// buildHistoryView all need it, and each browserToday(c) call re-runs
+	// time.LoadLocation. Resolving once also removes a theoretical
+	// day-boundary race between repeated time.Now() calls within one request
+	// (MAG-7 review finding R1-7).
+	today := browserToday(c)
+
+	start, end, ok := parseHistoryRange(c, today)
 	if !ok {
 		// Malformed/invalid window → 400 with the empty-state placeholder and
 		// NO preset selector (the request shape was malformed; render a graceful
@@ -160,9 +199,9 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		// (both charts in empty state) but WITH the preset selector so the user
 		// can still switch windows. Mirrors dashboardFor degradation.
 		v := fragments.HistoryView{
-			Start:   start,
-			End:     end,
-			Presets: buildHistoryPresets(start, end, browserToday(c)),
+			Start:    start,
+			End:      end,
+			Presets:  buildHistoryPresets(start, end, today),
 			Odometer: fragments.HistoryChart{Empty: true},
 			Battery:  fragments.HistoryChart{Empty: true},
 		}
@@ -170,7 +209,7 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		return
 	}
 
-	v := h.buildHistoryView(c.Request.Context(), uid, selected.TeslaID, start, end, browserToday(c))
+	v := h.buildHistoryView(c.Request.Context(), uid, selected.TeslaID, start, end, today)
 	renderFragment(c, http.StatusOK, pages.DashboardHistory(v), "dashboard-history")
 }
 
@@ -288,10 +327,10 @@ func buildOdometerChart(snaps []telemetry.Snapshot, start, end time.Time) fragme
 			km = 0 // clamp negative (RD5: clock skew / odometer anomaly)
 		}
 		deltas = append(deltas, delta{
-			label:       label,
-			kmDriven:    km,
-			odometerKm:  cur.OdometerKm,
-			present:     true,
+			label:      label,
+			kmDriven:   km,
+			odometerKm: cur.OdometerKm,
+			present:    true,
 		})
 		if km > maxKm {
 			maxKm = km
