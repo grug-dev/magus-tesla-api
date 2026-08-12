@@ -87,10 +87,13 @@ Rules:
 - **Do not introduce a component that needs client-side JS init.** If a genuinely interactive
   widget is unavoidable, prefer a CSS-only DaisyUI pattern (`dropdown`, `<dialog>` modal,
   `collapse`, `tabs`) before any JS — that is the whole reason DaisyUI was chosen over templUI.
-  This rule has exactly **one** sanctioned exception, recorded where every future decision must
-  be recorded: `internal/gateway/AGENTS.md` RD9 (the `browser_tz` cookie script in
-  `layouts.BaseAuth`). It does not open the door to further client-side JS — any new instance
-  needs its own recorded decision per the module's RD8 convention.
+  This rule has exactly **two** sanctioned exceptions, recorded where every future decision must
+  be recorded in `internal/gateway/AGENTS.md`: **RD9** (the `browser_tz` cookie script in
+  `layouts.BaseAuth`) and **RD10** — `ui.ConfirmDialog` (see below), because gating an in-flight
+  htmx request is impossible without JS: htmx only exposes the hook as a cancelable event. All
+  of the dialog's JS lives in the single shared `static/app.js`, not in per-page markup. Neither
+  exception opens the door to further client-side JS — any new instance needs its own recorded
+  decision per the module's RD8 convention.
 - After editing `.templ` or adding new classes, run **`make css`** (regenerates `app.css` via
   the Node-less binary) alongside **`make templ`**. `make generate` runs both. `app.css` is a
   **committed** vendored artifact (like `htmx.min.js`), so `go build ./...` needs no pre-step.
@@ -154,6 +157,44 @@ re-run `make css`.
   a submit button must pass `Type: "submit"` explicitly.) Non-submitting row actions
   (delete, cancel, load-a-fragment) correctly stay as `hx-*` on the button.
   `fragments.ChargeRowEdit` is the gold standard for an inline edit form.
+
+### Confirmation modals — `hx-confirm` IS the API
+
+**Never write a modal, and never call `window.confirm`.** The app has exactly one
+confirmation dialog: `ui.ConfirmDialog`, mounted once in `layouts.Base` so it is on every
+page. `static/app.js` intercepts htmx's cancelable `htmx:confirm` event and drives that
+dialog instead of the browser's native, unstyleable `confirm()`.
+
+The consequence: **any element on any page that carries `hx-confirm` already gets the modern
+modal — including pages not written yet.** Adding a confirmation is adding one attribute:
+
+```go
+@ui.Button(ui.ButtonProps{Variant: "error", Size: "sm", Outline: true, Attrs: templ.Attributes{
+    "hx-delete":            "/ui/thing/" + vm.ID,
+    "hx-target":            "#thing-" + vm.ID,
+    "hx-swap":              "outerHTML",
+    "hx-confirm":           "Delete the March invoice? This cannot be undone.", // the message
+    "data-confirm-title":   "Delete invoice",  // optional — default "Are you sure?"
+    "data-confirm-label":   "Delete invoice",  // optional — confirm button text
+    "data-confirm-variant": "danger",          // optional — "danger" = red confirm button
+}}) { Delete }
+```
+
+That four-attribute vocabulary is the whole surface. Write the message so it names the
+specific record (`"Delete the 0.79 kWh charge logged on Mon Aug 3, 2026?"`), not a generic
+"Are you sure?" — the user is confirming a row, and the row they clicked is not always the
+row they meant.
+
+Rules:
+- **Do not mount a second `ui.ConfirmDialog`.** `app.js` resolves it by `id`; a duplicate
+  makes the wrong one open. It lives in the layout, outside every swappable region, so an
+  htmx swap can never replace an open dialog.
+- **Do not put DaisyUI classes in `app.js`.** The dialog pre-renders both a default and a
+  danger confirm button; the script only toggles `hidden` and sets `textContent`, so the
+  `btn-*` vocabulary stays owned by `ui/`.
+- If the dialog is absent (a page not built on `layouts.Base`, or a browser with no
+  `<dialog>` support), `app.js` returns early and htmx falls back to its native
+  `confirm()` — degraded styling, but the guard is never lost.
 
 ### Cross-region refresh via `HX-Trigger` (event-driven, not out-of-band)
 

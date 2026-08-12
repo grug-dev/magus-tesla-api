@@ -195,10 +195,18 @@ func ChargeRow(vm ChargeEntryVM, csrfToken string) templ.Component {
 			Size:    "sm",
 			Outline: true,
 			Attrs: templ.Attributes{
-				"hx-delete":  "/ui/charges/row/" + vm.ID,
-				"hx-target":  "#charge-row-" + vm.ID,
-				"hx-swap":    "outerHTML",
-				"hx-confirm": "Delete this entry?",
+				"hx-delete": "/ui/charges/row/" + vm.ID,
+				"hx-target": "#charge-row-" + vm.ID,
+				"hx-swap":   "outerHTML",
+				// hx-confirm is the message shown in the shared ui.ConfirmDialog
+				// (static/app.js intercepts htmx's htmx:confirm event); the three
+				// data-confirm-* attributes below are that dialog's per-use knobs.
+				// Naming the actual entry beats a generic "Delete this entry?" —
+				// the user confirms the row they meant, not the row they clicked.
+				"hx-confirm":           "Delete the " + vm.EnergyKWh + " charge logged on " + vm.ChargedOnLabel + "? This cannot be undone.",
+				"data-confirm-title":   "Delete charge entry",
+				"data-confirm-label":   "Delete entry",
+				"data-confirm-variant": "danger",
 				// D3 — send the CSRF token on the X-CSRF-Token HEADER, not the
 				// form body. Go's net/http only parses request bodies for POST/
 				// PUT/PATCH (not DELETE), so the previous hx-include + hidden
@@ -256,7 +264,7 @@ func ChargeRowEmpty(id string) templ.Component {
 		var templ_7745c5c3_Var13 string
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue("charge-row-" + id)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 65, Col: 28}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 73, Col: 28}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 		if templ_7745c5c3_Err != nil {
@@ -299,7 +307,7 @@ func ChargeRowError(id string, msg string) templ.Component {
 		var templ_7745c5c3_Var15 string
 		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue("charge-row-" + id)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 70, Col: 28}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 78, Col: 28}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 		if templ_7745c5c3_Err != nil {
@@ -312,7 +320,7 @@ func ChargeRowError(id string, msg string) templ.Component {
 		var templ_7745c5c3_Var16 string
 		templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 72, Col: 33}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charge_row.templ`, Line: 80, Col: 33}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 		if templ_7745c5c3_Err != nil {
