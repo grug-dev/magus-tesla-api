@@ -106,13 +106,18 @@ partially-missing axis (some days empty, some present) is NOT an empty chart.
 - **AND** the odometer and battery charts display identical `MM-DD` labels under corresponding bars
 - **AND** no live Tesla Fleet API call is made and no telemetry table is read directly
 
-#### Scenario: The default window and the end<=today cap honor the browser_tz cookie
+#### Scenario: The default window and the end<=today cap honor the browser_tz cookie, for any UTC offset sign
 
-- **GIVEN** a signed-in user whose browser sent a `browser_tz` cookie with a valid IANA zone (e.g.
-  `America/Bogota`)
+- **GIVEN** a signed-in user whose browser sent a `browser_tz` cookie with a valid IANA zone — this
+  holds for ANY such zone, whether its UTC offset is negative (e.g. `America/Bogota`, UTC-5) or
+  positive (e.g. `Asia/Tokyo`, UTC+9; `Pacific/Auckland`, UTC+12/+13)
 - **WHEN** the history fragment is requested with no `start` and no `end` parameter
 - **THEN** the default window's `end` is midnight of "today" IN THAT ZONE, not UTC midnight
 - **AND** a request carrying `end` equal to that same browser-local "today" is accepted (HTTP 200)
+  — for EVERY zone regardless of the sign of its UTC offset, because the cap compares CALENDAR
+  DATES (each side's Y/M/D evaluated in its own frame), never absolute instants; a positive-offset
+  zone, where UTC-midnight-of-D is a later instant than local-midnight-of-D, is therefore never
+  spuriously rejected
 - **AND** a request carrying `end` equal to browser-local "tomorrow" is rejected with HTTP 400
   (future in the browser's frame), even where the equivalent instant is still "today" in UTC
 

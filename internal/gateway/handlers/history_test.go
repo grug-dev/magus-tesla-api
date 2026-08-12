@@ -32,11 +32,11 @@ type fakeHistoryReader struct {
 	historySnaps []telemetry.Snapshot
 	historyErr   error
 	// Captured Between call args so tests can assert.
-	gotAccount     uuid.UUID
-	gotTeslaID     int64
-	gotStart       time.Time
-	gotEnd         time.Time
-	betweenCalled  bool
+	gotAccount    uuid.UUID
+	gotTeslaID    int64
+	gotStart      time.Time
+	gotEnd        time.Time
+	betweenCalled bool
 }
 
 func (f *fakeHistoryReader) LatestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]telemetry.Snapshot, error) {
@@ -140,7 +140,7 @@ func parseRange(start, end string) (time.Time, time.Time, bool) {
 		url += "end=" + end
 	}
 	c.Request = httptest.NewRequest(http.MethodGet, url, nil)
-	return parseHistoryRange(c)
+	return parseHistoryRange(c, browserToday(c))
 }
 
 // parseRangeWithTZ is parseRange with a browser_tz cookie — exercises the
@@ -161,7 +161,7 @@ func parseRangeWithTZ(start, end, tz string) (time.Time, time.Time, bool) {
 		req.AddCookie(&http.Cookie{Name: "browser_tz", Value: tz})
 	}
 	c.Request = req
-	return parseHistoryRange(c)
+	return parseHistoryRange(c, browserToday(c))
 }
 
 // --- parseHistoryRange unit tests (task 6.1, design D1) ---
@@ -308,6 +308,46 @@ func TestParseHistoryRange_EndCapUsesBrowserToday(t *testing.T) {
 	}
 }
 
+// TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets is table-driven
+// over BOTH negative- and positive-UTC-offset zones, so a future zone is one
+// line to add. It exists because the original TestParseHistoryRange_EndCapUsesBrowserToday
+// only ever exercised America/Bogota (UTC-5, negative offset), where the old
+// `e.After(today)` instant comparison happened to work — leaving the suite
+// blind to MAG-7 review finding R1-1: for any POSITIVE-offset zone,
+// UTC-midnight-of-D is always a LATER instant than local-midnight-of-D, so
+// end=browser-local-today was spuriously rejected with HTTP 400. This test
+// FAILS against the pre-fix `e.After(today)` comparison for every
+// positive-offset zone below (Pacific/Auckland, Asia/Tokyo) — it only passed
+// pre-fix for America/Bogota. Asserts both directions per zone: end=today is
+// accepted, end=tomorrow is rejected.
+func TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets(t *testing.T) {
+	zones := []string{
+		"America/Bogota",   // UTC-5 (negative offset — worked even pre-fix)
+		"Pacific/Auckland", // UTC+12/+13 (positive offset — the R1-1 bug)
+		"Asia/Tokyo",       // UTC+9 (positive offset — the R1-1 bug)
+	}
+	for _, tz := range zones {
+		t.Run(tz, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+			c.Request.AddCookie(&http.Cookie{Name: "browser_tz", Value: tz})
+			today := browserToday(c)
+			todayStr := today.Format("2006-01-02")
+			tomorrowStr := today.AddDate(0, 0, 1).Format("2006-01-02")
+
+			// end = browser-local today → accepted.
+			if _, _, ok := parseRangeWithTZ(todayStr, todayStr, tz); !ok {
+				t.Errorf("%s: end=browser-local-today: want ok=true, got false", tz)
+			}
+			// end = browser-local tomorrow → rejected (future in the browser's frame).
+			if _, _, ok := parseRangeWithTZ(todayStr, tomorrowStr, tz); ok {
+				t.Errorf("%s: end=browser-local-tomorrow: want ok=false (future in browser TZ), got true", tz)
+			}
+		})
+	}
+}
+
 // TestParseHistoryRange_NoCookieFallsBackToUTC asserts the UTC fallback: with
 // no browser_tz cookie, the default end == UTC-today (the pre-browser-TZ behavior).
 func TestParseHistoryRange_NoCookieFallsBackToUTC(t *testing.T) {
@@ -343,6 +383,26 @@ func TestBaseAuth_RendersBrowserTZScript(t *testing.T) {
 	}
 	if !strings.Contains(body, "SameSite=Lax") {
 		t.Errorf("BaseAuth cookie must be SameSite=Lax; got: %s", body)
+	}
+}
+
+// TestBase_DoesNotRenderBrowserTZScript asserts the anonymous layouts.Base
+// shell (used by "/" and "/login") does NOT contain the browser_tz cookie
+// script — the spec ("The browser_tz cookie is set on every authenticated
+// page load") requires the script to live ONLY in BaseAuth. Guards against a
+// future shell refactor accidentally moving the script into the shared/public
+// shell (MAG-7 review finding R1-5).
+func TestBase_DoesNotRenderBrowserTZScript(t *testing.T) {
+	w := httptest.NewRecorder()
+	if err := layouts.Base("Test").Render(context.Background(), w); err != nil {
+		t.Fatalf("Base render: %v", err)
+	}
+	body := w.Body.String()
+	if strings.Contains(body, "browser_tz=") {
+		t.Errorf("anonymous Base shell must NOT set the browser_tz cookie; got: %s", body)
+	}
+	if strings.Contains(body, "Intl.DateTimeFormat") {
+		t.Errorf("anonymous Base shell must NOT contain the Intl.DateTimeFormat script; got: %s", body)
 	}
 }
 
@@ -390,7 +450,7 @@ func TestBuildOdometerChart_EmptyWhenFewerThanTwoSnapshots(t *testing.T) {
 func TestBuildOdometerChart_FixedAxis_FullWindowWithLookback(t *testing.T) {
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day inclusive window
-	lookback := start.AddDate(0, 0, -1)               // 08-02 seeds the first delta
+	lookback := start.AddDate(0, 0, -1)                // 08-02 seeds the first delta
 	snaps := snapsForDays(append([]time.Time{lookback}, calendarDays(start, end)...), 1000, 10, 70)
 	c := buildOdometerChart(snaps, start, end)
 	if c.Empty {
@@ -461,8 +521,8 @@ func TestBuildOdometerChart_NegativeDeltaClampedToZero(t *testing.T) {
 	end := time.Date(2026, 8, 4, 0, 0, 0, 0, time.UTC) // 2-day window
 	snaps := []telemetry.Snapshot{
 		{OdometerKm: 1000, EffectiveDate: start.AddDate(0, 0, -1)}, // 08-02 lookback
-		{OdometerKm: 900, EffectiveDate: start},                     // 08-03 — negative delta (clock skew)
-		{OdometerKm: 1050, EffectiveDate: start.AddDate(0, 0, 1)},   // 08-04
+		{OdometerKm: 900, EffectiveDate: start},                    // 08-03 — negative delta (clock skew)
+		{OdometerKm: 1050, EffectiveDate: start.AddDate(0, 0, 1)},  // 08-04
 	}
 	c := buildOdometerChart(snaps, start, end)
 	if c.Empty {

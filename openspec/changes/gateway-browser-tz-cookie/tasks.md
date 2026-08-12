@@ -103,3 +103,52 @@ Depends on: 1, 2, 3, 4.
 - [x] 7.3 No `design.md` — no database object is touched by this change (`openspec/config.yaml`'s
       design-required rule does not apply), and `proposal.md` already carries the design
       narrative.
+
+## 8. Review round 1 fixes (R1-1 .. R1-7, MAG-7 review, 2026-08-12)
+
+Leader-triaged fixes for `changes-requested` review round 1. No `design.md` — still no
+database object touched by this round; no design decision IDs apply.
+
+- [x] 8.1 (R1-1, blocker) `internal/gateway/handlers/history.go`: replaced
+      `parseHistoryRange`'s `e.After(today)` end<=today cap — which compared UTC-midnight `e`
+      against browser-local `today` as absolute INSTANTS and spuriously rejected
+      `end=browser-local-today` with HTTP 400 for every positive-UTC-offset zone (Pacific/Auckland,
+      Asia/Tokyo, Europe/London BST) — with a new `calendarDateAfter(a, b time.Time) bool` helper
+      that compares each side's calendar date (Y/M/D, in its own Location), never instants. Deleted
+      the prior inline comment asserting the instant comparison was correct (it was false) and
+      replaced it with a comment explaining the calendar-date requirement and warning against
+      reverting to `.After`. `start`/`end`'s meaning and parsing are UNCHANGED.
+- [x] 8.2 (R1-2, major) `internal/gateway/handlers/history_test.go`: added
+      `TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets`, table-driven over
+      `America/Bogota` (negative offset, pre-existing coverage) plus `Pacific/Auckland` and
+      `Asia/Tokyo` (positive offset — the R1-1 bug), asserting both `end=browser-today` (accepted)
+      and `end=browser-tomorrow` (rejected) per zone. Fails against the pre-8.1 `e.After(today)`
+      comparison for both positive-offset zones.
+      `openspec/changes/gateway-browser-tz-cookie/specs/gateway/spec.md`: strengthened the "end<=today
+      cap honors the browser_tz cookie" scenario to state the guarantee holds for ANY UTC offset
+      sign (previously implied by an America/Bogota-only example), naming the calendar-date
+      comparison as the mechanism. No existing scenario text removed or weakened.
+- [x] 8.3 (R1-3, major) Documented the gateway's first-ever client-side `<script>` (the
+      `browser_tz` cookie setter in `layouts.BaseAuth`) as `internal/gateway/AGENTS.md` RD9 (what /
+      why / rejected alternative / boundary / graceful degradation, following the RD7/RD8 shape),
+      and added a one-sentence carve-out + pointer in `ai/htmx-conventions.md` §Styling next to the
+      "no client-side JS init" rule.
+- [x] 8.4 (R1-4, minor) `gofmt -w` on `internal/gateway/handlers/tz.go`,
+      `internal/gateway/handlers/history.go`, and `internal/gateway/handlers/history_test.go` (the
+      three files touched by this round). Repo-wide gofmt drift in other gateway files is
+      pre-existing and explicitly out of scope for this change.
+- [x] 8.5 (R1-5, minor) `internal/gateway/handlers/history_test.go`: added
+      `TestBase_DoesNotRenderBrowserTZScript`, rendering the anonymous `layouts.Base` shell and
+      asserting the `browser_tz`/`Intl.DateTimeFormat` script is absent — guards a future shell
+      refactor from moving the script into the shared/public shell.
+- [x] 8.6 (R1-6, minor) `internal/gateway/handlers/tz.go`: added a known-limitation comment on
+      `startOfDayIn` documenting the DST-transition-at-midnight edge case (Go silently normalizes
+      an invalid `time.Date` call, which can roll the returned day back) and why it is accepted
+      rather than fixed (no current zone in the user base transitions at midnight; affected dates
+      are historical). No code change — documentation only, per the leader's ruling.
+- [x] 8.7 (R1-7, minor) `internal/gateway/handlers/history.go`: `DashboardHistoryFragment` now
+      resolves `browserToday(c)` ONCE at the top of the handler and threads the value through —
+      `parseHistoryRange(c, today)` (signature change), the no-vehicle-branch
+      `buildHistoryPresets(start, end, today)` call, and `h.buildHistoryView(..., today)` — instead
+      of calling `browserToday(c)` up to 3 times per request. Updated the two call sites in
+      `history_test.go` (`parseRange`, `parseRangeWithTZ`) to match the new signature.

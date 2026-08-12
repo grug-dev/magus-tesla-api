@@ -154,10 +154,60 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "gateway-reviewer",
+    "brief": "Retroactive review of the shipped-outside-pipeline commit dd364e3 (code) + the retroactive artifacts commit b30ce15 (spec/tasks/progress.json) for gateway-browser-tz-cookie / MAG-7. First-ever review of this code.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-12T00:00:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "blocker",
+            "note": "internal/gateway/handlers/history.go:110-118 (parseHistoryRange step 4, e.After(today)): compares a UTC-parsed `end` against a location-local `today` as absolute instants. For every IANA zone with a POSITIVE UTC offset (most of Europe/Africa/Asia/Australia/NZ), a request carrying end=<the user's own local calendar today> is always spuriously rejected with HTTP 400, because UTC-midnight-of-D is always later, in absolute-instant terms, than local-midnight-of-D when the offset is positive. Verified with runnable Go code against Pacific/Auckland (+12), Europe/London (+1 BST), Asia/Tokyo (+9) — all show e.After(today)==true for end=local-today; America/Bogota (-5), America/Los_Angeles (-7), Pacific/Midway (-11), UTC all show false (correct). The in-code comment asserting this comparison is 'right here' is incorrect — .After compares absolute instants, not calendar dates, so correctness silently depends on the sign of the offset.",
+            "status": "open"
+          },
+          {
+            "id": "R1-2",
+            "severity": "major",
+            "note": "openspec/changes/gateway-browser-tz-cookie/specs/gateway/spec.md:109-117 (scenario 'The default window and the end<=today cap honor the browser_tz cookie') + internal/gateway/handlers/history_test.go:293-309 (TestParseHistoryRange_EndCapUsesBrowserToday): both the reconstructed spec scenario and the only test of the end<=today cap exercise exclusively America/Bogota (UTC-5, a negative-offset zone), where the cap happens to work. Neither exercises a positive-offset zone, so both the spec text and the test suite are blind to R1-1's bug. The spec's claim that 'a request carrying end equal to that same browser-local today is accepted' is stated as a general guarantee but is false for positive-offset zones — this is spec/code drift the retroactive artifacts were supposed to catch (worker's task 7.1 note claims verification 'against the shipped source and tests', but that verification did not extend past the pre-existing single-zone fixture).",
+            "status": "open"
+          },
+          {
+            "id": "R1-3",
+            "severity": "major",
+            "note": "internal/gateway/templates/layouts/base.templ (new <script> in BaseAuth) + internal/gateway/AGENTS.md / ai/htmx-conventions.md (undocumented): this change ships the gateway's first-ever client-side <script>, directly departing from the module's declared 'zero JS' DaisyUI foundation ('No client-side JS init... prefer CSS-only DaisyUI... before any JS' in ai/htmx-conventions.md; mirrored in internal/gateway/AGENTS.md). CLAUDE.md's non-negotiable 'Workflow & architectural decisions are documented with their steps' requires this decision (what changed, why, rejected alternative) to be recorded in the module's AGENTS.md in the SAME change — AGENTS.md's own RD8 rule sets exactly this precedent for gateway JS/rendering decisions. Grep confirms zero mentions of browser_tz/Intl.DateTimeFormat/the script anywhere in internal/gateway/AGENTS.md or ai/htmx-conventions.md, even after the retroactive artifacts commit. tasks.md task 4.1 documents that the script was added but no task updates the docs.",
+            "status": "open"
+          },
+          {
+            "id": "R1-4",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/tz.go (new file, missing trailing newline) and internal/gateway/handlers/history.go:162-168 (the fragments.HistoryView{} literal touched by this diff, misaligned struct colons): `gofmt -l` flags both files as not gofmt-clean. go vet is clean and go test passes, but the code should be `gofmt -w`'d before archiving.",
+            "status": "open"
+          },
+          {
+            "id": "R1-5",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/history_test.go (TestBaseAuth_RendersBrowserTZScript, ~line 328): the spec (spec.md scenario 'The browser_tz cookie is set on every authenticated page load') asserts the anonymous layouts.Base shell does NOT contain the script; manual inspection of the base.templ diff confirms this is true today (script is inside templ BaseAuth only), but no test actually renders layouts.Base and asserts the script's absence. Add a companion negative assertion to guard against a future shell refactor moving the script.",
+            "status": "open"
+          },
+          {
+            "id": "R1-6",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/tz.go (startOfDayIn / browserToday): time.Date(Y,M,D,0,0,0,0,loc) is not guaranteed to represent an existing wall-clock instant when a zone's DST transition lands at exactly 00:00 local; Go silently normalizes such invalid times. Empirically reproduced with America/Sao_Paulo and America/Havana on their historical spring-forward-at-midnight dates: startOfDayIn's returned time's own .Day() rolls back to the previous calendar day on that one day. Low real-world likelihood (most current zones transition at 1am/2am local, not midnight) and untested; worth a documented known-limitation note rather than blocking on its own.",
+            "status": "open"
+          },
+          {
+            "id": "R1-7",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/history.go DashboardHistoryFragment (lines ~165, ~173) + parseHistoryRange (line 85): browserToday(c) is invoked up to 3 times per request (once inside parseHistoryRange, once more for buildHistoryPresets in the no-vehicle branch, once more for buildHistoryView), each re-running time.LoadLocation (measured ~14.7us/call on this machine — not a Performance-Profile violation given the DB read dominates, but avoidable duplication). Resolving once per request and threading the value would also remove a theoretical day-boundary race between repeated time.Now() calls within one request.",
+            "status": "open"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {

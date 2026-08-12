@@ -64,6 +64,18 @@ func browserLocationFromHeader(r *http.Request) *time.Location {
 // the browser's local start-of-day, not UTC's. The returned time carries loc
 // as its Location, so subsequent .Format / .AddDate arithmetic stays in the
 // browser's local frame.
+//
+// Known limitation (accepted, not fixed — MAG-7 review finding R1-6):
+// time.Date(Y,M,D,0,0,0,0,loc) is not guaranteed to name a real wall-clock
+// instant when loc's DST transition lands at exactly 00:00 local — Go
+// silently normalizes such an invalid time, which can roll the returned
+// time's own .Day() back to the previous calendar day. Reproduced with
+// historical America/Sao_Paulo and America/Havana dates that spring-forward
+// at midnight. This is accepted rather than fixed: no zone in the current
+// user base transitions at midnight (the vast majority transition at
+// 01:00/02:00 local), the affected dates are historical, and a general fix
+// (probing neighboring instants for a zone whose midnight is invalid) is
+// disproportionate to a risk with no known current impact.
 func startOfDayIn(t time.Time, loc *time.Location) time.Time {
 	t = t.In(loc)
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
