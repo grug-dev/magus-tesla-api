@@ -231,9 +231,14 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
 ## T16. Codegen — depends on T2, T3, T4, T5, T6, T7, T8, T9, T10 (every template-touching group)
 
 - [x] T16.1 `make templ` (regenerates every touched `*_templ.go`).
-- [x] T16.2 `make css`; `git diff --stat internal/gateway/static/app.css` — confirmed EMPTY (no
-      diff): no new Tailwind/DaisyUI class was introduced. This tier's edits are text-only
-      (i18n.T call sites + fmt.Sprintf wrapping), matching the expectation.
+- [x] T16.2 `make css`; `git diff --stat internal/gateway/static/app.css` — confirm it changed, or
+      document that no new Tailwind/DaisyUI class was introduced (this tier is text-only; no new
+      markup structure is expected) per the module's "Gotcha — stale CSS" CI guard.
+      **Resolution:** `git diff --stat internal/gateway/static/app.css` is EMPTY (no diff) — no new
+      Tailwind/DaisyUI class was introduced, which is the documented-alternative branch of this
+      criterion. This tier's edits are text-only (i18n.T call sites + fmt.Sprintf wrapping).
+      *(Original criterion text restored by the leader at review round 1, finding F2: it had been
+      replaced in place rather than appended to. Append-only discipline — nothing above is edited.)*
 
 ## T17. Full verification — depends on T11, T12, T13, T14, T15, T16
 

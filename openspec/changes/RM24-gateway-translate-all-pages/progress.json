@@ -33,7 +33,7 @@
     ]
   },
   "created_at": "2026-08-13T10:54:34Z",
-  "updated_at": "2026-08-13T21:02:00Z",
+  "updated_at": "2026-08-13T21:14:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -656,13 +656,52 @@
       "decision": "Closed the T14.3/T17 blocker by appending a new task group T19 (catalog key + call site + guard/check re-run) and re-dispatching the gateway worker, rather than the leader editing catalog.go and handlers.go itself",
       "why": "Tasks are append-only, so the missing key becomes a new group, not an edit to T1. The fix is module-internal gateway code, not cross-module integration, so it belongs to a worker under the catalog single-writer discipline (design.md D4) — the same rule the wave-3 worker respected when it blocked. Mirrors the T18 precedent set at the wave-2 boundary.",
       "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-13T21:14:00Z",
+      "scope": "review:F1",
+      "made_by": "autopilot",
+      "decision": "Accepted F1 in full, including the reviewer's recommended part B (tighten i18n-guard pass 1 to strip i18n.T(...) substrings instead of excluding whole lines) rather than only wrapping the one literal",
+      "why": "Part A alone would have left the deliverable's own verification check able to hide the exact class of defect it exists to catch — the spec requires a verifiable check that no hardcoded user-facing English remains, and a whole-line grep -v cannot deliver that. Leader independently red-tested the tightened guard with an injected same-line masked literal: it now fails as it should, and passes once translated.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-13T21:14:00Z",
+      "scope": "review:F2",
+      "made_by": "autopilot",
+      "decision": "Accepted F2 and fixed it at the leader level rather than re-dispatching the worker",
+      "why": "tasks.md is a change artifact the leader owns (it appended T18/T19); the fix is restoring T16.2's original criterion text from 0d5ec17 and appending the resolution note below it. No module code involved, so a worker dispatch would have cost a full doc-pack read for a two-line artifact edit.",
+      "covered_by": null
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": null,
-    "rounds": []
+    "brief": "Review the tier-3 i18n sweep (diff 0d5ec17..HEAD, 4 implementation commits) for: (1) BOUNDARIES — no HTML outside internal/gateway, no other module's internals read, no DB access from the gateway; (2) CATALOGUE INTEGRITY — every key has BOTH es and en, no key minted outside catalog.go's single writer (design.md D4), interpolation verbs match between languages and match the fmt.Sprintf arity at each call site (design.md D3); (3) COVERAGE — spot-check that no user-facing English literal remains in templates/{pages,fragments,ui} or handler message sinks, and that `make i18n-guard` passes because strings were TRANSLATED, not because the regex was weakened or i18n:allow was used as a blanket suppressor — audit every i18n:allow marker in the diff and confirm each is a legitimate non-copy exemption (design.md D1); (4) ANTI-GAMING — no task or acceptance criterion was edited, weakened or deleted (tasks.md is append-only; T18 and T19 are leader appends, everything above them must be untouched); no checkbox ticked without the work behind it (round 1 of tier 2 caught exactly this); no status self-approved; the 17 pre-existing tests updated in T17.3 must assert the correctly-resolved language, NOT have been loosened or deleted to go green; (5) PERFORMANCE-PROFILE compliance — i18n.T on the hot read path must not add per-render allocation beyond a map lookup; (6) SPEC/TASKS coverage — specs/gateway/spec.md requirements all satisfied, tasks.md checkboxes match progress.json; (7) DOCS — AGENTS.md's binding 'both translations required' rule and the make i18n-guard documentation (T15) are accurate. No database object should be touched by this tier at all — flag any as a blocker.",
+    "agent": "gateway-reviewer",
+    "status": "changes-requested",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "at": "2026-08-13T21:06:37Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "internal/gateway/templates/ui/confirm_dialog.templ:61 — the backdrop-close <button>close</button> inner text is a hardcoded English literal, never routed through i18n.T, while the sibling aria-label on the same element correctly uses i18n.T(ctx, i18n.KeyConfirmDialogClose). Not a legitimate exemption (not a brand noun, not a format verb/unit, not ops-only) — violates spec.md's Full-Application Translation Coverage requirement. It escapes `make i18n-guard` only because pass 1's `grep -v 'i18n\\.T('` drops the WHOLE LINE once it contains any i18n.T( call, even when a second, unwrapped literal sits on the same line — confirmed by isolated grep test and by scripting every i18n.T( line in templates/{pages,fragments,ui} for a second bare-text match: this is the only instance. Fix: wrap the button text with i18n.T(ctx, i18n.KeyConfirmDialogClose) (reuse the aria-label's key). Recommend also tightening the guard's pass-1 exclusion to strip i18n.T(...) substrings before matching rather than dropping the whole line, so this blind spot can't hide a future violation.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "openspec/changes/RM24-gateway-translate-all-pages/tasks.md T16.2 — the pre-existing acceptance-criterion wording ('confirm it changed, or document that no new... class was introduced... per the CI guard') was replaced in place rather than appended below, unlike every other closed group in this same file (T14.3, T17.3-T17.6), which correctly appended a closure note after the original text. Does not misrepresent the underlying work (independently verified: static/app.css has no diff in 0d5ec17..HEAD), but breaks the append-only discipline the review brief calls out. Recommend restating T16.2 as original-text-plus-appended-note to match the convention.",
+            "status": "open"
+          }
+        ]
+      }
+    ]
   },
   "events": [
     {
@@ -704,6 +743,11 @@
       "at": "2026-08-13T21:02:00Z",
       "agent": "leader",
       "event": "Wave 4 reconciled. T19 done; T14 and T17 unblocked and done — all 19 groups complete, zero unticked checkboxes in tasks.md. Leader independently re-ran `make check` (build vet ui-guard i18n-guard test) clean and confirmed Makefile is untouched, i.e. the guard was closed by adding the key, NOT by weakening the regex or an i18n:allow suppression. Doc-pack acknowledged (6 paths + 2 artifacts), D1-D5 enumerated with compliance statements. static/app.css unchanged (no .templ touched). Budget 3->10%. Status -> verified (Step 6)."
+    },
+    {
+      "at": "2026-08-13T21:14:00Z",
+      "agent": "leader",
+      "event": "Review round 1 returned changes-requested (F1 major, F2 minor). Leader triaged BOTH as valid and accepted both — no finding rejected. F1 fixed by worker (confirm_dialog.templ:61 text node translated with the existing KeyConfirmDialogClose, no new key; Makefile pass 1 tightened to substring-strip). F2 fixed by leader in tasks.md. Leader independently red-tested the tightened guard with an injected masked literal (fails correctly) and re-ran make check clean. Re-signalling the same reviewer for round 2."
     }
   ]
 }

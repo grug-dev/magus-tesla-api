@@ -306,14 +306,19 @@ ui-guard: ## Fail if a raw DaisyUI component class is inlined in a page/fragment
 	fi
 
 # i18n-guard's `.templ` pass mirrors ui-guard's grep-based shape (design.md D1,
-# RM24-gateway-translate-all-pages), plus one wrinkle ui-guard doesn't have: templ has
-# no in-markup comment syntax and HTML comments are forbidden project-wide (CLAUDE.md
-# "HTML templates"), so the `// i18n:allow: <reason>` escape hatch for a `.templ` line
-# sits on the PRECEDING line, not the flagged line itself. A line-local `grep -v` can't
-# see that, so pass 1 does two passes: grep for candidates, then a small shell loop
-# checks each candidate's own line AND the line above it for the marker before
-# reporting it. The handler pass (`.go`) has a real comment syntax, so its marker is a
-# same-line trailing `//` and a line-local `grep -v` is sufficient there.
+# RM24-gateway-translate-all-pages), plus two wrinkles ui-guard doesn't have. First, a
+# candidate line cannot simply be dropped whenever it contains 'i18n.T(' ANYWHERE on the
+# line — a second, untranslated literal can sit on the same line as an already-translated
+# call (e.g. a button's translated aria-label next to its own hardcoded text node), so a
+# line-local `grep -v 'i18n\.T('` would mask that second literal forever. Pass 1 instead
+# strips every `i18n.T(...)` call substring out of each candidate line first and only
+# keeps the candidate if one of the bare-text patterns still matches what remains. Second,
+# templ has no in-markup comment syntax and HTML comments are forbidden project-wide
+# (CLAUDE.md "HTML templates"), so the `// i18n:allow: <reason>` escape hatch for a
+# `.templ` line sits on the PRECEDING line, not the flagged line itself — a small shell
+# loop checks each surviving candidate's own line AND the line above it for the marker
+# before reporting it. The handler pass (`.go`) has a real comment syntax, so its marker
+# is a same-line trailing `//` and a line-local `grep -v` is sufficient there.
 i18n-guard: ## Fail if user-facing text bypasses i18n.T(ctx, ...) in templates or handler message sinks (escape hatch: // i18n:allow: <reason>)
 	@fail=0; \
 	tmpl_candidates=$$(grep -rnE \
@@ -322,13 +327,15 @@ i18n-guard: ## Fail if user-facing text bypasses i18n.T(ctx, ...) in templates o
 		-e '\}[^<{}]*[A-Za-z][^<{}]*<' \
 		internal/gateway/templates/pages internal/gateway/templates/fragments internal/gateway/templates/ui \
 		--include='*.templ' \
-		| grep -v 'i18n\.T(' \
 		| grep -v 'i18n:allow' \
 		|| true); \
 	if [ -n "$$tmpl_candidates" ]; then \
 		tmpl_flagged=$$(printf '%s\n' "$$tmpl_candidates" | while IFS= read -r m; do \
 			file=$$(printf '%s\n' "$$m" | cut -d: -f1); \
 			lno=$$(printf '%s\n' "$$m" | cut -d: -f2); \
+			content=$$(printf '%s\n' "$$m" | cut -d: -f3-); \
+			stripped=$$(printf '%s\n' "$$content" | sed -E 's/i18n\.T\([^)]*\)//g'); \
+			if ! printf '%s\n' "$$stripped" | grep -qE '>[[:space:]]*[A-Za-z][^<{]*<|>[[:space:]]*[A-Za-z][^<{}]*\{|\}[^<{}]*[A-Za-z][^<{}]*<'; then continue; fi; \
 			prevno=$$((lno - 1)); \
 			prevline=""; \
 			if [ "$$prevno" -ge 1 ]; then prevline=$$(sed -n "$${prevno}p" "$$file"); fi; \

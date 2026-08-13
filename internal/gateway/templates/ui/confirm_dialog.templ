@@ -58,7 +58,7 @@ templ ConfirmDialog() {
 		// Native backdrop close: a <form method="dialog"> submit closes the dialog
 		// without JS, so click-outside-to-dismiss costs nothing.
 		<form method="dialog" class="modal-backdrop">
-			<button aria-label={ i18n.T(ctx, i18n.KeyConfirmDialogClose) }>close</button>
+			<button aria-label={ i18n.T(ctx, i18n.KeyConfirmDialogClose) }>{ i18n.T(ctx, i18n.KeyConfirmDialogClose) }</button>
 		</form>
 	</dialog>
 }
