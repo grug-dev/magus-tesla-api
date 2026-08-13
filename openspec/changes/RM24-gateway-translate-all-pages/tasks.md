@@ -19,58 +19,58 @@ Reuse an existing tier-2 key instead of minting a duplicate wherever design.md D
 applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyNavDashboard`,
 `KeyNavSuperchargerStats`).
 
-- [ ] T1.1 Brand/proper nouns (design.md D2): `KeyBrandMagus` (`{ES: "Magus", EN: "Magus"}`),
+- [x] T1.1 Brand/proper nouns (design.md D2): `KeyBrandMagus` (`{ES: "Magus", EN: "Magus"}`),
       `KeyBrandTeslaCore` (`{ES: "TESLA CORE", EN: "TESLA CORE"}`).
-- [ ] T1.2 Home page keys (`home.*`): signed-in-as prefix, "View your vehicles", "Sign in with
+- [x] T1.2 Home page keys (`home.*`): signed-in-as prefix, "View your vehicles", "Sign in with
       Google".
-- [ ] T1.3 Login page keys (`login.*`): "Precision Fleet Monitoring", "Continue with Google",
+- [x] T1.3 Login page keys (`login.*`): "Precision Fleet Monitoring", "Continue with Google",
       "Privacy", "Terms", "Support".
-- [ ] T1.4 Dashboard page keys (`dashboard.*`): "Stale" badge, "Odometer", "Interior", "Exterior",
+- [x] T1.4 Dashboard page keys (`dashboard.*`): "Stale" badge, "Odometer", "Interior", "Exterior",
       "Status", "Last updated" prefix, "Range" prefix, "Vehicle Status" card title, "Battery" card
       title, "Awaiting first snapshot".
-- [ ] T1.5 Dashboard status keys (`dashboard_status.*`, design.md D5): "Charging", "Parked",
+- [x] T1.5 Dashboard status keys (`dashboard_status.*`, design.md D5): "Charging", "Parked",
       `dashboard_status.software_version` = `{ES: "Software v%s", EN: "Software v%s"}` (D3
       interpolated).
-- [ ] T1.6 Shared charge-form keys (`charges_form.*`, design.md D2 — one namespace for both
+- [x] T1.6 Shared charge-form keys (`charges_form.*`, design.md D2 — one namespace for both
       `charge_create_form.templ` and `charge_row_edit.templ`): "Log a charge", "Date", "Energy
       added (kWh)", "Price", "Currency", "Location", "Home", "Work", "Other", "Started at", "Ended
       at", "Start battery %", "End battery %", "More details", "Charging type", "AC", "DC",
       "Location label", "Notes", "Log charge", plus edit-form-only: "Vehicle", "Location kind",
       "Save", "Cancel".
-- [ ] T1.7 Charge-row keys (`charges_row.*`): "Edit", "Delete", `charges_row.confirm_message` =
+- [x] T1.7 Charge-row keys (`charges_row.*`): "Edit", "Delete", `charges_row.confirm_message` =
       `{ES: "¿Eliminar la carga de %s registrada el %s? Esta acción no se puede deshacer.", EN:
       "Delete the %s charge logged on %s? This cannot be undone."}` (D3 interpolated, two `%s`
       args), "Delete charge entry" (confirm title), "Delete entry" (confirm label).
-- [ ] T1.8 Charges-list keys (`charges_list.*`): "Your entries", "Refresh", the empty-state
+- [x] T1.8 Charges-list keys (`charges_list.*`): "Your entries", "Refresh", the empty-state
       sentence.
-- [ ] T1.9 Charges-page keys (`charges_page.*`): "Charge log", "Back to dashboard" (also reused by
+- [x] T1.9 Charges-page keys (`charges_page.*`): "Charge log", "Back to dashboard" (also reused by
       the Supercharger Stats page — design.md D2).
-- [ ] T1.10 History keys (`history.*`): "Awaiting nightly snapshots", "Odometer history", "Battery
+- [x] T1.10 History keys (`history.*`): "Awaiting nightly snapshots", "Odometer history", "Battery
       history", `history.days_preset` = `{ES: "%d días", EN: "%d days"}` (D3), and
       `history.no_snapshot_tooltip` = `{ES: "%s · sin dato", EN: "%s · no snapshot"}` (D3).
-- [ ] T1.11 Supercharger keys (`supercharger.*`): `supercharger.months_preset` = `{ES: "%d meses",
+- [x] T1.11 Supercharger keys (`supercharger.*`): `supercharger.months_preset` = `{ES: "%d meses",
       EN: "%d months"}` (D3), "Sessions", "Energy", "Cost", "Avg kWh / session", "kWh per month",
       "No Supercharger sessions in this window.", "Date", "Site", "Country", "Billing Type".
-- [ ] T1.12 Vehicles-fragment keys (`vehicles.*`, design.md Discoveries #3): "Battery:" / "Range:"
+- [x] T1.12 Vehicles-fragment keys (`vehicles.*`, design.md Discoveries #3): "Battery:" / "Range:"
       labels, "Charging:", "Odometer:", "Inside:" / "Outside:", "Locked", "Unlocked", "Sentry:",
       "Not reported", "On", "Off", "Last updated:", "Stale" badge text, "No data yet — awaiting
       first nightly snapshot." (reuse `KeyNavHeaderNoTesla`/`KeyNavHeaderConnectLink` for the
       no-Tesla branch per D2).
-- [ ] T1.13 Nav-header last-seen keys (`nav_header.*`, design.md D3/Discoveries #2): "Last seen"
+- [x] T1.13 Nav-header last-seen keys (`nav_header.*`, design.md D3/Discoveries #2): "Last seen"
       prefix, plus the six `relativeLastSeen` phrasing keys: `nav_header.last_seen_days`,
       `nav_header.last_seen_days_plural`, `nav_header.last_seen_hours`,
       `nav_header.last_seen_hours_plural`, `nav_header.last_seen_minutes_plural`,
       `nav_header.last_seen_just_now` — exact ES/EN values per design.md D3's table.
-- [ ] T1.14 Confirm-dialog keys (`confirm_dialog.*`): "Are you sure?", "Cancel", "Confirm",
+- [x] T1.14 Confirm-dialog keys (`confirm_dialog.*`): "Are you sure?", "Cancel", "Confirm",
       "Delete", "Close" (aria-label).
-- [ ] T1.15 Handler notice/error keys: `vehicles_notice.*` (6 strings — could-not-load-vehicles,
+- [x] T1.15 Handler notice/error keys: `vehicles_notice.*` (6 strings — could-not-load-vehicles,
       telemetry-unavailable, could-not-reach-tesla, session-expired, could-not-load-from-tesla,
       no-vehicles-found), `dashboard_notice.*` (1 — could-not-load-dashboard), `oauth_error.*` (11
       bare-text strings from `handlers.go`'s `c.String` calls), `charges_error.*` (11 validation
       messages + 4 notices + `charges_error.battery_suggestion` = `{ES: "Última: %d%%", EN:
       "Latest: %d%%"}` D3-interpolated + 7 bare-text strings from `charges.go`), `lang_switch_error.*`
       (3 bare-text strings from `lang.go`).
-- [ ] T1.16 `go build ./internal/gateway/i18n/...` compiles clean; `go test
+- [x] T1.16 `go build ./internal/gateway/i18n/...` compiles clean; `go test
       ./internal/gateway/i18n/...` green (`TestCatalog_AllKeysHaveBothLanguages` passes for every
       new key).
 
