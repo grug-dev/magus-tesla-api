@@ -35,7 +35,16 @@ templ ChargesList(d ChargesPageData) {
 			if d.EmptyState {
 				@ChargesEmptyState()
 			} else if len(d.Entries) > 0 {
-				@ui.Table(ui.TableProps{Headers: []string{"Date", "Vehicle", "Energy", "Price", "Cost/kWh", "Battery", "Duration", "Actions"}}) {
+				@ui.Table(ui.TableProps{Headers: []string{
+					i18n.T(ctx, i18n.KeyChargesListHeaderDate),
+					i18n.T(ctx, i18n.KeyChargesListHeaderVehicle),
+					i18n.T(ctx, i18n.KeyChargesListHeaderEnergy),
+					i18n.T(ctx, i18n.KeyChargesListHeaderPrice),
+					i18n.T(ctx, i18n.KeyChargesListHeaderCostPerKWh),
+					i18n.T(ctx, i18n.KeyChargesListHeaderBattery),
+					i18n.T(ctx, i18n.KeyChargesListHeaderDuration),
+					i18n.T(ctx, i18n.KeyChargesListHeaderActions),
+				}}) {
 					for _, vm := range d.Entries {
 						@ChargeRow(vm, d.CSRFToken)
 					}

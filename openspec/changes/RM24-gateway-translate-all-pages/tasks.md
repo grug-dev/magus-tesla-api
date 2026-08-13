@@ -105,11 +105,9 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
       `data-confirm-*` attributes per T1.7; the `hx-confirm` message becomes
       `fmt.Sprintf(i18n.T(ctx, i18n.KeyChargesRowConfirmMessage), vm.EnergyKWh,
       vm.ChargedOnLabel)` (D3).
-- [ ] T5.2 `templates/fragments/charges_list.templ`: "Your entries"/"Refresh"/empty-state per
-      T1.8. DONE for those three; the `ui.Table` `Headers` slice ("Date", "Vehicle", "Energy",
-      "Price", "Cost/kWh", "Battery", "Duration", "Actions") has NO catalog key and is not listed
-      in T1.8 — left hardcoded, blocked pending new `charges_list.header_*` keys (see worker
-      report).
+- [x] T5.2 `templates/fragments/charges_list.templ`: "Your entries"/"Refresh"/empty-state per
+      T1.8, plus the `ui.Table` `Headers` slice (8 columns) now wired to the
+      `i18n.KeyChargesListHeader*` keys added for T18.1. Completed by T18.1.
 - [x] T5.3 `templates/pages/charges.templ`: "Charge log"/"Back to dashboard" per T1.9.
 
 ## T6. History chart + preset handler — depends on T1
@@ -199,7 +197,7 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
 
 ## T14. `make i18n-guard` — depends on T1 (build); full clean run depends on T2–T13
 
-- [ ] T14.1 Add the `i18n-guard` target to the `Makefile`, mirroring `ui-guard`'s shape exactly
+- [x] T14.1 Add the `i18n-guard` target to the `Makefile`, mirroring `ui-guard`'s shape exactly
       (design.md D1): pass 1 (two `grep -rnE` patterns over
       `internal/gateway/templates/{pages,fragments,ui}/*.templ`, excluding lines containing
       `i18n.T(`, and excluding a match whose own line **or the line immediately above it** carries
@@ -209,19 +207,34 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
       excluding `_test.go`, for the four message-sink patterns in design.md D1, excluding lines
       containing `i18n:allow` — same-line marker is correct here). Non-zero exit + a clear error
       message (mirroring `ui-guard`'s "ERROR: ..." block) on any match.
-- [ ] T14.1b Prove the escape hatch fires: temporarily mark one deliberately-flagged `.templ` line
+- [x] T14.1b Prove the escape hatch fires: temporarily mark one deliberately-flagged `.templ` line
       with a preceding-line `// i18n:allow: <reason>` comment, confirm `make i18n-guard` goes from
       red to green, then revert the temporary marker. A hatch that was never exercised is not
       verified.
-- [ ] T14.2 Wire it into the gate: `check: build vet ui-guard i18n-guard test`.
+- [x] T14.2 Wire it into the gate: `check: build vet ui-guard i18n-guard test`.
 - [ ] T14.3 Run `make i18n-guard` against the fully-swept tree (after T2–T13 complete) — MUST
       pass clean. If it flags a false positive on a legitimate literal not yet covered by this
       tier's Discoveries (e.g. a genuinely non-translatable value), add an inline `// i18n:allow:
       <reason>` marker rather than weakening the grep pattern.
+      **BLOCKED — genuine gap found by the guard itself (not a false positive):**
+      `internal/gateway/handlers/handlers.go:423` — `vm.ChargeLimit = fmt.Sprintf("Limit %d%%",
+      snap.ChargeLimitSocPct)` (rendered on the dashboard via `dashChargeLimit(d)`,
+      `templates/pages/dashboard.go`/`dashboard.templ:76`) is genuine hardcoded English never
+      caught by T1–T13's inventory. This is real app copy, not a legitimate i18n-guard exemption,
+      so per T14.3's own rule it must NOT be suppressed with `i18n:allow` — it needs a new
+      catalog key. Per design.md D4 / this dispatch's instructions, only catalog.go's single
+      writer may add it; reported to the leader rather than self-added. Suggested key (leader's
+      call): `KeyDashboardChargeLimit = "dashboard.charge_limit"`, `{ES: "Límite %d%%", EN:
+      "Limit %d%%"}`, call site `vm.ChargeLimit = fmt.Sprintf(i18n.T(ctx,
+      i18n.KeyDashboardChargeLimit), snap.ChargeLimitSocPct)`. Two other guard hits were
+      confirmed false positives and fixed with `i18n:allow` markers (not suppressed by weakening
+      the regex): `templates/ui/button.templ:13` (a Go doc-comment, not markup) and
+      `templates/pages/dashboard.templ:84` (htmx `hx-trigger`/`hx-swap` attribute values matched
+      by the trailing-text-after-`{}` pattern, not a text node).
 
 ## T15. Docs — depends on T1 (references T14's new target)
 
-- [ ] T15.1 `internal/gateway/AGENTS.md`: extend the existing "i18n" section with a short
+- [x] T15.1 `internal/gateway/AGENTS.md`: extend the existing "i18n" section with a short
       addendum — `make i18n-guard` is the mechanical companion to
       `TestCatalog_AllKeysHaveBothLanguages`, now part of `make check`; document the
       `// i18n:allow: <reason>` marker as the sole exemption mechanism (no separate allowlist
@@ -229,21 +242,52 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
 
 ## T16. Codegen — depends on T2, T3, T4, T5, T6, T7, T8, T9, T10 (every template-touching group)
 
-- [ ] T16.1 `make templ` (regenerates every touched `*_templ.go`).
-- [ ] T16.2 `make css`; `git diff --stat internal/gateway/static/app.css` — confirm it changed, or
-      document that no new Tailwind/DaisyUI class was introduced (this tier is text-only; no new
-      markup structure is expected) per the module's "Gotcha — stale CSS" CI guard.
+- [x] T16.1 `make templ` (regenerates every touched `*_templ.go`).
+- [x] T16.2 `make css`; `git diff --stat internal/gateway/static/app.css` — confirmed EMPTY (no
+      diff): no new Tailwind/DaisyUI class was introduced. This tier's edits are text-only
+      (i18n.T call sites + fmt.Sprintf wrapping), matching the expectation.
 
 ## T17. Full verification — depends on T11, T12, T13, T14, T15, T16
 
-- [ ] T17.1 `go build ./...` clean repo-wide.
-- [ ] T17.2 `go vet ./...` clean repo-wide.
-- [ ] T17.3 `go test ./...` green, including `TestCatalog_AllKeysHaveBothLanguages` and every
+- [x] T17.1 `go build ./...` clean repo-wide.
+- [x] T17.2 `go vet ./...` clean repo-wide.
+- [x] T17.3 `go test ./...` green, including `TestCatalog_AllKeysHaveBothLanguages` and every
       pre-existing test whose assertions touched a now-translated string (update any test that
       asserted on the literal English text to assert on the resolved-language-appropriate string
-      instead, mirroring tier 2's T6.4 precedent).
+      instead, mirroring tier 2's T6.4 precedent). 17 tests updated across gateway_test.go,
+      handlers_test.go, charges_test.go, charges_error_visibility_test.go, history_test.go,
+      supercharger_test.go — see worker report for the full list + rationale per test.
 - [ ] T17.4 `make i18n-guard` passes clean (re-run after T16's codegen, in case codegen touched
       any `.templ` source — it shouldn't, but confirm).
+      **BLOCKED on the same T14.3 gap** (handlers.go:423 ChargeLimit — see T14.3's note). Not a
+      false positive; needs a new catalog key from catalog.go's single writer.
 - [ ] T17.5 `make check` passes clean end-to-end (`build vet ui-guard i18n-guard test`).
+      Confirmed build+vet+ui-guard all pass; stops at i18n-guard on the same T14.3/T17.4 gap
+      (test never reached — make stops at the first failing prerequisite).
 - [ ] T17.6 `openspec validate RM24-gateway-translate-all-pages --strict` passes and every
       `tasks.md` checkbox above is checked, matching `progress.json`.
+      `openspec validate --strict` itself PASSES (structural validity), but not every checkbox
+      above is checked — T14.3/T17.4/T17.5/T17.6 are honestly left unchecked pending the leader
+      adding `KeyDashboardChargeLimit` to catalog.go (see T14.3). This is the only remaining
+      blocker for the whole tier.
+
+## T18. Inventory-gap closure: page titles + charges-list table headers — depends on T1, T5
+
+> **Added by the leader at the wave-2 boundary** (append-only; nothing above was edited). Two
+> classes of user-facing English were missed by this tier's original inventory and surfaced by
+> workers who blocked rather than inventing keys. The catalogue keys already exist (172 total).
+
+- [x] T18.1 `templates/fragments/charges_list.templ`: the `ui.Table{Headers: []string{...}}` slice
+      still holds 8 hardcoded English column headings. Wire each to its
+      `i18n.KeyChargesListHeader*` key. **This completes T5.2** — tick T5.2 and flip T5 out of
+      `blocked` once done.
+- [x] T18.2 Page `<title>` strings passed to `layouts.Base`/`layouts.BaseAuth` in all five pages.
+      `home.templ` → bare `i18n.T(ctx, i18n.KeyBrandMagus)`. The other four →
+      `fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, <page key>))` where the page
+      key is `KeyLoginSignIn` (login), `KeyNavDashboard` (dashboard), `KeyChargesPageTitle`
+      (charges), `KeyNavSuperchargerStats` (supercharger stats). One interpolated brand key, not
+      five literal title keys — the wordmark/separator is one editorial decision.
+      Note `templates/pages/supercharger_stats.templ` IS in scope here despite the proposal's
+      inventory recording it as needing zero changes.
+- [x] T18.3 `go build ./internal/gateway/...` compiles (run AFTER T16's codegen, since these are
+      `.templ` edits).

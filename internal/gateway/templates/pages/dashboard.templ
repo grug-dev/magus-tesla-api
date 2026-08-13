@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"fmt"
+
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
@@ -18,7 +20,7 @@ import (
 // /ui/dashboard/history) to render the odometer km/day and battery % bar charts
 // (RM5 tier 2). All values are pre-computed display strings on fragments.DashboardData.
 templ Dashboard(d fragments.DashboardData) {
-	@layouts.BaseAuth("Dashboard — Magus", "/dashboard") {
+	@layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyNavDashboard)), "/dashboard") {
 		<div id="dashboard-content" hx-get="/ui/dashboard" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">
 			@templ.Fragment("dashboard") {
 				@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyNavDashboard), Subtitle: d.VehicleName})
@@ -79,6 +81,7 @@ templ Dashboard(d fragments.DashboardData) {
 							// #dashboard-content (htmx-conventions.md §"Cross-region refresh").
 							// hx-swap="innerHTML" keeps this wrapper element (and its hx-trigger)
 							// in the DOM across selector clicks.
+							// i18n:allow: htmx attribute values (hx-trigger/hx-swap), not a text node
 							<div id="dashboard-history" hx-get={ d.DefaultHistoryHref } hx-trigger="load" hx-swap="innerHTML"></div>
 						</div>
 					</div>

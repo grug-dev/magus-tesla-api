@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -612,7 +613,12 @@ func TestDashboardFor_EnrichedBento(t *testing.T) {
 		},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 42, startOfDay(time.Now()))
+	// English ctx so the StatusLabel assertion below (a real per-language
+	// string, unlike SoftwareVer/ChargeLimit which are identical or not yet
+	// translated) keeps comparing against the pre-existing literal — mirrors
+	// TestDashStatus / tier 2's T6.4 precedent rather than asserting Spanish.
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	d := h.dashboardFor(ctx, uuid.New(), 42, startOfDay(time.Now()))
 
 	if !d.HasSnapshot {
 		t.Fatalf("want HasSnapshot true, got false")
@@ -668,7 +674,8 @@ func TestDashboardFor_ChargingStatus(t *testing.T) {
 		{TeslaID: 1, CapturedAt: time.Now(), ChargingState: "Charging"},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	d := h.dashboardFor(ctx, uuid.New(), 0, startOfDay(time.Now()))
 	if d.StatusLabel != "Charging" {
 		t.Fatalf("want StatusLabel Charging, got %q", d.StatusLabel)
 	}
@@ -733,13 +740,23 @@ func TestFormatKm(t *testing.T) {
 }
 
 func TestDashStatus(t *testing.T) {
-	for _, tc := range []struct{ charge, want string }{
-		{"Charging", "Charging"},
-		{"Stopped", "Parked"}, {"Disconnected", "Parked"}, {"Complete", "Parked"}, {"", "Parked"},
+	// dashStatus now takes an explicit ctx and resolves through the i18n catalogue
+	// (design.md D5, RM24-gateway-translate-all-pages) instead of returning a
+	// hardcoded literal, mirroring tier 2's T6.4 precedent (nav_test.go,
+	// nav_header_test.go): assert against i18n.T(ctx, key), not a literal string.
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	for _, tc := range []struct {
+		charge string
+		want   i18n.Key
+	}{
+		{"Charging", i18n.KeyDashboardStatusCharging},
+		{"Stopped", i18n.KeyDashboardStatusParked}, {"Disconnected", i18n.KeyDashboardStatusParked},
+		{"Complete", i18n.KeyDashboardStatusParked}, {"", i18n.KeyDashboardStatusParked},
 	} {
 		s := telemetry.Snapshot{ChargingState: tc.charge}
-		if got := dashStatus(s); got != tc.want {
-			t.Errorf("dashStatus(ChargingState=%q) = %q, want %q", tc.charge, got, tc.want)
+		want := i18n.T(ctx, tc.want)
+		if got := dashStatus(ctx, s); got != want {
+			t.Errorf("dashStatus(ChargingState=%q) = %q, want %q", tc.charge, got, want)
 		}
 	}
 }
@@ -842,7 +859,12 @@ func TestNavHeaderFor_Asleep(t *testing.T) {
 		{TeslaID: 42, CapturedAt: time.Now().Add(-72 * time.Hour), BatteryLevelPct: 50},
 	}}
 	h := newNavHeaderHandler(acct, reader)
-	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+	// English ctx so the "days ago" substring assertion below keeps comparing
+	// against the resolved i18n string (KeyNavHeaderLastSeenDaysPlural's EN
+	// value), mirroring TestDashStatus / tier 2's T6.4 precedent rather than
+	// asserting the Spanish "hace %d días" phrasing.
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	vm := h.navHeaderFor(ctx, uuid.New(), 0)
 
 	if vm.VehicleName != "Magus" {
 		t.Errorf("want VehicleName Magus, got %q", vm.VehicleName)

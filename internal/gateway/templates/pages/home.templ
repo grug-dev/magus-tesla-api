@@ -14,7 +14,7 @@ type HomeView struct {
 // Home is the landing page. It reflects auth state: a sign-in link when anonymous,
 // the account email plus dashboard/connect/log-out links when signed in.
 templ Home(vm HomeView) {
-	@layouts.Base("Magus") {
+	@layouts.Base(i18n.T(ctx, i18n.KeyBrandMagus)) {
 		<main>
 			<h1>{ i18n.T(ctx, i18n.KeyBrandMagus) }</h1>
 			if vm.SignedIn {

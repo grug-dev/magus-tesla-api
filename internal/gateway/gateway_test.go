@@ -77,7 +77,12 @@ func TestLogin_RendersContinueWithGoogle(t *testing.T) {
 		t.Fatalf("GET /login status = %d, want 200", w.Code)
 	}
 	body := w.Body.String()
-	for _, want := range []string{"Continue with Google", `href="/auth/google/login"`} {
+	// Anonymous request through the real NewEngine (handlers.LanguageMiddleware IS
+	// wired here, unlike the handlers-package unit test engines): no "lang" cookie
+	// set → resolves to the platform default, Spanish (KeyLoginContinueGoogle's ES
+	// value) — mirrors tier 2's T6.4 precedent (assert the resolved-language
+	// string, not the pre-existing English literal).
+	for _, want := range []string{"Continuar con Google", `href="/auth/google/login"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("login body missing %q\n%s", want, body)
 		}

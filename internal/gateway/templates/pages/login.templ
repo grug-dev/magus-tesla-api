@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"fmt"
+
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
@@ -12,7 +14,7 @@ import (
 // divider, no external background image, and no inline <script>. The handler
 // LoginPage renders this page with no view model — pure static markup + one link.
 templ Login() {
-	@layouts.Base("Sign in — Magus") {
+	@layouts.Base(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyLoginSignIn))) {
 		// Login-local background gradient (change-locality: lives here, not in
 		// layouts.Base, so home/Base stay untouched). Semantic tokens only — the
 		// gradient re-skins with <html data-theme>; no hex, no external asset.

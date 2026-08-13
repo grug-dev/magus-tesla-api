@@ -132,6 +132,38 @@ rule.
   `handlers.LanguageMiddleware` — a new page needs no per-handler language plumbing, only
   `i18n.T` calls in its markup.
 
+**`make i18n-guard` is the mechanical companion to `TestCatalog_AllKeysHaveBothLanguages`**
+(added by `RM24-gateway-translate-all-pages`, tier 3 of `RM24-i18n-translations`, MAG-8). Where
+the catalogue test only enforces "every *known* key has both languages," `i18n-guard` is the
+check that MAG-8 actually asked for: it fails the build if a hardcoded user-facing string
+bypasses `i18n.T(ctx, ...)` in the first place. It is now part of `make check` (`build vet
+ui-guard i18n-guard test`), so a page added without translating it fails locally, not only in
+review.
+
+- **Two grep passes, mirroring `ui-guard`'s shape exactly** — pass 1 scans
+  `templates/{pages,fragments,ui}/*.templ` for a bare text node not already wrapped in
+  `i18n.T(...)`; pass 2 scans `handlers/*.go` (excluding `_test.go`) for a hardcoded string
+  landing on a known message sink (`Notice:`/`Error:` struct fields, the `errs[...] =`
+  validation-map pattern, `vm.`/`d.` field assignment, or a bare-text `c.String(http.Status[45]xx,
+  ...)` body — including each of those wrapped in `fmt.Sprintf`/`fmt.Errorf`). It is a heuristic,
+  same rigor bar as `ui-guard`, not a parser.
+- **The `// i18n:allow: <reason>` marker is the sole exemption mechanism — no separate allowlist
+  file — but its PLACEMENT differs by file type, and this trips people up:**
+  - In a **`.go` file**, the marker is a trailing `//` comment on the **same line** as the
+    literal (e.g. `Healthz`'s `"unhealthy: %v"` line).
+  - In a **`.templ` file**, the marker goes on the line **immediately above** the flagged line —
+    templ has no comment syntax valid inside markup, and HTML comments are forbidden
+    project-wide (`CLAUDE.md` → "HTML templates"), so there is nowhere on the flagged line
+    itself to put a Go `//` comment. `i18n-guard`'s pass 1 checks both the flagged line and the
+    line above it for the marker, so both placements work where each is syntactically valid; a
+    same-line marker only works in a `.templ` file when that particular line is itself plain Go
+    code (e.g. a struct field's doc comment), never inside an HTML tag.
+  - Only mark a **genuine** non-translatable literal (attribute values, CSS classes, htmx
+    attributes, format verbs, units, brand nouns, or a Go doc comment/ops-only response) — never
+    a real piece of app copy the guard correctly caught. If the guard flags real copy, add a
+    catalogue key instead; weakening the marker's use to silence a true positive defeats the
+    check MAG-8 asked for.
+
 ## Read-only at request time
 
 The gateway is **read-only on every user-facing request** by default. This is both a

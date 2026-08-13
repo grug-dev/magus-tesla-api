@@ -16,9 +16,18 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
+
+// historyTestCtx is the language context used by every buildOdometerChart /
+// buildBatteryChart call in this file (both now take an explicit ctx —
+// design.md D3, RM24-gateway-translate-all-pages). Pinned to English so the
+// pre-existing "no snapshot" tooltip substring assertions keep asserting
+// against the resolved i18n string rather than a hardcoded literal, mirroring
+// tier 2's T6.4 precedent (nav_test.go, nav_header_test.go).
+var historyTestCtx = i18n.WithLang(context.Background(), account.LanguageEN)
 
 // --- fakes for the history handler tests ---
 
@@ -436,12 +445,12 @@ func TestBuildOdometerChart_EmptyWhenFewerThanTwoSnapshots(t *testing.T) {
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
 	// 0 snapshots.
-	c := buildOdometerChart(nil, start, end)
+	c := buildOdometerChart(historyTestCtx, nil, start, end)
 	if !c.Empty {
 		t.Error("want Empty=true for 0 snapshots")
 	}
 	// 1 snapshot (only the lookback).
-	c = buildOdometerChart([]telemetry.Snapshot{{OdometerKm: 1000, EffectiveDate: start.AddDate(0, 0, -1)}}, start, end)
+	c = buildOdometerChart(historyTestCtx, []telemetry.Snapshot{{OdometerKm: 1000, EffectiveDate: start.AddDate(0, 0, -1)}}, start, end)
 	if !c.Empty {
 		t.Error("want Empty=true for 1 snapshot")
 	}
@@ -452,7 +461,7 @@ func TestBuildOdometerChart_FixedAxis_FullWindowWithLookback(t *testing.T) {
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day inclusive window
 	lookback := start.AddDate(0, 0, -1)                // 08-02 seeds the first delta
 	snaps := snapsForDays(append([]time.Time{lookback}, calendarDays(start, end)...), 1000, 10, 70)
-	c := buildOdometerChart(snaps, start, end)
+	c := buildOdometerChart(historyTestCtx, snaps, start, end)
 	if c.Empty {
 		t.Fatal("want non-empty chart")
 	}
@@ -489,7 +498,7 @@ func TestBuildOdometerChart_FixedAxis_MissingDayEmptyLabeledBar(t *testing.T) {
 		start.AddDate(0, 0, 4), // 08-07
 	}
 	snaps := snapsForDays(days, 1000, 10, 70)
-	c := buildOdometerChart(snaps, start, end)
+	c := buildOdometerChart(historyTestCtx, snaps, start, end)
 	if c.Empty {
 		t.Fatal("want non-empty chart")
 	}
@@ -524,7 +533,7 @@ func TestBuildOdometerChart_NegativeDeltaClampedToZero(t *testing.T) {
 		{OdometerKm: 900, EffectiveDate: start},                    // 08-03 — negative delta (clock skew)
 		{OdometerKm: 1050, EffectiveDate: start.AddDate(0, 0, 1)},  // 08-04
 	}
-	c := buildOdometerChart(snaps, start, end)
+	c := buildOdometerChart(historyTestCtx, snaps, start, end)
 	if c.Empty {
 		t.Fatal("want non-empty for 3 snapshots")
 	}
@@ -551,7 +560,7 @@ func TestBuildOdometerChart_TooltipUsesEffectiveDateMMDD(t *testing.T) {
 		{OdometerKm: 12100, CapturedAt: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC)}, // 08-07
 		{OdometerKm: 12200, CapturedAt: time.Date(2026, 8, 9, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC)}, // 08-08
 	}
-	c := buildOdometerChart(snaps, start, end)
+	c := buildOdometerChart(historyTestCtx, snaps, start, end)
 	if c.Empty || len(c.Bars) != 2 {
 		t.Fatalf("want 2 bars, got %d (empty=%v)", len(c.Bars), c.Empty)
 	}
@@ -572,10 +581,10 @@ func TestBuildOdometerChart_TooltipUsesEffectiveDateMMDD(t *testing.T) {
 func TestBuildBatteryChart_EmptyWhenNoSnapshots(t *testing.T) {
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
-	if c := buildBatteryChart(nil, start, end); !c.Empty {
+	if c := buildBatteryChart(historyTestCtx, nil, start, end); !c.Empty {
 		t.Error("want Empty for nil snaps")
 	}
-	if c := buildBatteryChart([]telemetry.Snapshot{}, start, end); !c.Empty {
+	if c := buildBatteryChart(historyTestCtx, []telemetry.Snapshot{}, start, end); !c.Empty {
 		t.Error("want Empty for empty snaps")
 	}
 }
@@ -585,7 +594,7 @@ func TestBuildBatteryChart_FixedAxis_FullWindow(t *testing.T) {
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day window
 	// Window snaps only (battery chart does not consume the lookback).
 	snaps := snapsForDays(calendarDays(start, end), 0, 0, 70)
-	c := buildBatteryChart(snaps, start, end)
+	c := buildBatteryChart(historyTestCtx, snaps, start, end)
 	if c.Empty {
 		t.Fatal("want non-empty chart")
 	}
@@ -612,7 +621,7 @@ func TestBuildBatteryChart_FixedAxis_MissingDayEmptyLabeledBar(t *testing.T) {
 	// Snaps for 08-03, 08-04, 08-06, 08-07 — MISSING 08-05.
 	days := []time.Time{start, start.AddDate(0, 0, 1), start.AddDate(0, 0, 3), start.AddDate(0, 0, 4)}
 	snaps := snapsForDays(days, 0, 0, 70)
-	c := buildBatteryChart(snaps, start, end)
+	c := buildBatteryChart(historyTestCtx, snaps, start, end)
 	if c.Empty {
 		t.Fatal("want non-empty (partial axis is NOT an empty chart)")
 	}
@@ -640,7 +649,7 @@ func TestBuildBatteryChart_TooltipUsesEffectiveDateMMDD(t *testing.T) {
 	snaps := []telemetry.Snapshot{
 		{BatteryLevelPct: 80, BatteryRangeKm: 300, CapturedAt: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC)},
 	}
-	c := buildBatteryChart(snaps, start, end)
+	c := buildBatteryChart(historyTestCtx, snaps, start, end)
 	if c.Empty || len(c.Bars) != 1 {
 		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
 	}
@@ -838,7 +847,11 @@ func TestDashboardHistoryFragment_400_Cases(t *testing.T) {
 			if reader.betweenCalled {
 				t.Errorf("%s: reader must NOT be called on a rejected request", tc.name)
 			}
-			if !strings.Contains(w.Body.String(), "Awaiting nightly snapshots") {
+			// historyEngine never wires handlers.LanguageMiddleware, so i18n.FromContext
+			// falls back to Spanish (KeyHistoryAwaitingSnapshots's ES value) — assert the
+			// resolved-language string, not the pre-existing English literal
+			// (RM24-gateway-translate-all-pages, mirroring tier 2's T6.4 precedent).
+			if !strings.Contains(w.Body.String(), "Esperando los datos nocturnos") {
 				t.Errorf("%s: 400 body must contain the empty-state placeholder; got: %s", tc.name, w.Body.String())
 			}
 		})
@@ -889,7 +902,8 @@ func TestDashboardHistoryFragment_ReaderErrorDegradesBothEmpty(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200 (graceful degrade) on reader error, got %d", w.Code)
 	}
-	if !strings.Contains(w.Body.String(), "Awaiting nightly snapshots") {
+	// Resolved language is Spanish here (see the 400_Cases comment above).
+	if !strings.Contains(w.Body.String(), "Esperando los datos nocturnos") {
 		t.Errorf("want empty-state placeholder on reader error; body: %s", w.Body.String())
 	}
 }
@@ -966,9 +980,10 @@ func TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset(t *testing.
 	if !strings.Contains(body, wantHref) {
 		t.Errorf("default 6-day preset href must contain %q; got: %s", wantHref, body)
 	}
-	// All three preset labels appear.
+	// All three preset labels appear. Resolved language is Spanish here
+	// (KeyHistoryDaysPreset's ES value "%d días") — mirrors tier 2's T6.4 precedent.
 	for _, p := range historyPresetDayCounts {
-		label := fmt.Sprintf("%d days", p)
+		label := fmt.Sprintf("%d días", p)
 		if !strings.Contains(body, label) {
 			t.Errorf("selector must contain label %q", label)
 		}
@@ -1031,8 +1046,8 @@ func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows(
 		}
 		body := w.Body.String()
 
-		odo := buildOdometerChart(snaps, start, end)
-		bat := buildBatteryChart(snaps, start, end)
+		odo := buildOdometerChart(historyTestCtx, snaps, start, end)
+		bat := buildBatteryChart(historyTestCtx, snaps, start, end)
 		for _, bar := range odo.Bars {
 			if !strings.Contains(body, bar.Label) {
 				t.Errorf("numBars=%d: odometer label %q missing from body", numBars, bar.Label)

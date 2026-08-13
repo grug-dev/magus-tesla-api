@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"fmt"
+
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
@@ -21,7 +23,7 @@ import (
 // page reload. GET /ui/charges renders both fragments back into the region's
 // innerHTML; the region element (with its flex layout + hx-trigger) persists.
 templ ChargePage(d fragments.ChargesPageData) {
-	@layouts.BaseAuth("Charge log — Magus", "/charges") {
+	@layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyChargesPageTitle)), "/charges") {
 		@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyChargesPageTitle)}) {
 			@ui.Button(ui.ButtonProps{Variant: "ghost", Href: "/dashboard"}) {
 				{ i18n.T(ctx, i18n.KeyChargesPageBackToDashboard) }

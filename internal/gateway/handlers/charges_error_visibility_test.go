@@ -61,7 +61,11 @@ func TestErrorFragmentsCarryOptInHeader(t *testing.T) {
 	if got := w.Header().Get("HX-Error-Fragment"); got != "true" {
 		t.Errorf("HX-Error-Fragment = %q, want \"true\" — htmx will DISCARD this 422 body and the user will see nothing", got)
 	}
-	if !strings.Contains(w.Body.String(), "Battery percentage is required.") {
+	// engineWithSession never wires handlers.LanguageMiddleware, so i18n.FromContext
+	// falls back to Spanish (KeyChargesErrorBatteryPctRequired's ES value) — assert
+	// the resolved-language string, not the pre-existing English literal
+	// (RM24-gateway-translate-all-pages, mirroring tier 2's T6.4 precedent).
+	if !strings.Contains(w.Body.String(), "El porcentaje de batería es obligatorio.") {
 		t.Errorf("422 body must carry the field-level message; got:\n%s", w.Body.String())
 	}
 }

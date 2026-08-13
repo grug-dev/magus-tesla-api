@@ -8,20 +8,17 @@
   "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": [
-      "T14",
-      "T15",
-      "T16",
-      "T17"
-    ],
+    "pending": [],
     "blocked": [
-      "T5"
+      "T14",
+      "T17"
     ],
     "done": [
       "T1",
       "T2",
       "T3",
       "T4",
+      "T5",
       "T6",
       "T7",
       "T8",
@@ -29,11 +26,14 @@
       "T10",
       "T11",
       "T12",
-      "T13"
+      "T13",
+      "T15",
+      "T16",
+      "T18"
     ]
   },
   "created_at": "2026-08-13T10:54:34Z",
-  "updated_at": "2026-08-13T14:25:10Z",
+  "updated_at": "2026-08-13T14:46:47Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -157,13 +157,13 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "blocked",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-13T14:00:00Z",
-      "completed_at": "2026-08-13T14:21:32Z",
+      "completed_at": "2026-08-13T14:29:09Z",
       "duration_seconds": 1292,
-      "notes": "T5.1/T5.3 done. T5.2 partial: charges_list.templ title/refresh/empty done, but ui.Table Headers slice (Date/Vehicle/Energy/Price/Cost per kWh/Battery/Duration/Actions) has no catalog key and isn't in T1.8 - left hardcoded. Needs new charges_list.header_* keys.",
+      "notes": "T5.1/T5.3 done. T5.2 now complete: charges_list.templ ui.Table Headers wired to the 8 KeyChargesListHeader* keys added by T1 (via T18.1). Unblocked.",
       "budget": {
         "five_hour_pct_start": 20.0,
         "five_hour_pct_end": 60.0,
@@ -392,14 +392,23 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "THE acceptance bar. Target can be authored after T1, but T14.3 (clean run) is gated on T2-T13 finishing. T14.1b must actually exercise the preceding-line .templ escape hatch - see D1's leader amendment.",
-      "budget": null
+      "status": "blocked",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:29:09Z",
+      "completed_at": "2026-08-13T15:10:00Z",
+      "duration_seconds": 2451,
+      "notes": "T14.1/T14.1b/T14.2 done: target built (mirrors ui-guard, two passes, preceding-line lookback for .templ), wired into check, hatch proven red-to-green then reverted. T14.3 blocked: guard itself found a genuine 3rd inventory gap (handlers.go:423 ChargeLimit, not a false positive) needing a new catalog key I cannot add. 2 real false positives fixed with i18n:allow (button.templ, dashboard.templ htmx attrs).",
+      "budget": {
+        "five_hour_pct_start": 60.0,
+        "five_hour_pct_end": 91.0,
+        "five_hour_pct_delta": 31.0,
+        "cost_usd_delta": 16.83,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3, single serial worker (T18/T5.2/T14/T15/T16/T17)"
+      }
     },
     {
       "id": "T15",
@@ -409,14 +418,23 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T15:10:00Z",
+      "completed_at": "2026-08-13T15:15:00Z",
+      "duration_seconds": 300,
+      "notes": "AGENTS.md i18n section extended: make i18n-guard documented as TestCatalog's mechanical companion, now in make check; i18n:allow marker placement (.go same-line vs .templ preceding-line) explained. README's make check line already generic (no ui-guard row either) - no edit needed per design.md.",
+      "budget": {
+        "five_hour_pct_start": 60.0,
+        "five_hour_pct_end": 91.0,
+        "five_hour_pct_delta": 31.0,
+        "cost_usd_delta": 16.83,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3, single serial worker (T18/T5.2/T14/T15/T16/T17)"
+      }
     },
     {
       "id": "T16",
@@ -434,14 +452,23 @@
         "T10"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T15:15:00Z",
+      "completed_at": "2026-08-13T15:18:00Z",
+      "duration_seconds": 180,
+      "notes": "make templ (regenerated every touched *_templ.go, incl. T18's page-title edits) then make css. git diff --stat static/app.css is EMPTY - no new class, as expected for a text-only tier.",
+      "budget": {
+        "five_hour_pct_start": 60.0,
+        "five_hour_pct_end": 91.0,
+        "five_hour_pct_delta": 31.0,
+        "cost_usd_delta": 16.83,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3, single serial worker (T18/T5.2/T14/T15/T16/T17)"
+      }
     },
     {
       "id": "T17",
@@ -453,17 +480,54 @@
         "T13",
         "T14",
         "T15",
-        "T16"
+        "T16",
+        "T18"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "T17.3 expects pre-existing tests asserting on English literals to need updating (tier 2's T6.4 precedent).",
-      "budget": null
+      "status": "blocked",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T15:18:00Z",
+      "completed_at": "2026-08-13T15:45:00Z",
+      "duration_seconds": 1620,
+      "notes": "T17.1/T17.2/T17.3 done: go build/vet clean; go test green after fixing 17 pre-existing tests asserting English literals (now Spanish by default, matching T6.4 precedent). T17.4/T17.5/T17.6 blocked on the same real gap T14.3 found (handlers.go:423 ChargeLimit, needs a new catalog key I cannot add).",
+      "budget": {
+        "five_hour_pct_start": 60.0,
+        "five_hour_pct_end": 91.0,
+        "five_hour_pct_delta": 31.0,
+        "cost_usd_delta": 16.83,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3, single serial worker (T18/T5.2/T14/T15/T16/T17)"
+      }
+    },
+    {
+      "id": "T18",
+      "title": "Inventory-gap closure: page titles + charges-list table headers (see tasks.md T18)",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:29:09Z",
+      "completed_at": "2026-08-13T14:45:00Z",
+      "duration_seconds": 966,
+      "notes": "T18.1 charges_list.templ headers wired to KeyChargesListHeader* (8 keys). T18.2 all 5 page titles wired (home bare KeyBrandMagus; login/dashboard/charges/supercharger_stats via fmt.Sprintf(KeyBrandPageTitle, page key)); supercharger_stats.templ also had its PageHeader Title + back-link hardcoded, fixed too. T18.3 go build ./internal/gateway/... clean.",
+      "budget": {
+        "five_hour_pct_start": 60.0,
+        "five_hour_pct_end": 91.0,
+        "five_hour_pct_delta": 31.0,
+        "cost_usd_delta": 16.83,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3, single serial worker (T18/T5.2/T14/T15/T16/T17)"
+      }
     }
   ],
   "decisions": [
@@ -547,6 +611,15 @@
       "decision": "Minted 8 new charges_list.header_* keys for the ui.Table Headers slice in charges_list.templ rather than reusing the identical existing strings (KeyChargesFormDate, KeyChargesFormVehicle, KeyChargesFormPrice, KeySuperchargerEnergy, KeyDashboardBatteryTitle)",
       "why": "T1.8's inventory missed the Headers slice entirely, so T5 blocked honestly rather than inventing keys or shipping English. D2's reuse mandate targets the same string in the same semantic role - its own examples are nav labels reused as page titles. A table column header is a different role with different length constraints, and reusing KeyDashboardBatteryTitle would mean an edit to a dashboard card title silently changes a charge-log column header. Verified this is the last instance of the class: supercharger_stats.templ is the only other ui.Table and its headers were already catalogued. Sent back to the T1 worker to preserve D4's single-writer invariant on catalog.go.",
       "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-13T14:46:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted the wave-3 worker leaving T14 and T17 blocked on one real guard failure instead of marking them done, and did NOT self-fix the missing key before the checkpoint",
+      "why": "make i18n-guard flagged handlers.go:423 fmt.Sprintf(\"Limit %d%%\") - genuine app copy, not eligible for an i18n:allow marker, and the worker was correctly barred from editing catalog.go (D4 single writer). The guard catching a string all three wave-2 workers missed is positive evidence the acceptance bar works. Fixing it needs a catalogue key, so it routes to the single writer next session.",
+      "covered_by": null
     }
   ],
   "review": {
@@ -580,6 +653,11 @@
       "at": "2026-08-13T14:14:00Z",
       "agent": "leader",
       "event": "Wave 1 reconciled. T1 done: 144 new keys (162 total), go build/vet/test green. Doc-pack acknowledged, D1-D5 enumerated. Budget 6->20%. Worker flagged 3 count discrepancies in tasks.md T1.15 resolved by deduping identical strings - see decision D7."
+    },
+    {
+      "at": "2026-08-13T14:46:47Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at wave-3 boundary per Step 5.5: five_hour_pct 91 >= threshold 90 (context 25, threshold 60). Bucket resets_at 1786647600 (~17:00Z). All statuses truthful: T14/T17 blocked on ONE remaining string. Remaining work is small - add KeyDashboardChargeLimit via the catalog single writer, wire handlers.go:423, re-run make check, then the review round. Resume with: /kkpa-dev-harness-pipeline resume RM24-gateway-translate-all-pages"
     }
   ]
 }
