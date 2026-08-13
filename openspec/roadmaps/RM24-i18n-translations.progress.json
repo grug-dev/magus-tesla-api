@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-8 \u2014 https://linear.app/magus-monitor/issue/MAG-8/i18n-translations-htmx\n\nAdd internationalization (i18n) support for English (EN) and Spanish (ES) across the HTMX + Go + Templ application. Add i18n translations for all existing user-facing text. Add a modern language selector to the top-right of the navbar, with a language/globe icon and the current language. Allow users to switch between EN and ES without disrupting the current page. Persist the selected language across navigation (settings table vs new column on accounts \u2014 user to decide). By default, the language is ES. Apply the change to all labels shown on the entire app (all pages should handle i18n); the front-end currently shows English versions. Update the instructions in the module so that every time a new label is created for any front-end page, both translations are required.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-13T09:15:00Z",
+  "updated_at": "2026-08-13T09:17:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM24-MAG-8-i18n-translations",
@@ -16,9 +16,10 @@
     "created_at": "2026-08-13T02:30:31Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      2
+    ],
     "pending": [
-      2,
       3
     ],
     "blocked": [],
@@ -62,6 +63,15 @@
       "decision": "Split the gateway work into two tiers (foundation, then full translation sweep) instead of one gateway tier",
       "why": "Tier 2 is design-bearing (catalogue format, language plumbing into Templ, htmx swap strategy) and establishes one gold-standard surface; tier 3 is mechanical repetition of that settled vocabulary across ~13 templates. Separating them keeps design decisions out of a large sweep and lets tier 3 run on a cheaper model.",
       "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-13T09:17:00Z",
+      "scope": "tier:2",
+      "made_by": "autopilot",
+      "decision": "Advanced to tier 2 immediately after tier 1 archived, without asking",
+      "why": "Roadmap autopilot is on and every pause gate was clear: budget 18%/17% vs 90/60 thresholds, no design gate (tier 2 touches no DB object), and tier 2 opens no decision the roadmap Decisions do not already cover.",
+      "covered_by": "roadmap Decision #2"
     }
   ],
   "tiers": [
@@ -95,10 +105,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:17:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,

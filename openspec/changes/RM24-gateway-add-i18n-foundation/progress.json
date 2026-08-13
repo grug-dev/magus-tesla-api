@@ -1,0 +1,685 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM24-gateway-add-i18n-foundation",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM24-i18n-translations.md",
+  "request": "Tier 2 of RM24-i18n-translations (ticket MAG-8). Build the gateway i18n foundation: translation catalogue for es (default) and en, per-request language resolution (accounts.language for signed-in via tier 1's port, `lang` cookie for anonymous, falling back to es), the navbar globe-icon language selector visible on every page including login, an htmx switch that does not disrupt the current page, the layout/nav shell translated as the gold standard, and the AGENTS.md rule requiring EN+ES for every newly added label.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "T1.1",
+      "T1.2",
+      "T1.3",
+      "T1.4",
+      "T1.5",
+      "T2.1",
+      "T2.2",
+      "T2.3",
+      "T2.4",
+      "T3.1",
+      "T3.2",
+      "T3.3",
+      "T3.4",
+      "T3.5",
+      "T4.1",
+      "T4.2",
+      "T4.3",
+      "T5.1",
+      "T5.2",
+      "T5.3",
+      "T5.4",
+      "T5.5",
+      "T6.1",
+      "T6.2",
+      "T6.3",
+      "T6.4",
+      "T7.1",
+      "T7.2",
+      "T7.3",
+      "T8.1",
+      "T8.2",
+      "T8.3",
+      "T8.4",
+      "T8.5",
+      "T8.6"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-13T09:33:00Z",
+  "updated_at": "2026-08-13T09:33:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM24-MAG-8-i18n-translations",
+    "base": "1b7aee9 (main)",
+    "ticket": "MAG-8",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-8/i18n-translations-htmx",
+    "created_at": "2026-08-13T02:30:31Z"
+  },
+  "tasks": [
+    {
+      "id": "T1.1",
+      "title": "see tasks.md T1.1",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T1.2",
+      "title": "see tasks.md T1.2",
+      "module": "gateway",
+      "depends_on": [
+        "T1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T1.3",
+      "title": "see tasks.md T1.3",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T1.4",
+      "title": "see tasks.md T1.4",
+      "module": "gateway",
+      "depends_on": [
+        "T1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T1.5",
+      "title": "see tasks.md T1.5",
+      "module": "gateway",
+      "depends_on": [
+        "T1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2.1",
+      "title": "see tasks.md T2.1",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2.2",
+      "title": "see tasks.md T2.2",
+      "module": "gateway",
+      "depends_on": [
+        "T2.1",
+        "T1.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2.3",
+      "title": "see tasks.md T2.3",
+      "module": "gateway",
+      "depends_on": [
+        "T2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2.4",
+      "title": "see tasks.md T2.4",
+      "module": "gateway",
+      "depends_on": [
+        "T2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3.1",
+      "title": "see tasks.md T3.1",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3.2",
+      "title": "see tasks.md T3.2",
+      "module": "gateway",
+      "depends_on": [
+        "T3.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3.3",
+      "title": "see tasks.md T3.3",
+      "module": "gateway",
+      "depends_on": [
+        "T3.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3.4",
+      "title": "see tasks.md T3.4",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3.5",
+      "title": "see tasks.md T3.5",
+      "module": "gateway",
+      "depends_on": [
+        "T3.1",
+        "T3.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4.1",
+      "title": "see tasks.md T4.1",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4.2",
+      "title": "see tasks.md T4.2",
+      "module": "gateway",
+      "depends_on": [
+        "T4.1",
+        "T1.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4.3",
+      "title": "see tasks.md T4.3",
+      "module": "gateway",
+      "depends_on": [
+        "T4.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5.1",
+      "title": "see tasks.md T5.1",
+      "module": "gateway",
+      "depends_on": [
+        "T4.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5.2",
+      "title": "see tasks.md T5.2",
+      "module": "gateway",
+      "depends_on": [
+        "T1.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5.3",
+      "title": "see tasks.md T5.3",
+      "module": "gateway",
+      "depends_on": [
+        "T1.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5.4",
+      "title": "see tasks.md T5.4",
+      "module": "gateway",
+      "depends_on": [
+        "T1.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5.5",
+      "title": "see tasks.md T5.5",
+      "module": "gateway",
+      "depends_on": [
+        "T5.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6.1",
+      "title": "see tasks.md T6.1",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6.2",
+      "title": "see tasks.md T6.2",
+      "module": "gateway",
+      "depends_on": [
+        "T6.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6.3",
+      "title": "see tasks.md T6.3",
+      "module": "gateway",
+      "depends_on": [
+        "T6.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6.4",
+      "title": "see tasks.md T6.4",
+      "module": "gateway",
+      "depends_on": [
+        "T6.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7.1",
+      "title": "see tasks.md T7.1",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7.2",
+      "title": "see tasks.md T7.2",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7.3",
+      "title": "see tasks.md T7.3",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8.1",
+      "title": "see tasks.md T8.1",
+      "module": "gateway",
+      "depends_on": [
+        "T5.1",
+        "T6.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8.2",
+      "title": "see tasks.md T8.2",
+      "module": "gateway",
+      "depends_on": [
+        "T8.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8.3",
+      "title": "see tasks.md T8.3",
+      "module": "gateway",
+      "depends_on": [
+        "T8.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8.4",
+      "title": "see tasks.md T8.4",
+      "module": "gateway",
+      "depends_on": [
+        "T8.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8.5",
+      "title": "see tasks.md T8.5",
+      "module": "gateway",
+      "depends_on": [
+        "T8.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8.6",
+      "title": "see tasks.md T8.6",
+      "module": "gateway",
+      "depends_on": [
+        "T8.4",
+        "T8.5"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-13T09:33:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Approved omitting a CSRF token on POST /ui/lang/switch, CONDITIONAL on the lang cookie being SameSite=Lax",
+      "why": "The module has a close CSRF precedent (vehicle-select, handlers.go:529) but it is auth-only and cannot transplant to a control that must work for anonymous login-page visitors without minting a session for every one of them. SameSite=Lax blocks the cross-site POST; worst-case abuse is a one-click-reversible language flip.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-13T09:33:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Amended design.md D8 and tasks T2.1/T3.5 to make SameSite=Lax explicit and test-enforced",
+      "why": "The worker's design never mentioned SameSite, and T2.1 specified gin's c.SetCookie(...) which has NO SameSite parameter \u2014 as written it would have produced a cookie without the attribute, silently voiding the premise the user approved. Added the mandatory c.SetSameSite call, the full normative cookie-attribute spec, and a non-droppable TestLangSwitch_CookieIsSameSiteLax.",
+      "covered_by": "change Decision D1"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-13T09:17:00Z",
+      "agent": "leader",
+      "event": "tier 2 opened under roadmap autopilot; dispatched gateway worker (sonnet) to author artifacts"
+    },
+    {
+      "at": "2026-08-13T09:33:00Z",
+      "agent": "leader",
+      "event": "artifacts returned and validated; leader paused autopilot for a NEW decision the roadmap did not cover (CSRF omission), user approved conditionally, leader amended design+tasks to enforce the condition"
+    }
+  ]
+}
