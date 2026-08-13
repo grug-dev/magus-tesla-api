@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM24-i18n-translations.md",
   "request": "Tier 2 of RM24-i18n-translations (ticket MAG-8). Build the gateway i18n foundation: translation catalogue for es (default) and en, per-request language resolution (accounts.language for signed-in via tier 1's port, `lang` cookie for anonymous, falling back to es), the navbar globe-icon language selector visible on every page including login, an htmx switch that does not disrupt the current page, the layout/nav shell translated as the gold standard, and the AGENTS.md rule requiring EN+ES for every newly added label.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -960,7 +960,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "gateway-reviewer",
     "brief": "Review RM24-gateway-add-i18n-foundation (tier 2 of RM24-i18n-translations), module `gateway`, commits 01ca611 (wave 1: i18n package, middleware, LangSwitch) and 331fd05 (wave 2: ui.LangSwitcher, translated nav shell, docs). Review the DIFF, not the module. Validate: (1) SECURITY PREMISE \u2014 setLangCookie MUST call c.SetSameSite(http.SameSiteLaxMode) BEFORE c.SetCookie, and TestLangSwitch_CookieIsSameSiteLax must exist unweakened. The user approved omitting CSRF on POST /ui/lang/switch ONLY on that condition (design.md D8); its absence or weakening is a BLOCKER. (2) Module boundaries \u2014 no HTML outside gateway; language reached ONLY via account.Service on Deps, never internal/account/db; internal/gateway/i18n imports nothing beyond context + account. (3) UI stack rules \u2014 no DaisyUI component class inlined in pages/fragments/layouts NEWLY by this change (note: base.templ's `btn btn-square btn-ghost` pre-exists on main and is out of scope); semantic theme tokens only, no hex; NO client-side JS added; no HTML comments in .templ. (4) Behaviour vs spec \u2014 signed-in reads accounts.language, anonymous reads the lang cookie, both fall back to es; an unrecognized value resolves to es and never breaks a render; the cookie syncs with the DB value; HX-Location carries path+query so the switch does not disrupt the page. (5) Catalogue completeness is enforced by TestCatalog_AllKeysHaveBothLanguages, and AGENTS.md now carries a BINDING EN+ES rule for new labels (MAG-8 asked for this explicitly \u2014 check the wording is binding, not advisory). (6) Codegen \u2014 *_templ.go regenerated and static/app.css committed (the module CI guard). (7) Performance \u2014 language resolved ONCE per request in middleware, carried on context; the switcher adds no per-render DB read. (8) Anti-gaming \u2014 no task title or criterion weakened; every ticked checkbox genuinely done; wave 1's guard test not touched by wave 2. Escalate on doubt: return changes-requested rather than approving anything uncertain.",
     "rounds": [
@@ -975,6 +975,19 @@
             "note": "tasks.md T6.4 (checked [x], progress.json T6.4 marked done) requires adding `internal/gateway/templates/fragments/nav_header_test.go` (new, if none exists) with `TestNavHeader_StatusLabelTranslatesPerLanguage` \u2014 rendering `NavHeaderVM{Status: NavStatusConnected}` under both `i18n.WithLang(ctx, LanguageES)` and `...LanguageEN`, asserting the two renders differ and each matches the catalogue's `KeyNavHeaderStatusConnected` entry. No such file or test exists anywhere in the repo (`grep -rn 'StatusLabelTranslatesPerLanguage\\|statusLabelKeyFor\\|Conectado\\|Dormido' internal/gateway --include='*_test.go'` returns nothing). The only fragment-level nav-header test, `TestNavHeaderFragment_ConnectedHTTP` in handlers_test.go, asserts on `badge-success`/`94%`/vehicle name but never on the rendered status word text in either language, and its engine (`navHeaderEngine`) never registers `LanguageMiddleware`, so it exercises no language variation at all. T6.4's handlers_test.go half (removing the four `vm.StatusLabel` assertions) was done correctly, but the fragments-test half of the same task was not \u2014 the checkbox and progress.json note both claim it complete ('handlers_test.go: removed StatusLabel assertions...') without disclosing the missing fragments test. This is the exact kind of partially-done-but-ticked task item 8 of the brief asks the reviewer to catch. The underlying code (`statusLabelKeyFor` + `i18n.T(ctx, ...)` in nav_header.templ) reads correctly on inspection, so this is a test-coverage/anti-gaming gap, not a known behavioral defect \u2014 hence major, not blocker.",
             "status": "fixed",
             "triage": "accepted"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-08-13T12:45:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Re-verified against fix commit 2ea08d9: internal/gateway/templates/fragments/nav_header_test.go adds TestNavHeader_StatusLabelTranslatesPerLanguage (table-driven over all 4 NavHeaderStatusKind values) and TestNavHeader_ConnectPromptTranslates. Ran both directly — all subtests pass. Confirmed the test is not a tautology: for each status it asserts the ES render contains the catalogue's ES string AND the EN render contains the catalogue's EN string (not just an es==en inequality check) — a regression that hardcoded English, or dropped the i18n.T(ctx, statusLabelKeyFor(...)) call in favor of a literal, would fail the ES-side strings.Contains, since every one of the 4 status catalogue entries has genuinely distinct ES/EN text (verified against catalog.go: Conectado/Connected, Dormido/Asleep, Esperando primer dato/Awaiting first snapshot, No disponible/Unavailable). The redundant es==en check adds a second, independent tripwire for the same regression class. Traced renderNavHeader's use of templ.Handler(NavHeader(vm)).Component.Render(ctx, &buf) — same ctx-threading pattern already proven correct by this change's other passing context-based tests (TestBase_RendersLangSwitcher, lang_switcher_test.go), so no reason to doubt it exercises the real ctx path.",
+            "status": "fixed"
           }
         ]
       }

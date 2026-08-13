@@ -79,7 +79,7 @@ archived) · `[x]` done (archived).
 | Status | Change | Module | Scope | depends_on |
 |---|---|---|---|---|
 | `[x]` | `RM24-account-add-language-preference` | `account` | `accounts.language` column + migration + sqlc + port method | — |
-| `[~]` | `RM24-gateway-add-i18n-foundation` | `gateway` | catalogue, resolution middleware, navbar selector, docs rule, one gold-standard surface | tier 1 |
+| `[x]` | `RM24-gateway-add-i18n-foundation` | `gateway` | catalogue, resolution middleware, navbar selector, docs rule, one gold-standard surface | tier 1 |
 | `[ ]` | `RM24-gateway-translate-all-pages` | `gateway` | translate every remaining page/fragment/ui component | tier 2 |
 
 ### Tier 1 — `[x]` `RM24-account-add-language-preference` (module: `account`)
@@ -105,7 +105,7 @@ alongside the account and persist a change to it. Supported values `es` and `en`
 column is never filtered or joined on; justify that in design.md against the read-heavy
 performance profile. Non-breaking: existing rows take the default."*
 
-### Tier 2 — `[~]` `RM24-gateway-add-i18n-foundation` (module: `gateway`; depends on tier 1)
+### Tier 2 — `[x]` `RM24-gateway-add-i18n-foundation` (module: `gateway`; depends on tier 1)
 
 The design-bearing gateway tier. Establishes the translation vocabulary and proves it on
 one surface end-to-end; it does **not** translate the whole app (that is tier 3).

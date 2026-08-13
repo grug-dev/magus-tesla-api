@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-8 \u2014 https://linear.app/magus-monitor/issue/MAG-8/i18n-translations-htmx\n\nAdd internationalization (i18n) support for English (EN) and Spanish (ES) across the HTMX + Go + Templ application. Add i18n translations for all existing user-facing text. Add a modern language selector to the top-right of the navbar, with a language/globe icon and the current language. Allow users to switch between EN and ES without disrupting the current page. Persist the selected language across navigation (settings table vs new column on accounts \u2014 user to decide). By default, the language is ES. Apply the change to all labels shown on the entire app (all pages should handle i18n); the front-end currently shows English versions. Update the instructions in the module so that every time a new label is created for any front-end page, both translations are required.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-13T09:17:00Z",
+  "updated_at": "2026-08-13T10:22:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM24-MAG-8-i18n-translations",
@@ -16,15 +16,14 @@
     "created_at": "2026-08-13T02:30:31Z"
   },
   "rollup": {
-    "current": [
-      2
-    ],
+    "current": [],
     "pending": [
       3
     ],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -105,14 +104,21 @@
       "depends_on": [
         1
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-13T09:17:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "completed_at": "2026-08-13T10:22:00Z",
+      "duration_seconds": 3900,
+      "budget": {
+        "five_hour_pct_delta": 36.0,
+        "cost_usd_delta": 22.0,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts + 2 implementation waves + 2 review rounds"
+      },
+      "notes": "Archived to openspec/changes/archive/gateway/2026-08-13-RM24-gateway-add-i18n-foundation. Reviewer-approved round 2 (round 1 caught a ticked-but-missing test, T6.4). i18n package, middleware, navbar switcher, translated nav shell, binding EN+ES rule."
     },
     {
       "id": 3,
@@ -130,6 +136,13 @@
       "duration_seconds": null,
       "budget": null,
       "notes": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-13T10:22:00Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at tier boundary: 5-hour bucket at 74% (threshold 90), context 26% (threshold 60). Tier 2 alone consumed ~36 points; tier 3 is a comparable-or-larger mechanical sweep across ~13 templates and is projected to cross 90% mid-tier. Stopping cleanly per Step 5.5/9.2 rather than opening tier 3. Bucket resets at 1786629600. Resume with: /kkpa-dev-harness-pipeline resume RM24-gateway-translate-all-pages"
     }
   ]
 }
