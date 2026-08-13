@@ -85,8 +85,10 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
 - **No client-side JS init** — keeps htmx swaps safe. Prefer CSS-only DaisyUI patterns
-  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. The single standing
-  exception is `ui.ConfirmDialog`, whose JS lives in the shared `static/app.js`.
+  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **two**
+  standing exceptions, each with its own recorded decision below: **RD9** (the `browser_tz`
+  cookie script in `layouts.BaseAuth`) and **RD10** (`ui.ConfirmDialog`, whose JS lives in
+  the shared `static/app.js`). Adding a third needs its own RD entry per RD8.
 - **Confirmations: never write a modal, never call `window.confirm`.** Put `hx-confirm`
   (plus optional `data-confirm-title` / `data-confirm-label` / `data-confirm-variant="danger"`)
   on the triggering control and the shared `ui.ConfirmDialog` — mounted once in
@@ -253,7 +255,8 @@ to every future AI agent or human who reads this doc at the start of a session.
 
 The gateway's declared **zero-JS** DaisyUI foundation (`ai/htmx-conventions.md`
 §"Styling" — "Do not introduce a component that needs client-side JS init") has
-exactly **ONE** sanctioned exception: a single inline `<script>` in
+exactly **TWO** sanctioned exceptions: this one and **RD10** (the confirmation
+modal) below. This entry covers the first: a single inline `<script>` in
 `layouts.BaseAuth` that sets the `browser_tz` cookie. Added by
 `gateway-browser-tz-cookie` (MAG-7, shipped 2026-08-11; documented here in the
 MAG-7 review fix round, 2026-08-12).
@@ -289,6 +292,55 @@ this entry does not grandfather it in.
 failure, or in a `<noscript>` browser, the cookie is simply never set and the
 server falls back to `time.UTC` (`browserLocation`'s fallback rule) — no
 error surfaces to the user and no page render breaks.
+
+## Client-side JS exception: confirmation modal (RD10)
+
+The **second** (and currently last) sanctioned exception to the zero-JS rule: the
+`htmx:confirm` interception in `static/app.js` that drives `ui.ConfirmDialog`. Added by
+`gateway-add-confirm-dialog` (MAG-5, shipped 2026-08-12, PR #24; documented here
+2026-08-13).
+
+**What:** One `htmx:confirm` listener in the shared `static/app.js` (~40 lines, no
+library, no `fetch`), plus `ui.ConfirmDialog` — a native `<dialog>` mounted **once** in
+`layouts.Base` (so `BaseAuth`, which composes `Base`, inherits it on every authenticated
+page). htmx fires a **cancelable** `htmx:confirm` event before every request carrying
+`hx-confirm`, exposing the element's message as `detail.question` and a
+`detail.issueRequest(skip)` callback. The listener calls `preventDefault()`, fills the
+dialog from the element's attributes, and calls `issueRequest(true)` on confirm — htmx
+then resumes the exact same request. Per-use content is a four-attribute vocabulary on
+the triggering control: `hx-confirm` (message), `data-confirm-title`,
+`data-confirm-label`, `data-confirm-variant="danger"`.
+
+**Why:** replacing the browser's unstyleable `window.confirm()` is inherently a
+JS-interception job — htmx offers the decision **only** as an event. The **rejected
+alternative** was a CSS-only DaisyUI pattern (checkbox/anchor `<dialog>` modal), the
+approach this doc mandates everywhere else: it cannot work here at all, because a
+CSS-only modal has no way to *gate an in-flight htmx request* — the request would fire
+before the user answered. The second rejected alternative was a bespoke per-page modal
+with its own script, which reintroduces hand-rolled JS on every page that needs a
+confirmation. Hooking htmx's own documented event instead means **any element on any
+page carrying `hx-confirm` gets the modal automatically — including pages not yet
+written** — so the marginal cost of the next confirmation is one attribute, not a
+component.
+
+**Why it does not erode the `ui/` boundary:** the dialog pre-renders **both** confirm
+buttons (default + danger) and `app.js` only ever toggles the `hidden` property and sets
+`textContent`. No DaisyUI `btn-*` class string ever appears in JavaScript — the component
+vocabulary stays owned by `templates/ui/`, exactly as the anti-corruption-adapter rule
+requires. Native `<dialog>.showModal()` is used so focus-trapping, Esc-to-close, page
+inertness, and top-layer stacking are the browser's job, not ours.
+
+**Boundary — this is NOT an opening for general client-side JS.** Like RD9, it is a
+narrow, sanctioned exception (one listener, one shared dialog, one decision-gating job),
+not a precedent. Any further client-side JS needs its own RD entry per RD8, with its own
+rationale and rejected alternative. Two concrete rules follow from the single-instance
+design: **do not mount a second `ui.ConfirmDialog`** (`app.js` resolves it by `id`; a
+duplicate makes the wrong one open), and it stays in the layout, **outside every
+swappable region**, so an htmx swap can never replace an open dialog.
+
+**Graceful degradation:** if the dialog is absent (a page not built on `layouts.Base`) or
+the browser has no `<dialog>` support, `app.js` returns early and htmx falls back to its
+native `confirm()` — degraded styling, but the guard itself is never lost.
 
 ---
 
