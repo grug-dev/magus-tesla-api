@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM24-i18n-translations",
   "intention": "The web app is fully bilingual ES (default) / EN: every gateway string resolves through a catalogue, a globe-icon selector top-right in the navbar switches language without disrupting the page, and the choice persists in accounts.language for signed-in users or a lang cookie for anonymous ones.",
-  "request": "Source ticket: MAG-8 \u2014 https://linear.app/magus-monitor/issue/MAG-8/i18n-translations-htmx\n\nAdd internationalization (i18n) support for English (EN) and Spanish (ES) across the HTMX + Go + Templ application. Add i18n translations for all existing user-facing text. Add a modern language selector to the top-right of the navbar, with a language/globe icon and the current language. Allow users to switch between EN and ES without disrupting the current page. Persist the selected language across navigation (settings table vs new column on accounts \u2014 user to decide). By default, the language is ES. Apply the change to all labels shown on the entire app (all pages should handle i18n); the front-end currently shows English versions. Update the instructions in the module so that every time a new label is created for any front-end page, both translations are required.",
-  "status": "in-progress",
+  "request": "Source ticket: MAG-8 — https://linear.app/magus-monitor/issue/MAG-8/i18n-translations-htmx\n\nAdd internationalization (i18n) support for English (EN) and Spanish (ES) across the HTMX + Go + Templ application. Add i18n translations for all existing user-facing text. Add a modern language selector to the top-right of the navbar, with a language/globe icon and the current language. Allow users to switch between EN and ES without disrupting the current page. Persist the selected language across navigation (settings table vs new column on accounts — user to decide). By default, the language is ES. Apply the change to all labels shown on the entire app (all pages should handle i18n); the front-end currently shows English versions. Update the instructions in the module so that every time a new label is created for any front-end page, both translations are required.",
+  "status": "complete",
   "autopilot": true,
-  "updated_at": "2026-08-13T11:00:00Z",
+  "updated_at": "2026-08-13T21:26:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM24-MAG-8-i18n-translations",
@@ -16,14 +16,13 @@
     "created_at": "2026-08-13T02:30:31Z"
   },
   "rollup": {
-    "current": [
-      3
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       1,
-      2
+      2,
+      3
     ]
   },
   "decisions": [
@@ -33,7 +32,7 @@
       "scope": "change",
       "made_by": "user",
       "decision": "Persist the language preference as a `language TEXT NOT NULL DEFAULT 'es'` column on the existing `accounts` table, not a new account_settings table",
-      "why": "One preference, strictly 1:1 with the account, read on every page render \u2014 a column keeps it on the already-loaded account row with no join on the hot read path (declared read-heavy Performance-Profile). A settings table costs a join/second query, a second sqlc query set, and a missing-row fallback, and buys nothing for a single field.",
+      "why": "One preference, strictly 1:1 with the account, read on every page render — a column keeps it on the already-loaded account row with no join on the hot read path (declared read-heavy Performance-Profile). A settings table costs a join/second query, a second sqlc query set, and a missing-row fallback, and buys nothing for a single field.",
       "covered_by": null
     },
     {
@@ -71,6 +70,15 @@
       "decision": "Advanced to tier 2 immediately after tier 1 archived, without asking",
       "why": "Roadmap autopilot is on and every pause gate was clear: budget 18%/17% vs 90/60 thresholds, no design gate (tier 2 touches no DB object), and tier 2 opens no decision the roadmap Decisions do not already cover.",
       "covered_by": "roadmap Decision #2"
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-13T21:26:00Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "Moved the CLI's archive output from the flat openspec/changes/archive/ into the domain-grouped openspec/changes/archive/gateway/",
+      "why": "`openspec archive` writes flat, but openspec/config.yaml archive rule is explicit: group by business domain under archive/<domain>/, do NOT dump flat. Matches how tiers 1 and 2 were archived.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -128,14 +136,21 @@
       "depends_on": [
         2
       ],
-      "status": "in-flight",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-13T10:50:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts created and committed; implementation waves NOT started (user chose artifacts-only resume, change D1 — 5-hour bucket had not reset). Inventory ~161 call sites / 20 files / ~100-115 new keys. 17 task groups seeded."
+      "completed_at": "2026-08-13T21:26:00Z",
+      "duration_seconds": 38160,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 21.5,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts + 4 implementation waves + 2 review rounds; bucket reset between sessions so pct delta is invalid"
+      },
+      "notes": "Archived to openspec/changes/archive/gateway/2026-08-13-RM24-gateway-translate-all-pages. Reviewer-approved round 2. 19 task groups, ~180 keys. Round 1 found a hidden literal AND a blind spot in the tier's own i18n-guard; both fixed."
     }
   ],
   "events": [
@@ -153,6 +168,11 @@
       "at": "2026-08-13T11:00:00Z",
       "agent": "leader",
       "event": "Tier 3 artifacts committed and tier flipped to in-flight. Implementation waves deliberately NOT dispatched. Next session resumes at Step 5 wave 1 = T1 (single-writer catalogue), then the T2-T10/T12-T15 parallel band, T9 before T11, then T16 codegen and T17 verification."
+    },
+    {
+      "at": "2026-08-13T21:26:00Z",
+      "agent": "leader",
+      "event": "Tier 3 archived; ALL THREE TIERS COMPLETE. openspec archive synced the gateway capability spec (+2 requirements, ~2 modified). Roadmap status -> complete; archiving the roadmap itself per Step 9.4 into openspec/roadmaps/archive/RM24-i18n-translations/. .work-counter untouched (numbers are monotonic)."
     }
   ]
 }
