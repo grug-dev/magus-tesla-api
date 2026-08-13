@@ -5,24 +5,10 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM24-i18n-translations.md",
   "request": "Tier 2 of RM24-i18n-translations (ticket MAG-8). Build the gateway i18n foundation: translation catalogue for es (default) and en, per-request language resolution (accounts.language for signed-in via tier 1's port, `lang` cookie for anonymous, falling back to es), the navbar globe-icon language selector visible on every page including login, an htmx switch that does not disrupt the current page, the layout/nav shell translated as the gold standard, and the AGENTS.md rule requiring EN+ES for every newly added label.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "T1.1",
-      "T1.2",
-      "T1.3",
-      "T1.4",
-      "T1.5",
-      "T2.1",
-      "T2.2",
-      "T2.3",
-      "T2.4",
-      "T3.1",
-      "T3.2",
-      "T3.3",
-      "T3.4",
-      "T3.5",
       "T4.1",
       "T4.2",
       "T4.3",
@@ -46,10 +32,25 @@
       "T8.6"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T1.1",
+      "T1.2",
+      "T1.3",
+      "T1.4",
+      "T1.5",
+      "T2.1",
+      "T2.2",
+      "T2.3",
+      "T2.4",
+      "T3.1",
+      "T3.2",
+      "T3.3",
+      "T3.4",
+      "T3.5"
+    ]
   },
   "created_at": "2026-08-13T09:33:00Z",
-  "updated_at": "2026-08-13T09:33:00Z",
+  "updated_at": "2026-08-13T09:58:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -69,14 +70,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "WithLang/FromContext, comma-ok guard, es default. go test passes.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T1.2",
@@ -86,14 +96,23 @@
         "T1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "Key type + T() added to i18n.go alongside T1.1.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T1.3",
@@ -101,14 +120,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "catalog.go: 18 keys covering nav/nav-header/lang-switcher, both ES+EN per line.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T1.4",
@@ -118,14 +146,23 @@
         "T1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "i18n_test.go: default/panic-safety, known/unknown key translate tests pass.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T1.5",
@@ -135,14 +172,23 @@
         "T1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "catalog_test.go: TestCatalog_AllKeysHaveBothLanguages, table-driven, passes.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T2.1",
@@ -150,14 +196,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "lang.go: normalizeLang, setLangCookie (SetSameSite BEFORE SetCookie, verified).",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T2.2",
@@ -168,14 +223,23 @@
         "T1.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "LanguageMiddleware exported (cross-package call from gateway.go requires it).",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T2.3",
@@ -185,14 +249,23 @@
         "T2.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "gateway.go: r.Use(handlers.LanguageMiddleware(d.Account)) after sessions.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T2.4",
@@ -202,14 +275,23 @@
         "T2.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "lang_test.go: all 6 middleware/normalizeLang tests pass.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T3.1",
@@ -217,14 +299,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "LangSwitch: validates lang, sets cookie unconditionally, SetLanguage if signed-in.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T3.2",
@@ -234,14 +325,23 @@
         "T3.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "hxRedirectPath + hxLocation JSON struct; HX-Current-URL -> Referer -> '/' fallback.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T3.3",
@@ -251,14 +351,23 @@
         "T3.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "gateway.go: r.POST(\"/ui/lang/switch\", h.LangSwitch) added.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T3.4",
@@ -266,14 +375,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "GoogleCallback calls new syncLoginLanguageCookie helper (extracted for testability).",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T3.5",
@@ -284,14 +402,23 @@
         "T3.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:34:00Z",
+      "completed_at": "2026-08-13T10:15:00Z",
+      "duration_seconds": 2460,
+      "notes": "8 LangSwitch/GoogleCallback tests pass incl. mandatory SameSite=Lax test; fakeAccount widened.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 50.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.57,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 1 (T1-T3), single serial worker"
+      }
     },
     {
       "id": "T4.1",
@@ -668,6 +795,15 @@
       "decision": "Amended design.md D8 and tasks T2.1/T3.5 to make SameSite=Lax explicit and test-enforced",
       "why": "The worker's design never mentioned SameSite, and T2.1 specified gin's c.SetCookie(...) which has NO SameSite parameter \u2014 as written it would have produced a cookie without the attribute, silently voiding the premise the user approved. Added the mandatory c.SetSameSite call, the full normative cookie-attribute spec, and a non-droppable TestLangSwitch_CookieIsSameSiteLax.",
       "covered_by": "change Decision D1"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-13T09:34:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Split tier 2 implementation into 2 serial waves (T1-T3 Go layer, then T4-T8 templates/docs/verify) instead of one 35-task dispatch",
+      "why": "The artifact dispatch alone consumed 260k subagent tokens; one 35-task implementation worker risks exhausting context mid-change and returning partial work. The split also sequences handlers.go (T3.4 and T6.3 both edit it) instead of risking a concurrent conflict.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -680,6 +816,16 @@
       "at": "2026-08-13T09:33:00Z",
       "agent": "leader",
       "event": "artifacts returned and validated; leader paused autopilot for a NEW decision the roadmap did not cover (CSRF omission), user approved conditionally, leader amended design+tasks to enforce the condition"
+    },
+    {
+      "at": "2026-08-13T09:34:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (sonnet) for wave 1: T1.1-T3.5 (i18n package, language middleware, LangSwitch handler)"
+    },
+    {
+      "at": "2026-08-13T09:58:00Z",
+      "agent": "leader",
+      "event": "wave 1 complete: 14/14 done, build+vet+test green. Leader independently verified c.SetSameSite(http.SameSiteLaxMode) precedes SetCookie in setLangCookie and TestLangSwitch_CookieIsSameSiteLax exists and passes."
     }
   ]
 }

@@ -895,6 +895,8 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	h.syncLoginLanguageCookie(c, acct.ID)
+
 	sess.Set("uid", acct.ID.String())
 	sess.Set("email", acct.Email)
 	_ = sess.Save()

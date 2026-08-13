@@ -37,6 +37,23 @@ type fakeAccount struct {
 	seedCalls int
 	// lastSeedVehicles captures the SeedVehicle list from the most recent SeedVehicles call.
 	lastSeedVehicles []account.SeedVehicle
+
+	// language is the value LanguageFor returns. The zero value ("") falls back
+	// to account.LanguageES, so every pre-existing test (which never sets this
+	// field) keeps its original LanguageFor behavior unchanged.
+	language string
+	// languageErr, when set, makes LanguageFor return this error instead.
+	languageErr error
+	// setLanguageErr, when set, makes SetLanguage return this error instead of
+	// recording success.
+	setLanguageErr error
+	// setLanguageCalls captures every SetLanguage invocation (id + lang) so a
+	// test can assert LangSwitch/GoogleCallback called it with the right values
+	// — or, for the anonymous/no-cookie paths, that it was NOT called at all.
+	setLanguageCalls []struct {
+		ID   uuid.UUID
+		Lang string
+	}
 }
 
 func (f fakeAccount) UpsertFromOAuth(context.Context, account.OAuthIdentity) (account.Account, error) {
@@ -64,14 +81,26 @@ func (f fakeAccount) SetVehicleConfigIfEmpty(context.Context, uuid.UUID, int64, 
 	return nil
 }
 
-// LanguageFor / SetLanguage satisfy account.Service for the handler tests, which
-// predate the language preference and never exercise it. LanguageFor returns the
-// platform default so a handler reading it sees a valid code, never "".
-func (f fakeAccount) LanguageFor(context.Context, uuid.UUID) (string, error) {
-	return account.LanguageES, nil
+// LanguageFor / SetLanguage satisfy account.Service. LanguageFor returns f.language
+// (defaulting to account.LanguageES for every pre-existing test that never sets
+// it, so a handler reading it always sees a valid code, never ""), or f.languageErr
+// when set. SetLanguage records every call in setLanguageCalls and returns
+// f.setLanguageErr (nil by default).
+func (f *fakeAccount) LanguageFor(context.Context, uuid.UUID) (string, error) {
+	if f.languageErr != nil {
+		return "", f.languageErr
+	}
+	if f.language == "" {
+		return account.LanguageES, nil
+	}
+	return f.language, nil
 }
-func (f fakeAccount) SetLanguage(context.Context, uuid.UUID, string) error {
-	return nil
+func (f *fakeAccount) SetLanguage(_ context.Context, id uuid.UUID, lang string) error {
+	f.setLanguageCalls = append(f.setLanguageCalls, struct {
+		ID   uuid.UUID
+		Lang string
+	}{ID: id, Lang: lang})
+	return f.setLanguageErr
 }
 
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {

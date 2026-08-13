@@ -8,7 +8,7 @@
 
 New package: the translation catalogue + context-carried language resolution (design.md D1/D2/D5).
 
-- [ ] T1.1 Create `internal/gateway/i18n/i18n.go`: an unexported `ctxKey struct{}` +
+- [x] T1.1 Create `internal/gateway/i18n/i18n.go`: an unexported `ctxKey struct{}` +
       `var langCtxKey ctxKey`; `WithLang(ctx context.Context, lang string) context.Context`
       (`context.WithValue(ctx, langCtxKey, lang)`, no validation — callers normalize before
       calling); `FromContext(ctx context.Context) string` using the **comma-ok** type-assertion
@@ -16,9 +16,9 @@ New package: the translation catalogue + context-carried language resolution (de
       per templ's documented panic-on-missing-key behavior (design.md D5) — returning
       `account.LanguageEN` only on an exact match, `account.LanguageES` otherwise (covers a
       missing key, a mistyped value, and an explicit `"es"`).
-- [ ] T1.2 Add `type Key string` and `func T(ctx context.Context, key Key) string { return
+- [x] T1.2 Add `type Key string` and `func T(ctx context.Context, key Key) string { return
       translate(FromContext(ctx), key) }` to `i18n.go`.
-- [ ] T1.3 Create `internal/gateway/i18n/catalog.go`: `type entry struct{ ES, EN string }`, the
+- [x] T1.3 Create `internal/gateway/i18n/catalog.go`: `type entry struct{ ES, EN string }`, the
       closed `Key` constant vocabulary for this tier's gold-standard surface (nav sidebar labels,
       "Soon" badge, sidebar open/close aria-labels, `NavLogout`'s "Log out", the nav-header
       connect-prompt + four status words, the lang-switcher's aria-label + "Español"/"English"
@@ -28,12 +28,12 @@ New package: the translation catalogue + context-carried language resolution (de
       + string(key)` when the key itself is absent; `e.EN` when `lang == account.LanguageEN`;
       `e.ES` otherwise — covering both `lang == LanguageES` and a language-within-key gap).
       Doc-comment the file per design.md D2's two distinct missing-value behaviors.
-- [ ] T1.4 `internal/gateway/i18n/i18n_test.go`: `TestFromContext_DefaultsAndPanicSafety` — no
+- [x] T1.4 `internal/gateway/i18n/i18n_test.go`: `TestFromContext_DefaultsAndPanicSafety` — no
       value on ctx → `es`; `WithLang(ctx, "en")` → `en`; a ctx carrying a **non-string** value
       under an unrelated key does not panic and still resolves to `es` (proves the comma-ok
       guard). `TestTranslate_KnownKey`, `TestTranslate_UnknownKeyReturnsVisibleMarker`
       (`translate("es", Key("not.a.real.key"))` → starts with `"!!"`).
-- [ ] T1.5 `internal/gateway/i18n/catalog_test.go`:
+- [x] T1.5 `internal/gateway/i18n/catalog_test.go`:
       `TestCatalog_AllKeysHaveBothLanguages` — iterate `catalog`, fail on any entry with an empty
       `ES` or `EN` field (design.md D2 — this is the actual enforcement of the "both languages"
       rule, not the render-time marker). Table-driven, one failure message per bad key so a future
@@ -41,7 +41,7 @@ New package: the translation catalogue + context-carried language resolution (de
 
 ## T2. Language resolution middleware + cookie helpers (`internal/gateway/handlers`) — depends on T1
 
-- [ ] T2.1 Create `internal/gateway/handlers/lang.go`: `const langCookieName = "lang"`,
+- [x] T2.1 Create `internal/gateway/handlers/lang.go`: `const langCookieName = "lang"`,
       `const langCookieMaxAge = 365 * 24 * 60 * 60`; `func normalizeLang(v string) string`
       (`account.LanguageEN` on exact match, `account.LanguageES` otherwise — design.md D3);
       `func setLangCookie(c *gin.Context, lang string)` which MUST call
@@ -52,18 +52,18 @@ New package: the translation catalogue + context-carried language resolution (de
       on `POST /ui/lang/switch`, and gin's `SetCookie` has no SameSite parameter — it is only
       applied via the separate `SetSameSite` call, so omitting that line silently removes the
       protection. Add the `net/http` import if absent.
-- [ ] T2.2 In `lang.go`, add `func languageMiddleware(acct account.Service) gin.HandlerFunc`
+- [x] T2.2 In `lang.go`, add `func languageMiddleware(acct account.Service) gin.HandlerFunc`
       (design.md D3/D4): resolves `lang` once — signed-in branch calls `acct.LanguageFor(ctx,
       uid)` (fallback to `account.LanguageES` on error) and, if the incoming cookie is absent or
       differs from the resolved value, calls `setLangCookie` to sync it; anonymous branch reads
       the `lang` cookie via `normalizeLang` (no DB call). Ends by setting
       `c.Request = c.Request.WithContext(i18n.WithLang(c.Request.Context(), lang))` then
       `c.Next()`.
-- [ ] T2.3 In `internal/gateway/gateway.go`, register the middleware immediately after the
+- [x] T2.3 In `internal/gateway/gateway.go`, register the middleware immediately after the
       sessions middleware: `r.Use(sessions.Sessions("magus", store))` then
       `r.Use(languageMiddleware(d.Account))` (reuses the existing `Deps.Account` — no new `Deps`
       field). Comment why the ordering matters (needs `currentUID`, which reads the session).
-- [ ] T2.4 `internal/gateway/handlers/lang_test.go`: `TestLanguageMiddleware_SignedInReadsAccount`
+- [x] T2.4 `internal/gateway/handlers/lang_test.go`: `TestLanguageMiddleware_SignedInReadsAccount`
       (fake `LanguageFor` returns `en` → request context carries `en`, asserted via a tiny
       downstream handler reading `i18n.FromContext(c.Request.Context())`);
       `TestLanguageMiddleware_AnonymousReadsCookie`;
@@ -74,14 +74,14 @@ New package: the translation catalogue + context-carried language resolution (de
 
 ## T3. `LangSwitch` handler + route + login-time cookie sync — depends on T1, T2
 
-- [ ] T3.1 In `lang.go`, add `func (h *Handler) LangSwitch(c *gin.Context)` (design.md D7/D8): no
+- [x] T3.1 In `lang.go`, add `func (h *Handler) LangSwitch(c *gin.Context)` (design.md D7/D8): no
       auth guard; validate `c.PostForm("lang")` is exactly `account.LanguageES` or
       `account.LanguageEN` (else `c.String(http.StatusBadRequest, "unsupported language")` and
       return, no cookie set, no write); `setLangCookie(c, lang)` unconditionally; if
       `currentUID(c)` ok, call `h.acct.SetLanguage(c.Request.Context(), uid, lang)` (on error,
       `c.String(http.StatusInternalServerError, ...)` and return — do not still send
       `HX-Location`, so the client does not reload into a state the write never reached).
-- [ ] T3.2 Same function: derive the redirect target from `c.GetHeader("HX-Current-URL")`
+- [x] T3.2 Same function: derive the redirect target from `c.GetHeader("HX-Current-URL")`
       (`net/url.Parse`, use `.Path` + `"?"+.RawQuery` when non-empty), falling back to
       `c.Request.Referer()` then `"/"` when the header is absent or fails to parse. Build the
       `HX-Location` header value as JSON (`encoding/json.Marshal` of an anonymous/typed struct
@@ -90,13 +90,13 @@ New package: the translation catalogue + context-carried language resolution (de
       characters that need proper JSON escaping). `c.Header("HX-Location", string(body))`,
       `c.Status(http.StatusOK)` (no body) — **never** `c.Redirect` (a 3xx; htmx does not process
       response headers on 3xx per design.md D7).
-- [ ] T3.3 In `gateway.go`, add `r.POST("/ui/lang/switch", h.LangSwitch)`.
-- [ ] T3.4 In `GoogleCallback` (`handlers.go`), after `UpsertFromOAuth` succeeds and before
+- [x] T3.3 In `gateway.go`, add `r.POST("/ui/lang/switch", h.LangSwitch)`.
+- [x] T3.4 In `GoogleCallback` (`handlers.go`), after `UpsertFromOAuth` succeeds and before
       redirecting to `/dashboard`: if `c.Cookie(langCookieName)` returns a value with **no
       error** (an explicitly-present cookie, not the absent-cookie case), call
       `h.acct.SetLanguage(ctx, acct.ID, normalizeLang(cookieVal))` (design.md D4 — best-effort;
       log and continue on error, do not fail the login over a language-sync write).
-- [ ] T3.5 `internal/gateway/handlers/lang_test.go` additions: `TestLangSwitch_AnonymousSetsCookieOnly`
+- [x] T3.5 `internal/gateway/handlers/lang_test.go` additions: `TestLangSwitch_AnonymousSetsCookieOnly`
       (asserts `Set-Cookie` present, fake `SetLanguage` NOT called);
       `TestLangSwitch_SignedInPersistsAndSyncsCookie` (fake `SetLanguage` called with the right
       uid+lang, cookie set); `TestLangSwitch_RejectsUnsupportedLanguage` (`lang=fr` → 400, no
