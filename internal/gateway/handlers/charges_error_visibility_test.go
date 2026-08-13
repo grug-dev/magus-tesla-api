@@ -23,6 +23,10 @@ import (
 //     HX-Error-Fragment (see renderError + internal/gateway/static/app.js).
 //  2. htmx only runs HTML5 validation when the request is issued BY the form, so
 //     moving hx-put onto a button silently disables every `required` in the form.
+//  3. A date default that is missing, or computed in UTC rather than the browser's
+//     timezone, renders a plausible-looking but wrong day.
+//  4. If the shared confirm-dialog wiring drifts, app.js falls back to the native
+//     window.confirm() — the action still works, so only the look regresses.
 
 // TestErrorFragmentsCarryOptInHeader asserts that a validation failure returns 422
 // with the HX-Error-Fragment header. Without the header htmx discards the body and
@@ -145,5 +149,63 @@ func TestCreateFormDateDefaults(t *testing.T) {
 	}
 	if got := valueOf("ended_at"); got != wantDay+"T00:00" {
 		t.Errorf("ended_at value = %q, want %q", got, wantDay+"T00:00")
+	}
+}
+
+// TestConfirmDialogWiring asserts the three pieces of the shared confirmation modal
+// stay connected: the single dialog instance in the layout, and the hx-confirm +
+// data-confirm-* attributes on the delete control that drive it. If any drifts,
+// app.js silently falls through to the browser's native window.confirm() — the
+// delete still works, so nothing breaks loudly; the UI just regresses to the old look.
+func TestConfirmDialogWiring(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	entry := manualcharge.Entry{
+		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP",
+		ChargedOn: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), EnergyAddedKWh: 0.79,
+	}
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []manualcharge.Entry{entry}})
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	req.AddCookie(c)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("charges page: want 200, got %d", w.Code)
+	}
+	html := w.Body.String()
+
+	// Exactly one dialog instance — app.js resolves it by id, so a duplicate (e.g.
+	// someone mounting it per row or per page as well as in the layout) would make
+	// the wrong one open.
+	if n := strings.Count(html, `id="confirm-dialog"`); n != 1 {
+		t.Errorf(`found %d elements with id="confirm-dialog", want exactly 1 (mounted once in layouts.Base)`, n)
+	}
+	for _, id := range []string{"confirm-dialog-title", "confirm-dialog-message", "confirm-dialog-cancel"} {
+		if !strings.Contains(html, `id="`+id+`"`) {
+			t.Errorf("dialog is missing #%s, which app.js populates", id)
+		}
+	}
+	for _, sel := range []string{`data-confirm-ok="default"`, `data-confirm-ok="danger"`} {
+		if !strings.Contains(html, sel) {
+			t.Errorf("dialog is missing the [%s] confirm button", sel)
+		}
+	}
+
+	// The delete control must carry the attributes app.js reads.
+	delBtn := regexp.MustCompile(`<button[^>]*hx-delete[^>]*>`).FindString(html)
+	if delBtn == "" {
+		t.Fatal("no delete button rendered on the charge row")
+	}
+	for _, attr := range []string{"hx-confirm=", `data-confirm-variant="danger"`, "data-confirm-title=", "data-confirm-label="} {
+		if !strings.Contains(delBtn, attr) {
+			t.Errorf("delete button missing %s — it would fall back to native confirm();\ngot: %s", attr, delBtn)
+		}
+	}
+	// The message should name the actual entry, not be generic.
+	if !strings.Contains(delBtn, "Aug 3, 2026") {
+		t.Errorf("hx-confirm should identify the entry being deleted; got: %s", delBtn)
 	}
 }

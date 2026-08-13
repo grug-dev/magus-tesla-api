@@ -76,7 +76,7 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   ships breaking changes across majors. Routing every DaisyUI **component class** through a
   `ui.*` wrapper makes a version bump a one-file edit per component, not an app-wide sweep.
 - **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Table, PageHeader, NavShell,
-  and the form set **Field / Input / Select / Textarea**) — **never inline a DaisyUI component
+  ConfirmDialog, and the form set **Field / Input / Select / Textarea**) — **never inline a DaisyUI component
   class** (`btn`, `input`, `card`, `fieldset`, …) in a page/fragment; that's a bug. If a
   repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme tokens
   (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable layers.
@@ -85,7 +85,14 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
 - **No client-side JS init** — keeps htmx swaps safe. Prefer CSS-only DaisyUI patterns
-  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS.
+  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. The single standing
+  exception is `ui.ConfirmDialog`, whose JS lives in the shared `static/app.js`.
+- **Confirmations: never write a modal, never call `window.confirm`.** Put `hx-confirm`
+  (plus optional `data-confirm-title` / `data-confirm-label` / `data-confirm-variant="danger"`)
+  on the triggering control and the shared `ui.ConfirmDialog` — mounted once in
+  `layouts.Base`, driven by `app.js` via htmx's `htmx:confirm` event — renders it. Works on
+  every page automatically; do NOT mount a second dialog. See
+  [`ai/htmx-conventions.md`](../../ai/htmx-conventions.md) §"Confirmation modals".
 - **Codegen:** after `.templ` edits or new classes, run `make templ` **and** `make css`
   (`make generate` runs both). `static/app.css` is a committed vendored artifact (like
   `htmx.min.js`); the Tailwind binary in `tools/` is git-ignored (`make ui-toolchain`).

@@ -32,10 +32,18 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 					Size:    "sm",
 					Outline: true,
 					Attrs: templ.Attributes{
-						"hx-delete":   "/ui/charges/row/" + vm.ID,
-						"hx-target":   "#charge-row-" + vm.ID,
-						"hx-swap":     "outerHTML",
-						"hx-confirm":  "Delete this entry?",
+						"hx-delete": "/ui/charges/row/" + vm.ID,
+						"hx-target": "#charge-row-" + vm.ID,
+						"hx-swap":   "outerHTML",
+						// hx-confirm is the message shown in the shared ui.ConfirmDialog
+						// (static/app.js intercepts htmx's htmx:confirm event); the three
+						// data-confirm-* attributes below are that dialog's per-use knobs.
+						// Naming the actual entry beats a generic "Delete this entry?" —
+						// the user confirms the row they meant, not the row they clicked.
+						"hx-confirm":           "Delete the " + vm.EnergyKWh + " charge logged on " + vm.ChargedOnLabel + "? This cannot be undone.",
+						"data-confirm-title":   "Delete charge entry",
+						"data-confirm-label":   "Delete entry",
+						"data-confirm-variant": "danger",
 						// D3 — send the CSRF token on the X-CSRF-Token HEADER, not the
 						// form body. Go's net/http only parses request bodies for POST/
 						// PUT/PATCH (not DELETE), so the previous hx-include + hidden
