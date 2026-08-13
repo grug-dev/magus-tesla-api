@@ -1,0 +1,46 @@
+package ui
+
+import (
+	"strings"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+)
+
+// LangSwitcherProps configures LangSwitcher. Current must be account.LanguageES
+// or account.LanguageEN (design.md D6). There is deliberately no Options field:
+// the supported set is frozen at exactly {es, en} by roadmap decision D4, and
+// parameterizing a two-item, never-growing list would be the over-abstraction
+// the project's AI-efficiency rule warns against.
+type LangSwitcherProps struct {
+	Current string
+}
+
+// LangSwitcher renders the navbar language selector: a globe icon + the current
+// language code, opening a CSS-only DaisyUI dropdown listing the two supported
+// languages. Each option POSTs to /ui/lang/switch, which responds with an
+// HX-Location header that re-renders the current page in the new language — the
+// button's own response body is irrelevant (hx-swap="none"), so this is a
+// non-submitting action control and hx-* belongs directly on the <button>
+// (ai/htmx-conventions.md's form-vs-button carve-out). No client-side JS: the
+// DaisyUI "dropdown" pattern is :focus-driven CSS (design.md D6), already on the
+// module's sanctioned zero-JS list — no new RD entry needed.
+templ LangSwitcher(p LangSwitcherProps) {
+	<div class="dropdown dropdown-end">
+		<div tabindex="0" role="button" class="btn btn-ghost btn-sm" aria-label={ i18n.T(ctx, i18n.KeyLangSwitcherAria) }>
+			@Icon(IconProps{Name: "globe", Class: "h-5 w-5"})
+			<span>{ strings.ToUpper(p.Current) }</span>
+		</div>
+		<ul tabindex="-1" class="dropdown-content menu bg-base-100 rounded-box z-1 w-40 p-2 shadow-sm">
+			<li>
+				<button type="button" hx-post="/ui/lang/switch" hx-swap="none" hx-vals="{&#34;lang&#34;:&#34;es&#34;}">
+					{ i18n.T(ctx, i18n.KeyLangSwitcherSpanish) }
+				</button>
+			</li>
+			<li>
+				<button type="button" hx-post="/ui/lang/switch" hx-swap="none" hx-vals="{&#34;lang&#34;:&#34;en&#34;}">
+					{ i18n.T(ctx, i18n.KeyLangSwitcherEnglish) }
+				</button>
+			</li>
+		</ul>
+	</div>
+}

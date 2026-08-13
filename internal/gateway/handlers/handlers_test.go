@@ -825,9 +825,6 @@ func TestNavHeaderFor_Connected(t *testing.T) {
 	if vm.Status != "connected" {
 		t.Errorf("want Status connected, got %q", vm.Status)
 	}
-	if vm.StatusLabel != "Connected" {
-		t.Errorf("want StatusLabel Connected, got %q", vm.StatusLabel)
-	}
 	if vm.BatteryPct != "94%" {
 		t.Errorf("want BatteryPct 94%%, got %q", vm.BatteryPct)
 	}
@@ -852,9 +849,6 @@ func TestNavHeaderFor_Asleep(t *testing.T) {
 	}
 	if vm.Status != "asleep" {
 		t.Errorf("want Status asleep, got %q", vm.Status)
-	}
-	if vm.StatusLabel != "Asleep" {
-		t.Errorf("want StatusLabel Asleep, got %q", vm.StatusLabel)
 	}
 	if vm.BatteryPct != "" {
 		t.Errorf("want no BatteryPct when asleep, got %q", vm.BatteryPct)
@@ -885,9 +879,6 @@ func TestNavHeaderFor_Awaiting(t *testing.T) {
 	}
 	if vm.Status != "awaiting" {
 		t.Errorf("want Status awaiting, got %q", vm.Status)
-	}
-	if vm.StatusLabel == "" {
-		t.Errorf("want non-empty StatusLabel for awaiting, got empty")
 	}
 	if vm.BatteryPct != "" || vm.LastSeenLabel != "" {
 		t.Errorf("want no battery/last-seen for awaiting, got battery=%q lastSeen=%q", vm.BatteryPct, vm.LastSeenLabel)
@@ -930,9 +921,6 @@ func TestNavHeaderFor_AccountError(t *testing.T) {
 	}
 	if vm.Status != "unavailable" {
 		t.Errorf("want Status unavailable, got %q", vm.Status)
-	}
-	if vm.StatusLabel == "" {
-		t.Errorf("want non-empty StatusLabel for unavailable, got empty")
 	}
 }
 

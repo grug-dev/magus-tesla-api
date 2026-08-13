@@ -101,6 +101,37 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
 - **New pages go through `kkpa-goth-scaffold-ui scaffold <concept> [module]`**, which
   mirrors the `charges` gold-standard slice.
 
+## i18n — every new user-facing label needs BOTH es and en
+
+**This is binding, not advisory.** Any `.templ` change that adds or edits user-facing text
+MUST add or update a catalogue key in `internal/gateway/i18n/catalog.go` with **both `ES` and
+`EN` non-empty**. `TestCatalog_AllKeysHaveBothLanguages` (`internal/gateway/i18n/catalog_test.go`)
+enforces this at `go test` time — but the rule applies to every new key regardless of whether a
+test happens to catch an omission before you commit. A hardcoded English (or Spanish-only)
+string added to any page from this point forward is **incomplete work**, exactly as an
+undocumented structural change is incomplete per `CLAUDE.md`'s "docs track structural change"
+rule.
+
+- **Added by `RM24-gateway-add-i18n-foundation`** (tier 2 of `RM24-i18n-translations`, ticket
+  MAG-8). The gold-standard surface to mirror is the layout/nav shell: `templates/layouts/base.templ`,
+  `templates/layouts/nav.go`, `templates/ui/nav_shell.templ`, `templates/ui/nav_logout.templ`,
+  `templates/fragments/nav_header.templ`, and `templates/ui/lang_switcher.templ`.
+- **The lookup surface is `i18n.T(ctx, key)`, always.** Inside a `.templ` file, `ctx` is the
+  implicit context.Context templ threads through every component composition — call
+  `i18n.T(ctx, i18n.KeyXxx)` directly. Inside a plain Go helper called *from* a `.templ` block
+  (e.g. `layouts.navItems`), `ctx` is an explicit first parameter the `.templ` call site passes
+  through — see `nav.go`'s `navItems(ctx, active)` for the pattern.
+- **Add the key to `internal/gateway/i18n/catalog.go`, not a new file.** One `Key` constant +
+  one `catalog` map entry with `ES`/`EN` **on the same line** (design.md D1) — this is the
+  closed vocabulary; do not invent a second catalogue or a per-page strings struct.
+- **A key with no catalogue entry renders a visible `!!key.name` marker, never a blank string**
+  (design.md D2) — this is a deliberate render-time backstop, not the enforcement mechanism. The
+  enforcement mechanism is the completeness test above; do not rely on the marker to catch a
+  missing translation in review.
+- Language resolution (which language `ctx` carries) is already wired for every request by
+  `handlers.LanguageMiddleware` — a new page needs no per-handler language plumbing, only
+  `i18n.T` calls in its markup.
+
 ## Read-only at request time
 
 The gateway is **read-only on every user-facing request** by default. This is both a
@@ -149,6 +180,41 @@ gateway layer would force an external HTTP API that the browser would then need 
 call — an unnecessary layer when the gateway is already the only HTML surface.
 The write is intentional (form POST), narrow (one module's Writer port),
 CSRF-protected, and tenant-scoped.
+
+### Exception: language switch (D-lang amendment — RM24-gateway-add-i18n-foundation)
+
+The gateway MAY call `account.Service.SetLanguage` from `handlers.LangSwitch`
+(`POST /ui/lang/switch`), subject to a **different** set of constraints than the
+D4/manualcharge amendment above — it does not transplant cleanly, because this
+endpoint must work for anonymous callers too:
+
+1. **No auth guard, no redirect-to-login.** Every other write handler starts with
+   `currentUID(c)` and redirects an anonymous caller to `/login`. `LangSwitch`
+   branches instead: it always sets the `lang` cookie; it calls `SetLanguage` only
+   when a session `uid` is present.
+2. **No tenant-ownership check.** `SetLanguage(ctx, uid, lang)` always targets the
+   caller's own session `uid` — there is no user-submitted resource identifier (unlike
+   the vehicle `(TeslaID, VIN)` pair D4 validates) for a forged request to redirect at
+   a different account.
+3. **No CSRF check — a deliberate divergence from D4, not an oversight.** A forged
+   switch request can only ever change the caller's own display language (no data
+   mutation, nothing to exfiltrate, reversible in one click). Requiring CSRF here
+   would mean minting a session CSRF token on every page in the module — including
+   `Home`/`Dashboard`/`SuperchargerStats`, which mint none today — for a control
+   mounted on every page (design.md D6), to protect against a cosmetic annoyance.
+   **The actual defence is the `lang` cookie's `SameSite=Lax` attribute**, which
+   makes modern browsers refuse to attach it to a cross-site `POST` — this is
+   MANDATORY, not incidental; dropping it would void this decision and re-open the
+   CSRF question. `setLangCookie` (`internal/gateway/handlers/lang.go`) MUST call
+   `c.SetSameSite(http.SameSiteLaxMode)` **before** `c.SetCookie(...)` (gin's
+   `SetCookie` has no SameSite parameter). `TestLangSwitch_CookieIsSameSiteLax`
+   (`lang_test.go`) is mandatory and may not be dropped or weakened — if it fails,
+   fix the cookie, never the test.
+   - **This trade-off was put to the user and explicitly approved on 2026-08-13,
+     conditional on `SameSite=Lax`.** It is not a worker's unilateral call.
+4. **Scope stays narrow.** Only `account.Service.SetLanguage` is permitted under this
+   exception. Every other handler stays Reader-only except the pre-existing D4
+   aperture above.
 
 ## Vehicle-scoped reads — always send the selected TeslaID
 

@@ -5,10 +5,26 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM24-i18n-translations.md",
   "request": "Tier 2 of RM24-i18n-translations (ticket MAG-8). Build the gateway i18n foundation: translation catalogue for es (default) and en, per-request language resolution (accounts.language for signed-in via tier 1's port, `lang` cookie for anonymous, falling back to es), the navbar globe-icon language selector visible on every page including login, an htmx switch that does not disrupt the current page, the layout/nav shell translated as the gold standard, and the AGENTS.md rule requiring EN+ES for every newly added label.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1.1",
+      "T1.2",
+      "T1.3",
+      "T1.4",
+      "T1.5",
+      "T2.1",
+      "T2.2",
+      "T2.3",
+      "T2.4",
+      "T3.1",
+      "T3.2",
+      "T3.3",
+      "T3.4",
+      "T3.5",
       "T4.1",
       "T4.2",
       "T4.3",
@@ -30,27 +46,10 @@
       "T8.4",
       "T8.5",
       "T8.6"
-    ],
-    "blocked": [],
-    "done": [
-      "T1.1",
-      "T1.2",
-      "T1.3",
-      "T1.4",
-      "T1.5",
-      "T2.1",
-      "T2.2",
-      "T2.3",
-      "T2.4",
-      "T3.1",
-      "T3.2",
-      "T3.3",
-      "T3.4",
-      "T3.5"
     ]
   },
   "created_at": "2026-08-13T09:33:00Z",
-  "updated_at": "2026-08-13T09:58:00Z",
+  "updated_at": "2026-08-13T10:10:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -426,14 +425,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T10:04:00Z",
+      "duration_seconds": 300,
+      "notes": "Added \"globe\" case to iconMarkup (Material-language glyph, fill=currentColor) + IconProps doc-comment vocab.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T4.2",
@@ -444,14 +452,23 @@
         "T1.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T10:19:00Z",
+      "duration_seconds": 900,
+      "notes": "Created lang_switcher.templ: CSS-only dropdown, globe+code trigger, es/en options via hx-post+hx-vals, hx-swap=none.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T4.3",
@@ -461,14 +478,23 @@
         "T4.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T10:29:00Z",
+      "duration_seconds": 600,
+      "notes": "lang_switcher_test.go: globe+code render, no <script>, both hx-vals payloads present. All pass.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T5.1",
@@ -478,14 +504,23 @@
         "T4.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T10:37:00Z",
+      "duration_seconds": 480,
+      "notes": "Mounted ui.LangSwitcher once in layouts.Base alongside ConfirmDialog, fixed top-right, i18n.FromContext(ctx).",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T5.2",
@@ -495,14 +530,23 @@
         "T1.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T10:44:00Z",
+      "duration_seconds": 420,
+      "notes": "navItems(ctx, active) now resolves labels via i18n.T; call site in base.templ updated to navItems(ctx, path).",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T5.3",
@@ -512,14 +556,23 @@
         "T1.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T10:50:00Z",
+      "duration_seconds": 360,
+      "notes": "nav_shell.templ Soon badge + base.templ open/close sidebar aria-labels now via i18n.T(ctx, ...).",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T5.4",
@@ -529,14 +582,23 @@
         "T1.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T10:53:00Z",
+      "duration_seconds": 180,
+      "notes": "nav_logout.templ 'Log out' text now i18n.T(ctx, i18n.KeyNavLogout).",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T5.5",
@@ -546,14 +608,23 @@
         "T5.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T11:03:00Z",
+      "duration_seconds": 600,
+      "notes": "New layouts/nav_test.go: TestNavItems_LabelsTranslate, TestBase_/TestBaseAuth_RendersLangSwitcher. All pass.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T6.1",
@@ -561,14 +632,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T11:12:00Z",
+      "duration_seconds": 540,
+      "notes": "Removed NavHeaderVM.StatusLabel; added statusLabelKeyFor(Status) next to navBadgeKind; template uses i18n.T(ctx, statusLabelKeyFor(vm.Status)).",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T6.2",
@@ -578,14 +658,23 @@
         "T6.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T11:19:00Z",
+      "duration_seconds": 420,
+      "notes": "nav_header.templ: no-Tesla/connect-link text + vehicle-switcher select aria-label now via i18n.T(ctx, ...).",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T6.3",
@@ -595,14 +684,23 @@
         "T6.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T11:25:00Z",
+      "duration_seconds": 360,
+      "notes": "handlers.go navHeaderFor: removed all 4 StatusLabel assignments (field no longer exists on NavHeaderVM); compiles clean.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T6.4",
@@ -612,14 +710,23 @@
         "T6.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T11:33:00Z",
+      "duration_seconds": 480,
+      "notes": "handlers_test.go: removed StatusLabel assertions in 4 NavHeaderFor tests, kept Status enum assertions. All pass.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T7.1",
@@ -627,14 +734,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T11:43:00Z",
+      "duration_seconds": 600,
+      "notes": "Added binding '## i18n' section to AGENTS.md: both-languages rule, catalog.go pointer, gold-standard surface, T() usage.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T7.2",
@@ -642,14 +758,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T11:53:00Z",
+      "duration_seconds": 600,
+      "notes": "Added '### Exception: language switch' subsection under user-initiated writes: no auth/tenant/CSRF guard, SameSite=Lax defence, user-approved 2026-08-13.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T7.3",
@@ -657,14 +782,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T11:56:00Z",
+      "duration_seconds": 180,
+      "notes": "Added i18n/ line to root README.md Project Structure tree under gateway/ block.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T8.1",
@@ -675,14 +809,23 @@
         "T6.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T11:58:00Z",
+      "duration_seconds": 120,
+      "notes": "make templ ran clean (file watcher had already kept *_templ.go in sync; 0 stale updates).",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T8.2",
@@ -692,14 +835,23 @@
         "T8.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T12:00:00Z",
+      "duration_seconds": 120,
+      "notes": "make css ran; app.css changed (git diff --stat confirms 1 line delta) from the new dropdown/menu classes.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T8.3",
@@ -709,14 +861,23 @@
         "T8.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T12:02:00Z",
+      "duration_seconds": 120,
+      "notes": "go build ./... and go vet ./... both clean, repo-wide.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T8.4",
@@ -726,14 +887,23 @@
         "T8.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T12:05:00Z",
+      "duration_seconds": 180,
+      "notes": "go test ./... green across all packages incl. i18n, handlers, layouts, ui. TestLangSwitch_CookieIsSameSiteLax verified passing.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T8.5",
@@ -743,14 +913,23 @@
         "T8.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T12:07:00Z",
+      "duration_seconds": 120,
+      "notes": "go list confirms internal/gateway/i18n imports only 'context' and internal/account. No templ, no other domain module.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     },
     {
       "id": "T8.6",
@@ -761,14 +940,23 @@
         "T8.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:59:00Z",
+      "completed_at": "2026-08-13T12:10:00Z",
+      "duration_seconds": 180,
+      "notes": "openspec validate --strict passes. All 35 tasks.md checkboxes checked, matching progress.json done entries.",
+      "budget": {
+        "five_hour_pct_start": 50.0,
+        "five_hour_pct_end": 62.0,
+        "five_hour_pct_delta": 12.0,
+        "cost_usd_delta": 5.4,
+        "context_pct_end": 24,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave 2 (T4-T8), single serial worker"
+      }
     }
   ],
   "review": {
@@ -826,6 +1014,16 @@
       "at": "2026-08-13T09:58:00Z",
       "agent": "leader",
       "event": "wave 1 complete: 14/14 done, build+vet+test green. Leader independently verified c.SetSameSite(http.SameSiteLaxMode) precedes SetCookie in setLangCookie and TestLangSwitch_CookieIsSameSiteLax exists and passes."
+    },
+    {
+      "at": "2026-08-13T09:59:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (sonnet) for wave 2: T4.1-T8.6 (ui.LangSwitcher, layout mount, nav translation, docs rule, verification)"
+    },
+    {
+      "at": "2026-08-13T10:10:00Z",
+      "agent": "leader",
+      "event": "wave 2 complete: 21/21 done. Leader verified independently: make css idempotent (identical md5 on re-run), no new <script>, SameSite guard test still passes, and the only inlined DaisyUI btn classes in base.templ pre-exist on main (worker changed only the aria-label)."
     }
   ]
 }

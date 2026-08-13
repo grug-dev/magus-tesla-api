@@ -608,8 +608,7 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		// since there is no vehicle to describe). NeedsConnect stays false: we
 		// don't know the account state, so the connect-prompt is misleading.
 		return fragments.NavHeaderVM{
-			Status:      fragments.NavStatusUnavailable,
-			StatusLabel: "Unavailable",
+			Status: fragments.NavStatusUnavailable,
 		}
 	}
 	if len(registered) == 0 {
@@ -660,7 +659,6 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		log.Printf("gateway: nav-header telemetry reader error for account %s: %v", uid, snapErr)
 		vm.VehicleName = primary.DisplayName
 		vm.Status = fragments.NavStatusUnavailable
-		vm.StatusLabel = "Unavailable"
 		return vm
 	}
 
@@ -671,7 +669,6 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		// Registered vehicle, but no stored snapshot yet → awaiting.
 		vm.VehicleName = primary.DisplayName
 		vm.Status = fragments.NavStatusAwaiting
-		vm.StatusLabel = "Awaiting first snapshot"
 		return vm
 	}
 
@@ -680,14 +677,12 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		// Fresh snapshot → Connected + battery %.
 		vm.VehicleName = primary.DisplayName
 		vm.Status = fragments.NavStatusConnected
-		vm.StatusLabel = "Connected"
 		vm.BatteryPct = fmt.Sprintf("%d%%", snap.BatteryLevelPct)
 		return vm
 	}
 	// Stale snapshot → Asleep + relative "Last seen" label.
 	vm.VehicleName = primary.DisplayName
 	vm.Status = fragments.NavStatusAsleep
-	vm.StatusLabel = "Asleep"
 	vm.LastSeenLabel = relativeLastSeen(snap.CapturedAt, now)
 	return vm
 }

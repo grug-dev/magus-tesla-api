@@ -5,7 +5,10 @@ import (
 	"context"
 	"strings"
 	"testing"
+
 	"github.com/a-h/templ"
+	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 )
 
 // TestNavShell_RendersIconsAndSoonBadges asserts the evolved NavShell renders an
@@ -20,8 +23,12 @@ func TestNavShell_RendersIconsAndSoonBadges(t *testing.T) {
 		{Label: "Settings", Icon: "settings", Placeholder: true},
 	}
 
+	// Rendered under English so the "Soon" badge text below matches the
+	// catalogue's KeyNavSoonBadge EN value (i18n.T(ctx, ...) now drives the
+	// badge text; ctx defaults to es otherwise).
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	var buf bytes.Buffer
-	if err := templ.Handler(NavShell(items, nil)).Component.Render(context.Background(), &buf); err != nil {
+	if err := templ.Handler(NavShell(items, nil)).Component.Render(ctx, &buf); err != nil {
 		t.Fatalf("render NavShell: %v", err)
 	}
 	body := buf.String()

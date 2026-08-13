@@ -1,6 +1,9 @@
 package fragments
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
 
 // NavHeaderStatusKind is the closed status vocabulary the nav-header fragment can
 // render. The handler computes it (DD3/DD10); the template maps it to a ui.Badge
@@ -40,12 +43,10 @@ type NavHeaderVM struct {
 	VehicleName string
 
 	// Status is the connected/asleep/awaiting/unavailable kind (DD10). Drives the
-	// status-dot color. Ignored when NeedsConnect is true.
+	// status-dot color AND the translated status word via statusLabelKeyFor
+	// below (design.md D9 — the enum is the single source of truth; there is
+	// deliberately no separate handler-computed English status string).
 	Status NavHeaderStatusKind
-
-	// StatusLabel is the pre-computed status word ("Connected", "Asleep",
-	// "Awaiting first snapshot", "Unavailable") shown next to the dot.
-	StatusLabel string
 
 	// BatteryPct is the pre-computed "94%" string shown only when connected; empty
 	// otherwise (the template composes "Connected • 94%" — display assembly, not
@@ -85,9 +86,9 @@ templ NavHeader(vm NavHeaderVM) {
 		<div id="nav-header" class="px-4 py-3">
 			if vm.NeedsConnect {
 				<div class="text-base-300 text-sm">
-					<span>No Tesla connected.</span>
+					<span>{ i18n.T(ctx, i18n.KeyNavHeaderNoTesla) }</span>
 				</div>
-				<a href="/connect/tesla" class="text-sm link link-primary">Connect your Tesla</a>
+				<a href="/connect/tesla" class="text-sm link link-primary">{ i18n.T(ctx, i18n.KeyNavHeaderConnectLink) }</a>
 			} else {
 				<div class="flex flex-col gap-1">
 					if vm.VehicleName != "" {
@@ -96,7 +97,7 @@ templ NavHeader(vm NavHeaderVM) {
 					<div class="flex items-center gap-2">
 						@ui.Badge(ui.BadgeProps{Kind: navBadgeKind(vm.Status), Text: ""})
 						<span class="text-xs">
-							{ vm.StatusLabel }
+							{ i18n.T(ctx, statusLabelKeyFor(vm.Status)) }
 							if vm.BatteryPct != "" {
 								<span>• { vm.BatteryPct }</span>
 							}
@@ -114,7 +115,7 @@ templ NavHeader(vm NavHeaderVM) {
 							class="mt-1"
 						>
 							<input type="hidden" name="csrf_token" value={ vm.CSRFToken }/>
-							@ui.Select(ui.SelectProps{Name: "vehicle", Size: "xs", Attrs: templ.Attributes{"aria-label": "Switch vehicle"}}) {
+							@ui.Select(ui.SelectProps{Name: "vehicle", Size: "xs", Attrs: templ.Attributes{"aria-label": i18n.T(ctx, i18n.KeyNavHeaderSwitchVehicleAria)}}) {
 								for _, opt := range vm.Vehicles {
 									<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
 								}
@@ -140,5 +141,23 @@ func navBadgeKind(s NavHeaderStatusKind) string {
 		return "warning"
 	default:
 		return "ghost"
+	}
+}
+
+// statusLabelKeyFor maps a NavHeaderStatusKind to its translation catalogue Key
+// (design.md D9 — the closed enum is the single source of truth; there is no
+// parallel handler-computed English string to keep in sync with it). Same file,
+// same "presentation mapping from a closed enum, not business logic" precedent
+// as navBadgeKind above.
+func statusLabelKeyFor(s NavHeaderStatusKind) i18n.Key {
+	switch s {
+	case NavStatusConnected:
+		return i18n.KeyNavHeaderStatusConnected
+	case NavStatusAsleep:
+		return i18n.KeyNavHeaderStatusAsleep
+	case NavStatusAwaiting:
+		return i18n.KeyNavHeaderStatusAwaiting
+	default:
+		return i18n.KeyNavHeaderStatusUnavailable
 	}
 }

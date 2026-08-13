@@ -120,10 +120,10 @@ New package: the translation catalogue + context-carried language resolution (de
 
 ## T4. `ui.LangSwitcher` + globe icon (`internal/gateway/templates/ui`) — depends on T1
 
-- [ ] T4.1 Add a `"globe"` case to `iconMarkup` in `internal/gateway/templates/ui/icon.templ`
+- [x] T4.1 Add a `"globe"` case to `iconMarkup` in `internal/gateway/templates/ui/icon.templ`
       (inline SVG globe glyph, `fill="currentColor"`, matching the existing cases' shape) and
       extend `IconProps`'s doc-comment vocabulary list.
-- [ ] T4.2 Create `internal/gateway/templates/ui/lang_switcher.templ`: `type LangSwitcherProps
+- [x] T4.2 Create `internal/gateway/templates/ui/lang_switcher.templ`: `type LangSwitcherProps
       struct { Current string }` (design.md D6 — no `Options`, the set is hardcoded/closed).
       `templ LangSwitcher(p LangSwitcherProps)` renders `<div class="dropdown dropdown-end">`
       wrapping a `<div tabindex="0" role="button" class="btn btn-ghost btn-sm">` trigger (globe
@@ -134,7 +134,7 @@ New package: the translation catalogue + context-carried language resolution (de
       `i18n.T(ctx, i18n.KeyLangSwitcherSpanish)` / `i18n.T(ctx, i18n.KeyLangSwitcherEnglish)`.
       Semantic tokens only, matching the module's existing dropdown-free precedent's styling
       conventions (no hex).
-- [ ] T4.3 `internal/gateway/templates/ui/lang_switcher_test.go` (mirrors `nav_shell_test.go`'s
+- [x] T4.3 `internal/gateway/templates/ui/lang_switcher_test.go` (mirrors `nav_shell_test.go`'s
       shape): `TestLangSwitcher_RendersGlobeAndCurrentCode` (render with
       `LangSwitcherProps{Current: account.LanguageEN}`, assert `<svg` present and `"EN"`
       appears); `TestLangSwitcher_NoClientSideJS` (asserts no `<script` in the rendered output —
@@ -143,26 +143,26 @@ New package: the translation catalogue + context-carried language resolution (de
 
 ## T5. Mount the switcher + translate the sidebar nav — depends on T1, T4
 
-- [ ] T5.1 In `internal/gateway/templates/layouts/base.templ`, mount `@ui.LangSwitcher(ui.LangSwitcherProps{Current:
+- [x] T5.1 In `internal/gateway/templates/layouts/base.templ`, mount `@ui.LangSwitcher(ui.LangSwitcherProps{Current:
       i18n.FromContext(ctx)})` once inside `templ Base`, alongside the existing `@ui.ConfirmDialog()`
       mount (design.md D6 — same "mounted once, inherited by BaseAuth" shape as RD10). Positioned
       as a fixed top-right element (`class="fixed top-3 right-3 z-40"` or equivalent) so it
       renders above page content without requiring a navbar shell change.
-- [ ] T5.2 In `internal/gateway/templates/layouts/nav.go`, change `func navItems(active string)
+- [x] T5.2 In `internal/gateway/templates/layouts/nav.go`, change `func navItems(active string)
       []ui.NavItem` to `func navItems(ctx context.Context, active string) []ui.NavItem` and
       replace each hardcoded `Label` with `i18n.T(ctx, i18n.KeyNav...)` (Dashboard, Manual
       Records, Supercharger Stats, Settings). Update the one call site in `base.templ`
       (`@ui.NavShell(navItems(path), ...)` → `@ui.NavShell(navItems(ctx, path), ...)` — `ctx` is
       already in scope inside the `templ BaseAuth` block; design.md D9 notes this as the
       "plain Go helper called from a templ block takes ctx explicitly" illustration).
-- [ ] T5.3 In `internal/gateway/templates/ui/nav_shell.templ`, replace the hardcoded `"Soon"` in
+- [x] T5.3 In `internal/gateway/templates/ui/nav_shell.templ`, replace the hardcoded `"Soon"` in
       `@Badge(BadgeProps{Kind: "warning", Text: "Soon"})` with `i18n.T(ctx, i18n.KeyNavSoonBadge)`
       (ctx is implicit inside the `templ NavShell` block). In `base.templ`'s hamburger `<label>`s,
       translate the `aria-label="open sidebar"` / `"close sidebar"` via
       `i18n.T(ctx, i18n.KeyNavOpenSidebar)` / `i18n.T(ctx, i18n.KeyNavCloseSidebar)`.
-- [ ] T5.4 In `internal/gateway/templates/ui/nav_logout.templ`, replace the hardcoded `Log out`
+- [x] T5.4 In `internal/gateway/templates/ui/nav_logout.templ`, replace the hardcoded `Log out`
       text with `{ i18n.T(ctx, i18n.KeyNavLogout) }`.
-- [ ] T5.5 `internal/gateway/templates/ui/nav_shell_test.go` additions (or a new
+- [x] T5.5 `internal/gateway/templates/ui/nav_shell_test.go` additions (or a new
       `layouts/nav_test.go`): `TestNavItems_LabelsTranslate` — call `navItems(i18n.WithLang(ctx,
       account.LanguageEN), "/dashboard")` vs. `...LanguageES...` and assert the returned labels
       differ and match the catalogue. `TestBaseAuth_RendersLangSwitcher` /
@@ -171,22 +171,22 @@ New package: the translation catalogue + context-carried language resolution (de
 
 ## T6. Translate the nav-header — depends on T1
 
-- [ ] T6.1 In `internal/gateway/templates/fragments/nav_header.templ`: remove `StatusLabel
+- [x] T6.1 In `internal/gateway/templates/fragments/nav_header.templ`: remove `StatusLabel
       string` from `NavHeaderVM` (design.md D9). Add `func statusLabelKeyFor(s
       NavHeaderStatusKind) i18n.Key` next to the existing `navBadgeKind` (same file, same
       "presentation mapping from the closed enum" shape), mapping each of the four
       `NavHeaderStatusKind` values to its `i18n.Key`. Replace the template's `{ vm.StatusLabel }`
       with `{ i18n.T(ctx, statusLabelKeyFor(vm.Status)) }`.
-- [ ] T6.2 Same file: replace the hardcoded `"No Tesla connected."` and `"Connect your Tesla"`
+- [x] T6.2 Same file: replace the hardcoded `"No Tesla connected."` and `"Connect your Tesla"`
       strings with `i18n.T(ctx, i18n.KeyNavHeaderNoTesla)` / `i18n.T(ctx,
       i18n.KeyNavHeaderConnectLink)`; add `aria-label={ i18n.T(ctx,
       i18n.KeyNavHeaderSwitchVehicleAria) }` to the vehicle-switcher `<select>` (currently has no
       `aria-label`, cheap addition while the block is already touched).
-- [ ] T6.3 In `internal/gateway/handlers/handlers.go`'s `navHeaderFor`, delete every
+- [x] T6.3 In `internal/gateway/handlers/handlers.go`'s `navHeaderFor`, delete every
       `StatusLabel: "..."` assignment (four call sites) — the field no longer exists on
       `NavHeaderVM` after T6.1, so this is required for the package to compile, not optional
       cleanup.
-- [ ] T6.4 `internal/gateway/handlers/handlers_test.go` / existing nav-header tests: update any
+- [x] T6.4 `internal/gateway/handlers/handlers_test.go` / existing nav-header tests: update any
       assertion that reads `vm.StatusLabel` or asserts on the literal English status word in
       rendered output to instead assert on `vm.Status` (the enum) and, where the test renders
       HTML, on the translated string for the resolved language used in that test.
@@ -199,7 +199,7 @@ New package: the translation catalogue + context-carried language resolution (de
 
 ## T7. Docs — depends on T1, T2, T3 (references concrete symbols added above)
 
-- [ ] T7.1 Add a new `## i18n — every new user-facing label needs BOTH es and en` section to
+- [x] T7.1 Add a new `## i18n — every new user-facing label needs BOTH es and en` section to
       `internal/gateway/AGENTS.md`, worded as binding: any `.templ` change that adds or edits
       user-facing text MUST add/update a catalogue key in `internal/gateway/i18n/catalog.go` with
       both `ES` and `EN` non-empty — `TestCatalog_AllKeysHaveBothLanguages` (T1.5) enforces this
@@ -209,7 +209,7 @@ New package: the translation catalogue + context-carried language resolution (de
       an explicit `ctx` argument from a plain Go helper called from one. State plainly that a
       hardcoded English (or Spanish-only) string added to any page from this point forward is
       incomplete work, mirroring the tone of `CLAUDE.md`'s "docs track structural change" rule.
-- [ ] T7.2 Add a new subsection under "Read-only at request time" → "Exception: user-initiated
+- [x] T7.2 Add a new subsection under "Read-only at request time" → "Exception: user-initiated
       writes" in `internal/gateway/AGENTS.md`: "### Exception: language switch (D-lang amendment
       — RM24-gateway-add-i18n-foundation)", documenting (mirroring the existing D4/manualcharge
       amendment's shape): `LangSwitch` may call `account.Service.SetLanguage`; no auth guard (works
@@ -217,23 +217,23 @@ New package: the translation catalogue + context-carried language resolution (de
       CSRF check**, stated explicitly with the design.md D8 rationale (blast radius + cost of
       requiring every page to mint a token) so a future reader does not mistake the omission for
       an oversight; scope stays narrow to `SetLanguage` only.
-- [ ] T7.3 Update root `README.md`'s "Project Structure" tree: add a
+- [x] T7.3 Update root `README.md`'s "Project Structure" tree: add a
       `│   │   └── i18n/            #   translation catalogue + per-request language resolution (es default, en)`
       line under the existing `gateway/` block (alongside `handlers/`, `templates/`, `static/`,
       `tools/`).
 
 ## T8. Codegen + full verification — depends on T1–T7
 
-- [ ] T8.1 `make templ` (regenerates `*_templ.go` for every `.templ` file touched: `base.templ`,
+- [x] T8.1 `make templ` (regenerates `*_templ.go` for every `.templ` file touched: `base.templ`,
       `nav_shell.templ`, `nav_logout.templ`, `nav_header.templ`, the new `lang_switcher.templ`).
-- [ ] T8.2 `make css`; `git diff --stat internal/gateway/static/app.css` to confirm it changed (or
+- [x] T8.2 `make css`; `git diff --stat internal/gateway/static/app.css` to confirm it changed (or
       document that it didn't, if no new Tailwind/DaisyUI class was actually introduced beyond
       ones already in the compiled bundle) — module CI guard
       (`internal/gateway/AGENTS.md` "Gotcha — stale CSS").
-- [ ] T8.3 `go build ./...` and `go vet ./...` clean repo-wide.
-- [ ] T8.4 `go test ./...` green, including every test added in T1–T6.
-- [ ] T8.5 Boundary check: `internal/gateway/i18n` imports only `internal/account` (for the
+- [x] T8.3 `go build ./...` and `go vet ./...` clean repo-wide.
+- [x] T8.4 `go test ./...` green, including every test added in T1–T6.
+- [x] T8.5 Boundary check: `internal/gateway/i18n` imports only `internal/account` (for the
       `LanguageES`/`LanguageEN` constants) and the Go standard library — no `templ` import (it is
       a plain Go package, not a `templates/` subpackage), no other domain module.
-- [ ] T8.6 `openspec validate RM24-gateway-add-i18n-foundation --strict` passes and every
+- [x] T8.6 `openspec validate RM24-gateway-add-i18n-foundation --strict` passes and every
       `tasks.md` checkbox above is checked, matching `progress.json`.

@@ -1,6 +1,11 @@
 package layouts
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+import (
+	"context"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
 
 // navItems is the sidebar navigation for authenticated pages, rendered by BaseAuth
 // through ui.NavShell. Keeping it here (not inline in the .templ) means the single
@@ -10,11 +15,16 @@ import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 // Active flag is set by comparing its Href to active. Placeholder entries carry
 // Placeholder: true and link to "#" with a "Soon" badge (future work — no stub route
 // is built this change).
-func navItems(active string) []ui.NavItem {
+//
+// ctx carries the request's resolved language (design.md D5/D9): this is a plain Go
+// helper called *from* a templ block, so it takes ctx as an explicit argument (unlike
+// a templ component, which receives ctx implicitly) — both consume the same
+// i18n.T(ctx, ...) surface.
+func navItems(ctx context.Context, active string) []ui.NavItem {
 	return []ui.NavItem{
-		{Label: "Dashboard", Href: "/dashboard", Active: active == "/dashboard", Icon: "dashboard"},
-		{Label: "Manual Records", Href: "/charges", Active: active == "/charges", Icon: "ev_station"},
-		{Label: "Supercharger Stats", Href: "/supercharger-stats", Active: active == "/supercharger-stats", Icon: "analytics"},
-		{Label: "Settings", Icon: "settings", Placeholder: true},
+		{Label: i18n.T(ctx, i18n.KeyNavDashboard), Href: "/dashboard", Active: active == "/dashboard", Icon: "dashboard"},
+		{Label: i18n.T(ctx, i18n.KeyNavManualRecords), Href: "/charges", Active: active == "/charges", Icon: "ev_station"},
+		{Label: i18n.T(ctx, i18n.KeyNavSuperchargerStats), Href: "/supercharger-stats", Active: active == "/supercharger-stats", Icon: "analytics"},
+		{Label: i18n.T(ctx, i18n.KeyNavSettings), Icon: "settings", Placeholder: true},
 	}
 }
