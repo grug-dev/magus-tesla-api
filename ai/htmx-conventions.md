@@ -10,6 +10,15 @@ must follow this file. The gateway↔module wiring is in
 > `kkpa-goth-scaffold-ui init` on 2026-07-24; default theme `lemonade`). Follow these
 > conventions for every page you add or change.
 
+> **⚠ Before you write a single user-facing string: the app is bilingual (ES default / EN).**
+> Every user-visible label in this layer goes through `i18n.T(ctx, i18n.KeyXxx)` against the one
+> catalogue at `internal/gateway/i18n/catalog.go`, with **both `ES` and `EN` non-empty** — never a
+> bare literal in markup, a `Notice:`/`Error:` field, or a `c.String` body. **The binding rule and
+> the full how-to live in [`internal/gateway/AGENTS.md`](../internal/gateway/AGENTS.md) §i18n —
+> read that section before adding or editing any page text.** `make check` fails on a violation
+> (`make i18n-guard` + `TestCatalog_AllKeysHaveBothLanguages`), so this is cheaper to get right
+> while writing than to discover at the gate.
+
 ---
 
 ## Template engine: Templ (`github.com/a-h/templ`)
