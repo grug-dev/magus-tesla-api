@@ -78,11 +78,11 @@ archived) · `[x]` done (archived).
 
 | Status | Change | Module | Scope | depends_on |
 |---|---|---|---|---|
-| `[~]` | `RM24-account-add-language-preference` | `account` | `accounts.language` column + migration + sqlc + port method | — |
+| `[x]` | `RM24-account-add-language-preference` | `account` | `accounts.language` column + migration + sqlc + port method | — |
 | `[ ]` | `RM24-gateway-add-i18n-foundation` | `gateway` | catalogue, resolution middleware, navbar selector, docs rule, one gold-standard surface | tier 1 |
 | `[ ]` | `RM24-gateway-translate-all-pages` | `gateway` | translate every remaining page/fragment/ui component | tier 2 |
 
-### Tier 1 — `[~]` `RM24-account-add-language-preference` (module: `account`)
+### Tier 1 — `[x]` `RM24-account-add-language-preference` (module: `account`)
 
 Add `language TEXT NOT NULL DEFAULT 'es'` to `accounts` via a new goose migration in
 `internal/account/db/migrations/` (which is also the single sqlc schema source — keep the
