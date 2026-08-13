@@ -4,17 +4,36 @@
   "change": "RM24-account-add-language-preference",
   "module": "account",
   "roadmap": "openspec/roadmaps/RM24-i18n-translations.md",
-  "request": "Source ticket: MAG-8 — https://linear.app/magus-monitor/issue/MAG-8/i18n-translations-htmx\n\nTier 1 of RM24-i18n-translations. The account module must own and expose the per-user language preference so the gateway can render EN/ES without ever touching the accounts table: a goose migration adding `language TEXT NOT NULL DEFAULT 'es'` to accounts, sqlc regeneration, and an extension to the module's public port to read the current language for an account and persist a change to it. Supported values es and en, default es; an unrecognized stored value must resolve to es rather than error. No index.",
-  "status": "proposed",
+  "request": "Source ticket: MAG-8 \u2014 https://linear.app/magus-monitor/issue/MAG-8/i18n-translations-htmx\n\nTier 1 of RM24-i18n-translations. The account module must own and expose the per-user language preference so the gateway can render EN/ES without ever touching the accounts table: a goose migration adding `language TEXT NOT NULL DEFAULT 'es'` to accounts, sqlc regeneration, and an extension to the module's public port to read the current language for an account and persist a change to it. Supported values es and en, default es; an unrecognized stored value must resolve to es rather than error. No index.",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": ["T1.1", "T2.1", "T2.2", "T3.1", "T3.2", "T3.3", "T4.1", "T4.2", "T5.1", "T5.2", "T6.1", "T7.1", "T7.2", "T7.3", "T7.4"],
+    "pending": [],
     "blocked": [],
-    "done": []
+    "done": [
+      "T1.1",
+      "T2.1",
+      "T2.2",
+      "T3.1",
+      "T3.2",
+      "T3.3",
+      "T4.1",
+      "T4.2",
+      "T5.1",
+      "T5.2",
+      "T6.1",
+      "T7.1",
+      "T7.2",
+      "T7.3",
+      "T7.4"
+    ]
   },
   "created_at": "2026-08-13T02:41:00Z",
-  "updated_at": "2026-08-13T02:41:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-08-13T09:10:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM24-MAG-8-i18n-translations",
@@ -24,30 +43,412 @@
     "created_at": "2026-08-13T02:30:31Z"
   },
   "tasks": [
-    { "id": "T1.1", "title": "Create the goose migration adding accounts.language", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T2.1", "title": "Add the closed language-code vocabulary to account.go", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T2.2", "title": "Add LanguageFor and SetLanguage to the Service interface", "module": "account", "depends_on": ["T2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T3.1", "title": "Add GetAccountLanguage and UpdateAccountLanguage to query.sql", "module": "account", "depends_on": ["T1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T3.2", "title": "Confirm existing SELECT */RETURNING * queries pick up the column", "module": "account", "depends_on": ["T1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T3.3", "title": "Run make sqlc and confirm the inferred Go type", "module": "account", "depends_on": ["T3.1", "T3.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T4.1", "title": "Implement LanguageFor/SetLanguage plus normalize helpers", "module": "account", "depends_on": ["T2.2", "T3.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T4.2", "title": "Verify pgtype stays out of public type signatures", "module": "account", "depends_on": ["T4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T5.1", "title": "Pure unit test for normalizeLanguage", "module": "account", "depends_on": ["T4.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T5.2", "title": "DATABASE_URL-gated integration test for the round trip", "module": "account", "depends_on": ["T4.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T6.1", "title": "Update the Public interface section of internal/account/AGENTS.md", "module": "account", "depends_on": ["T2.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.1", "title": "go build and go vet pass repo-wide", "module": "account", "depends_on": ["T4.2", "T5.1", "T5.2", "T6.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.2", "title": "go test ./... green including the two new tests", "module": "account", "depends_on": ["T7.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.3", "title": "Boundary check on account module imports", "module": "account", "depends_on": ["T7.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.4", "title": "openspec validate --strict passes with every task checked", "module": "account", "depends_on": ["T7.2", "T7.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+    {
+      "id": "T1.1",
+      "title": "Create the goose migration adding accounts.language",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "20260813000001_accounts_add_language.sql: NOT NULL DEFAULT 'es', no CHECK, no index, per D1/D2. Down drops column.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T2.1",
+      "title": "Add the closed language-code vocabulary to account.go",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "LanguageES/LanguageEN constants + ErrUnsupportedLanguage added after ErrNoTeslaConnection.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T2.2",
+      "title": "Add LanguageFor and SetLanguage to the Service interface",
+      "module": "account",
+      "depends_on": [
+        "T2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "Both methods added to Service interface after SetVehicleConfigIfEmpty, doc comments from D3.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T3.1",
+      "title": "Add GetAccountLanguage and UpdateAccountLanguage to query.sql",
+      "module": "account",
+      "depends_on": [
+        "T1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "Both queries added to query.sql near the other accounts-table queries.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T3.2",
+      "title": "Confirm existing SELECT */RETURNING * queries pick up the column",
+      "module": "account",
+      "depends_on": [
+        "T1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "Confirmed UpsertAccountFromOAuth (RETURNING *) and GetAccountByProviderID (SELECT *) unchanged; no edit needed.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T3.3",
+      "title": "Run make sqlc and confirm the inferred Go type",
+      "module": "account",
+      "depends_on": [
+        "T3.1",
+        "T3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "make sqlc ran clean. Inferred type is plain string (not pgtype.Text) for both GetAccountLanguage and UpdateAccountLanguageParams.Language; Account.Language is string too. Matches D3 expectation.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T4.1",
+      "title": "Implement LanguageFor/SetLanguage plus normalize helpers",
+      "module": "account",
+      "depends_on": [
+        "T2.2",
+        "T3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "Implemented verbatim per D3 sketch; sqlc gave plain string so no textFromString conversion needed. Helpers placed near needsRefresh/accessExpiry.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T4.2",
+      "title": "Verify pgtype stays out of public type signatures",
+      "module": "account",
+      "depends_on": [
+        "T4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "Verified via grep: no pgtype in account.go. go build/vet clean scoped to internal/account (repo-wide vet blocked separately by T7.1, a cross-module issue).",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T5.1",
+      "title": "Pure unit test for normalizeLanguage",
+      "module": "account",
+      "depends_on": [
+        "T4.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "TestNormalizeLanguage added to service_test.go; 4 subtests pass (es, en, unrecognized, empty).",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T5.2",
+      "title": "DATABASE_URL-gated integration test for the round trip",
+      "module": "account",
+      "depends_on": [
+        "T4.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "TestLanguagePreference_RoundTrip added; passes against testcontainers Postgres (Docker started for this run). Covers default, switch, switch-back, rejection, out-of-band normalize.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T6.1",
+      "title": "Update the Public interface section of internal/account/AGENTS.md",
+      "module": "account",
+      "depends_on": [
+        "T2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "Added LanguageFor/SetLanguage bullet to Public interface list, matching existing bullet style.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T7.1",
+      "title": "go build and go vet pass repo-wide",
+      "module": "account",
+      "depends_on": [
+        "T4.2",
+        "T5.1",
+        "T5.2",
+        "T6.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:10:00Z",
+      "duration_seconds": 540,
+      "notes": "Unblocked by the leader's cross-module fake fix. go build + go vet now clean repo-wide.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T7.2",
+      "title": "go test ./... green including the two new tests",
+      "module": "account",
+      "depends_on": [
+        "T7.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:10:00Z",
+      "duration_seconds": 540,
+      "notes": "go test ./... green repo-wide after the leader's fake fix; account tests incl. both new ones pass.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T7.3",
+      "title": "Boundary check on account module imports",
+      "module": "account",
+      "depends_on": [
+        "T7.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:05:27Z",
+      "duration_seconds": 267,
+      "notes": "Verified: no tesla/gateway import, no pgtype in account.go, git status shows only internal/account files + this change's progress.json touched.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    },
+    {
+      "id": "T7.4",
+      "title": "openspec validate --strict passes with every task checked",
+      "module": "account",
+      "depends_on": [
+        "T7.2",
+        "T7.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:01:00Z",
+      "completed_at": "2026-08-13T09:10:00Z",
+      "duration_seconds": 540,
+      "notes": "openspec validate --strict passes; all tasks now checked.",
+      "budget": {
+        "five_hour_pct_start": 37.0,
+        "five_hour_pct_end": 12.0,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.23,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "single serial wave, all 15 tasks; 5-hour bucket reset mid-dispatch so the pct delta is invalid \u2014 use cost"
+      }
+    }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
   "decisions": [
     {
       "id": "D1",
       "at": "2026-08-13T02:41:00Z",
       "scope": "change",
       "made_by": "user",
-      "decision": "Database design gate CONFIRMED: `ALTER TABLE accounts ADD COLUMN language TEXT NOT NULL DEFAULT 'es'` — no CHECK constraint, no index",
+      "decision": "Database design gate CONFIRMED: `ALTER TABLE accounts ADD COLUMN language TEXT NOT NULL DEFAULT 'es'` \u2014 no CHECK constraint, no index",
       "why": "User was shown the DDL, the index plan, and the CHECK-vs-no-CHECK trade-off and approved as designed. Vocabulary is enforced in Go at the module's sole write path (SetLanguage) and re-normalized on read, mirroring the existing unconstrained `provider` column; a CHECK would force a migration to ship ahead of the Go code when a third locale is added, for safety the single writer already provides.",
       "covered_by": "roadmap Decision #1"
     },
@@ -57,7 +458,7 @@
       "scope": "change",
       "made_by": "leader",
       "decision": "Accepted the worker's NOT NULL DEFAULT 'es' rather than the module's nullable access_type/vehicle_config precedent",
-      "why": "Those columns are nullable because a migration cannot honestly assign a value Tesla has not reported yet. A language default has no external-observation gap — 'es' is truthful for every existing row immediately, so NOT NULL removes an unset state and a class of caller nil-handling.",
+      "why": "Those columns are nullable because a migration cannot honestly assign a value Tesla has not reported yet. A language default has no external-observation gap \u2014 'es' is truthful for every existing row immediately, so NOT NULL removes an unset state and a class of caller nil-handling.",
       "covered_by": "roadmap Decision #3"
     },
     {
@@ -65,15 +466,68 @@
       "at": "2026-08-13T02:38:00Z",
       "scope": "change",
       "made_by": "leader",
-      "decision": "Accepted asymmetric language validation — reject invalid input on write, silently normalize on read",
+      "decision": "Accepted asymmetric language validation \u2014 reject invalid input on write, silently normalize on read",
       "why": "Roadmap Decision #4 requires that an invalid stored value never break a render, which demands read-side normalization; a caller passing a bad code live is a different failure that should surface as ErrUnsupportedLanguage rather than be silently swallowed.",
       "covered_by": "roadmap Decision #4"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-13T09:01:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Batched all 15 tasks into ONE serial worker dispatch instead of 8 dependency-ordered waves",
+      "why": "The graph is effectively a chain (T1.1->T3.1->T3.3->T4.1->T5/T7); max real parallelism is 2-3 trivial tasks. Eight dispatches would each re-read the same 4-file doc pack, costing far more than the parallelism saves on a single-module change this small.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-13T09:01:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Dispatched on Sonnet rather than Opus",
+      "why": "Single-module change with a complete approved design.md and 15 atomic tasks; no cross-cutting or ambiguous work. Sonnet is the skill's default and Opus would need a justified exception.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-13T09:10:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader fixed the two cross-module fakeAccount test doubles (gateway/handlers, telemetry) rather than re-dispatching the worker",
+      "why": "Widening account.Service broke consumers' test doubles outside the worker's sandbox. That is leader-owned cross-module integration code; the worker correctly blocked T7.1/T7.2/T7.4 instead of reaching out of its module. Both stubs are inert and return LanguageES rather than \"\" so no existing test's behaviour changes.",
+      "covered_by": null
     }
   ],
   "events": [
-    { "at": "2026-08-13T02:32:23Z", "agent": "leader", "event": "dispatched account worker (sonnet) to author tier-1 OpenSpec artifacts; scope limited to artifacts, no implementation" },
-    { "at": "2026-08-13T02:39:23Z", "agent": "leader", "event": "worker returned; doc-pack acknowledged; openspec validate --strict passes; worker self-reported creating and deleting a stray migration file, confirmed absent from git status" },
-    { "at": "2026-08-13T02:41:00Z", "agent": "leader", "event": "database design gate presented to user and CONFIRMED (see decisions D1)" },
-    { "at": "2026-08-13T02:41:00Z", "agent": "leader", "event": "HALT — pickup-skill scope ends after artifacts + progress.json; implementation (Step 5) awaits explicit user resume" }
+    {
+      "at": "2026-08-13T02:32:23Z",
+      "agent": "leader",
+      "event": "dispatched account worker (sonnet) to author tier-1 OpenSpec artifacts; scope limited to artifacts, no implementation"
+    },
+    {
+      "at": "2026-08-13T02:39:23Z",
+      "agent": "leader",
+      "event": "worker returned; doc-pack acknowledged; openspec validate --strict passes; worker self-reported creating and deleting a stray migration file, confirmed absent from git status"
+    },
+    {
+      "at": "2026-08-13T02:41:00Z",
+      "agent": "leader",
+      "event": "database design gate presented to user and CONFIRMED (see decisions D1)"
+    },
+    {
+      "at": "2026-08-13T02:41:00Z",
+      "agent": "leader",
+      "event": "HALT \u2014 pickup-skill scope ends after artifacts + progress.json; implementation (Step 5) awaits explicit user resume"
+    },
+    {
+      "at": "2026-08-13T09:01:00Z",
+      "agent": "leader",
+      "event": "RESUME: status proposed -> in-progress; dispatched account worker (sonnet) for all 15 tasks as one serial wave (see D4)"
+    },
+    {
+      "at": "2026-08-13T09:10:00Z",
+      "agent": "leader",
+      "event": "worker returned 12 done / 3 blocked on cross-module fakes; leader verified the block independently (go vet reproduced both errors), added LanguageFor/SetLanguage to both fakeAccount doubles, and confirmed go build + vet + test ./... all green repo-wide"
+    }
   ]
 }

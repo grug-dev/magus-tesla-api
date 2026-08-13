@@ -64,6 +64,16 @@ func (f fakeAccount) SetVehicleConfigIfEmpty(context.Context, uuid.UUID, int64, 
 	return nil
 }
 
+// LanguageFor / SetLanguage satisfy account.Service for the handler tests, which
+// predate the language preference and never exercise it. LanguageFor returns the
+// platform default so a handler reading it sees a valid code, never "".
+func (f fakeAccount) LanguageFor(context.Context, uuid.UUID) (string, error) {
+	return account.LanguageES, nil
+}
+func (f fakeAccount) SetLanguage(context.Context, uuid.UUID, string) error {
+	return nil
+}
+
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {
 	f.seedCalls++
 	f.lastSeedVehicles = vs

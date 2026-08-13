@@ -32,7 +32,7 @@
 
 ## T1. Goose migration (`internal/account/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create `internal/account/db/migrations/<timestamp>_accounts_add_language.sql` (use the
+- [x] T1.1 Create `internal/account/db/migrations/<timestamp>_accounts_add_language.sql` (use the
       next chronological timestamp after `20260803000001_vehicles_add_config_fields.sql`, following
       the module's existing `<YYYYMMDDHHMMSS>_<name>.sql` convention) with the exact DDL from
       `design.md` D1 (reproduced here for implementer convenience):
@@ -59,7 +59,7 @@
 
 ## T2. Domain constants + port interface (`internal/account/account.go`) — no dependencies, parallel-ok with T1
 
-- [ ] T2.1 Add the closed language-code vocabulary near the top of `account.go` (after the existing
+- [x] T2.1 Add the closed language-code vocabulary near the top of `account.go` (after the existing
       `ErrNoTeslaConnection` declaration is a reasonable place):
       ```go
       // LanguageES and LanguageEN are the two supported language codes — the entire
@@ -74,7 +74,7 @@
       // two supported codes. Detect it with errors.Is.
       var ErrUnsupportedLanguage = errors.New("account: unsupported language code")
       ```
-- [ ] T2.2 Add `LanguageFor` and `SetLanguage` to the `Service` interface, with the doc comments
+- [x] T2.2 Add `LanguageFor` and `SetLanguage` to the `Service` interface, with the doc comments
       from `design.md` D3:
       ```go
       // LanguageFor returns the account's current language preference: always exactly
@@ -98,7 +98,7 @@
 
 ## T3. sqlc query edits + regeneration (`internal/account/db/query.sql`) — depends on T1, parallel-ok with T2
 
-- [ ] T3.1 Add two new queries to `query.sql`, in a sensible place near the other `accounts`-table
+- [x] T3.1 Add two new queries to `query.sql`, in a sensible place near the other `accounts`-table
       queries:
       ```sql
       -- name: GetAccountLanguage :one
@@ -116,11 +116,11 @@
           updated_at = now()
       WHERE id = @id;
       ```
-- [ ] T3.2 Confirm (no edit needed unless verification fails) that `UpsertAccountFromOAuth` and
+- [x] T3.2 Confirm (no edit needed unless verification fails) that `UpsertAccountFromOAuth` and
       `GetAccountByProviderID` already use `SELECT *` / `RETURNING *` and therefore automatically
       include the new `language` column once T1 lands — do not add an explicit column list to
       either query.
-- [ ] T3.3 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm and
+- [x] T3.3 Run `make sqlc` (or `sqlc generate`) to regenerate `internal/account/db/`. Confirm and
       report:
       - The Go type sqlc infers for `GetAccountLanguage`'s return value and for
         `UpdateAccountLanguageParams.Language`. **Do not assume `string`** — `design.md` D3 states
@@ -137,7 +137,7 @@
 
 ## T4. Service implementation (`internal/account/service.go`) — depends on T2, T3
 
-- [ ] T4.1 Implement `LanguageFor` and `SetLanguage` on `*service`, plus the unexported
+- [x] T4.1 Implement `LanguageFor` and `SetLanguage` on `*service`, plus the unexported
       `normalizeLanguage` and `isSupportedLanguage` helpers (design.md D3 implementation sketch):
       ```go
       func (s *service) LanguageFor(ctx context.Context, accountID uuid.UUID) (string, error) {
@@ -179,17 +179,17 @@
       instead of `string`). Place the two methods after `SetVehicleConfigIfEmpty` (mirroring the
       interface's method order from T2.2); place the two helpers in the "pure helpers" section
       near `needsRefresh`/`accessExpiry`.
-- [ ] T4.2 Verify `pgtype` still does not appear in any public type signature — it stays confined
+- [x] T4.2 Verify `pgtype` still does not appear in any public type signature — it stays confined
       to `service.go` and the sqlc-generated `accountdb` package, exactly as every prior
       persistence change in this module requires.
       Acceptance: `go build ./...` and `go vet ./...` pass.
 
 ## T5. Tests (`internal/account/service_test.go`, `service_integration_test.go`) — depends on T4
 
-- [ ] T5.1 Add a pure unit test (no DB) for `normalizeLanguage` in `service_test.go`, covering: both
+- [x] T5.1 Add a pure unit test (no DB) for `normalizeLanguage` in `service_test.go`, covering: both
       supported codes returned unchanged (`"es"` → `"es"`, `"en"` → `"en"`), an unrecognized value
       normalized to `"es"` (e.g. `"fr"`), and the empty string normalized to `"es"`.
-- [ ] T5.2 Add a `DATABASE_URL`-gated integration test `TestLanguagePreference_RoundTrip` in
+- [x] T5.2 Add a `DATABASE_URL`-gated integration test `TestLanguagePreference_RoundTrip` in
       `service_integration_test.go` (self-skips when unset, per the module's existing pattern —
       mirror `TestAccessType_RoundTrip`'s setup: provision an account via `UpsertFromOAuth`, defer
       `deleteAccount`). Cover:
@@ -214,7 +214,7 @@
 
 ## T6. Docs (`internal/account/AGENTS.md`) — depends on T2, parallel-ok with T3/T4/T5
 
-- [ ] T6.1 Update the "Public interface" section of `internal/account/AGENTS.md` to list
+- [x] T6.1 Update the "Public interface" section of `internal/account/AGENTS.md` to list
       `LanguageFor(ctx, accountID) (string, error)` and `SetLanguage(ctx, accountID, lang string)
       error` alongside the existing bullet list, with a one-line description matching the other
       entries' style (e.g. "`LanguageFor`/`SetLanguage` — read/persist a user's `{es, en}` language
@@ -223,16 +223,16 @@
 
 ## T7. Verification — depends on T1–T6
 
-- [ ] T7.1 `go build ./...` and `go vet ./...` pass repo-wide. If the widened `account.Service`
+- [x] T7.1 `go build ./...` and `go vet ./...` pass repo-wide. If the widened `account.Service`
       interface breaks compilation of a fake/double in a sibling module's test file (as happened for
       the `vehicle_config` tier — see `openspec/changes/archive/account/2026-08-03-RM6-account-add-vehicle-config-fields/progress.json`
       decision D4), that is a leader-owned cross-module fix — flag it, do not edit outside
       `internal/account`.
-- [ ] T7.2 `go test ./...` green and fast; the two new account tests (T5.1 unit, T5.2 integration)
+- [x] T7.2 `go test ./...` green and fast; the two new account tests (T5.1 unit, T5.2 integration)
       pass; the integration test self-skips without `DATABASE_URL` (and passes with it set, or with
       Docker running for the testcontainers path); no Tesla API call fires from the test run.
-- [ ] T7.3 Boundary check: `internal/account` still does not import `internal/tesla` or
+- [x] T7.3 Boundary check: `internal/account` still does not import `internal/tesla` or
       `internal/gateway`; `pgtype` does not appear in any public type or interface; no file outside
       `internal/account` (other than a leader-owned cross-module fix per T7.1) was touched.
-- [ ] T7.4 `openspec validate RM24-account-add-language-preference --strict` passes and every
+- [x] T7.4 `openspec validate RM24-account-add-language-preference --strict` passes and every
       tasks.md checkbox above reflects real completion.

@@ -85,6 +85,21 @@ SELECT * FROM vehicles
 WHERE account_id = @account_id
 ORDER BY tesla_id;
 
+-- name: GetAccountLanguage :one
+-- The per-request read path: only the language column, not the whole account row,
+-- so a caller that only needs the language does not pay for the rest of Account.
+SELECT language FROM accounts
+WHERE id = @id;
+
+-- name: UpdateAccountLanguage :exec
+-- Persists an explicit language switch. Vocabulary validation happens in the Go
+-- caller (Service.SetLanguage) before this query runs — see design.md D1 for why
+-- there is no CHECK constraint doing this at the DB layer instead.
+UPDATE accounts
+SET language   = @language,
+    updated_at = now()
+WHERE id = @id;
+
 -- name: ListAllVehicles :many
 -- Every registered vehicle across ALL accounts, each with its owning account_id,
 -- for background collection jobs (nightly telemetry). Ordered (account_id, tesla_id)
