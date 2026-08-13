@@ -212,25 +212,13 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
       red to green, then revert the temporary marker. A hatch that was never exercised is not
       verified.
 - [x] T14.2 Wire it into the gate: `check: build vet ui-guard i18n-guard test`.
-- [ ] T14.3 Run `make i18n-guard` against the fully-swept tree (after T2–T13 complete) — MUST
+- [x] T14.3 Run `make i18n-guard` against the fully-swept tree (after T2–T13 complete) — MUST
       pass clean. If it flags a false positive on a legitimate literal not yet covered by this
       tier's Discoveries (e.g. a genuinely non-translatable value), add an inline `// i18n:allow:
       <reason>` marker rather than weakening the grep pattern.
-      **BLOCKED — genuine gap found by the guard itself (not a false positive):**
-      `internal/gateway/handlers/handlers.go:423` — `vm.ChargeLimit = fmt.Sprintf("Limit %d%%",
-      snap.ChargeLimitSocPct)` (rendered on the dashboard via `dashChargeLimit(d)`,
-      `templates/pages/dashboard.go`/`dashboard.templ:76`) is genuine hardcoded English never
-      caught by T1–T13's inventory. This is real app copy, not a legitimate i18n-guard exemption,
-      so per T14.3's own rule it must NOT be suppressed with `i18n:allow` — it needs a new
-      catalog key. Per design.md D4 / this dispatch's instructions, only catalog.go's single
-      writer may add it; reported to the leader rather than self-added. Suggested key (leader's
-      call): `KeyDashboardChargeLimit = "dashboard.charge_limit"`, `{ES: "Límite %d%%", EN:
-      "Limit %d%%"}`, call site `vm.ChargeLimit = fmt.Sprintf(i18n.T(ctx,
-      i18n.KeyDashboardChargeLimit), snap.ChargeLimitSocPct)`. Two other guard hits were
-      confirmed false positives and fixed with `i18n:allow` markers (not suppressed by weakening
-      the regex): `templates/ui/button.templ:13` (a Go doc-comment, not markup) and
-      `templates/pages/dashboard.templ:84` (htmx `hx-trigger`/`hx-swap` attribute values matched
-      by the trailing-text-after-`{}` pattern, not a text node).
+      **Closed by T19**: `KeyDashboardChargeLimit` added to `catalog.go` (T19.1) and wired at
+      `internal/gateway/handlers/handlers.go:423` (T19.2). `make i18n-guard` now passes clean
+      against the fully-swept tree.
 
 ## T15. Docs — depends on T1 (references T14's new target)
 
@@ -257,19 +245,14 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
       instead, mirroring tier 2's T6.4 precedent). 17 tests updated across gateway_test.go,
       handlers_test.go, charges_test.go, charges_error_visibility_test.go, history_test.go,
       supercharger_test.go — see worker report for the full list + rationale per test.
-- [ ] T17.4 `make i18n-guard` passes clean (re-run after T16's codegen, in case codegen touched
+- [x] T17.4 `make i18n-guard` passes clean (re-run after T16's codegen, in case codegen touched
       any `.templ` source — it shouldn't, but confirm).
-      **BLOCKED on the same T14.3 gap** (handlers.go:423 ChargeLimit — see T14.3's note). Not a
-      false positive; needs a new catalog key from catalog.go's single writer.
-- [ ] T17.5 `make check` passes clean end-to-end (`build vet ui-guard i18n-guard test`).
-      Confirmed build+vet+ui-guard all pass; stops at i18n-guard on the same T14.3/T17.4 gap
-      (test never reached — make stops at the first failing prerequisite).
-- [ ] T17.6 `openspec validate RM24-gateway-translate-all-pages --strict` passes and every
+      Re-run after T19's catalog key + call-site fix: passes clean.
+- [x] T17.5 `make check` passes clean end-to-end (`build vet ui-guard i18n-guard test`).
+      Full `make check` run (T19.5) — build, vet, ui-guard, i18n-guard, test all pass.
+- [x] T17.6 `openspec validate RM24-gateway-translate-all-pages --strict` passes and every
       `tasks.md` checkbox above is checked, matching `progress.json`.
-      `openspec validate --strict` itself PASSES (structural validity), but not every checkbox
-      above is checked — T14.3/T17.4/T17.5/T17.6 are honestly left unchecked pending the leader
-      adding `KeyDashboardChargeLimit` to catalog.go (see T14.3). This is the only remaining
-      blocker for the whole tier.
+      `openspec validate --strict` passes; all tasks.md checkboxes (T1–T19) now checked.
 
 ## T18. Inventory-gap closure: page titles + charges-list table headers — depends on T1, T5
 
@@ -291,3 +274,41 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
       inventory recording it as needing zero changes.
 - [x] T18.3 `go build ./internal/gateway/...` compiles (run AFTER T16's codegen, since these are
       `.templ` edits).
+
+## T19. Inventory-gap closure: dashboard charge limit — depends on T1, T14
+
+> **Added by the leader at the wave-3 boundary** (append-only; nothing above was edited). The
+> `make i18n-guard` target built in T14 found one genuine hardcoded-English string that this
+> tier's original inventory missed, and the wave-3 worker correctly blocked rather than either
+> suppressing it with `i18n:allow` (it is real app copy, not an exemption) or minting a catalog
+> key outside catalog.go's single-writer discipline (design.md D4). This group carries the key
+> addition and unblocks T14.3 + T17.4–T17.6.
+
+- [x] T19.1 Add ONE key to `internal/gateway/i18n/catalog.go`, in both the `Key` const block and
+      the catalog map, placed with the other `dashboard.*` keys and following the file's existing
+      ordering and same-line `{ES: …, EN: …}` style:
+      `KeyDashboardChargeLimit Key = "dashboard.charge_limit"` →
+      `{ES: "Límite %d%%", EN: "Limit %d%%"}`. The `%d%%` verb is required in BOTH languages —
+      it is an interpolated count, mirroring `KeyDashboardStatusSoftwareVersion`'s `%s`.
+- [x] T19.2 Wire the call site: `internal/gateway/handlers/handlers.go:423` becomes
+      `vm.ChargeLimit = fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardChargeLimit), snap.ChargeLimitSocPct)`
+      inside `mapDashboardSnapshot` (ctx is already a parameter — do not add plumbing).
+- [x] T19.3 `go test ./internal/gateway/...` green, including
+      `TestCatalog_AllKeysHaveBothLanguages`. Any pre-existing test asserting the English
+      `"Limit …"` literal is updated to the resolved-language string, mirroring the T17.3/T6.4
+      precedent.
+      No test update needed: `TestDashboardFor_EnrichedBento` runs under an English `ctx`
+      (`i18n.WithLang(ctx, account.LanguageEN)`) and the EN catalog value `"Limit %d%%"` formats
+      to the identical `"Limit 80%"` the pre-existing assertion already expected — the test's own
+      comment (handlers_test.go:617-618) anticipated exactly this ("ChargeLimit which are
+      identical or not yet translated").
+- [x] T19.4 Complete **T14.3**: re-run `make i18n-guard` against the swept tree — it MUST now pass
+      clean. Tick T14.3 above and flip T14 out of `blocked`.
+- [x] T19.5 Complete **T17.4–T17.6**: re-run `make i18n-guard` after codegen, then `make check`
+      end-to-end (`build vet ui-guard i18n-guard test`), then
+      `openspec validate RM24-gateway-translate-all-pages --strict`. Tick T17.4, T17.5, T17.6 and
+      flip T17 out of `blocked`. If T19.1's key changed any `.templ`-adjacent output, re-run
+      `make templ && make css` (T16) and report whether `static/app.css` changed.
+      No `.templ` file was touched by T19 (only `catalog.go` and `handlers.go`), so no re-run of
+      `make templ`/`make css` was needed; `git status` on `internal/gateway/static/` and
+      `internal/gateway/templates/` shows no changes — `static/app.css` did NOT change.

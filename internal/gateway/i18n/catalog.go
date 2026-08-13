@@ -83,6 +83,7 @@ const (
 	KeyDashboardVehicleStatusTitle Key = "dashboard.vehicle_status_title"
 	KeyDashboardBatteryTitle       Key = "dashboard.battery_title"
 	KeyDashboardAwaitingSnapshot   Key = "dashboard.awaiting_snapshot"
+	KeyDashboardChargeLimit        Key = "dashboard.charge_limit"
 
 	// --- dashboard status (handlers.go: dashStatus, mapDashboardSnapshot — D5) ---
 	KeyDashboardStatusCharging        Key = "dashboard_status.charging"
@@ -324,6 +325,7 @@ var catalog = map[Key]entry{
 	KeyDashboardVehicleStatusTitle: {ES: "Estado del vehículo", EN: "Vehicle Status"},
 	KeyDashboardBatteryTitle:       {ES: "Batería", EN: "Battery"},
 	KeyDashboardAwaitingSnapshot:   {ES: "Esperando el primer dato", EN: "Awaiting first snapshot"},
+	KeyDashboardChargeLimit:        {ES: "Límite %d%%", EN: "Limit %d%%"},
 
 	KeyDashboardStatusCharging:        {ES: "Cargando", EN: "Charging"},
 	KeyDashboardStatusParked:          {ES: "Estacionado", EN: "Parked"},

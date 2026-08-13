@@ -420,7 +420,7 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, snap
 	vm.BatteryPct = strconv.Itoa(snap.BatteryLevelPct)
 	vm.RangeNow = fmt.Sprintf("%.0f km", snap.BatteryRangeKm)
 	if snap.ChargeLimitSocPct > 0 {
-		vm.ChargeLimit = fmt.Sprintf("Limit %d%%", snap.ChargeLimitSocPct)
+		vm.ChargeLimit = fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardChargeLimit), snap.ChargeLimitSocPct)
 	}
 }
 
