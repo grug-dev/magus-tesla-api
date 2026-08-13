@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM24-i18n-translations.md",
   "request": "Tier 2 of RM24-i18n-translations (ticket MAG-8). Build the gateway i18n foundation: translation catalogue for es (default) and en, per-request language resolution (accounts.language for signed-in via tier 1's port, `lang` cookie for anonymous, falling back to es), the navbar globe-icon language selector visible on every page including login, an htmx switch that does not disrupt the current page, the layout/nav shell translated as the gold standard, and the AGENTS.md rule requiring EN+ES for every newly added label.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
@@ -49,7 +49,7 @@
     ]
   },
   "created_at": "2026-08-13T09:33:00Z",
-  "updated_at": "2026-08-13T10:10:00Z",
+  "updated_at": "2026-08-13T10:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -960,10 +960,25 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM24-gateway-add-i18n-foundation (tier 2 of RM24-i18n-translations), module `gateway`, commits 01ca611 (wave 1: i18n package, middleware, LangSwitch) and 331fd05 (wave 2: ui.LangSwitcher, translated nav shell, docs). Review the DIFF, not the module. Validate: (1) SECURITY PREMISE \u2014 setLangCookie MUST call c.SetSameSite(http.SameSiteLaxMode) BEFORE c.SetCookie, and TestLangSwitch_CookieIsSameSiteLax must exist unweakened. The user approved omitting CSRF on POST /ui/lang/switch ONLY on that condition (design.md D8); its absence or weakening is a BLOCKER. (2) Module boundaries \u2014 no HTML outside gateway; language reached ONLY via account.Service on Deps, never internal/account/db; internal/gateway/i18n imports nothing beyond context + account. (3) UI stack rules \u2014 no DaisyUI component class inlined in pages/fragments/layouts NEWLY by this change (note: base.templ's `btn btn-square btn-ghost` pre-exists on main and is out of scope); semantic theme tokens only, no hex; NO client-side JS added; no HTML comments in .templ. (4) Behaviour vs spec \u2014 signed-in reads accounts.language, anonymous reads the lang cookie, both fall back to es; an unrecognized value resolves to es and never breaks a render; the cookie syncs with the DB value; HX-Location carries path+query so the switch does not disrupt the page. (5) Catalogue completeness is enforced by TestCatalog_AllKeysHaveBothLanguages, and AGENTS.md now carries a BINDING EN+ES rule for new labels (MAG-8 asked for this explicitly \u2014 check the wording is binding, not advisory). (6) Codegen \u2014 *_templ.go regenerated and static/app.css committed (the module CI guard). (7) Performance \u2014 language resolved ONCE per request in middleware, carried on context; the switcher adds no per-render DB read. (8) Anti-gaming \u2014 no task title or criterion weakened; every ticked checkbox genuinely done; wave 1's guard test not touched by wave 2. Escalate on doubt: return changes-requested rather than approving anything uncertain.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-13T12:30:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "tasks.md T6.4 (checked [x], progress.json T6.4 marked done) requires adding `internal/gateway/templates/fragments/nav_header_test.go` (new, if none exists) with `TestNavHeader_StatusLabelTranslatesPerLanguage` \u2014 rendering `NavHeaderVM{Status: NavStatusConnected}` under both `i18n.WithLang(ctx, LanguageES)` and `...LanguageEN`, asserting the two renders differ and each matches the catalogue's `KeyNavHeaderStatusConnected` entry. No such file or test exists anywhere in the repo (`grep -rn 'StatusLabelTranslatesPerLanguage\\|statusLabelKeyFor\\|Conectado\\|Dormido' internal/gateway --include='*_test.go'` returns nothing). The only fragment-level nav-header test, `TestNavHeaderFragment_ConnectedHTTP` in handlers_test.go, asserts on `badge-success`/`94%`/vehicle name but never on the rendered status word text in either language, and its engine (`navHeaderEngine`) never registers `LanguageMiddleware`, so it exercises no language variation at all. T6.4's handlers_test.go half (removing the four `vm.StatusLabel` assertions) was done correctly, but the fragments-test half of the same task was not \u2014 the checkbox and progress.json note both claim it complete ('handlers_test.go: removed StatusLabel assertions...') without disclosing the missing fragments test. This is the exact kind of partially-done-but-ticked task item 8 of the brief asks the reviewer to catch. The underlying code (`statusLabelKeyFor` + `i18n.T(ctx, ...)` in nav_header.templ) reads correctly on inspection, so this is a test-coverage/anti-gaming gap, not a known behavioral defect \u2014 hence major, not blocker.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -991,6 +1006,15 @@
       "made_by": "leader",
       "decision": "Split tier 2 implementation into 2 serial waves (T1-T3 Go layer, then T4-T8 templates/docs/verify) instead of one 35-task dispatch",
       "why": "The artifact dispatch alone consumed 260k subagent tokens; one 35-task implementation worker risks exhausting context mid-change and returning partial work. The split also sequences handlers.go (T3.4 and T6.3 both edit it) instead of risking a concurrent conflict.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-13T10:20:00Z",
+      "scope": "review:R1",
+      "made_by": "leader",
+      "decision": "Accepted reviewer finding R1 and fixed it directly rather than re-dispatching the worker",
+      "why": "Independently confirmed: T6.4 names TestNavHeader_StatusLabelTranslatesPerLanguage, it existed nowhere in the repo, and the checkbox was ticked \u2014 a genuine anti-gaming catch. The fix is one focused test file inside the module; a full worker re-dispatch would re-read the whole doc pack for it.",
       "covered_by": null
     }
   ],
@@ -1024,6 +1048,16 @@
       "at": "2026-08-13T10:10:00Z",
       "agent": "leader",
       "event": "wave 2 complete: 21/21 done. Leader verified independently: make css idempotent (identical md5 on re-run), no new <script>, SameSite guard test still passes, and the only inlined DaisyUI btn classes in base.templ pre-exist on main (worker changed only the aria-label)."
+    },
+    {
+      "at": "2026-08-13T10:11:00Z",
+      "agent": "leader",
+      "event": "validate --strict passes; status -> verified; dispatching gateway-reviewer"
+    },
+    {
+      "at": "2026-08-13T10:20:00Z",
+      "agent": "leader",
+      "event": "review round 1 changes-requested; leader triaged R1 as ACCEPTED after independently confirming the test was absent, wrote internal/gateway/templates/fragments/nav_header_test.go covering all four status kinds plus the connect prompt in both languages (passes, confirming the wiring was correct but untested), re-signalling the same reviewer for round 2"
     }
   ]
 }
