@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 )
 
@@ -13,18 +14,18 @@ type HomeView struct {
 // Home is the landing page. It reflects auth state: a sign-in link when anonymous,
 // the account email plus dashboard/connect/log-out links when signed in.
 templ Home(vm HomeView) {
-	@layouts.Base("Magus") {
+	@layouts.Base(i18n.T(ctx, i18n.KeyBrandMagus)) {
 		<main>
-			<h1>Magus</h1>
+			<h1>{ i18n.T(ctx, i18n.KeyBrandMagus) }</h1>
 			if vm.SignedIn {
-				<p>Signed in as <strong>{ vm.Email }</strong>.</p>
-				<p><a href="/dashboard">View your vehicles</a></p>
-				<p><a href="/connect/tesla">Connect your Tesla</a></p>
+				<p>{ i18n.T(ctx, i18n.KeyHomeSignedInAs) } <strong>{ vm.Email }</strong>.</p>
+				<p><a href="/dashboard">{ i18n.T(ctx, i18n.KeyHomeViewVehicles) }</a></p>
+				<p><a href="/connect/tesla">{ i18n.T(ctx, i18n.KeyNavHeaderConnectLink) }</a></p>
 				<form method="post" action="/logout">
-					<button type="submit">Log out</button>
+					<button type="submit">{ i18n.T(ctx, i18n.KeyNavLogout) }</button>
 				</form>
 			} else {
-				<p><a href="/login">Sign in with Google</a></p>
+				<p><a href="/login">{ i18n.T(ctx, i18n.KeyHomeSignInGoogle) }</a></p>
 			}
 		</main>
 	}

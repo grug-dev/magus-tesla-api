@@ -21,6 +21,18 @@ import (
 // to draw an access token from. Detect it with errors.Is.
 var ErrNoTeslaConnection = errors.New("account: no tesla connection for account")
 
+// LanguageES and LanguageEN are the two supported language codes — the entire
+// closed vocabulary this module accepts (roadmap RM24 decision D4). Consumers
+// should reference these constants rather than the string literals.
+const (
+	LanguageES = "es"
+	LanguageEN = "en"
+)
+
+// ErrUnsupportedLanguage is returned by SetLanguage when lang is not one of the
+// two supported codes. Detect it with errors.Is.
+var ErrUnsupportedLanguage = errors.New("account: unsupported language code")
+
 // Account is an app user. It is provisioned from a social OAuth identity and holds
 // no password — authentication is delegated to the provider.
 type Account struct {
@@ -169,4 +181,18 @@ type Service interface {
 	// responsibility (see the account-vehicle-registry spec delta, "Static Vehicle Config
 	// Capture").
 	SetVehicleConfigIfEmpty(ctx context.Context, accountID uuid.UUID, teslaID int64, exteriorColor, carType string) error
+
+	// LanguageFor returns the account's current language preference: always exactly
+	// LanguageES or LanguageEN. A stored value outside that set (a legacy row, a
+	// manual DB edit, a locale removed from a future supported set) is normalized to
+	// LanguageES here, at the DB→domain boundary — this method never returns an
+	// unsupported code and never fails because of an unrecognized stored value; it
+	// only errors on an actual lookup failure (unknown accountID, DB error).
+	LanguageFor(ctx context.Context, accountID uuid.UUID) (string, error)
+
+	// SetLanguage persists lang as the account's language preference. lang MUST be
+	// LanguageES or LanguageEN — any other value returns ErrUnsupportedLanguage
+	// (detect with errors.Is) WITHOUT writing, so a caller (the gateway's language
+	// switch handler) does not have to duplicate this module's validation.
+	SetLanguage(ctx context.Context, accountID uuid.UUID, lang string) error
 }

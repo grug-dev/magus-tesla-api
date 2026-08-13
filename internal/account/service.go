@@ -186,6 +186,27 @@ func (s *service) SetVehicleConfigIfEmpty(ctx context.Context, accountID uuid.UU
 	return nil
 }
 
+func (s *service) LanguageFor(ctx context.Context, accountID uuid.UUID) (string, error) {
+	lang, err := s.q.GetAccountLanguage(ctx, accountID)
+	if err != nil {
+		return "", fmt.Errorf("loading account language: %w", err)
+	}
+	return normalizeLanguage(lang), nil
+}
+
+func (s *service) SetLanguage(ctx context.Context, accountID uuid.UUID, lang string) error {
+	if !isSupportedLanguage(lang) {
+		return ErrUnsupportedLanguage
+	}
+	if err := s.q.UpdateAccountLanguage(ctx, accountdb.UpdateAccountLanguageParams{
+		ID:       accountID,
+		Language: lang,
+	}); err != nil {
+		return fmt.Errorf("setting account language: %w", err)
+	}
+	return nil
+}
+
 // --- pure helpers (unit-tested without a database) ---
 
 // needsRefresh reports whether a token expiring at expiresAt should be refreshed
@@ -198,6 +219,19 @@ func needsRefresh(expiresAt, now time.Time, margin time.Duration) bool {
 // expiry timestamp.
 func accessExpiry(now time.Time, expiresIn int) time.Time {
 	return now.Add(time.Duration(expiresIn) * time.Second)
+}
+
+// normalizeLanguage returns lang unchanged if it is a supported code, else the
+// default LanguageES. This is the DB→domain normalization boundary (design.md D4).
+func normalizeLanguage(lang string) string {
+	if isSupportedLanguage(lang) {
+		return lang
+	}
+	return LanguageES
+}
+
+func isSupportedLanguage(lang string) bool {
+	return lang == LanguageES || lang == LanguageEN
 }
 
 // --- row → domain mapping ---

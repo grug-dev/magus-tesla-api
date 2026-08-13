@@ -96,11 +96,20 @@ Follow `references/charges-slice-pattern.md` exactly, imitating the `charges` sl
    templates. Miles→km via the domain's existing `…Km()`/`…Kmh()` methods.
 3. **Templates** — `templates/pages/<concept>.templ` composing `ui/` components inside
    `@templ.Fragment("<region>")` regions; `templates/fragments/<concept>_*.templ` for
-   swappable sub-parts.
+   swappable sub-parts. **Every user-facing string is bilingual — no exceptions.** The app is
+   ES-default/EN: each label, heading, button, empty state, table header, placeholder and
+   `aria-label` resolves through `i18n.T(ctx, i18n.KeyXxx)` against the single catalogue
+   `internal/gateway/i18n/catalog.go`, adding one `Key` constant + one map entry with **both
+   `ES` and `EN` non-empty, on the same line**. Never emit a bare literal into markup. Read
+   `internal/gateway/AGENTS.md` §i18n for the binding rule and the interpolation pattern
+   (the catalogue value carries the verb, `fmt.Sprintf` wraps at the call site).
 4. **Handler** — `handlers/<concept>.go`: auth-guard via `currentUID`, a gin-free
    `build<Concept>Page` helper (unit-testable), `render` (full page) + `renderFragment`
    (htmx swap). **CSRF on every write path** — reuse `generateCSRFToken`/`checkCSRF` from
    `charges.go`. Graceful-degradation notices, never a raw error/stack to the page.
+   Handler-produced copy is user-facing too: `Notice:`/`Error:` fields, `errs[...]`
+   validation messages and bare-text `c.String` bodies all go through `i18n.T` with a
+   catalogue key — `make i18n-guard` fails the build on any that don't.
 5. **Routes** — register `GET /<concept>` + the `/ui/<concept>/…` fragment/action routes in
    `internal/gateway/gateway.go`.
 6. **Codegen** — `make templ` (and `make css` if new classes were introduced).
@@ -111,11 +120,15 @@ Follow `references/charges-slice-pattern.md` exactly, imitating the `charges` sl
 
 **Boundary guards enforced on every slice:** HTML only in the gateway; clean domain structs
 in (never vendor `…Tesla` DTOs); no business logic in templates; `/ui` routes for htmx;
-semantic theme tokens (never hex); km companion values for any distance/speed field.
+semantic theme tokens (never hex); km companion values for any distance/speed field;
+**every user-facing string via `i18n.T` with both `ES` and `EN`** (never a bare literal).
 
 ---
 
 ## After any write mode
 
-Run `make check` (`build` + `vet` + `test`) and report the result honestly. If codegen or
-build fails, keep the task in progress and surface the actual output — do not claim success.
+Run `make check` (`build` + `vet` + `ui-guard` + `i18n-guard` + `test`) and report the result
+honestly. If codegen or build fails, keep the task in progress and surface the actual output —
+do not claim success. An `i18n-guard` failure means a user-facing string escaped the catalogue:
+translate it, never silence the guard (the `// i18n:allow:` marker is for genuine non-copy only —
+Go doc comments, htmx attribute values, ops-only responses).

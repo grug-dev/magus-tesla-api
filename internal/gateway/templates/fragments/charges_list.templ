@@ -1,6 +1,9 @@
 package fragments
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
 
 // ChargesList is the htmx-swappable charge entries table region.
 // Its root <div id="charges-list"> matches the templ.Fragment("charges-list") name
@@ -11,7 +14,7 @@ templ ChargesList(d ChargesPageData) {
 	<div id="charges-list">
 		@ui.Card(ui.CardProps{}) {
 			<div class="flex items-center justify-between">
-				<h2 class="text-lg font-semibold">Your entries</h2>
+				<h2 class="text-lg font-semibold">{ i18n.T(ctx, i18n.KeyChargesListTitle) }</h2>
 				@ui.Button(ui.ButtonProps{
 					Variant: "ghost",
 					Size:    "sm",
@@ -21,7 +24,7 @@ templ ChargesList(d ChargesPageData) {
 						"hx-swap":   "outerHTML",
 					},
 				}) {
-					Refresh
+					{ i18n.T(ctx, i18n.KeyChargesListRefresh) }
 				}
 			</div>
 			if d.Error != "" {
@@ -32,7 +35,16 @@ templ ChargesList(d ChargesPageData) {
 			if d.EmptyState {
 				@ChargesEmptyState()
 			} else if len(d.Entries) > 0 {
-				@ui.Table(ui.TableProps{Headers: []string{"Date", "Vehicle", "Energy", "Price", "Cost/kWh", "Battery", "Duration", "Actions"}}) {
+				@ui.Table(ui.TableProps{Headers: []string{
+					i18n.T(ctx, i18n.KeyChargesListHeaderDate),
+					i18n.T(ctx, i18n.KeyChargesListHeaderVehicle),
+					i18n.T(ctx, i18n.KeyChargesListHeaderEnergy),
+					i18n.T(ctx, i18n.KeyChargesListHeaderPrice),
+					i18n.T(ctx, i18n.KeyChargesListHeaderCostPerKWh),
+					i18n.T(ctx, i18n.KeyChargesListHeaderBattery),
+					i18n.T(ctx, i18n.KeyChargesListHeaderDuration),
+					i18n.T(ctx, i18n.KeyChargesListHeaderActions),
+				}}) {
 					for _, vm := range d.Entries {
 						@ChargeRow(vm, d.CSRFToken)
 					}
@@ -44,5 +56,5 @@ templ ChargesList(d ChargesPageData) {
 
 // ChargesEmptyState renders the empty-state message for the charges list.
 templ ChargesEmptyState() {
-	<p class="text-base-content/70">No charge entries yet. Use the form above to log your first charge.</p>
+	<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesListEmpty) }</p>
 }

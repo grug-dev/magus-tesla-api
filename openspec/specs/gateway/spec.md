@@ -64,21 +64,40 @@ binary, under a `/static` path.
 - **AND** no external or CDN request is required
 
 ### Requirement: Google Sign-In
+
 The gateway SHALL let a visitor sign in with Google. On a successful callback it SHALL provision
 or resolve the account for the Google identity (through the account module) and establish an
-authenticated session for that account.
+authenticated session for that account. When the callback request carries an explicitly-present
+`lang` cookie, the gateway SHALL persist that language to the resolved account via
+`account.Service.SetLanguage` so a language chosen before authentication carries into the signed-in
+session.
 
 #### Scenario: Starting the login flow
+
 - **GIVEN** an anonymous visitor
 - **WHEN** they begin Google login
 - **THEN** the gateway redirects them to Google's consent screen with a state parameter
 
 #### Scenario: Successful callback provisions the account and signs in
+
 - **GIVEN** a visitor returning from Google with a valid authorization code and matching state
 - **WHEN** the gateway handles the callback
 - **THEN** it resolves the Google identity (id, email, name)
 - **AND** provisions or resolves the account via the account module
 - **AND** establishes an authenticated session for that account
+
+#### Scenario: A pre-login language cookie carries into the account
+
+- **GIVEN** a visitor who selected `en` on the login page (setting a `lang=en` cookie) before
+  authenticating
+- **WHEN** the Google callback establishes their session
+- **THEN** the gateway calls `account.Service.SetLanguage` with `"en"` for the resolved account
+
+#### Scenario: A callback with no language cookie leaves the account's language untouched
+
+- **GIVEN** a visitor whose callback request carries no `lang` cookie
+- **WHEN** the Google callback establishes their session
+- **THEN** the gateway does NOT call `account.Service.SetLanguage`
 
 ### Requirement: OAuth State Validation
 The gateway SHALL generate a state value for each login attempt and SHALL reject a callback whose
@@ -808,13 +827,19 @@ only the remaining optional fields (`charging_type`, `location_label`, `notes`).
 
 The gateway SHALL render an authenticated navigation shell (drawer
 sidebar) on every authenticated page via `layouts.BaseAuth`. The shell
-SHALL include a vehicle header and a four-item navigation list. The
-shell SHALL NOT render a "Wake Vehicle" control. No user-initiated Tesla
-API call is triggered by rendering the shell.
+SHALL include a vehicle header, a navigation list, and the language
+selector. The shell SHALL NOT render a "Wake Vehicle" control. No user-initiated Tesla
+API call is triggered by rendering the shell. Every static string in the shell (nav item
+labels, the "Soon" placeholder badge, the sidebar open/close controls) SHALL be rendered
+through the translation catalogue in the request's resolved language. The rendered page's
+`<html lang>` attribute SHALL reflect the request's resolved language, not a fixed value.
 
-Rationale (grill D7, D8, D9, D10): the header reuses existing read ports;
-the "Wake Vehicle" button is dropped; two nav items are live pages and
-two are placeholders for future work.
+Rationale (grill D7, D8, D9, D10; RM24 D5/D9; this tier's Discoveries #1): the header reuses
+existing read ports; the "Wake Vehicle" button is dropped; nav items resolve their labels via
+`i18n.T`; the language selector is inherited from `layouts.Base`, not re-authored per page; the
+`<html lang>` attribute — previously hardcoded to `"en"` regardless of the resolved language — now
+reflects it, so assistive technology and search engines see the correct declared language for a
+Spanish-resolved render.
 
 #### Scenario: Authenticated page renders the navigation shell
 
@@ -822,10 +847,16 @@ two are placeholders for future work.
   `/charges`)
 - **WHEN** the page is rendered
 - **THEN** the response HTML contains the drawer sidebar
-- **AND** the sidebar contains a vehicle-header region and the four
-  navigation entries (Dashboard, Manual Records, Supercharger Stats,
-  Settings)
+- **AND** the sidebar contains a vehicle-header region and the navigation
+  entries, each with a translated label
 - **AND** the response does NOT contain a "Wake Vehicle" button
+
+#### Scenario: The rendered page's declared language matches the resolved language
+
+- **GIVEN** a signed-in user whose resolved language is `es`
+- **WHEN** any page built on `layouts.Base` (or `layouts.BaseAuth`) is rendered
+- **THEN** the response's `<html>` tag carries `lang="es"`
+- **AND** when the resolved language is `en`, the same tag carries `lang="en"`
 
 #### Scenario: No "Wake Vehicle" control is ever rendered
 
@@ -843,7 +874,12 @@ two are placeholders for future work.
 - **AND** the vehicle header (when shown) is populated exclusively from
   the account and telemetry read ports
 
----
+#### Scenario: Sidebar nav labels render in the resolved language
+
+- **GIVEN** a signed-in user whose resolved language is `en`
+- **WHEN** the navigation shell is rendered
+- **THEN** the sidebar nav item labels render in English
+- **AND** when the resolved language is `es`, the same labels render in Spanish
 
 ### Requirement: Navigation Vehicle Header
 
@@ -853,7 +889,11 @@ freshness-derived status. The data SHALL come exclusively from existing
 read ports: `account.RegisteredVehicles` (vehicle name) and
 `telemetry.Reader.LatestSnapshotsByAccount` (battery level +
 `CapturedAt`). The status SHALL be derived from the snapshot's
-freshness, not from any live Tesla call.
+freshness, not from any live Tesla call. The status word, the connect-prompt text, and the
+relative "Last seen" phrasing SHALL all render through the translation catalogue, derived from the
+header's existing closed `Status` kind and a pre-computed relative-time magnitude — the handler
+SHALL NOT compute a pre-formatted English status string or a pre-formatted English relative-time
+phrase.
 
 The active vehicle is the one selected in the vehicle context switcher
 (below); when the session carries no selection the gateway SHALL
@@ -884,22 +924,24 @@ page can refresh (see "Vehicle-Scoped Cross-Region Refresh").
   current request time)
 - **WHEN** the navigation header is rendered
 - **THEN** the header shows the vehicle's display name
-- **AND** shows a "Connected" status with a success-colored status dot
+- **AND** shows a "Connected" status (translated per the resolved language) with a
+  success-colored status dot
 - **AND** shows the battery level as an integer percentage
 - **AND** the freshness window is controlled by a named constant in the
   handler code (not a magic number)
 
-#### Scenario: Vehicle header shows "Asleep / Last seen" when the snapshot is stale
+#### Scenario: Vehicle header shows "Asleep / Last seen" when the snapshot is stale, with translated relative-time phrasing
 
 - **GIVEN** a signed-in user whose active vehicle's latest stored
   snapshot has a `CapturedAt` older than the connected-freshness window
 - **WHEN** the navigation header is rendered
 - **THEN** the header shows the vehicle's display name
-- **AND** shows an "Asleep" (or equivalent) status with a
+- **AND** shows an "Asleep" (or equivalent, translated) status with a
   warning-colored status dot
-- **AND** shows a relative "Last seen" label (e.g. "2 days ago")
-  pre-computed by the handler
-- **AND** the template performs no time arithmetic
+- **AND** shows a relative "Last seen" label (e.g. "2 days ago" for `en`, "hace 2 días" for `es`)
+  whose magnitude is pre-computed by the handler but whose phrasing (including singular vs.
+  plural) renders through the translation catalogue for the resolved language
+- **AND** the template performs no time arithmetic and no pluralization logic
 
 #### Scenario: Vehicle header degrades when no snapshot exists
 
@@ -907,7 +949,7 @@ page can refresh (see "Vehicle-Scoped Cross-Region Refresh").
   vehicle but no stored snapshot for it
 - **WHEN** the navigation header is rendered
 - **THEN** the header renders without a 500 or raw error
-- **AND** shows the vehicle's display name with an "awaiting first
+- **AND** shows the vehicle's display name with a translated "awaiting first
   snapshot" status and a neutral status dot
 - **AND** no battery percentage is shown
 
@@ -916,7 +958,8 @@ page can refresh (see "Vehicle-Scoped Cross-Region Refresh").
 - **GIVEN** a signed-in user whose account has no registered vehicles
 - **WHEN** the navigation header is rendered
 - **THEN** the header renders an "awaiting connect" state (no status dot,
-  no battery percentage)
+  no battery percentage), with the connect-prompt text translated per the
+  resolved language
 - **AND** offers a link to `/connect/tesla`
 - **AND** no vehicle name is shown
 
@@ -926,7 +969,7 @@ page can refresh (see "Vehicle-Scoped Cross-Region Refresh").
   an error
 - **WHEN** the navigation header is rendered
 - **THEN** the header still renders (no 500, no raw error string)
-- **AND** shows a degraded state (e.g. "unavailable") with a neutral dot
+- **AND** shows a degraded, translated state (e.g. "Unavailable") with a neutral dot
 
 #### Scenario: Navigation header is served as an htmx fragment
 
@@ -943,10 +986,14 @@ page can refresh (see "Vehicle-Scoped Cross-Region Refresh").
 - **GIVEN** the navigation header template
 - **WHEN** it renders the header
 - **THEN** the battery percentage, the freshness/connected state, the
-  relative "last seen" label, and the active-vehicle name have all been
+  relative "last seen" label's magnitude, and the active-vehicle name have all been
   computed by the Go handler before the template receives the view model
-- **AND** the template uses only presentation logic (if/for/display) — no
-  arithmetic, no time calculations, no method calls on domain types
+- **AND** the status word and the "last seen" phrasing are derived in the template from the
+  handler-computed `Status` enum and magnitude via the translation catalogue, not from a
+  handler-computed English string
+- **AND** the template uses only presentation logic (if/for/display, and the
+  catalogue lookup) — no arithmetic, no time calculations, no method calls on
+  domain types
 
 #### Scenario: Navigation header never imports telemetrydb or accountdb
 
@@ -996,31 +1043,27 @@ page can refresh (see "Vehicle-Scoped Cross-Region Refresh").
 
 ### Requirement: Navigation Items
 
-The navigation shell SHALL render four navigation entries: Dashboard and
-Manual Records as live links; Supercharger Stats and Settings as
-placeholder ("soon") links. Each entry SHALL render an icon. The
-placeholder entries SHALL NOT navigate to a real page in this change and
-SHALL be visually marked as "soon".
+The navigation shell SHALL render its entries with translated labels resolved through the
+translation catalogue. Live entries SHALL link to existing pages; placeholder entries SHALL NOT
+navigate to a real page in this change and SHALL be visually marked as "soon" (translated).
+Each entry SHALL render an icon.
 
-#### Scenario: Live navigation entries link to existing pages
+#### Scenario: Live navigation entries link to existing pages, with translated labels
 
 - **GIVEN** a signed-in user viewing the navigation shell
 - **WHEN** the navigation list is rendered
-- **THEN** a "Dashboard" entry links to `/dashboard`
-- **AND** a "Manual Records" entry links to `/charges`
+- **THEN** a "Dashboard" entry (translated per the resolved language) links to `/dashboard`
+- **AND** a "Manual Records" entry (translated) links to `/charges`
 - **AND** both entries are active-highlighted when the current request
   path matches their target
 
-#### Scenario: Placeholder navigation entries are marked "soon"
+#### Scenario: Placeholder navigation entries are marked "soon", translated
 
 - **GIVEN** a signed-in user viewing the navigation shell
 - **WHEN** the navigation list is rendered
-- **THEN** a "Supercharger Stats" entry is rendered as a placeholder link
-  visually marked "soon"
-- **AND** a "Settings" entry is rendered as a placeholder link visually
-  marked "soon"
-- **AND** neither placeholders navigate to a built page (this change
-  introduces no Supercharger Stats or Settings page)
+- **THEN** any placeholder entry is rendered as a placeholder link visually
+  marked with a translated "Soon"/"Pronto" badge
+- **AND** no placeholder navigates to a page not built by this change
 
 #### Scenario: Navigation entries render icons without an external CDN
 
@@ -1031,8 +1074,6 @@ SHALL be visually marked as "soon".
 - **AND** no icon is loaded from an external CDN (no Google Fonts
   Material Symbols stylesheet)
 - **AND** no inline client-side JavaScript is required to render icons
-
----
 
 ### Requirement: Home Page Debug Cleanup
 
@@ -1664,4 +1705,226 @@ formatting) SHALL happen in the Go handler before the view model reaches the tem
   computed by the Go handler
 - **AND** the templates perform no arithmetic, no currency summation, no unit conversion, and
   no method calls on domain types
+
+### Requirement: Translation Catalogue and Per-Request Language Resolution
+
+The gateway SHALL resolve an active language for every request, exactly once per request, and
+SHALL make every user-facing string it renders resolvable through a closed translation catalogue
+covering exactly `es` (default) and `en`.
+
+For a signed-in request, the active language SHALL come from `account.Service.LanguageFor`. For
+an anonymous request, the active language SHALL come from a `lang` cookie. In both cases, an
+absent, unrecognized, or error-producing source SHALL resolve to `es` — the gateway SHALL NEVER
+fail or 500 a render because of a missing or invalid language source.
+
+A catalogue key with no `es`/`en` entry SHALL render a visible marker distinguishing it from a
+translated string (never a blank string, never a raw untranslated fallback with no marker), so an
+incomplete catalogue is visible in manual QA rather than silently shipping.
+
+#### Scenario: Signed-in request resolves language from the account
+
+- **GIVEN** a signed-in user whose account's stored language is `en`
+- **WHEN** any authenticated page or htmx fragment is rendered
+- **THEN** the gateway calls `account.Service.LanguageFor` exactly once for that request
+- **AND** every catalogue-driven string on the response renders in English
+
+#### Scenario: Anonymous request resolves language from the cookie
+
+- **GIVEN** an anonymous visitor whose browser carries a `lang=en` cookie
+- **WHEN** an anonymous page (e.g. `/login`, `/`) is rendered
+- **THEN** the gateway does not call `account.Service.LanguageFor`
+- **AND** every catalogue-driven string on the response renders in English
+
+#### Scenario: Missing or unrecognized language source falls back to Spanish
+
+- **GIVEN** either (a) an anonymous visitor with no `lang` cookie or a cookie value outside
+  `{es, en}`, or (b) a signed-in user whose `account.Service.LanguageFor` call errors
+- **WHEN** a page is rendered
+- **THEN** the gateway renders every catalogue-driven string in Spanish
+- **AND** the render succeeds (no 500, no raw error)
+
+#### Scenario: Language is resolved exactly once per request
+
+- **GIVEN** a signed-in user requesting a page whose render composes multiple nested components
+- **WHEN** the page is rendered
+- **THEN** `account.Service.LanguageFor` is called exactly one time for that request
+- **AND** every nested component renders in the same resolved language
+
+#### Scenario: A catalogue key with no entry renders a visible marker
+
+- **GIVEN** a translation lookup for a key that has no catalogue entry
+- **WHEN** the string is rendered
+- **THEN** the output is a visibly marked placeholder distinct from any real translated string
+- **AND** no panic or error is raised
+
+### Requirement: Navbar Language Selector
+
+The gateway SHALL render a language selector — a globe icon plus the current language — composed
+from the typed `templates/ui/` kit, visible on every page including the anonymous login page. The
+selector SHALL NOT require client-side JavaScript.
+
+#### Scenario: Selector is visible on the login page
+
+- **GIVEN** an anonymous visitor
+- **WHEN** they load `/login`
+- **THEN** the response contains the language selector showing a globe icon and the current
+  (resolved) language
+
+#### Scenario: Selector is visible on every authenticated page
+
+- **GIVEN** a signed-in user
+- **WHEN** they load any authenticated page (`/dashboard`, `/charges`, `/supercharger-stats`)
+- **THEN** the response contains the language selector
+
+#### Scenario: Selector requires no client-side JavaScript
+
+- **GIVEN** the rendered language selector
+- **WHEN** its markup is inspected
+- **THEN** it uses only CSS-driven DaisyUI patterns (no inline `<script>`, no JS event listener
+  added to support it)
+
+### Requirement: Language Switch Endpoint
+
+The gateway SHALL expose `POST /ui/lang/switch` accepting a `lang` form value of exactly `es` or
+`en`. It SHALL work for both anonymous and signed-in callers. It SHALL always set/refresh the
+`lang` cookie to the submitted value. When the caller is signed in, it SHALL additionally persist
+the choice via `account.Service.SetLanguage`. It SHALL respond with an `HX-Location` header
+targeting the caller's current path (and query string, when present) so the current page
+re-renders in the new language without a full browser reload and without navigating away from the
+page the caller was on.
+
+#### Scenario: Anonymous switch sets the cookie only
+
+- **GIVEN** an anonymous visitor
+- **WHEN** they submit `POST /ui/lang/switch` with `lang=en`
+- **THEN** the response sets the `lang` cookie to `en`
+- **AND** no call is made to `account.Service.SetLanguage`
+- **AND** the response carries an `HX-Location` header targeting the page they were on
+
+#### Scenario: Signed-in switch persists to the account and syncs the cookie
+
+- **GIVEN** a signed-in user
+- **WHEN** they submit `POST /ui/lang/switch` with `lang=en`
+- **THEN** the gateway calls `account.Service.SetLanguage` with the user's account id and `"en"`
+- **AND** the response sets the `lang` cookie to `en`
+
+#### Scenario: An unsupported language value is rejected
+
+- **GIVEN** any caller
+- **WHEN** they submit `POST /ui/lang/switch` with a `lang` value outside `{es, en}`
+- **THEN** the gateway returns HTTP 400
+- **AND** no cookie is set and no account write occurs
+
+#### Scenario: The switch preserves the caller's current URL, including query string
+
+- **GIVEN** a signed-in user viewing the dashboard history page with an explicit
+  `?start=&end=` date range selected
+- **WHEN** they submit `POST /ui/lang/switch`
+- **THEN** the `HX-Location` response header's `path` includes the same `start`/`end` query
+  string
+- **AND** does not push a duplicate history entry for the same URL
+
+### Requirement: Full-Application Translation Coverage
+
+The gateway SHALL resolve every user-facing string it renders — on every page (`/`, `/login`,
+`/dashboard`, `/dashboard/history`, `/charges`, `/supercharger-stats`), every htmx fragment those
+pages compose, every reusable `templates/ui/` component, and every handler-produced flash, notice,
+or validation error message — through the translation catalogue in the request's resolved
+language. No page or fragment SHALL render a hardcoded English (or Spanish-only) string for
+content a signed-in or anonymous user reads, with the sole exception of: brand/proper nouns
+(rendered identically in both languages via a real catalogue entry, not a raw literal), format
+verbs and unit symbols embedded inside an otherwise-translated interpolated string, and responses
+consumed exclusively by non-UI/ops tooling (e.g. `/healthz`).
+
+#### Scenario: The dashboard page renders fully translated for a Spanish-resolved request
+
+- **GIVEN** a signed-in user whose resolved language is `es`
+- **WHEN** they load `/dashboard` with at least one registered vehicle and a stored snapshot
+- **THEN** every static label on the page (status words, stat-tile labels, card titles, the
+  battery card's "Range"/"Last updated" prefixes) renders in Spanish
+- **AND** when the same user's resolved language is `en`, the same labels render in English
+
+#### Scenario: The manual-charge log page and its forms render fully translated
+
+- **GIVEN** a signed-in user whose resolved language is `en`
+- **WHEN** they load `/charges`
+- **THEN** the create form's field labels, the "Home"/"Work"/"Other" and "AC"/"DC" option text,
+  the "Log charge" submit button, the entries table's "Your entries" heading and empty-state
+  sentence, and each row's "Edit"/"Delete" actions all render in English
+- **AND** opening a row's inline edit form (`GET /ui/charges/row/:id/edit`) renders that form's
+  field labels and its "Save"/"Cancel" actions in the same resolved language
+
+#### Scenario: The Supercharger Stats page renders fully translated
+
+- **GIVEN** a signed-in user whose resolved language is `es`
+- **WHEN** they load `/supercharger-stats` with at least one Supercharger session recorded
+- **THEN** the month-preset selector, the four KPI tile labels, both chart/table card titles, and
+  the sessions table's column headers render in Spanish
+
+#### Scenario: A handler-produced validation error renders translated
+
+- **GIVEN** a signed-in user submitting `POST /ui/charges/create` with a missing required field
+- **WHEN** the handler rejects the submission
+- **THEN** the returned validation message for that field renders in the request's resolved
+  language, not hardcoded English
+
+#### Scenario: A handler-produced degraded-state notice renders translated
+
+- **GIVEN** a signed-in user whose account read or Tesla connection read fails
+- **WHEN** the dashboard or the vehicles region renders its degraded notice
+- **THEN** the notice text renders in the request's resolved language
+
+#### Scenario: An interpolated string renders with the correct language's phrasing, not just substituted numbers
+
+- **GIVEN** a signed-in user whose active vehicle's latest snapshot is 3 days old
+- **WHEN** the navigation header renders the "Last seen" relative-time label
+- **THEN** a Spanish-resolved request shows "hace 3 días" and an English-resolved request shows
+  "3 days ago" — not a partially-translated mix, and not the same phrasing pluralized identically
+  in both languages when the underlying grammar differs
+
+#### Scenario: A brand or proper noun renders identically in both languages
+
+- **GIVEN** any page containing the "Magus" wordmark or the "TESLA CORE" login-page brand text
+- **WHEN** the page renders under either resolved language
+- **THEN** the brand text renders unchanged (not blank, not a missing-key marker) in both `es` and
+  `en`
+
+### Requirement: Automated Hardcoded-String Verification
+
+The gateway module SHALL provide an automated, locally runnable check that a developer or
+reviewer can execute to verify no new hardcoded, untranslated user-facing string has been
+introduced into `templates/pages/`, `templates/fragments/`, `templates/ui/`, or
+`internal/gateway/handlers/`. The check SHALL be part of the module's standard verification gate
+(reachable via the same command that already runs the module's other static-analysis guards) and
+SHALL support an explicit, self-documenting, per-line exemption for a literal that is legitimately
+not translatable.
+
+#### Scenario: The check passes on a fully-translated codebase
+
+- **GIVEN** the gateway module's `templates/` and `handlers/` source after this tier's sweep
+- **WHEN** the verification check runs
+- **THEN** it completes with a success/zero exit status and reports no violation
+
+#### Scenario: The check fails when a new hardcoded string is introduced
+
+- **GIVEN** a `.templ` file with a new element containing bare, untranslated English text (not
+  wrapped in a translation-catalogue lookup)
+- **WHEN** the verification check runs
+- **THEN** it fails with a non-zero exit status and reports the offending file and line
+
+#### Scenario: The check fails when a handler assigns a literal string to a user-facing message field
+
+- **GIVEN** a handler function that assigns a hardcoded string literal to a notice, error, or
+  validation-message field that is later rendered to the user
+- **WHEN** the verification check runs
+- **THEN** it fails with a non-zero exit status and reports the offending file and line
+
+#### Scenario: A legitimately non-translatable literal is exempted via an explicit, visible marker
+
+- **GIVEN** a string literal that is not user-facing prose (e.g. an operational health-check
+  response body consumed by monitoring tooling, never rendered to a user)
+- **WHEN** that literal carries the documented exemption marker
+- **THEN** the verification check does not flag it
+- **AND** the exemption is visible in the source at the exact line it applies to, requiring no
+  separate file to cross-reference
 

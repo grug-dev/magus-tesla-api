@@ -49,3 +49,27 @@ func TestTextFromString(t *testing.T) {
 		t.Errorf(`textFromString("hi") = %+v, want {String:"hi" Valid:true}`, txt)
 	}
 }
+
+// TestNormalizeLanguage covers the DB->domain normalization boundary (design.md
+// D3/D4): both supported codes pass through unchanged, and any unrecognized or
+// empty stored value normalizes to LanguageES.
+func TestNormalizeLanguage(t *testing.T) {
+	cases := []struct {
+		name string
+		lang string
+		want string
+	}{
+		{"supported es unchanged", LanguageES, LanguageES},
+		{"supported en unchanged", LanguageEN, LanguageEN},
+		{"unrecognized value normalizes to es", "fr", LanguageES},
+		{"empty string normalizes to es", "", LanguageES},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normalizeLanguage(tc.lang); got != tc.want {
+				t.Errorf("normalizeLanguage(%q) = %q, want %q", tc.lang, got, tc.want)
+			}
+		})
+	}
+}

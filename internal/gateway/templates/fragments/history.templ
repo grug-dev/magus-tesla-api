@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
@@ -13,7 +14,7 @@ import (
 // historyBarChart (same package) can reference it without a cross-package call.
 templ dashHistoryEmpty() {
 	<div class="h-24 flex items-center justify-center text-sm text-base-content/40 border border-dashed border-base-300 rounded-box">
-		Awaiting nightly snapshots
+		{ i18n.T(ctx, i18n.KeyHistoryAwaitingSnapshots) }
 	</div>
 }
 
@@ -150,10 +151,10 @@ templ DashboardHistoryContent(v HistoryView) {
 		@historyDaysSelector(v.Presets)
 	}
 	<div class="flex flex-col gap-4">
-		@ui.Card(ui.CardProps{Title: "Odometer history"}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyHistoryOdometerTitle)}) {
 			@historyBarChart(v.Odometer, "fill-primary")
 		}
-		@ui.Card(ui.CardProps{Title: "Battery history"}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyHistoryBatteryTitle)}) {
 			@historyBarChart(v.Battery, "fill-secondary")
 		}
 	</div>

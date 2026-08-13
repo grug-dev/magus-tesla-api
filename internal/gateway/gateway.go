@@ -81,6 +81,12 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	})
 	r.Use(sessions.Sessions("magus", store))
 
+	// handlers.LanguageMiddleware resolves the active render language exactly
+	// once per request (design.md D3, RM24-gateway-add-i18n-foundation) and
+	// MUST be registered after sessions: its signed-in branch calls
+	// currentUID, which reads the session set up just above.
+	r.Use(handlers.LanguageMiddleware(d.Account))
+
 	// Static assets at /static — dev vs production.
 	//
 	// Production: serve from the //go:embed copy (self-contained deploy, no
@@ -129,6 +135,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/ui/nav-header", h.NavHeaderFragment)
 	r.POST("/ui/vehicle/select", h.VehicleSelect)
 	r.GET("/healthz", h.Healthz)
+	r.POST("/ui/lang/switch", h.LangSwitch)
 
 	r.GET("/charges", h.ChargePage)
 	r.GET("/ui/charges", h.ChargesContentFragment)

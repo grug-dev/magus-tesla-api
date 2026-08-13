@@ -59,7 +59,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard tidy build vet test check bins \
+        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
@@ -305,6 +305,71 @@ ui-guard: ## Fail if a raw DaisyUI component class is inlined in a page/fragment
 		echo "ui-guard: no inlined DaisyUI component classes in pages/fragments"; \
 	fi
 
+# i18n-guard's `.templ` pass mirrors ui-guard's grep-based shape (design.md D1,
+# RM24-gateway-translate-all-pages), plus two wrinkles ui-guard doesn't have. First, a
+# candidate line cannot simply be dropped whenever it contains 'i18n.T(' ANYWHERE on the
+# line — a second, untranslated literal can sit on the same line as an already-translated
+# call (e.g. a button's translated aria-label next to its own hardcoded text node), so a
+# line-local `grep -v 'i18n\.T('` would mask that second literal forever. Pass 1 instead
+# strips every `i18n.T(...)` call substring out of each candidate line first and only
+# keeps the candidate if one of the bare-text patterns still matches what remains. Second,
+# templ has no in-markup comment syntax and HTML comments are forbidden project-wide
+# (CLAUDE.md "HTML templates"), so the `// i18n:allow: <reason>` escape hatch for a
+# `.templ` line sits on the PRECEDING line, not the flagged line itself — a small shell
+# loop checks each surviving candidate's own line AND the line above it for the marker
+# before reporting it. The handler pass (`.go`) has a real comment syntax, so its marker
+# is a same-line trailing `//` and a line-local `grep -v` is sufficient there.
+i18n-guard: ## Fail if user-facing text bypasses i18n.T(ctx, ...) in templates or handler message sinks (escape hatch: // i18n:allow: <reason>)
+	@fail=0; \
+	tmpl_candidates=$$(grep -rnE \
+		-e '>[[:space:]]*[A-Za-z][^<{]*<' \
+		-e '>[[:space:]]*[A-Za-z][^<{}]*\{' \
+		-e '\}[^<{}]*[A-Za-z][^<{}]*<' \
+		internal/gateway/templates/pages internal/gateway/templates/fragments internal/gateway/templates/ui \
+		--include='*.templ' \
+		| grep -v 'i18n:allow' \
+		|| true); \
+	if [ -n "$$tmpl_candidates" ]; then \
+		tmpl_flagged=$$(printf '%s\n' "$$tmpl_candidates" | while IFS= read -r m; do \
+			file=$$(printf '%s\n' "$$m" | cut -d: -f1); \
+			lno=$$(printf '%s\n' "$$m" | cut -d: -f2); \
+			content=$$(printf '%s\n' "$$m" | cut -d: -f3-); \
+			stripped=$$(printf '%s\n' "$$content" | sed -E 's/i18n\.T\([^)]*\)//g'); \
+			if ! printf '%s\n' "$$stripped" | grep -qE '>[[:space:]]*[A-Za-z][^<{]*<|>[[:space:]]*[A-Za-z][^<{}]*\{|\}[^<{}]*[A-Za-z][^<{}]*<'; then continue; fi; \
+			prevno=$$((lno - 1)); \
+			prevline=""; \
+			if [ "$$prevno" -ge 1 ]; then prevline=$$(sed -n "$${prevno}p" "$$file"); fi; \
+			if ! printf '%s\n' "$$prevline" | grep -q 'i18n:allow'; then echo "$$m"; fi; \
+		done); \
+		if [ -n "$$tmpl_flagged" ]; then echo "$$tmpl_flagged"; fail=1; fi; \
+	fi; \
+	handler_matches=$$(grep -rnE \
+		-e '(Notice|Error):[[:space:]]*"[A-Za-z]' \
+		-e 'errs\[[^]]+\][[:space:]]*=[[:space:]]*"[A-Za-z]' \
+		-e '(vm|d)\.[A-Za-z0-9_]+[[:space:]]*=[[:space:]]*"[A-Za-z]' \
+		-e 'c\.String\(http\.Status[45][0-9][0-9],[[:space:]]*"[A-Za-z]' \
+		-e '(Notice|Error):[[:space:]]*fmt\.(Sprintf|Errorf)\("[A-Za-z]' \
+		-e 'errs\[[^]]+\][[:space:]]*=[[:space:]]*fmt\.(Sprintf|Errorf)\("[A-Za-z]' \
+		-e '(vm|d)\.[A-Za-z0-9_]+[[:space:]]*=[[:space:]]*fmt\.(Sprintf|Errorf)\("[A-Za-z]' \
+		-e 'c\.String\(http\.Status[45][0-9][0-9],[[:space:]]*fmt\.(Sprintf|Errorf)\("[A-Za-z]' \
+		internal/gateway/handlers --include='*.go' \
+		| grep -v '_test\.go:' \
+		| grep -v 'i18n:allow' \
+		|| true); \
+	if [ -n "$$handler_matches" ]; then echo "$$handler_matches"; fail=1; fi; \
+	if [ "$$fail" = "1" ]; then \
+		echo ""; \
+		echo "ERROR: hardcoded user-facing text found above — it bypasses i18n.T(ctx, ...)."; \
+		echo "Add a Key + {ES,EN} entry to internal/gateway/i18n/catalog.go and call i18n.T(ctx, key)"; \
+		echo "(or fmt.Sprintf(i18n.T(ctx, key), ...) for an interpolated string)."; \
+		echo "Genuinely non-translatable literal (not app copy)? Mark it with // i18n:allow: <reason> —"; \
+		echo "same line in a .go file; the line ABOVE the flagged line in a .templ file (no in-markup"; \
+		echo "comment syntax, HTML comments are forbidden project-wide). Never weaken this pattern."; \
+		exit 1; \
+	else \
+		echo "i18n-guard: no hardcoded user-facing text found in templates/{pages,fragments,ui} or handlers"; \
+	fi
+
 tidy: ## Sync go.mod / go.sum (go mod tidy)
 	go mod tidy
 
@@ -322,7 +387,7 @@ test: ## Run all tests against disposable testcontainer Postgres (never the real
 test-with-db: ## Run all tests against the configured DATABASE_URL (opt-in; CI with a managed Postgres)
 	go test ./...
 
-check: build vet ui-guard test ## Full local gate: build + vet + ui-guard + test
+check: build vet ui-guard i18n-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

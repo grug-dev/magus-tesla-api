@@ -13,7 +13,7 @@ import (
 )
 
 const getAccountByProviderID = `-- name: GetAccountByProviderID :one
-SELECT id, email, provider, provider_id, display_name, created_at, updated_at FROM accounts
+SELECT id, email, provider, provider_id, display_name, created_at, updated_at, language FROM accounts
 WHERE provider = $1 AND provider_id = $2
 `
 
@@ -33,8 +33,23 @@ func (q *Queries) GetAccountByProviderID(ctx context.Context, arg GetAccountByPr
 		&i.DisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Language,
 	)
 	return i, err
+}
+
+const getAccountLanguage = `-- name: GetAccountLanguage :one
+SELECT language FROM accounts
+WHERE id = $1
+`
+
+// The per-request read path: only the language column, not the whole account row,
+// so a caller that only needs the language does not pay for the rest of Account.
+func (q *Queries) GetAccountLanguage(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getAccountLanguage, id)
+	var language string
+	err := row.Scan(&language)
+	return language, err
 }
 
 const getLatestTeslaTokenByAccount = `-- name: GetLatestTeslaTokenByAccount :one
@@ -203,6 +218,26 @@ func (q *Queries) ListVehiclesByAccount(ctx context.Context, accountID uuid.UUID
 	return items, nil
 }
 
+const updateAccountLanguage = `-- name: UpdateAccountLanguage :exec
+UPDATE accounts
+SET language   = $1,
+    updated_at = now()
+WHERE id = $2
+`
+
+type UpdateAccountLanguageParams struct {
+	Language string
+	ID       uuid.UUID
+}
+
+// Persists an explicit language switch. Vocabulary validation happens in the Go
+// caller (Service.SetLanguage) before this query runs — see design.md D1 for why
+// there is no CHECK constraint doing this at the DB layer instead.
+func (q *Queries) UpdateAccountLanguage(ctx context.Context, arg UpdateAccountLanguageParams) error {
+	_, err := q.db.Exec(ctx, updateAccountLanguage, arg.Language, arg.ID)
+	return err
+}
+
 const updateTeslaToken = `-- name: UpdateTeslaToken :one
 UPDATE tesla_tokens
 SET access_token      = $1,
@@ -282,7 +317,7 @@ ON CONFLICT (provider, provider_id) DO UPDATE
 SET email        = EXCLUDED.email,
     display_name = EXCLUDED.display_name,
     updated_at   = now()
-RETURNING id, email, provider, provider_id, display_name, created_at, updated_at
+RETURNING id, email, provider, provider_id, display_name, created_at, updated_at, language
 `
 
 type UpsertAccountFromOAuthParams struct {
@@ -312,6 +347,7 @@ func (q *Queries) UpsertAccountFromOAuth(ctx context.Context, arg UpsertAccountF
 		&i.DisplayName,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Language,
 	)
 	return i, err
 }

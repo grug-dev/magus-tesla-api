@@ -102,6 +102,7 @@ magus-tesla-api/
 │   ├── battery/        # Derived battery metrics (rolling Wh/km) — owns no store
 │   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
 │   │   ├── handlers/       #   thin handlers: session/auth → module interface → render
+│   │   ├── i18n/           #   translation catalogue + per-request language resolution (es default, en)
 │   │   ├── templates/      #   Templ: layouts/ (drawer shell) · pages/ · fragments/ · ui/ (typed DaisyUI kit)
 │   │   ├── static/         #   embedded: htmx.min.js · app.js · DaisyUI .mjs bundles · input.css · generated app.css
 │   │   └── tools/          #   git-ignored Node-less Tailwind CLI binary (make ui-toolchain)

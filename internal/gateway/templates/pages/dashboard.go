@@ -1,6 +1,11 @@
 package pages
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+import (
+	"context"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
+)
 
 // dashStat returns the snapshot's display value, or "—" when there is no snapshot
 // yet (placeholder state). Centralising the placeholder keeps the template free of
@@ -15,10 +20,12 @@ func dashStat(hasSnapshot bool, v string) string {
 // dashSubtitle renders the hero subtitle under "Vehicle Status". When no snapshot
 // exists it shows "Awaiting first snapshot"; otherwise it composes the pre-computed
 // StatusLabel with the optional SoftwareVer ("Parked • Software v11.1.2"). Pure
-// presentation assembly — no business logic, no time math.
-func dashSubtitle(d fragments.DashboardData) string {
+// presentation assembly — no business logic, no time math. ctx is an explicit
+// first parameter (this is a plain Go helper called from a .templ block, not a
+// templ component itself — mirrors layouts.navItems(ctx, active)).
+func dashSubtitle(ctx context.Context, d fragments.DashboardData) string {
 	if !d.HasSnapshot {
-		return "Awaiting first snapshot"
+		return i18n.T(ctx, i18n.KeyDashboardAwaitingSnapshot)
 	}
 	sub := d.StatusLabel
 	if d.SoftwareVer != "" {

@@ -289,7 +289,11 @@ func TestChargesListFragment_EmptyState(t *testing.T) {
 		t.Fatalf("want 200 for empty list, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "No charge entries") {
+	// engineWithSession never wires handlers.LanguageMiddleware, so i18n.FromContext
+	// falls back to its platform default (Spanish) — assert the resolved-language
+	// string (KeyChargesListEmpty's ES value), not the pre-existing English literal
+	// (RM24-gateway-translate-all-pages, mirroring tier 2's T6.4 precedent).
+	if !strings.Contains(body, "Aún no hay cargas registradas") {
 		t.Errorf("want empty-state message, body=%q", body[:min(500, len(body))])
 	}
 }
@@ -366,8 +370,10 @@ func TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
 		t.Fatalf("want 422 when no vehicle is resolvable, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "Please select a vehicle") {
-		t.Errorf("want 'Please select a vehicle' in body, got %q", body[:min(500, len(body))])
+	// Resolved language here is Spanish (see the TestChargesListFragment_EmptyState
+	// comment above) — KeyChargesErrorSelectVehicle's ES value.
+	if !strings.Contains(body, "Selecciona un vehículo") {
+		t.Errorf("want 'Selecciona un vehículo' in body, got %q", body[:min(500, len(body))])
 	}
 }
 
@@ -928,7 +934,8 @@ func TestChargeCreate_MissingLocationKind(t *testing.T) {
 			writer.createEntry.EnergyAddedKWh)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "Location is required") {
+	// Resolved language is Spanish here (KeyChargesErrorLocationRequired's ES value).
+	if !strings.Contains(body, "La ubicación es obligatoria") {
 		t.Errorf("want location_kind error in response, body=%q", body[:min(500, len(body))])
 	}
 }
@@ -1195,7 +1202,8 @@ func TestChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if want := `placeholder="Latest: 73%"`; !strings.Contains(body, want) {
+	// Resolved language is Spanish here (KeyChargesErrorBatterySuggestion's ES value).
+	if want := `placeholder="Última: 73%"`; !strings.Contains(body, want) {
 		t.Errorf("want %q in start_battery_pct placeholder (D2), got body:\n%s", want, body[:min(800, len(body))])
 	}
 	// Start AND end battery % must be Required (D6) — the input name="start_battery_pct"
@@ -1314,8 +1322,9 @@ func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 		t.Errorf("Writer.Create must NOT be called when start_battery_pct is missing")
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "Battery percentage is required") {
-		t.Errorf("want 'Battery percentage is required' message, got body=%q", body[:min(500, len(body))])
+	// Resolved language is Spanish here (KeyChargesErrorBatteryPctRequired's ES value).
+	if !strings.Contains(body, "El porcentaje de batería es obligatorio") {
+		t.Errorf("want battery-required message, got body=%q", body[:min(500, len(body))])
 	}
 }
 
@@ -1335,10 +1344,12 @@ func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 		start, end  string
 		wantInBody  string
 	}{
-		{"start=101", "101", "80", "Start battery percentage must be an integer between 0 and 100"},
-		{"start=-1", "-1", "80", "Start battery percentage must be an integer between 0 and 100"},
-		{"end=101", "50", "101", "End battery percentage must be an integer between 0 and 100"},
-		{"end=-1", "50", "-1", "End battery percentage must be an integer between 0 and 100"},
+		// Resolved language is Spanish here (KeyChargesErrorStartBatteryPctRange /
+		// KeyChargesErrorEndBatteryPctRange's ES values).
+		{"start=101", "101", "80", "El porcentaje de batería inicial debe ser un número entero entre 0 y 100"},
+		{"start=-1", "-1", "80", "El porcentaje de batería inicial debe ser un número entero entre 0 y 100"},
+		{"end=101", "50", "101", "El porcentaje de batería final debe ser un número entero entre 0 y 100"},
+		{"end=-1", "50", "-1", "El porcentaje de batería final debe ser un número entero entre 0 y 100"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			form := url.Values{

@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
@@ -201,7 +202,7 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		v := fragments.HistoryView{
 			Start:    start,
 			End:      end,
-			Presets:  buildHistoryPresets(start, end, today),
+			Presets:  buildHistoryPresets(c.Request.Context(), start, end, today),
 			Odometer: fragments.HistoryChart{Empty: true},
 			Battery:  fragments.HistoryChart{Empty: true},
 		}
@@ -222,14 +223,14 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 // preset active — the selector renders all-ghost. today is the caller's
 // "browser today" (browserToday(c)) so "yesterday" is the user's local
 // yesterday, not UTC's — direct API callers without a cookie pass UTC today.
-func buildHistoryPresets(start, end, today time.Time) []fragments.RangePreset {
+func buildHistoryPresets(ctx context.Context, start, end, today time.Time) []fragments.RangePreset {
 	yesterday := today.AddDate(0, 0, -1)
 	out := make([]fragments.RangePreset, 0, len(historyPresetDayCounts))
 	for _, n := range historyPresetDayCounts {
 		pEnd := yesterday
 		pStart := yesterday.AddDate(0, 0, -n)
 		out = append(out, fragments.RangePreset{
-			Label:    fmt.Sprintf("%d days", n),
+			Label:    fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryDaysPreset), n),
 			StartStr: pStart.Format("2006-01-02"),
 			EndStr:   pEnd.Format("2006-01-02"),
 			Active:   start.Equal(pStart) && end.Equal(pEnd),
@@ -253,7 +254,7 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 	v := fragments.HistoryView{
 		Start:   start,
 		End:     end,
-		Presets: buildHistoryPresets(start, end, today),
+		Presets: buildHistoryPresets(ctx, start, end, today),
 	}
 
 	// 1-day lookback: fetch from readStart so the snapshot whose EffectiveDate
@@ -268,8 +269,8 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 		return v
 	}
 
-	v.Odometer = buildOdometerChart(snaps, start, end)
-	v.Battery = buildBatteryChart(snaps, start, end)
+	v.Odometer = buildOdometerChart(ctx, snaps, start, end)
+	v.Battery = buildBatteryChart(ctx, snaps, start, end)
 	return v
 }
 
@@ -285,7 +286,7 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 // when fewer than 2 snapshots total exist in [start-1..end] (no delta possible).
 // Bar heights are expressed as a percentage of the maximum delta (so the tallest
 // bar is always 100%).
-func buildOdometerChart(snaps []telemetry.Snapshot, start, end time.Time) fragments.HistoryChart {
+func buildOdometerChart(ctx context.Context, snaps []telemetry.Snapshot, start, end time.Time) fragments.HistoryChart {
 	numDays := int(end.Sub(start).Hours()/24) + 1
 
 	// Empty when fewer than 2 snapshots in the lookback+window set (the
@@ -342,7 +343,7 @@ func buildOdometerChart(snaps []telemetry.Snapshot, start, end time.Time) fragme
 		if !d.present {
 			bars = append(bars, fragments.HistoryBar{
 				HeightPct: 0,
-				Tooltip:   fmt.Sprintf("%s · no snapshot", d.label),
+				Tooltip:   fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryNoSnapshotTooltip), d.label),
 				Label:     d.label,
 				Present:   false,
 			})
@@ -376,7 +377,7 @@ func buildOdometerChart(snaps []telemetry.Snapshot, start, end time.Time) fragme
 // chart's Empty fires only when zero snapshots exist in the window (a partial
 // axis is NOT an empty chart). Returns EXACTLY numDays bars so the odometer and
 // battery Label slices are identical by construction.
-func buildBatteryChart(snaps []telemetry.Snapshot, start, end time.Time) fragments.HistoryChart {
+func buildBatteryChart(ctx context.Context, snaps []telemetry.Snapshot, start, end time.Time) fragments.HistoryChart {
 	numDays := int(end.Sub(start).Hours()/24) + 1
 
 	// Empty only when zero snapshots in the window (a partial axis is NOT empty).
@@ -396,7 +397,7 @@ func buildBatteryChart(snaps []telemetry.Snapshot, start, end time.Time) fragmen
 		if !ok {
 			bars = append(bars, fragments.HistoryBar{
 				HeightPct: 0,
-				Tooltip:   fmt.Sprintf("%s · no snapshot", label),
+				Tooltip:   fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryNoSnapshotTooltip), label),
 				Label:     label,
 				Present:   false,
 			})

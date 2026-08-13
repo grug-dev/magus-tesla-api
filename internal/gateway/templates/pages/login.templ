@@ -1,6 +1,9 @@
 package pages
 
 import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
@@ -11,7 +14,7 @@ import (
 // divider, no external background image, and no inline <script>. The handler
 // LoginPage renders this page with no view model — pure static markup + one link.
 templ Login() {
-	@layouts.Base("Sign in — Magus") {
+	@layouts.Base(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyLoginSignIn))) {
 		// Login-local background gradient (change-locality: lives here, not in
 		// layouts.Base, so home/Base stay untouched). Semantic tokens only — the
 		// gradient re-skins with <html data-theme>; no hex, no external asset.
@@ -19,8 +22,8 @@ templ Login() {
 		<main class="flex min-h-screen flex-col items-center justify-center gap-8 px-4 py-16">
 			// Branding block — static text, inline typography utilities only.
 			<div class="flex flex-col items-center gap-2 text-center">
-				<h1 class="text-3xl font-bold uppercase tracking-[0.2em] text-base-content">TESLA CORE</h1>
-				<p class="text-base-content/70">Precision Fleet Monitoring</p>
+				<h1 class="text-3xl font-bold uppercase tracking-[0.2em] text-base-content">{ i18n.T(ctx, i18n.KeyBrandTeslaCore) }</h1>
+				<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeyLoginTagline) }</p>
 			</div>
 			@ui.Card(ui.CardProps{}) {
 				@ui.Button(ui.ButtonProps{Variant: "primary", Href: "/auth/google/login", Class: "w-full"}) {
@@ -33,14 +36,14 @@ templ Login() {
 						<path fill="#FBBC05" d="M11.76 28.25c-.44-1.32-.69-2.73-.69-4.25s.25-2.93.69-4.25v-5.7H4.5C3.06 16.81 2 20.28 2 24s1.06 7.19 2.5 9.95l7.26-5.7z"/>
 						<path fill="#EA4335" d="M24 10.75c3.22 0 6.1 1.11 8.38 3.29l6.26-6.26C34.9 4.18 29.92 2 24 2 15.48 2 8.11 6.93 4.5 14.05l7.26 5.7c1.72-5.17 6.54-9.01 12.24-9.01z"/>
 					</svg>
-					Continue with Google
+					{ i18n.T(ctx, i18n.KeyLoginContinueGoogle) }
 				}
 			}
 			// Cosmetic footer — static null-href links; no pages exist yet.
 			<footer class="flex gap-6 text-sm text-base-content/60">
-				<a href={ templ.SafeURL("#") }>Privacy</a>
-				<a href={ templ.SafeURL("#") }>Terms</a>
-				<a href={ templ.SafeURL("#") }>Support</a>
+				<a href={ templ.SafeURL("#") }>{ i18n.T(ctx, i18n.KeyLoginPrivacy) }</a>
+				<a href={ templ.SafeURL("#") }>{ i18n.T(ctx, i18n.KeyLoginTerms) }</a>
+				<a href={ templ.SafeURL("#") }>{ i18n.T(ctx, i18n.KeyLoginSupport) }</a>
 			</footer>
 		</main>
 	}

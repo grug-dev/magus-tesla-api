@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM24-i18n-translations",
+  "intention": "The web app is fully bilingual ES (default) / EN: every gateway string resolves through a catalogue, a globe-icon selector top-right in the navbar switches language without disrupting the page, and the choice persists in accounts.language for signed-in users or a lang cookie for anonymous ones.",
+  "request": "Source ticket: MAG-8 — https://linear.app/magus-monitor/issue/MAG-8/i18n-translations-htmx\n\nAdd internationalization (i18n) support for English (EN) and Spanish (ES) across the HTMX + Go + Templ application. Add i18n translations for all existing user-facing text. Add a modern language selector to the top-right of the navbar, with a language/globe icon and the current language. Allow users to switch between EN and ES without disrupting the current page. Persist the selected language across navigation (settings table vs new column on accounts — user to decide). By default, the language is ES. Apply the change to all labels shown on the entire app (all pages should handle i18n); the front-end currently shows English versions. Update the instructions in the module so that every time a new label is created for any front-end page, both translations are required.",
+  "status": "complete",
+  "autopilot": true,
+  "updated_at": "2026-08-13T21:26:00Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM24-MAG-8-i18n-translations",
+    "base": "1b7aee9 (main)",
+    "ticket": "MAG-8",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-8/i18n-translations-htmx",
+    "created_at": "2026-08-13T02:30:31Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-13T02:29:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Persist the language preference as a `language TEXT NOT NULL DEFAULT 'es'` column on the existing `accounts` table, not a new account_settings table",
+      "why": "One preference, strictly 1:1 with the account, read on every page render — a column keeps it on the already-loaded account row with no join on the hot read path (declared read-heavy Performance-Profile). A settings table costs a join/second query, a second sqlc query set, and a missing-row fallback, and buys nothing for a single field.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-13T02:29:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Anonymous pages resolve language from a `lang` cookie, falling back to `es`; the selector is visible on the login page and the cookie is kept in sync with the DB value for signed-in users",
+      "why": "Logged-out surfaces have no account row to read. Syncing the cookie with the column stops the language flipping at the session boundary.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-13T02:30:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Skipped the config.yaml-mandated grill-me pass for this roadmap",
+      "why": "Both gated questions (D1 database shape, D2 anonymous resolution) were put to the user with explicit alternatives and answered immediately before authoring, and the ticket fixes the default (es) and locale set. Step 2's 'don't grill when the answer is genuinely obvious' applies. The tier-1 migration still faces the database design gate before Apply.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-13T02:30:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Split the gateway work into two tiers (foundation, then full translation sweep) instead of one gateway tier",
+      "why": "Tier 2 is design-bearing (catalogue format, language plumbing into Templ, htmx swap strategy) and establishes one gold-standard surface; tier 3 is mechanical repetition of that settled vocabulary across ~13 templates. Separating them keeps design decisions out of a large sweep and lets tier 3 run on a cheaper model.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-13T09:17:00Z",
+      "scope": "tier:2",
+      "made_by": "autopilot",
+      "decision": "Advanced to tier 2 immediately after tier 1 archived, without asking",
+      "why": "Roadmap autopilot is on and every pause gate was clear: budget 18%/17% vs 90/60 thresholds, no design gate (tier 2 touches no DB object), and tier 2 opens no decision the roadmap Decisions do not already cover.",
+      "covered_by": "roadmap Decision #2"
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-13T21:26:00Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "Moved the CLI's archive output from the flat openspec/changes/archive/ into the domain-grouped openspec/changes/archive/gateway/",
+      "why": "`openspec archive` writes flat, but openspec/config.yaml archive rule is explicit: group by business domain under archive/<domain>/, do NOT dump flat. Matches how tiers 1 and 2 were archived.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM24-account-add-language-preference",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T02:30:31Z",
+      "completed_at": "2026-08-13T09:15:00Z",
+      "duration_seconds": 24269,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 12.41,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts + implementation + review; 5-hour bucket reset mid-run so pct delta is invalid"
+      },
+      "notes": "Archived to openspec/changes/archive/account/2026-08-13-RM24-account-add-language-preference. Reviewer-approved round 1, zero findings. accounts.language column live; LanguageFor/SetLanguage on the port."
+    },
+    {
+      "id": 2,
+      "change": "RM24-gateway-add-i18n-foundation",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T09:17:00Z",
+      "completed_at": "2026-08-13T10:22:00Z",
+      "duration_seconds": 3900,
+      "budget": {
+        "five_hour_pct_delta": 36.0,
+        "cost_usd_delta": 22.0,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts + 2 implementation waves + 2 review rounds"
+      },
+      "notes": "Archived to openspec/changes/archive/gateway/2026-08-13-RM24-gateway-add-i18n-foundation. Reviewer-approved round 2 (round 1 caught a ticked-but-missing test, T6.4). i18n package, middleware, navbar switcher, translated nav shell, binding EN+ES rule."
+    },
+    {
+      "id": 3,
+      "change": "RM24-gateway-translate-all-pages",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        2
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T10:50:00Z",
+      "completed_at": "2026-08-13T21:26:00Z",
+      "duration_seconds": 38160,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 21.5,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts + 4 implementation waves + 2 review rounds; bucket reset between sessions so pct delta is invalid"
+      },
+      "notes": "Archived to openspec/changes/archive/gateway/2026-08-13-RM24-gateway-translate-all-pages. Reviewer-approved round 2. 19 task groups, ~180 keys. Round 1 found a hidden literal AND a blind spot in the tier's own i18n-guard; both fixed."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-13T10:22:00Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at tier boundary: 5-hour bucket at 74% (threshold 90), context 26% (threshold 60). Tier 2 alone consumed ~36 points; tier 3 is a comparable-or-larger mechanical sweep across ~13 templates and is projected to cross 90% mid-tier. Stopping cleanly per Step 5.5/9.2 rather than opening tier 3. Bucket resets at 1786629600. Resume with: /kkpa-dev-harness-pipeline resume RM24-gateway-translate-all-pages"
+    },
+    {
+      "at": "2026-08-13T10:52:00Z",
+      "agent": "leader",
+      "event": "RESUMED at tier 3. Bucket had NOT reset (77%, up from 74%; resets_at 1786629600 still ahead). Presented artifacts-only / full-autopilot / wait; user chose ARTIFACTS-ONLY. Autopilot remains true for the roadmap but is paused by an explicit user-scoped mode choice, not a threshold trip."
+    },
+    {
+      "at": "2026-08-13T11:00:00Z",
+      "agent": "leader",
+      "event": "Tier 3 artifacts committed and tier flipped to in-flight. Implementation waves deliberately NOT dispatched. Next session resumes at Step 5 wave 1 = T1 (single-writer catalogue), then the T2-T10/T12-T15 parallel band, T9 before T11, then T16 codegen and T17 verification."
+    },
+    {
+      "at": "2026-08-13T21:26:00Z",
+      "agent": "leader",
+      "event": "Tier 3 archived; ALL THREE TIERS COMPLETE. openspec archive synced the gateway capability spec (+2 requirements, ~2 modified). Roadmap status -> complete; archiving the roadmap itself per Step 9.4 into openspec/roadmaps/archive/RM24-i18n-translations/. .work-counter untouched (numbers are monotonic)."
+    }
+  ]
+}

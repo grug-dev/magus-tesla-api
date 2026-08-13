@@ -3,6 +3,7 @@ package fragments
 import (
 	"fmt"
 
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
@@ -28,7 +29,7 @@ templ superchargerMonthsSelector(active int, presets []int) {
 							"hx-swap":   "innerHTML",
 						},
 					}) {
-						{ fmt.Sprintf("%d months", p) }
+						{ fmt.Sprintf(i18n.T(ctx, i18n.KeySuperchargerMonthsPreset), p) }
 					}
 				} else {
 					@ui.Button(ui.ButtonProps{
@@ -41,7 +42,7 @@ templ superchargerMonthsSelector(active int, presets []int) {
 							"hx-swap":   "innerHTML",
 						},
 					}) {
-						{ fmt.Sprintf("%d months", p) }
+						{ fmt.Sprintf(i18n.T(ctx, i18n.KeySuperchargerMonthsPreset), p) }
 					}
 				}
 			}
@@ -63,10 +64,10 @@ templ superchargerMonthsSelector(active int, presets []int) {
 // from the handler, this only joins already-formatted strings for display.
 templ superchargerTiles(t SuperchargerTiles) {
 	<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-		@ui.StatTile(ui.StatTileProps{Label: "Sessions", Value: t.Sessions})
-		@ui.StatTile(ui.StatTileProps{Label: "Energy", Value: t.Energy})
-		@ui.StatTile(ui.StatTileProps{Label: "Cost", Value: superchargerCostValue(t.CostLines), Class: "whitespace-pre-line"})
-		@ui.StatTile(ui.StatTileProps{Label: "Avg kWh / session", Value: t.AvgKWh})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeySuperchargerSessions), Value: t.Sessions})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeySuperchargerEnergy), Value: t.Energy})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeySuperchargerCost), Value: superchargerCostValue(t.CostLines), Class: "whitespace-pre-line"})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeySuperchargerAvgKWhSession), Value: t.AvgKWh})
 	</div>
 }
 
@@ -85,7 +86,14 @@ templ superchargerChart(chart HistoryChart) {
 // presence-driven "—" placeholders already baked into each row's labels by
 // the handler.
 templ superchargerTable(sessions []SuperchargerRowVM) {
-	@ui.Table(ui.TableProps{Headers: []string{"Date", "Site", "Country", "Energy", "Cost", "Billing Type"}}) {
+	@ui.Table(ui.TableProps{Headers: []string{
+		i18n.T(ctx, i18n.KeySuperchargerDate),
+		i18n.T(ctx, i18n.KeySuperchargerSite),
+		i18n.T(ctx, i18n.KeySuperchargerCountry),
+		i18n.T(ctx, i18n.KeySuperchargerEnergy),
+		i18n.T(ctx, i18n.KeySuperchargerCost),
+		i18n.T(ctx, i18n.KeySuperchargerBillingType),
+	}}) {
 		for _, s := range sessions {
 			<tr>
 				<td>{ s.DateLabel }</td>
@@ -113,16 +121,16 @@ templ SuperchargerStatsContent(v SuperchargerStatsView) {
 	@superchargerMonthsSelector(v.Months, v.Presets)
 	if v.Empty {
 		@ui.Card(ui.CardProps{}) {
-			<p class="text-base-content/70">No Supercharger sessions in this window.</p>
+			<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeySuperchargerEmpty) }</p>
 		}
 	} else {
 		@ui.Card(ui.CardProps{}) {
 			@superchargerTiles(v.Tiles)
 		}
-		@ui.Card(ui.CardProps{Title: "kWh per month"}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerKWhPerMonth)}) {
 			@superchargerChart(v.Chart)
 		}
-		@ui.Card(ui.CardProps{Title: "Sessions"}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerSessions)}) {
 			@superchargerTable(v.Sessions)
 		}
 	}

@@ -1,6 +1,9 @@
 package pages
 
 import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
@@ -25,10 +28,10 @@ import (
 // template tree serves the full page load, the vehicle switch, and the
 // month-preset swap — the same @templ.Fragment shape as ChargePage.
 templ SuperchargerStatsPage(v fragments.SuperchargerStatsView) {
-	@layouts.BaseAuth("Supercharger Stats — Magus", "/supercharger-stats") {
-		@ui.PageHeader(ui.PageHeaderProps{Title: "Supercharger Stats"}) {
+	@layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyNavSuperchargerStats)), "/supercharger-stats") {
+		@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyNavSuperchargerStats)}) {
 			@ui.Button(ui.ButtonProps{Variant: "ghost", Href: "/dashboard"}) {
-				Back to dashboard
+				{ i18n.T(ctx, i18n.KeyChargesPageBackToDashboard) }
 			}
 		}
 		<div id="supercharger-stats-content" class="flex flex-col gap-6" hx-get="/ui/supercharger-stats" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">

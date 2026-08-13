@@ -25,6 +25,7 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
@@ -172,7 +173,7 @@ func (h *Handler) DashboardFragment(c *gin.Context) {
 func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.VehiclesData {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
-		return fragments.VehiclesData{Notice: "Could not load your vehicles. Please try again."}
+		return fragments.VehiclesData{Notice: i18n.T(ctx, i18n.KeyVehiclesNoticeCouldNotLoadVehicles)}
 	}
 	if len(registered) > 0 {
 		// Fetch the latest snapshot per vehicle from the telemetry read port.
@@ -183,7 +184,7 @@ func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.Vehi
 		var notice string
 		if snapErr != nil {
 			log.Printf("gateway: telemetry reader error for account %s: %v", uid, snapErr)
-			notice = "Telemetry unavailable — showing vehicle identity only."
+			notice = i18n.T(ctx, i18n.KeyVehiclesNoticeTelemetryUnavailable)
 		}
 		return fragments.VehiclesData{
 			Vehicles: mapVehicles(registered, snapMap),
@@ -199,19 +200,19 @@ func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.Vehi
 		return fragments.VehiclesData{NeedsConnect: true}
 	}
 	if err != nil {
-		return fragments.VehiclesData{Notice: "Could not reach your Tesla connection. Please try again."}
+		return fragments.VehiclesData{Notice: i18n.T(ctx, i18n.KeyVehiclesNoticeCouldNotReachTesla)}
 	}
 
 	vs, err := h.tesla.ListVehicles(ctx, tesla.Credentials{AccessToken: token})
 	if errors.Is(err, tesla.ErrUnauthorized) {
-		return fragments.VehiclesData{Notice: "Your Tesla session expired. Please reconnect your Tesla.", NeedsConnect: true}
+		return fragments.VehiclesData{Notice: i18n.T(ctx, i18n.KeyVehiclesNoticeSessionExpired), NeedsConnect: true}
 	}
 	if err != nil {
-		return fragments.VehiclesData{Notice: "Could not load your vehicles from Tesla. Please try again."}
+		return fragments.VehiclesData{Notice: i18n.T(ctx, i18n.KeyVehiclesNoticeCouldNotLoadFromTesla)}
 	}
 
 	if len(vs) == 0 {
-		return fragments.VehiclesData{Notice: "No vehicles found on your Tesla account."}
+		return fragments.VehiclesData{Notice: i18n.T(ctx, i18n.KeyVehiclesNoticeNoVehiclesFound)}
 	}
 
 	seed := make([]account.SeedVehicle, 0, len(vs))
@@ -264,27 +265,31 @@ func connectedAt(capturedAt, now time.Time) bool {
 // the handler so the template does no time arithmetic (gateway spec invariant).
 // Whole units, rounded down. Used for the "Asleep • Last seen …" label (>=48 h,
 // so typically "2 days ago" or coarser); the same helper works for any age.
-func relativeLastSeen(capturedAt, now time.Time) string {
+// ctx is an explicit third parameter (its one call site, inside navHeaderFor,
+// already has ctx in scope) so each branch can resolve its translated phrasing
+// via i18n.T (design.md D3/D5) — singular/plural pairs for days and hours, a
+// plural-only form for minutes, and a single "just now" phrase for the zero case.
+func relativeLastSeen(capturedAt, now time.Time, ctx context.Context) string {
 	d := now.Sub(capturedAt)
 	switch {
 	case d >= 48*time.Hour:
 		days := int(d.Hours() / 24)
 		if days == 1 {
-			return "1 day ago"
+			return i18n.T(ctx, i18n.KeyNavHeaderLastSeenDays)
 		}
-		return fmt.Sprintf("%d days ago", days)
+		return fmt.Sprintf(i18n.T(ctx, i18n.KeyNavHeaderLastSeenDaysPlural), days)
 	case d >= time.Hour:
 		hours := int(d.Hours())
 		if hours == 1 {
-			return "1 hour ago"
+			return i18n.T(ctx, i18n.KeyNavHeaderLastSeenHours)
 		}
-		return fmt.Sprintf("%d hours ago", hours)
+		return fmt.Sprintf(i18n.T(ctx, i18n.KeyNavHeaderLastSeenHoursPlural), hours)
 	default:
 		minutes := int(d.Minutes())
 		if minutes <= 1 {
-			return "just now"
+			return i18n.T(ctx, i18n.KeyNavHeaderLastSeenJustNow)
 		}
-		return fmt.Sprintf("%d minutes ago", minutes)
+		return fmt.Sprintf(i18n.T(ctx, i18n.KeyNavHeaderLastSeenMinutesPlural), minutes)
 	}
 }
 
@@ -358,7 +363,7 @@ func mapTeslasToVehicles(vs []tesla.VehicleTesla) []fragments.Vehicle {
 func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64, today time.Time) fragments.DashboardData {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
-		return fragments.DashboardData{Notice: "Could not load your dashboard. Please try again."}
+		return fragments.DashboardData{Notice: i18n.T(ctx, i18n.KeyDashboardNoticeCouldNotLoadDashboard)}
 	}
 	if len(registered) == 0 {
 		return fragments.DashboardData{NeedsConnect: true}
@@ -379,7 +384,10 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 	if snapErr != nil {
 		log.Printf("gateway: dashboard telemetry reader error for account %s: %v", uid, snapErr)
 		vm.TelemetryUnavailable = true
-		vm.Notice = "Telemetry unavailable — showing vehicle identity only."
+		// Reuses the vehicles_notice key (leader amendment): byte-identical copy to
+		// vehiclesFor's telemetry-unavailable notice — no separate dashboard_notice
+		// key exists for this string (design.md D2 reuse).
+		vm.Notice = i18n.T(ctx, i18n.KeyVehiclesNoticeTelemetryUnavailable)
 		return vm
 	}
 	snap, ok := mergeSnapshots(snaps)[primary.TeslaID]
@@ -388,7 +396,7 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		// the hero subtitle "Awaiting first snapshot" + "—" tiles convey it.
 		return vm
 	}
-	mapDashboardSnapshot(&vm, snap, time.Now())
+	mapDashboardSnapshot(ctx, &vm, snap, time.Now())
 	return vm
 }
 
@@ -396,11 +404,12 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 // latest snapshot. All derivation/rounding/unit-formatting happens here so the
 // template receives fully-computed strings (gateway spec invariant). now is passed
 // in (not read from a clock) so staleness is deterministic in tests, mirroring isStale.
-func mapDashboardSnapshot(vm *fragments.DashboardData, snap telemetry.Snapshot, now time.Time) {
+// ctx threads through to dashStatus and the software-version i18n.T lookup (D5).
+func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, snap telemetry.Snapshot, now time.Time) {
 	vm.HasSnapshot = true
-	vm.StatusLabel = dashStatus(snap)
+	vm.StatusLabel = dashStatus(ctx, snap)
 	if snap.CarVersion != "" {
-		vm.SoftwareVer = "Software v" + snap.CarVersion
+		vm.SoftwareVer = fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardStatusSoftwareVersion), snap.CarVersion)
 	}
 	vm.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02 15:04 UTC")
 	vm.IsStale = isStale(snap.CapturedAt, now)
@@ -411,7 +420,7 @@ func mapDashboardSnapshot(vm *fragments.DashboardData, snap telemetry.Snapshot, 
 	vm.BatteryPct = strconv.Itoa(snap.BatteryLevelPct)
 	vm.RangeNow = fmt.Sprintf("%.0f km", snap.BatteryRangeKm)
 	if snap.ChargeLimitSocPct > 0 {
-		vm.ChargeLimit = fmt.Sprintf("Limit %d%%", snap.ChargeLimitSocPct)
+		vm.ChargeLimit = fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardChargeLimit), snap.ChargeLimitSocPct)
 	}
 }
 
@@ -419,12 +428,13 @@ func mapDashboardSnapshot(vm *fragments.DashboardData, snap telemetry.Snapshot, 
 // vocabulary. "Charging" stays "Charging"; every other Tesla state (Stopped,
 // Disconnected, Complete, NoPower, or empty) collapses to "Parked" — the dashboard
 // only distinguishes actively charging from not. Presentation-only mapping; no
-// business logic.
-func dashStatus(s telemetry.Snapshot) string {
+// business logic. ctx is an explicit first parameter (mirrors navItems(ctx, active)
+// — D5) so the two-branch function can resolve its translated word via i18n.T.
+func dashStatus(ctx context.Context, s telemetry.Snapshot) string {
 	if s.ChargingState == "Charging" {
-		return "Charging"
+		return i18n.T(ctx, i18n.KeyDashboardStatusCharging)
 	}
-	return "Parked"
+	return i18n.T(ctx, i18n.KeyDashboardStatusParked)
 }
 
 // formatKm renders a kilometre value as a whole, thousands-separated "N,NNN km"
@@ -534,17 +544,17 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 	raw := c.PostForm("vehicle")
 	parts := strings.SplitN(raw, ":", 2)
 	if len(parts) != 2 {
-		c.String(http.StatusBadRequest, "invalid vehicle")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorInvalidVehicle))
 		return
 	}
 	teslaID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil || teslaID == 0 {
-		c.String(http.StatusBadRequest, "invalid vehicle id")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorInvalidVehicleID))
 		return
 	}
 	vin := parts[1]
 	if vin == "" {
-		c.String(http.StatusBadRequest, "invalid vehicle")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorInvalidVehicle))
 		return
 	}
 
@@ -553,7 +563,7 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 	// gateway enforces tenant scoping at the app layer. Reject silently with 403.
 	vehicles, err := h.acct.RegisteredVehicles(c.Request.Context(), uid)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "could not validate vehicle")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorCouldNotValidateVehicle))
 		return
 	}
 	owned := false
@@ -564,7 +574,7 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 		}
 	}
 	if !owned {
-		c.String(http.StatusForbidden, "vehicle not in your account")
+		c.String(http.StatusForbidden, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorVehicleNotInAccount))
 		return
 	}
 
@@ -608,8 +618,7 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		// since there is no vehicle to describe). NeedsConnect stays false: we
 		// don't know the account state, so the connect-prompt is misleading.
 		return fragments.NavHeaderVM{
-			Status:      fragments.NavStatusUnavailable,
-			StatusLabel: "Unavailable",
+			Status: fragments.NavStatusUnavailable,
 		}
 	}
 	if len(registered) == 0 {
@@ -660,7 +669,6 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		log.Printf("gateway: nav-header telemetry reader error for account %s: %v", uid, snapErr)
 		vm.VehicleName = primary.DisplayName
 		vm.Status = fragments.NavStatusUnavailable
-		vm.StatusLabel = "Unavailable"
 		return vm
 	}
 
@@ -671,7 +679,6 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		// Registered vehicle, but no stored snapshot yet → awaiting.
 		vm.VehicleName = primary.DisplayName
 		vm.Status = fragments.NavStatusAwaiting
-		vm.StatusLabel = "Awaiting first snapshot"
 		return vm
 	}
 
@@ -680,15 +687,13 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		// Fresh snapshot → Connected + battery %.
 		vm.VehicleName = primary.DisplayName
 		vm.Status = fragments.NavStatusConnected
-		vm.StatusLabel = "Connected"
 		vm.BatteryPct = fmt.Sprintf("%d%%", snap.BatteryLevelPct)
 		return vm
 	}
 	// Stale snapshot → Asleep + relative "Last seen" label.
 	vm.VehicleName = primary.DisplayName
 	vm.Status = fragments.NavStatusAsleep
-	vm.StatusLabel = "Asleep"
-	vm.LastSeenLabel = relativeLastSeen(snap.CapturedAt, now)
+	vm.LastSeenLabel = relativeLastSeen(snap.CapturedAt, now, ctx)
 	return vm
 }
 
@@ -790,7 +795,7 @@ func (h *Handler) ConnectTesla(c *gin.Context) {
 	}
 	state, err := randomState()
 	if err != nil {
-		c.String(http.StatusInternalServerError, "could not start Tesla connect")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorCouldNotStartTeslaConnect))
 		return
 	}
 	sess := sessions.Default(c)
@@ -810,7 +815,7 @@ func (h *Handler) TeslaCallback(c *gin.Context) {
 	sess := sessions.Default(c)
 	want, _ := sess.Get("tesla_state").(string)
 	if want == "" || c.Query("state") != want {
-		c.String(http.StatusBadRequest, "invalid oauth state")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorInvalidOAuthState))
 		return
 	}
 	sess.Delete("tesla_state")
@@ -818,7 +823,7 @@ func (h *Handler) TeslaCallback(c *gin.Context) {
 
 	tokens, err := auth.ExchangeCode(h.teslaClientID, h.teslaClientSecret, c.Query("code"), h.teslaRedirectURL)
 	if err != nil {
-		c.String(http.StatusBadGateway, "Tesla connect failed")
+		c.String(http.StatusBadGateway, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorTeslaConnectFailed))
 		return
 	}
 	if err := h.acct.SaveTeslaTokens(c.Request.Context(), uid, account.TeslaTokens{
@@ -826,7 +831,7 @@ func (h *Handler) TeslaCallback(c *gin.Context) {
 		RefreshToken:    tokens.RefreshToken,
 		AccessExpiresAt: time.Now().Add(time.Duration(tokens.ExpiresIn) * time.Second),
 	}); err != nil {
-		c.String(http.StatusInternalServerError, "could not save Tesla connection")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorCouldNotSaveTeslaConnection))
 		return
 	}
 	c.Redirect(http.StatusFound, "/dashboard")
@@ -858,7 +863,7 @@ func (h *Handler) LoginPage(c *gin.Context) {
 func (h *Handler) GoogleLogin(c *gin.Context) {
 	state, err := randomState()
 	if err != nil {
-		c.String(http.StatusInternalServerError, "could not start login")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorCouldNotStartLogin))
 		return
 	}
 	sess := sessions.Default(c)
@@ -873,14 +878,14 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 	sess := sessions.Default(c)
 	want, _ := sess.Get("oauth_state").(string)
 	if want == "" || c.Query("state") != want {
-		c.String(http.StatusBadRequest, "invalid oauth state")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorInvalidOAuthState))
 		return
 	}
 	sess.Delete("oauth_state")
 
 	id, err := h.google.Exchange(c.Request.Context(), c.Query("code"))
 	if err != nil {
-		c.String(http.StatusBadGateway, "google login failed")
+		c.String(http.StatusBadGateway, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorGoogleLoginFailed))
 		return
 	}
 
@@ -891,9 +896,11 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		DisplayName: id.Name,
 	})
 	if err != nil {
-		c.String(http.StatusInternalServerError, "could not provision account")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorCouldNotProvisionAccount))
 		return
 	}
+
+	h.syncLoginLanguageCookie(c, acct.ID)
 
 	sess.Set("uid", acct.ID.String())
 	sess.Set("email", acct.Email)
@@ -912,7 +919,7 @@ func (h *Handler) Logout(c *gin.Context) {
 // Healthz is the ops liveness/readiness check: 200 when the DB is reachable, 503 otherwise.
 func (h *Handler) Healthz(c *gin.Context) {
 	if err := h.pool.Ping(c.Request.Context()); err != nil {
-		c.String(http.StatusServiceUnavailable, "unhealthy: %v", err)
+		c.String(http.StatusServiceUnavailable, "unhealthy: %v", err) // i18n:allow: ops health-check response, not user-facing UI
 		return
 	}
 	c.String(http.StatusOK, "ok")

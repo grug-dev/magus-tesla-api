@@ -17,6 +17,7 @@ type Account struct {
 	DisplayName pgtype.Text
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
+	Language    string
 }
 
 type TeslaToken struct {

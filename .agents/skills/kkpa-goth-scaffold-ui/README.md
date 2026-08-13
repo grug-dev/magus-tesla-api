@@ -29,8 +29,9 @@ The skill has three modes (SKILL.md dispatches top-down; first match wins):
    (`fragments/<concept>_vm.go`) → page + swappable fragments → Gin handler
    (`handlers/<concept>.go`) → routes (`gateway.go`) → tests → codegen. It resolves the
    owning module's **interfaces** via CodeGraph and calls only those (never a DB, never a
-   vendor DTO), keeps templates logic-free, uses semantic theme tokens (never hex), and shows
-   km/kmh for any distance/speed.
+   vendor DTO), keeps templates logic-free, uses semantic theme tokens (never hex), shows
+   km/kmh for any distance/speed, and routes **every user-facing string through the bilingual
+   `i18n` catalogue** (both `ES` and `EN`, never a bare literal — `make check` enforces it).
 
 ### What a "vertical slice" is
 

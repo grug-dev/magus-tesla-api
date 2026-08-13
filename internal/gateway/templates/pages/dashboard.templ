@@ -1,6 +1,9 @@
 package pages
 
 import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
@@ -17,15 +20,15 @@ import (
 // /ui/dashboard/history) to render the odometer km/day and battery % bar charts
 // (RM5 tier 2). All values are pre-computed display strings on fragments.DashboardData.
 templ Dashboard(d fragments.DashboardData) {
-	@layouts.BaseAuth("Dashboard — Magus", "/dashboard") {
+	@layouts.BaseAuth(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyNavDashboard)), "/dashboard") {
 		<div id="dashboard-content" hx-get="/ui/dashboard" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">
 			@templ.Fragment("dashboard") {
-				@ui.PageHeader(ui.PageHeaderProps{Title: "Dashboard", Subtitle: d.VehicleName})
+				@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyNavDashboard), Subtitle: d.VehicleName})
 				if d.NeedsConnect {
 					@ui.Card(ui.CardProps{}) {
-						<p class="text-base-content/70 mb-4">No Tesla connected.</p>
+						<p class="text-base-content/70 mb-4">{ i18n.T(ctx, i18n.KeyNavHeaderNoTesla) }</p>
 						@ui.Button(ui.ButtonProps{Variant: "primary", Href: "/connect/tesla"}) {
-							Connect your Tesla
+							{ i18n.T(ctx, i18n.KeyNavHeaderConnectLink) }
 						}
 					}
 				} else {
@@ -37,39 +40,39 @@ templ Dashboard(d fragments.DashboardData) {
 					<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
 						// Hero — Vehicle Status (col-span-8 on desktop).
 						<div class="md:col-span-8">
-							@ui.Card(ui.CardProps{Title: "Vehicle Status", Class: "h-full"}) {
+							@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyDashboardVehicleStatusTitle), Class: "h-full"}) {
 								<div class="flex items-center justify-between">
 									<p class="text-sm text-base-content/60 uppercase tracking-wider">
-										{ dashSubtitle(d) }
+										{ dashSubtitle(ctx, d) }
 									</p>
 									if d.HasSnapshot && d.IsStale {
-										@ui.Badge(ui.BadgeProps{Kind: "warning", Text: "Stale"})
+										@ui.Badge(ui.BadgeProps{Kind: "warning", Text: i18n.T(ctx, i18n.KeyDashboardStaleBadge)})
 									}
 								</div>
 								<div class="flex-1 flex items-center justify-center py-10">
 									@ui.Icon(ui.IconProps{Name: "car", Class: "h-40 w-40 text-primary/20"})
 								</div>
 								<div class="grid grid-cols-2 gap-3">
-									@ui.StatTile(ui.StatTileProps{Label: "Odometer", Value: dashStat(d.HasSnapshot, d.Odometer)})
-									@ui.StatTile(ui.StatTileProps{Label: "Interior", Value: dashStat(d.HasSnapshot, d.InsideTemp)})
-									@ui.StatTile(ui.StatTileProps{Label: "Exterior", Value: dashStat(d.HasSnapshot, d.OutsideTemp)})
-									@ui.StatTile(ui.StatTileProps{Label: "Status", Value: dashStat(d.HasSnapshot, d.StatusLabel)})
+									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardOdometer), Value: dashStat(d.HasSnapshot, d.Odometer)})
+									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardInterior), Value: dashStat(d.HasSnapshot, d.InsideTemp)})
+									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardExterior), Value: dashStat(d.HasSnapshot, d.OutsideTemp)})
+									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardStatus), Value: dashStat(d.HasSnapshot, d.StatusLabel)})
 								</div>
 								if d.HasSnapshot && d.LastUpdated != "" {
-									<p class="text-xs text-base-content/50 mt-4">Last updated { d.LastUpdated }</p>
+									<p class="text-xs text-base-content/50 mt-4">{ i18n.T(ctx, i18n.KeyDashboardLastUpdated) } { d.LastUpdated }</p>
 								}
 							}
 						</div>
 						// Vital-stats column (col-span-4 on desktop).
 						<div class="md:col-span-4 flex flex-col gap-6">
-							@ui.Card(ui.CardProps{Title: "Battery"}) {
+							@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyDashboardBatteryTitle)}) {
 								<div class="flex items-end justify-between mb-4">
 									<span class="text-4xl font-extrabold text-primary">{ dashStat(d.HasSnapshot, d.Battery) }</span>
 									@ui.Icon(ui.IconProps{Name: "battery", Class: "h-8 w-8 text-primary/60"})
 								</div>
 								<progress class="progress progress-primary w-full" max="100" value={ dashPctAttr(d) }></progress>
 								<div class="flex justify-between mt-3 text-sm text-base-content/70">
-									<span>Range { dashStat(d.HasSnapshot, d.RangeNow) }</span>
+									<span>{ i18n.T(ctx, i18n.KeyDashboardRangePrefix) } { dashStat(d.HasSnapshot, d.RangeNow) }</span>
 									<span>{ dashChargeLimit(d) }</span>
 								</div>
 							}
@@ -78,6 +81,7 @@ templ Dashboard(d fragments.DashboardData) {
 							// #dashboard-content (htmx-conventions.md §"Cross-region refresh").
 							// hx-swap="innerHTML" keeps this wrapper element (and its hx-trigger)
 							// in the DOM across selector clicks.
+							// i18n:allow: htmx attribute values (hx-trigger/hx-swap), not a text node
 							<div id="dashboard-history" hx-get={ d.DefaultHistoryHref } hx-trigger="load" hx-swap="innerHTML"></div>
 						</div>
 					</div>

@@ -1,6 +1,9 @@
 package layouts
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
 
 // Base is the full-page HTML shell for unauthenticated pages (home, login). It sets
 // the DaisyUI theme via <html data-theme> (name must match a registered theme in
@@ -10,7 +13,7 @@ import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 // JavaScript, so htmx fragment swaps stay styled with nothing to re-initialize.
 templ Base(title string) {
 	<!DOCTYPE html>
-	<html lang="en" data-theme="apex">
+	<html lang={ i18n.FromContext(ctx) } data-theme="apex">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -26,6 +29,15 @@ templ Base(title string) {
 			// control. It lives OUTSIDE the swappable regions on purpose — a swap must
 			// never replace the open dialog. See ui/confirm_dialog.templ.
 			@ui.ConfirmDialog()
+			// The ONE navbar language selector, mounted here (design.md D6, same
+			// "mounted once, inherited by BaseAuth" shape as ui.ConfirmDialog above) so
+			// every page — including the anonymous Home/Login shell and every
+			// authenticated page through BaseAuth — gets it with nothing to remember.
+			// Fixed top-right so it renders above page content without a navbar shell
+			// change. i18n.FromContext(ctx) is a pure context read, no DB call.
+			<div class="fixed top-3 right-3 z-40">
+				@ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)})
+			</div>
 		</body>
 	</html>
 }
@@ -51,17 +63,17 @@ templ BaseAuth(title, path string) {
 			<input id="nav-drawer" type="checkbox" class="drawer-toggle"/>
 			<div class="drawer-content flex flex-col">
 				<nav class="navbar bg-base-300 w-full">
-					<label for="nav-drawer" aria-label="open sidebar" class="btn btn-square btn-ghost lg:hidden">
+					<label for="nav-drawer" aria-label={ i18n.T(ctx, i18n.KeyNavOpenSidebar) } class="btn btn-square btn-ghost lg:hidden">
 						@ui.Icon(ui.IconProps{Name: "menu", Class: "h-6 w-6"})
 					</label>
-					<div class="mx-2 flex-1 px-2 text-lg font-semibold">Magus</div>
+					<div class="mx-2 flex-1 px-2 text-lg font-semibold">{ i18n.T(ctx, i18n.KeyBrandMagus) }</div>
 				</nav>
 				<main class="p-4">
 					{ children... }
 				</main>
 			</div>
 <div class="drawer-side">
-			<label for="nav-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+			<label for="nav-drawer" aria-label={ i18n.T(ctx, i18n.KeyNavCloseSidebar) } class="drawer-overlay"></label>
 			// Flex column so the nav-header (auto) and the menu (flex-1) share the
 			// sidebar's full height instead of stacking. The drawer-side grid aligns
 			// items to its start; without this wrapper the menu's min-h-full would
@@ -70,7 +82,7 @@ templ BaseAuth(title, path string) {
 				// placeholder: the nav-header fragment (GET /ui/nav-header) is swapped in by
 				// htmx on load; until then this slot is empty.
 				<div id="nav-header" hx-get="/ui/nav-header" hx-trigger="load" hx-swap="outerHTML"></div>
-				@ui.NavShell(navItems(path), ui.NavLogout())
+				@ui.NavShell(navItems(ctx, path), ui.NavLogout())
 			</div>
 		</div>
 		</div>

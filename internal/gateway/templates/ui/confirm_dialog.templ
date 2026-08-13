@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+
 // ConfirmDialog is the app's ONE confirmation modal. It is rendered a single time
 // per page by layouts.Base — never per row, never per page — and is driven entirely
 // by the htmx `hx-confirm` attribute already on the triggering element.
@@ -39,24 +41,24 @@ package ui
 templ ConfirmDialog() {
 	<dialog id="confirm-dialog" class="modal" aria-labelledby="confirm-dialog-title">
 		<div class="modal-box">
-			<h3 id="confirm-dialog-title" class="text-lg font-semibold">Are you sure?</h3>
+			<h3 id="confirm-dialog-title" class="text-lg font-semibold">{ i18n.T(ctx, i18n.KeyConfirmDialogTitle) }</h3>
 			<p id="confirm-dialog-message" class="py-4 text-base-content/80"></p>
 			<div class="modal-action">
 				@Button(ButtonProps{Variant: "ghost", Attrs: templ.Attributes{"id": "confirm-dialog-cancel"}}) {
-					Cancel
+					{ i18n.T(ctx, i18n.KeyConfirmDialogCancel) }
 				}
 				@Button(ButtonProps{Variant: "primary", Attrs: templ.Attributes{"data-confirm-ok": "default"}}) {
-					Confirm
+					{ i18n.T(ctx, i18n.KeyConfirmDialogConfirm) }
 				}
 				@Button(ButtonProps{Variant: "error", Attrs: templ.Attributes{"data-confirm-ok": "danger", "hidden": true}}) {
-					Delete
+					{ i18n.T(ctx, i18n.KeyConfirmDialogDelete) }
 				}
 			</div>
 		</div>
 		// Native backdrop close: a <form method="dialog"> submit closes the dialog
 		// without JS, so click-outside-to-dismiss costs nothing.
 		<form method="dialog" class="modal-backdrop">
-			<button aria-label="Close">close</button>
+			<button aria-label={ i18n.T(ctx, i18n.KeyConfirmDialogClose) }>{ i18n.T(ctx, i18n.KeyConfirmDialogClose) }</button>
 		</form>
 	</dialog>
 }

@@ -8,6 +8,8 @@ package ui
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+
 // NavItem is one sidebar link. Active lights the current page's entry; Icon is the
 // glyph name passed to ui.Icon ("" renders no icon); Placeholder renders the item
 // as a dead "#" link with a "Soon" badge (future-work nav entries).
@@ -79,7 +81,7 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 			var templ_7745c5c3_Var3 templ.SafeURL
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(navHref(it)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 36, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 38, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -123,7 +125,7 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(it.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 42, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/nav_shell.templ`, Line: 44, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -134,7 +136,7 @@ func NavShell(items []NavItem, footer templ.Component) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			if it.Placeholder {
-				templ_7745c5c3_Err = Badge(BadgeProps{Kind: "warning", Text: "Soon"}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = Badge(BadgeProps{Kind: "warning", Text: i18n.T(ctx, i18n.KeyNavSoonBadge)}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

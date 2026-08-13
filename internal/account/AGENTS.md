@@ -31,6 +31,7 @@ Consumers (e.g. the gateway) call these — never this module's tables
 - `AccessTokenFor(ctx, accountID) (string, error)` — a valid access token for Fleet API
   calls (refreshing behind the scenes when needed)
 - `RegisteredVehicles` — the user's persisted vehicle registry
+- `LanguageFor`/`SetLanguage` — read/persist a user's `{es, en}` language preference
 
 ## Units convention
 

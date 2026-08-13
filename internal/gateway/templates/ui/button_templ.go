@@ -18,7 +18,7 @@ type ButtonProps struct {
 	Size    string           // "xs"|"sm"|"md"|"lg"|"xl" (default md — no class)
 	Outline bool             // adds btn-outline (combine with a color Variant, e.g. error)
 	Type    string           // "button"|"submit" (default button)
-	Href    string           // if set, renders <a> instead of <button>
+	Href    string           // if set, renders <a> instead of <button> (i18n:allow: Go doc comment, not markup)
 	Class   string           // extra layout utilities only — never a btn-* class
 	Attrs   templ.Attributes // hx-* and other attributes
 }

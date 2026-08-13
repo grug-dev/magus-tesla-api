@@ -85,8 +85,10 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
 - **No client-side JS init** — keeps htmx swaps safe. Prefer CSS-only DaisyUI patterns
-  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. The single standing
-  exception is `ui.ConfirmDialog`, whose JS lives in the shared `static/app.js`.
+  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **two**
+  standing exceptions, each with its own recorded decision below: **RD9** (the `browser_tz`
+  cookie script in `layouts.BaseAuth`) and **RD10** (`ui.ConfirmDialog`, whose JS lives in
+  the shared `static/app.js`). Adding a third needs its own RD entry per RD8.
 - **Confirmations: never write a modal, never call `window.confirm`.** Put `hx-confirm`
   (plus optional `data-confirm-title` / `data-confirm-label` / `data-confirm-variant="danger"`)
   on the triggering control and the shared `ui.ConfirmDialog` — mounted once in
@@ -98,6 +100,69 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `htmx.min.js`); the Tailwind binary in `tools/` is git-ignored (`make ui-toolchain`).
 - **New pages go through `kkpa-goth-scaffold-ui scaffold <concept> [module]`**, which
   mirrors the `charges` gold-standard slice.
+
+## i18n — every new user-facing label needs BOTH es and en
+
+**This is binding, not advisory.** Any `.templ` change that adds or edits user-facing text
+MUST add or update a catalogue key in `internal/gateway/i18n/catalog.go` with **both `ES` and
+`EN` non-empty**. `TestCatalog_AllKeysHaveBothLanguages` (`internal/gateway/i18n/catalog_test.go`)
+enforces this at `go test` time — but the rule applies to every new key regardless of whether a
+test happens to catch an omission before you commit. A hardcoded English (or Spanish-only)
+string added to any page from this point forward is **incomplete work**, exactly as an
+undocumented structural change is incomplete per `CLAUDE.md`'s "docs track structural change"
+rule.
+
+- **Added by `RM24-gateway-add-i18n-foundation`** (tier 2 of `RM24-i18n-translations`, ticket
+  MAG-8). The gold-standard surface to mirror is the layout/nav shell: `templates/layouts/base.templ`,
+  `templates/layouts/nav.go`, `templates/ui/nav_shell.templ`, `templates/ui/nav_logout.templ`,
+  `templates/fragments/nav_header.templ`, and `templates/ui/lang_switcher.templ`.
+- **The lookup surface is `i18n.T(ctx, key)`, always.** Inside a `.templ` file, `ctx` is the
+  implicit context.Context templ threads through every component composition — call
+  `i18n.T(ctx, i18n.KeyXxx)` directly. Inside a plain Go helper called *from* a `.templ` block
+  (e.g. `layouts.navItems`), `ctx` is an explicit first parameter the `.templ` call site passes
+  through — see `nav.go`'s `navItems(ctx, active)` for the pattern.
+- **Add the key to `internal/gateway/i18n/catalog.go`, not a new file.** One `Key` constant +
+  one `catalog` map entry with `ES`/`EN` **on the same line** (design.md D1) — this is the
+  closed vocabulary; do not invent a second catalogue or a per-page strings struct.
+- **A key with no catalogue entry renders a visible `!!key.name` marker, never a blank string**
+  (design.md D2) — this is a deliberate render-time backstop, not the enforcement mechanism. The
+  enforcement mechanism is the completeness test above; do not rely on the marker to catch a
+  missing translation in review.
+- Language resolution (which language `ctx` carries) is already wired for every request by
+  `handlers.LanguageMiddleware` — a new page needs no per-handler language plumbing, only
+  `i18n.T` calls in its markup.
+
+**`make i18n-guard` is the mechanical companion to `TestCatalog_AllKeysHaveBothLanguages`**
+(added by `RM24-gateway-translate-all-pages`, tier 3 of `RM24-i18n-translations`, MAG-8). Where
+the catalogue test only enforces "every *known* key has both languages," `i18n-guard` is the
+check that MAG-8 actually asked for: it fails the build if a hardcoded user-facing string
+bypasses `i18n.T(ctx, ...)` in the first place. It is now part of `make check` (`build vet
+ui-guard i18n-guard test`), so a page added without translating it fails locally, not only in
+review.
+
+- **Two grep passes, mirroring `ui-guard`'s shape exactly** — pass 1 scans
+  `templates/{pages,fragments,ui}/*.templ` for a bare text node not already wrapped in
+  `i18n.T(...)`; pass 2 scans `handlers/*.go` (excluding `_test.go`) for a hardcoded string
+  landing on a known message sink (`Notice:`/`Error:` struct fields, the `errs[...] =`
+  validation-map pattern, `vm.`/`d.` field assignment, or a bare-text `c.String(http.Status[45]xx,
+  ...)` body — including each of those wrapped in `fmt.Sprintf`/`fmt.Errorf`). It is a heuristic,
+  same rigor bar as `ui-guard`, not a parser.
+- **The `// i18n:allow: <reason>` marker is the sole exemption mechanism — no separate allowlist
+  file — but its PLACEMENT differs by file type, and this trips people up:**
+  - In a **`.go` file**, the marker is a trailing `//` comment on the **same line** as the
+    literal (e.g. `Healthz`'s `"unhealthy: %v"` line).
+  - In a **`.templ` file**, the marker goes on the line **immediately above** the flagged line —
+    templ has no comment syntax valid inside markup, and HTML comments are forbidden
+    project-wide (`CLAUDE.md` → "HTML templates"), so there is nowhere on the flagged line
+    itself to put a Go `//` comment. `i18n-guard`'s pass 1 checks both the flagged line and the
+    line above it for the marker, so both placements work where each is syntactically valid; a
+    same-line marker only works in a `.templ` file when that particular line is itself plain Go
+    code (e.g. a struct field's doc comment), never inside an HTML tag.
+  - Only mark a **genuine** non-translatable literal (attribute values, CSS classes, htmx
+    attributes, format verbs, units, brand nouns, or a Go doc comment/ops-only response) — never
+    a real piece of app copy the guard correctly caught. If the guard flags real copy, add a
+    catalogue key instead; weakening the marker's use to silence a true positive defeats the
+    check MAG-8 asked for.
 
 ## Read-only at request time
 
@@ -147,6 +212,41 @@ gateway layer would force an external HTTP API that the browser would then need 
 call — an unnecessary layer when the gateway is already the only HTML surface.
 The write is intentional (form POST), narrow (one module's Writer port),
 CSRF-protected, and tenant-scoped.
+
+### Exception: language switch (D-lang amendment — RM24-gateway-add-i18n-foundation)
+
+The gateway MAY call `account.Service.SetLanguage` from `handlers.LangSwitch`
+(`POST /ui/lang/switch`), subject to a **different** set of constraints than the
+D4/manualcharge amendment above — it does not transplant cleanly, because this
+endpoint must work for anonymous callers too:
+
+1. **No auth guard, no redirect-to-login.** Every other write handler starts with
+   `currentUID(c)` and redirects an anonymous caller to `/login`. `LangSwitch`
+   branches instead: it always sets the `lang` cookie; it calls `SetLanguage` only
+   when a session `uid` is present.
+2. **No tenant-ownership check.** `SetLanguage(ctx, uid, lang)` always targets the
+   caller's own session `uid` — there is no user-submitted resource identifier (unlike
+   the vehicle `(TeslaID, VIN)` pair D4 validates) for a forged request to redirect at
+   a different account.
+3. **No CSRF check — a deliberate divergence from D4, not an oversight.** A forged
+   switch request can only ever change the caller's own display language (no data
+   mutation, nothing to exfiltrate, reversible in one click). Requiring CSRF here
+   would mean minting a session CSRF token on every page in the module — including
+   `Home`/`Dashboard`/`SuperchargerStats`, which mint none today — for a control
+   mounted on every page (design.md D6), to protect against a cosmetic annoyance.
+   **The actual defence is the `lang` cookie's `SameSite=Lax` attribute**, which
+   makes modern browsers refuse to attach it to a cross-site `POST` — this is
+   MANDATORY, not incidental; dropping it would void this decision and re-open the
+   CSRF question. `setLangCookie` (`internal/gateway/handlers/lang.go`) MUST call
+   `c.SetSameSite(http.SameSiteLaxMode)` **before** `c.SetCookie(...)` (gin's
+   `SetCookie` has no SameSite parameter). `TestLangSwitch_CookieIsSameSiteLax`
+   (`lang_test.go`) is mandatory and may not be dropped or weakened — if it fails,
+   fix the cookie, never the test.
+   - **This trade-off was put to the user and explicitly approved on 2026-08-13,
+     conditional on `SameSite=Lax`.** It is not a worker's unilateral call.
+4. **Scope stays narrow.** Only `account.Service.SetLanguage` is permitted under this
+   exception. Every other handler stays Reader-only except the pre-existing D4
+   aperture above.
 
 ## Vehicle-scoped reads — always send the selected TeslaID
 
@@ -253,7 +353,8 @@ to every future AI agent or human who reads this doc at the start of a session.
 
 The gateway's declared **zero-JS** DaisyUI foundation (`ai/htmx-conventions.md`
 §"Styling" — "Do not introduce a component that needs client-side JS init") has
-exactly **ONE** sanctioned exception: a single inline `<script>` in
+exactly **TWO** sanctioned exceptions: this one and **RD10** (the confirmation
+modal) below. This entry covers the first: a single inline `<script>` in
 `layouts.BaseAuth` that sets the `browser_tz` cookie. Added by
 `gateway-browser-tz-cookie` (MAG-7, shipped 2026-08-11; documented here in the
 MAG-7 review fix round, 2026-08-12).
@@ -289,6 +390,55 @@ this entry does not grandfather it in.
 failure, or in a `<noscript>` browser, the cookie is simply never set and the
 server falls back to `time.UTC` (`browserLocation`'s fallback rule) — no
 error surfaces to the user and no page render breaks.
+
+## Client-side JS exception: confirmation modal (RD10)
+
+The **second** (and currently last) sanctioned exception to the zero-JS rule: the
+`htmx:confirm` interception in `static/app.js` that drives `ui.ConfirmDialog`. Added by
+`gateway-add-confirm-dialog` (MAG-5, shipped 2026-08-12, PR #24; documented here
+2026-08-13).
+
+**What:** One `htmx:confirm` listener in the shared `static/app.js` (~40 lines, no
+library, no `fetch`), plus `ui.ConfirmDialog` — a native `<dialog>` mounted **once** in
+`layouts.Base` (so `BaseAuth`, which composes `Base`, inherits it on every authenticated
+page). htmx fires a **cancelable** `htmx:confirm` event before every request carrying
+`hx-confirm`, exposing the element's message as `detail.question` and a
+`detail.issueRequest(skip)` callback. The listener calls `preventDefault()`, fills the
+dialog from the element's attributes, and calls `issueRequest(true)` on confirm — htmx
+then resumes the exact same request. Per-use content is a four-attribute vocabulary on
+the triggering control: `hx-confirm` (message), `data-confirm-title`,
+`data-confirm-label`, `data-confirm-variant="danger"`.
+
+**Why:** replacing the browser's unstyleable `window.confirm()` is inherently a
+JS-interception job — htmx offers the decision **only** as an event. The **rejected
+alternative** was a CSS-only DaisyUI pattern (checkbox/anchor `<dialog>` modal), the
+approach this doc mandates everywhere else: it cannot work here at all, because a
+CSS-only modal has no way to *gate an in-flight htmx request* — the request would fire
+before the user answered. The second rejected alternative was a bespoke per-page modal
+with its own script, which reintroduces hand-rolled JS on every page that needs a
+confirmation. Hooking htmx's own documented event instead means **any element on any
+page carrying `hx-confirm` gets the modal automatically — including pages not yet
+written** — so the marginal cost of the next confirmation is one attribute, not a
+component.
+
+**Why it does not erode the `ui/` boundary:** the dialog pre-renders **both** confirm
+buttons (default + danger) and `app.js` only ever toggles the `hidden` property and sets
+`textContent`. No DaisyUI `btn-*` class string ever appears in JavaScript — the component
+vocabulary stays owned by `templates/ui/`, exactly as the anti-corruption-adapter rule
+requires. Native `<dialog>.showModal()` is used so focus-trapping, Esc-to-close, page
+inertness, and top-layer stacking are the browser's job, not ours.
+
+**Boundary — this is NOT an opening for general client-side JS.** Like RD9, it is a
+narrow, sanctioned exception (one listener, one shared dialog, one decision-gating job),
+not a precedent. Any further client-side JS needs its own RD entry per RD8, with its own
+rationale and rejected alternative. Two concrete rules follow from the single-instance
+design: **do not mount a second `ui.ConfirmDialog`** (`app.js` resolves it by `id`; a
+duplicate makes the wrong one open), and it stays in the layout, **outside every
+swappable region**, so an htmx swap can never replace an open dialog.
+
+**Graceful degradation:** if the dialog is absent (a page not built on `layouts.Base`) or
+the browser has no `<dialog>` support, `app.js` returns early and htmx falls back to its
+native `confirm()` — degraded styling, but the guard itself is never lost.
 
 ---
 

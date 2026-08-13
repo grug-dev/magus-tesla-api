@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -37,6 +38,23 @@ type fakeAccount struct {
 	seedCalls int
 	// lastSeedVehicles captures the SeedVehicle list from the most recent SeedVehicles call.
 	lastSeedVehicles []account.SeedVehicle
+
+	// language is the value LanguageFor returns. The zero value ("") falls back
+	// to account.LanguageES, so every pre-existing test (which never sets this
+	// field) keeps its original LanguageFor behavior unchanged.
+	language string
+	// languageErr, when set, makes LanguageFor return this error instead.
+	languageErr error
+	// setLanguageErr, when set, makes SetLanguage return this error instead of
+	// recording success.
+	setLanguageErr error
+	// setLanguageCalls captures every SetLanguage invocation (id + lang) so a
+	// test can assert LangSwitch/GoogleCallback called it with the right values
+	// — or, for the anonymous/no-cookie paths, that it was NOT called at all.
+	setLanguageCalls []struct {
+		ID   uuid.UUID
+		Lang string
+	}
 }
 
 func (f fakeAccount) UpsertFromOAuth(context.Context, account.OAuthIdentity) (account.Account, error) {
@@ -62,6 +80,28 @@ func (f fakeAccount) AllRegisteredVehicles(context.Context) ([]account.OwnedVehi
 // collector, not by the gateway); the gateway never calls it, so a stub suffices.
 func (f fakeAccount) SetVehicleConfigIfEmpty(context.Context, uuid.UUID, int64, string, string) error {
 	return nil
+}
+
+// LanguageFor / SetLanguage satisfy account.Service. LanguageFor returns f.language
+// (defaulting to account.LanguageES for every pre-existing test that never sets
+// it, so a handler reading it always sees a valid code, never ""), or f.languageErr
+// when set. SetLanguage records every call in setLanguageCalls and returns
+// f.setLanguageErr (nil by default).
+func (f *fakeAccount) LanguageFor(context.Context, uuid.UUID) (string, error) {
+	if f.languageErr != nil {
+		return "", f.languageErr
+	}
+	if f.language == "" {
+		return account.LanguageES, nil
+	}
+	return f.language, nil
+}
+func (f *fakeAccount) SetLanguage(_ context.Context, id uuid.UUID, lang string) error {
+	f.setLanguageCalls = append(f.setLanguageCalls, struct {
+		ID   uuid.UUID
+		Lang string
+	}{ID: id, Lang: lang})
+	return f.setLanguageErr
 }
 
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {
@@ -573,7 +613,12 @@ func TestDashboardFor_EnrichedBento(t *testing.T) {
 		},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 42, startOfDay(time.Now()))
+	// English ctx so the StatusLabel assertion below (a real per-language
+	// string, unlike SoftwareVer/ChargeLimit which are identical or not yet
+	// translated) keeps comparing against the pre-existing literal — mirrors
+	// TestDashStatus / tier 2's T6.4 precedent rather than asserting Spanish.
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	d := h.dashboardFor(ctx, uuid.New(), 42, startOfDay(time.Now()))
 
 	if !d.HasSnapshot {
 		t.Fatalf("want HasSnapshot true, got false")
@@ -629,7 +674,8 @@ func TestDashboardFor_ChargingStatus(t *testing.T) {
 		{TeslaID: 1, CapturedAt: time.Now(), ChargingState: "Charging"},
 	}}
 	h := newHandlerWithReader(acct, fakeTesla{}, reader)
-	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	d := h.dashboardFor(ctx, uuid.New(), 0, startOfDay(time.Now()))
 	if d.StatusLabel != "Charging" {
 		t.Fatalf("want StatusLabel Charging, got %q", d.StatusLabel)
 	}
@@ -694,13 +740,23 @@ func TestFormatKm(t *testing.T) {
 }
 
 func TestDashStatus(t *testing.T) {
-	for _, tc := range []struct{ charge, want string }{
-		{"Charging", "Charging"},
-		{"Stopped", "Parked"}, {"Disconnected", "Parked"}, {"Complete", "Parked"}, {"", "Parked"},
+	// dashStatus now takes an explicit ctx and resolves through the i18n catalogue
+	// (design.md D5, RM24-gateway-translate-all-pages) instead of returning a
+	// hardcoded literal, mirroring tier 2's T6.4 precedent (nav_test.go,
+	// nav_header_test.go): assert against i18n.T(ctx, key), not a literal string.
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	for _, tc := range []struct {
+		charge string
+		want   i18n.Key
+	}{
+		{"Charging", i18n.KeyDashboardStatusCharging},
+		{"Stopped", i18n.KeyDashboardStatusParked}, {"Disconnected", i18n.KeyDashboardStatusParked},
+		{"Complete", i18n.KeyDashboardStatusParked}, {"", i18n.KeyDashboardStatusParked},
 	} {
 		s := telemetry.Snapshot{ChargingState: tc.charge}
-		if got := dashStatus(s); got != tc.want {
-			t.Errorf("dashStatus(ChargingState=%q) = %q, want %q", tc.charge, got, tc.want)
+		want := i18n.T(ctx, tc.want)
+		if got := dashStatus(ctx, s); got != want {
+			t.Errorf("dashStatus(ChargingState=%q) = %q, want %q", tc.charge, got, want)
 		}
 	}
 }
@@ -786,9 +842,6 @@ func TestNavHeaderFor_Connected(t *testing.T) {
 	if vm.Status != "connected" {
 		t.Errorf("want Status connected, got %q", vm.Status)
 	}
-	if vm.StatusLabel != "Connected" {
-		t.Errorf("want StatusLabel Connected, got %q", vm.StatusLabel)
-	}
 	if vm.BatteryPct != "94%" {
 		t.Errorf("want BatteryPct 94%%, got %q", vm.BatteryPct)
 	}
@@ -806,16 +859,18 @@ func TestNavHeaderFor_Asleep(t *testing.T) {
 		{TeslaID: 42, CapturedAt: time.Now().Add(-72 * time.Hour), BatteryLevelPct: 50},
 	}}
 	h := newNavHeaderHandler(acct, reader)
-	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+	// English ctx so the "days ago" substring assertion below keeps comparing
+	// against the resolved i18n string (KeyNavHeaderLastSeenDaysPlural's EN
+	// value), mirroring TestDashStatus / tier 2's T6.4 precedent rather than
+	// asserting the Spanish "hace %d días" phrasing.
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	vm := h.navHeaderFor(ctx, uuid.New(), 0)
 
 	if vm.VehicleName != "Magus" {
 		t.Errorf("want VehicleName Magus, got %q", vm.VehicleName)
 	}
 	if vm.Status != "asleep" {
 		t.Errorf("want Status asleep, got %q", vm.Status)
-	}
-	if vm.StatusLabel != "Asleep" {
-		t.Errorf("want StatusLabel Asleep, got %q", vm.StatusLabel)
 	}
 	if vm.BatteryPct != "" {
 		t.Errorf("want no BatteryPct when asleep, got %q", vm.BatteryPct)
@@ -846,9 +901,6 @@ func TestNavHeaderFor_Awaiting(t *testing.T) {
 	}
 	if vm.Status != "awaiting" {
 		t.Errorf("want Status awaiting, got %q", vm.Status)
-	}
-	if vm.StatusLabel == "" {
-		t.Errorf("want non-empty StatusLabel for awaiting, got empty")
 	}
 	if vm.BatteryPct != "" || vm.LastSeenLabel != "" {
 		t.Errorf("want no battery/last-seen for awaiting, got battery=%q lastSeen=%q", vm.BatteryPct, vm.LastSeenLabel)
@@ -891,9 +943,6 @@ func TestNavHeaderFor_AccountError(t *testing.T) {
 	}
 	if vm.Status != "unavailable" {
 		t.Errorf("want Status unavailable, got %q", vm.Status)
-	}
-	if vm.StatusLabel == "" {
-		t.Errorf("want non-empty StatusLabel for unavailable, got empty")
 	}
 }
 

@@ -469,7 +469,11 @@ func TestSuperchargerStatsPage_NoRegisteredVehicleShowsEmptyState(t *testing.T) 
 		t.Fatalf("want 200 (empty state, not an error) for no vehicle, got %d", w.Code)
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "No Supercharger sessions") {
+	// superchargerEngine never wires handlers.LanguageMiddleware, so
+	// i18n.FromContext falls back to Spanish (KeySuperchargerEmpty's ES value) —
+	// assert the resolved-language string, not the pre-existing English literal
+	// (RM24-gateway-translate-all-pages, mirroring tier 2's T6.4 precedent).
+	if !strings.Contains(body, "No hay sesiones de Supercharger") {
 		t.Errorf("want the empty-state message, body:\n%s", body)
 	}
 }
@@ -491,7 +495,8 @@ func TestSuperchargerStatsFragment_ReaderErrorDegradesNo500(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200 (graceful degrade) on reader error, got %d", w.Code)
 	}
-	if !strings.Contains(w.Body.String(), "No Supercharger sessions") {
+	// Resolved language is Spanish here (see the NoRegisteredVehicle comment above).
+	if !strings.Contains(w.Body.String(), "No hay sesiones de Supercharger") {
 		t.Errorf("want empty-state placeholder on reader error; body: %s", w.Body.String())
 	}
 }
@@ -513,7 +518,8 @@ func TestSuperchargerStatsFragment_DefaultMonthsIsSix(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
-	if !strings.Contains(w.Body.String(), "6 months") {
+	// Resolved language is Spanish here (KeySuperchargerMonthsPreset's ES value "%d meses").
+	if !strings.Contains(w.Body.String(), "6 meses") {
 		t.Errorf("want default months=6 reflected in the rendered selector, body:\n%s", w.Body.String())
 	}
 }
@@ -541,11 +547,14 @@ func TestSuperchargerStatsFragment_ValidPresetsAccepted(t *testing.T) {
 // --- F.1: render test — SVG/title/active-preset + table/tile single-source-of-truth (D7) ---
 
 // sessionsTileValueRe extracts the rendered Sessions ui.StatTile value, e.g.
-// `stat-title">Sessions</div><div class="stat-value">3</div>` -> "3". Templ
+// `stat-title">Sesiones</div><div class="stat-value">3</div>` -> "3". Templ
 // emits no whitespace between adjacent tags (confirmed in
 // templates/ui/stat_tile_templ.go), so the pattern matches the compact output
-// verbatim.
-var sessionsTileValueRe = regexp.MustCompile(`stat-title">Sessions</div><div class="stat-value">(\d+)</div>`)
+// verbatim. The label is "Sesiones" (KeySuperchargerSessions' ES value) because
+// superchargerEngine never wires handlers.LanguageMiddleware, so i18n.FromContext
+// falls back to Spanish (RM24-gateway-translate-all-pages, mirroring tier 2's
+// T6.4 precedent — was "Sessions" before this tier translated the tile label).
+var sessionsTileValueRe = regexp.MustCompile(`stat-title">Sesiones</div><div class="stat-value">(\d+)</div>`)
 
 // TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile
 // covers F.1: the fragment contains the responsive <svg viewBox …> chart with
@@ -590,7 +599,8 @@ func TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile(t
 	if !strings.Contains(body, "btn-primary") {
 		t.Error("month selector must mark the active preset with btn-primary")
 	}
-	if !strings.Contains(body, "6 months") {
+	// Resolved language is Spanish here (see sessionsTileValueRe's comment above).
+	if !strings.Contains(body, "6 meses") {
 		t.Error("month selector must render the active 6-month preset label")
 	}
 

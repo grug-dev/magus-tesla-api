@@ -75,6 +75,17 @@ func (f *fakeAccount) SeedVehicles(context.Context, uuid.UUID, []account.SeedVeh
 // SetVehicleConfigIfEmpty is the recording double consumed by RM6 tier 2
 // (RM6-telemetry-capture-vehicle-config): every call is appended to configCaptures, and
 // configCaptureErr (nil by default) is returned so tests can script a write-back failure.
+// LanguageFor / SetLanguage satisfy account.Service. The nightly collector never
+// reads a language preference, so both are inert stubs; LanguageFor returns the
+// platform default rather than "".
+func (f *fakeAccount) LanguageFor(_ context.Context, _ uuid.UUID) (string, error) {
+	return account.LanguageES, nil
+}
+
+func (f *fakeAccount) SetLanguage(_ context.Context, _ uuid.UUID, _ string) error {
+	return nil
+}
+
 func (f *fakeAccount) SetVehicleConfigIfEmpty(_ context.Context, accountID uuid.UUID, teslaID int64, exteriorColor, carType string) error {
 	f.configCaptures = append(f.configCaptures, configCapture{accountID, teslaID, exteriorColor, carType})
 	if f.configCaptureErr != nil {

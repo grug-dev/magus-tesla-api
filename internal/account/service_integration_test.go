@@ -665,6 +665,87 @@ func TestSetVehicleConfigIfEmpty_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestLanguagePreference_RoundTrip verifies the full language preference
+// read/write path (design.md D3/D4, DATABASE_URL-gated): a fresh account's
+// default, a successful switch and switch-back, rejection of an unsupported
+// code (no write occurs), and normalization of a value written outside this
+// module's write path. Mirrors TestAccessType_RoundTrip's setup.
+func TestLanguagePreference_RoundTrip(t *testing.T) {
+	s, pool := newTestService(t)
+	ctx := context.Background()
+
+	acct, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
+		Provider:   "google",
+		ProviderID: uuid.NewString(),
+		Email:      "language-roundtrip@example.com",
+	})
+	if err != nil {
+		t.Fatalf("provisioning account: %v", err)
+	}
+	deleteAccount(t, pool, acct.ID)
+
+	// --- Default on a fresh account: no explicit SetLanguage call yet ---
+	got, err := s.LanguageFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("LanguageFor (fresh account): %v", err)
+	}
+	if got != LanguageES {
+		t.Fatalf("fresh account language: want %q, got %q", LanguageES, got)
+	}
+
+	// --- Successful switch to en ---
+	if err := s.SetLanguage(ctx, acct.ID, LanguageEN); err != nil {
+		t.Fatalf("SetLanguage(en): %v", err)
+	}
+	got, err = s.LanguageFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("LanguageFor (after switch to en): %v", err)
+	}
+	if got != LanguageEN {
+		t.Fatalf("after switching to en: want %q, got %q", LanguageEN, got)
+	}
+
+	// --- Switching back to es ---
+	if err := s.SetLanguage(ctx, acct.ID, LanguageES); err != nil {
+		t.Fatalf("SetLanguage(es): %v", err)
+	}
+	got, err = s.LanguageFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("LanguageFor (after switch back to es): %v", err)
+	}
+	if got != LanguageES {
+		t.Fatalf("after switching back to es: want %q, got %q", LanguageES, got)
+	}
+
+	// --- Rejecting an unsupported code: no write occurs ---
+	if err := s.SetLanguage(ctx, acct.ID, "fr"); !errors.Is(err, ErrUnsupportedLanguage) {
+		t.Fatalf("SetLanguage(fr): want ErrUnsupportedLanguage, got %v", err)
+	}
+	got, err = s.LanguageFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("LanguageFor (after rejected write): %v", err)
+	}
+	if got != LanguageES {
+		t.Fatalf("after rejected SetLanguage: want unchanged %q, got %q", LanguageES, got)
+	}
+
+	// --- Normalizing a legacy/out-of-band value written outside this module's
+	// write path (raw pool.Exec, mirroring the vehicle_config self-heal test
+	// technique) ---
+	if _, err := pool.Exec(ctx,
+		"UPDATE accounts SET language = $1 WHERE id = $2", "fr", acct.ID,
+	); err != nil {
+		t.Fatalf("simulating out-of-band language write: %v", err)
+	}
+	got, err = s.LanguageFor(ctx, acct.ID)
+	if err != nil {
+		t.Fatalf("LanguageFor (after out-of-band write): %v", err)
+	}
+	if got != LanguageES {
+		t.Fatalf("out-of-band unsupported value: want normalized %q, got %q", LanguageES, got)
+	}
+}
+
 func TestSeedVehicles_IdempotentAndDoesNotOverwrite(t *testing.T) {
 	s, pool := newTestService(t)
 	ctx := context.Background()
