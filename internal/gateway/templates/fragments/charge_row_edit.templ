@@ -1,6 +1,9 @@
 package fragments
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
 
 // ChargeRowEdit renders the inline edit form for a single charge entry row.
 // Its id="charge-row-{vm.ID}" matches the static row's id so htmx
@@ -39,62 +42,62 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 				<input type="hidden" name="csrf_token" value={ csrfToken }/>
 				<input type="hidden" name="id" value={ vm.ID }/>
 				<div class="grid gap-3 sm:grid-cols-2">
-					@ui.Field(ui.FieldProps{Label: "Date", Error: validationErrors["charged_on"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormDate), Error: validationErrors["charged_on"]}) {
 						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: vm.RawChargedOn, Required: true})
 					}
-					@ui.Field(ui.FieldProps{Label: "Energy added (kWh)", Error: validationErrors["energy_added_kwh"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEnergyAdded), Error: validationErrors["energy_added_kwh"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: vm.RawEnergyKWh, Required: true, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})
 					}
-					@ui.Field(ui.FieldProps{Label: "Price", Error: validationErrors["price"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormPrice), Error: validationErrors["price"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "price", Value: vm.RawPrice, Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
 					}
-					@ui.Field(ui.FieldProps{Label: "Currency"}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormCurrency)}) {
 						@ui.Input(ui.InputProps{Name: "currency", Value: vm.Currency, Disabled: true})
 					}
-					@ui.Field(ui.FieldProps{Label: "Vehicle"}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormVehicle)}) {
 						<span class="text-base-content/80">{ vm.VehicleLabel }</span>
 					}
-					@ui.Field(ui.FieldProps{Label: "Start battery %", Error: validationErrors["start_battery_pct"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPct), Error: validationErrors["start_battery_pct"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Value: vm.RawStartBatteryPct, Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 					}
-					@ui.Field(ui.FieldProps{Label: "End battery %", Error: validationErrors["end_battery_pct"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndBatteryPct), Error: validationErrors["end_battery_pct"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: vm.RawEndBatteryPct, Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 					}
 				</div>
 				<details>
-					<summary class="cursor-pointer font-medium">More details</summary>
+					<summary class="cursor-pointer font-medium">{ i18n.T(ctx, i18n.KeyChargesFormMoreDetails) }</summary>
 					<div class="grid gap-3 sm:grid-cols-2 mt-2">
-						@ui.Field(ui.FieldProps{Label: "Started at", Error: validationErrors["started_at"]}) {
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartedAt), Error: validationErrors["started_at"]}) {
 							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at", Value: vm.RawStartedAt})
 						}
-						@ui.Field(ui.FieldProps{Label: "Ended at", Error: validationErrors["ended_at"]}) {
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndedAt), Error: validationErrors["ended_at"]}) {
 							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: vm.RawEndedAt})
 						}
-						@ui.Field(ui.FieldProps{Label: "Charging type"}) {
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormChargingType)}) {
 							@ui.Select(ui.SelectProps{Name: "charging_type"}) {
 								<option value="">-</option>
-								<option value="AC" selected?={ vm.ChargingType == "AC" }>AC</option>
-								<option value="DC" selected?={ vm.ChargingType == "DC" }>DC</option>
+								<option value="AC" selected?={ vm.ChargingType == "AC" }>{ i18n.T(ctx, i18n.KeyChargesFormAC) }</option>
+								<option value="DC" selected?={ vm.ChargingType == "DC" }>{ i18n.T(ctx, i18n.KeyChargesFormDC) }</option>
 							}
 						}
-						@ui.Field(ui.FieldProps{Label: "Location kind", Error: validationErrors["location_kind"]}) {
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocationKind), Error: validationErrors["location_kind"]}) {
 							@ui.Select(ui.SelectProps{Name: "location_kind", Required: true}) {
-								<option value="HOME" selected?={ vm.LocationKind == "HOME" }>Home</option>
-								<option value="WORK" selected?={ vm.LocationKind == "WORK" }>Work</option>
-								<option value="OTHER" selected?={ vm.LocationKind == "OTHER" }>Other</option>
+								<option value="HOME" selected?={ vm.LocationKind == "HOME" }>{ i18n.T(ctx, i18n.KeyChargesFormHome) }</option>
+								<option value="WORK" selected?={ vm.LocationKind == "WORK" }>{ i18n.T(ctx, i18n.KeyChargesFormWork) }</option>
+								<option value="OTHER" selected?={ vm.LocationKind == "OTHER" }>{ i18n.T(ctx, i18n.KeyChargesFormOther) }</option>
 							}
 						}
-						@ui.Field(ui.FieldProps{Label: "Location label"}) {
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocationLabel)}) {
 							@ui.Input(ui.InputProps{Name: "location_label", Value: vm.LocationLabel})
 						}
-						@ui.Field(ui.FieldProps{Label: "Notes", Class: "sm:col-span-2"}) {
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormNotes), Class: "sm:col-span-2"}) {
 							@ui.Textarea(ui.TextareaProps{Name: "notes"}) { { vm.Notes } }
 						}
 					</div>
 				</details>
 				<div class="flex gap-2">
 					@ui.Button(ui.ButtonProps{Type: "submit", Variant: "primary", Size: "sm"}) {
-						Save
+						{ i18n.T(ctx, i18n.KeyChargesFormSave) }
 					}
 					@ui.Button(ui.ButtonProps{
 						Variant: "ghost",
@@ -105,7 +108,7 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 							"hx-swap":   "outerHTML",
 						},
 					}) {
-						Cancel
+						{ i18n.T(ctx, i18n.KeyChargesFormCancel) }
 					}
 				</div>
 			</form>

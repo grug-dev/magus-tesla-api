@@ -13,7 +13,7 @@ import (
 // JavaScript, so htmx fragment swaps stay styled with nothing to re-initialize.
 templ Base(title string) {
 	<!DOCTYPE html>
-	<html lang="en" data-theme="apex">
+	<html lang={ i18n.FromContext(ctx) } data-theme="apex">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -66,7 +66,7 @@ templ BaseAuth(title, path string) {
 					<label for="nav-drawer" aria-label={ i18n.T(ctx, i18n.KeyNavOpenSidebar) } class="btn btn-square btn-ghost lg:hidden">
 						@ui.Icon(ui.IconProps{Name: "menu", Class: "h-6 w-6"})
 					</label>
-					<div class="mx-2 flex-1 px-2 text-lg font-semibold">Magus</div>
+					<div class="mx-2 flex-1 px-2 text-lg font-semibold">{ i18n.T(ctx, i18n.KeyBrandMagus) }</div>
 				</nav>
 				<main class="p-4">
 					{ children... }

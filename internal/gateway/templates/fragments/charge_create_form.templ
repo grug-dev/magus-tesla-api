@@ -1,6 +1,9 @@
 package fragments
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
 
 // ChargeCreateForm renders the "Log a charge" create form.
 // Its root <div id="charges-create-form"> matches the templ.Fragment name and
@@ -29,7 +32,7 @@ import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 //     the browser's nearest-valid-range helper behavior (now after 3 decimals).
 templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 	<div id="charges-create-form">
-		@ui.Card(ui.CardProps{Title: "Log a charge"}) {
+		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesFormTitle)}) {
 			if validationErrors["_top"] != "" {
 				@ui.Alert(ui.AlertProps{Kind: "error"}) {
 					{ validationErrors["_top"] }
@@ -43,34 +46,34 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 			>
 				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
 				<div class="grid gap-3 sm:grid-cols-2">
-					@ui.Field(ui.FieldProps{Label: "Date", Error: validationErrors["charged_on"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormDate), Error: validationErrors["charged_on"]}) {
 						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true})
 					}
-					@ui.Field(ui.FieldProps{Label: "Energy added (kWh)", Error: validationErrors["energy_added_kwh"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEnergyAdded), Error: validationErrors["energy_added_kwh"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Required: true, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})
 					}
-					@ui.Field(ui.FieldProps{Label: "Price", Error: validationErrors["price"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormPrice), Error: validationErrors["price"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "price", Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
 					}
-					@ui.Field(ui.FieldProps{Label: "Currency"}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormCurrency)}) {
 						@ui.Input(ui.InputProps{Name: "currency", Value: "COP", Disabled: true})
 					}
-					@ui.Field(ui.FieldProps{Label: "Location", Error: validationErrors["location_kind"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocation), Error: validationErrors["location_kind"]}) {
 						@ui.Select(ui.SelectProps{Name: "location_kind", Required: true}) {
-							<option value="HOME">Home</option>
-							<option value="WORK">Work</option>
-							<option value="OTHER">Other</option>
+							<option value="HOME">{ i18n.T(ctx, i18n.KeyChargesFormHome) }</option>
+							<option value="WORK">{ i18n.T(ctx, i18n.KeyChargesFormWork) }</option>
+							<option value="OTHER">{ i18n.T(ctx, i18n.KeyChargesFormOther) }</option>
 						}
 					}
 					// D1: optional date fields moved up from "More details"; default to today (pre-computed by the handler).
-					@ui.Field(ui.FieldProps{Label: "Started at", Error: validationErrors["started_at"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartedAt), Error: validationErrors["started_at"]}) {
 						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at", Value: d.DefaultStartedAt})
 					}
-					@ui.Field(ui.FieldProps{Label: "Ended at", Error: validationErrors["ended_at"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndedAt), Error: validationErrors["ended_at"]}) {
 						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: d.DefaultEndedAt})
 					}
 					// D6 + D2: required battery fields; start has a telemetry-sourced suggestion label (graceful empty when no snapshot).
-					@ui.Field(ui.FieldProps{Label: "Start battery %", Error: validationErrors["start_battery_pct"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPct), Error: validationErrors["start_battery_pct"]}) {
 						@ui.Input(ui.InputProps{
 							Type:     "number",
 							Name:     "start_battery_pct",
@@ -78,31 +81,31 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 							Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1", "placeholder": d.StartBatteryPctSuggestion},
 						})
 					}
-					@ui.Field(ui.FieldProps{Label: "End battery %", Error: validationErrors["end_battery_pct"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndBatteryPct), Error: validationErrors["end_battery_pct"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 					}
 				</div>
 				<details>
-					<summary class="cursor-pointer font-medium">More details</summary>
+					<summary class="cursor-pointer font-medium">{ i18n.T(ctx, i18n.KeyChargesFormMoreDetails) }</summary>
 					<div class="grid gap-3 sm:grid-cols-2 mt-2">
-						@ui.Field(ui.FieldProps{Label: "Charging type"}) {
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormChargingType)}) {
 							@ui.Select(ui.SelectProps{Name: "charging_type"}) {
 								<option value="">-</option>
-								<option value="AC">AC</option>
-								<option value="DC">DC</option>
+								<option value="AC">{ i18n.T(ctx, i18n.KeyChargesFormAC) }</option>
+								<option value="DC">{ i18n.T(ctx, i18n.KeyChargesFormDC) }</option>
 							}
 						}
-						@ui.Field(ui.FieldProps{Label: "Location label"}) {
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocationLabel)}) {
 							@ui.Input(ui.InputProps{Name: "location_label"})
 						}
-						@ui.Field(ui.FieldProps{Label: "Notes", Class: "sm:col-span-2"}) {
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormNotes), Class: "sm:col-span-2"}) {
 							@ui.Textarea(ui.TextareaProps{Name: "notes"})
 						}
 					</div>
 				</details>
 				<div>
 					@ui.Button(ui.ButtonProps{Type: "submit", Variant: "primary"}) {
-						Log charge
+						{ i18n.T(ctx, i18n.KeyChargesFormLogCharge) }
 					}
 				</div>
 			</form>

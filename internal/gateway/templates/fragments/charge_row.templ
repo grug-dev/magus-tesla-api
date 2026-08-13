@@ -1,6 +1,11 @@
 package fragments
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
 
 // ChargeRow renders the static view of one charge entry as a table row.
 // Its id="charge-row-{vm.ID}" matches the templ.Fragment id pattern and
@@ -25,7 +30,7 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 						"hx-swap":   "outerHTML",
 					},
 				}) {
-					Edit
+					{ i18n.T(ctx, i18n.KeyChargesRowEdit) }
 				}
 				@ui.Button(ui.ButtonProps{
 					Variant: "error",
@@ -40,9 +45,9 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 						// data-confirm-* attributes below are that dialog's per-use knobs.
 						// Naming the actual entry beats a generic "Delete this entry?" —
 						// the user confirms the row they meant, not the row they clicked.
-						"hx-confirm":           "Delete the " + vm.EnergyKWh + " charge logged on " + vm.ChargedOnLabel + "? This cannot be undone.",
-						"data-confirm-title":   "Delete charge entry",
-						"data-confirm-label":   "Delete entry",
+						"hx-confirm":           fmt.Sprintf(i18n.T(ctx, i18n.KeyChargesRowConfirmMessage), vm.EnergyKWh, vm.ChargedOnLabel),
+						"data-confirm-title":   i18n.T(ctx, i18n.KeyChargesRowConfirmTitle),
+						"data-confirm-label":   i18n.T(ctx, i18n.KeyChargesRowConfirmLabel),
 						"data-confirm-variant": "danger",
 						// D3 — send the CSRF token on the X-CSRF-Token HEADER, not the
 						// form body. Go's net/http only parses request bodies for POST/
@@ -59,7 +64,7 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 						// row in the same render — see ChargesContentFragment).
 					},
 				}) {
-					Delete
+					{ i18n.T(ctx, i18n.KeyChargesRowDelete) }
 				}
 			</div>
 		</td>

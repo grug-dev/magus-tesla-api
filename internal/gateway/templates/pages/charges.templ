@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
@@ -21,9 +22,9 @@ import (
 // innerHTML; the region element (with its flex layout + hx-trigger) persists.
 templ ChargePage(d fragments.ChargesPageData) {
 	@layouts.BaseAuth("Charge log — Magus", "/charges") {
-		@ui.PageHeader(ui.PageHeaderProps{Title: "Charge log"}) {
+		@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyChargesPageTitle)}) {
 			@ui.Button(ui.ButtonProps{Variant: "ghost", Href: "/dashboard"}) {
-				Back to dashboard
+				{ i18n.T(ctx, i18n.KeyChargesPageBackToDashboard) }
 			}
 		}
 		<div id="charges-content" class="flex flex-col gap-6" hx-get="/ui/charges" hx-trigger="vehicle-changed from:body" hx-swap="innerHTML">

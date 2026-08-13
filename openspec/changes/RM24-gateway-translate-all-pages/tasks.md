@@ -76,44 +76,47 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
 
 ## T2. Home + Login pages — depends on T1
 
-- [ ] T2.1 `templates/pages/home.templ`: replace every literal with `i18n.T(ctx, i18n.KeyXxx)`
+- [x] T2.1 `templates/pages/home.templ`: replace every literal with `i18n.T(ctx, i18n.KeyXxx)`
       per T1.1–T1.3 + reused `KeyNavHeaderConnectLink`/`KeyNavLogout`.
-- [ ] T2.2 `templates/pages/login.templ`: same, per T1.1/T1.3.
-- [ ] T2.3 `templates/layouts/base.templ`: `<h1>`/nav-bar "Magus" text → `i18n.T(ctx,
+- [x] T2.2 `templates/pages/login.templ`: same, per T1.1/T1.3.
+- [x] T2.3 `templates/layouts/base.templ`: `<h1>`/nav-bar "Magus" text → `i18n.T(ctx,
       i18n.KeyBrandMagus)` (both the `home.templ` and `base.templ` occurrences share this key).
 
 ## T3. Dashboard page + helper — depends on T1
 
-- [ ] T3.1 `templates/pages/dashboard.templ`: replace every literal per T1.4, reusing
+- [x] T3.1 `templates/pages/dashboard.templ`: replace every literal per T1.4, reusing
       `KeyNavHeaderConnectLink`/`KeyNavHeaderNoTesla`/`KeyNavDashboard` per D2's reuse table.
-- [ ] T3.2 `templates/pages/dashboard.go`: `dashSubtitle` gains an explicit `ctx` parameter (its
+- [x] T3.2 `templates/pages/dashboard.go`: `dashSubtitle` gains an explicit `ctx` parameter (its
       one call site is inside a `.templ` block, mirroring `navItems(ctx, active)`); replace
       "Awaiting first snapshot" with `i18n.T(ctx, i18n.KeyDashboardAwaitingSnapshot)`. Update the
       `dashSubtitle(d)` call site in `dashboard.templ` to `dashSubtitle(ctx, d)`.
 
 ## T4. Charge forms (create + inline edit) — depends on T1
 
-- [ ] T4.1 `templates/fragments/charge_create_form.templ`: replace every field label / option
+- [x] T4.1 `templates/fragments/charge_create_form.templ`: replace every field label / option
       text / submit button per T1.6, using the shared `charges_form.*` keys.
-- [ ] T4.2 `templates/fragments/charge_row_edit.templ`: same fields reuse the identical
+- [x] T4.2 `templates/fragments/charge_row_edit.templ`: same fields reuse the identical
       `charges_form.*` keys T4.1 used; "Vehicle", "Location kind", "Save", "Cancel" use their own
       T1.6 keys.
 
 ## T5. Charge rows, list, and page — depends on T1
 
-- [ ] T5.1 `templates/fragments/charge_row.templ`: "Edit"/"Delete" buttons and the three
+- [x] T5.1 `templates/fragments/charge_row.templ`: "Edit"/"Delete" buttons and the three
       `data-confirm-*` attributes per T1.7; the `hx-confirm` message becomes
       `fmt.Sprintf(i18n.T(ctx, i18n.KeyChargesRowConfirmMessage), vm.EnergyKWh,
       vm.ChargedOnLabel)` (D3).
 - [ ] T5.2 `templates/fragments/charges_list.templ`: "Your entries"/"Refresh"/empty-state per
-      T1.8.
-- [ ] T5.3 `templates/pages/charges.templ`: "Charge log"/"Back to dashboard" per T1.9.
+      T1.8. DONE for those three; the `ui.Table` `Headers` slice ("Date", "Vehicle", "Energy",
+      "Price", "Cost/kWh", "Battery", "Duration", "Actions") has NO catalog key and is not listed
+      in T1.8 — left hardcoded, blocked pending new `charges_list.header_*` keys (see worker
+      report).
+- [x] T5.3 `templates/pages/charges.templ`: "Charge log"/"Back to dashboard" per T1.9.
 
 ## T6. History chart + preset handler — depends on T1
 
-- [ ] T6.1 `templates/fragments/history.templ`: "Awaiting nightly snapshots"/"Odometer
+- [x] T6.1 `templates/fragments/history.templ`: "Awaiting nightly snapshots"/"Odometer
       history"/"Battery history" per T1.10.
-- [ ] T6.2 `internal/gateway/handlers/history.go`: the preset-button `Label` becomes
+- [x] T6.2 `internal/gateway/handlers/history.go`: the preset-button `Label` becomes
       `fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryDaysPreset), n)`; the missing-snapshot bar
       `Tooltip` becomes `fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryNoSnapshotTooltip), label)` (both
       call sites — the numDays≥2 and the single-day branch). Thread `ctx` into the two chart-
@@ -121,7 +124,7 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
 
 ## T7. Supercharger Stats fragment — depends on T1
 
-- [ ] T7.1 `templates/fragments/supercharger_stats.templ`: month-preset label via
+- [x] T7.1 `templates/fragments/supercharger_stats.templ`: month-preset label via
       `fmt.Sprintf(i18n.T(ctx, i18n.KeySuperchargerMonthsPreset), p)` (both branches); "Sessions",
       "Energy", "Cost", "Avg kWh / session", "kWh per month", the empty-state sentence, and the
       table headers ("Date", "Site", "Country", "Billing Type"; "Energy"/"Cost" reuse the tile
@@ -131,17 +134,17 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
 
 ## T8. Vehicles fragment (dead code, in scope per roadmap) — depends on T1
 
-- [ ] T8.1 `templates/fragments/vehicles.templ`: every literal per T1.12 (design.md Discoveries
+- [x] T8.1 `templates/fragments/vehicles.templ`: every literal per T1.12 (design.md Discoveries
       #3 — translate despite no current caller; do not delete or special-case).
 
 ## T9. Foundation fixes: `<html lang>` bug + nav-header "Last seen" — depends on T1
 
-- [ ] T9.1 `templates/layouts/base.templ`: fix `<html lang="en" ...>` →
+- [x] T9.1 `templates/layouts/base.templ`: fix `<html lang="en" ...>` →
       `<html lang={ i18n.FromContext(ctx) } ...>` (design.md Discoveries #1 — a real bug, not a
       missing translation).
-- [ ] T9.2 `templates/fragments/nav_header.templ`: replace the hardcoded "Last seen" prefix with
+- [x] T9.2 `templates/fragments/nav_header.templ`: replace the hardcoded "Last seen" prefix with
       `i18n.T(ctx, i18n.KeyNavHeaderLastSeen)` (T1.13).
-- [ ] T9.3 `internal/gateway/handlers/handlers.go`: `relativeLastSeen` gains an explicit `ctx`
+- [x] T9.3 `internal/gateway/handlers/handlers.go`: `relativeLastSeen` gains an explicit `ctx`
       third parameter (its one call site, inside `navHeaderFor`, already has `ctx` in scope);
       each of its six branches returns the corresponding T1.13 key via `i18n.T(ctx, key)` or
       `fmt.Sprintf(i18n.T(ctx, key), n)` per design.md D3's table (closes tier 2's D9-flagged
@@ -149,7 +152,7 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
 
 ## T10. Confirm dialog — depends on T1
 
-- [ ] T10.1 `templates/ui/confirm_dialog.templ`: "Are you sure?", "Cancel", "Confirm", "Delete",
+- [x] T10.1 `templates/ui/confirm_dialog.templ`: "Are you sure?", "Cancel", "Confirm", "Delete",
       "Close" per T1.14.
 
 ## T11. `handlers.go` — depends on T1 **and T9**
@@ -159,39 +162,39 @@ applies (`KeyNavHeaderConnectLink`, `KeyNavHeaderNoTesla`, `KeyNavLogout`, `KeyN
 > same-file merge-collision class design.md D4 invoked to serialize `catalog.go`. Run T9 first,
 > then T11. Every other group remains parallel-safe.
 
-- [ ] T11.1 `vehiclesFor`: replace all 6 `Notice` literals with `i18n.T(ctx, key)` per T1.15
+- [x] T11.1 `vehiclesFor`: replace all 6 `Notice` literals with `i18n.T(ctx, key)` per T1.15
       (`vehicles_notice.*`).
-- [ ] T11.2 `dashboardFor`: replace the `Notice` literal per T1.15 (`dashboard_notice.*`).
-- [ ] T11.3 `dashStatus`: gains an explicit `ctx` parameter (mirrors D5); returns `i18n.T(ctx,
+- [x] T11.2 `dashboardFor`: replace the `Notice` literal per T1.15 (`dashboard_notice.*`).
+- [x] T11.3 `dashStatus`: gains an explicit `ctx` parameter (mirrors D5); returns `i18n.T(ctx,
       i18n.KeyDashboardStatusCharging)` / `...Parked` (T1.5). `mapDashboardSnapshot` threads `ctx`
       through to `dashStatus` and wraps the `"Software v" + snap.CarVersion` concatenation as
       `fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardStatusSoftwareVersion), snap.CarVersion)` (T1.5,
       D3). `dashboardFor` (which already has `ctx`) passes it to `mapDashboardSnapshot`.
-- [ ] T11.4 Every bare-text `c.String(http.Status[45]xx, "...")` call in `handlers.go` (11 sites:
+- [x] T11.4 Every bare-text `c.String(http.Status[45]xx, "...")` call in `handlers.go` (11 sites:
       invalid vehicle ×2, invalid vehicle id, could not validate vehicle, vehicle not in your
       account, could not start Tesla connect, invalid oauth state, Tesla connect failed, could not
       save Tesla connection, could not start login, google login failed, could not provision
       account) becomes `c.String(http.Status[45]xx, i18n.T(c.Request.Context(), i18n.KeyXxx))`
       per T1.15 (`oauth_error.*`).
-- [ ] T11.5 Mark `Healthz`'s `c.String(http.StatusServiceUnavailable, "unhealthy: %v", err)` line
+- [x] T11.5 Mark `Healthz`'s `c.String(http.StatusServiceUnavailable, "unhealthy: %v", err)` line
       with `// i18n:allow: ops health-check response, not user-facing UI` (design.md Discoveries
       #5) — leave the string as-is, do not translate.
-- [ ] T11.6 `go build ./internal/gateway/...` compiles clean after this task (confirms `ctx`
+- [x] T11.6 `go build ./internal/gateway/...` compiles clean after this task (confirms `ctx`
       threading didn't break any call site).
 
 ## T12. `charges.go` — depends on T1
 
-- [ ] T12.1 All 11 validation-message assignments (`errs["..."] = "..."`) become `errs["..."] =
+- [x] T12.1 All 11 validation-message assignments (`errs["..."] = "..."`) become `errs["..."] =
       i18n.T(ctx, i18n.KeyXxx)` per T1.15 (`charges_error.*`).
-- [ ] T12.2 The 4 `Notice`/`Error`/`pageError` literal assignments become `i18n.T(ctx, key)` calls.
-- [ ] T12.3 The `"Latest: %d%%"` suggestion becomes `fmt.Sprintf(i18n.T(ctx,
+- [x] T12.2 The 4 `Notice`/`Error`/`pageError` literal assignments become `i18n.T(ctx, key)` calls.
+- [x] T12.3 The `"Latest: %d%%"` suggestion becomes `fmt.Sprintf(i18n.T(ctx,
       i18n.KeyChargesErrorBatterySuggestion), s.BatteryLevelPct)` (D3).
-- [ ] T12.4 All 7 bare-text `c.String(http.Status[45]xx, "...")` calls become `i18n.T(ctx, key)`
+- [x] T12.4 All 7 bare-text `c.String(http.Status[45]xx, "...")` calls become `i18n.T(ctx, key)`
       wrapped per T11.4's pattern.
 
 ## T13. `lang.go` — depends on T1
 
-- [ ] T13.1 All 3 bare-text `c.String(...)` calls in `LangSwitch` become `i18n.T(c.Request.Context(),
+- [x] T13.1 All 3 bare-text `c.String(...)` calls in `LangSwitch` become `i18n.T(c.Request.Context(),
       key)` per T1.15 (`lang_switch_error.*`).
 
 ## T14. `make i18n-guard` — depends on T1 (build); full clean run depends on T2–T13

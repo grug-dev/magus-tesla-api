@@ -102,7 +102,7 @@ templ NavHeader(vm NavHeaderVM) {
 								<span>• { vm.BatteryPct }</span>
 							}
 							if vm.LastSeenLabel != "" {
-								<span>• Last seen { vm.LastSeenLabel }</span>
+								<span>• { i18n.T(ctx, i18n.KeyNavHeaderLastSeen) } { vm.LastSeenLabel }</span>
 							}
 						</span>
 					</div>

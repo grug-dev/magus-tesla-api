@@ -113,7 +113,7 @@ func LanguageMiddleware(acct account.Service) gin.HandlerFunc {
 func (h *Handler) LangSwitch(c *gin.Context) {
 	lang := c.PostForm("lang")
 	if lang != account.LanguageES && lang != account.LanguageEN {
-		c.String(http.StatusBadRequest, "unsupported language")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyLangSwitchErrorUnsupportedLanguage))
 		return
 	}
 
@@ -125,7 +125,7 @@ func (h *Handler) LangSwitch(c *gin.Context) {
 		if err := h.acct.SetLanguage(c.Request.Context(), uid, lang); err != nil {
 			// The write failed: do NOT still send HX-Location, so the client does
 			// not reload into a state the persisted write never actually reached.
-			c.String(http.StatusInternalServerError, "could not save language preference")
+			c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyLangSwitchErrorCouldNotSaveLanguage))
 			return
 		}
 	}
@@ -134,7 +134,7 @@ func (h *Handler) LangSwitch(c *gin.Context) {
 	if err != nil {
 		// hxLocation is two plain strings; json.Marshal cannot realistically fail
 		// here, but every error is checked per project convention.
-		c.String(http.StatusInternalServerError, "could not build redirect")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyLangSwitchErrorCouldNotBuildRedirect))
 		return
 	}
 	c.Header("HX-Location", string(body))

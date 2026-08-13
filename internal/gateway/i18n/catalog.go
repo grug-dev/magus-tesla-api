@@ -241,6 +241,32 @@ const (
 	KeyLangSwitchErrorUnsupportedLanguage   Key = "lang_switch_error.unsupported_language"
 	KeyLangSwitchErrorCouldNotSaveLanguage  Key = "lang_switch_error.could_not_save_language"
 	KeyLangSwitchErrorCouldNotBuildRedirect Key = "lang_switch_error.could_not_build_redirect"
+
+	// --- charges list table headers (fragments/charges_list.templ) ---
+	// Deliberately NOT reusing KeyChargesFormDate/Vehicle/Price, KeySuperchargerEnergy,
+	// or KeyDashboardBatteryTitle: a table column header is a different semantic role
+	// with different length constraints than a form label or card title (D2's reuse
+	// mandate targets the same string in the same role, not merely the same word) —
+	// leader decision, gap found in wave 2 review of charges_list.templ.
+	KeyChargesListHeaderDate       Key = "charges_list.header_date"
+	KeyChargesListHeaderVehicle    Key = "charges_list.header_vehicle"
+	KeyChargesListHeaderEnergy     Key = "charges_list.header_energy"
+	KeyChargesListHeaderPrice      Key = "charges_list.header_price"
+	KeyChargesListHeaderCostPerKWh Key = "charges_list.header_cost_per_kwh"
+	KeyChargesListHeaderBattery    Key = "charges_list.header_battery"
+	KeyChargesListHeaderDuration   Key = "charges_list.header_duration"
+	KeyChargesListHeaderActions    Key = "charges_list.header_actions"
+
+	// --- page <title> composition (layouts.Base/BaseAuth call sites in every
+	// templates/pages/*.templ) — gap #2 found by the wave-2A worker: the
+	// tier-3 inventory missed every hardcoded "<Page> — Magus" browser-tab
+	// title. One interpolated brand-suffix key (D3) instead of five literal
+	// title keys — the "— Magus" suffix is one editorial decision, and each
+	// page name already has its own catalog key (KeyNavDashboard,
+	// KeyChargesPageTitle, KeyNavSuperchargerStats) or, for login, the new
+	// KeyLoginSignIn below (home reuses bare KeyBrandMagus, no suffix).
+	KeyBrandPageTitle Key = "brand.page_title"
+	KeyLoginSignIn    Key = "login.sign_in"
 )
 
 // catalog is the entire translation vocabulary. TestCatalog_AllKeysHaveBothLanguages
@@ -437,6 +463,18 @@ var catalog = map[Key]entry{
 	KeyLangSwitchErrorUnsupportedLanguage:   {ES: "idioma no soportado", EN: "unsupported language"},
 	KeyLangSwitchErrorCouldNotSaveLanguage:  {ES: "no se pudo guardar la preferencia de idioma", EN: "could not save language preference"},
 	KeyLangSwitchErrorCouldNotBuildRedirect: {ES: "no se pudo construir la redirección", EN: "could not build redirect"},
+
+	KeyChargesListHeaderDate:       {ES: "Fecha", EN: "Date"},
+	KeyChargesListHeaderVehicle:    {ES: "Vehículo", EN: "Vehicle"},
+	KeyChargesListHeaderEnergy:     {ES: "Energía", EN: "Energy"},
+	KeyChargesListHeaderPrice:      {ES: "Precio", EN: "Price"},
+	KeyChargesListHeaderCostPerKWh: {ES: "Costo/kWh", EN: "Cost/kWh"},
+	KeyChargesListHeaderBattery:    {ES: "Batería", EN: "Battery"},
+	KeyChargesListHeaderDuration:   {ES: "Duración", EN: "Duration"},
+	KeyChargesListHeaderActions:    {ES: "Acciones", EN: "Actions"},
+
+	KeyBrandPageTitle: {ES: "%s — Magus", EN: "%s — Magus"},
+	KeyLoginSignIn:    {ES: "Iniciar sesión", EN: "Sign in"},
 }
 
 // translate resolves key in lang. Two distinct failure modes, two distinct

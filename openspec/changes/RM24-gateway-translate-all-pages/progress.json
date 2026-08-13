@@ -9,10 +9,19 @@
   "rollup": {
     "current": [],
     "pending": [
+      "T14",
+      "T15",
+      "T16",
+      "T17"
+    ],
+    "blocked": [
+      "T5"
+    ],
+    "done": [
+      "T1",
       "T2",
       "T3",
       "T4",
-      "T5",
       "T6",
       "T7",
       "T8",
@@ -20,19 +29,11 @@
       "T10",
       "T11",
       "T12",
-      "T13",
-      "T14",
-      "T15",
-      "T16",
-      "T17"
-    ],
-    "blocked": [],
-    "done": [
-      "T1"
+      "T13"
     ]
   },
   "created_at": "2026-08-13T10:54:34Z",
-  "updated_at": "2026-08-13T10:54:34Z",
+  "updated_at": "2026-08-13T14:25:10Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -74,187 +75,322 @@
       "id": "T2",
       "title": "Home + Login pages (see tasks.md T2)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:20:00Z",
+      "completed_at": "2026-08-13T14:35:00Z",
+      "duration_seconds": 900,
+      "notes": "home.templ (6 literals) + login.templ (6 literals) + base.templ nav-bar Magus (1, shared key) replaced with i18n.T(ctx, key) using existing T1 keys. No new keys needed.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T3",
       "title": "Dashboard page + dashSubtitle helper (see tasks.md T3)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:00:00Z",
+      "completed_at": "2026-08-13T14:21:32Z",
+      "duration_seconds": 1292,
+      "notes": "dashboard.templ + dashboard.go translated per T1.4/D2 reuse table; dashSubtitle(ctx,d) threaded. No gaps.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T4",
       "title": "Charge forms: create + inline edit (see tasks.md T4)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Largest template group (~40 sites); both files share the charges_form.* namespace per D2.",
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:00:00Z",
+      "completed_at": "2026-08-13T14:21:32Z",
+      "duration_seconds": 1292,
+      "notes": "charge_create_form.templ + charge_row_edit.templ translated, sharing charges_form.* keys per D2. No gaps.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T5",
       "title": "Charge rows, list, and charges page (see tasks.md T5)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "blocked",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:00:00Z",
+      "completed_at": "2026-08-13T14:21:32Z",
+      "duration_seconds": 1292,
+      "notes": "T5.1/T5.3 done. T5.2 partial: charges_list.templ title/refresh/empty done, but ui.Table Headers slice (Date/Vehicle/Energy/Price/Cost per kWh/Battery/Duration/Actions) has no catalog key and isn't in T1.8 - left hardcoded. Needs new charges_list.header_* keys.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T6",
       "title": "History chart fragment + preset handler (see tasks.md T6)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Bundles history.templ + handlers/history.go (same feature surface, both small) per D4.",
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:16:00Z",
+      "completed_at": "2026-08-13T15:35:00Z",
+      "duration_seconds": 4740,
+      "notes": "history.templ (3 literals) + history.go: days-preset Label and no-snapshot Tooltip fmt.Sprintf-wrapped (both branches); ctx threaded into buildHistoryPresets/buildOdometerChart/buildBatteryChart.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T7",
       "title": "Supercharger Stats fragment (see tasks.md T7)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "DateLabel and BillingType are explicitly OUT of scope (design.md Non-Goals / Discoveries #4) - do not touch.",
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:16:00Z",
+      "completed_at": "2026-08-13T15:35:00Z",
+      "duration_seconds": 4740,
+      "notes": "supercharger_stats.templ: 12 literals translated (months-preset both branches, 4 tiles, empty state, chart/sessions card titles, 6 table headers). handlers/supercharger.go untouched per scope.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T8",
       "title": "Vehicles fragment - dead code, in scope per roadmap (see tasks.md T8)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "design.md Discoveries #3: VehiclesList has no caller today; translated anyway, not deleted, not special-cased.",
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:16:00Z",
+      "completed_at": "2026-08-13T15:35:00Z",
+      "duration_seconds": 4740,
+      "notes": "design.md Discoveries #3: VehiclesList has no caller today; translated anyway (15 literals), not deleted, not special-cased. Reused KeyNavHeaderNoTesla/KeyNavHeaderConnectLink per D2.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T9",
       "title": "Foundation fixes: <html lang> bug + nav-header Last seen (see tasks.md T9)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "design.md Discoveries #1/#2 - two genuine pre-existing defects in tier 2's gold-standard surface. Also closes tier 2's D9-deferred relativeLastSeen pluralization.",
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:35:00Z",
+      "completed_at": "2026-08-13T14:50:00Z",
+      "duration_seconds": 900,
+      "notes": "base.templ <html lang> now i18n.FromContext(ctx); nav_header.templ Last seen prefix translated; relativeLastSeen gained explicit ctx 3rd param, all 6 branches use i18n.T/fmt.Sprintf per D3 table.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T10",
       "title": "Confirm dialog ui component (see tasks.md T10)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:00:00Z",
+      "completed_at": "2026-08-13T14:21:32Z",
+      "duration_seconds": 1292,
+      "notes": "confirm_dialog.templ translated per T1.14. Inner backdrop-button text 'close' left as-is (only its aria-label is a catalog key per T1.14's own scoping).",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T11",
       "title": "handlers.go notices, status, oauth error bodies (see tasks.md T11)",
       "module": "gateway",
-      "depends_on": ["T1", "T9"],
+      "depends_on": [
+        "T1",
+        "T9"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Kept as ONE group despite three unrelated concerns - they share one file (D4 merge-collision reasoning). Leader amendment: T9.3 edits the same handlers.go, so T11 depends on T9 and must NOT run beside it.",
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:50:00Z",
+      "completed_at": "2026-08-13T15:10:00Z",
+      "duration_seconds": 1200,
+      "notes": "6 vehiclesFor + 2 dashboardFor Notice literals, dashStatus/mapDashboardSnapshot ctx-threaded, 13 c.String sites (11 keys, 2 dupes reused), Healthz marked i18n:allow. go build fails only on unrelated stale dashboard_templ.go (T3 in-flight, not my file) - see report.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T12",
       "title": "charges.go validation + notices + error bodies (see tasks.md T12)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:16:00Z",
+      "completed_at": "2026-08-13T15:35:00Z",
+      "duration_seconds": 4740,
+      "notes": "12 errs[...] assignments (11 keys, BatteryPctRequired shared by start+end) + 4 Notice/Error/pageError literals + battery-suggestion fmt.Sprintf + 7 c.String bodies, all i18n.T(ctx/c.Request.Context(), key).",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T13",
       "title": "lang.go error bodies (see tasks.md T13)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-13T14:16:00Z",
+      "completed_at": "2026-08-13T15:35:00Z",
+      "duration_seconds": 4740,
+      "notes": "3 c.String bodies in LangSwitch wired to lang_switch_error.* keys via i18n.T(c.Request.Context(), key). i18n already imported.",
+      "budget": {
+        "five_hour_pct_start": 20.0,
+        "five_hour_pct_end": 60.0,
+        "five_hour_pct_delta": 40.0,
+        "cost_usd_delta": 16.4,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2, THREE parallel workers (A/B/C) co-running; shared wave delta copied onto each task"
+      }
     },
     {
       "id": "T14",
       "title": "make i18n-guard target + wiring + hatch proof (see tasks.md T14)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -269,7 +405,9 @@
       "id": "T15",
       "title": "AGENTS.md i18n addendum documenting the guard + marker (see tasks.md T15)",
       "module": "gateway",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -284,7 +422,17 @@
       "id": "T16",
       "title": "Codegen: make templ && make css, commit static/app.css (see tasks.md T16)",
       "module": "gateway",
-      "depends_on": ["T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"],
+      "depends_on": [
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -299,7 +447,14 @@
       "id": "T17",
       "title": "Full verification: build, vet, test, i18n-guard, make check, openspec validate (see tasks.md T17)",
       "module": "gateway",
-      "depends_on": ["T11", "T12", "T13", "T14", "T15", "T16"],
+      "depends_on": [
+        "T11",
+        "T12",
+        "T13",
+        "T14",
+        "T15",
+        "T16"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -382,6 +537,15 @@
       "made_by": "autopilot",
       "decision": "Wave 2 runs as THREE parallel workers partitioned by file ownership (A: T2+T9+T11 serial; B: T3+T4+T5+T10; C: T6+T7+T8+T12+T13), not one serial worker and not one-per-group",
       "why": "Step 5.1's default is one serial worker, but the wave is 12 groups across ~18 files and the bucket is fresh at 20%, so all three exception conditions hold. The partition is by FILE, not by group: T2.3 and T9.1 both edit base.templ and T9.3/T11 both edit handlers.go, so those three groups must share one worker and run serially inside it - grouping by task id alone would have reproduced the D5 collision. Workers are forbidden from running `make templ` (it regenerates every *_templ.go and would clobber a concurrent worker's file); codegen is T16's job alone, in wave 3.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-13T14:40:00Z",
+      "scope": "task:T5",
+      "made_by": "autopilot",
+      "decision": "Minted 8 new charges_list.header_* keys for the ui.Table Headers slice in charges_list.templ rather than reusing the identical existing strings (KeyChargesFormDate, KeyChargesFormVehicle, KeyChargesFormPrice, KeySuperchargerEnergy, KeyDashboardBatteryTitle)",
+      "why": "T1.8's inventory missed the Headers slice entirely, so T5 blocked honestly rather than inventing keys or shipping English. D2's reuse mandate targets the same string in the same semantic role - its own examples are nav labels reused as page titles. A table column header is a different role with different length constraints, and reusing KeyDashboardBatteryTitle would mean an edit to a dashboard card title silently changes a charge-log column header. Verified this is the last instance of the class: supercharger_stats.templ is the only other ui.Table and its headers were already catalogued. Sent back to the T1 worker to preserve D4's single-writer invariant on catalog.go.",
       "covered_by": null
     }
   ],

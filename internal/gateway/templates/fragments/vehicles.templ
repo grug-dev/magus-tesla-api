@@ -1,6 +1,9 @@
 package fragments
 
-import "github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
 
 // Vehicle is the clean presentation model for one vehicle — no vendor (...Tesla)
 // suffix; the gateway maps the account module's domain Vehicle onto this before
@@ -53,36 +56,36 @@ templ VehiclesList(d VehiclesData) {
 						<strong>{ v.DisplayName }</strong> — { v.VIN }
 						if v.HasSnapshot {
 							<ul>
-								<li>Battery: { v.Battery } / Range: { v.BatteryRange }</li>
-								<li>Charging: { v.ChargingState }</li>
-								<li>Odometer: { v.Odometer }</li>
-								<li>Inside: { v.InsideTemp } / Outside: { v.OutsideTemp }</li>
+								<li>{ i18n.T(ctx, i18n.KeyVehiclesBatteryLabel) } { v.Battery } / { i18n.T(ctx, i18n.KeyVehiclesRangeLabel) } { v.BatteryRange }</li>
+								<li>{ i18n.T(ctx, i18n.KeyVehiclesChargingLabel) } { v.ChargingState }</li>
+								<li>{ i18n.T(ctx, i18n.KeyVehiclesOdometerLabel) } { v.Odometer }</li>
+								<li>{ i18n.T(ctx, i18n.KeyVehiclesInsideLabel) } { v.InsideTemp } / { i18n.T(ctx, i18n.KeyVehiclesOutsideLabel) } { v.OutsideTemp }</li>
 								<li>
 									if v.Locked {
-										Locked
+										{ i18n.T(ctx, i18n.KeyVehiclesLocked) }
 									} else {
-										Unlocked
+										{ i18n.T(ctx, i18n.KeyVehiclesUnlocked) }
 									}
 								</li>
 								<li>
-									Sentry:
+									{ i18n.T(ctx, i18n.KeyVehiclesSentryLabel) }
 									if v.SentryMode == nil {
-										Not reported
+										{ i18n.T(ctx, i18n.KeyVehiclesNotReported) }
 									} else if *v.SentryMode {
-										On
+										{ i18n.T(ctx, i18n.KeyVehiclesOn) }
 									} else {
-										Off
+										{ i18n.T(ctx, i18n.KeyVehiclesOff) }
 									}
 								</li>
 								<li>
-									Last updated: { v.LastUpdated }
+									{ i18n.T(ctx, i18n.KeyVehiclesLastUpdatedLabel) } { v.LastUpdated }
 									if v.IsStale {
-										@ui.Badge(ui.BadgeProps{Kind: "warning", Text: "⚠ Stale", Class: "ml-2"})
+										@ui.Badge(ui.BadgeProps{Kind: "warning", Text: i18n.T(ctx, i18n.KeyVehiclesStaleBadge), Class: "ml-2"})
 									}
 								</li>
 							</ul>
 						} else {
-							<p>No data yet — awaiting first nightly snapshot.</p>
+							<p>{ i18n.T(ctx, i18n.KeyVehiclesNoDataYet) }</p>
 						}
 					</li>
 				}
@@ -91,9 +94,9 @@ templ VehiclesList(d VehiclesData) {
 			if d.Notice != "" {
 				<p>{ d.Notice }</p>
 			} else {
-				<p>No Tesla connected.</p>
+				<p>{ i18n.T(ctx, i18n.KeyNavHeaderNoTesla) }</p>
 			}
-			<p><a href="/connect/tesla">Connect your Tesla</a></p>
+			<p><a href="/connect/tesla">{ i18n.T(ctx, i18n.KeyNavHeaderConnectLink) }</a></p>
 		} else {
 			<p>{ d.Notice }</p>
 		}

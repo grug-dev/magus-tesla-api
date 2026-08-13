@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
@@ -49,7 +50,7 @@ func (h *Handler) ChargePage(c *gin.Context) {
 
 	csrfToken, err := generateCSRFToken()
 	if err != nil {
-		c.String(http.StatusInternalServerError, "could not start charge log")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotStartChargeLog))
 		return
 	}
 	sess := sessions.Default(c)
@@ -105,7 +106,7 @@ func (h *Handler) ChargesContentFragment(c *gin.Context) {
 	}
 	csrfToken, err := generateCSRFToken()
 	if err != nil {
-		c.String(http.StatusInternalServerError, "could not refresh charge log")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotRefreshChargeLog))
 		return
 	}
 	sess := sessions.Default(c)
@@ -130,7 +131,7 @@ func (h *Handler) ChargeRowStatic(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		c.String(http.StatusBadRequest, "invalid id")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyChargesErrorInvalidID))
 		return
 	}
 	sess := sessions.Default(c)
@@ -138,7 +139,7 @@ func (h *Handler) ChargeRowStatic(c *gin.Context) {
 
 	vm, ok2 := h.fetchEntryVM(c.Request.Context(), uid, id)
 	if !ok2 {
-		c.String(http.StatusNotFound, "entry not found")
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
 		return
 	}
 	render(c, http.StatusOK, fragments.ChargeRow(vm, csrfToken))
@@ -154,7 +155,7 @@ func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		c.String(http.StatusBadRequest, "invalid id")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyChargesErrorInvalidID))
 		return
 	}
 	sess := sessions.Default(c)
@@ -162,7 +163,7 @@ func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
 
 	vm, ok2 := h.fetchEntryVM(c.Request.Context(), uid, id)
 	if !ok2 {
-		c.String(http.StatusNotFound, "entry not found")
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
 		return
 	}
 	render(c, http.StatusOK, fragments.ChargeRowEdit(vm, csrfToken, nil))
@@ -183,7 +184,7 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 
 	vehicles, err := h.acct.RegisteredVehicles(c.Request.Context(), uid)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "could not validate vehicle ownership")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotValidateVehicleOwnership))
 		return
 	}
 	sess := sessions.Default(c)
@@ -220,7 +221,7 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 		}
 		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
 		renderError(c, http.StatusInternalServerError, fragments.ChargeCreateForm(d, map[string]string{
-			"_top": "Could not save your entry — please try again.",
+			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
 		}))
 		return
 	}
@@ -252,13 +253,13 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		c.String(http.StatusBadRequest, "invalid id")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyChargesErrorInvalidID))
 		return
 	}
 
 	vehicles, err := h.acct.RegisteredVehicles(c.Request.Context(), uid)
 	if err != nil {
-		c.String(http.StatusInternalServerError, "could not validate vehicle ownership")
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotValidateVehicleOwnership))
 		return
 	}
 	sess := sessions.Default(c)
@@ -281,7 +282,7 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 		log.Printf("gateway: ChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
 		vm := chargeEntryVMFromEntry(entry, vehicles)
 		renderError(c, http.StatusInternalServerError, fragments.ChargeRowEdit(vm, csrfToken, map[string]string{
-			"_top": "Could not save your entry — please try again.",
+			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
 		}))
 		return
 	}
@@ -324,13 +325,13 @@ func (h *Handler) ChargeRowDelete(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
 	if err != nil {
-		c.String(http.StatusBadRequest, "invalid id")
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyChargesErrorInvalidID))
 		return
 	}
 
 	if err := h.manualChargeWriter.Delete(c.Request.Context(), uid, id); err != nil {
 		log.Printf("gateway: ChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
-		renderError(c, http.StatusInternalServerError, fragments.ChargeRowError(id.String(), "Could not delete entry — please try again."))
+		renderError(c, http.StatusInternalServerError, fragments.ChargeRowError(id.String(), i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotDeleteEntry)))
 		return
 	}
 	render(c, http.StatusOK, fragments.ChargeRowEmpty(id.String()))
@@ -348,7 +349,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		log.Printf("gateway: RegisteredVehicles error for account %s: %v", uid, err)
 		return fragments.ChargesPageData{
 			CSRFToken: csrfToken,
-			Error:     "Could not load your vehicles — please try again.",
+			Error:     i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadVehicles),
 		}
 	}
 
@@ -365,7 +366,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 	var pageError string
 	if err != nil {
 		log.Printf("gateway: manualcharge reader error for account %s: %v", uid, err)
-		pageError = "Could not load your entries — please try again."
+		pageError = i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadEntries)
 		entries = nil
 	}
 
@@ -401,7 +402,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		} else {
 			for _, s := range snaps {
 				if s.TeslaID == teslaIDFilter {
-					suggestion = fmt.Sprintf("Latest: %d%%", s.BatteryLevelPct)
+					suggestion = fmt.Sprintf(i18n.T(ctx, i18n.KeyChargesErrorBatterySuggestion), s.BatteryLevelPct)
 					break
 				}
 			}
@@ -462,7 +463,7 @@ func (h *Handler) checkCSRFKey(c *gin.Context, key string) bool {
 	// e.g. a write before GET /charges was ever loaded) against "" (no submitted token)
 	// would pass and let a tokenless request through. Both sides must be a real token.
 	if want == "" || subtle.ConstantTimeCompare([]byte(want), []byte(got)) != 1 {
-		c.String(http.StatusForbidden, "invalid csrf token")
+		c.String(http.StatusForbidden, i18n.T(c.Request.Context(), i18n.KeyChargesErrorInvalidCSRFToken))
 		return false
 	}
 	return true
@@ -532,28 +533,28 @@ func chargeEntryVMFromEntry(e manualcharge.Entry, vehicles []account.Vehicle) fr
 	}
 
 	return fragments.ChargeEntryVM{
-		ID:              e.ID.String(),
-		VehicleLabel:    label,
-		ChargedOnLabel:  e.ChargedOn.Format("Mon Jan 2, 2006"),
-		EnergyKWh:       fmt.Sprintf("%.2f kWh", e.EnergyAddedKWh),
-		PriceLabel:      fmt.Sprintf("%.2f %s", e.Price, e.Currency),
-		Currency:        e.Currency,
-		CostPerKWhLabel: costLabel,
-		BatteryDelta:    batteryDelta,
-		DurationLabel:   durationLabel,
-		ChargingType:    chargingType,
-		LocationKind:    locationKind,
-		LocationLabel:   locationLabelStr,
-		Notes:           notes,
-		RawChargedOn:    e.ChargedOn.Format("2006-01-02"),
-		RawEnergyKWh:    strconv.FormatFloat(e.EnergyAddedKWh, 'f', 2, 64),
-		RawPrice:        strconv.FormatFloat(e.Price, 'f', 2, 64),
-		RawStartedAt:    rawStartedAt,
-		RawEndedAt:      rawEndedAt,
+		ID:                 e.ID.String(),
+		VehicleLabel:       label,
+		ChargedOnLabel:     e.ChargedOn.Format("Mon Jan 2, 2006"),
+		EnergyKWh:          fmt.Sprintf("%.2f kWh", e.EnergyAddedKWh),
+		PriceLabel:         fmt.Sprintf("%.2f %s", e.Price, e.Currency),
+		Currency:           e.Currency,
+		CostPerKWhLabel:    costLabel,
+		BatteryDelta:       batteryDelta,
+		DurationLabel:      durationLabel,
+		ChargingType:       chargingType,
+		LocationKind:       locationKind,
+		LocationLabel:      locationLabelStr,
+		Notes:              notes,
+		RawChargedOn:       e.ChargedOn.Format("2006-01-02"),
+		RawEnergyKWh:       strconv.FormatFloat(e.EnergyAddedKWh, 'f', 2, 64),
+		RawPrice:           strconv.FormatFloat(e.Price, 'f', 2, 64),
+		RawStartedAt:       rawStartedAt,
+		RawEndedAt:         rawEndedAt,
 		RawStartBatteryPct: rawStartPct,
 		RawEndBatteryPct:   rawEndPct,
-		TeslaID:         e.TeslaID,
-		VIN:             e.VIN,
+		TeslaID:            e.TeslaID,
+		VIN:                e.VIN,
 	}
 }
 
@@ -610,7 +611,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		// calling account (resolveSelectedVehicle already picks from the
 		// account's list, so this is a belt-and-suspenders guard).
 		if !vehicleOwned(teslaID, vin, vehicles) {
-			c.String(http.StatusForbidden, "vehicle not owned by this account")
+			c.String(http.StatusForbidden, i18n.T(c.Request.Context(), i18n.KeyChargesErrorVehicleNotOwned))
 			return manualcharge.Entry{}, nil, false
 		}
 	} else {
@@ -622,42 +623,42 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		// surfaced via the top-of-form Alert (_top key) — the only guaranteed-
 		// visible surface when there is no matching ui.Field to render the per-
 		// field error slot.
-		errs["_top"] = "Please select a vehicle."
+		errs["_top"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorSelectVehicle)
 	}
 
 	chargedOnStr := c.PostForm("charged_on")
 	var chargedOn time.Time
 	if chargedOnStr == "" {
-		errs["charged_on"] = "Date is required."
+		errs["charged_on"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorDateRequired)
 	} else {
 		var parseErr error
 		chargedOn, parseErr = time.Parse("2006-01-02", chargedOnStr)
 		if parseErr != nil {
-			errs["charged_on"] = "Invalid date format."
+			errs["charged_on"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorInvalidDateFormat)
 		}
 	}
 
 	energyStr := c.PostForm("energy_added_kwh")
 	var energy float64
 	if energyStr == "" {
-		errs["energy_added_kwh"] = "Energy added is required."
+		errs["energy_added_kwh"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorEnergyRequired)
 	} else {
 		var parseErr error
 		energy, parseErr = strconv.ParseFloat(energyStr, 64)
 		if parseErr != nil || energy <= 0 {
-			errs["energy_added_kwh"] = "Energy must be a positive number."
+			errs["energy_added_kwh"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorEnergyPositive)
 		}
 	}
 
 	priceStr := c.PostForm("price")
 	var price float64
 	if priceStr == "" {
-		errs["price"] = "Price is required."
+		errs["price"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorPriceRequired)
 	} else {
 		var parseErr error
 		price, parseErr = strconv.ParseFloat(priceStr, 64)
 		if parseErr != nil || price < 0 {
-			errs["price"] = "Price must be a non-negative number."
+			errs["price"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorPriceNonNegative)
 		}
 	}
 
@@ -677,7 +678,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		lk := locationKindVal // local copy — avoids any implicit alias
 		locationKindPtr = &lk
 	} else {
-		errs["location_kind"] = "Location is required."
+		errs["location_kind"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorLocationRequired)
 	}
 
 	// D6: start_battery_pct + end_battery_pct are REQUIRED. The 0–100 bound check
@@ -689,11 +690,11 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 	startPctStr := strings.TrimSpace(c.PostForm("start_battery_pct"))
 	var startPct int
 	if startPctStr == "" {
-		errs["start_battery_pct"] = "Battery percentage is required."
+		errs["start_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorBatteryPctRequired)
 	} else {
 		n, perr := strconv.Atoi(startPctStr)
 		if perr != nil || n < 0 || n > 100 {
-			errs["start_battery_pct"] = "Start battery percentage must be an integer between 0 and 100."
+			errs["start_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorStartBatteryPctRange)
 		} else {
 			startPct = n
 		}
@@ -702,11 +703,11 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 	endPctStr := strings.TrimSpace(c.PostForm("end_battery_pct"))
 	var endPct int
 	if endPctStr == "" {
-		errs["end_battery_pct"] = "Battery percentage is required."
+		errs["end_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorBatteryPctRequired)
 	} else {
 		n, perr := strconv.Atoi(endPctStr)
 		if perr != nil || n < 0 || n > 100 {
-			errs["end_battery_pct"] = "End battery percentage must be an integer between 0 and 100."
+			errs["end_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorEndBatteryPctRange)
 		} else {
 			endPct = n
 		}
@@ -717,16 +718,16 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 	}
 
 	entry := manualcharge.Entry{
-		AccountID:        uid,
-		TeslaID:          teslaID,
-		VIN:              vin,
-		ChargedOn:        chargedOn,
-		EnergyAddedKWh:   energy,
-		Price:            price,
-		Currency:         currency,
-		LocationKind:     locationKindPtr,
-		StartBatteryPct:  &startPct,
-		EndBatteryPct:    &endPct,
+		AccountID:       uid,
+		TeslaID:         teslaID,
+		VIN:             vin,
+		ChargedOn:       chargedOn,
+		EnergyAddedKWh:  energy,
+		Price:           price,
+		Currency:        currency,
+		LocationKind:    locationKindPtr,
+		StartBatteryPct: &startPct,
+		EndBatteryPct:   &endPct,
 	}
 
 	// D1: started_at / ended_at STAY optional — clearing either still persists a
