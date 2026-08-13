@@ -80,7 +80,7 @@ archived) · `[x]` done (archived).
 |---|---|---|---|---|
 | `[x]` | `RM24-account-add-language-preference` | `account` | `accounts.language` column + migration + sqlc + port method | — |
 | `[x]` | `RM24-gateway-add-i18n-foundation` | `gateway` | catalogue, resolution middleware, navbar selector, docs rule, one gold-standard surface | tier 1 |
-| `[ ]` | `RM24-gateway-translate-all-pages` | `gateway` | translate every remaining page/fragment/ui component | tier 2 |
+| `[~]` | `RM24-gateway-translate-all-pages` | `gateway` | translate every remaining page/fragment/ui component | tier 2 |
 
 ### Tier 1 — `[x]` `RM24-account-add-language-preference` (module: `account`)
 
@@ -140,7 +140,7 @@ shell as the gold-standard surface. Update `internal/gateway/AGENTS.md` to requi
 every newly added label. Run `make templ && make css` and commit `static/app.css` per the
 module CI guard."*
 
-### Tier 3 — `[ ]` `RM24-gateway-translate-all-pages` (module: `gateway`; depends on tier 2)
+### Tier 3 — `[~]` `RM24-gateway-translate-all-pages` (module: `gateway`; depends on tier 2)
 
 Mechanical sweep applying tier 2's established pattern to every remaining user-facing
 string: `templates/pages/` (home, login, dashboard, dashboard_history, charges,
