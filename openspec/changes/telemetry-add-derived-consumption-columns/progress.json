@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Battery Consumed Columns - Vehicle Snapshots (MAG-10). Add derived columns to vehicle_snapshots computed from the current row and the previous record for that vehicle: distance traveled (odometer delta), battery consumed (battery_level_pct delta, may be negative), km per 1% battery, and estimated range (km_per_pct x 100). Suffix every new column with 'calc'. Calculate them before saving the nightly gathered data. 'Yesterday' means the latest record tracked for that vehicle. Ticket also asks whether the formulas can be applied to existing database records.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
@@ -221,9 +221,9 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
+    "status": "in-review",
+    "agent": "telemetry-reviewer",
+    "brief": "Review the whole branch diff (main..HEAD, 5 commits: 03daca4, 98d1358, 9325b4c, 0101ad3, b1a8d2b) for the change telemetry-add-derived-consumption-columns. Validate, in priority order: (1) DESIGN-GATE FIDELITY - every DB object must match the design the user confirmed at the gate (D7): exactly five nullable columns with the design.md names/types, no sixth column, NO NEW INDEX, and the in-migration LAG() backfill. Any mismatch is a BLOCKER finding. (2) FORMULA AGREEMENT - the migration's SQL backfill and Go's deriveConsumption must produce identical values for the same inputs: same subtraction order, same '> 0' divisor guard, same x100 range, same whole-day count. A divergence would silently split backfilled history from newly written rows - treat as blocker. (3) D2/DU2 NULL semantics - km_per_pct_calc and estimated_range_km_calc NULL iff battery_used_pct_calc <= 0, while the raw columns always keep the true signed delta including negatives; a stored zero must stay truthful and never be clamped to NULL. (4) D6/D7 SAME-DAY RECAPTURE - InsertVehicleSnapshot's ON CONFLICT DO UPDATE SET must refresh all five columns, and the predecessor bound must be the LOCAL calendar-day start, never the incoming row's own captured_at. (5) ERROR CONTAINMENT - a previousSnapshot query failure must never be mistakable for 'no predecessor'; confirm it routes through logAPIError as ReasonAPIError and cannot NULL out a real vehicle's columns on a transient DB hiccup. (6) BOUNDARIES (V10) - internal/telemetry imports only account + tesla public packages; pgtype appears in no public type or interface; no file outside internal/telemetry was touched; gateway-battery-consumed-chart was not referenced (D5). (7) PERFORMANCE-PROFILE - read-heavy: values are precomputed on the write path and never derived on read; PreviousSnapshotForVehicle rides the existing idx_vehicle_snapshots_vehicle_time as a backward scan. (8) CONVENTIONS - the km/degC/PSI display-unit suffix rule, helper reuse (no new pgtype or mapping helper was to be written - verify none was), and doc accuracy in internal/telemetry/AGENTS.md. (9) ANTI-GAMING - no task title, acceptance criterion or test was weakened, simplified or deleted; tasks.md checkboxes match reality. TWO LEADER-DISCLOSED ITEMS TO SCRUTINIZE RATHER THAN ASSUME: (a) D14 is a USER-APPROVED SCOPE EXPANSION outside tasks.md - testdb_test.go's TestMain now logs+continues instead of log.Fatalf, and newTestStore t.Skip's instead of t.Fatalf. Judge whether it is implemented safely and whether the AGENTS.md documentation of it is adequate; it being user-approved is not a reason to skip judging its implementation. (b) D15 is a leader integration fix reading the clock once in attemptVehicle. THE MOST IMPORTANT LIMITATION: T7 is BLOCKED - its three DB integration tests (including TestStore_SnapshotUpsert_RecapturesRecomputeDerivedColumns, the regression for the D6/D7 staleness fix) are written and type-check but have NEVER EXECUTED, because Docker is unavailable (D13). The migration and its backfill have never run against a real Postgres either. The user has explicitly accepted proceeding to review with this gap and will run the DB tests afterwards. Do NOT treat the DB layer as proven, and do NOT ask for the tests to be run - instead review that unexecuted test code especially carefully by reading it, since nothing else will catch a mistake in it before the user runs it. Read the diff, not the whole module. Escalate on doubt: return changes-requested rather than approving anything you are unsure of.",
     "rounds": []
   },
   "decisions": [
@@ -370,6 +370,24 @@
       "decision": "Leader flipped T6 from the worker's blocked to done",
       "why": "The worker correctly set blocked because it could not execute the tests. D14's TestMain fix removed that blocker afterwards; the leader then ran the suite and observed all 9 T6 tests genuinely execute and pass (64 pass / 40 skip package-wide). The status change reflects verified reality, not a leader overriding a worker's honest assessment. T7 was deliberately LEFT blocked because its tests still only skip",
       "covered_by": null
+    },
+    {
+      "id": "D17",
+      "at": "2026-08-14T18:13:15Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Proceed to the reviewer gate and onward with T7 still BLOCKED and unexecuted; the user will run the DB integration tests themselves after the pipeline finishes",
+      "why": "The user was offered starting Docker now, reviewing with the gap, or stopping, and chose to continue without Docker. Change status set to verified because the project's own verification flow (make check) genuinely passed in full across the monolith - but DB-layer correctness (the migration, its LAG() backfill, and the three T7 tests including the same-day-recapture regression) remains UNPROVEN by execution. This caveat travels in the review brief and must be restated at archive; it is not closed by the status word 'verified'",
+      "covered_by": null
+    },
+    {
+      "id": "D18",
+      "at": "2026-08-14T18:13:15Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader updated internal/telemetry/AGENTS.md's testing notes itself (commit b1a8d2b) rather than re-dispatching the T8 worker",
+      "why": "D14 changed how the module's tests behave, and the file still claimed the suite is green 'as long as Docker is running locally' - stale the moment TestMain changed. CLAUDE.md requires a workflow change be documented in the SAME change, and D14/D15 were leader-authored after T8 had already closed, so this is leader-owned integration documentation, not worker work",
+      "covered_by": null
     }
   ],
   "events": [
@@ -452,6 +470,16 @@
       "at": "2026-08-14T18:06:46Z",
       "agent": "leader",
       "event": "wave 4 complete. Worker wrote consumption_test.go (9 offline tests) + db_derived_consumption_integration_test.go (3 DB tests incl. the T7.2 same-day-recapture regression), enumerated D1/D2/D6/D7/D8/D9/D10 compliance, honestly set both tasks blocked and weakened nothing. User chose the TestMain-skip option (D14); leader applied it, then applied the D15 single-clock-reading fix from the worker's fresh-eyes finding. Verification: go build 0, go vet 0, gofmt clean on all touched files, make check FULLY GREEN across the monolith, telemetry suite 64 pass / 40 skip. T6 flipped to done (D16); T7 remains blocked - its 3 tests skip, never executed"
+    },
+    {
+      "at": "2026-08-14T18:13:15Z",
+      "agent": "leader",
+      "event": "Step 6 verification: make check FULLY GREEN across the monolith (build, vet, ui-guard, i18n-guard, money-guard, test); openspec validate --strict passes; V11 root-README no-change requirement CONFIRMED by inspection (no module added/removed/re-scoped, no runnable changed). V9 half-confirmed: no CREATE INDEX anywhere in the change; the EXPLAIN half is unprovable without a database. Doc gap found and fixed by the leader (D18, commit b1a8d2b): AGENTS.md testing notes were stale after D14. No kkpa/context KB in this repo, so no post-archive KB sync applies"
+    },
+    {
+      "at": "2026-08-14T18:13:15Z",
+      "agent": "leader",
+      "event": "user chose to continue WITHOUT Docker (D17); status -> verified with the DB-layer gap explicitly carried, review.brief written, dispatching telemetry-reviewer (Sonnet, escalate-on-doubt) for round 1. Budget at dispatch: 5h 69%, context 19% - both well under the 90/60 checkpoint gates"
     }
   ]
 }
