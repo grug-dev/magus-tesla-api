@@ -10,16 +10,16 @@
 
 ## A. Create `format.go`; move the four existing helpers unchanged
 
-- [ ] A.1 Create `internal/gateway/handlers/format.go` (package `handlers`). Move
+- [x] A.1 Create `internal/gateway/handlers/format.go` (package `handlers`). Move
   `commaGroup` (currently `handlers.go:470`), `formatMoney` (currently
   `supercharger.go:294`), `formatKm` (currently `handlers.go:444`), and `formatKmRaw`
   (currently `history.go:424`) into it **verbatim** — same signatures, same bodies, same doc
   comments. Do NOT change any function's behavior, name, or signature (design.md D1).
-- [ ] A.2 Remove the moved function bodies from `handlers.go`, `supercharger.go`, and
+- [x] A.2 Remove the moved function bodies from `handlers.go`, `supercharger.go`, and
   `history.go` (their old locations) — leave every *call site* in those files untouched; Go
   resolves unqualified same-package calls regardless of which file declares the function, so
   no call site needs an edit for the move itself.
-- [ ] A.3 Run `go build ./...` (or `make build`) to confirm the move alone compiles clean with
+- [x] A.3 Run `go build ./...` (or `make build`) to confirm the move alone compiles clean with
   zero behavior change before touching any call site.
 
 _depends_on: none_

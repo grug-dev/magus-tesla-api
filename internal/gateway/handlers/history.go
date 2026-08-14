@@ -14,7 +14,6 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -416,12 +415,4 @@ func buildBatteryChart(ctx context.Context, snaps []telemetry.Snapshot, start, e
 		})
 	}
 	return fragments.HistoryChart{Bars: bars, Empty: false, LabelVertical: labelVerticalFor(numDays)}
-}
-
-// formatKmRaw renders a kilometre value as a whole number string without the " km"
-// suffix — used inside tooltip strings where the unit is appended by the caller.
-// Mirrors formatKm but returns only the number + thousands-separator, no unit.
-func formatKmRaw(km float64) string {
-	whole := int(math.Round(km))
-	return commaGroup(strconv.Itoa(whole))
 }
