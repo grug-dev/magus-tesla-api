@@ -5,7 +5,7 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Battery Consumed Columns - Vehicle Snapshots (MAG-10). Add derived columns to vehicle_snapshots computed from the current row and the previous record for that vehicle: distance traveled (odometer delta), battery consumed (battery_level_pct delta, may be negative), km per 1% battery, and estimated range (km_per_pct x 100). Suffix every new column with 'calc'. Calculate them before saving the nightly gathered data. 'Yesterday' means the latest record tracked for that vehicle. Ticket also asks whether the formulas can be applied to existing database records.",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -23,7 +23,7 @@
     ]
   },
   "created_at": "2026-08-14T14:43:41Z",
-  "updated_at": "2026-08-14T18:24:00Z",
+  "updated_at": "2026-08-14T18:28:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -246,7 +246,7 @@
     }
   ],
   "review": {
-    "status": "in-review",
+    "status": "approved",
     "agent": "telemetry-reviewer",
     "brief": "Review the whole branch diff (main..HEAD, 5 commits: 03daca4, 98d1358, 9325b4c, 0101ad3, b1a8d2b) for the change telemetry-add-derived-consumption-columns. Validate, in priority order: (1) DESIGN-GATE FIDELITY - every DB object must match the design the user confirmed at the gate (D7): exactly five nullable columns with the design.md names/types, no sixth column, NO NEW INDEX, and the in-migration LAG() backfill. Any mismatch is a BLOCKER finding. (2) FORMULA AGREEMENT - the migration's SQL backfill and Go's deriveConsumption must produce identical values for the same inputs: same subtraction order, same '> 0' divisor guard, same x100 range, same whole-day count. A divergence would silently split backfilled history from newly written rows - treat as blocker. (3) D2/DU2 NULL semantics - km_per_pct_calc and estimated_range_km_calc NULL iff battery_used_pct_calc <= 0, while the raw columns always keep the true signed delta including negatives; a stored zero must stay truthful and never be clamped to NULL. (4) D6/D7 SAME-DAY RECAPTURE - InsertVehicleSnapshot's ON CONFLICT DO UPDATE SET must refresh all five columns, and the predecessor bound must be the LOCAL calendar-day start, never the incoming row's own captured_at. (5) ERROR CONTAINMENT - a previousSnapshot query failure must never be mistakable for 'no predecessor'; confirm it routes through logAPIError as ReasonAPIError and cannot NULL out a real vehicle's columns on a transient DB hiccup. (6) BOUNDARIES (V10) - internal/telemetry imports only account + tesla public packages; pgtype appears in no public type or interface; no file outside internal/telemetry was touched; gateway-battery-consumed-chart was not referenced (D5). (7) PERFORMANCE-PROFILE - read-heavy: values are precomputed on the write path and never derived on read; PreviousSnapshotForVehicle rides the existing idx_vehicle_snapshots_vehicle_time as a backward scan. (8) CONVENTIONS - the km/degC/PSI display-unit suffix rule, helper reuse (no new pgtype or mapping helper was to be written - verify none was), and doc accuracy in internal/telemetry/AGENTS.md. (9) ANTI-GAMING - no task title, acceptance criterion or test was weakened, simplified or deleted; tasks.md checkboxes match reality. TWO LEADER-DISCLOSED ITEMS TO SCRUTINIZE RATHER THAN ASSUME: (a) D14 is a USER-APPROVED SCOPE EXPANSION outside tasks.md - testdb_test.go's TestMain now logs+continues instead of log.Fatalf, and newTestStore t.Skip's instead of t.Fatalf. Judge whether it is implemented safely and whether the AGENTS.md documentation of it is adequate; it being user-approved is not a reason to skip judging its implementation. (b) D15 is a leader integration fix reading the clock once in attemptVehicle. THE MOST IMPORTANT LIMITATION: T7 is BLOCKED - its three DB integration tests (including TestStore_SnapshotUpsert_RecapturesRecomputeDerivedColumns, the regression for the D6/D7 staleness fix) are written and type-check but have NEVER EXECUTED, because Docker is unavailable (D13). The migration and its backfill have never run against a real Postgres either. The user has explicitly accepted proceeding to review with this gap and will run the DB tests afterwards. Do NOT treat the DB layer as proven, and do NOT ask for the tests to be run - instead review that unexecuted test code especially carefully by reading it, since nothing else will catch a mistake in it before the user runs it. Read the diff, not the whole module. Escalate on doubt: return changes-requested rather than approving anything you are unsure of.",
     "rounds": [
@@ -286,6 +286,48 @@
           "Migration/LAG() backfill never executed against a real Postgres (no Docker in this environment either).",
           "T7's three DB integration tests never executed.",
           "PreviousSnapshotForVehicle's EXPLAIN plan (backward index scan claim) unconfirmed - no DB available."
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-08-14T19:45:00Z",
+        "duration_seconds": 900,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "internal/testdb/testdb.go:40-51,82-87,90-102 (commit f69e4e5): confirmed by reading - ErrUnavailable wraps ONLY the postgres.Run container-start failure; the container-connection-string failure and the apply-migrations (goose up) failure both remain plain, unwrapped errors. internal/telemetry/testdb_test.go:52-63's switch skips solely on errors.Is(err, testdb.ErrUnavailable) and log.Fatalf's on every other case, including a broken migration applied against a live container. Verified live in this Docker-less sandbox: go build/go vet clean, go test -v shows the skip firing via the new 'no Postgres available' log line wrapping ErrUnavailable exactly as designed (64 pass / 40 skip, unchanged). Confirmed via grep that internal/account/testdb_test.go and internal/manualcharge/testdb_test.go are untouched and still unconditionally log.Fatalf on any Provision error - the sentinel did not loosen them. The primary danger the round-1 finding raised (a broken migration silently passing make check on the common paths - no DATABASE_URL with Docker present, or no DATABASE_URL with Docker absent) is now closed.",
+            "status": "fixed",
+            "triage": null
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "openspec/changes/telemetry-add-derived-consumption-columns/tasks.md:155,168 - T6.1/T6.2 confirmed [x] in the current file.",
+            "status": "fixed",
+            "triage": null
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "New, non-blocking observation on the leader's own residual edge case (internal/testdb/testdb.go:66-73): when DATABASE_URL is SET and REACHABLE but applyMigrations fails against it, Provision logs 'DATABASE_URL not usable' and falls through to dsn=\"\" without distinguishing WHY it failed (connectivity vs. a genuinely broken migration against a real, reachable Postgres). If Docker is then also unavailable, the final error returned is the container-start ErrUnavailable, which masks a migration-is-broken root cause as environment-unavailable - the same silent-skip signature R1 fixed, just for a narrower precondition (DATABASE_URL reachable + broken migration + no Docker fallback), most plausible in a CI runner pointed at a shared Postgres without Docker-in-Docker. I materially agree the fix correctly closes the primary/default-path risk R1 raised, and agree this narrower residual is reasonable to accept for now rather than block on. I partially disagree with framing it as 'no way to have verified anything anyway', though: in this specific sub-case the DB WAS reachable, so the goose error is real signal about a broken migration, not about unavailability - and AGENTS.md's mitigation ('check the log when a run skips unexpectedly') does not actually surface in the default, non -v `go test`/`make check` output on a skip (confirmed in round 1). Recording as open for the leader's optional future tightening; not a reason to withhold approval given how narrow the precondition is and that it was disclosed, not hidden.",
+            "status": "open",
+            "triage": null
+          }
+        ],
+        "verified": [
+          "R1 fix read line-by-line in internal/testdb/testdb.go and internal/telemetry/testdb_test.go; switch/error-wrapping logic is correct (errors.Is checked before the generic err != nil fallback; success path falls through both).",
+          "go build ./... and go vet ./... clean.",
+          "gofmt clean on the touched .go files (testdb.go, testdb_test.go).",
+          "go test ./internal/telemetry/... still 64 pass / 40 skip; -v output shows the new 'no Postgres available' skip message correctly firing via ErrUnavailable in this Docker-less sandbox.",
+          "internal/account/testdb_test.go and internal/manualcharge/testdb_test.go confirmed untouched - still unconditional log.Fatalf on any Provision error.",
+          "tasks.md T6.1/T6.2 confirmed ticked.",
+          "Scope respected: only re-checked R1/R2 and the files in f69e4e5, did not re-review the feature surface cleared in round 1."
+        ],
+        "not_verified": [
+          "Could not execute a live broken-migration scenario to observe log.Fatalf fire for real (no Docker in this environment) - confirmed by code reading only.",
+          "T7's three DB integration tests and the migration itself remain unexecuted (D13/D17, unchanged, not in scope for this re-verification per the leader's instruction)."
         ]
       }
     ]
@@ -470,6 +512,24 @@
       "decision": "ACCEPTED R2 (minor) and ticked T6.1/T6.2 in tasks.md",
       "why": "The wave-4 worker was correctly told to leave them unchecked because the tests could not run then; once D14 unblocked them and all 9 were observed passing, the boxes became stale. tasks.md is the source of truth on implementation done-ness, so leaving them unchecked understated reality",
       "covered_by": null
+    },
+    {
+      "id": "D21",
+      "at": "2026-08-14T18:28:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Moved the archived folder from the CLI's flat openspec/changes/archive/<date>-<change> into the per-module openspec/changes/archive/telemetry/<date>-<change>",
+      "why": "openspec archive placed it flat, but this repo's archive/ is grouped by module (gateway, manualcharge, platform, telemetry, tesla) and every prior telemetry change lives under archive/telemetry/. Followed the repo's existing convention over the tool's default so the folder is findable where the other telemetry changes are",
+      "covered_by": null
+    },
+    {
+      "id": "D22",
+      "at": "2026-08-14T18:28:00Z",
+      "scope": "review:R3",
+      "made_by": "leader",
+      "decision": "ACCEPTED R3 (minor, non-blocking) as a real point but DEFERRED it to openspec/roadmaps/backlog.md item 10 rather than fixing it in this change",
+      "why": "The reviewer was right that 'no way to verify anything anyway' does not justify the reachable-but-broken DATABASE_URL sub-case, where the goose error IS real signal. But this change had already expanded scope twice (D14 user-approved, D19 leader) and a third expansion at the archive gate, in a shared cross-module package, is exactly the creep the pipeline guards against. Recorded in the backlog per the project's future-work rule with a fix sketch and a trigger, so it is durable rather than buried in a review round",
+      "covered_by": null
     }
   ],
   "events": [
@@ -567,6 +627,11 @@
       "at": "2026-08-14T18:24:00Z",
       "agent": "leader",
       "event": "review round 1 verdict changes-requested: R1 major, R2 minor. Leader triaged BOTH as ACCEPTED (no rejections) after independently confirming R1 against internal/testdb/testdb.go. Fixes: ErrUnavailable sentinel + TestMain switch (D19), tasks.md T6.1/T6.2 ticked (D20), AGENTS.md sharpened to document that only 'no Postgres at all' skips while a failed goose up stays fatal. go build 0, go vet 0, gofmt clean on touched files, telemetry suite still green. Re-verification requested from the SAME reviewer via SendMessage to reuse its context"
+    },
+    {
+      "at": "2026-08-14T18:28:00Z",
+      "agent": "leader",
+      "event": "review round 2 APPROVED by telemetry-reviewer (review.status=approved). Leader did NOT write reviewer-approved into the change status - the reviewer's verdict is the authorization and the leader moved verified -> archived directly, so the leader never self-approves. Archived via openspec archive -y: specs synced (+1 requirement into openspec/specs/telemetry/spec.md), folder relocated to archive/telemetry/ per repo convention (D21). CLI reported 15 incomplete task boxes - correct and expected: T7's three and the V verification items that genuinely could not be executed without Docker. R3 deferred to backlog item 10 (D22)"
     }
   ]
 }

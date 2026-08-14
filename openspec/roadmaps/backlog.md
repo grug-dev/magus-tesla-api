@@ -238,6 +238,40 @@ inconsistency but out of that ticket's scope. Recorded here per the project's fu
 rather than silently bundled in or silently dropped.
 
 
+## 10. testing — `testdb.Provision` can mask a real migration failure as "unavailable"
+
+### PROPOSAL
+
+`internal/testdb.Provision` tries `DATABASE_URL` first; when applying migrations against it
+fails, it logs `DATABASE_URL not usable` and falls through to the testcontainer path. That
+fallback does NOT distinguish *"the DB was unreachable"* from *"the DB was reachable and the
+migration is genuinely broken"*. If Docker is then also absent, the error the caller finally
+sees is the container path's `testdb.ErrUnavailable` — so a real, reproducible migration bug
+gets reported as mere environment-unavailability, and a `TestMain` that skips on
+`ErrUnavailable` (currently `internal/telemetry`) will skip instead of failing. The `AGENTS.md`
+mitigation ("check the log for `DATABASE_URL not usable`") does not surface under default,
+non-`-v` `go test` / `make check` output.
+
+Narrower than the bug it descends from — it needs a reachable-but-broken `DATABASE_URL` **and**
+no Docker fallback — but that combination is plausible in a CI runner without Docker-in-Docker,
+which is exactly where a silent skip is most costly.
+
+Fix sketch: have `Provision` classify the `DATABASE_URL` attempt — a connection/dial failure
+keeps today's fall-through, whereas a successful connection with a failing `goose up` returns a
+hard, unwrapped error immediately instead of degrading to the container path.
+
+**Trigger:** pick this up when CI starts running these tests without Docker-in-Docker, or the
+next time anyone touches `internal/testdb`.
+
+### ORIGIN
+
+Finding R3 (minor, non-blocking) from the round-2 review of
+`telemetry-add-derived-consumption-columns` (MAG-10). Raised by `telemetry-reviewer` when
+re-verifying the R1 fix, which closed the wider version of this same conflation. The reviewer
+explicitly pushed back on the leader's justification for accepting the residual, and was right
+to; deferred here rather than expanding that change's scope a third time at its archive gate.
+
+
 # BRAINSTORMING
 
 
