@@ -15,6 +15,7 @@ package telemetry
 import (
 	"context"
 	"embed"
+	"errors"
 	"io/fs"
 	"log"
 	"os"
@@ -48,14 +49,20 @@ func runTests(m *testing.M) int {
 	}
 
 	result, err := testdb.Provision(ctx, subFS)
-	if err != nil {
+	switch {
+	case errors.Is(err, testdb.ErrUnavailable):
 		// No reachable Postgres and no Docker daemon to provision one. Skip the
 		// DB-backed tests rather than killing the whole binary: the package's
 		// offline tests (deriveConsumption, dayStart, dateOnly, snapshotFrom,
 		// scheduler) need no database and must still run. newTestStore turns the
 		// empty testDSN into a t.Skip for every DB-backed test.
-		log.Printf("telemetry testdb: provision failed, SKIPPING all DB-backed tests: %v", err)
+		log.Printf("telemetry testdb: no Postgres available, SKIPPING all DB-backed tests: %v", err)
 		return m.Run()
+	case err != nil:
+		// Anything else — above all a migration that failed to apply — means the
+		// schema or the test setup is genuinely broken. Fail LOUDLY: skipping here
+		// would let a broken migration pass `make check` in silence.
+		log.Fatalf("telemetry testdb: provision: %v", err)
 	}
 	testDSN = result.DSN
 	testResult = result

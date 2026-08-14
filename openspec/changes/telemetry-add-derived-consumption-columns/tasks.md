@@ -152,7 +152,7 @@
 
 ## T6. New offline unit tests — depends on T3
 
-- [ ] T6.1 Add table-driven unit tests for `deriveConsumption` in a new file,
+- [x] T6.1 Add table-driven unit tests for `deriveConsumption` in a new file,
       `internal/telemetry/consumption_test.go` (no DB, no network — pure function tests).
       Cover, at minimum: (a) normal drive day — positive distance, positive battery used,
       both efficiency fields populated with the expected values (mirror the ticket's
@@ -165,7 +165,7 @@
       Acceptance: `go test ./internal/telemetry/...` passes; tests are fast (no DB, no
       network, no live Tesla API call).
 
-- [ ] T6.2 Add unit tests for `dayStart` in the same file or alongside the existing
+- [x] T6.2 Add unit tests for `dayStart` in the same file or alongside the existing
       `dateOnly` tests in `dedupe_test.go`: (a) a capture comfortably inside a calendar day
       in a non-UTC zone (e.g. `America/Bogota`, UTC-5) returns that day's local midnight as
       an absolute instant; (b) a capture whose UTC instant is on one calendar day but whose

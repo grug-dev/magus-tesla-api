@@ -200,11 +200,19 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
   there.
 - **When neither is available, the DB-backed tests SKIP — they do not fail** (added by
   `telemetry-add-derived-consumption-columns`). `TestMain` logs
-  `provision failed, SKIPPING all DB-backed tests` and still runs the suite, and
+  `no Postgres available, SKIPPING all DB-backed tests` and still runs the suite, and
   `newTestStore` calls `t.Skip`. This keeps the package's offline tests
   (`deriveConsumption`, `dayStart`, `dateOnly`, `snapshotFrom`, scheduler math) runnable
   and `make check` passable on a machine with no Docker daemon, where previously a failed
   provision called `log.Fatalf` and killed the whole test binary before any test ran.
+- **Only "no Postgres at all" skips — a broken migration still fails LOUDLY.** `TestMain`
+  skips solely on `errors.Is(err, testdb.ErrUnavailable)`, the sentinel `internal/testdb`
+  wraps around the "no Docker daemon to start a container" case. Every other `Provision`
+  failure — above all `goose up` failing to apply a migration — is still `log.Fatalf`.
+  Keep that distinction if you touch this: skipping on a migration failure would let a
+  broken schema pass `make check` in silence. (Residual edge case: if `DATABASE_URL` is
+  set but unusable AND there is no Docker, the run degrades to a skip — `testdb` logs
+  `DATABASE_URL not usable` first, so check the log when a run skips unexpectedly.)
   **Consequence to keep in mind: a green suite does NOT by itself prove the DB tests ran.**
   To actually exercise them, start Docker and run `make test` (disposable container —
   never the real database), or run one file's worth directly, e.g.
