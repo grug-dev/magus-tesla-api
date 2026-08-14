@@ -5,15 +5,15 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Battery Consumed Columns - Vehicle Snapshots (MAG-10). Add derived columns to vehicle_snapshots computed from the current row and the previous record for that vehicle: distance traveled (odometer delta), battery consumed (battery_level_pct delta, may be negative), km per 1% battery, and estimated range (km_per_pct x 100). Suffix every new column with 'calc'. Calculate them before saving the nightly gathered data. 'Yesterday' means the latest record tracked for that vehicle. Ticket also asks whether the formulas can be applied to existing database records.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
-    "current": ["T6", "T7"],
+    "current": [],
     "pending": [],
-    "blocked": [],
-    "done": ["T1", "T2", "T3", "T4", "T5", "T8"]
+    "blocked": ["T7"],
+    "done": ["T1", "T2", "T3", "T4", "T5", "T6", "T8"]
   },
   "created_at": "2026-08-14T14:43:41Z",
-  "updated_at": "2026-08-14T17:59:06Z",
+  "updated_at": "2026-08-14T18:06:46Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -153,14 +153,23 @@
       "module": "telemetry",
       "depends_on": ["T3"],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-14T17:59:30Z",
+      "completed_at": "2026-08-14T18:06:46Z",
+      "duration_seconds": 436,
+      "notes": "consumption_test.go: 5 table-driven deriveConsumption cases + nil-prev regression + 2 dayStart cases. Worker set blocked (unrunnable); leader's D14 TestMain fix unblocked it - all 9 now genuinely execute and PASS.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 65.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.618,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-4 delta covers T6+T7 jointly plus the leader's D14 TestMain fix, D15 clock fix and make check run"
+      }
     },
     {
       "id": "T7",
@@ -168,14 +177,23 @@
       "module": "telemetry",
       "depends_on": ["T1", "T4", "T5"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "blocked",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-14T17:59:30Z",
+      "completed_at": "2026-08-14T18:04:50Z",
+      "duration_seconds": 320,
+      "notes": "db_derived_consumption_integration_test.go written: previousSnapshot round-trip (T7.1), same-day-recapture D7 regression (T7.2), 5-field round-trip w/ negative BatteryUsedPctCalc (T7.3). go vet green. STILL BLOCKED: no Docker, so these SKIP rather than run.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 65.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.618,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-4 delta covers T6+T7 jointly plus the leader's D14 TestMain fix, D15 clock fix and make check run"
+      }
     },
     {
       "id": "T8",
@@ -325,6 +343,33 @@
       "decision": "OPEN VERIFICATION GAP: Docker is unavailable in this environment, so the testcontainers Postgres cannot start. The migration, its LAG() backfill, and all T7 DB integration tests are UNEXECUTED and verified by inspection only. Implementation continues; the gap is carried forward, not closed",
       "why": "Leader independently confirmed docker info fails, so this is environmental, not a worker sandbox artifact. D11 routed T1's verification to testcontainers precisely because live-DB commands are gated - with Docker down, neither path is available. Recorded openly so Step 6 verification and the reviewer treat DB-layer correctness as unproven rather than passing",
       "covered_by": null
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-14T18:06:46Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "SCOPE EXPANSION beyond tasks.md, explicitly chosen by the user: testdb_test.go's TestMain now logs and continues (running m.Run) when testcontainers cannot provision, instead of log.Fatalf, and newTestStore t.Skip's on an empty testDSN instead of t.Fatalf",
+      "why": "The user was offered three options (start Docker / change TestMain / ship unverified) and picked changing TestMain. Before this, a missing Docker daemon killed the whole telemetry test binary, so even pure offline tests could not run - and make check, which runs env -u DATABASE_URL go test ./..., could not pass on any Docker-less machine. TRADE-OFF the user accepted: a green suite no longer implies the DB tests ran; they now skip silently (the skip message names the cause). This unblocked T6 (9 offline tests now genuinely pass) but only converted T7 from crash to skip",
+      "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-14T18:06:46Z",
+      "scope": "task:T3",
+      "made_by": "leader",
+      "decision": "Leader integration fix in attemptVehicle: read the clock ONCE into capturedAt and use it for both snapshotFrom and the dayStart bound, replacing two independent s.now() calls",
+      "why": "The wave-4 worker flagged it on a fresh-eyes read of T1-T5. Design D7 defines the predecessor bound as the local calendar day OF THE INCOMING ROW, so deriving it from a second clock reading is not what D7 specifies: two calls straddling local midnight would bound the lookup by a different day than the row being derived. Astronomically unlikely in production and a no-op under the injected test Clock, but it is this change's own wiring and the fix is one line, so it was corrected now rather than deferred",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-14T18:06:46Z",
+      "scope": "task:T6",
+      "made_by": "leader",
+      "decision": "Leader flipped T6 from the worker's blocked to done",
+      "why": "The worker correctly set blocked because it could not execute the tests. D14's TestMain fix removed that blocker afterwards; the leader then ran the suite and observed all 9 T6 tests genuinely execute and pass (64 pass / 40 skip package-wide). The status change reflects verified reality, not a leader overriding a worker's honest assessment. T7 was deliberately LEFT blocked because its tests still only skip",
+      "covered_by": null
     }
   ],
   "events": [
@@ -397,6 +442,16 @@
       "at": "2026-08-14T17:59:06Z",
       "agent": "leader",
       "event": "D13 ESCALATED (see D14): leader reproduced go test ./internal/telemetry/... failing outright - testdb_test.go TestMain calls log.Fatalf when Docker is absent, aborting the whole test binary via os.Exit before ANY test runs. So T6's pure offline unit tests are unrunnable here too, not just T7's DB tests. Also noted: gofmt -l flags scheduler_test.go and testdb_test.go, both untouched by this change (pre-existing repo state, left alone)"
+    },
+    {
+      "at": "2026-08-14T17:59:30Z",
+      "agent": "telemetry",
+      "event": "dispatched wave 4 worker (Sonnet) for T6 (offline unit tests) and T7 (DB integration tests), instructed to set them blocked rather than done since execution was impossible"
+    },
+    {
+      "at": "2026-08-14T18:06:46Z",
+      "agent": "leader",
+      "event": "wave 4 complete. Worker wrote consumption_test.go (9 offline tests) + db_derived_consumption_integration_test.go (3 DB tests incl. the T7.2 same-day-recapture regression), enumerated D1/D2/D6/D7/D8/D9/D10 compliance, honestly set both tasks blocked and weakened nothing. User chose the TestMain-skip option (D14); leader applied it, then applied the D15 single-clock-reading fix from the worker's fresh-eyes finding. Verification: go build 0, go vet 0, gofmt clean on all touched files, make check FULLY GREEN across the monolith, telemetry suite 64 pass / 40 skip. T6 flipped to done (D16); T7 remains blocked - its 3 tests skip, never executed"
     }
   ]
 }

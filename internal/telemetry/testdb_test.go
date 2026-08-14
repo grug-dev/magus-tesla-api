@@ -5,6 +5,7 @@
 // Behavior (see internal/testdb and ai/go-conventions.md §persistence):
 //   - If DATABASE_URL is set AND reachable, use it (managed/CI Postgres).
 //   - Otherwise auto-provision a disposable `postgres:16-alpine` container.
+//
 // goose migrations are embedded under db/migrations/ and applied before tests.
 //
 // Production impact: NONE. This is a _test.go file; testcontainers/goose are
@@ -48,7 +49,13 @@ func runTests(m *testing.M) int {
 
 	result, err := testdb.Provision(ctx, subFS)
 	if err != nil {
-		log.Fatalf("telemetry testdb: provision: %v", err)
+		// No reachable Postgres and no Docker daemon to provision one. Skip the
+		// DB-backed tests rather than killing the whole binary: the package's
+		// offline tests (deriveConsumption, dayStart, dateOnly, snapshotFrom,
+		// scheduler) need no database and must still run. newTestStore turns the
+		// empty testDSN into a t.Skip for every DB-backed test.
+		log.Printf("telemetry testdb: provision failed, SKIPPING all DB-backed tests: %v", err)
+		return m.Run()
 	}
 	testDSN = result.DSN
 	testResult = result

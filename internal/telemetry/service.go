@@ -370,7 +370,12 @@ func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, v
 		return s.logAPIError(v.TeslaID, "VehicleData", err, reasonFor(err)), vehicleConfig{}
 	}
 
-	snap := snapshotFrom(v.AccountID, v.TeslaID, s.now(), s.location(), data, raw)
+	// One clock reading serves both the snapshot's captured_at and the dayStart
+	// bound below, so the predecessor lookup is always bounded by the calendar day
+	// of THIS row (design D7). Two independent s.now() calls could straddle local
+	// midnight and bound the lookup by a different day than the row it derives.
+	capturedAt := s.now()
+	snap := snapshotFrom(v.AccountID, v.TeslaID, capturedAt, s.location(), data, raw)
 
 	// Derived-consumption wiring (telemetry-add-derived-consumption-columns, design
 	// D7/D8): look up the predecessor bounded by the START of today's LOCAL calendar
@@ -381,7 +386,7 @@ func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, v
 	// proceed as "no predecessor found" (that would wrongly NULL out a real
 	// vehicle's derived columns on a transient DB hiccup); "no predecessor" is
 	// exclusively signaled by prev == nil with a NIL error (D8/D10).
-	prev, err := s.store.previousSnapshot(ctx, v.AccountID, v.TeslaID, dayStart(s.now(), s.location()))
+	prev, err := s.store.previousSnapshot(ctx, v.AccountID, v.TeslaID, dayStart(capturedAt, s.location()))
 	if err != nil {
 		return s.logAPIError(v.TeslaID, "previousSnapshot", err, ReasonAPIError), vehicleConfig{}
 	}
