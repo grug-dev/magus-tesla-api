@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": null,
   "request": "On the front-end side, I want to set/show  comma \",\" as a thousand separator for ALL currency values and \".\" period as decimal separator. Please create a centralized function/logic/pipe or whatever thing works on HTMX to do the transformation and be reusable from any page.\n\nApply that change to all currency values shown on all pages right now.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -498,10 +498,24 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Validate gateway-format-currency-values on branch ft/CH25-MAG-9 (commits de7b1f5, f547b52, HEAD). Check: (1) format.go is a VERBATIM move of the 4 helpers \u2014 no behavior/signature/doc drift vs the pre-move originals; (2) all 4 monetary render sites route through formatMoney and CostPerKWhLabel appends '/kWh' AFTER the money format, never folded into the currency arg (design.md D1/D2); (3) CRITICAL \u2014 charges.go RawEnergyKWh/RawPrice remain unformatted machine-parseable strings for the edit form's <input value>, and C.4 genuinely pins that (a mismatch with the user-confirmed design is a blocker finding); (4) D3 scope discipline \u2014 kWh/km/degC/pct formatting untouched; (5) money-guard actually catches the bug shape it claims (try the regex against a hand-rolled Sprintf) and is wired into .PHONY + check with accurate help text (D4); (6) module-boundary compliance \u2014 no HTML outside internal/gateway, no other module's DB/internals touched, no cross-module import added; (7) every doc-pack convention, incl. the bilingual i18n rule (no user-facing string added here, confirm) and the km/unit-suffix rule; (8) spec/tasks coverage \u2014 every requirement in specs/gateway/spec.md is implemented and every tasks.md checkbox is truthful; (9) compliance with the declared read-heavy Performance-Profile; (10) ANTI-GAMING \u2014 no acceptance criterion weakened, no existing test assertion deleted or relaxed to make a new one pass (charges_test.go:868 and supercharger_test.go:272 must both still be present and unchanged), no self-approved status.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "at": "2026-08-14T00:15:53Z",
+        "verdict": "approved",
+        "findings": [],
+        "budget": {
+          "five_hour_pct_delta": 5,
+          "cost_usd_delta": 2.0677,
+          "approx": false,
+          "note": "Review round 1 bracket 72%->77%"
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -608,6 +622,16 @@
       "at": "2026-08-14T00:16:00Z",
       "agent": "leader",
       "event": "Step 6 verify complete (F.1-F.3 run by the leader, not dispatched). make check fully green including the new money-guard. All 20 tasks done. Status -> verified."
+    },
+    {
+      "at": "2026-08-14T00:17:00Z",
+      "agent": "leader",
+      "event": "Step 7: review brief written. Dispatching gateway-reviewer (claude-sonnet-5, cheaper model, instructed to escalate on doubt). Budget bracket start: five_hour 72%, cost 6.254074, context 11%."
+    },
+    {
+      "at": "2026-08-14T00:17:30Z",
+      "agent": "leader",
+      "event": "Review round 1: gateway-reviewer verdict APPROVED, zero findings. Reviewer empirically probed money-guard (injected violation -> guard failed as designed; escape hatch verified; probe reverted, tree clean). make check green. Bracket end: five_hour 77% (delta 5), cost 2.0677, context 12%."
     }
   ]
 }
