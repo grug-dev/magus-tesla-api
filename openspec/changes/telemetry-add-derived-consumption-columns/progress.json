@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "telemetry-add-derived-consumption-columns",
+  "module": "telemetry",
+  "roadmap": null,
+  "request": "Battery Consumed Columns - Vehicle Snapshots (MAG-10). Add derived columns to vehicle_snapshots computed from the current row and the previous record for that vehicle: distance traveled (odometer delta), battery consumed (battery_level_pct delta, may be negative), km per 1% battery, and estimated range (km_per_pct x 100). Suffix every new column with 'calc'. Calculate them before saving the nightly gathered data. 'Yesterday' means the latest record tracked for that vehicle. Ticket also asks whether the formulas can be applied to existing database records.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-14T14:43:41Z",
+  "updated_at": "2026-08-14T14:43:41Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH26-MAG-10-telemetry-add-derived-consumption-columns",
+    "base": "main",
+    "ticket": "MAG-10",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-10/battery-consumed-columns-vehicle-snapshots",
+    "created_at": "2026-08-14T14:05:00Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Goose migration + LAG() backfill (internal/telemetry/db/migrations/)",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "Snapshot struct + store interface signature (telemetry.go)",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "service.go: deriveConsumption/dayStart + write-path wiring",
+      "module": "telemetry",
+      "depends_on": ["T2"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "sqlc query edits + regenerate (db/query.sql)",
+      "module": "telemetry",
+      "depends_on": ["T1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "mapping.go: rowToSnapshot maps the five new columns",
+      "module": "telemetry",
+      "depends_on": ["T3", "T4"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "New offline unit tests (deriveConsumption edge cases)",
+      "module": "telemetry",
+      "depends_on": ["T3"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "New/updated DB integration tests",
+      "module": "telemetry",
+      "depends_on": ["T1", "T4", "T5"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "internal/telemetry/AGENTS.md documentation",
+      "module": "telemetry",
+      "depends_on": ["T1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Multi-day gaps store the RAW delta plus a new days_spanned_calc column (five columns, not four)",
+      "why": "Preserves the true total while keeping the gap visible; averaging per-day would destroy the real figure irrecoverably, and a bare raw delta would make a 2-day bar indistinguishable from a 1-day one",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "km_per_pct_calc and estimated_range_km_calc are NULL whenever battery_used_pct_calc <= 0; the two raw columns always store the true signed delta",
+      "why": "Zero divisor is a division by zero and a negative divisor (overnight charge) yields a meaningless ratio; module convention D12/DSA3 reserves NULL for genuinely undefined and requires a stored 0 to be truthful",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Column naming is <what>_<unit>_calc; ticket's estimated_range_calculated becomes estimated_range_km_calc",
+      "why": "Honors both the ticket's requested _calc suffix and CLAUDE.md's non-negotiable display-unit suffix rule, matching the 15 existing unit-suffixed columns on the table",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Backfill every existing row inside the Up migration via a single LAG() window pass",
+      "why": "Answers the ticket's own open question; mirrors 20260805000001's one-time point-in-time backfill precedent; avoids adding a separate runnable and leaves no blank history",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "gateway-battery-consumed-chart is entirely out of scope; not referenced, read, or touched",
+      "why": "The user is removing that change themselves, so this change stays telemetry-only with no cross-module coupling",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Accepted the worker's refinement of the previous-record definition: bound the lookup by the start of the incoming row's LOCAL CALENDAR DAY, not by its own captured_at",
+      "why": "The leader's original wording was wrong under same-day re-capture (upsert): today's existing row has an earlier captured_at and would be selected as its own predecessor, yielding a near-zero delta. The refinement is a strict no-op for fresh inserts. Worker flagged it rather than substituting silently; leader verified the reasoning against the dedupe UNIQUE constraint",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate PASSED — user explicitly confirmed the five-column schema, the no-new-index plan, and the in-migration backfill",
+      "why": "Required by the project's built-in database design gate before any DB object is created or altered",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Unit tests INCLUDED for this change (T6 offline unit tests, T7 DB integration tests)",
+      "why": "User was asked before artifacts were written, per the global plans rule whose default is no tests, and chose to include them; recorded in the proposal header as binding on the implementing worker",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Dispatched the artifact worker on Sonnet rather than Opus",
+      "why": "Every design decision was pre-settled in the grill-me interview and handed over verbatim, making this a drafting task rather than open-ended design; no Opus exception was warranted",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-14T14:43:41Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Accepted D11's late-arriving-row staleness as a documented limitation rather than requiring a recompute-forward mechanism",
+      "why": "No code path can insert a backdated row today, so building the fix now would be speculative; the limitation is named explicitly in design.md instead of hidden",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-14T14:05:00Z",
+      "agent": "leader",
+      "event": "created branch ft/CH26-MAG-10-telemetry-add-derived-consumption-columns off main; bumped openspec/.work-counter 26 -> 27; ticket MAG-10 auto-detected from the pickup payload"
+    },
+    {
+      "at": "2026-08-14T14:10:00Z",
+      "agent": "leader",
+      "event": "Step 2 grill-me interview with user settled decisions D1-D5"
+    },
+    {
+      "at": "2026-08-14T14:12:00Z",
+      "agent": "telemetry",
+      "event": "dispatched artifact worker (Sonnet) for OpenSpec artifacts"
+    },
+    {
+      "at": "2026-08-14T14:25:00Z",
+      "agent": "leader",
+      "event": "worker terminated early on an API error before its first write; nothing on disk; resumed the same agent via SendMessage to preserve its doc-pack context, instructing it to persist each artifact as drafted"
+    },
+    {
+      "at": "2026-08-14T14:40:00Z",
+      "agent": "telemetry",
+      "event": "artifact worker returned; 4 artifacts written; openspec validate --strict passes"
+    },
+    {
+      "at": "2026-08-14T14:43:41Z",
+      "agent": "leader",
+      "event": "database design gate PASSED (D7); progress.json created; pipeline HALTS after Step 4 per the pickup-ticket scope - no implementation workers dispatched"
+    }
+  ]
+}
