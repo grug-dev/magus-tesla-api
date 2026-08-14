@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -437,15 +436,6 @@ func dashStatus(ctx context.Context, s telemetry.Snapshot) string {
 	return i18n.T(ctx, i18n.KeyDashboardStatusParked)
 }
 
-// formatKm renders a kilometre value as a whole, thousands-separated "N,NNN km"
-// string — e.g. 19312.07 → "19,312 km". The value arrives already in kilometres
-// from the telemetry.Reader port (converted once at capture time, not here);
-// this helper only rounds and groups.
-func formatKm(km float64) string {
-	whole := int(math.Round(km))
-	return commaGroup(strconv.Itoa(whole)) + " km"
-}
-
 // defaultHistoryHref returns the pre-formatted absolute href the #dashboard-history
 // region self-loads on first render: the default 6-day-wide window ending
 // YESTERDAY (today-1), because the nightly batch captures today's data tomorrow
@@ -462,29 +452,6 @@ func defaultHistoryHref(today time.Time) string {
 	start := end.AddDate(0, 0, -historyRangeWindowDays)
 	return fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s",
 		start.Format("2006-01-02"), end.Format("2006-01-02"))
-}
-
-// commaGroup inserts thousands separators into a non-negative integer string:
-// "19312" → "19,312". Odometers are non-negative, so the sign path is intentionally
-// absent. Pure string formatting — no number parsing overhead.
-func commaGroup(s string) string {
-	n := len(s)
-	if n <= 3 {
-		return s
-	}
-	var b strings.Builder
-	pre := n % 3
-	if pre > 0 {
-		b.WriteString(s[:pre])
-		b.WriteByte(',')
-	}
-	for i := pre; i < n; i += 3 {
-		b.WriteString(s[i : i+3])
-		if i+3 < n {
-			b.WriteByte(',')
-		}
-	}
-	return b.String()
 }
 
 // NavHeaderFragment renders ONLY the nav-header fragment (htmx swap served by

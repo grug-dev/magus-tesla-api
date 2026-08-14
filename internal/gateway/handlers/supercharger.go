@@ -271,7 +271,7 @@ func buildSuperchargerRows(filtered []telemetry.SuperchargerSession) []fragments
 		}
 		costLabel := "—"
 		if s.TotalCost != nil && s.Currency != nil {
-			costLabel = fmt.Sprintf("%.2f %s", *s.TotalCost, *s.Currency)
+			costLabel = formatMoney(*s.TotalCost, *s.Currency)
 		}
 		rows = append(rows, fragments.SuperchargerRowVM{
 			DateLabel:   s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),
@@ -283,25 +283,4 @@ func buildSuperchargerRows(filtered []telemetry.SuperchargerSession) []fragments
 		})
 	}
 	return rows
-}
-
-// formatMoney renders a monetary amount with two decimal places and
-// thousands separators, paired with its currency code — e.g.
-// formatMoney(58000, "COP") -> "58,000.00 COP" (design.md's CostLines
-// example). Two decimals + comma-grouping reuses commaGroup (formatKm's
-// grouping helper); money is the documented suffix-exemption paired with a
-// currency string instead of a unit suffix (ai/go-conventions.md).
-func formatMoney(amount float64, currency string) string {
-	cents := int64(math.Round(amount * 100))
-	neg := cents < 0
-	if neg {
-		cents = -cents
-	}
-	whole := cents / 100
-	frac := cents % 100
-	s := commaGroup(strconv.FormatInt(whole, 10)) + "." + fmt.Sprintf("%02d", frac) + " " + currency
-	if neg {
-		s = "-" + s
-	}
-	return s
 }

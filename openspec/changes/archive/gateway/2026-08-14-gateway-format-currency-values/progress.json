@@ -1,0 +1,637 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "gateway-format-currency-values",
+  "module": "gateway",
+  "roadmap": null,
+  "request": "On the front-end side, I want to set/show  comma \",\" as a thousand separator for ALL currency values and \".\" period as decimal separator. Please create a centralized function/logic/pipe or whatever thing works on HTMX to do the transformation and be reusable from any page.\n\nApply that change to all currency values shown on all pages right now.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "A.1",
+      "A.2",
+      "A.3",
+      "B.1",
+      "B.2",
+      "B.3",
+      "B.4",
+      "C.1",
+      "C.2",
+      "C.3",
+      "C.4",
+      "D.1",
+      "D.2",
+      "D.3",
+      "D.4",
+      "E.1",
+      "E.2",
+      "F.1",
+      "F.2",
+      "F.3"
+    ]
+  },
+  "created_at": "2026-08-13T23:57:50Z",
+  "updated_at": "2026-08-14T00:16:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH25-MAG-9-gateway-format-currency-values",
+    "base": "main",
+    "ticket": "MAG-9",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-9/currency-format",
+    "created_at": "2026-08-13T23:50:00Z"
+  },
+  "tasks": [
+    {
+      "id": "A.1",
+      "title": "Create handlers/format.go; move commaGroup, formatMoney, formatKm, formatKmRaw verbatim",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:05:19Z",
+      "completed_at": "2026-08-14T00:05:50Z",
+      "duration_seconds": 31,
+      "notes": "Created format.go (package handlers) with commaGroup, formatMoney, formatKm, formatKmRaw copied verbatim (bodies + doc comments unchanged) from their original locations, in that order.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.4578,
+        "approx": true,
+        "note": "Wave 1 shared bracket (55%->63%) across A.1-A.3 in one serial dispatch"
+      }
+    },
+    {
+      "id": "A.2",
+      "title": "Remove moved function bodies from handlers.go, supercharger.go, history.go; leave call sites untouched",
+      "module": "gateway",
+      "depends_on": [
+        "A.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:05:50Z",
+      "completed_at": "2026-08-14T00:06:10Z",
+      "duration_seconds": 20,
+      "notes": "Removed the 4 function bodies from their old files. Dropped now-unused imports: math from handlers.go, strconv from history.go. supercharger.go's math/strconv stayed (used elsewhere). No call sites edited.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.4578,
+        "approx": true,
+        "note": "Wave 1 shared bracket (55%->63%) across A.1-A.3 in one serial dispatch"
+      }
+    },
+    {
+      "id": "A.3",
+      "title": "go build ./... \u2014 confirm the pure move compiles with zero behavior change",
+      "module": "gateway",
+      "depends_on": [
+        "A.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:06:10Z",
+      "completed_at": "2026-08-14T00:06:36Z",
+      "duration_seconds": 26,
+      "notes": "go build ./... exits 0, no output \u2014 the pure move compiles clean.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.4578,
+        "approx": true,
+        "note": "Wave 1 shared bracket (55%->63%) across A.1-A.3 in one serial dispatch"
+      }
+    },
+    {
+      "id": "B.1",
+      "title": "supercharger.go:274 session CostLabel -> formatMoney(*s.TotalCost, *s.Currency)",
+      "module": "gateway",
+      "depends_on": [
+        "A.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:08:52Z",
+      "completed_at": "2026-08-14T00:09:00Z",
+      "duration_seconds": 8,
+      "notes": "Replaced fmt.Sprintf(\"%.2f %s\", *s.TotalCost, *s.Currency) with formatMoney(*s.TotalCost, *s.Currency) in buildSuperchargerRows.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "B.2",
+      "title": "charges.go:540 PriceLabel -> formatMoney(e.Price, e.Currency)",
+      "module": "gateway",
+      "depends_on": [
+        "A.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:08:52Z",
+      "completed_at": "2026-08-14T00:09:00Z",
+      "duration_seconds": 8,
+      "notes": "Replaced fmt.Sprintf(\"%.2f %s\", e.Price, e.Currency) with formatMoney(e.Price, e.Currency) in chargeEntryVMFromEntry's PriceLabel.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "B.3",
+      "title": "charges.go:480 CostPerKWhLabel -> formatMoney(*v, e.Currency) + \"/kWh\"",
+      "module": "gateway",
+      "depends_on": [
+        "A.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:08:52Z",
+      "completed_at": "2026-08-14T00:09:00Z",
+      "duration_seconds": 8,
+      "notes": "Replaced fmt.Sprintf(\"%.2f %s/kWh\", *v, e.Currency) with formatMoney(*v, e.Currency) + \"/kWh\" \u2014 /kWh appended after money format, not folded into formatMoney's currency arg.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "B.4",
+      "title": "Negative requirement: leave charges.go:550-551 RawEnergyKWh/RawPrice unformatted (edit-form inputs)",
+      "module": "gateway",
+      "depends_on": [
+        "A.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:09:00Z",
+      "completed_at": "2026-08-14T00:09:05Z",
+      "duration_seconds": 5,
+      "notes": "Verified charges.go:550-551 (RawEnergyKWh/RawPrice via strconv.FormatFloat) left untouched. Not routed through formatMoney/commaGroup. Pinned by new C.4 test.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "C.1",
+      "title": "handlers/format_test.go \u2014 table-driven TestFormatMoney (0, negative, 999, 1000, 58000)",
+      "module": "gateway",
+      "depends_on": [
+        "A.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:09:10Z",
+      "completed_at": "2026-08-14T00:09:30Z",
+      "duration_seconds": 20,
+      "notes": "Created format_test.go with table-driven TestFormatMoney covering the 5 required cases (0, -1500.5, 999, 1000, 58000). go test passes.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "C.2",
+      "title": "charges_test.go \u2014 assert PriceLabel and CostPerKWhLabel comma-grouped at >= 1000",
+      "module": "gateway",
+      "depends_on": [
+        "B.2",
+        "B.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:09:30Z",
+      "completed_at": "2026-08-14T00:09:50Z",
+      "duration_seconds": 20,
+      "notes": "Extended TestChargeEntryVMFromEntry (existing fixture Price=15000, EnergyAddedKWh=12.5) with exact-string asserts: PriceLabel==\"15,000.00 COP\", CostPerKWhLabel==\"1,200.00 COP/kWh\". Existing CostPerKWhLabel!=\"\" check kept.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "C.3",
+      "title": "supercharger_test.go \u2014 assert session CostLabel comma-grouped (previously untested field)",
+      "module": "gateway",
+      "depends_on": [
+        "B.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:09:50Z",
+      "completed_at": "2026-08-14T00:10:05Z",
+      "duration_seconds": 15,
+      "notes": "Added TestBuildSuperchargerRows_CostLabelCommaGrouped (TotalCost=58000, Currency=COP -> CostLabel==\"58,000.00 COP\"). Existing CostLines assertion at line 272 untouched.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "C.4",
+      "title": "Regression test pinning RawEnergyKWh/RawPrice as NOT comma-grouped",
+      "module": "gateway",
+      "depends_on": [
+        "B.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:05Z",
+      "completed_at": "2026-08-14T00:10:20Z",
+      "duration_seconds": 15,
+      "notes": "Added TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped: EnergyAddedKWh=1200.5,Price=58000 -> RawEnergyKWh==\"1200.50\", RawPrice==\"58000.00\", while PriceLabel==\"58,000.00 COP\" proves the split is real.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "D.1",
+      "title": "Add money-guard Makefile target (grep shape + // money:allow: escape hatch)",
+      "module": "gateway",
+      "depends_on": [
+        "A.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:20Z",
+      "completed_at": "2026-08-14T00:10:35Z",
+      "duration_seconds": 15,
+      "notes": "Added money-guard target mirroring ui-guard/i18n-guard's grep shape: flags fmt.Sprintf(\"%.[0-9]+f %s in handlers/*.go excluding _test.go and format.go, escape hatch // money:allow: <reason> same-line.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "D.2",
+      "title": "Add money-guard to the .PHONY list",
+      "module": "gateway",
+      "depends_on": [
+        "D.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:35Z",
+      "completed_at": "2026-08-14T00:10:38Z",
+      "duration_seconds": 3,
+      "notes": "Added money-guard to .PHONY list (line ~62) alongside ui-guard i18n-guard.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "D.3",
+      "title": "Wire money-guard into check target + update its ## help text",
+      "module": "gateway",
+      "depends_on": [
+        "D.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:38Z",
+      "completed_at": "2026-08-14T00:10:42Z",
+      "duration_seconds": 4,
+      "notes": "check target now: build vet ui-guard i18n-guard money-guard test; help text updated to mention money-guard.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "D.4",
+      "title": "Run make money-guard after B lands; confirm it passes clean",
+      "module": "gateway",
+      "depends_on": [
+        "D.3",
+        "B.1",
+        "B.2",
+        "B.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:42Z",
+      "completed_at": "2026-08-14T00:10:50Z",
+      "duration_seconds": 8,
+      "notes": "make money-guard run after B landed: 'money-guard: no hand-rolled money-formatting fmt.Sprintf found in handlers/*.go' \u2014 passes clean.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "E.1",
+      "title": "Update internal/gateway/AGENTS.md formatting-helper references to point at format.go (or confirm none exist)",
+      "module": "gateway",
+      "depends_on": [
+        "A.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:50Z",
+      "completed_at": "2026-08-14T00:10:56Z",
+      "duration_seconds": 6,
+      "notes": "Grepped AGENTS.md for commaGroup/formatMoney/formatKm/handlers.go references. Only 3 unrelated handlers.go mentions (Deps/dataFor/render), none about formatting-helper location. No edit needed \u2014 confirmed, not skipped.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "E.2",
+      "title": "Confirm no root README structure/architecture edit is required (no module or route change)",
+      "module": "gateway",
+      "depends_on": [
+        "A.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:56Z",
+      "completed_at": "2026-08-14T00:11:00Z",
+      "duration_seconds": 4,
+      "notes": "Checked README.md: no formatMoney/commaGroup mentions; Project Structure/Architecture sections unaffected \u2014 no module added/removed/renamed, no new route/Deps field. Confirmed, no edit needed.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
+    },
+    {
+      "id": "F.1",
+      "title": "make check passes (build + vet + ui-guard + i18n-guard + money-guard + test)",
+      "module": "gateway",
+      "depends_on": [
+        "C.1",
+        "C.2",
+        "C.3",
+        "C.4",
+        "D.4",
+        "E.1",
+        "E.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-14T00:14:00Z",
+      "completed_at": "2026-08-14T00:16:00Z",
+      "duration_seconds": 120,
+      "notes": "make check green: build, vet, ui-guard, i18n-guard, money-guard, test all pass.",
+      "budget": {
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "Leader-run verification gate, not a worker dispatch"
+      }
+    },
+    {
+      "id": "F.2",
+      "title": "Confirm all 4 monetary render sites produce comma-grouped output",
+      "module": "gateway",
+      "depends_on": [
+        "F.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-14T00:14:00Z",
+      "completed_at": "2026-08-14T00:16:00Z",
+      "duration_seconds": 120,
+      "notes": "All 4 monetary sites confirmed via formatMoney: supercharger.go:189 (CostLines tiles), :274 (session CostLabel), charges.go:480 (CostPerKWhLabel), :540 (PriceLabel). Zero hand-rolled money Sprintf remain in internal/gateway (.go + .templ).",
+      "budget": {
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "Leader-run verification gate, not a worker dispatch"
+      }
+    },
+    {
+      "id": "F.3",
+      "title": "Confirm RawEnergyKWh/RawPrice remain unformatted",
+      "module": "gateway",
+      "depends_on": [
+        "F.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-14T00:14:00Z",
+      "completed_at": "2026-08-14T00:16:00Z",
+      "duration_seconds": 120,
+      "notes": "RawEnergyKWh/RawPrice unformatted; pinned by C.4 test which passes under make check.",
+      "budget": {
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "Leader-run verification gate, not a worker dispatch"
+      }
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Validate gateway-format-currency-values on branch ft/CH25-MAG-9 (commits de7b1f5, f547b52, HEAD). Check: (1) format.go is a VERBATIM move of the 4 helpers \u2014 no behavior/signature/doc drift vs the pre-move originals; (2) all 4 monetary render sites route through formatMoney and CostPerKWhLabel appends '/kWh' AFTER the money format, never folded into the currency arg (design.md D1/D2); (3) CRITICAL \u2014 charges.go RawEnergyKWh/RawPrice remain unformatted machine-parseable strings for the edit form's <input value>, and C.4 genuinely pins that (a mismatch with the user-confirmed design is a blocker finding); (4) D3 scope discipline \u2014 kWh/km/degC/pct formatting untouched; (5) money-guard actually catches the bug shape it claims (try the regex against a hand-rolled Sprintf) and is wired into .PHONY + check with accurate help text (D4); (6) module-boundary compliance \u2014 no HTML outside internal/gateway, no other module's DB/internals touched, no cross-module import added; (7) every doc-pack convention, incl. the bilingual i18n rule (no user-facing string added here, confirm) and the km/unit-suffix rule; (8) spec/tasks coverage \u2014 every requirement in specs/gateway/spec.md is implemented and every tasks.md checkbox is truthful; (9) compliance with the declared read-heavy Performance-Profile; (10) ANTI-GAMING \u2014 no acceptance criterion weakened, no existing test assertion deleted or relaxed to make a new one pass (charges_test.go:868 and supercharger_test.go:272 must both still be present and unchanged), no self-approved status.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "at": "2026-08-14T00:15:53Z",
+        "verdict": "approved",
+        "findings": [],
+        "budget": {
+          "five_hour_pct_delta": 5,
+          "cost_usd_delta": 2.0677,
+          "approx": false,
+          "note": "Review round 1 bracket 72%->77%"
+        }
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-13T23:45:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Centralized formatter lives in a new internal/gateway/handlers/format.go collecting the existing commaGroup/formatMoney/formatKm/formatKmRaw helpers; no new exported package",
+      "why": "formatMoney already existed but was buried in supercharger.go, which is why charges.go never found it; same-package move keeps every call site compiling and adds no indirection",
+      "covered_by": "grill-me interview (leader with user)"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-13T23:46:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Money format is locale-invariant 1,234.56 for both ES and EN; formatMoney stays a pure function with no context.Context",
+      "why": "Ticket asks for it explicitly for ALL currency values; keeps money consistent with the already locale-invariant formatKm; one testable code path. Deliberate deviation from es-CO convention",
+      "covered_by": "grill-me interview (leader with user)"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-13T23:47:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Scope is monetary values only; kWh/km/degC/pct untouched. kWh-vs-km grouping inconsistency recorded as backlog item 9",
+      "why": "Ticket asked for currency only; widening would break existing exact-string assertions and expand the reviewed blast radius",
+      "covered_by": "grill-me interview (leader with user)"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-13T23:48:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Add a grep-based money-guard Makefile target wired into check, mirroring ui-guard/i18n-guard",
+      "why": "The bug existed because formatMoney was available but nothing forced its use; a deterministic CI signal beats a doc note or per-site tests for catching future pages",
+      "covered_by": "grill-me interview (leader with user)"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-13T23:49:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Unit tests INCLUDED: table-driven TestFormatMoney plus one assertion per fixed site and a negative test for the Raw* fields",
+      "why": "User's standing default is no tests, but formatMoney is a pure function with a near-zero-cost test surface; asked and answered explicitly",
+      "covered_by": "grill-me interview (leader with user)"
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-13T23:56:00Z",
+      "scope": "artifacts",
+      "made_by": "autopilot",
+      "decision": "Leader corrected the tasks.md header note, whose A-G letter mapping had drifted from the A-F body (it labelled B as C and referenced a nonexistent task G)",
+      "why": "Header contradicted the body's dependency graph; a cheap leader fix now beats a review-round finding later",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-14T00:04:26Z",
+      "scope": "apply",
+      "made_by": "autopilot",
+      "decision": "Batched B/C/D/E (14 tasks spanning 3 dependency waves) into ONE serial worker dispatch instead of three separate waves; A kept as its own prior dispatch",
+      "why": "All 14 are tiny same-module edits; a serial worker executing in dependency order satisfies the graph while reading the doc pack once instead of three times. A stays separate so a compile-clean baseline exists before any call site changes",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-13T23:35:00Z",
+      "agent": "leader",
+      "event": "Runtime: Claude Code. Budget instrumentation available. Module resolved to gateway (all currency renders live in internal/gateway/handlers). Branch ft/CH25-MAG-9-gateway-format-currency-values created off main (3d9fdf7); .work-counter bumped 25 -> 26."
+    },
+    {
+      "at": "2026-08-13T23:45:00Z",
+      "agent": "leader",
+      "event": "Step 2 interview complete (grill-me, required by openspec/config.yaml proposal rules). 5 decisions settled with the user: D1-D5. Key code finding fed into the design: formatMoney already exists and already produces the requested format; only 1 of 4 monetary sites calls it."
+    },
+    {
+      "at": "2026-08-13T23:52:40Z",
+      "agent": "leader",
+      "event": "Dispatched gateway worker (claude-sonnet-5) to create OpenSpec artifacts. Budget bracket start: five_hour 44%, cost 2.073301."
+    },
+    {
+      "at": "2026-08-13T23:57:50Z",
+      "agent": "leader",
+      "event": "Worker returned; artifacts validate --strict clean. Bracket end: five_hour 52% (delta 8), cost 4.670616 (delta 2.597315), context 13%. Design gate NOT tripped \u2014 change touches no database object. Leader fixed the tasks.md header (D6)."
+    },
+    {
+      "at": "2026-08-14T00:04:26Z",
+      "agent": "leader",
+      "event": "Session resumed (fresh context) at status proposed -> Step 5 Apply. On branch, clean tree. Status -> in-progress. Wave 1 dispatch: gateway worker (claude-sonnet-5) for A.1-A.3. Budget bracket start: five_hour 55%, context 6%."
+    },
+    {
+      "at": "2026-08-14T00:08:00Z",
+      "agent": "leader",
+      "event": "Wave 1 (A.1-A.3) complete. Leader verified format.go is a verbatim move (4 helpers, doc comments intact) and go build/vet clean. Worker enumerated D1 (complied) and D5 (out of scope) \u2014 cross-checked against design.md, accurate. Bracket end: five_hour 63% (delta 8), cost 2.4578, context 9%."
+    },
+    {
+      "at": "2026-08-14T00:13:00Z",
+      "agent": "leader",
+      "event": "Wave 2 (B.1-B.4, C.1-C.4, D.1-D.4, E.1-E.2) complete. Leader read the full non-test diff: 3 call sites now use formatMoney, /kWh appended after (not folded in), charges.go:550-551 Raw* byte-identical, money-guard mirrors i18n-guard. Worker enumerated D1-D5 + Critical constraint; cross-checked accurate. go build, go test ./internal/gateway/..., make money-guard all clean. Bracket end: five_hour 70% (delta 6), cost 2.6641, context 10%."
+    },
+    {
+      "at": "2026-08-14T00:16:00Z",
+      "agent": "leader",
+      "event": "Step 6 verify complete (F.1-F.3 run by the leader, not dispatched). make check fully green including the new money-guard. All 20 tasks done. Status -> verified."
+    },
+    {
+      "at": "2026-08-14T00:17:00Z",
+      "agent": "leader",
+      "event": "Step 7: review brief written. Dispatching gateway-reviewer (claude-sonnet-5, cheaper model, instructed to escalate on doubt). Budget bracket start: five_hour 72%, cost 6.254074, context 11%."
+    },
+    {
+      "at": "2026-08-14T00:17:30Z",
+      "agent": "leader",
+      "event": "Review round 1: gateway-reviewer verdict APPROVED, zero findings. Reviewer empirically probed money-guard (injected violation -> guard failed as designed; escape hatch verified; probe reverted, tree clean). make check green. Bracket end: five_hour 77% (delta 5), cost 2.0677, context 12%."
+    }
+  ]
+}

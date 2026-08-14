@@ -210,6 +210,34 @@ three-section variant chosen. Recorded per the project's future-work rule; see t
 change's `design.md` "Future work".
 
 
+## 9. gateway — kWh values are not comma-grouped, unlike km
+
+### PROPOSAL
+
+`internal/gateway`'s kWh display labels (e.g. `fmt.Sprintf("%.1f kWh", ...)` in
+`buildSuperchargerTiles`/`buildSuperchargerChart`, `fmt.Sprintf("%.2f kWh", ...)` in
+`buildSuperchargerRows`/`chargeEntryVMFromEntry`) render with **no** thousands separator,
+while km values (`formatKm`/`formatKmRaw`, `internal/gateway/handlers/format.go`) already are
+comma-grouped. A large kWh figure — e.g. a yearly Supercharger energy total — currently renders
+as `"12500.4 kWh"` instead of `"12,500.4 kWh"`, inconsistent with how the same page's km values
+already read.
+
+The fix is small: route kWh formatting through a new `formatKWh`-style helper built the same
+way as `formatKm` (reuse the existing `commaGroup` helper in `format.go`), and swap the
+relevant `fmt.Sprintf("%.Nf kWh", ...)` call sites over to it.
+
+**TRIGGER — pick this up when** the user wants kWh values visually consistent with km/currency
+values (comma-grouped), or when a kWh figure large enough to need grouping (≥ 1,000 kWh) is
+first noticed rendering ungrouped in production.
+
+### ORIGIN
+
+Descoped from **MAG-9 / `gateway-format-currency-values`** (design.md D3, 2026-08-13): MAG-9
+asked specifically for currency-value formatting; kWh formatting is a real, adjacent
+inconsistency but out of that ticket's scope. Recorded here per the project's future-work rule
+rather than silently bundled in or silently dropped.
+
+
 # BRAINSTORMING
 
 
