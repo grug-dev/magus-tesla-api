@@ -868,6 +868,14 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 	if vm.CostPerKWhLabel == "" {
 		t.Errorf("want CostPerKWhLabel set, got empty")
 	}
+	// MAG-9: PriceLabel (15000.0 COP) and CostPerKWhLabel (15000/12.5 = 1200.0
+	// COP/kWh) must both be comma-grouped via formatMoney.
+	if vm.PriceLabel != "15,000.00 COP" {
+		t.Errorf("want PriceLabel=15,000.00 COP (comma-grouped), got %q", vm.PriceLabel)
+	}
+	if vm.CostPerKWhLabel != "1,200.00 COP/kWh" {
+		t.Errorf("want CostPerKWhLabel=1,200.00 COP/kWh (comma-grouped + /kWh suffix), got %q", vm.CostPerKWhLabel)
+	}
 	if vm.BatteryDelta != "+32%" {
 		t.Errorf("want BatteryDelta +32%%, got %q", vm.BatteryDelta)
 	}
@@ -894,6 +902,41 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 	}
 	if vm.VIN != "VIN1001" {
 		t.Errorf("want VIN VIN1001, got %q", vm.VIN)
+	}
+}
+
+// TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped pins design.md's
+// "Critical constraint" (MAG-9): RawEnergyKWh and RawPrice populate the inline
+// edit form's <input value>, so they MUST stay plain machine-parseable decimal
+// strings — never routed through formatMoney/commaGroup — even when the
+// underlying amount is >= 1000 and would otherwise be grouped for display.
+func TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T) {
+	e := manualcharge.Entry{
+		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+		AccountID:      uuid.New(),
+		TeslaID:        1001,
+		VIN:            "VIN1001",
+		ChargedOn:      time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
+		EnergyAddedKWh: 1200.5,
+		Price:          58000.0,
+		Currency:       "COP",
+	}
+	vehicles := []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+	}
+
+	vm := chargeEntryVMFromEntry(e, vehicles)
+
+	if vm.RawEnergyKWh != "1200.50" {
+		t.Errorf("want RawEnergyKWh=1200.50 (NOT comma-grouped), got %q", vm.RawEnergyKWh)
+	}
+	if vm.RawPrice != "58000.00" {
+		t.Errorf("want RawPrice=58000.00 (NOT comma-grouped), got %q", vm.RawPrice)
+	}
+	// Sanity: the display label for the SAME amount IS comma-grouped, proving
+	// the raw/display split is real and not just both happening to be unformatted.
+	if vm.PriceLabel != "58,000.00 COP" {
+		t.Errorf("want PriceLabel=58,000.00 COP (comma-grouped, unlike RawPrice), got %q", vm.PriceLabel)
 	}
 }
 

@@ -59,7 +59,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard tidy build vet test check bins \
+        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
@@ -370,6 +370,35 @@ i18n-guard: ## Fail if user-facing text bypasses i18n.T(ctx, ...) in templates o
 		echo "i18n-guard: no hardcoded user-facing text found in templates/{pages,fragments,ui} or handlers"; \
 	fi
 
+# money-guard mirrors ui-guard/i18n-guard's grep-based shape and escape-hatch
+# convention (design.md D4, gateway-format-currency-values). It targets the
+# exact bug shape MAG-9 found: a %.Nf decimal verb immediately adjacent to a
+# %s currency placeholder — the signature of hand-rolling a money string
+# instead of calling formatMoney (internal/gateway/handlers/format.go). It
+# deliberately does NOT flag a literal unit suffix like "%.1f kWh" (D3 —
+# kWh/km/degC/pct formatting is out of scope). format.go itself is excluded
+# since formatMoney's own internals build the string via commaGroup +
+# strconv, never via this Sprintf shape. Escape hatch: a trailing
+# `// money:allow: <reason>` comment on the same line (handlers are .go
+# files, which have real comment syntax, so — unlike i18n-guard's .templ
+# pass — no separate above-the-line placement is needed).
+money-guard: ## Fail if a handler hand-rolls a money label with fmt.Sprintf("%.Nf %s", ...) instead of calling formatMoney (escape hatch: // money:allow: <reason>)
+	@if grep -rnE 'fmt\.Sprintf\("%\.[0-9]+f %s' \
+		internal/gateway/handlers --include='*.go' \
+		| grep -v '_test\.go:' \
+		| grep -v '/format\.go:' \
+		| grep -v 'money:allow'; then \
+		echo ""; \
+		echo "ERROR: hand-rolled money-formatting fmt.Sprintf found above."; \
+		echo "Call formatMoney(amount, currency) (internal/gateway/handlers/format.go) instead of"; \
+		echo "fmt.Sprintf(\"%.Nf %s\", ...) for a currency value."; \
+		echo "Genuinely not a currency value (false positive)? Mark it with // money:allow: <reason>"; \
+		echo "as a trailing comment on the same line. Never weaken this pattern to silence a true positive."; \
+		exit 1; \
+	else \
+		echo "money-guard: no hand-rolled money-formatting fmt.Sprintf found in handlers/*.go"; \
+	fi
+
 tidy: ## Sync go.mod / go.sum (go mod tidy)
 	go mod tidy
 
@@ -387,7 +416,7 @@ test: ## Run all tests against disposable testcontainer Postgres (never the real
 test-with-db: ## Run all tests against the configured DATABASE_URL (opt-in; CI with a managed Postgres)
 	go test ./...
 
-check: build vet ui-guard i18n-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + test
+check: build vet ui-guard i18n-guard money-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

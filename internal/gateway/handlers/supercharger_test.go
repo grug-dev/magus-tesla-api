@@ -414,6 +414,26 @@ func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
 	}
 }
 
+// TestBuildSuperchargerRows_CostLabelCommaGrouped covers MAG-9: the session
+// CostLabel field (distinct from the CostLines tile field already covered by
+// TestBuildSuperchargerTiles_MultiCurrencyNeverSummed) must go through
+// formatMoney and comma-group amounts >= 1000.
+func TestBuildSuperchargerRows_CostLabelCommaGrouped(t *testing.T) {
+	sessions := []telemetry.SuperchargerSession{
+		{
+			SiteLocationName: "Big Session",
+			CountryCode:      "CO",
+			BillingType:      "per_kwh",
+			TotalCost:        ptrF64(58000),
+			Currency:         ptrStr("COP"),
+		},
+	}
+	rows := buildSuperchargerRows(sessions)
+	if rows[0].CostLabel != "58,000.00 COP" {
+		t.Errorf("want CostLabel=58,000.00 COP (comma-grouped), got %q", rows[0].CostLabel)
+	}
+}
+
 // --- HTTP-level handler tests ---
 
 func TestSuperchargerStatsPage_AnonymousRedirectsToLogin(t *testing.T) {

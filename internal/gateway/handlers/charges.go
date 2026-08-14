@@ -477,7 +477,7 @@ func chargeEntryVMFromEntry(e manualcharge.Entry, vehicles []account.Vehicle) fr
 
 	costLabel := ""
 	if v := e.CostPerKWh(); v != nil {
-		costLabel = fmt.Sprintf("%.2f %s/kWh", *v, e.Currency)
+		costLabel = formatMoney(*v, e.Currency) + "/kWh"
 	}
 	batteryDelta := ""
 	if d := e.BatteryDelta(); d != nil {
@@ -537,7 +537,7 @@ func chargeEntryVMFromEntry(e manualcharge.Entry, vehicles []account.Vehicle) fr
 		VehicleLabel:       label,
 		ChargedOnLabel:     e.ChargedOn.Format("Mon Jan 2, 2006"),
 		EnergyKWh:          fmt.Sprintf("%.2f kWh", e.EnergyAddedKWh),
-		PriceLabel:         fmt.Sprintf("%.2f %s", e.Price, e.Currency),
+		PriceLabel:         formatMoney(e.Price, e.Currency),
 		Currency:           e.Currency,
 		CostPerKWhLabel:    costLabel,
 		BatteryDelta:       batteryDelta,

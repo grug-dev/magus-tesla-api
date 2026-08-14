@@ -271,7 +271,7 @@ func buildSuperchargerRows(filtered []telemetry.SuperchargerSession) []fragments
 		}
 		costLabel := "—"
 		if s.TotalCost != nil && s.Currency != nil {
-			costLabel = fmt.Sprintf("%.2f %s", *s.TotalCost, *s.Currency)
+			costLabel = formatMoney(*s.TotalCost, *s.Currency)
 		}
 		rows = append(rows, fragments.SuperchargerRowVM{
 			DateLabel:   s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),

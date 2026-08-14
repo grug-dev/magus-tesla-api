@@ -7,7 +7,17 @@
   "request": "On the front-end side, I want to set/show  comma \",\" as a thousand separator for ALL currency values and \".\" period as decimal separator. Please create a centralized function/logic/pipe or whatever thing works on HTMX to do the transformation and be reusable from any page.\n\nApply that change to all currency values shown on all pages right now.",
   "status": "in-progress",
   "rollup": {
-    "current": [
+    "current": [],
+    "pending": [
+      "F.1",
+      "F.2",
+      "F.3"
+    ],
+    "blocked": [],
+    "done": [
+      "A.1",
+      "A.2",
+      "A.3",
       "B.1",
       "B.2",
       "B.3",
@@ -22,21 +32,10 @@
       "D.4",
       "E.1",
       "E.2"
-    ],
-    "pending": [
-      "F.1",
-      "F.2",
-      "F.3"
-    ],
-    "blocked": [],
-    "done": [
-      "A.1",
-      "A.2",
-      "A.3"
     ]
   },
   "created_at": "2026-08-13T23:57:50Z",
-  "updated_at": "2026-08-14T00:08:00Z",
+  "updated_at": "2026-08-14T00:13:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -122,14 +121,19 @@
         "A.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:08:52Z",
+      "completed_at": "2026-08-14T00:09:00Z",
+      "duration_seconds": 8,
+      "notes": "Replaced fmt.Sprintf(\"%.2f %s\", *s.TotalCost, *s.Currency) with formatMoney(*s.TotalCost, *s.Currency) in buildSuperchargerRows.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "B.2",
@@ -139,14 +143,19 @@
         "A.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:08:52Z",
+      "completed_at": "2026-08-14T00:09:00Z",
+      "duration_seconds": 8,
+      "notes": "Replaced fmt.Sprintf(\"%.2f %s\", e.Price, e.Currency) with formatMoney(e.Price, e.Currency) in chargeEntryVMFromEntry's PriceLabel.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "B.3",
@@ -156,14 +165,19 @@
         "A.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:08:52Z",
+      "completed_at": "2026-08-14T00:09:00Z",
+      "duration_seconds": 8,
+      "notes": "Replaced fmt.Sprintf(\"%.2f %s/kWh\", *v, e.Currency) with formatMoney(*v, e.Currency) + \"/kWh\" \u2014 /kWh appended after money format, not folded into formatMoney's currency arg.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "B.4",
@@ -173,14 +187,19 @@
         "A.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:09:00Z",
+      "completed_at": "2026-08-14T00:09:05Z",
+      "duration_seconds": 5,
+      "notes": "Verified charges.go:550-551 (RawEnergyKWh/RawPrice via strconv.FormatFloat) left untouched. Not routed through formatMoney/commaGroup. Pinned by new C.4 test.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "C.1",
@@ -190,14 +209,19 @@
         "A.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:09:10Z",
+      "completed_at": "2026-08-14T00:09:30Z",
+      "duration_seconds": 20,
+      "notes": "Created format_test.go with table-driven TestFormatMoney covering the 5 required cases (0, -1500.5, 999, 1000, 58000). go test passes.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "C.2",
@@ -208,14 +232,19 @@
         "B.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:09:30Z",
+      "completed_at": "2026-08-14T00:09:50Z",
+      "duration_seconds": 20,
+      "notes": "Extended TestChargeEntryVMFromEntry (existing fixture Price=15000, EnergyAddedKWh=12.5) with exact-string asserts: PriceLabel==\"15,000.00 COP\", CostPerKWhLabel==\"1,200.00 COP/kWh\". Existing CostPerKWhLabel!=\"\" check kept.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "C.3",
@@ -225,14 +254,19 @@
         "B.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:09:50Z",
+      "completed_at": "2026-08-14T00:10:05Z",
+      "duration_seconds": 15,
+      "notes": "Added TestBuildSuperchargerRows_CostLabelCommaGrouped (TotalCost=58000, Currency=COP -> CostLabel==\"58,000.00 COP\"). Existing CostLines assertion at line 272 untouched.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "C.4",
@@ -242,14 +276,19 @@
         "B.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:05Z",
+      "completed_at": "2026-08-14T00:10:20Z",
+      "duration_seconds": 15,
+      "notes": "Added TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped: EnergyAddedKWh=1200.5,Price=58000 -> RawEnergyKWh==\"1200.50\", RawPrice==\"58000.00\", while PriceLabel==\"58,000.00 COP\" proves the split is real.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "D.1",
@@ -259,14 +298,19 @@
         "A.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:20Z",
+      "completed_at": "2026-08-14T00:10:35Z",
+      "duration_seconds": 15,
+      "notes": "Added money-guard target mirroring ui-guard/i18n-guard's grep shape: flags fmt.Sprintf(\"%.[0-9]+f %s in handlers/*.go excluding _test.go and format.go, escape hatch // money:allow: <reason> same-line.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "D.2",
@@ -276,14 +320,19 @@
         "D.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:35Z",
+      "completed_at": "2026-08-14T00:10:38Z",
+      "duration_seconds": 3,
+      "notes": "Added money-guard to .PHONY list (line ~62) alongside ui-guard i18n-guard.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "D.3",
@@ -293,14 +342,19 @@
         "D.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:38Z",
+      "completed_at": "2026-08-14T00:10:42Z",
+      "duration_seconds": 4,
+      "notes": "check target now: build vet ui-guard i18n-guard money-guard test; help text updated to mention money-guard.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "D.4",
@@ -313,14 +367,19 @@
         "B.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:42Z",
+      "completed_at": "2026-08-14T00:10:50Z",
+      "duration_seconds": 8,
+      "notes": "make money-guard run after B landed: 'money-guard: no hand-rolled money-formatting fmt.Sprintf found in handlers/*.go' \u2014 passes clean.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "E.1",
@@ -330,14 +389,19 @@
         "A.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:50Z",
+      "completed_at": "2026-08-14T00:10:56Z",
+      "duration_seconds": 6,
+      "notes": "Grepped AGENTS.md for commaGroup/formatMoney/formatKm/handlers.go references. Only 3 unrelated handlers.go mentions (Deps/dataFor/render), none about formatting-helper location. No edit needed \u2014 confirmed, not skipped.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "E.2",
@@ -347,14 +411,19 @@
         "A.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-14T00:10:56Z",
+      "completed_at": "2026-08-14T00:11:00Z",
+      "duration_seconds": 4,
+      "notes": "Checked README.md: no formatMoney/commaGroup mentions; Project Structure/Architecture sections unaffected \u2014 no module added/removed/renamed, no new route/Deps field. Confirmed, no edit needed.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.6641,
+        "approx": true,
+        "note": "Wave 2 shared bracket (64%->70%) across B/C/D/E in one serial dispatch"
+      }
     },
     {
       "id": "F.1",
@@ -515,6 +584,11 @@
       "at": "2026-08-14T00:08:00Z",
       "agent": "leader",
       "event": "Wave 1 (A.1-A.3) complete. Leader verified format.go is a verbatim move (4 helpers, doc comments intact) and go build/vet clean. Worker enumerated D1 (complied) and D5 (out of scope) \u2014 cross-checked against design.md, accurate. Bracket end: five_hour 63% (delta 8), cost 2.4578, context 9%."
+    },
+    {
+      "at": "2026-08-14T00:13:00Z",
+      "agent": "leader",
+      "event": "Wave 2 (B.1-B.4, C.1-C.4, D.1-D.4, E.1-E.2) complete. Leader read the full non-test diff: 3 call sites now use formatMoney, /kWh appended after (not folded in), charges.go:550-551 Raw* byte-identical, money-guard mirrors i18n-guard. Worker enumerated D1-D5 + Critical constraint; cross-checked accurate. go build, go test ./internal/gateway/..., make money-guard all clean. Bracket end: five_hour 70% (delta 6), cost 2.6641, context 10%."
     }
   ]
 }
