@@ -5,14 +5,10 @@
   "module": "gateway",
   "roadmap": null,
   "request": "On the front-end side, I want to set/show  comma \",\" as a thousand separator for ALL currency values and \".\" period as decimal separator. Please create a centralized function/logic/pipe or whatever thing works on HTMX to do the transformation and be reusable from any page.\n\nApply that change to all currency values shown on all pages right now.",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
     "current": [],
-    "pending": [
-      "F.1",
-      "F.2",
-      "F.3"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "A.1",
@@ -31,11 +27,14 @@
       "D.3",
       "D.4",
       "E.1",
-      "E.2"
+      "E.2",
+      "F.1",
+      "F.2",
+      "F.3"
     ]
   },
   "created_at": "2026-08-13T23:57:50Z",
-  "updated_at": "2026-08-14T00:13:00Z",
+  "updated_at": "2026-08-14T00:16:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -439,14 +438,19 @@
         "E.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-14T00:14:00Z",
+      "completed_at": "2026-08-14T00:16:00Z",
+      "duration_seconds": 120,
+      "notes": "make check green: build, vet, ui-guard, i18n-guard, money-guard, test all pass.",
+      "budget": {
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "Leader-run verification gate, not a worker dispatch"
+      }
     },
     {
       "id": "F.2",
@@ -456,14 +460,19 @@
         "F.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-14T00:14:00Z",
+      "completed_at": "2026-08-14T00:16:00Z",
+      "duration_seconds": 120,
+      "notes": "All 4 monetary sites confirmed via formatMoney: supercharger.go:189 (CostLines tiles), :274 (session CostLabel), charges.go:480 (CostPerKWhLabel), :540 (PriceLabel). Zero hand-rolled money Sprintf remain in internal/gateway (.go + .templ).",
+      "budget": {
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "Leader-run verification gate, not a worker dispatch"
+      }
     },
     {
       "id": "F.3",
@@ -473,14 +482,19 @@
         "F.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-14T00:14:00Z",
+      "completed_at": "2026-08-14T00:16:00Z",
+      "duration_seconds": 120,
+      "notes": "RawEnergyKWh/RawPrice unformatted; pinned by C.4 test which passes under make check.",
+      "budget": {
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "Leader-run verification gate, not a worker dispatch"
+      }
     }
   ],
   "review": {
@@ -589,6 +603,11 @@
       "at": "2026-08-14T00:13:00Z",
       "agent": "leader",
       "event": "Wave 2 (B.1-B.4, C.1-C.4, D.1-D.4, E.1-E.2) complete. Leader read the full non-test diff: 3 call sites now use formatMoney, /kWh appended after (not folded in), charges.go:550-551 Raw* byte-identical, money-guard mirrors i18n-guard. Worker enumerated D1-D5 + Critical constraint; cross-checked accurate. go build, go test ./internal/gateway/..., make money-guard all clean. Bracket end: five_hour 70% (delta 6), cost 2.6641, context 10%."
+    },
+    {
+      "at": "2026-08-14T00:16:00Z",
+      "agent": "leader",
+      "event": "Step 6 verify complete (F.1-F.3 run by the leader, not dispatched). make check fully green including the new money-guard. All 20 tasks done. Status -> verified."
     }
   ]
 }

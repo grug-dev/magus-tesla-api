@@ -98,12 +98,12 @@ _depends_on: A_
 
 ## F. Verification gate
 
-- [ ] F.1 `make check` (build + vet + ui-guard + i18n-guard + money-guard + test) passes.
-- [ ] F.2 Manually confirm (reading the rendered test assertions from C.2/C.3, or via
+- [x] F.1 `make check` (build + vet + ui-guard + i18n-guard + money-guard + test) passes.
+- [x] F.2 Manually confirm (reading the rendered test assertions from C.2/C.3, or via
   `openspec/specs/gateway/spec.md` once synced) that all 4 monetary render sites — Supercharger
   `CostLines` tiles, Supercharger session `CostLabel`, Charge log `PriceLabel`, Charge log
   `CostPerKWhLabel` — now produce comma-grouped output.
-- [ ] F.3 Confirm `RawEnergyKWh`/`RawPrice` remain unformatted (C.4's test passing is
+- [x] F.3 Confirm `RawEnergyKWh`/`RawPrice` remain unformatted (C.4's test passing is
   sufficient; no manual step beyond that).
 
 _depends_on: A, B, C, D, E_
