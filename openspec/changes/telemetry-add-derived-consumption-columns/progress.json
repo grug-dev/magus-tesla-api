@@ -5,15 +5,15 @@
   "module": "telemetry",
   "roadmap": null,
   "request": "Battery Consumed Columns - Vehicle Snapshots (MAG-10). Add derived columns to vehicle_snapshots computed from the current row and the previous record for that vehicle: distance traveled (odometer delta), battery consumed (battery_level_pct delta, may be negative), km per 1% battery, and estimated range (km_per_pct x 100). Suffix every new column with 'calc'. Calculate them before saving the nightly gathered data. 'Yesterday' means the latest record tracked for that vehicle. Ticket also asks whether the formulas can be applied to existing database records.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"],
+    "current": ["T4", "T8"],
+    "pending": ["T3", "T5", "T6", "T7"],
     "blocked": [],
-    "done": []
+    "done": ["T1", "T2"]
   },
   "created_at": "2026-08-14T14:43:41Z",
-  "updated_at": "2026-08-14T14:43:41Z",
+  "updated_at": "2026-08-14T17:49:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -33,14 +33,23 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-14T17:47:09Z",
+      "completed_at": "2026-08-14T17:48:16Z",
+      "duration_seconds": 67,
+      "notes": "Migration written verbatim from design.md. go build/vet green pre-T2. Docker unavailable in sandbox: testcontainers DB test could not run; verified Down DDL and LAG() backfill by inspection only.",
+      "budget": {
+        "five_hour_pct_start": 29.0,
+        "five_hour_pct_end": 37.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 2.913,
+        "context_pct_end": 10,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2 jointly (one serial worker) and includes leader overhead"
+      }
     },
     {
       "id": "T2",
@@ -48,14 +57,23 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-14T17:47:09Z",
+      "completed_at": "2026-08-14T17:48:16Z",
+      "duration_seconds": 67,
+      "notes": "5 pointer fields added to Snapshot; previousSnapshot added to store interface. go build ./... now fails on dbStore missing previousSnapshot (2 sites) — expected per T2.2 acceptance, left for T3.",
+      "budget": {
+        "five_hour_pct_start": 29.0,
+        "five_hour_pct_end": 37.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 2.913,
+        "context_pct_end": 10,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2 jointly (one serial worker) and includes leader overhead"
+      }
     },
     {
       "id": "T3",
@@ -244,6 +262,33 @@
       "decision": "Accepted D11's late-arriving-row staleness as a documented limitation rather than requiring a recompute-forward mechanism",
       "why": "No code path can insert a backdated row today, so building the fix now would be speculative; the limitation is named explicitly in design.md instead of hidden",
       "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-14T17:45:05Z",
+      "scope": "task:T1",
+      "made_by": "leader",
+      "decision": "T1's acceptance is satisfied via the testcontainers path (make test / go test ./internal/telemetry/...), NOT by running make migrate-up / goose down against the live database",
+      "why": "make test provisions a disposable Postgres and applies every goose migration, so the Up path plus the LAG() backfill are exercised for real; CLAUDE.md gates migrate-down as destructive and the user did not request live-DB setup this session. Down-path DDL is still reviewed by inspection and by the reviewer",
+      "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-14T17:45:05Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Batched the 8 sub-tasks into 4 serial worker dispatches (W1=T1+T2, W2=T4+T8, W3=T3+T5, W4=T6+T7) rather than dispatching parallel workers per task",
+      "why": "Per Step 5.1 the default is one serial worker per wave: it reads the doc pack once and amortizes setup. The tasks are small and share files, and the leader must interleave make sqlc between W2 and W3, so parallelism would buy nothing while re-reading the pack four extra times",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-14T17:49:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "OPEN VERIFICATION GAP: Docker is unavailable in this environment, so the testcontainers Postgres cannot start. The migration, its LAG() backfill, and all T7 DB integration tests are UNEXECUTED and verified by inspection only. Implementation continues; the gap is carried forward, not closed",
+      "why": "Leader independently confirmed docker info fails, so this is environmental, not a worker sandbox artifact. D11 routed T1's verification to testcontainers precisely because live-DB commands are gated - with Docker down, neither path is available. Recorded openly so Step 6 verification and the reviewer treat DB-layer correctness as unproven rather than passing",
+      "covered_by": null
     }
   ],
   "events": [
@@ -276,6 +321,21 @@
       "at": "2026-08-14T14:43:41Z",
       "agent": "leader",
       "event": "database design gate PASSED (D7); progress.json created; pipeline HALTS after Step 4 per the pickup-ticket scope - no implementation workers dispatched"
+    },
+    {
+      "at": "2026-08-14T17:45:05Z",
+      "agent": "leader",
+      "event": "resumed via /kkpa-dev-harness-pipeline resume; status proposed -> in-progress; budget healthy (5h 29%, context 7%); 4 serial waves planned (D12)"
+    },
+    {
+      "at": "2026-08-14T17:45:05Z",
+      "agent": "telemetry",
+      "event": "dispatched wave 1 worker (Sonnet) for T1 (migration + LAG backfill) and T2 (Snapshot struct + store interface)"
+    },
+    {
+      "at": "2026-08-14T17:49:00Z",
+      "agent": "leader",
+      "event": "wave 1 complete: T1+T2 done. Worker enumerated design decisions D1-D5/D9 with compliance statements; leader cross-checked the migration against design.md (column names, divisor guard, DATE-DATE day count, Down path) - all match. Build intentionally red on dbStore missing previousSnapshot (T2.2 acceptance, T3 resolves). Docker unavailable -> D13 verification gap opened"
     }
   ]
 }

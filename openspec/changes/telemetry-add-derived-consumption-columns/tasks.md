@@ -31,7 +31,7 @@
 
 ## T1. Goose migration + backfill (`internal/telemetry/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create
+- [x] T1.1 Create
       `internal/telemetry/db/migrations/20260814000001_add_derived_consumption_columns_vehicle_snapshots.sql`
       with the exact DDL from design.md's "Schema" section: Up adds the five nullable
       columns (`distance_traveled_km_calc DOUBLE PRECISION`, `battery_used_pct_calc
@@ -54,7 +54,7 @@
 
 ## T2. `Snapshot` struct + `store` interface signature (`internal/telemetry/telemetry.go`) — no dependencies
 
-- [ ] T2.1 Add the five new pointer fields to `Snapshot` (`DistanceTraveledKmCalc *float64`,
+- [x] T2.1 Add the five new pointer fields to `Snapshot` (`DistanceTraveledKmCalc *float64`,
       `BatteryUsedPctCalc *int`, `KmPerPctCalc *float64`, `EstimatedRangeKmCalc *float64`,
       `DaysSpannedCalc *int`), placed after the existing TPMS fields, with the doc comments
       from design.md D9 (NULL means: no predecessor, or — for the two efficiency fields
@@ -62,7 +62,7 @@
       Acceptance: `go build ./...` green; existing named-field `Snapshot{...}` literals
       across the codebase remain compile-compatible (additive fields).
 
-- [ ] T2.2 Add `previousSnapshot(ctx context.Context, accountID uuid.UUID, teslaID int64,
+- [x] T2.2 Add `previousSnapshot(ctx context.Context, accountID uuid.UUID, teslaID int64,
       before time.Time) (*Snapshot, error)` to the unexported `store` interface
       (`service.go`), with the doc comment from design.md D7/D8 (returns `nil, nil` when no
       predecessor exists — not an error).

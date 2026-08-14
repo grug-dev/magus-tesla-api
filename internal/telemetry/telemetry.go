@@ -110,6 +110,25 @@ type Snapshot struct {
 	TpmsPressureFRPSI *float64
 	TpmsPressureRLPSI *float64
 	TpmsPressureRRPSI *float64
+
+	// Derived consumption columns (telemetry-add-derived-consumption-columns,
+	// MAG-10, design D9). Computed in Go by deriveConsumption (service.go) from
+	// this snapshot and its predecessor for the same (account_id, tesla_id) —
+	// never derived on read. NULL is reserved for exactly two cases:
+	//   1. No predecessor exists (the vehicle's first-ever snapshot, or a
+	//      pre-migration row the one-time LAG() backfill could not reach) — all
+	//      five fields nil (design D8/D10).
+	//   2. KmPerPctCalc / EstimatedRangeKmCalc ONLY, when BatteryUsedPctCalc <= 0
+	//      (a zero or negative battery-used divisor has no truthful ratio —
+	//      design D2). DistanceTraveledKmCalc, BatteryUsedPctCalc, and
+	//      DaysSpannedCalc are always populated once a predecessor exists, even
+	//      when negative (an overnight charge) or zero (a parked day) — a
+	//      truthful reading is always stored non-NULL, never clamped.
+	DistanceTraveledKmCalc *float64 // km — odometer_km minus the predecessor's odometer_km
+	BatteryUsedPctCalc     *int     // pct — predecessor's battery_level_pct minus this row's; may be negative (net charge overnight)
+	KmPerPctCalc           *float64 // km per 1% battery consumed; nil when no predecessor OR BatteryUsedPctCalc <= 0 (D2)
+	EstimatedRangeKmCalc   *float64 // km; == KmPerPctCalc * 100 whenever non-nil; nil under the same conditions as KmPerPctCalc (D2)
+	DaysSpannedCalc        *int     // whole calendar days between the predecessor and this row; nil when no predecessor
 }
 
 // Outcome is the result of a single collection attempt on one vehicle.

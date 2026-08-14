@@ -45,6 +45,16 @@ type store interface {
 	snapshotsByVehicleSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
 	snapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error)
 	upsertSuperchargerSession(ctx context.Context, s SuperchargerSession) error
+	// previousSnapshot returns the most recent stored snapshot for
+	// (accountID, teslaID) strictly before the given instant, or (nil, nil)
+	// when none exists — the vehicle's first-ever snapshot (design D8/D10 of
+	// telemetry-add-derived-consumption-columns), NOT an error. Callers pass
+	// dayStart(capturedAt, loc) as `before` (design D7) — the LOCAL calendar-day
+	// start, not the incoming snapshot's own captured_at — so a same-day
+	// re-capture cannot select today's own (about-to-be-replaced) row as its
+	// own predecessor. Added by MAG-10 (telemetry-add-derived-consumption-columns);
+	// implemented by dbStore below (T3) and by every test fake (T3/T6/T7).
+	previousSnapshot(ctx context.Context, accountID uuid.UUID, teslaID int64, before time.Time) (*Snapshot, error)
 }
 
 // service is the concrete Collector. It consumes the account and tesla PORTS only
