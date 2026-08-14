@@ -20,6 +20,7 @@ package testdb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log"
@@ -35,6 +36,19 @@ import (
 // PostgresImage is pinned (no :latest) for reproducible test runs. PG 16 ships
 // gen_random_uuid() in core (no pgcrypto), which several migrations rely on.
 const PostgresImage = "postgres:16-alpine"
+
+// ErrUnavailable wraps the one failure mode that means "this machine cannot give
+// us a Postgres at all" — no reachable DATABASE_URL and no Docker daemon to start
+// a container. A TestMain may legitimately treat it as a reason to SKIP its
+// DB-backed tests (see internal/telemetry/testdb_test.go).
+//
+// Every OTHER Provision failure — above all a migration that fails to apply — is
+// deliberately NOT wrapped in it, because those mean the schema or the test setup
+// is genuinely broken and MUST fail loudly. Skipping on them would let a broken
+// migration pass `make check` in silence, which is precisely the trap this
+// sentinel exists to prevent. Callers: use errors.Is(err, testdb.ErrUnavailable)
+// to skip, and log.Fatal on anything else.
+var ErrUnavailable = errors.New("testdb: no Postgres available (no reachable DATABASE_URL and no Docker daemon)")
 
 // Result is what Provision returns. Container is non-nil when a testcontainer
 // was started; the caller MUST Terminate it (typically in TestMain after m.Run).
@@ -66,7 +80,10 @@ func Provision(ctx context.Context, migrationsFS fs.FS) (Result, error) {
 			postgres.WithPassword("test"),
 		)
 		if err != nil {
-			return Result{}, fmt.Errorf("testdb: start postgres container: %w", err)
+			// The ONLY failure mode wrapped in ErrUnavailable: there is no Docker
+			// daemon to start a container with. Everything below this point means
+			// something is actually broken, and stays a plain (fatal) error.
+			return Result{}, fmt.Errorf("%w: start postgres container: %w", ErrUnavailable, err)
 		}
 		container = c
 

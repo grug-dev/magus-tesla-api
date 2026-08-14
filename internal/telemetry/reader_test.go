@@ -61,6 +61,15 @@ func (f *fakeReadStore) upsertSuperchargerSession(_ context.Context, _ Superchar
 	panic("fakeReadStore: upsertSuperchargerSession must not be called from the reader path")
 }
 
+// previousSnapshot satisfies the store seam added by
+// telemetry-add-derived-consumption-columns (T3.2/D7). The reader path never calls
+// it; this no-op stub (nil, nil — "no predecessor") keeps fakeReadStore implementing
+// the full store interface, mirroring snapshotsByVehicleSince/Between's own
+// no-op-return precedent above.
+func (f *fakeReadStore) previousSnapshot(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
+	return nil, nil
+}
+
 // newFakeReader builds a *reader with the given fake store, bypassing the pool-backed
 // NewReader constructor. This is the offline-test entry point (no Postgres needed).
 func newFakeReader(s store) *reader {
@@ -276,6 +285,14 @@ func (f *fakeHistoryStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.U
 
 func (f *fakeHistoryStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
 	panic("fakeHistoryStore: upsertSuperchargerSession must not be called")
+}
+
+// previousSnapshot satisfies the store seam added by
+// telemetry-add-derived-consumption-columns (T3.2/D7). fakeHistoryStore exercises
+// only the Since path, so this panics to catch any accidental cross-path call,
+// mirroring this fake's existing pattern for the other unrelated seam methods above.
+func (f *fakeHistoryStore) previousSnapshot(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
+	panic("fakeHistoryStore: previousSnapshot must not be called from the Since path")
 }
 
 // TestReader_SnapshotsByVehicleSince_OldestFirst asserts that the reader returns
@@ -502,6 +519,14 @@ func (f *fakeBetweenStore) snapshotsByVehicleBetween(_ context.Context, accountI
 
 func (f *fakeBetweenStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
 	panic("fakeBetweenStore: upsertSuperchargerSession must not be called")
+}
+
+// previousSnapshot satisfies the store seam added by
+// telemetry-add-derived-consumption-columns (T3.2/D7). fakeBetweenStore exercises
+// only the Between path, so this panics to catch any accidental cross-path call,
+// mirroring this fake's existing pattern for the other unrelated seam methods above.
+func (f *fakeBetweenStore) previousSnapshot(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
+	panic("fakeBetweenStore: previousSnapshot must not be called from the Between path")
 }
 
 // TestReader_SnapshotsByVehicleBetween_ParamsPassedThrough asserts that the reader

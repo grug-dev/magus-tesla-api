@@ -22,7 +22,7 @@ import (
 func newTestStore(t *testing.T) (*dbStore, *pgxpool.Pool) {
 	t.Helper()
 	if testDSN == "" {
-		t.Fatalf("telemetry test DSN not initialized; TestMain failure?")
+		t.Skip("no test Postgres: set DATABASE_URL or start Docker to run the DB-backed tests")
 	}
 	pool, err := pgxpool.New(context.Background(), testDSN)
 	if err != nil {
