@@ -198,3 +198,17 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
   `go test ./...` (and `make check`) are green with zero manual DB setup as long as
   Docker is running locally. Verify `sentry_mode` nil↔NULL and append-only behavior
   there.
+- **When neither is available, the DB-backed tests SKIP — they do not fail** (added by
+  `telemetry-add-derived-consumption-columns`). `TestMain` logs
+  `provision failed, SKIPPING all DB-backed tests` and still runs the suite, and
+  `newTestStore` calls `t.Skip`. This keeps the package's offline tests
+  (`deriveConsumption`, `dayStart`, `dateOnly`, `snapshotFrom`, scheduler math) runnable
+  and `make check` passable on a machine with no Docker daemon, where previously a failed
+  provision called `log.Fatalf` and killed the whole test binary before any test ran.
+  **Consequence to keep in mind: a green suite does NOT by itself prove the DB tests ran.**
+  To actually exercise them, start Docker and run `make test` (disposable container —
+  never the real database), or run one file's worth directly, e.g.
+  `env -u DATABASE_URL go test ./internal/telemetry/ -run TestStore_ -v`, and confirm the
+  output says `PASS` rather than `SKIP`. `make test-with-db` instead runs against whatever
+  `DATABASE_URL` points at and applies migrations to it — only use it against a throwaway
+  or CI Postgres, never the owner's live database.
