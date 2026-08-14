@@ -113,7 +113,11 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
   version, 5 charge-enrichment fields, and `max_range_charge_counter` **nullable** — see migration
   20260801000001). Dropped columns (`latitude`, `longitude`, `fast_charger_type`) remain lossless
   in `raw_data`. `updated_at TIMESTAMPTZ` is the audit trail for a replace: `DEFAULT now()` on a
-  fresh insert, explicitly set to `now()` on a same-day conflict-update (design D5).
+  fresh insert, explicitly set to `now()` on a same-day conflict-update (design D5). Five more
+  nullable derived-consumption columns added by migration `20260814000001`:
+  `distance_traveled_km_calc DOUBLE PRECISION`, `battery_used_pct_calc INTEGER`,
+  `km_per_pct_calc DOUBLE PRECISION`, `estimated_range_km_calc DOUBLE PRECISION`,
+  `days_spanned_calc INTEGER` — see below.
 - `poll_attempts` — **unaffected, still append-only/immutable** (design D4): one row per
   (vehicle, run): `account_id`, `tesla_id`, `attempted_at`, `outcome` (`success`|`failure`),
   `reason` (`ok`|`asleep-timeout`|`unauthorized`|`api-error`). Doubles as future availability /
@@ -166,6 +170,19 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
   pointer-wrap convention as the 5 Source A charge-enrichment fields (D12/DSA3). SQL NULL for
   pre-migration rows; the Up migration backfills from `raw_data->'charge_state'->'max_range_charge_counter'`
   where the JSONB path exists.
+- **Five derived-consumption columns** (`DistanceTraveledKmCalc *float64`,
+  `BatteryUsedPctCalc *int`, `KmPerPctCalc *float64`, `EstimatedRangeKmCalc *float64`,
+  `DaysSpannedCalc *int`) are computed in Go, at write time, by the pure function
+  `deriveConsumption(prev, cur)` (`service.go`) — comparing the incoming snapshot against its
+  predecessor for the same `(account_id, tesla_id)` — and are **never** derived on read. NULL
+  convention: all five are NULL when no predecessor exists (the vehicle's first-ever snapshot);
+  `KmPerPctCalc`/`EstimatedRangeKmCalc` are additionally NULL whenever the battery-used divisor
+  (`BatteryUsedPctCalc`) is zero or negative (charging/parked day) — a stored value is always a
+  truthful reading, never a placeholder, per the module's D12/DSA3 NULL-vs-zero convention above.
+  `BatteryUsedPctCalc` itself may be a truthful negative (net charge overnight). Migration
+  `20260814000001` backfilled every pre-existing row in the same schema change via a one-time
+  `LAG()` window pass — no row is permanently stuck NULL except each vehicle's earliest row.
+  Introduced by `telemetry-add-derived-consumption-columns` (MAG-10).
 
 ## Testing notes
 

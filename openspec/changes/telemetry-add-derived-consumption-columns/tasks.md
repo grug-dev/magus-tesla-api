@@ -121,7 +121,7 @@
 
 ## T4. sqlc query edits + regenerate (`internal/telemetry/db/query.sql`) — depends on T1
 
-- [ ] T4.1 Add the five new columns to `InsertVehicleSnapshot`'s `INSERT` column list and
+- [x] T4.1 Add the five new columns to `InsertVehicleSnapshot`'s `INSERT` column list and
       `VALUES` (immediately after `captured_date`, matching the migration's physical
       column-append order) and to its `ON CONFLICT ... DO UPDATE SET` clause (design.md D6
       — do NOT skip the `DO UPDATE SET` additions; this is the fix for the same-day
@@ -207,7 +207,7 @@
 
 ## T8. `internal/telemetry/AGENTS.md` documentation — depends on T1
 
-- [ ] T8.1 Add the five new columns to the "Data ownership" `vehicle_snapshots` bullet list
+- [x] T8.1 Add the five new columns to the "Data ownership" `vehicle_snapshots` bullet list
       (column names, types, nullability) and add a new bullet under "DTO / units
       conventions" documenting: the NULL convention (no predecessor, or a non-positive
       battery-used divisor for the two efficiency fields only); that these are computed in

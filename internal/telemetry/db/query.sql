@@ -38,6 +38,16 @@
 -- the ON CONFLICT clause explicitly refreshes it to now() on a same-day
 -- replace (design D5), mirroring UpsertSuperchargerSession's own
 -- `updated_at = now()`.
+-- distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+-- estimated_range_km_calc, days_spanned_calc: five nullable derived-consumption
+-- columns computed in Go by deriveConsumption (service.go) BEFORE this query
+-- runs and bound as ordinary params, exactly like every other typed column
+-- (telemetry-add-derived-consumption-columns design D3/D6/D8). NULL means "no
+-- predecessor exists" (D8) or, for the two efficiency columns only, a
+-- zero/negative battery-used divisor (D2). They are included in the ON
+-- CONFLICT DO UPDATE SET below so a same-day re-capture recomputes and
+-- refreshes them identically to every other column — this is the fix for the
+-- same-day-recapture staleness bug (design D6).
 INSERT INTO vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
@@ -47,7 +57,9 @@ INSERT INTO vehicle_snapshots (
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date
+    captured_date,
+    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+    estimated_range_km_calc, days_spanned_calc
 ) VALUES (
     @account_id, @tesla_id, @captured_at, @raw_data,
     @battery_level_pct, @battery_range_km, @charging_state, @charge_limit_soc_pct,
@@ -57,7 +69,9 @@ INSERT INTO vehicle_snapshots (
     @charger_actual_current_a, @usable_battery_level_pct,
     @max_range_charge_counter,
     @tpms_pressure_fl_psi, @tpms_pressure_fr_psi, @tpms_pressure_rl_psi, @tpms_pressure_rr_psi,
-    @captured_date
+    @captured_date,
+    @distance_traveled_km_calc, @battery_used_pct_calc, @km_per_pct_calc,
+    @estimated_range_km_calc, @days_spanned_calc
 )
 ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
     captured_at               = EXCLUDED.captured_at,
@@ -82,6 +96,11 @@ ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
     tpms_pressure_fr_psi       = EXCLUDED.tpms_pressure_fr_psi,
     tpms_pressure_rl_psi       = EXCLUDED.tpms_pressure_rl_psi,
     tpms_pressure_rr_psi       = EXCLUDED.tpms_pressure_rr_psi,
+    distance_traveled_km_calc  = EXCLUDED.distance_traveled_km_calc,
+    battery_used_pct_calc      = EXCLUDED.battery_used_pct_calc,
+    km_per_pct_calc            = EXCLUDED.km_per_pct_calc,
+    estimated_range_km_calc    = EXCLUDED.estimated_range_km_calc,
+    days_spanned_calc          = EXCLUDED.days_spanned_calc,
     updated_at                 = now();
 
 -- name: InsertPollAttempt :exec
@@ -107,7 +126,9 @@ SELECT
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at
+    captured_date, updated_at,
+    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+    estimated_range_km_calc, days_spanned_calc
 FROM vehicle_snapshots
 WHERE account_id = @account_id AND tesla_id = @tesla_id
 ORDER BY captured_at DESC;
@@ -142,7 +163,9 @@ SELECT
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at
+    captured_date, updated_at,
+    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+    estimated_range_km_calc, days_spanned_calc
 FROM vehicle_snapshots
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
@@ -212,7 +235,9 @@ SELECT
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at
+    captured_date, updated_at,
+    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+    estimated_range_km_calc, days_spanned_calc
 FROM vehicle_snapshots
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
@@ -238,10 +263,44 @@ SELECT DISTINCT ON (tesla_id)
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at
+    captured_date, updated_at,
+    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+    estimated_range_km_calc, days_spanned_calc
 FROM vehicle_snapshots
 WHERE account_id = @account_id
 ORDER BY tesla_id, captured_at DESC;
+
+-- name: PreviousSnapshotForVehicle :one
+-- Return the single most recent snapshot for a vehicle strictly before the
+-- given instant, or pgx.ErrNoRows when none exists (the vehicle's
+-- first-ever snapshot — design D8/D10 of telemetry-add-derived-consumption-columns).
+-- Callers pass dayStart(capturedAt, loc) as `before` (design D7) — the LOCAL
+-- calendar-day start, not the incoming snapshot's own captured_at — so a
+-- same-day re-capture cannot select today's own (about-to-be-replaced) row
+-- as its own predecessor.
+-- Backward scan of the existing idx_vehicle_snapshots_vehicle_time
+-- (account_id, tesla_id, captured_at) index (design D7): the planner seeks
+-- to (account_id, tesla_id, before) and walks the ascending B-tree in
+-- reverse to satisfy ORDER BY captured_at DESC, stopping after the first
+-- matching row via LIMIT 1 — no new index.
+SELECT
+    id, account_id, tesla_id, captured_at, raw_data,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
+    car_version,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    captured_date, updated_at,
+    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+    estimated_range_km_calc, days_spanned_calc
+FROM vehicle_snapshots
+WHERE account_id = @account_id
+  AND tesla_id   = @tesla_id
+  AND captured_at < @before
+ORDER BY captured_at DESC
+LIMIT 1;
 
 -- name: UpsertSuperchargerSession :exec
 -- Upsert one Supercharger session. On conflict with the session_id UNIQUE constraint,
