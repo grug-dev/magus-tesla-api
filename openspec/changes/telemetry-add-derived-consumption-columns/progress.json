@@ -7,13 +7,13 @@
   "request": "Battery Consumed Columns - Vehicle Snapshots (MAG-10). Add derived columns to vehicle_snapshots computed from the current row and the previous record for that vehicle: distance traveled (odometer delta), battery consumed (battery_level_pct delta, may be negative), km per 1% battery, and estimated range (km_per_pct x 100). Suffix every new column with 'calc'. Calculate them before saving the nightly gathered data. 'Yesterday' means the latest record tracked for that vehicle. Ticket also asks whether the formulas can be applied to existing database records.",
   "status": "in-progress",
   "rollup": {
-    "current": ["T3", "T5"],
-    "pending": ["T6", "T7"],
+    "current": ["T6", "T7"],
+    "pending": [],
     "blocked": [],
-    "done": ["T1", "T2", "T4", "T8"]
+    "done": ["T1", "T2", "T3", "T4", "T5", "T8"]
   },
   "created_at": "2026-08-14T14:43:41Z",
-  "updated_at": "2026-08-14T17:52:48Z",
+  "updated_at": "2026-08-14T17:59:06Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -81,14 +81,23 @@
       "module": "telemetry",
       "depends_on": ["T2"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-14T17:53:00Z",
+      "completed_at": "2026-08-14T17:57:21Z",
+      "duration_seconds": 261,
+      "notes": "dayStart/deriveConsumption added verbatim from D7/D8; dbStore.previousSnapshot maps pgx.ErrNoRows->(nil,nil); insertSnapshot extended reusing existing helpers; attemptVehicle wired per design. go build/vet green.",
+      "budget": {
+        "five_hour_pct_start": 45.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 4.817,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-3 delta covers T3+T5 jointly (one serial worker); the change's most expensive wave"
+      }
     },
     {
       "id": "T4",
@@ -120,14 +129,23 @@
       "module": "telemetry",
       "depends_on": ["T3", "T4"],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-14T17:53:00Z",
+      "completed_at": "2026-08-14T17:57:21Z",
+      "duration_seconds": 261,
+      "notes": "rowToSnapshot extended with 5 fields via existing pgNullableFloat64/pgNullableInt32AsInt; no new mapper. go build/vet green; go test blocked by no-Docker environment (pre-existing TestMain limitation, not from this change).",
+      "budget": {
+        "five_hour_pct_start": 45.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 4.817,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-3 delta covers T3+T5 jointly (one serial worker); the change's most expensive wave"
+      }
     },
     {
       "id": "T6",
@@ -363,7 +381,22 @@
     {
       "at": "2026-08-14T17:52:48Z",
       "agent": "leader",
-      "event": "wave 2 complete: T4+T8 done. Worker enumerated D3/D4/D6/D7/D8/D9 with compliance statements and pasted the PreviousSnapshotForVehicle text for leader diffing; ON CONFLICT DO UPDATE SET refreshes all five columns and no CREATE INDEX was added (V9 partially satisfied). Leader ran make sqlc: generated cleanly, PreviousSnapshotForVehicleParams + the five columns present in models.go and all read queries. sqlc parsing the schema from the migrations is independent evidence the T1 DDL is valid Postgres. Remaining build errors are only the expected dbStore previousSnapshot ones"
+      "event": "wave 2 complete: T4+T8 done. Worker enumerated D3/D4/D6/D7/D8/D9 with compliance statements and pasted the PreviousSnapshotForVehicle text for leader diffing; ON CONFLICT DO UPDATE SET refreshes all five columns and no CREATE INDEX was added (V9 partially satisfied). Leader ran make sqlc: generated cleanly, PreviousSnapshotForVehicleParams + the five columns present in models.go and all read queries. sqlc parsing the schema from the migrations is independent evidence the T1 DDL is valid Postgres. Remaining build errors are only the expected dbStore previousSnapshot ones. Commit 98d1358"
+    },
+    {
+      "at": "2026-08-14T17:53:00Z",
+      "agent": "telemetry",
+      "event": "dispatched wave 3 worker (Sonnet) for T3 (dayStart/deriveConsumption + write-path wiring) and T5 (rowToSnapshot mapping)"
+    },
+    {
+      "at": "2026-08-14T17:59:06Z",
+      "agent": "leader",
+      "event": "wave 3 complete: T3+T5 done, build GREEN again. Worker enumerated D1/D2/D6/D7/D8/D9 + Wiring with compliance statements and pasted deriveConsumption/dayStart source; leader diffed both against design.md D8 and against the migration's LAG() formulas - subtraction order, >0 divisor guard, x100 range and DATE-diff day count all agree between the Go path and the SQL backfill. Leader independently re-ran go build (exit 0) and go vet (exit 0). Worker added previousSnapshot stubs to 4 existing test fakes to keep the test build compiling - in scope and reported"
+    },
+    {
+      "at": "2026-08-14T17:59:06Z",
+      "agent": "leader",
+      "event": "D13 ESCALATED (see D14): leader reproduced go test ./internal/telemetry/... failing outright - testdb_test.go TestMain calls log.Fatalf when Docker is absent, aborting the whole test binary via os.Exit before ANY test runs. So T6's pure offline unit tests are unrunnable here too, not just T7's DB tests. Also noted: gofmt -l flags scheduler_test.go and testdb_test.go, both untouched by this change (pre-existing repo state, left alone)"
     }
   ]
 }

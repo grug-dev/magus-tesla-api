@@ -72,14 +72,14 @@
 
 ## T3. `service.go`: derivation + write-path wiring — depends on T2
 
-- [ ] T3.1 Add the `dayStart(t time.Time, loc *time.Location) time.Time` pure function,
+- [x] T3.1 Add the `dayStart(t time.Time, loc *time.Location) time.Time` pure function,
       mirroring `dateOnly` but returning the **local-zone midnight instant** (`time.Date(y,
       m, d, 0, 0, 0, 0, loc)`, no UTC normalization), per design.md D7. Place near
       `dateOnly`.
       Acceptance: `go build ./...` green; directly unit-testable with no DB/network
       dependency (see T6.2).
 
-- [ ] T3.2 Add the `deriveConsumption(prev *Snapshot, cur Snapshot) Snapshot` pure function
+- [x] T3.2 Add the `deriveConsumption(prev *Snapshot, cur Snapshot) Snapshot` pure function
       exactly as specified in design.md D8: `prev == nil` returns `cur` unchanged (all five
       fields stay nil); otherwise computes `DistanceTraveledKmCalc`,
       `BatteryUsedPctCalc`, `DaysSpannedCalc` unconditionally, and `KmPerPctCalc` /
@@ -90,7 +90,7 @@
       dependency (see T6.1) — this is the primary "Unit tests: included" surface for this
       change.
 
-- [ ] T3.3 Implement `dbStore.previousSnapshot` (depends on T4.1's `PreviousSnapshotForVehicle`
+- [x] T3.3 Implement `dbStore.previousSnapshot` (depends on T4.1's `PreviousSnapshotForVehicle`
       query existing and `make sqlc` having run): calls
       `q.PreviousSnapshotForVehicle`, maps a `pgx.ErrNoRows` (or the sqlc-generated
       not-found sentinel) to `(nil, nil)`, otherwise maps the row via the existing shared
@@ -98,7 +98,7 @@
       via the existing `timestamptzFrom` helper — no new pgtype boundary helper needed.
       Acceptance: `go build ./...` green once T4 has run; behavior verified by T7.2.
 
-- [ ] T3.4 Extend `dbStore.insertSnapshot` to pass the five new
+- [x] T3.4 Extend `dbStore.insertSnapshot` to pass the five new
       `InsertVehicleSnapshotParams` fields, reusing the **existing**
       `float64PtrToPgFloat8` helper (for the three `DOUBLE PRECISION` columns) and the
       **existing** `intPtrToPgInt4` helper (for the two `INTEGER` columns) — both already
@@ -108,7 +108,7 @@
       Acceptance: `InsertVehicleSnapshotParams` has the five new fields; `dbStore.insertSnapshot`
       assigns all of them; `go build ./...` green.
 
-- [ ] T3.5 Wire `attemptVehicle` per design.md's "Wiring" section: after `snapshotFrom`
+- [x] T3.5 Wire `attemptVehicle` per design.md's "Wiring" section: after `snapshotFrom`
       builds `snap`, call `s.store.previousSnapshot(ctx, v.AccountID, v.TeslaID,
       dayStart(s.now(), s.location()))`; on error, return `(s.logAPIError(v.TeslaID,
       "previousSnapshot", err, ReasonAPIError), vehicleConfig{})` (same error-containment
@@ -141,7 +141,7 @@
 
 ## T5. `mapping.go`: `rowToSnapshot` — depends on T3, T4
 
-- [ ] T5.1 Extend `rowToSnapshot` in `internal/telemetry/mapping.go` to map the five new
+- [x] T5.1 Extend `rowToSnapshot` in `internal/telemetry/mapping.go` to map the five new
       fields using the **existing** `pgNullableFloat64` (for the three `DOUBLE PRECISION`
       columns) and `pgNullableInt32AsInt` (for the two `INTEGER` columns) helpers — both
       already defined in `mapping.go` for the Source A charge-enrichment fields. Do not
