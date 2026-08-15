@@ -115,27 +115,29 @@ validates convention compliance, catching any worker that skipped it.
 
 ### State files (the progress.json contract)
 
-- `openspec/changes/<change>/progress.json` (`kind: "change"`) — per-change state:
-  change status lifecycle `proposed → in-progress → applied → verified → in-review →
-  changes-requested → reviewer-approved → archived`; `tasks[]` mirroring tasks.md
-  sub-tasks with `depends_on`, `parallel_ok`, `status`, `agent`, `model`, timestamps;
-  a `review` block (`brief`, `rounds[]` of findings with severity and leader triage);
-  an append-only `events[]` leader log. Timestamps ISO-8601 UTC.
-- `openspec/roadmaps/<feature>.md` + `<feature>.progress.json` (`kind: "roadmap"`) —
-  a multi-module feature: one module-prefixed change per tier (`id`, `change`, `module`,
-  `depends_on`, `optional`, `status`, assistant/model, timestamps, `tokens`, `notes`),
-  implemented one tier at a time. (Format proven by
+**The contract is owned by the `kkpa-dev-harness-pipeline` skill, not by this file.** It
+lives in `~/.claude/skills/kkpa-dev-harness-pipeline/references/progress-schema.md`: the
+schema for both file kinds, write ownership, the status lifecycles, and the anti-gaming
+rails. The leader repeats the write-ownership rules verbatim in every dispatch prompt, so
+workers and the reviewer receive them per dispatch and need not look them up.
+
+This file deliberately does **not** restate them. It used to, and the copy drifted: it
+still said "a worker writes only its own task entries" after the skill moved to
+leader-only writes, and because the skill then treated a project contract as authoritative,
+this stale paragraph would have silently reverted that change on the next run. progress.json
+is the skill's own artifact and the skill is versioned as a whole — a per-repo restatement
+is an unversioned fork, so the skill's copy binds and this project may only **extend** it.
+
+What *is* project-specific:
+
+- Change state lives at `openspec/changes/<change>/progress.json`, roadmap state at
+  `openspec/roadmaps/<feature>.md` + `<feature>.progress.json`. (Roadmap format proven by
   `openspec/roadmaps/archive/multi-tenant-vehicle-access.progress.json`.)
+- progress.json **complements** tasks.md, never replaces it: tasks.md wins on
+  implementation done-ness, progress.json wins on review state.
+- Pipeline config — module root, doc packs, design gates, performance profile, test
+  execution policy, thresholds — is declared in `CLAUDE.md` §"Pipeline config", and *that*
+  is project-owned: declared beats inferred.
 
-progress.json **complements** tasks.md, never replaces it: tasks.md wins on
-implementation done-ness, progress.json wins on review state.
-
-### Write ownership (anti-gaming — absolute)
-
-1. The leader owns top-level `status`, task creation (append-only), `review.brief`,
-   finding triage, `events`, and roadmap tier statuses.
-2. A worker writes only its own task entries (status/agent/model/timestamps/notes).
-3. The reviewer alone owns `review.status`/`rounds` and the value `reviewer-approved` —
-   the leader never sets it, and archiving requires it.
-4. Tasks, acceptance criteria, and findings are append-only: no agent may edit, weaken,
-   or delete them to make work look complete. A truthful `blocked` beats a false `done`.
+If you find this file disagreeing with the skill's contract, the skill wins and this file
+is the bug — fix it here rather than working around it.

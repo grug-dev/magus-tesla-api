@@ -6,9 +6,29 @@
 `magus-tesla-api` **only**, Claude MAY run the Go build/verify and codegen commands directly
 (the owner has authorized it); it need not hand them back to the user. Allowed without asking:
 
-- `go build ./...`, `go vet ./...`, `go test ./...`
-- `make build`, `make vet`, `make test`, `make check`, `make bins`
+- `go build ./...`, `go vet ./...`, `gofmt -l`
+- `make build`, `make vet`, `make bins`
+- `make ui-guard`, `make i18n-guard`, `make money-guard` — the standalone grep-based guards
 - `sqlc generate` / `make sqlc`, `go mod tidy` / `make tidy`
+
+**Claude does NOT run the test suite — the owner does.** Never run `go test ./...`,
+`make test`, `make test-with-db`, or `make check`. Claude writes tests and asks; you run
+them and report the results. This is the `Test-Execution-Policy` below, and it applies
+inside and outside the pipeline.
+
+Why the line falls there: everything on the allowed list is a **cheap deterministic
+signal** — it fails fast, prints a few lines, and needs no human. `go vet` in particular
+compiles `_test.go` files, so it catches signature drift and API mistakes in tests nobody
+executed. Skipping a signal like that doesn't save anything; it converts it into a
+round-trip that costs more than the output it replaced.
+
+`make check` is owner-only *only* because it ends in `test` — its other five phases
+(`build vet ui-guard i18n-guard money-guard`) are all on the allowed list and Claude runs
+them individually. So excluding `check` costs no guard coverage.
+
+Consequence: when Claude has written tests but not run them, the honest state is **awaiting
+your verification** — not "done". No task, commit message, or summary may claim tests pass
+on Claude's say-so; a passing suite is recorded as *your* report.
 
 Still gated (ask / require explicit request first): anything that mutates or drops data —
 `make db-reset`, `make migrate-down`, manual `DROP`/`DELETE`. Applying migrations forward
@@ -56,6 +76,7 @@ OAuth-capture tool, not the running server. Treat `ai/architecture.md` as the ta
 These are always in effect. Do not violate them even if you haven't opened the conventions file:
 
 - **AI-efficiency is a first-class design criterion** — when proposing, designing, or reviewing code, weigh how cheaply an AI assistant can *understand* the codebase and *implement* a change (token cost + round-trips) alongside correctness and performance, and state that rationale for non-trivial choices. Favor: **closed, small vocabularies** an agent looks up instead of re-inventing (the `ui/` kit, semantic theme tokens, one gold-standard slice to mirror); **change-locality** — structure so a change touches few files (module boundaries, single-source mappings/adapters); **discoverability** in the docs an agent already loads (`CLAUDE.md`, `AGENTS.md`, `ai/*.md`) over facts it must grep to rediscover; and **deterministic signals over human round-trips** — typed Props, `make` guards/gates, and codegen that fail fast and cheap. **But do not over-abstract**: indirection costs tokens to resolve, so add a wrapper/layer only where it buys change-locality on a *volatile or repeated* surface — never hide stable, self-describing things (theme tokens, Tailwind utilities, trivial one-offs) behind a lookup. Over-abstraction is *anti*-AI-efficiency; keep the code, the layers, and the docs themselves lean. Several rules below (modular packages, mirror-the-gold-standard, docs-track-change) are instances of this principle.
+- **You write the tests; the owner runs them** — never `go test ./...`, `make test`, `make test-with-db`, or `make check`, in any session, pipeline or not. `go build ./...`, `go vet ./...`, `gofmt -l` and the standalone guards (`make ui-guard` / `i18n-guard` / `money-guard`) are yours to run (vet compiles `_test.go`, so it catches signature drift in tests nobody executed). Tests you wrote but did not run are **awaiting the owner's verification**, never "done", and a passing suite is reported by the owner and recorded as theirs — never claimed as your own. Full rule: §"Builds & local checks" above; testing detail in `ai/go-conventions.md` §Testing.
 - **Modular packages are a hard requirement** — every Tesla API concern gets its own package under `internal/`; one concern per package; `cmd/` stays thin (zero business logic).
 - **Display units are kilometres, °C and PSI; conversion happens once, on write, never on read** — every persisted unit-bearing column and domain field is stored in the platform display unit under a matching suffix (`_km`, `_kmh`, `_c`, `_psi`, `_kwh`, `_kw`, `_v`, `_a`, `_pct`). Two exemptions only: `internal/tesla`'s vendor DTOs (stay in the Fleet API's native units — miles, bar) and monetary amounts (no suffix; paired with a `currency` column instead). Full rule: `ai/go-conventions.md`.
 - **Boundaries are sacred** (detail in `ai/architecture.md`): no HTML outside `internal/gateway/`; no module reads another module's DB/internals; cross-module data flows only through public Go interfaces; the gateway calls interfaces, never a database.
@@ -73,14 +94,13 @@ layer is each module's own `AGENTS.md`, added to the pack by the leader per disp
 - **Modules-Root:** `internal/` — the only folder whose direct children are the monolith's
   modules. Pipeline module resolution considers only these; each worker is sandboxed to
   exactly one child of this folder (plus explicitly granted paths).
-- **Change-Counter:** `openspec/.work-counter` — the monotonic next-number file the
-  pipeline reads and bumps for each **standalone** (single-module) change to number its
-  `ft/CH<N>-…` branch. This **overrides** the `kkpa-dev-harness-pipeline` skill's default
-  `openspec/.ch-counter` — the project renamed it; existing branches `ft/CH1…ft/CH6`
-  already consume `.work-counter`. The skill's monotonic rules still apply (missing ⇒ `1`;
-  numbers are never reused or decremented; archiving never touches it). Roadmap numbering
-  still uses `openspec/roadmaps/.rm-counter` (unchanged). Step 0.4's "Declared always beats
-  inferred" means the leader uses THIS path and does NOT fall back to `.ch-counter`.
+- **Work counter:** `openspec/.work-counter` — the monotonic next-number file the pipeline
+  reads and bumps to number both `ft/CH<N>-…` (standalone change) and `ft/RM<N>-…` (roadmap)
+  branches. **One shared counter**, so a `CH3` and an `RM3` can never both exist. This is
+  the skill's own default as of v1.0.0 — not a project override — and the project's
+  migration off the retired `.ch-counter` / `.rm-counter` is complete: both are gone, and
+  `.work-counter` is authoritative. Monotonic rules: missing ⇒ `1`; numbers are never
+  reused or decremented; archiving never touches it.
 - **Doc-Pack (base — every worker AND reviewer, all modules):** `CLAUDE.md`,
   `ai/architecture.md`, `ai/go-conventions.md`. Lean on purpose — every dispatch
   re-reads it in full. Module-specific docs are declared per module in the
@@ -88,8 +108,18 @@ layer is each module's own `AGENTS.md`, added to the pack by the leader per disp
   base, never replacing it (e.g. the htmx docs live in the gateway module's pack).
 - **Doc-Pack (reviewer):** `ai/agentic-workflow.md` — the leader-protocol/contract doc,
   added to reviewer dispatches only; workers never receive it.
-- **Context-Checkpoint-At:** `60` — context-window % that trips the auto-checkpoint;
-  checkpoint + `/clear` + resume beats pushing a long context further.
+- **Context-Checkpoint-At:** `40` — context-window % that trips the auto-checkpoint;
+  checkpoint + `/clear` + resume beats pushing a long context further, and progress.json
+  makes a fresh session nearly free. On a change of three or more waves, prefer a `/clear`
+  + resume at every wave boundary regardless of the percentage.
+- **Test-Execution-Policy:** `Claude writes tests but never runs the suite — never go test
+  ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet
+  ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make
+  ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports
+  results; work that is complete but unexecuted is awaiting-user-verification, never done,
+  and a passing suite is recorded as the owner's report, never claimed by the assistant.`
+  — injected verbatim into every worker and reviewer dispatch. Matches §"Builds & local
+  checks" above, which governs sessions outside the pipeline.
 - **Design-Gates:** `database` — design areas whose artifacts require the user's explicit
   confirmation before Apply (design + rationale + index plan shown to the user, iterated
   until confirmed). `database` is built-in and always on; listing it here is for

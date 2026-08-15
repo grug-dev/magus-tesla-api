@@ -93,6 +93,47 @@ Every future DB-backed module follows the same shape.
 - **DB tests are `DATABASE_URL`-gated** and self-skip when it is unset, so `go test ./...` stays
   green without a database. Pure logic (e.g. token-expiry math) is unit-tested without a DB.
 
+### Testing — who writes them, who runs them
+
+**Claude writes tests. The owner runs them.** This is binding in every session, inside the
+pipeline or not, and `CLAUDE.md` §"Builds & local checks" states the same rule.
+
+| Command | Who |
+|---|---|
+| `go build ./...`, `go vet ./...`, `gofmt -l` | **Claude may run these**, unprompted |
+| `make build`, `make vet`, `make bins` | **Claude** |
+| `make ui-guard`, `make i18n-guard`, `make money-guard` | **Claude** — standalone grep guards, no tests |
+| `go test ./...`, `make test`, `make test-with-db`, `make check` | **Owner only** — Claude never runs them |
+
+Everything on Claude's side is a **cheap deterministic signal**: fails fast, prints a few
+lines, needs no human. `go vet` in particular compiles `_test.go` files, so it catches
+signature drift and API mistakes in tests that were never executed. Skipping such a signal
+saves nothing — it converts it into a round-trip costing more than the output it replaced.
+
+`make check` is `build vet ui-guard i18n-guard money-guard test`; it is owner-only purely
+because of the trailing `test`. Claude runs the other five individually, so excluding
+`check` costs no guard coverage.
+
+**Reporting rules — these are the point of the split:**
+
+- Work that is complete but whose tests have not been run is **`awaiting-user-verification`**,
+  never `done`. In the pipeline that is a task status; outside it, say so in plain words.
+- Keep it distinct from **blocked**, which means stuck and needing intervention. Nothing is
+  stuck here — it awaits a signal Claude is not allowed to produce.
+- A passing suite is **the owner's report**, recorded as theirs. Claude never claims tests
+  pass on its own authority, in a task status, a commit message, or a summary.
+- When handing work back, give the **exact commands** to paste.
+
+**Authoring order** (it follows from the above — unexecuted tests need to be right first time):
+
+- **Pure/offline tests** — write them early, TDD-style. `go vet` verifies they compile.
+- **`DATABASE_URL`-gated integration tests** — write them **last**, after the migration and
+  the sqlc-generated types exist; they cannot compile before that.
+- **But author their expected values up front**, in the change's `design.md`, before the
+  implementation exists. A test written after reading the implementation confirms what the
+  code does rather than what the design specifies. Contract-first authoring recovers most of
+  TDD's benefit for tests that have no fast feedback loop.
+
 ### Read optimization (project-wide)
 
 This system has an **asymmetric workload** — ~99% reads, ~1% writes (the nightly
