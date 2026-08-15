@@ -63,6 +63,16 @@ func (f *fakeSuperchargerReader) SuperchargerSessionsByAccount(_ context.Context
 	panic("fakeSuperchargerReader: SuperchargerSessionsByAccount must not be called from RecentEfficiency")
 }
 
+// SuperchargerSessionsByVehicleBetween satisfies the port's third method
+// (RM28-telemetry-add-charge-gap-storage). RecentEfficiency does not use the
+// bounded-window read — it windows in Go from a limit-based fetch — so a call
+// here means the production path changed without this fake being revisited.
+// The battery-consumed derivation (RM28 tier 3) is the intended first caller
+// and will need its own fake behavior when it lands.
+func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]telemetry.SuperchargerSession, error) {
+	panic("fakeSuperchargerReader: SuperchargerSessionsByVehicleBetween must not be called from RecentEfficiency")
+}
+
 func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]telemetry.SuperchargerSession, error) {
 	f.gotAccountID = accountID
 	f.gotTeslaID = teslaID

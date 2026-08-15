@@ -282,6 +282,117 @@ type Reader interface {
 	SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error)
 }
 
+// --- charge_gaps ledger (RM28-telemetry-add-charge-gap-storage, MAG-15) ---
+
+// MissingChargingType identifies which charge source a flagged charge_gaps
+// day is attributed to (design D-Table6, roadmap D7a). Inferred by
+// internal/battery at detection time -- never user-chosen, never a value this
+// module computes itself.
+type MissingChargingType string
+
+const (
+	// MissingChargingTypeManual -- no Supercharger session with NULL start/end
+	// battery percentages exists for the day; the vehicle was charged
+	// somewhere the Tesla Fleet API does not report (home/work/third-party AC,
+	// or a DC session GET /api/1/dx/charging/history never returned).
+	MissingChargingTypeManual MissingChargingType = "MANUAL"
+	// MissingChargingTypeSupercharger -- a Supercharger session exists for the
+	// day whose start_battery_pct/end_battery_pct are both NULL: the exact
+	// record that needs filling is already known (roadmap D7a/D14).
+	MissingChargingTypeSupercharger MissingChargingType = "SUPERCHARGER"
+)
+
+// ChargeGap is one flagged vehicle-day whose battery math does not add up --
+// internal/battery's derivation could not fully account for the day's
+// battery change from stored charge records, meaning a charge record is
+// missing or incomplete (D3/D7/D7a of RM28-telemetry-add-charge-gap-storage).
+// Our own domain model, no vendor suffix (ai/architecture.md §6):
+// internal/battery computes it, internal/telemetry stores it through the
+// GapWriter port, and internal/telemetry never computes one itself.
+// AccountID/TeslaID are carried on the type -- even though every element of
+// one ReconcileWindow call's flagged slice belongs to that call's own vehicle
+// -- so this exact shape can also serve, unmodified, as the return type of a
+// future read port for the notification feature (not built in this change).
+type ChargeGap struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	VIN       string
+	// Date is the flagged calendar day -- a plain calendar DATE (UTC
+	// midnight), never a timestamp; backed by the charge_gaps.gap_date column.
+	// Must be normalized to UTC midnight the same way dateOnly/CapturedDate
+	// already are elsewhere in this module -- ReconcileWindow compares Date
+	// values for map-key equality against the stored gap_date column.
+	//
+	// DELIBERATE NAME DIFFERENCE, do NOT "fix" it in either direction: the
+	// column is gap_date because a bare `date` would be the only non-descriptive
+	// date column in this schema (cf. manual_charge_entries.charged_on,
+	// vehicle_snapshots.captured_date, supercharger_sessions.charge_start_date_time)
+	// AND `date` is a Postgres col_name_keyword. The Go field stays Date because
+	// it is already namespaced by its type -- ChargeGap.GapDate would stutter,
+	// which ai/go-conventions.md forbids. sqlc generates GapDate on the
+	// telemetrydb row struct; the single mapping seam translates it, exactly as
+	// this module already translates every other db row into a domain type.
+	Date time.Time
+	// MissingChargingType is which charge source is suspected missing for
+	// this day, inferred by internal/battery at detection time (D7a).
+	MissingChargingType MissingChargingType
+}
+
+// GapWriter is telemetry's write port for the charge_gaps ledger (D3 of the
+// RM28 roadmap). internal/battery is its only intended caller: after
+// deriving each day's consumption for a vehicle over a window and flagging
+// the days whose math does not add up (roadmap D5/D5a), it calls
+// ReconcileWindow once per vehicle per nightly run with the FULL flagged set
+// it computed for that window. telemetry never calls battery -- this port is
+// the one leg of the one-way battery -> telemetry data flow the rest of the
+// platform's dependency graph already assumes (root README.md §Dependency
+// graph, LAYER 2), so no import cycle opens (roadmap D4a).
+type GapWriter interface {
+	// ReconcileWindow makes charge_gaps agree with flagged for exactly the
+	// vehicle-day range [start, end] inclusive (whole calendar days -- see
+	// ChargeGap.Date): every day present in flagged is upserted (inserted, or
+	// updated in place if its MissingChargingType or VIN changed since the
+	// last run); every existing charge_gaps row for (accountID, teslaID)
+	// whose date falls in [start, end] but has NO matching entry in flagged
+	// is deleted (roadmap D7b). Days outside [start, end] are never read or
+	// touched, even if this vehicle has older or newer flagged days stored
+	// elsewhere -- reconciliation is scoped to exactly the window the caller
+	// just recomputed, never the vehicle's whole history.
+	//
+	// flagged may be empty: every previously-flagged day in the window has
+	// resolved, and every existing row in the window is deleted, none
+	// re-inserted -- the normal steady state once a user fixes a missing
+	// charge entry.
+	//
+	// Every element of flagged MUST carry the SAME accountID and teslaID as
+	// this call's own arguments; ReconcileWindow returns an error, and writes
+	// nothing, if one does not (defense-in-depth tenant isolation, mirroring
+	// Reader.SnapshotsByVehicleBetween's account_id AND tesla_id filter
+	// convention). Every element's Date MUST fall within [start, end];
+	// ReconcileWindow returns an error, and writes nothing, if one does not
+	// (a flagged day outside its own window is a caller bug, not data to
+	// silently accept -- a later call for a different window could otherwise
+	// orphan or duplicate the row).
+	//
+	// Runs inside a single database transaction: either every upsert and
+	// every delete this call makes succeeds, or the whole call has no
+	// effect. A failed call is always safe to retry from scratch on the next
+	// nightly run, since flagged is freshly recomputed by the caller every
+	// time -- ReconcileWindow never reads charge_gaps back as an input to
+	// its own decisions, only as the set to reconcile against.
+	ReconcileWindow(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time, flagged []ChargeGap) error
+}
+
+// NewGapWriter constructs a GapWriter backed by a real Postgres pool. Callers
+// (internal/battery via cmd/poller, D4a) depend on the GapWriter interface,
+// never on the concrete type or on telemetrydb directly. Implementation is in
+// gap_writer.go (forward-declared here so this file compiles before that one
+// is parsed, mirroring NewSuperchargerReader's identical pattern, design B6.3
+// of RM27-telemetry-add-supercharger-battery-pct).
+func NewGapWriter(pool *pgxpool.Pool) GapWriter {
+	return newGapWriter(pool)
+}
+
 // --- Source B: Supercharger sessions ---
 
 // SuperchargerSession is one Tesla-billed Supercharger / DC fast-charging session —
@@ -414,6 +525,39 @@ type SuperchargerReader interface {
 	// limited to limit rows (0 = server default of math.MaxInt32). Returns an
 	// empty non-nil slice when no sessions exist.
 	SuperchargerSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerSession, error)
+
+	// SuperchargerSessionsByVehicleBetween returns Supercharger sessions for
+	// the given vehicle (within the given account) whose ChargeStopDateTime
+	// falls in the caller-supplied [start, end] window, inclusive of the
+	// whole end calendar day, ordered oldest-first (ascending by
+	// ChargeStopDateTime). start/end are whole UTC-midnight-bounded calendar
+	// days, matching this project's platform-wide HTTP date-filter
+	// convention (ai/go-conventions.md §"Read optimization").
+	//
+	// Filters on ChargeStopDateTime, NOT ChargeStartDateTime (roadmap D12):
+	// energy is fully delivered at session stop, which is what
+	// EndBatteryPct corresponds to, so a session belongs to the window
+	// containing its STOP instant even when it started the day before -- a
+	// session spanning midnight (ChargeStartDateTime before start,
+	// ChargeStopDateTime inside [start, end]) is deliberately INCLUDED. This
+	// is a pure data accessor: the port does no charge-to-day attribution of
+	// its own (that is internal/battery's job, roadmap D12) -- it only
+	// answers "which sessions' energy finished landing in this window."
+	//
+	// Returns a non-nil empty slice and nil error when no sessions exist in
+	// the window (parity with SuperchargerSessionsByAccount/ByVehicle's
+	// existing empty-result contract, and with Reader.SnapshotsByVehicleBetween's
+	// identical convention -- no nil-slice footgun for callers). The
+	// account_id AND tesla_id filter provides defense-in-depth tenant
+	// isolation, mirroring every other bounded-window method in this module.
+	//
+	// Purely additive alongside SuperchargerSessionsByAccount/ByVehicle
+	// (both unchanged, both remain limit-based for their own "most recent N"
+	// access pattern). This method has no limit parameter and no LIMIT-N
+	// contract -- the caller-supplied window is the bound, exactly like
+	// Reader.SnapshotsByVehicleBetween's own reasoning for why a bounded
+	// window makes an unbounded-N limit the caller's job, not this query's.
+	SuperchargerSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerSession, error)
 }
 
 // NewSuperchargerReader constructs a SuperchargerReader backed by the telemetry DB pool.

@@ -4,17 +4,31 @@
   "change": "RM28-telemetry-add-charge-gap-storage",
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
-  "request": "Source ticket: MAG-15 — https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nRM28 tier 1. Create the charge_gaps table (days whose battery math does not add up because a charge record is missing or incomplete) plus its GapWriter write port, and add SuperchargerSessionsByVehicleBetween to the SuperchargerReader port. Roadmap decisions D3, D7, D7a, D7b, D9, D12 bind this change.",
-  "status": "proposed",
+  "request": "Source ticket: MAG-15 \u2014 https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nRM28 tier 1. Create the charge_gaps table (days whose battery math does not add up because a charge record is missing or incomplete) plus its GapWriter write port, and add SuperchargerSessionsByVehicleBetween to the SuperchargerReader port. Roadmap decisions D3, D7, D7a, D7b, D9, D12 bind this change.",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"],
+    "pending": [
+      "T7",
+      "T8"
+    ],
     "blocked": [],
-    "done": []
+    "done": [],
+    "awaiting-user-verification": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ]
   },
   "created_at": "2026-08-15T13:58:00Z",
-  "updated_at": "2026-08-15T13:58:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-08-15T19:07:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM28-MAG-15-battery-consumed-graph",
@@ -30,10 +44,23 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "Migration 20260815000002 created. Corrected design.md leftover `date` refs to gap_date in the index DDL (design self-inconsistency, not a schema change).",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
     },
     {
       "id": "T2",
@@ -41,76 +68,168 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "MissingChargingType, ChargeGap, GapWriter + NewGapWriter added; SuperchargerSessionsByVehicleBetween added to SuperchargerReader. Two existing methods untouched.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
     },
     {
       "id": "T3",
       "title": "db/query.sql: UpsertChargeGap, DeleteChargeGap, ChargeGapDatesByVehicleBetween, SuperchargerSessionsByVehicleBetween",
       "module": "telemetry",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "Four queries added; sqlc generate run. Renamed @end to @end_date \u2014 END is a reserved Postgres keyword and no other spelling compiles. Generated field is EndDate.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
     },
     {
       "id": "T4",
       "title": "mapping.go: dateFromPg helper",
       "module": "telemetry",
-      "depends_on": ["T2", "T3"],
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "dateFromPg added to mapping.go. One-line body, no DB dependency.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
     },
     {
       "id": "T5",
       "title": "gap_writer.go: GapWriter implementation (transactional reconcile)",
       "module": "telemetry",
-      "depends_on": ["T2", "T3", "T4"],
+      "depends_on": [
+        "T2",
+        "T3",
+        "T4"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "gap_writer.go created: validate-then-transaction ReconcileWindow, var _ GapWriter assertion, created_at correctly excluded from the upsert SET clause.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
     },
     {
       "id": "T6",
       "title": "reader.go: SuperchargerSessionsByVehicleBetween implementation",
       "module": "telemetry",
-      "depends_on": ["T2", "T3"],
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "SuperchargerSessionsByVehicleBetween implemented on *superchargerReader, filtering charge_stop_date_time, inclusive end, oldest-first, no LIMIT.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
     },
     {
       "id": "T7",
       "title": "DB-integration tests for contract scenarios (a)-(e)",
       "module": "telemetry",
-      "depends_on": ["T1", "T3", "T5", "T6"],
+      "depends_on": [
+        "T1",
+        "T3",
+        "T5",
+        "T6"
+      ],
       "parallel_ok": false,
       "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
     },
     {
       "id": "T8",
       "title": "internal/telemetry/AGENTS.md: document charge_gaps + the new ports",
       "module": "telemetry",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
       "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
     }
   ],
   "decisions": [
@@ -131,6 +250,24 @@
       "decision": "idx_charge_gaps_account (account_id, gap_date DESC) is KEPT despite serving a notification feature that does not exist yet.",
       "why": "Leader flagged it as speculative on a table that stays tiny. The user chose to keep it rather than defer; it is cheap and the read pattern is declared in the design.",
       "covered_by": null
+    },
+    {
+      "id": "G3",
+      "at": "2026-08-15T18:58:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Collapsed the five computed depends_on waves into two dispatches: wave 1 = T1-T6 (implementation), wave 2 = T7-T8 (DB tests + docs).",
+      "why": "Every computed wave is a serial single-module chain, so five dispatches would re-read the doc pack five times for zero parallelism. Tests stay last: they cannot compile before the migration and sqlc types exist.",
+      "covered_by": null
+    },
+    {
+      "id": "G4",
+      "at": "2026-08-15T19:07:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Leader added the missing SuperchargerSessionsByVehicleBetween method to the test doubles in internal/battery and internal/gateway/handlers, as panic-on-call stubs.",
+      "why": "Adding a port method broke go vet in two sibling modules. Cross-module integration is the leader\u2019s job, not a sandboxed worker\u2019s. Panic, not nil, so an unexpected call fails loudly.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -143,6 +280,16 @@
       "at": "2026-08-15T13:56:00Z",
       "kind": "design-gate-passed",
       "note": "Leader presented schema + rationale + index plan to the user, flagging two concerns (bare `date` column name, speculative second index). User approved with the rename; index kept. See decisions G1/G2."
+    },
+    {
+      "at": "2026-08-15T18:58:00Z",
+      "kind": "wave-dispatched",
+      "note": "Wave 1 (T1-T6) dispatched to one serial telemetry worker on Sonnet. Budget at dispatch: five_hour 42%, context 32%, cost $32.15."
+    },
+    {
+      "at": "2026-08-15T19:07:00Z",
+      "kind": "wave-completed",
+      "note": "Wave 1 (T1-T6) complete. go build + go vet clean repo-wide after the leader fixed two cross-module fakes. gofmt noise (14 files) confirmed pre-existing on main. Suite NOT run - awaiting the user."
     }
   ],
   "review": {

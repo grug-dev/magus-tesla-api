@@ -45,7 +45,7 @@
 
 ## T1. Goose migration (`internal/telemetry/db/migrations/`) — Group A, no dependencies
 
-- [ ] T1.1 Create `internal/telemetry/db/migrations/20260815000002_add_charge_gaps.sql` with
+- [x] T1.1 Create `internal/telemetry/db/migrations/20260815000002_add_charge_gaps.sql` with
       the exact DDL from design.md's "Schema" section: Up creates the `charge_gaps` table
       (`id`, `account_id`, `tesla_id BIGINT NOT NULL`, `vin TEXT NOT NULL`,
       `gap_date               DATE NOT NULL`, `missing_charging_type TEXT NOT NULL CHECK (IN ('MANUAL',
@@ -66,13 +66,13 @@
 
 ## T2. `telemetry.go` — domain types + both port additions — Groups A and B together, no dependencies
 
-- [ ] T2.1 Add `MissingChargingType` (type + `MissingChargingTypeManual`/
+- [x] T2.1 Add `MissingChargingType` (type + `MissingChargingTypeManual`/
       `MissingChargingTypeSupercharger` constants) and the `ChargeGap` struct
       (`AccountID`, `TeslaID`, `VIN`, `Date`, `MissingChargingType`) to `telemetry.go`, exact
       shape and doc comments from design.md's "Domain types" section.
       Acceptance: `go build ./...` green.
 
-- [ ] T2.2 Add the `GapWriter` interface (one method, `ReconcileWindow`, exact signature and
+- [x] T2.2 Add the `GapWriter` interface (one method, `ReconcileWindow`, exact signature and
       doc comment from design.md's "`GapWriter` port" section) and its forward-declared
       constructor `NewGapWriter(pool *pgxpool.Pool) GapWriter` (calling `newGapWriter(pool)`,
       implemented in T5) to `telemetry.go`.
@@ -80,7 +80,7 @@
       T5 lands — expected and resolved by T5; the interface declaration itself must be
       syntactically correct Go.
 
-- [ ] T2.3 Add `SuperchargerSessionsByVehicleBetween` as a third method on the EXISTING
+- [x] T2.3 Add `SuperchargerSessionsByVehicleBetween` as a third method on the EXISTING
       `SuperchargerReader` interface (do NOT touch `SuperchargerSessionsByAccount` or
       `SuperchargerSessionsByVehicle`), exact signature and doc comment from design.md's
       "`SuperchargerReader` addition" section — including the note that it filters on
@@ -93,7 +93,7 @@
 
 ## T3. `db/query.sql` — four new queries — Groups A and B together, depends on T1 for Group A's three
 
-- [ ] T3.1 Add `UpsertChargeGap`, `DeleteChargeGap`, and `ChargeGapDatesByVehicleBetween`
+- [x] T3.1 Add `UpsertChargeGap`, `DeleteChargeGap`, and `ChargeGapDatesByVehicleBetween`
       (Group A) to `internal/telemetry/db/query.sql`, exact SQL text and header comments
       from design.md's "`db/query.sql` additions" section. `UpsertChargeGap`'s
       `ON CONFLICT DO UPDATE SET` must refresh `vin`, `missing_charging_type`, and
@@ -106,7 +106,7 @@
       `[]pgtype.Date`); `grep -c created_at` restricted to `UpsertChargeGap`'s `SET` clause
       returns `0`.
 
-- [ ] T3.2 Add `SuperchargerSessionsByVehicleBetween` (Group B) to the same file, exact SQL
+- [x] T3.2 Add `SuperchargerSessionsByVehicleBetween` (Group B) to the same file, exact SQL
       text and header comment from design.md, immediately after the existing
       `SuperchargerSessionsByVehicle` query. Do NOT modify `SuperchargerSessionsByAccount`
       or `SuperchargerSessionsByVehicle`'s SQL text.
@@ -122,7 +122,7 @@
 
 ## T4. `mapping.go` — new `dateFromPg` helper — Group A, depends on T2, T3
 
-- [ ] T4.1 Add `dateFromPg(d pgtype.Date) time.Time` to `internal/telemetry/mapping.go`,
+- [x] T4.1 Add `dateFromPg(d pgtype.Date) time.Time` to `internal/telemetry/mapping.go`,
       exact body from design.md's "Go-Level Seam Summary" section (`return d.Time`),
       placed near the existing `pgNullable*` helpers with a doc comment noting it is the
       non-nullable reverse of `dateFrom` (`service.go`) and is used by `gap_writer.go`.
@@ -131,7 +131,7 @@
 
 ## T5. `gap_writer.go` (new file) — `GapWriter` implementation — Group A, depends on T2, T3, T4
 
-- [ ] T5.1 Create `internal/telemetry/gap_writer.go` with the `gapWriter` struct, the
+- [x] T5.1 Create `internal/telemetry/gap_writer.go` with the `gapWriter` struct, the
       unexported `newGapWriter(pool *pgxpool.Pool) *gapWriter` constructor, the compile-time
       `var _ GapWriter = (*gapWriter)(nil)` assertion, and the full `ReconcileWindow`
       implementation from design.md's "Go-Level Seam Summary" section verbatim: the
@@ -150,7 +150,7 @@
 
 ## T6. `reader.go` — `SuperchargerSessionsByVehicleBetween` implementation — Group B, depends on T2, T3
 
-- [ ] T6.1 Add `SuperchargerSessionsByVehicleBetween` to `*superchargerReader` in
+- [x] T6.1 Add `SuperchargerSessionsByVehicleBetween` to `*superchargerReader` in
       `internal/telemetry/reader.go`, exact body from design.md's "`reader.go` addition"
       section: compute `endBound := end.AddDate(0, 0, 1)`, call
       `r.q.SuperchargerSessionsByVehicleBetween` with `teslaIDToPgInt8(teslaID)` and

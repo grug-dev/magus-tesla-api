@@ -139,3 +139,33 @@ func (r *superchargerReader) SuperchargerSessionsByVehicle(ctx context.Context, 
 	}
 	return sessions, nil
 }
+
+// SuperchargerSessionsByVehicleBetween implements SuperchargerReader. It returns
+// Supercharger sessions for the given vehicle (within the given account) whose
+// ChargeStopDateTime falls in the caller-supplied [start, end] window, inclusive
+// of the whole end calendar day, ordered oldest-first (RM28-telemetry-add-
+// charge-gap-storage, roadmap D9/D12). endBound = end + 1 calendar day
+// (Go-side day arithmetic, mirroring dbStore.snapshotsByVehicleBetween's own
+// precedent of doing bounds translation in Go, not SQL) makes the underlying
+// SQL's half-open `>= start AND < endBound` include every instant of the end
+// calendar day with no off-by-one. Reuses the existing rowToSuperchargerSession
+// mapper (mapping.go) — SuperchargerSession gains no new field for this query, so
+// no new mapping helper is needed. Returns a non-nil empty slice when no
+// sessions exist in the window (design DBS6 parity).
+func (r *superchargerReader) SuperchargerSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerSession, error) {
+	endBound := end.AddDate(0, 0, 1)
+	rows, err := r.q.SuperchargerSessionsByVehicleBetween(ctx, telemetrydb.SuperchargerSessionsByVehicleBetweenParams{
+		AccountID: accountID,
+		TeslaID:   teslaIDToPgInt8(teslaID),
+		Start:     timestamptzFrom(start),
+		EndBound:  timestamptzFrom(endBound),
+	})
+	if err != nil {
+		return nil, err
+	}
+	sessions := make([]SuperchargerSession, 0, len(rows))
+	for _, row := range rows {
+		sessions = append(sessions, rowToSuperchargerSession(row))
+	}
+	return sessions, nil
+}

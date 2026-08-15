@@ -319,13 +319,13 @@ COMMENT ON COLUMN charge_gaps.updated_at IS
 -- tesla_id predicate) is served by this dedicated index instead: account_id
 -- leads (multi-tenant convention: every dashboard read in this project scopes
 -- by account first -- ai/go-conventions.md §persistence, ai/architecture.md
--- §7.3), and date DESC anticipates a newest-first ordering, matching every
+-- §7.3), and gap_date DESC anticipates a newest-first ordering, matching every
 -- other time-ordered index in this module (idx_supercharger_sessions_account_time,
 -- idx_manual_charge_entries_account_time). See design.md's Index Plan for why
 -- the UNIQUE constraint's own index does not serve this second pattern as
 -- efficiently.
 CREATE INDEX idx_charge_gaps_account
-    ON charge_gaps (account_id, date DESC);
+    ON charge_gaps (account_id, gap_date DESC);
 
 -- +goose Down
 DROP INDEX IF EXISTS idx_charge_gaps_account;
@@ -342,7 +342,7 @@ Goals): **(1)** the nightly reconciliation — the flagged set for **one vehicle
 **Read path 1 — nightly reconciliation — is served by the UNIQUE constraint's own implicit
 index, `charge_gaps_account_tesla_date_unique (account_id, tesla_id, gap_date)`. No separate
 index is created for it.** `ReconcileWindow`'s internal existing-rows lookup is
-`WHERE account_id = $1 AND tesla_id = $2 AND date BETWEEN $3 AND $4` — a three-column
+`WHERE account_id = $1 AND tesla_id = $2 AND gap_date BETWEEN $3 AND $4` — a three-column
 equality-equality-range predicate that is exactly what a `(account_id, tesla_id, gap_date)`
 B-tree serves as a single contiguous range scan: the planner seeks to
 `(account_id, tesla_id, start)` and reads forward to `(account_id, tesla_id, end)`, with no
@@ -357,16 +357,16 @@ effect of the `UNIQUE` constraint — pure write-side cost (one more B-tree to u
 insert/delete) for zero read benefit.
 
 **Read path 2 — future account-wide notification — is served by the new
-`idx_charge_gaps_account (account_id, date DESC)`. The UNIQUE constraint's own index does
+`idx_charge_gaps_account (account_id, gap_date DESC)`. The UNIQUE constraint's own index does
 NOT suffice for this pattern**, for a precise reason: a `(account_id, tesla_id, gap_date)`
 B-tree orders rows by `tesla_id` before `gap_date`, so a query with only an `account_id`
-predicate and no `tesla_id` predicate — `WHERE account_id = $1 ORDER BY date DESC` — can use
+predicate and no `tesla_id` predicate — `WHERE account_id = $1 ORDER BY gap_date DESC` — can use
 the index's `account_id` prefix to prune to the tenant's rows, but those rows come back
 grouped by `tesla_id` first, each vehicle's rows internally sorted by `gap_date` — **not** a
 single globally-`gap_date`-sorted stream across all of the account's vehicles. Postgres would
-therefore need an explicit sort step (or a multi-way merge across each vehicle's date-sorted
-sub-range) to satisfy `ORDER BY date DESC` account-wide. A dedicated
-`(account_id, date DESC)` index removes that sort entirely: `account_id` still prunes to the
+therefore need an explicit sort step (or a multi-way merge across each vehicle's gap_date-sorted
+sub-range) to satisfy `ORDER BY gap_date DESC` account-wide. A dedicated
+`(account_id, gap_date DESC)` index removes that sort entirely: `account_id` still prunes to the
 tenant, and every remaining row is already in the exact date order the notification wants,
 across every vehicle at once. This is the same two-index shape (`(account_id, tesla_id, X)`
 for the per-vehicle path, `(account_id, X)` for the account-wide path) both
@@ -611,11 +611,11 @@ WHERE account_id = @account_id
 -- Index reuse (design.md Index Plan, Read path 1): served directly by
 -- charge_gaps_account_tesla_date_unique's own (account_id, tesla_id, gap_date)
 -- index as a single contiguous forward range scan -- no new index.
-SELECT date FROM charge_gaps
+SELECT gap_date FROM charge_gaps
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
-  AND date       >= @start
-  AND date       <= @end;
+  AND gap_date   >= @start
+  AND gap_date   <= @end_date;
 
 -- name: SuperchargerSessionsByVehicleBetween :many
 -- Return Supercharger sessions for one vehicle within an account whose
