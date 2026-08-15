@@ -204,10 +204,17 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
 `SMALLINT`/`pgtype.Int2` column in this module; reused for all four `SMALLINT` fields) and the
 existing `pgNullableText` helper for `BatteryPctSource`.
 
+> **SCOPE NOTE (2026-08-15) — there is no estimator, and there will not be one under RM27.**
+> RM27 originally planned two further tiers: a taper-curve SOC estimator in `internal/battery`
+> and a gateway page rendering it. **Both were descoped by the owner**; RM27 ships these five
+> columns and nothing else. Wherever the text below says an estimate is computed "on read",
+> read that as *not implemented* — the platform computes no SOC estimate anywhere. The columns
+> remain a purely human-owned channel with no writer yet. Deferred work: backlog entry 11.
+
 - **Trio NULL convention:** `StartBatteryPct`/`EndBatteryPct`/`BatteryPctSource` all `nil` means
-  "no human override exists" — reads fall back to tier 2 (`internal/battery`, not built yet)
-  computing an estimate **on read** (R5). A non-nil trio means a human verified/overrode the
-  value; `BatteryPctSource` records why (`"user_verified"` or `"polled"`).
+  "no value has been recorded". A non-nil trio means a human verified/overrode the value;
+  `BatteryPctSource` records why (`"user_verified"` or `"polled"`). Nothing fills a NULL trio
+  today — no fallback, no estimate.
 - **Never auto-written (R3/R7):** all five columns are excluded from
   `UpsertSuperchargerSession`'s `INSERT` column list and its `ON CONFLICT DO UPDATE SET` clause
   — deliberately, not an oversight (design D3). The nightly poller re-upserts every session
@@ -216,24 +223,26 @@ existing `pgNullableText` helper for `BatteryPctSource`.
   next nightly re-upsert. **No writer for any of the five columns exists anywhere in this
   repository as of this change** — the future verification UI's Writer port is out of scope
   here (backlog entry 11).
-- **`BatteryPctSource` never stores `"estimated"`** (R4/R6): the distinction between "estimated"
-  and "verified" is carried structurally, by column presence, not by a stored label — a NULL
-  trio *is* the "estimated" state (tier 2 computes it live); `BatteryPctSource` only ever
-  describes why a **verified** trio exists. Persisting `"estimated"` would let a stored value go
-  stale as the taper model improves, exactly what R6 forbids.
-- **`StartBatteryPctEst`/`EndBatteryPctEst` are a FROZEN, write-once verification snapshot — NOT
-  a cache, NOT a nightly-refreshed pair (design D6). Read this paragraph before touching either
-  field.** They are written **exactly once**, in the same write as the trio (by the future
-  verification UI), capturing what `internal/battery`'s estimator showed **at that moment**
-  ("model said 82, human said 79" — a permanent drift log entry). After that single write they
-  are **never updated again**, including by a later, improved taper model: staleness relative to
-  a newer model is the correct, intended behavior for a dated observation, not a bug. They are
-  **never read back into `internal/battery`'s live estimate computation** — a future `battery`
-  implementer who opportunistically reads these columns "to save a computation" defeats the
-  entire point of the drift log. They carry the identical R3 write-exclusion as the trio (never
-  in `UpsertSuperchargerSession`). See `openspec/changes/RM27-telemetry-add-supercharger-battery-pct/design.md`
-  D6 for the full rationale, including why a nightly-refreshed `_est` pair (the shape this is
-  NOT) has no legal writer under this project's module-ownership rule.
+- **`BatteryPctSource` never stores `"estimated"`** (R4/R6): `BatteryPctSource` only ever
+  describes why a **verified** trio exists. With the estimator descoped nothing produces an
+  estimate at all; and were one ever added, the distinction would still be carried structurally
+  (by column presence), never by a stored label, since a persisted estimate goes stale the
+  moment the model behind it changes — exactly what R6 forbids.
+- **`StartBatteryPctEst`/`EndBatteryPctEst` are RESERVED and, today, always NULL.** With the
+  estimator descoped there is nothing to snapshot, so no code path writes them. They were kept
+  rather than dropped (owner's call, 2026-08-15) so that a future estimator can land without a
+  migration. **If you are the one adding that estimator, read this before touching either
+  field:** they are a FROZEN, write-once verification snapshot — NOT a cache, NOT a
+  nightly-refreshed pair (design D6). They must be written **exactly once**, in the same write
+  as the trio (by a future verification UI), capturing what the estimator showed **at that
+  moment** ("model said 82, human said 79" — a permanent drift-log entry), and **never updated
+  again**, including by a later, improved model: staleness relative to a newer model is the
+  correct, intended behavior for a dated observation, not a bug. They must **never be read back
+  into a live estimate computation** — reading them "to save a computation" defeats the entire
+  point of the drift log. They carry the identical R3 write-exclusion as the trio (never in
+  `UpsertSuperchargerSession`). Full rationale — including why a nightly-refreshed `_est` pair
+  (the shape this is NOT) has no legal writer under this project's module-ownership rule — in
+  `openspec/changes/archive/2026-08-15-RM27-telemetry-add-supercharger-battery-pct/design.md` D6.
 
 ## Testing notes
 

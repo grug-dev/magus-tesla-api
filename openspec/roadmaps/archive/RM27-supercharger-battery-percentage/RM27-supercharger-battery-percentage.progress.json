@@ -2,11 +2,11 @@
   "schema_version": 1,
   "kind": "roadmap",
   "roadmap": "RM27-supercharger-battery-percentage",
-  "intention": "Every Supercharger session shows a start and end battery percentage: solved from billed energy + session duration against the DC taper curve and the vehicle's pack capacity, with a human-owned override trio on the session row that the nightly poller can never overwrite.",
+  "intention": "Add start/end battery-percentage columns to supercharger_sessions, protected from the nightly upsert. DESCOPED 2026-08-15 (D11) to storage only: the taper-curve estimator and the gateway display were cancelled before any code was written.",
   "request": "Source ticket: MAG-14 — https://linear.app/magus-monitor/issue/MAG-14/startend-battery-percentage\n\nPlease create the columns `start_battery_pct and end_battery_pct on the database table supercharger_sessions.`\n\nCheck if there is a way to know what's the start/end battery percentage . *Base on the API response* when fetching supercharger sessions data. Maybe based on the energy added? \n\ngrill me about that",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": false,
-  "updated_at": "2026-08-15T10:23:42Z",
+  "updated_at": "2026-08-15T10:52:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM27-MAG-14-supercharger-battery-percentage",
@@ -16,15 +16,15 @@
     "created_at": "2026-08-15T02:02:40Z"
   },
   "rollup": {
-    "current": [
-      2
-    ],
-    "pending": [
-      3
-    ],
+    "current": [],
+    "pending": [],
     "blocked": [],
     "done": [
       1
+    ],
+    "descoped": [
+      2,
+      3
     ]
   },
   "decisions": [
@@ -117,6 +117,15 @@
       "decision": "Owner approved starting tier 2 (battery estimator) and chose to /clear before it begins",
       "why": "Tier boundary is the cheapest checkpoint: a fresh session re-reads two progress files instead of carrying tier 1's context into every later request.",
       "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-15T10:52:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "RM27 descoped to tier 1 only — estimator (tier 2) and gateway display (tier 3) cancelled; the five columns are kept as-is, no drop migration",
+      "why": "Owner judged the estimation work disproportionate to a ticket that asked only for the columns. Keeping the _est pair costs nothing (always NULL, never written) and avoids two migrations. Supersedes R4/R5/R7/R9.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -150,14 +159,14 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
+      "status": "descoped",
       "assistant": null,
       "model": null,
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-08-15T10:52:00Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": "Owner gave the go-ahead for tier 2 at the tier-1 archive. Not yet started — needs the Step 2 interview first."
+      "notes": "DESCOPED (D11) before any work started. Nothing was ever written to internal/battery for RM27 — its git history contains only battery-add-efficiency-metric and battery-adopt-snapshot-unit-fields. Nothing to revert. Maths preserved in backlog entry 11."
     },
     {
       "id": 3,
@@ -167,14 +176,14 @@
       "depends_on": [
         2
       ],
-      "status": "not-started",
+      "status": "descoped",
       "assistant": null,
       "model": null,
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-08-15T10:52:00Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "DESCOPED (D11) before any work started. No gateway file was touched by RM27."
     }
   ],
   "events": [
@@ -202,6 +211,26 @@
       "at": "2026-08-15T10:23:42Z",
       "agent": "leader",
       "event": "UNRESOLVED, carry forward: README.md is modified and uncommitted in the working tree (Go 1.22->1.25 + committed-generated-code corrections). Unrelated to RM27 and deliberately excluded from all four tier-1 commits. The owner has been asked twice and has not answered; ask once more before the next commit rather than sweeping it in."
+    },
+    {
+      "at": "2026-08-15T10:52:00Z",
+      "agent": "leader",
+      "event": "Resumed at tier 2. Step 2 interview (grill-me, mandated by config.yaml) ran 5 questions and settled the taper model, the three-state failure mode, the port shape, the merge shape and the curve calibration. Owner then STOPPED the interview and descoped."
+    },
+    {
+      "at": "2026-08-15T10:52:00Z",
+      "agent": "leader",
+      "event": "DESCOPE (D11, user): RM27 reduced to tier 1. Verified nothing to revert — internal/battery was never touched by RM27; the only RM27 code commits are cebadf2 + 3dbbe40, both in internal/telemetry. Owner chose to KEEP all five columns (no drop migration), so the descope is documentation-only."
+    },
+    {
+      "at": "2026-08-15T10:52:00Z",
+      "agent": "leader",
+      "event": "Descope edits: telemetry.go + telemetry/AGENTS.md comments no longer promise an estimator; specs/telemetry/spec.md notes the estimation capability does not exist; backlog entry 11 rewritten to carry all three deferred items INCLUDING the estimator maths and the chargeStopDateTime finding; roadmap .md banner + [-] tier states + D11."
+    },
+    {
+      "at": "2026-08-15T10:52:00Z",
+      "agent": "leader",
+      "event": "Roadmap COMPLETE (1 archived, 2 descoped) and archived to openspec/roadmaps/archive/RM27-supercharger-battery-percentage/. .work-counter untouched (monotonic)."
     }
   ]
 }

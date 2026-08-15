@@ -239,6 +239,11 @@ inserted session and, like the trio, SHALL remain exactly as previously stored a
 subsequent nightly refresh of that session. This snapshot pair SHALL NEVER be treated as an
 input to, or a cache of, the companion estimation capability's live computation.
 
+NOTE (2026-08-15): no such companion estimation capability exists on this platform — it was
+descoped before implementation. The snapshot pair is therefore reserved and NULL in every
+stored session today; the requirements above bind whenever an estimation capability is
+introduced, and until then nothing writes the pair.
+
 #### Scenario: A newly verified session records a frozen snapshot of the estimate alongside the override
 
 - **GIVEN** a session whose battery-percentage verification/override trio and

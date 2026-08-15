@@ -2,6 +2,15 @@
 
 Source ticket: MAG-14 — https://linear.app/magus-monitor/issue/MAG-14/startend-battery-percentage
 
+> **CLOSED 2026-08-15 — descoped to tier 1 only (decision D11).**
+> The owner cut the estimator and the UI after reviewing the taper-solve analysis, reducing
+> RM27 to *"add the columns and stop"* — the original MAG-14 request. **Tier 1 shipped and is
+> archived; tiers 2 and 3 were descoped before any code was written** (nothing was ever
+> implemented in `internal/battery` — see D11). The five columns exist, are protected from the
+> nightly upsert, and have no reader or writer.
+> Everything below is preserved as the design record; the sections marked with the tier table's
+> `[-]` never happened. Deferred work: [`backlog.md`](backlog.md) entry **11**.
+
 ## Problem
 
 MAG-14 asked for `start_battery_pct` / `end_battery_pct` on `supercharger_sessions`,
@@ -43,6 +52,8 @@ a spread only explicable by where in the SOC band each charge sat.
 | **R9** | RM27 includes a **third tier wiring `gateway → battery`**: `cmd/web` constructs `battery.NewReader`, `gateway.Deps` gains a `BatteryReader battery.Reader`, and the Supercharger Stats page reads the estimated start/end % from it. | Without this the feature renders nothing. `internal/battery` is currently imported by **no package at all** (its own `AGENTS.md`: "not yet wired"), and the Supercharger Stats page calls `telemetry.SuperchargerReader` **directly** from `cmd/web`. Tiers 1+2 alone would compute estimates that never reach a screen. This is the roadmap's only new module edge. |
 | **R8** | `start_battery_pct_est` / `end_battery_pct_est` store a **frozen snapshot of the estimate as displayed at the moment a human verified**, written once by the future verification UI in the same write as the trio, never refreshed, NULL for unverified sessions, and excluded from the nightly upsert exactly like the trio. | The user wants a permanent drift log (model said 82, human said 79). This does **not** contradict R6: R6 forbids a column that silently goes stale while pretending to be current, whereas a dated observation is *supposed* to never change. It is also the only shape with a **legal writer** — the gateway reads `battery` and writes through a telemetry port (`gateway → battery`, `gateway → telemetry`, no cycle), whereas a nightly-refreshed `_est` has none: `battery` may not write into telemetry's table, and telemetry computing it is the import cycle. Tier 2 never reads these columns as a cache. |
 
+| **D11** | **2026-08-15 — RM27 is descoped to tier 1 only.** The estimator (tier 2) and the gateway display (tier 3) are cancelled; RM27 ships the five columns and nothing more. The columns are **kept**, including the `_est` pair, rather than dropped by a follow-up migration. | Owner's call at the tier-2 boundary, after reviewing the taper-solve analysis: the estimation work was disproportionate to the value of the ticket, which asked only for the columns. Keeping the `_est` pair costs nothing (always NULL, excluded from every write) and avoids a migration now plus another one if an estimator ever lands. **Supersedes R4, R5, R7 and R9**, which all presuppose an estimator. R1/R2/R3/R6/R8 still stand — they describe the columns, which shipped. |
+
 ### Rejected alternatives
 
 - **`_est` pair refreshed nightly by the poller** — the user's initial shape. Rejected on
@@ -68,10 +79,10 @@ a spread only explicable by where in the SOC band each charge sat.
 | Status | Change | Module | Scope | depends_on | Proposal prompt |
 |---|---|---|---|---|---|
 | `[x]` | `RM27-telemetry-add-supercharger-battery-pct` | `telemetry` | Migration adding five nullable columns to `supercharger_sessions`: the human trio `start_battery_pct` / `end_battery_pct` (`SMALLINT CHECK 0..100`) + `battery_pct_source` (`TEXT CHECK IN ('user_verified','polled')`), and the frozen snapshot pair `start_battery_pct_est` / `end_battery_pct_est` (`SMALLINT CHECK 0..100`, R8). All five **omitted entirely** from `UpsertSuperchargerSession` — both the `INSERT` list and the `ON CONFLICT DO UPDATE SET` (R3). Extend `SuperchargerReader`'s row type so battery can read them. No new index (see design). | — | Add the human-owned battery-percentage trio plus the frozen estimate-snapshot pair to `supercharger_sessions`, protected from the nightly upsert per R2/R3/R8. Mirror the `_pct` suffix and `SMALLINT CHECK` shape already used by `manual_charge_entries`. |
-| `[ ]` | `RM27-battery-estimate-supercharger-soc` | `battery` | Taper-curve estimator solving `(start, end)` from `energy_kwh` + duration + `capacityFor(car_type)`. **Adds a method to the existing `battery.Reader` port** (today it exposes only `RecentEfficiency`) serving `verified ?? estimated`. Handles unknown `car_type`, unsolvable and out-of-range results — mirror the existing `Efficiency.Approximate` precedent (design D1b), which already flags "pack capacity unknown" rather than fabricating a number. | `RM27-telemetry-add-supercharger-battery-pct` | Implement the SOC estimator in the derived-metrics module per R1/R4/R5/R6, computing on read with no persistence, exposed as a new method on the `battery.Reader` port. |
-| `[ ]` | `RM27-gateway-show-supercharger-soc` | `gateway` | Wire the module that nothing currently imports: construct `battery.NewReader` in `cmd/web`, add `BatteryReader battery.Reader` to `gateway.Deps`, and render estimated start/end % on the Supercharger Stats page (`templates/fragments/supercharger_*`). **Read-only — no edit form.** Bilingual ES/EN labels via `i18n.T`, `ui/` kit components, and a clear visual marking that the values are estimates. | `RM27-battery-estimate-supercharger-soc` | Surface the estimated start/end battery % on the Supercharger Stats page per R9, read-only, wiring `gateway → battery` for the first time. |
+| `[-]` | ~~`RM27-battery-estimate-supercharger-soc`~~ **DESCOPED (D11)** | `battery` | Taper-curve estimator solving `(start, end)` from `energy_kwh` + duration + `capacityFor(car_type)`. **Adds a method to the existing `battery.Reader` port** (today it exposes only `RecentEfficiency`) serving `verified ?? estimated`. Handles unknown `car_type`, unsolvable and out-of-range results — mirror the existing `Efficiency.Approximate` precedent (design D1b), which already flags "pack capacity unknown" rather than fabricating a number. | `RM27-telemetry-add-supercharger-battery-pct` | Implement the SOC estimator in the derived-metrics module per R1/R4/R5/R6, computing on read with no persistence, exposed as a new method on the `battery.Reader` port. |
+| `[-]` | ~~`RM27-gateway-show-supercharger-soc`~~ **DESCOPED (D11)** | `gateway` | Wire the module that nothing currently imports: construct `battery.NewReader` in `cmd/web`, add `BatteryReader battery.Reader` to `gateway.Deps`, and render estimated start/end % on the Supercharger Stats page (`templates/fragments/supercharger_*`). **Read-only — no edit form.** Bilingual ES/EN labels via `i18n.T`, `ui/` kit components, and a clear visual marking that the values are estimates. | `RM27-battery-estimate-supercharger-soc` | Surface the estimated start/end battery % on the Supercharger Stats page per R9, read-only, wiring `gateway → battery` for the first time. |
 
-**Legend:** `[ ]` pending (change not created) · `[~]` in progress (change created, not archived) · `[x]` done (archived).
+**Legend:** `[ ]` pending (change not created) · `[~]` in progress (change created, not archived) · `[x]` done (archived) · `[-]` descoped (never implemented).
 
 ## Dependency flow
 
@@ -105,7 +116,20 @@ is what the design had to avoid — telemetry computing the estimate itself woul
 
 ## Future work
 
-Deferred items are recorded in [`backlog.md`](backlog.md) — see entry **11** (Supercharger
-start/end SOC verification UI + the measured-SOC polling alternative). Estimator accuracy is
-additionally bounded by backlog entry **7** (trim-exact pack capacity): `capacityFor` is
-model-coarse, so every `model3` trim shares one capacity constant.
+All remaining work is recorded in [`backlog.md`](backlog.md) entry **11**, which was rewritten
+when RM27 was descoped (D11) and now carries three open items in priority order:
+
+1. **The verification UI** — the edit form that lets a human type the percentages. This is the
+   only item that makes the shipped columns do anything, and it depends on nothing else.
+2. **The SOC estimator** — descoped from this roadmap. The backlog entry preserves the working
+   maths from the MAG-14 grill so it need not be re-derived: the delta is exact, only `start` is
+   unknown, and the duration integral is strictly increasing in `start`, so bisection has a
+   unique solution. It also records the finding that killed the tier's value-for-effort — that
+   `chargeStopDateTime` ends the *billing session*, not power delivery, so roughly 1 in 4 real
+   sessions can only ever yield a delta.
+3. **Measured SOC by polling during a session** — would make (2) unnecessary; costs paid API
+   calls and wakes the car, and can never recover history.
+
+Estimator accuracy, if (2) is ever picked up, is additionally bounded by backlog entry **7**
+(trim-exact pack capacity): `capacityFor` is model-coarse, so every `model3` trim shares one
+capacity constant, and that constant multiplies the solved delta directly.
