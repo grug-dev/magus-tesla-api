@@ -285,12 +285,16 @@ modules.
 Two follow-ups, in priority order:
 
 1. **Verification UI (`gateway`)** — an edit form on the Supercharger stats page to enter or
-   correct start/end %, writing the trio and flipping `battery_pct_source` to
-   `'user_verified'`. Needs the `ui/` kit conventions and bilingual ES/EN labels. A "sessions
-   still on estimates" queue is a straight `WHERE battery_pct_source = 'estimated'`. Once real
-   corrections exist, the estimator's error becomes measurable — recomputing the estimate for
-   verified rows compares the *current* model against ground truth, which is the natural way
-   to tune the taper curve.
+   correct start/end %, writing the trio and setting `battery_pct_source = 'user_verified'`.
+   **It must also write the frozen snapshot pair** `start_battery_pct_est` /
+   `end_battery_pct_est` in the same write, capturing the estimate as displayed at that moment
+   (roadmap RM27 decision R8) — the gateway is the only legal writer of those columns, because
+   it can read `battery` and write through a telemetry port without an import cycle. Needs the
+   `ui/` kit conventions and bilingual ES/EN labels. A "sessions still on estimates" queue is a
+   straight `WHERE start_battery_pct IS NULL` (`'estimated'` is deliberately never a stored
+   value of `battery_pct_source`). Once corrections exist the estimator's error is measurable
+   two ways: the frozen snapshot gives per-session drift at correction time, and recomputing
+   the estimate for verified rows compares the *current* model against ground truth.
 
 2. **Measured SOC instead of solved (`telemetry`)** — detect an active charging session and
    sample `vehicle_data.battery_level` at start and stop, giving true values rather than

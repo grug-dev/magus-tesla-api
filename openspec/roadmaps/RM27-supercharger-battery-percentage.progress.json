@@ -66,6 +66,33 @@
       "decision": "Ran the config.yaml-mandated grill-me pass before authoring any artifact, and it overturned the ticket's premise",
       "why": "MAG-14 asked to derive SOC from the API response. Grilling against the captured payload disproved that, and surfaced the import cycle and the nightly-upsert clobber — both design-breaking if found later.",
       "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-15T02:20:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate CONFIRMED for tier 1, with one revision: add start_battery_pct_est / end_battery_pct_est as a frozen snapshot written once at human verification (R8)",
+      "why": "The user wants a permanent drift log (model said 82, human said 79). A dated observation is supposed to never change, so freezing does not reintroduce R6's staleness objection.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-15T02:20:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Accepted the worker's escalation of R3 — the columns are omitted from UpsertSuperchargerSession's INSERT list too, not merely from ON CONFLICT DO UPDATE SET",
+      "why": "A column appearing nowhere in the query leaves no pattern for a later careless edit to imitate. Strictly stronger than R3's literal wording at no cost.",
+      "covered_by": "R3"
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-15T02:20:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "battery_pct_source stores ('user_verified','polled') and never 'estimated'; absence of the trio is the estimated signal",
+      "why": "Admitting 'estimated' as storable invites a future writer to persist the live estimate, the exact anti-pattern R6 forbids. Verify-queue reads WHERE start_battery_pct IS NULL.",
+      "covered_by": "R6"
     }
   ],
   "tiers": [
