@@ -310,6 +310,29 @@ type SuperchargerSession struct {
 	RawData             []byte   // verbatim session JSON (fees[] + invoices[])
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
+
+	// --- Human-owned battery-% verification/override channel (RM27 tier 1, MAG-14) ---
+	// NULL = no override; tier 2's internal/battery on-read estimate applies (R5).
+	// NEVER auto-written by the nightly poller — excluded from
+	// UpsertSuperchargerSession's INSERT and ON CONFLICT DO UPDATE SET (R3/D3). No
+	// writer for these exists in this repository yet (R7).
+	StartBatteryPct *int // 0-100 inclusive; SMALLINT CHECK in DB.
+	EndBatteryPct   *int // same shape/nullability as StartBatteryPct.
+	// BatteryPctSource: "user_verified" | "polled" | NULL. NULL = no override exists.
+	// NEVER "estimated" — that state is computed on read by internal/battery and is
+	// never persisted here (R6).
+	BatteryPctSource *string
+
+	// --- Frozen, write-once verification-time snapshot (design D6) ---
+	// A permanent drift log, NOT a cache and NOT a nightly-refreshed estimate: written
+	// exactly once, in the same write as the trio above, capturing what
+	// internal/battery's estimator showed AT THE MOMENT of verification. NEVER
+	// refreshed again afterward — staleness relative to a later, improved taper model
+	// is the correct, intended behavior, not a bug. NEVER read back into
+	// internal/battery's live estimate computation. Excluded from
+	// UpsertSuperchargerSession identically to the trio (R3/D3/D6).
+	StartBatteryPctEst *int // FROZEN snapshot paired with StartBatteryPct. NULL until verified.
+	EndBatteryPctEst   *int // FROZEN snapshot paired with EndBatteryPct. Same semantics as StartBatteryPctEst.
 }
 
 // deriveEnergyKWh sums the usage tiers for fees where lower(uom) == "kwh".

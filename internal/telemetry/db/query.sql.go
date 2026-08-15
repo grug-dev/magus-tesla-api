@@ -728,7 +728,7 @@ func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVe
 }
 
 const superchargerSessionsByAccount = `-- name: SuperchargerSessionsByAccount :many
-SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at FROM supercharger_sessions
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM supercharger_sessions
 WHERE account_id = $1
 ORDER BY charge_start_date_time DESC
 LIMIT $2
@@ -773,6 +773,11 @@ func (q *Queries) SuperchargerSessionsByAccount(ctx context.Context, arg Superch
 			&i.RawData,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.BatteryPctSource,
+			&i.StartBatteryPctEst,
+			&i.EndBatteryPctEst,
 		); err != nil {
 			return nil, err
 		}
@@ -785,7 +790,7 @@ func (q *Queries) SuperchargerSessionsByAccount(ctx context.Context, arg Superch
 }
 
 const superchargerSessionsByVehicle = `-- name: SuperchargerSessionsByVehicle :many
-SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at FROM supercharger_sessions
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM supercharger_sessions
 WHERE account_id = $1
   AND tesla_id = $2
 ORDER BY charge_start_date_time DESC
@@ -833,6 +838,11 @@ func (q *Queries) SuperchargerSessionsByVehicle(ctx context.Context, arg Superch
 			&i.RawData,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.BatteryPctSource,
+			&i.StartBatteryPctEst,
+			&i.EndBatteryPctEst,
 		); err != nil {
 			return nil, err
 		}
@@ -889,6 +899,18 @@ type UpsertSuperchargerSessionParams struct {
 	RawData             []byte
 }
 
+// LOAD-BEARING (R3, RM27-telemetry-add-supercharger-battery-pct): start_battery_pct,
+// end_battery_pct, battery_pct_source, start_battery_pct_est, and end_battery_pct_est
+// are DELIBERATELY ABSENT from both the INSERT column list and the ON CONFLICT DO
+// UPDATE SET clause below. The first three are a human-owned verification/override
+// channel; the last two are a frozen, write-once verification-time snapshot of the
+// estimate (design D6) -- NEVER refreshed, NEVER a cache read by internal/battery
+// (see the column comments added by migration 20260815000001). If this query touched
+// any of the five, a user's verified value or its frozen snapshot would be silently
+// overwritten by the next nightly re-upsert. A fresh INSERT leaves all five at their
+// column default (NULL); a re-upsert never assigns any of them. A future writer for
+// these columns belongs on a dedicated query on a dedicated Writer port (out of
+// scope here, backlog entry 11) -- do not "complete the pattern" by adding them here.
 // Upsert one Supercharger session. On conflict with the session_id UNIQUE constraint,
 // refresh only the mutable/derived columns (raw_data, derived fields, tesla_id,
 // updated_at). Immutable columns (session_id, account_id, vin, location name,

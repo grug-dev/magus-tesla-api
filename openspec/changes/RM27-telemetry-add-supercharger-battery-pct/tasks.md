@@ -37,7 +37,7 @@
 
 ## T1. Goose migration (`internal/telemetry/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create
+- [x] T1.1 Create
       `internal/telemetry/db/migrations/20260815000001_add_supercharger_battery_pct.sql`
       with the exact DDL from design.md's "Schema" section: Up adds FIVE nullable columns —
       the trio (`start_battery_pct SMALLINT CHECK (start_battery_pct BETWEEN 0 AND 100)`,
@@ -65,7 +65,7 @@
 
 ## T2. `SuperchargerSession` struct (`internal/telemetry/telemetry.go`) — no dependencies
 
-- [ ] T2.1 Add five new pointer fields to `SuperchargerSession`
+- [x] T2.1 Add five new pointer fields to `SuperchargerSession`
       (`internal/telemetry/telemetry.go:293-313`): `StartBatteryPct *int`, `EndBatteryPct
       *int`, `BatteryPctSource *string`, `StartBatteryPctEst *int`, `EndBatteryPctEst *int`,
       placed at the end of the struct (mirroring the migration's physical column-append
@@ -81,7 +81,7 @@
 
 ## T3. `db/query.sql` header-comment addition — depends on T1
 
-- [ ] T3.1 Add the header-comment block from design.md's "Write Path" section immediately
+- [x] T3.1 Add the header-comment block from design.md's "Write Path" section immediately
       above the existing `-- name: UpsertSuperchargerSession :exec` comment
       (`internal/telemetry/db/query.sql:305-311`). **Do NOT add `start_battery_pct`,
       `end_battery_pct`, `battery_pct_source`, `start_battery_pct_est`, or
@@ -129,7 +129,7 @@
 
 ## T5. `service.go`: documentation-only comment — depends on T2
 
-- [ ] T5.1 Add a one-line comment near `upsertSuperchargerSession`
+- [x] T5.1 Add a one-line comment near `upsertSuperchargerSession`
       (`internal/telemetry/service.go:863-`) noting that `SuperchargerSession`'s
       `StartBatteryPct`/`EndBatteryPct`/`BatteryPctSource`/`StartBatteryPctEst`/
       `EndBatteryPctEst` fields are deliberately unread at this call site (design D3/D5/D6,
@@ -204,7 +204,7 @@
 
 ## T7. `internal/telemetry/AGENTS.md` documentation — depends on T1
 
-- [ ] T7.1 Add all five new columns to the "Data ownership" `supercharger_sessions` bullet
+- [x] T7.1 Add all five new columns to the "Data ownership" `supercharger_sessions` bullet
       (column names, types, nullability, CHECK constraints) and add a note under "DTO /
       units conventions" (or a new subsection) documenting: the trio's NULL convention
       (NULL = no override, tier 2's `internal/battery` on-read estimate applies); that the

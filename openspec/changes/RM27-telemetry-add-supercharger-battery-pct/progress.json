@@ -5,16 +5,29 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM27-supercharger-battery-percentage.md",
   "request": "Source ticket: MAG-14 — https://linear.app/magus-monitor/issue/MAG-14/startend-battery-percentage\n\nPlease create the columns `start_battery_pct and end_battery_pct on the database table supercharger_sessions.`\n\nCheck if there is a way to know what's the start/end battery percentage . *Base on the API response* when fetching supercharger sessions data. Maybe based on the energy added? \n\ngrill me about that",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"],
+    "current": [
+      "T1",
+      "T2",
+      "T3"
+    ],
+    "pending": [
+      "T4",
+      "T6"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T5",
+      "T7"
+    ]
   },
   "created_at": "2026-08-15T02:25:00Z",
-  "updated_at": "2026-08-15T02:25:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-08-15T09:53:57Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM27-MAG-14-supercharger-battery-percentage",
@@ -30,14 +43,23 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-15T09:49:16Z",
+      "completed_at": "2026-08-15T09:53:57Z",
+      "duration_seconds": 227,
+      "notes": "Migration 20260815000001 created verbatim from design DDL: 5 nullable cols, all COMMENT ON COLUMN/TABLE, Down drops reverse. Not applied.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 9,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.75,
+        "context_pct_end": 11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta shared across T1,T2,T3,T5,T7 (one serial worker)"
+      }
     },
     {
       "id": "T2",
@@ -45,35 +67,58 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-15T09:49:16Z",
+      "completed_at": "2026-08-15T09:53:57Z",
+      "duration_seconds": 227,
+      "notes": "Five pointer fields appended to SuperchargerSession with D5/D6 doc comments.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 9,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.75,
+        "context_pct_end": 11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta shared across T1,T2,T3,T5,T7 (one serial worker)"
+      }
     },
     {
       "id": "T3",
       "title": "query.sql header comment documenting the R3/R8 upsert exclusion",
       "module": "telemetry",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-15T09:49:16Z",
+      "completed_at": "2026-08-15T09:53:57Z",
+      "duration_seconds": 227,
+      "notes": "Comment-only header above UpsertSuperchargerSession; leader verified query body byte-identical (0 matches for the 5 cols).",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 9,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.75,
+        "context_pct_end": 11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta shared across T1,T2,T3,T5,T7 (one serial worker)"
+      }
     },
     {
       "id": "T4",
       "title": "mapping.go: pgNullableInt16AsInt helper + rowToSuperchargerSession",
       "module": "telemetry",
-      "depends_on": ["T2", "T3"],
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -88,22 +133,37 @@
       "id": "T5",
       "title": "service.go documentation comment near upsertSuperchargerSession",
       "module": "telemetry",
-      "depends_on": ["T2"],
+      "depends_on": [
+        "T2"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-15T09:49:16Z",
+      "completed_at": "2026-08-15T09:53:57Z",
+      "duration_seconds": 227,
+      "notes": "One doc comment near upsertSuperchargerSession; zero logic change.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 9,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.75,
+        "context_pct_end": 11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta shared across T1,T2,T3,T5,T7 (one serial worker)"
+      }
     },
     {
       "id": "T6",
       "title": "DB-integration tests T6.1-T6.4 incl. the R3/R8 upsert regressions",
       "module": "telemetry",
-      "depends_on": ["T1", "T3", "T4"],
+      "depends_on": [
+        "T1",
+        "T3",
+        "T4"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -118,16 +178,27 @@
       "id": "T7",
       "title": "internal/telemetry/AGENTS.md data-ownership documentation",
       "module": "telemetry",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-15T09:49:16Z",
+      "completed_at": "2026-08-15T09:53:57Z",
+      "duration_seconds": 227,
+      "notes": "AGENTS.md: new supercharger_sessions data-ownership bullet + Battery-% verification columns subsection incl. D6 frozen-snapshot warning.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 9,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.75,
+        "context_pct_end": 11,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta shared across T1,T2,T3,T5,T7 (one serial worker)"
+      }
     }
   ],
   "review": {
@@ -154,6 +225,24 @@
       "decision": "Accepted the worker's unrequested proposal.md edit for internal coherence",
       "why": "Its 'three columns' language would have contradicted design.md after the revision. Mechanical, renegotiates nothing approved.",
       "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-15T09:49:16Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Batched T1,T2,T3,T5,T7 into ONE serial worker instead of three dependency waves",
+      "why": "Deps constrain order, not batching; one dispatch amortizes the doc-pack read. make sqlc still runs between this wave and T4.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-15T09:53:57Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Downgraded T2/T3 from the worker-reported done to awaiting-user-verification; kept T5/T7 done",
+      "why": "T2/T3 are guarded by T6 tests nobody has run. T5/T7 are comment/markdown only — build+vet verify them completely, no suite surface exists.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -171,6 +260,21 @@
       "at": "2026-08-15T02:25:00Z",
       "agent": "leader",
       "event": "Artifacts revised and re-validated (openspec validate --strict: valid). CONTRACT NOTE: README.md was modified outside the worker's sandbox and not reported; excluded from this change's commits and left in the working tree for the user to triage."
+    },
+    {
+      "at": "2026-08-15T09:49:16Z",
+      "agent": "leader",
+      "event": "Resumed at Step 5. Dispatched telemetry worker (sonnet) for wave 1: T1,T2,T3,T5,T7. Budget at dispatch: 5h 2%, ctx 8%."
+    },
+    {
+      "at": "2026-08-15T09:53:57Z",
+      "agent": "leader",
+      "event": "Wave 1 complete (T1,T2,T3,T5,T7). Leader ran make sqlc: models.go was already byte-identical to sqlc output, query.sql.go was regenerated to pick up T3's comment. Verified UpsertSuperchargerSessionParams has zero battery fields and the reader row type has all five. go build/go vet green."
+    },
+    {
+      "at": "2026-08-15T09:53:57Z",
+      "agent": "leader",
+      "event": "CONTRACT NOTE: internal/telemetry/db/models.go + query.sql.go carried sqlc-regenerated diffs before the wave-1 worker started and it did not report this until its final message. Leader re-ran make sqlc authoritatively, so current generated output is trustworthy regardless of provenance."
     }
   ]
 }

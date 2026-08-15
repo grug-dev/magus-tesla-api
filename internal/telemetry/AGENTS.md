@@ -96,7 +96,7 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 
 ## Data ownership
 
-Owns two tables in the module-scoped `internal/telemetry/db` (goose migrations are the
+Owns three tables in the module-scoped `internal/telemetry/db` (goose migrations are the
 single schema source; sqlc generates `telemetrydb`, which **no other module imports**):
 
 - `vehicle_snapshots` — **no longer append-only** (superseded by
@@ -123,6 +123,18 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
   `reason` (`ok`|`asleep-timeout`|`unauthorized`|`api-error`). Doubles as future availability /
   sleep-behavior data — a daily collapse would destroy that signal, so this table is explicitly
   out of scope for the dedupe change.
+- `supercharger_sessions` — one row per Tesla `session_id` (UPSERT, not append-only: billing
+  state — `is_paid`, invoice status — mutates post-session, migration `20260716000001`).
+  Extended by `RM27-telemetry-add-supercharger-battery-pct` (MAG-14, migration
+  `20260815000001`) with five new nullable columns, all excluded from
+  `UpsertSuperchargerSession`'s `INSERT`/`ON CONFLICT DO UPDATE SET` (see "Battery-%
+  verification columns" below for the full convention):
+  - `start_battery_pct SMALLINT CHECK (0..100)`, `end_battery_pct SMALLINT CHECK (0..100)` —
+    human-owned verification/override trio.
+  - `battery_pct_source TEXT CHECK (IN ('user_verified', 'polled'))` — why the trio is set;
+    NULL when no override exists.
+  - `start_battery_pct_est SMALLINT CHECK (0..100)`, `end_battery_pct_est SMALLINT CHECK
+    (0..100)` — frozen, write-once verification-time snapshot pair (design D6).
 
 `account_id`/`tesla_id` are plain columns (no cross-module FK, D2 of the change design). `pgtype`
 never leaves the module — convert to/from plain domain types at the DB→domain mapping boundary
@@ -183,6 +195,45 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
   `20260814000001` backfilled every pre-existing row in the same schema change via a one-time
   `LAG()` window pass — no row is permanently stuck NULL except each vehicle's earliest row.
   Introduced by `telemetry-add-derived-consumption-columns` (MAG-10).
+
+### Battery-% verification columns (`supercharger_sessions`) — introduced by `RM27-telemetry-add-supercharger-battery-pct` (MAG-14)
+
+`SuperchargerSession` gains five pointer fields (`StartBatteryPct *int`, `EndBatteryPct *int`,
+`BatteryPctSource *string`, `StartBatteryPctEst *int`, `EndBatteryPctEst *int`), mapped by
+`rowToSuperchargerSession` (`mapping.go`) via the new `pgNullableInt16AsInt` helper (first
+`SMALLINT`/`pgtype.Int2` column in this module; reused for all four `SMALLINT` fields) and the
+existing `pgNullableText` helper for `BatteryPctSource`.
+
+- **Trio NULL convention:** `StartBatteryPct`/`EndBatteryPct`/`BatteryPctSource` all `nil` means
+  "no human override exists" — reads fall back to tier 2 (`internal/battery`, not built yet)
+  computing an estimate **on read** (R5). A non-nil trio means a human verified/overrode the
+  value; `BatteryPctSource` records why (`"user_verified"` or `"polled"`).
+- **Never auto-written (R3/R7):** all five columns are excluded from
+  `UpsertSuperchargerSession`'s `INSERT` column list and its `ON CONFLICT DO UPDATE SET` clause
+  — deliberately, not an oversight (design D3). The nightly poller re-upserts every session
+  because Tesla billing state (`is_paid`, invoices) mutates post-session; if any of these five
+  were bound as a query parameter, a human-verified value would be silently overwritten on the
+  next nightly re-upsert. **No writer for any of the five columns exists anywhere in this
+  repository as of this change** — the future verification UI's Writer port is out of scope
+  here (backlog entry 11).
+- **`BatteryPctSource` never stores `"estimated"`** (R4/R6): the distinction between "estimated"
+  and "verified" is carried structurally, by column presence, not by a stored label — a NULL
+  trio *is* the "estimated" state (tier 2 computes it live); `BatteryPctSource` only ever
+  describes why a **verified** trio exists. Persisting `"estimated"` would let a stored value go
+  stale as the taper model improves, exactly what R6 forbids.
+- **`StartBatteryPctEst`/`EndBatteryPctEst` are a FROZEN, write-once verification snapshot — NOT
+  a cache, NOT a nightly-refreshed pair (design D6). Read this paragraph before touching either
+  field.** They are written **exactly once**, in the same write as the trio (by the future
+  verification UI), capturing what `internal/battery`'s estimator showed **at that moment**
+  ("model said 82, human said 79" — a permanent drift log entry). After that single write they
+  are **never updated again**, including by a later, improved taper model: staleness relative to
+  a newer model is the correct, intended behavior for a dated observation, not a bug. They are
+  **never read back into `internal/battery`'s live estimate computation** — a future `battery`
+  implementer who opportunistically reads these columns "to save a computation" defeats the
+  entire point of the drift log. They carry the identical R3 write-exclusion as the trio (never
+  in `UpsertSuperchargerSession`). See `openspec/changes/RM27-telemetry-add-supercharger-battery-pct/design.md`
+  D6 for the full rationale, including why a nightly-refreshed `_est` pair (the shape this is
+  NOT) has no legal writer under this project's module-ownership rule.
 
 ## Testing notes
 

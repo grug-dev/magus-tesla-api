@@ -18,7 +18,7 @@ type PollAttempt struct {
 	Reason      string
 }
 
-// Tesla-billed Supercharger and DC fast-charging sessions per account. Covers sessions returned by GET /api/1/dx/charging/history only (no home/AC charging, no battery percentage). Owned by internal/telemetry; no other module reads this table directly. UPSERT on session_id (not append-only): billing state is mutable post-session.
+// Tesla-billed Supercharger and DC fast-charging sessions per account. Covers sessions returned by GET /api/1/dx/charging/history only (no home/AC charging). The Tesla API itself carries no battery-percentage field; start_battery_pct/end_battery_pct/battery_pct_source are a human-owned verification/override channel, and start_battery_pct_est/end_battery_pct_est are a frozen write-once snapshot of the estimate at verification time (both added by RM27 tier 1, MAG-14) -- all five excluded from the nightly UPSERT so a verified value or its snapshot is never silently overwritten (R3). Owned by internal/telemetry; no other module reads this table directly. UPSERT on session_id (not append-only): billing state is mutable post-session.
 type SuperchargerSession struct {
 	ID                  uuid.UUID
 	SessionID           int64
@@ -39,6 +39,16 @@ type SuperchargerSession struct {
 	RawData             []byte
 	CreatedAt           pgtype.Timestamptz
 	UpdatedAt           pgtype.Timestamptz
+	// Human-verified/override battery % at charge start (0-100). NULL = no override; reads fall back to internal/battery's on-read estimate (R5). Excluded from UpsertSuperchargerSession's INSERT and ON CONFLICT DO UPDATE SET -- never auto-written by the nightly poller (R3).
+	StartBatteryPct pgtype.Int2
+	// Human-verified/override battery % at charge end (0-100). Same NULL convention and the same R3 write-protection as start_battery_pct.
+	EndBatteryPct pgtype.Int2
+	// Why start/end_battery_pct are set: user_verified (verification UI, out of scope this tier) or polled (future measured-SOC alternative, logged to the backlog, not implemented). NULL means no override exists. Never 'estimated' -- that state is computed on read by internal/battery and is never persisted here (R6).
+	BatteryPctSource pgtype.Text
+	// FROZEN, write-once snapshot of internal/battery's live estimate at the moment start_battery_pct was verified/overridden -- a permanent drift log entry, not a cache. Written exactly once, in the same write as the trio; NEVER refreshed again, including by a later improved taper model (staleness here is correct, not a bug -- design D6). NEVER read back into internal/battery's live computation. Excluded from UpsertSuperchargerSession like the trio (R3).
+	StartBatteryPctEst pgtype.Int2
+	// FROZEN, write-once snapshot of internal/battery's live estimate at the moment end_battery_pct was verified/overridden. Same write-once, never-refreshed, never-a-cache, R3-protected semantics as start_battery_pct_est (design D6).
+	EndBatteryPctEst pgtype.Int2
 }
 
 type VehicleSnapshot struct {

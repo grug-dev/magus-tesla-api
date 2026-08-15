@@ -860,6 +860,12 @@ func boolPtrToPgBool(b *bool) pgtype.Bool {
 // place pgtype is touched for supercharger session writes — pgtype never appears in
 // SuperchargerSession or any method signature outside service.go/mapping.go
 // (design DBS4/B4.2, ai/go-conventions.md §persistence).
+//
+// Deliberately does NOT read s.StartBatteryPct / s.EndBatteryPct / s.BatteryPctSource /
+// s.StartBatteryPctEst / s.EndBatteryPctEst: telemetrydb.UpsertSuperchargerSessionParams
+// has no fields for them (query.sql omits all five from the query entirely — R3/D3/D6,
+// RM27-telemetry-add-supercharger-battery-pct). This keeps the nightly poller from ever
+// silently overwriting a human-verified value or its frozen snapshot.
 func (d *dbStore) upsertSuperchargerSession(ctx context.Context, s SuperchargerSession) error {
 	// nullable tesla_id: nil → invalid (NULL), non-nil → valid BIGINT.
 	var teslaID pgtype.Int8
