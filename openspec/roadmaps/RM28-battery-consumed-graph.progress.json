@@ -7,7 +7,7 @@
   "status": "in-progress",
   "autopilot": false,
   "created_at": "2026-08-15T13:07:34Z",
-  "updated_at": "2026-08-15T13:07:34Z",
+  "updated_at": "2026-08-15T13:41:00Z",
   "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
   "git": {
     "strategy": "auto",
@@ -19,7 +19,7 @@
   },
   "rollup": {
     "current": [1],
-    "pending": [2, 3, 4, 5],
+    "pending": [2, 3, 4],
     "blocked": [],
     "done": []
   },
@@ -31,7 +31,8 @@
       "made_by": "user",
       "decision": "Consumption is attributed to the EARLIER day: the poll upserts snapshot row N, then updates row N-1's five derived columns in the same transaction. Row N inserts with NULLs.",
       "why": "The 03:00 poll measures a window that is mostly the previous day, and the charge records it must line up with are dated that day. Re-polls stay self-healing because the N-1 recompute runs on every poll.",
-      "covered_by": null
+      "covered_by": null,
+      "superseded_by": "D16"
     },
     {
       "id": "D2",
@@ -103,7 +104,8 @@
       "made_by": "user",
       "decision": "Add additive date-range read ports taking from/to: telemetry.SnapshotsByVehicleBetween, telemetry.SuperchargerSessionsByVehicleBetween, manualcharge.ListEntriesByVehicleBetween. Snapshots are fetched over [start, end+1].",
       "why": "A date-filtered graph asking for a date range is the honest contract; with a limit there is no safe number to guess. The extra day is required because day D's bar needs snapshots at D and D+1.",
-      "covered_by": null
+      "covered_by": null,
+      "superseded_by": "D16"
     },
     {
       "id": "D10",
@@ -120,7 +122,7 @@
       "scope": "roadmap",
       "made_by": "assistant",
       "decision": "parseHistoryRange's default window and its end <= today cap both move to yesterday, matching the presets.",
-      "why": "Follows necessarily from D1: the current day has no derived values, so end = today can only produce an empty trailing bar. Stated to the user as a consequence; not contested.",
+      "why": "Today's EffectiveDate row is not captured until tomorrow's poll, so end = today can only produce an empty trailing bar. Presets already end at yesterday for this reason; only the default and the cap still allow today. Rationale corrected by D16; conclusion unchanged.",
       "covered_by": null
     },
     {
@@ -158,6 +160,15 @@
       "decision": "internal/battery owns the derivation; a new internal/consumption module was rejected.",
       "why": "battery is already the derived-metrics module and already composes the exact four dependencies via NewReader. A new module would duplicate its purpose and its whole dependency graph.",
       "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-15T13:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "SUPERSEDES D1, D9, D9a. No attribution change is needed: telemetry.Snapshot.EffectiveDate already provides it. Tier RM28-telemetry-shift-consumption-attribution is DROPPED and its artifacts deleted uncommitted. D9 reduces to two new ports (SnapshotsByVehicleBetween already exists). D9a reverses to a [start-1, end] lookback.",
+      "why": "mapping.go:110 derives EffectiveDate = CapturedAt - 1 day on read, so the row captured Aug 14 already carries both the Aug 13 delta and the Aug 13 label. The migration, backfill and two-write path would have bought no behavioural change.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -165,12 +176,27 @@
       "at": "2026-08-15T13:07:34Z",
       "kind": "roadmap-created",
       "note": "RM28 created from MAG-15 via kkpa-pickup-linear-ticket. Design settled with the user in a grill-me interview (D1-D15) before any artifact was written. Run scope: HALT AFTER STEP 4 — tier 1 artifacts only, no implementation."
+    },
+    {
+      "at": "2026-08-15T13:38:00Z",
+      "kind": "worker-returned",
+      "note": "telemetry worker produced the four artifacts for RM28-telemetry-shift-consumption-attribution and independently reported that the gateway reads none of the five _calc columns, disproving D1b."
+    },
+    {
+      "at": "2026-08-15T13:40:00Z",
+      "kind": "tier-dropped",
+      "note": "Leader verified the worker's finding and found more: EffectiveDate (mapping.go:110) already attributes snapshots to the prior day, and SnapshotsByVehicleBetween already exists. Tier 1 dropped with the user's approval, artifacts deleted uncommitted, roadmap renumbered to four tiers. See D16."
+    },
+    {
+      "at": "2026-08-15T13:41:00Z",
+      "kind": "contract-note",
+      "note": "The leader's original D9 was based on a truncated grep of the telemetry Reader interface (-A 18 cut off above SnapshotsByVehicleBetween at telemetry.go:282). Full-interface reads now confirm SuperchargerReader and manualcharge.Reader genuinely lack date-range methods."
     }
   ],
   "tiers": [
     {
       "id": 1,
-      "change": "RM28-telemetry-shift-consumption-attribution",
+      "change": "RM28-telemetry-add-charge-gap-storage",
       "module": "telemetry",
       "optional": false,
       "depends_on": [],
@@ -181,25 +207,10 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "D1/D1a: move the five derived columns to the earlier row. Migration + backfill + two-write poll path. database design gate applies."
+      "notes": "D3/D7: missing-charge table + write port, plus SuperchargerSessionsByVehicleBetween (D9). database design gate applies."
     },
     {
       "id": 2,
-      "change": "RM28-telemetry-add-charge-gap-storage",
-      "module": "telemetry",
-      "optional": false,
-      "depends_on": [],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "D3/D7: missing-charge table + write port, plus the two telemetry date-range readers (D9). database design gate applies."
-    },
-    {
-      "id": 3,
       "change": "RM28-manualcharge-add-date-range-reader",
       "module": "manualcharge",
       "optional": false,
@@ -214,11 +225,11 @@
       "notes": "D9: ListEntriesByVehicleBetween filtering on charged_on. Purely additive, no schema change."
     },
     {
-      "id": 4,
+      "id": 3,
       "change": "RM28-battery-derive-consumed-per-day",
       "module": "battery",
       "optional": false,
-      "depends_on": [1, 2, 3],
+      "depends_on": [1, 2],
       "status": "not-started",
       "assistant": null,
       "model": null,
@@ -226,14 +237,14 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "D13 derivation, D12 charge matching, D5 detection, D8 spans, D9a fetch width, ConsumedByDay port, cmd/poller wiring (D4/D4a)."
+      "notes": "D13 derivation keyed on EffectiveDate, D12 charge matching, D5 detection, D8 spans, D9a lookback, ConsumedByDay port, cmd/poller wiring (D4/D4a)."
     },
     {
-      "id": 5,
+      "id": 4,
       "change": "RM28-gateway-add-consumed-graph",
       "module": "gateway",
       "optional": false,
-      "depends_on": [4],
+      "depends_on": [3],
       "status": "not-started",
       "assistant": null,
       "model": null,
@@ -242,6 +253,14 @@
       "duration_seconds": null,
       "budget": null,
       "notes": "The bar chart mirroring the odometer/battery standard, D10 flagged-day rendering, D11 window reconciliation, bilingual ES/EN labels."
+    }
+  ],
+  "dropped_tiers": [
+    {
+      "change": "RM28-telemetry-shift-consumption-attribution",
+      "module": "telemetry",
+      "dropped_at": "2026-08-15T13:40:00Z",
+      "reason": "Premise disproven by D16 — EffectiveDate already attributes each snapshot to the day it represents, so the migration, backfill and two-write poll path would have produced no behavioural change. Artifacts were written, then deleted uncommitted; no code was ever produced."
     }
   ]
 }
