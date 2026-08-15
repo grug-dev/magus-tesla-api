@@ -199,6 +199,57 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
 | `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
+### Dependency graph
+
+Internal imports only (stdlib and third-party omitted). Dependencies flow **downward** — the
+gateway calls domain modules, domain modules call adapters, and nothing calls back up:
+
+```text
+┌─ COMPOSITION ROOT ── cmd/ wires concrete types together at startup ──────┐
+│  cmd/web ────────────► gateway, account, telemetry, manualcharge,        │
+│                        tesla, googleauth, config                         │
+│  cmd/poller ─────────► telemetry, account, tesla, config                 │
+│  cmd/setup ──────────► auth, config                                      │
+│  cmd/explore-tesla-api ► tesla, auth, config                             │
+├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
+│  gateway ────────────► account, telemetry, manualcharge, tesla,          │
+│    │                   googleauth                                        │
+│    ├─ handlers ──────► account, auth, telemetry, manualcharge, tesla,    │
+│    │                   googleauth, i18n, templates/*                     │
+│    ├─ templates/* ───► i18n, templates/ui                                │
+│    └─ i18n ──────────► account            (the Language type only)       │
+├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
+│  battery ────────────► account, manualcharge, telemetry                  │
+├─ LAYER 1 ── domain modules ──────────────────────────────────────────────┤
+│  telemetry ──────────► account, tesla, telemetry/db                      │
+│  manualcharge ───────► manualcharge/db                                   │
+│  account ────────────► auth, account/db                                  │
+├─ LAYER 0 ── adapters & leaves (no internal dependencies) ────────────────┤
+│  tesla    googleauth    auth    config    testdb    <module>/db          │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+`cmd/` importing many modules at once is not a boundary violation — it is the **composition
+root**, the one place allowed to know every concrete type so it can inject them into each other.
+That is what keeps the layers below it depending on interfaces rather than on one another.
+
+This graph is acyclic and the Go compiler keeps it that way — an import cycle between packages
+is a **compile error** (`import cycle not allowed`), not a lint warning. Note the consequence
+for `internal/tesla`: it stays stateless about identity (credentials are passed *in*) partly so
+it never needs to import `account`, which would close the loop `account → tesla → account`.
+
+When two modules genuinely need each other, do **not** create a `shared` package and do **not**
+merge them — declare a small **consumer-side interface** in the package that needs the data and
+wire the concrete type in at `cmd/` startup. Full rule and example:
+[`ai/architecture.md`](ai/architecture.md) §2 "Dependency direction & import cycles".
+
+To regenerate this graph:
+
+```bash
+go list -f '{{.ImportPath}}|{{join .Imports ","}}' ./cmd/... ./internal/... \
+  | sed 's|github.com/cristianpena/magus-tesla-api/||g'
+```
+
 ### Database tables by module
 
 Every table is owned by **exactly one** module: only that module's sqlc package queries it, and
