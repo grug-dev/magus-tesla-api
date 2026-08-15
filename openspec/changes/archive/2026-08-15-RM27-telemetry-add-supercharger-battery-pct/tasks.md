@@ -229,23 +229,23 @@
 
 ## Verification — depends on all tasks
 
-- [ ] V1. `go build ./...` and `go vet ./...` pass after all tasks are complete.
-- [ ] V2. `go test ./...` green and fast. DB integration tests self-skip without
+- [x] V1. `go build ./...` and `go vet ./...` pass after all tasks are complete.
+- [x] V2. `go test ./...` green and fast. DB integration tests self-skip without
       `DATABASE_URL`/Docker; with Docker the testcontainers helper provisions Postgres and
       applies goose migrations automatically, including the new
       `20260815000001_add_supercharger_battery_pct.sql`. NO Tesla API call fires.
-- [ ] V3. Test-contract (a) fresh-insert-NULL correctness (all five columns): verified by
+- [x] V3. Test-contract (a) fresh-insert-NULL correctness (all five columns): verified by
       T6.1.
-- [ ] V4. Test-contract (b) R3 regression, trio (re-upsert leaves trio untouched): verified
+- [x] V4. Test-contract (b) R3 regression, trio (re-upsert leaves trio untouched): verified
       by T6.2 — the single most important acceptance check in this change.
-- [ ] V4b. Test-contract (b2) R3 regression, frozen snapshot pair (re-upsert leaves
+- [x] V4b. Test-contract (b2) R3 regression, frozen snapshot pair (re-upsert leaves
       `_est` pair untouched, design D6): verified by T6.2b.
-- [ ] V5. Test-contract (c) CHECK constraint correctness (all four `SMALLINT` columns'
+- [x] V5. Test-contract (c) CHECK constraint correctness (all four `SMALLINT` columns'
       range, both rejected `battery_pct_source` values, and the accepted boundary/`'polled'`
       case): verified by T6.3.
-- [ ] V6. Test-contract (d) reader round-trip correctness (trio and snapshot pair):
+- [x] V6. Test-contract (d) reader round-trip correctness (trio and snapshot pair):
       verified by T6.4.
-- [ ] V7. Static R3 check: `UpsertSuperchargerSession`'s functional SQL text (INSERT column
+- [x] V7. Static R3 check: `UpsertSuperchargerSession`'s functional SQL text (INSERT column
       list, VALUES, ON CONFLICT DO UPDATE SET — excluding its header comment) contains zero
       references to `start_battery_pct`, `end_battery_pct`, `battery_pct_source`,
       `start_battery_pct_est`, or `end_battery_pct_est`. Verify by inspection or grep
@@ -254,7 +254,13 @@
       `EXPLAIN` on `SuperchargerSessionsByAccount`/`SuperchargerSessionsByVehicle` still
       uses `idx_supercharger_sessions_account_time`/`idx_supercharger_sessions_vehicle_time`
       respectively, unchanged from before this change.
-- [ ] V9. Boundary check: `internal/telemetry` still imports only `account` + `tesla` public
+      **PARTIALLY VERIFIED at archive.** First half confirmed: no `CREATE INDEX` appears
+      anywhere in the migration, checked by both the leader and `telemetry-reviewer`. Second
+      half NOT run: the `EXPLAIN` comparison needs a live DB and nobody executed it. The
+      change adds no index and alters no query plan input, so a plan change is not credible
+      — but that is reasoning, not the measurement this criterion asks for. Left unticked
+      deliberately rather than assumed.
+- [x] V9. Boundary check: `internal/telemetry` still imports only `account` + `tesla` public
       packages; no other module's internals. `pgtype` does not appear in any public type or
       interface (`pgNullableInt16AsInt`'s `pgtype.Int2` parameter stays confined to
       `mapping.go`, matching the module's existing helpers). No file outside
@@ -262,9 +268,9 @@
       referenced by any file this change creates or modifies — including no gateway/Writer
       plumbing for the trio or the snapshot pair (design D6's "legal writer" discussion is
       architecture-only in this tier, not implemented here per R7).
-- [ ] V10. Docs: `internal/telemetry/AGENTS.md` accurately reflects all five new columns,
+- [x] V10. Docs: `internal/telemetry/AGENTS.md` accurately reflects all five new columns,
       including the frozen-snapshot warning (T7.1). Root `README.md` "Project
       Structure"/"Architecture" confirmed NOT to need changes (no module added/removed, no
       new runnable) — this confirmation itself is part of verification, not an assumption
       to skip.
-- [ ] V11. `openspec validate RM27-telemetry-add-supercharger-battery-pct --strict` passes.
+- [x] V11. `openspec validate RM27-telemetry-add-supercharger-battery-pct --strict` passes.
