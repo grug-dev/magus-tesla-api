@@ -1,0 +1,247 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM28-battery-consumed-graph",
+  "intention": "A battery-consumed %/day bar graph on /ui/dashboard/history that corrects raw snapshot deltas by the charge added that day, plus a durable record of days whose numbers do not add up because a charge record is missing or incomplete.",
+  "request": "Source ticket: MAG-15 — https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nShow a new bar graph similar to the odometer history and battery history graphs on the dashboard (/ui/dashboard/history), using the same standard as the other graphs. The vehicle may be charged during the day, which makes battery_used_pct negative or invalid, so the two charging tables (manual_charge_entries, supercharger_sessions) — both carrying start_battery_pct / end_battery_pct — are used to recover the real consumption. Whenever the result is negative, or zero while distance_traveled_km_calc > 10, a charge record is missing: record it in a new table (vin, tesla_id, missing_charging_type, date) so the user can be notified in a later ticket.",
+  "status": "in-progress",
+  "autopilot": false,
+  "created_at": "2026-08-15T13:07:34Z",
+  "updated_at": "2026-08-15T13:07:34Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM28-MAG-15-battery-consumed-graph",
+    "base": "874820f (main)",
+    "ticket": "MAG-15",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph",
+    "created_at": "2026-08-15T13:07:34Z"
+  },
+  "rollup": {
+    "current": [1],
+    "pending": [2, 3, 4, 5],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-15T12:50:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Consumption is attributed to the EARLIER day: the poll upserts snapshot row N, then updates row N-1's five derived columns in the same transaction. Row N inserts with NULLs.",
+      "why": "The 03:00 poll measures a window that is mostly the previous day, and the charge records it must line up with are dated that day. Re-polls stay self-healing because the N-1 recompute runs on every poll.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-15T12:52:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "battery_consumed_pct is recomputed on read, never stored. No cache table.",
+      "why": "~90 rows for one account+vehicle. Recomputing also removes any cache-invalidation duty when a user adds a long-past manual entry — the ticket's own open question.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-15T12:53:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "internal/telemetry owns the missing-charge table; internal/battery writes to it through a new telemetry write port.",
+      "why": "Owner's call against the assistant's recommendation that battery own it. Reuses telemetry's persistence; battery gains no db/ folder. No cycle: battery already imports telemetry.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-15T12:56:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Detection runs in the nightly poller (cmd/poller) after snapshots are written, not on the dashboard read path. cmd/poller orchestrates battery -> telemetry.",
+      "why": "The table exists to notify the user later; if written only on dashboard reads it could report nothing the user had not already seen. Composition root orchestration avoids the telemetry->battery cycle.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-15T12:56:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Flag a day when consumed < 0, or consumed == 0 while distance_traveled_km_calc > 10, with 10 as a named constant. Days with NULL battery_used_pct_calc are skipped.",
+      "why": "The owner's rule as specified. The zero-plus-distance clause catches a charge exactly cancelling the day's usage. No predecessor means no honest claim either way.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-15T12:56:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Calendar-day bucketing uses the poller's configured zone (Config.Location, currently America/Bogota).",
+      "why": "Same zone captured_date is already computed in. Charges and snapshots must bucket by identical rules or the formula breaks at the edges. Superseded for Supercharger sessions by D12.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-15T13:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Missing-charge table: UNIQUE (account_id, tesla_id, date), one row per vehicle-day, columns vin/tesla_id/date/missing_charging_type all NOT NULL. Nightly run upserts flagging days and deletes days that no longer flag.",
+      "why": "One aggregate shortfall per day is one honest row; a per-type key would invite a speculative second row we cannot substantiate. Delete-on-resolve clears rows automatically with no extra wiring.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-15T13:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Multi-day spans (days_spanned_calc > 1) plot one flagged bar on the start day; intervening days render as no-data. Charges inside the span are summed regardless.",
+      "why": "Splitting evenly would invent a distribution never observed; excluding would silently drop real consumption.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-15T13:02:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Add additive date-range read ports taking from/to: telemetry.SnapshotsByVehicleBetween, telemetry.SuperchargerSessionsByVehicleBetween, manualcharge.ListEntriesByVehicleBetween. Snapshots are fetched over [start, end+1].",
+      "why": "A date-filtered graph asking for a date range is the honest contract; with a limit there is no safe number to guess. The extra day is required because day D's bar needs snapshots at D and D+1.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-15T13:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "A flagged day renders as a zero-height bar with a distinct warning marker, never the raw negative value and never omitted. Labels bilingual ES/EN via i18n.T.",
+      "why": "Plotting a number we do not believe reads as a bug; hiding the day makes it indistinguishable from no data, so the user never learns there is something to fix.",
+      "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-15T13:02:00Z",
+      "scope": "roadmap",
+      "made_by": "assistant",
+      "decision": "parseHistoryRange's default window and its end <= today cap both move to yesterday, matching the presets.",
+      "why": "Follows necessarily from D1: the current day has no derived values, so end = today can only produce an empty trailing bar. Stated to the user as a consequence; not contested.",
+      "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-15T13:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Charge-to-day matching is source-specific: Supercharger sessions match by charge_stop_date_time falling within [snapshot[D].captured_at, snapshot[D+1].captured_at]; manual entries match on charged_on.",
+      "why": "A session ending 01:00 on Aug 14 belongs to Aug 13's poll window but has stop-date Aug 14 — date bucketing would file it wrong, producing a false gap flag and an inflated neighbouring bar.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-15T12:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The formula sums over ALL charge events across both tables: consumed = battery_used_pct_calc + sum(end_battery_pct - start_battery_pct). Neither source takes precedence.",
+      "why": "Corrects the ticket's 'latest session per day', which discards earlier sessions and yields false gap flags. Verified: two sessions summing to 5 vs -25 latest-only vs 15 first-start-to-last-end.",
+      "covered_by": null
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-15T12:20:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Supercharger start/end percentages stay NULL. No entry UI and no kWh-based estimation in RM28; those days flag as SUPERCHARGER gaps.",
+      "why": "RM27 shipped the columns as storage only, the Fleet API carries no SOC, and the taper-solve estimator was descoped as disproportionate. Both remain backlog entry 11.",
+      "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-15T12:45:00Z",
+      "scope": "roadmap",
+      "made_by": "assistant",
+      "decision": "internal/battery owns the derivation; a new internal/consumption module was rejected.",
+      "why": "battery is already the derived-metrics module and already composes the exact four dependencies via NewReader. A new module would duplicate its purpose and its whole dependency graph.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-15T13:07:34Z",
+      "kind": "roadmap-created",
+      "note": "RM28 created from MAG-15 via kkpa-pickup-linear-ticket. Design settled with the user in a grill-me interview (D1-D15) before any artifact was written. Run scope: HALT AFTER STEP 4 — tier 1 artifacts only, no implementation."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM28-telemetry-shift-consumption-attribution",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "D1/D1a: move the five derived columns to the earlier row. Migration + backfill + two-write poll path. database design gate applies."
+    },
+    {
+      "id": 2,
+      "change": "RM28-telemetry-add-charge-gap-storage",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "D3/D7: missing-charge table + write port, plus the two telemetry date-range readers (D9). database design gate applies."
+    },
+    {
+      "id": 3,
+      "change": "RM28-manualcharge-add-date-range-reader",
+      "module": "manualcharge",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "D9: ListEntriesByVehicleBetween filtering on charged_on. Purely additive, no schema change."
+    },
+    {
+      "id": 4,
+      "change": "RM28-battery-derive-consumed-per-day",
+      "module": "battery",
+      "optional": false,
+      "depends_on": [1, 2, 3],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "D13 derivation, D12 charge matching, D5 detection, D8 spans, D9a fetch width, ConsumedByDay port, cmd/poller wiring (D4/D4a)."
+    },
+    {
+      "id": 5,
+      "change": "RM28-gateway-add-consumed-graph",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [4],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The bar chart mirroring the odometer/battery standard, D10 flagged-day rendering, D11 window reconciliation, bilingual ES/EN labels."
+    }
+  ]
+}

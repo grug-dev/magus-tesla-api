@@ -337,6 +337,38 @@ Extended the same day when the owner **descoped the estimator and the UI tiers e
 (RM27 decision D11), reducing RM27 to the five columns and moving items 1–3 above here.
 
 
+## 12. Architecture — charging data is split across two modules
+
+### PROPOSAL
+
+The platform stores charge sessions in **two tables owned by two different modules**:
+`manual_charge_entries` (`internal/manualcharge`) and `supercharger_sessions`
+(`internal/telemetry`). They carry the same conceptual payload — when the car charged, how
+much energy went in, and (per RM27) the start/end battery percentage — but no module owns
+"charging" as a domain.
+
+The cost is paid by every consumer. Any question of the form *"how was this vehicle charged?"*
+must compose two ports, sum across both shapes, and keep the two in step. `internal/battery`
+already does this twice (`sumSuperchargerKWh` + `sumManualKWh` for efficiency), and RM28 adds
+a third pair of date-range readers plus a summation across both sources for the consumed
+graph. Each new consumer re-implements the same fan-out.
+
+Possible shapes, none yet evaluated: a `charging` module owning both tables; a read-side
+`ChargeReader` port that unions the two behind one interface without moving data; or leaving
+ownership alone and extracting only the shared summation.
+
+**TRIGGER to pick up:** a third consumer needs combined charge data, OR the Supercharger
+verification UI (item 11) lands and makes the two write paths visibly inconsistent to users.
+Deliberately **not** bundled into RM28 — it would turn a graph ticket into a cross-module
+data migration.
+
+### ORIGIN
+
+MAG-15 / RM28 grill-me session, 2026-08-15 — the owner raised it while settling which module
+should own the missing-charge table ("maybe we don't have the right bundle for charging data
+records… but that's out of the scope of this ticket") and scoped it out explicitly.
+
+
 # BRAINSTORMING
 
 
