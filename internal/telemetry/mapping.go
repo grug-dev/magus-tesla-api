@@ -54,6 +54,20 @@ func pgNullableText(v pgtype.Text) *string {
 	return &s
 }
 
+// pgNullableInt16AsInt converts a nullable pgtype.Int2 (SMALLINT) to *int:
+// {Valid: false} -> nil, {Valid: true} -> &v. First SMALLINT column in this module;
+// mirrors internal/manualcharge's identical intPtrToPgInt2/pgInt2ToIntPtr shape for
+// its own start_battery_pct/end_battery_pct (module boundaries mean the four-line
+// helper is duplicated here, not imported). Reused across all four SMALLINT columns
+// on supercharger_sessions (RM27-telemetry-add-supercharger-battery-pct, design D5).
+func pgNullableInt16AsInt(v pgtype.Int2) *int {
+	if !v.Valid {
+		return nil
+	}
+	r := int(v.Int16)
+	return &r
+}
+
 // rowToSnapshot converts a generated telemetrydb.VehicleSnapshot row into the
 // domain Snapshot type. This is the DB→domain mapping boundary for the read path:
 // all pgtype conversions are confined here so pgtype never escapes the module
@@ -150,6 +164,10 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 //   - pgtype.Float8 → *float64: {Valid: false} → nil
 //   - pgtype.Text → *string: {Valid: false} → nil
 //   - pgtype.Bool → *bool: {Valid: false} → nil
+//   - Battery-% verification columns (RM27-telemetry-add-supercharger-battery-pct,
+//     design D5/D6): pgtype.Int2 → *int via pgNullableInt16AsInt (all four SMALLINT
+//     columns); pgtype.Text → *string via the existing pgNullableText for
+//     BatteryPctSource. NULL means no override/no snapshot exists.
 func rowToSuperchargerSession(r telemetrydb.SuperchargerSession) SuperchargerSession {
 	// nullable tesla_id
 	var teslaID *int64
@@ -207,5 +225,14 @@ func rowToSuperchargerSession(r telemetrydb.SuperchargerSession) SuperchargerSes
 		RawData:             r.RawData,
 		CreatedAt:           r.CreatedAt.Time,
 		UpdatedAt:           r.UpdatedAt.Time,
+
+		// Battery-% verification/override trio + frozen snapshot pair (RM27 tier 1,
+		// MAG-14, design D5/D6). Placed last, mirroring the migration's physical
+		// column-append order.
+		StartBatteryPct:    pgNullableInt16AsInt(r.StartBatteryPct),
+		EndBatteryPct:      pgNullableInt16AsInt(r.EndBatteryPct),
+		BatteryPctSource:   pgNullableText(r.BatteryPctSource),
+		StartBatteryPctEst: pgNullableInt16AsInt(r.StartBatteryPctEst),
+		EndBatteryPctEst:   pgNullableInt16AsInt(r.EndBatteryPctEst),
 	}
 }

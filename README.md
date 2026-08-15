@@ -18,7 +18,7 @@ Build a personal, multitenant, self-hosted tool that:
 
 ## Quick Start
 
-> **Prerequisites:** Go 1.22+, a registered Tesla Fleet API app, and a completed setup (see [docs/post-registration-setup.md](docs/post-registration-setup.md)).
+> **Prerequisites:** Go 1.25+ (see `go.mod`), a registered Tesla Fleet API app, and a completed setup (see [docs/post-registration-setup.md](docs/post-registration-setup.md)).
 
 ```bash
 # Install dependencies
@@ -40,25 +40,27 @@ go run ./cmd/poller --once   # one immediate collection cycle, then exit
 
 ## Building the modular monolith
 
-> **Prerequisites:** Go 1.22+. The DB-backed modules use **generated** code, so the sqlc output
-> must exist *before* you compile (see below). Install `sqlc` (`brew install sqlc`) and, for
-> migrations, `goose` — full tooling list in [docs/0-set-up/deployment.md](docs/0-set-up/deployment.md).
+> **Prerequisites:** Go 1.25+ (see `go.mod`). The DB-backed modules use **generated** code, but
+> that output is **committed**, so a fresh checkout compiles as-is. Install `sqlc`
+> (`brew install sqlc`) and, for migrations, `goose` before you *change* schema or queries —
+> full tooling list in [docs/0-set-up/deployment.md](docs/0-set-up/deployment.md).
 
 The monolith is a single Go module: `go build ./...` compiles **every** package and command at
-once. The one wrinkle is code generation — `internal/account/db` is produced by sqlc, so a fresh
-checkout must generate it first, or the build fails with `undefined: accountdb`.
+once. Each DB-backed module has its own sqlc package — `accountdb`, `telemetrydb`,
+`manualchargedb` (one `sql:` entry per module in `sqlc.yaml`) — and all three are checked in, so
+regeneration is only needed after you edit a `query.sql` or a migration.
 
 ```bash
-# 1. Dependencies + generated DB code
-#    (first checkout, or after changing go.mod, any query.sql, or a migration)
+# 1. Dependencies + regenerated DB code
+#    (after changing go.mod, any query.sql, or a migration)
 make tidy      # go mod tidy
-make sqlc      # sqlc generate → internal/account/db/{db,models,query.sql}.go
+make sqlc      # sqlc generate → internal/{account,telemetry,manualcharge}/db/{db,models,query.sql}.go
 
 # 2. Compile the whole monolith
 make build     # go build ./...   — all internal/ packages + every cmd/
 
-# 3. Full local gate — compile, vet, and test in one shot
-make check     # build + vet + test
+# 3. Full local gate
+make check     # build + vet + ui-guard + i18n-guard + money-guard + test
 ```
 
 Raw Go equivalents (no Make):
@@ -68,8 +70,13 @@ go mod tidy
 sqlc generate
 go build ./...   # compile everything
 go vet ./...     # static analysis
-go test ./...    # tests (account DB tests self-skip unless DATABASE_URL is set)
+go test ./...    # tests — internal/testdb uses DATABASE_URL when reachable,
+                 # otherwise a disposable postgres:16-alpine testcontainer
 ```
+
+> `make test` deliberately **ignores** `.env`'s `DATABASE_URL` and always runs against a
+> disposable testcontainer, so the suite can never touch the real magus database. Use
+> `make test-with-db` to opt in to the configured `DATABASE_URL` (CI with a managed Postgres).
 
 To produce runnable **binaries** (not just compile), build the entrypoints into `./bin`:
 
@@ -108,7 +115,8 @@ magus-tesla-api/
 │   │   └── tools/          #   git-ignored Node-less Tailwind CLI binary (make ui-toolchain)
 │   ├── googleauth/     # Google OAuth for user login
 │   ├── config/         # .env loading and token persistence
-│   └── auth/           # Tesla OAuth URL, code exchange, token refresh
+│   ├── auth/           # Tesla OAuth URL, code exchange, token refresh
+│   └── testdb/         # Test-only Postgres provisioning (DATABASE_URL → testcontainer fallback)
 │
 ├── magus-public-key-netlify/   # EC public key hosted on Netlify for Tesla verification
 │   └── well-known/appspecific/
@@ -189,6 +197,27 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
+| `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
+
+### Database tables by module
+
+Every table is owned by **exactly one** module: only that module's sqlc package queries it, and
+another module reads it **only** through the owner's public Go interface — never a cross-module
+join. Migrations live with the owner (`internal/<module>/db/migrations/*.sql`, goose) and the dir
+must be listed in `MIGRATIONS_DIRS` in the `Makefile`.
+
+| Module | sqlc package | Table | What it stores |
+|---|---|---|---|
+| `internal/account` | `accountdb` | `accounts` | One row per logged-in user — provider identity (`google` + subject id), email, display name, UI language. |
+| | | `tesla_tokens` | The Tesla OAuth pair (access + refresh) and access-token expiry, **one row per account** (unique on `account_id`). |
+| | | `vehicles` | Tesla vehicles registered to an account — `tesla_id`, VIN, display name, access type, captured vehicle config. |
+| `internal/telemetry` | `telemetrydb` | `vehicle_snapshots` | Nightly per-vehicle snapshot: battery/charge, range, odometer, temps, TPMS pressures, lock/sentry, location, derived consumption — **one row per vehicle per calendar day**, plus the lossless `raw_data` JSONB. |
+| | | `poll_attempts` | Audit row for **every** collection attempt (outcome + reason), successful or not. |
+| | | `supercharger_sessions` | Tesla Supercharger sessions — site, start/stop, `energy_kwh`, cost + currency, paid flag — upserted on Tesla's `session_id`. Supercharger-only: home / 3rd-party charging never appears in this feed. |
+| `internal/manualcharge` | `manualchargedb` | `manual_charge_entries` | User-asserted charge sessions (the home / work / 3rd-party gap the Tesla feed can't fill): date, kWh, price + currency, optional times, start/end %, AC-DC, location. |
+| `internal/battery` | — | *(none)* | Derived metrics only — a pure read-side computation over sibling modules' ports. |
+| `internal/gateway` | — | *(none)* | Renders HTML; calls module interfaces, never a database. |
+| *(tooling)* | — | `goose_db_version` | Not owned by any module — goose's own ledger, a **single shared table** across all migration dirs. That is why `make migrate-up` runs each dir with `-allow-missing`. |
 
 ---
 
@@ -205,8 +234,8 @@ and [`ai/go-conventions.md`](ai/go-conventions.md).
 | **A new page** (HTML using data a module already exposes) | `internal/gateway/` only — `templates/pages/*.templ` + `fragments/*.templ` composing the `templates/ui/` kit, a thin `handlers/*.go`, and a route in `gateway.go`. Prefer `kkpa-goth-scaffold-ui scaffold`. | `make templ` (+ `make css` if you used a new class) → `make check` |
 | **A new UI endpoint** (an htmx `/ui/...` fragment or a write action) | `internal/gateway/` — handler + fragment + `/ui/...` route; **CSRF + tenant check on writes** (see AGENTS.md). If it needs data no module exposes yet, also add a method to the **owning** module's `Service`/`Reader`/`Writer`. | `make sqlc` (if new query) → `make templ` (+ `make css`) → `make check` |
 | **A new upstream (Tesla Fleet) API call** | `internal/tesla/vehicles.go` (typed method) **and** `raw.go` (the `Raw*` sibling) **and** `cmd/explore-tesla-api/main.go` + its README — required by CLAUDE.md. Miles→km companions mandatory; **never** add tests that hit the live paid API. | `make check` |
-| **A new database table / column** | The **owning** `internal/<module>/` only — `db/migrations/*.sql` (goose) + `db/queries.sql`, exposed through the module's `Service`. Add the module's dir to `MIGRATIONS_DIRS` in the Makefile if it's the module's first table. **`database` is a design-gate — confirm the design first.** | `make sqlc` → `make migrate-up` → `make check` |
-| **A new module** (a new subsystem/concern) | New `internal/<module>/` with a `Service` interface + DTOs; wire into the gateway **only** via `Deps` + its interface. Update the README **Project Structure** tree + **Architecture** table in the same change. | `make sqlc` / `make templ` as needed → `make check` |
+| **A new database table / column** | The **owning** `internal/<module>/` only — `db/migrations/*.sql` (goose) + `db/queries.sql`, exposed through the module's `Service`. Add the module's dir to `MIGRATIONS_DIRS` in the Makefile if it's the module's first table, and add the table to the README **Database tables by module** list in the same change. **`database` is a design-gate — confirm the design first.** | `make sqlc` → `make migrate-up` → `make check` |
+| **A new module** (a new subsystem/concern) | New `internal/<module>/` with a `Service` interface + DTOs; wire into the gateway **only** via `Deps` + its interface. Update the README **Project Structure** tree, the **Architecture** table, and (if it owns tables) **Database tables by module** in the same change. | `make sqlc` / `make templ` as needed → `make check` |
 
 Before committing any change, run **`make generate`** (sqlc + templ + css) then **`make check`**
 (build + vet + test). `make up` does generate + migrate + run.

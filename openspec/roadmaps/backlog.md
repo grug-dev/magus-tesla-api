@@ -272,6 +272,71 @@ explicitly pushed back on the leader's justification for accepting the residual,
 to; deferred here rather than expanding that change's scope a third time at its archive gate.
 
 
+## 11. gateway / telemetry — Supercharger start/end SOC verification UI (and the measured-SOC alternative)
+
+### PROPOSAL
+
+`RM27-supercharger-battery-percentage` **shipped storage only**. It added five nullable columns
+to `supercharger_sessions` — the human-owned trio `start_battery_pct` / `end_battery_pct` /
+`battery_pct_source` plus the reserved snapshot pair `start_battery_pct_est` /
+`end_battery_pct_est` — all five excluded from the nightly upsert so a re-poll can never
+overwrite them.
+
+**Nothing reads or writes those five columns.** The owner **descoped** the two remaining tiers
+on 2026-08-15 (roadmap RM27 decision D11): there is no SOC estimator and no UI. All three
+follow-ups below are therefore open, in priority order:
+
+1. **Verification UI — the edit form (`gateway`)** — the **write** path: an edit form on the
+   Supercharger Stats page to enter or correct start/end %, writing the trio and setting
+   `battery_pct_source = 'user_verified'`. It needs a telemetry **write** port (none exists for
+   this table yet — today's only writer is the poller) plus CSRF + tenant checks per the
+   gateway's AGENTS.md rule for user-initiated writes, the `ui/` kit conventions and bilingual
+   ES/EN labels. This is the **cheapest way to make the columns useful** and does not depend on
+   items 2 or 3 — a human simply types the numbers they saw in the car. A "sessions with no
+   value" queue is a straight `WHERE start_battery_pct IS NULL`. While no estimator exists the
+   form leaves `start_battery_pct_est` / `end_battery_pct_est` NULL.
+
+2. **SOC estimator (`battery`) — DESCOPED from RM27, kept here** — solve start/end SOC from
+   billed `energy_kwh` + session duration against a DC taper curve. The maths was worked out
+   and validated during the MAG-14 grill (2026-08-15) and is worth recording so it need not be
+   redone: `delta = energy_kwh / pack_kwh × 100` is exact and needs no curve; only `start` is
+   unknown, and `T(start) = ∫[start→start+delta] (C/100)/P(s) ds` is **strictly increasing** in
+   `start` for any decreasing `P`, so bisection on `[0, 100−delta]` has a unique solution.
+   Validated against the four captured sessions: three solve, and the two records that form a
+   single physical stop reconstruct to a clean 80.7% charge limit. **The fourth does not solve
+   at all** — `chargeStopDateTime` marks the end of the *billing session*, not of power
+   delivery, so duration is only an upper bound on charging time and ~25% of real sessions are
+   "too slow" for any SOC band. Any implementation must therefore return delta-only rather than
+   a fabricated pair. If this lands, item 1's form must also freeze the estimate into the
+   `_est` pair per RM27 decision R8 (write-once, never refreshed; the gateway is its only legal
+   writer, since it can read `battery` and write through a telemetry port without an import
+   cycle).
+
+3. **Measured SOC instead of solved (`telemetry`)** — detect an active charging session and
+   sample `vehicle_data.battery_level` at start and stop, giving true values rather than solved
+   ones, and making item 2 unnecessary. **Deferred, not declined:** it wakes the car on paid
+   Fleet API calls, needs a new poller mode (today's poller runs once nightly, and
+   `vehicle_snapshots` is capped at one row per calendar day, so no snapshot ever falls inside a
+   ~25-minute session), and it can never recover history — only future sessions benefit.
+
+**TRIGGER (1):** as soon as you want a start/end % on any session at all — this is the only
+item that makes the shipped columns do anything. **TRIGGER (2):** if typing values by hand
+becomes tedious enough to want a machine guess, accepting that ~1 in 4 sessions yields only a
+delta. **TRIGGER (3):** if estimates prove unsatisfying, or waking the car per session becomes
+acceptable.
+
+Estimator accuracy (2) would additionally be bounded by item **7** (trim-exact pack capacity) —
+`capacityFor` is model-coarse, so every `model3` trim shares one capacity constant, and that
+constant is a direct multiplier on the solved delta.
+
+### ORIGIN
+
+MAG-14 grill-me session, 2026-08-15 — the grill established that the API carries no SOC field
+and that the verification loop needs a gateway tier of its own (roadmap RM27 decision D4).
+Extended the same day when the owner **descoped the estimator and the UI tiers entirely**
+(RM27 decision D11), reducing RM27 to the five columns and moving items 1–3 above here.
+
+
 # BRAINSTORMING
 
 
