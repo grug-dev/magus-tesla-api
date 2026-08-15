@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-14 — https://linear.app/magus-monitor/issue/MAG-14/startend-battery-percentage\n\nPlease create the columns `start_battery_pct and end_battery_pct on the database table supercharger_sessions.`\n\nCheck if there is a way to know what's the start/end battery percentage . *Base on the API response* when fetching supercharger sessions data. Maybe based on the energy added? \n\ngrill me about that",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-15T10:08:05Z",
+  "updated_at": "2026-08-15T10:23:42Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM27-MAG-14-supercharger-battery-percentage",
@@ -16,9 +16,10 @@
     "created_at": "2026-08-15T02:02:40Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      2
+    ],
     "pending": [
-      2,
       3
     ],
     "blocked": [],
@@ -107,6 +108,15 @@
       "decision": "Added tier 3 (gateway) wiring gateway → battery read-only, after the leader's claim that tiers 1+2 would show visible value was found false",
       "why": "internal/battery is imported by no package, and the Supercharger Stats page reads telemetry directly. Tiers 1+2 would compute estimates nothing renders. R7's original rationale was corrected.",
       "covered_by": "R9"
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-15T10:23:42Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Owner approved starting tier 2 (battery estimator) and chose to /clear before it begins",
+      "why": "Tier boundary is the cheapest checkpoint: a fresh session re-reads two progress files instead of carrying tier 1's context into every later request.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -147,7 +157,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Owner gave the go-ahead for tier 2 at the tier-1 archive. Not yet started — needs the Step 2 interview first."
     },
     {
       "id": 3,
@@ -177,6 +187,21 @@
       "at": "2026-08-15T10:08:05Z",
       "agent": "leader",
       "event": "Tier 1 (telemetry) archived as 2026-08-15-RM27-telemetry-add-supercharger-battery-pct. Tier 2 (battery) is now unblocked. autopilot=false, so the leader STOPS here and waits for the owner before starting tier 2."
+    },
+    {
+      "at": "2026-08-15T10:23:42Z",
+      "agent": "leader",
+      "event": "CHECKPOINT (clean, owner-requested /clear at tier boundary). Budget: 5h 27%, ctx 15%, 7d 54% — well under thresholds, so this is a thrift checkpoint, not a forced one. RESUME WITH: /kkpa-dev-harness-pipeline resume RM27-supercharger-battery-percentage"
+    },
+    {
+      "at": "2026-08-15T10:23:42Z",
+      "agent": "leader",
+      "event": "STATE FOR THE RESUMING SESSION: (1) Tier 1 archived, tier 2 (battery) unblocked and approved — start at SKILL Step 2, the user interview; roadmap decisions D1-D9 are the binding interview outcomes, only genuinely NEW decisions need a fresh grill. (2) Tier 2 change name is RM27-battery-estimate-supercharger-soc, module internal/battery, which ALREADY EXISTS (has derive.go/derive_test.go and a Reader port exposing RecentEfficiency) — the estimator adds a method to that port per D3/D9. (3) autopilot=false: stop after tier 2 archives, do not auto-start tier 3. (4) Do NOT re-run Step 1a — the branch, RM number and ticket MAG-14 are settled; keep committing to ft/RM27-MAG-14-supercharger-battery-percentage."
+    },
+    {
+      "at": "2026-08-15T10:23:42Z",
+      "agent": "leader",
+      "event": "UNRESOLVED, carry forward: README.md is modified and uncommitted in the working tree (Go 1.22->1.25 + committed-generated-code corrections). Unrelated to RM27 and deliberately excluded from all four tier-1 commits. The owner has been asked twice and has not answered; ask once more before the next commit rather than sweeping it in."
     }
   ]
 }
