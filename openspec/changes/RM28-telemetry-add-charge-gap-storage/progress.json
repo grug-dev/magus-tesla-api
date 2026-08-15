@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM28-telemetry-add-charge-gap-storage",
+  "module": "telemetry",
+  "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
+  "request": "Source ticket: MAG-15 — https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nRM28 tier 1. Create the charge_gaps table (days whose battery math does not add up because a charge record is missing or incomplete) plus its GapWriter write port, and add SuperchargerSessionsByVehicleBetween to the SuperchargerReader port. Roadmap decisions D3, D7, D7a, D7b, D9, D12 bind this change.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-15T13:58:00Z",
+  "updated_at": "2026-08-15T13:58:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM28-MAG-15-battery-consumed-graph",
+    "base": "874820f (main)",
+    "ticket": "MAG-15",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph",
+    "created_at": "2026-08-15T13:07:34Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Goose migration creating charge_gaps + idx_charge_gaps_account",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "telemetry.go: MissingChargingType + ChargeGap types, GapWriter port, SuperchargerSessionsByVehicleBetween on SuperchargerReader",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "db/query.sql: UpsertChargeGap, DeleteChargeGap, ChargeGapDatesByVehicleBetween, SuperchargerSessionsByVehicleBetween",
+      "module": "telemetry",
+      "depends_on": ["T1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "mapping.go: dateFromPg helper",
+      "module": "telemetry",
+      "depends_on": ["T2", "T3"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "gap_writer.go: GapWriter implementation (transactional reconcile)",
+      "module": "telemetry",
+      "depends_on": ["T2", "T3", "T4"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "reader.go: SuperchargerSessionsByVehicleBetween implementation",
+      "module": "telemetry",
+      "depends_on": ["T2", "T3"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "DB-integration tests for contract scenarios (a)-(e)",
+      "module": "telemetry",
+      "depends_on": ["T1", "T3", "T5", "T6"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "internal/telemetry/AGENTS.md: document charge_gaps + the new ports",
+      "module": "telemetry",
+      "depends_on": ["T1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    }
+  ],
+  "decisions": [
+    {
+      "id": "G1",
+      "at": "2026-08-15T13:55:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "DATABASE DESIGN GATE PASSED. The user reviewed and approved the charge_gaps schema, its rationale and its index plan, with one change: the date column is renamed to gap_date.",
+      "why": "A bare `date` would be the only non-descriptive date column in the schema (cf. charged_on, captured_date, charge_start_date_time) and is a Postgres col_name_keyword. The Go domain field stays ChargeGap.Date to avoid stuttering.",
+      "covered_by": null
+    },
+    {
+      "id": "G2",
+      "at": "2026-08-15T13:55:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "idx_charge_gaps_account (account_id, gap_date DESC) is KEPT despite serving a notification feature that does not exist yet.",
+      "why": "Leader flagged it as speculative on a table that stays tiny. The user chose to keep it rather than defer; it is cheap and the read pattern is declared in the design.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-15T13:52:00Z",
+      "kind": "artifacts-created",
+      "note": "telemetry worker produced proposal.md, design.md, specs/telemetry/spec.md, tasks.md. openspec validate --strict passes. Worker reported no contradictions found."
+    },
+    {
+      "at": "2026-08-15T13:56:00Z",
+      "kind": "design-gate-passed",
+      "note": "Leader presented schema + rationale + index plan to the user, flagging two concerns (bare `date` column name, speculative second index). User approved with the rename; index kept. See decisions G1/G2."
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  }
+}
