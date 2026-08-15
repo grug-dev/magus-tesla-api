@@ -272,6 +272,49 @@ explicitly pushed back on the leader's justification for accepting the residual,
 to; deferred here rather than expanding that change's scope a third time at its archive gate.
 
 
+## 11. gateway / telemetry — Supercharger start/end SOC verification UI (and the measured-SOC alternative)
+
+### PROPOSAL
+
+`RM27-supercharger-battery-percentage` ships **estimated** start/end SOC (solved from billed
+energy + session duration against the DC taper curve) plus the human-owned override trio
+`start_battery_pct` / `end_battery_pct` / `battery_pct_source` on `supercharger_sessions`.
+Nothing writes that trio yet — RM27 deliberately excluded the UI to keep itself to two
+modules.
+
+Two follow-ups, in priority order:
+
+1. **Verification UI (`gateway`)** — an edit form on the Supercharger stats page to enter or
+   correct start/end %, writing the trio and flipping `battery_pct_source` to
+   `'user_verified'`. Needs the `ui/` kit conventions and bilingual ES/EN labels. A "sessions
+   still on estimates" queue is a straight `WHERE battery_pct_source = 'estimated'`. Once real
+   corrections exist, the estimator's error becomes measurable — recomputing the estimate for
+   verified rows compares the *current* model against ground truth, which is the natural way
+   to tune the taper curve.
+
+2. **Measured SOC instead of solved (`telemetry`)** — detect an active charging session and
+   sample `vehicle_data.battery_level` at start and stop, giving true values rather than
+   solved ones. **Deferred, not declined:** it wakes the car on paid Fleet API calls, needs a
+   new poller mode (today's poller runs once nightly, and `vehicle_snapshots` is capped at one
+   row per calendar day, so no snapshot ever falls inside a ~25-minute session), and it can
+   never recover history — only future sessions benefit.
+
+**TRIGGER to revisit (1):** as soon as the estimates are visibly wrong often enough to be
+worth correcting by hand. **TRIGGER to revisit (2):** if verified corrections show the taper
+solve is systematically off by more than roughly ±10 points, or if waking the car per session
+becomes acceptable.
+
+Accuracy is additionally bounded by item **7** (trim-exact pack capacity) — `capacityFor` is
+model-coarse, so every `model3` trim currently shares one capacity constant, and that constant
+is a direct multiplier on the solved delta.
+
+### ORIGIN
+
+MAG-14 grill-me session, 2026-08-15 — user chose to ship data-only (roadmap RM27 Decision D4)
+after the grill established that the API carries no SOC field and that the verification loop
+needs a gateway tier of its own.
+
+
 # BRAINSTORMING
 
 
