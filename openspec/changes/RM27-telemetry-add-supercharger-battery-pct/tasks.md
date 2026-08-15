@@ -105,7 +105,7 @@
 
 ## T4. `mapping.go`: new helper + `rowToSuperchargerSession` — depends on T2, T3
 
-- [ ] T4.1 Add `pgNullableInt16AsInt(v pgtype.Int2) *int` to
+- [x] T4.1 Add `pgNullableInt16AsInt(v pgtype.Int2) *int` to
       `internal/telemetry/mapping.go`, alongside the existing
       `pgNullableFloat64`/`pgNullableFloat4AsFloat64`/`pgNullableInt32AsInt`/
       `pgNullableText` helpers (lines 15-59), exact body from design.md's "Read Path"
@@ -115,7 +115,7 @@
       Acceptance: `go build ./...` green; the function is a pure, allocation-minimal
       conversion with no DB/network dependency.
 
-- [ ] T4.2 Extend `rowToSuperchargerSession` (`internal/telemetry/mapping.go:153-`) to map
+- [x] T4.2 Extend `rowToSuperchargerSession` (`internal/telemetry/mapping.go:153-`) to map
       all five new fields into the returned `SuperchargerSession{...}` literal:
       `StartBatteryPct: pgNullableInt16AsInt(r.StartBatteryPct)`, `EndBatteryPct:
       pgNullableInt16AsInt(r.EndBatteryPct)`, `BatteryPctSource:
@@ -139,7 +139,7 @@
 
 ## T6. New DB-integration tests — depends on T1, T3, T4
 
-- [ ] T6.1 Add a test (new or existing DB-gated test file in `internal/telemetry/`)
+- [x] T6.1 Add a test (new or existing DB-gated test file in `internal/telemetry/`)
       implementing design.md's test-contract scenario (a): a fresh
       `UpsertSuperchargerSession` call for a new `session_id` results in a stored row with
       `start_battery_pct`, `end_battery_pct`, `battery_pct_source`, `start_battery_pct_est`,
@@ -148,7 +148,7 @@
       `SuperchargerSessionsByAccount`/`ByVehicle`).
       Acceptance: `go test ./internal/telemetry/...` (DB-gated) passes.
 
-- [ ] T6.2 Add `TestStore_SuperchargerUpsert_LeavesVerifiedBatteryPctUntouched` (or similarly
+- [x] T6.2 Add `TestStore_SuperchargerUpsert_LeavesVerifiedBatteryPctUntouched` (or similarly
       named) implementing design.md's test-contract scenario (b) — **the most important
       test in this change**: insert a session via `UpsertSuperchargerSession`; set its trio
       via a direct SQL `UPDATE` against the test pool (`start_battery_pct = 18,
@@ -162,7 +162,7 @@
       `UpsertSuperchargerSession`'s `ON CONFLICT DO UPDATE SET` clause in a future change —
       it is the regression guard for R3.
 
-- [ ] T6.2b Add `TestStore_SuperchargerUpsert_LeavesVerificationSnapshotUntouched` (or
+- [x] T6.2b Add `TestStore_SuperchargerUpsert_LeavesVerificationSnapshotUntouched` (or
       similarly named) implementing design.md's test-contract scenario (b2) — the same R3
       regression shape as T6.2, applied to the frozen snapshot pair (design D6): insert a
       session via `UpsertSuperchargerSession`; set BOTH the trio AND
@@ -181,7 +181,7 @@
       `UpsertSuperchargerSession`'s `ON CONFLICT DO UPDATE SET` clause, or if a future
       change turns them into a nightly-refreshed pair — it is the regression guard for D6.
 
-- [ ] T6.3 Add a test implementing design.md's test-contract scenario (c): each of the
+- [x] T6.3 Add a test implementing design.md's test-contract scenario (c): each of the
       direct-SQL statements listed there — out-of-range checks on `start_battery_pct` (`=
       101`, `= -1`), `end_battery_pct` (`= 101`), `start_battery_pct_est` (`= 101`, `= -1`),
       `end_battery_pct_est` (`= 101`), the two rejected `battery_pct_source` values
@@ -191,7 +191,7 @@
       row; the sanity-check statement succeeds.
       Acceptance: `go test ./internal/telemetry/...` (DB-gated) passes.
 
-- [ ] T6.4 Add a test implementing design.md's test-contract scenario (d): after setting one
+- [x] T6.4 Add a test implementing design.md's test-contract scenario (d): after setting one
       session's trio (reusing T6.2's fixture or a fresh one) and a second session's trio
       plus frozen snapshot pair (reusing T6.2b's fixture or a fresh one), call both
       `SuperchargerSessionsByAccount` and `SuperchargerSessionsByVehicle` for the relevant
