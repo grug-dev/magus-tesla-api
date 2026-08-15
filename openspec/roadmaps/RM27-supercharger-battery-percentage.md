@@ -39,7 +39,8 @@ a spread only explicable by where in the SOC band each charge sat.
 | **R4** | The estimator lives in **`internal/battery`** and computes **on read**; no `_est` columns are persisted. | `battery → telemetry` is one-directional; telemetry calling the estimator would be an **import cycle**. battery is the derived-metrics module and already owns `packCapacityKWh` and consumes `telemetry.SuperchargerReader`. |
 | **R5** | Reads serve **`verified ?? estimated`**. | Estimates are visible from day one; the human trio overrides when present. |
 | **R6** | No `_est` persistence. The estimate is a pure function of stored data (`energy_kwh`, timestamps, `car_type`). | A persisted estimate goes stale the moment the taper model improves; recomputing always reflects the current model — which also makes drift analysis (`est` vs `verified`) *more* correct, not less. |
-| **R7** | The **verification UI is out of scope** — follow-up ticket. | Keeps RM27 to two modules; the feature still ships visible value (estimates on the Supercharger stats page) without it. |
+| **R7** | The **edit/verify form is out of scope** — follow-up ticket. RM27 ships the estimates **read-only** (tier 3). | Keeps the write path, CSRF/tenant checks and the input-shape questions out of this roadmap, while still putting a visible number on screen. **Corrected 2026-08-15:** the original rationale claimed the estimates would be visible without any gateway work. That was wrong — see R9. |
+| **R9** | RM27 includes a **third tier wiring `gateway → battery`**: `cmd/web` constructs `battery.NewReader`, `gateway.Deps` gains a `BatteryReader battery.Reader`, and the Supercharger Stats page reads the estimated start/end % from it. | Without this the feature renders nothing. `internal/battery` is currently imported by **no package at all** (its own `AGENTS.md`: "not yet wired"), and the Supercharger Stats page calls `telemetry.SuperchargerReader` **directly** from `cmd/web`. Tiers 1+2 alone would compute estimates that never reach a screen. This is the roadmap's only new module edge. |
 | **R8** | `start_battery_pct_est` / `end_battery_pct_est` store a **frozen snapshot of the estimate as displayed at the moment a human verified**, written once by the future verification UI in the same write as the trio, never refreshed, NULL for unverified sessions, and excluded from the nightly upsert exactly like the trio. | The user wants a permanent drift log (model said 82, human said 79). This does **not** contradict R6: R6 forbids a column that silently goes stale while pretending to be current, whereas a dated observation is *supposed* to never change. It is also the only shape with a **legal writer** — the gateway reads `battery` and writes through a telemetry port (`gateway → battery`, `gateway → telemetry`, no cycle), whereas a nightly-refreshed `_est` has none: `battery` may not write into telemetry's table, and telemetry computing it is the import cycle. Tier 2 never reads these columns as a cache. |
 
 ### Rejected alternatives
@@ -67,9 +68,40 @@ a spread only explicable by where in the SOC band each charge sat.
 | Status | Change | Module | Scope | depends_on | Proposal prompt |
 |---|---|---|---|---|---|
 | `[~]` | `RM27-telemetry-add-supercharger-battery-pct` | `telemetry` | Migration adding five nullable columns to `supercharger_sessions`: the human trio `start_battery_pct` / `end_battery_pct` (`SMALLINT CHECK 0..100`) + `battery_pct_source` (`TEXT CHECK IN ('user_verified','polled')`), and the frozen snapshot pair `start_battery_pct_est` / `end_battery_pct_est` (`SMALLINT CHECK 0..100`, R8). All five **omitted entirely** from `UpsertSuperchargerSession` — both the `INSERT` list and the `ON CONFLICT DO UPDATE SET` (R3). Extend `SuperchargerReader`'s row type so battery can read them. No new index (see design). | — | Add the human-owned battery-percentage trio plus the frozen estimate-snapshot pair to `supercharger_sessions`, protected from the nightly upsert per R2/R3/R8. Mirror the `_pct` suffix and `SMALLINT CHECK` shape already used by `manual_charge_entries`. |
-| `[ ]` | `RM27-battery-estimate-supercharger-soc` | `battery` | Taper-curve estimator solving `(start, end)` from `energy_kwh` + duration + `capacityFor(car_type)`. Serves `verified ?? estimated` through the `battery` read port. Handles unknown `car_type`, unsolvable and out-of-range results. | `RM27-telemetry-add-supercharger-battery-pct` | Implement the SOC estimator in the derived-metrics module per R1/R4/R5/R6, computing on read with no persistence. |
+| `[ ]` | `RM27-battery-estimate-supercharger-soc` | `battery` | Taper-curve estimator solving `(start, end)` from `energy_kwh` + duration + `capacityFor(car_type)`. **Adds a method to the existing `battery.Reader` port** (today it exposes only `RecentEfficiency`) serving `verified ?? estimated`. Handles unknown `car_type`, unsolvable and out-of-range results — mirror the existing `Efficiency.Approximate` precedent (design D1b), which already flags "pack capacity unknown" rather than fabricating a number. | `RM27-telemetry-add-supercharger-battery-pct` | Implement the SOC estimator in the derived-metrics module per R1/R4/R5/R6, computing on read with no persistence, exposed as a new method on the `battery.Reader` port. |
+| `[ ]` | `RM27-gateway-show-supercharger-soc` | `gateway` | Wire the module that nothing currently imports: construct `battery.NewReader` in `cmd/web`, add `BatteryReader battery.Reader` to `gateway.Deps`, and render estimated start/end % on the Supercharger Stats page (`templates/fragments/supercharger_*`). **Read-only — no edit form.** Bilingual ES/EN labels via `i18n.T`, `ui/` kit components, and a clear visual marking that the values are estimates. | `RM27-battery-estimate-supercharger-soc` | Surface the estimated start/end battery % on the Supercharger Stats page per R9, read-only, wiring `gateway → battery` for the first time. |
 
 **Legend:** `[ ]` pending (change not created) · `[~]` in progress (change created, not archived) · `[x]` done (archived).
+
+## Dependency flow
+
+**When the estimate is computed: on read, per request — never on a schedule.** The nightly
+poller writes only the raw session (`energy_kwh`, the timestamps, fees, billing state) and
+computes nothing. There is no batch step, no post-poll job, and nothing persisted (R6).
+
+```
+WRITE (nightly, cmd/poller)
+  tesla ──> telemetry.Collector ──> supercharger_sessions
+                                      raw fields only; the five new columns are
+                                      untouched by this path entirely (R3/R8)
+
+READ (per request, cmd/web)
+  gateway ──> battery.Reader ──> telemetry.SuperchargerReader ──> supercharger_sessions
+              │                                                     │
+              │ capacityFor(car_type) + taper solve                 │ verified values,
+              │ = estimated (start, end)                            │ when a human set them
+              └──────────── verified ?? estimated ──────────────────┘
+```
+
+**New module edges introduced by RM27: exactly one — `gateway → battery` (tier 3).**
+`battery → telemetry` already exists (`derive.go`, `reader.go`), so tiers 1 and 2 add no edge
+at all: tier 1 adds fields to a struct battery already reads, tier 2 adds logic inside battery
+over an edge that is already there. The `gateway → telemetry` edge also already exists and
+stays — the Supercharger Stats page keeps reading telemetry for the session rows themselves.
+
+No cycle is created: `gateway → battery → telemetry` is a straight line. The reverse direction
+is what the design had to avoid — telemetry computing the estimate itself would require
+`telemetry → battery`, inverting the existing `battery → telemetry` edge (R4).
 
 ## Future work
 

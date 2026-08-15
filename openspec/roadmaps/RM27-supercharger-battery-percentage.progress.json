@@ -17,7 +17,7 @@
   },
   "rollup": {
     "current": [1],
-    "pending": [2],
+    "pending": [2, 3],
     "blocked": [],
     "done": []
   },
@@ -93,6 +93,15 @@
       "decision": "battery_pct_source stores ('user_verified','polled') and never 'estimated'; absence of the trio is the estimated signal",
       "why": "Admitting 'estimated' as storable invites a future writer to persist the live estimate, the exact anti-pattern R6 forbids. Verify-queue reads WHERE start_battery_pct IS NULL.",
       "covered_by": "R6"
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-15T02:55:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Added tier 3 (gateway) wiring gateway → battery read-only, after the leader's claim that tiers 1+2 would show visible value was found false",
+      "why": "internal/battery is imported by no package, and the Supercharger Stats page reads telemetry directly. Tiers 1+2 would compute estimates nothing renders. R7's original rationale was corrected.",
+      "covered_by": "R9"
     }
   ],
   "tiers": [
@@ -117,6 +126,21 @@
       "module": "battery",
       "optional": false,
       "depends_on": [1],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 3,
+      "change": "RM27-gateway-show-supercharger-soc",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [2],
       "status": "not-started",
       "assistant": null,
       "model": null,

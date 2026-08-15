@@ -277,15 +277,21 @@ to; deferred here rather than expanding that change's scope a third time at its 
 ### PROPOSAL
 
 `RM27-supercharger-battery-percentage` ships **estimated** start/end SOC (solved from billed
-energy + session duration against the DC taper curve) plus the human-owned override trio
-`start_battery_pct` / `end_battery_pct` / `battery_pct_source` on `supercharger_sessions`.
-Nothing writes that trio yet — RM27 deliberately excluded the UI to keep itself to two
-modules.
+energy + session duration against the DC taper curve), displays it **read-only** on the
+Supercharger Stats page (RM27 tier 3 wires `gateway → battery`), and adds the human-owned
+override trio `start_battery_pct` / `end_battery_pct` / `battery_pct_source` plus the frozen
+snapshot pair `start_battery_pct_est` / `end_battery_pct_est` on `supercharger_sessions`.
+**Nothing writes those five columns yet** — RM27 ships display only; the edit/verify form is
+the gap this entry covers.
 
 Two follow-ups, in priority order:
 
-1. **Verification UI (`gateway`)** — an edit form on the Supercharger stats page to enter or
-   correct start/end %, writing the trio and setting `battery_pct_source = 'user_verified'`.
+1. **Verification UI — the edit form (`gateway`)** — RM27 tier 3 already renders the estimates
+   and wires `gateway → battery`, so this is purely the **write** path: an edit form on the
+   Supercharger Stats page to enter or correct start/end %, writing the trio and setting
+   `battery_pct_source = 'user_verified'`. It needs a telemetry **write** port (none exists for
+   this table yet — today's only writer is the poller) plus CSRF + tenant checks per the
+   gateway's AGENTS.md rule for user-initiated writes.
    **It must also write the frozen snapshot pair** `start_battery_pct_est` /
    `end_battery_pct_est` in the same write, capturing the estimate as displayed at that moment
    (roadmap RM27 decision R8) — the gateway is the only legal writer of those columns, because
