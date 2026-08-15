@@ -163,14 +163,14 @@
 
 ## T7. New DB-integration tests — both groups, depends on T1, T3, T5, T6
 
-- [ ] T7.1 Implement design.md's test-contract scenario (a): upserting a newly-flagged day
+- [x] T7.1 Implement design.md's test-contract scenario (a): upserting a newly-flagged day
       then re-running `ReconcileWindow` with the same day still flagged does not duplicate
       the row (`UNIQUE` constraint is the mechanism, not application-level dedup); assert
       `updated_at` advances between the two calls and `created_at` is byte-for-byte
       unchanged.
       Acceptance: `go test ./internal/telemetry/...` (DB-gated) passes.
 
-- [ ] T7.2 Implement design.md's test-contract scenario (b): a day that flags then stops
+- [x] T7.2 Implement design.md's test-contract scenario (b): a day that flags then stops
       flagging is deleted by the next `ReconcileWindow` call for the same window, while a
       DIFFERENT still-flagged day in the same call's `flagged` set is left untouched (proves
       per-day precision, not a blunt clear-and-reinsert). Also cover the empty-`flagged`-set
@@ -178,19 +178,19 @@
       every previously-flagged day in that window).
       Acceptance: `go test ./internal/telemetry/...` (DB-gated) passes.
 
-- [ ] T7.3 Implement design.md's test-contract scenario (c): four Supercharger sessions
+- [x] T7.3 Implement design.md's test-contract scenario (c): four Supercharger sessions
       stopping exactly on `start`, exactly on `end` (first instant of the end day), late in
       the `end` calendar day (e.g. `23:59:59Z`), and exactly one day past `end` — assert the
       first three are returned ordered oldest-first and the fourth is excluded.
       Acceptance: `go test ./internal/telemetry/...` (DB-gated) passes.
 
-- [ ] T7.4 Implement design.md's test-contract scenario (d): a session whose
+- [x] T7.4 Implement design.md's test-contract scenario (d): a session whose
       `charge_start_date_time` is before the window's `start` but whose
       `charge_stop_date_time` falls inside the window IS included, ordered correctly among
       the scenario (c) fixtures by its stop time.
       Acceptance: `go test ./internal/telemetry/...` (DB-gated) passes.
 
-- [ ] T7.5 Implement design.md's test-contract scenario (e), tenant isolation, covering both
+- [x] T7.5 Implement design.md's test-contract scenario (e), tenant isolation, covering both
       pieces: (i) `ReconcileWindow` scoped to one account/vehicle never writes or deletes
       another account/vehicle's rows, even with overlapping dates; (ii) a `ReconcileWindow`
       call whose `flagged` set contains a mis-scoped entry (wrong `AccountID` or `TeslaID`,
@@ -204,7 +204,7 @@
 
 ## T8. `internal/telemetry/AGENTS.md` documentation — depends on T1
 
-- [ ] T8.1 Add `charge_gaps` to the "Data ownership" section (columns, types, nullability,
+- [x] T8.1 Add `charge_gaps` to the "Data ownership" section (columns, types, nullability,
       the `CHECK`/`UNIQUE` constraints, the no-FK/no-`raw_data` rationale pointers) alongside
       the existing `vehicle_snapshots`/`poll_attempts`/`supercharger_sessions` entries; add a
       note on `GapWriter`/`ReconcileWindow`'s upsert-and-delete lifecycle (no `resolved_at`)

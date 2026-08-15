@@ -907,9 +907,15 @@ but not run by the assistant; they belong in a new or existing DB-gated test fil
 - **And** a fifth session S5 with `charge_start_date_time = 2026-08-09T23:30:00Z` (the day
   BEFORE `start`) and `charge_stop_date_time = 2026-08-10T00:15:00Z` (inside the window).
 - **When** `SuperchargerSessionsByVehicleBetween(ctx, A1, T1, start, end)` is called.
-- **Then** S5 IS included in the result, ordered before S1 (its stop time, `00:15:00Z`, is
+- **Then** S5 IS included in the result, ordered **after** S1 (its stop time, `00:15:00Z`, is
   after S1's `00:00:00Z`) — proving the port filters purely on stop time and ignores where
   the session started.
+
+  **Corrected 2026-08-15, during wave 2.** This bullet originally read "ordered *before* S1",
+  which contradicted its own parenthetical and scenario (c)'s "oldest-first (S1 before S2
+  before S3)". Ordering is `ORDER BY charge_stop_date_time ASC` (`db/query.sql`), so a later
+  stop time sorts later — S1 then S5. The authoring error was in this document, not in the
+  implementation; the test asserts the corrected order.
 
 ### (e) Tenant isolation: another account's rows are never returned or written
 

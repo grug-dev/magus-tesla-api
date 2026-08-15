@@ -5,26 +5,26 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
   "request": "Source ticket: MAG-15 \u2014 https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nRM28 tier 1. Create the charge_gaps table (days whose battery math does not add up because a charge record is missing or incomplete) plus its GapWriter write port, and add SuperchargerSessionsByVehicleBetween to the SuperchargerReader port. Roadmap decisions D3, D7, D7a, D7b, D9, D12 bind this change.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "T7",
+    "pending": [],
+    "blocked": [],
+    "done": [
       "T8"
     ],
-    "blocked": [],
-    "done": [],
     "awaiting-user-verification": [
       "T1",
       "T2",
       "T3",
       "T4",
       "T5",
-      "T6"
+      "T6",
+      "T7"
     ]
   },
   "created_at": "2026-08-15T13:58:00Z",
-  "updated_at": "2026-08-15T19:07:00Z",
+  "updated_at": "2026-08-15T19:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -205,14 +205,23 @@
         "T6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T19:09:00Z",
+      "completed_at": "2026-08-15T19:20:00Z",
+      "duration_seconds": 660,
+      "notes": "8 test funcs in 2 new integration files covering contract scenarios (a)-(e) plus the mis-scoped/out-of-window validation guards. Compile clean under go vet; never executed.",
+      "budget": {
+        "five_hour_pct_start": 66.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2 delta pending end-reading"
+      }
     },
     {
       "id": "T8",
@@ -222,14 +231,23 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T19:09:00Z",
+      "completed_at": "2026-08-15T19:20:00Z",
+      "duration_seconds": 660,
+      "notes": "AGENTS.md documents charge_gaps (columns, constraint, both indexes, delete-on-resolve) and the ports. Also added the SuperchargerReader bullet list, which had never been documented.",
+      "budget": {
+        "five_hour_pct_start": 66.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2 delta pending end-reading"
+      }
     }
   ],
   "decisions": [
@@ -268,6 +286,15 @@
       "decision": "Leader added the missing SuperchargerSessionsByVehicleBetween method to the test doubles in internal/battery and internal/gateway/handlers, as panic-on-call stubs.",
       "why": "Adding a port method broke go vet in two sibling modules. Cross-module integration is the leader\u2019s job, not a sandboxed worker\u2019s. Panic, not nil, so an unexpected call fails loudly.",
       "covered_by": null
+    },
+    {
+      "id": "G5",
+      "at": "2026-08-15T19:20:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Corrected design.md test-contract scenario (d): \"ordered before S1\" changed to \"ordered after S1\".",
+      "why": "The bullet contradicted its own parenthetical and scenario (c). Query orders by charge_stop_date_time ASC, so a later stop sorts later. Authoring bug in the artifact, not the code.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -290,6 +317,16 @@
       "at": "2026-08-15T19:07:00Z",
       "kind": "wave-completed",
       "note": "Wave 1 (T1-T6) complete. go build + go vet clean repo-wide after the leader fixed two cross-module fakes. gofmt noise (14 files) confirmed pre-existing on main. Suite NOT run - awaiting the user."
+    },
+    {
+      "at": "2026-08-15T19:09:00Z",
+      "kind": "wave-dispatched",
+      "note": "Wave 2 (T7 DB contract tests, T8 AGENTS.md) dispatched to one serial telemetry worker on Sonnet. Budget at dispatch: five_hour 66%, context 35%."
+    },
+    {
+      "at": "2026-08-15T19:20:00Z",
+      "kind": "wave-completed",
+      "note": "Wave 2 (T7,T8) complete. go build + go vet + gofmt clean on touched files. Worker found and refused to paper over a self-contradictory ordering claim in design.md scenario (d); leader verified against query.sql and corrected the artifact."
     }
   ],
   "review": {
