@@ -90,20 +90,20 @@ Appended by the leader after the owner ruled on the two paused design questions.
 
 ## T1. `internal/battery/battery.go` — `Reader` interface, `DayConsumption` type, `GapReconciliationWindow` const — depends on T0
 
-- [ ] T1.1 Add `GapReconciliationWindow = 30 * 24 * time.Hour` as an exported constant,
+- [x] T1.1 Add `GapReconciliationWindow = 30 * 24 * time.Hour` as an exported constant,
       with the doc comment from design.md's "Go-Level Surface" section (states: the
       rolling window `cmd/poller` re-derives and reconciles against `charge_gaps` every
       nightly run — D4/D4a/D7b — and why 30 days).
       Acceptance: constant compiles; `gofmt -l internal/battery/battery.go` reports no
       issues.
-- [ ] T1.2 Add `ConsumedByDay(ctx context.Context, accountID uuid.UUID, teslaID int64,
+- [x] T1.2 Add `ConsumedByDay(ctx context.Context, accountID uuid.UUID, teslaID int64,
       start, end time.Time) ([]DayConsumption, error)` to the `Reader` interface, with the
       doc comment from design.md's "Go-Level Surface" section (states: D13 formula,
       recomputed-on-read/no-cache D2, sparse-result/absence-is-no-data D-B2, no
       window-size validation of its own).
       Acceptance: `go build ./...` fails (interface method has no implementation yet) —
       expected until T3 lands, mirrors tiers 1–2's own precedent.
-- [ ] T1.3 Add the `DayConsumption` struct exactly as specified in design.md's "Go-Level
+- [x] T1.3 Add the `DayConsumption` struct exactly as specified in design.md's "Go-Level
       Surface" section — fields `Date`, `ConsumedPct`, `DistanceKm`, `Flagged`,
       `MissingChargingType telemetry.MissingChargingType`, `DaysSpanned int` — with every
       field's doc comment from design.md.
@@ -114,31 +114,31 @@ Appended by the leader after the owner ruled on the two paused design questions.
 
 ## T2. `internal/battery/consumed.go` (new file) — pure derivation — depends on T1
 
-- [ ] T2.1 Create `internal/battery/consumed.go` with package `battery` and the file-level
+- [x] T2.1 Create `internal/battery/consumed.go` with package `battery` and the file-level
       doc comment mirroring `derive.go`'s style (what this file owns: the D13 per-day
       derivation, fully offline).
-- [ ] T2.2 Add `calendarDay(t time.Time) time.Time` and `effectiveDay(s telemetry.Snapshot)
+- [x] T2.2 Add `calendarDay(t time.Time) time.Time` and `effectiveDay(s telemetry.Snapshot)
       time.Time`, exactly as specified in design.md D-B7/D-B12. **These REPLACE the `dayUTC`
       helper this task originally specified** — the owner's D18 ruling (T0) moved bucketing
       off UTC. `effectiveDay(s) = calendarDay(s.CapturedDate).AddDate(0, 0, -1)`;
       `s.EffectiveDate` is NOT read anywhere in this module. Carry both doc comments from
       design.md verbatim — `calendarDay`'s in particular must state that it is a
       representation normalizer, not a timezone conversion.
-- [ ] T2.3 Add `const minFlagDistanceKm = 10.0` with the doc comment from design.md D-B8 —
+- [x] T2.3 Add `const minFlagDistanceKm = 10.0` with the doc comment from design.md D-B8 —
       never referenced as a bare literal anywhere else in this file or `reader.go`.
-- [ ] T2.4 Add `sumSuperchargerPctBetween(sessions []telemetry.SuperchargerSession, from,
+- [x] T2.4 Add `sumSuperchargerPctBetween(sessions []telemetry.SuperchargerSession, from,
       to time.Time) float64`, exactly as specified in design.md D-B5: half-open `[from,
       to)` on `ChargeStopDateTime`, skips either-nil-percentage sessions (contributes 0).
-- [ ] T2.5 Add `inferMissingChargingType(sessions []telemetry.SuperchargerSession, from,
+- [x] T2.5 Add `inferMissingChargingType(sessions []telemetry.SuperchargerSession, from,
       to time.Time) telemetry.MissingChargingType`, exactly as specified in design.md D7a/
       D-B5: `telemetry.MissingChargingTypeSupercharger` when any matched session has
       either percentage nil, else `telemetry.MissingChargingTypeManual`.
-- [ ] T2.6 Add `sumManualPctBetween(entries []manualcharge.Entry, fromDay, toDay
+- [x] T2.6 Add `sumManualPctBetween(entries []manualcharge.Entry, fromDay, toDay
       time.Time) float64`, exactly as specified in design.md D-B6: exclusive-start/
       inclusive-end date range on `calendarDay(e.ChargedOn)` (was `dayUTC` before T0), skips
       either-nil-percentage entries (contributes 0). `fromDay`/`toDay` are the caller's
       zoned `effectiveDay` values.
-- [ ] T2.7 Add `deriveConsumedByDay(snapshots []telemetry.Snapshot, sessions
+- [x] T2.7 Add `deriveConsumedByDay(snapshots []telemetry.Snapshot, sessions
       []telemetry.SuperchargerSession, entries []manualcharge.Entry, start, end
       time.Time) []DayConsumption`, exactly as specified in design.md's "Go-Level
       Surface" section: pairwise iteration from `i=1`, D5a skip on nil
@@ -154,7 +154,7 @@ Appended by the leader after the owner ruled on the two paused design questions.
 
 ## T3. `internal/battery/reader.go` — `ConsumedByDay` implementation — depends on T1, T2
 
-- [ ] T3.1 Add `(*reader).ConsumedByDay`, exactly as specified in design.md's "Go-Level
+- [x] T3.1 Add `(*reader).ConsumedByDay`, exactly as specified in design.md's "Go-Level
       Surface" section. **All three fetch windows CHANGED in T0** (design D-B13 — the zone
       shift means a UTC-windowed fetch would drop rows the zoned bucketing needs):
       `lookbackStart := start.AddDate(0, 0, -1)` (D9a);
@@ -272,7 +272,7 @@ Appended by the leader after the owner ruled on the two paused design questions.
 
 ## T7. `internal/battery/AGENTS.md` — Public Interface documentation — depends on T1
 
-- [ ] T7.1 Update the "Public interface (the port)" section to include `ConsumedByDay`'s
+- [x] T7.1 Update the "Public interface (the port)" section to include `ConsumedByDay`'s
       signature and a short description (mirrors the existing `RecentEfficiency` bullet's
       style), plus a new bullet for `DayConsumption` (mirrors the existing `Efficiency`
       bullet's style) and one for `GapReconciliationWindow` alongside the existing

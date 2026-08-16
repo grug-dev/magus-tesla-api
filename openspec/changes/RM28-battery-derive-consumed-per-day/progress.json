@@ -9,22 +9,22 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T1",
-      "T2",
-      "T3",
       "T4",
       "T5",
       "T6",
-      "T7",
       "V"
     ],
     "blocked": [],
     "done": [
-      "T0"
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T7"
     ]
   },
   "created_at": "2026-08-16T02:39:00Z",
-  "updated_at": "2026-08-16T02:39:00Z",
+  "updated_at": "2026-08-16T10:37:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -68,14 +68,21 @@
         "T0"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T10:35:00Z",
+      "completed_at": "2026-08-16T10:36:00Z",
+      "duration_seconds": 60,
+      "notes": "Added GapReconciliationWindow, ConsumedByDay on Reader, DayConsumption struct to battery.go verbatim per design.md; added telemetry import. Build correctly failed pre-T3, passes now.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.55,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta across T1/T2/T3/T7 (single serial worker)"
+      }
     },
     {
       "id": "T2",
@@ -85,14 +92,21 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T10:35:00Z",
+      "completed_at": "2026-08-16T10:36:00Z",
+      "duration_seconds": 60,
+      "notes": "Created consumed.go: calendarDay, effectiveDay, minFlagDistanceKm, sumSuperchargerPctBetween, inferMissingChargingType, sumManualPctBetween, deriveConsumedByDay. Pure, no I/O.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.55,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta across T1/T2/T3/T7 (single serial worker)"
+      }
     },
     {
       "id": "T3",
@@ -103,14 +117,21 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T10:35:00Z",
+      "completed_at": "2026-08-16T10:36:00Z",
+      "duration_seconds": 60,
+      "notes": "Added (*reader).ConsumedByDay in reader.go with the D-B13 widened windows (start-1,end+1 / start-1,end+2 / start-1,end), delegating to deriveConsumedByDay.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.55,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta across T1/T2/T3/T7 (single serial worker)"
+      }
     },
     {
       "id": "T4",
@@ -173,14 +194,21 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T10:35:00Z",
+      "completed_at": "2026-08-16T10:36:00Z",
+      "duration_seconds": 60,
+      "notes": "Updated AGENTS.md Public interface section with ConsumedByDay, DayConsumption, GapReconciliationWindow bullets.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 3.55,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta across T1/T2/T3/T7 (single serial worker)"
+      }
     },
     {
       "id": "V",
@@ -256,6 +284,15 @@
       "decision": "Appended D17/D18 to the roadmap .md decision table, plus a new D18a recording the worker-derived CapturedDate-1 zone mechanism.",
       "why": "D17/D18 existed only in the roadmap progress.json, so design.md's citations dangled. D18a records why no *time.Location is injected - leader-verified at telemetry/service.go:510.",
       "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-16T10:37:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Deferred the Step 5.7 suite ask from wave 1 to wave 2 instead of asking twice.",
+      "why": "Wave 1 wrote code but zero tests - T4/T5 own them. A suite run now could only re-confirm existing tests; the meaningful ask is once the new tests exist.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -283,6 +320,16 @@
       "at": "2026-08-16T10:33:00Z",
       "agent": "leader",
       "event": "Wave 0 (T0) reconciled - done. Design revised for D18: bucket day = CapturedDate - 1 day, EffectiveDate never read by battery. Leader VERIFIED the two load-bearing claims independently: telemetry/service.go:510 stamps CapturedDate via dateOnly(capturedAt, loc) in Config.Location, and service.go:587 derives DaysSpannedCalc from those same CapturedDate values - so effectiveDay(cur)-effectiveDay(prev) == DaysSpannedCalc is an exact identity. D-B1 survives: NewReader unchanged, so T1/T3/T6 need no contract change. Only markdown changed; no Go touched."
+    },
+    {
+      "at": "2026-08-16T10:35:00Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched: T1+T2+T3+T7 batched into ONE serial battery worker on Sonnet. T1->T2->T3 is a strict dependency chain so parallelism buys nothing; T7 (AGENTS.md) rides along on a disjoint file. Tests (T4/T5) deliberately held for a SEPARATE wave-2 worker so they are written against design.md's Test Contract rather than against the implementation just written."
+    },
+    {
+      "at": "2026-08-16T10:37:00Z",
+      "agent": "leader",
+      "event": "Wave 1 (T1+T2+T3+T7) reconciled - all done. Leader independently verified: go build ./... and go vet ./... both exit 0; EffectiveDate appears in internal/battery/ only in a doc comment and AGENTS.md prose, never as field access; NewReader signature byte-unchanged (reader.go:40); deriveConsumedByDay matches D13 (consumed = battery_used_pct_calc + charge sum), D5 flag rule, D5a nil skip, D-B3 Date=effectiveDay(cur). PRE-EXISTING gofmt drift in internal/battery/derive_test.go confirmed present on a clean stashed tree - NOT introduced by this wave, left untouched."
     }
   ]
 }

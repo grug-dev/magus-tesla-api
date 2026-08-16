@@ -45,19 +45,44 @@ interface-first):
   `Efficiency.Approximate=true` (still `ok=true`) when the vehicle's pack capacity is
   unknown — the SoC-drift correction term is dropped, not the whole computation
   (`design.md` D1b).
+- `Reader` — `ConsumedByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayConsumption, error)`:
+  returns the corrected per-day battery-consumed percentage (D13) over `[start, end]`
+  (whole calendar days, UTC-midnight-represented, `end` inclusive). Calendar-day
+  bucketing uses the poller's configured zone (`telemetry.Config.Location`, roadmap
+  D6/D18), never UTC — the day is each row's own `telemetry.Snapshot.CapturedDate`
+  minus one day (`design.md` D-B7/D-B12); `telemetry.Snapshot.EffectiveDate` (a UTC-derived
+  field) is never read by this module. The result is **sparse**: one entry per day with a
+  computable value, no entry at all for a day without one — absence IS the "no data"
+  signal (`design.md` D-B2), mirroring `internal/gateway/handlers/history.go`'s existing
+  `buildOdometerChart`/`buildBatteryChart` convention. Recomputed on every call, no cache
+  (`design.md` D2).
 - `Efficiency` — the domain result: `WhPerKm` (raw `float64`, unrounded — the gateway
   formats it), `FromKm`/`ToKm` (read directly from `telemetry.Snapshot.OdometerKm` —
   already km-native at capture time, `telemetry-store-display-units` design D1/D3; this
   module performs no unit conversion of its own, per
   `battery-adopt-snapshot-unit-fields`), `BatteryDeltaPct` (net SoC over the window,
   `start − end`; negative means net charge), `Approximate`.
+- `DayConsumption` — one calendar day's corrected consumption result: `Date` (the row's
+  own effective day, never re-attributed — `design.md` D-B3), `ConsumedPct` (D13 formula,
+  raw and unrounded, may be negative or zero), `DistanceKm`, `Flagged` (D5/D5a gap
+  detection), `MissingChargingType` (`telemetry.MissingChargingType`, valid only when
+  `Flagged`, D7a), `DaysSpanned` (the row's own `DaysSpannedCalc`, >1 signals a multi-day
+  span, D8).
 - `DefaultWindow` — exported `time.Duration` constant, 30 days. Deployment code passes
   it (or a different duration) to `NewReader` at construction; the window is NOT a
   per-call argument to `RecentEfficiency` (`design.md` D3).
+- `GapReconciliationWindow` — exported `time.Duration` constant, 30 days. The rolling
+  window `cmd/poller` re-derives and reconciles against `telemetry`'s `charge_gaps`
+  ledger every nightly run, via `ConsumedByDay` (`design.md` D4/D4a/D7b). Unlike
+  `DefaultWindow`, this is not consumed by `NewReader` — `cmd/poller` passes it directly
+  as the `[start, end]` window to `ConsumedByDay`.
 - `NewReader(telemetry telemetry.Reader, supercharger telemetry.SuperchargerReader, manual manualcharge.Reader, account vehicleLookup, window time.Duration) Reader`
   is the constructor. `vehicleLookup` is an unexported narrow interface covering only
   `RegisteredVehicles` — any real `account.Service` satisfies it automatically
-  (structural typing), no adapter needed at the call site.
+  (structural typing), no adapter needed at the call site. `ConsumedByDay` uses only
+  three of the four wired dependencies (`telemetry`, `supercharger`, `manual`) and none
+  of `account`/`window` — the signature is unchanged by `ConsumedByDay`'s addition
+  (`design.md` D-B1).
 
 No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3).
 
