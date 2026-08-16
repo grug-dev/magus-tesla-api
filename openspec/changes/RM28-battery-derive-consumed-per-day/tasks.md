@@ -28,7 +28,39 @@
 
 ---
 
-## T1. `internal/battery/battery.go` — `Reader` interface, `DayConsumption` type, `GapReconciliationWindow` const — no dependencies
+## T0. DESIGN REVISION — bucket in `Config.Location`, not UTC — BLOCKS T1–T7
+
+Appended by the leader after the owner ruled on the two paused design questions.
+
+- **Roadmap D17** confirms design **D-B3** exactly as written — `DayConsumption.Date` is the
+  row's own `EffectiveDate`, which for a multi-day span is the span's **last** calendar day.
+  No change needed.
+- **Roadmap D18 OVERRULES design D-B7.** Roadmap **D6 stands literally**: calendar-day
+  bucketing uses the poller's configured zone (`Config.Location`, `America/Bogota`), not
+  UTC. The owner made this call with the consequence stated — `internal/battery` will bucket
+  in UTC−5 while the gateway's existing odometer/battery charts still bucket in UTC via
+  `effectiveDayUTC`. That mismatch is accepted for this tier and inherited by tier 4.
+
+- [ ] T0.1 Rewrite design.md's **D-B7** to record D18: `Config.Location` is the bucketing
+      zone. Keep the superseded UTC reasoning visible as a rejected alternative with the
+      owner's override noted — do not delete it (decisions are append-only in spirit).
+- [ ] T0.2 Resolve, in design.md, **where `internal/battery` obtains its `*time.Location`**.
+      The module reads no config today. State the mechanism (constructor injection via
+      `NewReader`, a `ConsumedByDay` parameter, or another option), with the trade-off, and
+      note that both composition roots (`cmd/poller`, `cmd/web`) must supply it.
+- [ ] T0.3 Resolve what zone-aware bucketing **means** given `telemetry.Snapshot.EffectiveDate`
+      is derived as a UTC `CapturedAt − 1 day`. A bare date cannot be zone-converted, so state
+      explicitly whether the day is re-derived from `CapturedAt` in `Config.Location` or
+      `EffectiveDate` is used as-is, and why. This is the substantive part of T0 — get it
+      wrong and the formula breaks exactly at the edges D6 exists to protect.
+- [ ] T0.4 Update every affected section — `dayUTC` helper, D-B5/D-B6 matching rules,
+      the Go-Level Surface signatures, and the Test Contract's expected values wherever a
+      zone shift changes them.
+- [ ] T0.5 Re-run `openspec validate RM28-battery-derive-consumed-per-day --strict`.
+      Acceptance: design.md carries D18's zone rule, names the `*time.Location` source, and
+      answers T0.3 explicitly; `openspec validate --strict` passes.
+
+## T1. `internal/battery/battery.go` — `Reader` interface, `DayConsumption` type, `GapReconciliationWindow` const — depends on T0
 
 - [ ] T1.1 Add `GapReconciliationWindow = 30 * 24 * time.Hour` as an exported constant,
       with the doc comment from design.md's "Go-Level Surface" section (states: the

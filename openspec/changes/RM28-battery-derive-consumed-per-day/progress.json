@@ -1,0 +1,243 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM28-battery-derive-consumed-per-day",
+  "module": "battery",
+  "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
+  "request": "Implement the per-day consumed derivation in internal/battery per D13, keyed on telemetry.Snapshot.EffectiveDate. Match charges to days per D12. Detect gaps per D5/D5a, infer type per D7a. Fetch snapshots over [start-1, end] per D9a. Handle days_spanned_calc > 1 per D8. Expose a ConsumedByDay read port. Wire detection into cmd/poller per D4/D4a. Update internal/battery/AGENTS.md.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "T0",
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "V"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-16T02:39:00Z",
+  "updated_at": "2026-08-16T02:39:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM28-MAG-15-battery-consumed-graph",
+    "base": "874820f (main)",
+    "ticket": "MAG-15",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph",
+    "created_at": "2026-08-15T13:07:34Z"
+  },
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "DESIGN REVISION (blocks all others): replace design D-B7 with roadmap D18 - bucket calendar days in Config.Location, not UTC EffectiveDate",
+      "module": "battery",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Appended by the leader after the owner overruled D-B7. Must land before T1-T7: it changes the bucketing key every other task builds on, and it must resolve where battery obtains *time.Location.",
+      "budget": null
+    },
+    {
+      "id": "T1",
+      "title": "battery.go - Reader interface, DayConsumption type, GapReconciliationWindow const",
+      "module": "battery",
+      "depends_on": [
+        "T0"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "consumed.go (new) - the pure derivation",
+      "module": "battery",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "reader.go - ConsumedByDay implementation",
+      "module": "battery",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "consumed_test.go (new) - pure-function test contract",
+      "module": "battery",
+      "depends_on": [
+        "T2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "reader_test.go - port-wiring tests + un-panic three fakes",
+      "module": "battery",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "cmd/poller wiring - LEADER-OWNED (composition root, outside any module sandbox)",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "AGENTS.md - Public Interface documentation",
+      "module": "battery",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "V",
+      "title": "Verification - build, vet, gofmt, openspec validate, owner test handoff",
+      "module": "battery",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-16T02:24:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Paused autopilot at the artifact gate rather than dispatching implementation.",
+      "why": "Design D-B3 and D-B7 reinterpreted the owner's own roadmap decisions D8 and D6 with visible consequences - a new decision the roadmap Decisions did not cover.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-16T02:39:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Appended T0 (design revision) as a blocking predecessor of T1-T7 instead of editing the existing tasks.",
+      "why": "Tasks are append-only. The zone change alters the bucketing key every later task builds on, so it must land first rather than be patched into each.",
+      "covered_by": "roadmap D18"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-16T02:24:00Z",
+      "agent": "leader",
+      "event": "Tier 3 artifacts created by the battery worker (sonnet) and validated strict. No schema change - battery owns no database (D15) - so the database design gate does not trip."
+    },
+    {
+      "at": "2026-08-16T02:30:00Z",
+      "agent": "leader",
+      "event": "Owner answered the two paused design questions. Roadmap D17 confirms D-B3 as designed. Roadmap D18 OVERRULES design D-B7: D6 stands literally, so bucketing uses Config.Location (America/Bogota), not UTC EffectiveDate. The owner made this call with the two-clocks consequence stated: battery will bucket in UTC-5 while the gateway's existing odometer/battery charts still bucket in UTC."
+    },
+    {
+      "at": "2026-08-16T02:39:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT. five_hour_pct 87 (threshold 90), context_pct 24 (threshold 40), five_hour_resets_at 2026-08-16T05:10:00Z. Stopped before dispatching the T0 design revision rather than crossing the 5-hour threshold mid-dispatch. All state truthful: tier 3 artifacts committed at 04dfa7a, no implementation started, T0 pending and blocking."
+    }
+  ]
+}
