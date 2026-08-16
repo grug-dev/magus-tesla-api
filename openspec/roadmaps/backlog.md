@@ -369,6 +369,54 @@ should own the missing-charge table ("maybe we don't have the right bundle for c
 records… but that's out of the scope of this ticket") and scoped it out explicitly.
 
 
+## 13. gateway — history charts key a `map[time.Time]` without normalizing the lookup side
+
+### PROPOSAL
+
+All three history charts in `internal/gateway/handlers/history.go` bucket their data into a
+`map[time.Time]` and then read it with a loop variable derived from `start`:
+
+```go
+byDay[<some UTC-midnight date>] = row      // write side
+for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+    row, ok := byDay[d]                    // read side — d's Location is NOT normalized
+```
+
+Go compares `time.Time` map keys on the wall clock **and the `*time.Location`**, so the two
+sides must agree on both. The write sides are UTC (`effectiveDayUTC` for odometer/battery;
+`battery.DayConsumption.Date`, normalized by `internal/battery`'s `calendarDay`, for
+consumed). The read side is UTC only when `start` came from an explicit `?start=&end=` pair
+(`time.Parse` defaults to UTC) or the no-cookie fallback. On the **both-params-absent** path
+with a valid non-UTC `browser_tz` cookie, `start` carries that zone's `*time.Location`
+(`browserToday` → `startOfDayIn`) — every lookup then misses and **all three charts render
+as all-no-data, with no error logged anywhere.**
+
+**Currently unreachable through the UI:** `defaultHistoryHref` (`handlers.go`) and every
+preset button (`history.templ`) send explicit, UTC-parsed `start`/`end` params, so the
+browser never issues a param-less request. The path is reachable only by hand-calling
+`GET /ui/dashboard/history` with a `browser_tz` cookie and no params.
+
+**Fix when picked up:** normalize the read side once — `d` (or the map key) through a single
+`calendarKey(t) time.Time` helper that strips the zone to UTC midnight — and cover it with a
+test that drives the both-absent path with a non-UTC cookie. Note the fix belongs to **all
+three** charts, not just the consumed one; a per-chart patch would leave the same trap in the
+other two.
+
+**TRIGGER — fix this FIRST when** any caller can reach `parseHistoryRange` with both params
+absent and a `browser_tz` cookie set: a param-less link or redirect to
+`/ui/dashboard/history`, an external/API consumer of that endpoint, or a change that makes
+`defaultHistoryHref` stop emitting explicit dates.
+
+### ORIGIN
+
+`RM28-gateway-add-consumed-graph` (RM28 tier 4) review finding **R1**, raised by the leader in
+the review brief and confirmed by `gateway-reviewer` round 1 (`minor`, accepted, deferred).
+Pre-existing — the odometer and battery charts have carried the identical read-side gap since
+`gateway-dashboard-history-charts`; tier 4 neither introduced nor worsened it, and design.md
+**D-G3** explicitly forbade adding gateway-side timezone handling to the new function.
+Recorded in that change's archived progress.json.
+
+
 # BRAINSTORMING
 
 
