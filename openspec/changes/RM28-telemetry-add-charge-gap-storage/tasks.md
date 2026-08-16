@@ -222,6 +222,35 @@
 
 ---
 
+## T9. Review round 1 follow-up (finding R1-1) — appended after review, depends on T7
+
+> Appended by the leader after review round 1, with the user's decision to fix rather than
+> backlog. Nothing above this line was edited — this section is purely additive.
+> `telemetry-reviewer` returned `approved` with one **minor** open finding: two scenarios
+> that `specs/telemetry/spec.md` states as ADDED requirements were never transcribed into
+> design.md's authored Test Contract (a)–(e), so no test covers them. The reviewer verified
+> both behaviours hold structurally today; T9 adds the regression tests that keep them true.
+
+- [x] T9.1 Implement spec.md's scenario **"Reconciliation only affects the reconciled
+      window"**: seed a `charge_gaps` row for a day OUTSIDE the window about to be
+      reconciled, call `ReconcileWindow` for a window that excludes that day (with a
+      `flagged` set that does not mention it), and assert the outside-window row is still
+      present and byte-for-byte unchanged (`created_at` AND `updated_at` both untouched) —
+      proving the delete pass is bounded by the window and never a table-wide clear.
+      Acceptance: `go vet ./...` clean; the assertion fails if `ChargeGapDatesByVehicleBetween`
+      or `DeleteChargeGap` ever loses its `gap_date` bounds.
+
+- [x] T9.2 Implement spec.md's scenario **"Ledger rows for different vehicles are
+      independent"**: within ONE account, seed flagged days for two different `tesla_id`s
+      with overlapping dates, then `ReconcileWindow` for vehicle A only — asserting vehicle
+      B's rows are neither updated nor deleted, and that a day flagged for A but not B (and
+      vice versa) resolves independently.
+      Acceptance: `go vet ./...` clean; the assertion fails if any of the three gap queries
+      ever loses its `tesla_id` predicate. Note this is distinct from T7.5's tenant
+      isolation, which separates two ACCOUNTS — T9.2 separates two VEHICLES inside one.
+
+---
+
 ## Verification — depends on all tasks
 
 - [x] V1. `go build ./...` and `go vet ./...` pass after all tasks are complete.

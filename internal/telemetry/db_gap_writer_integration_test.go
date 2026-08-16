@@ -30,6 +30,17 @@ import (
 //     ReconcileWindow: it MUST fail if that validation is ever removed or weakened
 //     (tasks.md T7.5's acceptance criterion).
 //
+// tasks.md's T9 (appended after review round 1, finding R1-1) adds two more scenarios
+// that specs/telemetry/spec.md states as ADDED requirements but design.md's (a)-(e)
+// contract above never transcribed, so no test covered them until now:
+//
+//   - T9.1 "Reconciliation only affects the reconciled window" —
+//     TestGapWriter_ReconcileWindow_OutsideWindowRowUnaffected
+//   - T9.2 "Ledger rows for different vehicles are independent" —
+//     TestGapWriter_ReconcileWindow_DifferentVehiclesIndependent — distinct from the
+//     (e)-i tenant-isolation test above, which separates two ACCOUNTS; this one
+//     separates two VEHICLES inside the SAME account.
+//
 // No public Reader exists for charge_gaps in this tier (GapWriter is write-only; the
 // future notification read port is out of scope here — AGENTS.md), so these tests read
 // the table back via direct SQL against the shared test pool, exactly as
@@ -392,5 +403,193 @@ func TestGapWriter_ReconcileWindow_RejectsMisScopedFlaggedEntry_WritesNothing(t 
 				t.Errorf("want NOTHING written under the mis-scoped account_id either, got %d rows", n)
 			}
 		})
+	}
+}
+
+// TestGapWriter_ReconcileWindow_OutsideWindowRowUnaffected implements spec.md's
+// scenario "Reconciliation only affects the reconciled window" (T9.1, appended after
+// review round 1, finding R1-1): a charge_gaps row for a day OUTSIDE the window about
+// to be reconciled is left present and byte-for-byte unchanged — both CreatedAt AND
+// UpdatedAt — by a ReconcileWindow call for a window that excludes that day, with a
+// flagged set that does not mention it. This is the direct regression guard for the
+// window bounds on ChargeGapDatesByVehicleBetween/DeleteChargeGap: it must fail if
+// either query's gap_date bounds are ever loosened into a table-wide clear.
+func TestGapWriter_ReconcileWindow_OutsideWindowRowUnaffected(t *testing.T) {
+	_, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	teslaID := int64(910007)
+	vin := "V1"
+	outsideDate := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+
+	cleanupChargeGaps(t, pool, accountID, teslaID)
+
+	gw := newGapWriter(pool)
+
+	// Seed the outside-window row via a call whose OWN window contains it.
+	seedStart := time.Date(2026, 6, 25, 0, 0, 0, 0, time.UTC)
+	seedEnd := time.Date(2026, 7, 5, 0, 0, 0, 0, time.UTC)
+	if err := gw.ReconcileWindow(ctx, accountID, teslaID, seedStart, seedEnd,
+		[]ChargeGap{{AccountID: accountID, TeslaID: teslaID, VIN: vin, Date: outsideDate, MissingChargingType: MissingChargingTypeManual}},
+	); err != nil {
+		t.Fatalf("seeding outside-window row: %v", err)
+	}
+
+	before, ok := fetchChargeGap(t, pool, accountID, teslaID, outsideDate)
+	if !ok {
+		t.Fatal("want the seeded outside-window row present, found none")
+	}
+
+	// Give Postgres's now() room to advance measurably, so the "unchanged" assertions
+	// below cannot pass by timestamp coincidence if the delete pass wrongly touched it.
+	time.Sleep(10 * time.Millisecond)
+
+	// Reconcile a DIFFERENT, disjoint window that excludes outsideDate entirely, with
+	// a flagged set that does not mention it.
+	windowStart := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	windowEnd := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	inWindowDate := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
+	if err := gw.ReconcileWindow(ctx, accountID, teslaID, windowStart, windowEnd,
+		[]ChargeGap{{AccountID: accountID, TeslaID: teslaID, VIN: vin, Date: inWindowDate, MissingChargingType: MissingChargingTypeManual}},
+	); err != nil {
+		t.Fatalf("reconciling a disjoint window: %v", err)
+	}
+
+	after, ok := fetchChargeGap(t, pool, accountID, teslaID, outsideDate)
+	if !ok {
+		t.Fatal("outside-window row: want it still present after reconciling a disjoint window, was deleted")
+	}
+	if after.MissingChargingType != before.MissingChargingType {
+		t.Errorf("outside-window row: MissingChargingType changed: want %q, got %q", before.MissingChargingType, after.MissingChargingType)
+	}
+	if !after.CreatedAt.Equal(before.CreatedAt) {
+		t.Errorf("outside-window row: CreatedAt changed — want byte-for-byte unchanged: before=%v after=%v", before.CreatedAt, after.CreatedAt)
+	}
+	if !after.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Errorf("outside-window row: UpdatedAt changed — want byte-for-byte unchanged: before=%v after=%v", before.UpdatedAt, after.UpdatedAt)
+	}
+}
+
+// TestGapWriter_ReconcileWindow_DifferentVehiclesIndependent implements spec.md's
+// scenario "Ledger rows for different vehicles are independent" (T9.2, appended after
+// review round 1, finding R1-1): within ONE account, two vehicles' charge_gaps rows
+// resolve independently of each other, even for the SAME overlapping gap_date.
+// Distinct from TestGapWriter_ReconcileWindow_TenantIsolation_NeverTouchesOtherAccountVehicle
+// above (design.md scenario (e)-i / T7.5), which separates two ACCOUNTS — this test
+// separates two VEHICLES inside the SAME account, so it fails if
+// ChargeGapDatesByVehicleBetween, DeleteChargeGap, or UpsertChargeGap's ON CONFLICT
+// target ever loses its tesla_id predicate while still correctly scoping account_id.
+func TestGapWriter_ReconcileWindow_DifferentVehiclesIndependent(t *testing.T) {
+	_, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	teslaA := int64(910008)
+	teslaB := int64(910009)
+	dateShared := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC) // flagged for BOTH vehicles
+	dateOnlyA := time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC)   // flagged only for A
+	dateOnlyB := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)  // flagged only for B
+	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+
+	cleanupChargeGaps(t, pool, accountID, teslaA)
+	cleanupChargeGaps(t, pool, accountID, teslaB)
+
+	gw := newGapWriter(pool)
+
+	// Seed both vehicles, same account, overlapping dateShared.
+	if err := gw.ReconcileWindow(ctx, accountID, teslaA, start, end,
+		[]ChargeGap{
+			{AccountID: accountID, TeslaID: teslaA, VIN: "VA", Date: dateShared, MissingChargingType: MissingChargingTypeManual},
+			{AccountID: accountID, TeslaID: teslaA, VIN: "VA", Date: dateOnlyA, MissingChargingType: MissingChargingTypeManual},
+		},
+	); err != nil {
+		t.Fatalf("seeding vehicle A: %v", err)
+	}
+	if err := gw.ReconcileWindow(ctx, accountID, teslaB, start, end,
+		[]ChargeGap{
+			{AccountID: accountID, TeslaID: teslaB, VIN: "VB", Date: dateShared, MissingChargingType: MissingChargingTypeSupercharger},
+			{AccountID: accountID, TeslaID: teslaB, VIN: "VB", Date: dateOnlyB, MissingChargingType: MissingChargingTypeSupercharger},
+		},
+	); err != nil {
+		t.Fatalf("seeding vehicle B: %v", err)
+	}
+	if n := countChargeGaps(t, pool, accountID, teslaA); n != 2 {
+		t.Fatalf("vehicle A: want 2 rows after seeding, got %d", n)
+	}
+	if n := countChargeGaps(t, pool, accountID, teslaB); n != 2 {
+		t.Fatalf("vehicle B: want 2 rows after seeding, got %d", n)
+	}
+
+	bSharedBefore, ok := fetchChargeGap(t, pool, accountID, teslaB, dateShared)
+	if !ok {
+		t.Fatal("vehicle B: want dateShared row present before touching A, found none")
+	}
+	bOnlyBefore, ok := fetchChargeGap(t, pool, accountID, teslaB, dateOnlyB)
+	if !ok {
+		t.Fatal("vehicle B: want dateOnlyB row present before touching A, found none")
+	}
+
+	// Give Postgres's now() room to advance measurably, so the "B unchanged"
+	// assertions below cannot pass by timestamp coincidence.
+	time.Sleep(10 * time.Millisecond)
+
+	// A resolves its own dateOnlyA (no longer flagged), keeping dateShared flagged.
+	if err := gw.ReconcileWindow(ctx, accountID, teslaA, start, end,
+		[]ChargeGap{{AccountID: accountID, TeslaID: teslaA, VIN: "VA", Date: dateShared, MissingChargingType: MissingChargingTypeManual}},
+	); err != nil {
+		t.Fatalf("resolving vehicle A's dateOnlyA: %v", err)
+	}
+
+	// Vehicle A: dateOnlyA resolved independently, dateShared remains.
+	if _, ok := fetchChargeGap(t, pool, accountID, teslaA, dateOnlyA); ok {
+		t.Error("vehicle A: want dateOnlyA deleted (resolved), still present")
+	}
+	if n := countChargeGaps(t, pool, accountID, teslaA); n != 1 {
+		t.Errorf("vehicle A: want exactly 1 row remaining (dateShared), got %d", n)
+	}
+
+	// Vehicle B: neither updated nor deleted by A's call, even for the SAME
+	// overlapping dateShared.
+	bSharedAfter, ok := fetchChargeGap(t, pool, accountID, teslaB, dateShared)
+	if !ok {
+		t.Fatal("vehicle B: want dateShared row still present after A's call, was deleted")
+	}
+	if !bSharedAfter.CreatedAt.Equal(bSharedBefore.CreatedAt) || !bSharedAfter.UpdatedAt.Equal(bSharedBefore.UpdatedAt) {
+		t.Errorf("vehicle B: dateShared row touched by A's ReconcileWindow call — before=%+v after=%+v", bSharedBefore, bSharedAfter)
+	}
+	bOnlyAfter, ok := fetchChargeGap(t, pool, accountID, teslaB, dateOnlyB)
+	if !ok {
+		t.Fatal("vehicle B: want dateOnlyB row still present after A's call, was deleted")
+	}
+	if !bOnlyAfter.CreatedAt.Equal(bOnlyBefore.CreatedAt) || !bOnlyAfter.UpdatedAt.Equal(bOnlyBefore.UpdatedAt) {
+		t.Errorf("vehicle B: dateOnlyB row touched by A's ReconcileWindow call — before=%+v after=%+v", bOnlyBefore, bOnlyAfter)
+	}
+	if n := countChargeGaps(t, pool, accountID, teslaB); n != 2 {
+		t.Errorf("vehicle B: want still 2 rows (untouched), got %d", n)
+	}
+
+	// And vice versa: capture A's remaining row before B resolves its own days, then
+	// confirm B's independent resolution does not touch A.
+	aSharedBefore, ok := fetchChargeGap(t, pool, accountID, teslaA, dateShared)
+	if !ok {
+		t.Fatal("vehicle A: want dateShared row present before touching B, found none")
+	}
+	time.Sleep(10 * time.Millisecond)
+
+	if err := gw.ReconcileWindow(ctx, accountID, teslaB, start, end, []ChargeGap{}); err != nil {
+		t.Fatalf("resolving vehicle B (empty flagged set): %v", err)
+	}
+
+	if n := countChargeGaps(t, pool, accountID, teslaB); n != 0 {
+		t.Errorf("vehicle B: want 0 rows after resolving everything, got %d", n)
+	}
+	aSharedAfter, ok := fetchChargeGap(t, pool, accountID, teslaA, dateShared)
+	if !ok {
+		t.Fatal("vehicle A: want dateShared row still present after B's independent resolution, was deleted")
+	}
+	if !aSharedAfter.CreatedAt.Equal(aSharedBefore.CreatedAt) || !aSharedAfter.UpdatedAt.Equal(aSharedBefore.UpdatedAt) {
+		t.Errorf("vehicle A: dateShared row touched by B's ReconcileWindow call — before=%+v after=%+v", aSharedBefore, aSharedAfter)
 	}
 }
