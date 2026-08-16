@@ -233,19 +233,19 @@
       (`git diff 874820f..HEAD` on the file is empty). Every file this change created or
       modified is gofmt-clean. Left unticked rather than reworded — reformatting 14
       untouched files is out of this change's scope.*
-- [ ] V3. `go test ./...` green and fast. DB integration tests self-skip without
+- [x] V3. `go test ./...` green and fast. DB integration tests self-skip without
       `DATABASE_URL`/Docker; with Docker the testcontainers helper provisions Postgres and
       applies goose migrations automatically, including the new
       `20260815000002_add_charge_gaps.sql`. NO Tesla API call fires.
-- [ ] V4. Test-contract (a) upsert-idempotency (no duplicate on re-flag): verified by T7.1.
-- [ ] V5. Test-contract (b) delete-on-resolve, including the empty-flagged-set case and
+- [x] V4. Test-contract (a) upsert-idempotency (no duplicate on re-flag): verified by T7.1.
+- [x] V5. Test-contract (b) delete-on-resolve, including the empty-flagged-set case and
       per-day precision: verified by T7.2.
-- [ ] V6. Test-contract (c) `SuperchargerSessionsByVehicleBetween` boundary correctness
+- [x] V6. Test-contract (c) `SuperchargerSessionsByVehicleBetween` boundary correctness
       (start-inclusive, end-day-inclusive, day-after-end-excluded, oldest-first order):
       verified by T7.3.
-- [ ] V7. Test-contract (d) midnight-spanning session inclusion (filter is on stop time):
+- [x] V7. Test-contract (d) midnight-spanning session inclusion (filter is on stop time):
       verified by T7.4.
-- [ ] V8. Test-contract (e) tenant isolation on both the write port and the new read method,
+- [x] V8. Test-contract (e) tenant isolation on both the write port and the new read method,
       including the mis-scoped-`flagged`-entry full-call rejection: verified by T7.5.
 - [x] V9. Static check: `UpsertChargeGap`'s `ON CONFLICT DO UPDATE SET` clause does not
       reference `created_at` (grep, per T3.1's acceptance criteria).

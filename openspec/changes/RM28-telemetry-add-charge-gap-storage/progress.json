@@ -4,27 +4,25 @@
   "change": "RM28-telemetry-add-charge-gap-storage",
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
-  "request": "Source ticket: MAG-15 \u2014 https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nRM28 tier 1. Create the charge_gaps table (days whose battery math does not add up because a charge record is missing or incomplete) plus its GapWriter write port, and add SuperchargerSessionsByVehicleBetween to the SuperchargerReader port. Roadmap decisions D3, D7, D7a, D7b, D9, D12 bind this change.",
-  "status": "applied",
+  "request": "Source ticket: MAG-15 — https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nRM28 tier 1. Create the charge_gaps table (days whose battery math does not add up because a charge record is missing or incomplete) plus its GapWriter write port, and add SuperchargerSessionsByVehicleBetween to the SuperchargerReader port. Roadmap decisions D3, D7, D7a, D7b, D9, D12 bind this change.",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
     "blocked": [],
     "done": [
-      "T8"
-    ],
-    "awaiting-user-verification": [
       "T1",
       "T2",
       "T3",
       "T4",
       "T5",
       "T6",
-      "T7"
+      "T7",
+      "T8"
     ]
   },
   "created_at": "2026-08-15T13:58:00Z",
-  "updated_at": "2026-08-16T00:21:00Z",
+  "updated_at": "2026-08-16T01:07:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -44,7 +42,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-15T18:58:00Z",
@@ -68,7 +66,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-15T18:58:00Z",
@@ -94,13 +92,13 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-15T18:58:00Z",
       "completed_at": "2026-08-15T19:07:00Z",
       "duration_seconds": 540,
-      "notes": "Four queries added; sqlc generate run. Renamed @end to @end_date \u2014 END is a reserved Postgres keyword and no other spelling compiles. Generated field is EndDate.",
+      "notes": "Four queries added; sqlc generate run. Renamed @end to @end_date — END is a reserved Postgres keyword and no other spelling compiles. Generated field is EndDate.",
       "budget": {
         "five_hour_pct_start": 42.0,
         "five_hour_pct_end": 66.0,
@@ -121,7 +119,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-15T18:58:00Z",
@@ -149,7 +147,7 @@
         "T4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-15T18:58:00Z",
@@ -176,7 +174,7 @@
         "T3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-15T18:58:00Z",
@@ -205,7 +203,7 @@
         "T6"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-15T19:09:00Z",
@@ -284,7 +282,7 @@
       "scope": "change",
       "made_by": "autopilot",
       "decision": "Leader added the missing SuperchargerSessionsByVehicleBetween method to the test doubles in internal/battery and internal/gateway/handlers, as panic-on-call stubs.",
-      "why": "Adding a port method broke go vet in two sibling modules. Cross-module integration is the leader\u2019s job, not a sandboxed worker\u2019s. Panic, not nil, so an unexpected call fails loudly.",
+      "why": "Adding a port method broke go vet in two sibling modules. Cross-module integration is the leader’s job, not a sandboxed worker’s. Panic, not nil, so an unexpected call fails loudly.",
       "covered_by": null
     },
     {
@@ -351,12 +349,22 @@
       "at": "2026-08-16T00:21:00Z",
       "kind": "verification-partial",
       "note": "Leader-run signals only: go build, go vet, openspec validate --strict all clean; V1/V9/V10/V12/V13 ticked. V2 NOT met - 14 gofmt-unformatted files, all pre-existing at base 874820f and untouched here. V11 partially met - two sibling test doubles edited (G4). V3-V8 need the user's suite. Status stays applied."
+    },
+    {
+      "at": "2026-08-16T00:26:00Z",
+      "kind": "user-verified",
+      "note": "THE USER ran `make test` (disposable testcontainer Postgres) and reported it passing. This is the owner's verification, not the assistant's — the assistant never executed the suite. T1-T7 move awaiting-user-verification -> done; V3-V8 ticked. Change status -> verified."
+    },
+    {
+      "at": "2026-08-16T01:07:00Z",
+      "kind": "review-brief-written",
+      "note": "Brief stored; dispatching telemetry-reviewer on Sonnet. Budget at dispatch: five_hour 7%, context 14%, cost $3.35."
     }
   ],
   "review": {
     "status": "pending",
     "agent": null,
-    "brief": null,
+    "brief": "Review RM28-telemetry-add-charge-gap-storage (telemetry, commits 9bdbc02..d24ac05 off 874820f). Validate: (1) MODULE BOUNDARY - internal/telemetry imports only account + tesla public packages + its own db; no other module's internals; pgtype confined to service.go/mapping.go (not gap_writer.go). (2) DB-vs-CONFIRMED-DESIGN - the shipped charge_gaps DDL must match design.md AND user gate decisions G1 (column named gap_date, NOT date) and G2 (idx_charge_gaps_account kept). Any mismatch is a BLOCKER. Exactly two indexes; nothing added on supercharger_sessions. UpsertChargeGap's ON CONFLICT SET must not touch created_at (D-Table2). (3) TEST-CONTRACT - the DB integration tests must assert the expectations design.md authored UP FRONT (scenarios a-e), not whatever the implementation happens to do. Scenario (d) was corrected mid-flight (G5, ordered AFTER S1) - verify the test matches the corrected contract and the corrected contract matches query.sql's ORDER BY. (4) SPEC/TASKS COVERAGE - specs/telemetry/spec.md requirements all implemented; no task or acceptance criterion was edited, weakened or deleted (append-only). (5) PERFORMANCE-PROFILE (read-heavy) compliance within the module boundary. (6) TWO LEADER-FLAGGED ITEMS TO JUDGE INDEPENDENTLY, do not rubber-stamp: (a) V2 is UNTICKED - gofmt -l reports 14 files; leader claims all 14 are pre-existing at base 874820f and untouched here; verify that claim. (b) V11 is PARTIALLY MET - the leader edited two files OUTSIDE the module sandbox, internal/battery/reader_test.go and internal/gateway/handlers/supercharger_test.go, adding panic-on-call stubs for the new port method (G4). Judge whether that was the right call, whether panic-not-nil is right, and whether it belongs in this change. (7) ANTI-GAMING - no self-approved statuses, no weakened criteria. TEST-EXECUTION-POLICY (verbatim, binds you too): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE: go build, go vet, gofmt -l and openspec validate --strict were ASSISTANT-run (all clean except the pre-existing gofmt files). `make test` was USER-run and USER-reported passing - that is the owner's verification, not the assistant's. Judge test QUALITY by READING the tests; do not run the suite.",
     "rounds": []
   }
 }
