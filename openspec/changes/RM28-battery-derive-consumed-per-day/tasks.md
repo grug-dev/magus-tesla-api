@@ -170,38 +170,38 @@ Appended by the leader after the owner ruled on the two paused design questions.
 
 ## T4. `internal/battery/consumed_test.go` (new file) — pure-function test contract — depends on T2 (parallel-safe with T3)
 
-- [ ] T4.1 `TestDeriveConsumedByDay_SingleSessionSingleDay_MatchesRoadmapExample` —
+- [x] T4.1 `TestDeriveConsumedByDay_SingleSessionSingleDay_MatchesRoadmapExample` —
       design.md Test Contract (a): snapshots 22→73, one session 18→80, expect exactly one
       entry, `ConsumedPct = 11`, `Flagged = false`.
-- [ ] T4.2 `TestDeriveConsumedByDay_TwoSessionsSameDay_SumsBoth_Not5` (name reflects the
+- [x] T4.2 `TestDeriveConsumedByDay_TwoSessionsSameDay_SumsBoth_Not5` (name reflects the
       regression guard) — design.md Test Contract (b): snapshots 30→75, sessions 20→50 and
       60→80, expect `ConsumedPct = 5`; explicitly assert it is neither −25 (latest-only)
       nor 15 (first-to-last).
-- [ ] T4.3 `TestDeriveConsumedByDay_NegativeFlagged` — design.md Test Contract (c):
+- [x] T4.3 `TestDeriveConsumedByDay_NegativeFlagged` — design.md Test Contract (c):
       `BatteryUsedPctCalc = -10`, no charge events, expect `Flagged = true`,
       `MissingChargingType = MissingChargingTypeManual`.
-- [ ] T4.4 `TestDeriveConsumedByDay_ZeroWithDistanceFlagged` — design.md Test Contract
+- [x] T4.4 `TestDeriveConsumedByDay_ZeroWithDistanceFlagged` — design.md Test Contract
       (d): `ConsumedPct` computes to 0, `DistanceKm = 50.0`, expect `Flagged = true`.
-- [ ] T4.5 `TestDeriveConsumedByDay_ZeroWithLowDistanceNotFlagged` — design.md Test
+- [x] T4.5 `TestDeriveConsumedByDay_ZeroWithLowDistanceNotFlagged` — design.md Test
       Contract (e): two subtests, `DistanceKm = 10.0` (boundary, not flagged — `>` is
       strict) and `DistanceKm = 5.0` (not flagged).
-- [ ] T4.6 `TestDeriveConsumedByDay_NilBatteryUsedPctCalc_Skipped` — design.md Test
+- [x] T4.6 `TestDeriveConsumedByDay_NilBatteryUsedPctCalc_Skipped` — design.md Test
       Contract (f): `cur.BatteryUsedPctCalc = nil`, expect an empty returned slice (not an
       entry with a zero/flagged value).
-- [ ] T4.7 `TestDeriveConsumedByDay_MultiDaySpan_OneEntry` — design.md Test Contract (g):
+- [x] T4.7 `TestDeriveConsumedByDay_MultiDaySpan_OneEntry` — design.md Test Contract (g):
       3-day-apart snapshots, two charge events inside the span, expect exactly one entry
       dated the later snapshot's day, `DaysSpanned = 3`, `ConsumedPct` summing both
       charges.
-- [ ] T4.8 `TestSumSuperchargerPctBetween_IntervalBoundary_InclusiveStartExclusiveEnd` —
+- [x] T4.8 `TestSumSuperchargerPctBetween_IntervalBoundary_InclusiveStartExclusiveEnd` —
       design.md Test Contract (h): session at exactly `from` is included, session at
       exactly `to` is excluded. Also exercises `inferMissingChargingType`'s identical
       boundary via a companion assertion or subtest.
-- [ ] T4.9 `TestDeriveConsumedByDay_Stateless_ResolvesOnRecompute` — design.md Test
+- [x] T4.9 `TestDeriveConsumedByDay_Stateless_ResolvesOnRecompute` — design.md Test
       Contract (i): call `deriveConsumedByDay` once with no charge data (flagged), call it
       again with the same snapshots plus a resolving charge entry, assert the second
       call's `Flagged = false` — proves no memory between calls (D2), the precondition
       `cmd/poller`'s reconciliation depends on.
-- [ ] T4.10 `TestDeriveConsumedByDay_BucketsInPollerZone_NotEffectiveDate` — **APPENDED BY
+- [x] T4.10 `TestDeriveConsumedByDay_BucketsInPollerZone_NotEffectiveDate` — **APPENDED BY
       T0**; design.md Test Contract (m). The single binding regression test for the owner's
       D18 ruling: a `cur` captured `2026-08-14T01:00:00Z` (20:00 Bogota Aug 13) with
       `CapturedDate = 2026-08-13` and `EffectiveDate` deliberately set to the UTC value
@@ -210,7 +210,7 @@ Appended by the leader after the owner ruled on the two paused design questions.
       fixture. Also assert the D-B12 identity (`effectiveDay(cur) − effectiveDay(prev) ==
       DaysSpanned` whole days), which fails under the overruled UTC rule on the same
       fixtures. Do not weaken either assertion.
-- [ ] T4.11 `TestDeriveConsumedByDay_ZoneShiftedRowAtWindowEnd_Emitted` — **APPENDED BY T0**;
+- [x] T4.11 `TestDeriveConsumedByDay_ZoneShiftedRowAtWindowEnd_Emitted` — **APPENDED BY T0**;
       design.md Test Contract (n): a row whose zoned effective day is exactly `end` while its
       UTC `EffectiveDate` day would be `end+1` is emitted, not filtered out — the derivation
       half of the widened snapshot fetch T5.4 asserts.
@@ -223,28 +223,28 @@ Appended by the leader after the owner ruled on the two paused design questions.
 
 ## T5. `internal/battery/reader_test.go` (extended) — port-wiring tests + un-panic three fakes — depends on T3
 
-- [ ] T5.1 Change `fakeTelemetryReader.SnapshotsByVehicleBetween` from a panicking stub to
+- [x] T5.1 Change `fakeTelemetryReader.SnapshotsByVehicleBetween` from a panicking stub to
       a functional one: record `accountID`/`teslaID`/`start`/`end` on new fields, return
       `(f.snapshots, f.err)` when set (reuse or add a dedicated fixture field so
       `RecentEfficiency`'s own existing tests, which populate `f.snapshots` for the
       `...Since` path, are unaffected — confirm no existing test relies on
       `SnapshotsByVehicleBetween` panicking).
-- [ ] T5.2 Change `fakeSuperchargerReader.SuperchargerSessionsByVehicleBetween` from a
+- [x] T5.2 Change `fakeSuperchargerReader.SuperchargerSessionsByVehicleBetween` from a
       panicking stub to a functional one, same shape as T5.1.
-- [ ] T5.3 Change `fakeManualReader.ListEntriesByVehicleBetween` from a panicking stub to
+- [x] T5.3 Change `fakeManualReader.ListEntriesByVehicleBetween` from a panicking stub to
       a functional one, same shape as T5.1.
       Acceptance (T5.1–T5.3): every existing `RecentEfficiency` test in this file still
       compiles and passes unmodified (none of them exercise the three `...Between`
       methods, per design.md's own note) — a diff of this file shows no existing test
       function's body changed, only the three fake method bodies.
-- [ ] T5.4 `TestConsumedByDay_FetchWindows` — design.md Test Contract (j). **Expected values
+- [x] T5.4 `TestConsumedByDay_FetchWindows` — design.md Test Contract (j). **Expected values
       CHANGED in T0** (design D-B13): assert `SnapshotsByVehicleBetween` is called with
       `(start-1, end+1)`, `SuperchargerSessionsByVehicleBetween` with `(start-1, end+2)`, and
       `ListEntriesByVehicleBetween` with `(start-1, end)`, for a fixed `start`/`end` pair.
-- [ ] T5.5 `TestConsumedByDay_AccountIDScoping_PassedToEveryPort` — design.md Test
+- [x] T5.5 `TestConsumedByDay_AccountIDScoping_PassedToEveryPort` — design.md Test
       Contract (k): mirrors `TestRecentEfficiency_AccountIDScoping_PassedToEveryPort`'s
       existing pattern for the three ports `ConsumedByDay` calls.
-- [ ] T5.6 `TestConsumedByDay_TelemetryError_Propagates`,
+- [x] T5.6 `TestConsumedByDay_TelemetryError_Propagates`,
       `TestConsumedByDay_SuperchargerError_Propagates`,
       `TestConsumedByDay_ManualChargeError_Propagates` — design.md Test Contract (l):
       mirrors the existing `TestRecentEfficiency_*Error_Propagates` pattern.

@@ -9,8 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T4",
-      "T5",
       "T6",
       "V"
     ],
@@ -21,10 +19,14 @@
       "T2",
       "T3",
       "T7"
+    ],
+    "awaiting-user-verification": [
+      "T4",
+      "T5"
     ]
   },
   "created_at": "2026-08-16T02:39:00Z",
-  "updated_at": "2026-08-16T10:37:00Z",
+  "updated_at": "2026-08-16T10:45:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -141,14 +143,21 @@
         "T2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T10:38:00Z",
+      "completed_at": "2026-08-16T10:44:00Z",
+      "duration_seconds": 360,
+      "notes": "consumed_test.go new: all 11 Test Contract scenarios (a)-(i), (m), (n), values hand-derived from the contract before consulting the implementation. T4.10 sets EffectiveDate to the overruled UTC value and asserts Date is NOT it.",
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 4.31,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across T4/T5 (single serial worker)"
+      }
     },
     {
       "id": "T5",
@@ -158,14 +167,21 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T10:38:00Z",
+      "completed_at": "2026-08-16T10:44:00Z",
+      "duration_seconds": 360,
+      "notes": "reader_test.go: three ...Between fakes un-panicked, (j)/(k)/(l) window-assertion tests added, no existing test body changed.",
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 4.31,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta across T4/T5 (single serial worker)"
+      }
     },
     {
       "id": "T6",
@@ -330,6 +346,16 @@
       "at": "2026-08-16T10:37:00Z",
       "agent": "leader",
       "event": "Wave 1 (T1+T2+T3+T7) reconciled - all done. Leader independently verified: go build ./... and go vet ./... both exit 0; EffectiveDate appears in internal/battery/ only in a doc comment and AGENTS.md prose, never as field access; NewReader signature byte-unchanged (reader.go:40); deriveConsumedByDay matches D13 (consumed = battery_used_pct_calc + charge sum), D5 flag rule, D5a nil skip, D-B3 Date=effectiveDay(cur). PRE-EXISTING gofmt drift in internal/battery/derive_test.go confirmed present on a clean stashed tree - NOT introduced by this wave, left untouched."
+    },
+    {
+      "at": "2026-08-16T10:38:00Z",
+      "agent": "leader",
+      "event": "Wave 2 dispatched: T4+T5 to a FRESH battery worker on Sonnet, deliberately not the wave-1 worker. The test contract's expected values were authored in design.md before implementation; a worker that just wrote the code would assert what the code does. The fresh worker is told to derive expectations from design.md's Test Contract only, and to report any case where the implementation disagrees rather than bending the test."
+    },
+    {
+      "at": "2026-08-16T10:45:00Z",
+      "agent": "leader",
+      "event": "Wave 2 (T4+T5) reconciled - both awaiting-user-verification, NOT done: the assistant does not run the suite. Leader independently verified: go vet ./... exit 0 (compiles _test.go, so signature drift would surface); consumed_test.go and reader_test.go both gofmt-clean; consumed.go/reader.go/battery.go UNCHANGED by this wave (git status shows only the two test files), so the fresh-eyes boundary held; the three ...Between fakes are un-panicked while the deliberate ...ByAccount guard panics remain. Worker reports NO Test Contract vs implementation disagreements. Owner's suite run is now the gate before T6 and the reviewer."
     }
   ]
 }
