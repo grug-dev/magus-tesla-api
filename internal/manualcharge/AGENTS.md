@@ -48,11 +48,17 @@ type Writer interface {
 }
 
 // Reader is the read port shaped for dashboard access patterns.
-// Both methods return a non-nil empty slice when no entries exist.
-// limit = 0 uses a server default (100).
+// All methods return a non-nil empty slice when no entries exist.
+// For ListEntriesByVehicle and ListEntriesByAccount, limit = 0 uses a server default (100).
 type Reader interface {
     ListEntriesByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Entry, error)
     ListEntriesByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]Entry, error)
+
+    // ListEntriesByVehicleBetween returns entries for a specific vehicle within an
+    // account whose charged_on falls within [from, to], inclusive of both bounds.
+    // Ordered charged_on DESC, matching ListEntriesByVehicle. No limit parameter —
+    // the [from, to] window itself bounds the result.
+    ListEntriesByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Entry, error)
 }
 
 // Constructors — these are the only publicly exported factory functions.

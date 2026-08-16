@@ -34,10 +34,10 @@ type Entry struct {
 	VIN       string
 
 	// Required fields — user must supply on Create.
-	ChargedOn       time.Time // DATE column: midnight UTC of the charge day
-	EnergyAddedKWh  float64   // kWh added; NUMERIC(6,2) in DB; must be > 0
-	Price           float64   // cost in Currency; NUMERIC(14,2) in DB; must be >= 0
-	Currency        string    // ISO 4217 code; defaults to 'COP' in DB
+	ChargedOn      time.Time // DATE column: midnight UTC of the charge day
+	EnergyAddedKWh float64   // kWh added; NUMERIC(6,2) in DB; must be > 0
+	Price          float64   // cost in Currency; NUMERIC(14,2) in DB; must be >= 0
+	Currency       string    // ISO 4217 code; defaults to 'COP' in DB
 
 	// Optional fields — nil when not supplied by the user (NULL in DB).
 	StartedAt       *time.Time // TIMESTAMPTZ: exact session start, when known
@@ -103,13 +103,22 @@ type Writer interface {
 	Delete(ctx context.Context, accountID uuid.UUID, id uuid.UUID) error
 }
 
-// Reader is the read port shaped for dashboard access patterns. Both methods return a
-// non-nil empty slice when no entries exist. limit = 0 uses a server default (100).
+// Reader is the read port shaped for dashboard access patterns. All methods return a
+// non-nil empty slice when no entries exist. For ListEntriesByVehicle and
+// ListEntriesByAccount, limit = 0 uses a server default (100).
 // Gateway and other callers MUST NOT import manualchargedb directly — all read access
 // goes through this interface (ai/architecture.md §2, design D5).
 type Reader interface {
 	ListEntriesByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Entry, error)
 	ListEntriesByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]Entry, error)
+
+	// ListEntriesByVehicleBetween returns entries for a specific vehicle within an
+	// account whose charged_on falls within [from, to], inclusive of both bounds
+	// (design D5, roadmap D9/D12). Ordered charged_on DESC, matching
+	// ListEntriesByVehicle (design D2). Always returns a non-nil empty slice when no
+	// rows match (design D4). No limit parameter (design D1, roadmap D9) — the
+	// [from, to] window itself bounds the result.
+	ListEntriesByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Entry, error)
 }
 
 // NewWriter constructs a Writer backed by the given pgxpool. The implementation

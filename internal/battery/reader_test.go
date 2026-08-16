@@ -108,6 +108,13 @@ func (f *fakeManualReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, 
 	panic("fakeManualReader: ListEntriesByAccount must not be called from RecentEfficiency")
 }
 
+// ListEntriesByVehicleBetween satisfies the manualcharge.Reader port (added by
+// RM28 tier 2 for the per-day consumed derivation). RecentEfficiency does not use
+// it, so calling it here is a bug in the code under test, not a missing fake.
+func (f *fakeManualReader) ListEntriesByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]manualcharge.Entry, error) {
+	panic("fakeManualReader: ListEntriesByVehicleBetween must not be called from RecentEfficiency")
+}
+
 // fakeVehicleLookup is a fake vehicleLookup (the narrow account.Service consumer
 // interface) — only RegisteredVehicles exists on the interface, so there is nothing
 // else to panic-guard.

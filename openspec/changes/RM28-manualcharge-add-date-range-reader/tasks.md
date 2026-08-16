@@ -31,7 +31,7 @@
 
 ## T1. `manualcharge.go` — `Reader` interface addition — no dependencies
 
-- [ ] T1.1 Add `ListEntriesByVehicleBetween(ctx context.Context, accountID uuid.UUID,
+- [x] T1.1 Add `ListEntriesByVehicleBetween(ctx context.Context, accountID uuid.UUID,
       teslaID int64, from, to time.Time) ([]Entry, error)` to the `Reader` interface,
       with the doc comment from design.md's "Go-Level Surface" section (states: filters
       on `charged_on` inclusive of both bounds — D5/roadmap D9/D12; ordered `charged_on
@@ -43,7 +43,7 @@
 
 ## T2. `db/query.sql` — new query + sqlc regeneration — no dependencies (parallel-safe with T1)
 
-- [ ] T2.1 Add the `ListEntriesByVehicleBetween` query to
+- [x] T2.1 Add the `ListEntriesByVehicleBetween` query to
       `internal/manualcharge/db/query.sql`, exactly as specified in design.md's
       "`db/query.sql` addition" (name `ListEntriesByVehicleBetween`, `:many`, filters
       `account_id = @account_id AND tesla_id = @tesla_id AND charged_on BETWEEN
@@ -52,7 +52,7 @@
       rationale (D1).
       Acceptance: query added verbatim per design.md; no existing query in the file is
       modified.
-- [ ] T2.2 Run `sqlc generate` (or `make sqlc`) to regenerate the `manualchargedb`
+- [x] T2.2 Run `sqlc generate` (or `make sqlc`) to regenerate the `manualchargedb`
       package.
       Acceptance: `internal/manualcharge/db/` gains
       `manualchargedb.ListEntriesByVehicleBetweenParams` (fields `AccountID uuid.UUID`,
@@ -65,15 +65,15 @@
 
 ## T3. `service.go` — store interface, `dbStore` delegation, `readerService` implementation — depends on T1, T2
 
-- [ ] T3.1 Add `listEntriesByVehicleBetween(ctx context.Context, params
+- [x] T3.1 Add `listEntriesByVehicleBetween(ctx context.Context, params
       manualchargedb.ListEntriesByVehicleBetweenParams) ([]manualchargedb.ManualChargeEntry,
       error)` to the unexported `store` interface.
       Acceptance: interface compiles once T3.2 provides an implementation.
-- [ ] T3.2 Add the `dbStore` delegation method (one-line passthrough to
+- [x] T3.2 Add the `dbStore` delegation method (one-line passthrough to
       `d.q.ListEntriesByVehicleBetween`, mirroring the five existing `dbStore` methods
       exactly).
       Acceptance: `dbStore` satisfies the updated `store` interface.
-- [ ] T3.3 Add `readerService.ListEntriesByVehicleBetween`, exactly as specified in
+- [x] T3.3 Add `readerService.ListEntriesByVehicleBetween`, exactly as specified in
       design.md's "Go-Level Surface" section: builds `ListEntriesByVehicleBetweenParams`
       via `dateFromTime(from)` / `dateFromTime(to)` (no new conversion helper), calls
       `r.store.listEntriesByVehicleBetween`, wraps any error with `"manualcharge: list
@@ -118,13 +118,30 @@
 
 ## T5. `AGENTS.md` — Public Interface documentation — depends on T1
 
-- [ ] T5.1 Update the `## Public Interface` code block in
+- [x] T5.1 Update the `## Public Interface` code block in
       `internal/manualcharge/AGENTS.md` to include the new
       `ListEntriesByVehicleBetween` method signature in the `Reader` interface,
       matching T1's final signature exactly (docs-track-change rule, `CLAUDE.md`).
       Acceptance: the code block in `AGENTS.md` and the real `Reader` interface in
       `manualcharge.go` never drift — a diff of the two shows identical method
       signatures.
+
+## T6. Cross-module fake stubs (LEADER-OWNED, appended after wave 1) — depends on T1
+
+Adding a method to the shared `manualcharge.Reader` port breaks every hand-rolled test
+fake of it. Two exist outside this module's sandbox, so the leader owns the fix
+(`ai/architecture.md`: a worker never edits outside its module; the leader owns
+cross-module integration). Discovered by the wave-1 worker and verified by the leader
+via `go vet ./...`.
+
+- [x] T6.1 `internal/battery/reader_test.go` — add `ListEntriesByVehicleBetween` to
+      `fakeManualReader`, panicking like the file's existing `ListEntriesByAccount` stub
+      (`RecentEfficiency` must not call it).
+- [x] T6.2 `internal/gateway/handlers/charges_test.go` — add
+      `ListEntriesByVehicleBetween` to `fakeChargeReader`, returning `f.entries, f.err`
+      like the file's two existing stubs (no charge handler calls it).
+      Acceptance (T6): `go vet ./...` passes repo-wide — it compiles `_test.go` files, so
+      it is the signal that proves both fakes satisfy the extended port again.
 
 ## Verification — depends on all tasks
 
