@@ -51,6 +51,16 @@ It renders what other modules expose; it owns no business data.
   Supercharger Stats render, capped at `superchargerReadLimit` (500 rows). Added by
   `gateway-add-supercharger-stats`. NEVER import `internal/telemetry/db`
   (`telemetrydb`) — all access through this interface only.
+- `Deps.BatteryReader battery.Reader` — the battery module's read port;
+  injected at construction via `gateway.Deps`/`handlers.Deps` (wired from
+  `cmd/web` via `battery.NewReader(...)`). Called by `buildHistoryView`, once
+  per `/ui/dashboard/history` fragment render (`ConsumedByDay`), to populate
+  the third "Battery consumed" chart panel alongside the existing
+  odometer/battery charts. `internal/battery` owns no database, so there is
+  no `batterydb` package this rule could even be tempted to import — the
+  reminder is simply "the interface, nothing deeper," same as every other
+  sibling-module port here. Added by `RM28-gateway-add-consumed-graph`
+  (tier 4).
 
 ## Boundaries
 

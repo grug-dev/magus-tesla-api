@@ -104,7 +104,7 @@ in T6 covers that combination by joining the span clause and the flagged clause.
 
 ## T3. `internal/gateway/templates/fragments/history.templ` — two independent marker-chip blocks, third chart card — depends on T1, T2
 
-- [ ] T3.1 Add TWO independent per-bar marker blocks to `historyBarChart` (NOT a
+- [x] T3.1 Add TWO independent per-bar marker blocks to `historyBarChart` (NOT a
       switch/else-if — a bar can hit both per D21), appended after the existing bar-rect
       loop inside the same `<svg>`, exactly as specified in design.md's "Go-Level Surface"
       section — literal `fill-warning`/`fill-info` classes written in the `.templ` source
@@ -113,11 +113,11 @@ in T6 covers that combination by joining the span clause and the flagged clause.
       height="4"`; `if bar.MarkerSpan` renders its chip at `y="6" height="4"` — same
       positions whether the marker appears alone or alongside the other. Each chip wrapped
       in its own `<title>{ bar.Tooltip }</title>`.
-- [ ] T3.2 Add the third `ui.Card` to `DashboardHistoryContent`, after the existing
+- [x] T3.2 Add the third `ui.Card` to `DashboardHistoryContent`, after the existing
       Battery card: `@ui.Card(ui.CardProps{Title: i18n.T(ctx,
       i18n.KeyHistoryConsumedTitle)}) { @historyBarChart(v.Consumed, "fill-accent") }`.
       `"fill-accent"` is a literal at this call site.
-- [ ] T3.3 Run `make templ` (regenerates `history_templ.go`) and `make css` (the new
+- [x] T3.3 Run `make templ` (regenerates `history_templ.go`) and `make css` (the new
       literal classes `fill-accent`/`fill-warning`/`fill-info` must appear in the
       regenerated `static/app.css` — confirm with `grep -o 'fill-accent\|fill-warning\|
       fill-info' internal/gateway/static/app.css` after running `make css`; an empty grep
@@ -154,12 +154,12 @@ in T6 covers that combination by joining the span clause and the flagged clause.
 
 ## T6. `internal/gateway/handlers/history.go` — D11 change, `buildConsumedChart`, `buildHistoryView` extension — depends on T1, T2, T4, T5
 
-- [ ] T6.1 Modify `parseHistoryRange` exactly as specified in design.md D-G9: compute
+- [x] T6.1 Modify `parseHistoryRange` exactly as specified in design.md D-G9: compute
       `yesterday := today.AddDate(0, 0, -1)` once at the top of the function, use it (not
       `today`) for the both-absent default's `end` and for the `calendarDateAfter(e, ...)`
       cap check. Update the function's doc comment's numbered validation steps (1 and 4)
       to say "yesterday" instead of "today" — do not leave the prose stale.
-- [ ] T6.2 Add `buildConsumedChart(ctx context.Context, days []battery.DayConsumption,
+- [x] T6.2 Add `buildConsumedChart(ctx context.Context, days []battery.DayConsumption,
       start, end time.Time) fragments.HistoryChart` exactly as specified in design.md's
       "Go-Level Surface" section — the two-phase collect/convert structure; every bar's
       `displayVal = math.Max(0, day.ConsumedPct)`, ONE clamp, no per-state branch
@@ -172,7 +172,7 @@ in T6 covers that combination by joining the span clause and the flagged clause.
       0`. Add the `chargeTypeLabel` helper in the same file.
       Add the new import `"github.com/cristianpena/magus-tesla-api/internal/battery"`
       (`"math"` and the `i18n`/`telemetry` imports already exist in this file).
-- [ ] T6.3 Extend `buildHistoryView`: after the existing `v.Battery = buildBatteryChart(...)`
+- [x] T6.3 Extend `buildHistoryView`: after the existing `v.Battery = buildBatteryChart(...)`
       line, add the independent `h.batteryReader.ConsumedByDay(ctx, uid, teslaID, start,
       end)` call with its OWN error branch that sets only `v.Consumed =
       fragments.HistoryChart{Empty: true}` and returns — it must NOT affect
@@ -248,7 +248,7 @@ in T6 covers that combination by joining the span clause and the flagged clause.
 
 ## T9. `internal/gateway/AGENTS.md` — document the new `battery.Reader` dependency — depends on T5
 
-- [ ] T9.1 Add a `Deps.BatteryReader battery.Reader` bullet to the "Public interface"
+- [x] T9.1 Add a `Deps.BatteryReader battery.Reader` bullet to the "Public interface"
       section, mirroring the existing `Deps.SuperchargerReader`/`Deps.ManualChargeReader`
       bullets' shape: what it is, who calls it (`buildHistoryView`, once per history
       fragment render), the "NEVER import a battery database package" reminder (note there

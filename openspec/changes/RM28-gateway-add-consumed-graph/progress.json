@@ -9,23 +9,23 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T3",
-      "T6",
       "T8",
-      "T9",
       "V"
     ],
     "blocked": [],
     "done": [
       "T1",
       "T2",
+      "T3",
       "T4",
       "T5",
-      "T7"
+      "T6",
+      "T7",
+      "T9"
     ]
   },
   "created_at": "2026-08-16T15:45:00Z",
-  "updated_at": "2026-08-16T15:48:07Z",
+  "updated_at": "2026-08-16T15:53:40Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -96,14 +96,23 @@
         "T2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:49:00Z",
+      "completed_at": "2026-08-16T15:52:55Z",
+      "duration_seconds": 235,
+      "notes": "Two independent marker-chip if-blocks (fill-warning y=1, fill-info y=6, each with its own <title>) after the bar loop, plus the third ui.Card with fill-accent. make templ + make css regenerated; all three classes now present in app.css.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 19,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.61,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta covers T3+T6+T9 jointly (one serial worker)"
+      }
     },
     {
       "id": "T4",
@@ -164,14 +173,23 @@
         "T5"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:49:00Z",
+      "completed_at": "2026-08-16T15:52:55Z",
+      "duration_seconds": 235,
+      "notes": "parseHistoryRange computes yesterday once for default+cap, doc steps 1/4 updated. buildConsumedChart + chargeTypeLabel added; buildHistoryView extended with an independent ConsumedByDay call and its own error branch.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 19,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.61,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta covers T3+T6+T9 jointly (one serial worker)"
+      }
     },
     {
       "id": "T7",
@@ -224,14 +242,23 @@
         "T5"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:49:00Z",
+      "completed_at": "2026-08-16T15:52:55Z",
+      "duration_seconds": 235,
+      "notes": "Deps.BatteryReader bullet added to the Public interface section, mirroring SuperchargerReader's shape.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 19,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.61,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta covers T3+T6+T9 jointly (one serial worker)"
+      }
     },
     {
       "id": "V",
@@ -273,6 +300,33 @@
       "decision": "Wave 1 batches T1/T2/T4/T5 into one serial worker rather than four parallel ones",
       "why": "Tasks are small and disjoint; one dispatch amortizes the doc-pack read, and parallel workers drain the same 5-hour bucket faster for no wall-clock gain here.",
       "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-16T15:48:40Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Continued into wave 2 in the same session instead of checkpointing at the wave boundary",
+      "why": "Skill recommends /clear+resume on 3+ wave changes, but 5h sits at 12% and context at 13% — a re-read cycle would cost more than carrying this context forward.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-16T15:48:42Z",
+      "scope": "task:T3",
+      "made_by": "leader",
+      "decision": "Worker is authorized to run `make templ` and `make css`",
+      "why": "Both are codegen phases of `make generate` alongside sqlc, which CLAUDE.md allows outright. Neither runs tests; T3.3 requires them for the CSS-freshness guard.",
+      "covered_by": "tasks.md T3.3"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-16T15:53:00Z",
+      "scope": "task:T6",
+      "made_by": "leader",
+      "decision": "Accepted the worker's out-of-spec Consumed: HistoryChart{Empty:true} in the two DashboardHistoryFragment early returns",
+      "why": "Both literals already set Odometer and Battery the same way; leaving Consumed at its zero value would render a 0-bar SVG instead of the empty state. Flagged to the reviewer.",
+      "covered_by": "design D-G10 intent"
     }
   ],
   "events": [
@@ -295,6 +349,16 @@
       "at": "2026-08-16T15:48:07Z",
       "agent": "leader",
       "event": "Wave 1 reconciled: T1/T2/T4/T5 all done. Leader independently re-ran go build ./..., go vet ./..., gofmt -l — all clean; the pre-existing gofmt hits elsewhere in the repo are untouched by this wave. Worker enumerated D-G5/D-G6/D-G7/D-G8/D-G11 with compliance statements; leader cross-checked each against design.md. T7 (cmd/web wiring, leader-owned) executed in the same boundary and also builds/vets clean."
+    },
+    {
+      "at": "2026-08-16T15:49:00Z",
+      "agent": "leader",
+      "event": "Dispatched ONE serial gateway worker for wave 2 (T3, T6, T9) on Sonnet. Disjoint files; T6's design is highly prescriptive so Sonnet is sufficient — no Opus escalation. Budget start: 5h 12%, ctx 13%, cost $5.45."
+    },
+    {
+      "at": "2026-08-16T15:53:40Z",
+      "agent": "leader",
+      "event": "Wave 2 reconciled: T3/T6/T9 done. Leader re-ran go build, go vet, gofmt, make ui-guard, make i18n-guard and the T3.3 CSS grep — all clean, all three fill-* classes present in the regenerated app.css. Worker enumerated D-G1/D-G2/D-G3/D-G4/D-G5/D-G6/D-G7/D-G9/D-G10/D-G11; leader cross-checked each against design.md. Leader also fixed stale prose the worker left: buildHistoryView's doc comment still claimed ONE read and 'both charts', and one early-return comment said 'both charts'."
     }
   ]
 }
