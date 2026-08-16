@@ -7,7 +7,7 @@
   "status": "in-progress",
   "autopilot": true,
   "created_at": "2026-08-15T13:07:34Z",
-  "updated_at": "2026-08-16T02:06:00Z",
+  "updated_at": "2026-08-16T02:24:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,7 +21,9 @@
     "created_at": "2026-08-15T13:07:34Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      3
+    ],
     "pending": [
       4
     ],
@@ -219,6 +221,16 @@
       "at": "2026-08-16T02:06:00Z",
       "kind": "tier-archived",
       "note": "Tier 2 archived, reviewer-approved with zero findings. Tier 3 (RM28-battery-derive-consumed-per-day) depends on tiers 1+2 - both now archived, so it is unblocked. Autopilot advances to tier 3."
+    },
+    {
+      "at": "2026-08-16T02:08:00Z",
+      "kind": "tier-started",
+      "note": "Tier 3 (RM28-battery-derive-consumed-per-day) started on autopilot - tiers 1+2 archived so its depends_on is satisfied. Checkpoint gate evaluated first: 5h 61%, ctx 21%, both well under 90/40. No fresh interview: roadmap D4/D4a/D5/D5a/D7a/D8/D9a/D12/D13/D15 cover the tier."
+    },
+    {
+      "at": "2026-08-16T02:24:00Z",
+      "kind": "design-review",
+      "note": "Tier 3 artifacts validated strict, no schema change (battery owns no DB), so the database gate does not trip. BUT two design decisions reinterpret the OWNER's roadmap decisions with visible consequences: D-B3 (D8's 'start day' -> the span's LAST day) and D-B7 (D6's Bogota-zone bucketing -> UTC EffectiveDate). Autopilot PAUSED for the owner - a new decision the roadmap Decisions do not cover."
     }
   ],
   "tiers": [
@@ -275,10 +287,10 @@
         1,
         2
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T02:08:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
