@@ -224,8 +224,15 @@
 
 ## Verification — depends on all tasks
 
-- [ ] V1. `go build ./...` and `go vet ./...` pass after all tasks are complete.
+- [x] V1. `go build ./...` and `go vet ./...` pass after all tasks are complete.
+      *Leader-verified 2026-08-16: both clean repo-wide.*
 - [ ] V2. `gofmt -l` reports no files.
+      *Leader note (NOT met, pre-existing): `gofmt -l .` reports 14 files repo-wide, one of
+      them in this module (`internal/telemetry/scheduler_test.go`). All 14 are unformatted
+      at the change's base commit `874820f` and NONE is touched by this change
+      (`git diff 874820f..HEAD` on the file is empty). Every file this change created or
+      modified is gofmt-clean. Left unticked rather than reworded — reformatting 14
+      untouched files is out of this change's scope.*
 - [ ] V3. `go test ./...` green and fast. DB integration tests self-skip without
       `DATABASE_URL`/Docker; with Docker the testcontainers helper provisions Postgres and
       applies goose migrations automatically, including the new
@@ -240,21 +247,48 @@
       verified by T7.4.
 - [ ] V8. Test-contract (e) tenant isolation on both the write port and the new read method,
       including the mis-scoped-`flagged`-entry full-call rejection: verified by T7.5.
-- [ ] V9. Static check: `UpsertChargeGap`'s `ON CONFLICT DO UPDATE SET` clause does not
+- [x] V9. Static check: `UpsertChargeGap`'s `ON CONFLICT DO UPDATE SET` clause does not
       reference `created_at` (grep, per T3.1's acceptance criteria).
-- [ ] V10. Index plan confirmed: `\d charge_gaps` (or the pg catalog) shows exactly two
+      *Leader-verified: `created_at` count in the `ON CONFLICT` region = 0; the SET clause
+      refreshes `vin`, `missing_charging_type`, `updated_at` only.*
+- [x] V10. Index plan confirmed: `\d charge_gaps` (or the pg catalog) shows exactly two
       indexes — the `UNIQUE` constraint's own `(account_id, tesla_id, gap_date)` index and
       `idx_charge_gaps_account (account_id, date DESC)` — no third index. No `CREATE INDEX`
       appears anywhere else in the migration diff, and no index is added on
       `supercharger_sessions` for `SuperchargerSessionsByVehicleBetween` (design.md's
       documented trade-off).
+      *Leader-verified statically: the migration has exactly one `CREATE INDEX` (the second
+      grep hit is inside a comment), the whole change adds no other index, and none touches
+      `supercharger_sessions`. This criterion's text still spells the index
+      `(account_id, date DESC)` — a leftover from before decision **G1** renamed the column
+      to `gap_date`; the shipped index is `idx_charge_gaps_account (account_id, gap_date
+      DESC)`, which is what G1 approved. Text left as authored rather than rewritten.
+      Catalog confirmation (`\d charge_gaps` showing exactly the two indexes against a live
+      DB) still belongs to the user's suite run.*
 - [ ] V11. Boundary check: `internal/telemetry` still imports only `account` + `tesla`
       public packages; no other module's internals. `pgtype` does not appear in
       `gap_writer.go` (confined to `service.go`/`mapping.go`, matching the module's existing
       helpers). No file outside `internal/telemetry/` was touched. `internal/battery` was
       not created, read, or referenced by any file this change creates or modifies.
-- [ ] V12. Docs: `internal/telemetry/AGENTS.md` accurately reflects the new table, port, and
+      *Leader note (partially met — reviewer must judge): imports are clean
+      (`internal/telemetry` non-test files import only `account`, `tesla`, and its own
+      `telemetry/db`), and `pgtype` appears in `gap_writer.go` only inside a comment
+      asserting its absence — no import. **But the "no file outside `internal/telemetry/`"
+      clause is NOT literally met**: the leader edited two sibling test doubles —
+      `internal/battery/reader_test.go` and `internal/gateway/handlers/supercharger_test.go`
+      — adding panic-on-call stubs for the new `SuperchargerReader` method, without which
+      `go vet` fails in those packages (decision **G4**). Both edits are test-only, add no
+      production code, and `internal/battery` production code is still neither created,
+      read, nor referenced by this change.*
+- [x] V12. Docs: `internal/telemetry/AGENTS.md` accurately reflects the new table, port, and
       read method (T8.1). Root `README.md` "Project Structure"/"Architecture" confirmed NOT
       to need changes (no module added/removed, no new runnable) — this confirmation itself
       is part of verification, not an assumption to skip.
-- [ ] V13. `openspec validate RM28-telemetry-add-charge-gap-storage --strict` passes.
+      *Leader-verified: `AGENTS.md` covers the table, the `GapWriter` lifecycle and the new
+      read method (T8). README "Project Structure"/"Architecture" indeed need no change — no
+      module added, removed or re-scoped. **However the check did surface a real omission**:
+      the README's per-module data-ownership table (which lists every table each module owns)
+      had no `charge_gaps` row. The leader added it in this change, as the project's
+      "docs track structural change" rule requires.*
+- [x] V13. `openspec validate RM28-telemetry-add-charge-gap-storage --strict` passes.
+      *Leader-verified: "Change 'RM28-telemetry-add-charge-gap-storage' is valid".*

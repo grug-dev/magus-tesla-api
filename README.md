@@ -265,6 +265,7 @@ must be listed in `MIGRATIONS_DIRS` in the `Makefile`.
 | `internal/telemetry` | `telemetrydb` | `vehicle_snapshots` | Nightly per-vehicle snapshot: battery/charge, range, odometer, temps, TPMS pressures, lock/sentry, location, derived consumption — **one row per vehicle per calendar day**, plus the lossless `raw_data` JSONB. |
 | | | `poll_attempts` | Audit row for **every** collection attempt (outcome + reason), successful or not. |
 | | | `supercharger_sessions` | Tesla Supercharger sessions — site, start/stop, `energy_kwh`, cost + currency, paid flag — upserted on Tesla's `session_id`. Supercharger-only: home / 3rd-party charging never appears in this feed. |
+| | | `charge_gaps` | Vehicle-days whose battery math doesn't add up because a charge record is missing or incomplete — **one row per (account, vehicle, day)**, with the suspected missing source (`MANUAL` / `SUPERCHARGER`). A live worklist, not an audit trail: no `resolved_at`, a day that stops flagging is deleted by the next nightly reconciliation. Written by `internal/battery` through telemetry's `GapWriter` port. |
 | `internal/manualcharge` | `manualchargedb` | `manual_charge_entries` | User-asserted charge sessions (the home / work / 3rd-party gap the Tesla feed can't fill): date, kWh, price + currency, optional times, start/end %, AC-DC, location. |
 | `internal/battery` | — | *(none)* | Derived metrics only — a pure read-side computation over sibling modules' ports. |
 | `internal/gateway` | — | *(none)* | Renders HTML; calls module interfaces, never a database. |

@@ -24,7 +24,7 @@
     ]
   },
   "created_at": "2026-08-15T13:58:00Z",
-  "updated_at": "2026-08-15T19:22:00Z",
+  "updated_at": "2026-08-16T00:21:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -220,7 +220,7 @@
         "context_pct_end": null,
         "source": "statusline-cache",
         "approx": true,
-        "note": "wave 2 delta pending end-reading"
+        "note": "wave 2 end-reading never taken before the session ended; the 5-hour bucket has since reset, so the delta is unrecoverable"
       }
     },
     {
@@ -246,7 +246,7 @@
         "context_pct_end": null,
         "source": "statusline-cache",
         "approx": true,
-        "note": "wave 2 delta pending end-reading"
+        "note": "wave 2 end-reading never taken before the session ended; the 5-hour bucket has since reset, so the delta is unrecoverable"
       }
     }
   ],
@@ -295,6 +295,15 @@
       "decision": "Corrected design.md test-contract scenario (d): \"ordered before S1\" changed to \"ordered after S1\".",
       "why": "The bullet contradicted its own parenthetical and scenario (c). Query orders by charge_stop_date_time ASC, so a later stop sorts later. Authoring bug in the artifact, not the code.",
       "covered_by": null
+    },
+    {
+      "id": "G6",
+      "at": "2026-08-16T00:20:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader added the missing charge_gaps row to the root README's per-module data-ownership table.",
+      "why": "V12 asked for a real confirmation, not an assumption. The table lists every table each module owns; omitting charge_gaps would breach the project's docs-track-structural-change rule. Root README is leader-owned, outside the worker sandbox.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -332,6 +341,16 @@
       "at": "2026-08-15T19:22:00Z",
       "kind": "checkpoint",
       "note": "Stopping before the reviewer gate. five_hour 80% (threshold 90, resets 1786822800), context 36% (threshold 40) - a reviewer round is projected to cross 90. Blocked on the user running the suite (Step 6) regardless. Resume at Step 7."
+    },
+    {
+      "at": "2026-08-16T00:18:00Z",
+      "kind": "resumed",
+      "note": "Fresh session resumed at Step 6. Budget confirmed reset: five_hour 2%, context 9%, seven_day 70%. Nothing dirty in the tree; HEAD 6d5ec90."
+    },
+    {
+      "at": "2026-08-16T00:21:00Z",
+      "kind": "verification-partial",
+      "note": "Leader-run signals only: go build, go vet, openspec validate --strict all clean; V1/V9/V10/V12/V13 ticked. V2 NOT met - 14 gofmt-unformatted files, all pre-existing at base 874820f and untouched here. V11 partially met - two sibling test doubles edited (G4). V3-V8 need the user's suite. Status stays applied."
     }
   ],
   "review": {
