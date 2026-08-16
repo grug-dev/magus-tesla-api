@@ -4,10 +4,10 @@
   "roadmap": "RM28-battery-consumed-graph",
   "intention": "A battery-consumed %/day bar graph on /ui/dashboard/history that corrects raw snapshot deltas by the charge added that day, plus a durable record of days whose numbers do not add up because a charge record is missing or incomplete.",
   "request": "Source ticket: MAG-15 — https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nShow a new bar graph similar to the odometer history and battery history graphs on the dashboard (/ui/dashboard/history), using the same standard as the other graphs. The vehicle may be charged during the day, which makes battery_used_pct negative or invalid, so the two charging tables (manual_charge_entries, supercharger_sessions) — both carrying start_battery_pct / end_battery_pct — are used to recover the real consumption. Whenever the result is negative, or zero while distance_traveled_km_calc > 10, a charge record is missing: record it in a new table (vin, tesla_id, missing_charging_type, date) so the user can be notified in a later ticket.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": true,
   "created_at": "2026-08-15T13:07:34Z",
-  "updated_at": "2026-08-16T15:45:00Z",
+  "updated_at": "2026-08-16T16:22:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,15 +21,14 @@
     "created_at": "2026-08-15T13:07:34Z"
   },
   "rollup": {
-    "current": [
-      4
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
       1,
       2,
-      3
+      3,
+      4
     ]
   },
   "decisions": [
@@ -300,6 +299,16 @@
       "at": "2026-08-16T15:45:00Z",
       "kind": "tier-resumed",
       "note": "Tier 4 resumed in a fresh session. Artifacts (proposal/design/tasks/specs) were already written and revised under D19-D21 but uncommitted; validated strict and committed now. Tier status [ ] -> [~]. 5h bucket had just reset to 3%, ctx 9%."
+    },
+    {
+      "at": "2026-08-16T16:22:00Z",
+      "kind": "tier-archived",
+      "note": "Tier 4 archived as 2026-08-16-RM28-gateway-add-consumed-graph; openspec synced 1 modified requirement into openspec/specs/gateway/spec.md. Reviewer approved round 1 with one minor finding (R1), accepted and deferred to backlog item 13 — pre-existing in all three charts and unreachable via the UI. Owner ran make test green. ALL FOUR TIERS ARCHIVED — roadmap complete."
+    },
+    {
+      "at": "2026-08-16T16:22:30Z",
+      "kind": "kb-sync-skipped",
+      "note": "Post-archive KB spec-sync skipped again: this project has no kkpa/context/ knowledge base, so there is nothing to stage and the folder is deliberately not created."
     }
   ],
   "tiers": [
@@ -380,14 +389,21 @@
       "depends_on": [
         3
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-16T11:22:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "The bar chart mirroring the odometer/battery standard, D10 flagged-day rendering, D11 window reconciliation, bilingual ES/EN labels."
+      "completed_at": "2026-08-16T16:22:00Z",
+      "duration_seconds": 18000,
+      "budget": {
+        "five_hour_pct_delta": 49,
+        "cost_usd_delta": 21.6,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts session (uncommitted, ~$0) + this session: 3 waves, leader T7, a T8.15/T8.16 follow-up round, review round 1"
+      },
+      "notes": "Third chart shipped: two independent marker chips (D21), relative scale (D19), D11 window move. 10 tasks, 1 review round approved with one minor finding deferred to backlog 13. Owner ran the suite green."
     }
   ],
   "dropped_tiers": [

@@ -318,7 +318,7 @@ in T6 covers that combination by joining the span clause and the flagged clause.
       internal/gateway/static/app.css` returns all three.
 - [x] V.7 `openspec validate RM28-gateway-add-consumed-graph --strict` passes. PASSED —
       "Change 'RM28-gateway-add-consumed-graph' is valid".
-- [ ] V.8 Hand back to the owner: `go test ./internal/gateway/...` (or the project's
+- [x] V.8 Hand back to the owner: `go test ./internal/gateway/...` (or the project's
       `make test`) — every test T8 added is written but not run by this worker
       (Test-Execution-Policy); status is `awaiting-user-verification` until the owner runs
-      it and reports back.
+      it and reports back. PASSED — the OWNER ran `make test` on 2026-08-16 and reported the suite green against the complete tier. Recorded as the owner's verification, never claimed by the assistant.

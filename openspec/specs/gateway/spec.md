@@ -1122,11 +1122,13 @@ serve the now-removed demo).
 
 ### Requirement: Dashboard History Charts
 
-The gateway SHALL render two per-vehicle history bar charts in the dashboard bento — an "Odometer
-history" chart and a "Battery history" chart — for the currently selected vehicle, replacing the
-"awaiting nightly snapshots" placeholders. The chart data SHALL come exclusively from the
-`telemetry.Reader` port; the gateway SHALL NOT read telemetry tables directly and SHALL NOT make a
-live Tesla Fleet API call to render the charts.
+The gateway SHALL render THREE per-vehicle history bar charts in the dashboard bento — an
+"Odometer history" chart, a "Battery history" chart, and a "Battery consumed" chart — for the
+currently selected vehicle, replacing the "awaiting nightly snapshots" placeholders. The
+odometer/battery chart data SHALL come exclusively from the `telemetry.Reader` port; the
+consumed chart's data SHALL come exclusively from the `battery.Reader.ConsumedByDay` port. The
+gateway SHALL NOT read telemetry or battery tables directly and SHALL NOT make a live Tesla
+Fleet API call to render any of the three charts.
 
 The charts SHALL be served by an authenticated htmx fragment endpoint `GET /ui/dashboard/history`
 that accepts **`?start=YYYY-MM-DD&end=YYYY-MM-DD`** — both whole calendar days, UTC-midnight-
@@ -1136,318 +1138,330 @@ vehicle's Tesla id and the caller's account. Anonymous requests SHALL be redirec
 with no history data served.
 
 **"Today" for this endpoint's validation and defaulting is the browser's local calendar day, not
-the server's UTC day.** The gateway SHALL derive it from a `browser_tz` cookie: a single inline
-`<script>` in the authenticated base layout (`layouts.BaseAuth`, wrapping every authenticated
-page — dashboard, charges, connect, etc., but never the anonymous `layouts.Base` shell) reads the
-browser's IANA timezone via `Intl.DateTimeFormat().resolvedOptions().timeZone` and persists it in
-a 1-year, `SameSite=Lax`, `path=/` cookie on every authenticated page load. The gateway SHALL
-parse the cookie's value via `time.LoadLocation` and use the resulting `*time.Location` to compute
-"browser-today" as local midnight in that zone. On ANY failure — the cookie absent (a direct API
-call, a `<noscript>` browser, or a request that races the very first script execution), an empty
-cookie value, or a value that does not parse as a valid IANA zone name — the gateway SHALL fall
-back to `time.UTC`, preserving the pre-existing UTC behavior. The fallback SHALL be silent: no
-error is surfaced to the caller and no caller has to special-case a cookie-read failure.
+the server's UTC day** (unchanged from the prior revision of this requirement) — derived from the
+`browser_tz` cookie, falling back to `time.UTC` on any failure (absent cookie, empty value,
+unparseable IANA zone). See the "Browser-Local Calendar Day" scenarios below (unchanged
+behavior, restated here for completeness).
 
-The `start`/`end` params SHALL be validated by a single helper (`parseHistoryRange`): when both
-are absent the endpoint SHALL apply the default 6-day window (`end = browser-today` midnight,
-`start = end-6`); a missing partner, a malformed non-ISO date, an `end` earlier than `start`, an
-`end` later than browser-today, or a window wider than 90 days SHALL be rejected with HTTP 400.
-The endpoint SHALL compute a 1-day lookback `readStart = start-1day` and fetch the window via
-`telemetry.Reader.SnapshotsByVehicleBetween(ctx, uid, teslaID, readStart, end)`.
+**The `start`/`end` params' default window AND the `end <= X` validation cap now both target
+`browser-yesterday`, not `browser-today` — this is a BEHAVIOR CHANGE from the prior revision of
+this requirement.** The `start`/`end` params SHALL be validated by a single helper
+(`parseHistoryRange`): when both are absent the endpoint SHALL apply the default 6-day window
+(`end = browser-yesterday` midnight, `start = end-6`); a missing partner, a malformed non-ISO
+date, an `end` earlier than `start`, an `end` later than **browser-yesterday** (this bound moved
+by one calendar day — an `end` equal to browser-TODAY is now ALSO rejected, where it was
+previously accepted), or a window wider than 90 days SHALL be rejected with HTTP 400. The
+endpoint SHALL compute a 1-day lookback `readStart = start-1day` and fetch the odometer/battery
+window via `telemetry.Reader.SnapshotsByVehicleBetween(ctx, uid, teslaID, readStart, end)`, and
+SHALL fetch the consumed window via `battery.Reader.ConsumedByDay(ctx, uid, teslaID, start, end)`
+(no lookback — the port performs its own internal lookback fetch).
 
-**The dashboard's own self-load window and its preset selector target the browser's local
-YESTERDAY, not browser-today.** Because the nightly telemetry batch captures a calendar day's
-snapshot the following night, a window ending at `browser-today` always renders an empty
-"no snapshot" last bar. The dashboard self-load href (`defaultHistoryHref`, computed once by the
-`Dashboard`/`DashboardFragment` handlers and emitted verbatim by the template — no time math in
-markup) and the 6/14/30-day preset buttons (`buildHistoryPresets`) therefore compute their window
-as `end = browser-today - 1day` ("browser-yesterday"), `start = end - N`. This is a UI-only
-convenience layered on an unchanged API contract: a direct API caller who omits both `start` and
-`end` still gets `parseHistoryRange`'s default-absent window ending at browser-today (UTC-today
-with no cookie) — the dashboard page itself simply never issues that bare request; its self-load
-and every preset always carry an explicit, pre-computed `?start=&end=` ending at yesterday.
+**This closes a previously-documented divergence**: before this change, a direct API call
+omitting both `start` and `end` returned a window ending at browser-today, while the dashboard's
+own self-load and preset buttons always targeted a window ending at browser-yesterday (because
+today's data is not captured until tomorrow's nightly poll). After this change, BOTH paths target
+the same browser-yesterday-ending window — the no-params default and every preset now agree.
 
-Both charts SHALL render a **fixed `[start..end]` date axis** — one bar per calendar day in the
-inclusive window, identical `MM-DD` labels on both charts — so a missing nightly snapshot no longer
-shifts the axis. A calendar day with no stored snapshot SHALL render as an **empty labeled bar**:
-zero height, its own `MM-DD` label retained, and a "no snapshot" tooltip. The pre-window `start-1`
-snapshot (fetched via the lookback) SHALL be consumed solely as the first odometer delta's
-kilometre basis and SHALL NOT be displayed as a bar.
+Both the Odometer and Battery charts SHALL continue to render a **fixed `[start..end]` date
+axis** — one bar per calendar day in the inclusive window, identical `MM-DD` labels across all
+three charts — so a missing nightly snapshot does not shift the axis. A calendar day with no
+stored snapshot SHALL render as an **empty labeled bar**: zero height, its own `MM-DD` label
+retained, and a "no snapshot" tooltip. The pre-window `start-1` snapshot (fetched via the
+lookback) SHALL be consumed solely as the first odometer delta's kilometre basis and SHALL NOT
+be displayed as a bar.
 
-The "Odometer history" bars SHALL represent **kilometres driven per day** — the difference between
-the snapshot for day `d-1` and the snapshot for day `d`, in stored kilometres, with no unit
-conversion; a negative computed delta SHALL be shown as zero. The "Battery history" bars SHALL
-represent the **battery level percentage** at each day's snapshot (absolute 0–100). Each bar SHALL
-carry a hover tooltip: the odometer bar's tooltip SHALL include the `MM-DD` date, the kilometres
-driven that day, and the cumulative odometer in kilometres; the battery bar's tooltip SHALL include
-the `MM-DD` date, the level percentage, and the rated range in kilometres. A missing-day bar's
-tooltip SHALL state that no snapshot exists for that date.
+The "Odometer history" bars SHALL represent **kilometres driven per day** — the difference
+between the snapshot for day `d-1` and the snapshot for day `d`, in stored kilometres, with no
+unit conversion; a negative computed delta SHALL be shown as zero. The "Battery history" bars
+SHALL represent the **battery level percentage** at each day's snapshot (absolute 0–100). Each
+bar SHALL carry a hover tooltip: the odometer bar's tooltip SHALL include the `MM-DD` date, the
+kilometres driven that day, and the cumulative odometer in kilometres; the battery bar's tooltip
+SHALL include the `MM-DD` date, the level percentage, and the rated range in kilometres. A
+missing-day bar's tooltip SHALL state that no snapshot exists for that date.
 
-The date shown in each tooltip and per-bar label SHALL be the snapshot's **`EffectiveDate`** (the
-calendar day the nightly snapshot represents — `CapturedAt` − 1 day), formatted **`MM-DD`** by the
-Go handler. The gateway SHALL NOT show the capture-morning date (`CapturedAt`) and SHALL NOT format
-dates inside the template. Each bar SHALL carry a per-bar **date label** rendered under the bar in
-an HTML grid row (one cell per bar), with orientation decided by a single chart-level boolean flag
-(`LabelVertical`): **horizontal** for the 6-bar window (wide bars), **rotated vertical** (via the
-`[writing-mode:vertical-rl]` CSS class) for windows of 14 bars or more (narrow bars). The handler
-SHALL set `LabelVertical` from the number of bars in the fixed window (`labelVerticalFor(numBars)`,
-true when `numBars >= 14`), not from a `days` count; the template SHALL NOT compare the window size,
-compute rotation, or call `time.Format`.
+**The "Battery consumed" chart's bars SHALL represent the corrected per-day battery-consumed
+percentage** returned by `battery.Reader.ConsumedByDay` — bucketed on each returned
+`DayConsumption.Date` value DIRECTLY, never re-derived or re-bucketed through the odometer/
+battery charts' `EffectiveDate`-based UTC bucketing. A day with no corresponding
+`DayConsumption` entry (no computable value for that calendar day) SHALL render as an empty
+labeled bar identical in shape to the odometer/battery "no snapshot" bar, but with a "no data"
+tooltip rather than a "no snapshot" tooltip. The gateway SHALL NOT perform any timezone
+computation of its own for this chart — the calendar day a value belongs to is decided entirely
+by `internal/battery` before the gateway receives it. A known, accepted consequence: because
+`internal/battery` and the odometer/battery charts bucket calendar days in different reference
+frames (the poller's configured zone vs. UTC), the same underlying nightly poll can label the
+consumed bar's calendar day one day apart from its odometer/battery sibling bar; the gateway
+SHALL NOT attempt to reconcile this.
 
-The charts SHALL be rendered as **responsive inline SVG** (scaling to the container width) using no
-client-side charting library. All numeric values — bar heights, deltas, percentages, tooltip strings,
-and per-bar label strings — SHALL be computed by the Go handler before the template renders; the
-template SHALL perform no arithmetic, unit conversion, date formatting, or method calls on domain
-types. Bar colours SHALL use DaisyUI semantic tokens (no hardcoded hex).
+**The "Battery consumed" chart SHALL be scaled RELATIVE to the window's own maximum displayed
+value** (the tallest bar occupies 100% of the chart canvas), NOT an absolute 0–100 scale like
+the Battery chart. A day whose value is suppressed per the flagged-day rule below SHALL
+contribute exactly zero to that maximum, so a flagged day can never compress or distort the
+scale other bars are drawn against.
+
+**A "flagged" day** (`DayConsumption.Flagged == true`, indicating the platform's own gap
+detection could not reconcile that day's charging records against its battery delta) SHALL
+render its bar at ZERO height and SHALL carry a visually distinct warning marker — never the
+raw (possibly negative) percentage value, and never omitted from the axis.
+
+**A "multi-day span" day** (`DayConsumption.DaysSpanned > 1`, indicating a missed nightly poll
+whose delta covers more than one calendar day) SHALL carry its OWN visually distinct marker,
+separate from the flagged-day warning marker, and its tooltip SHALL state how many days it
+covers.
+
+**A day that is BOTH flagged AND a multi-day span SHALL carry BOTH markers**, and its tooltip
+SHALL state BOTH facts — the day count it spans AND that a charge source is suspected missing —
+never only one. This is a deliberate, owner-ruled ("picking one hides a fact that is true")
+decision: markers are a SET a bar can carry zero, one, or both of, never a single mutually-
+exclusive choice between "flagged" and "spanned."
+
+A **non-spanned** flagged day's tooltip SHALL identify which charge source is suspected missing
+(manual entry or Supercharger session) and SHALL NOT include the suppressed numeric value
+anywhere. A **spanned** day's tooltip (flagged or not) SHALL always state its real
+`ConsumedPct` value — the zero-height rendering that a flagged, non-spanned day gets never
+applies to a spanned day's NUMBER; a spanned day's bar height is floored at the chart's zero
+axis only because a bar cannot be drawn with negative height (a rendering-mechanics fact,
+distinct from the flagged-day value-suppression rule above), never because the value is hidden
+from the tooltip.
+
+The date shown in each odometer/battery tooltip and per-bar label SHALL be the snapshot's
+**`EffectiveDate`** (the calendar day the nightly snapshot represents — `CapturedAt` − 1 day),
+formatted **`MM-DD`** by the Go handler; the consumed chart's date SHALL be `DayConsumption.Date`
+formatted the same way. The gateway SHALL NOT show the capture-morning date (`CapturedAt`) and
+SHALL NOT format dates inside the template. Each bar on every chart SHALL carry a per-bar **date
+label** rendered under the bar in an HTML grid row (one cell per bar), with orientation decided
+by a single chart-level boolean flag (`LabelVertical`): **horizontal** for the 6-bar window
+(wide bars), **rotated vertical** (via the `[writing-mode:vertical-rl]` CSS class) for windows
+of 14 bars or more (narrow bars). The handler SHALL set `LabelVertical` from the number of bars
+in the fixed window (`labelVerticalFor(numBars)`, true when `numBars >= 14`) independently for
+each chart, not from a `days` count; the template SHALL NOT compare the window size, compute
+rotation, or call `time.Format`.
+
+The charts SHALL be rendered as **responsive inline SVG** (scaling to the container width) using
+no client-side charting library. All numeric values — bar heights, deltas, percentages, tooltip
+strings, per-bar label strings, and the consumed chart's marker classification — SHALL be
+computed by the Go handler before the template renders; the template SHALL perform no
+arithmetic, unit conversion, date formatting, or method calls on domain types, and SHALL select
+every marker's visual class from a literal written in the template source, never from a string
+computed by the handler. Bar colours and marker colours SHALL use DaisyUI semantic tokens (no
+hardcoded hex).
 
 The preset selector SHALL keep the 6/14/30 buttons but each button's `hx-get` SHALL emit a
 server-rendered absolute `?start=<yesterday-N>&end=<yesterday>` href (computed by the handler at
-render time, `yesterday = browser-today - 1day`); the selector SHALL mark the preset whose
-`(start, end)` matches the requested window as active. Changing the preset SHALL re-fetch
-`GET /ui/dashboard/history?start=...&end=...` and re-render both charts AND the selector by
+render time, unchanged by this revision — the preset windows already targeted browser-yesterday
+before the default/cap change above); the selector SHALL mark the preset whose `(start, end)`
+matches the requested window as active. Changing the preset SHALL re-fetch
+`GET /ui/dashboard/history?start=...&end=...` and re-render all three charts AND the selector by
 swapping `#dashboard-history`'s `innerHTML` without a full page reload.
 
 The dashboard page SHALL NOT carry a Refresh button; the `#dashboard-content` (subscribes to
 `vehicle-changed from:body`) and `#dashboard-history` (self-loads on `hx-trigger="load"` with the
 default 6-day window's absolute `start`/`end` ending yesterday, and re-renders on preset clicks)
-htmx surfaces cover every refresh path. When too few snapshots exist to draw a chart (fewer than
-two snapshots total in the lookback window for the odometer delta chart, or none for the battery
-chart), that chart SHALL show the existing empty-state placeholder instead of fabricated bars; a
-partially-missing axis (some days empty, some present) is NOT an empty chart.
+htmx surfaces cover every refresh path. When too few data points exist to draw a chart (fewer
+than two snapshots total in the lookback window for the odometer delta chart, none for the
+battery chart, or zero `DayConsumption` entries for the consumed chart), that chart SHALL show
+the existing empty-state placeholder instead of fabricated bars; a partially-missing axis (some
+days empty, some present) is NOT an empty chart for any of the three.
 
-#### Scenario: History charts render for the selected vehicle with the default window
+Every user-facing string introduced or changed by this chart (its title, and every tooltip
+clause it composes from — the plain value, the multi-day-span value, and the flagged note)
+SHALL resolve through `i18n.T(ctx, key)` against `internal/gateway/i18n/catalog.go`, with both
+`ES` and `EN` non-empty. Composing multiple clauses into one tooltip (e.g. for a day that is
+both flagged and spanned) SHALL join independently-translated, complete clauses with a
+language-neutral separator and SHALL NOT hardcode a connective word from any one language.
 
-- **GIVEN** a signed-in user whose selected vehicle has several stored nightly snapshots
-- **WHEN** the history fragment is requested (`GET /ui/dashboard/history`) directly, with no `start`
-  and no `end` parameter and no `browser_tz` cookie (a direct API call)
-- **THEN** the response renders an "Odometer history" chart and a "Battery history" chart for the
-  selected vehicle using a 6-day window (`end = UTC-today`, `start = UTC-today-6`, `end` inclusive)
-- **AND** both charts render exactly 6 bars, one per calendar day in `[UTC-today-6 .. UTC-today]`
-- **AND** the odometer and battery charts display identical `MM-DD` labels under corresponding bars
-- **AND** no live Tesla Fleet API call is made and no telemetry table is read directly
+#### Scenario: History charts render for the selected vehicle with the default window, now ending yesterday
 
-#### Scenario: The default window and the end<=today cap honor the browser_tz cookie, for any UTC offset sign
+- **GIVEN** a signed-in user whose selected vehicle has several stored nightly snapshots and
+  several computable `battery.DayConsumption` days
+- **WHEN** the history fragment is requested (`GET /ui/dashboard/history`) directly, with no
+  `start` and no `end` parameter and no `browser_tz` cookie (a direct API call)
+- **THEN** the response renders an "Odometer history" chart, a "Battery history" chart, and a
+  "Battery consumed" chart for the selected vehicle using a 6-day window (`end = UTC-yesterday`,
+  `start = UTC-yesterday-6`, `end` inclusive) — NOT `end = UTC-today` (the prior behavior)
+- **AND** all three charts render exactly 6 bars, one per calendar day in
+  `[UTC-yesterday-6 .. UTC-yesterday]`
+- **AND** the odometer and battery charts display identical `MM-DD` labels under corresponding
+  bars; the consumed chart's labels cover the same calendar range (see the bucketing-mismatch
+  scenario below for why an individual label can differ by one day)
+- **AND** no live Tesla Fleet API call is made and no telemetry or battery table is read directly
 
-- **GIVEN** a signed-in user whose browser sent a `browser_tz` cookie with a valid IANA zone — this
-  holds for ANY such zone, whether its UTC offset is negative (e.g. `America/Bogota`, UTC-5) or
-  positive (e.g. `Asia/Tokyo`, UTC+9; `Pacific/Auckland`, UTC+12/+13)
-- **WHEN** the history fragment is requested with no `start` and no `end` parameter
-- **THEN** the default window's `end` is midnight of "today" IN THAT ZONE, not UTC midnight
-- **AND** a request carrying `end` equal to that same browser-local "today" is accepted (HTTP 200)
-  — for EVERY zone regardless of the sign of its UTC offset, because the cap compares CALENDAR
-  DATES (each side's Y/M/D evaluated in its own frame), never absolute instants; a positive-offset
-  zone, where UTC-midnight-of-D is a later instant than local-midnight-of-D, is therefore never
-  spuriously rejected
-- **AND** a request carrying `end` equal to browser-local "tomorrow" is rejected with HTTP 400
-  (future in the browser's frame), even where the equivalent instant is still "today" in UTC
+#### Scenario: The end<=today cap now rejects end=today; only end<=yesterday is accepted
 
-#### Scenario: Missing, malformed, or empty browser_tz cookie falls back to UTC
+- **GIVEN** a signed-in user whose browser-local "today" is `2026-08-16`
+- **WHEN** the history fragment is requested with `?start=2026-08-10&end=2026-08-16` (`end`
+  equal to browser-today)
+- **THEN** the endpoint responds with HTTP 400 — this request was ACCEPTED before this change
+- **AND** the SAME request with `?end=2026-08-15` (`end` equal to browser-yesterday) is
+  accepted (HTTP 200)
+- **AND** the empty-state placeholder (no preset selector) is rendered for the rejected request,
+  per the existing malformed-request degradation rule
 
-- **GIVEN** any of: no `browser_tz` cookie present, a cookie whose value is an empty string, or a
-  cookie whose value does not parse as a valid IANA timezone name via `time.LoadLocation` (e.g.
-  `"Not/A/Zone"`)
-- **WHEN** the gateway computes "browser-today" for `parseHistoryRange`, `defaultHistoryHref`, or
-  `buildHistoryPresets`
-- **THEN** the gateway uses `time.UTC` — the pre-browser-TZ behavior — without returning an error to
-  the caller or the render
-- **AND** the resulting default window's `end` equals `startOfDay(time.Now())` in UTC
+#### Scenario: Direct API default and the dashboard's own preset/self-load windows now agree
 
-#### Scenario: Dashboard self-load and presets default to the browser's local yesterday
+- **GIVEN** a signed-in user whose browser-local "today" is `2026-08-16` (so
+  browser-yesterday is `2026-08-15`)
+- **WHEN** a direct API call omits both `start` and `end`, AND separately the dashboard page's
+  own self-load href is inspected
+- **THEN** both resolve to the identical window: `end = 2026-08-15`, `start = 2026-08-09`
+  (the default 6-day width)
+- **AND** this is a change from the prior revision of this requirement, under which the direct
+  API default ended at `2026-08-16` (browser-today) while the dashboard's self-load already
+  ended at `2026-08-15` (browser-yesterday) — that divergence no longer exists
 
-- **GIVEN** a signed-in user whose browser sent a valid `browser_tz` cookie
-- **WHEN** the dashboard page or fragment is rendered (`GET /dashboard`, `GET /ui/dashboard`)
-- **THEN** the `#dashboard-history` region's self-load href (`defaultHistoryHref`) targets
-  `end = browser-today - 1day` ("browser-yesterday"), `start = end - 6`
-- **AND** each of the 6/14/30-day preset buttons targets `end = browser-yesterday`,
-  `start = end - N`
-- **AND** the requested window's last bar therefore always has a chance of carrying a real snapshot
-  (the nightly batch has already captured browser-yesterday's data by the time the user opens the
-  dashboard)
-- **AND** a direct `GET /ui/dashboard/history` call with no params (bypassing the dashboard's
-  self-load) is UNCHANGED by this default-to-yesterday UI behavior — it still returns the
-  default-absent window ending at browser-today, per `parseHistoryRange`
+#### Scenario: The consumed chart bucket day is the port's own Date, never re-derived
 
-#### Scenario: The browser_tz cookie is set on every authenticated page load
+- **GIVEN** `battery.Reader.ConsumedByDay` returns a `DayConsumption` entry with
+  `Date = 2026-08-10`
+- **WHEN** the consumed chart buckets that entry onto the fixed `[start..end]` axis
+- **THEN** the entry's bar is placed at the `2026-08-10` slot using `Date` verbatim
+- **AND** the gateway does NOT pass `Date` through the odometer/battery charts'
+  `effectiveDayUTC` helper or any other re-bucketing step
+- **AND** a known, accepted consequence is that this bar's calendar day can differ by one day
+  from the odometer/battery bar for the same underlying nightly poll, because
+  `internal/battery` buckets in the poller's configured zone while the odometer/battery charts
+  bucket in UTC — this mismatch is NOT corrected by the gateway
 
-- **GIVEN** any authenticated page rendered through `layouts.BaseAuth` (dashboard, charges,
-  connect, etc.)
-- **WHEN** the page is rendered
-- **THEN** the response HTML contains an inline `<script>` that reads
-  `Intl.DateTimeFormat().resolvedOptions().timeZone` and sets `document.cookie` with a
-  `browser_tz=` entry, `path=/`, `max-age=31536000` (1 year), `SameSite=Lax`
-- **AND** the script is wrapped so a JavaScript failure (or a `<noscript>` browser) does not break
-  page rendering — the cookie simply never gets set and the server falls back to UTC
-- **AND** the anonymous `layouts.Base` shell (used for `/`, `/login`) does NOT contain this script
+#### Scenario: The consumed chart scales relative to its own window maximum, not absolute 0-100
 
-#### Scenario: Bounded calendar-day window is parsed and validated
+- **GIVEN** a selected vehicle whose consumed-chart window contains entries with `ConsumedPct`
+  values `8.0`, `20.0`, and one flagged entry
+- **WHEN** the consumed chart is rendered
+- **THEN** the bar heights are computed relative to `20.0` (the window's maximum displayed
+  value), so the `8.0` entry renders at 40% of the chart canvas and the `20.0` entry at 100%
+- **AND** the flagged entry contributes zero toward that maximum regardless of its own
+  (suppressed) underlying value
+- **AND** this differs from the "Battery history" chart, whose bars remain an absolute 0–100
+  scale
 
-- **GIVEN** a signed-in user on the dashboard
-- **WHEN** the history fragment is requested with `?start=2026-08-03&end=2026-08-07`
-- **THEN** the charts render a fixed axis for the 5-day inclusive window `[2026-08-03 .. 2026-08-07]`
-- **AND** the handler called `SnapshotsByVehicleBetween(ctx, uid, teslaID, readStart, end)` with
-  `readStart = 2026-08-02` (a 1-day lookback) and `end = 2026-08-07`
-- **AND** the 1-day-lookback snapshot (whose `EffectiveDate` is `2026-08-02`) is NOT displayed as a
-  bar; it is consumed only as the first odometer delta's kilometre basis
+#### Scenario: A flagged, non-spanned day renders as a zero-height bar with a warning marker and no numeric value
 
-#### Scenario: Malformed or invalid date params are rejected with 400
+- **GIVEN** a `DayConsumption` entry with `Flagged = true`, `DaysSpanned = 1`, and
+  `MissingChargingType = "MANUAL"`
+- **WHEN** the consumed chart renders that day's bar
+- **THEN** the bar's height is zero
+- **AND** the bar carries a visually distinct warning marker, separate from the normal bar fill
+  color and from the multi-day-span marker
+- **AND** the bar's tooltip identifies a possible missing manual charge record for that date
+- **AND** the tooltip does NOT contain the entry's underlying (suppressed) numeric percentage
+  anywhere
+- **AND** the bar is NOT omitted from the axis — its calendar-day slot and label remain present
 
-- **GIVEN** a signed-in user on the dashboard
-- **WHEN** the history fragment is requested with any of: a malformed non-ISO date (`?start=08-07`),
-  a missing partner (`?start=2026-08-03` with no `end`), `end` earlier than `start`
-  (`?start=2026-08-07&end=2026-08-03`), `end` later than browser-today
-  (`?start=2026-08-03&end=2026-12-31`), or a window wider than 90 days
-  (`?start=2026-05-01&end=2026-08-07` ≈ 99 days)
-- **THEN** the endpoint responds with HTTP 400
-- **AND** no `SnapshotsByVehicleBetween` call is made for a rejected request (throw at validation time)
-- **AND** the 400 response renders the `#dashboard-history` empty-state placeholder (no fabricated
-  bars, no 500)
+- **GIVEN** the same entry but with `MissingChargingType = "SUPERCHARGER"` instead
+- **WHEN** the consumed chart renders that day's bar
+- **THEN** the tooltip identifies a possible missing Supercharger session instead of a manual
+  entry, otherwise identically to the manual case
 
-#### Scenario: Both charts share a fixed calendar-day axis (MAG-7 offset fix)
+#### Scenario: A multi-day span renders its real value with its own marker, distinct from a flagged day
 
-- **GIVEN** a selected vehicle whose snapshots cover a 6-day window but with one missing nightly
-  snapshot (e.g. no capture whose `EffectiveDate` is `2026-08-05`)
-- **WHEN** the history fragment is rendered for `[2026-08-02 .. 2026-08-07]`
-- **THEN** both charts render exactly 6 bars, one per calendar day in the inclusive window
-- **AND** the missing day (`2026-08-05`) renders as an empty labeled bar (zero height) with the
-  `MM-DD` label `08-05` and a "no snapshot" tooltip
-- **AND** the odometer and battery labels for the same calendar day are identical (no 1-day offset
-  between the two charts)
-- **AND** the surrounding bars' labels do NOT shift to fill the missing day's slot
+- **GIVEN** a `DayConsumption` entry with `DaysSpanned = 3`, `Flagged = false`, and a positive
+  `ConsumedPct`
+- **WHEN** the consumed chart renders that day's bar
+- **THEN** the bar's height reflects the entry's real `ConsumedPct`, scaled relative to the
+  window's maximum — NOT a zero-height bar
+- **AND** the bar carries a visually distinct span marker, different from the flagged-day
+  warning marker
+- **AND** the bar's tooltip states the real percentage value AND that it covers 3 days
 
-#### Scenario: Odometer bars are km driven per day, using the 1-day lookback for the first delta
+#### Scenario: A multi-day span that is also flagged carries BOTH markers and states both facts
 
-- **GIVEN** a selected vehicle with stored snapshots for `2026-08-02` (lookback), `2026-08-03`,
-  `2026-08-04`, … `2026-08-07` (the window `[2026-08-03 .. 2026-08-07]`)
-- **WHEN** the odometer history chart is rendered
-- **THEN** the bar for `2026-08-03` represents `odometerKm(snap@08-03) - odometerKm(snap@08-02)`,
-  consuming the lookback snapshot (`EffectiveDate == 2026-08-02`) solely as the delta basis
-- **AND** the lookback snapshot is NOT displayed as a bar (the axis starts at `08-03`)
-- **AND** a bar whose computed delta is negative is shown as zero
-- **AND** each bar's tooltip shows the `MM-DD` date, the kilometres driven that day, and the
-  cumulative odometer in kilometres
+- **GIVEN** a `DayConsumption` entry with `DaysSpanned = 2`, `Flagged = true`,
+  `ConsumedPct = -3.0`, and `MissingChargingType = "MANUAL"`
+- **WHEN** the consumed chart renders that day's bar
+- **THEN** the bar carries BOTH the multi-day-span marker AND the flagged-day warning marker,
+  simultaneously and independently visible — neither marker is suppressed in favor of the
+  other (roadmap D21: "picking one hides a fact that is true")
+- **AND** the bar's height is zero — for this entry that outcome is unambiguous either way: the
+  chart's zero-axis floor (a negative height cannot be drawn) and the flagged-day
+  value-suppression rule agree, because a flagged day's `ConsumedPct` is always `<= 0` by
+  construction (tier 3 D5)
+- **AND** the tooltip states the real, signed percentage value (`-3.0%`) and that the entry
+  covers 2 days, AND separately notes a possible missing manual charge record — both facts
+  present, neither omitted in favor of the other
+- **AND** this is the roadmap's own worked overlap case: `Flagged` and `DaysSpanned > 1` are
+  independent conditions on `DayConsumption`, so this combination is reachable in production,
+  not merely a hypothetical fixture
 
-#### Scenario: Battery bars are absolute level with a range tooltip, one per calendar day
+#### Scenario: A day absent from ConsumedByDay renders as a "no data" bar, distinct wording from "no snapshot"
 
-- **GIVEN** a selected vehicle with stored snapshots in the window (and one missing day)
-- **WHEN** the battery history chart is rendered
-- **THEN** each bar's height represents that day's snapshot battery level percentage (0–100)
-- **AND** a missing-day bar renders at zero height with its `MM-DD` label and a "no snapshot"
-  tooltip (not a fabricated 0% reading)
-- **AND** each present bar's tooltip shows the `MM-DD` date, the battery level percentage, and the
-  rated range in kilometres
+- **GIVEN** a calendar day within the requested window for which `battery.Reader.ConsumedByDay`
+  returned no entry (no computable value for that day)
+- **WHEN** the consumed chart renders that day's slot
+- **THEN** the bar renders at zero height with its own `MM-DD` label retained
+- **AND** the tooltip states that no data exists for that date, using wording distinct from the
+  odometer/battery charts' "no snapshot" tooltip (the absence reason for the consumed chart is
+  broader than "no snapshot exists")
+- **AND** a window with zero computable days across its entire range renders the consumed
+  chart's empty-state placeholder instead of an all-empty bar row
 
-#### Scenario: Tooltip date is the EffectiveDate in MM-DD, not the capture morning
+#### Scenario: Consumed chart data comes exclusively through battery.Reader
 
-- **GIVEN** a selected vehicle with a snapshot whose `CapturedAt` is `2026-08-08 03:30 UTC`
-- **AND** whose `EffectiveDate` is therefore `2026-08-07`
-- **WHEN** either history chart's bar for that snapshot is rendered
-- **THEN** the bar's tooltip shows the date as `08-07` (MM-DD of the `EffectiveDate`)
-- **AND** the tooltip does NOT show `2026-08-08` (the `CapturedAt` morning) or a `YYYY-MM-DD` string
-- **AND** the `MM-DD` string is pre-formatted by the Go handler (the template performs no
-  `time.Format`)
+- **GIVEN** the gateway handler that builds the consumed chart
+- **WHEN** it obtains per-day consumption data
+- **THEN** it does so exclusively through `battery.Reader.ConsumedByDay`
+- **AND** it imports no package other than `internal/battery`'s public port for this data (there
+  is no `battery` database package to accidentally import — `internal/battery` owns no
+  database)
+- **AND** a `battery.Reader` error degrades only the consumed chart to its empty state; the
+  odometer and battery charts, sourced from the separate `telemetry.Reader` call, are
+  unaffected by a `battery.Reader` failure
 
-#### Scenario: Label orientation is adaptive to the number of bars in the fixed window
+#### Scenario: Browser-Local Calendar Day (unchanged from the prior revision)
 
-- **GIVEN** the history fragment rendered with a 6-bar window (the default or the 6-day preset)
-- **WHEN** the per-bar labels are rendered
-- **THEN** the labels are horizontal under each bar
-- **AND** the handler set the chart's `LabelVertical` flag to false
-
-- **GIVEN** the history fragment rendered with a 14-bar or 30-bar window (the 14/30-day presets)
-- **WHEN** the per-bar labels are rendered
-- **THEN** the labels use the `[writing-mode:vertical-rl]` CSS class (vertical) so each label fits
-  within its narrow bar's width
-- **AND** the handler set the chart's `LabelVertical` flag to true
-- **AND** the template chose the orientation solely from the `LabelVertical` flag (it did not
-  compare the window size or compute rotation)
-
-#### Scenario: Preset selector emits server-rendered absolute start/end hrefs ending yesterday
-
-- **GIVEN** a signed-in user viewing the dashboard history region
-- **WHEN** the preset selector is rendered (for any valid window)
-- **THEN** each preset button's `hx-get` is an absolute `?start=<yesterday-N>&end=<yesterday>` href
-  where `N` is 6, 14, or 30 respectively and `yesterday = browser-today - 1day`, computed at
-  render time by the Go handler
-- **AND** the button copy is unchanged ("6 days", "14 days", "30 days")
-- **AND** the preset whose `(start, end)` matches the requested window is marked active
-  (`btn-primary`); a custom non-preset window marks no preset active (all-ghost)
-
-#### Scenario: Changing the preset re-fetches both charts by absolute dates
-
-- **GIVEN** a signed-in user viewing the dashboard history region with the default 6-day window
-  ending yesterday
-- **WHEN** the user clicks the 14-day preset button
-- **THEN** the region re-fetches `GET /ui/dashboard/history?start=<yesterday-14>&end=<yesterday>`
-- **AND** both the odometer and battery charts re-render for the 14-day window with a fixed 14-bar
-  axis without a full page reload
-- **AND** the 14-day preset is marked active (`btn-primary`)
-- **AND** the per-bar label orientation updates to vertical (14 bars ≥ 14 → `LabelVertical = true`)
-
-#### Scenario: History region follows a vehicle switch at the default window
-
-- **GIVEN** a signed-in user with two or more registered vehicles on the dashboard
-- **AND** the history region is nested inside the `#dashboard-content` region that subscribes to
-  `vehicle-changed`
-- **WHEN** the user switches the active vehicle
-- **THEN** the dashboard content re-renders and the `#dashboard-history` region self-loads with the
-  default 6-day window's absolute `start`/`end` (ending browser-yesterday) for the newly-selected
-  vehicle
-
-#### Scenario: Dashboard page carries no Refresh button
-
-- **GIVEN** the rendered dashboard page (`pages/dashboard.templ`)
-- **WHEN** it is rendered for an authenticated user
-- **THEN** the page header does NOT contain a Refresh button
-- **AND** the `#dashboard-content` and `#dashboard-history` htmx self-refresh surfaces are present
-- **AND** no other page's Refresh button is affected (the charges-list Refresh stays)
-
-#### Scenario: Sparse data falls back to the empty state (not a partial axis)
-
-- **GIVEN** a selected vehicle with fewer than two stored snapshots total in the lookback window
-- **WHEN** the odometer history chart is rendered
-- **THEN** the odometer chart shows the empty-state placeholder (no fabricated bars)
-- **AND** the battery chart shows bars only if at least one snapshot exists, otherwise its own
-  empty-state placeholder
-- **AND** a partially-missing axis (some empty bars, some present) is NOT treated as an empty chart
+- **GIVEN** a signed-in user whose browser sent a `browser_tz` cookie with a valid IANA zone —
+  for any zone, negative or positive UTC offset
+- **WHEN** the history fragment is requested with no `start`/`end` parameter
+- **THEN** the default window's `end` is midnight of browser-yesterday IN THAT ZONE, not UTC
+  midnight
+- **AND** on a missing, empty, or unparseable `browser_tz` cookie, the gateway falls back to
+  `time.UTC` silently — no error surfaced, no caller special-casing required
 
 #### Scenario: Charts contain no business logic in templates
 
-- **GIVEN** the history chart and selector templates
+- **GIVEN** the history chart and selector templates, including the new consumed-chart marker
+  rendering
 - **WHEN** they render
-- **THEN** the bar heights, per-day kilometre deltas, battery percentages, tooltip strings, per-bar
-  `MM-DD` label strings, the `Present` flag, and the `LabelVertical` orientation flag have all been
+- **THEN** the bar heights, per-day deltas/percentages, tooltip strings, per-bar `MM-DD` label
+  strings, the `Present` flag, the flagged-marker and multi-day-span-marker flags (independent
+  of each other — a bar can carry both), and the `LabelVertical` orientation flag have all been
   computed by the Go handler before the template receives the view model
 - **AND** the templates use only presentation logic (if/for/display) — no arithmetic, no unit
   conversion, no date formatting, no method calls on domain types
-- **AND** the SVG scales to the container width (responsive) and bar colours use DaisyUI semantic
-  tokens with no hardcoded hex
-- **AND** the per-bar label is a real DOM text cell in an HTML grid (not an SVG `<text>`), using a
-  muted semantic token — no client-side library
+- **AND** every marker's CSS class (e.g. the warning color for a flagged bar, the info color for
+  a span bar) is a literal string written in the `.templ` source, never a string value computed
+  in a `.go` handler file and passed through as an attribute
+- **AND** the SVG scales to the container width (responsive) and bar/marker colours use DaisyUI
+  semantic tokens with no hardcoded hex
+- **AND** the per-bar label is a real DOM text cell in an HTML grid (not an SVG `<text>`), using
+  a muted semantic token — no client-side library
 
-#### Scenario: Gateway never imports telemetrydb for history
+#### Scenario: Gateway never imports telemetrydb or a battery database package for history
 
-- **GIVEN** the gateway handler that builds the history charts
-- **WHEN** it obtains the vehicle's snapshot history
-- **THEN** it does so exclusively through the `telemetry.Reader` public interface
-  (`SnapshotsByVehicleBetween` for the bounded window)
-- **AND** it imports no package from `internal/telemetry/db` (`telemetrydb`)
+- **GIVEN** the gateway handler that builds all three history charts
+- **WHEN** it obtains the vehicle's snapshot history and its per-day consumption
+- **THEN** it does so exclusively through the `telemetry.Reader` and `battery.Reader` public
+  interfaces
+- **AND** it imports no package from `internal/telemetry/db` (`telemetrydb`) and no database
+  package from `internal/battery` (which has none)
 - **AND** no `pgtype` type appears in any gateway file involved
 
 #### Scenario: History fragment is not served to anonymous callers
 
 - **GIVEN** an unauthenticated request to `GET /ui/dashboard/history`
 - **WHEN** the handler resolves the session
-- **THEN** the request is redirected to `/login` and no history data is served
+- **THEN** the request is redirected to `/login` and no history data (including the consumed
+  chart) is served
 
-#### Scenario: The start/end HTTP convention is recorded in the gateway module docs
+#### Scenario: All new consumed-chart strings are bilingual
 
-- **GIVEN** a future date-filtered gateway HTTP endpoint is proposed
-- **WHEN** an agent or human reads `internal/gateway/AGENTS.md` or follows the one-line pointer in
-  `ai/go-conventions.md`
-- **THEN** they find the convention "every date-filtered gateway HTTP endpoint takes
-  `?start=YYYY-MM-DD&end=YYYY-MM-DD`, never a `?days=N` count", with the 400 cases and the 90-day
-  cap
-- **AND** the dashboard history endpoint is the reference implementation of that convention
+- **GIVEN** the consumed chart's title, and every clause its tooltip composes from (the plain
+  percentage value, the multi-day-span value, and the flagged note)
+- **WHEN** the catalogue is inspected
+- **THEN** every corresponding key has both an `ES` and an `EN` value, neither empty
+- **AND** no consumed-chart string is a hardcoded literal bypassing `i18n.T`
+- **AND** a tooltip composed from more than one clause (e.g. a day that is both flagged and
+  spanned) joins the independently-translated clauses with a language-neutral separator, never
+  a connective word hardcoded from one language
 
 ### Requirement: Vehicle-Scoped Cross-Region Refresh
 

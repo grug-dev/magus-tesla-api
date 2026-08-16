@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
   "request": "Tier 4 of RM28 (MAG-15). Add the battery-consumed bar chart to /ui/dashboard/history, mirroring templates/fragments/history.templ + history_vm.go. Consume battery.ConsumedByDay through the port — never a database. Render flagged days per D10 (zero-height bar, distinct warning marker) and multi-day spans per D8/D20; a day that is both carries both markers per D21. Move parseHistoryRange's default and its end <= today cap to yesterday per D11. Every new label bilingual ES/EN through i18n.T against internal/gateway/i18n/catalog.go, both non-empty.",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -24,7 +24,7 @@
     ]
   },
   "created_at": "2026-08-16T15:45:00Z",
-  "updated_at": "2026-08-16T16:10:17Z",
+  "updated_at": "2026-08-16T16:22:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -463,6 +463,11 @@
       "at": "2026-08-16T16:20:00Z",
       "agent": "leader",
       "event": "Reviewer approved round 1 with one minor finding (R1). Leader triaged R1 as ACCEPTED and verified its central claim independently: defaultHistoryHref and every preset button emit explicit start/end params, so the both-absent path is unreachable through the UI. Deferred to openspec/roadmaps/backlog.md item 13 per the reviewer's own recommendation; the fix belongs to all three charts, not just the consumed one."
+    },
+    {
+      "at": "2026-08-16T16:22:00Z",
+      "agent": "leader",
+      "event": "Archived as 2026-08-16-RM28-gateway-add-consumed-graph; openspec synced 1 modified requirement into openspec/specs/gateway/spec.md. Ticked V.8 in the archived tasks.md — the owner's green run. V.3 stays unchecked by design (D6)."
     }
   ]
 }
