@@ -362,9 +362,46 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
+    "status": "approved",
+    "agent": "telemetry-reviewer",
     "brief": "Review RM28-telemetry-add-charge-gap-storage (telemetry, commits 9bdbc02..d24ac05 off 874820f). Validate: (1) MODULE BOUNDARY - internal/telemetry imports only account + tesla public packages + its own db; no other module's internals; pgtype confined to service.go/mapping.go (not gap_writer.go). (2) DB-vs-CONFIRMED-DESIGN - the shipped charge_gaps DDL must match design.md AND user gate decisions G1 (column named gap_date, NOT date) and G2 (idx_charge_gaps_account kept). Any mismatch is a BLOCKER. Exactly two indexes; nothing added on supercharger_sessions. UpsertChargeGap's ON CONFLICT SET must not touch created_at (D-Table2). (3) TEST-CONTRACT - the DB integration tests must assert the expectations design.md authored UP FRONT (scenarios a-e), not whatever the implementation happens to do. Scenario (d) was corrected mid-flight (G5, ordered AFTER S1) - verify the test matches the corrected contract and the corrected contract matches query.sql's ORDER BY. (4) SPEC/TASKS COVERAGE - specs/telemetry/spec.md requirements all implemented; no task or acceptance criterion was edited, weakened or deleted (append-only). (5) PERFORMANCE-PROFILE (read-heavy) compliance within the module boundary. (6) TWO LEADER-FLAGGED ITEMS TO JUDGE INDEPENDENTLY, do not rubber-stamp: (a) V2 is UNTICKED - gofmt -l reports 14 files; leader claims all 14 are pre-existing at base 874820f and untouched here; verify that claim. (b) V11 is PARTIALLY MET - the leader edited two files OUTSIDE the module sandbox, internal/battery/reader_test.go and internal/gateway/handlers/supercharger_test.go, adding panic-on-call stubs for the new port method (G4). Judge whether that was the right call, whether panic-not-nil is right, and whether it belongs in this change. (7) ANTI-GAMING - no self-approved statuses, no weakened criteria. TEST-EXECUTION-POLICY (verbatim, binds you too): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE: go build, go vet, gofmt -l and openspec validate --strict were ASSISTANT-run (all clean except the pre-existing gofmt files). `make test` was USER-run and USER-reported passing - that is the owner's verification, not the assistant's. Judge test QUALITY by READING the tests; do not run the suite.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-16T01:30:00Z",
+        "agent": "telemetry-reviewer",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "AGENTS.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/telemetry/AGENTS.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/proposal.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/design.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/specs/telemetry/spec.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/tasks.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/progress.json"
+        ],
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "minor",
+            "note": "spec.md's two ADDED-requirement scenarios 'Reconciliation only affects the reconciled window' (a charge_gaps row on a day OUTSIDE the window being reconciled must be untouched) and 'Ledger rows for different vehicles are independent' (same account, two tesla_ids) have no dedicated regression test. design.md's own authored Test Contract (a)-(e) never enumerated either as a scenario, so no task/test omitted anything promised — this is a gap between spec.md's scenario list and design.md's test-contract transcription, not a gaming or coverage-claim issue. I independently verified both behaviors hold against the code: gap_writer.go's ChargeGapDatesByVehicleBetween/DeleteChargeGap/UpsertChargeGap calls (internal/telemetry/db/query.sql) are all scoped by account_id AND tesla_id AND a gap_date bound to [start,end], so window- and vehicle-isolation are structural, not incidental. Non-blocking; worth a follow-up regression test given this is the port's core safety property (a caller bug that widened the internal existing-rows query could silently wipe unrelated days without any test catching it).",
+            "status": "open"
+          }
+        ],
+        "verified": {
+          "module_boundary": "internal/telemetry non-test .go files import only internal/account, internal/tesla, and internal/telemetry/db (telemetrydb) — confirmed by grep across telemetry.go/service.go/reader.go/gap_writer.go/mapping.go/wake.go. pgtype is only actually imported (real import statement, not a comment) in mapping.go and service.go; gap_writer.go, reader.go, telemetry.go mention 'pgtype' only in doc comments. Files touched outside internal/telemetry: README.md (leader, data-ownership table row), internal/battery/reader_test.go and internal/gateway/handlers/supercharger_test.go (leader, test-only interface-satisfaction stubs, G4). internal/battery production code untouched.",
+          "db_vs_confirmed_design": "Migration 20260815000002_add_charge_gaps.sql diffed byte-for-byte against design.md's Schema section: column is gap_date (G1 honored), idx_charge_gaps_account (account_id, gap_date DESC) present (G2 honored), exactly one CREATE INDEX statement in the migration (the UNIQUE constraint supplies the second implicit index — two total, no third), no migration or query touches supercharger_sessions. UpsertChargeGap's ON CONFLICT DO UPDATE SET refreshes only vin, missing_charging_type, updated_at — created_at is absent, matching D-Table2.",
+          "test_contract": "db_gap_writer_integration_test.go and db_supercharger_between_integration_test.go implement scenarios (a)-(e) matching design.md's authored expected values, including byte-for-byte created_at preservation, updated_at advancement, per-day delete precision, empty-flagged-set clearing, and full-call rejection on mis-scoped entries. Scenario (d) test asserts got[0]=S1, got[1]=S5 (ascending stop-time order), matching the G5-corrected contract text ('ordered after S1') and query.sql's ORDER BY charge_stop_date_time ASC — verified consistent.",
+          "spec_tasks_coverage": "Both spec.md requirements (Charge Gap Ledger; Supercharger Session Read Port modification) are implemented per the code read. tasks.md revision history (git log -p) shows only checkbox toggles ([ ]->[x]) and appended *Leader-verified*/*Leader note* annotations on V2/V10/V11/V12 — no task or acceptance-criterion title/body text was altered or removed; V2 and V11 were left honestly unticked/partial rather than gamed to done. See R1-1 for the one coverage gap found.",
+          "performance_profile": "Index Plan (design.md) matches the read-heavy profile: reuses the UNIQUE constraint's own index for the per-vehicle reconciliation path, adds one deliberate account-wide index for a named (if not-yet-built) read pattern, declines a third index on supercharger_sessions for the new bounded query (documented trade-off), and declines a LIMIT on the new query for a reasoned, non-cargo-culted reason. No violation of module-boundary or data-ownership found in the read/write path design.",
+          "leader_flagged_6a_gofmt": "INDEPENDENTLY VERIFIED TRUE. Ran gofmt -l . myself: same 14 files. For each of the 14, git diff 874820f..HEAD -- <file> is empty (byte-identical to base) — confirmed via a loop, not sampling. Separately confirmed every .go file this change DID touch is gofmt-clean (git diff --name-only -- '*.go' | xargs gofmt -l produced no output). go build ./... and go vet ./... also independently re-run clean.",
+          "leader_flagged_6b_cross_module_stubs": "MY INDEPENDENT JUDGMENT (not a rubber stamp): the right call, correctly scoped and correctly implemented. Extending a public interface (SuperchargerReader) breaks every existing fake implementing it repo-wide at compile time — this is unavoidable and not specific to the pipeline's module sandboxing; it is how Go's structural interfaces work. Deferring the fix to a later change would leave go build/go vet failing across the whole repo between merge and that later change, which is not an option under this project's 'go vet must stay green' signal. The edits are test-only (no production code), minimal (one method each), and correctly attributed to the leader (agentic-workflow.md: 'The lead integrates — wires the modules together... reconciles the slices'), not smuggled into the worker's sandboxed diff. Panic-on-call (not nil) is the RIGHT choice, not just a style pick: it mirrors the pre-existing convention already in both fakes (their existing SuperchargerSessionsByAccount stub in internal/battery/reader_test.go already panics with an identical 'must not be called from RecentEfficiency' message, predating this change) — an unexpected call fails loudly and immediately rather than producing a confusing nil-slice bug three layers away. V11 is correctly left 'partially met' rather than reworded to 'met' — honest self-reporting, not gaming."
+        }
+      }
+    ]
   }
 }
