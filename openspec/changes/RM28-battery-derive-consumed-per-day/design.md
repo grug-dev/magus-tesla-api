@@ -1,5 +1,14 @@
 ## Context
 
+> **Revised 2026-08-16 (task T0) after the owner ruled on two paused design questions.**
+> Roadmap **D17** confirms **D-B3** exactly as written (`DayConsumption.Date` is the row's
+> own effective day — for a multi-day span, the span's last calendar day). Roadmap **D18**
+> **overrules the original D-B7**: calendar-day bucketing uses the poller's configured zone
+> (`Config.Location`), not UTC. The superseded UTC reasoning is preserved inside D-B7 as a
+> rejected alternative. Two decisions were appended: **D-B12** (where the zone comes from —
+> stamped on the row, so `NewReader`'s signature still does not change) and **D-B13** (the
+> fetch-window widening the zone shift requires). **D-B1 survives intact.**
+
 Tier 1 (`RM28-telemetry-add-charge-gap-storage`, archived) added `internal/telemetry`'s
 `charge_gaps` table, `GapWriter.ReconcileWindow`, and
 `SuperchargerReader.SuperchargerSessionsByVehicleBetween`. Tier 2
@@ -100,37 +109,45 @@ pattern (`buildOdometerChart`/`buildBatteryChart`), and it would force every ent
 fields to have a meaningless zero value on no-data days that callers must remember to
 ignore, rather than the entry simply not existing.
 
-### D-B3 (D1, D8) — `DayConsumption.Date` is the row's own `EffectiveDate`, never shifted; resolving the roadmap's "start day" wording
+### D-B3 (D1, D8, D17) — `DayConsumption.Date` is the row's own effective day, never shifted; resolving the roadmap's "start day" wording
 
-`DayConsumption.Date` is set to `dayUTC(cur.EffectiveDate)` for the snapshot row `cur`
-that carries the (possibly multi-day) delta — the same value D1 already establishes as
-final and non-negotiable ("do NOT shift, re-derive, or 'fix' the stored
-`battery_used_pct_calc`"; "the five derived columns stay exactly where they are, on the
-row that carries them today").
+> **Confirmed unchanged by roadmap D17 (owner ruling, 2026-08-16):** `DayConsumption.Date`
+> is the row's own effective day, which for a multi-day span is the span's **last**
+> calendar day. This decision's substance stands exactly as written. What roadmap **D18**
+> changed is orthogonal: not *which* row's day or *which end* of a span, but the **zone in
+> which that day's boundary is computed** — see D-B7 (rewritten) and D-B12. D17 fixes the
+> row; D18 fixes the clock. Neither touches the other.
+
+`DayConsumption.Date` is set to `effectiveDay(cur)` for the snapshot row `cur` that carries
+the (possibly multi-day) delta — the same value D1 already establishes as final and
+non-negotiable ("do NOT shift, re-derive, or 'fix' the stored `battery_used_pct_calc`";
+"the five derived columns stay exactly where they are, on the row that carries them
+today"). `effectiveDay` is defined in D-B7: the row's own `CapturedDate` (the poller's
+zone, stamped at write time) minus one calendar day.
 
 This resolves an apparent tension with roadmap D8's own wording: "plot a single bar on
-the **start day**." Read literally against calendar dates, `cur.EffectiveDate` is
+the **start day**." Read literally against calendar dates, `effectiveDay(cur)` is
 chronologically the *last* day of a multi-day span (the day the delayed poll's row
 represents), not the first. This design deliberately does **not** re-attribute the bar to
-`predecessor.EffectiveDate + 1` (the chronological first day of the gap) — doing so would
+`effectiveDay(predecessor) + 1` (the chronological first day of the gap) — doing so would
 be exactly the kind of shift D1's correction explicitly overturned RM28's original tier 1
 for. The reading this design adopts: "start day" means "the single day *at which the bar
 starts appearing*" (as opposed to spreading the value across the span, or omitting it) —
 i.e., the one real data point the derivation has, placed where D1 already says it belongs.
-Every intervening calendar day between `predecessor.EffectiveDate` and `cur.EffectiveDate`
+Every intervening calendar day between `effectiveDay(predecessor)` and `effectiveDay(cur)`
 has **no snapshot row at all** (the poll was missed), so it is automatically absent from
 `ConsumedByDay`'s output (D-B2) — exactly matching D8's "intervening days rendered as
 no-data" with zero special-case code.
 
 ### D-B4 (extends D5a) — A row whose predecessor lies outside the fetched window is skipped, not guessed
 
-`deriveConsumedByDay` iterates fetched, `EffectiveDate`-ascending snapshots pairwise:
+`deriveConsumedByDay` iterates the fetched snapshots pairwise in chronological order:
 `for i := 1; i < len(snapshots); i++`, treating `snapshots[i-1]` as `snapshots[i]`'s
 predecessor for the purpose of computing the charge-matching interval's lower bound
-(`prev.CapturedAt`, D12). `snapshots[0]` — the earliest row in the fetched
-`[start−1, end]` window — is **never** emitted as an output day, even if its own
-`EffectiveDate` already falls inside `[start, end]` (which happens only when no snapshot
-exists at exactly `start−1`, e.g. a pre-existing gap crossing the window's own boundary).
+(`prev.CapturedAt`, D12). `snapshots[0]` — the earliest row in the fetched window (D-B13) —
+is **never** emitted as an output day, even if its own effective day already falls inside
+`[start, end]` (which happens only when no snapshot exists at exactly `start−1`, e.g. a
+pre-existing gap crossing the window's own boundary).
 
 **Why:** `telemetry.Snapshot.BatteryUsedPctCalc` is computed by `telemetry` against that
 row's own true DB-adjacent predecessor, wherever it actually is — but this module has no
@@ -157,18 +174,25 @@ For each row pair `(prev, cur)`, a Supercharger session belongs to `cur`'s day w
 `prev.CapturedAt <= session.ChargeStopDateTime < cur.CapturedAt` (D12's rule, generalized
 from single-day to any pair — see the roadmap's own D12 language: "`snapshot[D].captured_at`"
 and "`snapshot[D+1].captured_at`" index by *capture* day, which is exactly `predecessor`/
-`current` in this module's own pairing, not by `EffectiveDate`).
+`current` in this module's own pairing, not by the day the result is filed under).
+
+The matching rule itself is **zone-free** and unchanged by D18: it compares absolute
+instants, so no choice of `Config.Location` can move a session between row pairs. Roadmap
+D12 states this directly — *"This makes D6 irrelevant for Supercharger sessions."* See D-B7.
 
 `ConsumedByDay` fetches sessions once for the whole call via
-`SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, start−1, end+1)` — one day
-of **tail over-fetch** past `end`, because the last row's `CapturedAt` (whose
-`EffectiveDate` is `end`) lands in the early hours of the *next* calendar day (the nightly
-poll runs ~03:30, well after midnight), which the bounded-window port's own half-open
-`[start, end+1day)` contract would otherwise exclude. The over-fetch costs nothing beyond
-one extra day's rows: `sumSuperchargerPctBetween`/`inferMissingChargingType` re-filter
-every fetched session against each row-pair's own precise `[prev.CapturedAt, cur.CapturedAt)`
-interval in Go, so a session outside every real interval is simply never matched to any
-row, regardless of what the initial DB fetch included.
+`SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, start−1, end+2)` — a
+**two-day tail over-fetch** past `end`, one day more than this design originally specified.
+Both days are needed and neither is slack (full derivation in D-B13): one because the last
+emitted row's `CapturedAt` lands in the early hours of the calendar day *after* the day it
+buckets under (the nightly poll runs ~03:30, well after midnight), and one more because
+under D18's zoned bucketing that `CapturedAt` can be as late as `end+2 05:00Z`, which the
+bounded-window port's half-open `[start, end+1day)` contract would otherwise exclude. The
+over-fetch costs nothing beyond two extra days' rows:
+`sumSuperchargerPctBetween`/`inferMissingChargingType` re-filter every fetched session
+against each row-pair's own precise `[prev.CapturedAt, cur.CapturedAt)` interval in Go, so a
+session outside every real interval is simply never matched to any row, regardless of what
+the initial DB fetch included.
 
 **Rejected alternative:** one `SuperchargerSessionsByVehicleBetween` call per row pair,
 scoped exactly to that pair's interval. Rejected — this module's own established
@@ -177,43 +201,253 @@ per-snapshot or per-session lookup" (`reader.go`'s own doc comment, `ai/architec
 §7 read-heavy profile); an N-call pattern here would be new, unjustified N+1-style cost
 for a window bounded at ~90 rows.
 
-### D-B6 (D8, D12) — Manual-entry matching: `(predecessor.EffectiveDate, current.EffectiveDate]`, generalized for spans
+### D-B6 (D8, D12, D18) — Manual-entry matching: `(effectiveDay(predecessor), effectiveDay(current)]`, generalized for spans
 
 A manual entry belongs to row `cur` (with predecessor `prev`) when
-`dayUTC(prev.EffectiveDate) < dayUTC(entry.ChargedOn) <= dayUTC(cur.EffectiveDate)` — an
+`effectiveDay(prev) < calendarDay(entry.ChargedOn) <= effectiveDay(cur)` — an
 exclusive-start, inclusive-end calendar-day range. For the ordinary single-day case
-(`DaysSpannedCalc == 1`), `prev.EffectiveDate + 1 day == cur.EffectiveDate`, so this
-collapses to exactly `entry.ChargedOn == cur.EffectiveDate` — the literal D12 rule. For a
+(`DaysSpannedCalc == 1`), `effectiveDay(prev) + 1 day == effectiveDay(cur)`, so this
+collapses to exactly `entry.ChargedOn == effectiveDay(cur)` — the literal D12 rule. For a
 multi-day span, it naturally covers every day in the span without a second code path,
 matching D8's "charges inside the span are summed regardless."
 
+**This is the one matching rule D18 actually moves**, exactly as roadmap D12 predicted
+("[D6] still governs manual entries"): the *bounds* are now the zoned `effectiveDay` (D-B7),
+not a UTC `EffectiveDate`. `ChargedOn` itself needs no conversion and gets none — it is a
+bare `DATE` the user picked deliberately, with no time-of-day component to project into any
+zone (tier 2's own D5); `calendarDay` only normalizes its representation (D-B7,
+"Representation vs. zone"). The identity `effectiveDay(cur) − effectiveDay(prev) ==
+DaysSpanned` (D-B12) guarantees this range never skips or double-counts a day across
+consecutive pairs.
+
 `ConsumedByDay` fetches manual entries once via `ListEntriesByVehicleBetween(ctx, accountID,
-teslaID, start, end)` — no lookback/tail adjustment needed, because `charged_on` is a plain
-`DATE` (tier 2's own D5) and the union of every row pair's matching range across the whole
-call is exactly `(start−1, end] = [start, end]`.
+teslaID, start−1, end)` — a **one-day lookback**, added by D18's zone shift and derived in
+D-B13. (It was `[start, end]` before: under the UTC rule the union of every pair's matching
+range was exactly `(start−1, end]`. Under the zoned rule the earliest fetched row can bucket
+one day lower, so a span crossing the window's lower edge can legitimately reach back to
+`start−1`.) The over-fetch is harmless — `sumManualPctBetween` re-filters every entry against
+each pair's own precise range in Go.
 
-### D-B7 (reconciles D1 and D6) — `EffectiveDate` (UTC calendar-day) remains the single bucketing key; no Bogota-zone conversion is introduced here
+### D-B7 (D6, D18) — The bucketing day is the row's own `CapturedDate` minus one day: the poller's configured zone, stamped at write time
 
-Roadmap D6 ("calendar-day bucketing uses the poller's configured zone... charges and
-snapshots must bucket by identical rules or the formula breaks at the edges") was written
-against the *original* D1, before D1 was corrected on 2026-08-15. This design does **not**
-introduce a second, Bogota-zone-aware calendar-day computation for `EffectiveDate` or
-`ChargedOn` comparisons. `EffectiveDate` is computed once, in `internal/telemetry/mapping.go`,
-as `CapturedAt.AddDate(0, 0, -1)` in UTC — already the single bucketing key the gateway's
-own `effectiveDayUTC` helper uses for the odometer/battery charts today. `ChargedOn` is a
-plain `DATE` the user picked directly (zone-agnostic by construction — there is no
-time-of-day component to convert). Comparing both as UTC-midnight calendar values (this
-design's `dayUTC` helper, mirroring the gateway's `effectiveDayUTC`) is therefore the
-correct, already-established precedent — introducing a *second*, Bogota-zone-shifted
-comparison here would recreate exactly the "two clocks disagreeing at the edges" risk D6
-warned against, not prevent it.
+> **Owner ruling, roadmap D18 (2026-08-16) — this decision was REWRITTEN.** The original
+> D-B7 argued that UTC `EffectiveDate` should remain the single bucketing key and that
+> roadmap D6 had been overtaken by D1's 2026-08-15 correction. **The owner overruled that.**
+> Roadmap **D6 stands literally**: calendar-day bucketing uses the poller's configured zone
+> (`Config.Location`, currently `America/Bogota`, UTC−5), not UTC. The superseded reasoning
+> is preserved below as "Rejected alternative 1" — it is not deleted, and it is not
+> resurrectable without a new owner ruling.
 
-This is safe in practice because the poller's schedule (`~03:30` local, well after
-midnight in both UTC and `America/Bogota`, a UTC−5 zone) means `EffectiveDate`'s "−1 day"
-UTC arithmetic and an equivalent Bogota-zone "−1 day" computation agree for every capture
-this platform produces today; a schedule change that moved the poll to run *near* midnight
-in either zone would need to revisit this, but that is an existing risk of `EffectiveDate`
-itself (`mapping.go`), not one this tier introduces.
+#### The rule
+
+```
+bucketDay(row) = row.CapturedDate − 1 calendar day
+```
+
+`internal/battery` buckets a snapshot row under `effectiveDay(cur)`, defined as the row's
+own `telemetry.Snapshot.CapturedDate` minus one calendar day. `CapturedDate` is *already*
+the calendar day `CapturedAt` falls on **computed in `Config.Location`** — telemetry stamps
+it on the write path (`service.go`'s `snapshotFrom` → `dateOnly(capturedAt, loc)`, whose
+own doc comment reads: *"This is the single place the poller's configured timezone
+determines which calendar day a snapshot belongs to (D2)"*). Roadmap D6's own rationale
+points at exactly this column: *"The same zone `captured_date` is already computed in
+(`20260805000001_dedupe_vehicle_snapshots_daily.sql`, 'derive in Go, not SQL')."*
+
+So D6 is satisfied **by construction**, with no new zone conversion, no new configuration
+input, and no second clock: the day battery buckets under is byte-for-byte the day
+telemetry already used to decide that row's identity.
+
+#### T0.3 answered explicitly: the day is re-derived, and `EffectiveDate` is NOT used
+
+`telemetry.Snapshot.EffectiveDate` is **not read by this module at all**. It is derived in
+`internal/telemetry/mapping.go:119` as `CapturedAt.AddDate(0, 0, -1)` with `CapturedAt` in
+UTC, so its calendar day is `utcDay(CapturedAt) − 1` — a **UTC** answer. A bare date cannot
+be zone-converted after the fact (there is no instant left to re-project), so "make
+`EffectiveDate` zone-aware" is not an available move; the day must be re-derived from a
+value that still knows the zone. Two such values exist on the row, and they are equal:
+
+| Source | Expression | Zone | Cost |
+|---|---|---|---|
+| `CapturedDate` (chosen) | `CapturedDate.AddDate(0,0,-1)` | `Config.Location`, stamped at write | none — already on `telemetry.Snapshot` |
+| `CapturedAt` + an injected zone | `dateOnly(CapturedAt, loc).AddDate(0,0,-1)` | `loc`, resolved at read | a new constructor dependency (see D-B12) |
+
+Both compute *the calendar day of `CapturedAt` in the poller's zone, minus one day*. They
+differ only in **when** the zone is resolved. This design takes `CapturedDate` — see D-B12
+for the full trade-off and why the injected-`*time.Location` alternative is rejected.
+
+#### The arithmetic, worked at the edges D6 exists to protect
+
+`America/Bogota` is UTC−5 with no DST, so for any instant `t`:
+`bogotaDay(t) = utcDay(t)` when `t`'s UTC hour ≥ 05:00, and `bogotaDay(t) = utcDay(t) − 1`
+when `t`'s UTC hour is in `[00:00, 05:00)`. Therefore the old (UTC) and new (zoned) bucket
+day are **equal except** when `CapturedAt` lands in that 5-hour UTC band — i.e. 19:00–23:59
+Bogota the previous evening.
+
+| # | Scenario | `CapturedAt` | UTC day | Bogota day | old bucket (`EffectiveDate`, UTC) | **new bucket** (`CapturedDate − 1`) |
+|---|---|---|---|---|---|---|
+| 1 | Nominal nightly poll, 03:30 Bogota | `2026-08-14T08:30Z` | Aug 14 | Aug 14 | Aug 13 | **Aug 13** — agree |
+| 2 | Poll delayed to 10:00 Bogota | `2026-08-14T15:00Z` | Aug 14 | Aug 14 | Aug 13 | **Aug 13** — agree |
+| 3 | Manual `--once` run, 20:00 Bogota Aug 13 | `2026-08-14T01:00Z` | Aug 14 | Aug 13 | Aug 13 ✗ | **Aug 12** ✓ — differ by one day |
+| 4 | Poll near UTC midnight, 23:30 Bogota Aug 13 | `2026-08-14T04:30Z` | Aug 14 | Aug 13 | Aug 13 ✗ | **Aug 12** ✓ |
+
+Scenarios 3–4 are the failure D6 names. In scenario 3 the operator ran the collection on
+the *evening of Aug 13*; the delta it carries accumulated over Aug 12→Aug 13's daytime, so
+Aug 12 is the honest label under the poller's own clock, and Aug 13 — which the row does not
+yet describe — is left free for the next capture. Under the old UTC rule the same run
+labels the row Aug 13, and the *next* nightly poll (Aug 14 08:30Z → UTC bucket Aug 13)
+collides on the same bucket day. Note this is not merely a labelling nicety: `CapturedDate`
+carries a `UNIQUE (account_id, tesla_id, captured_date)` constraint, so under the zoned rule
+two rows can never share a bucket day, while under the UTC rule they can.
+
+**Supercharger sessions are unaffected by any of this** — roadmap D12 says so outright
+("This makes **D6** irrelevant for Supercharger sessions; it still governs manual entries").
+Their matching test is `prev.CapturedAt <= stop < cur.CapturedAt`, a comparison of absolute
+**instants**, which no zone choice can move. Worked example, D6's own "session ending 01:00
+local": a session stopping `2026-08-14T01:00` Bogota = `2026-08-14T06:00Z`, with
+`prev.CapturedAt = 2026-08-13T08:30Z` and `cur.CapturedAt = 2026-08-14T08:30Z`, falls inside
+`[prev, cur)` and is attributed to `cur` — whose bucket day is Aug 13. Correct under both
+rules, by instant comparison alone. What *does* change is only the DB fetch window that must
+be wide enough to contain such a session — see D-B13.
+
+**Manual entries are where D6 bites**, exactly as D12 says. `manualcharge.Entry.ChargedOn` is
+a bare `DATE` the user picked (`internal/manualcharge/manualcharge.go:37`), zone-agnostic by
+construction. It is matched against the *range bounds* `(effectiveDay(prev),
+effectiveDay(cur)]`, and those bounds are now zoned — so in scenario 3 an entry the user
+dated Aug 12 is matched to the row, where the UTC rule would have missed it and produced a
+false `Flagged` day. See D-B6.
+
+#### Representation vs. zone — a distinction this design depends on
+
+A **calendar date** in this platform is *represented* as a `time.Time` at **UTC midnight**
+with no time-of-day component. That is the `pgtype.Date` convention (`CapturedDate`,
+`ChargedOn`), the HTTP date-filter convention (`?start=`/`?end=`, `ai/go-conventions.md`
+§"Read optimization"), and the shape of `ConsumedByDay`'s own `start`/`end` parameters. It
+is a *storage representation for a bare date*, not a claim about a zone.
+
+The **bucketing zone** — the clock that decides where one day ends and the next begins — is
+`Config.Location`. D18 changes the zone; it does not change the representation. So a
+`time.Date(..., time.UTC)` normalization still appears in this design (the `calendarDay`
+helper), and it is **not** a UTC bucketing decision: it only strips a time-of-day component
+off a value that is already a bare date. Any future reader grepping this design for "UTC"
+should read every remaining hit through this distinction.
+
+#### Consequence: a knowing mismatch with the gateway's existing charts
+
+`internal/gateway/handlers/history.go`'s `effectiveDayUTC` still buckets the odometer and
+battery-level charts by UTC `EffectiveDate`. After this change `internal/battery` buckets in
+UTC−5. **On the ~5 hours a day where those disagree, the consumed chart and the two existing
+charts will label the same underlying row differently.** The owner made the D18 call with
+this consequence stated and accepted; it is inherited by tier 4
+(`RM28-gateway-add-consumed-graph`), which must **not** re-bucket `ConsumedByDay`'s output
+through `effectiveDayUTC` — `DayConsumption.Date` is already a final bucket key and passing
+it through `effectiveDayUTC` a second time is a no-op only by accident of representation.
+Reconciling the two (moving the existing charts onto the zoned rule) is deliberately out of
+scope here and is a candidate follow-up ticket, not silent drift.
+
+#### Rejected alternative 1 — the superseded UTC reasoning (kept verbatim; **overruled by the owner**)
+
+> *Roadmap D6 ("calendar-day bucketing uses the poller's configured zone... charges and
+> snapshots must bucket by identical rules or the formula breaks at the edges") was written
+> against the original D1, before D1 was corrected on 2026-08-15. This design does not
+> introduce a second, Bogota-zone-aware calendar-day computation for `EffectiveDate` or
+> `ChargedOn` comparisons. `EffectiveDate` is computed once, in
+> `internal/telemetry/mapping.go`, as `CapturedAt.AddDate(0, 0, -1)` in UTC — already the
+> single bucketing key the gateway's own `effectiveDayUTC` helper uses for the
+> odometer/battery charts today. `ChargedOn` is a plain `DATE` the user picked directly
+> (zone-agnostic by construction — there is no time-of-day component to convert). Comparing
+> both as UTC-midnight calendar values (this design's `dayUTC` helper, mirroring the
+> gateway's `effectiveDayUTC`) is therefore the correct, already-established precedent —
+> introducing a second, Bogota-zone-shifted comparison here would recreate exactly the "two
+> clocks disagreeing at the edges" risk D6 warned against, not prevent it.*
+>
+> *This is safe in practice because the poller's schedule (`~03:30` local, well after
+> midnight in both UTC and `America/Bogota`, a UTC−5 zone) means `EffectiveDate`'s "−1 day"
+> UTC arithmetic and an equivalent Bogota-zone "−1 day" computation agree for every capture
+> this platform produces today; a schedule change that moved the poll to run near midnight
+> in either zone would need to revisit this, but that is an existing risk of `EffectiveDate`
+> itself (`mapping.go`), not one this tier introduces.*
+
+**Why it was overruled.** The argument rested on "the two rules agree in practice for every
+capture this platform produces today." They do agree for the *scheduled* 03:30 poll
+(scenarios 1–2), but not for an evening `--once` run or a badly delayed retry (scenarios
+3–4) — and the argument's own escape hatch ("a schedule change ... would need to revisit
+this") is a deferred correctness bug, not a decision. The owner's ruling makes the zoned
+rule the one the module implements now, at zero marginal cost, rather than a future
+migration triggered by an operational change nobody would connect to this file.
+
+#### Rejected alternative 2 — a zone-aware helper that still starts from `EffectiveDate`
+
+Rejected as unimplementable, and worth naming so nobody proposes it. `EffectiveDate`
+arrives as a already-computed UTC-day-derived value; converting it "into Bogota" would mean
+calling `.In(loc)` on it, which shifts it to `2026-08-12T19:00-05:00` for scenario 1 and
+would bucket a *nominal* poll one day early — precisely inverting the intended fix. The
+zone must be applied to the original **instant** (`CapturedAt`), or read from a value that
+already had it applied to that instant (`CapturedDate`). There is no third option.
+
+### D-B12 (D6, D18) — `internal/battery` needs no `*time.Location`; the zone reaches it stamped on the row
+
+**Answering T0.2: where does this module obtain its `*time.Location`? It does not need one.**
+
+The bucketing zone reaches `internal/battery` **inside the data**, on
+`telemetry.Snapshot.CapturedDate`, which telemetry computed in `Config.Location` at write
+time (D-B7). `deriveConsumedByDay` and `ConsumedByDay` therefore take no `loc` parameter,
+`NewReader`'s signature is unchanged (**D-B1 survives intact**), and neither composition root
+gains a battery-specific wiring step.
+
+**What the composition roots DO supply** — and this is the part of T0.2's "both composition
+roots must supply it" that is real: each root already resolves a zone to choose the
+`[start, end]` **window bounds** it asks for, and that is unchanged by this tier.
+
+- `cmd/poller` already loads `time.LoadLocation(cfg.PollerTimezone)` into `loc`
+  (`main.go:63`) for the scheduler and for `telemetry.Config.Location`. The reconciliation
+  step's `end := "yesterday"` must be computed in that same `loc` — see the updated
+  `cmd/poller` wiring section. No new config is read; `loc` is already in scope three lines
+  above the wiring this tier adds.
+- `cmd/web` (tier 4) already resolves "today" in the **browser's** zone via
+  `browserToday(c)` (`internal/gateway/handlers/history.go`, `buildHistoryPresets`), which is
+  how `?start=`/`?end=` and the presets are chosen today. Unchanged.
+
+So the location lives where the *question* is asked ("which days is the user asking
+about?"), and the zone that *answers* it ("which day does this row belong to?") travels with
+the row. Those are two different concerns and this design keeps them separate.
+
+**Rejected alternative: inject a `*time.Location` and re-derive from `CapturedAt`.** The
+mechanically obvious option — widen `NewReader` to
+`NewReader(..., window time.Duration, loc *time.Location)` (or add a `loc` parameter to
+`ConsumedByDay`) and compute `dateOnly(cur.CapturedAt, loc).AddDate(0,0,-1)` at read time.
+It produces the *same* number today. Rejected on three grounds:
+
+1. **It reintroduces the two-clocks failure D6 exists to prevent.** With an injected zone,
+   the bucketing zone becomes a per-composition-root runtime input, so `cmd/web` and
+   `cmd/poller` can be configured differently (different `POLLER_TIMEZONE`, a missing env
+   var falling back to `time.Local` on a differently-zoned host) — and then the dashboard's
+   bars and the `charge_gaps` ledger the poller writes disagree about which day a row is,
+   with no error anywhere. A zone stamped once at write time cannot drift between readers.
+2. **It would desynchronize `Date` from `DaysSpanned`.** `telemetry`'s own
+   `deriveConsumption` computes `DaysSpannedCalc` as
+   `cur.CapturedDate.Sub(prev.CapturedDate)` in whole days (`service.go:587`) — already a
+   `Config.Location` quantity. Deriving `Date` from `CapturedDate` too makes
+   `effectiveDay(cur) − effectiveDay(prev) == DaysSpanned` an **exact identity** for every
+   emitted pair (both sides reduce to `cur.CapturedDate − prev.CapturedDate`). Deriving it
+   from `CapturedAt` under a read-time zone breaks that identity by ±1 at the same edges,
+   for the same reason. (Note this identity does *not* hold under the old UTC rule either —
+   fixing that is a side benefit of D18, and it is asserted as a test, scenario (m).)
+3. **Change-locality / AI-efficiency.** Zero new parameters, zero constructor churn, zero
+   composition-root edits, `D-B1` preserved, and the leader-owned T6 `cmd/poller` contract
+   untouched — versus a widened constructor every future caller must learn, threaded through
+   two `cmd/` roots, to reach a value the row already carries.
+
+**Accepted trade-off (stated, not hidden).** `CapturedDate` is frozen at write time, so if
+the deployment's zone ever changed, historical rows keep the zone they were captured under
+while new rows use the new one. This is accepted because the alternative is *worse*, not
+merely different: re-deriving at read time would re-bucket all history under the new zone
+while `captured_date`'s `UNIQUE` constraint and `DaysSpannedCalc` stayed on the old one —
+manufacturing exactly the disagreement D6 forbids. Under the chosen design each row is
+internally consistent forever: its bucket day, its dedupe identity, and its `DaysSpanned`
+all move together or not at all. Every existing row is already stamped `America/Bogota` —
+the dedupe migration backfilled `captured_date` with an explicit
+`(captured_at AT TIME ZONE 'America/Bogota')::date` and the column is `NOT NULL`, so there
+is no NULL/unstamped case to defend against.
 
 ### D-B8 (D5) — `minFlagDistanceKm` is a named constant
 
@@ -258,6 +492,39 @@ This tier does not attempt to close that gap (out of scope, D14) and does not ob
 this section exists so a future reader of this design does not rediscover the limitation
 and mistake it for an oversight.
 
+### D-B13 (D6, D9a, D18) — Every DB fetch widens by one day to cover the zone shift; Go re-filters precisely
+
+**Appended for D18.** All three read ports window on **UTC** quantities — `telemetry`'s
+`SnapshotsByVehicleBetween` filters on `EffectiveDate` (UTC), and
+`SuperchargerSessionsByVehicleBetween` filters on a UTC instant range. This module now
+buckets in `Config.Location`. Since a zoned day can sit one calendar day **below** its UTC
+counterpart (D-B7's table), a fetch scoped to the UTC window would silently drop rows that
+belong in the zoned window. Every fetch is therefore widened; because each Go-side matcher
+re-filters against its own precise predicate, **over-fetching can only cost rows read, never
+change a result.**
+
+Writing `U(r)` for row `r`'s UTC effective day and `B(r) = effectiveDay(r)` for its zoned
+bucket day, D-B7 gives `B(r) ∈ {U(r), U(r) − 1}` for any zone with a negative UTC offset.
+
+| Fetch | Window | Why the widening |
+|---|---|---|
+| `SnapshotsByVehicleBetween` | `[start−1, end+1]` | `−1`: D9a's predecessor lookback, unchanged. `+1`: a row with `U = end+1` can have `B = end` and must be emitted; without it the window's last day silently vanishes whenever the poll ran in the 00:00–05:00Z band. |
+| `SuperchargerSessionsByVehicleBetween` | `[start−1, end+2]` | The last emitted row has `B = end`, so its `CapturedDate` is `end+1` and `CapturedAt ∈ [end+1 05:00Z, end+2 05:00Z)`. Sessions matched to it satisfy `stop < CapturedAt`, so coverage must reach `end+2 05:00Z`. The port covers `stop < to+1day` (UTC), so `to = end+2`. `to = end+1` would leave the 5-hour band `[end+2 00:00Z, end+2 05:00Z)` uncovered. |
+| `ListEntriesByVehicleBetween` | `[start−1, end]` | The earliest fetched row can have `B = start−2` (it is fetched for `U = start−1`, and `B` may be one lower). If the row at `start−1` is missing — a multi-day span crossing the window's lower edge — that row becomes the predecessor of the first emitted row, and the matching range `(start−2, start]` legitimately includes `start−1` (D8: "charges inside the span are summed regardless"). Under the UTC rule this could not happen, which is why the original design needed no lookback here. |
+
+**No tail over-fetch on manual entries**, deliberately: the matching range's upper bound is
+`effectiveDay(cur) ≤ end` by the emit filter, so no entry dated after `end` can ever match.
+
+**Cost.** One extra calendar day of snapshots (bounded by the SQL's own `LIMIT 400`, which a
+~90-day window plus two days comes nowhere near), two extra days of Supercharger sessions,
+one extra day of manual entries — all on a read path already argued negligible in D-B5 and
+the roadmap's D2. This is the read-heavy `Performance-Profile`'s exact trade: read a few
+more rows rather than risk a wrong number at a boundary.
+
+**Generality.** "One day on each side" is sufficient for *any* IANA zone, not just
+`America/Bogota`: no zone offset exceeds ±24h, so `|B(r) − U(r)| ≤ 1` day always. Nothing in
+this rule hardcodes UTC−5, and a `POLLER_TIMEZONE` change needs no revision here.
+
 ---
 
 ## `cmd/poller` wiring (specification for the leader's task, not implemented here)
@@ -290,9 +557,15 @@ is a harmless, honest placeholder; `cmd/poller` never calls `RecentEfficiency`.)
 // battery.DefaultWindow — generous enough to catch a manual-entry backfill
 // days after the fact, cheap enough to recompute nightly (≤30 snapshot rows
 // + a handful of charge rows per vehicle, per D2's read-heavy tolerance).
-end := dayUTC(time.Now()).AddDate(0, 0, -1) // "yesterday" — today's EffectiveDate
-                                              // is not captured until TOMORROW's poll
-                                              // (same reasoning as roadmap D11)
+// "Yesterday" is computed in the POLLER'S OWN ZONE (loc, already loaded at
+// main.go:63 for the scheduler and telemetry.Config.Location) -- roadmap D6/D18
+// and design D-B12: the composition root resolves the zone that answers "which
+// days am I asking about"; internal/battery needs no *time.Location of its own.
+// Using time.Now().UTC() here instead would ask for the wrong day for 5 hours
+// out of every 24. Today's data is not captured until TOMORROW's poll, so the
+// window ends yesterday (same reasoning as roadmap D11).
+y, m, d := time.Now().In(loc).Date()
+end := time.Date(y, m, d, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
 start := end.AddDate(0, 0, -int(battery.GapReconciliationWindow.Hours()/24)+1)
 
 vehicles, err := acct.AllRegisteredVehicles(ctx)
@@ -362,9 +635,22 @@ type Reader interface {
     RecentEfficiency(ctx context.Context, accountID uuid.UUID, teslaID int64) (Efficiency, bool, error)
 
     // ConsumedByDay returns the corrected per-day battery-consumed percentage
-    // (D13) for the given vehicle over [start, end], both whole UTC-midnight-
-    // bounded calendar days, end inclusive (matching this platform's HTTP
-    // date-filter convention). Recomputed on every call -- no cache, no
+    // (D13) for the given vehicle over [start, end], both whole calendar days
+    // represented as UTC-midnight time.Time, end inclusive (matching this
+    // platform's HTTP date-filter convention).
+    //
+    // Which calendar day a row falls on is decided in the POLLER'S CONFIGURED
+    // ZONE (telemetry.Config.Location, roadmap D6/D18), NOT in UTC: the day is
+    // the row's own telemetry.Snapshot.CapturedDate minus one day, and
+    // CapturedDate was stamped in that zone on the write path. The
+    // UTC-midnight bounds above are a REPRESENTATION for a bare date, not a
+    // bucketing zone -- see design.md D-B7. Note this differs from
+    // internal/gateway/handlers/history.go's effectiveDayUTC, which still
+    // buckets the odometer/battery charts in UTC; the mismatch is known and
+    // accepted (D-B7). Do NOT re-bucket this method's Date through
+    // effectiveDayUTC -- it is already a final bucket key.
+    //
+    // Recomputed on every call -- no cache, no
     // stored state (D2). The result is SPARSE: it contains one entry per
     // calendar day that has a computable value, and NO entry for a day that
     // does not (no snapshot exists for that day, or the day is the vehicle's
@@ -385,8 +671,12 @@ type Reader interface {
 // our own domain model, no vendor suffix (ai/architecture.md §6).
 type DayConsumption struct {
     // Date is the calendar day this entry describes -- the underlying
-    // telemetry.Snapshot's own EffectiveDate, UTC-midnight, NEVER shifted or
-    // re-attributed (design.md D-B3, roadmap D1). For a multi-day span
+    // telemetry.Snapshot's own CapturedDate minus one calendar day, i.e. that
+    // row's effective day computed in the poller's configured zone (roadmap
+    // D6/D18, design.md D-B7). NEVER shifted or re-attributed to another row
+    // (design.md D-B3, roadmap D1/D17). Represented as UTC midnight because
+    // that is this platform's bare-calendar-date representation, NOT because
+    // the day boundary is UTC. For a multi-day span
     // (DaysSpanned > 1), this is the single day the one available row
     // represents; every day between the predecessor and this one has no
     // entry at all (design.md D-B2/D-B3, roadmap D8).
@@ -433,25 +723,63 @@ import (
 // minFlagDistanceKm -- see design.md D-B8.
 const minFlagDistanceKm = 10.0
 
-// dayUTC truncates t to its UTC calendar-day midnight, mirroring the
-// gateway's own effectiveDayUTC bucketing (internal/gateway/handlers/history.go)
-// so a day boundary computed here and one computed on the dashboard side
-// always agree (design.md D-B7).
-func dayUTC(t time.Time) time.Time {
+// calendarDay normalizes an already-bare calendar date to this platform's
+// date representation: UTC midnight, no time-of-day component (the
+// pgtype.Date convention that telemetry.Snapshot.CapturedDate and
+// manualcharge.Entry.ChargedOn already arrive in, and the shape of
+// ConsumedByDay's own start/end parameters).
+//
+// This is NOT a timezone conversion and NOT a bucketing decision: it never
+// moves a value across a day boundary, it only strips a stray time-of-day
+// component. The zone that decides day boundaries is the poller's
+// Config.Location -- see effectiveDay below and design.md D-B7
+// ("Representation vs. zone").
+func calendarDay(t time.Time) time.Time {
     t = t.UTC()
     return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
+// effectiveDay returns the calendar day snapshot s DESCRIBES: its own
+// CapturedDate minus one calendar day. The nightly poller runs at ~03:30 and
+// captures the state accumulated over the PRIOR day, so the row's day is one
+// before its capture day.
+//
+// The zone is the poller's configured Config.Location (roadmap D6, owner
+// ruling D18), and it arrives here already applied: telemetry stamps
+// CapturedDate on the write path via dateOnly(capturedAt, loc)
+// (internal/telemetry/service.go), which is the single place that zone
+// decides a snapshot's calendar day. This module therefore needs no
+// *time.Location of its own (design.md D-B12).
+//
+// Deliberately does NOT read s.EffectiveDate: that field is derived as
+// CapturedAt.AddDate(0,0,-1) with CapturedAt in UTC (telemetry/mapping.go), so
+// its calendar day is a UTC answer, and a bare date cannot be re-zoned after
+// the fact (design.md D-B7). AddDate is calendar-day arithmetic, not a 24h
+// duration, so DST cannot shift it.
+//
+// Invariant, asserted by test (m): for any consecutive pair,
+// effectiveDay(cur) - effectiveDay(prev) == *cur.DaysSpannedCalc, because
+// telemetry derives DaysSpannedCalc from the same two CapturedDate values.
+func effectiveDay(s telemetry.Snapshot) time.Time {
+    return calendarDay(s.CapturedDate).AddDate(0, 0, -1)
+}
+
 // deriveConsumedByDay is the pure D13 derivation, fully offline: no I/O, only
 // plain telemetry.Snapshot / telemetry.SuperchargerSession / manualcharge.Entry
-// values in, []DayConsumption out. snapshots MUST be ordered EffectiveDate
-// ascending and MUST include the one-day lookback row at start-1 when it
-// exists (design.md D9a; ConsumedByDay's caller, reader.go, guarantees both).
+// values in, []DayConsumption out. snapshots MUST be ordered chronologically
+// ascending and MUST include the one-day lookback row before start when it
+// exists (D9a; ConsumedByDay's caller, reader.go, guarantees both, and widens
+// every fetch by a day for the zone shift per design.md D-B13).
+//
+// start/end are inclusive bare calendar dates and are compared against each
+// row's ZONED effective day (effectiveDay, design.md D-B7), which is why the
+// caller may hand this function rows just outside [start, end] -- they are
+// filtered here, against the same day definition the emitted Date carries.
 func deriveConsumedByDay(snapshots []telemetry.Snapshot, sessions []telemetry.SuperchargerSession, entries []manualcharge.Entry, start, end time.Time) []DayConsumption {
     out := make([]DayConsumption, 0, len(snapshots))
     for i := 1; i < len(snapshots); i++ {
         prev, cur := snapshots[i-1], snapshots[i]
-        day := dayUTC(cur.EffectiveDate)
+        day := effectiveDay(cur)
         if day.Before(start) || day.After(end) {
             continue
         }
@@ -460,7 +788,7 @@ func deriveConsumedByDay(snapshots []telemetry.Snapshot, sessions []telemetry.Su
         }
 
         chargePct := sumSuperchargerPctBetween(sessions, prev.CapturedAt, cur.CapturedAt) +
-            sumManualPctBetween(entries, dayUTC(prev.EffectiveDate), day)
+            sumManualPctBetween(entries, effectiveDay(prev), day)
 
         consumed := float64(*cur.BatteryUsedPctCalc) + chargePct
 
@@ -531,13 +859,16 @@ func inferMissingChargingType(sessions []telemetry.SuperchargerSession, from, to
 // sumManualPctBetween sums (EndBatteryPct - StartBatteryPct) across every
 // entry whose ChargedOn falls in (fromDay, toDay] -- D12's date match,
 // generalized the same way as sumSuperchargerPctBetween for D8 spans
-// (design.md D-B6). Entries with either percentage nil (optional fields on
+// (design.md D-B6). fromDay/toDay are ZONED effective days supplied by the
+// caller (effectiveDay); ChargedOn is a bare user-picked DATE needing no
+// conversion, so calendarDay here only normalizes its representation
+// (design.md D-B7). Entries with either percentage nil (optional fields on
 // manualcharge.Entry) contribute 0, symmetric with the Supercharger
 // nil-handling above.
 func sumManualPctBetween(entries []manualcharge.Entry, fromDay, toDay time.Time) float64 {
     var total float64
     for _, e := range entries {
-        d := dayUTC(e.ChargedOn)
+        d := calendarDay(e.ChargedOn)
         if !d.After(fromDay) || d.After(toDay) {
             continue
         }
@@ -552,24 +883,34 @@ func sumManualPctBetween(entries []manualcharge.Entry, fromDay, toDay time.Time)
 ### `reader.go` addition
 
 ```go
+// Fetch windows are DELIBERATELY wider than [start, end] on every port -- see
+// design.md D-B13 for the derivation. Two independent reasons stack: D9a's
+// predecessor lookback, and the fact that all three ports window on UTC
+// quantities while this module buckets in the poller's configured zone
+// (D-B7/D18), so a row can bucket one calendar day below its UTC window
+// position. deriveConsumedByDay re-filters everything against the precise
+// per-pair predicates, so a wider fetch can only cost rows read, never change
+// a result.
 func (r *reader) ConsumedByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayConsumption, error) {
-    lookbackStart := start.AddDate(0, 0, -1) // D9a
+    lookbackStart := start.AddDate(0, 0, -1) // D9a predecessor lookback
 
-    snapshots, err := r.telemetry.SnapshotsByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end)
+    // +1 tail: a row at UTC EffectiveDate end+1 can bucket to zoned day end.
+    snapshots, err := r.telemetry.SnapshotsByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end.AddDate(0, 0, 1))
     if err != nil {
         return nil, err
     }
 
-    // Tail over-fetch by one day -- design.md D-B5: the last row's CapturedAt
-    // can land in the early hours of end+1; deriveConsumedByDay re-filters
-    // every session against each row-pair's own precise CapturedAt interval,
-    // so the extra day is harmless.
-    sessions, err := r.supercharger.SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end.AddDate(0, 0, 1))
+    // +2 tail: the last emitted row's CapturedAt can reach end+2 05:00Z, and
+    // sessions match on stop < CapturedAt (design.md D-B5/D-B13).
+    sessions, err := r.supercharger.SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end.AddDate(0, 0, 2))
     if err != nil {
         return nil, err
     }
 
-    entries, err := r.manual.ListEntriesByVehicleBetween(ctx, accountID, teslaID, start, end)
+    // -1 lookback: a span crossing the window's lower edge can match an entry
+    // dated start-1 (design.md D-B6/D-B13). No tail -- no entry after end can
+    // ever match.
+    entries, err := r.manual.ListEntriesByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end)
     if err != nil {
         return nil, err
     }
@@ -582,7 +923,17 @@ No change to `NewReader`, the `reader` struct fields, or any existing method.
 
 ### How tier 4 renders a flagged day and a no-data day (for the next tier's design, not built here)
 
-Mirroring `buildOdometerChart`/`buildBatteryChart` exactly: bucket `ConsumedByDay`'s
+**One deliberate deviation from those two functions, for tier 4's attention:** they key
+their maps on `effectiveDayUTC(s.EffectiveDate)`. Tier 4 must key on `d.Date` **directly** —
+`DayConsumption.Date` is already a final, zoned bucket key (D-B7/D18), and pushing it through
+`effectiveDayUTC` again is a no-op only by accident of representation while reading as though
+UTC bucketing were intended. Because the two charts still bucket in UTC, the consumed chart's
+bars can be labelled one day apart from the odometer/battery bars for the same underlying row
+whenever a capture landed between 00:00Z and 05:00Z. That mismatch is known and accepted
+(D-B7); it is a rendering fact tier 4 should decide how to present, not a bug to "fix" by
+re-bucketing this port's output.
+
+Otherwise mirroring `buildOdometerChart`/`buildBatteryChart`: bucket `ConsumedByDay`'s
 result into `byDay := make(map[time.Time]battery.DayConsumption, len(days))`, then iterate
 `d := start; !d.After(end); d = d.AddDate(0, 0, 1)`. A day **absent** from `byDay` renders
 as today's existing "no snapshot" empty labeled bar (`Present: false`) — no-data. A day
@@ -602,11 +953,23 @@ Per `ai/go-conventions.md`'s Test-Execution-Policy, these are written but not ru
 worker; `go vet ./...` compiles them as a signature-drift signal. All of this module's
 tests are offline (no `DATABASE_URL`, no Docker — `AGENTS.md`'s own "Testing" section).
 
+**Snapshot-fixture convention (binding, changed by D18).** Every `telemetry.Snapshot`
+fixture MUST set both `CapturedAt` (the instant, used for Supercharger interval matching)
+and **`CapturedDate`** (the zoned capture day, from which the bucket day is derived —
+D-B7). Where a scenario below says "effective day `D`", the fixture sets
+`CapturedDate = D + 1 day`.
+
+`EffectiveDate` MUST be left at its zero value in every fixture **except** scenario (m),
+which sets it to a deliberately wrong value. Leaving it zero is itself a guard: if any
+implementation regresses to reading `EffectiveDate`, every bucket day collapses to the zero
+time and effectively all of (a)–(i) fail loudly rather than subtly.
+
 ### Pure-function tests (`consumed_test.go`) — no fakes needed
 
 **(a) Roadmap's own verified case 1 — single session, single day → 11**
-- **Given** `prev` (EffectiveDate D0, CapturedAt `T0`), `cur` (EffectiveDate D1,
-  CapturedAt `T1`, `BatteryUsedPctCalc = 22 - 73 = -51`, `DaysSpannedCalc = 1`).
+- **Given** `prev` (effective day D0, i.e. `CapturedDate = D1`, CapturedAt `T0`), `cur`
+  (effective day D1, i.e. `CapturedDate = D2`, CapturedAt `T1`,
+  `BatteryUsedPctCalc = 22 - 73 = -51`, `DaysSpannedCalc = 1`).
 - **And** one Supercharger session, `StartBatteryPct = 18`, `EndBatteryPct = 80`,
   `ChargeStopDateTime` inside `[T0, T1)`.
 - **When** `deriveConsumedByDay([]telemetry.Snapshot{prev, cur}, sessions, nil, D0, D1)` is
@@ -651,8 +1014,9 @@ tests are offline (no `DATABASE_URL`, no Docker — `AGENTS.md`'s own "Testing" 
   with `Flagged = false` and a zero `ConsumedPct`.
 
 **(g) Multi-day span (D8) — one bar, intervening days absent, charges summed regardless**
-- **Given** `prev` (EffectiveDate 2026-08-10, CapturedAt `T0`), `cur` (EffectiveDate
-  2026-08-13, CapturedAt `T1`, `DaysSpannedCalc = 3`, `BatteryUsedPctCalc = -30`).
+- **Given** `prev` (effective day 2026-08-10, i.e. `CapturedDate = 2026-08-11`, CapturedAt
+  `T0`), `cur` (effective day 2026-08-13, i.e. `CapturedDate = 2026-08-14`, CapturedAt `T1`,
+  `DaysSpannedCalc = 3`, `BatteryUsedPctCalc = -30`).
 - **And** two charge events inside `[T0, T1)` — one Supercharger session (+15) and one
   manual entry dated 2026-08-12 with real percentages (+25) — summing to +40.
 - **When** `deriveConsumedByDay([]telemetry.Snapshot{prev, cur}, sessions, entries,
@@ -683,20 +1047,69 @@ tests are offline (no `DATABASE_URL`, no Docker — `AGENTS.md`'s own "Testing" 
   tested in tier 1) work for free at the `cmd/poller` layer: the next nightly run's
   `flagged` slice simply omits this day, and `ReconcileWindow` deletes the row.
 
+**(m) D18 REGRESSION — the bucket day comes from `CapturedDate`, never from `EffectiveDate`**
+
+This is the scenario that fails under the overruled D-B7 and passes under the new one. It is
+the single binding test for the owner's D18 ruling; do not weaken it.
+
+The fixture is the D-B7 scenario-3 edge (a capture taken in the Bogota evening, so its
+Bogota day and its UTC day differ):
+
+| | `CapturedAt` | Bogota wall clock | `CapturedDate` | zoned effective day | UTC `EffectiveDate` day |
+|---|---|---|---|---|---|
+| `prev` | `2026-08-12T08:30:00Z` | Aug 12, 03:30 | `2026-08-12` | `2026-08-11` | Aug 11 |
+| `cur` | `2026-08-14T01:00:00Z` | Aug 13, 20:00 | `2026-08-13` | **`2026-08-12`** | **Aug 13** |
+
+- **Given** those two snapshots, with `cur.DaysSpannedCalc = 1` (consistent:
+  `2026-08-13 − 2026-08-12 = 1` day) and `cur.BatteryUsedPctCalc = 20`.
+- **And** `cur.EffectiveDate` explicitly set to `2026-08-13T01:00:00Z` — the value
+  `telemetry/mapping.go:119` really would produce (`CapturedAt − 1 day`, UTC), i.e. the day
+  the overruled D-B7 would have bucketed under. This is the ONE fixture in the contract that
+  populates `EffectiveDate`, and it is populated precisely so a regression can be caught.
+- **When** `deriveConsumedByDay([]telemetry.Snapshot{prev, cur}, nil, nil, 2026-08-01,
+  2026-08-31)` is called.
+- **Then** exactly one entry is returned with `ConsumedPct = 20`, `Flagged = false`, and:
+  - `Date == 2026-08-12` (the zoned answer, `CapturedDate − 1 day`), **and**
+  - `Date != 2026-08-13` (the UTC answer `EffectiveDate` carries).
+
+  Assert **both**. The negative assertion is the whole point: the two values coincide for
+  every nominal 03:30 capture, so a test built only on nominal fixtures passes under either
+  rule and proves nothing about D18.
+- **And** assert the D-B12 identity on the same fixtures:
+  `effectiveDay(cur)` minus `effectiveDay(prev)` equals `*cur.DaysSpannedCalc` whole days —
+  here `2026-08-12 − 2026-08-11 = 1 day = 1`. ✓ It holds because both sides reduce to
+  `cur.CapturedDate − prev.CapturedDate`; under the overruled UTC rule the same fixtures give
+  `2026-08-13 − 2026-08-11 = 2 days ≠ 1`, so this assertion is a second, independent guard on
+  the same regression.
+
+**(n) Zone-shifted row at the window's upper edge is emitted, not dropped (D-B13)**
+
+- **Given** `end = 2026-08-20`, and a `cur` row with `CapturedAt = 2026-08-22T02:00:00Z`
+  (21:00 Bogota Aug 21) so `CapturedDate = 2026-08-21` and its zoned effective day is
+  **2026-08-20** — inside the window — while its UTC `EffectiveDate` day would be
+  `2026-08-21`, outside it.
+- **When** `deriveConsumedByDay` is called with `start = 2026-08-01`, `end = 2026-08-20` and
+  a valid predecessor.
+- **Then** the row **is** emitted with `Date = 2026-08-20`. (This is why `ConsumedByDay`
+  fetches snapshots through `end+1` — test (j) asserts the fetch; this asserts the filter
+  keeps the row the wider fetch brought back.)
+
 ### Port-wiring tests (`reader_test.go`, extended) — fakes, no arithmetic re-verification
 
 These prove `ConsumedByDay` fetches the right windows and propagates arguments/errors
 correctly; the arithmetic itself is already proven by (a)–(i) above, so these use trivial
 fixtures.
 
-**(j) Fetch windows: lookback on snapshots, tail over-fetch on sessions, plain window on entries**
+**(j) Fetch windows: every port over-fetched per D-B13** *(expected values CHANGED by D18 —
+all three differ from this design's pre-D18 revision)*
 - **Given** `start = 2026-08-10`, `end = 2026-08-20`.
 - **When** `(*reader).ConsumedByDay(ctx, accountID, teslaID, start, end)` is called.
 - **Then** the fake `telemetry.Reader` recorded `SnapshotsByVehicleBetween` called with
-  `(2026-08-09, 2026-08-20)`; the fake `SuperchargerReader` recorded
-  `SuperchargerSessionsByVehicleBetween` called with `(2026-08-09, 2026-08-21)`; the fake
-  `manualcharge.Reader` recorded `ListEntriesByVehicleBetween` called with
-  `(2026-08-10, 2026-08-20)`.
+  `(2026-08-09, 2026-08-21)` — `start−1` lookback (D9a) and `end+1` zone tail; the fake
+  `SuperchargerReader` recorded `SuperchargerSessionsByVehicleBetween` called with
+  `(2026-08-09, 2026-08-22)` — `end+2` tail; the fake `manualcharge.Reader` recorded
+  `ListEntriesByVehicleBetween` called with `(2026-08-09, 2026-08-20)` — `start−1` lookback,
+  no tail.
 
 **(k) accountID/teslaID scoping reaches all three ports** — mirrors
 `TestRecentEfficiency_AccountIDScoping_PassedToEveryPort`'s existing pattern, for the
@@ -722,7 +1135,9 @@ change.
 1. `internal/battery/battery.go` — `GapReconciliationWindow` const,
    `Reader.ConsumedByDay` method addition, `DayConsumption` type. No dependencies. Breaks
    `go build ./...` until step 3 lands (expected, mirrors tiers 1–2's own precedent).
-2. `internal/battery/consumed.go` (new file) — `dayUTC`, `minFlagDistanceKm`,
+2. `internal/battery/consumed.go` (new file) — `calendarDay`, `effectiveDay` (D-B7/D18 —
+   these REPLACE the `dayUTC` helper this design specified before the owner's ruling),
+   `minFlagDistanceKm`,
    `deriveConsumedByDay`, `sumSuperchargerPctBetween`, `inferMissingChargingType`,
    `sumManualPctBetween`. Depends on step 1 (`DayConsumption` type must exist).
 3. `internal/battery/reader.go` — `(*reader).ConsumedByDay`. Depends on steps 1–2.
@@ -759,3 +1174,20 @@ only.
 - **D14a's blind spot is unchanged and explicitly not addressed here** — see D-B11. Any
   future ticket that wants to close it needs the Supercharger battery-% verification UI
   (backlog entry 11 item 1), out of scope for this entire roadmap.
+- **This module and the gateway's existing charts now bucket in different zones** (D-B7,
+  owner ruling D18). `internal/battery` buckets in `Config.Location` (UTC−5);
+  `internal/gateway/handlers/history.go`'s `effectiveDayUTC` still buckets the odometer and
+  battery-level charts in UTC. They agree for every nominal 03:30 capture and disagree by one
+  day for a capture landing between 00:00Z and 05:00Z. **The owner accepted this consequence
+  explicitly when ruling on D18**; it is inherited by tier 4. Reconciling the two — moving
+  the existing charts onto the zoned rule — is a candidate follow-up, deliberately not done
+  here (it would touch `internal/gateway`, outside this change's module).
+- **`CapturedDate` freezes the bucketing zone at write time** (D-B12). A future change to
+  `POLLER_TIMEZONE` would leave historical rows stamped in the old zone. Accepted as strictly
+  better than the read-time alternative, which would re-bucket history under a new zone while
+  the `captured_date` `UNIQUE` constraint and `DaysSpannedCalc` stayed on the old one —
+  manufacturing the two-clock disagreement D6 exists to prevent. Full argument in D-B12.
+- **The D18 revision widened all three fetch windows** (D-B13). One extra day of snapshots,
+  two of Supercharger sessions, one of manual entries per call. Negligible on a ≤90-day
+  window (the snapshot query's own `LIMIT 400` is nowhere near binding), and every widening
+  is re-filtered in Go, so it cannot change a result — only the row count read.

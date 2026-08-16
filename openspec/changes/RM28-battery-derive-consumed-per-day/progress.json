@@ -5,11 +5,10 @@
   "module": "battery",
   "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
   "request": "Implement the per-day consumed derivation in internal/battery per D13, keyed on telemetry.Snapshot.EffectiveDate. Match charges to days per D12. Detect gaps per D5/D5a, infer type per D7a. Fetch snapshots over [start-1, end] per D9a. Handle days_spanned_calc > 1 per D8. Expose a ConsumedByDay read port. Wire detection into cmd/poller per D4/D4a. Update internal/battery/AGENTS.md.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "T0",
       "T1",
       "T2",
       "T3",
@@ -20,7 +19,9 @@
       "V"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T0"
+    ]
   },
   "created_at": "2026-08-16T02:39:00Z",
   "updated_at": "2026-08-16T02:39:00Z",
@@ -43,14 +44,21 @@
       "module": "battery",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Appended by the leader after the owner overruled D-B7. Must land before T1-T7: it changes the bucketing key every other task builds on, and it must resolve where battery obtains *time.Location.",
-      "budget": null
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-16T10:17:00Z",
+      "completed_at": "2026-08-16T10:29:00Z",
+      "duration_seconds": 720,
+      "notes": "design.md revised for D18. Bucket day = CapturedDate-1 (poller zone, stamped at write); EffectiveDate unread. No *time.Location injected, NewReader unchanged, D-B1 survives. Appended D-B12/D-B13; fetch windows widened. openspec validate --strict passes.",
+      "budget": {
+        "five_hour_pct_delta": 25,
+        "cost_usd_delta": 10.22,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "T0 alone, serial dispatch on Opus"
+      }
     },
     {
       "id": "T1",
@@ -221,6 +229,33 @@
       "decision": "Appended T0 (design revision) as a blocking predecessor of T1-T7 instead of editing the existing tasks.",
       "why": "Tasks are append-only. The zone change alters the bucketing key every later task builds on, so it must land first rather than be patched into each.",
       "covered_by": "roadmap D18"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-16T10:17:00Z",
+      "scope": "task:T0",
+      "made_by": "leader",
+      "decision": "T0 dispatched on Opus, not the default Sonnet.",
+      "why": "The Sonnet artifact worker misread two owner decisions (D-B3, D-B7) in this exact design. T0.3's zone-vs-EffectiveDate semantics is the edge case D6 exists to protect.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-16T10:33:00Z",
+      "scope": "task:T0",
+      "made_by": "leader",
+      "decision": "Accepted the worker's corrections to unstarted task lines T2.2/T2.6/T2.7/T3.1/T5.4 and its appended T4.10/T4.11, rather than treating them as append-only violations.",
+      "why": "The lines encoded the overruled UTC rule; leaving them would hand later workers a contradiction. Every correction tightens, none weakens, and T4.10 is the only test distinguishing D18 from the overruled rule.",
+      "covered_by": "roadmap D18"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-16T10:33:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Appended D17/D18 to the roadmap .md decision table, plus a new D18a recording the worker-derived CapturedDate-1 zone mechanism.",
+      "why": "D17/D18 existed only in the roadmap progress.json, so design.md's citations dangled. D18a records why no *time.Location is injected - leader-verified at telemetry/service.go:510.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -238,6 +273,16 @@
       "at": "2026-08-16T02:39:00Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT. five_hour_pct 87 (threshold 90), context_pct 24 (threshold 40), five_hour_resets_at 2026-08-16T05:10:00Z. Stopped before dispatching the T0 design revision rather than crossing the 5-hour threshold mid-dispatch. All state truthful: tier 3 artifacts committed at 04dfa7a, no implementation started, T0 pending and blocking."
+    },
+    {
+      "at": "2026-08-16T10:17:00Z",
+      "agent": "leader",
+      "event": "RESUMED in a fresh session. Checkpoint cleared: five_hour_pct 3 (was 87), context_pct 9, seven_day_pct 79. Wave 0 dispatched: T0 design revision to the battery worker on Opus (see D3). Status proposed -> in-progress."
+    },
+    {
+      "at": "2026-08-16T10:33:00Z",
+      "agent": "leader",
+      "event": "Wave 0 (T0) reconciled - done. Design revised for D18: bucket day = CapturedDate - 1 day, EffectiveDate never read by battery. Leader VERIFIED the two load-bearing claims independently: telemetry/service.go:510 stamps CapturedDate via dateOnly(capturedAt, loc) in Config.Location, and service.go:587 derives DaysSpannedCalc from those same CapturedDate values - so effectiveDay(cur)-effectiveDay(prev) == DaysSpannedCalc is an exact identity. D-B1 survives: NewReader unchanged, so T1/T3/T6 need no contract change. Only markdown changed; no Go touched."
     }
   ]
 }

@@ -131,12 +131,26 @@ change (even a "none" conclusion) carries the reasoning.
 
 D1–D15 were settled with the owner via grill-me before this proposal was written
 (recorded verbatim in `openspec/roadmaps/RM28-battery-consumed-graph.md`, 2026-08-15).
-This tier implements D1 (consumes `EffectiveDate` as-is, no shift), D2 (no cache), D4/D4a
+This tier implements D1 (the row that carries the delta keeps it — no shift, no re-derivation
+of `battery_used_pct_calc`), D2 (no cache), D4/D4a
 (poller orchestration contract), D5/D5a (gap detection), D7a (inferred type, computed
 here and handed to the writer), D8 (multi-day spans), D9a (the `[start−1, end]` lookback
 fetch), D12 (source-specific charge matching), D13 (the summation formula), D14/D14a
-(accepted, documented limitation), D15 (battery owns the derivation). D3, D6, D7, D7b, D9,
-D10, D11 bound what this tier must **not** re-litigate or re-implement — see design.md's
-own decisions for how D6's poller-zone note reconciles with D1's `EffectiveDate`-is-final
-correction. design.md restates the directly-relevant decisions with full rationale, not
-re-litigated here.
+(accepted, documented limitation), D15 (battery owns the derivation). D3, D7, D7b, D9, D10,
+D11 bound what this tier must **not** re-litigate or re-implement.
+
+**D6 is implemented by this tier, literally** (owner ruling **D18**, 2026-08-16): calendar-day
+bucketing uses the poller's configured zone (`Config.Location`), not UTC. An earlier revision
+of design.md argued that D1's correction had made UTC bucketing the right reading; the owner
+overruled that, and D-B7 now records the zoned rule with the superseded reasoning preserved as
+a rejected alternative. The bucket day is the row's own `CapturedDate` minus one day —
+`CapturedDate` is already stamped in `Config.Location` on the write path — so the module needs
+no `*time.Location` of its own and `NewReader`'s signature is unchanged (D-B12).
+`telemetry.Snapshot.EffectiveDate` is not read by this module. Owner ruling **D17** separately
+confirms D-B3: `DayConsumption.Date` is the row's own effective day, which for a multi-day span
+is the span's **last** calendar day.
+
+Known and accepted consequence of D18: `internal/battery` buckets in UTC−5 while the gateway's
+existing odometer/battery charts still bucket in UTC via `effectiveDayUTC`. See design.md D-B7.
+
+design.md restates the directly-relevant decisions with full rationale, not re-litigated here.
