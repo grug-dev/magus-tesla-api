@@ -197,55 +197,91 @@ in T6 covers that combination by joining the span clause and the flagged clause.
 
 ## T8. `internal/gateway/handlers/history_test.go` — new consumed-chart tests + updated D11 tests — depends on T6
 
-- [ ] T8.1 `TestBuildConsumedChart_NormalDay_RelativeScale` — design.md Test Contract (a).
-- [ ] T8.2 `TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue` — Test Contract (b):
+- [x] T8.1 `TestBuildConsumedChart_NormalDay_RelativeScale` — design.md Test Contract (a).
+- [x] T8.2 `TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue` — Test Contract (b):
       assert the rendered tooltip string does NOT contain `"-5"` anywhere.
-- [ ] T8.3 `TestBuildConsumedChart_FlaggedNonSpan_Supercharger_ZeroWithDistance` — Test
+- [x] T8.3 `TestBuildConsumedChart_FlaggedNonSpan_Supercharger_ZeroWithDistance` — Test
       Contract (c).
-- [ ] T8.4 `TestBuildConsumedChart_MultiDaySpan_NotFlagged_ShowsRealValue` — Test Contract
+- [x] T8.4 `TestBuildConsumedChart_MultiDaySpan_NotFlagged_ShowsRealValue` — Test Contract
       (d).
-- [ ] T8.5 `TestBuildConsumedChart_MultiDaySpanAndFlagged_BothMarkers_ValueShown` — Test
+- [x] T8.5 `TestBuildConsumedChart_MultiDaySpanAndFlagged_BothMarkers_ValueShown` — Test
       Contract (e), roadmap D21: assert BOTH `MarkerFlagged == true` AND `MarkerSpan ==
       true` (not one or the other), and the tooltip DOES contain `"-3.0"` AND states both
       the span-day-count fact and the missing-charge-record fact.
-- [ ] T8.6 `TestBuildConsumedChart_MultiDaySpanAndFlagged_HeightClampIsolatedFromMax` — Test
+- [x] T8.6 `TestBuildConsumedChart_MultiDaySpanAndFlagged_HeightClampIsolatedFromMax` — Test
       Contract (f): two-entry fixture isolating the height clamp from the window max.
-- [ ] T8.7 `TestBuildConsumedChart_NoDataDay_DistinctFromNoSnapshotWording` — Test Contract
+- [x] T8.7 `TestBuildConsumedChart_NoDataDay_DistinctFromNoSnapshotWording` — Test Contract
       (g): assert the tooltip text differs from what `buildBatteryChart`'s missing-day
       tooltip would produce for the same label.
-- [ ] T8.8 `TestBuildConsumedChart_EmptyWhenZeroDays` — Test Contract (h).
-- [ ] T8.9 `TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC` — Test Contract
+- [x] T8.8 `TestBuildConsumedChart_EmptyWhenZeroDays` — Test Contract (h).
+- [x] T8.9 `TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC` — Test Contract
       (i), the D-G2 regression guard.
-- [ ] T8.9a `TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp` — Test
+- [x] T8.9a `TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp` — Test
       Contract (i2), the D-G1 dead-branch regression guard: a flagged (non-span) day and a
       normal day in the same window; assert the flagged day's `math.Max(0, ConsumedPct)`
       alone keeps it out of the max — do NOT special-case this in the implementation under
       test; the point of this test is that the ONE clamp already suffices.
-- [ ] T8.10 Update `TestParseHistoryRange_BothAbsent_DefaultSixDayWindow` to assert
+- [x] T8.10 Update `TestParseHistoryRange_BothAbsent_DefaultSixDayWindow` to assert
       `end == today.AddDate(0,0,-1)` (Test Contract (j)) — was `end == today`.
-- [ ] T8.11 Update `TestParseHistoryRange_EndCapUsesBrowserToday` (and rename it to
+- [x] T8.11 Update `TestParseHistoryRange_EndCapUsesBrowserToday` (and rename it to
       `TestParseHistoryRange_EndCapUsesBrowserYesterday`, updating its doc comment) to
       assert `end == today` now returns `ok=false` (Test Contract (k)) and `end ==
       today.AddDate(0,0,-1)` returns `ok=true` (Test Contract (l)). Apply the equivalent
       update to `TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets`.
-- [ ] T8.12 Review `TestParseHistoryRange_EndAfterToday` and every entry in
+- [x] T8.12 Review `TestParseHistoryRange_EndAfterToday` and every entry in
       `TestDashboardHistoryFragment_400_Cases`'s table per design.md Test Contract (m): a
       fixture already dated strictly after `today` (e.g. `2099-12-31`) needs no change; a
       fixture that used `end == today` expecting acceptance must move to expecting
-      rejection.
-- [ ] T8.13 Update `TestDashboardHistoryFragment_DefaultWindowPassedToReader`,
+      rejection. Confirmed: both stay unchanged — every fixture is already dated well past
+      "today" regardless of D11.
+- [x] T8.13 Update `TestDashboardHistoryFragment_DefaultWindowPassedToReader`,
       `TestDashboardHistoryFragment_DaysParamIsIgnored`, and
       `TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset` to compute their
       expected windows from `yesterday := today.AddDate(0,0,-1)` (Test Contract (n)).
       `DefaultWindowActivatesSixDayPreset`'s doc comment currently states the API default
       and the preset window diverge — rewrite it to state they now match.
-- [ ] T8.14 `TestHandler_BatteryReaderDepsForwarding` (naming per whatever pattern the
+      Additionally (beyond this item's explicit list, found while auditing every
+      `startOfDay(time.Now())` reference in the file — see the worker's final report):
+      `TestParseHistoryRange_NoCookieFallsBackToUTC` (same default-absent D11 shift), and
+      `TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows` /
+      `TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat` (both
+      submit an explicit `end=today` query param, which D11's new cap now rejects) were
+      also updated to keep the suite internally consistent with the D11 change.
+- [x] T8.14 `TestHandler_BatteryReaderDepsForwarding` (naming per whatever pattern the
       existing `SuperchargerReader`/`ManualChargeReader` forwarding test already uses —
       grep it first, mirror its shape, do not invent a new one) — Test Contract (o).
+      Grepped first: no dedicated forwarding test exists for either sibling port; each is
+      instead verified by exercising the handler end-to-end and asserting a
+      call-recording fake was hit (the shape `fakeHistoryReader.betweenCalled` already
+      uses for `TelemetryReader`). Mirrored that shape with
+      `fakeBatteryReader.consumedByDayCalled`.
+- [x] T8.15 **Appended by the leader mid-wave-3, not in the original enumeration.** Update
+      `TestParseHistoryRange_DefaultUsesBrowserToday` (the timezone-aware sibling of T8.10's
+      test — it calls `parseRangeWithTZ("", "", "America/Bogota")` and asserted
+      `end == browserToday(c)`, the pre-D11 contract). T8.10–T8.13 named four
+      `parseHistoryRange` tests and the fragment tests but missed this one; the omission was
+      the task list's. Found by the **owner's** `make test` run while wave 3 was still in
+      flight — the only failure in the suite. Rename to
+      `TestParseHistoryRange_DefaultUsesBrowserYesterday`, update the doc comment to state
+      the D11 contract, and assert browser-yesterday. **Keep the existing
+      `end.Location() == "America/Bogota"` assertion** — zone preservation is orthogonal to
+      D11 and must survive the rewrite. Then sweep the file for any other pre-D11
+      `end == today` assertion the enumeration missed and report every one found.
+- [x] T8.16 **Appended by the leader after wave 3 returned, not in the original
+      enumeration.** `TestBuildHistoryView_ConsumedReaderError_LeavesOtherChartsIntact` —
+      the missing **D-G10** guard. The worker correctly reported that D-G10 (a
+      `ConsumedByDay` error empties ONLY `v.Consumed` and returns, leaving the
+      already-populated `v.Odometer`/`v.Battery` untouched) has no test: design.md's Test
+      Contract never listed one, so it fell outside T8.1–T8.14. D-G10 is a stated design
+      behavior with a real failure mode — a future refactor that moved the consumed read
+      before the snapshot read, or reused the snapshot error branch, would silently blank
+      all three charts and no test would notice. Use the existing
+      `newHandlerForHistoryWithBattery` helper with a succeeding telemetry reader and a
+      `fakeBatteryReader` returning an error; assert `v.Consumed.Empty == true` AND that
+      `v.Odometer` and `v.Battery` still carry their bars (not `Empty`).
       Acceptance (all of T8): every listed test compiles (`go vet ./...`); this worker
       does NOT run `go test ./...` (Test-Execution-Policy) — report all tests as
       `awaiting-user-verification` with the exact command to run.
-
 ## T9. `internal/gateway/AGENTS.md` — document the new `battery.Reader` dependency — depends on T5
 
 - [x] T9.1 Add a `Deps.BatteryReader battery.Reader` bullet to the "Public interface"
@@ -259,18 +295,29 @@ in T6 covers that combination by joining the span clause and the flagged clause.
 
 ## V. Verification — depends on T1–T6, T8, T9
 
-- [ ] V.1 `go build ./...` succeeds for the whole repo (excluding T7's `cmd/web` change,
-      which is the leader's separate build check).
-- [ ] V.2 `go vet ./...` reports no issues.
-- [ ] V.3 `gofmt -l` reports no files needing formatting under `internal/gateway/`.
-- [ ] V.4 `make ui-guard` reports no violations (no raw DaisyUI component class inlined
-      outside `templates/ui/`).
-- [ ] V.5 `make i18n-guard` reports no violations (every new consumed-chart string routes
-      through `i18n.T`).
-- [ ] V.6 `make css` was run after the `.templ` change and `static/app.css` contains the
+- [x] V.1 `go build ./...` succeeds for the whole repo (excluding T7's `cmd/web` change,
+      which is the leader's separate build check). PASSED — no output.
+- [x] V.2 `go vet ./...` reports no issues. PASSED — no output (compiles every `_test.go`
+      including this worker's new/updated tests in `history_test.go`).
+- [ ] V.3 `gofmt -l` reports no files needing formatting under `internal/gateway/`. **FAILS
+      as literally stated** — `gofmt -l internal/gateway/` lists 5 files needing
+      formatting: `handlers/charges_test.go`, `handlers/handlers_test.go`,
+      `templates/fragments/dashboard_vm.go`, `templates/pages/dashboard.go`,
+      `templates/ui/nav_shell_test.go`. **None of these were touched by this tier**
+      (`history.go`, `history_vm.go`, `history.templ`, `format.go`, `gateway.go`,
+      `handlers.go`, `history_test.go`, `AGENTS.md`) and `history_test.go` itself is NOT in
+      this list — this tier's own changes are clean. Pre-existing drift from an earlier
+      change; left unchecked and flagged for the leader rather than silently marked done.
+- [x] V.4 `make ui-guard` reports no violations (no raw DaisyUI component class inlined
+      outside `templates/ui/`). PASSED.
+- [x] V.5 `make i18n-guard` reports no violations (every new consumed-chart string routes
+      through `i18n.T`). PASSED.
+- [x] V.6 `make css` was run after the `.templ` change and `static/app.css` contains the
       three new literal classes (T3.3's grep check) — committed alongside the `.templ`
-      change, not as a follow-up.
-- [ ] V.7 `openspec validate RM28-gateway-add-consumed-graph --strict` passes.
+      change, not as a follow-up. PASSED — `grep -o 'fill-accent\|fill-warning\|fill-info'
+      internal/gateway/static/app.css` returns all three.
+- [x] V.7 `openspec validate RM28-gateway-add-consumed-graph --strict` passes. PASSED —
+      "Change 'RM28-gateway-add-consumed-graph' is valid".
 - [ ] V.8 Hand back to the owner: `go test ./internal/gateway/...` (or the project's
       `make test`) — every test T8 added is written but not run by this worker
       (Test-Execution-Policy); status is `awaiting-user-verification` until the owner runs
