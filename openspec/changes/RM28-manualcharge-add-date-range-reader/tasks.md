@@ -85,26 +85,26 @@
 
 ## T4. DB-integration tests (`db_integration_test.go`) — depends on T3
 
-- [ ] T4.1 `TestListByVehicleBetween_InclusiveBounds` — design.md Test Contract (a):
+- [x] T4.1 `TestListByVehicleBetween_InclusiveBounds` — design.md Test Contract (a):
       entries at `charged_on = from`, a mid-window date, and `charged_on = to`; call
       `ListEntriesByVehicleBetween(ctx, A, V, from, to)`; assert all 3 are returned,
       including the entries dated exactly `from` and exactly `to`.
-- [ ] T4.2 `TestListByVehicleBetween_ExcludesOutsideBounds` — design.md Test Contract
+- [x] T4.2 `TestListByVehicleBetween_ExcludesOutsideBounds` — design.md Test Contract
       (b): same setup as T4.1 plus entries at `from - 1 day` and `to + 1 day`; assert the
       result is still exactly the 3 in-window entries — neither out-of-bound entry
       appears.
-- [ ] T4.3 `TestListByVehicleBetween_NewestFirst` — design.md Test Contract (c): the
+- [x] T4.3 `TestListByVehicleBetween_NewestFirst` — design.md Test Contract (c): the
       3-entry window from T4.1, inserted out of date order; assert
       `result[0].ChargedOn >= result[1].ChargedOn >= result[2].ChargedOn` (same
       assertion style as `TestListByVehicle_NewestFirst`).
-- [ ] T4.4 `TestListByVehicleBetween_EmptyNonNil` — design.md Test Contract (d): a
+- [x] T4.4 `TestListByVehicleBetween_EmptyNonNil` — design.md Test Contract (d): a
       vehicle/account with no entries in the queried window; assert `err == nil`,
       `result != nil`, `len(result) == 0`.
-- [ ] T4.5 `TestListByVehicleBetween_AccountIsolation` — design.md Test Contract (e):
+- [x] T4.5 `TestListByVehicleBetween_AccountIsolation` — design.md Test Contract (e):
       two accounts `A`/`B`, same `teslaID = V`, each with an entry at the same
       `charged_on` inside the queried window; call scoped to `A`; assert exactly 1
       result and it belongs to `A`.
-- [ ] T4.6 `TestListByVehicleBetween_VehicleIsolation` — design.md Test Contract (f): one
+- [x] T4.6 `TestListByVehicleBetween_VehicleIsolation` — design.md Test Contract (f): one
       account `A`, two vehicles `V1`/`V2`, each with an entry at the same `charged_on`
       inside the queried window; call scoped to `V1`; assert exactly 1 result and it has
       `TeslaID == V1`.
@@ -145,12 +145,16 @@ via `go vet ./...`.
 
 ## Verification — depends on all tasks
 
-- [ ] V.1 `go build ./...` succeeds.
-- [ ] V.2 `go vet ./...` succeeds (compiles all `_test.go` files, including T4's new
-      tests, catching any signature drift).
-- [ ] V.3 `gofmt -l` reports no files needing formatting across all files touched by
-      this change.
-- [ ] V.4 `openspec validate RM28-manualcharge-add-date-range-reader --strict` passes.
-- [ ] V.5 Hand off to the owner: exact command to run and report on —
+- [x] V.1 `go build ./...` succeeds. — leader-run, exit 0, no output.
+- [x] V.2 `go vet ./...` succeeds (compiles all `_test.go` files, including T4's new
+      tests, catching any signature drift). — leader-run, exit 0 repo-wide, after the T6
+      fake stubs landed.
+- [x] V.3 `gofmt -l` reports no files needing formatting across all files touched by
+      this change. — leader-run: no file touched by this change is listed. (The repo has
+      pre-existing gofmt drift in files this change never touched; a before/after
+      comparison shows this change adds none and removes one.)
+- [x] V.4 `openspec validate RM28-manualcharge-add-date-range-reader --strict` passes. —
+      leader-run: "Change 'RM28-manualcharge-add-date-range-reader' is valid".
+- [x] V.5 Hand off to the owner: exact command to run and report on —
       `go test ./internal/manualcharge/...` (or `make test` / `make test-with-db` for
       the full suite). Not run by the worker per the Test-Execution-Policy.

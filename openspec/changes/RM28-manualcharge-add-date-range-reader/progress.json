@@ -5,24 +5,23 @@
   "module": "manualcharge",
   "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
   "request": "Add one date-range read method to manualcharge.Reader per D9, filtering on charged_on inclusive of both bounds. Purely additive - ListEntriesByVehicle and ListEntriesByAccount are unchanged. No schema change.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [
       "T1",
       "T2",
       "T3",
-      "T5",
-      "T6"
-    ],
-    "pending": [
       "T4",
+      "T5",
+      "T6",
       "V"
     ],
+    "pending": [],
     "blocked": [],
     "done": []
   },
   "created_at": "2026-08-16T01:42:00Z",
-  "updated_at": "2026-08-16T01:46:29Z",
+  "updated_at": "2026-08-16T01:49:59Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -119,14 +118,23 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "manualcharge",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T01:48:00Z",
+      "completed_at": "2026-08-16T01:49:30Z",
+      "duration_seconds": 90,
+      "notes": "Six DB-integration tests added per design.md's binding contract (a)-(f). Leader spot-checked each against the contract: assertions match the specified expectations, none reverse-engineered from the implementation.",
+      "budget": {
+        "five_hour_pct_start": 54,
+        "five_hour_pct_end": 60,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.53,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "serial single-task wave"
+      }
     },
     {
       "id": "T5",
@@ -166,14 +174,23 @@
         "T5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-16T01:49:00Z",
+      "completed_at": "2026-08-16T01:49:59Z",
+      "duration_seconds": 59,
+      "notes": "V.1-V.4 leader-run and clean: build, vet repo-wide, gofmt (no new drift), openspec validate --strict. V.5 handoff given. The suite itself is the owner's.",
+      "budget": {
+        "five_hour_pct_start": 54,
+        "five_hour_pct_end": 60,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.53,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "serial single-task wave"
+      }
     },
     {
       "id": "T6",
@@ -262,6 +279,16 @@
       "at": "2026-08-16T01:47:30Z",
       "agent": "leader",
       "event": "Corrected wave-1 task statuses done -> awaiting-user-verification. The worker reported them done, but the Test-Execution-Policy reserves the suite to the owner, so done requires the owner's reported pass. Work is complete; only the suite signal is outstanding."
+    },
+    {
+      "at": "2026-08-16T01:48:00Z",
+      "agent": "leader",
+      "event": "dispatched manualcharge worker (sonnet) for wave 2 (T4) - the six DB-integration tests from design.md's binding test contract. Budget start: 5h 54%, ctx 17%, $7.64."
+    },
+    {
+      "at": "2026-08-16T01:49:59Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled: T4 six integration tests written, not run. Leader-run signals all clean (go build, go vet ./... repo-wide, gofmt no new drift, openspec validate --strict). Change status -> applied. Every task now awaiting-user-verification pending the owner's suite run. Budget end: 5h 60%, ctx 20%, $10.17 (wave delta $2.53)."
     }
   ]
 }

@@ -2,6 +2,7 @@
 // manualcharge module. Postgres is auto-provisioned by testdb_test.go's TestMain:
 //   - When DATABASE_URL is set, that managed Postgres is used (unchanged behavior).
 //   - Otherwise a disposable `postgres:16-alpine` container is started for the run.
+//
 // goose migrations are embedded and applied before any test runs, so the schema is
 // always at the latest version — no `make migrate-up` step required.
 //
@@ -989,6 +990,259 @@ func TestUpdate_RejectsNilLocationKind(t *testing.T) {
 	}
 	if entries[0].LocationKind == nil || *entries[0].LocationKind != "HOME" {
 		t.Errorf("original row's LocationKind was mutated: got %v, want \"HOME\"", entries[0].LocationKind)
+	}
+}
+
+// --- T4: Reader.ListEntriesByVehicleBetween (design.md Test Contract, RM28-manualcharge-add-date-range-reader) ---
+
+// TestListByVehicleBetween_InclusiveBounds — design.md Test Contract (a): entries at
+// charged_on = from, a mid-window date, and charged_on = to must all be returned; both
+// bounds are inclusive.
+func TestListByVehicleBetween_InclusiveBounds(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+	r := manualcharge.NewReader(pool)
+
+	const teslaID = int64(2001)
+	from := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
+	mid := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
+
+	for _, d := range []time.Time{from, mid, to} {
+		e := minEntry(accountID, teslaID)
+		e.ChargedOn = d
+		if _, err := w.Create(ctx, e); err != nil {
+			t.Fatalf("Create entry for %v: %v", d, err)
+		}
+	}
+
+	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, teslaID, from, to)
+	if err != nil {
+		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(got))
+	}
+
+	var sawFrom, sawTo bool
+	for _, e := range got {
+		if e.ChargedOn.Equal(from) {
+			sawFrom = true
+		}
+		if e.ChargedOn.Equal(to) {
+			sawTo = true
+		}
+	}
+	if !sawFrom {
+		t.Errorf("expected entry dated exactly from (%v) to be present", from)
+	}
+	if !sawTo {
+		t.Errorf("expected entry dated exactly to (%v) to be present", to)
+	}
+}
+
+// TestListByVehicleBetween_ExcludesOutsideBounds — design.md Test Contract (b): entries
+// one day before `from` and one day after `to` must never appear in the result.
+func TestListByVehicleBetween_ExcludesOutsideBounds(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+	r := manualcharge.NewReader(pool)
+
+	const teslaID = int64(2002)
+	from := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
+	mid := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
+	beforeFrom := time.Date(2026, 7, 9, 0, 0, 0, 0, time.UTC)
+	afterTo := time.Date(2026, 7, 21, 0, 0, 0, 0, time.UTC)
+
+	for _, d := range []time.Time{from, mid, to, beforeFrom, afterTo} {
+		e := minEntry(accountID, teslaID)
+		e.ChargedOn = d
+		if _, err := w.Create(ctx, e); err != nil {
+			t.Fatalf("Create entry for %v: %v", d, err)
+		}
+	}
+
+	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, teslaID, from, to)
+	if err != nil {
+		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("expected 3 entries (window only), got %d", len(got))
+	}
+	for _, e := range got {
+		if e.ChargedOn.Equal(beforeFrom) {
+			t.Errorf("entry dated %v (one day before from) must not appear", beforeFrom)
+		}
+		if e.ChargedOn.Equal(afterTo) {
+			t.Errorf("entry dated %v (one day after to) must not appear", afterTo)
+		}
+	}
+}
+
+// TestListByVehicleBetween_NewestFirst — design.md Test Contract (c): results are
+// ordered charged_on DESC regardless of insertion order (same assertion style as
+// TestListByVehicle_NewestFirst).
+func TestListByVehicleBetween_NewestFirst(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+	r := manualcharge.NewReader(pool)
+
+	const teslaID = int64(2003)
+	from := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
+	mid := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
+
+	// Insert out of date order: mid, to, from.
+	for _, d := range []time.Time{mid, to, from} {
+		e := minEntry(accountID, teslaID)
+		e.ChargedOn = d
+		if _, err := w.Create(ctx, e); err != nil {
+			t.Fatalf("Create entry for %v: %v", d, err)
+		}
+	}
+
+	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, teslaID, from, to)
+	if err != nil {
+		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(got))
+	}
+	if !got[0].ChargedOn.Equal(to) {
+		t.Errorf("result[0].ChargedOn: got %v, want %v", got[0].ChargedOn, to)
+	}
+	if !got[1].ChargedOn.Equal(mid) {
+		t.Errorf("result[1].ChargedOn: got %v, want %v", got[1].ChargedOn, mid)
+	}
+	if !got[2].ChargedOn.Equal(from) {
+		t.Errorf("result[2].ChargedOn: got %v, want %v", got[2].ChargedOn, from)
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i-1].ChargedOn.Before(got[i].ChargedOn) {
+			t.Errorf("ordering: entry[%d].ChargedOn=%v is before entry[%d].ChargedOn=%v — expected DESC",
+				i-1, got[i-1].ChargedOn, i, got[i].ChargedOn)
+		}
+	}
+}
+
+// TestListByVehicleBetween_EmptyNonNil — design.md Test Contract (d): a window with no
+// matching rows returns a non-nil, zero-length slice and a nil error.
+func TestListByVehicleBetween_EmptyNonNil(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	r := manualcharge.NewReader(pool)
+
+	const teslaID = int64(2004)
+	from := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
+
+	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, teslaID, from, to)
+	if err != nil {
+		t.Fatalf("ListEntriesByVehicleBetween for empty window: %v", err)
+	}
+	if got == nil {
+		t.Errorf("expected non-nil empty slice, got nil")
+	}
+	if len(got) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(got))
+	}
+}
+
+// TestListByVehicleBetween_AccountIsolation — design.md Test Contract (e): two accounts
+// share the same teslaID and the same charged_on inside the window; the scoped call must
+// return only the requesting account's entry.
+func TestListByVehicleBetween_AccountIsolation(t *testing.T) {
+	pool := newTestPool(t)
+	accountA := uuid.New()
+	accountB := uuid.New()
+	cleanupAccount(t, pool, accountA, accountB)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+	r := manualcharge.NewReader(pool)
+
+	const sharedTeslaID = int64(2005)
+	chargedOn := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	from := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
+
+	eA := minEntry(accountA, sharedTeslaID)
+	eA.ChargedOn = chargedOn
+	if _, err := w.Create(ctx, eA); err != nil {
+		t.Fatalf("Create A: %v", err)
+	}
+	eB := minEntry(accountB, sharedTeslaID)
+	eB.ChargedOn = chargedOn
+	if _, err := w.Create(ctx, eB); err != nil {
+		t.Fatalf("Create B: %v", err)
+	}
+
+	got, err := r.ListEntriesByVehicleBetween(ctx, accountA, sharedTeslaID, from, to)
+	if err != nil {
+		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected exactly 1 entry, got %d", len(got))
+	}
+	if got[0].AccountID != accountA {
+		t.Errorf("AccountID: got %v, want accountA %v", got[0].AccountID, accountA)
+	}
+}
+
+// TestListByVehicleBetween_VehicleIsolation — design.md Test Contract (f): one account
+// with two vehicles, each with an entry at the same charged_on inside the window; the
+// scoped call must return only the requested vehicle's entry.
+func TestListByVehicleBetween_VehicleIsolation(t *testing.T) {
+	pool := newTestPool(t)
+	accountID := uuid.New()
+	cleanupAccount(t, pool, accountID)
+
+	ctx := context.Background()
+	w := manualcharge.NewWriter(pool)
+	r := manualcharge.NewReader(pool)
+
+	const v1 = int64(2006)
+	const v2 = int64(2007)
+	chargedOn := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	from := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
+
+	e1 := minEntry(accountID, v1)
+	e1.ChargedOn = chargedOn
+	if _, err := w.Create(ctx, e1); err != nil {
+		t.Fatalf("Create v1: %v", err)
+	}
+	e2 := minEntry(accountID, v2)
+	e2.ChargedOn = chargedOn
+	if _, err := w.Create(ctx, e2); err != nil {
+		t.Fatalf("Create v2: %v", err)
+	}
+
+	got, err := r.ListEntriesByVehicleBetween(ctx, accountID, v1, from, to)
+	if err != nil {
+		t.Fatalf("ListEntriesByVehicleBetween: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected exactly 1 entry, got %d", len(got))
+	}
+	if got[0].TeslaID != v1 {
+		t.Errorf("TeslaID: got %v, want %v", got[0].TeslaID, v1)
 	}
 }
 
