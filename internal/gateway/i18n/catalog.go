@@ -139,6 +139,15 @@ const (
 	KeyHistoryDaysPreset        Key = "history.days_preset"
 	KeyHistoryNoSnapshotTooltip Key = "history.no_snapshot_tooltip"
 
+	// --- consumed chart (templates/fragments/history.templ, handlers/history.go) ---
+	KeyHistoryConsumedTitle          Key = "history.consumed_title"
+	KeyHistoryConsumedPctClause      Key = "history.consumed_pct_clause"
+	KeyHistoryConsumedSpanClause     Key = "history.consumed_span_clause"
+	KeyHistoryConsumedFlaggedClause  Key = "history.consumed_flagged_clause"
+	KeyHistoryConsumedNoDataTooltip  Key = "history.consumed_no_data_tooltip"
+	KeyHistoryChargeTypeManual       Key = "history.charge_type_manual"
+	KeyHistoryChargeTypeSupercharger Key = "history.charge_type_supercharger"
+
 	// --- supercharger stats (templates/fragments/supercharger_stats.templ) ---
 	KeySuperchargerMonthsPreset  Key = "supercharger.months_preset"
 	KeySuperchargerSessions      Key = "supercharger.sessions"
@@ -374,6 +383,14 @@ var catalog = map[Key]entry{
 	KeyHistoryBatteryTitle:      {ES: "Historial de batería", EN: "Battery history"},
 	KeyHistoryDaysPreset:        {ES: "%d días", EN: "%d days"},
 	KeyHistoryNoSnapshotTooltip: {ES: "%s · sin dato", EN: "%s · no snapshot"},
+
+	KeyHistoryConsumedTitle:          {ES: "Batería consumida", EN: "Battery consumed"},
+	KeyHistoryConsumedPctClause:      {ES: "%s%% consumida", EN: "%s%% consumed"},
+	KeyHistoryConsumedSpanClause:     {ES: "%s%% · abarca %d días", EN: "%s%% · covers %d days"},
+	KeyHistoryConsumedFlaggedClause:  {ES: "posible registro de carga faltante (%s)", EN: "possible missing charge record (%s)"},
+	KeyHistoryConsumedNoDataTooltip:  {ES: "%s · sin dato", EN: "%s · no data"},
+	KeyHistoryChargeTypeManual:       {ES: "manual", EN: "manual"},
+	KeyHistoryChargeTypeSupercharger: {ES: "Supercharger", EN: "Supercharger"},
 
 	KeySuperchargerMonthsPreset:  {ES: "%d meses", EN: "%d months"},
 	KeySuperchargerSessions:      {ES: "Sesiones", EN: "Sessions"},

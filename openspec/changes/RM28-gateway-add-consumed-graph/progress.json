@@ -5,15 +5,27 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
   "request": "Tier 4 of RM28 (MAG-15). Add the battery-consumed bar chart to /ui/dashboard/history, mirroring templates/fragments/history.templ + history_vm.go. Consume battery.ConsumedByDay through the port — never a database. Render flagged days per D10 (zero-height bar, distinct warning marker) and multi-day spans per D8/D20; a day that is both carries both markers per D21. Move parseHistoryRange's default and its end <= today cap to yesterday per D11. Every new label bilingual ES/EN through i18n.T against internal/gateway/i18n/catalog.go, both non-empty.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "V"],
+    "pending": [
+      "T3",
+      "T6",
+      "T8",
+      "T9",
+      "V"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "T1",
+      "T2",
+      "T4",
+      "T5",
+      "T7"
+    ]
   },
   "created_at": "2026-08-16T15:45:00Z",
-  "updated_at": "2026-08-16T15:45:00Z",
+  "updated_at": "2026-08-16T15:48:07Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -33,14 +45,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:44:37Z",
+      "completed_at": "2026-08-16T15:47:11Z",
+      "duration_seconds": 154,
+      "notes": "Added MarkerFlagged/MarkerSpan bools to HistoryBar and Consumed HistoryChart to HistoryView, doc comments verbatim from design.md.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.06,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2+T4+T5 jointly (one serial worker)"
+      }
     },
     {
       "id": "T2",
@@ -48,20 +69,32 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:44:37Z",
+      "completed_at": "2026-08-16T15:47:11Z",
+      "duration_seconds": 154,
+      "notes": "Seven keys (3 composable clauses + title + no-data + 2 charge-type nouns), both ES/EN non-empty, new section after the history-chart block. i18n-guard clean.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.06,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2+T4+T5 jointly (one serial worker)"
+      }
     },
     {
       "id": "T3",
       "title": "history.templ — two independent marker-chip blocks, third chart card, make templ + make css",
       "module": "gateway",
-      "depends_on": ["T1", "T2"],
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -78,14 +111,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:44:37Z",
+      "completed_at": "2026-08-16T15:47:11Z",
+      "duration_seconds": 154,
+      "notes": "formatPctRaw added after formatKmRaw; one decimal via strconv.FormatFloat, no unit suffix. Matches D-G8.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.06,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2+T4+T5 jointly (one serial worker)"
+      }
     },
     {
       "id": "T5",
@@ -93,20 +135,34 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:44:37Z",
+      "completed_at": "2026-08-16T15:47:11Z",
+      "duration_seconds": 154,
+      "notes": "Deps.BatteryReader wired through gateway.Deps -> handlers.Deps -> Handler.batteryReader, mirroring SuperchargerReader exactly.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.06,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2+T4+T5 jointly (one serial worker)"
+      }
     },
     {
       "id": "T6",
       "title": "handlers/history.go — D11 window change, buildConsumedChart, buildHistoryView extension",
       "module": "gateway",
-      "depends_on": ["T1", "T2", "T4", "T5"],
+      "depends_on": [
+        "T1",
+        "T2",
+        "T4",
+        "T5"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -121,22 +177,35 @@
       "id": "T7",
       "title": "cmd/web/main.go wiring — LEADER-OWNED, outside internal/gateway",
       "module": "cmd/web",
-      "depends_on": ["T5"],
+      "depends_on": [
+        "T5"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-16T15:47:40Z",
+      "completed_at": "2026-08-16T15:48:07Z",
+      "duration_seconds": 27,
+      "notes": "cmd/web/main.go: battery import + BatteryReader built from telemetry/manualcharge readers + acct + DefaultWindow, mirroring cmd/poller verbatim. Leader-owned; outside the module sandbox.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 12,
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": 0.53,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "leader-executed integration task"
+      }
     },
     {
       "id": "T8",
       "title": "handlers/history_test.go — consumed-chart tests + updated D11 tests",
       "module": "gateway",
-      "depends_on": ["T6"],
+      "depends_on": [
+        "T6"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -151,7 +220,9 @@
       "id": "T9",
       "title": "internal/gateway/AGENTS.md — document the new battery.Reader dependency",
       "module": "gateway",
-      "depends_on": ["T5"],
+      "depends_on": [
+        "T5"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -166,7 +237,16 @@
       "id": "V",
       "title": "Verification — build/vet/gofmt/ui-guard/i18n-guard/css freshness/openspec strict",
       "module": "gateway",
-      "depends_on": ["T1", "T2", "T3", "T4", "T5", "T6", "T8", "T9"],
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T8",
+        "T9"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -184,7 +264,17 @@
     "brief": null,
     "rounds": []
   },
-  "decisions": [],
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-16T15:44:37Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Wave 1 batches T1/T2/T4/T5 into one serial worker rather than four parallel ones",
+      "why": "Tasks are small and disjoint; one dispatch amortizes the doc-pack read, and parallel workers drain the same 5-hour bucket faster for no wall-clock gain here.",
+      "covered_by": null
+    }
+  ],
   "events": [
     {
       "at": "2026-08-16T15:45:00Z",
@@ -195,6 +285,16 @@
       "at": "2026-08-16T15:46:00Z",
       "agent": "leader",
       "event": "Reverted an uncommitted internal/gateway/static/app.css that already carried the three fill-accent/fill-warning/fill-info rules with no source declaring them (orphaned from a prior session). Pre-baked CSS would make T3.3's grep guard pass even if `make css` silently failed."
+    },
+    {
+      "at": "2026-08-16T15:44:37Z",
+      "agent": "leader",
+      "event": "Dispatched ONE serial gateway worker for wave 1 (T1, T2, T4, T5) on Sonnet. All four are dependency-free and touch disjoint files; batched serially so the doc pack is read once. Budget start: 5h 5%, ctx 11%, cost $1.65."
+    },
+    {
+      "at": "2026-08-16T15:48:07Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled: T1/T2/T4/T5 all done. Leader independently re-ran go build ./..., go vet ./..., gofmt -l — all clean; the pre-existing gofmt hits elsewhere in the repo are untouched by this wave. Worker enumerated D-G5/D-G6/D-G7/D-G8/D-G11 with compliance statements; leader cross-checked each against design.md. T7 (cmd/web wiring, leader-owned) executed in the same boundary and also builds/vets clean."
     }
   ]
 }

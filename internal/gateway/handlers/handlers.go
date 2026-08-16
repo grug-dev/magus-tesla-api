@@ -24,6 +24,7 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
+	"github.com/cristianpena/magus-tesla-api/internal/battery"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
@@ -66,9 +67,16 @@ type Deps struct {
 	// ManualChargeReader is the manualcharge read port. Called by read handlers
 	// and the dataForCharges helper to list charge entries.
 	ManualChargeReader manualcharge.Reader
-	TeslaClientID      string
-	TeslaClientSecret  string
-	TeslaRedirectURL   string
+	// BatteryReader is the battery module's read port; injected at
+	// construction (mirrors TelemetryReader/SuperchargerReader/
+	// ManualChargeReader — the gateway calls ConsumedByDay once per history
+	// fragment render). NEVER construct an internal/battery internal type
+	// here — internal/battery owns no database, so there is no db package
+	// this could even accidentally import.
+	BatteryReader     battery.Reader
+	TeslaClientID     string
+	TeslaClientSecret string
+	TeslaRedirectURL  string
 }
 
 // Handler carries the gateway's dependencies.
@@ -81,6 +89,7 @@ type Handler struct {
 	superchargerReader telemetry.SuperchargerReader
 	manualChargeWriter manualcharge.Writer
 	manualChargeReader manualcharge.Reader
+	batteryReader      battery.Reader
 	teslaClientID      string
 	teslaClientSecret  string
 	teslaRedirectURL   string
@@ -97,6 +106,7 @@ func New(d Deps) *Handler {
 		superchargerReader: d.SuperchargerReader,
 		manualChargeWriter: d.ManualChargeWriter,
 		manualChargeReader: d.ManualChargeReader,
+		batteryReader:      d.BatteryReader,
 		teslaClientID:      d.TeslaClientID,
 		teslaClientSecret:  d.TeslaClientSecret,
 		teslaRedirectURL:   d.TeslaRedirectURL,

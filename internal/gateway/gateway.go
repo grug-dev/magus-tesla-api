@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/battery"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/handlers"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
 	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
@@ -54,7 +55,14 @@ type Deps struct {
 	// ManualChargeReader is the manualcharge read port. Called by read handlers
 	// and the dataForCharges helper to list charge entries.
 	ManualChargeReader manualcharge.Reader
-	SessionSecret      string
+	// BatteryReader is the battery module's read port; injected at
+	// construction (mirrors TelemetryReader/SuperchargerReader/
+	// ManualChargeReader — the gateway calls ConsumedByDay once per history
+	// fragment render). Injected from cmd/web via battery.NewReader(...).
+	// NEVER import an internal/battery database package — internal/battery
+	// owns no database, so there is none to accidentally import.
+	BatteryReader battery.Reader
+	SessionSecret string
 	// Tesla OAuth app credentials + the web connect redirect URI.
 	TeslaClientID     string
 	TeslaClientSecret string
@@ -117,6 +125,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 		SuperchargerReader: d.SuperchargerReader,
 		ManualChargeWriter: d.ManualChargeWriter,
 		ManualChargeReader: d.ManualChargeReader,
+		BatteryReader:      d.BatteryReader,
 		TeslaClientID:      d.TeslaClientID,
 		TeslaClientSecret:  d.TeslaClientSecret,
 		TeslaRedirectURL:   d.TeslaRedirectURL,

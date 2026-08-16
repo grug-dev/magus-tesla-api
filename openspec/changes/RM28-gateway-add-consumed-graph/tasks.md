@@ -51,7 +51,7 @@
 **No enum type in this task** — D21 (owner ruling) means a bar can carry both markers at
 once, so there is no single-valued type to add; see design.md D-G5.
 
-- [ ] T1.1 Add `MarkerFlagged bool` and `MarkerSpan bool` to `HistoryBar`, with the doc
+- [x] T1.1 Add `MarkerFlagged bool` and `MarkerSpan bool` to `HistoryBar`, with the doc
       comments from design.md's "Go-Level Surface" section (each states which roadmap
       decision it renders — D10 for `MarkerFlagged`, D20 for `MarkerSpan` — and that BOTH
       can be true on the same bar per D21). Existing odometer/battery bar construction
@@ -61,7 +61,7 @@ once, so there is no single-valued type to add; see design.md D-G5.
       compile unchanged).
       Acceptance: `go build ./...` succeeds; `gofmt -l internal/gateway/templates/
       fragments/history_vm.go` reports no issues.
-- [ ] T1.2 Add `Consumed HistoryChart` to `HistoryView`, with the doc comment from
+- [x] T1.2 Add `Consumed HistoryChart` to `HistoryView`, with the doc comment from
       design.md stating the D18/D18a bucketing note, the D19 relative-scale note (a single
       `math.Max(0, ConsumedPct)` clamp, no per-state branch — design.md D-G1), and that a
       bar's two marker fields are independent and can both be true (D21).
@@ -73,7 +73,7 @@ once, so there is no single-valued type to add; see design.md D-G5.
 (revised under D21). Do not add a fourth "span+flagged" whole-sentence key — the composition
 in T6 covers that combination by joining the span clause and the flagged clause.
 
-- [ ] T2.1 Add a new `// --- consumed chart (templates/fragments/history.templ,
+- [x] T2.1 Add a new `// --- consumed chart (templates/fragments/history.templ,
       handlers/history.go) ---` section immediately after the existing `// --- history
       chart ...` section (after `KeyHistoryNoSnapshotTooltip`, before `// --- supercharger
       stats ...`), with the seven `Key` constants: `KeyHistoryConsumedTitle`,
@@ -82,7 +82,7 @@ in T6 covers that combination by joining the span clause and the flagged clause.
       `KeyHistoryChargeTypeManual`, `KeyHistoryChargeTypeSupercharger` — string values per
       design.md D-G6/D-G7 (e.g. `"history.consumed_title"`, `"history.consumed_pct_clause"`,
       ...).
-- [ ] T2.2 Add the matching `catalog` map entries in the SAME section position (mirroring
+- [x] T2.2 Add the matching `catalog` map entries in the SAME section position (mirroring
       the existing history-chart entries' placement), each with non-empty `ES` and `EN`
       values exactly as specified in design.md D-G6/D-G7:
       - `KeyHistoryConsumedTitle`: `{ES: "Batería consumida", EN: "Battery consumed"}`
@@ -130,7 +130,7 @@ in T6 covers that combination by joining the span clause and the flagged clause.
 
 ## T4. `internal/gateway/handlers/format.go` — `formatPctRaw`
 
-- [ ] T4.1 Add `formatPctRaw(pct float64) string` exactly as specified in design.md D-G8,
+- [x] T4.1 Add `formatPctRaw(pct float64) string` exactly as specified in design.md D-G8,
       placed after `formatKmRaw` in the existing file (no new file).
       Acceptance: `go build ./...` succeeds; `gofmt -l internal/gateway/handlers/
       format.go` reports no issues. A quick manual sanity check (not a committed test,
@@ -139,12 +139,12 @@ in T6 covers that combination by joining the span clause and the flagged clause.
 
 ## T5. `internal/gateway/gateway.go` + `internal/gateway/handlers/handlers.go` — `Deps.BatteryReader` wiring
 
-- [ ] T5.1 In `handlers/handlers.go`: add `BatteryReader battery.Reader` to `Deps` (with
+- [x] T5.1 In `handlers/handlers.go`: add `BatteryReader battery.Reader` to `Deps` (with
       the doc comment from design.md D-G11, mirroring `SuperchargerReader`'s existing doc
       comment shape), add `batteryReader battery.Reader` to `Handler`, add
       `batteryReader: d.BatteryReader` to `New()`. Add the new import
       `"github.com/cristianpena/magus-tesla-api/internal/battery"`.
-- [ ] T5.2 In `gateway.go`: add `BatteryReader battery.Reader` to `gateway.Deps` (same doc
+- [x] T5.2 In `gateway.go`: add `BatteryReader battery.Reader` to `gateway.Deps` (same doc
       comment pattern as `SuperchargerReader`'s existing field there), forward it into the
       `handlers.Deps{...}` literal at `NewEngine`'s handler-construction call site. Add the
       matching import.
@@ -183,8 +183,8 @@ in T6 covers that combination by joining the span clause and the flagged clause.
 
 ## T7. `cmd/web/main.go` wiring — LEADER-OWNED, outside `internal/gateway`'s sandbox — depends on T5
 
-- [ ] T7.1 Add the import `"github.com/cristianpena/magus-tesla-api/internal/battery"`.
-- [ ] T7.2 Construct `battery.NewReader(telemetry.NewReader(pool),
+- [x] T7.1 Add the import `"github.com/cristianpena/magus-tesla-api/internal/battery"`.
+- [x] T7.2 Construct `battery.NewReader(telemetry.NewReader(pool),
       telemetry.NewSuperchargerReader(pool), manualcharge.NewReader(pool), acct,
       battery.DefaultWindow)` and pass it as `gateway.Deps.BatteryReader` in the existing
       `gateway.NewEngine(gateway.Deps{...})` call site, alongside the existing
