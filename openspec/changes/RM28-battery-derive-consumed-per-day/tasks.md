@@ -253,11 +253,11 @@ Appended by the leader after the owner ruled on the two paused design questions.
 
 ## T6. `cmd/poller` wiring — LEADER-OWNED, NOT this module's sandbox — depends on T1, T2, T3
 
-- [ ] T6.1 Construct `telemetry.NewSuperchargerReader(pool)`, `manualcharge.NewReader(pool)`,
+- [x] T6.1 Construct `telemetry.NewSuperchargerReader(pool)`, `manualcharge.NewReader(pool)`,
       `telemetry.NewGapWriter(pool)`, and `battery.NewReader(telemetry.NewReader(pool),
       superchargerReader, manualReader, acct, battery.DefaultWindow)` in
       `cmd/poller/main.go`, alongside the existing `telemetry.Collector` wiring.
-- [ ] T6.2 After `collector.CollectAll(ctx)` succeeds (both the `--once` path and each
+- [x] T6.2 After `collector.CollectAll(ctx)` succeeds (both the `--once` path and each
       scheduled nightly cycle), loop `acct.AllRegisteredVehicles(ctx)` and for each
       vehicle: call `batteryReader.ConsumedByDay` for
       `[yesterday-GapReconciliationWindow+1, yesterday]` — where **"yesterday" is computed in
@@ -282,13 +282,13 @@ Appended by the leader after the owner ruled on the two paused design questions.
 
 ## Verification — depends on T1–T5, T7 (not T6 — a separate module's build)
 
-- [ ] V.1 `go build ./...` succeeds. — leader-run, exit 0, no output.
-- [ ] V.2 `go vet ./...` succeeds (compiles all `_test.go` files, including T4's and T5's
+- [x] V.1 `go build ./...` succeeds. — leader-run, exit 0, no output.
+- [x] V.2 `go vet ./...` succeeds (compiles all `_test.go` files, including T4's and T5's
       new tests, catching any signature drift). — leader-run, exit 0 repo-wide.
-- [ ] V.3 `gofmt -l` reports no files needing formatting across every file touched by this
+- [x] V.3 `gofmt -l` reports no files needing formatting across every file touched by this
       change. — leader-run.
-- [ ] V.4 `openspec validate RM28-battery-derive-consumed-per-day --strict` passes. —
+- [x] V.4 `openspec validate RM28-battery-derive-consumed-per-day --strict` passes. —
       leader-run.
-- [ ] V.5 Hand off to the owner: exact command to run and report on —
+- [x] V.5 Hand off to the owner: exact command to run and report on —
       `go test ./internal/battery/...` (or `make test` / `make test-with-db` for the full
       suite). Not run by the worker per the Test-Execution-Policy.
