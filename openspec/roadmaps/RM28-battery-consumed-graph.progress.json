@@ -5,7 +5,7 @@
   "intention": "A battery-consumed %/day bar graph on /ui/dashboard/history that corrects raw snapshot deltas by the charge added that day, plus a durable record of days whose numbers do not add up because a charge record is missing or incomplete.",
   "request": "Source ticket: MAG-15 — https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nShow a new bar graph similar to the odometer history and battery history graphs on the dashboard (/ui/dashboard/history), using the same standard as the other graphs. The vehicle may be charged during the day, which makes battery_used_pct negative or invalid, so the two charging tables (manual_charge_entries, supercharger_sessions) — both carrying start_battery_pct / end_battery_pct — are used to recover the real consumption. Whenever the result is negative, or zero while distance_traveled_km_calc > 10, a charge record is missing: record it in a new table (vin, tesla_id, missing_charging_type, date) so the user can be notified in a later ticket.",
   "status": "in-progress",
-  "autopilot": false,
+  "autopilot": true,
   "created_at": "2026-08-15T13:07:34Z",
   "updated_at": "2026-08-16T01:25:00Z",
   "leader": {
@@ -21,9 +21,10 @@
     "created_at": "2026-08-15T13:07:34Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      2
+    ],
     "pending": [
-      2,
       3,
       4
     ],
@@ -205,6 +206,16 @@
       "at": "2026-08-16T01:25:00Z",
       "kind": "tier-archived",
       "note": "Tier 1 archived as 2026-08-16-RM28-telemetry-add-charge-gap-storage; openspec synced 1 added + 1 modified requirement into openspec/specs/telemetry/spec.md. Tiers 2 and 3 depend on it; tier 2 (manualcharge) is now unblocked. autopilot:false - leader stops here for the user."
+    },
+    {
+      "at": "2026-08-16T01:36:37Z",
+      "kind": "autopilot-enabled",
+      "note": "User turned Auto Pilot Mode ON when resuming at tier 2. autopilot flipped false -> true; the leader now advances tier to tier without asking, pausing only on the real gates (design gate, review triage, push/PR, budget checkpoint)."
+    },
+    {
+      "at": "2026-08-16T01:36:40Z",
+      "kind": "tier-started",
+      "note": "Tier 2 (RM28-manualcharge-add-date-range-reader) started. No new interview: D9/D12 fully specify it. Design gate does NOT trip - idx_manual_charge_entries_vehicle_time (account_id, tesla_id, charged_on DESC) already covers the range scan, so no schema or index change."
     }
   ],
   "tiers": [
@@ -236,10 +247,10 @@
       "module": "manualcharge",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T01:36:40Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
