@@ -30,6 +30,19 @@ type HistoryBar struct {
 	// driven, not snapshot-driven (RM8 design D3, MAG-7 fix). A Present=false
 	// bar renders at zero height with its MM-DD label retained.
 	Present bool
+	// MarkerFlagged is true when this day was flagged by internal/battery's
+	// gap detection (D10) -- the template renders a warning-colored marker
+	// chip. Always false for every existing odometer/battery bar (they never
+	// set this field).
+	MarkerFlagged bool
+	// MarkerSpan is true when this day's underlying DayConsumption spans
+	// more than one calendar day (D20) -- the template renders an
+	// info-colored marker chip, DISTINCT from the warning chip above.
+	// Independent of MarkerFlagged: BOTH can be true on the same bar (D21),
+	// in which case BOTH chips render and Tooltip states both facts
+	// (design.md D-G4/D-G7). Always false for every existing odometer/
+	// battery bar.
+	MarkerSpan bool
 }
 
 // HistoryChart holds the bars and empty-state flag for one chart panel.
@@ -93,4 +106,14 @@ type HistoryView struct {
 	// [start..end] axis — exactly numDays bars, so its Label slice is identical
 	// to Odometer's by construction (the MAG-7 fix).
 	Battery HistoryChart
+	// Consumed contains the battery-consumed-%/day bars over the SAME fixed
+	// [start..end] axis as Odometer/Battery, bucketed on
+	// battery.DayConsumption.Date DIRECTLY (never effectiveDayUTC — D18/D18a,
+	// design.md D-G2). Scaled RELATIVE to the window's max displayed value
+	// (D19), not absolute 0-100 like Battery. HeightPct is math.Max(0,
+	// ConsumedPct) scaled against that max for every bar (design.md D-G1) —
+	// a flagged day (MarkerFlagged) always lands at 0 because Flagged implies
+	// ConsumedPct <= 0 (tier 3 D5); a multi-day-span day (MarkerSpan) shows
+	// its real value. A bar can carry BOTH markers (D21, design.md D-G4).
+	Consumed HistoryChart
 }

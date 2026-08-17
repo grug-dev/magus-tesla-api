@@ -74,6 +74,51 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
   `NewReader(pool *pgxpool.Pool) Reader` is the constructor. The gateway (tier 5,
   `gateway-read-stored-vehicles`) depends on this interface, never on `telemetrydb` directly.
 
+- `GapWriter` — one write method, `ReconcileWindow(ctx context.Context, accountID uuid.UUID,
+  teslaID int64, start, end time.Time, flagged []ChargeGap) error`: makes `charge_gaps` agree
+  with `flagged` for exactly the vehicle-day range `[start, end]` inclusive. Every day present
+  in `flagged` is upserted (inserted, or refreshed in place if `MissingChargingType`/`VIN`
+  changed since the last run — the `UNIQUE (account_id, tesla_id, gap_date)` constraint is the
+  idempotency mechanism, not application-level dedup); every existing row for
+  `(accountID, teslaID)` in `[start, end]` with no matching entry in `flagged` is **deleted**.
+  `flagged` may be empty (every previously-flagged day resolved — every existing row in the
+  window is deleted, none re-inserted). Every element of `flagged` MUST carry the SAME
+  `accountID`/`teslaID` as the call's own arguments AND a `Date` within `[start, end]`; a
+  violation returns an error and writes **nothing** (validated in a loop BEFORE any
+  transaction opens — see "GapWriter's upsert-and-delete lifecycle" below). Runs inside a
+  single DB transaction: either every upsert/delete succeeds, or the call has no effect.
+  `internal/battery` is the only intended caller (via `cmd/poller`) — `internal/telemetry`
+  never calls `battery`, preserving the one-way dependency the platform's graph already
+  assumes. `NewGapWriter(pool *pgxpool.Pool) GapWriter` is the constructor; implementation in
+  `gap_writer.go`. Added by `RM28-telemetry-add-charge-gap-storage` (MAG-15).
+
+- `SuperchargerReader` — exposes `supercharger_sessions` for read-only consumption, a
+  separate port from `Reader` (snapshot-centric):
+  - `SuperchargerSessionsByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerSession, error)`:
+    all sessions for an account, ordered `charge_start_date_time DESC`, limited to `limit`
+    rows (`0` = server default `math.MaxInt32`). Non-nil empty slice when none exist.
+  - `SuperchargerSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerSession, error)`:
+    same shape, scoped to one vehicle within the account.
+  - `SuperchargerSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerSession, error)`:
+    sessions for one vehicle whose **`ChargeStopDateTime`** falls in the caller-supplied
+    `[start, end]` window, inclusive of the whole `end` calendar day, ordered oldest-first
+    (ascending by `ChargeStopDateTime`). `start`/`end` are whole UTC-midnight-bounded calendar
+    days, matching the platform's HTTP date-filter convention. Filters on
+    `ChargeStopDateTime`, NOT `ChargeStartDateTime` (roadmap D12): energy is fully delivered
+    at session stop, so a session belongs to the window containing its STOP instant even when
+    it started the day before — a session spanning midnight (start before `start`, stop inside
+    `[start, end]`) is deliberately **included**. `endBound = end.AddDate(0, 0, 1)` is computed
+    in Go (`reader.go`), mirroring `Reader.SnapshotsByVehicleBetween`'s own bounds-translation
+    precedent, so the underlying SQL's half-open `>= start AND < endBound` includes every
+    instant of the end calendar day. No `limit` parameter — the caller-supplied window is the
+    bound. No new index added for this method (see design.md's Index Plan for the documented
+    trade-off and fallback). Reuses the existing `rowToSuperchargerSession` mapper — no new
+    field, no new mapper. Non-nil empty slice when none exist (parity with the other two
+    methods). `account_id` AND `tesla_id` filter provides defense-in-depth tenant isolation.
+    Added by `RM28-telemetry-add-charge-gap-storage` (MAG-15, roadmap D9/D12).
+  `NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader` is the constructor;
+  implementation in `reader.go`. Callers MUST NOT import `telemetrydb` (design DBS6).
+
 No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3).
 
 ## Allowed / forbidden imports
@@ -96,7 +141,7 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 
 ## Data ownership
 
-Owns three tables in the module-scoped `internal/telemetry/db` (goose migrations are the
+Owns four tables in the module-scoped `internal/telemetry/db` (goose migrations are the
 single schema source; sqlc generates `telemetrydb`, which **no other module imports**):
 
 - `vehicle_snapshots` — **no longer append-only** (superseded by
@@ -135,6 +180,52 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
     NULL when no override exists.
   - `start_battery_pct_est SMALLINT CHECK (0..100)`, `end_battery_pct_est SMALLINT CHECK
     (0..100)` — frozen, write-once verification-time snapshot pair (design D6).
+- `charge_gaps` — one row per flagged vehicle-day whose battery math does not add up
+  (migration `20260815000002`, `RM28-telemetry-add-charge-gap-storage`, MAG-15). Written
+  through the `GapWriter` port; `internal/battery` is the only intended caller (it derives
+  each day's consumption and detects the gap — `telemetry` never computes one itself, and
+  never calls `battery`). Columns: `id UUID PRIMARY KEY`, `account_id UUID NOT NULL`,
+  `tesla_id BIGINT NOT NULL` (**always resolved, NOT NULL** — unlike
+  `supercharger_sessions.tesla_id`, since `internal/battery` filters out any
+  vehicle/session it cannot attribute to a currently-registered vehicle before gap
+  detection ever runs), `vin TEXT NOT NULL`, `gap_date DATE NOT NULL` (the flagged calendar
+  day, plain `DATE` — no time-of-day component), `missing_charging_type TEXT NOT NULL CHECK
+  (IN ('MANUAL', 'SUPERCHARGER'))` (which charge source is suspected missing — `SUPERCHARGER`
+  when a Supercharger session exists that day with NULL start/end battery percentages,
+  `MANUAL` otherwise), `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` (when FIRST flagged —
+  preserved across every re-upsert of the same still-flagged day), `updated_at TIMESTAMPTZ
+  NOT NULL DEFAULT now()` (refreshed to `now()` on every re-confirmation). `UNIQUE
+  (account_id, tesla_id, gap_date)` constraint (`charge_gaps_account_tesla_date_unique`) is
+  both the write-idempotency mechanism (`ON CONFLICT DO UPDATE`) and the index that serves
+  `GapWriter`'s own read-before-diff query — no separate index needed for that path. A second
+  index, `idx_charge_gaps_account (account_id, gap_date DESC)`, serves the future
+  account-wide notification read pattern (no `tesla_id` predicate) — out of scope this
+  change, no read port exists for it yet. **No FK** on `account_id`/`tesla_id` (same
+  no-cross-module-FK precedent as `manual_charge_entries`/`supercharger_sessions` —
+  referential integrity is upheld by flow, not a DB constraint, `ai/architecture.md` §2).
+  **No `raw_data` JSONB** — this table stores a Go-computed conclusion (`internal/battery`'s
+  derivation), not an external API response, so the mandatory-`raw_data` rule
+  (`ai/go-conventions.md` §persistence) does not apply here (same precedent as
+  `manual_charge_entries`).
+
+### `GapWriter`'s upsert-and-delete lifecycle — **no `resolved_at`, ever**
+
+`charge_gaps` has **no soft-delete / `resolved_at` column** — `ReconcileWindow` `UPSERT`s
+every day that still flags and **`DELETE`s** every previously-stored day, within the window
+it just recomputed, that no longer flags (design D7b). Fixing a charge entry clears the row
+on the very next nightly run with no extra wiring. This table is a **live worklist** ("what
+is outstanding right now"), not an audit trail of resolved gaps.
+
+**If you are the one adding the future notification feature or any other consumer of this
+table: do NOT "fix" this into a soft-delete/`resolved_at` shape.** A soft-deleted row would
+need its own cleanup story (when does a resolved row actually get purged?) that this design
+deliberately avoids by making resolution a plain `DELETE` — the row's mere existence already
+means "outstanding," so a consumer needs no `WHERE resolved_at IS NULL` filter and no purge
+job. If a history of resolved gaps is ever needed, that is a **new, separate** table (e.g. an
+append-only `charge_gap_history`), not a mutation of `charge_gaps`'s own delete-on-resolve
+contract — see `RM28-telemetry-add-charge-gap-storage`'s `design.md` "Migration Plan" /
+D-Table2 for the rejected `resolved_at` alternative and its reasoning (once archived, that
+file moves under `openspec/changes/archive/`).
 
 `account_id`/`tesla_id` are plain columns (no cross-module FK, D2 of the change design). `pgtype`
 never leaves the module — convert to/from plain domain types at the DB→domain mapping boundary

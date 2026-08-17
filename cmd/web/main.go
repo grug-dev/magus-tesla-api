@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/battery"
 	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
@@ -58,10 +59,21 @@ func main() {
 		SuperchargerReader: telemetry.NewSuperchargerReader(pool),
 		ManualChargeWriter: manualcharge.NewWriter(pool),
 		ManualChargeReader: manualcharge.NewReader(pool),
-		SessionSecret:      cfg.SessionSecret,
-		TeslaClientID:      cfg.ClientID,
-		TeslaClientSecret:  cfg.ClientSecret,
-		TeslaRedirectURL:   cfg.TeslaConnectRedirectURL(),
+		// The history fragment's battery-consumed chart reads through this port.
+		// battery.NewReader's window argument is required by the signature but
+		// unused by ConsumedByDay — only RecentEfficiency reads it, and the
+		// gateway never calls that (mirrors cmd/poller's own construction).
+		BatteryReader: battery.NewReader(
+			telemetry.NewReader(pool),
+			telemetry.NewSuperchargerReader(pool),
+			manualcharge.NewReader(pool),
+			acct,
+			battery.DefaultWindow,
+		),
+		SessionSecret:     cfg.SessionSecret,
+		TeslaClientID:     cfg.ClientID,
+		TeslaClientSecret: cfg.ClientSecret,
+		TeslaRedirectURL:  cfg.TeslaConnectRedirectURL(),
 	})
 	if err != nil {
 		log.Fatalf("gateway: %v", err)

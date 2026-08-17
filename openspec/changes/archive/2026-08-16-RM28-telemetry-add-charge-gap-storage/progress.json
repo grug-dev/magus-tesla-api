@@ -1,0 +1,484 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM28-telemetry-add-charge-gap-storage",
+  "module": "telemetry",
+  "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
+  "request": "Source ticket: MAG-15 — https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nRM28 tier 1. Create the charge_gaps table (days whose battery math does not add up because a charge record is missing or incomplete) plus its GapWriter write port, and add SuperchargerSessionsByVehicleBetween to the SuperchargerReader port. Roadmap decisions D3, D7, D7a, D7b, D9, D12 bind this change.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9"
+    ]
+  },
+  "created_at": "2026-08-15T13:58:00Z",
+  "updated_at": "2026-08-16T01:22:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM28-MAG-15-battery-consumed-graph",
+    "base": "874820f (main)",
+    "ticket": "MAG-15",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph",
+    "created_at": "2026-08-15T13:07:34Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Goose migration creating charge_gaps + idx_charge_gaps_account",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "Migration 20260815000002 created. Corrected design.md leftover `date` refs to gap_date in the index DDL (design self-inconsistency, not a schema change).",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "telemetry.go: MissingChargingType + ChargeGap types, GapWriter port, SuperchargerSessionsByVehicleBetween on SuperchargerReader",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "MissingChargingType, ChargeGap, GapWriter + NewGapWriter added; SuperchargerSessionsByVehicleBetween added to SuperchargerReader. Two existing methods untouched.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "db/query.sql: UpsertChargeGap, DeleteChargeGap, ChargeGapDatesByVehicleBetween, SuperchargerSessionsByVehicleBetween",
+      "module": "telemetry",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "Four queries added; sqlc generate run. Renamed @end to @end_date — END is a reserved Postgres keyword and no other spelling compiles. Generated field is EndDate.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "mapping.go: dateFromPg helper",
+      "module": "telemetry",
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "dateFromPg added to mapping.go. One-line body, no DB dependency.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "gap_writer.go: GapWriter implementation (transactional reconcile)",
+      "module": "telemetry",
+      "depends_on": [
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "gap_writer.go created: validate-then-transaction ReconcileWindow, var _ GapWriter assertion, created_at correctly excluded from the upsert SET clause.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "reader.go: SuperchargerSessionsByVehicleBetween implementation",
+      "module": "telemetry",
+      "depends_on": [
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T18:58:00Z",
+      "completed_at": "2026-08-15T19:07:00Z",
+      "duration_seconds": 540,
+      "notes": "SuperchargerSessionsByVehicleBetween implemented on *superchargerReader, filtering charge_stop_date_time, inclusive end, oldest-first, no LIMIT.",
+      "budget": {
+        "five_hour_pct_start": 42.0,
+        "five_hour_pct_end": 66.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 11.39,
+        "context_pct_end": 35,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial wave"
+      }
+    },
+    {
+      "id": "T7",
+      "title": "DB-integration tests for contract scenarios (a)-(e)",
+      "module": "telemetry",
+      "depends_on": [
+        "T1",
+        "T3",
+        "T5",
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T19:09:00Z",
+      "completed_at": "2026-08-15T19:20:00Z",
+      "duration_seconds": 660,
+      "notes": "8 test funcs in 2 new integration files covering contract scenarios (a)-(e) plus the mis-scoped/out-of-window validation guards. Compile clean under go vet; never executed.",
+      "budget": {
+        "five_hour_pct_start": 66.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2 end-reading never taken before the session ended; the 5-hour bucket has since reset, so the delta is unrecoverable"
+      }
+    },
+    {
+      "id": "T8",
+      "title": "internal/telemetry/AGENTS.md: document charge_gaps + the new ports",
+      "module": "telemetry",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T19:09:00Z",
+      "completed_at": "2026-08-15T19:20:00Z",
+      "duration_seconds": 660,
+      "notes": "AGENTS.md documents charge_gaps (columns, constraint, both indexes, delete-on-resolve) and the ports. Also added the SuperchargerReader bullet list, which had never been documented.",
+      "budget": {
+        "five_hour_pct_start": 66.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 2 end-reading never taken before the session ended; the 5-hour bucket has since reset, so the delta is unrecoverable"
+      }
+    },
+    {
+      "id": "T9",
+      "title": "Review round 1 follow-up (R1-1): regression tests for window-bounded and per-vehicle reconciliation",
+      "module": "telemetry",
+      "depends_on": [
+        "T7"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T01:16:00Z",
+      "completed_at": "2026-08-16T01:19:00Z",
+      "duration_seconds": 180,
+      "notes": "Two regression tests appended to db_gap_writer_integration_test.go: outside-window row untouched by a disjoint reconcile, and two vehicles in one account resolving independently (both directions). No production code changed.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 24.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 2.03,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "exact serial bracket; worker-reported timestamps were fabricated estimates and were replaced with the leader’s real clock readings"
+      }
+    }
+  ],
+  "decisions": [
+    {
+      "id": "G1",
+      "at": "2026-08-15T13:55:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "DATABASE DESIGN GATE PASSED. The user reviewed and approved the charge_gaps schema, its rationale and its index plan, with one change: the date column is renamed to gap_date.",
+      "why": "A bare `date` would be the only non-descriptive date column in the schema (cf. charged_on, captured_date, charge_start_date_time) and is a Postgres col_name_keyword. The Go domain field stays ChargeGap.Date to avoid stuttering.",
+      "covered_by": null
+    },
+    {
+      "id": "G2",
+      "at": "2026-08-15T13:55:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "idx_charge_gaps_account (account_id, gap_date DESC) is KEPT despite serving a notification feature that does not exist yet.",
+      "why": "Leader flagged it as speculative on a table that stays tiny. The user chose to keep it rather than defer; it is cheap and the read pattern is declared in the design.",
+      "covered_by": null
+    },
+    {
+      "id": "G3",
+      "at": "2026-08-15T18:58:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Collapsed the five computed depends_on waves into two dispatches: wave 1 = T1-T6 (implementation), wave 2 = T7-T8 (DB tests + docs).",
+      "why": "Every computed wave is a serial single-module chain, so five dispatches would re-read the doc pack five times for zero parallelism. Tests stay last: they cannot compile before the migration and sqlc types exist.",
+      "covered_by": null
+    },
+    {
+      "id": "G4",
+      "at": "2026-08-15T19:07:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Leader added the missing SuperchargerSessionsByVehicleBetween method to the test doubles in internal/battery and internal/gateway/handlers, as panic-on-call stubs.",
+      "why": "Adding a port method broke go vet in two sibling modules. Cross-module integration is the leader’s job, not a sandboxed worker’s. Panic, not nil, so an unexpected call fails loudly.",
+      "covered_by": null
+    },
+    {
+      "id": "G5",
+      "at": "2026-08-15T19:20:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Corrected design.md test-contract scenario (d): \"ordered before S1\" changed to \"ordered after S1\".",
+      "why": "The bullet contradicted its own parenthetical and scenario (c). Query orders by charge_stop_date_time ASC, so a later stop sorts later. Authoring bug in the artifact, not the code.",
+      "covered_by": null
+    },
+    {
+      "id": "G6",
+      "at": "2026-08-16T00:20:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader added the missing charge_gaps row to the root README's per-module data-ownership table.",
+      "why": "V12 asked for a real confirmation, not an assumption. The table lists every table each module owns; omitting charge_gaps would breach the project's docs-track-structural-change rule. Root README is leader-owned, outside the worker sandbox.",
+      "covered_by": null
+    },
+    {
+      "id": "G7",
+      "at": "2026-08-16T01:16:00Z",
+      "scope": "review:R1-1",
+      "made_by": "user",
+      "decision": "R1-1 accepted and fixed in this change rather than backlogged: T9 adds regression tests for the two untested spec.md scenarios.",
+      "why": "User's call from three offered options. A spec requirement with no test tends to stay untested, and window/vehicle scoping is the port's core safety property.",
+      "covered_by": null
+    },
+    {
+      "id": "G8",
+      "at": "2026-08-16T01:19:00Z",
+      "scope": "task:T9",
+      "made_by": "leader",
+      "decision": "Leader replaced the worker's self-reported T9 timestamps with real clock readings.",
+      "why": "The worker stated its timestamps were session-relative estimates with no clock source, and dated them 2026-08-15. Timestamps are leader-owned; fabricated ones would misrepresent the record.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-15T13:52:00Z",
+      "kind": "artifacts-created",
+      "note": "telemetry worker produced proposal.md, design.md, specs/telemetry/spec.md, tasks.md. openspec validate --strict passes. Worker reported no contradictions found."
+    },
+    {
+      "at": "2026-08-15T13:56:00Z",
+      "kind": "design-gate-passed",
+      "note": "Leader presented schema + rationale + index plan to the user, flagging two concerns (bare `date` column name, speculative second index). User approved with the rename; index kept. See decisions G1/G2."
+    },
+    {
+      "at": "2026-08-15T18:58:00Z",
+      "kind": "wave-dispatched",
+      "note": "Wave 1 (T1-T6) dispatched to one serial telemetry worker on Sonnet. Budget at dispatch: five_hour 42%, context 32%, cost $32.15."
+    },
+    {
+      "at": "2026-08-15T19:07:00Z",
+      "kind": "wave-completed",
+      "note": "Wave 1 (T1-T6) complete. go build + go vet clean repo-wide after the leader fixed two cross-module fakes. gofmt noise (14 files) confirmed pre-existing on main. Suite NOT run - awaiting the user."
+    },
+    {
+      "at": "2026-08-15T19:09:00Z",
+      "kind": "wave-dispatched",
+      "note": "Wave 2 (T7 DB contract tests, T8 AGENTS.md) dispatched to one serial telemetry worker on Sonnet. Budget at dispatch: five_hour 66%, context 35%."
+    },
+    {
+      "at": "2026-08-15T19:20:00Z",
+      "kind": "wave-completed",
+      "note": "Wave 2 (T7,T8) complete. go build + go vet + gofmt clean on touched files. Worker found and refused to paper over a self-contradictory ordering claim in design.md scenario (d); leader verified against query.sql and corrected the artifact."
+    },
+    {
+      "at": "2026-08-15T19:22:00Z",
+      "kind": "checkpoint",
+      "note": "Stopping before the reviewer gate. five_hour 80% (threshold 90, resets 1786822800), context 36% (threshold 40) - a reviewer round is projected to cross 90. Blocked on the user running the suite (Step 6) regardless. Resume at Step 7."
+    },
+    {
+      "at": "2026-08-16T00:18:00Z",
+      "kind": "resumed",
+      "note": "Fresh session resumed at Step 6. Budget confirmed reset: five_hour 2%, context 9%, seven_day 70%. Nothing dirty in the tree; HEAD 6d5ec90."
+    },
+    {
+      "at": "2026-08-16T00:21:00Z",
+      "kind": "verification-partial",
+      "note": "Leader-run signals only: go build, go vet, openspec validate --strict all clean; V1/V9/V10/V12/V13 ticked. V2 NOT met - 14 gofmt-unformatted files, all pre-existing at base 874820f and untouched here. V11 partially met - two sibling test doubles edited (G4). V3-V8 need the user's suite. Status stays applied."
+    },
+    {
+      "at": "2026-08-16T00:26:00Z",
+      "kind": "user-verified",
+      "note": "THE USER ran `make test` (disposable testcontainer Postgres) and reported it passing. This is the owner's verification, not the assistant's — the assistant never executed the suite. T1-T7 move awaiting-user-verification -> done; V3-V8 ticked. Change status -> verified."
+    },
+    {
+      "at": "2026-08-16T01:07:00Z",
+      "kind": "review-brief-written",
+      "note": "Brief stored; dispatching telemetry-reviewer on Sonnet. Budget at dispatch: five_hour 7%, context 14%, cost $3.35."
+    },
+    {
+      "at": "2026-08-16T01:16:00Z",
+      "kind": "review-round-1-triage",
+      "note": "Reviewer approved with one minor finding R1-1 (two spec.md scenarios untested). Leader triaged ACCEPTED; user chose fix-now over backlog. T9 appended to tasks.md and dispatched. review.status 'approved' is now STALE - the same reviewer must re-verify T9 before archive."
+    },
+    {
+      "at": "2026-08-16T01:19:00Z",
+      "kind": "review-fix-wave-completed",
+      "note": "T9 complete. go build + go vet + gofmt clean. Leader read both tests: they assert spec.md's scenarios, cover both directions, and sleep between calls so 'unchanged' cannot pass by timestamp coincidence. Worker reported NO spec/implementation disagreement. Suite NOT run - awaiting the owner."
+    },
+    {
+      "at": "2026-08-16T01:22:00Z",
+      "kind": "user-verified",
+      "note": "THE USER ran the suite again after T9 and reported it green. The owner's verification, not the assistant's. T9 -> done; all 9 tasks done. Status -> verified. Re-dispatching the SAME reviewer for round 2 over T9 - round 1's approval predates it."
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review RM28-telemetry-add-charge-gap-storage (telemetry, commits 9bdbc02..d24ac05 off 874820f). Validate: (1) MODULE BOUNDARY - internal/telemetry imports only account + tesla public packages + its own db; no other module's internals; pgtype confined to service.go/mapping.go (not gap_writer.go). (2) DB-vs-CONFIRMED-DESIGN - the shipped charge_gaps DDL must match design.md AND user gate decisions G1 (column named gap_date, NOT date) and G2 (idx_charge_gaps_account kept). Any mismatch is a BLOCKER. Exactly two indexes; nothing added on supercharger_sessions. UpsertChargeGap's ON CONFLICT SET must not touch created_at (D-Table2). (3) TEST-CONTRACT - the DB integration tests must assert the expectations design.md authored UP FRONT (scenarios a-e), not whatever the implementation happens to do. Scenario (d) was corrected mid-flight (G5, ordered AFTER S1) - verify the test matches the corrected contract and the corrected contract matches query.sql's ORDER BY. (4) SPEC/TASKS COVERAGE - specs/telemetry/spec.md requirements all implemented; no task or acceptance criterion was edited, weakened or deleted (append-only). (5) PERFORMANCE-PROFILE (read-heavy) compliance within the module boundary. (6) TWO LEADER-FLAGGED ITEMS TO JUDGE INDEPENDENTLY, do not rubber-stamp: (a) V2 is UNTICKED - gofmt -l reports 14 files; leader claims all 14 are pre-existing at base 874820f and untouched here; verify that claim. (b) V11 is PARTIALLY MET - the leader edited two files OUTSIDE the module sandbox, internal/battery/reader_test.go and internal/gateway/handlers/supercharger_test.go, adding panic-on-call stubs for the new port method (G4). Judge whether that was the right call, whether panic-not-nil is right, and whether it belongs in this change. (7) ANTI-GAMING - no self-approved statuses, no weakened criteria. TEST-EXECUTION-POLICY (verbatim, binds you too): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE: go build, go vet, gofmt -l and openspec validate --strict were ASSISTANT-run (all clean except the pre-existing gofmt files). `make test` was USER-run and USER-reported passing - that is the owner's verification, not the assistant's. Judge test QUALITY by READING the tests; do not run the suite.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-16T01:30:00Z",
+        "agent": "telemetry-reviewer",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "AGENTS.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/telemetry/AGENTS.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/proposal.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/design.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/specs/telemetry/spec.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/tasks.md",
+          "openspec/changes/RM28-telemetry-add-charge-gap-storage/progress.json"
+        ],
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "minor",
+            "note": "spec.md's two ADDED-requirement scenarios 'Reconciliation only affects the reconciled window' (a charge_gaps row on a day OUTSIDE the window being reconciled must be untouched) and 'Ledger rows for different vehicles are independent' (same account, two tesla_ids) have no dedicated regression test. design.md's own authored Test Contract (a)-(e) never enumerated either as a scenario, so no task/test omitted anything promised — this is a gap between spec.md's scenario list and design.md's test-contract transcription, not a gaming or coverage-claim issue. I independently verified both behaviors hold against the code: gap_writer.go's ChargeGapDatesByVehicleBetween/DeleteChargeGap/UpsertChargeGap calls (internal/telemetry/db/query.sql) are all scoped by account_id AND tesla_id AND a gap_date bound to [start,end], so window- and vehicle-isolation are structural, not incidental. Non-blocking; worth a follow-up regression test given this is the port's core safety property (a caller bug that widened the internal existing-rows query could silently wipe unrelated days without any test catching it).",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ],
+        "verified": {
+          "module_boundary": "internal/telemetry non-test .go files import only internal/account, internal/tesla, and internal/telemetry/db (telemetrydb) — confirmed by grep across telemetry.go/service.go/reader.go/gap_writer.go/mapping.go/wake.go. pgtype is only actually imported (real import statement, not a comment) in mapping.go and service.go; gap_writer.go, reader.go, telemetry.go mention 'pgtype' only in doc comments. Files touched outside internal/telemetry: README.md (leader, data-ownership table row), internal/battery/reader_test.go and internal/gateway/handlers/supercharger_test.go (leader, test-only interface-satisfaction stubs, G4). internal/battery production code untouched.",
+          "db_vs_confirmed_design": "Migration 20260815000002_add_charge_gaps.sql diffed byte-for-byte against design.md's Schema section: column is gap_date (G1 honored), idx_charge_gaps_account (account_id, gap_date DESC) present (G2 honored), exactly one CREATE INDEX statement in the migration (the UNIQUE constraint supplies the second implicit index — two total, no third), no migration or query touches supercharger_sessions. UpsertChargeGap's ON CONFLICT DO UPDATE SET refreshes only vin, missing_charging_type, updated_at — created_at is absent, matching D-Table2.",
+          "test_contract": "db_gap_writer_integration_test.go and db_supercharger_between_integration_test.go implement scenarios (a)-(e) matching design.md's authored expected values, including byte-for-byte created_at preservation, updated_at advancement, per-day delete precision, empty-flagged-set clearing, and full-call rejection on mis-scoped entries. Scenario (d) test asserts got[0]=S1, got[1]=S5 (ascending stop-time order), matching the G5-corrected contract text ('ordered after S1') and query.sql's ORDER BY charge_stop_date_time ASC — verified consistent.",
+          "spec_tasks_coverage": "Both spec.md requirements (Charge Gap Ledger; Supercharger Session Read Port modification) are implemented per the code read. tasks.md revision history (git log -p) shows only checkbox toggles ([ ]->[x]) and appended *Leader-verified*/*Leader note* annotations on V2/V10/V11/V12 — no task or acceptance-criterion title/body text was altered or removed; V2 and V11 were left honestly unticked/partial rather than gamed to done. See R1-1 for the one coverage gap found.",
+          "performance_profile": "Index Plan (design.md) matches the read-heavy profile: reuses the UNIQUE constraint's own index for the per-vehicle reconciliation path, adds one deliberate account-wide index for a named (if not-yet-built) read pattern, declines a third index on supercharger_sessions for the new bounded query (documented trade-off), and declines a LIMIT on the new query for a reasoned, non-cargo-culted reason. No violation of module-boundary or data-ownership found in the read/write path design.",
+          "leader_flagged_6a_gofmt": "INDEPENDENTLY VERIFIED TRUE. Ran gofmt -l . myself: same 14 files. For each of the 14, git diff 874820f..HEAD -- <file> is empty (byte-identical to base) — confirmed via a loop, not sampling. Separately confirmed every .go file this change DID touch is gofmt-clean (git diff --name-only -- '*.go' | xargs gofmt -l produced no output). go build ./... and go vet ./... also independently re-run clean.",
+          "leader_flagged_6b_cross_module_stubs": "MY INDEPENDENT JUDGMENT (not a rubber stamp): the right call, correctly scoped and correctly implemented. Extending a public interface (SuperchargerReader) breaks every existing fake implementing it repo-wide at compile time — this is unavoidable and not specific to the pipeline's module sandboxing; it is how Go's structural interfaces work. Deferring the fix to a later change would leave go build/go vet failing across the whole repo between merge and that later change, which is not an option under this project's 'go vet must stay green' signal. The edits are test-only (no production code), minimal (one method each), and correctly attributed to the leader (agentic-workflow.md: 'The lead integrates — wires the modules together... reconciles the slices'), not smuggled into the worker's sandboxed diff. Panic-on-call (not nil) is the RIGHT choice, not just a style pick: it mirrors the pre-existing convention already in both fakes (their existing SuperchargerSessionsByAccount stub in internal/battery/reader_test.go already panics with an identical 'must not be called from RecentEfficiency' message, predating this change) — an unexpected call fails loudly and immediately rather than producing a confusing nil-slice bug three layers away. V11 is correctly left 'partially met' rather than reworded to 'met' — honest self-reporting, not gaming."
+        }
+      },
+      {
+        "round": 2,
+        "at": "2026-08-16T02:05:00Z",
+        "agent": "telemetry-reviewer",
+        "verdict": "approved",
+        "scope": "Re-verification of finding R1-1 only, per leader instruction (diff b770454..HEAD: T9 fix, commits a39a039/3b0b990). Round 1's other four verified areas (module boundary, DB-vs-design, test-contract a-e, performance-profile, 6a/6b) are unchanged since round 1 and were not re-walked.",
+        "findings": [],
+        "verified": {
+          "diff_scope": "git diff b770454..HEAD --stat confirms exactly 3 files changed: internal/telemetry/db_gap_writer_integration_test.go (+199/-0), openspec/changes/.../tasks.md, openspec/changes/.../progress.json. No production .go file touched — verified directly, not taken on the worker's word.",
+          "tasks_md_additive": "git diff b770454..HEAD -- tasks.md piped through 'grep -E ^-[^-]' (removed/changed lines only) returns nothing — the entire diff is pure addition. T9 is appended after the '---' separator that precedes the pre-existing Verification section; T1-T8 and the file's header notes are byte-identical to round 1.",
+          "q1_outside_window_test": "TestGapWriter_ReconcileWindow_OutsideWindowRowUnaffected genuinely implements spec.md's 'Reconciliation only affects the reconciled window' and genuinely fails on a lost gap_date bound. Traced by hand: it seeds outsideDate (2026-07-01) via a call whose OWN window contains it, then reconciles a DISJOINT window ([2026-08-01,2026-08-15]) whose flagged set only contains inWindowDate. If ChargeGapDatesByVehicleBetween's or DeleteChargeGap's gap_date bounds were ever dropped or widened, outsideDate would be pulled into 'existing', found absent from 'keep', and deleted by the same diff loop that correctly deletes resolved in-window days — the test's presence + CreatedAt/UpdatedAt-byte-for-byte assertions (with a 10ms sleep first, defeating timestamp-coincidence passes) would catch exactly that. Confirmed genuine, not tautological.",
+          "q2_different_vehicles_test": "TestGapWriter_ReconcileWindow_DifferentVehiclesIndependent genuinely implements spec.md's 'Ledger rows for different vehicles are independent' and is genuinely distinct from T7.5/(e)-i: T7.5 separates two ACCOUNTS, this one separates two TESLA_IDs inside the SAME account, with a deliberately overlapping gap_date (dateShared) to make cross-vehicle bleed-through observable. Traced by hand: the test's second half (vehicle B resolves EVERYTHING via an empty flagged set, deleting B's own dateShared row) is the part that would catch a DeleteChargeGap or UpsertChargeGap ON-CONFLICT-target regression that dropped the tesla_id predicate — such a bug would delete/overwrite vehicle A's surviving dateShared row too (same account, same gap_date), which the final aSharedAfter/CreatedAt-UpdatedAt-equality assertion would catch. One caveat, not a blocking gap: a regression confined SOLELY to the read-only ChargeGapDatesByVehicleBetween SELECT losing its tesla_id filter (while both DeleteChargeGap and UpsertChargeGap remain correctly scoped) would not be independently caught by this fixture, because the mutating calls that actually determine final DB state stay correctly scoped regardless of what the SELECT over-fetched into the Go-side diff. This is acceptable: the property spec.md actually requires is about stored, observable state, and that is what the two mutating queries determine and what this test verifies end-to-end; a SELECT-only regression with both writes still correctly scoped has no observable effect on that state.",
+          "q3_asserts_spec_not_implementation": "Tests assert spec.md's stated expectations, not a transcription of gap_writer.go's current behavior. Evidence: both test doc comments open by naming the exact spec.md scenario title before any implementation detail; T9.2 tests BOTH directions (A resolving a non-shared day leaves B untouched, then B resolving everything including the shared day leaves A untouched) — going beyond the single direction spec.md's GIVEN/WHEN/THEN literally states, which is the signature of deriving from the requirement's intent rather than reverse-engineering minimal confirmation from the code. The strong byte-for-byte CreatedAt/UpdatedAt-unchanged assertions (not just 'row still exists') are a stronger bar than merely restating current behavior — a weaker, code-confirming test would have checked existence only. Worker's claimed no-spec-disagreement finding is consistent with what I independently traced.",
+          "q4_nothing_broken": "go build ./..., go vet ./..., gofmt -l . (both repo-wide and restricted to files this fix touched) all independently re-run clean; identical 14 pre-existing gofmt files, none newly touched. openspec validate --strict still passes. No task/criterion text above T9 was altered (confirmed above). No production code changed, so no risk of the fix itself introducing a regression in gap_writer.go/reader.go/query.sql."
+        }
+      }
+    ]
+  }
+}

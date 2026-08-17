@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/battery"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
@@ -71,6 +72,40 @@ func (f *fakeHistoryReader) SnapshotsByVehicleBetween(_ context.Context, account
 // errTestHistory is a sentinel error for history handler tests.
 var errTestHistory = errors.New("test history reader error")
 
+// fakeBatteryReader is a test double for battery.Reader, used by the
+// buildConsumedChart integration path (buildHistoryView) and the Deps
+// forwarding test (design.md Test Contract (o)). ConsumedByDay records its
+// call args so tests can assert wiring — the same call-recording-fake shape
+// fakeHistoryReader.betweenCalled already uses for TelemetryReader.
+// RecentEfficiency PANICS: design.md's "cmd/web wiring" section states the
+// gateway's history fragment never calls it (only RecentEfficiency reads
+// battery.DefaultWindow, and the gateway never calls that method) — mirrors
+// fakeHistoryReader's SnapshotsByVehicleSince panic guard for an
+// intentionally-unused method.
+type fakeBatteryReader struct {
+	days []battery.DayConsumption
+	err  error
+
+	gotAccount          uuid.UUID
+	gotTeslaID          int64
+	gotStart            time.Time
+	gotEnd              time.Time
+	consumedByDayCalled bool
+}
+
+func (f *fakeBatteryReader) RecentEfficiency(context.Context, uuid.UUID, int64) (battery.Efficiency, bool, error) {
+	panic("fakeBatteryReader: RecentEfficiency is never called by the gateway's history fragment")
+}
+
+func (f *fakeBatteryReader) ConsumedByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]battery.DayConsumption, error) {
+	f.gotAccount = accountID
+	f.gotTeslaID = teslaID
+	f.gotStart = start
+	f.gotEnd = end
+	f.consumedByDayCalled = true
+	return f.days, f.err
+}
+
 // historyEngine builds a minimal Gin engine with session middleware and the
 // history fragment route. Mirrors dashboardEngine / navHeaderEngine.
 func historyEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN string) *gin.Engine {
@@ -94,7 +129,26 @@ func historyEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN string) *
 
 // newHandlerForHistory builds a Handler with the given fakeHistoryReader and one
 // registered vehicle. Mirrors newHandlerForCharges.
+//
+// Wires a default empty fakeBatteryReader so every pre-existing
+// buildHistoryView/DashboardHistoryFragment test that does not care about the
+// consumed chart keeps working: buildHistoryView (RM28 tier 4, D-G10)
+// unconditionally calls h.batteryReader.ConsumedByDay after the odometer/
+// battery charts succeed, and a nil battery.Reader interface value would
+// panic on that call — every caller of this helper needs a non-nil reader,
+// not just the tests that assert on the consumed chart's content. Tests that
+// need to control or observe BatteryReader use
+// newHandlerForHistoryWithBattery instead.
 func newHandlerForHistory(reader *fakeHistoryReader, teslaID int64, vin string) *Handler {
+	return newHandlerForHistoryWithBattery(reader, &fakeBatteryReader{}, teslaID, vin)
+}
+
+// newHandlerForHistoryWithBattery mirrors newHandlerForHistory but wires an
+// explicit fake battery.Reader instead of the default empty one, for tests
+// that need to control (fixture days/err) or observe (call-recording) the
+// consumed-chart port — e.g. the Deps-forwarding test (design.md Test
+// Contract (o)).
+func newHandlerForHistoryWithBattery(historyReader *fakeHistoryReader, batteryReader battery.Reader, teslaID int64, vin string) *Handler {
 	acct := &fakeAccount{
 		registered: []account.Vehicle{
 			{TeslaID: teslaID, VIN: vin, DisplayName: "Test Vehicle"},
@@ -103,7 +157,8 @@ func newHandlerForHistory(reader *fakeHistoryReader, teslaID int64, vin string) 
 	return New(Deps{
 		Account:         acct,
 		Tesla:           &fakeTesla{},
-		TelemetryReader: reader,
+		TelemetryReader: historyReader,
+		BatteryReader:   batteryReader,
 	})
 }
 
@@ -175,12 +230,17 @@ func parseRangeWithTZ(start, end, tz string) (time.Time, time.Time, bool) {
 
 // --- parseHistoryRange unit tests (task 6.1, design D1) ---
 
+// TestParseHistoryRange_BothAbsent_DefaultSixDayWindow asserts the D11
+// default window: end = browser-YESTERDAY (today.AddDate(0,0,-1)), not today
+// — the nightly batch captures today's data tomorrow, so an end=today window
+// always had an empty last bar (roadmap D11, design.md D-G9, Test Contract
+// (j)). Was: end == today.
 func TestParseHistoryRange_BothAbsent_DefaultSixDayWindow(t *testing.T) {
 	start, end, ok := parseRange("", "")
 	if !ok {
 		t.Fatal("want ok=true for both absent")
 	}
-	wantEnd := startOfDay(time.Now())
+	wantEnd := startOfDay(time.Now()).AddDate(0, 0, -1)
 	wantStart := wantEnd.AddDate(0, 0, -historyRangeWindowDays)
 	if !end.Equal(wantEnd) {
 		t.Errorf("want end=%v, got %v", wantEnd, end)
@@ -267,23 +327,32 @@ func TestBrowserLocation_Fallbacks(t *testing.T) {
 	}
 }
 
-// TestParseHistoryRange_DefaultUsesBrowserToday asserts that with a browser_tz
-// cookie, the default-absent window's end == browser-today (in the browser's
-// timezone), not UTC today. This proves parseHistoryRange consulted the cookie.
-func TestParseHistoryRange_DefaultUsesBrowserToday(t *testing.T) {
+// TestParseHistoryRange_DefaultUsesBrowserYesterday asserts that with a
+// browser_tz cookie, the default-absent window's end == browser-YESTERDAY
+// (in the browser's timezone), not browser-today — the D11 shift (roadmap
+// D11, design.md D-G9): the both-absent default now ends at yesterday,
+// matching the preset windows (buildHistoryPresets already used yesterday).
+// This proves parseHistoryRange consulted the cookie AND applied the D11
+// yesterday shift, not just the cookie. Renamed from
+// TestParseHistoryRange_DefaultUsesBrowserToday, which asserted the
+// pre-D11 contract (end == browser-today) — not caught by tasks.md's T8.10–
+// T8.13 enumeration; found by the owner's `make test` run mid-wave (see
+// tasks.md T8.15). The Location-preservation assertion below is orthogonal
+// to D11 and is kept unchanged.
+func TestParseHistoryRange_DefaultUsesBrowserYesterday(t *testing.T) {
 	_, end, ok := parseRangeWithTZ("", "", "America/Bogota")
 	if !ok {
 		t.Fatal("want ok=true for both absent with a TZ cookie")
 	}
-	// Compute the expected browser-today the same way the helper does — in
-	// the test this is a deterministic mirror of what parseHistoryRange did.
+	// Compute the expected browser-yesterday the same way the helper does —
+	// in the test this is a deterministic mirror of what parseHistoryRange did.
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	c.Request.AddCookie(&http.Cookie{Name: "browser_tz", Value: "America/Bogota"})
-	wantEnd := browserToday(c)
+	wantEnd := browserToday(c).AddDate(0, 0, -1)
 	if !end.Equal(wantEnd) {
-		t.Errorf("default end: want browser-today %v (loc %s), got %v (loc %s)",
+		t.Errorf("default end: want browser-yesterday %v (loc %s), got %v (loc %s)",
 			wantEnd, wantEnd.Location(), end, end.Location())
 	}
 	if end.Location().String() != "America/Bogota" {
@@ -291,12 +360,17 @@ func TestParseHistoryRange_DefaultUsesBrowserToday(t *testing.T) {
 	}
 }
 
-// TestParseHistoryRange_EndCapUsesBrowserToday asserts the end<=today cap
-// honors the browser's today. A direct UTC request with end=UTC-today is
-// accepted (UTC fallback); the same date in a TZ where UTC-today is already
-// tomorrow may be rejected — to keep the test deterministic, we compute the
-// cap boundary as browserToday+1day for the SAME cookie the handler sees.
-func TestParseHistoryRange_EndCapUsesBrowserToday(t *testing.T) {
+// TestParseHistoryRange_EndCapUsesBrowserYesterday asserts the end<=yesterday
+// cap (D11) honors the browser's yesterday, not today — the accepted
+// boundary moved from end=today to end=yesterday (roadmap D11, design.md
+// D-G9: the nightly batch captures today's data tomorrow, so an end=today
+// window's last bar was always empty). Renamed from
+// TestParseHistoryRange_EndCapUsesBrowserToday; Test Contract (k)/(l).
+// end=browser-today is now the REJECTED case (was accepted pre-D11);
+// end=browser-yesterday is the newly-accepted boundary. To keep each
+// assertion isolated to the cap check alone (not the end>=start check),
+// start==end in both cases.
+func TestParseHistoryRange_EndCapUsesBrowserYesterday(t *testing.T) {
 	// Build the same context the handler will see so the test's "browserToday"
 	// is the exact same instant the handler computes.
 	w := httptest.NewRecorder()
@@ -304,16 +378,16 @@ func TestParseHistoryRange_EndCapUsesBrowserToday(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	c.Request.AddCookie(&http.Cookie{Name: "browser_tz", Value: "America/Bogota"})
 	today := browserToday(c)
-	tomorrow := today.AddDate(0, 0, 1).Format("2006-01-02")
 	todayStr := today.Format("2006-01-02")
+	yesterdayStr := today.AddDate(0, 0, -1).Format("2006-01-02")
 
-	// end = browser-today → accepted.
-	if _, _, ok := parseRangeWithTZ(todayStr, todayStr, "America/Bogota"); !ok {
-		t.Errorf("end=today (browser): want ok=true, got false")
+	// end = browser-today → now REJECTED post-D11 (Test Contract (k)).
+	if _, _, ok := parseRangeWithTZ(todayStr, todayStr, "America/Bogota"); ok {
+		t.Errorf("end=today (browser): want ok=false post-D11, got true")
 	}
-	// end = browser-tomorrow → rejected (future in the browser's frame).
-	if _, _, ok := parseRangeWithTZ(todayStr, tomorrow, "America/Bogota"); ok {
-		t.Errorf("end=browser-tomorrow: want ok=false (future in browser TZ), got true")
+	// end = browser-yesterday → accepted (Test Contract (l)).
+	if _, _, ok := parseRangeWithTZ(yesterdayStr, yesterdayStr, "America/Bogota"); !ok {
+		t.Errorf("end=yesterday (browser): want ok=true, got false")
 	}
 }
 
@@ -327,8 +401,14 @@ func TestParseHistoryRange_EndCapUsesBrowserToday(t *testing.T) {
 // end=browser-local-today was spuriously rejected with HTTP 400. This test
 // FAILS against the pre-fix `e.After(today)` comparison for every
 // positive-offset zone below (Pacific/Auckland, Asia/Tokyo) — it only passed
-// pre-fix for America/Bogota. Asserts both directions per zone: end=today is
-// accepted, end=tomorrow is rejected.
+// pre-fix for America/Bogota.
+//
+// Updated for D11 (design.md D-G9): the accepted boundary moved from
+// end=today to end=yesterday, so this now asserts THREE directions per zone:
+// end=yesterday is accepted (the new boundary), end=today is rejected (was
+// accepted pre-D11), end=tomorrow stays rejected (future in the browser's
+// frame) — preserving the original positive/negative-offset regression
+// coverage under the shifted boundary.
 func TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets(t *testing.T) {
 	zones := []string{
 		"America/Bogota",   // UTC-5 (negative offset — worked even pre-fix)
@@ -343,11 +423,16 @@ func TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets(t *testing.T) {
 			c.Request.AddCookie(&http.Cookie{Name: "browser_tz", Value: tz})
 			today := browserToday(c)
 			todayStr := today.Format("2006-01-02")
+			yesterdayStr := today.AddDate(0, 0, -1).Format("2006-01-02")
 			tomorrowStr := today.AddDate(0, 0, 1).Format("2006-01-02")
 
-			// end = browser-local today → accepted.
-			if _, _, ok := parseRangeWithTZ(todayStr, todayStr, tz); !ok {
-				t.Errorf("%s: end=browser-local-today: want ok=true, got false", tz)
+			// end = browser-local yesterday → accepted (D11's new boundary).
+			if _, _, ok := parseRangeWithTZ(yesterdayStr, yesterdayStr, tz); !ok {
+				t.Errorf("%s: end=browser-local-yesterday: want ok=true, got false", tz)
+			}
+			// end = browser-local today → now REJECTED post-D11 (was accepted pre-D11).
+			if _, _, ok := parseRangeWithTZ(todayStr, todayStr, tz); ok {
+				t.Errorf("%s: end=browser-local-today: want ok=false post-D11, got true", tz)
 			}
 			// end = browser-local tomorrow → rejected (future in the browser's frame).
 			if _, _, ok := parseRangeWithTZ(todayStr, tomorrowStr, tz); ok {
@@ -358,13 +443,14 @@ func TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets(t *testing.T) {
 }
 
 // TestParseHistoryRange_NoCookieFallsBackToUTC asserts the UTC fallback: with
-// no browser_tz cookie, the default end == UTC-today (the pre-browser-TZ behavior).
+// no browser_tz cookie, the default end == UTC-yesterday (the pre-browser-TZ
+// behavior, shifted by D11 from UTC-today — design.md D-G9).
 func TestParseHistoryRange_NoCookieFallsBackToUTC(t *testing.T) {
 	_, end, ok := parseRangeWithTZ("", "", "")
 	if !ok {
 		t.Fatal("want ok=true for both absent, no TZ cookie")
 	}
-	wantEnd := startOfDay(time.Now())
+	wantEnd := startOfDay(time.Now()).AddDate(0, 0, -1)
 	if !end.Equal(wantEnd) {
 		t.Errorf("no cookie: want UTC end %v, got %v", wantEnd, end)
 	}
@@ -665,6 +751,320 @@ func TestBuildBatteryChart_TooltipUsesEffectiveDateMMDD(t *testing.T) {
 	}
 }
 
+// --- buildConsumedChart unit tests (RM28-gateway-add-consumed-graph tier 4,
+// design.md Test Contract, roadmap D10/D19/D20/D21) ---
+//
+// Assertions below pin design.md's Test Contract, authored BEFORE this
+// tier's implementation — where an assertion derived from the implementation
+// would disagree with the Test Contract, the Test Contract wins (see the
+// dispatch's binding rule). historyTestCtx (English) resolves the i18n
+// clauses so tooltip substring assertions check the resolved EN string, not
+// the catalogue key.
+
+// TestBuildConsumedChart_NormalDay_RelativeScale — Test Contract (a): two
+// normal (non-flagged, non-span) days scale relative to the window's max
+// displayed value (D19), not an absolute 0-100 axis.
+func TestBuildConsumedChart_NormalDay_RelativeScale(t *testing.T) {
+	start := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)
+	days := []battery.DayConsumption{
+		{Date: start, ConsumedPct: 11.0},
+		{Date: end, ConsumedPct: 20.0},
+	}
+	c := buildConsumedChart(historyTestCtx, days, start, end)
+	if c.Empty {
+		t.Fatal("want non-empty chart")
+	}
+	if len(c.Bars) != 2 {
+		t.Fatalf("want 2 bars, got %d", len(c.Bars))
+	}
+	bar0 := c.Bars[0]
+	if !bar0.Present || bar0.MarkerFlagged || bar0.MarkerSpan {
+		t.Errorf("bar[0]: want Present=true, MarkerFlagged=false, MarkerSpan=false, got %+v", bar0)
+	}
+	if bar0.HeightPct != 55 { // round(11/20*100)
+		t.Errorf("bar[0].HeightPct: want 55, got %d", bar0.HeightPct)
+	}
+	wantTooltip := "08-10 · 11.0% consumed"
+	if bar0.Tooltip != wantTooltip {
+		t.Errorf("bar[0].Tooltip: want %q, got %q", wantTooltip, bar0.Tooltip)
+	}
+	if c.Bars[1].HeightPct != 100 {
+		t.Errorf("bar[1].HeightPct: want 100 (the window max), got %d", c.Bars[1].HeightPct)
+	}
+}
+
+// TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue — Test Contract
+// (b): a flagged, non-span MANUAL day renders HeightPct=0 and a tooltip that
+// hides the raw value entirely (D10) — must NOT contain "-5" anywhere.
+func TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue(t *testing.T) {
+	d := time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)
+	days := []battery.DayConsumption{
+		{Date: d, ConsumedPct: -5.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 1},
+	}
+	c := buildConsumedChart(historyTestCtx, days, d, d)
+	if c.Empty || len(c.Bars) != 1 {
+		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
+	}
+	bar := c.Bars[0]
+	if !bar.Present || !bar.MarkerFlagged || bar.MarkerSpan {
+		t.Errorf("want Present=true, MarkerFlagged=true, MarkerSpan=false, got %+v", bar)
+	}
+	if bar.HeightPct != 0 {
+		t.Errorf("HeightPct: want 0, got %d", bar.HeightPct)
+	}
+	wantTooltip := "08-11 · possible missing charge record (manual)"
+	if bar.Tooltip != wantTooltip {
+		t.Errorf("Tooltip: want %q, got %q", wantTooltip, bar.Tooltip)
+	}
+	if strings.Contains(bar.Tooltip, "-5") {
+		t.Errorf("Tooltip must NOT contain the raw value \"-5\" anywhere (D10): got %q", bar.Tooltip)
+	}
+}
+
+// TestBuildConsumedChart_FlaggedNonSpan_Supercharger_ZeroWithDistance — Test
+// Contract (c): the zero-with-distance flagged case, SUPERCHARGER source.
+func TestBuildConsumedChart_FlaggedNonSpan_Supercharger_ZeroWithDistance(t *testing.T) {
+	d := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
+	days := []battery.DayConsumption{
+		{Date: d, ConsumedPct: 0, DistanceKm: 42, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeSupercharger, DaysSpanned: 1},
+	}
+	c := buildConsumedChart(historyTestCtx, days, d, d)
+	if c.Empty || len(c.Bars) != 1 {
+		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
+	}
+	bar := c.Bars[0]
+	if bar.HeightPct != 0 {
+		t.Errorf("HeightPct: want 0, got %d", bar.HeightPct)
+	}
+	wantTooltip := "08-12 · possible missing charge record (Supercharger)"
+	if bar.Tooltip != wantTooltip {
+		t.Errorf("Tooltip: want %q, got %q", wantTooltip, bar.Tooltip)
+	}
+}
+
+// TestBuildConsumedChart_MultiDaySpan_NotFlagged_ShowsRealValue — Test
+// Contract (d): a multi-day span, not flagged, shows its REAL value (D20) —
+// never a zero-height bar.
+func TestBuildConsumedChart_MultiDaySpan_NotFlagged_ShowsRealValue(t *testing.T) {
+	d1 := time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC)
+	d2 := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
+	days := []battery.DayConsumption{
+		{Date: d1, ConsumedPct: 15.0, Flagged: false, DaysSpanned: 3},
+		{Date: d2, ConsumedPct: 20.0, Flagged: false, DaysSpanned: 1}, // sets the window max
+	}
+	c := buildConsumedChart(historyTestCtx, days, d1, d2)
+	if c.Empty || len(c.Bars) != 2 {
+		t.Fatalf("want 2 bars, got %d (empty=%v)", len(c.Bars), c.Empty)
+	}
+	bar := c.Bars[0]
+	if !bar.Present || bar.MarkerFlagged || !bar.MarkerSpan {
+		t.Errorf("want Present=true, MarkerFlagged=false, MarkerSpan=true, got %+v", bar)
+	}
+	if bar.HeightPct != 75 { // round(15/20*100)
+		t.Errorf("HeightPct: want 75, got %d", bar.HeightPct)
+	}
+	wantTooltip := "08-13 · 15.0% · covers 3 days"
+	if bar.Tooltip != wantTooltip {
+		t.Errorf("Tooltip: want %q, got %q", wantTooltip, bar.Tooltip)
+	}
+}
+
+// TestBuildConsumedChart_MultiDaySpanAndFlagged_BothMarkers_ValueShown —
+// Test Contract (e), roadmap D21: a day that is BOTH flagged AND a
+// multi-day span carries BOTH markers (never one-or-the-other), and the
+// tooltip states BOTH facts, value included (D20's value clause is never
+// suppressed by a concurrent flag — D-G4's table row 4).
+func TestBuildConsumedChart_MultiDaySpanAndFlagged_BothMarkers_ValueShown(t *testing.T) {
+	d := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
+	days := []battery.DayConsumption{
+		{Date: d, ConsumedPct: -3.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 2},
+	}
+	c := buildConsumedChart(historyTestCtx, days, d, d)
+	if c.Empty || len(c.Bars) != 1 {
+		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
+	}
+	bar := c.Bars[0]
+	if !bar.MarkerFlagged {
+		t.Error("want MarkerFlagged=true")
+	}
+	if !bar.MarkerSpan {
+		t.Error("want MarkerSpan=true (D21: BOTH markers, not one-or-the-other)")
+	}
+	if bar.HeightPct != 0 {
+		t.Errorf("HeightPct: want 0, got %d", bar.HeightPct)
+	}
+	wantTooltip := "08-14 · -3.0% · covers 2 days · possible missing charge record (manual)"
+	if bar.Tooltip != wantTooltip {
+		t.Errorf("Tooltip: want %q, got %q", wantTooltip, bar.Tooltip)
+	}
+	if !strings.Contains(bar.Tooltip, "-3.0") {
+		t.Errorf("Tooltip must contain the real signed value \"-3.0\" (D20 is never suppressed by MarkerFlagged): got %q", bar.Tooltip)
+	}
+}
+
+// TestBuildConsumedChart_MultiDaySpanAndFlagged_HeightClampIsolatedFromMax —
+// Test Contract (f): a two-entry fixture that isolates "HeightPct=0 because
+// the value clamps to 0" from "HeightPct=0 because the window max is 0" —
+// (e) above cannot distinguish the two causes because its only entry IS the
+// max; this fixture adds a second, normal entry that sets a non-zero max.
+func TestBuildConsumedChart_MultiDaySpanAndFlagged_HeightClampIsolatedFromMax(t *testing.T) {
+	d1 := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
+	d2 := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	days := []battery.DayConsumption{
+		{Date: d1, ConsumedPct: -3.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 2},
+		{Date: d2, ConsumedPct: 10.0, Flagged: false, DaysSpanned: 1},
+	}
+	c := buildConsumedChart(historyTestCtx, days, d1, d2)
+	if c.Empty || len(c.Bars) != 2 {
+		t.Fatalf("want 2 bars, got %d (empty=%v)", len(c.Bars), c.Empty)
+	}
+	bar0, bar1 := c.Bars[0], c.Bars[1]
+	if !bar0.MarkerFlagged || !bar0.MarkerSpan {
+		t.Errorf("bar[0]: want MarkerFlagged=true, MarkerSpan=true, got %+v", bar0)
+	}
+	if bar0.HeightPct != 0 {
+		t.Errorf("bar[0].HeightPct: want 0 (clamped to the axis floor; max=10 here, distinct from max=0), got %d", bar0.HeightPct)
+	}
+	if bar1.MarkerFlagged || bar1.MarkerSpan {
+		t.Errorf("bar[1]: want no markers, got %+v", bar1)
+	}
+	if bar1.HeightPct != 100 {
+		t.Errorf("bar[1].HeightPct: want 100 (the window max), got %d", bar1.HeightPct)
+	}
+}
+
+// TestBuildConsumedChart_NoDataDay_DistinctFromNoSnapshotWording — Test
+// Contract (g): a day absent from days, inside a window that DOES have
+// entries on other days (so the chart itself is NOT Empty), renders the
+// D-G6 "no data" tooltip — distinct wording from buildBatteryChart's
+// "no snapshot" tooltip for the SAME label.
+func TestBuildConsumedChart_NoDataDay_DistinctFromNoSnapshotWording(t *testing.T) {
+	present := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	missing := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
+	days := []battery.DayConsumption{{Date: present, ConsumedPct: 5.0}}
+	c := buildConsumedChart(historyTestCtx, days, present, missing)
+	if c.Empty {
+		t.Fatal("want non-empty chart (one day is present)")
+	}
+	if len(c.Bars) != 2 {
+		t.Fatalf("want 2 bars, got %d", len(c.Bars))
+	}
+	miss := c.Bars[1]
+	if miss.Present || miss.MarkerFlagged || miss.MarkerSpan || miss.HeightPct != 0 {
+		t.Errorf("no-data bar: want Present=false, no markers, HeightPct=0, got %+v", miss)
+	}
+	wantTooltip := "08-16 · no data"
+	if miss.Tooltip != wantTooltip {
+		t.Errorf("Tooltip: want %q, got %q", wantTooltip, miss.Tooltip)
+	}
+	// Distinct from buildBatteryChart's "no snapshot" wording for the SAME label.
+	batteryTooltip := fmt.Sprintf(i18n.T(historyTestCtx, i18n.KeyHistoryNoSnapshotTooltip), "08-16")
+	if miss.Tooltip == batteryTooltip {
+		t.Errorf("consumed no-data tooltip must differ from battery's no-snapshot tooltip; both were %q", miss.Tooltip)
+	}
+	if strings.Contains(miss.Tooltip, "no snapshot") {
+		t.Errorf("consumed no-data tooltip must not reuse \"no snapshot\" wording: got %q", miss.Tooltip)
+	}
+}
+
+// TestBuildConsumedChart_EmptyWhenZeroDays — Test Contract (h): Empty fires
+// only when days is empty for the ENTIRE window (mirrors buildBatteryChart's
+// zero-entries rule, NOT buildOdometerChart's "fewer than 2" rule).
+func TestBuildConsumedChart_EmptyWhenZeroDays(t *testing.T) {
+	start := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
+	c := buildConsumedChart(historyTestCtx, nil, start, end)
+	if !c.Empty {
+		t.Error("want Empty=true for zero days")
+	}
+	if len(c.Bars) != 0 {
+		t.Errorf("want zero bars when Empty, got %d", len(c.Bars))
+	}
+}
+
+// TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC — Test
+// Contract (i), the D-G2 regression guard: bucketing uses
+// battery.DayConsumption.Date VERBATIM, never re-derived via
+// effectiveDayUTC. DayConsumption carries no EffectiveDate-shaped field, so
+// this only proves the bucket key came from Date directly.
+func TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC(t *testing.T) {
+	d := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
+	days := []battery.DayConsumption{{Date: d, ConsumedPct: 11.0}}
+	c := buildConsumedChart(historyTestCtx, days, d, d)
+	if c.Empty || len(c.Bars) != 1 {
+		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
+	}
+	bar := c.Bars[0]
+	if bar.Label != "08-10" {
+		t.Errorf("Label: want 08-10, got %q", bar.Label)
+	}
+	if !bar.Present {
+		t.Error("want Present=true")
+	}
+}
+
+// TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp — Test
+// Contract (i2), the D-G1 dead-branch regression guard: a flagged
+// (non-span) day and a normal day in the SAME window. The flagged day's
+// math.Max(0, ConsumedPct) alone keeps it out of the window max — no
+// per-state exclusion branch is involved or needed. This test exists to
+// fail if a future edit reintroduces an
+// `if !markerSpan && markerFlagged { return 0 }`-shaped branch believing it
+// is load-bearing (design.md D-G1): it is not, because Flagged implies
+// ConsumedPct <= 0 (tier 3 D5) so the general clamp already produces the
+// same result.
+func TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp(t *testing.T) {
+	d1 := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
+	d2 := time.Date(2026, 8, 18, 0, 0, 0, 0, time.UTC)
+	days := []battery.DayConsumption{
+		{Date: d1, ConsumedPct: -8.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 1},
+		{Date: d2, ConsumedPct: 12.0, Flagged: false, DaysSpanned: 1},
+	}
+	c := buildConsumedChart(historyTestCtx, days, d1, d2)
+	if c.Empty || len(c.Bars) != 2 {
+		t.Fatalf("want 2 bars, got %d (empty=%v)", len(c.Bars), c.Empty)
+	}
+	bar0, bar1 := c.Bars[0], c.Bars[1]
+	if !bar0.MarkerFlagged || bar0.MarkerSpan {
+		t.Errorf("bar[0]: want MarkerFlagged=true, MarkerSpan=false, got %+v", bar0)
+	}
+	if bar0.HeightPct != 0 {
+		t.Errorf("bar[0].HeightPct: want 0, got %d", bar0.HeightPct)
+	}
+	if bar1.HeightPct != 100 {
+		t.Errorf("bar[1].HeightPct: want 100 (max=12.0, the flagged day's clamped 0 never raised it), got %d", bar1.HeightPct)
+	}
+}
+
+// TestHandler_BatteryReaderDepsForwarding — design.md Test Contract (o):
+// New(Deps{BatteryReader: fake}) is the SAME instance buildHistoryView
+// calls. There is no dedicated forwarding test for SuperchargerReader or
+// ManualChargeReader in this suite to mirror name-for-name (grepped first,
+// per tasks.md T8.14's instruction) — every sibling port is instead verified
+// by exercising the handler end-to-end and asserting the fake recorded the
+// call, the same call-recording-fake technique fakeHistoryReader.betweenCalled
+// already uses for TelemetryReader (see
+// TestBuildHistoryView_PassesReadStartLookbackToEndToReader). This test
+// mirrors that shape for BatteryReader rather than inventing a reflection-
+// based "same pointer" check.
+func TestHandler_BatteryReaderDepsForwarding(t *testing.T) {
+	historyReader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
+	batteryReader := &fakeBatteryReader{days: []battery.DayConsumption{}}
+	h := newHandlerForHistoryWithBattery(historyReader, batteryReader, 42, "VIN42")
+
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	_ = h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
+
+	if !batteryReader.consumedByDayCalled {
+		t.Fatal("want ConsumedByDay called on the Deps-supplied BatteryReader — Handler.batteryReader must be the same instance New(Deps{BatteryReader: ...}) was given")
+	}
+	if !batteryReader.gotStart.Equal(start) || !batteryReader.gotEnd.Equal(end) {
+		t.Errorf("want ConsumedByDay called with (start=%v, end=%v), got (%v, %v)", start, end, batteryReader.gotStart, batteryReader.gotEnd)
+	}
+}
+
 // --- buildHistoryView (end-to-end handler logic + reader) ---
 
 func TestBuildHistoryView_ReaderError_DegradesBothChartsEmpty(t *testing.T) {
@@ -682,6 +1082,44 @@ func TestBuildHistoryView_ReaderError_DegradesBothChartsEmpty(t *testing.T) {
 	// Presets are still built so the selector is usable despite the read error.
 	if len(v.Presets) == 0 {
 		t.Error("want presets rendered even on reader error")
+	}
+}
+
+// TestBuildHistoryView_ConsumedReaderError_LeavesOtherChartsIntact is the
+// D-G10 regression guard (tasks.md T8.16, appended by the leader after wave
+// 3 returned — design.md D-G10 has no dedicated Test Contract entry, so it
+// fell outside the original T8.1-T8.14 enumeration). ConsumedByDay is a
+// SEPARATE read against a SEPARATE port from SnapshotsByVehicleBetween — its
+// own error must degrade ONLY v.Consumed, never wipe out the
+// already-populated v.Odometer/v.Battery (design.md D-G10). This test
+// exists to catch a future refactor that moves the consumed read ahead of
+// the snapshot read, or folds it into the snapshot error branch, either of
+// which would silently blank all three charts with no other test noticing.
+func TestBuildHistoryView_ConsumedReaderError_LeavesOtherChartsIntact(t *testing.T) {
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day window
+	lookback := start.AddDate(0, 0, -1)
+	snaps := snapsForDays(append([]time.Time{lookback}, calendarDays(start, end)...), 1000, 10, 70)
+	historyReader := &fakeHistoryReader{historySnaps: snaps} // succeeds — populates both charts
+	batteryReader := &fakeBatteryReader{err: errTestHistory} // ConsumedByDay fails
+	h := newHandlerForHistoryWithBattery(historyReader, batteryReader, 42, "VIN42")
+
+	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
+
+	if !v.Consumed.Empty {
+		t.Error("want Consumed.Empty=true on ConsumedByDay error")
+	}
+	if v.Odometer.Empty {
+		t.Error("want Odometer.Empty=false — a ConsumedByDay error must NOT blank the already-populated odometer chart (design.md D-G10)")
+	}
+	if len(v.Odometer.Bars) == 0 {
+		t.Error("want Odometer.Bars non-empty")
+	}
+	if v.Battery.Empty {
+		t.Error("want Battery.Empty=false — a ConsumedByDay error must NOT blank the already-populated battery chart (design.md D-G10)")
+	}
+	if len(v.Battery.Bars) == 0 {
+		t.Error("want Battery.Bars non-empty")
 	}
 }
 
@@ -801,9 +1239,11 @@ func TestDashboardHistoryFragment_DefaultWindowPassedToReader(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
-	// readStart = startOfDay(now) - 7 (lookback 1 + default 6); end = today.
-	wantStart := startOfDay(time.Now()).AddDate(0, 0, -7)
-	wantEnd := startOfDay(time.Now())
+	// D11: default end = yesterday (design.md D-G9), not today. readStart =
+	// yesterday - 7 (lookback 1 + default 6); end = yesterday.
+	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)
+	wantStart := yesterday.AddDate(0, 0, -7)
+	wantEnd := yesterday
 	if !reader.gotStart.Equal(wantStart) {
 		t.Errorf("want gotStart=%v, got %v", wantStart, reader.gotStart)
 	}
@@ -878,8 +1318,8 @@ func TestDashboardHistoryFragment_DaysParamIsIgnored(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
-	// Default window readStart (lookback 1 + default 6 = today-7).
-	wantStart := startOfDay(time.Now()).AddDate(0, 0, -7)
+	// Default window readStart (lookback 1 + default 6 = yesterday-7, D11).
+	wantStart := startOfDay(time.Now()).AddDate(0, 0, -1).AddDate(0, 0, -7)
 	if !reader.gotStart.Equal(wantStart) {
 		t.Errorf("days param must be ignored; want gotStart=%v, got %v", wantStart, reader.gotStart)
 	}
@@ -953,8 +1393,10 @@ func TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset(t *testing.
 
 	// The dashboard UI sends explicit params from defaultHistoryHref(): the
 	// default 6-day window ending YESTERDAY (today-1), because today's data
-	// loads tomorrow. The API default (both-absent → end=today) is unchanged;
-	// this test exercises the dashboard's actual self-load href.
+	// loads tomorrow. Post-D11 (design.md D-G9), the API's both-absent
+	// default NOW MATCHES this preset window (both end at yesterday) — this
+	// test still exercises the dashboard's explicit self-load href, not the
+	// both-absent path (that's TestDashboardHistoryFragment_DefaultWindowPassedToReader).
 	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)
 	start6 := yesterday.AddDate(0, 0, -historyRangeWindowDays)
 	href := fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s",
@@ -1025,7 +1467,10 @@ func TestDashboardHistoryFragment_ContainsSVGViewBoxAndTitleTooltips(t *testing.
 // and the vertical-label CSS class is present ONLY for >= 14 bars.
 func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows(t *testing.T) {
 	uid := uuid.New()
-	end := startOfDay(time.Now())
+	// end must be yesterday, not today: D11's cap now REJECTS an explicit
+	// end=today request (design.md D-G9) — this test submits an explicit
+	// ?end= via the URL, so it must respect the same cap the handler enforces.
+	end := startOfDay(time.Now()).AddDate(0, 0, -1)
 	for _, numBars := range []int{6, 14, 30} {
 		start := end.AddDate(0, 0, -(numBars - 1)) // inclusive end → numBars days
 		// Full coverage incl. lookback.
@@ -1073,8 +1518,11 @@ func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows(
 // and the long-form Go date layout "2006-01-02" must never appear.
 func TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat(t *testing.T) {
 	uid := uuid.New()
-	end := startOfDay(time.Now())
-	start := end.AddDate(0, 0, -13) // 14-day inclusive window ending today
+	// end must be yesterday, not today: D11's cap now REJECTS an explicit
+	// end=today request (design.md D-G9) — this test submits an explicit
+	// ?end= via the URL, so it must respect the same cap the handler enforces.
+	end := startOfDay(time.Now()).AddDate(0, 0, -1)
+	start := end.AddDate(0, 0, -13) // 14-day inclusive window ending yesterday
 	snaps := snapsForDays(append([]time.Time{start.AddDate(0, 0, -1)}, calendarDays(start, end)...), 1000, 10, 60)
 	reader := &fakeHistoryReader{historySnaps: snaps}
 	h := newHandlerForHistory(reader, 42, "VIN42")

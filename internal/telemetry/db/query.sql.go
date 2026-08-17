@@ -12,6 +12,83 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const chargeGapDatesByVehicleBetween = `-- name: ChargeGapDatesByVehicleBetween :many
+SELECT gap_date FROM charge_gaps
+WHERE account_id = $1
+  AND tesla_id   = $2
+  AND gap_date   >= $3
+  AND gap_date   <= $4
+`
+
+type ChargeGapDatesByVehicleBetweenParams struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	Start     pgtype.Date
+	EndDate   pgtype.Date
+}
+
+// Return every stored charge_gaps date for one vehicle (within one account)
+// in the closed range [start, end]. Used ONLY by
+// GapWriter.ReconcileWindow's internal bookkeeping to compute which
+// previously-stored days are no longer in the caller's flagged set (and so
+// must be deleted) -- not a public read port, not consumed outside this
+// module's own write path. Single-column SELECT (gap_date only): the caller
+// already has every other field it needs for any date it decides to keep
+// (it is re-upserting from its own freshly-computed flagged set, never
+// reading this table's other columns back).
+//
+// Index reuse (design.md Index Plan, Read path 1): served directly by
+// charge_gaps_account_tesla_date_unique's own (account_id, tesla_id, gap_date)
+// index as a single contiguous forward range scan -- no new index.
+func (q *Queries) ChargeGapDatesByVehicleBetween(ctx context.Context, arg ChargeGapDatesByVehicleBetweenParams) ([]pgtype.Date, error) {
+	rows, err := q.db.Query(ctx, chargeGapDatesByVehicleBetween,
+		arg.AccountID,
+		arg.TeslaID,
+		arg.Start,
+		arg.EndDate,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.Date
+	for rows.Next() {
+		var gap_date pgtype.Date
+		if err := rows.Scan(&gap_date); err != nil {
+			return nil, err
+		}
+		items = append(items, gap_date)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const deleteChargeGap = `-- name: DeleteChargeGap :exec
+DELETE FROM charge_gaps
+WHERE account_id = $1
+  AND tesla_id   = $2
+  AND gap_date   = $3
+`
+
+type DeleteChargeGapParams struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	GapDate   pgtype.Date
+}
+
+// Delete one charge_gaps row scoped to (account_id, tesla_id, gap_date) -- a
+// point delete served by the charge_gaps_account_tesla_date_unique
+// constraint's own index (design.md Index Plan, Read path 1). Called by
+// GapWriter.ReconcileWindow for every previously-stored day in the window
+// that is no longer present in the caller's freshly-computed flagged set
+// (roadmap D7b).
+func (q *Queries) DeleteChargeGap(ctx context.Context, arg DeleteChargeGapParams) error {
+	_, err := q.db.Exec(ctx, deleteChargeGap, arg.AccountID, arg.TeslaID, arg.GapDate)
+	return err
+}
+
 const insertPollAttempt = `-- name: InsertPollAttempt :exec
 INSERT INTO poll_attempts (
     account_id, tesla_id, attempted_at, outcome, reason
@@ -852,6 +929,159 @@ func (q *Queries) SuperchargerSessionsByVehicle(ctx context.Context, arg Superch
 		return nil, err
 	}
 	return items, nil
+}
+
+const superchargerSessionsByVehicleBetween = `-- name: SuperchargerSessionsByVehicleBetween :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM supercharger_sessions
+WHERE account_id = $1
+  AND tesla_id   = $2
+  AND charge_stop_date_time >= $3
+  AND charge_stop_date_time <  $4
+ORDER BY charge_stop_date_time ASC
+`
+
+type SuperchargerSessionsByVehicleBetweenParams struct {
+	AccountID uuid.UUID
+	TeslaID   pgtype.Int8
+	Start     pgtype.Timestamptz
+	EndBound  pgtype.Timestamptz
+}
+
+// Return Supercharger sessions for one vehicle within an account whose
+// charge_stop_date_time falls in the caller-supplied [start, end] window,
+// inclusive of the whole end calendar day, ordered oldest-first (ascending
+// by charge_stop_date_time). Used by
+// SuperchargerReader.SuperchargerSessionsByVehicleBetween to power RM28's
+// battery-consumed-per-day derivation (roadmap D9/D12).
+//
+// Filters on charge_stop_date_time, NOT charge_start_date_time (D12): energy
+// is fully delivered at session stop, which is what end_battery_pct
+// corresponds to, so a session belongs to the day its STOP falls in even
+// when it started the day before (a session spanning midnight IS included in
+// the window containing its stop instant -- deliberate, per D12).
+//
+// Bounds (start, end are whole UTC-midnight-bounded calendar days; end
+// inclusive, matching this project's platform-wide HTTP date-filter
+// convention, ai/go-conventions.md §"Read optimization"): end_bound = end +
+// 1 calendar day (computed in Go, reader.go's
+// SuperchargerSessionsByVehicleBetween, mirroring
+// Reader.SnapshotsByVehicleBetween's own bounds-translation precedent of
+// doing the day-arithmetic in Go, not in SQL) so
+// WHERE charge_stop_date_time >= start AND charge_stop_date_time < end_bound
+// includes every instant of the end calendar day without an off-by-one on a
+// UTC-midnight end value. Simpler than SnapshotsByVehicleBetween's two-sided
+// +1/+2-day shift: that method filters on captured_at to select rows by
+// their DERIVED EffectiveDate (one calendar day earlier than the row's own
+// timestamp); this method filters directly on charge_stop_date_time, which
+// already IS the value being windowed -- no EffectiveDate-style lag to
+// compensate for, so only the upper bound needs translating.
+//
+// Index reuse: idx_supercharger_sessions_vehicle_time
+// (account_id, tesla_id, charge_start_date_time DESC) does NOT fully serve
+// this query -- it is sorted on charge_start_date_time, not
+// charge_stop_date_time, so the stop-time predicate cannot be satisfied as a
+// pure index range scan. It STILL prunes the scan to this one vehicle's rows
+// via its (account_id, tesla_id) leading-column prefix before the
+// stop-time filter is applied in-memory -- see design.md's Index Plan for
+// why no third, dedicated (account_id, tesla_id, charge_stop_date_time)
+// index is added in this change, and the documented fallback if per-vehicle
+// session volume ever grows enough to make that decision wrong.
+//
+// No LIMIT: this is a bounded date-range query, not an unbounded "most
+// recent N" query -- the caller-supplied window is the safety bound, exactly
+// like Reader.SnapshotsByVehicleBetween's own reasoning (that method DOES
+// still add a defensive LIMIT 400 on top of its window, design D3 there; this
+// query does not add an equivalent cap -- see design.md's Index Plan for why
+// that asymmetry is deliberate, not an oversight).
+func (q *Queries) SuperchargerSessionsByVehicleBetween(ctx context.Context, arg SuperchargerSessionsByVehicleBetweenParams) ([]SuperchargerSession, error) {
+	rows, err := q.db.Query(ctx, superchargerSessionsByVehicleBetween,
+		arg.AccountID,
+		arg.TeslaID,
+		arg.Start,
+		arg.EndBound,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SuperchargerSession
+	for rows.Next() {
+		var i SuperchargerSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.AccountID,
+			&i.Vin,
+			&i.TeslaID,
+			&i.SiteLocationName,
+			&i.CountryCode,
+			&i.ChargeStartDateTime,
+			&i.ChargeStopDateTime,
+			&i.UnlatchDateTime,
+			&i.BillingType,
+			&i.VehicleMakeType,
+			&i.EnergyKwh,
+			&i.TotalCost,
+			&i.Currency,
+			&i.IsPaid,
+			&i.RawData,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.BatteryPctSource,
+			&i.StartBatteryPctEst,
+			&i.EndBatteryPctEst,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const upsertChargeGap = `-- name: UpsertChargeGap :exec
+INSERT INTO charge_gaps (
+    account_id, tesla_id, vin, gap_date, missing_charging_type
+) VALUES (
+    $1, $2, $3, $4, $5
+)
+ON CONFLICT (account_id, tesla_id, gap_date) DO UPDATE SET
+    vin                    = EXCLUDED.vin,
+    missing_charging_type  = EXCLUDED.missing_charging_type,
+    updated_at             = now()
+`
+
+type UpsertChargeGapParams struct {
+	AccountID           uuid.UUID
+	TeslaID             int64
+	Vin                 string
+	GapDate             pgtype.Date
+	MissingChargingType string
+}
+
+// Upsert one flagged vehicle-day. On conflict with the
+// charge_gaps_account_tesla_date_unique constraint, refresh vin (in case the
+// vehicle's VIN changed since the day was first flagged -- cheap safety, not
+// an expected case) and missing_charging_type (the inferred type can change
+// between nightly runs if detection logic evolves, or if a Supercharger
+// session with NULL percentages later appears for a day previously inferred
+// MANUAL), and refresh updated_at to now(). created_at is DELIBERATELY
+// ABSENT from the SET clause -- design D-Table2/the table's own column
+// comment: it must record when this vehicle-day was FIRST flagged, not the
+// most recent confirmation.
+func (q *Queries) UpsertChargeGap(ctx context.Context, arg UpsertChargeGapParams) error {
+	_, err := q.db.Exec(ctx, upsertChargeGap,
+		arg.AccountID,
+		arg.TeslaID,
+		arg.Vin,
+		arg.GapDate,
+		arg.MissingChargingType,
+	)
+	return err
 }
 
 const upsertSuperchargerSession = `-- name: UpsertSuperchargerSession :exec

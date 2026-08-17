@@ -68,6 +68,13 @@ func (f *fakeChargeReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, 
 	return f.entries, f.err
 }
 
+// ListEntriesByVehicleBetween satisfies the manualcharge.Reader port (added by RM28
+// tier 2). No charge handler calls it — the date-range read serves internal/battery's
+// per-day consumed derivation — so this stub exists only to keep the fake a valid Reader.
+func (f *fakeChargeReader) ListEntriesByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]manualcharge.Entry, error) {
+	return f.entries, f.err
+}
+
 // --- test helpers ---
 
 // newGinEngine builds a minimal Gin engine with session middleware for charge handler tests.

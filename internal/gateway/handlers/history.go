@@ -1,11 +1,13 @@
 // history.go contains the DashboardHistoryFragment handler for
 // GET /ui/dashboard/history?start=YYYY-MM-DD&end=YYYY-MM-DD, which returns the
-// #dashboard-history region: the preset selector + two SVG bar charts (odometer
-// km/day delta + battery level %) rendered over a FIXED [start..end] calendar-day
-// axis (one bar/day, identical labels on both charts — the MAG-7 fix). All numeric
-// computation happens in buildHistoryView — the Templ template is dumb.
+// #dashboard-history region: the preset selector + three SVG bar charts
+// (odometer km/day delta + battery level % + battery-consumed %/day) rendered
+// over a FIXED [start..end] calendar-day axis (one bar/day, identical labels
+// across charts — the MAG-7 fix). All numeric computation happens in
+// buildHistoryView — the Templ template is dumb.
 // Design decisions: RM8-gateway-history-date-range (D1-D6) + RD5-RD7 from
-// openspec/changes/gateway-dashboard-history-charts/.
+// openspec/changes/gateway-dashboard-history-charts/; the consumed chart +
+// D11 default/cap shift added by RM28-gateway-add-consumed-graph (tier 4).
 package handlers
 
 import (
@@ -19,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/cristianpena/magus-tesla-api/internal/battery"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
@@ -106,22 +109,27 @@ func calendarDateAfter(a, b time.Time) bool {
 // Direct API callers without a browser_tz cookie get UTC today (browserToday's
 // fallback).
 //
+// yesterday (today.AddDate(0,0,-1)) — not today — is what the default window
+// and the cap actually compare against (D11): the nightly batch captures
+// today's data tomorrow, so an end=today window's last bar is always empty.
+//
 // Validation, in order:
-//  1. Both absent → default 6-day window (end = browser-today UTC midnight,
-//     start = end.AddDate(0,0,-historyRangeWindowDays)), ok=true.
+//  1. Both absent → default 6-day window (end = browser-yesterday UTC
+//     midnight, start = end.AddDate(0,0,-historyRangeWindowDays)), ok=true.
 //  2. Either present → both required and well-formed YYYY-MM-DD.
 //  3. end >= start (end.Before(start) → false).
-//  4. end's calendar date <= browser-today's calendar date
-//     (calendarDateAfter(e, today) → false — no future dates, compared as
-//     calendar days, not instants; see calendarDateAfter).
+//  4. end's calendar date <= browser-yesterday's calendar date
+//     (calendarDateAfter(e, yesterday) → false — no future/today dates,
+//     compared as calendar days, not instants; see calendarDateAfter).
 //  5. Window <= historyRangeMaxDays days (read-path protection).
 func parseHistoryRange(c *gin.Context, today time.Time) (start, end time.Time, ok bool) {
+	yesterday := today.AddDate(0, 0, -1)
 	rawStart := c.Query("start")
 	rawEnd := c.Query("end")
 
 	// 1. Default window when both are absent.
 	if rawStart == "" && rawEnd == "" {
-		end = today
+		end = yesterday
 		start = end.AddDate(0, 0, -historyRangeWindowDays)
 		return start, end, true
 	}
@@ -142,9 +150,9 @@ func parseHistoryRange(c *gin.Context, today time.Time) (start, end time.Time, o
 	if e.Before(s) {
 		return time.Time{}, time.Time{}, false
 	}
-	// 4. end's calendar date <= browser-today's calendar date. See
-	// calendarDateAfter for why this must NOT be e.After(today).
-	if calendarDateAfter(e, today) {
+	// 4. end's calendar date <= browser-yesterday's calendar date. See
+	// calendarDateAfter for why this must NOT be e.After(yesterday).
+	if calendarDateAfter(e, yesterday) {
 		return time.Time{}, time.Time{}, false
 	}
 	// 5. Window <= max days (inclusive end → width in days = end-start+1 ≤ max+1
@@ -188,6 +196,7 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 		v := fragments.HistoryView{
 			Odometer: fragments.HistoryChart{Empty: true},
 			Battery:  fragments.HistoryChart{Empty: true},
+			Consumed: fragments.HistoryChart{Empty: true},
 		}
 		renderFragmentError(c, http.StatusBadRequest, pages.DashboardHistory(v), "dashboard-history")
 		return
@@ -196,7 +205,7 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 	selected, sOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
 	if !sOK {
 		// No vehicle registered or account error — render an empty history block
-		// (both charts in empty state) but WITH the preset selector so the user
+		// (all three charts in empty state) but WITH the preset selector so the user
 		// can still switch windows. Mirrors dashboardFor degradation.
 		v := fragments.HistoryView{
 			Start:    start,
@@ -204,6 +213,7 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 			Presets:  buildHistoryPresets(c.Request.Context(), start, end, today),
 			Odometer: fragments.HistoryChart{Empty: true},
 			Battery:  fragments.HistoryChart{Empty: true},
+			Consumed: fragments.HistoryChart{Empty: true},
 		}
 		renderFragment(c, http.StatusOK, pages.DashboardHistory(v), "dashboard-history")
 		return
@@ -239,16 +249,27 @@ func buildHistoryPresets(ctx context.Context, start, end, today time.Time) []fra
 }
 
 // buildHistoryView is the core logic for the history fragment, decoupled from
-// gin/session so it is unit-testable with a fake telemetry.Reader. It performs
-// ONE read (SnapshotsByVehicleBetween) with a 1-day lookback (readStart =
-// start-1day — design D2) to seed the first odometer delta, then buckets the
-// returned snapshots by EffectiveDate into a fixed [start..end] calendar-day
-// axis — one bar/day, identical MM-DD labels on both charts (the MAG-7 fix,
-// design D3). All heights and tooltip strings are pre-computed here; the
-// template does no arithmetic or domain-method calls (RD7).
+// gin/session so it is unit-testable with a fake telemetry.Reader and a fake
+// battery.Reader. It performs TWO independent reads:
 //
-// On reader error the function degrades (both charts empty) rather than
-// panicking or returning a 500 — resilience mirrors dashboardFor.
+//  1. SnapshotsByVehicleBetween, with a 1-day lookback (readStart = start-1day
+//     — design D2), feeding the odometer and battery charts. The returned
+//     snapshots are bucketed by EffectiveDate.
+//  2. ConsumedByDay, feeding the battery-consumed chart (RM28 tier 4). Its
+//     entries are bucketed on DayConsumption.Date verbatim — internal/battery
+//     already computed that day in the poller's zone (roadmap D18), so the
+//     gateway must NOT re-project it through effectiveDayUTC.
+//
+// Both feed a fixed [start..end] calendar-day axis — one bar/day, identical
+// MM-DD labels on all three charts (the MAG-7 fix, design D3). All heights and
+// tooltip strings are pre-computed here; the template does no arithmetic or
+// domain-method calls (RD7).
+//
+// The two reads fail independently: a snapshot-read error empties the odometer
+// and battery charts and returns; a ConsumedByDay error empties only the
+// consumed chart and leaves the two already-populated charts intact (design
+// D-G10). Either way the function degrades rather than panicking or returning a
+// 500 — resilience mirrors dashboardFor.
 func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID int64, start, end, today time.Time) fragments.HistoryView {
 	v := fragments.HistoryView{
 		Start:   start,
@@ -270,6 +291,17 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 
 	v.Odometer = buildOdometerChart(ctx, snaps, start, end)
 	v.Battery = buildBatteryChart(ctx, snaps, start, end)
+
+	// The consumed chart is a SEPARATE read against a SEPARATE port — its own
+	// error degrades ONLY v.Consumed, never the already-populated
+	// v.Odometer/v.Battery above (design.md D-G10).
+	days, err := h.batteryReader.ConsumedByDay(ctx, uid, teslaID, start, end)
+	if err != nil {
+		log.Printf("gateway: consumed-chart reader error for account %s vehicle %d: %v", uid, teslaID, err)
+		v.Consumed = fragments.HistoryChart{Empty: true}
+		return v
+	}
+	v.Consumed = buildConsumedChart(ctx, days, start, end)
 	return v
 }
 
@@ -415,4 +447,123 @@ func buildBatteryChart(ctx context.Context, snaps []telemetry.Snapshot, start, e
 		})
 	}
 	return fragments.HistoryChart{Bars: bars, Empty: false, LabelVertical: labelVerticalFor(numDays)}
+}
+
+// buildConsumedChart computes battery-consumed-%/day bars over the FIXED
+// [start..end] calendar-day axis (matching the other two charts' window),
+// bucketed on battery.DayConsumption.Date DIRECTLY — never effectiveDayUTC
+// (D18/D18a, design.md D-G2: the port's Date is already a final, zoned
+// bucket key). Scaled RELATIVE to the window's max displayed value (D19),
+// mirroring buildOdometerChart's maxKm pattern, not buildBatteryChart's
+// absolute 0-100 — every bar's height is math.Max(0, ConsumedPct) (design.md
+// D-G1; the same clamp for every bar, no per-state branch). A day absent
+// from days renders as the existing empty labeled "no data" bar
+// (Present=false). A day present carries MarkerFlagged when Flagged (D10)
+// and/or MarkerSpan when DaysSpanned > 1 (D20) — BOTH markers, independently,
+// when both conditions hold (D21, design.md D-G4/D-G5). The tooltip is
+// composed from independently-translated clauses joined by " · " (design.md
+// D-G7) — never a value clause when MarkerFlagged && !MarkerSpan (D10 hides
+// the number), always the real signed value otherwise. The chart's Empty
+// fires only when days is empty (mirrors buildBatteryChart: a single
+// computable day is enough to draw, unlike buildOdometerChart's need for a
+// delta pair).
+func buildConsumedChart(ctx context.Context, days []battery.DayConsumption, start, end time.Time) fragments.HistoryChart {
+	numDays := int(end.Sub(start).Hours()/24) + 1
+
+	if len(days) == 0 {
+		return fragments.HistoryChart{Empty: true, LabelVertical: labelVerticalFor(numDays)}
+	}
+
+	byDay := make(map[time.Time]battery.DayConsumption, len(days))
+	for _, d := range days {
+		byDay[d.Date] = d // D-G2: d.Date verbatim, never effectiveDayUTC(d.Date)
+	}
+
+	type entry struct {
+		label         string
+		present       bool
+		displayVal    float64
+		markerFlagged bool
+		markerSpan    bool
+		tooltip       string
+	}
+	entries := make([]entry, 0, numDays)
+	maxVal := 0.0
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		label := d.Format("01-02")
+		day, ok := byDay[d]
+		if !ok {
+			entries = append(entries, entry{label: label, present: false})
+			continue
+		}
+		e := entry{
+			label:         label,
+			present:       true,
+			displayVal:    math.Max(0, day.ConsumedPct), // D-G1: one clamp, no per-state branch
+			markerFlagged: day.Flagged,                  // D10
+			markerSpan:    day.DaysSpanned > 1,          // D20
+		}
+
+		// D-G7: compose independently-translated clauses, joined by " · ".
+		pctStr := formatPctRaw(day.ConsumedPct) // the REAL signed value, never displayVal
+		var clauses []string
+		switch {
+		case e.markerSpan:
+			clauses = append(clauses, fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryConsumedSpanClause), pctStr, day.DaysSpanned))
+		case !e.markerFlagged:
+			clauses = append(clauses, fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryConsumedPctClause), pctStr))
+			// markerFlagged && !markerSpan: no value clause at all — D10 hides the number.
+		}
+		if e.markerFlagged {
+			clauses = append(clauses, fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryConsumedFlaggedClause), chargeTypeLabel(ctx, day.MissingChargingType)))
+		}
+		tooltip := label
+		for _, c := range clauses {
+			tooltip += " · " + c
+		}
+		e.tooltip = tooltip
+
+		entries = append(entries, e)
+		if e.displayVal > maxVal {
+			maxVal = e.displayVal
+		}
+	}
+
+	bars := make([]fragments.HistoryBar, 0, numDays)
+	for _, e := range entries {
+		if !e.present {
+			bars = append(bars, fragments.HistoryBar{
+				HeightPct: 0,
+				Tooltip:   fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryConsumedNoDataTooltip), e.label),
+				Label:     e.label,
+				Present:   false,
+			})
+			continue
+		}
+		pct := 0
+		if maxVal > 0 {
+			pct = int(math.Round(e.displayVal / maxVal * 100))
+		}
+		bars = append(bars, fragments.HistoryBar{
+			HeightPct:     pct,
+			Tooltip:       e.tooltip,
+			Label:         e.label,
+			Present:       true,
+			MarkerFlagged: e.markerFlagged,
+			MarkerSpan:    e.markerSpan,
+		})
+	}
+	return fragments.HistoryChart{Bars: bars, Empty: false, LabelVertical: labelVerticalFor(numDays)}
+}
+
+// chargeTypeLabel resolves the bilingual charge-type noun used inside a
+// flagged-day tooltip. telemetry.MissingChargingType is a closed 2-value
+// enum (tier 1); this is the gateway's own closed mapping to a catalogue
+// key, kept here rather than in internal/telemetry because it is
+// presentation vocabulary, not domain vocabulary.
+func chargeTypeLabel(ctx context.Context, t telemetry.MissingChargingType) string {
+	if t == telemetry.MissingChargingTypeSupercharger {
+		return i18n.T(ctx, i18n.KeyHistoryChargeTypeSupercharger)
+	}
+	return i18n.T(ctx, i18n.KeyHistoryChargeTypeManual)
 }

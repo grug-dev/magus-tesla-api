@@ -1,0 +1,473 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM28-gateway-add-consumed-graph",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
+  "request": "Tier 4 of RM28 (MAG-15). Add the battery-consumed bar chart to /ui/dashboard/history, mirroring templates/fragments/history.templ + history_vm.go. Consume battery.ConsumedByDay through the port — never a database. Render flagged days per D10 (zero-height bar, distinct warning marker) and multi-day spans per D8/D20; a day that is both carries both markers per D21. Move parseHistoryRange's default and its end <= today cap to yesterday per D11. Every new label bilingual ES/EN through i18n.T against internal/gateway/i18n/catalog.go, both non-empty.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "V"
+    ]
+  },
+  "created_at": "2026-08-16T15:45:00Z",
+  "updated_at": "2026-08-16T16:22:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM28-MAG-15-battery-consumed-graph",
+    "base": "874820f (main)",
+    "ticket": "MAG-15",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph",
+    "created_at": "2026-08-15T13:07:34Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "history_vm.go — HistoryBar.MarkerFlagged/MarkerSpan, HistoryView.Consumed",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:44:37Z",
+      "completed_at": "2026-08-16T15:47:11Z",
+      "duration_seconds": 154,
+      "notes": "Added MarkerFlagged/MarkerSpan bools to HistoryBar and Consumed HistoryChart to HistoryView, doc comments verbatim from design.md.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.06,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2+T4+T5 jointly (one serial worker)"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "i18n/catalog.go — seven new consumed-chart keys, both ES/EN",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:44:37Z",
+      "completed_at": "2026-08-16T15:47:11Z",
+      "duration_seconds": 154,
+      "notes": "Seven keys (3 composable clauses + title + no-data + 2 charge-type nouns), both ES/EN non-empty, new section after the history-chart block. i18n-guard clean.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.06,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2+T4+T5 jointly (one serial worker)"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "history.templ — two independent marker-chip blocks, third chart card, make templ + make css",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:49:00Z",
+      "completed_at": "2026-08-16T15:52:55Z",
+      "duration_seconds": 235,
+      "notes": "Two independent marker-chip if-blocks (fill-warning y=1, fill-info y=6, each with its own <title>) after the bar loop, plus the third ui.Card with fill-accent. make templ + make css regenerated; all three classes now present in app.css.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 19,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.61,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta covers T3+T6+T9 jointly (one serial worker)"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "handlers/format.go — formatPctRaw",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:44:37Z",
+      "completed_at": "2026-08-16T15:47:11Z",
+      "duration_seconds": 154,
+      "notes": "formatPctRaw added after formatKmRaw; one decimal via strconv.FormatFloat, no unit suffix. Matches D-G8.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.06,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2+T4+T5 jointly (one serial worker)"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "gateway.go + handlers/handlers.go — Deps.BatteryReader wiring",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:44:37Z",
+      "completed_at": "2026-08-16T15:47:11Z",
+      "duration_seconds": 154,
+      "notes": "Deps.BatteryReader wired through gateway.Deps -> handlers.Deps -> Handler.batteryReader, mirroring SuperchargerReader exactly.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 3.06,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-1 delta covers T1+T2+T4+T5 jointly (one serial worker)"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "handlers/history.go — D11 window change, buildConsumedChart, buildHistoryView extension",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T4",
+        "T5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:49:00Z",
+      "completed_at": "2026-08-16T15:52:55Z",
+      "duration_seconds": 235,
+      "notes": "parseHistoryRange computes yesterday once for default+cap, doc steps 1/4 updated. buildConsumedChart + chargeTypeLabel added; buildHistoryView extended with an independent ConsumedByDay call and its own error branch.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 19,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.61,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta covers T3+T6+T9 jointly (one serial worker)"
+      }
+    },
+    {
+      "id": "T7",
+      "title": "cmd/web/main.go wiring — LEADER-OWNED, outside internal/gateway",
+      "module": "cmd/web",
+      "depends_on": [
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-16T15:47:40Z",
+      "completed_at": "2026-08-16T15:48:07Z",
+      "duration_seconds": 27,
+      "notes": "cmd/web/main.go: battery import + BatteryReader built from telemetry/manualcharge readers + acct + DefaultWindow, mirroring cmd/poller verbatim. Leader-owned; outside the module sandbox.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 12,
+        "five_hour_pct_delta": 1,
+        "cost_usd_delta": 0.53,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "leader-executed integration task"
+      }
+    },
+    {
+      "id": "T8",
+      "title": "handlers/history_test.go — consumed-chart tests + updated D11 tests",
+      "module": "gateway",
+      "depends_on": [
+        "T6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:54:00Z",
+      "completed_at": "2026-08-16T16:05:56Z",
+      "duration_seconds": 716,
+      "notes": "16 sub-items: 11 new consumed-chart tests asserting design.md's Test Contract verbatim, D11 updates, plus T8.15 (owner-found) and T8.16 (D-G10 guard). Also fixed a nil batteryReader in newHandlerForHistory that would have panicked the test binary.",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 42,
+        "five_hour_pct_delta": 21,
+        "cost_usd_delta": 8.65,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-3 delta covers T8+V jointly, including the T8.15/T8.16 follow-up round"
+      }
+    },
+    {
+      "id": "T9",
+      "title": "internal/gateway/AGENTS.md — document the new battery.Reader dependency",
+      "module": "gateway",
+      "depends_on": [
+        "T5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:49:00Z",
+      "completed_at": "2026-08-16T15:52:55Z",
+      "duration_seconds": 235,
+      "notes": "Deps.BatteryReader bullet added to the Public interface section, mirroring SuperchargerReader's shape.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 19,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 3.61,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta covers T3+T6+T9 jointly (one serial worker)"
+      }
+    },
+    {
+      "id": "V",
+      "title": "Verification — build/vet/gofmt/ui-guard/i18n-guard/css freshness/openspec strict",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T8",
+        "T9"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T15:54:00Z",
+      "completed_at": "2026-08-16T16:05:56Z",
+      "duration_seconds": 716,
+      "notes": "V.1/V.2/V.4/V.5/V.6/V.7 pass. V.3 fails on 5 pre-existing files outside this tier (see D6). V.8 is the owner's — pending.",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 42,
+        "five_hour_pct_delta": 21,
+        "cost_usd_delta": 8.65,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-3 delta covers T8+V jointly, including the T8.15/T8.16 follow-up round"
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review the RM28 tier-4 gateway change across commits 7831f0e, 7c2e1ec, 13d3dc9 (read the DIFF, not the whole module). Validate:\n1. MODULE BOUNDARY. internal/gateway touches internal/battery ONLY through battery.Reader / battery.DayConsumption. No database access, no other module's internals. cmd/web (T7) was the leader's, outside the module sandbox.\n2. DOC-PACK CONVENTIONS. ai/go-conventions.md, ai/architecture.md, ai/htmx-conventions.md, ai/htmx-go-integration.md, internal/gateway/AGENTS.md. Specifically: no HTML outside the gateway; no arithmetic or domain-method calls in the template (RD7); display units unchanged.\n3. i18n. Every new user-facing string resolves through i18n.T with BOTH ES and EN non-empty. Seven new keys. D-G7 makes three of them composable CLAUSES joined by ' · ' — confirm the composition cannot produce a dangling separator or an untranslated fragment in either language.\n4. OWNER DECISIONS, verbatim. D10 (flagged day: zero height, number hidden), D11 (default AND cap move to yesterday), D18 (bucket in Config.Location — the gateway must key on DayConsumption.Date VERBATIM and must NOT re-project through effectiveDayUTC; D-G2 is the regression guard), D19 (relative scale, mirroring buildOdometerChart), D20 (multi-day span plots its REAL value), D21 (a day both flagged and spanned carries BOTH markers with both facts in the tooltip — markers are a set, not an enum).\n5. TEST CONTRACT (Step 3's rule). design.md's Test Contract was authored BEFORE implementation. Verify T8's tests assert THOSE expectations, not whatever buildConsumedChart happens to do. Any test that merely restates the implementation is a finding.\n6. TWO ITEMS THE LEADER IS DELIBERATELY SURFACING RATHER THAN BURYING:\n   (a) The worker added Consumed: HistoryChart{Empty:true} to the two DashboardHistoryFragment early returns (400, no-vehicle). NOT in design.md or tasks.md; leader accepted it (D4) because both literals already set Odometer and Battery that way. Confirm or reject that reading.\n   (b) newHandlerForHistory never set Deps.BatteryReader while buildHistoryView calls ConsumedByDay unconditionally — a nil-interface panic latent from wave 2, invisible to build and vet because vet compiles tests without running them. Fixed in wave 3. ASK WHETHER ANYTHING ELSE IN THIS TIER SHIPPED PAST A SIGNAL THAT STRUCTURALLY COULD NOT SEE IT.\n7. A SPECIFIC CORRECTNESS QUESTION THE LEADER WANTS CHECKED. buildConsumedChart keys a map[time.Time] on DayConsumption.Date and looks it up with the loop variable derived from `start`. time.Time map keys compare wall clock AND location. Confirm both sides are genuinely UTC midnight in practice (battery's calendarDay normalization vs parseHistoryRange's start, which carries a browser timezone in the D11 path) — a silent mismatch would make every bucket lookup miss and render an all-no-data chart with no error anywhere.\n8. ANTI-GAMING. Tasks/criteria are append-only. T8.15 and T8.16 were APPENDED by the leader (D7); verify nothing existing was edited, weakened, or deleted. V.3 is deliberately unchecked (D6) — five pre-existing gofmt-dirty files outside this tier, not swept.\nTEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite — never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results.\nWHICH SIGNALS WERE WHOSE: assistant-run — go build ./..., go vet ./..., gofmt -l, make ui-guard, make i18n-guard, the app.css fill-* grep, openspec validate --strict. USER-REPORTED — `make test` green against the complete tier (2026-08-16). Judge test QUALITY by READING the tests; do not run them.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-16T16:17:01Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "buildConsumedChart's byDay map (history.go) is keyed on battery.DayConsumption.Date (always time.UTC, via internal/battery's calendarDay). The loop variable `d` used to read it derives from `start`, which is genuinely UTC only on the explicit-?start=&end= path (time.Parse defaults to UTC) and on the no-cookie fallback. On the D11 both-absent-params default path WITH a valid non-UTC browser_tz cookie, start/end/d carry that zone's *time.Location (browserToday->startOfDayIn), which is a different absolute instant AND a different Location pointer than the UTC map keys -- Go's own docs warn == (hence map lookup) compares Location too. Every d would then miss byDay, silently rendering all-no-data with no error logged. Verified via source: internal/battery/consumed.go calendarDay()/effectiveDay() (UTC only), internal/gateway/handlers/tz.go startOfDayIn/browserToday (preserves the cookie's Location), history.go:125-164 parseHistoryRange, and history_test.go's own TestParseHistoryRange_DefaultUsesBrowserYesterday which asserts end.Location()==\"America/Bogota\" for exactly this path -- proving the non-UTC Location is intentional/reachable there. NOT introduced or worsened by this tier: buildOdometerChart/buildBatteryChart (pre-existing, out of this tier's scope) share the identical byDay[d] read-side gap -- their write side uses effectiveDayUTC but their read side does not normalize d either. Unreachable through the actual product UI (defaultHistoryHref and buildHistoryPresets always send explicit params, which are always UTC via time.Parse); reachable only via a bare GET /ui/dashboard/history with no query params from an authenticated browser that already holds a non-UTC browser_tz cookie. design.md's D-G3 explicitly forbids adding new gateway-side timezone handling to buildConsumedChart, so a local fix here would be scope creep; the right place is a shared fix/decision at parseHistoryRange or browserToday, covering all three charts. Recommend the leader open a follow-up backlog item (mirroring how D18/D18a's UTC-vs-zoned mismatch was recorded as a known, accepted limitation) rather than reworking this tier.",
+            "status": "open",
+            "triage": "accepted"
+          }
+        ],
+        "duration_seconds": 370,
+        "budget": {
+          "five_hour_pct_start": 44,
+          "five_hour_pct_end": 52,
+          "five_hour_pct_delta": 8,
+          "cost_usd_delta": 3.2,
+          "context_pct_end": 19,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": "review round 1"
+        }
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-16T15:44:37Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Wave 1 batches T1/T2/T4/T5 into one serial worker rather than four parallel ones",
+      "why": "Tasks are small and disjoint; one dispatch amortizes the doc-pack read, and parallel workers drain the same 5-hour bucket faster for no wall-clock gain here.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-16T15:48:40Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Continued into wave 2 in the same session instead of checkpointing at the wave boundary",
+      "why": "Skill recommends /clear+resume on 3+ wave changes, but 5h sits at 12% and context at 13% — a re-read cycle would cost more than carrying this context forward.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-16T15:48:42Z",
+      "scope": "task:T3",
+      "made_by": "leader",
+      "decision": "Worker is authorized to run `make templ` and `make css`",
+      "why": "Both are codegen phases of `make generate` alongside sqlc, which CLAUDE.md allows outright. Neither runs tests; T3.3 requires them for the CSS-freshness guard.",
+      "covered_by": "tasks.md T3.3"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-16T15:53:00Z",
+      "scope": "task:T6",
+      "made_by": "leader",
+      "decision": "Accepted the worker's out-of-spec Consumed: HistoryChart{Empty:true} in the two DashboardHistoryFragment early returns",
+      "why": "Both literals already set Odometer and Battery the same way; leaving Consumed at its zero value would render a 0-bar SVG instead of the empty state. Flagged to the reviewer.",
+      "covered_by": "design D-G10 intent"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-16T16:05:00Z",
+      "scope": "task:T8",
+      "made_by": "leader",
+      "decision": "Fed the owner's failing test to the live wave-3 worker via SendMessage instead of dispatching a fresh worker",
+      "why": "The worker still holds the doc pack and the test file's context; a fresh dispatch would re-read both to change one assertion.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-16T16:05:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "V.3 accepted as not-passing: the 5 gofmt-dirty files are pre-existing and out of scope; no formatting sweep folded into this change",
+      "why": "None were touched by T1-T9 and history_test.go is not among them. An unrelated sweep would pollute the tier's diff and hide its real changes in review.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-16T16:05:30Z",
+      "scope": "task:T8",
+      "made_by": "leader",
+      "decision": "Appended T8.15 and T8.16 to tasks.md rather than letting the fixes land unlisted",
+      "why": "Tasks are append-only, not frozen. T8.15 was cited by a test comment but never written; T8.16 closes the D-G10 gap the worker reported.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-16T16:20:00Z",
+      "scope": "review:R1",
+      "made_by": "leader",
+      "decision": "Accepted R1 as a real finding but deferred it to backlog item 13 rather than fixing it in this tier",
+      "why": "Pre-existing in all three charts, unreachable via the UI (every request sends explicit params), and design D-G3 forbids gateway-side TZ handling here. A one-chart patch would leave the trap in two.",
+      "covered_by": "design D-G3"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-16T15:45:00Z",
+      "agent": "leader",
+      "event": "progress.json created on resume. Artifacts were already written and revised under roadmap D19/D20/D21 in a prior session but never committed; validated `openspec validate --strict` clean and committed now. Database design gate does not trip — internal/gateway owns no schema."
+    },
+    {
+      "at": "2026-08-16T15:46:00Z",
+      "agent": "leader",
+      "event": "Reverted an uncommitted internal/gateway/static/app.css that already carried the three fill-accent/fill-warning/fill-info rules with no source declaring them (orphaned from a prior session). Pre-baked CSS would make T3.3's grep guard pass even if `make css` silently failed."
+    },
+    {
+      "at": "2026-08-16T15:44:37Z",
+      "agent": "leader",
+      "event": "Dispatched ONE serial gateway worker for wave 1 (T1, T2, T4, T5) on Sonnet. All four are dependency-free and touch disjoint files; batched serially so the doc pack is read once. Budget start: 5h 5%, ctx 11%, cost $1.65."
+    },
+    {
+      "at": "2026-08-16T15:48:07Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled: T1/T2/T4/T5 all done. Leader independently re-ran go build ./..., go vet ./..., gofmt -l — all clean; the pre-existing gofmt hits elsewhere in the repo are untouched by this wave. Worker enumerated D-G5/D-G6/D-G7/D-G8/D-G11 with compliance statements; leader cross-checked each against design.md. T7 (cmd/web wiring, leader-owned) executed in the same boundary and also builds/vets clean."
+    },
+    {
+      "at": "2026-08-16T15:49:00Z",
+      "agent": "leader",
+      "event": "Dispatched ONE serial gateway worker for wave 2 (T3, T6, T9) on Sonnet. Disjoint files; T6's design is highly prescriptive so Sonnet is sufficient — no Opus escalation. Budget start: 5h 12%, ctx 13%, cost $5.45."
+    },
+    {
+      "at": "2026-08-16T15:53:40Z",
+      "agent": "leader",
+      "event": "Wave 2 reconciled: T3/T6/T9 done. Leader re-ran go build, go vet, gofmt, make ui-guard, make i18n-guard and the T3.3 CSS grep — all clean, all three fill-* classes present in the regenerated app.css. Worker enumerated D-G1/D-G2/D-G3/D-G4/D-G5/D-G6/D-G7/D-G9/D-G10/D-G11; leader cross-checked each against design.md. Leader also fixed stale prose the worker left: buildHistoryView's doc comment still claimed ONE read and 'both charts', and one early-return comment said 'both charts'."
+    },
+    {
+      "at": "2026-08-16T15:54:00Z",
+      "agent": "leader",
+      "event": "Dispatched ONE serial gateway worker for wave 3 (T8 tests + V verification) on Sonnet. Container/DB-backed tests are not involved — every T8 test is offline against fakes — but T8 is scheduled last because it must compile against T6's finished surface. Budget start: 5h 21%, ctx 15%, cost $9.87."
+    },
+    {
+      "at": "2026-08-16T16:05:00Z",
+      "agent": "leader",
+      "event": "Owner ran `make test` mid-wave-3: one failure, TestParseHistoryRange_DefaultUsesBrowserToday, asserting the pre-D11 end==browser-today contract. GAP IN THE ARTIFACTS: T8.10-T8.13 enumerated four parseHistoryRange tests and the fragment tests but missed this timezone-aware sibling. Sent the failure to the live wave-3 worker to fix in-context, append a T8.15 sub-item (append-only), and sweep for other unnamed pre-D11 assertions. NOT recorded as a verification pass - the run predates T8 completing."
+    },
+    {
+      "at": "2026-08-16T16:05:56Z",
+      "agent": "leader",
+      "event": "Wave 3 reconciled. T8 + V both awaiting-user-verification. Leader re-ran build/vet/gofmt/openspec-strict — clean for this tier. NOTE FOR THE REVIEWER: the worker found newHandlerForHistory never set Deps.BatteryReader while buildHistoryView calls ConsumedByDay unconditionally — a nil-interface panic latent since wave 2, invisible to build/vet because vet compiles tests but never runs them. Fixed by wiring a default fakeBatteryReader plus a newHandlerForHistoryWithBattery variant."
+    },
+    {
+      "at": "2026-08-16T16:10:17Z",
+      "agent": "leader",
+      "event": "THE OWNER ran `make test` against the complete tier and reported it GREEN. This is the owner's verification, not the assistant's — the assistant never executed the suite. T8 and V move awaiting-user-verification -> done; change status -> verified. The reviewer gate may now open."
+    },
+    {
+      "at": "2026-08-16T16:20:00Z",
+      "agent": "leader",
+      "event": "Reviewer approved round 1 with one minor finding (R1). Leader triaged R1 as ACCEPTED and verified its central claim independently: defaultHistoryHref and every preset button emit explicit start/end params, so the both-absent path is unreachable through the UI. Deferred to openspec/roadmaps/backlog.md item 13 per the reviewer's own recommendation; the fix belongs to all three charts, not just the consumed one."
+    },
+    {
+      "at": "2026-08-16T16:22:00Z",
+      "agent": "leader",
+      "event": "Archived as 2026-08-16-RM28-gateway-add-consumed-graph; openspec synced 1 modified requirement into openspec/specs/gateway/spec.md. Ticked V.8 in the archived tasks.md — the owner's green run. V.3 stays unchecked by design (D6)."
+    }
+  ]
+}

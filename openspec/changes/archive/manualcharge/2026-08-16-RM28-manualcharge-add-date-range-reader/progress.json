@@ -1,0 +1,317 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM28-manualcharge-add-date-range-reader",
+  "module": "manualcharge",
+  "roadmap": "openspec/roadmaps/RM28-battery-consumed-graph.md",
+  "request": "Add one date-range read method to manualcharge.Reader per D9, filtering on charged_on inclusive of both bounds. Purely additive - ListEntriesByVehicle and ListEntriesByAccount are unchanged. No schema change.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "V"
+    ]
+  },
+  "created_at": "2026-08-16T01:42:00Z",
+  "updated_at": "2026-08-16T02:06:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM28-MAG-15-battery-consumed-graph",
+    "base": "874820f (main)",
+    "ticket": "MAG-15",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph",
+    "created_at": "2026-08-15T13:07:34Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "manualcharge.go - add ListEntriesByVehicleBetween to the Reader interface",
+      "module": "manualcharge",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "manualcharge",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T01:42:34Z",
+      "completed_at": "2026-08-16T01:45:00Z",
+      "duration_seconds": 146,
+      "notes": "Reader gains ListEntriesByVehicleBetween; doc comment corrected from 'Both methods' to 'All methods', limit sentence scoped to the two limit-based methods.",
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.93,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1+T2+T3+T5; delta covers the four jointly, plus the leader's T6 fix and verification"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "db/query.sql - add the ListEntriesByVehicleBetween query + sqlc generate",
+      "module": "manualcharge",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "manualcharge",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T01:42:34Z",
+      "completed_at": "2026-08-16T01:45:00Z",
+      "duration_seconds": 146,
+      "notes": "Query added verbatim per design.md; sqlc generate clean; generated params match D6 (AccountID, TeslaID, FromDate/ToDate pgtype.Date).",
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.93,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1+T2+T3+T5; delta covers the four jointly, plus the leader's T6 fix and verification"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "service.go - store interface, dbStore delegation, readerService implementation",
+      "module": "manualcharge",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "manualcharge",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T01:42:34Z",
+      "completed_at": "2026-08-16T01:45:00Z",
+      "duration_seconds": 146,
+      "notes": "store + dbStore delegation + readerService impl mirror design.md exactly; reuses dateFromTime and rowToEntry, no new helper.",
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.93,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1+T2+T3+T5; delta covers the four jointly, plus the leader's T6 fix and verification"
+      }
+    },
+    {
+      "id": "T4",
+      "title": "db_integration_test.go - the six test-contract cases from design.md",
+      "module": "manualcharge",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "manualcharge",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T01:48:00Z",
+      "completed_at": "2026-08-16T01:49:30Z",
+      "duration_seconds": 90,
+      "notes": "Six DB-integration tests added per design.md's binding contract (a)-(f). Leader spot-checked each against the contract: assertions match the specified expectations, none reverse-engineered from the implementation.",
+      "budget": {
+        "five_hour_pct_start": 54,
+        "five_hour_pct_end": 60,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.53,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "serial single-task wave"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "AGENTS.md - update the Public Interface code block",
+      "module": "manualcharge",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "manualcharge",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T01:42:34Z",
+      "completed_at": "2026-08-16T01:45:00Z",
+      "duration_seconds": 146,
+      "notes": "AGENTS.md Public Interface block matches the real Reader interface verbatim, same wording fix.",
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.93,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1+T2+T3+T5; delta covers the four jointly, plus the leader's T6 fix and verification"
+      }
+    },
+    {
+      "id": "V",
+      "title": "Verification - build, vet, gofmt, openspec validate, owner test handoff",
+      "module": "manualcharge",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-16T01:49:00Z",
+      "completed_at": "2026-08-16T01:49:59Z",
+      "duration_seconds": 59,
+      "notes": "V.1-V.4 leader-run and clean: build, vet repo-wide, gofmt (no new drift), openspec validate --strict. V.5 handoff given. The suite itself is the owner's.",
+      "budget": {
+        "five_hour_pct_start": 54,
+        "five_hour_pct_end": 60,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.53,
+        "context_pct_end": 20,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "serial single-task wave"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "Cross-module fake stubs for the extended Reader port (leader-owned)",
+      "module": "platform",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-16T01:45:00Z",
+      "completed_at": "2026-08-16T01:46:29Z",
+      "duration_seconds": 89,
+      "notes": "battery + gateway test fakes gained ListEntriesByVehicleBetween stubs, each in its file's own idiom (panic vs plain return). go vet ./... clean repo-wide.",
+      "budget": {
+        "five_hour_pct_start": 48,
+        "five_hour_pct_end": 54,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.93,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran T1+T2+T3+T5; delta covers the four jointly, plus the leader's T6 fix and verification"
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "manualcharge-reviewer",
+    "brief": "Review change RM28-manualcharge-add-date-range-reader (tier 2 of roadmap RM28), module manualcharge. Read the DIFF of commits 5926be8, 9c24707, 8450748, 2e4f7f5 - not the whole module. Validate: (1) Module boundary - manualcharge imports no other module; the only edits outside internal/manualcharge/ are the two leader-owned test-fake stubs (T6) in internal/battery/reader_test.go and internal/gateway/handlers/charges_test.go, which must be stubs only, not behaviour changes. (2) Doc-pack conventions - ai/go-conventions.md (pgtype confined to the DB boundary, never in public types or test assertions), ai/architecture.md (no cross-module DB access, port-only access), CLAUDE.md docs-track-change (AGENTS.md Public Interface block must match the real Reader interface verbatim). (3) Spec/tasks coverage - every requirement in specs/manual-charge-log/spec.md is implemented; every tasks.md item is genuinely done. (4) TEST-CONTRACT RULE (priority check): design.md authored the six-case test contract (a)-(f) BEFORE implementation. Verify each of the six tests asserts what the CONTRACT specifies, not what the implementation happens to return. A test weakened to match the code is a blocker finding. (5) Performance-Profile compliance and design fidelity - the change must add NO migration and NO index; design D3 claims idx_manual_charge_entries_vehicle_time (account_id, tesla_id, charged_on DESC) already covers the query. If any DB object was in fact added or altered, that is a BLOCKER (it bypassed the user's database design gate). Also confirm ORDER BY charged_on DESC and no LIMIT (D1/D2), and that the existing two Reader methods and the whole Writer port are untouched. (6) Anti-gaming - no task title, acceptance criterion, or assertion was weakened or deleted; tasks.md additions are append-only (T6 was appended by the leader, which is legitimate). TEST-EXECUTION-POLICY (verbatim): 'Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.' SIGNAL PROVENANCE: go build ./..., go vet ./... (repo-wide), gofmt -l and openspec validate --strict were ASSISTANT-run and clean. The TEST SUITE was USER-run: the owner reported it green on 2026-08-16. You must judge test quality by READING the tests, never by running them.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-16T02:15:00Z",
+        "verdict": "approved",
+        "findings": [],
+        "duration_seconds": 111
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-16T01:36:40Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "The new method orders charged_on DESC, not ASC for tier 3's convenience.",
+      "why": "The covering index is already DESC, so ORDER BY is free and no sort node is added; tier 3 builds a keyed map and does not care about order. One ordering convention per module.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-16T01:41:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "database design gate NOT tripped: no migration, no new index.",
+      "why": "idx_manual_charge_entries_vehicle_time (account_id, tesla_id, charged_on DESC) already serves the two equality predicates plus the charged_on range as one index scan. Verified in the migration before dispatch.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-16T01:45:30Z",
+      "scope": "task:T6",
+      "made_by": "autopilot",
+      "decision": "Leader fixed the two out-of-module test fakes itself and appended T6, rather than dispatching battery and gateway workers.",
+      "why": "Two stub methods are cross-module integration, which the leader owns; two dispatches with full doc-pack reads would cost far more than the edit.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-16T01:36:40Z",
+      "agent": "leader",
+      "event": "Tier 2 opened under roadmap autopilot. No fresh interview: roadmap D9/D12 fully specify the port; no new decision arose."
+    },
+    {
+      "at": "2026-08-16T01:41:00Z",
+      "agent": "leader",
+      "event": "manualcharge worker returned the four artifacts (sonnet); openspec validate --strict passed. Leader verified the no-schema-change claim against the migration - design gate does not trip."
+    },
+    {
+      "at": "2026-08-16T01:42:34Z",
+      "agent": "leader",
+      "event": "dispatched manualcharge worker (sonnet) for wave 1 (T1, T2, T3, T5) - port + query + sqlc + service impl + AGENTS.md. Budget start: 5h 48%, ctx 15%, $4.71."
+    },
+    {
+      "at": "2026-08-16T01:46:29Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled: T1/T2/T3/T5 done. Worker flagged that extending the shared Reader broke fakeManualReader (battery) and fakeChargeReader (gateway); leader fixed both as T6. go build clean, go vet ./... clean repo-wide, no new gofmt drift. Budget end: 5h 54%, ctx 17%, $7.64 (wave delta $2.93)."
+    },
+    {
+      "at": "2026-08-16T01:47:30Z",
+      "agent": "leader",
+      "event": "Corrected wave-1 task statuses done -> awaiting-user-verification. The worker reported them done, but the Test-Execution-Policy reserves the suite to the owner, so done requires the owner's reported pass. Work is complete; only the suite signal is outstanding."
+    },
+    {
+      "at": "2026-08-16T01:48:00Z",
+      "agent": "leader",
+      "event": "dispatched manualcharge worker (sonnet) for wave 2 (T4) - the six DB-integration tests from design.md's binding test contract. Budget start: 5h 54%, ctx 17%, $7.64."
+    },
+    {
+      "at": "2026-08-16T01:49:59Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled: T4 six integration tests written, not run. Leader-run signals all clean (go build, go vet ./... repo-wide, gofmt no new drift, openspec validate --strict). Change status -> applied. Every task now awaiting-user-verification pending the owner's suite run. Budget end: 5h 60%, ctx 20%, $10.17 (wave delta $2.53)."
+    },
+    {
+      "at": "2026-08-16T02:03:21Z",
+      "agent": "leader",
+      "event": "THE OWNER ran the test suite and reported it green ('go test ..green'). Verification is the owner's, recorded as theirs - the assistant ran only build/vet/gofmt/openspec validate. All tasks awaiting-user-verification -> done; change status -> verified. Reviewer gate opens."
+    },
+    {
+      "at": "2026-08-16T02:05:00Z",
+      "agent": "leader",
+      "event": "manualcharge-reviewer returned APPROVED, round 1, zero findings. It independently verified the no-DB-object claim (migrations diff empty), all six test-contract cases, and that both out-of-module fake stubs are boilerplate-only."
+    },
+    {
+      "at": "2026-08-16T02:06:00Z",
+      "agent": "leader",
+      "event": "archived as archive/manualcharge/2026-08-16-RM28-manualcharge-add-date-range-reader; openspec synced 1 added requirement into openspec/specs/manual-charge-log/spec.md. NOTE: openspec archive drops changes FLAT into archive/; the leader git mv'd it into the manualcharge/ domain folder per openspec/config.yaml's archive rule."
+    }
+  ]
+}

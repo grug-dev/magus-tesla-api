@@ -54,6 +54,7 @@ type store interface {
 	deleteEntry(ctx context.Context, params manualchargedb.DeleteEntryParams) error
 	listEntriesByVehicle(ctx context.Context, params manualchargedb.ListEntriesByVehicleParams) ([]manualchargedb.ManualChargeEntry, error)
 	listEntriesByAccount(ctx context.Context, params manualchargedb.ListEntriesByAccountParams) ([]manualchargedb.ManualChargeEntry, error)
+	listEntriesByVehicleBetween(ctx context.Context, params manualchargedb.ListEntriesByVehicleBetweenParams) ([]manualchargedb.ManualChargeEntry, error)
 }
 
 // --- dbStore — the production store (ONLY place manualchargedb + pgtype are touched) ---
@@ -83,6 +84,10 @@ func (d *dbStore) listEntriesByVehicle(ctx context.Context, params manualcharged
 
 func (d *dbStore) listEntriesByAccount(ctx context.Context, params manualchargedb.ListEntriesByAccountParams) ([]manualchargedb.ManualChargeEntry, error) {
 	return d.q.ListEntriesByAccount(ctx, params)
+}
+
+func (d *dbStore) listEntriesByVehicleBetween(ctx context.Context, params manualchargedb.ListEntriesByVehicleBetweenParams) ([]manualchargedb.ManualChargeEntry, error) {
+	return d.q.ListEntriesByVehicleBetween(ctx, params)
 }
 
 // --- writerService — implements Writer ---
@@ -264,6 +269,35 @@ func (r *readerService) ListEntriesByAccount(ctx context.Context, accountID uuid
 	rows, err := r.store.listEntriesByAccount(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("manualcharge: list entries by account: %w", err)
+	}
+
+	entries := make([]Entry, 0, len(rows))
+	for _, row := range rows {
+		e, err := rowToEntry(row)
+		if err != nil {
+			return nil, fmt.Errorf("manualcharge: mapping entry row: %w", err)
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
+// ListEntriesByVehicleBetween returns entries for a specific vehicle within an
+// account whose charged_on falls within [from, to], inclusive of both bounds
+// (design D5). Ordered charged_on DESC, matching ListEntriesByVehicle (design D2).
+// Always returns a non-nil empty slice when no rows exist (design D4). No limit
+// parameter (design D1) — the [from, to] window itself bounds the result.
+func (r *readerService) ListEntriesByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Entry, error) {
+	params := manualchargedb.ListEntriesByVehicleBetweenParams{
+		AccountID: accountID,
+		TeslaID:   teslaID,
+		FromDate:  dateFromTime(from),
+		ToDate:    dateFromTime(to),
+	}
+
+	rows, err := r.store.listEntriesByVehicleBetween(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("manualcharge: list entries by vehicle between: %w", err)
 	}
 
 	entries := make([]Entry, 0, len(rows))

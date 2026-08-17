@@ -67,3 +67,13 @@ func formatKmRaw(km float64) string {
 	whole := int(math.Round(km))
 	return commaGroup(strconv.Itoa(whole))
 }
+
+// formatPctRaw renders a percentage value to one decimal place with no "%"
+// suffix (the caller's i18n format string supplies it) — e.g. 11.0 -> "11.0",
+// -3.4 -> "-3.4". Mirrors formatKmRaw's "no unit, caller appends it" shape.
+// One decimal because the consumed chart's typical 6-20%/day range needs
+// sub-integer precision to be readable (roadmap D19 rationale) — unlike
+// formatKm's whole-number odometer/battery values.
+func formatPctRaw(pct float64) string {
+	return strconv.FormatFloat(pct, 'f', 1, 64)
+}

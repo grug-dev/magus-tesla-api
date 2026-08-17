@@ -35,7 +35,7 @@ cmd/
 |---|---|---|---|
 | `cmd/setup` | `go run ./cmd/setup` | One-time Tesla OAuth token capture → saves to `.env` | Run once, exits |
 | `cmd/web` | `go run ./cmd/web` | The production multi-tenant HTTP gateway (vehicle dashboard) | Long-running, deployed |
-| `cmd/poller` | `go run ./cmd/poller` | Nightly telemetry collection (scheduled); `--once` runs a single cycle and exits | Long-running nightly, or one-shot with `--once` |
+| `cmd/poller` | `go run ./cmd/poller` | Nightly telemetry collection (scheduled), then charge-gap reconciliation; `--once` runs a single cycle and exits | Long-running nightly, or one-shot with `--once` |
 | `cmd/explore-tesla-api` | `go run ./cmd/explore-tesla-api` | On-demand inspector for raw Tesla Fleet API JSON payloads | Run on-demand, exits |
 
 For details on a specific binary, see its own README (when present):

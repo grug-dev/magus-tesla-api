@@ -54,6 +54,44 @@ Enforce these invariants on every change:
 - **Agents are sandboxed to their module** (dev-time; see
   [`agentic-workflow.md`](./agentic-workflow.md)).
 
+### Dependency direction & import cycles
+
+Dependencies flow **one way only**: `gateway → domain modules → adapters`. A domain module may
+depend on a sibling *below* it (`telemetry → account`), never on the gateway, and never on a
+module that already depends on it. The live graph is in the root `README.md` §Architecture.
+
+**Go enforces acyclicity for you.** An import cycle between packages is a *compile error*
+(`import cycle not allowed`), not a lint warning — unlike Java/C#/TypeScript, where circular
+imports usually work and rot the design quietly. You cannot ship one. Several rules above are
+cycle-prevention in disguise: `tesla` is stateless about identity precisely so it never needs to
+import `account`, which would close the loop `account → tesla → account`.
+
+So the risk is never the cycle itself — it's **how it gets resolved**. Both of these silence the
+compiler and destroy the boundary; neither is acceptable here:
+
+- **The `shared`/`common` dump** — moving the contested types into a package everything imports.
+- **Merging the packages** — Go only forbids cycles *between* packages, so folding two modules
+  into one makes the error disappear along with the boundary.
+
+**The fix is a consumer-side interface.** Go has no `implements` keyword — a type satisfies an
+interface implicitly, so the provider never has to know the interface exists. Declare the
+interface in the package that *needs* it, and wire the concrete type in at `cmd/` startup. This
+is the opposite of the Java/Spring habit of defining the interface next to its implementation:
+
+```go
+// In telemetry, if it ever needed data owned by battery (which already imports telemetry).
+// battery satisfies this without importing telemetry — no import, no cycle.
+type ChargeReader interface {
+	LatestCharge(ctx context.Context, vehicleID uuid.UUID) (Charge, error)
+}
+```
+
+*Why: the interface stays small because the consumer shapes it to what it actually uses, rather
+than inheriting the provider's whole surface.*
+
+The one sanctioned back-edge is an **external test package** (`package telemetry_test` rather
+than `package telemetry`), which may import packages that import the package under test.
+
 ---
 
 ## 3. Two HTTP Surfaces

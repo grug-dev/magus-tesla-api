@@ -252,6 +252,73 @@ func (q *Queries) ListEntriesByVehicle(ctx context.Context, arg ListEntriesByVeh
 	return items, nil
 }
 
+const listEntriesByVehicleBetween = `-- name: ListEntriesByVehicleBetween :many
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at FROM manual_charge_entries
+WHERE account_id = $1
+  AND tesla_id = $2
+  AND charged_on BETWEEN $3 AND $4
+ORDER BY charged_on DESC
+`
+
+type ListEntriesByVehicleBetweenParams struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	FromDate  pgtype.Date
+	ToDate    pgtype.Date
+}
+
+// Return entries for a specific vehicle within an account whose charged_on falls
+// within [@from_date, @to_date], inclusive of both bounds, ordered newest charged
+// day first. Uses idx_manual_charge_entries_vehicle_time (account_id, tesla_id,
+// charged_on DESC) as a single index range scan: account_id and tesla_id prune to
+// the tenant and vehicle, charged_on BETWEEN walks the range, and the DESC column
+// order satisfies ORDER BY with no separate sort step (design D3). No LIMIT: the
+// caller-supplied [from, to] window is the safety bound, not a row count
+// (design D1, roadmap D9).
+func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntriesByVehicleBetweenParams) ([]ManualChargeEntry, error) {
+	rows, err := q.db.Query(ctx, listEntriesByVehicleBetween,
+		arg.AccountID,
+		arg.TeslaID,
+		arg.FromDate,
+		arg.ToDate,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ManualChargeEntry
+	for rows.Next() {
+		var i ManualChargeEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.TeslaID,
+			&i.Vin,
+			&i.ChargedOn,
+			&i.EnergyAddedKwh,
+			&i.Price,
+			&i.Currency,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.ChargingType,
+			&i.LocationKind,
+			&i.LocationLabel,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateEntry = `-- name: UpdateEntry :one
 UPDATE manual_charge_entries
 SET

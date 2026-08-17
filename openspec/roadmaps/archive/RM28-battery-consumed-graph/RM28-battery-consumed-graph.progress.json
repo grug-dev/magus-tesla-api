@@ -1,0 +1,417 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM28-battery-consumed-graph",
+  "intention": "A battery-consumed %/day bar graph on /ui/dashboard/history that corrects raw snapshot deltas by the charge added that day, plus a durable record of days whose numbers do not add up because a charge record is missing or incomplete.",
+  "request": "Source ticket: MAG-15 — https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph\n\nShow a new bar graph similar to the odometer history and battery history graphs on the dashboard (/ui/dashboard/history), using the same standard as the other graphs. The vehicle may be charged during the day, which makes battery_used_pct negative or invalid, so the two charging tables (manual_charge_entries, supercharger_sessions) — both carrying start_battery_pct / end_battery_pct — are used to recover the real consumption. Whenever the result is negative, or zero while distance_traveled_km_calc > 10, a charge record is missing: record it in a new table (vin, tesla_id, missing_charging_type, date) so the user can be notified in a later ticket.",
+  "status": "complete",
+  "autopilot": true,
+  "created_at": "2026-08-15T13:07:34Z",
+  "updated_at": "2026-08-16T16:22:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM28-MAG-15-battery-consumed-graph",
+    "base": "874820f (main)",
+    "ticket": "MAG-15",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-15/battery-consumed-graph",
+    "created_at": "2026-08-15T13:07:34Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3,
+      4
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-15T12:50:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Consumption is attributed to the EARLIER day: the poll upserts snapshot row N, then updates row N-1's five derived columns in the same transaction. Row N inserts with NULLs.",
+      "why": "The 03:00 poll measures a window that is mostly the previous day, and the charge records it must line up with are dated that day. Re-polls stay self-healing because the N-1 recompute runs on every poll.",
+      "covered_by": null,
+      "superseded_by": "D16"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-15T12:52:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "battery_consumed_pct is recomputed on read, never stored. No cache table.",
+      "why": "~90 rows for one account+vehicle. Recomputing also removes any cache-invalidation duty when a user adds a long-past manual entry — the ticket's own open question.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-15T12:53:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "internal/telemetry owns the missing-charge table; internal/battery writes to it through a new telemetry write port.",
+      "why": "Owner's call against the assistant's recommendation that battery own it. Reuses telemetry's persistence; battery gains no db/ folder. No cycle: battery already imports telemetry.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-15T12:56:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Detection runs in the nightly poller (cmd/poller) after snapshots are written, not on the dashboard read path. cmd/poller orchestrates battery -> telemetry.",
+      "why": "The table exists to notify the user later; if written only on dashboard reads it could report nothing the user had not already seen. Composition root orchestration avoids the telemetry->battery cycle.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-15T12:56:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Flag a day when consumed < 0, or consumed == 0 while distance_traveled_km_calc > 10, with 10 as a named constant. Days with NULL battery_used_pct_calc are skipped.",
+      "why": "The owner's rule as specified. The zero-plus-distance clause catches a charge exactly cancelling the day's usage. No predecessor means no honest claim either way.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-15T12:56:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Calendar-day bucketing uses the poller's configured zone (Config.Location, currently America/Bogota).",
+      "why": "Same zone captured_date is already computed in. Charges and snapshots must bucket by identical rules or the formula breaks at the edges. Superseded for Supercharger sessions by D12.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-15T13:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Missing-charge table: UNIQUE (account_id, tesla_id, date), one row per vehicle-day, columns vin/tesla_id/date/missing_charging_type all NOT NULL. Nightly run upserts flagging days and deletes days that no longer flag.",
+      "why": "One aggregate shortfall per day is one honest row; a per-type key would invite a speculative second row we cannot substantiate. Delete-on-resolve clears rows automatically with no extra wiring.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-15T13:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Multi-day spans (days_spanned_calc > 1) plot one flagged bar on the start day; intervening days render as no-data. Charges inside the span are summed regardless.",
+      "why": "Splitting evenly would invent a distribution never observed; excluding would silently drop real consumption.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-15T13:02:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Add additive date-range read ports taking from/to: telemetry.SnapshotsByVehicleBetween, telemetry.SuperchargerSessionsByVehicleBetween, manualcharge.ListEntriesByVehicleBetween. Snapshots are fetched over [start, end+1].",
+      "why": "A date-filtered graph asking for a date range is the honest contract; with a limit there is no safe number to guess. The extra day is required because day D's bar needs snapshots at D and D+1.",
+      "covered_by": null,
+      "superseded_by": "D16"
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-15T13:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "A flagged day renders as a zero-height bar with a distinct warning marker, never the raw negative value and never omitted. Labels bilingual ES/EN via i18n.T.",
+      "why": "Plotting a number we do not believe reads as a bug; hiding the day makes it indistinguishable from no data, so the user never learns there is something to fix.",
+      "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-15T13:02:00Z",
+      "scope": "roadmap",
+      "made_by": "assistant",
+      "decision": "parseHistoryRange's default window and its end <= today cap both move to yesterday, matching the presets.",
+      "why": "Today's EffectiveDate row is not captured until tomorrow's poll, so end = today can only produce an empty trailing bar. Presets already end at yesterday for this reason; only the default and the cap still allow today. Rationale corrected by D16; conclusion unchanged.",
+      "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-15T13:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Charge-to-day matching is source-specific: Supercharger sessions match by charge_stop_date_time falling within [snapshot[D].captured_at, snapshot[D+1].captured_at]; manual entries match on charged_on.",
+      "why": "A session ending 01:00 on Aug 14 belongs to Aug 13's poll window but has stop-date Aug 14 — date bucketing would file it wrong, producing a false gap flag and an inflated neighbouring bar.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-15T12:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The formula sums over ALL charge events across both tables: consumed = battery_used_pct_calc + sum(end_battery_pct - start_battery_pct). Neither source takes precedence.",
+      "why": "Corrects the ticket's 'latest session per day', which discards earlier sessions and yields false gap flags. Verified: two sessions summing to 5 vs -25 latest-only vs 15 first-start-to-last-end.",
+      "covered_by": null
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-15T12:20:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Supercharger start/end percentages stay NULL. No entry UI and no kWh-based estimation in RM28; those days flag as SUPERCHARGER gaps.",
+      "why": "RM27 shipped the columns as storage only, the Fleet API carries no SOC, and the taper-solve estimator was descoped as disproportionate. Both remain backlog entry 11.",
+      "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-15T12:45:00Z",
+      "scope": "roadmap",
+      "made_by": "assistant",
+      "decision": "internal/battery owns the derivation; a new internal/consumption module was rejected.",
+      "why": "battery is already the derived-metrics module and already composes the exact four dependencies via NewReader. A new module would duplicate its purpose and its whole dependency graph.",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-15T13:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "SUPERSEDES D1, D9, D9a. No attribution change is needed: telemetry.Snapshot.EffectiveDate already provides it. Tier RM28-telemetry-shift-consumption-attribution is DROPPED and its artifacts deleted uncommitted. D9 reduces to two new ports (SnapshotsByVehicleBetween already exists). D9a reverses to a [start-1, end] lookback.",
+      "why": "mapping.go:110 derives EffectiveDate = CapturedAt - 1 day on read, so the row captured Aug 14 already carries both the Aug 13 delta and the Aug 13 label. The migration, backfill and two-write path would have bought no behavioural change.",
+      "covered_by": null
+    },
+    {
+      "id": "D17",
+      "at": "2026-08-16T02:30:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "D8's 'start day' means the row's own EffectiveDate - for a multi-day span that is the span's LAST calendar day. Confirms design D-B3.",
+      "why": "Placing it on the span's first day needs prev.EffectiveDate+1 arithmetic, the shift D1's correction removed. Intervening days stay no-data either way.",
+      "covered_by": "clarifies roadmap D8"
+    },
+    {
+      "id": "D18",
+      "at": "2026-08-16T02:30:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "D6 STANDS LITERALLY: calendar-day bucketing uses the poller's configured zone (Config.Location, America/Bogota). SUPERSEDES design D-B7's UTC-EffectiveDate reading.",
+      "why": "Owner's call, made against the leader's UTC recommendation and with the two-clocks consequence stated. Tier 3 must bucket in Bogota; tier 4 inherits the mismatch with the existing UTC charts.",
+      "covered_by": "upholds roadmap D6"
+    },
+    {
+      "id": "D19",
+      "at": "2026-08-16T11:22:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The consumed chart scales RELATIVE to the window max (mirrors buildOdometerChart), not absolute 0-100.",
+      "why": "A typical 6-20 %/day range leaves an absolute 0-100 axis nearly empty. Heights are not comparable across windows; the tooltip carries the real number.",
+      "covered_by": "new - tier 4 rendering, not covered by D10"
+    },
+    {
+      "id": "D20",
+      "at": "2026-08-16T11:22:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "A multi-day span (DaysSpanned > 1) plots its REAL ConsumedPct with its own distinct marker + 'covers N days' tooltip - a separate visual from the D10 gap marker, never a zero-height bar.",
+      "why": "The value is genuinely observed, just over a longer window; zeroing it would drop real consumption, which D8 explicitly rejects, and would make a missed poll look like a data error.",
+      "covered_by": "clarifies roadmap D8 for rendering"
+    },
+    {
+      "id": "D21",
+      "at": "2026-08-16T11:40:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "A day BOTH flagged (D10) and spanned (D20) carries BOTH markers, with both facts in the tooltip. Resolves design D-G4, which had proposed span-marker-only. Markers are a set, not a single enum.",
+      "why": "Height is zero under either reading (Flagged implies ConsumedPct <= 0), so the only real choice was the marker. Showing one hides a true fact: the poll missed days AND a charge record is missing.",
+      "covered_by": "resolves design D-G4; new - roadmap D10/D20 did not address the overlap"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-15T13:07:34Z",
+      "kind": "roadmap-created",
+      "note": "RM28 created from MAG-15 via kkpa-pickup-linear-ticket. Design settled with the user in a grill-me interview (D1-D15) before any artifact was written. Run scope: HALT AFTER STEP 4 — tier 1 artifacts only, no implementation."
+    },
+    {
+      "at": "2026-08-15T13:38:00Z",
+      "kind": "worker-returned",
+      "note": "telemetry worker produced the four artifacts for RM28-telemetry-shift-consumption-attribution and independently reported that the gateway reads none of the five _calc columns, disproving D1b."
+    },
+    {
+      "at": "2026-08-15T13:40:00Z",
+      "kind": "tier-dropped",
+      "note": "Leader verified the worker's finding and found more: EffectiveDate (mapping.go:110) already attributes snapshots to the prior day, and SnapshotsByVehicleBetween already exists. Tier 1 dropped with the user's approval, artifacts deleted uncommitted, roadmap renumbered to four tiers. See D16."
+    },
+    {
+      "at": "2026-08-15T13:41:00Z",
+      "kind": "contract-note",
+      "note": "The leader's original D9 was based on a truncated grep of the telemetry Reader interface (-A 18 cut off above SnapshotsByVehicleBetween at telemetry.go:282). Full-interface reads now confirm SuperchargerReader and manualcharge.Reader genuinely lack date-range methods."
+    },
+    {
+      "at": "2026-08-16T01:25:00Z",
+      "kind": "tier-archived",
+      "note": "Tier 1 archived as 2026-08-16-RM28-telemetry-add-charge-gap-storage; openspec synced 1 added + 1 modified requirement into openspec/specs/telemetry/spec.md. Tiers 2 and 3 depend on it; tier 2 (manualcharge) is now unblocked. autopilot:false - leader stops here for the user."
+    },
+    {
+      "at": "2026-08-16T01:36:37Z",
+      "kind": "autopilot-enabled",
+      "note": "User turned Auto Pilot Mode ON when resuming at tier 2. autopilot flipped false -> true; the leader now advances tier to tier without asking, pausing only on the real gates (design gate, review triage, push/PR, budget checkpoint)."
+    },
+    {
+      "at": "2026-08-16T01:36:40Z",
+      "kind": "tier-started",
+      "note": "Tier 2 (RM28-manualcharge-add-date-range-reader) started. No new interview: D9/D12 fully specify it. Design gate does NOT trip - idx_manual_charge_entries_vehicle_time (account_id, tesla_id, charged_on DESC) already covers the range scan, so no schema or index change."
+    },
+    {
+      "at": "2026-08-16T02:06:00Z",
+      "kind": "tier-archived",
+      "note": "Tier 2 archived, reviewer-approved with zero findings. Tier 3 (RM28-battery-derive-consumed-per-day) depends on tiers 1+2 - both now archived, so it is unblocked. Autopilot advances to tier 3."
+    },
+    {
+      "at": "2026-08-16T02:08:00Z",
+      "kind": "tier-started",
+      "note": "Tier 3 (RM28-battery-derive-consumed-per-day) started on autopilot - tiers 1+2 archived so its depends_on is satisfied. Checkpoint gate evaluated first: 5h 61%, ctx 21%, both well under 90/40. No fresh interview: roadmap D4/D4a/D5/D5a/D7a/D8/D9a/D12/D13/D15 cover the tier."
+    },
+    {
+      "at": "2026-08-16T02:24:00Z",
+      "kind": "design-review",
+      "note": "Tier 3 artifacts validated strict, no schema change (battery owns no DB), so the database gate does not trip. BUT two design decisions reinterpret the OWNER's roadmap decisions with visible consequences: D-B3 (D8's 'start day' -> the span's LAST day) and D-B7 (D6's Bogota-zone bucketing -> UTC EffectiveDate). Autopilot PAUSED for the owner - a new decision the roadmap Decisions do not cover."
+    },
+    {
+      "at": "2026-08-16T02:30:00Z",
+      "kind": "design-decision",
+      "note": "Owner answered both paused questions. D-B3 confirmed as designed. D-B7 OVERRULED - D6 stands literally, so tier 3's design and tasks must be revised to bucket in Config.Location before any implementation. Autopilot resumes after the revision."
+    },
+    {
+      "at": "2026-08-16T11:09:00Z",
+      "kind": "tier-archived",
+      "note": "Tier 3 archived as 2026-08-16-RM28-battery-derive-consumed-per-day; openspec synced 7 added requirements into openspec/specs/battery/spec.md. Reviewer approved round 1 with zero findings. Owner verified BOTH the go test suite and a real cmd/poller run. Tier 4 (gateway) depends only on tier 3, so it is now unblocked - autopilot advances."
+    },
+    {
+      "at": "2026-08-16T11:09:00Z",
+      "kind": "kb-sync-skipped",
+      "note": "Post-archive KB spec-sync skipped: this project has no kkpa/context/ knowledge base, so there is nothing to stage and the folder is deliberately not created."
+    },
+    {
+      "at": "2026-08-16T11:22:00Z",
+      "kind": "tier-started",
+      "note": "Tier 4 (RM28-gateway-add-consumed-graph) started on autopilot; tier 3 archived so depends_on is satisfied. Checkpoint gate first: 5h 61%, ctx 7%, both under 90/40. Autopilot paused once for two NEW rendering decisions the roadmap did not cover - owner answered: D19 (relative scale) and D20 (multi-day span shows its real value). Database design gate does not trip: the gateway owns no DB."
+    },
+    {
+      "at": "2026-08-16T15:45:00Z",
+      "kind": "tier-resumed",
+      "note": "Tier 4 resumed in a fresh session. Artifacts (proposal/design/tasks/specs) were already written and revised under D19-D21 but uncommitted; validated strict and committed now. Tier status [ ] -> [~]. 5h bucket had just reset to 3%, ctx 9%."
+    },
+    {
+      "at": "2026-08-16T16:22:00Z",
+      "kind": "tier-archived",
+      "note": "Tier 4 archived as 2026-08-16-RM28-gateway-add-consumed-graph; openspec synced 1 modified requirement into openspec/specs/gateway/spec.md. Reviewer approved round 1 with one minor finding (R1), accepted and deferred to backlog item 13 — pre-existing in all three charts and unreachable via the UI. Owner ran make test green. ALL FOUR TIERS ARCHIVED — roadmap complete."
+    },
+    {
+      "at": "2026-08-16T16:22:30Z",
+      "kind": "kb-sync-skipped",
+      "note": "Post-archive KB spec-sync skipped again: this project has no kkpa/context/ knowledge base, so there is nothing to stage and the folder is deliberately not created."
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM28-telemetry-add-charge-gap-storage",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-15T13:44:00Z",
+      "completed_at": "2026-08-16T01:25:00Z",
+      "duration_seconds": 42060,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 25.7,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of session 1 (~$12.9, wave-2 end-reading lost) + session 2 ($12.8: verify, review r1, T9 fix, review r2, archive). Spanned a bucket reset, so the 5-hour % delta is not additive."
+      },
+      "notes": "charge_gaps + GapWriter + bounded Supercharger read shipped. 9 tasks, 2 review rounds (r1 approved w/ 1 minor, fixed in T9), owner ran the suite twice."
+    },
+    {
+      "id": 2,
+      "change": "RM28-manualcharge-add-date-range-reader",
+      "module": "manualcharge",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T01:36:40Z",
+      "completed_at": "2026-08-16T02:06:00Z",
+      "duration_seconds": 1760,
+      "budget": {
+        "five_hour_pct_delta": 13,
+        "cost_usd_delta": 6.25,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "artifacts + 2 waves + review round 1, all in one session"
+      },
+      "notes": "ListEntriesByVehicleBetween shipped: inclusive bounds, charged_on DESC, no limit, no schema change. 7 tasks, 1 review round approved with zero findings, owner ran the suite green."
+    },
+    {
+      "id": 3,
+      "change": "RM28-battery-derive-consumed-per-day",
+      "module": "battery",
+      "optional": false,
+      "depends_on": [
+        1,
+        2
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T02:08:00Z",
+      "completed_at": "2026-08-16T11:09:00Z",
+      "duration_seconds": 32460,
+      "budget": {
+        "five_hour_pct_delta": 57,
+        "cost_usd_delta": 24.46,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts session (~$0.9 carried) + this session: T0 design revision on Opus, 2 worker waves, leader T6, review round 1"
+      },
+      "notes": "Shipped: consumed.go derivation (D13/D12/D5/D8), ConsumedByDay port, cmd/poller reconciliation via a Collector decorator. 9 tasks, 1 review round approved with ZERO findings. Owner ran the suite and the poller."
+    },
+    {
+      "id": 4,
+      "change": "RM28-gateway-add-consumed-graph",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        3
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-16T11:22:00Z",
+      "completed_at": "2026-08-16T16:22:00Z",
+      "duration_seconds": 18000,
+      "budget": {
+        "five_hour_pct_delta": 49,
+        "cost_usd_delta": 21.6,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts session (uncommitted, ~$0) + this session: 3 waves, leader T7, a T8.15/T8.16 follow-up round, review round 1"
+      },
+      "notes": "Third chart shipped: two independent marker chips (D21), relative scale (D19), D11 window move. 10 tasks, 1 review round approved with one minor finding deferred to backlog 13. Owner ran the suite green."
+    }
+  ],
+  "dropped_tiers": [
+    {
+      "change": "RM28-telemetry-shift-consumption-attribution",
+      "module": "telemetry",
+      "dropped_at": "2026-08-15T13:40:00Z",
+      "reason": "Premise disproven by D16 — EffectiveDate already attributes each snapshot to the day it represents, so the migration, backfill and two-write poll path would have produced no behavioural change. Artifacts were written, then deleted uncommitted; no code was ever produced."
+    }
+  ]
+}

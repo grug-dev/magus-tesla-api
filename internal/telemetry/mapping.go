@@ -54,6 +54,15 @@ func pgNullableText(v pgtype.Text) *string {
 	return &s
 }
 
+// dateFromPg converts a non-nullable pgtype.Date to a plain time.Time,
+// mirroring dateFrom's forward direction (service.go). Used by gap_writer.go
+// to read back charge_gaps.gap_date values (always NOT NULL -- no nullable
+// variant needed, unlike the pgNullable* helpers above). RM28-telemetry-
+// add-charge-gap-storage.
+func dateFromPg(d pgtype.Date) time.Time {
+	return d.Time
+}
+
 // pgNullableInt16AsInt converts a nullable pgtype.Int2 (SMALLINT) to *int:
 // {Valid: false} -> nil, {Valid: true} -> &v. First SMALLINT column in this module;
 // mirrors internal/manualcharge's identical intPtrToPgInt2/pgInt2ToIntPtr shape for

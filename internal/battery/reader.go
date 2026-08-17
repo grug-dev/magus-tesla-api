@@ -128,3 +128,30 @@ func (r *reader) RecentEfficiency(ctx context.Context, accountID uuid.UUID, tesl
 	eff, ok := deriveEfficiency(snapshots, kWhIn, capacity, known)
 	return eff, ok, nil
 }
+
+// ConsumedByDay implements Reader (design.md "Go-Level Surface", D-B1/D-B13).
+// It issues exactly one call per consumed port (telemetry, supercharger,
+// manual — never account, per D-B1), widening each fetch window past
+// [start, end] to cover the zone shift (design.md D-B13); deriveConsumedByDay
+// re-filters every fetched row against its own precise predicate, so the
+// over-fetch can only cost rows read, never change a result.
+func (r *reader) ConsumedByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayConsumption, error) {
+	lookbackStart := start.AddDate(0, 0, -1)
+
+	snapshots, err := r.telemetry.SnapshotsByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end.AddDate(0, 0, 1))
+	if err != nil {
+		return nil, err
+	}
+
+	sessions, err := r.supercharger.SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end.AddDate(0, 0, 2))
+	if err != nil {
+		return nil, err
+	}
+
+	entries, err := r.manual.ListEntriesByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end)
+	if err != nil {
+		return nil, err
+	}
+
+	return deriveConsumedByDay(snapshots, sessions, entries, start, end), nil
+}

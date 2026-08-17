@@ -337,6 +337,86 @@ Extended the same day when the owner **descoped the estimator and the UI tiers e
 (RM27 decision D11), reducing RM27 to the five columns and moving items 1–3 above here.
 
 
+## 12. Architecture — charging data is split across two modules
+
+### PROPOSAL
+
+The platform stores charge sessions in **two tables owned by two different modules**:
+`manual_charge_entries` (`internal/manualcharge`) and `supercharger_sessions`
+(`internal/telemetry`). They carry the same conceptual payload — when the car charged, how
+much energy went in, and (per RM27) the start/end battery percentage — but no module owns
+"charging" as a domain.
+
+The cost is paid by every consumer. Any question of the form *"how was this vehicle charged?"*
+must compose two ports, sum across both shapes, and keep the two in step. `internal/battery`
+already does this twice (`sumSuperchargerKWh` + `sumManualKWh` for efficiency), and RM28 adds
+a third pair of date-range readers plus a summation across both sources for the consumed
+graph. Each new consumer re-implements the same fan-out.
+
+Possible shapes, none yet evaluated: a `charging` module owning both tables; a read-side
+`ChargeReader` port that unions the two behind one interface without moving data; or leaving
+ownership alone and extracting only the shared summation.
+
+**TRIGGER to pick up:** a third consumer needs combined charge data, OR the Supercharger
+verification UI (item 11) lands and makes the two write paths visibly inconsistent to users.
+Deliberately **not** bundled into RM28 — it would turn a graph ticket into a cross-module
+data migration.
+
+### ORIGIN
+
+MAG-15 / RM28 grill-me session, 2026-08-15 — the owner raised it while settling which module
+should own the missing-charge table ("maybe we don't have the right bundle for charging data
+records… but that's out of the scope of this ticket") and scoped it out explicitly.
+
+
+## 13. gateway — history charts key a `map[time.Time]` without normalizing the lookup side
+
+### PROPOSAL
+
+All three history charts in `internal/gateway/handlers/history.go` bucket their data into a
+`map[time.Time]` and then read it with a loop variable derived from `start`:
+
+```go
+byDay[<some UTC-midnight date>] = row      // write side
+for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+    row, ok := byDay[d]                    // read side — d's Location is NOT normalized
+```
+
+Go compares `time.Time` map keys on the wall clock **and the `*time.Location`**, so the two
+sides must agree on both. The write sides are UTC (`effectiveDayUTC` for odometer/battery;
+`battery.DayConsumption.Date`, normalized by `internal/battery`'s `calendarDay`, for
+consumed). The read side is UTC only when `start` came from an explicit `?start=&end=` pair
+(`time.Parse` defaults to UTC) or the no-cookie fallback. On the **both-params-absent** path
+with a valid non-UTC `browser_tz` cookie, `start` carries that zone's `*time.Location`
+(`browserToday` → `startOfDayIn`) — every lookup then misses and **all three charts render
+as all-no-data, with no error logged anywhere.**
+
+**Currently unreachable through the UI:** `defaultHistoryHref` (`handlers.go`) and every
+preset button (`history.templ`) send explicit, UTC-parsed `start`/`end` params, so the
+browser never issues a param-less request. The path is reachable only by hand-calling
+`GET /ui/dashboard/history` with a `browser_tz` cookie and no params.
+
+**Fix when picked up:** normalize the read side once — `d` (or the map key) through a single
+`calendarKey(t) time.Time` helper that strips the zone to UTC midnight — and cover it with a
+test that drives the both-absent path with a non-UTC cookie. Note the fix belongs to **all
+three** charts, not just the consumed one; a per-chart patch would leave the same trap in the
+other two.
+
+**TRIGGER — fix this FIRST when** any caller can reach `parseHistoryRange` with both params
+absent and a `browser_tz` cookie set: a param-less link or redirect to
+`/ui/dashboard/history`, an external/API consumer of that endpoint, or a change that makes
+`defaultHistoryHref` stop emitting explicit dates.
+
+### ORIGIN
+
+`RM28-gateway-add-consumed-graph` (RM28 tier 4) review finding **R1**, raised by the leader in
+the review brief and confirmed by `gateway-reviewer` round 1 (`minor`, accepted, deferred).
+Pre-existing — the odometer and battery charts have carried the identical read-side gap since
+`gateway-dashboard-history-charts`; tier 4 neither introduced nor worsened it, and design.md
+**D-G3** explicitly forbade adding gateway-side timezone handling to the new function.
+Recorded in that change's archived progress.json.
+
+
 # BRAINSTORMING
 
 

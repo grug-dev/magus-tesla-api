@@ -99,3 +99,18 @@ SELECT * FROM manual_charge_entries
 WHERE account_id = @account_id
 ORDER BY charged_on DESC
 LIMIT @limit_count;
+
+-- name: ListEntriesByVehicleBetween :many
+-- Return entries for a specific vehicle within an account whose charged_on falls
+-- within [@from_date, @to_date], inclusive of both bounds, ordered newest charged
+-- day first. Uses idx_manual_charge_entries_vehicle_time (account_id, tesla_id,
+-- charged_on DESC) as a single index range scan: account_id and tesla_id prune to
+-- the tenant and vehicle, charged_on BETWEEN walks the range, and the DESC column
+-- order satisfies ORDER BY with no separate sort step (design D3). No LIMIT: the
+-- caller-supplied [from, to] window is the safety bound, not a row count
+-- (design D1, roadmap D9).
+SELECT * FROM manual_charge_entries
+WHERE account_id = @account_id
+  AND tesla_id = @tesla_id
+  AND charged_on BETWEEN @from_date AND @to_date
+ORDER BY charged_on DESC;

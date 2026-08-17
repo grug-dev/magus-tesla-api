@@ -42,6 +42,15 @@ func (f *fakeSuperchargerReader) SuperchargerSessionsByAccount(_ context.Context
 	return f.sessions, f.err
 }
 
+// SuperchargerSessionsByVehicleBetween satisfies the port's third method
+// (RM28-telemetry-add-charge-gap-storage). No gateway handler reads a bounded
+// window today — the Supercharger Stats page uses the limit-based methods above
+// — so a call here means a handler started using the new read without this
+// double being updated to mirror its contract.
+func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]telemetry.SuperchargerSession, error) {
+	panic("fakeSuperchargerReader: SuperchargerSessionsByVehicleBetween must not be called by any gateway handler")
+}
+
 func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]telemetry.SuperchargerSession, error) {
 	f.capturedAccountID = accountID
 	f.capturedFilterID = teslaID
