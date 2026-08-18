@@ -106,7 +106,7 @@ magus-tesla-api/
 │   ├── tesla/          # State-less Fleet API adapter (handed creds per call)
 │   ├── telemetry/      # Nightly vehicle snapshot collection + storage (poller)
 │   ├── manualcharge/   # User-asserted charge entries (home/work/3rd-party sessions)
-│   ├── battery/        # Derived battery metrics (rolling Wh/km) — owns no store
+│   ├── battery/        # Derived battery metrics (Wh/km, consumed %/day) — owns no store
 │   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
 │   │   ├── handlers/       #   thin handlers: session/auth → module interface → render
 │   │   ├── i18n/           #   translation catalogue + per-request language resolution (es default, en)
@@ -123,7 +123,8 @@ magus-tesla-api/
 │       └── com.tesla.3p.public-key.pem
 │
 └── docs/
-    └── post-registration-setup.md   # Full setup guide — start here
+    ├── post-registration-setup.md   # Full setup guide — start here
+    └── battery-consumed-graph.md    # How the Battery Consumed pipeline works end to end
 ```
 
 For details on the `cmd/` convention and each binary, see [cmd/README.md](cmd/README.md).
@@ -192,7 +193,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/tesla` | Stateless Fleet API adapter (handed credentials per call) |
 | `internal/telemetry` | Nightly per-vehicle snapshot collection + storage |
 | `internal/manualcharge` | User-asserted charge entries (home/work/3rd-party) |
-| `internal/battery` | Derived battery metrics (rolling Wh/km) computed over stored telemetry. Owns no database — a pure read-side derivation over sibling ports. |
+| `internal/battery` | Derived battery metrics computed over stored telemetry: rolling Wh/km, and the per-day **battery consumed %** (raw SoC delta corrected by both charge sources) plus the gap detection it hands to telemetry's `GapWriter`. Owns no database — a pure read-side derivation over sibling ports. See [docs/battery-consumed-graph.md](docs/battery-consumed-graph.md). |
 | `internal/gateway` | Gin + Templ + htmx web layer, styled with Node-less Tailwind + DaisyUI (drawer nav, typed `ui/` component kit). The only package allowed to produce HTML. |
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
@@ -207,15 +208,17 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 ```text
 ┌─ COMPOSITION ROOT ── cmd/ wires concrete types together at startup ──────┐
 │  cmd/web ────────────► gateway, account, telemetry, manualcharge,        │
-│                        tesla, googleauth, config                         │
-│  cmd/poller ─────────► telemetry, account, tesla, config                 │
+│                        battery, tesla, googleauth, config                │
+│  cmd/poller ─────────► telemetry, account, battery, manualcharge,        │
+│                        tesla, config                                     │
 │  cmd/setup ──────────► auth, config                                      │
 │  cmd/explore-tesla-api ► tesla, auth, config                             │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
-│  gateway ────────────► account, telemetry, manualcharge, tesla,          │
-│    │                   googleauth                                        │
-│    ├─ handlers ──────► account, auth, telemetry, manualcharge, tesla,    │
-│    │                   googleauth, i18n, templates/*                     │
+│  gateway ────────────► account, telemetry, manualcharge, battery,        │
+│    │                   tesla, googleauth                                 │
+│    ├─ handlers ──────► account, auth, telemetry, manualcharge,           │
+│    │                   battery, tesla, googleauth, i18n,                 │
+│    │                   templates/*                                       │
 │    ├─ templates/* ───► i18n, templates/ui                                │
 │    └─ i18n ──────────► account            (the Language type only)       │
 ├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
@@ -242,6 +245,12 @@ When two modules genuinely need each other, do **not** create a `shared` package
 merge them — declare a small **consumer-side interface** in the package that needs the data and
 wire the concrete type in at `cmd/` startup. Full rule and example:
 [`ai/architecture.md`](ai/architecture.md) §2 "Dependency direction & import cycles".
+
+For a worked example of these boundaries in one feature — four modules plus the poller, with the
+composition root joining a derivation in one module to a writer in another — see
+**[docs/battery-consumed-graph.md](docs/battery-consumed-graph.md)**, which traces the Battery
+Consumed chart end to end: where each value is calculated, when `charge_gaps` rows are written and
+deleted, and what happens when a charge record is edited.
 
 To regenerate this graph:
 
