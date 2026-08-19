@@ -10,7 +10,7 @@ type CardProps struct {
 // Card is a themed surface container with an optional title and a body slot.
 templ Card(p CardProps) {
 	<div class={ "card bg-base-100 shadow", p.Class }>
-		<div class="card-body">
+		<div class="card-body bg-[var(--color-surface-card)] border border-[var(--color-line-card)]">
 			if p.Title != "" {
 				<h2 class="card-title">{ p.Title }</h2>
 			}
