@@ -33,6 +33,11 @@ const (
 // NeedsConnect is the no-vehicles state: it renders a "Connect your Tesla" link
 // and NO status dot / battery / vehicle name (mirrors the dashboard's
 // NeedsConnect). It is distinct from Status (which carries a dot).
+//
+// The vehicle context-switcher <select> used to live here; it now lives in its
+// own fragment (VehicleSelectVM / vehicle_select.templ), mounted in the navbar
+// by layouts.BaseAuth. This region shows the primary vehicle's status only and
+// re-fetches itself on the "vehicle-changed" event the switcher fires.
 type NavHeaderVM struct {
 	// NeedsConnect is true when the account has no registered vehicles.
 	NeedsConnect bool
@@ -57,20 +62,6 @@ type NavHeaderVM struct {
 	// only when asleep; empty otherwise. The template composes
 	// "Asleep • Last seen 2 days ago".
 	LastSeenLabel string
-
-	// Vehicles is the account's registered vehicle list, for the context-switcher
-	// <select>. Empty when NeedsConnect (the connect prompt replaces it). The
-	// handler pre-marks SelectedVehicleTeslaID so exactly one option is selected.
-	Vehicles []VehicleOptionVM
-
-	// SelectedVehicleTeslaID is the TeslaID of the currently selected vehicle
-	// (0 when none / NeedsConnect). Used to mark the <option selected> on render
-	// and as the form value the switcher submits.
-	SelectedVehicleTeslaID int64
-
-	// CSRFToken is the session CSRF token the switcher form posts with the
-	// vehicle selection so the POST /ui/vehicle/select handler can validate it.
-	CSRFToken string
 }
 
 // NavHeader is the nav-header region swapped in by htmx at GET /ui/nav-header.
@@ -106,22 +97,6 @@ templ NavHeader(vm NavHeaderVM) {
 							}
 						</span>
 					</div>
-					if len(vm.Vehicles) > 1 {
-						<form
-							hx-post="/ui/vehicle/select"
-							hx-target="#nav-header"
-							hx-swap="outerHTML"
-							hx-trigger="change from:find select"
-							class="mt-1"
-						>
-							<input type="hidden" name="csrf_token" value={ vm.CSRFToken }/>
-							@ui.Select(ui.SelectProps{Name: "vehicle", Size: "xs", Attrs: templ.Attributes{"aria-label": i18n.T(ctx, i18n.KeyNavHeaderSwitchVehicleAria)}}) {
-								for _, opt := range vm.Vehicles {
-									<option value={ opt.Value } selected?={ opt.Selected }>{ opt.DisplayName }</option>
-								}
-							}
-						</form>
-					}
 				</div>
 			}
 		</div>

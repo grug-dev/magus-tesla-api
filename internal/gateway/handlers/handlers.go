@@ -493,8 +493,15 @@ func defaultHistoryHref(today time.Time) string {
 
 // NavHeaderFragment renders ONLY the nav-header fragment (htmx swap served by
 // GET /ui/nav-header). The #nav-header placeholder is rendered by layouts.BaseAuth
-// on every authed page; htmx fetches this fragment on load and swaps it in, keeping
-// the account + telemetry reads OFF the critical page-render path (DD2).
+// on every authed page; htmx fetches this fragment on load and on the
+// "vehicle-changed" event (so the status dot/battery reflect the switched-to
+// vehicle), keeping the account + telemetry reads OFF the critical page-render
+// path (DD2).
+//
+// The vehicle context-switcher <select> used to live here; it now lives in its
+// own fragment (GET /ui/vehicle-select, see VehicleSelectFragment), so this
+// handler no longer issues the vehicle-select CSRF token — that moved with the
+// switcher.
 func (h *Handler) NavHeaderFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -502,38 +509,59 @@ func (h *Handler) NavHeaderFragment(c *gin.Context) {
 		return
 	}
 	// Ensure a vehicle is selected (auto-select first OWNER when none). The
-	// switcher and every downstream page rely on a valid context.
+	// status dot and every downstream page rely on a valid context.
 	selected, sOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
 	selectedTeslaID := int64(0)
 	if sOK {
 		selectedTeslaID = selected.TeslaID
 	}
 	vm := h.navHeaderFor(c.Request.Context(), uid, selectedTeslaID)
+	renderFragment(c, http.StatusOK, fragments.NavHeader(vm), "nav-header")
+}
 
-	// Issue/refresh the vehicle-select CSRF token so the switcher's <select>
-	// form (POST /ui/vehicle/select) is protected. Regenerated on every
-	// nav-header render (including after a switch) so a fresh token rides each
-	// swap; constant-time validated in VehicleSelect.
+// VehicleSelectFragment renders ONLY the vehicle-switcher fragment (htmx swap
+// served by GET /ui/vehicle-select). The #vehicle-select placeholder is mounted
+// by layouts.BaseAuth in the navbar before the language switcher; htmx fetches
+// this fragment on load. Authenticated-only by construction (BaseAuth is the
+// shell for authed pages; the anonymous Base shell never renders the navbar).
+//
+// Issues/refreshes the vehicle-select CSRF token (csrf_vehicle_select) so the
+// switcher's <select> form (POST /ui/vehicle/select) is protected — the token
+// responsibility moved here from NavHeaderFragment when the switcher split out.
+func (h *Handler) VehicleSelectFragment(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	selected, sOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
+	selectedTeslaID := int64(0)
+	if sOK {
+		selectedTeslaID = selected.TeslaID
+	}
+	vm := h.vehicleSelectFor(c.Request.Context(), uid, selectedTeslaID)
 	csrf, err := generateCSRFToken()
 	if err != nil {
-		log.Printf("gateway: nav-header csrf token error for account %s: %v", uid, err)
+		log.Printf("gateway: vehicle-select csrf token error for account %s: %v", uid, err)
 		// No token → the switcher form still renders but will 403 on submit.
-		// Degrade gracefully (status display is unaffected).
+		// Degrade gracefully (the select itself is unaffected).
 	} else {
 		sess := sessions.Default(c)
 		sess.Set(csrfVehicleSelectKey, csrf)
 		_ = sess.Save()
 		vm.CSRFToken = csrf
 	}
-
-	renderFragment(c, http.StatusOK, fragments.NavHeader(vm), "nav-header")
+	renderFragment(c, http.StatusOK, fragments.VehicleSelect(vm), "vehicle-select")
 }
 
-// VehicleSelect handles POST /ui/vehicle/select — the sidebar context switcher.
+// VehicleSelect handles POST /ui/vehicle/select — the navbar context switcher.
 // It auth-guards, CSRF-checks (csrf_vehicle_select), validates that the chosen
 // vehicle belongs to the calling user's account (tenant scoping, same pattern as
 // the manual-charge write handlers), persists the selection to the session, and
-// re-renders the nav-header fragment so the switcher reflects the new choice.
+// re-renders the vehicle-select fragment so the switcher reflects the new choice.
+// It fires "vehicle-changed" via HX-Trigger so nav-header (status dot/battery),
+// the dashboard, and the charges region re-fetch themselves for the newly-
+// selected vehicle.
 func (h *Handler) VehicleSelect(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -584,11 +612,10 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 
 	setCurrentVehicle(c, teslaID, vin)
 
-	// Re-render the nav-header fragment with the freshly-persisted selection
-	// so the <select> shows the new option selected and the status reflects the
-	// newly-selected vehicle. CSRF token is refreshed by NavHeaderFragment's
-	// path; re-issue here so the next switch from the same fragment works.
-	vm := h.navHeaderFor(c.Request.Context(), uid, teslaID)
+	// Re-render the vehicle-select fragment with the freshly-persisted selection
+	// so the <select> shows the new option selected. Re-issue the CSRF token so
+	// the next switch from the same fragment works.
+	vm := h.vehicleSelectFor(c.Request.Context(), uid, teslaID)
 	if csrf, err := generateCSRFToken(); err == nil {
 		sess := sessions.Default(c)
 		sess.Set(csrfVehicleSelectKey, csrf)
@@ -597,12 +624,13 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 	}
 	// Fire the cross-region refresh event. htmx bubbles "vehicle-changed" to <body>;
 	// any page region listening with hx-trigger="vehicle-changed from:body" (the
-	// dashboard's #dashboard-content) then re-fetches itself for the newly-selected
+	// nav-header status region, the dashboard's #dashboard-content, the manual
+	// records #charges-content) then re-fetches itself for the newly-selected
 	// vehicle. The switcher stays page-agnostic — it fires one event, regions opt in.
 	// Set before renderFragment: templ.Handler only sets Content-Type/status and does
 	// not clear already-set response headers.
 	c.Header("HX-Trigger", "vehicle-changed")
-	renderFragment(c, http.StatusOK, fragments.NavHeader(vm), "nav-header")
+	renderFragment(c, http.StatusOK, fragments.VehicleSelect(vm), "vehicle-select")
 }
 
 // navHeaderFor is the nav-header's core logic, decoupled from gin/session so it
@@ -614,6 +642,11 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 // fragment degrades to a name-only "unavailable" state (telemetry error) or a
 // no-name "unavailable" state (account error), so the page that already rendered
 // stays intact.
+//
+// The vehicle context-switcher option list used to be built here; it now lives
+// in vehicleSelectFor. This helper resolves the primary (selected) vehicle only
+// to drive the status dot/battery/name — the switcher's option list is a
+// separate, telemetry-free read.
 func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64) fragments.NavHeaderVM {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
@@ -631,22 +664,6 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		return fragments.NavHeaderVM{NeedsConnect: true}
 	}
 
-	// Build the vehicle context-switcher options from the registered list. The
-	// selected marker is set from selectedTeslaID; when 0 (no session selection
-	// yet) the caller has already run resolveSelectedVehicle, so this is the
-	// already-persisted id. The template only renders the <select> when there
-	// is more than one vehicle, but we always populate it for parity.
-	vehicles := make([]fragments.VehicleOptionVM, 0, len(registered))
-	for _, v := range registered {
-		vehicles = append(vehicles, fragments.VehicleOptionVM{
-			TeslaID:     v.TeslaID,
-			VIN:         v.VIN,
-			DisplayName: v.DisplayName,
-			Value:       fmt.Sprintf("%d:%s", v.TeslaID, v.VIN),
-			Selected:    selectedTeslaID != 0 && v.TeslaID == selectedTeslaID,
-		})
-	}
-
 	// Primary = the selected vehicle when known, else the first registered entry
 	// (the auto-select policy in resolveSelectedVehicle picks the first OWNER,
 	// which is also registered[0] in the single-vehicle case). The status dot +
@@ -661,10 +678,7 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		}
 	}
 
-	vm := fragments.NavHeaderVM{
-		Vehicles:               vehicles,
-		SelectedVehicleTeslaID: primary.TeslaID,
-	}
+	vm := fragments.NavHeaderVM{}
 
 	// Read the latest snapshot per vehicle for this account. On error: degrade —
 	// keep the vehicle name, show "Unavailable", no battery. Never return early.
@@ -699,6 +713,54 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 	vm.Status = fragments.NavStatusAsleep
 	vm.LastSeenLabel = relativeLastSeen(snap.CapturedAt, now, ctx)
 	return vm
+}
+
+// vehicleSelectFor builds the vehicle context-switcher view model, decoupled from
+// gin/session so it is unit-testable with fake account implementations. It calls
+// ONLY the account Reader port (no telemetry read — the switcher option list is
+// just the registered vehicles; the status dot/battery live in navHeaderFor).
+//
+// Returns an empty VM (no vehicles, no name) on account error or when the account
+// has no registered vehicles. The fragment then falls back to the app brand as the
+// navbar title and renders no <select>, so the htmx swap target (#vehicle-select)
+// stays stable across renders. The handler pre-marks the selected option and
+// populates SelectedVehicleName from the selected (or first registered) vehicle.
+func (h *Handler) vehicleSelectFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64) fragments.VehicleSelectVM {
+	registered, err := h.acct.RegisteredVehicles(ctx, uid)
+	if err != nil {
+		log.Printf("gateway: vehicle-select RegisteredVehicles error for account %s: %v", uid, err)
+		return fragments.VehicleSelectVM{}
+	}
+	if len(registered) == 0 {
+		return fragments.VehicleSelectVM{}
+	}
+	vehicles := make([]fragments.VehicleOptionVM, 0, len(registered))
+	for _, v := range registered {
+		vehicles = append(vehicles, fragments.VehicleOptionVM{
+			TeslaID:     v.TeslaID,
+			VIN:         v.VIN,
+			DisplayName: v.DisplayName,
+			Value:       fmt.Sprintf("%d:%s", v.TeslaID, v.VIN),
+			Selected:    selectedTeslaID != 0 && v.TeslaID == selectedTeslaID,
+		})
+	}
+	// Resolve the primary vehicle's name for the navbar title: the selected one
+	// when known, else the first registered entry (the auto-select policy in
+	// resolveSelectedVehicle picks the first OWNER, which is registered[0]).
+	primary := registered[0]
+	if selectedTeslaID != 0 {
+		for _, v := range registered {
+			if v.TeslaID == selectedTeslaID {
+				primary = v
+				break
+			}
+		}
+	}
+	return fragments.VehicleSelectVM{
+		SelectedVehicleName:    primary.DisplayName,
+		Vehicles:               vehicles,
+		SelectedVehicleTeslaID: selectedTeslaID,
+	}
 }
 
 // currentUID returns the signed-in account id from the session, if any.

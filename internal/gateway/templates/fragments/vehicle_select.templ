@@ -1,0 +1,100 @@
+package fragments
+
+import (
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// VehicleSelectVM drives the navbar's left-side title + vehicle context-switcher.
+// It is the htmx-swappable region mounted by layouts.BaseAuth in the top navbar
+// (occupying the old fixed-brand slot, before the language switcher), so it is
+// authenticated-only by construction — BaseAuth is the shell for authed pages;
+// the anonymous Base shell never renders this region.
+//
+// This region owns BOTH the navbar title (the selected vehicle's name, replacing
+// the old fixed "Magus" brand text) AND the <select> switcher. Folding them into
+// one lazy swap means the title updates on switch with no extra GET/route — the
+// POST /ui/vehicle/select re-renders this fragment (the swap target) and the name
+// reflects the newly-selected vehicle. The nav-header sidebar region is separate
+// (status dot/battery) and re-fetches itself on the "vehicle-changed" event.
+type VehicleSelectVM struct {
+	// SelectedVehicleName is the display name of the currently-selected vehicle,
+	// shown as the navbar title (the old fixed-brand slot). Empty when the
+	// account has no registered vehicles or the account read failed; the
+	// fragment falls back to the app brand (i18n.KeyBrandMagus) so the navbar
+	// is never blank.
+	SelectedVehicleName string
+
+	// Vehicles is the account's registered vehicle list, for the context-switcher
+	// <select>. Empty when the account has no registered vehicles. The handler
+	// pre-marks SelectedVehicleTeslaID so exactly one option is selected.
+	Vehicles []VehicleOptionVM
+
+	// SelectedVehicleTeslaID is the TeslaID of the currently selected vehicle
+	// (0 when none). Used to mark the <option selected> on render.
+	SelectedVehicleTeslaID int64
+
+	// CSRFToken is the session CSRF token the switcher form posts with the
+	// vehicle selection so POST /ui/vehicle/select can validate it.
+	CSRFToken string
+}
+
+// VehicleSelect is the navbar title + vehicle-switcher region swapped in by htmx
+// at GET /ui/vehicle-select. Its body is wrapped in a @templ.Fragment("vehicle-select")
+// block whose root <div id="vehicle-select"> matches the fragment id (and the
+// #vehicle-select placeholder rendered by layouts.BaseAuth) — the required
+// htmx-swap invariant. The form posts to /ui/vehicle/select targeting itself
+// (outerHTML swap) and fires "vehicle-changed" via the handler's HX-Trigger header;
+// nav-header / dashboard / charges re-fetch themselves on that event.
+//
+// The title shows the selected vehicle's name; when there is none (no vehicles /
+// read error) it falls back to the app brand so the navbar is never blank. The
+// <select> switcher renders only for multi-vehicle accounts (the switcher only
+// makes sense for >1); single-vehicle accounts show the name alone. The stable
+// root div is always emitted so htmx's swap target is never lost between renders.
+templ VehicleSelect(vm VehicleSelectVM) {
+	@templ.Fragment("vehicle-select") {
+		<div id="vehicle-select" class="flex items-center flex-1 mx-2 px-2 gap-2">
+			<span class="flex-1 text-lg font-semibold truncate">
+				if vm.SelectedVehicleName != "" {
+					{ vm.SelectedVehicleName }
+				} else {
+					{ i18n.T(ctx, i18n.KeyBrandMagus) }
+				}
+			</span>
+			if len(vm.Vehicles) > 1 {
+				<form
+					hx-post="/ui/vehicle/select"
+					hx-target="#vehicle-select"
+					hx-swap="outerHTML"
+					hx-trigger="change from:find select"
+					class="flex items-center gap-1"
+				>
+					<input type="hidden" name="csrf_token" value={ vm.CSRFToken }/>
+					@ui.Icon(ui.IconProps{Name: "car", Class: "h-6 w-6"})
+					@ui.Select(ui.SelectProps{Name: "vehicle", Size: "xs", Attrs: templ.Attributes{"aria-label": i18n.T(ctx, i18n.KeyNavHeaderSwitchVehicleAria)}}) {
+						for _, opt := range vm.Vehicles {
+							<option value={ opt.Value } selected?={ opt.Selected }>{ firstWord(opt.DisplayName) }</option>
+						}
+					}
+				</form>
+			}
+		</div>
+	}
+}
+
+// firstWord returns the leading whitespace-delimited token of s (e.g.
+// "Palomito Nacho" → "Palomito"). It is presentation logic — the dropdown shows
+// only the first word to stay compact in the navbar; the full DisplayName stays
+// intact in the VM (the handler still passes it). Mirrors the navBadgeKind /
+// statusLabelKeyFor precedent in nav_header.templ: a pure presentation mapping
+// owned by the template file, not business logic. On an empty/whitespace-only
+// name it returns "" so the option degrades to a blank line rather than panicking.
+func firstWord(s string) string {
+	for i := 0; i < len(s); i++ {
+		if s[i] == ' ' || s[i] == '\t' || s[i] == '\n' {
+			return s[:i]
+		}
+	}
+	return s
+}

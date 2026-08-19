@@ -54,11 +54,17 @@ templ BaseAuth(title, path string) {
 			<input id="nav-drawer" type="checkbox" class="drawer-toggle"/>
 			<div class="drawer-content flex flex-col">
 			<nav class="navbar bg-base-300 w-full sticky top-0 z-40">
-				<label for="nav-drawer" aria-label={ i18n.T(ctx, i18n.KeyNavOpenSidebar) } class="btn btn-square btn-ghost lg:hidden">
-					@ui.Icon(ui.IconProps{Name: "menu", Class: "h-6 w-6"})
-				</label>
-				<div class="mx-2 flex-1 px-2 text-lg font-semibold">{ i18n.T(ctx, i18n.KeyBrandMagus) }</div>
-				@ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)})
+			<label for="nav-drawer" aria-label={ i18n.T(ctx, i18n.KeyNavOpenSidebar) } class="btn btn-square btn-ghost lg:hidden">
+				@ui.Icon(ui.IconProps{Name: "menu", Class: "h-6 w-6"})
+			</label>
+			// Navbar title + vehicle context-switcher (htmx-swapped, authenticated-only
+			// by virtue of living in BaseAuth). Served by GET /ui/vehicle-select; the
+			// fragment renders the selected vehicle's name as the navbar title (replacing
+			// the old fixed-brand text, falling back to the brand when no vehicle) AND
+			// the <select> switcher for multi-vehicle accounts. Occupies the flex-1 brand
+			// slot so it grows and pushes the language switcher to the right.
+			<div id="vehicle-select" hx-get="/ui/vehicle-select" hx-trigger="load" hx-swap="outerHTML"></div>
+			@ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)})
 			</nav>
 				<main class="p-4">
 					{ children... }
@@ -71,9 +77,11 @@ templ BaseAuth(title, path string) {
 			// items to its start; without this wrapper the menu's min-h-full would
 			// push the footer logout BELOW the viewport and off-screen.
 			<div class="flex flex-col h-full w-64">
-				// placeholder: the nav-header fragment (GET /ui/nav-header) is swapped in by
-				// htmx on load; until then this slot is empty.
-				<div id="nav-header" hx-get="/ui/nav-header" hx-trigger="load" hx-swap="outerHTML"></div>
+			// placeholder: the nav-header fragment (GET /ui/nav-header) is swapped in by
+			// htmx on load and re-fetched on the "vehicle-changed" event the vehicle
+			// switcher (POST /ui/vehicle/select) fires, so the status dot/battery
+			// reflect the newly-selected vehicle.
+			<div id="nav-header" hx-get="/ui/nav-header" hx-trigger="load, vehicle-changed from:body" hx-swap="outerHTML"></div>
 				@ui.NavShell(navItems(ctx, path), ui.NavLogout())
 			</div>
 		</div>

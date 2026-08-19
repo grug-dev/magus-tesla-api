@@ -143,6 +143,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	r.GET("/ui/dashboard", h.DashboardFragment)
 	r.GET("/ui/dashboard/history", h.DashboardHistoryFragment)
 	r.GET("/ui/nav-header", h.NavHeaderFragment)
+	r.GET("/ui/vehicle-select", h.VehicleSelectFragment)
 	r.POST("/ui/vehicle/select", h.VehicleSelect)
 	r.GET("/healthz", h.Healthz)
 	r.POST("/ui/lang/switch", h.LangSwitch)

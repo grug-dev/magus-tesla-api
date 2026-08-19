@@ -1023,6 +1023,106 @@ func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
 	}
 }
 
+// --- vehicle-select fragment (navbar switcher) ---
+//
+// GET /ui/vehicle-select is the navbar-mounted context switcher split out from
+// nav-header. These HTTP tests cover the multi-vehicle render (select + options
+// + CSRF hidden input) and the single-vehicle empty-placeholder render. The
+// helper mirrors navHeaderEngine; the route differs.
+
+func vehicleSelectEngine(h *Handler, uid uuid.UUID) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", uid.String())
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/ui/vehicle-select", h.VehicleSelectFragment)
+	return r
+}
+
+// TestVehicleSelectFragment_MultiVehicleRendersSelect verifies the fragment
+// renders the <select> with both options, the selected marker on the session's
+// selected vehicle, and the CSRF hidden input — for an account with >1 vehicle.
+func TestVehicleSelectFragment_MultiVehicleRendersSelect(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
+		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newNavHeaderHandler(acct, reader)
+	eng := vehicleSelectEngine(h, uid)
+	cookie := sessionCookie(eng, uid, "")
+	// No selected-vehicle context is seeded in the session; the handler's
+	// auto-select picks the first OWNER (TeslaID=1, "First"), so the First
+	// option is the selected one — asserted below.
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/vehicle-select", nil)
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for authenticated vehicle-select fragment, got %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{
+		`id="vehicle-select"`,
+		`name="vehicle"`,
+		"First",
+		"Second",
+		`name="csrf_token"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("vehicle-select body missing %q\n%s", want, body)
+		}
+	}
+	// Auto-select picks the first OWNER (TeslaID=1): exactly one option carries
+	// the selected marker.
+	if got := strings.Count(body, "selected"); got != 1 {
+		t.Errorf("want exactly 1 selected option (auto-select first OWNER), got %d\n%s", got, body)
+	}
+}
+
+// TestVehicleSelectFragment_SingleVehicleRendersEmptyPlaceholder verifies the
+// fragment emits the stable #vehicle-select root div but NO <select> when the
+// account has a single vehicle (the switcher only makes sense for >1).
+func TestVehicleSelectFragment_SingleVehicleRendersEmptyPlaceholder(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
+	}}
+	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	h := newNavHeaderHandler(acct, reader)
+	eng := vehicleSelectEngine(h, uid)
+	cookie := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/vehicle-select", nil)
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for single-vehicle vehicle-select fragment, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `id="vehicle-select"`) {
+		t.Errorf("want stable #vehicle-select root div even when empty, got:\n%s", body)
+	}
+	if strings.Contains(body, "<select") {
+		t.Errorf("want NO <select> for a single-vehicle account, got:\n%s", body)
+	}
+}
+
 // --- dashboard fragment + vehicle-switch refresh (GET /ui/dashboard, HX-Trigger) ---
 //
 // These cover the switcher → dashboard refresh wiring: the switch persists the new
