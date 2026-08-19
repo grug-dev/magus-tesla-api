@@ -15,7 +15,7 @@ type StatTileProps struct {
 templ StatTile(p StatTileProps) {
 	<div class={ "stat", p.Class }>
 		<div class="stat-title">{ p.Label }</div>
-		<div class="stat-value">{ p.Value }</div>
+		<div class="stat-value font-mono">{ p.Value }</div>
 		if p.Desc != "" {
 			<div class="stat-desc">{ p.Desc }</div>
 		}

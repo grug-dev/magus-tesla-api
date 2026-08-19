@@ -13,5 +13,5 @@ type TextareaProps struct {
 // Textarea renders a themed multi-line input. The DaisyUI `textarea` class is
 // OWNED here so a version bump is a one-file change.
 templ Textarea(p TextareaProps) {
-	<textarea name={ p.Name } class={ "textarea w-full", p.Class } { p.Attrs... }>{ children... }</textarea>
+	<textarea name={ p.Name } class={ "textarea font-mono w-full", p.Class } { p.Attrs... }>{ children... }</textarea>
 }

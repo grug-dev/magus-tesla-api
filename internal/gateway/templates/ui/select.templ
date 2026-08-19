@@ -19,7 +19,7 @@ type SelectProps struct {
 templ Select(p SelectProps) {
 	<select
 		name={ p.Name }
-		class={ "select select-bordered w-full", selectSizeClass(p.Size), p.Class }
+		class={ "select select-bordered font-mono w-full", selectSizeClass(p.Size), p.Class }
 		required?={ p.Required }
 		disabled?={ p.Disabled }
 		{ p.Attrs... }

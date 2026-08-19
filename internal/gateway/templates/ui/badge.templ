@@ -10,5 +10,5 @@ type BadgeProps struct {
 
 // Badge renders a small status pill.
 templ Badge(p BadgeProps) {
-	<span class={ "badge", badgeClass(p.Kind), p.Class }>{ p.Text }</span>
+	<span class={ "badge font-mono", badgeClass(p.Kind), p.Class }>{ p.Text }</span>
 }

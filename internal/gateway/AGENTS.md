@@ -450,6 +450,59 @@ swappable region**, so an htmx swap can never replace an open dialog.
 the browser has no `<dialog>` support, `app.js` returns early and htmx falls back to its
 native `confirm()` — degraded styling, but the guard itself is never lost.
 
+## Self-hosted web fonts — Inter + JetBrains Mono (RD11)
+
+The gateway's no-CDN rule (`base.templ`: "never an external CDN") now extends to
+typography: **Inter** (400/700/800) and **JetBrains Mono** (500) are self-hosted as
+woff2 binaries under `internal/gateway/static/fonts/`, `//go:embed`-ed via
+`gateway.go`'s existing `//go:embed static` (no Go change needed). Added alongside
+the Stitch `design.md` port (2026-08-19) so the Apex theme's typography spec is
+live, not just documented.
+
+**What:** four woff2 files (~94 KB total, OFL-licensed, fetched from the Fontsource
+`font-files` repo), four `@font-face` blocks, and a `[data-theme="apex"]` override of
+`--default-font-family` / `--default-mono-font-family` — all in
+`internal/gateway/static/themes/apex.css`, the single source of truth for the theme.
+DaisyUI v5's body rule reads `var(--default-font-family, <system stack>)`, so setting
+the token cascades to every component with **no per-template edit** for the body font.
+The `font-mono` utility (Tailwind's `var(--font-mono)`, which resolves to JetBrains
+Mono via the same override) is added only to the `ui/` wrappers `design.md` calls out
+as "technical labels / values / status labels": `input`, `select`, `textarea`,
+`badge`, and `stat_tile`'s `stat-value` — the anti-corruption-adapter boundary keeps
+the class owned in `ui/`, not inlined in pages.
+
+**Why a plain `[data-theme="apex"]` rule and not entries in the `@plugin` block:**
+DaisyUI v5 owns `--default-font-family` / `--default-mono-font-family` internally —
+values set for those keys inside the theme's `@plugin` block are silently dropped and
+replaced with `sans-serif` / `monospace`. A plain unlayered CSS rule in `apex.css`
+wins over DaisyUI's `@layer base` output, so the tokens actually resolve to the Apex
+fonts. This is a documented DaisyUI v5 quirk, not a Tailwind v4 bug.
+
+**Rejected alternative — Google Fonts `<link>`:** would add a runtime CDN dependency
+to a stack that explicitly bans CDNs (`base.templ` comment) and ships every other
+asset (`htmx.min.js`, `app.css`) `//go:embed`-ed. A CDN link also introduces a
+privacy surface (third-party font fetch per page view) and a single point of failure
+for the page's typography. Self-hosting keeps the deploy self-contained, consistent
+with the existing asset-pinning convention, and adds ~94 KB of binary (committed,
+cacheable forever — the `@font-face` URLs are content-addressed by filename).
+
+**Rejected alternative — system stack only (no web fonts):** cheaper, but the Apex
+`design.md` spec pins Inter + JetBrains Mono as part of the brand ("technical
+precision," "engineered aesthetic"). The system fallbacks (San Francisco / Segoe UI /
+Roboto) are visually close to Inter but are not Inter, and there is no system
+equivalent of JetBrains Mono's character for the "technical label" role. The cost
+(~94 KB, loaded once with `font-display: swap` so text paints immediately in the
+fallback and reflows minimally on swap) is acceptable for a dashboard app.
+
+**Boundary — this is NOT an opening for arbitrary self-hosted fonts.** Like RD9/RD10,
+it is a narrow, sanctioned decision (two families, four weights, pinned to the Apex
+`design.md`), not a precedent. Adding a third family or more weights needs its own
+RD entry per RD8, with its own rationale and rejected alternative. The Latin subset
+only is shipped; add other subsets (cyrillic, etc.) only when a real page needs them —
+do not front-load every subset. Fonts live under `static/fonts/` so the existing
+`//go:embed static` picks them up with no embed directive change; never put a font
+anywhere else.
+
 ---
 
 ## How to add or modify a page

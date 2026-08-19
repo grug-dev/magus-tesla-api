@@ -45,7 +45,7 @@ func Select(p SelectProps) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var2 = []any{"select select-bordered w-full", selectSizeClass(p.Size), p.Class}
+		var templ_7745c5c3_Var2 = []any{"select select-bordered font-mono w-full", selectSizeClass(p.Size), p.Class}
 		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
