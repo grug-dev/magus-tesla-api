@@ -23,8 +23,9 @@ type DashboardData struct {
 	Notice               string // shown only when TelemetryUnavailable is true
 
 	// Vehicle identity for the selected vehicle (empty when NeedsConnect).
-	VehicleName string
-	VIN         string
+	VehicleName  string
+	VIN          string
+	VehicleImage string // "/static/img/<carType><ExteriorColor>.png", or "/static/img/defaultCar.png" when unset/unknown
 
 	// HasSnapshot is true when a latest nightly snapshot exists for the selected
 	// vehicle. When false, all metric fields below are empty and the template

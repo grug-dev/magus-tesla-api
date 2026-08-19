@@ -129,6 +129,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 		TeslaClientID:      d.TeslaClientID,
 		TeslaClientSecret:  d.TeslaClientSecret,
 		TeslaRedirectURL:   d.TeslaRedirectURL,
+		VehicleImageResolver: newVehicleImageResolver(staticFS),
 	})
 
 	r.GET("/", h.Home)

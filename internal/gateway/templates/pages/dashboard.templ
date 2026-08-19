@@ -49,9 +49,9 @@ templ Dashboard(d fragments.DashboardData) {
 										@ui.Badge(ui.BadgeProps{Kind: "warning", Text: i18n.T(ctx, i18n.KeyDashboardStaleBadge)})
 									}
 								</div>
-								<div class="flex-1 flex items-center justify-center py-10">
-									@ui.Icon(ui.IconProps{Name: "car", Class: "h-40 w-40 text-primary/20"})
-								</div>
+							<div class="flex-1 flex items-center justify-center py-10">
+								<img src={ d.VehicleImage } alt={ d.VehicleName } class="object-contain"/>
+							</div>
 								<div class="grid grid-cols-2 gap-3">
 									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardOdometer), Value: dashStat(d.HasSnapshot, d.Odometer)})
 									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardInterior), Value: dashStat(d.HasSnapshot, d.InsideTemp)})

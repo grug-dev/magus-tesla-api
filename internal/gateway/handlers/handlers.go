@@ -77,6 +77,12 @@ type Deps struct {
 	TeslaClientID     string
 	TeslaClientSecret string
 	TeslaRedirectURL  string
+	// VehicleImageResolver maps a vehicle's (CarType, ExteriorColor) to a
+	// /static/img/<carType><ExteriorColor>.png URL, falling back to
+	// defaultCar.png when either field is unset or the composed file is not in
+	// the embedded image set. Built by the gateway package from its embedded
+	// static/img subtree (handlers cannot embed ../static) and injected here.
+	VehicleImageResolver VehicleImageResolver
 }
 
 // Handler carries the gateway's dependencies.
@@ -93,10 +99,29 @@ type Handler struct {
 	teslaClientID      string
 	teslaClientSecret  string
 	teslaRedirectURL   string
+	vehicleImage       VehicleImageResolver
 }
+
+// VehicleImageResolver maps a vehicle's (CarType, ExteriorColor) to a static
+// image URL with a defaultCar.png fallback. Implemented by the gateway package
+// against its embedded static/img set.
+type VehicleImageResolver func(carType, exteriorColor *string) string
+
+// vehicleImageDefaultURL is the fallback image used when the resolver is unset
+// (test fakes) or when (CarType, ExteriorColor) yields no matching embedded
+// image. Kept here so handlers need not import the gateway package that owns
+// the embedded FS.
+const vehicleImageDefaultURL = "/static/img/defaultCar.png"
 
 // New builds the gateway handlers.
 func New(d Deps) *Handler {
+	resolver := d.VehicleImageResolver
+	if resolver == nil {
+		// Nil-safe default so test/fake Handlers (and any construction that
+		// omits the resolver) degrade to the fallback image rather than
+		// nil-deref on every dashboard render.
+		resolver = func(_, _ *string) string { return vehicleImageDefaultURL }
+	}
 	return &Handler{
 		pool:               d.Pool,
 		acct:               d.Account,
@@ -110,6 +135,7 @@ func New(d Deps) *Handler {
 		teslaClientID:      d.TeslaClientID,
 		teslaClientSecret:  d.TeslaClientSecret,
 		teslaRedirectURL:   d.TeslaRedirectURL,
+		vehicleImage:       resolver,
 	}
 }
 
@@ -387,6 +413,7 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 	vm := fragments.DashboardData{
 		VehicleName:        primary.DisplayName,
 		VIN:                primary.VIN,
+		VehicleImage:       h.vehicleImage(primary.CarType, primary.ExteriorColor),
 		DefaultHistoryHref: defaultHistoryHref(today),
 	}
 	snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
