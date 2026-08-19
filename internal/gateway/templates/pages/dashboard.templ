@@ -25,8 +25,8 @@ templ Dashboard(d fragments.DashboardData) {
 			@templ.Fragment("dashboard") {
 				@ui.PageHeader(ui.PageHeaderProps{Title: i18n.T(ctx, i18n.KeyNavDashboard), Subtitle: d.VehicleName})
 				if d.NeedsConnect {
-					@ui.Card(ui.CardProps{}) {
-						<p class="text-base-content/70 mb-4">{ i18n.T(ctx, i18n.KeyNavHeaderNoTesla) }</p>
+				@ui.Card(ui.CardProps{ID: "connect-cta"}) {
+					<p class="text-base-content/70 mb-4">{ i18n.T(ctx, i18n.KeyNavHeaderNoTesla) }</p>
 						@ui.Button(ui.ButtonProps{Variant: "primary", Href: "/connect/tesla"}) {
 							{ i18n.T(ctx, i18n.KeyNavHeaderConnectLink) }
 						}
@@ -40,7 +40,7 @@ templ Dashboard(d fragments.DashboardData) {
 					<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
 						// Hero — Vehicle Status (col-span-8 on desktop).
 						<div class="md:col-span-8">
-							@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyDashboardVehicleStatusTitle), Class: "h-full"}) {
+							@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyDashboardVehicleStatusTitle), ID: "vehicle-status", Class: "h-full"}) {
 								<div class="flex items-center justify-between">
 									<p class="text-sm text-base-content/60 uppercase tracking-wider">
 										{ dashSubtitle(ctx, d) }
@@ -64,13 +64,13 @@ templ Dashboard(d fragments.DashboardData) {
 							}
 						</div>
 						// Vital-stats column (col-span-4 on desktop).
-						<div class="md:col-span-4 flex flex-col gap-6">
-							@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyDashboardBatteryTitle)}) {
-								<div class="flex items-end justify-between mb-4">
-									<span class="text-4xl font-extrabold text-primary">{ dashStat(d.HasSnapshot, d.Battery) }</span>
-									@ui.Icon(ui.IconProps{Name: "battery", Class: "h-8 w-8 text-primary/60"})
-								</div>
-								<progress class="progress progress-primary w-full" max="100" value={ dashPctAttr(d) }></progress>
+					<div id="vital-stats" class="md:col-span-4 flex flex-col gap-6">
+						@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyDashboardBatteryTitle), ID: "battery-info"}) {
+							<div class="flex items-end justify-between mb-4">
+								<span class={ "text-4xl font-extrabold", dashBatteryColorClass(d) }>{ dashStat(d.HasSnapshot, d.Battery) }</span>
+								@ui.Icon(ui.IconProps{Name: "battery", Class: "h-8 w-8 text-primary/60"})
+							</div>
+							<progress class={ "progress w-full", dashBatteryColorClass(d) } max="100" value={ dashPctAttr(d) }></progress>
 								<div class="flex justify-between mt-3 text-sm text-base-content/70">
 									<span>{ i18n.T(ctx, i18n.KeyDashboardRangePrefix) } { dashStat(d.HasSnapshot, d.RangeNow) }</span>
 									<span>{ dashChargeLimit(d) }</span>

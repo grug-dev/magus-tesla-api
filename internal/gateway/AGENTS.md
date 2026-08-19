@@ -111,6 +111,37 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
 - **New pages go through `kkpa-goth-scaffold-ui scaffold <concept> [module]`**, which
   mirrors the `charges` gold-standard slice.
 
+## Identifiable cards & sections
+
+Every card, section, and standalone region a page or fragment renders MUST carry a
+stable, page-unique `id` on its root element — even when nothing targets it today.
+The `ui.Card` kit exposes this via `CardProps.ID`; free-form `<section>`/`<div>`
+containers set `id` on the root tag directly.
+
+**Why:** a page accumulates cards and regions over time; an opaque stack of
+`<div class="card">` with no identifiers is expensive for an AI agent (or human) to
+reason about — there is no stable hook to target from tests, htmx swaps, CSS,
+devtools, or future instrumentation. An `id` is a one-attribute, zero-runtime way to
+make every component addressable by name, so the *next* change touches one element
+by id instead of re-deriving which `.card:nth-child(2)` is the battery. It is the
+same "closed vocabulary over ad-hoc" principle as the `ui/` kit: name things once.
+
+- **kebab-case, page-unique, semantic** — `battery-info`, `vehicle-status`,
+  `vital-stats`, `connect-cta`, `dashboard-history`. Not `card-1` / `div3`.
+- **Passed through the kit, not inlined on raw markup** — `ui.Card` gets `ID:` in
+  `CardProps`; the page never writes `<div class="card" id="...">` by hand, because
+  the `ui.Card` wrapper owns that root element. A bare `<section>`/`<div>` the page
+  emits directly sets `id` on its own root tag.
+- **Empty ID renders no attribute** — `ui.Card`'s `id` is conditional, so existing
+  call sites that don't pass `ID` stay clean (no `id=""` clutter). New cards/sections
+  in a page MUST pass one.
+- **IDs are not swap targets by themselves** — a swap target additionally needs the
+  `hx-*` / `@templ.Fragment` wiring (see "Two render entry points"). The `id` is for
+  *identification* first; htmx targeting is a separate, opt-in concern on top.
+
+Gold standard: `templates/pages/dashboard.templ` — `connect-cta`, `vehicle-status`,
+`vital-stats`, `battery-info`, `dashboard-history` all carry stable ids.
+
 ## i18n — every new user-facing label needs BOTH es and en
 
 **This is binding, not advisory.** Any `.templ` change that adds or edits user-facing text

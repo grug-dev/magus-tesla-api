@@ -2,17 +2,20 @@ package ui
 
 // CardProps configures a Card. Class is for extra LAYOUT utilities only (spacing,
 // grid span) — never color; color comes from the theme tokens baked into the class.
+// ID is the stable, page-unique identifier for the card (testing, htmx targeting,
+// CSS hooks) — see internal/gateway/AGENTS.md §"Identifiable cards & sections".
 type CardProps struct {
 	Title string
+	ID    string
 	Class string
 }
 
 // Card is a themed surface container with an optional title and a body slot.
 templ Card(p CardProps) {
-	<div class={ "card bg-base-100 shadow", p.Class }>
+	<div class={ "card bg-base-100 shadow", p.Class } if p.ID != "" { id={ p.ID } }>
 		<div class="card-body bg-[var(--color-surface-card)] border border-[var(--color-line-card)]">
 			if p.Title != "" {
-				<h2 class="card-title">{ p.Title }</h2>
+				<h2 class="card-title pb-5">{ p.Title }</h2>
 			}
 			{ children... }
 		</div>

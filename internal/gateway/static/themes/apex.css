@@ -67,6 +67,10 @@
   --color-surface-card: #121212;
   --color-line-card: #2A2A2A;
   --color-primary: #e82127;
+  --color-battery-low: oklch(70.39% 0.19 22.06);    /* red    — 0–10%   */
+  --color-battery-mid: oklch(74.96% 0.18 55.04);    /* orange — 11–20%  */
+  --color-battery-warn: oklch(90.77% 0.18 84.79);   /* yellow — 21–40%  */
+  --color-battery-full: oklch(78.36% 0.18 156.76); /* green  — 41–100% */
   --color-primary-content: #ffffff;
   --color-secondary: #c8c6c5;
   --color-secondary-content: #313030;
@@ -105,3 +109,15 @@
   --default-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --default-mono-font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+
+/* Battery-level metric colors (dashboard battery card). Token-backed semantic
+ * utilities — not a DaisyUI component class, so they live here in the theme
+ * rather than routed through templates/ui/. DaisyUI's <progress> fill and the
+ * big % number both read `color` (currentColor), so one class colors both.
+ * Bands (end inclusive at the lower bound — 10=low, 20=mid, 40=warn):
+ *   0–10 → low (red)   11–20 → mid (orange)   21–40 → warn (yellow)   41+ → full (green)
+ * See pages.dashBatteryColorClass for the band switch. */
+.text-battery-low { color: var(--color-battery-low); }
+.text-battery-mid { color: var(--color-battery-mid); }
+.text-battery-warn { color: var(--color-battery-warn); }
+.text-battery-full { color: var(--color-battery-full); }

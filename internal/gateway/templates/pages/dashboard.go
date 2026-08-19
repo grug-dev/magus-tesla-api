@@ -2,6 +2,7 @@ package pages
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
@@ -52,4 +53,37 @@ func dashChargeLimit(d fragments.DashboardData) string {
 		return "—"
 	}
 	return d.ChargeLimit
+}
+
+// dashBatteryColorClass returns the token-backed color utility for the battery
+// level, driving currentColor for BOTH the big % number and the <progress> fill
+// (DaisyUI's progress value reads currentColor). Bands — end inclusive at the
+// lower bound (10 = low/red, 20 = mid/orange, 40 = warn/yellow):
+//
+//	0–10  → text-battery-low  (red)
+//	11–20 → text-battery-mid  (orange)
+//	21–40 → text-battery-warn (yellow)
+//	41+   → text-battery-full (green)
+//
+// Returns "text-primary" when there is no snapshot or the value won't parse, so
+// the placeholder state keeps the current brand-red look instead of going colorless.
+// See internal/gateway/static/themes/apex.css §"Battery-level metric colors".
+func dashBatteryColorClass(d fragments.DashboardData) string {
+	if !d.HasSnapshot || d.BatteryPct == "" {
+		return "text-primary"
+	}
+	p, err := strconv.Atoi(d.BatteryPct)
+	if err != nil {
+		return "text-primary"
+	}
+	switch {
+	case p <= 10:
+		return "text-battery-low"
+	case p <= 20:
+		return "text-battery-mid"
+	case p <= 40:
+		return "text-battery-warn"
+	default:
+		return "text-battery-full"
+	}
 }
