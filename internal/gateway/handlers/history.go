@@ -396,7 +396,12 @@ func buildOdometerChart(ctx context.Context, snaps []telemetry.Snapshot, start, 
 			Present:   true,
 		})
 	}
-	return fragments.HistoryChart{Bars: bars, Empty: len(bars) == 0, LabelVertical: labelVerticalFor(numDays)}
+	return fragments.HistoryChart{
+		Bars:          bars,
+		Empty:         len(bars) == 0,
+		LabelVertical: labelVerticalFor(numDays),
+		YAxisTicks:    buildYAxisTicks(maxKm, func(v float64) string { return formatKmRaw(v) + " km" }),
+	}
 }
 
 // buildBatteryChart computes battery-level-% bars over a FIXED [start..end]
@@ -446,7 +451,12 @@ func buildBatteryChart(ctx context.Context, snaps []telemetry.Snapshot, start, e
 			Present:   true,
 		})
 	}
-	return fragments.HistoryChart{Bars: bars, Empty: false, LabelVertical: labelVerticalFor(numDays)}
+	return fragments.HistoryChart{
+		Bars:          bars,
+		Empty:         false,
+		LabelVertical: labelVerticalFor(numDays),
+		YAxisTicks:    buildYAxisTicks(100, func(v float64) string { return fmt.Sprintf("%d%%", int(math.Round(v))) }),
+	}
 }
 
 // buildConsumedChart computes battery-consumed-%/day bars over the FIXED
@@ -553,7 +563,12 @@ func buildConsumedChart(ctx context.Context, days []battery.DayConsumption, star
 			MarkerSpan:    e.markerSpan,
 		})
 	}
-	return fragments.HistoryChart{Bars: bars, Empty: false, LabelVertical: labelVerticalFor(numDays)}
+	return fragments.HistoryChart{
+		Bars:          bars,
+		Empty:         false,
+		LabelVertical: labelVerticalFor(numDays),
+		YAxisTicks:    buildYAxisTicks(maxVal, func(v float64) string { return formatPctRaw(v) + "%" }),
+	}
 }
 
 // chargeTypeLabel resolves the bilingual charge-type noun used inside a
@@ -561,6 +576,26 @@ func buildConsumedChart(ctx context.Context, days []battery.DayConsumption, star
 // enum (tier 1); this is the gateway's own closed mapping to a catalogue
 // key, kept here rather than in internal/telemetry because it is
 // presentation vocabulary, not domain vocabulary.
+// buildYAxisTicks builds five evenly-spaced y-axis ticks (100/75/50/25/0% of
+// max) for a relative-scale chart, or nil when max <= 0 (no gutter rendered).
+// pct is the SVG viewBox y position (0=top=max, 100=bottom=0); label is the
+// pre-formatted value+unit string produced by format(max * heightFraction).
+// The template does no arithmetic — every position and string arrives computed.
+func buildYAxisTicks(max float64, format func(float64) string) []fragments.YAxisTick {
+	if max <= 0 {
+		return nil
+	}
+	ticks := make([]fragments.YAxisTick, 5)
+	for i := 0; i < 5; i++ {
+		heightPct := 100 - i*25 // 100, 75, 50, 25, 0 — bar-height fraction
+		ticks[i] = fragments.YAxisTick{
+			Pct:   100 - heightPct, // viewBox y: 0, 25, 50, 75, 100
+			Label: format(max * float64(heightPct) / 100.0),
+		}
+	}
+	return ticks
+}
+
 func chargeTypeLabel(ctx context.Context, t telemetry.MissingChargingType) string {
 	if t == telemetry.MissingChargingTypeSupercharger {
 		return i18n.T(ctx, i18n.KeyHistoryChargeTypeSupercharger)

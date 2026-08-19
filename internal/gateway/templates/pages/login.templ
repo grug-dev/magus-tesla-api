@@ -15,6 +15,9 @@ import (
 // LoginPage renders this page with no view model — pure static markup + one link.
 templ Login() {
 	@layouts.Base(fmt.Sprintf(i18n.T(ctx, i18n.KeyBrandPageTitle), i18n.T(ctx, i18n.KeyLoginSignIn))) {
+		<div class="fixed top-3 right-3 z-40">
+			@ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)})
+		</div>
 		// Login-local background gradient (change-locality: lives here, not in
 		// layouts.Base, so home/Base stay untouched). Semantic tokens only — the
 		// gradient re-skins with <html data-theme>; no hex, no external asset.

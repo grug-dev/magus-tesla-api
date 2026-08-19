@@ -78,15 +78,7 @@ func Base(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"fixed top-3 right-3 z-40\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)}).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -136,20 +128,20 @@ func BaseAuth(title, path string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<script>\n\t\t\ttry {\n\t\t\t\tconst tz = Intl.DateTimeFormat().resolvedOptions().timeZone;\n\t\t\t\tif (tz) document.cookie = \"browser_tz=\" + encodeURIComponent(tz) + \";path=/;max-age=31536000;SameSite=Lax\";\n\t\t\t} catch (e) {}\n\t\t</script> <div class=\"drawer lg:drawer-open\"><input id=\"nav-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"drawer-content flex flex-col\"><nav class=\"navbar bg-base-300 w-full\"><label for=\"nav-drawer\" aria-label=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<script>\n\t\t\ttry {\n\t\t\t\tconst tz = Intl.DateTimeFormat().resolvedOptions().timeZone;\n\t\t\t\tif (tz) document.cookie = \"browser_tz=\" + encodeURIComponent(tz) + \";path=/;max-age=31536000;SameSite=Lax\";\n\t\t\t} catch (e) {}\n\t\t</script> <div class=\"drawer lg:drawer-open\"><input id=\"nav-drawer\" type=\"checkbox\" class=\"drawer-toggle\"><div class=\"drawer-content flex flex-col\"><nav class=\"navbar bg-base-300 w-full sticky top-0 z-40\"><label for=\"nav-drawer\" aria-label=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.T(ctx, i18n.KeyNavOpenSidebar))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 66, Col: 77}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 57, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var6)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "\" class=\"btn btn-square btn-ghost lg:hidden\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\" class=\"btn btn-square btn-ghost lg:hidden\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -157,20 +149,28 @@ func BaseAuth(title, path string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</label><div class=\"mx-2 flex-1 px-2 text-lg font-semibold\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</label><div class=\"mx-2 flex-1 px-2 text-lg font-semibold\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyBrandMagus))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 69, Col: 90}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 60, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</div></nav><main class=\"p-4\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</nav><main class=\"p-4\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -185,7 +185,7 @@ func BaseAuth(title, path string) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.T(ctx, i18n.KeyNavCloseSidebar))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 76, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 68, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {

@@ -3,6 +3,7 @@ package pages
 import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
 // HomeView is the landing page's presentation model.
@@ -15,6 +16,9 @@ type HomeView struct {
 // the account email plus dashboard/connect/log-out links when signed in.
 templ Home(vm HomeView) {
 	@layouts.Base(i18n.T(ctx, i18n.KeyBrandMagus)) {
+		<div class="fixed top-3 right-3 z-40">
+			@ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)})
+		</div>
 		<main>
 			<h1>{ i18n.T(ctx, i18n.KeyBrandMagus) }</h1>
 			if vm.SignedIn {

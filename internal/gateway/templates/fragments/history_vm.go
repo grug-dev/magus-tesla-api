@@ -45,6 +45,21 @@ type HistoryBar struct {
 	MarkerSpan bool
 }
 
+// YAxisTick is one labelled horizontal reference line on a chart's y-axis.
+// The handler pre-computes both the vertical position and the formatted value
+// string so the template does no arithmetic (same invariant as HistoryBar).
+type YAxisTick struct {
+	// Pct is the tick's y position in the SVG viewBox units (0=top, 100=bottom).
+	// A tick representing the chart's maximum value carries Pct=0 (top edge);
+	// the zero-value tick carries Pct=100 (bottom edge). The template emits a
+	// dashed <line> at this y and aligns the HTML label to it.
+	Pct int
+	// Label is the pre-formatted value+unit string (e.g. "12 km", "75%") shown
+	// in the left gutter. Built by the handler from the chart's max value; the
+	// template renders it verbatim.
+	Label string
+}
+
 // HistoryChart holds the bars and empty-state flag for one chart panel.
 // When Empty is true the handler computed 0 bars (too few snapshots); the
 // template renders dashHistoryEmpty() instead of the SVG.
@@ -59,6 +74,15 @@ type HistoryChart struct {
 	// numBars >= 14); the template reads only this flag, it never compares the
 	// window size or computes rotation itself (RM8 design D3).
 	LabelVertical bool
+	// YAxisTicks carries the optional y-axis reference lines + labels. When
+	// nil/empty (the default for charts that opt out, e.g. the supercharger
+	// month chart) the template renders exactly the legacy layout — no left
+	// gutter, no gridlines. When non-empty, the template wraps the bar grid in
+	// a flex row with a left label gutter and overlays dashed <line>s on the
+	// SVG at each tick.Pct. Built once by the handler from the chart's scale
+	// (relative max for odometer/consumed, absolute 0-100 for battery); the
+	// template reads Pct/Label verbatim and does no value math.
+	YAxisTicks []YAxisTick
 }
 
 // RangePreset is one button in the 6/14/30-day preset selector. The handler

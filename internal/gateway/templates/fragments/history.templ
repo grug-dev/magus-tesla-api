@@ -54,51 +54,78 @@ templ historyBarChart(chart HistoryChart, colorClass string) {
 	if chart.Empty {
 		@dashHistoryEmpty()
 	} else {
-		<div
-			class="grid gap-y-1"
-			style={ fmt.Sprintf("grid-template-columns: repeat(%d, minmax(0, 1fr))", len(chart.Bars)) }
-		>
-			<svg
-				viewBox={ fmt.Sprintf("0 0 %d 100", len(chart.Bars)) }
-				preserveAspectRatio="none"
-				class="w-full h-24 col-span-full"
-				aria-hidden="true"
-			>
-				for i, bar := range chart.Bars {
-					<rect
-						x={ strconv.Itoa(i) }
-						y={ strconv.Itoa(100 - bar.HeightPct) }
-						width="0.8"
-						height={ strconv.Itoa(bar.HeightPct) }
-						class={ colorClass }
-					>
-						<title>{ bar.Tooltip }</title>
-					</rect>
-				}
-				for i, bar := range chart.Bars {
-					if bar.MarkerFlagged {
-						<rect x={ strconv.Itoa(i) } y="1" width="0.8" height="4" class="fill-warning">
-							<title>{ bar.Tooltip }</title>
-						</rect>
+		<div class="flex gap-1.5">
+			if len(chart.YAxisTicks) > 0 {
+				<div class="relative h-24 w-9 shrink-0">
+					for _, tick := range chart.YAxisTicks {
+						<span
+							class="absolute right-0 text-[10px] leading-none text-base-content/40 -translate-y-1/2"
+							style={ fmt.Sprintf("top: %d%%", tick.Pct) }
+						>
+							{ tick.Label }
+						</span>
 					}
-					if bar.MarkerSpan {
-						<rect x={ strconv.Itoa(i) } y="6" width="0.8" height="4" class="fill-info">
-							<title>{ bar.Tooltip }</title>
-						</rect>
-					}
-				}
-			</svg>
-			for _, bar := range chart.Bars {
-				if chart.LabelVertical {
-					<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60 [writing-mode:vertical-rl] rotate-180">
-						{ bar.Label }
-					</div>
-				} else {
-					<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60">
-						{ bar.Label }
-					</div>
-				}
+				</div>
 			}
+			<div
+				class="grid gap-y-1 flex-1"
+				style={ fmt.Sprintf("grid-template-columns: repeat(%d, minmax(0, 1fr))", len(chart.Bars)) }
+			>
+				<svg
+					viewBox={ fmt.Sprintf("0 0 %d 100", len(chart.Bars)) }
+					preserveAspectRatio="none"
+					class="w-full h-24 col-span-full"
+					aria-hidden="true"
+				>
+					if len(chart.YAxisTicks) > 0 {
+						for _, tick := range chart.YAxisTicks {
+							<line
+								x1="0"
+								y1={ strconv.Itoa(tick.Pct) }
+								x2={ strconv.Itoa(len(chart.Bars)) }
+								y2={ strconv.Itoa(tick.Pct) }
+								class="stroke-base-300/60"
+								stroke-width="0.2"
+								stroke-dasharray="0.6 0.6"
+							/>
+						}
+					}
+					for i, bar := range chart.Bars {
+						<rect
+							x={ strconv.Itoa(i) }
+							y={ strconv.Itoa(100 - bar.HeightPct) }
+							width="0.8"
+							height={ strconv.Itoa(bar.HeightPct) }
+							class={ colorClass }
+						>
+							<title>{ bar.Tooltip }</title>
+						</rect>
+					}
+					for i, bar := range chart.Bars {
+						if bar.MarkerFlagged {
+							<rect x={ strconv.Itoa(i) } y="1" width="0.8" height="4" class="fill-warning">
+								<title>{ bar.Tooltip }</title>
+							</rect>
+						}
+						if bar.MarkerSpan {
+							<rect x={ strconv.Itoa(i) } y="6" width="0.8" height="4" class="fill-info">
+								<title>{ bar.Tooltip }</title>
+							</rect>
+						}
+					}
+				</svg>
+				for _, bar := range chart.Bars {
+					if chart.LabelVertical {
+						<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60 [writing-mode:vertical-rl] rotate-180">
+							{ bar.Label }
+						</div>
+					} else {
+						<div class="w-4/5 flex items-center justify-center overflow-hidden whitespace-nowrap text-[14px] leading-none text-base-content/60">
+							{ bar.Label }
+						</div>
+					}
+				}
+			</div>
 		</div>
 	}
 }
