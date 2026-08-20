@@ -286,7 +286,7 @@ type Reader interface {
 
 // MissingChargingType identifies which charge source a flagged charge_gaps
 // day is attributed to (design D-Table6, roadmap D7a). Inferred by
-// internal/battery at detection time -- never user-chosen, never a value this
+// internal/analytics at detection time -- never user-chosen, never a value this
 // module computes itself.
 type MissingChargingType string
 
@@ -303,11 +303,11 @@ const (
 )
 
 // ChargeGap is one flagged vehicle-day whose battery math does not add up --
-// internal/battery's derivation could not fully account for the day's
+// internal/analytics's derivation could not fully account for the day's
 // battery change from stored charge records, meaning a charge record is
 // missing or incomplete (D3/D7/D7a of RM28-telemetry-add-charge-gap-storage).
 // Our own domain model, no vendor suffix (ai/architecture.md §6):
-// internal/battery computes it, internal/telemetry stores it through the
+// internal/analytics computes it, internal/telemetry stores it through the
 // GapWriter port, and internal/telemetry never computes one itself.
 // AccountID/TeslaID are carried on the type -- even though every element of
 // one ReconcileWindow call's flagged slice belongs to that call's own vehicle
@@ -334,16 +334,16 @@ type ChargeGap struct {
 	// this module already translates every other db row into a domain type.
 	Date time.Time
 	// MissingChargingType is which charge source is suspected missing for
-	// this day, inferred by internal/battery at detection time (D7a).
+	// this day, inferred by internal/analytics at detection time (D7a).
 	MissingChargingType MissingChargingType
 }
 
 // GapWriter is telemetry's write port for the charge_gaps ledger (D3 of the
-// RM28 roadmap). internal/battery is its only intended caller: after
+// RM28 roadmap). internal/analytics is its only intended caller: after
 // deriving each day's consumption for a vehicle over a window and flagging
 // the days whose math does not add up (roadmap D5/D5a), it calls
 // ReconcileWindow once per vehicle per nightly run with the FULL flagged set
-// it computed for that window. telemetry never calls battery -- this port is
+// it computed for that window. telemetry never calls analytics -- this port is
 // the one leg of the one-way battery -> telemetry data flow the rest of the
 // platform's dependency graph already assumes (root README.md §Dependency
 // graph, LAYER 2), so no import cycle opens (roadmap D4a).
@@ -384,7 +384,7 @@ type GapWriter interface {
 }
 
 // NewGapWriter constructs a GapWriter backed by a real Postgres pool. Callers
-// (internal/battery via cmd/poller, D4a) depend on the GapWriter interface,
+// (internal/analytics via cmd/poller, D4a) depend on the GapWriter interface,
 // never on the concrete type or on telemetrydb directly. Implementation is in
 // gap_writer.go (forward-declared here so this file compiles before that one
 // is parsed, mirroring NewSuperchargerReader's identical pattern, design B6.3
@@ -541,7 +541,7 @@ type SuperchargerReader interface {
 	// session spanning midnight (ChargeStartDateTime before start,
 	// ChargeStopDateTime inside [start, end]) is deliberately INCLUDED. This
 	// is a pure data accessor: the port does no charge-to-day attribution of
-	// its own (that is internal/battery's job, roadmap D12) -- it only
+	// its own (that is internal/analytics's job, roadmap D12) -- it only
 	// answers "which sessions' energy finished landing in this window."
 	//
 	// Returns a non-nil empty slice and nil error when no sessions exist in

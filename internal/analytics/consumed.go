@@ -5,7 +5,7 @@
 // (D7a). Fully offline: no I/O, only plain telemetry.Snapshot /
 // telemetry.SuperchargerSession / manualcharge.Entry values in,
 // []DayConsumption out (mirrors derive.go's zero-I/O style).
-package battery
+package analytics
 
 import (
 	"time"

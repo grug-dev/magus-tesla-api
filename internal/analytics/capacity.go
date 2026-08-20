@@ -1,4 +1,4 @@
-package battery
+package analytics
 
 // packCapacityKWh maps a Fleet API vehicle_config.car_type code to that model's
 // approximate usable pack capacity in kWh. Human-maintained from public Tesla

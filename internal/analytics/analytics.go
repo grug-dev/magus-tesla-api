@@ -1,4 +1,4 @@
-// Package battery is the platform's first derived-metrics module. It owns
+// Package analytics is the platform's first derived-metrics module. It owns
 // analytics computed FROM other modules' stored data, not the data itself: its
 // one metric today is a rolling energy-per-kilometre (Wh/km) efficiency figure
 // over a fixed window, derived from internal/telemetry's snapshot history plus
@@ -11,7 +11,7 @@
 // reader.go). Domain types here carry NO vendor suffix — they are our own models
 // (ai/architecture.md §6). Full design rationale:
 // openspec/changes/battery-add-efficiency-metric/design.md.
-package battery
+package analytics
 
 import (
 	"context"
@@ -35,7 +35,7 @@ const DefaultWindow = 30 * 24 * time.Hour
 // Profile's tolerance for off-hours write-path cost).
 const GapReconciliationWindow = 30 * 24 * time.Hour
 
-// Reader is the battery module's public port (ai/go-conventions.md
+// Reader is the analytics module's public port (ai/go-conventions.md
 // interface-first) — the only mandatory contract the gateway and sibling
 // modules depend on.
 type Reader interface {

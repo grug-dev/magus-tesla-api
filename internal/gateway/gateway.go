@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/handlers"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
 	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
@@ -55,14 +55,14 @@ type Deps struct {
 	// ManualChargeReader is the manualcharge read port. Called by read handlers
 	// and the dataForCharges helper to list charge entries.
 	ManualChargeReader manualcharge.Reader
-	// BatteryReader is the battery module's read port; injected at
+	// AnalyticsReader is the analytics module's read port; injected at
 	// construction (mirrors TelemetryReader/SuperchargerReader/
 	// ManualChargeReader — the gateway calls ConsumedByDay once per history
-	// fragment render). Injected from cmd/web via battery.NewReader(...).
-	// NEVER import an internal/battery database package — internal/battery
+	// fragment render). Injected from cmd/web via analytics.NewReader(...).
+	// NEVER import an internal/analytics database package — internal/analytics
 	// owns no database, so there is none to accidentally import.
-	BatteryReader battery.Reader
-	SessionSecret string
+	AnalyticsReader analytics.Reader
+	SessionSecret   string
 	// Tesla OAuth app credentials + the web connect redirect URI.
 	TeslaClientID     string
 	TeslaClientSecret string
@@ -117,18 +117,18 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	}
 
 	h := handlers.New(handlers.Deps{
-		Pool:               d.Pool,
-		Account:            d.Account,
-		Google:             d.Google,
-		Tesla:              d.Tesla,
-		TelemetryReader:    d.TelemetryReader,
-		SuperchargerReader: d.SuperchargerReader,
-		ManualChargeWriter: d.ManualChargeWriter,
-		ManualChargeReader: d.ManualChargeReader,
-		BatteryReader:      d.BatteryReader,
-		TeslaClientID:      d.TeslaClientID,
-		TeslaClientSecret:  d.TeslaClientSecret,
-		TeslaRedirectURL:   d.TeslaRedirectURL,
+		Pool:                 d.Pool,
+		Account:              d.Account,
+		Google:               d.Google,
+		Tesla:                d.Tesla,
+		TelemetryReader:      d.TelemetryReader,
+		SuperchargerReader:   d.SuperchargerReader,
+		ManualChargeWriter:   d.ManualChargeWriter,
+		ManualChargeReader:   d.ManualChargeReader,
+		AnalyticsReader:      d.AnalyticsReader,
+		TeslaClientID:        d.TeslaClientID,
+		TeslaClientSecret:    d.TeslaClientSecret,
+		TeslaRedirectURL:     d.TeslaRedirectURL,
 		VehicleImageResolver: newVehicleImageResolver(staticFS),
 	})
 

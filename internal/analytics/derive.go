@@ -1,4 +1,4 @@
-package battery
+package analytics
 
 import "github.com/cristianpena/magus-tesla-api/internal/telemetry"
 

@@ -1,4 +1,4 @@
-package battery
+package analytics
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 )
 
 // chargingSourceLimit bounds each of the two charging-cost source reads (design.md D6).
-// Neither port supports a since filter; battery fetches this many newest-first rows and
+// Neither port supports a since filter; analytics fetches this many newest-first rows and
 // filters to the window in Go. Generous relative to any plausible 30-day session count.
 const chargingSourceLimit = 200
 

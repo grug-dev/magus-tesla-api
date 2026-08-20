@@ -4,10 +4,10 @@
 // collection logic lives in internal/telemetry (ai/go-conventions.md).
 //
 // It is also the composition root for charge-gap reconciliation: after each
-// successful cycle it asks internal/battery for the trailing window of consumed-per-day
+// successful cycle it asks internal/analytics for the trailing window of consumed-per-day
 // figures and hands the flagged days to internal/telemetry's gap writer. That
 // orchestration lives HERE, and only here, because neither module may depend on the
-// other in that direction — telemetry never calls battery. See internal/battery's
+// other in that direction — telemetry never calls analytics. See internal/analytics's
 // ConsumedByDay and telemetry's GapWriter.
 //
 // BOTH paths load and validate POLLER_TIMEZONE: the nightly path schedules in it, and
@@ -31,7 +31,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
@@ -81,19 +81,19 @@ func main() {
 
 	// The charge-gap reconciliation step (D4/D4a) decorates the collector rather
 	// than sitting beside it, so BOTH the scheduled path and --once get it by
-	// construction. battery.NewReader's window argument is required by the
+	// construction. analytics.NewReader's window argument is required by the
 	// signature but unused by ConsumedByDay — only RecentEfficiency reads it, and
 	// this command never calls that.
-	batteryReader := battery.NewReader(
+	analyticsReader := analytics.NewReader(
 		telemetry.NewReader(pool),
 		telemetry.NewSuperchargerReader(pool),
 		manualcharge.NewReader(pool),
 		acct,
-		battery.DefaultWindow,
+		analytics.DefaultWindow,
 	)
 	collector := &reconcilingCollector{
 		inner:     telemetry.NewService(pool, acct, tesla.NewClient(), tcfg),
-		reconcile: newGapReconciler(acct, batteryReader, telemetry.NewGapWriter(pool), loc),
+		reconcile: newGapReconciler(acct, analyticsReader, telemetry.NewGapWriter(pool), loc),
 	}
 
 	if !*once {
@@ -130,8 +130,8 @@ func main() {
 // paths share the step by construction: Scheduler.Run owns its own loop and calls
 // CollectAll internally, so cmd/ has no seam to hook after a *scheduled* cycle.
 // Wrapping the port the scheduler already depends on keeps the orchestration in
-// the composition root — D4a: cmd/poller orchestrates battery → telemetry, and
-// telemetry never calls battery — instead of adding a post-cycle hook to
+// the composition root — D4a: cmd/poller orchestrates analytics → telemetry, and
+// telemetry never calls analytics — instead of adding a post-cycle hook to
 // telemetry.Scheduler, which would push knowledge of this tier into a module that
 // must not have it.
 type reconcilingCollector struct {
@@ -154,7 +154,7 @@ func (c *reconcilingCollector) CollectAll(ctx context.Context) (telemetry.CycleR
 
 // newGapReconciler builds the per-cycle charge-gap reconciliation step (D4/D4a,
 // D7b). For every registered vehicle it recomputes the trailing
-// battery.GapReconciliationWindow of consumed-per-day figures and hands the flagged
+// analytics.GapReconciliationWindow of consumed-per-day figures and hands the flagged
 // days to telemetry's gap writer, which upserts the days that flag and deletes the
 // days that no longer do.
 //
@@ -163,17 +163,17 @@ func (c *reconcilingCollector) CollectAll(ctx context.Context) (telemetry.CycleR
 // accumulated. Its log lines are prefixed "gap reconciliation:" so they stay
 // greppable and unambiguous — they are emitted inside CollectAll, hence before the
 // caller's own telemetry-cycle summary line.
-func newGapReconciler(acct account.Service, batteryReader battery.Reader, gapWriter telemetry.GapWriter, loc *time.Location) func(context.Context) {
+func newGapReconciler(acct account.Service, analyticsReader analytics.Reader, gapWriter telemetry.GapWriter, loc *time.Location) func(context.Context) {
 	return func(ctx context.Context) {
 		// "Yesterday" is resolved in the POLLER'S OWN ZONE, not UTC (roadmap D6/D18,
 		// design D-B12): the composition root owns the zone that answers "which days
-		// am I asking about", while internal/battery needs no *time.Location of its
+		// am I asking about", while internal/analytics needs no *time.Location of its
 		// own because each row's bucket day travels with it. time.Now().UTC() here
 		// would ask for the wrong day for 5 hours out of every 24. The window ends
 		// yesterday because today's data is not captured until tomorrow's poll.
 		y, m, d := time.Now().In(loc).Date()
 		end := time.Date(y, m, d, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
-		start := end.AddDate(0, 0, -int(battery.GapReconciliationWindow.Hours()/24)+1)
+		start := end.AddDate(0, 0, -int(analytics.GapReconciliationWindow.Hours()/24)+1)
 
 		log.Printf("gap reconciliation: %s → %s", start, end)
 
@@ -185,7 +185,7 @@ func newGapReconciler(acct account.Service, batteryReader battery.Reader, gapWri
 		}
 
 		for _, v := range vehicles {
-			days, err := batteryReader.ConsumedByDay(ctx, v.AccountID, v.TeslaID, start, end)
+			days, err := analyticsReader.ConsumedByDay(ctx, v.AccountID, v.TeslaID, start, end)
 			if err != nil {
 				// Per-vehicle isolation, mirroring CollectAll: one vehicle's failure
 				// never aborts another vehicle's reconciliation.

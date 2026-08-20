@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
@@ -72,18 +72,18 @@ func (f *fakeHistoryReader) SnapshotsByVehicleBetween(_ context.Context, account
 // errTestHistory is a sentinel error for history handler tests.
 var errTestHistory = errors.New("test history reader error")
 
-// fakeBatteryReader is a test double for battery.Reader, used by the
+// fakeAnalyticsReader is a test double for analytics.Reader, used by the
 // buildConsumedChart integration path (buildHistoryView) and the Deps
 // forwarding test (design.md Test Contract (o)). ConsumedByDay records its
 // call args so tests can assert wiring — the same call-recording-fake shape
 // fakeHistoryReader.betweenCalled already uses for TelemetryReader.
 // RecentEfficiency PANICS: design.md's "cmd/web wiring" section states the
 // gateway's history fragment never calls it (only RecentEfficiency reads
-// battery.DefaultWindow, and the gateway never calls that method) — mirrors
+// analytics.DefaultWindow, and the gateway never calls that method) — mirrors
 // fakeHistoryReader's SnapshotsByVehicleSince panic guard for an
 // intentionally-unused method.
-type fakeBatteryReader struct {
-	days []battery.DayConsumption
+type fakeAnalyticsReader struct {
+	days []analytics.DayConsumption
 	err  error
 
 	gotAccount          uuid.UUID
@@ -93,11 +93,11 @@ type fakeBatteryReader struct {
 	consumedByDayCalled bool
 }
 
-func (f *fakeBatteryReader) RecentEfficiency(context.Context, uuid.UUID, int64) (battery.Efficiency, bool, error) {
-	panic("fakeBatteryReader: RecentEfficiency is never called by the gateway's history fragment")
+func (f *fakeAnalyticsReader) RecentEfficiency(context.Context, uuid.UUID, int64) (analytics.Efficiency, bool, error) {
+	panic("fakeAnalyticsReader: RecentEfficiency is never called by the gateway's history fragment")
 }
 
-func (f *fakeBatteryReader) ConsumedByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]battery.DayConsumption, error) {
+func (f *fakeAnalyticsReader) ConsumedByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]analytics.DayConsumption, error) {
 	f.gotAccount = accountID
 	f.gotTeslaID = teslaID
 	f.gotStart = start
@@ -130,25 +130,25 @@ func historyEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN string) *
 // newHandlerForHistory builds a Handler with the given fakeHistoryReader and one
 // registered vehicle. Mirrors newHandlerForCharges.
 //
-// Wires a default empty fakeBatteryReader so every pre-existing
+// Wires a default empty fakeAnalyticsReader so every pre-existing
 // buildHistoryView/DashboardHistoryFragment test that does not care about the
 // consumed chart keeps working: buildHistoryView (RM28 tier 4, D-G10)
-// unconditionally calls h.batteryReader.ConsumedByDay after the odometer/
-// battery charts succeed, and a nil battery.Reader interface value would
+// unconditionally calls h.analyticsReader.ConsumedByDay after the odometer/
+// battery charts succeed, and a nil analytics.Reader interface value would
 // panic on that call — every caller of this helper needs a non-nil reader,
 // not just the tests that assert on the consumed chart's content. Tests that
-// need to control or observe BatteryReader use
-// newHandlerForHistoryWithBattery instead.
+// need to control or observe AnalyticsReader use
+// newHandlerForHistoryWithAnalytics instead.
 func newHandlerForHistory(reader *fakeHistoryReader, teslaID int64, vin string) *Handler {
-	return newHandlerForHistoryWithBattery(reader, &fakeBatteryReader{}, teslaID, vin)
+	return newHandlerForHistoryWithAnalytics(reader, &fakeAnalyticsReader{}, teslaID, vin)
 }
 
-// newHandlerForHistoryWithBattery mirrors newHandlerForHistory but wires an
-// explicit fake battery.Reader instead of the default empty one, for tests
+// newHandlerForHistoryWithAnalytics mirrors newHandlerForHistory but wires an
+// explicit fake analytics.Reader instead of the default empty one, for tests
 // that need to control (fixture days/err) or observe (call-recording) the
 // consumed-chart port — e.g. the Deps-forwarding test (design.md Test
 // Contract (o)).
-func newHandlerForHistoryWithBattery(historyReader *fakeHistoryReader, batteryReader battery.Reader, teslaID int64, vin string) *Handler {
+func newHandlerForHistoryWithAnalytics(historyReader *fakeHistoryReader, analyticsReader analytics.Reader, teslaID int64, vin string) *Handler {
 	acct := &fakeAccount{
 		registered: []account.Vehicle{
 			{TeslaID: teslaID, VIN: vin, DisplayName: "Test Vehicle"},
@@ -158,7 +158,7 @@ func newHandlerForHistoryWithBattery(historyReader *fakeHistoryReader, batteryRe
 		Account:         acct,
 		Tesla:           &fakeTesla{},
 		TelemetryReader: historyReader,
-		BatteryReader:   batteryReader,
+		AnalyticsReader: analyticsReader,
 	})
 }
 
@@ -767,7 +767,7 @@ func TestBuildBatteryChart_TooltipUsesEffectiveDateMMDD(t *testing.T) {
 func TestBuildConsumedChart_NormalDay_RelativeScale(t *testing.T) {
 	start := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
+	days := []analytics.DayConsumption{
 		{Date: start, ConsumedPct: 11.0},
 		{Date: end, ConsumedPct: 20.0},
 	}
@@ -799,7 +799,7 @@ func TestBuildConsumedChart_NormalDay_RelativeScale(t *testing.T) {
 // hides the raw value entirely (D10) — must NOT contain "-5" anywhere.
 func TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue(t *testing.T) {
 	d := time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
+	days := []analytics.DayConsumption{
 		{Date: d, ConsumedPct: -5.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
@@ -826,7 +826,7 @@ func TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue(t *testing.T) {
 // Contract (c): the zero-with-distance flagged case, SUPERCHARGER source.
 func TestBuildConsumedChart_FlaggedNonSpan_Supercharger_ZeroWithDistance(t *testing.T) {
 	d := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
+	days := []analytics.DayConsumption{
 		{Date: d, ConsumedPct: 0, DistanceKm: 42, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeSupercharger, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
@@ -849,7 +849,7 @@ func TestBuildConsumedChart_FlaggedNonSpan_Supercharger_ZeroWithDistance(t *test
 func TestBuildConsumedChart_MultiDaySpan_NotFlagged_ShowsRealValue(t *testing.T) {
 	d1 := time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC)
 	d2 := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
+	days := []analytics.DayConsumption{
 		{Date: d1, ConsumedPct: 15.0, Flagged: false, DaysSpanned: 3},
 		{Date: d2, ConsumedPct: 20.0, Flagged: false, DaysSpanned: 1}, // sets the window max
 	}
@@ -877,7 +877,7 @@ func TestBuildConsumedChart_MultiDaySpan_NotFlagged_ShowsRealValue(t *testing.T)
 // suppressed by a concurrent flag — D-G4's table row 4).
 func TestBuildConsumedChart_MultiDaySpanAndFlagged_BothMarkers_ValueShown(t *testing.T) {
 	d := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
+	days := []analytics.DayConsumption{
 		{Date: d, ConsumedPct: -3.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 2},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
@@ -911,7 +911,7 @@ func TestBuildConsumedChart_MultiDaySpanAndFlagged_BothMarkers_ValueShown(t *tes
 func TestBuildConsumedChart_MultiDaySpanAndFlagged_HeightClampIsolatedFromMax(t *testing.T) {
 	d1 := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
 	d2 := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
+	days := []analytics.DayConsumption{
 		{Date: d1, ConsumedPct: -3.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 2},
 		{Date: d2, ConsumedPct: 10.0, Flagged: false, DaysSpanned: 1},
 	}
@@ -942,7 +942,7 @@ func TestBuildConsumedChart_MultiDaySpanAndFlagged_HeightClampIsolatedFromMax(t 
 func TestBuildConsumedChart_NoDataDay_DistinctFromNoSnapshotWording(t *testing.T) {
 	present := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
 	missing := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{{Date: present, ConsumedPct: 5.0}}
+	days := []analytics.DayConsumption{{Date: present, ConsumedPct: 5.0}}
 	c := buildConsumedChart(historyTestCtx, days, present, missing)
 	if c.Empty {
 		t.Fatal("want non-empty chart (one day is present)")
@@ -985,12 +985,12 @@ func TestBuildConsumedChart_EmptyWhenZeroDays(t *testing.T) {
 
 // TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC — Test
 // Contract (i), the D-G2 regression guard: bucketing uses
-// battery.DayConsumption.Date VERBATIM, never re-derived via
+// analytics.DayConsumption.Date VERBATIM, never re-derived via
 // effectiveDayUTC. DayConsumption carries no EffectiveDate-shaped field, so
 // this only proves the bucket key came from Date directly.
 func TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC(t *testing.T) {
 	d := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{{Date: d, ConsumedPct: 11.0}}
+	days := []analytics.DayConsumption{{Date: d, ConsumedPct: 11.0}}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
 	if c.Empty || len(c.Bars) != 1 {
 		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
@@ -1017,7 +1017,7 @@ func TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC(t *testing.T
 func TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp(t *testing.T) {
 	d1 := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
 	d2 := time.Date(2026, 8, 18, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
+	days := []analytics.DayConsumption{
 		{Date: d1, ConsumedPct: -8.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 1},
 		{Date: d2, ConsumedPct: 12.0, Flagged: false, DaysSpanned: 1},
 	}
@@ -1037,8 +1037,8 @@ func TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp(t *testing.
 	}
 }
 
-// TestHandler_BatteryReaderDepsForwarding — design.md Test Contract (o):
-// New(Deps{BatteryReader: fake}) is the SAME instance buildHistoryView
+// TestHandler_AnalyticsReaderDepsForwarding — design.md Test Contract (o):
+// New(Deps{AnalyticsReader: fake}) is the SAME instance buildHistoryView
 // calls. There is no dedicated forwarding test for SuperchargerReader or
 // ManualChargeReader in this suite to mirror name-for-name (grepped first,
 // per tasks.md T8.14's instruction) — every sibling port is instead verified
@@ -1046,22 +1046,22 @@ func TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp(t *testing.
 // call, the same call-recording-fake technique fakeHistoryReader.betweenCalled
 // already uses for TelemetryReader (see
 // TestBuildHistoryView_PassesReadStartLookbackToEndToReader). This test
-// mirrors that shape for BatteryReader rather than inventing a reflection-
+// mirrors that shape for AnalyticsReader rather than inventing a reflection-
 // based "same pointer" check.
-func TestHandler_BatteryReaderDepsForwarding(t *testing.T) {
+func TestHandler_AnalyticsReaderDepsForwarding(t *testing.T) {
 	historyReader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
-	batteryReader := &fakeBatteryReader{days: []battery.DayConsumption{}}
-	h := newHandlerForHistoryWithBattery(historyReader, batteryReader, 42, "VIN42")
+	analyticsReader := &fakeAnalyticsReader{days: []analytics.DayConsumption{}}
+	h := newHandlerForHistoryWithAnalytics(historyReader, analyticsReader, 42, "VIN42")
 
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
 	_ = h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
 
-	if !batteryReader.consumedByDayCalled {
-		t.Fatal("want ConsumedByDay called on the Deps-supplied BatteryReader — Handler.batteryReader must be the same instance New(Deps{BatteryReader: ...}) was given")
+	if !analyticsReader.consumedByDayCalled {
+		t.Fatal("want ConsumedByDay called on the Deps-supplied AnalyticsReader — Handler.analyticsReader must be the same instance New(Deps{AnalyticsReader: ...}) was given")
 	}
-	if !batteryReader.gotStart.Equal(start) || !batteryReader.gotEnd.Equal(end) {
-		t.Errorf("want ConsumedByDay called with (start=%v, end=%v), got (%v, %v)", start, end, batteryReader.gotStart, batteryReader.gotEnd)
+	if !analyticsReader.gotStart.Equal(start) || !analyticsReader.gotEnd.Equal(end) {
+		t.Errorf("want ConsumedByDay called with (start=%v, end=%v), got (%v, %v)", start, end, analyticsReader.gotStart, analyticsReader.gotEnd)
 	}
 }
 
@@ -1100,9 +1100,9 @@ func TestBuildHistoryView_ConsumedReaderError_LeavesOtherChartsIntact(t *testing
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day window
 	lookback := start.AddDate(0, 0, -1)
 	snaps := snapsForDays(append([]time.Time{lookback}, calendarDays(start, end)...), 1000, 10, 70)
-	historyReader := &fakeHistoryReader{historySnaps: snaps} // succeeds — populates both charts
-	batteryReader := &fakeBatteryReader{err: errTestHistory} // ConsumedByDay fails
-	h := newHandlerForHistoryWithBattery(historyReader, batteryReader, 42, "VIN42")
+	historyReader := &fakeHistoryReader{historySnaps: snaps}     // succeeds — populates both charts
+	analyticsReader := &fakeAnalyticsReader{err: errTestHistory} // ConsumedByDay fails
+	h := newHandlerForHistoryWithAnalytics(historyReader, analyticsReader, 42, "VIN42")
 
 	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
 

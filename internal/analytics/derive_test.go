@@ -1,4 +1,4 @@
-package battery
+package analytics
 
 import (
 	"testing"
@@ -135,7 +135,7 @@ func TestDeriveEfficiency_FewerThanTwoSnapshots_NotOK(t *testing.T) {
 // over the window".
 func TestDeriveEfficiency_NonIncreasingOdometer_NotOK(t *testing.T) {
 	cases := []struct {
-		name       string
+		name    string
 		startKm float64
 		endKm   float64
 	}{

@@ -1,8 +1,8 @@
-# Battery Sub-Agent
+# Analytics Sub-Agent
 
-Agent-Name: battery
+Agent-Name: analytics
 
-Per-module instructions for `internal/battery/` — merged with the global rules
+Per-module instructions for `internal/analytics/` — merged with the global rules
 (`CLAUDE.md`, `ai/*.md`) by any assistant working here (see `ai/agentic-workflow.md`).
 
 ## Doc-Pack (module)
@@ -16,7 +16,7 @@ future metric needs an external doc, e.g. a battery-chemistry reference, add it 
 
 ## Responsibility
 
-`internal/battery/` is the platform's first **derived-metrics** module. It owns
+`internal/analytics/` is the platform's first **derived-metrics** module. It owns
 analytics computed FROM other modules' stored data, not the data itself. Its first
 (and currently only) metric is rolling energy-per-kilometre (Wh/km) over a fixed
 window, derived from `internal/telemetry/`'s snapshot history plus the two
@@ -32,6 +32,10 @@ a separate follow-on change; not yet wired as of `battery-add-efficiency-metric`
 Full design rationale (why hybrid energy, why consistent-pair SoC selection, why the
 capacity table is model-coarse, why `Approximate` exists instead of refusing to
 answer): `openspec/changes/battery-add-efficiency-metric/design.md`.
+
+Under the RM29 roadmap (tier 1 of 8), this module owns what the application
+calculates; it will additionally own a database of its own starting at tier 3 —
+a fact not yet true today (see "Data ownership" below).
 
 ## Public interface (the port)
 
@@ -107,12 +111,12 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
   (`ai/architecture.md` §2).
 - `internal/tesla` — this module never talks to the Fleet API directly; every value it
   needs (snapshots, charging sessions, vehicle config) has already been captured and
-  stored by another module before `battery` ever runs.
+  stored by another module before `analytics` ever runs.
 
 ## Data ownership
 
-**None.** `internal/battery/` owns no database, no table, no migration, and no
-`internal/battery/db` package. It is a pure read-side derivation over sibling
+**None.** `internal/analytics/` owns no database, no table, no migration, and no
+`internal/analytics/db` package. It is a pure read-side derivation over sibling
 modules' stores, reached exclusively through their public `Reader` ports. The one
 piece of module-local state is `capacity.go`'s `packCapacityKWh` — an in-package Go
 `map[string]float64`, human-maintained from public Tesla spec sheets, NOT a database
@@ -135,5 +139,5 @@ This module owns no DB, so **every test is an offline unit test** — no
   `newFakeReader` pattern in `internal/telemetry/reader_test.go` one level up (fake
   *ports* instead of a fake *store*).
 
-Run `go test ./internal/battery/...` — it must pass with `DATABASE_URL` unset and
+Run `go test ./internal/analytics/...` — it must pass with `DATABASE_URL` unset and
 Docker down; nothing in this module may ever self-skip for lack of a database.

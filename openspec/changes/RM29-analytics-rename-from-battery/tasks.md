@@ -121,6 +121,22 @@ wave lands as a unit.
   assertion, fixture value, or test-scenario change — names only.
   `depends_on`: 1.1–1.9, 2.4, 2.5 · `parallel_ok`: no
 
+- [x] **2.7** *(added during Wave 2 by the leader — not in the original plan)* Stale
+  `internal/battery` prose in **hand-written Go doc comments**, which the proposal's
+  "telemetry is not touched except one AGENTS.md reference" claim missed:
+  `internal/telemetry/telemetry.go` (8 refs — `GapWriter`'s intended-caller docs, the
+  `charge_gaps` column comment, the `D4a`/`roadmap D12` asides),
+  `internal/gateway/templates/fragments/history_vm.go` (1), and
+  `internal/gateway/handlers/charges_test.go` (1). Required by CLAUDE.md's
+  docs-track-structural-change rule — these name a module that no longer exists.
+  **Explicitly excluded:** the 8 remaining refs in `internal/telemetry/db/models.go` and
+  `query.sql.go`, which are sqlc-**generated** from `COMMENT ON` statements in
+  already-applied migrations; correcting those needs a NEW migration, i.e. a database
+  change this tier excludes and which would trip the design gate. Deferred to T5
+  (`RM29-analytics-own-charge-gaps`), which moves `charge_gaps` out of telemetry and
+  rewrites those comments anyway.
+  `depends_on`: 1.1–1.9 · `parallel_ok`: no
+
 ## Wave 3 — OpenSpec specs folder move (leader — hard dependency before archive)
 
 - [ ] **3.1** `git mv openspec/specs/battery/ openspec/specs/analytics/`. Hand-edit

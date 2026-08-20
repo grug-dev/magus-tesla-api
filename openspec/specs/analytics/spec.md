@@ -1,7 +1,7 @@
-# battery Specification
+# analytics Specification
 
 ## Purpose
-Derived battery analytics over stored telemetry — the platform's metrics layer, sitting between
+Derived analytics over stored telemetry — the platform's metrics layer, sitting between
 what `telemetry` captures and what the dashboard renders. It owns no database and no capture: it
 reads sibling modules' public ports and computes values none of them store. Its first metric is
 rolling energy-per-kilometre (Wh/km).

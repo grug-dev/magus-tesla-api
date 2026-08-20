@@ -5,10 +5,9 @@
   "module": "battery",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "please continue the artifacts for RM29-analytics-rename-from-battery",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       "1.1",
       "1.2",
       "1.3",
@@ -24,7 +23,10 @@
       "2.4",
       "2.5",
       "2.6",
-      "3.1",
+      "2.7",
+      "3.1"
+    ],
+    "pending": [
       "4.1",
       "4.2",
       "4.3",
@@ -39,7 +41,7 @@
     "done": []
   },
   "created_at": "2026-08-20T17:15:32Z",
-  "updated_at": "2026-08-20T17:15:32Z",
+  "updated_at": "2026-08-20T17:29:59Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -60,14 +62,23 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:22:07Z",
+      "completed_at": "2026-08-20T17:23:40Z",
+      "duration_seconds": 93,
+      "notes": "mv battery.go->analytics.go; package clause + doc comment updated. Archived-change citation left intact.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "1.2",
@@ -76,14 +87,23 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv capacity.go; package clause only.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "1.3",
@@ -92,14 +112,23 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv consumed.go; package clause only. Domain-word 'battery' occurrences untouched.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "1.4",
@@ -108,14 +137,23 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv derive.go; package clause only.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "1.5",
@@ -124,14 +162,23 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv reader.go; package clause only. Leader later fixed one stale prose ref at line 15.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "1.6",
@@ -142,14 +189,23 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:24:10Z",
+      "duration_seconds": 30,
+      "notes": "mv consumed_test.go; package clause + one broken 'go test ./internal/battery/...' comment path.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "1.7",
@@ -160,14 +216,23 @@
         "1.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:25:00Z",
+      "duration_seconds": 80,
+      "notes": "mv derive_test.go; package clause. gofmt -w applied for a pre-existing alignment issue.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "1.8",
@@ -178,14 +243,23 @@
         "1.5"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv reader_test.go; package clause only.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "1.9",
@@ -194,14 +268,23 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:24:10Z",
+      "completed_at": "2026-08-20T17:25:00Z",
+      "duration_seconds": 50,
+      "notes": "mv AGENTS.md; Agent-Name: analytics, title, module refs, one D5 forward-looking sentence.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "2.1",
@@ -220,14 +303,23 @@
         "1.9"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import, qualifiers, batteryReader->analyticsReader. Also fixed 'telemetry never calls battery' prose the token rules missed.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "2.2",
@@ -247,14 +339,23 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import + Deps{AnalyticsReader: analytics.NewReader(...)}.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "2.3",
@@ -273,14 +374,23 @@
         "1.9"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import + Deps.BatteryReader->AnalyticsReader, forwarding use, doc comment. gofmt -w (mixed inherited+rename alignment).",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "2.4",
@@ -300,14 +410,23 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import + Deps/Handler field renames, constructor forwarding, doc comment. gofmt -w: rename broke alignment (clean at HEAD).",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "2.5",
@@ -327,14 +446,23 @@
         "2.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import, battery.* qualifiers, h.analyticsReader.ConsumedByDay call site.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "2.6",
@@ -355,14 +483,58 @@
         "2.5"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import, qualifiers, fakeAnalyticsReader/newHandlerForHistoryWithAnalytics/TestHandler_AnalyticsReaderDepsForwarding. gofmt -w.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "2.7",
+      "title": "Stale internal/battery prose in hand-written Go doc comments (added mid-wave)",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:29:29Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 0,
+      "notes": "Added mid-wave: 10 stale internal/battery refs in hand-written Go doc comments. sqlc-generated ones deferred to T5.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "3.1",
@@ -371,14 +543,23 @@
       "owner": "leader",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "git mv specs/battery->analytics; H1 + Purpose edited; 12 requirements byte-identical so MODIFIED delta still applies.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
     },
     {
       "id": "4.1",
@@ -682,6 +863,33 @@
       "decision": "Accepted the worker's rename of 3 stale identifiers in history_test.go not named in the proposal",
       "why": "The file is compile-forced open anyway; leaving fakeBatteryReader et al. stale recreates the duplicate-vocabulary cost RM29 exists to remove. Names only, no assertion change.",
       "covered_by": "roadmap D3"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-20T17:21:22Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Roadmap autopilot stays OFF \u2014 each tier needs an explicit go-ahead",
+      "why": "User's call at the artifact/apply boundary. Skill defaults roadmaps to autopilot; T3 (gold standard) and T4 (column drop) are natural review points.",
+      "covered_by": "roadmap D8"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-20T17:21:22Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Wave 1 (worker) and Wave 2+3.1 (leader) run concurrently, not sequentially",
+      "why": "File sets are disjoint (internal/battery vs cmd+gateway+openspec/specs) and the tree cannot compile until both land anyway, so serializing buys no safety.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-20T17:29:29Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Fixed 10 stale internal/battery refs in hand-written Go doc comments; deferred the 8 sqlc-generated ones to T5",
+      "why": "CLAUDE.md requires docs track structural change. The generated ones come from COMMENT ON in applied migrations \u2014 fixing them needs a new migration, which this tier excludes.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -704,6 +912,31 @@
       "at": "2026-08-20T17:15:32Z",
       "agent": "leader",
       "event": "schema extended additively with tasks[].owner (module|leader|user) \u2014 a rename spans modules, so ownership must be explicit per task"
+    },
+    {
+      "at": "2026-08-20T17:21:22Z",
+      "agent": "leader",
+      "event": "dispatched battery worker (Sonnet) for wave 1 (1.1-1.9); leader takes 2.1-2.6 + 3.1 concurrently. Atomic wave: nothing compiles until both land. Budget start 5h=38%, cost=$7.3626"
+    },
+    {
+      "at": "2026-08-20T17:29:29Z",
+      "agent": "leader",
+      "event": "wave 1+2+2.7+3.1 reconciled. Assistant signals PASS: go build OK, go vet OK, gofmt clean on every touched file, ui/i18n/money guards pass. Suite NOT run \u2014 owner's to run."
+    },
+    {
+      "at": "2026-08-20T17:29:29Z",
+      "agent": "leader",
+      "event": "worker self-reported a sandbox violation: ran read-only git status/git show despite the no-git rule. No mutation, nothing staged; accepted with no rework, recorded for the reviewer."
+    },
+    {
+      "at": "2026-08-20T17:29:29Z",
+      "agent": "leader",
+      "event": "proposal factual error found: it claimed telemetry has one stale AGENTS.md reference; telemetry.go actually had 8 in Go doc comments. Corrected via added task 2.7."
+    },
+    {
+      "at": "2026-08-20T17:29:59Z",
+      "agent": "leader",
+      "event": "wave 1+2 committed as e80de67; git detected all 10 moves as renames (91-99% similarity), confirming design.md D1"
     }
   ]
 }

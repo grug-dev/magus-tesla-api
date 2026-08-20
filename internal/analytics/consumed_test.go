@@ -1,4 +1,4 @@
-package battery
+package analytics
 
 import (
 	"testing"
@@ -17,7 +17,7 @@ import (
 //
 // Per the Test-Execution-Policy, these tests are written but NOT run by the worker; go vet
 // ./... compiles them as a signature-drift signal. The owner runs
-// `go test ./internal/battery/...` and reports the result.
+// `go test ./internal/analytics/...` and reports the result.
 //
 // Snapshot-fixture convention (design.md Test Contract, binding, changed by D18): every
 // telemetry.Snapshot fixture below sets both CapturedAt (the instant) and CapturedDate

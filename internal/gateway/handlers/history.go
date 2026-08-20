@@ -21,7 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
@@ -250,13 +250,13 @@ func buildHistoryPresets(ctx context.Context, start, end, today time.Time) []fra
 
 // buildHistoryView is the core logic for the history fragment, decoupled from
 // gin/session so it is unit-testable with a fake telemetry.Reader and a fake
-// battery.Reader. It performs TWO independent reads:
+// analytics.Reader. It performs TWO independent reads:
 //
 //  1. SnapshotsByVehicleBetween, with a 1-day lookback (readStart = start-1day
 //     — design D2), feeding the odometer and battery charts. The returned
 //     snapshots are bucketed by EffectiveDate.
 //  2. ConsumedByDay, feeding the battery-consumed chart (RM28 tier 4). Its
-//     entries are bucketed on DayConsumption.Date verbatim — internal/battery
+//     entries are bucketed on DayConsumption.Date verbatim — internal/analytics
 //     already computed that day in the poller's zone (roadmap D18), so the
 //     gateway must NOT re-project it through effectiveDayUTC.
 //
@@ -295,7 +295,7 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 	// The consumed chart is a SEPARATE read against a SEPARATE port — its own
 	// error degrades ONLY v.Consumed, never the already-populated
 	// v.Odometer/v.Battery above (design.md D-G10).
-	days, err := h.batteryReader.ConsumedByDay(ctx, uid, teslaID, start, end)
+	days, err := h.analyticsReader.ConsumedByDay(ctx, uid, teslaID, start, end)
 	if err != nil {
 		log.Printf("gateway: consumed-chart reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Consumed = fragments.HistoryChart{Empty: true}
@@ -461,7 +461,7 @@ func buildBatteryChart(ctx context.Context, snaps []telemetry.Snapshot, start, e
 
 // buildConsumedChart computes battery-consumed-%/day bars over the FIXED
 // [start..end] calendar-day axis (matching the other two charts' window),
-// bucketed on battery.DayConsumption.Date DIRECTLY — never effectiveDayUTC
+// bucketed on analytics.DayConsumption.Date DIRECTLY — never effectiveDayUTC
 // (D18/D18a, design.md D-G2: the port's Date is already a final, zoned
 // bucket key). Scaled RELATIVE to the window's max displayed value (D19),
 // mirroring buildOdometerChart's maxKm pattern, not buildBatteryChart's
@@ -477,14 +477,14 @@ func buildBatteryChart(ctx context.Context, snaps []telemetry.Snapshot, start, e
 // fires only when days is empty (mirrors buildBatteryChart: a single
 // computable day is enough to draw, unlike buildOdometerChart's need for a
 // delta pair).
-func buildConsumedChart(ctx context.Context, days []battery.DayConsumption, start, end time.Time) fragments.HistoryChart {
+func buildConsumedChart(ctx context.Context, days []analytics.DayConsumption, start, end time.Time) fragments.HistoryChart {
 	numDays := int(end.Sub(start).Hours()/24) + 1
 
 	if len(days) == 0 {
 		return fragments.HistoryChart{Empty: true, LabelVertical: labelVerticalFor(numDays)}
 	}
 
-	byDay := make(map[time.Time]battery.DayConsumption, len(days))
+	byDay := make(map[time.Time]analytics.DayConsumption, len(days))
 	for _, d := range days {
 		byDay[d.Date] = d // D-G2: d.Date verbatim, never effectiveDayUTC(d.Date)
 	}

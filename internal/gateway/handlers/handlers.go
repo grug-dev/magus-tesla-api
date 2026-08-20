@@ -23,8 +23,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
@@ -67,13 +67,13 @@ type Deps struct {
 	// ManualChargeReader is the manualcharge read port. Called by read handlers
 	// and the dataForCharges helper to list charge entries.
 	ManualChargeReader manualcharge.Reader
-	// BatteryReader is the battery module's read port; injected at
+	// AnalyticsReader is the analytics module's read port; injected at
 	// construction (mirrors TelemetryReader/SuperchargerReader/
 	// ManualChargeReader — the gateway calls ConsumedByDay once per history
-	// fragment render). NEVER construct an internal/battery internal type
-	// here — internal/battery owns no database, so there is no db package
+	// fragment render). NEVER construct an internal/analytics internal type
+	// here — internal/analytics owns no database, so there is no db package
 	// this could even accidentally import.
-	BatteryReader     battery.Reader
+	AnalyticsReader   analytics.Reader
 	TeslaClientID     string
 	TeslaClientSecret string
 	TeslaRedirectURL  string
@@ -95,7 +95,7 @@ type Handler struct {
 	superchargerReader telemetry.SuperchargerReader
 	manualChargeWriter manualcharge.Writer
 	manualChargeReader manualcharge.Reader
-	batteryReader      battery.Reader
+	analyticsReader    analytics.Reader
 	teslaClientID      string
 	teslaClientSecret  string
 	teslaRedirectURL   string
@@ -131,7 +131,7 @@ func New(d Deps) *Handler {
 		superchargerReader: d.SuperchargerReader,
 		manualChargeWriter: d.ManualChargeWriter,
 		manualChargeReader: d.ManualChargeReader,
-		batteryReader:      d.BatteryReader,
+		analyticsReader:    d.AnalyticsReader,
 		teslaClientID:      d.TeslaClientID,
 		teslaClientSecret:  d.TeslaClientSecret,
 		teslaRedirectURL:   d.TeslaRedirectURL,
@@ -681,7 +681,7 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 	vm := fragments.NavHeaderVM{}
 
 	// Read the latest snapshot per vehicle for this account. On error: degrade —
-	// keep the vehicle name, show "Unavailable", no battery. Never return early.
+	// keep the vehicle name, show "Unavailable", no analytics. Never return early.
 	snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
 	if snapErr != nil {
 		log.Printf("gateway: nav-header telemetry reader error for account %s: %v", uid, snapErr)

@@ -69,7 +69,7 @@ func (f *fakeChargeReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, 
 }
 
 // ListEntriesByVehicleBetween satisfies the manualcharge.Reader port (added by RM28
-// tier 2). No charge handler calls it — the date-range read serves internal/battery's
+// tier 2). No charge handler calls it — the date-range read serves internal/analytics's
 // per-day consumed derivation — so this stub exists only to keep the fake a valid Reader.
 func (f *fakeChargeReader) ListEntriesByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]manualcharge.Entry, error) {
 	return f.entries, f.err
@@ -313,11 +313,11 @@ func TestChargeCreate_CSRFMismatch(t *testing.T) {
 	c := sessionCookie(r, uid, "correcttoken")
 
 	form := url.Values{
-		"csrf_token":       {"wrongtoken"},
-		"charged_on":       {"2026-07-15"},
-		"energy_added_kwh": {"10.5"},
-		"price":            {"5000"},
-		"location_kind":    {"HOME"},
+		"csrf_token":        {"wrongtoken"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
 		"start_battery_pct": {"50"},
 		"end_battery_pct":   {"80"},
 	}
@@ -428,7 +428,7 @@ func TestChargeCreate_ValidInput(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
+		"csrf_token":        {"tok"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"10.5"},
 		"price":             {"5000"},
@@ -844,16 +844,16 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 	endPct := 92
 
 	e := manualcharge.Entry{
-		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-		AccountID:      uuid.New(),
-		TeslaID:        1001,
-		VIN:            "VIN1001",
-		ChargedOn:      time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
-		EnergyAddedKWh: 12.5,
-		Price:          15000.0,
-		Currency:       "COP",
-		StartedAt:      &start,
-		EndedAt:        &end,
+		ID:              uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+		AccountID:       uuid.New(),
+		TeslaID:         1001,
+		VIN:             "VIN1001",
+		ChargedOn:       time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
+		EnergyAddedKWh:  12.5,
+		Price:           15000.0,
+		Currency:        "COP",
+		StartedAt:       &start,
+		EndedAt:         &end,
 		StartBatteryPct: &startPct,
 		EndBatteryPct:   &endPct,
 	}
@@ -959,12 +959,12 @@ func TestChargeCreate_MissingLocationKind(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 		// deliberately no location_kind
 		// no `vehicle` (D4), no `currency` (D5) form fields.
 	}
@@ -1000,13 +1000,13 @@ func TestChargeCreate_InvalidLocationKind(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"location_kind":      {"INVALID"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"INVALID"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1033,13 +1033,13 @@ func TestChargeRowUpdate_MissingLocationKind(t *testing.T) {
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
-form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-16"},
-		"energy_added_kwh":   {"20.0"},
-		"price":              {"9000"},
-		"start_battery_pct":  {"40"},
-		"end_battery_pct":    {"75"},
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-16"},
+		"energy_added_kwh":  {"20.0"},
+		"price":             {"9000"},
+		"start_battery_pct": {"40"},
+		"end_battery_pct":   {"75"},
 		// deliberately no location_kind
 		// no `vehicle` (D4), no `currency` (D5) form fields.
 	}
@@ -1069,13 +1069,13 @@ func TestChargeCreate_ValidLocationKind(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"location_kind":      {"HOME"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1349,12 +1349,12 @@ func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"location_kind":      {"HOME"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":       {"tok"},
+		"charged_on":       {"2026-07-15"},
+		"energy_added_kwh": {"10.5"},
+		"price":            {"5000"},
+		"location_kind":    {"HOME"},
+		"end_battery_pct":  {"80"},
 		// start_battery_pct deliberately omitted
 	}
 	w := httptest.NewRecorder()
@@ -1390,9 +1390,9 @@ func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	for _, tc := range []struct {
-		name        string
-		start, end  string
-		wantInBody  string
+		name       string
+		start, end string
+		wantInBody string
 	}{
 		// Resolved language is Spanish here (KeyChargesErrorStartBatteryPctRange /
 		// KeyChargesErrorEndBatteryPctRange's ES values).
@@ -1403,13 +1403,13 @@ func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			form := url.Values{
-				"csrf_token":         {"tok"},
-				"charged_on":         {"2026-07-15"},
-				"energy_added_kwh":   {"10.5"},
-				"price":              {"5000"},
-				"location_kind":      {"HOME"},
-				"start_battery_pct":  {tc.start},
-				"end_battery_pct":    {tc.end},
+				"csrf_token":        {"tok"},
+				"charged_on":        {"2026-07-15"},
+				"energy_added_kwh":  {"10.5"},
+				"price":             {"5000"},
+				"location_kind":     {"HOME"},
+				"start_battery_pct": {tc.start},
+				"end_battery_pct":   {tc.end},
 			}
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1479,13 +1479,13 @@ func TestChargeCreate_ClearedDates_PersistedNil(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"location_kind":      {"HOME"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 		// started_at and ended_at deliberately empty (clearing the today-default).
 	}
 	w := httptest.NewRecorder()
@@ -1525,13 +1525,13 @@ func TestChargeCreate_3DecimalEnergy_Accepted(t *testing.T) {
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"7.345"},
-		"price":              {"5000"},
-		"location_kind":      {"HOME"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"7.345"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1563,13 +1563,13 @@ func TestChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
 		c := sessionCookie(r, uid, "tok")
 
 		form := url.Values{
-			"csrf_token":         {"tok"},
-			"charged_on":         {"2026-07-15"},
-			"energy_added_kwh":   {v},
-			"price":              {"5000"},
-			"location_kind":      {"HOME"},
-			"start_battery_pct":  {"50"},
-			"end_battery_pct":    {"80"},
+			"csrf_token":        {"tok"},
+			"charged_on":        {"2026-07-15"},
+			"energy_added_kwh":  {v},
+			"price":             {"5000"},
+			"location_kind":     {"HOME"},
+			"start_battery_pct": {"50"},
+			"end_battery_pct":   {"80"},
 		}
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
