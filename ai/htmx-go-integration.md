@@ -21,7 +21,7 @@ the browser. It holds no domain state and never touches a database.
 ## Request flow (multi-tenant)
 
 ```
-browser (htmx hx-get /ui/battery)
+browser (htmx hx-get /ui/consumption)
    └─> gateway handler
          ├─ account.TokensFor(ctx, userID)      -> Credentials      (identity module)
          ├─ tesla.GetVehicleData(ctx, creds)     -> ...Tesla DTO      (adapter)
@@ -44,8 +44,8 @@ Define a swappable region in the `.templ` page:
 ```templ
 templ ConsumptionPage(s analytics.State) {
     @layouts.Base() {
-        @templ.Fragment("battery") {
-            @fragments.BatteryCard(s)
+        @templ.Fragment("consumption") {
+            @fragments.ConsumptionCard(s)
         }
     }
 }
@@ -56,18 +56,18 @@ Render the whole page or just the fragment from the handler:
 ```go
 // Initial load: render the entire page.
 func (h *Handler) ConsumptionPage(w http.ResponseWriter, r *http.Request) {
-    state := h.buildBatteryState(r)          // via account -> tesla -> battery interfaces
+    state := h.buildConsumptionState(r)      // via account -> tesla -> analytics interfaces
     templ.Handler(ConsumptionPage(state)).ServeHTTP(w, r)
 }
 
-// htmx swap: render ONLY the "battery" fragment.
-func (h *Handler) BatteryFragment(w http.ResponseWriter, r *http.Request) {
-    state := h.buildBatteryState(r)
+// htmx swap: render ONLY the "consumption" fragment.
+func (h *Handler) ConsumptionFragment(w http.ResponseWriter, r *http.Request) {
+    state := h.buildConsumptionState(r)
     templ.Handler(ConsumptionPage(state), templ.WithFragments("consumption")).ServeHTTP(w, r)
 }
 ```
 
-`templ.WithFragments("battery")` runs the whole template but returns only that fragment's
+`templ.WithFragments("consumption")` runs the whole template but returns only that fragment's
 HTML — ideal for `hx-target`/`hx-swap`. Source of truth for this API: Context7 `/a-h/templ`
 (verify before relying on signatures).
 

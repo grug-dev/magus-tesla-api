@@ -148,7 +148,7 @@ re-run `make css`.
 
 ## htmx attribute conventions
 
-- Point htmx requests at the gateway's `/ui` routes (e.g. `hx-get="/ui/battery"`).
+- Point htmx requests at the gateway's `/ui` routes (e.g. `hx-get="/ui/consumption"`).
 - Keep `hx-*` attributes readable and grouped: verb (`hx-get`/`hx-post`), then `hx-target`,
   then `hx-swap`.
 - Give swap targets stable `id`s that match the fragment name they hold, so markup and
