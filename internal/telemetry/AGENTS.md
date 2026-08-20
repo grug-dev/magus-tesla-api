@@ -24,6 +24,36 @@ log, charge-session detection). Tier 3 of `openspec/roadmaps/nightly-vehicle-tel
 It does the work; it does not render it — dashboards read this module's stored data through a port
 later (tier 4), never by importing this module's DB package.
 
+### Why nightly collection exists at all (the Tesla-API constraint)
+
+The nightly poller is not a refresh job — it is the **only** way the platform acquires vehicle
+state history. Tesla's `GET /api/1/vehicles/{id}/vehicle_data` returns the **current** vehicle
+state only and accepts **no date/time filter** (verified at `internal/tesla/vehicles.go:VehicleData`
+— a bare GET, no query params). There is no Fleet API endpoint that returns a vehicle's past
+battery level, odometer, or state from yesterday, last week, or last month. Consequently the
+platform cannot "query Tesla for last month's battery" — it must **accumulate history one
+snapshot at a time**, captured by this nightly cycle. Every historical metric, trend, and forecast
+the platform produces is derived from the rows this collector writes. Missing a nightly run means
+a permanent gap in the time series that no later API call can backfill. This is the durable reason
+the design biases toward "always capture, bounded wake, per-vehicle isolation" rather than "skip if
+the vehicle looks unchanged" — a skipped capture is lost forever.
+
+The one Tesla endpoint the poller calls that *does* accept a date range is
+`GET /api/1/dx/charging/history` (`startTime`/`endTime`, supported by
+`tesla.ChargingHistoryParams`). The poller deliberately leaves both **empty**
+(`service.go:collectChargingHistory` passes `ChargingHistoryParams{}`), so the full account
+Supercharger history is re-fetched every night and upserted by `session_id` (see
+`supercharger_sessions` below). The dedup/idempotency mechanism is the table's `UNIQUE (session_id)`
+constraint + `ON CONFLICT DO UPDATE` (refreshing only mutable columns — `raw_data`, `energy_kwh`,
+`total_cost`, `currency`, `is_paid`, `tesla_id`, `updated_at`), NOT any application-level
+"what's new since last run" logic. Re-upserting the full history every night is intentional:
+billing state (`is_paid`, invoice status) mutates post-session, so a session row is never "done"
+on first insert. `tesla_id` is resolved from a VIN→TeslaID map built from the account's currently
+registered vehicles; sessions for VINs no longer registered get `tesla_id = NULL` (row kept, VIN
+preserved). The five battery-% verification columns are deliberately excluded from the upsert —
+they are a human-owned channel that the nightly poller must never overwrite (see "Battery-%
+verification columns" below).
+
 ## Public interface (the port)
 
 The module's mandatory contract is a Go interface (`ai/go-conventions.md` — interface-first):

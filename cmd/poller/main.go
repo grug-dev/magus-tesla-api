@@ -175,6 +175,8 @@ func newGapReconciler(acct account.Service, batteryReader battery.Reader, gapWri
 		end := time.Date(y, m, d, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
 		start := end.AddDate(0, 0, -int(battery.GapReconciliationWindow.Hours()/24)+1)
 
+		log.Printf("gap reconciliation: %s → %s", start, end)
+
 		vehicles, err := acct.AllRegisteredVehicles(ctx)
 		if err != nil {
 			// Whole-cycle failure, mirroring CollectAll's own enumeration-failure shape.

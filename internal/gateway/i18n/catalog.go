@@ -332,7 +332,7 @@ var catalog = map[Key]entry{
 	KeyDashboardLastUpdated:        {ES: "Última actualización", EN: "Last updated"},
 	KeyDashboardRangePrefix:        {ES: "Autonomía", EN: "Range"},
 	KeyDashboardVehicleStatusTitle: {ES: "Estado del vehículo", EN: "Vehicle Status"},
-	KeyDashboardBatteryTitle:       {ES: "Batería", EN: "Battery"},
+	KeyDashboardBatteryTitle:       {ES: "Carga de batería", EN: "Battery Charge"},
 	KeyDashboardAwaitingSnapshot:   {ES: "Esperando el primer dato", EN: "Awaiting first snapshot"},
 	KeyDashboardChargeLimit:        {ES: "Límite %d%%", EN: "Limit %d%%"},
 
@@ -379,12 +379,12 @@ var catalog = map[Key]entry{
 	KeyChargesPageBackToDashboard: {ES: "Volver al panel", EN: "Back to dashboard"},
 
 	KeyHistoryAwaitingSnapshots: {ES: "Esperando los datos nocturnos", EN: "Awaiting nightly snapshots"},
-	KeyHistoryOdometerTitle:     {ES: "Historial del odómetro", EN: "Odometer history"},
-	KeyHistoryBatteryTitle:      {ES: "Historial de batería", EN: "Battery history"},
+	KeyHistoryOdometerTitle:     {ES: "Distancia recorrida", EN: "Distance Traveled"},
+	KeyHistoryBatteryTitle:      {ES: "Carga de batería al final del día", EN: "End-of-Day Battery Charge"},
 	KeyHistoryDaysPreset:        {ES: "%d días", EN: "%d days"},
 	KeyHistoryNoSnapshotTooltip: {ES: "%s · sin dato", EN: "%s · no snapshot"},
 
-	KeyHistoryConsumedTitle:          {ES: "Batería consumida", EN: "Battery consumed"},
+	KeyHistoryConsumedTitle:          {ES: "Consumo de batería", EN: "Battery Consumption"},
 	KeyHistoryConsumedPctClause:      {ES: "%s%% consumida", EN: "%s%% consumed"},
 	KeyHistoryConsumedSpanClause:     {ES: "%s%% · abarca %d días", EN: "%s%% · covers %d days"},
 	KeyHistoryConsumedFlaggedClause:  {ES: "posible registro de carga faltante (%s)", EN: "possible missing charge record (%s)"},
@@ -488,7 +488,7 @@ var catalog = map[Key]entry{
 	KeyChargesListHeaderEnergy:     {ES: "Energía", EN: "Energy"},
 	KeyChargesListHeaderPrice:      {ES: "Precio", EN: "Price"},
 	KeyChargesListHeaderCostPerKWh: {ES: "Costo/kWh", EN: "Cost/kWh"},
-	KeyChargesListHeaderBattery:    {ES: "Batería", EN: "Battery"},
+	KeyChargesListHeaderBattery:    {ES: "Carga de batería", EN: "Battery Charge"},
 	KeyChargesListHeaderDuration:   {ES: "Duración", EN: "Duration"},
 	KeyChargesListHeaderActions:    {ES: "Acciones", EN: "Actions"},
 
