@@ -217,7 +217,7 @@ post-rename state truthfully.
   not.
   `depends_on`: 3.1 (specs folder must exist), 5.1 · `parallel_ok`: no
 
-- [ ] **5.3** Hand off to the owner. Exact commands to paste (not run by the assistant,
+- [x] **5.3** Hand off to the owner. Exact commands to paste (not run by the assistant,
   per the Test-Execution-Policy):
   ```
   go test ./internal/analytics/... ./internal/gateway/... ./cmd/...
