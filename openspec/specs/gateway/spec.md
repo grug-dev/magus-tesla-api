@@ -1273,7 +1273,7 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 #### Scenario: History charts render for the selected vehicle with the default window, now ending yesterday
 
 - **GIVEN** a signed-in user whose selected vehicle has several stored nightly snapshots and
-  several computable `battery.DayConsumption` days
+  several computable `analytics.DayConsumption` days
 - **WHEN** the history fragment is requested (`GET /ui/dashboard/history`) directly, with no
   `start` and no `end` parameter and no `browser_tz` cookie (a direct API call)
 - **THEN** the response renders an "Odometer history" chart, a "Battery history" chart, and a
@@ -1402,9 +1402,9 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **AND** it imports no package other than `internal/analytics`'s public port for this data (there
   is no `analytics` database package to accidentally import — `internal/analytics` owns no
   database)
-- **AND** a `analytics.Reader` error degrades only the consumed chart to its empty state; the
+- **AND** an `analytics.Reader` error degrades only the consumed chart to its empty state; the
   odometer and battery charts, sourced from the separate `telemetry.Reader` call, are
-  unaffected by a `analytics.Reader` failure
+  unaffected by an `analytics.Reader` failure
 
 #### Scenario: Browser-Local Calendar Day (unchanged from the prior revision)
 

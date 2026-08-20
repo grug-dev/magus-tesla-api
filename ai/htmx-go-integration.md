@@ -25,8 +25,8 @@ browser (htmx hx-get /ui/battery)
    └─> gateway handler
          ├─ account.TokensFor(ctx, userID)      -> Credentials      (identity module)
          ├─ tesla.GetVehicleData(ctx, creds)     -> ...Tesla DTO      (adapter)
-         ├─ battery.StateFrom(...)               -> battery.State     (domain, clean model)
-         └─ render Templ fragment(battery.State) -> HTML fragment  --> back to browser
+         ├─ analytics.StateFrom(...)             -> analytics.State   (domain, clean model)
+         └─ render Templ fragment(analytics.State) -> HTML fragment --> back to browser
 ```
 
 Every arrow between modules is a **Go interface call**. The gateway orchestrates; it does
@@ -42,7 +42,7 @@ The same page component serves both the initial full-page load and the htmx part
 Define a swappable region in the `.templ` page:
 
 ```templ
-templ BatteryPage(s battery.State) {
+templ ConsumptionPage(s analytics.State) {
     @layouts.Base() {
         @templ.Fragment("battery") {
             @fragments.BatteryCard(s)
@@ -55,15 +55,15 @@ Render the whole page or just the fragment from the handler:
 
 ```go
 // Initial load: render the entire page.
-func (h *Handler) BatteryPage(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ConsumptionPage(w http.ResponseWriter, r *http.Request) {
     state := h.buildBatteryState(r)          // via account -> tesla -> battery interfaces
-    templ.Handler(BatteryPage(state)).ServeHTTP(w, r)
+    templ.Handler(ConsumptionPage(state)).ServeHTTP(w, r)
 }
 
 // htmx swap: render ONLY the "battery" fragment.
 func (h *Handler) BatteryFragment(w http.ResponseWriter, r *http.Request) {
     state := h.buildBatteryState(r)
-    templ.Handler(BatteryPage(state), templ.WithFragments("battery")).ServeHTTP(w, r)
+    templ.Handler(ConsumptionPage(state), templ.WithFragments("consumption")).ServeHTTP(w, r)
 }
 ```
 

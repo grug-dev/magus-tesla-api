@@ -1134,7 +1134,7 @@ type UpsertSuperchargerSessionParams struct {
 // are DELIBERATELY ABSENT from both the INSERT column list and the ON CONFLICT DO
 // UPDATE SET clause below. The first three are a human-owned verification/override
 // channel; the last two are a frozen, write-once verification-time snapshot of the
-// estimate (design D6) -- NEVER refreshed, NEVER a cache read by internal/battery
+// estimate (design D6) -- NEVER refreshed, NEVER a cache read by internal/analytics
 // (see the column comments added by migration 20260815000001). If this query touched
 // any of the five, a user's verified value or its frozen snapshot would be silently
 // overwritten by the next nightly re-upsert. A fresh INSERT leaves all five at their

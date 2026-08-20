@@ -28,7 +28,7 @@ We use **Templ**, not `html/template`. Templ components are written in `.templ` 
 **won't compile**, giving the presentation layer the same compile-time safety our Go
 interfaces give the domain.
 
-- Components are Go functions that return `templ.Component`, e.g. `templ BatteryCard(s battery.State) { ... }`.
+- Components are Go functions that return `templ.Component`, e.g. `templ ConsumptionCard(s analytics.State) { ... }`.
 - After editing any `.templ` file, regenerate the `*_templ.go` with **`make templ`**
   (the pinned `go tool templ generate ./...` — see the `Makefile`). **Never** run a bare
   `go run .../templ generate` inside the module: it pulls the templ CLI's transitive deps
@@ -137,7 +137,7 @@ re-run `make css`.
   page (initial load) or just that region (htmx request) — see
   [`htmx-go-integration.md`](./htmx-go-integration.md) for the handler side.
 - **Pass domain structs into components, never vendor DTOs.** Components accept clean
-  domain models (e.g. `battery.State`), never `...Tesla` adapter DTOs. *Why: keeps Tesla's
+  domain models (e.g. `analytics.State`), never `...Tesla` adapter DTOs. *Why: keeps Tesla's
   shape out of the UI and preserves the anti-corruption boundary.*
 - **No business logic in templates.** `.templ` files do presentation only — formatting,
   conditionals, loops. Any computation happens in the domain module and arrives as data.

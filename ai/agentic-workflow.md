@@ -48,7 +48,7 @@ For a requirement that spans multiple modules:
 3. **Delegate one worker per affected module.** Each worker (a subagent, if the assistant
    supports them; otherwise the same assistant switching "hats") does its slice **inside
    that module's boundary only**, following the module's `AGENTS.md`.
-4. **Respect the sandbox.** A worker assigned to `battery` may read/edit `battery` and call
+4. **Respect the sandbox.** A worker assigned to `analytics` may read/edit `analytics` and call
    other modules only through their **public interfaces** — it must not edit another
    module's internals or query its database.
 5. **The lead integrates** — wires the modules together through interfaces and reconciles

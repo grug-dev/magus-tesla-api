@@ -132,7 +132,7 @@ type HistoryView struct {
 	Battery HistoryChart
 	// Consumed contains the battery-consumed-%/day bars over the SAME fixed
 	// [start..end] axis as Odometer/Battery, bucketed on
-	// battery.DayConsumption.Date DIRECTLY (never effectiveDayUTC — D18/D18a,
+	// analytics.DayConsumption.Date DIRECTLY (never effectiveDayUTC — D18/D18a,
 	// design.md D-G2). Scaled RELATIVE to the window's max displayed value
 	// (D19), not absolute 0-100 like Battery. HeightPct is math.Max(0,
 	// ConsumedPct) scaled against that max for every bar (design.md D-G1) —
