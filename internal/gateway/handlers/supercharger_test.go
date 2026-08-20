@@ -576,14 +576,18 @@ func TestSuperchargerStatsFragment_ValidPresetsAccepted(t *testing.T) {
 // --- F.1: render test — SVG/title/active-preset + table/tile single-source-of-truth (D7) ---
 
 // sessionsTileValueRe extracts the rendered Sessions ui.StatTile value, e.g.
-// `stat-title">Sesiones</div><div class="stat-value">3</div>` -> "3". Templ
-// emits no whitespace between adjacent tags (confirmed in
-// templates/ui/stat_tile_templ.go), so the pattern matches the compact output
-// verbatim. The label is "Sesiones" (KeySuperchargerSessions' ES value) because
-// superchargerEngine never wires handlers.LanguageMiddleware, so i18n.FromContext
-// falls back to Spanish (RM24-gateway-translate-all-pages, mirroring tier 2's
-// T6.4 precedent — was "Sessions" before this tier translated the tile label).
-var sessionsTileValueRe = regexp.MustCompile(`stat-title">Sesiones</div><div class="stat-value">(\d+)</div>`)
+// `stat-title">Sesiones</div><div class="stat-value font-mono">3</div>` -> "3".
+// The class match is `[^"]*` (not a bare "stat-value") because ui.StatTile
+// renders `class="stat-value font-mono"` since 8795f6b ("Fonts") — the
+// font-mono technical-value utility documented in RD11. Templ emits no
+// whitespace between adjacent tags (confirmed in
+// templates/ui/stat_tile_templ.go), so the pattern otherwise matches the
+// compact output verbatim. The label is "Sesiones" (KeySuperchargerSessions'
+// ES value) because superchargerEngine never wires
+// handlers.LanguageMiddleware, so i18n.FromContext falls back to Spanish
+// (RM24-gateway-translate-all-pages, mirroring tier 2's T6.4 precedent — was
+// "Sessions" before this tier translated the tile label).
+var sessionsTileValueRe = regexp.MustCompile(`stat-title">Sesiones</div><div class="stat-value[^"]*">(\d+)</div>`)
 
 // TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile
 // covers F.1: the fragment contains the responsive <svg viewBox …> chart with

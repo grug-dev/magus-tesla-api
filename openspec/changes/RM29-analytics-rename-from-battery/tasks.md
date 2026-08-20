@@ -229,3 +229,37 @@ post-rename state truthfully.
   Until the owner runs one of these and reports the result, this tier's status is
   **awaiting-user-verification**, never "done" (design.md "Verification signals").
   `depends_on`: 5.1, 5.2 · `parallel_ok`: no
+
+## Wave 6 — pre-existing gateway failures, fixed inside this change (module: gateway worker)
+
+> **Added after the owner's verification run** (2026-08-20), not in the original plan.
+> All three failures were proven **pre-existing on `main`** and unrelated to the rename —
+> every file involved is byte-identical to `main` on this branch. The owner's explicit call
+> was to fix them here rather than in a separate change, accepting that tier 1's diff is no
+> longer rename-only. See progress.json D10.
+
+- [x] **6.1** `internal/gateway/handlers/supercharger_test.go` — widen `sessionsTileValueRe`
+  (line ~586) to tolerate utility classes on the StatTile value div. `ui.StatTile` renders
+  `class="stat-value font-mono"` since `8795f6b` ("Fonts"), but the regex still demands a bare
+  `class="stat-value"`, so `FindStringSubmatch` returns nil and both
+  `TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile` and
+  `TestSuperchargerStatsFragment_UnattributedSessionNeverRendered` `t.Fatalf`. Match
+  `class="stat-value[^"]*"`. Update the comment above the regex, which quotes the old markup.
+  Assertion semantics must not change: it still extracts the tile's integer and still
+  compares it against the table row count.
+  `depends_on`: — · `parallel_ok`: yes
+
+- [x] **6.2** `internal/gateway/templates/layouts/base.templ` — restore the language switcher
+  to the anonymous shell. `98fa7e5` ("Vertical axis to bar graph") restructured `Base` into a
+  bare document shell and moved `@ui.LangSwitcher` into `BaseAuth`'s navbar, so login/home
+  lost it — violating MAG-8 design D6 ("visible on every page including login") and failing
+  `TestBase_RendersLangSwitcher`.
+  **Do NOT simply move it back into `Base`**: `BaseAuth` wraps `@Base(title)`, so anything in
+  `Base` renders for authenticated pages too and would double-render alongside the navbar copy.
+  Extract the document shell (`<!DOCTYPE>`/`<head>`/`<body>`/`@ui.ConfirmDialog`) into an
+  unexported `baseShell(title)`; `Base` becomes `baseShell` + the anonymous chrome that mounts
+  `@ui.LangSwitcher`; `BaseAuth` calls `baseShell` directly and keeps its navbar switcher
+  exactly where it is. Net effect: login gains the switcher, authenticated layout is untouched,
+  neither shell renders two. Update `BaseAuth`'s doc comment ("It reuses Base for the
+  <head>/theme"). Run `make templ` after editing; `base_templ.go` is committed.
+  `depends_on`: — · `parallel_ok`: yes

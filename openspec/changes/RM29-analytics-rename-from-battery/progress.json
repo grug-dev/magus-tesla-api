@@ -32,7 +32,9 @@
       "4.5",
       "4.6",
       "5.1",
-      "5.2"
+      "5.2",
+      "6.1",
+      "6.2"
     ],
     "pending": [
       "5.3"
@@ -41,7 +43,7 @@
     "done": []
   },
   "created_at": "2026-08-20T17:15:32Z",
-  "updated_at": "2026-08-20T17:46:00Z",
+  "updated_at": "2026-08-20T19:10:57Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -900,12 +902,62 @@
       "duration_seconds": null,
       "notes": null,
       "budget": null
+    },
+    {
+      "id": "6.1",
+      "title": "Widen sessionsTileValueRe for the font-mono StatTile markup",
+      "module": "gateway",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T18:05:00Z",
+      "completed_at": "2026-08-20T19:10:57Z",
+      "duration_seconds": 1557,
+      "notes": "Widened sessionsTileValueRe to class=\"stat-value[^\\\"]*\" for ui.StatTile's font-mono markup (8795f6b/RD11). Capture and comparison unchanged. Leader re-verified the regex matches the failing body.",
+      "budget": {
+        "five_hour_pct_start": 63.0,
+        "five_hour_pct_end": 79.0,
+        "five_hour_pct_delta": 16.0,
+        "cost_usd_delta": 7.2908,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 6: one serial gateway worker (Sonnet) for 6.1+6.2"
+      }
+    },
+    {
+      "id": "6.2",
+      "title": "Restore ui.LangSwitcher to the anonymous shell via a shared baseShell",
+      "module": "gateway",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T18:05:00Z",
+      "completed_at": "2026-08-20T19:10:57Z",
+      "duration_seconds": 1557,
+      "notes": "Extracted baseShell per D12; Base = shell + the fixed top-right chrome moved verbatim from the pages; BaseAuth navbar untouched. Removed the now-duplicate per-page switchers.",
+      "budget": {
+        "five_hour_pct_start": 63.0,
+        "five_hour_pct_end": 79.0,
+        "five_hour_pct_delta": 16.0,
+        "cost_usd_delta": 7.2908,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 6: one serial gateway worker (Sonnet) for 6.1+6.2"
+      }
     }
   ],
   "review": {
     "status": "pending",
     "agent": null,
-    "brief": null,
+    "brief": "Review RM29 tier 1 (battery -> analytics rename) against the DIFF, not the whole module. Validate: (1) the rename is behaviour-preserving — no identifier, signature or logic change beyond package clause + qualifiers; every one of the 6 call sites re-points correctly. (2) Module-boundary compliance: analytics still owns no DB, gateway still calls only public ports, telemetry still never imports analytics. (3) Domain-word discipline: 'battery' naming a vehicle attribute (chart labels, battery-info testid, telemetry battery_pct columns, the docs/battery-consumed-graph.md filename) MUST remain; only Go-package references changed. (4) Archived change names (D1b, battery-add-efficiency-metric, RM27-supercharger-battery-percentage) are preserved verbatim — history is never retconned. (5) Docs-track-structural-change is complete: README, ai/architecture.md, ai/agentic-workflow.md, gateway+telemetry AGENTS.md, docs/battery-consumed-graph.md, backlog.md, openspec/specs/gateway/spec.md. (6) design.md D6 UNDERCOUNTED three docs (telemetry 5->7, backlog 2->8, README 8->10) and omitted ai/agentic-workflow.md entirely — assess whether any stale reference still remains anywhere outside the deliberate exclusions (sqlc-generated + migration COMMENT ON in internal/telemetry/db, deferred to tier 5; ideas/; archives; this change's own artifacts). This is the third D6-class undercount — judge it as a pattern. (7) Wave 6 is NOT part of the rename: two pre-existing gateway failures the owner chose to fix here (D10). Judge them on their own merits — the sessionsTileValueRe widening must not weaken what the assertion proves, and the baseShell extraction (D12) must not double-render the LangSwitcher nor drop @ui.ConfirmDialog from either shell. Anti-gaming: no acceptance criterion weakened, no self-approved status, no test assertion loosened to pass. Test-Execution-Policy (verbatim): Claude writes tests but never runs the suite — never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. Signals provenance: go build, go vet, gofmt -l, ui/i18n/money guards and openspec validate --changes --strict were ASSISTANT-run and passed. The suite is USER-run — judge test quality by READING the tests, never by running them.",
     "rounds": []
   },
   "decisions": [
@@ -989,6 +1041,42 @@
       "decision": "Updated the roadmap's problem-statement ref to internal/analytics; left the tier-1 motivation sentence naming internal/battery",
       "why": "Line 13 is forward-looking work tier 4 acts on — stale it costs a grep. Line 26 says the module 'outgrew its name', which only reads correctly with the old name.",
       "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-20T18:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Fix the 3 pre-existing gateway test failures inside RM29 rather than in a separate change",
+      "why": "Owner's explicit call after the verification run. Leader flagged that tier 1 stops being a pure rename and the reviewer will see unrelated gateway changes; owner accepted.",
+      "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-20T18:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Roadmap autopilot switched ON, superseding D4",
+      "why": "Owner's instruction mid-wave. Test execution and design gates still pause regardless — only the owner can run the suite.",
+      "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-20T18:05:00Z",
+      "scope": "task:6.2",
+      "made_by": "leader",
+      "decision": "Extract baseShell rather than moving LangSwitcher back into Base",
+      "why": "BaseAuth wraps Base, so a plain move double-renders the switcher on every authenticated page. baseShell gives login the switcher and leaves the navbar untouched.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-20T19:10:57Z",
+      "scope": "task:6.2",
+      "made_by": "leader",
+      "decision": "Accepted the worker's removal of the per-page ui.LangSwitcher from home.templ and login.templ",
+      "why": "Verified they existed at HEAD as a workaround for Base not mounting one. Leaving them with D12's Base switcher would double-render on the real pages, passing the unit test while breaking the UI.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -1061,6 +1149,36 @@
       "at": "2026-08-20T17:46:00Z",
       "agent": "leader",
       "event": "gateway spec fixed per user D8: 16 refs (10 battery.Reader, 6 internal/battery) -> analytics; 10 odometer/battery domain-word uses preserved. openspec validate strict still 1 passed / 0 failed."
+    },
+    {
+      "at": "2026-08-20T18:00:00Z",
+      "agent": "user",
+      "event": "owner ran `make test` (env -u DATABASE_URL go test ./...): 3 failures. internal/analytics PASSED; the RM29-touched tests in gateway/handlers passed. Failures are TestSuperchargerStatsFragment_{ChartAndSelector...,UnattributedSession...} and TestBase_RendersLangSwitcher."
+    },
+    {
+      "at": "2026-08-20T18:00:00Z",
+      "agent": "leader",
+      "event": "triaged all 3 as PRE-EXISTING on main, not caused by RM29. Every file involved (handlers/supercharger*, templates/ui/, templates/layouts/) is byte-identical to main on this branch. Causes: 8795f6b 'Fonts' added font-mono to stat-value, breaking sessionsTileValueRe; c7f9d96 'Moving vehicle selector' moved LangSwitcher from Base into BaseAuth, breaking the MAG-8 D6 'visible on every page including login' invariant. Both commits are ancestors of main."
+    },
+    {
+      "at": "2026-08-20T18:05:00Z",
+      "agent": "leader",
+      "event": "correction: 98fa7e5 'Vertical axis to bar graph' moved LangSwitcher out of Base, not c7f9d96 (which only swapped the brand div for the vehicle selector). Pre-existing-and-unrelated conclusion unchanged."
+    },
+    {
+      "at": "2026-08-20T18:05:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (Sonnet) for wave 6 (6.1, 6.2). Budget start 5h=63%."
+    },
+    {
+      "at": "2026-08-20T19:10:57Z",
+      "agent": "leader",
+      "event": "wave 6 reconciled. Worker's scope expansion verified independently: home.templ:20/login.templ:19 did carry their own LangSwitcher at HEAD; the chrome div moved into Base byte-identical, so anonymous layout is unchanged. RD11 citation confirmed real (gateway/AGENTS.md:485)."
+    },
+    {
+      "at": "2026-08-20T19:10:57Z",
+      "agent": "leader",
+      "event": "leader re-ran signals independently: build OK, vet OK, gofmt clean on all 4 touched files, ui/i18n/money guards pass, and `make templ` is a verified no-op so committed _templ.go match their sources. Suite NOT run."
     }
   ]
 }
