@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM29-modular-monolith-boundaries",
   "intention": "Module boundaries match the data: analytics owns what the app calculates, charging owns charge data, telemetry owns only what Tesla reported, and an app layer owns ProcessVehicleData.",
-  "request": "MAG-26 \u2014 modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
+  "request": "MAG-26 — modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
   "status": "in-progress",
-  "autopilot": false,
-  "updated_at": "2026-08-20T17:15:46Z",
+  "autopilot": true,
+  "updated_at": "2026-08-20T20:55:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
@@ -16,9 +16,7 @@
     "created_at": "2026-08-20T17:07:08Z"
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
       2,
       3,
@@ -29,7 +27,9 @@
       8
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [],
   "tiers": [
@@ -39,11 +39,11 @@
       "module": "battery",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-08-20T17:07:08Z",
-      "completed_at": null,
+      "completed_at": "2026-08-20T20:55:00Z",
       "duration_seconds": null,
       "budget": {
         "five_hour_pct_delta": 8.0,
@@ -53,7 +53,7 @@
         "approx": true,
         "note": "artifact phase only (design.md + tasks.md worker); implementation not started"
       },
-      "notes": "All four artifacts written and validated (proposal, specs, design, tasks). 25 sub-tasks seeded; implementation not started."
+      "notes": "Archived 2026-08-20. Pure rename delivered; MODIFIED delta applied 12/12 clean. Wave 6 additionally fixed 3 pre-existing gateway failures at the owner's call (D10)."
     },
     {
       "id": 2,
@@ -171,7 +171,14 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Parked (D9) \u2014 manual-rerun HTTP API; module/binary/auth undecided."
+      "notes": "Parked (D9) — manual-rerun HTTP API; module/binary/auth undecided."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-20T20:55:00Z",
+      "agent": "leader",
+      "event": "tier 1 (RM29-analytics-rename-from-battery) archived after reviewer approval in round 2. Autopilot ON per owner (change D11)."
     }
   ]
 }

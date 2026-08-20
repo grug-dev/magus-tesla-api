@@ -7,7 +7,7 @@ reads sibling modules' public ports and computes values none of them store. Its 
 rolling energy-per-kilometre (Wh/km).
 ## Requirements
 ### Requirement: Recent Energy-Per-Kilometre Derivation
-The battery capability SHALL derive a rolling energy-per-kilometre (Wh/km) value for a given
+The analytics capability SHALL derive a rolling energy-per-kilometre (Wh/km) value for a given
 vehicle over a fixed window (default 30 days, fixed at construction time), from that vehicle's
 stored telemetry snapshots plus its Supercharger sessions and manually-logged charge entries
 within the window. The capability SHALL consume the distance values in the unit the telemetry read
@@ -49,7 +49,7 @@ vehicle identifier alone would suffice, as defense-in-depth tenant isolation.
 - **THEN** it uses `UsableBatteryLevel` at both endpoints
 
 ### Requirement: Unknown Pack Capacity Yields an Approximate Value, Never a Blank Tile
-The battery capability SHALL NOT refuse to return an efficiency value solely because the
+The analytics capability SHALL NOT refuse to return an efficiency value solely because the
 vehicle's pack capacity is unknown (its `car_type` is absent, or not present in the
 pack-capacity reference table). In that case the capability SHALL compute energy from measured
 charging energy alone (no SoC-drift correction) and SHALL mark the result `Approximate=true`.
@@ -69,7 +69,7 @@ charging energy alone (no SoC-drift correction) and SHALL mark the result `Appro
 - **THEN** the returned value's `Approximate` field is `false`
 
 ### Requirement: Insufficient Data Returns ok=false, Never a Fabricated Value
-The battery capability SHALL return `ok=false` with no error — never a fabricated or
+The analytics capability SHALL return `ok=false` with no error — never a fabricated or
 divide-by-near-zero value — in each of these cases: fewer than two telemetry snapshots exist in
 the window; the vehicle's odometer reading did not increase over the window (parked, or a
 non-increasing reading); or the derived energy consumed is zero or negative (net charge over the
@@ -94,7 +94,7 @@ window exceeded consumption).
 - **THEN** it returns `ok=false` and no error
 
 ### Requirement: Multi-Tenant Scoping on Every Underlying Read
-The battery capability SHALL pass the given account identifier to every underlying port call it
+The analytics capability SHALL pass the given account identifier to every underlying port call it
 makes (telemetry snapshot history, Supercharger sessions, manually-logged charge entries, and
 vehicle registration lookup), so that a caller can never retrieve another account's data by
 supplying a vehicle identifier alone.
@@ -105,13 +105,13 @@ supplying a vehicle identifier alone.
 - **THEN** every one of those reads is scoped to the given account identifier
 
 ### Requirement: No Cross-Module Database Access
-The battery capability SHALL own no database of its own and SHALL access telemetry, manual
+The analytics capability SHALL own no database of its own and SHALL access telemetry, manual
 charge, and account data exclusively through those modules' public read ports — never through a
 shared database connection, another module's generated query package, or any other bypass of the
 module boundary.
 
 #### Scenario: The capability owns no database
-- **GIVEN** the battery capability's implementation
+- **GIVEN** the analytics capability's implementation
 - **WHEN** its data dependencies are inspected
 - **THEN** it imports only the public `Reader`/`SuperchargerReader` interfaces of
   `internal/telemetry`, the public `Reader` interface of `internal/manualcharge`, and the public
@@ -120,7 +120,7 @@ module boundary.
 
 ### Requirement: Per-Day Battery-Consumed Derivation
 
-The battery capability SHALL derive, for each calendar day in a caller-supplied date
+The analytics capability SHALL derive, for each calendar day in a caller-supplied date
 range that has a computable value, a corrected battery-consumed percentage equal to the
 day's raw battery-level delta plus the sum of `(end_battery_pct − start_battery_pct)`
 across every charge event matched to that day from both charging-cost sources the
@@ -149,7 +149,7 @@ same day.
 
 ### Requirement: Gap Detection on Corrected Daily Consumption
 
-The battery capability SHALL flag a day's corrected consumed percentage as a data gap
+The analytics capability SHALL flag a day's corrected consumed percentage as a data gap
 when the corrected value is negative, or when it is exactly zero while the vehicle's
 distance travelled that day exceeds a fixed threshold. It SHALL NOT flag a day whose
 corrected value is exactly zero when the distance travelled that day is at or below that
@@ -180,7 +180,7 @@ day exists with a NULL start or end battery percentage, and the manual source ot
 
 ### Requirement: A Day With No Usable Predecessor Is Skipped, Never Flagged
 
-The battery capability SHALL omit a calendar day from its result entirely — never include
+The analytics capability SHALL omit a calendar day from its result entirely — never include
 it with a fabricated or zero-valued consumed percentage — when that day's underlying
 telemetry snapshot has no predecessor to compute a raw delta from (the vehicle's
 first-ever captured snapshot).
@@ -194,7 +194,7 @@ first-ever captured snapshot).
 
 ### Requirement: Multi-Day Spans Are Represented By A Single Entry
 
-The battery capability SHALL represent a multi-day span — consecutive telemetry snapshots
+The analytics capability SHALL represent a multi-day span — consecutive telemetry snapshots
 more than one calendar day apart, caused by a missed poll — as exactly one result entry,
 dated the later of the two snapshots' calendar days, whose corrected consumed percentage
 sums every charge event matched anywhere within the span. The capability SHALL NOT
@@ -212,7 +212,7 @@ produce a result entry for any of the span's intervening calendar days.
 
 ### Requirement: Charge-to-Day Matching Is Source-Specific
 
-The battery capability SHALL match a Supercharger session to a day using the session's
+The analytics capability SHALL match a Supercharger session to a day using the session's
 stop instant against the interval between that day's telemetry capture instant and its
 predecessor's capture instant (inclusive of the interval's start, exclusive of its end).
 The capability SHALL match a manually-logged charge entry to a day using the entry's
@@ -235,7 +235,7 @@ logged calendar date, inclusive.
 
 ### Requirement: No Cache — Every Result Is Recomputed On Read
 
-The battery capability SHALL NOT store, cache, or persist any per-day consumed-percentage
+The analytics capability SHALL NOT store, cache, or persist any per-day consumed-percentage
 result. Every call SHALL recompute its result from the underlying telemetry snapshot,
 Supercharger session, and manual charge entry data available at call time.
 
@@ -250,7 +250,7 @@ Supercharger session, and manual charge entry data available at call time.
 
 ### Requirement: Multi-Tenant Scoping On Every Underlying Read
 
-The battery capability SHALL pass the given account identifier to every underlying read
+The analytics capability SHALL pass the given account identifier to every underlying read
 it performs when deriving per-day consumption (telemetry snapshot history, Supercharger
 sessions, and manually-logged charge entries), so that a caller can never retrieve another
 account's data by supplying a vehicle identifier alone.
