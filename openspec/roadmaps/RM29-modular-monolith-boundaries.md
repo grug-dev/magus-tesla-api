@@ -96,7 +96,7 @@ expand its recompute window to the affected date range, not to "the last N days"
 | # | Status | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
 | **T1** | `[x]` | `RM29-analytics-rename-from-battery` | `battery`→`analytics` | Pure package rename. No DB, no behaviour change. | — |
-| **T2** | `[ ]` | `RM29-charging-rename-from-manualcharge` | `manualcharge`→`charging` | Pure package rename + migrations dir + sqlc entry move. | — |
+| **T2** | `[~]` | `RM29-charging-rename-from-manualcharge` | `manualcharge`→`charging` | Pure package rename + migrations dir + sqlc entry move. | — |
 | **T3** | `[ ]` | `RM29-analytics-add-vehicle-metrics` | `analytics` | **Gold standard.** `vehicle_metrics` + `updated_at` watermark + `Recalculate`; gateway re-points and its domain calculation moves out (D5). | T1 |
 | **T4** | `[ ]` | `RM29-telemetry-drop-derived-columns` | `telemetry` | Drop the five `_calc` columns from `vehicle_snapshots`. Only safe once T3 lands. | T3 |
 | **T5** | `[ ]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |

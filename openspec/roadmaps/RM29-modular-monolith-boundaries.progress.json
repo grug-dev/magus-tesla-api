@@ -6,7 +6,7 @@
   "request": "MAG-26 — modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-20T20:55:00Z",
+  "updated_at": "2026-08-20T21:20:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
@@ -16,9 +16,10 @@
     "created_at": "2026-08-20T17:07:08Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      2
+    ],
     "pending": [
-      2,
       3,
       4,
       5,
@@ -61,10 +62,10 @@
       "module": "manualcharge",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "in-progress",
       "assistant": null,
       "model": null,
-      "started_at": null,
+      "started_at": "2026-08-20T21:20:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
