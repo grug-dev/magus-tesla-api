@@ -106,7 +106,7 @@ magus-tesla-api/
 │   ├── tesla/          # State-less Fleet API adapter (handed creds per call)
 │   ├── telemetry/      # Nightly vehicle snapshot collection + storage (poller)
 │   ├── manualcharge/   # User-asserted charge entries (home/work/3rd-party sessions)
-│   ├── battery/        # Derived battery metrics (Wh/km, consumed %/day) — owns no store
+│   ├── analytics/      # Derived battery metrics (Wh/km, consumed %/day) — owns no store
 │   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
 │   │   ├── handlers/       #   thin handlers: session/auth → module interface → render
 │   │   ├── i18n/           #   translation catalogue + per-request language resolution (es default, en)
@@ -193,7 +193,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/tesla` | Stateless Fleet API adapter (handed credentials per call) |
 | `internal/telemetry` | Nightly per-vehicle snapshot collection + storage |
 | `internal/manualcharge` | User-asserted charge entries (home/work/3rd-party) |
-| `internal/battery` | Derived battery metrics computed over stored telemetry: rolling Wh/km, and the per-day **battery consumed %** (raw SoC delta corrected by both charge sources) plus the gap detection it hands to telemetry's `GapWriter`. Owns no database — a pure read-side derivation over sibling ports. See [docs/battery-consumed-graph.md](docs/battery-consumed-graph.md). |
+| `internal/analytics` | Derived battery metrics computed over stored telemetry: rolling Wh/km, and the per-day **battery consumed %** (raw SoC delta corrected by both charge sources) plus the gap detection it hands to telemetry's `GapWriter`. Owns no database — a pure read-side derivation over sibling ports. See [docs/battery-consumed-graph.md](docs/battery-consumed-graph.md). |
 | `internal/gateway` | Gin + Templ + htmx web layer, styled with Node-less Tailwind + DaisyUI (drawer nav, typed `ui/` component kit). The only package allowed to produce HTML. |
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
@@ -208,21 +208,21 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 ```text
 ┌─ COMPOSITION ROOT ── cmd/ wires concrete types together at startup ──────┐
 │  cmd/web ────────────► gateway, account, telemetry, manualcharge,        │
-│                        battery, tesla, googleauth, config                │
-│  cmd/poller ─────────► telemetry, account, battery, manualcharge,        │
+│                        analytics, tesla, googleauth, config              │
+│  cmd/poller ─────────► telemetry, account, analytics, manualcharge,      │
 │                        tesla, config                                     │
 │  cmd/setup ──────────► auth, config                                      │
 │  cmd/explore-tesla-api ► tesla, auth, config                             │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
-│  gateway ────────────► account, telemetry, manualcharge, battery,        │
+│  gateway ────────────► account, telemetry, manualcharge, analytics,      │
 │    │                   tesla, googleauth                                 │
 │    ├─ handlers ──────► account, auth, telemetry, manualcharge,           │
-│    │                   battery, tesla, googleauth, i18n,                 │
+│    │                   analytics, tesla, googleauth, i18n,               │
 │    │                   templates/*                                       │
 │    ├─ templates/* ───► i18n, templates/ui                                │
 │    └─ i18n ──────────► account            (the Language type only)       │
 ├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
-│  battery ────────────► account, manualcharge, telemetry                  │
+│  analytics ──────────► account, manualcharge, telemetry                  │
 ├─ LAYER 1 ── domain modules ──────────────────────────────────────────────┤
 │  telemetry ──────────► account, tesla, telemetry/db                      │
 │  manualcharge ───────► manualcharge/db                                   │
@@ -274,9 +274,9 @@ must be listed in `MIGRATIONS_DIRS` in the `Makefile`.
 | `internal/telemetry` | `telemetrydb` | `vehicle_snapshots` | Nightly per-vehicle snapshot: battery/charge, range, odometer, temps, TPMS pressures, lock/sentry, location, derived consumption — **one row per vehicle per calendar day**, plus the lossless `raw_data` JSONB. |
 | | | `poll_attempts` | Audit row for **every** collection attempt (outcome + reason), successful or not. |
 | | | `supercharger_sessions` | Tesla Supercharger sessions — site, start/stop, `energy_kwh`, cost + currency, paid flag — upserted on Tesla's `session_id`. Supercharger-only: home / 3rd-party charging never appears in this feed. |
-| | | `charge_gaps` | Vehicle-days whose battery math doesn't add up because a charge record is missing or incomplete — **one row per (account, vehicle, day)**, with the suspected missing source (`MANUAL` / `SUPERCHARGER`). A live worklist, not an audit trail: no `resolved_at`, a day that stops flagging is deleted by the next nightly reconciliation. Written by `internal/battery` through telemetry's `GapWriter` port. |
+| | | `charge_gaps` | Vehicle-days whose battery math doesn't add up because a charge record is missing or incomplete — **one row per (account, vehicle, day)**, with the suspected missing source (`MANUAL` / `SUPERCHARGER`). A live worklist, not an audit trail: no `resolved_at`, a day that stops flagging is deleted by the next nightly reconciliation. Written by `internal/analytics` through telemetry's `GapWriter` port. |
 | `internal/manualcharge` | `manualchargedb` | `manual_charge_entries` | User-asserted charge sessions (the home / work / 3rd-party gap the Tesla feed can't fill): date, kWh, price + currency, optional times, start/end %, AC-DC, location. |
-| `internal/battery` | — | *(none)* | Derived metrics only — a pure read-side computation over sibling modules' ports. |
+| `internal/analytics` | — | *(none)* | Derived metrics only — a pure read-side computation over sibling modules' ports. |
 | `internal/gateway` | — | *(none)* | Renders HTML; calls module interfaces, never a database. |
 | *(tooling)* | — | `goose_db_version` | Not owned by any module — goose's own ledger, a **single shared table** across all migration dirs. That is why `make migrate-up` runs each dir with `-allow-missing`. |
 

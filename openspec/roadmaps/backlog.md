@@ -148,11 +148,11 @@ Reuses the existing `account.RegisteredVehicles` + `telemetry.Reader.LatestSnaps
 `gateway-add-stitch-design-handoff` design decision **DD4** + leader decision **D13** (2026-07-26): the nav header was scoped to the primary vehicle in this change; the multi-vehicle selector was deferred and recorded here per the project's future-work rule. See the change's `design.md` §3.2 and `progress.json` `decisions[]` D13.
 
 
-## 7. battery / tesla / account / telemetry — Trim-exact pack capacity
+## 7. analytics / tesla / account / telemetry — Trim-exact pack capacity
 
 ### PROPOSAL
 
-`internal/battery`'s pack-capacity reference table (`internal/battery/capacity.go`) is keyed
+`internal/analytics`'s pack-capacity reference table (`internal/analytics/capacity.go`) is keyed
 only on the Fleet API's `vehicle_config.car_type` (e.g. `"model3"`, `"modely"`) — it cannot
 distinguish trims of the same model (e.g. Model 3 Standard Range vs. Long Range), which have
 materially different usable pack capacities. This makes the Wh/km efficiency metric's capacity
@@ -168,12 +168,12 @@ but `internal/tesla/types.go`'s `VehicleConfigTesla` extracts only `exterior_col
 `SetVehicleConfigIfEmpty`-equivalent port method to persist it (mirrors the `RM6` tier-1/tier-2
 split — a schema-touching tier plus an application-wiring tier); (3) the nightly collector
 capturing it (`internal/telemetry/service.go`, same `captureVehicleConfig` shape); (4) a
-trim-keyed (or trim+car_type-keyed) `packCapacityKWh` table in `internal/battery/capacity.go`,
+trim-keyed (or trim+car_type-keyed) `packCapacityKWh` table in `internal/analytics/capacity.go`,
 replacing or supplementing the model-coarse one.
 
 **TRIGGER — pick this up when** trim-exact pack capacity is wanted (i.e. the model-coarse
 ~±10-15% capacity error within a single `car_type` is judged material enough to fix). Until
-then, `internal/battery` returns a value with a documented model-coarse approximation
+then, `internal/analytics` returns a value with a documented model-coarse approximation
 (`Efficiency.Approximate` stays reserved for the separate "capacity fully unknown" case).
 
 ### ORIGIN
@@ -296,7 +296,7 @@ follow-ups below are therefore open, in priority order:
    value" queue is a straight `WHERE start_battery_pct IS NULL`. While no estimator exists the
    form leaves `start_battery_pct_est` / `end_battery_pct_est` NULL.
 
-2. **SOC estimator (`battery`) — DESCOPED from RM27, kept here** — solve start/end SOC from
+2. **SOC estimator (`analytics`) — DESCOPED from RM27, kept here** — solve start/end SOC from
    billed `energy_kwh` + session duration against a DC taper curve. The maths was worked out
    and validated during the MAG-14 grill (2026-08-15) and is worth recording so it need not be
    redone: `delta = energy_kwh / pack_kwh × 100` is exact and needs no curve; only `start` is
@@ -309,7 +309,7 @@ follow-ups below are therefore open, in priority order:
    "too slow" for any SOC band. Any implementation must therefore return delta-only rather than
    a fabricated pair. If this lands, item 1's form must also freeze the estimate into the
    `_est` pair per RM27 decision R8 (write-once, never refreshed; the gateway is its only legal
-   writer, since it can read `battery` and write through a telemetry port without an import
+   writer, since it can read `analytics` and write through a telemetry port without an import
    cycle).
 
 3. **Measured SOC instead of solved (`telemetry`)** — detect an active charging session and
@@ -348,7 +348,7 @@ much energy went in, and (per RM27) the start/end battery percentage — but no 
 "charging" as a domain.
 
 The cost is paid by every consumer. Any question of the form *"how was this vehicle charged?"*
-must compose two ports, sum across both shapes, and keep the two in step. `internal/battery`
+must compose two ports, sum across both shapes, and keep the two in step. `internal/analytics`
 already does this twice (`sumSuperchargerKWh` + `sumManualKWh` for efficiency), and RM28 adds
 a third pair of date-range readers plus a summation across both sources for the consumed
 graph. Each new consumer re-implements the same fan-out.
@@ -384,7 +384,7 @@ for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
 
 Go compares `time.Time` map keys on the wall clock **and the `*time.Location`**, so the two
 sides must agree on both. The write sides are UTC (`effectiveDayUTC` for odometer/battery;
-`battery.DayConsumption.Date`, normalized by `internal/battery`'s `calendarDay`, for
+`analytics.DayConsumption.Date`, normalized by `internal/analytics`'s `calendarDay`, for
 consumed). The read side is UTC only when `start` came from an explicit `?start=&end=` pair
 (`time.Parse` defaults to UTC) or the no-cookie fallback. On the **both-params-absent** path
 with a valid non-UTC `browser_tz` cookie, `start` carries that zone's `*time.Location`

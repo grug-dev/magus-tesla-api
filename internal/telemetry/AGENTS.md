@@ -117,8 +117,8 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
   violation returns an error and writes **nothing** (validated in a loop BEFORE any
   transaction opens — see "GapWriter's upsert-and-delete lifecycle" below). Runs inside a
   single DB transaction: either every upsert/delete succeeds, or the call has no effect.
-  `internal/battery` is the only intended caller (via `cmd/poller`) — `internal/telemetry`
-  never calls `battery`, preserving the one-way dependency the platform's graph already
+  `internal/analytics` is the only intended caller (via `cmd/poller`) — `internal/telemetry`
+  never calls `analytics`, preserving the one-way dependency the platform's graph already
   assumes. `NewGapWriter(pool *pgxpool.Pool) GapWriter` is the constructor; implementation in
   `gap_writer.go`. Added by `RM28-telemetry-add-charge-gap-storage` (MAG-15).
 
@@ -212,11 +212,11 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
     (0..100)` — frozen, write-once verification-time snapshot pair (design D6).
 - `charge_gaps` — one row per flagged vehicle-day whose battery math does not add up
   (migration `20260815000002`, `RM28-telemetry-add-charge-gap-storage`, MAG-15). Written
-  through the `GapWriter` port; `internal/battery` is the only intended caller (it derives
+  through the `GapWriter` port; `internal/analytics` is the only intended caller (it derives
   each day's consumption and detects the gap — `telemetry` never computes one itself, and
-  never calls `battery`). Columns: `id UUID PRIMARY KEY`, `account_id UUID NOT NULL`,
+  never calls `analytics`). Columns: `id UUID PRIMARY KEY`, `account_id UUID NOT NULL`,
   `tesla_id BIGINT NOT NULL` (**always resolved, NOT NULL** — unlike
-  `supercharger_sessions.tesla_id`, since `internal/battery` filters out any
+  `supercharger_sessions.tesla_id`, since `internal/analytics` filters out any
   vehicle/session it cannot attribute to a currently-registered vehicle before gap
   detection ever runs), `vin TEXT NOT NULL`, `gap_date DATE NOT NULL` (the flagged calendar
   day, plain `DATE` — no time-of-day component), `missing_charging_type TEXT NOT NULL CHECK
@@ -233,7 +233,7 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
   change, no read port exists for it yet. **No FK** on `account_id`/`tesla_id` (same
   no-cross-module-FK precedent as `manual_charge_entries`/`supercharger_sessions` —
   referential integrity is upheld by flow, not a DB constraint, `ai/architecture.md` §2).
-  **No `raw_data` JSONB** — this table stores a Go-computed conclusion (`internal/battery`'s
+  **No `raw_data` JSONB** — this table stores a Go-computed conclusion (`internal/analytics`'s
   derivation), not an external API response, so the mandatory-`raw_data` rule
   (`ai/go-conventions.md` §persistence) does not apply here (same precedent as
   `manual_charge_entries`).
@@ -326,7 +326,7 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
 existing `pgNullableText` helper for `BatteryPctSource`.
 
 > **SCOPE NOTE (2026-08-15) — there is no estimator, and there will not be one under RM27.**
-> RM27 originally planned two further tiers: a taper-curve SOC estimator in `internal/battery`
+> RM27 originally planned two further tiers: a taper-curve SOC estimator in `internal/analytics`
 > and a gateway page rendering it. **Both were descoped by the owner**; RM27 ships these five
 > columns and nothing else. Wherever the text below says an estimate is computed "on read",
 > read that as *not implemented* — the platform computes no SOC estimate anywhere. The columns

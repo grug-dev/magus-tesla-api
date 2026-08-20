@@ -24,9 +24,7 @@
       "2.5",
       "2.6",
       "2.7",
-      "3.1"
-    ],
-    "pending": [
+      "3.1",
       "4.1",
       "4.2",
       "4.3",
@@ -34,14 +32,16 @@
       "4.5",
       "4.6",
       "5.1",
-      "5.2",
+      "5.2"
+    ],
+    "pending": [
       "5.3"
     ],
     "blocked": [],
     "done": []
   },
   "created_at": "2026-08-20T17:15:32Z",
-  "updated_at": "2026-08-20T17:29:59Z",
+  "updated_at": "2026-08-20T17:42:06Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -288,7 +288,7 @@
     },
     {
       "id": "2.1",
-      "title": "cmd/poller/main.go \u2014 import, qualifiers, local batteryReader",
+      "title": "cmd/poller/main.go — import, qualifiers, local batteryReader",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -323,7 +323,7 @@
     },
     {
       "id": "2.2",
-      "title": "cmd/web/main.go \u2014 import + Deps{AnalyticsReader:}",
+      "title": "cmd/web/main.go — import + Deps{AnalyticsReader:}",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -359,7 +359,7 @@
     },
     {
       "id": "2.3",
-      "title": "internal/gateway/gateway.go \u2014 import + Deps.BatteryReader field rename",
+      "title": "internal/gateway/gateway.go — import + Deps.BatteryReader field rename",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -394,7 +394,7 @@
     },
     {
       "id": "2.4",
-      "title": "internal/gateway/handlers/handlers.go \u2014 Deps + Handler.analyticsReader",
+      "title": "internal/gateway/handlers/handlers.go — Deps + Handler.analyticsReader",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -430,7 +430,7 @@
     },
     {
       "id": "2.5",
-      "title": "internal/gateway/handlers/history.go \u2014 import, qualifiers, call site",
+      "title": "internal/gateway/handlers/history.go — import, qualifiers, call site",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -466,7 +466,7 @@
     },
     {
       "id": "2.6",
-      "title": "internal/gateway/handlers/history_test.go \u2014 import, qualifiers, 3 stale identifiers",
+      "title": "internal/gateway/handlers/history_test.go — import, qualifiers, 3 stale identifiers",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -563,7 +563,7 @@
     },
     {
       "id": "4.1",
-      "title": "README.md \u2014 structure tree, architecture table, dependency graph (5 refs)",
+      "title": "README.md — structure tree, architecture table, dependency graph (5 refs)",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -584,18 +584,27 @@
         "2.6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "README tree, architecture table, dependency graph (5 refs) + 2 data-ownership rows D6 missed. Box art re-padded: all 24 lines verified 76 runes.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
     },
     {
       "id": "4.2",
-      "title": "ai/architecture.md \u2014 \u00a74 blueprint, \u00a76 DTO example, \u00a72 cycle example",
+      "title": "ai/architecture.md — §4 blueprint, §6 DTO example, §2 cycle example",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -616,18 +625,27 @@
         "2.6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "architecture.md §2 cycle example, §4 blueprint (comment col preserved), §6 DTO example. §7 battery_level untouched.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
     },
     {
       "id": "4.3",
-      "title": "internal/gateway/AGENTS.md \u2014 Deps.BatteryReader bullet + 3 follow-ons",
+      "title": "internal/gateway/AGENTS.md — Deps.BatteryReader bullet + 3 follow-ons",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -648,18 +666,27 @@
         "2.6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "gateway AGENTS.md Deps bullet reflowed: AnalyticsReader/analytics.Reader/analyticsdb. Domain-word prose, testid + grouping examples untouched.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
     },
     {
       "id": "4.4",
-      "title": "internal/telemetry/AGENTS.md \u2014 5 prose refs to internal/battery",
+      "title": "internal/telemetry/AGENTS.md — 5 prose refs to internal/battery",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -680,18 +707,27 @@
         "2.6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "telemetry AGENTS.md: 7 module refs cleared (D6 said 5). Archived RM27 change names preserved.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
     },
     {
       "id": "4.5",
-      "title": "docs/battery-consumed-graph.md \u2014 content only, filename unchanged",
+      "title": "docs/battery-consumed-graph.md — content only, filename unchanged",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -712,18 +748,27 @@
         "2.6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "battery-consumed-graph.md: 12 path/qualifier refs; filename kept. Diagram arrow column corrected to 38.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
     },
     {
       "id": "4.6",
-      "title": "openspec/roadmaps/backlog.md \u2014 \u00a77 header + 2 paths (not archived names)",
+      "title": "openspec/roadmaps/backlog.md — §7 header + 2 paths (not archived names)",
       "module": "battery",
       "owner": "leader",
       "depends_on": [
@@ -744,14 +789,23 @@
         "2.6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "backlog.md §7 header + 4 path refs, plus 4 more D6 missed (§14, §16, §19). Archived citations D1b/RM27 preserved.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
     },
     {
       "id": "5.1",
@@ -782,14 +836,23 @@
         "4.6"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "go build OK, go vet OK. gofmt -l: 10 files, all pre-existing at main, none touched by this change. ui/i18n/money guards pass.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
     },
     {
       "id": "5.2",
@@ -801,18 +864,27 @@
         "5.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "openspec validate --changes --strict: 1 passed, 0 failed.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
     },
     {
       "id": "5.3",
-      "title": "Owner runs the suite and reports \u2014 clears awaiting-user-verification",
+      "title": "Owner runs the suite and reports — clears awaiting-user-verification",
       "module": "battery",
       "owner": "user",
       "depends_on": [
@@ -869,7 +941,7 @@
       "at": "2026-08-20T17:21:22Z",
       "scope": "change",
       "made_by": "user",
-      "decision": "Roadmap autopilot stays OFF \u2014 each tier needs an explicit go-ahead",
+      "decision": "Roadmap autopilot stays OFF — each tier needs an explicit go-ahead",
       "why": "User's call at the artifact/apply boundary. Skill defaults roadmaps to autopilot; T3 (gold standard) and T4 (column drop) are natural review points.",
       "covered_by": "roadmap D8"
     },
@@ -888,7 +960,16 @@
       "scope": "change",
       "made_by": "leader",
       "decision": "Fixed 10 stale internal/battery refs in hand-written Go doc comments; deferred the 8 sqlc-generated ones to T5",
-      "why": "CLAUDE.md requires docs track structural change. The generated ones come from COMMENT ON in applied migrations \u2014 fixing them needs a new migration, which this tier excludes.",
+      "why": "CLAUDE.md requires docs track structural change. The generated ones come from COMMENT ON in applied migrations — fixing them needs a new migration, which this tier excludes.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-20T17:42:06Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Fixed stale module refs D6's grep undercounted, plus ai/agentic-workflow.md which D6 never listed",
+      "why": "D6 said 5 telemetry refs (7 real) and 2 backlog paths (8 real); agentic-workflow.md is in the reviewer Doc-Pack, so a stale path there misteaches every dispatch.",
       "covered_by": null
     }
   ],
@@ -901,7 +982,7 @@
     {
       "at": "2026-08-20T17:15:32Z",
       "agent": "leader",
-      "event": "database design gate evaluated and NOT tripped \u2014 internal/battery has no db/ folder and no sqlc.yaml entry (verified independently)"
+      "event": "database design gate evaluated and NOT tripped — internal/battery has no db/ folder and no sqlc.yaml entry (verified independently)"
     },
     {
       "at": "2026-08-20T17:15:32Z",
@@ -911,7 +992,7 @@
     {
       "at": "2026-08-20T17:15:32Z",
       "agent": "leader",
-      "event": "schema extended additively with tasks[].owner (module|leader|user) \u2014 a rename spans modules, so ownership must be explicit per task"
+      "event": "schema extended additively with tasks[].owner (module|leader|user) — a rename spans modules, so ownership must be explicit per task"
     },
     {
       "at": "2026-08-20T17:21:22Z",
@@ -921,7 +1002,7 @@
     {
       "at": "2026-08-20T17:29:29Z",
       "agent": "leader",
-      "event": "wave 1+2+2.7+3.1 reconciled. Assistant signals PASS: go build OK, go vet OK, gofmt clean on every touched file, ui/i18n/money guards pass. Suite NOT run \u2014 owner's to run."
+      "event": "wave 1+2+2.7+3.1 reconciled. Assistant signals PASS: go build OK, go vet OK, gofmt clean on every touched file, ui/i18n/money guards pass. Suite NOT run — owner's to run."
     },
     {
       "at": "2026-08-20T17:29:29Z",
@@ -936,7 +1017,22 @@
     {
       "at": "2026-08-20T17:29:59Z",
       "agent": "leader",
-      "event": "wave 1+2 committed as e80de67; git detected all 10 moves as renames (91-99% similarity), confirming design.md D1"
+      "event": "wave 1+2 committed as 2f74746; git detected all 10 moves as renames (91-99% similarity), confirming design.md D1"
+    },
+    {
+      "at": "2026-08-20T17:37:18Z",
+      "agent": "leader",
+      "event": "resumed on a fresh session; wave 3 (4.1-4.6, docs) started by the leader — all six files are outside the module sandbox. Budget start 5h=55%, cost=$0.6211"
+    },
+    {
+      "at": "2026-08-20T17:42:06Z",
+      "agent": "leader",
+      "event": "wave 3 (4.1-4.6) + 5.1/5.2 reconciled. Signals PASS: build, vet, gofmt (10 hits all pre-existing at main, none touched here), ui/i18n/money guards, openspec validate strict 1/0. Suite NOT run."
+    },
+    {
+      "at": "2026-08-20T17:42:06Z",
+      "agent": "leader",
+      "event": "design.md D6 undercounted three docs (telemetry 5->7, backlog 2->8, README 8->10) and omitted ai/agentic-workflow.md entirely; all fixed under D7. Third D6-class undercount this change."
     }
   ]
 }

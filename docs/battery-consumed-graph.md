@@ -124,7 +124,7 @@ entry backdated by a year needs no resync, because there is nothing to invalidat
 
 ### The port
 
-`internal/battery/battery.go`:
+`internal/analytics/analytics.go`:
 
 ```go
 ConsumedByDay(ctx, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayConsumption, error)
@@ -135,8 +135,8 @@ The result is **sparse** — a missing day means *no data*, not zero. Each `DayC
 
 ### The I/O
 
-`reader.ConsumedByDay` in `internal/battery/reader.go` makes exactly three port calls — never a
-database, `internal/battery` owns no tables at all:
+`reader.ConsumedByDay` in `internal/analytics/reader.go` makes exactly three port calls — never a
+database, `internal/analytics` owns no tables at all:
 
 | Port | Window fetched |
 |---|---|
@@ -151,7 +151,7 @@ predicate, so reading extra rows can cost time but can never change a result.
 
 ### The math
 
-`deriveConsumedByDay` in `internal/battery/consumed.go` — pure, zero I/O:
+`deriveConsumedByDay` in `internal/analytics/consumed.go` — pure, zero I/O:
 
 ```
 consumed = battery_used_pct_calc + Σ(end_battery_pct − start_battery_pct)
@@ -192,7 +192,7 @@ The Σ form is required, not merely tidier. Two sessions on one day (20→50 and
 
 The **poller's** configured zone, not UTC. `effectiveDay(snapshot)` is the snapshot's own
 `CapturedDate` minus one calendar day, and `CapturedDate` was already stamped in that zone on the
-write path — so the zone reaches `internal/battery` inside the data and the module needs no
+write path — so the zone reaches `internal/analytics` inside the data and the module needs no
 `*time.Location` of its own (**D18a**).
 
 > **Known, accepted mismatch.** The odometer and battery charts still bucket in UTC via
@@ -222,7 +222,7 @@ In `deriveConsumedByDay`:
 flagged := consumed < 0 || (consumed == 0 && distanceKm > minFlagDistanceKm)
 ```
 
-`minFlagDistanceKm` is a named constant in `internal/battery/consumed.go` — **10 km**. The
+`minFlagDistanceKm` is a named constant in `internal/analytics/consumed.go` — **10 km**. The
 zero-plus-distance clause catches the silent case where a charge exactly cancels the day's usage;
 below 10 km, "zero consumed, barely moved" is a plausible parked day rather than a data gap.
 
@@ -245,7 +245,7 @@ cmd/poller
     └── reconcile → newGapReconciler
         ├── window = last 30 days, ending YESTERDAY in the poller's zone
         └── per registered vehicle:
-            ├── battery.ConsumedByDay(...)
+            ├── analytics.ConsumedByDay(...)
             ├── keep the days where Flagged
             └── telemetry.GapWriter.ReconcileWindow(...)
 ```
@@ -258,7 +258,7 @@ Details worth knowing:
   scheduled path and `--once` share the step by construction (**D4a**).
 - **Order is a dependency.** Detection reads the night's freshly written snapshot, so a failed
   collection cycle returns early and reconciliation does not run at all (**D4**).
-- **Window:** `battery.GapReconciliationWindow` = **30 days**, ending **yesterday** in the poller's
+- **Window:** `analytics.GapReconciliationWindow` = **30 days**, ending **yesterday** in the poller's
   zone (today's data isn't captured until tomorrow's poll).
 - **Errors never fatal.** Per-vehicle isolation, logged with a `gap reconciliation:` prefix. A
   missed run self-heals next cycle, because `Flagged` is recomputed from scratch every time rather
@@ -350,7 +350,7 @@ touch. The service layer is equally bare — one store call, map, return.
 
 It couldn't be otherwise without a boundary change: **`internal/manualcharge` has zero imports of
 `internal/telemetry`**, and its `AGENTS.md` forbids them, so it structurally cannot reach
-`GapWriter`. The composition root `cmd/poller` is the only place that joins `battery`'s derivation
+`GapWriter`. The composition root `cmd/poller` is the only place that joins `analytics`'s derivation
 to `telemetry`'s writer (**D4a**).
 
 ### So when does your edit show up?
@@ -394,7 +394,7 @@ GET /ui/dashboard/history
     ├── parseHistoryRange                 validate the window
     └── buildHistoryView
         ├── SnapshotsByVehicleBetween → buildOdometerChart, buildBatteryChart
-        └── battery.ConsumedByDay      → buildConsumedChart
+        └── analytics.ConsumedByDay   → buildConsumedChart
 ```
 
 **Bar height** is `max(0, ConsumedPct)` scaled **relative to the window maximum** — the tallest bar
@@ -443,7 +443,7 @@ odometer and battery populated — never a 500.
 ### 1. Gap rows older than the reconciliation window are orphaned forever
 
 **Problem.** `newGapReconciler` reconciles a rolling 30-day window ending yesterday
-(`battery.GapReconciliationWindow`), and `ReconcileWindow`'s contract never touches days outside
+(`analytics.GapReconciliationWindow`), and `ReconcileWindow`'s contract never touches days outside
 `[start, end]`. Once a day falls out of the window it is never re-evaluated, so a gap row for it
 can never be deleted.
 
@@ -452,7 +452,7 @@ but the gap row survives permanently — the future notification would nag you a
 already fixed. `GapReconciliationWindow`'s own comment says the window is "generous enough to catch
 a manual-entry backfill days after the fact": true for recent backfills, silent about older ones.
 
-**Where.** `cmd/poller/main.go` (`newGapReconciler`), `internal/battery/battery.go`
+**Where.** `cmd/poller/main.go` (`newGapReconciler`), `internal/analytics/analytics.go`
 (`GapReconciliationWindow`), `internal/telemetry/gap_writer.go` (`ReconcileWindow`).
 
 **Suggested shapes.** Either (a) sweep the stored gap dates unbounded — read all gap dates for a
