@@ -10,8 +10,8 @@ The platform's module boundaries no longer match its data. Three specific violat
    `distance_traveled_km_calc`, `battery_used_pct_calc`, `km_per_pct_calc`,
    `estimated_range_km_calc` and `days_spanned_calc` are computed by
    `internal/telemetry`'s collector at capture time and stored on a table whose whole
-   purpose is "what Tesla reported". Their only consumer is `internal/battery`
-   (`consumed.go`) — the gateway never reads them and recomputes the same deltas by hand
+   purpose is "what Tesla reported". Their only consumer is `internal/analytics`
+   (`consumed.go`, renamed from `internal/battery` by tier 1) — the gateway never reads them and recomputes the same deltas by hand
    in `buildOdometerChart`.
 
 2. **`supercharger_sessions` carries five columns Tesla does not report.**

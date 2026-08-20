@@ -1126,7 +1126,7 @@ The gateway SHALL render THREE per-vehicle history bar charts in the dashboard b
 "Odometer history" chart, a "Battery history" chart, and a "Battery consumed" chart — for the
 currently selected vehicle, replacing the "awaiting nightly snapshots" placeholders. The
 odometer/battery chart data SHALL come exclusively from the `telemetry.Reader` port; the
-consumed chart's data SHALL come exclusively from the `battery.Reader.ConsumedByDay` port. The
+consumed chart's data SHALL come exclusively from the `analytics.Reader.ConsumedByDay` port. The
 gateway SHALL NOT read telemetry or battery tables directly and SHALL NOT make a live Tesla
 Fleet API call to render any of the three charts.
 
@@ -1153,7 +1153,7 @@ by one calendar day — an `end` equal to browser-TODAY is now ALSO rejected, wh
 previously accepted), or a window wider than 90 days SHALL be rejected with HTTP 400. The
 endpoint SHALL compute a 1-day lookback `readStart = start-1day` and fetch the odometer/battery
 window via `telemetry.Reader.SnapshotsByVehicleBetween(ctx, uid, teslaID, readStart, end)`, and
-SHALL fetch the consumed window via `battery.Reader.ConsumedByDay(ctx, uid, teslaID, start, end)`
+SHALL fetch the consumed window via `analytics.Reader.ConsumedByDay(ctx, uid, teslaID, start, end)`
 (no lookback — the port performs its own internal lookback fetch).
 
 **This closes a previously-documented divergence**: before this change, a direct API call
@@ -1180,15 +1180,15 @@ SHALL include the `MM-DD` date, the level percentage, and the rated range in kil
 missing-day bar's tooltip SHALL state that no snapshot exists for that date.
 
 **The "Battery consumed" chart's bars SHALL represent the corrected per-day battery-consumed
-percentage** returned by `battery.Reader.ConsumedByDay` — bucketed on each returned
+percentage** returned by `analytics.Reader.ConsumedByDay` — bucketed on each returned
 `DayConsumption.Date` value DIRECTLY, never re-derived or re-bucketed through the odometer/
 battery charts' `EffectiveDate`-based UTC bucketing. A day with no corresponding
 `DayConsumption` entry (no computable value for that calendar day) SHALL render as an empty
 labeled bar identical in shape to the odometer/battery "no snapshot" bar, but with a "no data"
 tooltip rather than a "no snapshot" tooltip. The gateway SHALL NOT perform any timezone
 computation of its own for this chart — the calendar day a value belongs to is decided entirely
-by `internal/battery` before the gateway receives it. A known, accepted consequence: because
-`internal/battery` and the odometer/battery charts bucket calendar days in different reference
+by `internal/analytics` before the gateway receives it. A known, accepted consequence: because
+`internal/analytics` and the odometer/battery charts bucket calendar days in different reference
 frames (the poller's configured zone vs. UTC), the same underlying nightly poll can label the
 consumed bar's calendar day one day apart from its odometer/battery sibling bar; the gateway
 SHALL NOT attempt to reconcile this.
@@ -1311,7 +1311,7 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 
 #### Scenario: The consumed chart bucket day is the port's own Date, never re-derived
 
-- **GIVEN** `battery.Reader.ConsumedByDay` returns a `DayConsumption` entry with
+- **GIVEN** `analytics.Reader.ConsumedByDay` returns a `DayConsumption` entry with
   `Date = 2026-08-10`
 - **WHEN** the consumed chart buckets that entry onto the fixed `[start..end]` axis
 - **THEN** the entry's bar is placed at the `2026-08-10` slot using `Date` verbatim
@@ -1319,7 +1319,7 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
   `effectiveDayUTC` helper or any other re-bucketing step
 - **AND** a known, accepted consequence is that this bar's calendar day can differ by one day
   from the odometer/battery bar for the same underlying nightly poll, because
-  `internal/battery` buckets in the poller's configured zone while the odometer/battery charts
+  `internal/analytics` buckets in the poller's configured zone while the odometer/battery charts
   bucket in UTC — this mismatch is NOT corrected by the gateway
 
 #### Scenario: The consumed chart scales relative to its own window maximum, not absolute 0-100
@@ -1384,7 +1384,7 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 
 #### Scenario: A day absent from ConsumedByDay renders as a "no data" bar, distinct wording from "no snapshot"
 
-- **GIVEN** a calendar day within the requested window for which `battery.Reader.ConsumedByDay`
+- **GIVEN** a calendar day within the requested window for which `analytics.Reader.ConsumedByDay`
   returned no entry (no computable value for that day)
 - **WHEN** the consumed chart renders that day's slot
 - **THEN** the bar renders at zero height with its own `MM-DD` label retained
@@ -1394,17 +1394,17 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **AND** a window with zero computable days across its entire range renders the consumed
   chart's empty-state placeholder instead of an all-empty bar row
 
-#### Scenario: Consumed chart data comes exclusively through battery.Reader
+#### Scenario: Consumed chart data comes exclusively through analytics.Reader
 
 - **GIVEN** the gateway handler that builds the consumed chart
 - **WHEN** it obtains per-day consumption data
-- **THEN** it does so exclusively through `battery.Reader.ConsumedByDay`
-- **AND** it imports no package other than `internal/battery`'s public port for this data (there
-  is no `battery` database package to accidentally import — `internal/battery` owns no
+- **THEN** it does so exclusively through `analytics.Reader.ConsumedByDay`
+- **AND** it imports no package other than `internal/analytics`'s public port for this data (there
+  is no `analytics` database package to accidentally import — `internal/analytics` owns no
   database)
-- **AND** a `battery.Reader` error degrades only the consumed chart to its empty state; the
+- **AND** a `analytics.Reader` error degrades only the consumed chart to its empty state; the
   odometer and battery charts, sourced from the separate `telemetry.Reader` call, are
-  unaffected by a `battery.Reader` failure
+  unaffected by a `analytics.Reader` failure
 
 #### Scenario: Browser-Local Calendar Day (unchanged from the prior revision)
 
@@ -1439,10 +1439,10 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 
 - **GIVEN** the gateway handler that builds all three history charts
 - **WHEN** it obtains the vehicle's snapshot history and its per-day consumption
-- **THEN** it does so exclusively through the `telemetry.Reader` and `battery.Reader` public
+- **THEN** it does so exclusively through the `telemetry.Reader` and `analytics.Reader` public
   interfaces
 - **AND** it imports no package from `internal/telemetry/db` (`telemetrydb`) and no database
-  package from `internal/battery` (which has none)
+  package from `internal/analytics` (which has none)
 - **AND** no `pgtype` type appears in any gateway file involved
 
 #### Scenario: History fragment is not served to anonymous callers
