@@ -116,9 +116,11 @@ each other and of T4 once T1/T2 land.
 
 ## Status
 
-**T1 (`RM29-analytics-rename-from-battery`) is in progress** — `proposal.md` and
-`specs/analytics/spec.md` exist; `design.md` and `tasks.md` are next. Implementation has
-not started. T2–T8 are pending: no artifacts of any kind exist for them yet.
+**T1 (`RM29-analytics-rename-from-battery`) is in progress** — all four artifacts
+(`proposal.md`, `specs/analytics/spec.md`, `design.md`, `tasks.md`) are written and pass
+`openspec validate --changes --strict`; 25 sub-tasks are seeded in the change's
+`progress.json`. Implementation has not started. T2–T8 are pending: no artifacts of any
+kind exist for them yet.
 
 All tiers share the branch `ft/RM29-MAG-26-modular-monolith-boundaries`. Live state is in
 `RM29-modular-monolith-boundaries.progress.json`; each tier is proposed, reviewed and
