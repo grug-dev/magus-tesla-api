@@ -18,7 +18,7 @@ Source of truth for `scaffold <concept> [module]`. Every new UI slice imitates t
 ## Step 1 — Resolve the domain module + ports (CodeGraph, not grep)
 
 `codegraph_context` on the concept to find its owning module and the **interfaces** the
-gateway will call (e.g. `telemetry.Reader`, `manualcharge.Reader`/`Writer`,
+gateway will call (e.g. `telemetry.Reader`, `charging.Reader`/`Writer`,
 `account.Service`). The gateway calls interfaces **in-process only** — never a DB, never a
 module's internals, never a vendor `…Tesla` DTO. If the concept has no owning module, stop
 and ask the user which module owns it (or whether one must be created first — out of this

@@ -104,7 +104,7 @@ func LanguageMiddleware(acct account.Service) gin.HandlerFunc {
 // (SetLanguage always targets the caller's own session uid — there is no
 // user-submitted resource id for a forged request to redirect at a different
 // account), and NO CSRF token. The missing CSRF check is a deliberate,
-// user-approved divergence from the manualcharge/D4 write-exception pattern —
+// user-approved divergence from the charging/D4 write-exception pattern —
 // see internal/gateway/AGENTS.md "Exception: language switch" for the full
 // rationale. The lang cookie's SameSite=Lax attribute (set exclusively by
 // setLangCookie, above) is the actual defence; do not add a CSRF check here

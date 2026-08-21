@@ -1,6 +1,6 @@
 // charges.go contains the handlers for the manual charge log page and its htmx
 // fragment routes (create/edit/delete). All write paths are auth-guarded, CSRF-
-// protected, and tenant-ownership-validated before calling manualcharge.Writer.
+// protected, and tenant-ownership-validated before calling charging.Writer.
 // See design.md D1-D10 and AGENTS.md "Exception: user-initiated writes".
 package handlers
 
@@ -21,10 +21,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 )
 
 // csrfManualChargeKey is the session key for the manual charge CSRF token.
@@ -209,7 +209,7 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 		return
 	}
 
-	created, err := h.manualChargeWriter.Create(c.Request.Context(), entry)
+	created, err := h.chargingWriter.Create(c.Request.Context(), entry)
 	if err != nil {
 		log.Printf("gateway: ChargeCreate writer error for account %s: %v", uid, err)
 		// Keep the picker on the vehicle the user submitted.
@@ -277,7 +277,7 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	entry.ID = id
 	entry.AccountID = uid
 
-	updated, err := h.manualChargeWriter.Update(c.Request.Context(), entry)
+	updated, err := h.chargingWriter.Update(c.Request.Context(), entry)
 	if err != nil {
 		log.Printf("gateway: ChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
 		vm := chargeEntryVMFromEntry(entry, vehicles)
@@ -329,7 +329,7 @@ func (h *Handler) ChargeRowDelete(c *gin.Context) {
 		return
 	}
 
-	if err := h.manualChargeWriter.Delete(c.Request.Context(), uid, id); err != nil {
+	if err := h.chargingWriter.Delete(c.Request.Context(), uid, id); err != nil {
 		log.Printf("gateway: ChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
 		renderError(c, http.StatusInternalServerError, fragments.ChargeRowError(id.String(), i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotDeleteEntry)))
 		return
@@ -357,15 +357,15 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 	// sidebar switcher). When a filter is explicitly passed (non-zero) it wins;
 	// otherwise we show all entries by account and pre-select no vehicle — the
 	// caller (ChargePage) normally passes the session-selected TeslaID.
-	var entries []manualcharge.Entry
+	var entries []charging.Entry
 	if teslaIDFilter != 0 {
-		entries, err = h.manualChargeReader.ListEntriesByVehicle(ctx, uid, teslaIDFilter, defaultChargeLimit)
+		entries, err = h.chargingReader.ListEntriesByVehicle(ctx, uid, teslaIDFilter, defaultChargeLimit)
 	} else {
-		entries, err = h.manualChargeReader.ListEntriesByAccount(ctx, uid, defaultChargeLimit)
+		entries, err = h.chargingReader.ListEntriesByAccount(ctx, uid, defaultChargeLimit)
 	}
 	var pageError string
 	if err != nil {
-		log.Printf("gateway: manualcharge reader error for account %s: %v", uid, err)
+		log.Printf("gateway: charging reader error for account %s: %v", uid, err)
 		pageError = i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadEntries)
 		entries = nil
 	}
@@ -425,7 +425,7 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 // the one matching id (no GetEntry on the port — design decision D6). Returns
 // false if not found.
 func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID) (fragments.ChargeEntryVM, bool) {
-	entries, err := h.manualChargeReader.ListEntriesByAccount(ctx, uid, 0)
+	entries, err := h.chargingReader.ListEntriesByAccount(ctx, uid, 0)
 	if err != nil {
 		return fragments.ChargeEntryVM{}, false
 	}
@@ -439,7 +439,7 @@ func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID)
 }
 
 // checkCSRF reads the submitted csrf_token (from form body or hx-csrf-token
-// header), compares it to the manualcharge session value via constant-time
+// header), compares it to the charging session value via constant-time
 // compare, and writes 403 on mismatch. Returns true if CSRF is valid.
 func (h *Handler) checkCSRF(c *gin.Context) bool {
 	return h.checkCSRFKey(c, csrfManualChargeKey)
@@ -469,10 +469,10 @@ func (h *Handler) checkCSRFKey(c *gin.Context, key string) bool {
 	return true
 }
 
-// chargeEntryVMFromEntry maps a manualcharge.Entry and the account's registered
+// chargeEntryVMFromEntry maps a charging.Entry and the account's registered
 // vehicle list to a ChargeEntryVM. Pre-computes all derived display strings so
 // templates do no arithmetic (design.md D6).
-func chargeEntryVMFromEntry(e manualcharge.Entry, vehicles []account.Vehicle) fragments.ChargeEntryVM {
+func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragments.ChargeEntryVM {
 	label := vehicleLabelFor(e.TeslaID, vehicles)
 
 	costLabel := ""
@@ -585,7 +585,7 @@ func vehicleLabelFor(teslaID int64, vehicles []account.Vehicle) string {
 //   - D5: Currency is HARDCODED "COP" — the form's disabled Currency input is
 //     for display transparency only (a disabled input is not submitted, so
 //     reading c.PostForm("currency") would always be ""). The
-//     manualcharge.Entry.Currency column stays a column the gateway always
+//     charging.Entry.Currency column stays a column the gateway always
 //     sends COP down; no service change.
 //   - D6: start_battery_pct and end_battery_pct are REQUIRED (empty or non-int /
 //     out-of-range -> validation error). The service contract stays nullable
@@ -598,7 +598,7 @@ func vehicleLabelFor(teslaID int64, vehicles []account.Vehicle) string {
 //   - D7: energy_added_kwh accepts 3-decimal precision (UI step=0.001). No
 //     server-side rounding — strconv.ParseFloat already accepts any precision.
 //     The energy <= 0 rejection stays (positive only).
-func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []account.Vehicle) (manualcharge.Entry, map[string]string, bool) {
+func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []account.Vehicle) (charging.Entry, map[string]string, bool) {
 	errs := make(map[string]string)
 
 	// D4: source (teslaID, vin) from the session-selected vehicle, not a form field.
@@ -612,7 +612,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		// account's list, so this is a belt-and-suspenders guard).
 		if !vehicleOwned(teslaID, vin, vehicles) {
 			c.String(http.StatusForbidden, i18n.T(c.Request.Context(), i18n.KeyChargesErrorVehicleNotOwned))
-			return manualcharge.Entry{}, nil, false
+			return charging.Entry{}, nil, false
 		}
 	} else {
 		// No resolvable selected vehicle (account has no registered vehicles or
@@ -665,7 +665,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 	// D5: Currency is hardcoded COP — the form's disabled Currency input is for
 	// display transparency only; a disabled input is not submitted, so reading
 	// c.PostForm("currency") would return "". We always hand "COP" down the
-	// manualcharge.Writer port; the column's 'COP' default is now redundant from
+	// charging.Writer port; the column's 'COP' default is now redundant from
 	// the gateway's perspective but stays as DB defense-in-depth.
 	currency := "COP"
 
@@ -714,10 +714,10 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 	}
 
 	if len(errs) > 0 {
-		return manualcharge.Entry{}, errs, false
+		return charging.Entry{}, errs, false
 	}
 
-	entry := manualcharge.Entry{
+	entry := charging.Entry{
 		AccountID:       uid,
 		TeslaID:         teslaID,
 		VIN:             vin,

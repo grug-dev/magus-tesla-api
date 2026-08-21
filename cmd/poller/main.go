@@ -32,8 +32,8 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/config"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -87,7 +87,7 @@ func main() {
 	analyticsReader := analytics.NewReader(
 		telemetry.NewReader(pool),
 		telemetry.NewSuperchargerReader(pool),
-		manualcharge.NewReader(pool),
+		charging.NewReader(pool),
 		acct,
 		analytics.DefaultWindow,
 	)

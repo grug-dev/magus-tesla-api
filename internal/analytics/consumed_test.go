@@ -4,13 +4,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
 // The consumed tests exercise deriveConsumedByDay and its helpers fully OFFLINE and with
 // zero fakes: all are pure functions over plain telemetry.Snapshot / SuperchargerSession /
-// manualcharge.Entry values (design.md D-B1 through D-B13), so there is no I/O seam to
+// charging.Entry values (design.md D-B1 through D-B13), so there is no I/O seam to
 // fake -- mirrors derive_test.go's own zero-fakes style. Expected values are hand-computed
 // from design.md's Test Contract (authored before this implementation existed), never
 // derived by reading consumed.go itself.
@@ -167,7 +167,7 @@ func TestDeriveConsumedByDay_ZeroWithDistanceFlagged(t *testing.T) {
 		DaysSpannedCalc:        intPtr(1),
 	}
 
-	entries := []manualcharge.Entry{
+	entries := []charging.Entry{
 		{ChargedOn: d1, StartBatteryPct: intPtr(30), EndBatteryPct: intPtr(50)}, // +20
 	}
 
@@ -214,7 +214,7 @@ func TestDeriveConsumedByDay_ZeroWithLowDistanceNotFlagged(t *testing.T) {
 				DistanceTraveledKmCalc: fp(tc.distanceKm),
 				DaysSpannedCalc:        intPtr(1),
 			}
-			entries := []manualcharge.Entry{
+			entries := []charging.Entry{
 				{ChargedOn: d1, StartBatteryPct: intPtr(30), EndBatteryPct: intPtr(50)}, // +20 -> ConsumedPct = 0
 			}
 
@@ -275,7 +275,7 @@ func TestDeriveConsumedByDay_MultiDaySpan_OneEntry(t *testing.T) {
 	sessions := []telemetry.SuperchargerSession{
 		{ChargeStopDateTime: t0.Add(24 * time.Hour), StartBatteryPct: intPtr(40), EndBatteryPct: intPtr(55)}, // +15
 	}
-	entries := []manualcharge.Entry{
+	entries := []charging.Entry{
 		{ChargedOn: day(2026, 8, 12), StartBatteryPct: intPtr(20), EndBatteryPct: intPtr(45)}, // +25
 	}
 
@@ -369,7 +369,7 @@ func TestDeriveConsumedByDay_Stateless_ResolvesOnRecompute(t *testing.T) {
 
 	// The user backfills the missing manual record; recomputed from the SAME snapshots
 	// with no state carried over from the first call (D2).
-	resolvingEntries := []manualcharge.Entry{
+	resolvingEntries := []charging.Entry{
 		{ChargedOn: d1, StartBatteryPct: intPtr(30), EndBatteryPct: intPtr(40)}, // +10
 	}
 	secondCall := deriveConsumedByDay(snapshots, nil, resolvingEntries, d0, d1)

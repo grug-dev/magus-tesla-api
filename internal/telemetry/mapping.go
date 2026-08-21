@@ -65,7 +65,7 @@ func dateFromPg(d pgtype.Date) time.Time {
 
 // pgNullableInt16AsInt converts a nullable pgtype.Int2 (SMALLINT) to *int:
 // {Valid: false} -> nil, {Valid: true} -> &v. First SMALLINT column in this module;
-// mirrors internal/manualcharge's identical intPtrToPgInt2/pgInt2ToIntPtr shape for
+// mirrors internal/charging's identical intPtrToPgInt2/pgInt2ToIntPtr shape for
 // its own start_battery_pct/end_battery_pct (module boundaries mean the four-line
 // helper is duplicated here, not imported). Reused across all four SMALLINT columns
 // on supercharger_sessions (RM27-telemetry-add-supercharger-battery-pct, design D5).

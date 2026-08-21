@@ -17,9 +17,9 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/handlers"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -48,16 +48,16 @@ type Deps struct {
 	// NEVER import internal/telemetry/db (telemetrydb) — all access through this
 	// interface only.
 	SuperchargerReader telemetry.SuperchargerReader
-	// ManualChargeWriter is the manualcharge write port. Called by write handlers
+	// ChargingWriter is the charging write port. Called by write handlers
 	// (create/update/delete) on explicit user-initiated form submissions only.
 	// See AGENTS.md "Exception: user-initiated writes" for the full amendment.
-	ManualChargeWriter manualcharge.Writer
-	// ManualChargeReader is the manualcharge read port. Called by read handlers
+	ChargingWriter charging.Writer
+	// ChargingReader is the charging read port. Called by read handlers
 	// and the dataForCharges helper to list charge entries.
-	ManualChargeReader manualcharge.Reader
+	ChargingReader charging.Reader
 	// AnalyticsReader is the analytics module's read port; injected at
 	// construction (mirrors TelemetryReader/SuperchargerReader/
-	// ManualChargeReader — the gateway calls ConsumedByDay once per history
+	// ChargingReader — the gateway calls ConsumedByDay once per history
 	// fragment render). Injected from cmd/web via analytics.NewReader(...).
 	// NEVER import an internal/analytics database package — internal/analytics
 	// owns no database, so there is none to accidentally import.
@@ -123,8 +123,8 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 		Tesla:                d.Tesla,
 		TelemetryReader:      d.TelemetryReader,
 		SuperchargerReader:   d.SuperchargerReader,
-		ManualChargeWriter:   d.ManualChargeWriter,
-		ManualChargeReader:   d.ManualChargeReader,
+		ChargingWriter:       d.ChargingWriter,
+		ChargingReader:       d.ChargingReader,
 		AnalyticsReader:      d.AnalyticsReader,
 		TeslaClientID:        d.TeslaClientID,
 		TeslaClientSecret:    d.TeslaClientSecret,

@@ -61,14 +61,14 @@ Note: the former "CHARGING STATS" backlog item shipped as roadmap **RM2-charging
 tiers archived 2026-07-16) — see `openspec/roadmaps/archive/RM2-charging-stats/`.
 
 
-## 2. manualcharge / telemetry — Semi-automatic home-charge detection
+## 2. charging / telemetry — Semi-automatic home-charge detection
 
 ### PROPOSAL
 
 Infer home / AC charging sessions from the vehicle's **own** telemetry — `charge_energy_added`
 deltas + `charging_state` transitions (unambiguously the vehicle's own data, so **no**
 multi-tenant attribution problem) — to **pre-fill or suggest** entries in the manual charge
-log (`internal/manualcharge`, shipped by RM3). This directly reduces the manual-entry
+log (`internal/charging`, shipped by RM3). This directly reduces the manual-entry
 friction (people forget to log) that RM3 ships with.
 
 **TRIGGER — pick this up when** polling gets finer than the current once-nightly cadence: a
@@ -82,7 +82,7 @@ vehicle-side automatic counterpart to RM2's "charge-session detector" future not
 adoption-friction gap of the user-asserted manual-entry approach.
 
 
-## 3. manualcharge — Integration tests for the remaining CHECK-constraint scenarios
+## 3. charging — Integration tests for the remaining CHECK-constraint scenarios
 
 ### PROPOSAL
 
@@ -93,9 +93,9 @@ have **no dedicated integration test**: `end_battery_pct` out of range (0–100)
 constraints are live and verified to exist (psql), and the closely-related `start_battery_pct=101`
 case IS tested (T6.2e) — so this is a **test-coverage** gap only, not a correctness gap.
 
-**TRIGGER — pick up when** the `manualcharge` module is next touched (e.g. RM3 tier 2 gateway UI
+**TRIGGER — pick up when** the `charging` module is next touched (e.g. RM3 tier 2 gateway UI
 work, or any change adding fields/constraints). Add three `TestCreate_CheckConstraint_*` cases in
-`internal/manualcharge/db_integration_test.go` mirroring the existing pattern; each asserts a DB
+`internal/charging/db_integration_test.go` mirroring the existing pattern; each asserts a DB
 error is returned. Cheap (~30 lines) against the live DATABASE_URL-gated harness.
 
 ### ORIGIN
@@ -342,7 +342,7 @@ Extended the same day when the owner **descoped the estimator and the UI tiers e
 ### PROPOSAL
 
 The platform stores charge sessions in **two tables owned by two different modules**:
-`manual_charge_entries` (`internal/manualcharge`) and `supercharger_sessions`
+`manual_charge_entries` (`internal/charging`) and `supercharger_sessions`
 (`internal/telemetry`). They carry the same conceptual payload — when the car charged, how
 much energy went in, and (per RM27) the start/end battery percentage — but no module owns
 "charging" as a domain.

@@ -1,4 +1,4 @@
-// Package manualcharge_test starts an isolated, throw-away Postgres for the
+// Package charging_test starts an isolated, throw-away Postgres for the
 // database-backed tests in db_integration_test.go.
 //
 // Behavior (see internal/testdb and ai/go-conventions.md §persistence):
@@ -9,7 +9,7 @@
 // Production impact: NONE. This file is a _test.go file — Go never compiles
 // test-imports into the deployed binary, so testcontainers/goose are not
 // shipped to the VM host. No Docker daemon is required in production.
-package manualcharge_test
+package charging_test
 
 import (
 	"context"
@@ -41,18 +41,18 @@ func runTests(m *testing.M) int {
 
 	subFS, err := fs.Sub(migrationsFS, "db/migrations")
 	if err != nil {
-		log.Fatalf("manualcharge testdb: sub migrations fs: %v", err)
+		log.Fatalf("charging testdb: sub migrations fs: %v", err)
 	}
 
 	result, err := testdb.Provision(ctx, subFS)
 	if err != nil {
-		log.Fatalf("manualcharge testdb: provision: %v", err)
+		log.Fatalf("charging testdb: provision: %v", err)
 	}
 	defer func() { _ = result.Terminate(context.Background()) }()
 
 	pool, err := pgxpool.New(ctx, result.DSN)
 	if err != nil {
-		log.Fatalf("manualcharge testdb: pgxpool new: %v", err)
+		log.Fatalf("charging testdb: pgxpool new: %v", err)
 	}
 	testPool = pool
 	defer pool.Close()

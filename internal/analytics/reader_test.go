@@ -9,12 +9,12 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
 // The reader tests exercise RecentEfficiency fully OFFLINE: one hand-written fake per
-// consumed port (telemetry.Reader, telemetry.SuperchargerReader, manualcharge.Reader,
+// consumed port (telemetry.Reader, telemetry.SuperchargerReader, charging.Reader,
 // vehicleLookup), constructed directly as &reader{...} rather than through NewReader —
 // mirrors fakeReadStore/newFakeReader in internal/telemetry/reader_test.go one level up
 // (fake ports instead of a fake store, since this module owns no store of its own).
@@ -109,12 +109,12 @@ func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context
 	return f.sessions, nil
 }
 
-// fakeManualReader is a fake manualcharge.Reader. ListEntriesByVehicle is exercised by
+// fakeManualReader is a fake charging.Reader. ListEntriesByVehicle is exercised by
 // RecentEfficiency; ListEntriesByVehicleBetween is exercised by ConsumedByDay (RM28 tier
 // 3, design.md D-B13) — both share the entries/err fixture fields (safe: no existing
 // RecentEfficiency test calls the Between path).
 type fakeManualReader struct {
-	entries []manualcharge.Entry
+	entries []charging.Entry
 	err     error
 
 	gotAccountID uuid.UUID
@@ -125,7 +125,7 @@ type fakeManualReader struct {
 	gotBetweenEnd   time.Time
 }
 
-func (f *fakeManualReader) ListEntriesByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]manualcharge.Entry, error) {
+func (f *fakeManualReader) ListEntriesByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]charging.Entry, error) {
 	f.gotAccountID = accountID
 	f.gotTeslaID = teslaID
 	f.gotLimit = limit
@@ -135,14 +135,14 @@ func (f *fakeManualReader) ListEntriesByVehicle(_ context.Context, accountID uui
 	return f.entries, nil
 }
 
-func (f *fakeManualReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, _ int) ([]manualcharge.Entry, error) {
+func (f *fakeManualReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, _ int) ([]charging.Entry, error) {
 	panic("fakeManualReader: ListEntriesByAccount must not be called from RecentEfficiency")
 }
 
 // ListEntriesByVehicleBetween implements the bounded-window fetch ConsumedByDay issues
 // (design.md D-B13 — start-1/end, no tail). Un-panicked by RM28 tier 3 (task T5.3);
 // previously a defensive stub since RecentEfficiency never called it.
-func (f *fakeManualReader) ListEntriesByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]manualcharge.Entry, error) {
+func (f *fakeManualReader) ListEntriesByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]charging.Entry, error) {
 	f.gotAccountID = accountID
 	f.gotTeslaID = teslaID
 	f.gotBetweenStart = start
@@ -194,7 +194,7 @@ func TestRecentEfficiency_HappyPath_ComputesValue(t *testing.T) {
 	superchargerFake := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
 		{ChargeStartDateTime: since.Add(24 * time.Hour), EnergyKWh: fp(sessionEnergy)},
 	}}
-	manualFake := &fakeManualReader{entries: []manualcharge.Entry{
+	manualFake := &fakeManualReader{entries: []charging.Entry{
 		{ChargedOn: since.Add(48 * time.Hour), EnergyAddedKWh: entryEnergy},
 	}}
 	vehicleFake := &fakeVehicleLookup{vehicles: []account.Vehicle{
@@ -249,7 +249,7 @@ func TestRecentEfficiency_WindowExcludesOldEntries(t *testing.T) {
 		{ChargeStartDateTime: since.Add(24 * time.Hour), EnergyKWh: fp(3.0)},    // in window
 		{ChargeStartDateTime: since.Add(-24 * time.Hour), EnergyKWh: fp(100.0)}, // before window
 	}}
-	manualFake := &fakeManualReader{entries: []manualcharge.Entry{
+	manualFake := &fakeManualReader{entries: []charging.Entry{
 		{ChargedOn: since.Add(48 * time.Hour), EnergyAddedKWh: 2.0},   // in window
 		{ChargedOn: since.Add(-48 * time.Hour), EnergyAddedKWh: 50.0}, // before window
 	}}
@@ -332,7 +332,7 @@ func TestRecentEfficiency_UnknownVehicle_ApproximateTrue(t *testing.T) {
 }
 
 // TestRecentEfficiency_TelemetryError_Propagates, ...SuperchargerError_Propagates,
-// ...ManualChargeError_Propagates, ...AccountError_Propagates cover error propagation:
+// ...ChargingError_Propagates, ...AccountError_Propagates cover error propagation:
 // a port error is returned via errors.Is, unwrapped, matching
 // TestReader_StoreError_PropagatesError in internal/telemetry/reader_test.go.
 
@@ -370,8 +370,8 @@ func TestRecentEfficiency_SuperchargerError_Propagates(t *testing.T) {
 	}
 }
 
-func TestRecentEfficiency_ManualChargeError_Propagates(t *testing.T) {
-	wantErr := errors.New("manualcharge: connection lost")
+func TestRecentEfficiency_ChargingError_Propagates(t *testing.T) {
+	wantErr := errors.New("charging: connection lost")
 	r := &reader{
 		telemetry:    &fakeTelemetryReader{},
 		supercharger: &fakeSuperchargerReader{},
@@ -439,7 +439,7 @@ func TestRecentEfficiency_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 		t.Errorf("supercharger: accountID not passed through: want %v, got %v", accountID, superchargerFake.gotAccountID)
 	}
 	if manualFake.gotAccountID != accountID {
-		t.Errorf("manualcharge: accountID not passed through: want %v, got %v", accountID, manualFake.gotAccountID)
+		t.Errorf("charging: accountID not passed through: want %v, got %v", accountID, manualFake.gotAccountID)
 	}
 	if vehicleFake.gotAccountID != accountID {
 		t.Errorf("account: accountID not passed through: want %v, got %v", accountID, vehicleFake.gotAccountID)
@@ -452,7 +452,7 @@ func TestRecentEfficiency_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 		t.Errorf("supercharger: teslaID not passed through: want %d, got %d", teslaID, superchargerFake.gotTeslaID)
 	}
 	if manualFake.gotTeslaID != teslaID {
-		t.Errorf("manualcharge: teslaID not passed through: want %d, got %d", teslaID, manualFake.gotTeslaID)
+		t.Errorf("charging: teslaID not passed through: want %d, got %d", teslaID, manualFake.gotTeslaID)
 	}
 }
 
@@ -537,7 +537,7 @@ func TestConsumedByDay_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 		t.Errorf("supercharger: accountID not passed through: want %v, got %v", accountID, superchargerFake.gotAccountID)
 	}
 	if manualFake.gotAccountID != accountID {
-		t.Errorf("manualcharge: accountID not passed through: want %v, got %v", accountID, manualFake.gotAccountID)
+		t.Errorf("charging: accountID not passed through: want %v, got %v", accountID, manualFake.gotAccountID)
 	}
 
 	if telemetryFake.gotTeslaID != teslaID {
@@ -547,12 +547,12 @@ func TestConsumedByDay_AccountIDScoping_PassedToEveryPort(t *testing.T) {
 		t.Errorf("supercharger: teslaID not passed through: want %d, got %d", teslaID, superchargerFake.gotTeslaID)
 	}
 	if manualFake.gotTeslaID != teslaID {
-		t.Errorf("manualcharge: teslaID not passed through: want %d, got %d", teslaID, manualFake.gotTeslaID)
+		t.Errorf("charging: teslaID not passed through: want %d, got %d", teslaID, manualFake.gotTeslaID)
 	}
 }
 
 // TestConsumedByDay_TelemetryError_Propagates, ...SuperchargerError_Propagates, and
-// ...ManualChargeError_Propagates cover design.md Test Contract (l): a port error is
+// ...ChargingError_Propagates cover design.md Test Contract (l): a port error is
 // returned via errors.Is, unwrapped, mirroring the existing
 // TestRecentEfficiency_*Error_Propagates pattern. ConsumedByDay never calls the account
 // port, so there is no ...AccountError_Propagates counterpart here.
@@ -591,8 +591,8 @@ func TestConsumedByDay_SuperchargerError_Propagates(t *testing.T) {
 	}
 }
 
-func TestConsumedByDay_ManualChargeError_Propagates(t *testing.T) {
-	wantErr := errors.New("manualcharge: connection lost")
+func TestConsumedByDay_ChargingError_Propagates(t *testing.T) {
+	wantErr := errors.New("charging: connection lost")
 	r := &reader{
 		telemetry:    &fakeTelemetryReader{},
 		supercharger: &fakeSuperchargerReader{},

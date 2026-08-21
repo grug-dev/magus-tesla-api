@@ -1,11 +1,11 @@
 // Package fragments holds the htmx-swappable HTML fragment components and their
-// presentation view models. View models are pure Go structs — no manualcharge.*,
+// presentation view models. View models are pure Go structs — no charging.*,
 // no pgtype.*, no vendor-suffixed types — so templates stay logic-free.
 package fragments
 
 // ChargeEntryVM is the gateway presentation model for one manual charge entry.
 // All derived values are pre-computed by the handler; templates do no arithmetic.
-// No manualcharge.Entry, pgtype, or time.Duration in this struct (design.md D6).
+// No charging.Entry, pgtype, or time.Duration in this struct (design.md D6).
 type ChargeEntryVM struct {
 	ID              string // UUID formatted as string for URL path params
 	VehicleLabel    string // DisplayName from the registered vehicle (looked up by TeslaID)

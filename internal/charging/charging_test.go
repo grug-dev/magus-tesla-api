@@ -1,13 +1,13 @@
-// Package manualcharge_test contains offline unit tests for the manualcharge domain
+// Package charging_test contains offline unit tests for the charging domain
 // type's derived value-receiver methods. No database, no Tesla API call — tests
 // construct Entry literals directly and verify computed results.
-package manualcharge_test
+package charging_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 )
 
 // --- CostPerKWh ---
@@ -16,7 +16,7 @@ import (
 // both Price and EnergyAddedKWh are set to non-zero values.
 // 8000 COP / 15.5 kWh ≈ 516.129... COP/kWh (within float64 tolerance).
 func TestCostPerKWh_Normal(t *testing.T) {
-	e := manualcharge.Entry{
+	e := charging.Entry{
 		Price:          8000,
 		EnergyAddedKWh: 15.5,
 	}
@@ -35,7 +35,7 @@ func TestCostPerKWh_Normal(t *testing.T) {
 // EnergyAddedKWh is zero — defensive nil-guard (the DB CHECK prevents zero, but
 // the method must not panic on zero input). Design D2j / tasks.md T5.1(b).
 func TestCostPerKWh_ZeroEnergy(t *testing.T) {
-	e := manualcharge.Entry{
+	e := charging.Entry{
 		Price:          8000,
 		EnergyAddedKWh: 0,
 	}
@@ -52,7 +52,7 @@ func TestCostPerKWh_ZeroEnergy(t *testing.T) {
 func TestBatteryDelta_Normal(t *testing.T) {
 	start := 20
 	end := 80
-	e := manualcharge.Entry{
+	e := charging.Entry{
 		StartBatteryPct: &start,
 		EndBatteryPct:   &end,
 	}
@@ -69,7 +69,7 @@ func TestBatteryDelta_Normal(t *testing.T) {
 // StartBatteryPct is nil. Tasks.md T5.2(b).
 func TestBatteryDelta_NilStart(t *testing.T) {
 	end := 80
-	e := manualcharge.Entry{
+	e := charging.Entry{
 		StartBatteryPct: nil,
 		EndBatteryPct:   &end,
 	}
@@ -83,7 +83,7 @@ func TestBatteryDelta_NilStart(t *testing.T) {
 // EndBatteryPct is nil. Tasks.md T5.2(c).
 func TestBatteryDelta_NilEnd(t *testing.T) {
 	start := 20
-	e := manualcharge.Entry{
+	e := charging.Entry{
 		StartBatteryPct: &start,
 		EndBatteryPct:   nil,
 	}
@@ -100,7 +100,7 @@ func TestBatteryDelta_NilEnd(t *testing.T) {
 func TestSessionDuration_Normal(t *testing.T) {
 	start := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 7, 18, 11, 30, 0, 0, time.UTC)
-	e := manualcharge.Entry{
+	e := charging.Entry{
 		StartedAt: &start,
 		EndedAt:   &end,
 	}
@@ -118,7 +118,7 @@ func TestSessionDuration_Normal(t *testing.T) {
 // StartedAt is nil. Tasks.md T5.3(b).
 func TestSessionDuration_NilStart(t *testing.T) {
 	end := time.Date(2026, 7, 18, 11, 30, 0, 0, time.UTC)
-	e := manualcharge.Entry{
+	e := charging.Entry{
 		StartedAt: nil,
 		EndedAt:   &end,
 	}
@@ -132,7 +132,7 @@ func TestSessionDuration_NilStart(t *testing.T) {
 // EndedAt is nil. Tasks.md T5.3(c).
 func TestSessionDuration_NilEnd(t *testing.T) {
 	start := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
-	e := manualcharge.Entry{
+	e := charging.Entry{
 		StartedAt: &start,
 		EndedAt:   nil,
 	}

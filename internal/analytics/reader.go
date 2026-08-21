@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -26,7 +26,7 @@ type vehicleLookup interface {
 type reader struct {
 	telemetry    telemetry.Reader
 	supercharger telemetry.SuperchargerReader
-	manual       manualcharge.Reader
+	manual       charging.Reader
 	account      vehicleLookup
 	window       time.Duration
 	now          func() time.Time
@@ -37,7 +37,7 @@ var _ Reader = (*reader)(nil)
 
 // NewReader constructs a Reader over the three sibling ports it consumes plus a narrow
 // account lookup, with window fixed at construction time (design.md D3).
-func NewReader(telemetryReader telemetry.Reader, supercharger telemetry.SuperchargerReader, manual manualcharge.Reader, acct vehicleLookup, window time.Duration) Reader {
+func NewReader(telemetryReader telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader, acct vehicleLookup, window time.Duration) Reader {
 	return &reader{
 		telemetry:    telemetryReader,
 		supercharger: supercharger,
@@ -84,7 +84,7 @@ func sumSuperchargerKWh(sessions []telemetry.SuperchargerSession, since time.Tim
 // sumManualKWh sums EnergyAddedKWh across entries at or after since — the D6 in-Go
 // date filter for the manual-charge source (ListEntriesByVehicle also has no
 // since parameter).
-func sumManualKWh(entries []manualcharge.Entry, since time.Time) float64 {
+func sumManualKWh(entries []charging.Entry, since time.Time) float64 {
 	var total float64
 	for _, e := range entries {
 		if e.ChargedOn.Before(since) {

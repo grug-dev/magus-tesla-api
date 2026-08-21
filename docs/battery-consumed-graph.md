@@ -49,7 +49,7 @@ stores.
 | Columns | Owning module | Role |
 |---|---|---|
 | `vehicle_snapshots.battery_used_pct_calc`, `.distance_traveled_km_calc`, `.days_spanned_calc` | `internal/telemetry` | the raw nightly inputs |
-| `manual_charge_entries.charged_on`, `.start_battery_pct`, `.end_battery_pct` | `internal/manualcharge` | charges you assert by hand (home / work / 3rd-party) |
+| `manual_charge_entries.charged_on`, `.start_battery_pct`, `.end_battery_pct` | `internal/charging` | charges you assert by hand (home / work / 3rd-party) |
 | `supercharger_sessions.charge_stop_date_time`, `.start_battery_pct`, `.end_battery_pct` | `internal/telemetry` | sessions Tesla reports |
 | `charge_gaps` | `internal/telemetry` | the pipeline's **output** — days whose math doesn't add up |
 
@@ -142,7 +142,7 @@ database, `internal/analytics` owns no tables at all:
 |---|---|
 | `telemetry.SnapshotsByVehicleBetween` | `[start−1, end+1]` |
 | `telemetry.SuperchargerSessionsByVehicleBetween` | `[start−1, end+2]` |
-| `manualcharge.ListEntriesByVehicleBetween` | `[start−1, end]` |
+| `charging.ListEntriesByVehicleBetween` | `[start−1, end]` |
 
 The one-day **lookback** is required, not defensive (**D9a**): day `D`'s stored delta was computed
 against its predecessor row, so bounding day `D`'s interval needs the `D−1` row. The over-fetch on
@@ -326,9 +326,9 @@ Routes registered in `internal/gateway/gateway.go`:
 
 | Route | Handler (`internal/gateway/handlers/charges.go`) | Service |
 |---|---|---|
-| `POST /ui/charges/create` | `ChargeCreate` | `manualcharge.Writer.Create` |
-| `PUT /ui/charges/row/:id` | `ChargeRowUpdate` | `manualcharge.Writer.Update` |
-| `DELETE /ui/charges/row/:id` | `ChargeRowDelete` | `manualcharge.Writer.Delete` |
+| `POST /ui/charges/create` | `ChargeCreate` | `charging.Writer.Create` |
+| `PUT /ui/charges/row/:id` | `ChargeRowUpdate` | `charging.Writer.Update` |
+| `DELETE /ui/charges/row/:id` | `ChargeRowDelete` | `charging.Writer.Delete` |
 
 Guard chain before every write: authenticated user → CSRF compare (`csrf_manualcharge`) →
 tenant-ownership check returning 403. `UpdateEntry` and `DeleteEntry` are additionally
@@ -348,7 +348,7 @@ This is the direct answer to "shouldn't adding a manual charge clear the gap row
 No transaction wrapper. No recompute. No cache bust. No event, no `HX-Trigger`. No `charge_gaps`
 touch. The service layer is equally bare — one store call, map, return.
 
-It couldn't be otherwise without a boundary change: **`internal/manualcharge` has zero imports of
+It couldn't be otherwise without a boundary change: **`internal/charging` has zero imports of
 `internal/telemetry`**, and its `AGENTS.md` forbids them, so it structurally cannot reach
 `GapWriter`. The composition root `cmd/poller` is the only place that joins `analytics`'s derivation
 to `telemetry`'s writer (**D4a**).
@@ -495,7 +495,7 @@ recompute-on-read is what makes the chart correct immediately.
   day flags as a gap, and the understatement in **D14a** stays invisible. RM28 makes this more
   valuable than it was.
 - **Entry 12** — charging data is split across two modules (`manual_charge_entries` in
-  `internal/manualcharge`, `supercharger_sessions` in `internal/telemetry`), so every consumer of
+  `internal/charging`, `supercharger_sessions` in `internal/telemetry`), so every consumer of
   "how was this car charged" must compose two ports. Scoped out of RM28 deliberately.
 - **Entry 13** — the history charts key a `map[time.Time]` without normalizing the lookup side.
   Pre-existing in all three charts and currently unreachable through the UI; raised as a review

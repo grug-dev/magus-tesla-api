@@ -16,10 +16,10 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -57,8 +57,8 @@ func main() {
 		Tesla:              tesla.NewClient(),
 		TelemetryReader:    telemetry.NewReader(pool),
 		SuperchargerReader: telemetry.NewSuperchargerReader(pool),
-		ManualChargeWriter: manualcharge.NewWriter(pool),
-		ManualChargeReader: manualcharge.NewReader(pool),
+		ChargingWriter:     charging.NewWriter(pool),
+		ChargingReader:     charging.NewReader(pool),
 		// The history fragment's battery-consumed chart reads through this port.
 		// analytics.NewReader's window argument is required by the signature but
 		// unused by ConsumedByDay — only RecentEfficiency reads it, and the
@@ -66,7 +66,7 @@ func main() {
 		AnalyticsReader: analytics.NewReader(
 			telemetry.NewReader(pool),
 			telemetry.NewSuperchargerReader(pool),
-			manualcharge.NewReader(pool),
+			charging.NewReader(pool),
 			acct,
 			analytics.DefaultWindow,
 		),

@@ -1040,7 +1040,7 @@ func TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp(t *testing.
 // TestHandler_AnalyticsReaderDepsForwarding — design.md Test Contract (o):
 // New(Deps{AnalyticsReader: fake}) is the SAME instance buildHistoryView
 // calls. There is no dedicated forwarding test for SuperchargerReader or
-// ManualChargeReader in this suite to mirror name-for-name (grepped first,
+// ChargingReader in this suite to mirror name-for-name (grepped first,
 // per tasks.md T8.14's instruction) — every sibling port is instead verified
 // by exercising the handler end-to-end and asserting the fake recorded the
 // call, the same call-recording-fake technique fakeHistoryReader.betweenCalled

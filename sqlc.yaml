@@ -48,19 +48,19 @@ sql:
               import: "github.com/google/uuid"
               type: "UUID"
 
-  # manualcharge module — manual_charge_entries (user-asserted home/work/3rd-party
-  # charge sessions, no Tesla Fleet API). Its own package (manualchargedb), imported
+  # charging module — manual_charge_entries (user-asserted home/work/3rd-party
+  # charge sessions, no Tesla Fleet API). Its own package (chargingdb), imported
   # by no other module (ai/architecture.md §2, design D7/D8). Same uuid override +
   # emit flags as account/telemetry; timestamptz likewise stays pgtype.Timestamptz and
   # NUMERIC(6,2)/(14,2) stay pgtype.Numeric — the service maps both to time.Time /
-  # float64 at internal/manualcharge/service.go's DB→domain boundary (design D9).
+  # float64 at internal/charging/service.go's DB→domain boundary (design D9).
   - engine: "postgresql"
-    schema: "internal/manualcharge/db/migrations"
-    queries: "internal/manualcharge/db/query.sql"
+    schema: "internal/charging/db/migrations"
+    queries: "internal/charging/db/query.sql"
     gen:
       go:
-        package: "manualchargedb"
-        out: "internal/manualcharge/db"
+        package: "chargingdb"
+        out: "internal/charging/db"
         sql_package: "pgx/v5"
         emit_json_tags: false
         emit_interface: false

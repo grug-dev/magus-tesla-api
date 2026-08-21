@@ -25,11 +25,11 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -60,16 +60,16 @@ type Deps struct {
 	// at construction. Called by the Supercharger Stats page/fragment handlers.
 	// NEVER import internal/telemetry/db — all access through this interface only.
 	SuperchargerReader telemetry.SuperchargerReader
-	// ManualChargeWriter is the manualcharge write port. Called by write handlers
+	// ChargingWriter is the charging write port. Called by write handlers
 	// on explicit user-initiated form submissions (create/update/delete).
 	// See AGENTS.md "Exception: user-initiated writes" for constraints.
-	ManualChargeWriter manualcharge.Writer
-	// ManualChargeReader is the manualcharge read port. Called by read handlers
+	ChargingWriter charging.Writer
+	// ChargingReader is the charging read port. Called by read handlers
 	// and the dataForCharges helper to list charge entries.
-	ManualChargeReader manualcharge.Reader
+	ChargingReader charging.Reader
 	// AnalyticsReader is the analytics module's read port; injected at
 	// construction (mirrors TelemetryReader/SuperchargerReader/
-	// ManualChargeReader — the gateway calls ConsumedByDay once per history
+	// ChargingReader — the gateway calls ConsumedByDay once per history
 	// fragment render). NEVER construct an internal/analytics internal type
 	// here — internal/analytics owns no database, so there is no db package
 	// this could even accidentally import.
@@ -93,8 +93,8 @@ type Handler struct {
 	tesla              tesla.VehicleService
 	telemetryReader    telemetry.Reader
 	superchargerReader telemetry.SuperchargerReader
-	manualChargeWriter manualcharge.Writer
-	manualChargeReader manualcharge.Reader
+	chargingWriter     charging.Writer
+	chargingReader     charging.Reader
 	analyticsReader    analytics.Reader
 	teslaClientID      string
 	teslaClientSecret  string
@@ -129,8 +129,8 @@ func New(d Deps) *Handler {
 		tesla:              d.Tesla,
 		telemetryReader:    d.TelemetryReader,
 		superchargerReader: d.SuperchargerReader,
-		manualChargeWriter: d.ManualChargeWriter,
-		manualChargeReader: d.ManualChargeReader,
+		chargingWriter:     d.ChargingWriter,
+		chargingReader:     d.ChargingReader,
 		analyticsReader:    d.AnalyticsReader,
 		teslaClientID:      d.TeslaClientID,
 		teslaClientSecret:  d.TeslaClientSecret,

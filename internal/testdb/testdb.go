@@ -1,5 +1,5 @@
 // Package testdb provides a shared test-time Postgres provisioning helper used
-// by the integration tests across modules (account, manualcharge, telemetry).
+// by the integration tests across modules (account, charging, telemetry).
 //
 // Provisioning policy (ai/go-conventions.md §persistence):
 //   - When DATABASE_URL is set AND reachable, it is used as-is (managed/CI

@@ -3,14 +3,14 @@
 // (Supercharger sessions, manual entries) into a corrected per-day consumed
 // percentage, plus gap detection (D5/D5a) and inferred-source classification
 // (D7a). Fully offline: no I/O, only plain telemetry.Snapshot /
-// telemetry.SuperchargerSession / manualcharge.Entry values in,
+// telemetry.SuperchargerSession / charging.Entry values in,
 // []DayConsumption out (mirrors derive.go's zero-I/O style).
 package analytics
 
 import (
 	"time"
 
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -25,7 +25,7 @@ const minFlagDistanceKm = 10.0
 // calendarDay normalizes an already-bare calendar date to this platform's
 // date representation: UTC midnight, no time-of-day component (the
 // pgtype.Date convention that telemetry.Snapshot.CapturedDate and
-// manualcharge.Entry.ChargedOn already arrive in, and the shape of
+// charging.Entry.ChargedOn already arrive in, and the shape of
 // ConsumedByDay's own start/end parameters).
 //
 // This is NOT a timezone conversion and NOT a bucketing decision: it never
@@ -105,7 +105,7 @@ func inferMissingChargingType(sessions []telemetry.SuperchargerSession, from, to
 // are the caller's zoned effectiveDay values, not raw snapshot timestamps.
 // Entries with either battery percentage NULL contribute 0 (BatteryDelta()
 // returns nil in that case).
-func sumManualPctBetween(entries []manualcharge.Entry, fromDay, toDay time.Time) float64 {
+func sumManualPctBetween(entries []charging.Entry, fromDay, toDay time.Time) float64 {
 	var total float64
 	for _, e := range entries {
 		day := calendarDay(e.ChargedOn)
@@ -120,7 +120,7 @@ func sumManualPctBetween(entries []manualcharge.Entry, fromDay, toDay time.Time)
 }
 
 // deriveConsumedByDay is the pure D13 derivation, fully offline: no I/O, only
-// plain telemetry.Snapshot / telemetry.SuperchargerSession / manualcharge.Entry
+// plain telemetry.Snapshot / telemetry.SuperchargerSession / charging.Entry
 // values in, []DayConsumption out. snapshots MUST be ordered chronologically
 // ascending and MUST include the one-day lookback row before start when it
 // exists (D9a; ConsumedByDay's caller, reader.go, guarantees both, and widens
@@ -130,7 +130,7 @@ func sumManualPctBetween(entries []manualcharge.Entry, fromDay, toDay time.Time)
 // row's ZONED effective day (effectiveDay, design.md D-B7), which is why the
 // caller may hand this function rows just outside [start, end] -- they are
 // filtered here, against the same day definition the emitted Date carries.
-func deriveConsumedByDay(snapshots []telemetry.Snapshot, sessions []telemetry.SuperchargerSession, entries []manualcharge.Entry, start, end time.Time) []DayConsumption {
+func deriveConsumedByDay(snapshots []telemetry.Snapshot, sessions []telemetry.SuperchargerSession, entries []charging.Entry, start, end time.Time) []DayConsumption {
 	out := make([]DayConsumption, 0, len(snapshots))
 	for i := 1; i < len(snapshots); i++ {
 		prev, cur := snapshots[i-1], snapshots[i]

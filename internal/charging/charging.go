@@ -1,4 +1,4 @@
-// Package manualcharge is a new isolated domain module for user-asserted charge
+// Package charging is a new isolated domain module for user-asserted charge
 // entries: home/work/third-party charging sessions that Tesla's Fleet API cannot
 // capture (no Fleet API call, no OAuth scope, no vehicle wake). Users manually log
 // the date, energy added (kWh), cost, and optional metadata (battery before/after,
@@ -9,8 +9,8 @@
 // Public ports are Writer (Create/Update/Delete) and Reader (list by vehicle / by
 // account). No HTML, no Templ, no Tesla adapter — this module is backend-only.
 // Constructors (NewWriter / NewReader) are declared here; their bodies live in
-// service.go where the manualchargedb generated package may be referenced.
-package manualcharge
+// service.go where the chargingdb generated package may be referenced.
+package charging
 
 import (
 	"context"
@@ -106,7 +106,7 @@ type Writer interface {
 // Reader is the read port shaped for dashboard access patterns. All methods return a
 // non-nil empty slice when no entries exist. For ListEntriesByVehicle and
 // ListEntriesByAccount, limit = 0 uses a server default (100).
-// Gateway and other callers MUST NOT import manualchargedb directly — all read access
+// Gateway and other callers MUST NOT import chargingdb directly — all read access
 // goes through this interface (ai/architecture.md §2, design D5).
 type Reader interface {
 	ListEntriesByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Entry, error)
@@ -122,14 +122,14 @@ type Reader interface {
 }
 
 // NewWriter constructs a Writer backed by the given pgxpool. The implementation
-// lives in service.go where the manualchargedb generated package is used.
+// lives in service.go where the chargingdb generated package is used.
 // This is the only publicly exported constructor for the Writer port.
 func NewWriter(pool *pgxpool.Pool) Writer {
 	return newWriter(pool)
 }
 
 // NewReader constructs a Reader backed by the given pgxpool. The implementation
-// lives in service.go where the manualchargedb generated package is used.
+// lives in service.go where the chargingdb generated package is used.
 // This is the only publicly exported constructor for the Reader port.
 func NewReader(pool *pgxpool.Pool) Reader {
 	return newReader(pool)

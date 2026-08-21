@@ -3,7 +3,7 @@
 // one metric today is a rolling energy-per-kilometre (Wh/km) efficiency figure
 // over a fixed window, derived from internal/telemetry's snapshot history plus
 // the two charging-cost sources the platform stores (internal/telemetry's
-// SuperchargerReader and internal/manualcharge), corrected for pack capacity via
+// SuperchargerReader and internal/charging), corrected for pack capacity via
 // a small in-package reference table keyed on the vehicle's car_type.
 //
 // This module owns no database and no store — it is a pure read-side derivation

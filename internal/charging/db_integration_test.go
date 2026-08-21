@@ -1,5 +1,5 @@
-// Package manualcharge_test contains database-backed integration tests for the
-// manualcharge module. Postgres is auto-provisioned by testdb_test.go's TestMain:
+// Package charging_test contains database-backed integration tests for the
+// charging module. Postgres is auto-provisioned by testdb_test.go's TestMain:
 //   - When DATABASE_URL is set, that managed Postgres is used (unchanged behavior).
 //   - Otherwise a disposable `postgres:16-alpine` container is started for the run.
 //
@@ -14,9 +14,9 @@
 //   - Reader.ListEntriesByAccount: account isolation, ordering, limit, empty slice.
 //   - Multi-tenant spot-check: no read ever returns another account's rows.
 //
-// Assertions: ONLY against manualcharge.Entry domain fields — never pgtype.
+// Assertions: ONLY against charging.Entry domain fields — never pgtype.
 // No Tesla API call fires anywhere in this file (no import of internal/tesla).
-package manualcharge_test
+package charging_test
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 )
 
 // --- test helpers ---
@@ -38,7 +38,7 @@ import (
 func newTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	if testPool == nil {
-		t.Fatalf("manualcharge test pool not initialized; TestMain failure?")
+		t.Fatalf("charging test pool not initialized; TestMain failure?")
 	}
 	return testPool
 }
@@ -59,9 +59,9 @@ func cleanupAccount(t *testing.T, pool *pgxpool.Pool, accountIDs ...uuid.UUID) {
 // fields as nil. LocationKind is set to "HOME" because it became a required field
 // in RM4-manualcharge-require-location-kind (Writer.Create/Update reject nil or empty).
 // The caller may override any field before passing to Writer.Create.
-func minEntry(accountID uuid.UUID, teslaID int64) manualcharge.Entry {
+func minEntry(accountID uuid.UUID, teslaID int64) charging.Entry {
 	lk := "HOME"
-	return manualcharge.Entry{
+	return charging.Entry{
 		AccountID:      accountID,
 		TeslaID:        teslaID,
 		VIN:            "5YJ3E1EA0NF000001",
@@ -90,8 +90,8 @@ func TestCreate_RequiredOnly(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	e := minEntry(accountID, 1234567890)
 	created, err := w.Create(ctx, e)
@@ -164,8 +164,8 @@ func TestCreate_AllOptionals(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	start := time.Date(2026, 7, 18, 10, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 7, 18, 12, 30, 0, 0, time.UTC)
@@ -232,7 +232,7 @@ func TestCreate_CheckConstraint_EnergyZero(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 111)
 	e.EnergyAddedKWh = 0 // violates CHECK (energy_added_kwh > 0)
@@ -250,7 +250,7 @@ func TestCreate_CheckConstraint_EnergyNegative(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 112)
 	e.EnergyAddedKWh = -5.0 // violates CHECK (energy_added_kwh > 0)
@@ -268,7 +268,7 @@ func TestCreate_CheckConstraint_PriceNegative(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 113)
 	e.Price = -100.0 // violates CHECK (price >= 0)
@@ -286,7 +286,7 @@ func TestCreate_CheckConstraint_BatteryOutOfRange(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 114)
 	e.StartBatteryPct = ptrInt(101) // violates CHECK (BETWEEN 0 AND 100)
@@ -304,7 +304,7 @@ func TestCreate_CheckConstraint_EndedBeforeStarted(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 115)
 	start := time.Date(2026, 7, 18, 12, 0, 0, 0, time.UTC)
@@ -329,8 +329,8 @@ func TestUpdate_MutatesFieldsAndAdvancesUpdatedAt(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	e := minEntry(accountID, 222)
 	created, err := w.Create(ctx, e)
@@ -389,7 +389,7 @@ func TestUpdate_CrossAccountIsNoOp(t *testing.T) {
 	cleanupAccount(t, pool, ownerID, attackerID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	// Create entry under ownerID.
 	e := minEntry(ownerID, 333)
@@ -410,7 +410,7 @@ func TestUpdate_CrossAccountIsNoOp(t *testing.T) {
 	}
 
 	// Owner's row must be unchanged.
-	r := manualcharge.NewReader(pool)
+	r := charging.NewReader(pool)
 	entries, err := r.ListEntriesByAccount(ctx, ownerID, 10)
 	if err != nil {
 		t.Fatalf("ListEntriesByAccount: %v", err)
@@ -432,8 +432,8 @@ func TestDelete_OwnEntry(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	e := minEntry(accountID, 444)
 	created, err := w.Create(ctx, e)
@@ -463,8 +463,8 @@ func TestDelete_CrossAccountGuard(t *testing.T) {
 	cleanupAccount(t, pool, ownerID, attackerID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	// Create entry under ownerID.
 	e := minEntry(ownerID, 555)
@@ -499,8 +499,8 @@ func TestListByVehicle_VehicleIsolation(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	const v1 = int64(601)
 	const v2 = int64(602)
@@ -536,8 +536,8 @@ func TestListByVehicle_NewestFirst(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	const teslaID = int64(700)
 
@@ -577,8 +577,8 @@ func TestListByVehicle_Limit(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	const teslaID = int64(800)
 	for i := range 3 {
@@ -606,7 +606,7 @@ func TestListByVehicle_EmptyNonNil(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	r := manualcharge.NewReader(pool)
+	r := charging.NewReader(pool)
 
 	got, err := r.ListEntriesByVehicle(ctx, accountID, 999999, 10)
 	if err != nil {
@@ -631,8 +631,8 @@ func TestListByAccount_AccountIsolation(t *testing.T) {
 	cleanupAccount(t, pool, accountA, accountB)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	eA := minEntry(accountA, 901)
 	if _, err := w.Create(ctx, eA); err != nil {
@@ -665,8 +665,8 @@ func TestListByAccount_NewestFirst(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	dates := []time.Time{
 		time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC),
@@ -703,8 +703,8 @@ func TestListByAccount_Limit(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	for i := range 3 {
 		e := minEntry(accountID, 960)
@@ -731,7 +731,7 @@ func TestListByAccount_EmptyNonNil(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	r := manualcharge.NewReader(pool)
+	r := charging.NewReader(pool)
 
 	got, err := r.ListEntriesByAccount(ctx, accountID, 10)
 	if err != nil {
@@ -757,8 +757,8 @@ func TestMultiTenantIsolation_NeverLeaks(t *testing.T) {
 	cleanupAccount(t, pool, alice, bob)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	// Same tesla_id to make the multi-tenant boundary as stressful as possible.
 	const sharedTeslaID = int64(100001)
@@ -828,8 +828,8 @@ func TestCreate_RejectsNilLocationKind(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	e := minEntry(accountID, 1001)
 	e.LocationKind = nil // required field absent
@@ -860,8 +860,8 @@ func TestCreate_RejectsEmptyLocationKind(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	e := minEntry(accountID, 1002)
 	e.LocationKind = ptrString("") // empty string — also invalid
@@ -892,7 +892,7 @@ func TestCreate_AcceptsHOME(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 1003)
 	e.LocationKind = ptrString("HOME")
@@ -913,7 +913,7 @@ func TestCreate_AcceptsWORK(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 1004)
 	e.LocationKind = ptrString("WORK")
@@ -934,7 +934,7 @@ func TestCreate_AcceptsOTHER(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 1005)
 	e.LocationKind = ptrString("OTHER")
@@ -957,8 +957,8 @@ func TestUpdate_RejectsNilLocationKind(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	// Create a valid entry first.
 	e := minEntry(accountID, 1006)
@@ -1004,8 +1004,8 @@ func TestListByVehicleBetween_InclusiveBounds(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	const teslaID = int64(2001)
 	from := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
@@ -1053,8 +1053,8 @@ func TestListByVehicleBetween_ExcludesOutsideBounds(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	const teslaID = int64(2002)
 	from := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
@@ -1097,8 +1097,8 @@ func TestListByVehicleBetween_NewestFirst(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	const teslaID = int64(2003)
 	from := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
@@ -1146,7 +1146,7 @@ func TestListByVehicleBetween_EmptyNonNil(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	r := manualcharge.NewReader(pool)
+	r := charging.NewReader(pool)
 
 	const teslaID = int64(2004)
 	from := time.Date(2026, 7, 10, 0, 0, 0, 0, time.UTC)
@@ -1174,8 +1174,8 @@ func TestListByVehicleBetween_AccountIsolation(t *testing.T) {
 	cleanupAccount(t, pool, accountA, accountB)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	const sharedTeslaID = int64(2005)
 	chargedOn := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
@@ -1214,8 +1214,8 @@ func TestListByVehicleBetween_VehicleIsolation(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
-	r := manualcharge.NewReader(pool)
+	w := charging.NewWriter(pool)
+	r := charging.NewReader(pool)
 
 	const v1 = int64(2006)
 	const v2 = int64(2007)
@@ -1256,7 +1256,7 @@ func TestUpdate_AcceptsLocationKindChange(t *testing.T) {
 	cleanupAccount(t, pool, accountID)
 
 	ctx := context.Background()
-	w := manualcharge.NewWriter(pool)
+	w := charging.NewWriter(pool)
 
 	// Create with HOME.
 	e := minEntry(accountID, 1007)

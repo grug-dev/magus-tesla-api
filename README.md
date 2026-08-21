@@ -47,14 +47,14 @@ go run ./cmd/poller --once   # one immediate collection cycle, then exit
 
 The monolith is a single Go module: `go build ./...` compiles **every** package and command at
 once. Each DB-backed module has its own sqlc package — `accountdb`, `telemetrydb`,
-`manualchargedb` (one `sql:` entry per module in `sqlc.yaml`) — and all three are checked in, so
+`chargingdb` (one `sql:` entry per module in `sqlc.yaml`) — and all three are checked in, so
 regeneration is only needed after you edit a `query.sql` or a migration.
 
 ```bash
 # 1. Dependencies + regenerated DB code
 #    (after changing go.mod, any query.sql, or a migration)
 make tidy      # go mod tidy
-make sqlc      # sqlc generate → internal/{account,telemetry,manualcharge}/db/{db,models,query.sql}.go
+make sqlc      # sqlc generate → internal/{account,telemetry,charging}/db/{db,models,query.sql}.go
 
 # 2. Compile the whole monolith
 make build     # go build ./...   — all internal/ packages + every cmd/
@@ -105,7 +105,7 @@ magus-tesla-api/
 │   ├── account/        # Per-user Tesla tokens (persisted, refreshed) in Postgres
 │   ├── tesla/          # State-less Fleet API adapter (handed creds per call)
 │   ├── telemetry/      # Nightly vehicle snapshot collection + storage (poller)
-│   ├── manualcharge/   # User-asserted charge entries (home/work/3rd-party sessions)
+│   ├── charging/       # User-asserted charge entries (home/work/3rd-party sessions)
 │   ├── analytics/      # Derived battery metrics (Wh/km, consumed %/day) — owns no store
 │   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
 │   │   ├── handlers/       #   thin handlers: session/auth → module interface → render
@@ -192,7 +192,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/account` | Per-user Tesla tokens (persisted + refreshed) in Postgres |
 | `internal/tesla` | Stateless Fleet API adapter (handed credentials per call) |
 | `internal/telemetry` | Nightly per-vehicle snapshot collection + storage |
-| `internal/manualcharge` | User-asserted charge entries (home/work/3rd-party) |
+| `internal/charging` | User-asserted charge entries (home/work/3rd-party) |
 | `internal/analytics` | Derived battery metrics computed over stored telemetry: rolling Wh/km, and the per-day **battery consumed %** (raw SoC delta corrected by both charge sources) plus the gap detection it hands to telemetry's `GapWriter`. Owns no database — a pure read-side derivation over sibling ports. See [docs/battery-consumed-graph.md](docs/battery-consumed-graph.md). |
 | `internal/gateway` | Gin + Templ + htmx web layer, styled with Node-less Tailwind + DaisyUI (drawer nav, typed `ui/` component kit). The only package allowed to produce HTML. |
 | `internal/googleauth` | Google OAuth for user login |
@@ -207,25 +207,25 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 
 ```text
 ┌─ COMPOSITION ROOT ── cmd/ wires concrete types together at startup ──────┐
-│  cmd/web ────────────► gateway, account, telemetry, manualcharge,        │
+│  cmd/web ────────────► gateway, account, telemetry, charging,            │
 │                        analytics, tesla, googleauth, config              │
-│  cmd/poller ─────────► telemetry, account, analytics, manualcharge,      │
+│  cmd/poller ─────────► telemetry, account, analytics, charging,          │
 │                        tesla, config                                     │
 │  cmd/setup ──────────► auth, config                                      │
 │  cmd/explore-tesla-api ► tesla, auth, config                             │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
-│  gateway ────────────► account, telemetry, manualcharge, analytics,      │
+│  gateway ────────────► account, telemetry, charging, analytics,          │
 │    │                   tesla, googleauth                                 │
-│    ├─ handlers ──────► account, auth, telemetry, manualcharge,           │
+│    ├─ handlers ──────► account, auth, telemetry, charging,               │
 │    │                   analytics, tesla, googleauth, i18n,               │
 │    │                   templates/*                                       │
 │    ├─ templates/* ───► i18n, templates/ui                                │
 │    └─ i18n ──────────► account            (the Language type only)       │
 ├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
-│  analytics ──────────► account, manualcharge, telemetry                  │
+│  analytics ──────────► account, charging, telemetry                      │
 ├─ LAYER 1 ── domain modules ──────────────────────────────────────────────┤
 │  telemetry ──────────► account, tesla, telemetry/db                      │
-│  manualcharge ───────► manualcharge/db                                   │
+│  charging ───────────► charging/db                                       │
 │  account ────────────► auth, account/db                                  │
 ├─ LAYER 0 ── adapters & leaves (no internal dependencies) ────────────────┤
 │  tesla    googleauth    auth    config    testdb    <module>/db          │
@@ -275,7 +275,7 @@ must be listed in `MIGRATIONS_DIRS` in the `Makefile`.
 | | | `poll_attempts` | Audit row for **every** collection attempt (outcome + reason), successful or not. |
 | | | `supercharger_sessions` | Tesla Supercharger sessions — site, start/stop, `energy_kwh`, cost + currency, paid flag — upserted on Tesla's `session_id`. Supercharger-only: home / 3rd-party charging never appears in this feed. |
 | | | `charge_gaps` | Vehicle-days whose battery math doesn't add up because a charge record is missing or incomplete — **one row per (account, vehicle, day)**, with the suspected missing source (`MANUAL` / `SUPERCHARGER`). A live worklist, not an audit trail: no `resolved_at`, a day that stops flagging is deleted by the next nightly reconciliation. Written by `internal/analytics` through telemetry's `GapWriter` port. |
-| `internal/manualcharge` | `manualchargedb` | `manual_charge_entries` | User-asserted charge sessions (the home / work / 3rd-party gap the Tesla feed can't fill): date, kWh, price + currency, optional times, start/end %, AC-DC, location. |
+| `internal/charging` | `chargingdb` | `manual_charge_entries` | User-asserted charge sessions (the home / work / 3rd-party gap the Tesla feed can't fill): date, kWh, price + currency, optional times, start/end %, AC-DC, location. |
 | `internal/analytics` | — | *(none)* | Derived metrics only — a pure read-side computation over sibling modules' ports. |
 | `internal/gateway` | — | *(none)* | Renders HTML; calls module interfaces, never a database. |
 | *(tooling)* | — | `goose_db_version` | Not owned by any module — goose's own ledger, a **single shared table** across all migration dirs. That is why `make migrate-up` runs each dir with `-allow-missing`. |
@@ -312,7 +312,7 @@ It's built on the **GOTH stack**: Go + [Templ](https://templ.guide) + htmx, styl
 (`dark` auto-applies via `prefers-color-scheme`).
 
 **Only the gateway uses the UI stack.** Every domain module (`account`, `tesla`, `telemetry`,
-`manualcharge`, `googleauth`) is UI-agnostic: it owns data and exposes Go interfaces, and the
+`charging`, `googleauth`) is UI-agnostic: it owns data and exposes Go interfaces, and the
 gateway renders them. No domain module imports Templ, references a DaisyUI class, or knows a
 theme exists — so restyling or re-theming never ripples past the gateway boundary.
 

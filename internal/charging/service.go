@@ -1,20 +1,20 @@
-// service.go — Writer and Reader implementations for the manualcharge module.
+// service.go — Writer and Reader implementations for the charging module.
 //
-// This file is the ONLY place in the manualcharge module where the generated
-// manualchargedb package and pgtype are referenced. All pgtype conversions happen
+// This file is the ONLY place in the charging module where the generated
+// chargingdb package and pgtype are referenced. All pgtype conversions happen
 // here (or in mapping.go) at the DB boundary so that pgtype never leaks into
 // public types, interfaces, or tests (ai/go-conventions.md §persistence, design D8).
 //
 // Structure:
 //   - store interface — the narrow persistence seam (unexported, testable with a fake).
-//   - dbStore — the production implementation wrapping *manualchargedb.Queries.
+//   - dbStore — the production implementation wrapping *chargingdb.Queries.
 //   - writerService — implements Writer (Create / Update / Delete).
 //   - readerService — implements Reader (ListEntriesByVehicle / ListEntriesByAccount).
 //   - rowToEntry — DB→domain mapping, confined to this file.
 //   - newWriter / newReader — internal constructors called by the public NewWriter / NewReader.
 //
 // Compile-time interface assertions ensure the concrete types satisfy their ports.
-package manualcharge
+package charging
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	manualchargedb "github.com/cristianpena/magus-tesla-api/internal/manualcharge/db"
+	chargingdb "github.com/cristianpena/magus-tesla-api/internal/charging/db"
 )
 
 // Compile-time assertions: writerService must satisfy Writer and readerService must
@@ -44,56 +44,56 @@ const defaultLimit = 100
 // --- store interface (the persistence seam) ---
 
 // store is the narrow unexported interface the writer and reader services call through.
-// Keeping it unexported and typed entirely in manualchargedb terms means pgtype is
+// Keeping it unexported and typed entirely in chargingdb terms means pgtype is
 // confined to dbStore — it never surfaces in the service logic or public types.
 // The seam also enables offline unit testing of higher-level logic by swapping in a
 // fake store (no DATABASE_URL required).
 type store interface {
-	createEntry(ctx context.Context, params manualchargedb.CreateEntryParams) (manualchargedb.ManualChargeEntry, error)
-	updateEntry(ctx context.Context, params manualchargedb.UpdateEntryParams) (manualchargedb.ManualChargeEntry, error)
-	deleteEntry(ctx context.Context, params manualchargedb.DeleteEntryParams) error
-	listEntriesByVehicle(ctx context.Context, params manualchargedb.ListEntriesByVehicleParams) ([]manualchargedb.ManualChargeEntry, error)
-	listEntriesByAccount(ctx context.Context, params manualchargedb.ListEntriesByAccountParams) ([]manualchargedb.ManualChargeEntry, error)
-	listEntriesByVehicleBetween(ctx context.Context, params manualchargedb.ListEntriesByVehicleBetweenParams) ([]manualchargedb.ManualChargeEntry, error)
+	createEntry(ctx context.Context, params chargingdb.CreateEntryParams) (chargingdb.ManualChargeEntry, error)
+	updateEntry(ctx context.Context, params chargingdb.UpdateEntryParams) (chargingdb.ManualChargeEntry, error)
+	deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) error
+	listEntriesByVehicle(ctx context.Context, params chargingdb.ListEntriesByVehicleParams) ([]chargingdb.ManualChargeEntry, error)
+	listEntriesByAccount(ctx context.Context, params chargingdb.ListEntriesByAccountParams) ([]chargingdb.ManualChargeEntry, error)
+	listEntriesByVehicleBetween(ctx context.Context, params chargingdb.ListEntriesByVehicleBetweenParams) ([]chargingdb.ManualChargeEntry, error)
 }
 
-// --- dbStore — the production store (ONLY place manualchargedb + pgtype are touched) ---
+// --- dbStore — the production store (ONLY place chargingdb + pgtype are touched) ---
 
 // dbStore is the production store: it delegates to the sqlc-generated *Queries and is
 // the single place where pgtype conversions happen. No pgtype value ever leaves this
 // struct's methods — they accept/return pure domain types via the store interface above.
 type dbStore struct {
-	q *manualchargedb.Queries
+	q *chargingdb.Queries
 }
 
-func (d *dbStore) createEntry(ctx context.Context, params manualchargedb.CreateEntryParams) (manualchargedb.ManualChargeEntry, error) {
+func (d *dbStore) createEntry(ctx context.Context, params chargingdb.CreateEntryParams) (chargingdb.ManualChargeEntry, error) {
 	return d.q.CreateEntry(ctx, params)
 }
 
-func (d *dbStore) updateEntry(ctx context.Context, params manualchargedb.UpdateEntryParams) (manualchargedb.ManualChargeEntry, error) {
+func (d *dbStore) updateEntry(ctx context.Context, params chargingdb.UpdateEntryParams) (chargingdb.ManualChargeEntry, error) {
 	return d.q.UpdateEntry(ctx, params)
 }
 
-func (d *dbStore) deleteEntry(ctx context.Context, params manualchargedb.DeleteEntryParams) error {
+func (d *dbStore) deleteEntry(ctx context.Context, params chargingdb.DeleteEntryParams) error {
 	return d.q.DeleteEntry(ctx, params)
 }
 
-func (d *dbStore) listEntriesByVehicle(ctx context.Context, params manualchargedb.ListEntriesByVehicleParams) ([]manualchargedb.ManualChargeEntry, error) {
+func (d *dbStore) listEntriesByVehicle(ctx context.Context, params chargingdb.ListEntriesByVehicleParams) ([]chargingdb.ManualChargeEntry, error) {
 	return d.q.ListEntriesByVehicle(ctx, params)
 }
 
-func (d *dbStore) listEntriesByAccount(ctx context.Context, params manualchargedb.ListEntriesByAccountParams) ([]manualchargedb.ManualChargeEntry, error) {
+func (d *dbStore) listEntriesByAccount(ctx context.Context, params chargingdb.ListEntriesByAccountParams) ([]chargingdb.ManualChargeEntry, error) {
 	return d.q.ListEntriesByAccount(ctx, params)
 }
 
-func (d *dbStore) listEntriesByVehicleBetween(ctx context.Context, params manualchargedb.ListEntriesByVehicleBetweenParams) ([]manualchargedb.ManualChargeEntry, error) {
+func (d *dbStore) listEntriesByVehicleBetween(ctx context.Context, params chargingdb.ListEntriesByVehicleBetweenParams) ([]chargingdb.ManualChargeEntry, error) {
 	return d.q.ListEntriesByVehicleBetween(ctx, params)
 }
 
 // --- writerService — implements Writer ---
 
 // writerService is the unexported concrete Writer implementation. It holds a store
-// and maps between domain Entry values and the generated manualchargedb param types,
+// and maps between domain Entry values and the generated chargingdb param types,
 // confining all pgtype usage to the mapping helpers below.
 type writerService struct {
 	store store
@@ -107,23 +107,23 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 	// location_kind is required — reject nil or empty before any pgtype conversion
 	// or database call. The domain field stays *string (design D4) for gateway
 	// compatibility; the required-ness is enforced here (design D3) and by the DB
-	// NOT NULL constraint (design D1). Error prefix follows the "manualcharge: ..."
+	// NOT NULL constraint (design D1). Error prefix follows the "charging: ..."
 	// convention used throughout this file.
 	if e.LocationKind == nil || *e.LocationKind == "" {
-		return Entry{}, errors.New("manualcharge: location_kind is required")
+		return Entry{}, errors.New("charging: location_kind is required")
 	}
 
 	// Build required NUMERIC params from float64 fields.
 	energy, err := numericFromFloat64(e.EnergyAddedKWh)
 	if err != nil {
-		return Entry{}, fmt.Errorf("manualcharge: encoding energy_added_kwh: %w", err)
+		return Entry{}, fmt.Errorf("charging: encoding energy_added_kwh: %w", err)
 	}
 	price, err := numericFromFloat64(e.Price)
 	if err != nil {
-		return Entry{}, fmt.Errorf("manualcharge: encoding price: %w", err)
+		return Entry{}, fmt.Errorf("charging: encoding price: %w", err)
 	}
 
-	params := manualchargedb.CreateEntryParams{
+	params := chargingdb.CreateEntryParams{
 		AccountID:      e.AccountID,
 		TeslaID:        e.TeslaID,
 		Vin:            e.VIN,
@@ -146,7 +146,7 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 
 	row, err := w.store.createEntry(ctx, params)
 	if err != nil {
-		return Entry{}, fmt.Errorf("manualcharge: create entry: %w", err)
+		return Entry{}, fmt.Errorf("charging: create entry: %w", err)
 	}
 	return rowToEntry(row)
 }
@@ -159,19 +159,19 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 	// location_kind is required on Update (same constraint as Create — design D3).
 	// Reject nil or empty before any pgtype conversion or database call.
 	if e.LocationKind == nil || *e.LocationKind == "" {
-		return Entry{}, errors.New("manualcharge: location_kind is required")
+		return Entry{}, errors.New("charging: location_kind is required")
 	}
 
 	energy, err := numericFromFloat64(e.EnergyAddedKWh)
 	if err != nil {
-		return Entry{}, fmt.Errorf("manualcharge: encoding energy_added_kwh: %w", err)
+		return Entry{}, fmt.Errorf("charging: encoding energy_added_kwh: %w", err)
 	}
 	price, err := numericFromFloat64(e.Price)
 	if err != nil {
-		return Entry{}, fmt.Errorf("manualcharge: encoding price: %w", err)
+		return Entry{}, fmt.Errorf("charging: encoding price: %w", err)
 	}
 
-	params := manualchargedb.UpdateEntryParams{
+	params := chargingdb.UpdateEntryParams{
 		ID:              e.ID,
 		AccountID:       e.AccountID,
 		ChargedOn:       dateFromTime(e.ChargedOn),
@@ -192,7 +192,7 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 
 	row, err := w.store.updateEntry(ctx, params)
 	if err != nil {
-		return Entry{}, fmt.Errorf("manualcharge: update entry: %w", err)
+		return Entry{}, fmt.Errorf("charging: update entry: %w", err)
 	}
 	return rowToEntry(row)
 }
@@ -201,12 +201,12 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 // The double-scope (id AND account_id) at the SQL level means a user cannot delete
 // another tenant's entry even with a valid UUID (design D4).
 func (w *writerService) Delete(ctx context.Context, accountID uuid.UUID, id uuid.UUID) error {
-	params := manualchargedb.DeleteEntryParams{
+	params := chargingdb.DeleteEntryParams{
 		ID:        id,
 		AccountID: accountID,
 	}
 	if err := w.store.deleteEntry(ctx, params); err != nil {
-		return fmt.Errorf("manualcharge: delete entry: %w", err)
+		return fmt.Errorf("charging: delete entry: %w", err)
 	}
 	return nil
 }
@@ -229,7 +229,7 @@ func (r *readerService) ListEntriesByVehicle(ctx context.Context, accountID uuid
 		limit = defaultLimit
 	}
 
-	params := manualchargedb.ListEntriesByVehicleParams{
+	params := chargingdb.ListEntriesByVehicleParams{
 		AccountID:  accountID,
 		TeslaID:    teslaID,
 		LimitCount: int32(limit),
@@ -237,14 +237,14 @@ func (r *readerService) ListEntriesByVehicle(ctx context.Context, accountID uuid
 
 	rows, err := r.store.listEntriesByVehicle(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("manualcharge: list entries by vehicle: %w", err)
+		return nil, fmt.Errorf("charging: list entries by vehicle: %w", err)
 	}
 
 	entries := make([]Entry, 0, len(rows))
 	for _, row := range rows {
 		e, err := rowToEntry(row)
 		if err != nil {
-			return nil, fmt.Errorf("manualcharge: mapping entry row: %w", err)
+			return nil, fmt.Errorf("charging: mapping entry row: %w", err)
 		}
 		entries = append(entries, e)
 	}
@@ -261,21 +261,21 @@ func (r *readerService) ListEntriesByAccount(ctx context.Context, accountID uuid
 		limit = defaultLimit
 	}
 
-	params := manualchargedb.ListEntriesByAccountParams{
+	params := chargingdb.ListEntriesByAccountParams{
 		AccountID:  accountID,
 		LimitCount: int32(limit),
 	}
 
 	rows, err := r.store.listEntriesByAccount(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("manualcharge: list entries by account: %w", err)
+		return nil, fmt.Errorf("charging: list entries by account: %w", err)
 	}
 
 	entries := make([]Entry, 0, len(rows))
 	for _, row := range rows {
 		e, err := rowToEntry(row)
 		if err != nil {
-			return nil, fmt.Errorf("manualcharge: mapping entry row: %w", err)
+			return nil, fmt.Errorf("charging: mapping entry row: %w", err)
 		}
 		entries = append(entries, e)
 	}
@@ -288,7 +288,7 @@ func (r *readerService) ListEntriesByAccount(ctx context.Context, accountID uuid
 // Always returns a non-nil empty slice when no rows exist (design D4). No limit
 // parameter (design D1) — the [from, to] window itself bounds the result.
 func (r *readerService) ListEntriesByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Entry, error) {
-	params := manualchargedb.ListEntriesByVehicleBetweenParams{
+	params := chargingdb.ListEntriesByVehicleBetweenParams{
 		AccountID: accountID,
 		TeslaID:   teslaID,
 		FromDate:  dateFromTime(from),
@@ -297,14 +297,14 @@ func (r *readerService) ListEntriesByVehicleBetween(ctx context.Context, account
 
 	rows, err := r.store.listEntriesByVehicleBetween(ctx, params)
 	if err != nil {
-		return nil, fmt.Errorf("manualcharge: list entries by vehicle between: %w", err)
+		return nil, fmt.Errorf("charging: list entries by vehicle between: %w", err)
 	}
 
 	entries := make([]Entry, 0, len(rows))
 	for _, row := range rows {
 		e, err := rowToEntry(row)
 		if err != nil {
-			return nil, fmt.Errorf("manualcharge: mapping entry row: %w", err)
+			return nil, fmt.Errorf("charging: mapping entry row: %w", err)
 		}
 		entries = append(entries, e)
 	}
@@ -314,21 +314,21 @@ func (r *readerService) ListEntriesByVehicleBetween(ctx context.Context, account
 // --- constructors ---
 
 // newWriter constructs a writerService backed by the given pool. Called by NewWriter
-// in manualcharge.go (the public constructor). dbStore is the only place
-// manualchargedb.New is called, enforcing the module boundary.
+// in charging.go (the public constructor). dbStore is the only place
+// chargingdb.New is called, enforcing the module boundary.
 func newWriter(pool *pgxpool.Pool) Writer {
-	return &writerService{store: &dbStore{q: manualchargedb.New(pool)}}
+	return &writerService{store: &dbStore{q: chargingdb.New(pool)}}
 }
 
 // newReader constructs a readerService backed by the given pool. Called by NewReader
-// in manualcharge.go (the public constructor).
+// in charging.go (the public constructor).
 func newReader(pool *pgxpool.Pool) Reader {
-	return &readerService{store: &dbStore{q: manualchargedb.New(pool)}}
+	return &readerService{store: &dbStore{q: chargingdb.New(pool)}}
 }
 
 // --- DB→domain mapping ---
 
-// rowToEntry converts a generated manualchargedb.ManualChargeEntry row into the domain
+// rowToEntry converts a generated chargingdb.ManualChargeEntry row into the domain
 // Entry type. This is the single DB→domain mapping boundary: all pgtype conversions
 // are confined here so pgtype never appears in public types, method signatures, or
 // tests (ai/go-conventions.md §persistence, design D8).
@@ -341,18 +341,18 @@ func newReader(pool *pgxpool.Pool) Reader {
 //   - StartBatteryPct, EndBatteryPct: pgtype.Int2 → *int (nullable SMALLINT).
 //   - ChargingType, LocationKind, LocationLabel, Notes: pgtype.Text → *string (nullable TEXT).
 //   - EnergyAddedKwh, Price: pgtype.Numeric → float64 via Float64Value() (design D9).
-func rowToEntry(r manualchargedb.ManualChargeEntry) (Entry, error) {
+func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 	// EnergyAddedKwh: NUMERIC → float64 (required column; Float64Value returns a
 	// pgtype.Float8 wrapper — use its Float64 field after error check, design D9).
 	energyF8, err := r.EnergyAddedKwh.Float64Value()
 	if err != nil {
-		return Entry{}, fmt.Errorf("manualcharge: reading energy_added_kwh: %w", err)
+		return Entry{}, fmt.Errorf("charging: reading energy_added_kwh: %w", err)
 	}
 
 	// Price: same NUMERIC → float64 path (design D9).
 	priceF8, err := r.Price.Float64Value()
 	if err != nil {
-		return Entry{}, fmt.Errorf("manualcharge: reading price: %w", err)
+		return Entry{}, fmt.Errorf("charging: reading price: %w", err)
 	}
 
 	return Entry{

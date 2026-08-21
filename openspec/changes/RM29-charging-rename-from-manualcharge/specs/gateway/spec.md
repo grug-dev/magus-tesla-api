@@ -266,6 +266,7 @@ in place of the row.
   fragment rendered inside the row
 - **AND** the user sees the row-level error message (e.g. "Could not delete entry —
   please try again."), not a raw HTTP status string or a browser `alert()`
+- **AND** the entry is not removed from the list
 
 ### Requirement: Gateway Imports No chargingdb Package
 

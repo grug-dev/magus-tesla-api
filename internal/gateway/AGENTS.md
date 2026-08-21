@@ -32,15 +32,15 @@ It renders what other modules expose; it owns no business data.
   vehicle card telemetry. Added by `gateway-read-stored-vehicles` (tier 5).
   NEVER import `internal/telemetry/db` (`telemetrydb`) — all access through this
   interface only.
-- `Deps.ManualChargeWriter manualcharge.Writer` — the manual charge write port; injected
+- `Deps.ChargingWriter charging.Writer` — the manual charge write port; injected
   at construction. Called ONLY by the write handlers (ChargeCreate, ChargeRowUpdate,
   ChargeRowDelete) on explicit user-initiated form submissions. See "Exception:
-  user-initiated writes" below. NEVER import `internal/manualcharge/db` — all access
+  user-initiated writes" below. NEVER import `internal/charging/db` — all access
   through this interface only.
-- `Deps.ManualChargeReader manualcharge.Reader` — the manual charge read port; injected
+- `Deps.ChargingReader charging.Reader` — the manual charge read port; injected
   at construction. Called by read handlers (ChargePage, ChargesListFragment,
   ChargeRowStatic, ChargeRowEditFragment) and the `buildChargesPage` helper to list
-  charge entries. NEVER import `internal/manualcharge/db` — all access through this
+  charge entries. NEVER import `internal/charging/db` — all access through this
   interface only.
 - `Deps.SuperchargerReader telemetry.SuperchargerReader` — the telemetry
   Supercharger-sessions read port; injected at construction via
@@ -226,7 +226,7 @@ HTML) stays cheap and predictable.
 
 ### Exception: user-initiated writes (D4 amendment — RM3-gateway-add-manual-charge-ui)
 
-The gateway MAY call `manualcharge.Writer` (Create / Update / Delete) on explicit
+The gateway MAY call `charging.Writer` (Create / Update / Delete) on explicit
 **user-initiated form POSTs/PUTs/DELETEs** (`ChargeCreate`, `ChargeRowUpdate`,
 `ChargeRowDelete`), subject to ALL of the following constraints:
 
@@ -243,7 +243,7 @@ The gateway MAY call `manualcharge.Writer` (Create / Update / Delete) on explici
    which reads `csrf_token` from the form body (or `X-CSRF-Token` header) and
    compares it via `subtle.ConstantTimeCompare` to the session key
    `"csrf_manualcharge"`. Returns HTTP 403 on mismatch; no write proceeds.
-4. **Only `manualcharge.Writer` is permitted** — this is the narrow aperture.
+4. **Only `charging.Writer` is permitted** — this is the narrow aperture.
    This amendment does NOT open general write access to the gateway; Reader-only
    remains the default for ALL other handlers (dashboard, telemetry fragments,
    health, OAuth, etc.).
@@ -259,7 +259,7 @@ CSRF-protected, and tenant-scoped.
 
 The gateway MAY call `account.Service.SetLanguage` from `handlers.LangSwitch`
 (`POST /ui/lang/switch`), subject to a **different** set of constraints than the
-D4/manualcharge amendment above — it does not transplant cleanly, because this
+D4/charging amendment above — it does not transplant cleanly, because this
 endpoint must work for anonymous callers too:
 
 1. **No auth guard, no redirect-to-login.** Every other write handler starts with
@@ -301,7 +301,7 @@ a read that ignores the selection silently shows a *different* car's data.
 
 1. **Resolve once, pass the TeslaID down.** Call `h.resolveSelectedVehicle(ctx, c, uid)` (it
    auto-selects the first OWNER when the session has none) and hand its `.TeslaID` to the
-   module port — e.g. filter `manualcharge.Reader.ListEntriesByVehicle(ctx, uid, teslaID, …)`,
+   module port — e.g. filter `charging.Reader.ListEntriesByVehicle(ctx, uid, teslaID, …)`,
    pick the snapshot for that TeslaID out of `telemetry.Reader.LatestSnapshotsByAccount`, or
    pass it to a `tesla` adapter per-vehicle call. **Never** default a per-vehicle read to
    `registered[0]` or to "all vehicles" when a selection exists.

@@ -24,7 +24,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
 > so `mv` + the leader's `git add -A` yields a commit identical to `git mv`, blame included
 > (design.md D2).
 
-- [ ] **1.1** Rename `internal/manualcharge/manualcharge.go` → `internal/charging/charging.go`
+- [x] **1.1** Rename `internal/manualcharge/manualcharge.go` → `internal/charging/charging.go`
   via `mv` (creating `internal/charging/` in the process). Update the package clause
   `package manualcharge` → `package charging` and the leading doc comment ("Package
   manualcharge is a new isolated domain module…" → "Package charging is…"). No identifier,
@@ -32,7 +32,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
   their exact names (design.md D2, D3).
   `depends_on`: — · `parallel_ok`: yes (own file)
 
-- [ ] **1.2** `mv internal/manualcharge/service.go internal/charging/service.go`; package
+- [x] **1.2** `mv internal/manualcharge/service.go internal/charging/service.go`; package
   clause `manualcharge`→`charging`; every `manualchargedb.*` qualifier (`manualchargedb.CreateEntryParams`,
   `manualchargedb.ManualChargeEntry`, etc. — 13 occurrences per design.md D2) → `chargingdb.*`.
   **Do not rename `ManualChargeEntry` itself** — only the package qualifier in front of it
@@ -40,18 +40,18 @@ purposes, but none is individually buildable — the wave lands as a unit.
   `depends_on`: 1.6 (needs `chargingdb` package to exist for the qualifier to resolve, but can
   be drafted in parallel — the wave lands atomically) · `parallel_ok`: yes
 
-- [ ] **1.3** `mv internal/manualcharge/manualcharge_test.go internal/charging/charging_test.go`;
+- [x] **1.3** `mv internal/manualcharge/manualcharge_test.go internal/charging/charging_test.go`;
   external test package clause `package manualcharge_test` → `package charging_test` (this
   module's sanctioned back-edge — `ai/architecture.md` §2 — moves verbatim). No assertion,
   fixture, or test-name change.
   `depends_on`: 1.1 · `parallel_ok`: yes
 
-- [ ] **1.4** `mv internal/manualcharge/db_integration_test.go internal/charging/db_integration_test.go`;
+- [x] **1.4** `mv internal/manualcharge/db_integration_test.go internal/charging/db_integration_test.go`;
   package clause `manualcharge_test`→`charging_test`; every `manualchargedb.*` qualifier →
   `chargingdb.*`. No assertion, fixture, or test-name change.
   `depends_on`: 1.6 · `parallel_ok`: yes
 
-- [ ] **1.5** `mv internal/manualcharge/testdb_test.go internal/charging/testdb_test.go`;
+- [x] **1.5** `mv internal/manualcharge/testdb_test.go internal/charging/testdb_test.go`;
   package clause `manualcharge_test`→`charging_test`; update the doc comment's "Package
   manualcharge_test starts…" → "Package charging_test starts…" and its `log.Fatalf` message
   prefixes ("manualcharge testdb: …" → "charging testdb: …", 4 occurrences). **The
@@ -59,7 +59,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
   package directory and remains correct once the file moves (design.md D2).
   `depends_on`: — · `parallel_ok`: yes
 
-- [ ] **1.6** `mv internal/manualcharge/db internal/charging/db` (moves the whole subfolder:
+- [x] **1.6** `mv internal/manualcharge/db internal/charging/db` (moves the whole subfolder:
   `db.go`, `models.go`, `query.sql.go`, `query.sql`, and `migrations/` with both `.sql` files
   unchanged). Hand-edit only the `package manualchargedb` clause → `package chargingdb` in
   `db.go`, `models.go`, `query.sql.go`. **Do not rename `ManualChargeEntry`, `CreateEntryParams`,
@@ -71,7 +71,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
   text is likewise unchanged, only its containing folder moves.
   `depends_on`: — · `parallel_ok`: yes
 
-- [ ] **1.7** `mv internal/manualcharge/AGENTS.md internal/charging/AGENTS.md`. Update:
+- [x] **1.7** `mv internal/manualcharge/AGENTS.md internal/charging/AGENTS.md`. Update:
   `Agent-Name: manualcharge` → `Agent-Name: charging`; every `internal/manualcharge`/
   `manualcharge.*`/`manualchargedb` reference throughout the file (Responsibility, Public
   interface, Allowed/forbidden imports, Data ownership, Testing sections) →
@@ -84,12 +84,12 @@ purposes, but none is individually buildable — the wave lands as a unit.
 
 ## Wave 2 — call-site re-point + config re-point (leader — cross-module, same atomic wave as Wave 1)
 
-- [ ] **2.1** `cmd/poller/main.go` — re-point the import
+- [x] **2.1** `cmd/poller/main.go` — re-point the import
   `"github.com/cristianpena/magus-tesla-api/internal/manualcharge"` → `.../internal/charging`;
   update the `manualcharge.NewReader(pool)` call site (line 90) → `charging.NewReader(pool)`.
   `depends_on`: 1.1–1.7 (needs the new package to exist) · `parallel_ok`: with 2.2–2.5, 2.7–2.10
 
-- [ ] **2.2** `cmd/web/main.go` — re-point the import; update
+- [x] **2.2** `cmd/web/main.go` — re-point the import; update
   `Deps{ManualChargeWriter: manualcharge.NewWriter(pool), ManualChargeReader: manualcharge.NewReader(pool)}`
   → `Deps{ChargingWriter: charging.NewWriter(pool), ChargingReader: charging.NewReader(pool)}`
   (lines 60-61), and the standalone `manualcharge.NewReader(pool)` call at line 69 →
@@ -97,7 +97,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
   `depends_on`: 1.1–1.7, 2.3 (the `Deps.ChargingWriter/Reader` fields must exist first) ·
   `parallel_ok`: no (ordered after 2.3)
 
-- [ ] **2.3** `internal/gateway/gateway.go` — re-point the import; rename the `Deps` struct
+- [x] **2.3** `internal/gateway/gateway.go` — re-point the import; rename the `Deps` struct
   fields `ManualChargeWriter manualcharge.Writer` → `ChargingWriter charging.Writer` and
   `ManualChargeReader manualcharge.Reader` → `ChargingReader charging.Reader` (design.md D3)
   and their two forwarding uses (`ManualChargeWriter: d.ManualChargeWriter` → `ChargingWriter:
@@ -105,7 +105,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
   the manualcharge write port…" → "ChargingWriter is the charging write port…").
   `depends_on`: 1.1–1.7 · `parallel_ok`: with 2.1, 2.4–2.5, 2.7–2.10
 
-- [ ] **2.4** `internal/gateway/handlers/handlers.go` — re-point the import; rename
+- [x] **2.4** `internal/gateway/handlers/handlers.go` — re-point the import; rename
   `Deps.ManualChargeWriter`/`ManualChargeReader` → `ChargingWriter`/`ChargingReader` and the
   unexported `Handler.manualChargeWriter`/`manualChargeReader` fields (design.md D3 — these two
   lowercase fields are OUTSIDE the leader's original 73-count inventory; do not skip them) →
@@ -114,7 +114,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
   Reader). Update the matching doc comments.
   `depends_on`: 1.1–1.7, 2.3 (consumes `Deps.ChargingWriter/Reader`) · `parallel_ok`: no
 
-- [ ] **2.5** `internal/gateway/handlers/charges.go` — re-point the import; update every
+- [x] **2.5** `internal/gateway/handlers/charges.go` — re-point the import; update every
   `h.manualChargeWriter.*`/`h.manualChargeReader.*` call site (6 occurrences: `Create`,
   `Update`, `Delete`, `ListEntriesByVehicle`, `ListEntriesByAccount` ×2) → `h.chargingWriter.*`/
   `h.chargingReader.*`. **Do NOT rename `csrfManualChargeKey` or its value `"csrf_manualcharge"`**
@@ -123,7 +123,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
   `depends_on`: 1.1–1.7, 2.4 (consumes the renamed `Handler.chargingWriter/Reader` fields) ·
   `parallel_ok`: no
 
-- [ ] **2.6** `sqlc.yaml` — re-point the `manualcharge` entry's `schema`/`queries` paths to
+- [x] **2.6** `sqlc.yaml` — re-point the `manualcharge` entry's `schema`/`queries` paths to
   `internal/charging/db/migrations`/`internal/charging/db/query.sql`, `out` to
   `internal/charging/db`, `package` to `"chargingdb"`; update the entry's doc-comment block
   (4 refs — design.md D5). Then run `make sqlc` and diff the regenerated
@@ -135,24 +135,24 @@ purposes, but none is individually buildable — the wave lands as a unit.
   `parallel_ok`: with 2.1–2.5, 2.7 (but must run BEFORE 2.6's own `make sqlc` step can succeed,
   and BEFORE 5.1's `go build`)
 
-- [ ] **2.7** `Makefile` — `MIGRATIONS_DIRS` (line 38): `internal/manualcharge/db/migrations` →
+- [x] **2.7** `Makefile` — `MIGRATIONS_DIRS` (line 38): `internal/manualcharge/db/migrations` →
   `internal/charging/db/migrations`.
   `depends_on`: — (independent text edit; must land before Wave 2 is considered complete, since
   it gates `make db-setup`/`make migrate-up` finding this module's migrations) ·
   `parallel_ok`: yes
 
-- [ ] **2.8** `.air.toml` — `exclude_dir` (line 28): `internal/manualcharge/db/migrations` →
+- [x] **2.8** `.air.toml` — `exclude_dir` (line 28): `internal/manualcharge/db/migrations` →
   `internal/charging/db/migrations`. Functional config, not prose — missed by the leader's
   original inventory (design.md D5).
   `depends_on`: — · `parallel_ok`: yes
 
-- [ ] **2.9** `internal/gateway/templates/fragments/charges_vm.go` — re-point the import if
+- [x] **2.9** `internal/gateway/templates/fragments/charges_vm.go` — re-point the import if
   present, and update the two doc-comment mentions ("no manualcharge.*" → "no charging.*"; "No
   manualcharge.Entry, pgtype, or time.Duration in this struct" → "No charging.Entry, pgtype, or
   time.Duration in this struct"). No view-model field or logic change.
   `depends_on`: 1.1–1.7 · `parallel_ok`: with 2.1–2.5, 2.7–2.8
 
-- [ ] **2.10** `internal/analytics/analytics.go`, `consumed.go`, `consumed_test.go`, `reader.go`,
+- [x] **2.10** `internal/analytics/analytics.go`, `consumed.go`, `consumed_test.go`, `reader.go`,
   `reader_test.go` — re-point the import in each; update every `manualcharge.*` qualifier
   (`manualcharge.Entry` in all five files, `manualcharge.Reader` in `reader.go`/`reader_test.go`,
   the `manual manualcharge.Reader` constructor parameter in `reader.go`) → `charging.*`. In
@@ -167,7 +167,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
   name/string substitutions.
   `depends_on`: 1.1–1.7 · `parallel_ok`: with 2.1–2.5, 2.7–2.9
 
-- [ ] **2.11** `internal/gateway/handlers/charges_test.go` — re-point the import; update every
+- [x] **2.11** `internal/gateway/handlers/charges_test.go` — re-point the import; update every
   `manualcharge.*` qualifier and every `ManualChargeWriter:`/`ManualChargeReader:` struct-literal
   field usage (14 occurrences across 7 test-setup call sites) → `ChargingWriter:`/
   `ChargingReader:`; update `sess.Set(csrfManualChargeKey, ...)` call sites — **the constant
@@ -175,12 +175,12 @@ purposes, but none is individually buildable — the wave lands as a unit.
   No assertion, fixture, or test-scenario change.
   `depends_on`: 1.1–1.7, 2.4 · `parallel_ok`: no
 
-- [ ] **2.12** `internal/gateway/handlers/charges_error_visibility_test.go` — re-point the
+- [x] **2.12** `internal/gateway/handlers/charges_error_visibility_test.go` — re-point the
   import; update every `manualcharge.Entry` qualifier (3 occurrences) → `charging.Entry`. No
   assertion or fixture change.
   `depends_on`: 1.1–1.7 · `parallel_ok`: with 2.1–2.5, 2.7–2.10
 
-- [ ] **2.13** `internal/gateway/handlers/history_test.go` — update the one stale doc-comment
+- [x] **2.13** `internal/gateway/handlers/history_test.go` — update the one stale doc-comment
   mention of "ManualChargeReader" (line 1043, "There is no dedicated forwarding test for
   SuperchargerReader or ManualChargeReader in this suite…") → "ChargingReader". This file's
   primary import is `internal/analytics` (from tier 1), not `internal/manualcharge` — this is a
@@ -189,7 +189,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
 
 ## Wave 3 — OpenSpec delta specs (leader — same atomic wave, depends on Wave 1/2 landing)
 
-- [ ] **3.1** `openspec/changes/RM29-charging-rename-from-manualcharge/specs/gateway/spec.md` —
+- [x] **3.1** `openspec/changes/RM29-charging-rename-from-manualcharge/specs/gateway/spec.md` —
   author the `## RENAMED Requirements` block (`FROM: `### Requirement: Gateway Imports No
   manualchargedb Package`` / `TO: `### Requirement: Gateway Imports No chargingdb Package``)
   followed by a `## MODIFIED Requirements` block containing the full updated bodies of FIVE
@@ -203,7 +203,7 @@ purposes, but none is individually buildable — the wave lands as a unit.
   in Wave 2 first, to avoid transcription drift.
   `depends_on`: 2.1–2.13 (must describe the POST-rename identifiers) · `parallel_ok`: with 3.2
 
-- [ ] **3.2** `openspec/changes/RM29-charging-rename-from-manualcharge/specs/analytics/spec.md`
+- [x] **3.2** `openspec/changes/RM29-charging-rename-from-manualcharge/specs/analytics/spec.md`
   — author a `## MODIFIED Requirements` block containing the full updated body of "No
   Cross-Module Database Access" (title unchanged), copied verbatim from
   `openspec/specs/analytics/spec.md` with its two `internal/manualcharge`/
@@ -219,7 +219,7 @@ Each of these is independent of the others (disjoint files) and independent of W
 depends on Wave 1/2 having landed so the doc content being written describes the post-rename
 state truthfully.
 
-- [ ] **4.1** `README.md` — sqlc intro paragraph (`manualchargedb` → `chargingdb`; the
+- [x] **4.1** `README.md` — sqlc intro paragraph (`manualchargedb` → `chargingdb`; the
   `internal/{account,telemetry,manualcharge}/...` glob → `internal/{account,telemetry,charging}/...`),
   Project Structure tree line, Architecture table row, Dependency graph code block (7
   occurrences across `cmd/web`/`cmd/poller`/`gateway`/`handlers` import lists and the `LAYER 1`
@@ -227,11 +227,11 @@ state truthfully.
   the Database-tables-by-module row. Design.md D5 has the verified line-by-line list.
   `depends_on`: 1.1–3.2 · `parallel_ok`: yes, with 4.2–4.9
 
-- [ ] **4.2** `internal/analytics/AGENTS.md` — all 7 `manualcharge`/`manualchargedb` references
+- [x] **4.2** `internal/analytics/AGENTS.md` — all 7 `manualcharge`/`manualchargedb` references
   in the Allowed-imports and testing-notes sections → `charging`/`chargingdb` (design.md D5).
   `depends_on`: 1.1–3.2 · `parallel_ok`: yes
 
-- [ ] **4.3** `internal/gateway/AGENTS.md` — the `Deps.ManualChargeWriter`/`ManualChargeReader`
+- [x] **4.3** `internal/gateway/AGENTS.md` — the `Deps.ManualChargeWriter`/`ManualChargeReader`
   bullets and their `internal/manualcharge/db` forbidden-import follow-ons (4), the
   "Exception: user-initiated writes" section body's `manualcharge.Writer` mentions (2) and its
   "Only manualcharge.Writer is permitted" line (1), and the "Exception: language switch"
@@ -240,22 +240,22 @@ state truthfully.
   amendment (design.md D3, D5).
   `depends_on`: 1.1–3.2 · `parallel_ok`: yes
 
-- [ ] **4.4** `internal/gateway/handlers/lang.go` — line 107's doc comment: "a deliberate,
+- [x] **4.4** `internal/gateway/handlers/lang.go` — line 107's doc comment: "a deliberate,
   user-approved divergence from the manualcharge/D4 write-exception pattern" → "…from the
   charging/D4 write-exception pattern" (design.md D5 — missed by the leader's original
   inventory; cross-references 4.3's renamed label).
   `depends_on`: 4.3 (should read consistently with the label it renamed) · `parallel_ok`: yes
 
-- [ ] **4.5** `internal/testdb/testdb.go` — line 2's doc comment: "used by the integration tests
+- [x] **4.5** `internal/testdb/testdb.go` — line 2's doc comment: "used by the integration tests
   across modules (account, manualcharge, telemetry)" → "(account, charging, telemetry)"
   (design.md D5 — missed by the leader's original inventory).
   `depends_on`: 1.1–3.2 · `parallel_ok`: yes
 
-- [ ] **4.6** `docs/0-set-up/running-the-server.md` — line 74's `internal/manualcharge/db/migrations`
+- [x] **4.6** `docs/0-set-up/running-the-server.md` — line 74's `internal/manualcharge/db/migrations`
   path reference → `internal/charging/db/migrations`.
   `depends_on`: 1.1–3.2 · `parallel_ok`: yes
 
-- [ ] **4.7** `docs/battery-consumed-graph.md` — the table row (`internal/manualcharge` →
+- [x] **4.7** `docs/battery-consumed-graph.md` — the table row (`internal/manualcharge` →
   `internal/charging`), `manualcharge.ListEntriesByVehicleBetween` → `charging.ListEntriesByVehicleBetween`,
   the three `manualcharge.Writer.*` route-mapping rows → `charging.Writer.*`, the
   `internal/manualcharge` boundary-proof sentence, and the Entry 12 module-list mention — 7 of
@@ -263,7 +263,7 @@ state truthfully.
   prose (design.md D3, D5).
   `depends_on`: 1.1–3.2 · `parallel_ok`: yes
 
-- [ ] **4.8** `openspec/roadmaps/backlog.md` — §2 header and body mention (2), §3 header, "the
+- [x] **4.8** `openspec/roadmaps/backlog.md` — §2 header and body mention (2), §3 header, "the
   `manualcharge` module is next touched" prose, and the `internal/manualcharge/db_integration_test.go`
   path mention (3), and the "charging data is split across two modules" bullet's
   `internal/manualcharge` mention (1) — 6 of the file's 8 references. **Do not edit** the two
@@ -273,7 +273,7 @@ state truthfully.
   tier1 D6 precedent).
   `depends_on`: 1.1–3.2 · `parallel_ok`: yes
 
-- [ ] **4.9** `.agents/skills/kkpa-goth-scaffold-ui/references/charges-slice-pattern.md` — "the
+- [x] **4.9** `.agents/skills/kkpa-goth-scaffold-ui/references/charges-slice-pattern.md` — "the
   gateway will call (e.g. `telemetry.Reader`, `manualcharge.Reader`/`Writer`, …)" →
   "`charging.Reader`/`Writer`" (design.md D5). Do not touch the untracked `.claude/skills/...`
   copy of this file (leader's dispatch instruction — not a task).
@@ -285,7 +285,7 @@ design.md D1, D5, D6 — no tasks for them.)
 
 ## Wave 5 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **5.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l .` (if `gofmt -l`
+- [x] **5.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l .` (if `gofmt -l`
   lists a touched file — expected, per design.md's import-ordering-churn risk note, since
   `charging` sorts one alphabetical slot earlier than `manualcharge` did in most import blocks —
   run `gofmt -w` on it and re-check clean). Also `make ui-guard`, `make i18n-guard`,
@@ -294,11 +294,11 @@ design.md D1, D5, D6 — no tasks for them.)
   `depends_on`: 1.1–4.9 (everything must have landed for the tree to build) ·
   `parallel_ok`: no (final gate)
 
-- [ ] **5.2** Run `make sqlc` one final time (idempotency check — confirms task 2.6's
+- [x] **5.2** Run `make sqlc` one final time (idempotency check — confirms task 2.6's
   regenerate-and-diff step is still clean after all later edits) and `make vet`/`make bins`.
   `depends_on`: 5.1 · `parallel_ok`: no
 
-- [ ] **5.3** Run `openspec validate --changes --strict` and report the result. This is the
+- [x] **5.3** Run `openspec validate --changes --strict` and report the result. This is the
   change's status-check substitute — `openspec status`/`openspec instructions` reject the
   uppercase `RM29-…` change name (their validator demands lowercase); `validate` does not.
   `depends_on`: 3.1, 3.2, 5.1 · `parallel_ok`: no

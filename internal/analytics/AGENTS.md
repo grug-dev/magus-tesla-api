@@ -21,7 +21,7 @@ analytics computed FROM other modules' stored data, not the data itself. Its fir
 (and currently only) metric is rolling energy-per-kilometre (Wh/km) over a fixed
 window, derived from `internal/telemetry/`'s snapshot history plus the two
 charging-cost sources the platform stores (`telemetry.SuperchargerReader` and
-`internal/manualcharge`), with a pack-capacity correction sourced from a small
+`internal/charging`), with a pack-capacity correction sourced from a small
 in-package reference table keyed on the vehicle's `car_type`
 (`internal/account.Vehicle.CarType`).
 
@@ -80,7 +80,7 @@ interface-first):
   ledger every nightly run, via `ConsumedByDay` (`design.md` D4/D4a/D7b). Unlike
   `DefaultWindow`, this is not consumed by `NewReader` — `cmd/poller` passes it directly
   as the `[start, end]` window to `ConsumedByDay`.
-- `NewReader(telemetry telemetry.Reader, supercharger telemetry.SuperchargerReader, manual manualcharge.Reader, account vehicleLookup, window time.Duration) Reader`
+- `NewReader(telemetry telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader, account vehicleLookup, window time.Duration) Reader`
   is the constructor. `vehicleLookup` is an unexported narrow interface covering only
   `RegisteredVehicles` — any real `account.Service` satisfies it automatically
   (structural typing), no adapter needed at the call site. `ConsumedByDay` uses only
@@ -96,15 +96,15 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 - `internal/telemetry` — `telemetry.Reader` (`SnapshotsByVehicleSince`),
   `telemetry.SuperchargerReader` (`SuperchargerSessionsByVehicle`), and the domain
   types `telemetry.Snapshot`, `telemetry.SuperchargerSession`.
-- `internal/manualcharge` — `manualcharge.Reader` (`ListEntriesByVehicle`) and the
-  domain type `manualcharge.Entry`.
+- `internal/charging` — `charging.Reader` (`ListEntriesByVehicle`) and the
+  domain type `charging.Entry`.
 - `internal/account` — the narrow `RegisteredVehicles` method (satisfied by
   `account.Service`) and the domain type `account.Vehicle`.
 - `github.com/google/uuid`, stdlib (`context`, `time`).
 
 **Must NOT import:**
-- `internal/telemetry/db` (`telemetrydb`), `internal/manualcharge/db`
-  (`manualchargedb`), `internal/account/db` (`accountdb`), or `pgxpool`/`pgx` at all —
+- `internal/telemetry/db` (`telemetrydb`), `internal/charging/db`
+  (`chargingdb`), `internal/account/db` (`accountdb`), or `pgxpool`/`pgx` at all —
   this module owns no database connection. Cross-module data flows only through public
   ports (`ai/architecture.md` §2).
 - `internal/gateway`, `html/template`, `templ` — no HTML in a domain module
@@ -135,7 +135,7 @@ This module owns no DB, so **every test is an offline unit test** — no
   no fakes needed, since they have zero I/O.
 - `reader_test.go` tests `RecentEfficiency` against hand-written fakes of the four
   dependencies (`telemetry.Reader`, `telemetry.SuperchargerReader`,
-  `manualcharge.Reader`, `vehicleLookup`), mirroring the `fakeReadStore`/
+  `charging.Reader`, `vehicleLookup`), mirroring the `fakeReadStore`/
   `newFakeReader` pattern in `internal/telemetry/reader_test.go` one level up (fake
   *ports* instead of a fake *store*).
 
