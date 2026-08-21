@@ -303,7 +303,7 @@ design.md D1, D5, D6 — no tasks for them.)
   uppercase `RM29-…` change name (their validator demands lowercase); `validate` does not.
   `depends_on`: 3.1, 3.2, 5.1 · `parallel_ok`: no
 
-- [ ] **5.4** Hand off to the owner. Exact commands to paste (not run by the assistant, per the
+- [x] **5.4** Hand off to the owner. Exact commands to paste (not run by the assistant, per the
   Test-Execution-Policy):
   ```
   go test ./internal/charging/... ./internal/analytics/... ./internal/gateway/... ./cmd/...
@@ -320,7 +320,7 @@ design.md D1, D5, D6 — no tasks for them.)
   **awaiting-user-verification**, never "done" (design.md "Verification signals").
   `depends_on`: 5.1, 5.2, 5.3 · `parallel_ok`: no
 
-- [ ] **5.5** **Owner-run — live goose state check** (added at the design gate, owner's call).
+- [x] **5.5** **Owner-run — live goose state check** (added at the design gate, owner's call).
   After the move, the owner runs:
   ```
   make migrate-status
