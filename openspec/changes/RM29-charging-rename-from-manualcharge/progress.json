@@ -5,18 +5,32 @@
   "module": "manualcharge",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 2 \u2014 rename manualcharge -> charging (roadmap T2); owner said 'Go ahead' with autopilot ON",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
-    "current": [
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
       "1.1",
       "1.2",
       "1.3",
       "1.4",
       "1.5",
       "1.6",
-      "1.7"
-    ],
-    "pending": [
+      "1.7",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "2.6",
+      "2.7",
+      "2.8",
+      "2.9",
+      "2.10",
+      "2.11",
+      "2.12",
+      "2.13",
       "3.1",
       "3.2",
       "4.1",
@@ -31,40 +45,15 @@
       "5.1",
       "5.2",
       "5.3",
+      "2.14"
+    ],
+    "awaiting-user-verification": [
       "5.4",
       "5.5"
-    ],
-    "blocked": [],
-    "done": [
-      "2.1",
-      "2.10",
-      "2.11",
-      "2.12",
-      "2.13",
-      "2.14",
-      "2.2",
-      "2.3",
-      "2.4",
-      "2.5",
-      "2.6",
-      "2.7",
-      "2.8",
-      "2.9",
-      "3.1",
-      "3.2",
-      "4.1",
-      "4.2",
-      "4.3",
-      "4.4",
-      "4.5",
-      "4.6",
-      "4.7",
-      "4.8",
-      "4.9"
     ]
   },
   "created_at": "2026-08-20T21:20:00Z",
-  "updated_at": "2026-08-21T01:58:12Z",
+  "updated_at": "2026-08-21T01:59:58Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -85,14 +74,20 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "in-progress",
+      "status": "done",
       "agent": "manualcharge",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T01:53:18Z",
-      "completed_at": null,
+      "started_at": "2026-08-21T01:41:00Z",
+      "completed_at": "2026-08-21T01:42:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "mv -> charging.go; package clause + doc comment + 3 prose mentions of manualchargedb -> chargingdb. No identifier renamed.",
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 6.34,
+        "approx": true,
+        "source": "statusline-cache",
+        "note": "wave delta shared across the worker's 1.x and the leader's concurrent 2.x/3.x/4.x/5.x"
+      }
     },
     {
       "id": "1.2",
@@ -101,14 +96,20 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "in-progress",
+      "status": "done",
       "agent": "manualcharge",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T01:53:18Z",
-      "completed_at": null,
+      "started_at": "2026-08-21T01:42:00Z",
+      "completed_at": "2026-08-21T01:45:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "mv -> service.go; package clause, 30 manualchargedb.* qualifiers, import path, 18 error-prefix strings -> charging:. ManualChargeEntry untouched.",
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 6.34,
+        "approx": true,
+        "source": "statusline-cache",
+        "note": "wave delta shared across the worker's 1.x and the leader's concurrent 2.x/3.x/4.x/5.x"
+      }
     },
     {
       "id": "1.3",
@@ -117,14 +118,20 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "in-progress",
+      "status": "done",
       "agent": "manualcharge",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T01:53:18Z",
-      "completed_at": null,
+      "started_at": "2026-08-21T01:45:00Z",
+      "completed_at": "2026-08-21T01:46:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "mv -> charging_test.go; package clause, import path, manualcharge.Entry qualifier. No assertion/fixture change.",
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 6.34,
+        "approx": true,
+        "source": "statusline-cache",
+        "note": "wave delta shared across the worker's 1.x and the leader's concurrent 2.x/3.x/4.x/5.x"
+      }
     },
     {
       "id": "1.4",
@@ -133,14 +140,20 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "in-progress",
+      "status": "done",
       "agent": "manualcharge",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T01:53:18Z",
-      "completed_at": null,
+      "started_at": "2026-08-21T01:46:00Z",
+      "completed_at": "2026-08-21T01:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "mv; package clause, import path, 65 qualifier occurrences. Historical archived-change slugs left untouched.",
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 6.34,
+        "approx": true,
+        "source": "statusline-cache",
+        "note": "wave delta shared across the worker's 1.x and the leader's concurrent 2.x/3.x/4.x/5.x"
+      }
     },
     {
       "id": "1.5",
@@ -149,14 +162,20 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "in-progress",
+      "status": "done",
       "agent": "manualcharge",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T01:53:18Z",
-      "completed_at": null,
+      "started_at": "2026-08-21T01:50:00Z",
+      "completed_at": "2026-08-21T01:51:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "mv; package clause, doc comment, 4x log.Fatalf prefix. //go:embed left byte-identical per D2.",
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 6.34,
+        "approx": true,
+        "source": "statusline-cache",
+        "note": "wave delta shared across the worker's 1.x and the leader's concurrent 2.x/3.x/4.x/5.x"
+      }
     },
     {
       "id": "1.6",
@@ -165,14 +184,20 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "in-progress",
+      "status": "done",
       "agent": "manualcharge",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T01:53:18Z",
-      "completed_at": null,
+      "started_at": "2026-08-21T01:51:00Z",
+      "completed_at": "2026-08-21T01:54:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "mv db/ whole subfolder; only the package clause hand-edited in db.go/models.go/query.sql.go. Migrations + query.sql byte-identical.",
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 6.34,
+        "approx": true,
+        "source": "statusline-cache",
+        "note": "wave delta shared across the worker's 1.x and the leader's concurrent 2.x/3.x/4.x/5.x"
+      }
     },
     {
       "id": "1.7",
@@ -181,14 +206,20 @@
       "owner": "module",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "in-progress",
+      "status": "done",
       "agent": "manualcharge",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T01:53:18Z",
-      "completed_at": null,
+      "started_at": "2026-08-21T01:54:00Z",
+      "completed_at": "2026-08-21T01:57:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "mv AGENTS.md; title, Agent-Name, all refs; added the RM29 forward-looking charge_sessions/tier-6 sentence.",
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 6.34,
+        "approx": true,
+        "source": "statusline-cache",
+        "note": "wave delta shared across the worker's 1.x and the leader's concurrent 2.x/3.x/4.x/5.x"
+      }
     },
     {
       "id": "2.1",
@@ -581,13 +612,13 @@
       "owner": "leader",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-08-21T01:59:58Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "go build, go vet, make vet, make bins, ui/i18n/money guards: all pass. gofmt -w applied to the 6 files this change churned; 10 other files were already unformatted at HEAD and were left alone.",
       "budget": null
     },
     {
@@ -597,13 +628,13 @@
       "owner": "leader",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-08-21T01:59:58Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "make sqlc idempotent: regenerated db.go/models.go/query.sql.go byte-identical to the hand-moved versions (D9 satisfied).",
       "budget": null
     },
     {
@@ -613,13 +644,13 @@
       "owner": "leader",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-08-21T01:59:58Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "openspec validate --changes --strict: 1 passed / 0 failed.",
       "budget": null
     },
     {
@@ -629,7 +660,7 @@
       "owner": "leader",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "agent": null,
       "model": null,
       "started_at": null,
@@ -645,7 +676,7 @@
       "owner": "user",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "agent": null,
       "model": null,
       "started_at": null,
@@ -722,6 +753,15 @@
       "decision": "Restored an acceptance criterion the pre-authored gateway delta spec had dropped ('the entry is not removed from the list')",
       "why": "A MODIFIED requirement replaces the whole body at sync, so the omission would have silently deleted a criterion from the main spec - an append-only violation.",
       "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-21T01:59:58Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "gofmt -w applied only to the 6 files this change churned; the 10 files already unformatted at HEAD were left untouched",
+      "why": "Verified each against HEAD before deciding. Fixing pre-existing nits would widen the tier beyond a rename; tier 1 only did so on the owner's explicit call (D10).",
+      "covered_by": null
     }
   ],
   "events": [
@@ -754,6 +794,11 @@
       "at": "2026-08-21T01:58:12Z",
       "agent": "leader",
       "event": "Leader half of the atomic wave done: 2.1-2.13 + new 2.14, Wave 3 (verified, 1 fix), Wave 4 docs. openspec validate --changes --strict: 1 passed / 0 failed. Awaiting the worker's Wave 1 report before make sqlc + build."
+    },
+    {
+      "at": "2026-08-21T01:59:58Z",
+      "agent": "leader",
+      "event": "Atomic wave 1+2 landed and committed as fe69cc8 (git recorded all 12 moves as renames R, confirming D2). Waves 3-4 and assistant-run 5.1-5.3 done. Status -> applied. 5.4/5.5 awaiting-user-verification. Wave budget: 5h 2%->16%, ctx 8%->16%."
     }
   ]
 }
