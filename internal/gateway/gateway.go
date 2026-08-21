@@ -62,7 +62,17 @@ type Deps struct {
 	// NEVER import an internal/analytics database package — internal/analytics
 	// owns no database, so there is none to accidentally import.
 	AnalyticsReader analytics.Reader
-	SessionSecret   string
+	// AnalyticsRecalculator is the analytics module's write-path port
+	// (RM29-analytics-add-vehicle-metrics design.md D5). Injected at
+	// construction via cmd/web's analytics.NewRecalculator(...). Called ONLY
+	// by the manual-charge write handlers (ChargeCreate, ChargeRowUpdate,
+	// ChargeRowDelete), after their corresponding charging.Writer call
+	// succeeds, to keep the precomputed history charts current with no
+	// separate refresh step — mirrors the ChargingWriter exception's narrow
+	// aperture (AGENTS.md "Exception: user-initiated writes"). Never called
+	// from a Reader-only handler.
+	AnalyticsRecalculator analytics.Recalculator
+	SessionSecret         string
 	// Tesla OAuth app credentials + the web connect redirect URI.
 	TeslaClientID     string
 	TeslaClientSecret string
@@ -117,19 +127,20 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	}
 
 	h := handlers.New(handlers.Deps{
-		Pool:                 d.Pool,
-		Account:              d.Account,
-		Google:               d.Google,
-		Tesla:                d.Tesla,
-		TelemetryReader:      d.TelemetryReader,
-		SuperchargerReader:   d.SuperchargerReader,
-		ChargingWriter:       d.ChargingWriter,
-		ChargingReader:       d.ChargingReader,
-		AnalyticsReader:      d.AnalyticsReader,
-		TeslaClientID:        d.TeslaClientID,
-		TeslaClientSecret:    d.TeslaClientSecret,
-		TeslaRedirectURL:     d.TeslaRedirectURL,
-		VehicleImageResolver: newVehicleImageResolver(staticFS),
+		Pool:                  d.Pool,
+		Account:               d.Account,
+		Google:                d.Google,
+		Tesla:                 d.Tesla,
+		TelemetryReader:       d.TelemetryReader,
+		SuperchargerReader:    d.SuperchargerReader,
+		ChargingWriter:        d.ChargingWriter,
+		ChargingReader:        d.ChargingReader,
+		AnalyticsReader:       d.AnalyticsReader,
+		AnalyticsRecalculator: d.AnalyticsRecalculator,
+		TeslaClientID:         d.TeslaClientID,
+		TeslaClientSecret:     d.TeslaClientSecret,
+		TeslaRedirectURL:      d.TeslaRedirectURL,
+		VehicleImageResolver:  newVehicleImageResolver(staticFS),
 	})
 
 	r.GET("/", h.Home)

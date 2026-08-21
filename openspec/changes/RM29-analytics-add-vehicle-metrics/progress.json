@@ -20,12 +20,12 @@
       "3.2",
       "3.3",
       "3.4",
+      "4.1",
+      "4.2",
       "5.4",
       "5.5"
     ],
     "pending": [
-      "4.1",
-      "4.2",
       "4.3",
       "5.1",
       "5.2",
@@ -41,13 +41,14 @@
       "8.1",
       "8.2",
       "8.3",
-      "8.4"
+      "8.4",
+      "6.4"
     ],
     "blocked": [],
     "done": []
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T12:45:00Z",
+  "updated_at": "2026-08-21T13:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -381,14 +382,23 @@
       "depends_on": [],
       "wave": 4,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T13:35:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Ported all 10 tests to deriveVehicleMetrics/vehicleMetricRow; added Fixture A/B/C verbatim from the Test Contract. No expected value altered - only window bounds narrowed to match Recalculate's real call shape.",
+      "budget": {
+        "five_hour_pct_start": 64,
+        "five_hour_pct_end": 98,
+        "five_hour_pct_delta": 34,
+        "cost_usd_delta": 14.3,
+        "context_pct_end": 27,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared delta: analytics test worker (4.1/4.2) co-ran with the gateway worker (5.1-5.3, 4.3) still in flight"
+      }
     },
     {
       "id": "4.2",
@@ -398,14 +408,23 @@
       "depends_on": [],
       "wave": 4,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T13:35:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added fakeVehicleMetricsStore + 5 tests: precomputed reads, clamp-on-read, both Fixture-C exclusions, error propagation. Removed 5 obsolete port-wiring tests; coverage rescued as task 6.4.",
+      "budget": {
+        "five_hour_pct_start": 64,
+        "five_hour_pct_end": 98,
+        "five_hour_pct_delta": 34,
+        "cost_usd_delta": 14.3,
+        "context_pct_end": 27,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared delta: analytics test worker (4.1/4.2) co-ran with the gateway worker (5.1-5.3, 4.3) still in flight"
+      }
     },
     {
       "id": "4.3",
@@ -730,6 +749,25 @@
       "duration_seconds": null,
       "notes": null,
       "budget": null
+    },
+    {
+      "id": "6.4",
+      "title": "Assert Recalculate's fetch window, account scoping and error propagation (coverage rescued from the five tests 4.2 removed)",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "6.1"
+      ],
+      "wave": 6,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
     }
   ],
   "review": {
@@ -855,6 +893,15 @@
       "decision": "Accepted the worker's UTC 'yesterday' clamp in Reconcile rather than adding a *time.Location parameter",
       "why": "The poller runs at local midnight, where UTC and Bogota yesterday agree; only evening manual reruns diverge, and D4's 24h overlap self-heals that. Widening the port would reopen the gated interface.",
       "covered_by": null
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-21T13:30:00Z",
+      "scope": "task:4.2",
+      "made_by": "leader",
+      "decision": "Accepted the removal of five reader tests, but appended task 6.4 to re-assert their behaviours against Recalculate",
+      "why": "Verified ConsumedByDay no longer calls the ports, so the tests asserted a deleted path. Removal alone would have silently dropped fetch-window, scoping and error-propagation coverage.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -882,6 +929,11 @@
       "at": "2026-08-21T12:45:00Z",
       "agent": "leader",
       "event": "Wave 3 landed: analytics domain core. Worker flagged two open items rather than hiding them - the D8 timezone tension (resolved as D13) and Reconcile having no injectable clock, which Wave 6 must address if it wants to assert the yesterday-clamp deterministically. Leader pulled 5.4/5.5 forward; go build ./... clean, go vet red only on the two Wave 4 test files."
+    },
+    {
+      "at": "2026-08-21T13:35:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT: 5-hour bucket at 98% (threshold 90), context 27%. Waves 1-4 committed. The gateway worker (5.1-5.3, 4.3) was still IN FLIGHT when the threshold tripped - its tasks stay in-progress in this file and its work may be uncommitted on disk; the resuming session must check `git status` first and reconcile before dispatching anything. 5-hour bucket resets at 2026-08-21T14:00:00Z."
     }
   ]
 }

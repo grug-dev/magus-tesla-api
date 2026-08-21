@@ -227,6 +227,8 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 	}
 
 	_ = created
+	h.recalculateAfterChargeWrite(c.Request.Context(), uid, entry.TeslaID, entry.ChargedOn)
+
 	// Reset form defaults to the submitted vehicle so the user can log another
 	// charge for the same car without re-picking.
 	filterTeslaID := entry.TeslaID
@@ -277,6 +279,14 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	entry.ID = id
 	entry.AccountID = uid
 
+	// Resolve the PRE-update ChargedOn BEFORE calling Update — once Update
+	// commits, the old date is gone; there is no other way to recover it
+	// (design.md D5, "Manual Charge Write Path Triggers Analytics
+	// Recalculation"). A lookup miss (e.g. the id no longer exists) just
+	// means there is no old date to additionally recalculate — the write
+	// itself still proceeds and is validated on its own terms below.
+	_, oldChargedOn, hadOld := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
+
 	updated, err := h.chargingWriter.Update(c.Request.Context(), entry)
 	if err != nil {
 		log.Printf("gateway: ChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
@@ -285,6 +295,10 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
 		}))
 		return
+	}
+	h.recalculateAfterChargeWrite(c.Request.Context(), uid, updated.TeslaID, updated.ChargedOn)
+	if hadOld && !oldChargedOn.Equal(updated.ChargedOn) {
+		h.recalculateAfterChargeWrite(c.Request.Context(), uid, updated.TeslaID, oldChargedOn)
 	}
 	vm := chargeEntryVMFromEntry(updated, vehicles)
 	render(c, http.StatusOK, fragments.ChargeRow(vm, csrfToken))
@@ -329,10 +343,20 @@ func (h *Handler) ChargeRowDelete(c *gin.Context) {
 		return
 	}
 
+	// Resolve the entry's ChargedOn (and TeslaID) BEFORE calling Delete — the
+	// Delete port does not return the deleted entry, so this is the only
+	// chance to learn which day needs recalculating (design.md D5). A lookup
+	// miss just means there is no day to recalculate; the delete still
+	// proceeds.
+	entryTeslaID, entryChargedOn, hadEntry := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
+
 	if err := h.chargingWriter.Delete(c.Request.Context(), uid, id); err != nil {
 		log.Printf("gateway: ChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
 		renderError(c, http.StatusInternalServerError, fragments.ChargeRowError(id.String(), i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotDeleteEntry)))
 		return
+	}
+	if hadEntry {
+		h.recalculateAfterChargeWrite(c.Request.Context(), uid, entryTeslaID, entryChargedOn)
 	}
 	render(c, http.StatusOK, fragments.ChargeRowEmpty(id.String()))
 }
@@ -436,6 +460,55 @@ func (h *Handler) fetchEntryVM(ctx context.Context, uid uuid.UUID, id uuid.UUID)
 		}
 	}
 	return fragments.ChargeEntryVM{}, false
+}
+
+// fetchEntryTeslaIDAndChargedOn resolves a manual charge entry's stored
+// TeslaID and ChargedOn by id, listing all account entries and matching
+// (mirrors fetchEntryVM's own no-GetEntry-port shape, design decision D6).
+// Returns false if not found. Used by ChargeRowUpdate (to learn the
+// PRE-update ChargedOn before it is overwritten) and ChargeRowDelete (to
+// learn TeslaID/ChargedOn before the entry is gone entirely — the Delete
+// port does not return the deleted entry, design.md D5) so
+// recalculateAfterChargeWrite can be called for the affected date.
+func (h *Handler) fetchEntryTeslaIDAndChargedOn(ctx context.Context, uid uuid.UUID, id uuid.UUID) (teslaID int64, chargedOn time.Time, ok bool) {
+	entries, err := h.chargingReader.ListEntriesByAccount(ctx, uid, 0)
+	if err != nil {
+		return 0, time.Time{}, false
+	}
+	for _, e := range entries {
+		if e.ID == id {
+			return e.TeslaID, e.ChargedOn, true
+		}
+	}
+	return 0, time.Time{}, false
+}
+
+// recalculateAfterChargeWrite calls the analytics module's recalculation
+// port for the given vehicle/date, AFTER a manual charge write (Create,
+// Update, or Delete) has already committed successfully — design.md D5
+// ("Manual Charge Write Path Triggers Analytics Recalculation"). This keeps
+// the precomputed history charts (internal/analytics' vehicle_metrics table)
+// current with no separate refresh step, matching today's live-computed
+// behavior (roadmap D10 characterization bar).
+//
+// A Recalculate failure is logged and swallowed, never surfaced to the
+// caller: the user's write already committed, so failing their request over
+// a derived-metrics recalculation error would be wrong (their data IS
+// saved); silently doing nothing would hide a real fault, so it is logged —
+// mirrors this file's existing non-fatal-follow-up convention (the charge
+// suggestion telemetry lookup in buildChargesPage logs and continues on a
+// read error rather than failing the page). The chart falls back to the
+// last-recalculated state until the next nightly Reconcile call heals it
+// (design.md D7).
+//
+// T7's app.RecalculateVehicleData relocates this CALL to a new composition
+// root, not this logic (design.md D5) — the interim composition root is this
+// handler file.
+func (h *Handler) recalculateAfterChargeWrite(ctx context.Context, uid uuid.UUID, teslaID int64, chargedOn time.Time) {
+	if err := h.analyticsRecalculator.Recalculate(ctx, uid, teslaID, chargedOn, chargedOn); err != nil {
+		log.Printf("gateway: analytics recalculate error for account %s, vehicle %d, date %s: %v",
+			uid, teslaID, chargedOn.Format("2006-01-02"), err)
+	}
 }
 
 // checkCSRF reads the submitted csrf_token (from form body or hx-csrf-token

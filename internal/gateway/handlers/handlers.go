@@ -73,10 +73,19 @@ type Deps struct {
 	// fragment render). NEVER construct an internal/analytics internal type
 	// here — internal/analytics owns no database, so there is no db package
 	// this could even accidentally import.
-	AnalyticsReader   analytics.Reader
-	TeslaClientID     string
-	TeslaClientSecret string
-	TeslaRedirectURL  string
+	AnalyticsReader analytics.Reader
+	// AnalyticsRecalculator is the analytics module's write-path port
+	// (RM29-analytics-add-vehicle-metrics design.md D5). Called ONLY by the
+	// manual-charge write handlers (ChargeCreate, ChargeRowUpdate,
+	// ChargeRowDelete), after their corresponding chargingWriter call
+	// succeeds, so the precomputed history charts reflect the edit
+	// immediately (mirrors ChargingWriter's own narrow write-aperture
+	// exception — AGENTS.md "Exception: user-initiated writes"). Never
+	// called from a Reader-only handler.
+	AnalyticsRecalculator analytics.Recalculator
+	TeslaClientID         string
+	TeslaClientSecret     string
+	TeslaRedirectURL      string
 	// VehicleImageResolver maps a vehicle's (CarType, ExteriorColor) to a
 	// /static/img/<carType><ExteriorColor>.png URL, falling back to
 	// defaultCar.png when either field is unset or the composed file is not in
@@ -87,19 +96,20 @@ type Deps struct {
 
 // Handler carries the gateway's dependencies.
 type Handler struct {
-	pool               *pgxpool.Pool
-	acct               account.Service
-	google             *googleauth.Client
-	tesla              tesla.VehicleService
-	telemetryReader    telemetry.Reader
-	superchargerReader telemetry.SuperchargerReader
-	chargingWriter     charging.Writer
-	chargingReader     charging.Reader
-	analyticsReader    analytics.Reader
-	teslaClientID      string
-	teslaClientSecret  string
-	teslaRedirectURL   string
-	vehicleImage       VehicleImageResolver
+	pool                  *pgxpool.Pool
+	acct                  account.Service
+	google                *googleauth.Client
+	tesla                 tesla.VehicleService
+	telemetryReader       telemetry.Reader
+	superchargerReader    telemetry.SuperchargerReader
+	chargingWriter        charging.Writer
+	chargingReader        charging.Reader
+	analyticsReader       analytics.Reader
+	analyticsRecalculator analytics.Recalculator
+	teslaClientID         string
+	teslaClientSecret     string
+	teslaRedirectURL      string
+	vehicleImage          VehicleImageResolver
 }
 
 // VehicleImageResolver maps a vehicle's (CarType, ExteriorColor) to a static
@@ -123,19 +133,20 @@ func New(d Deps) *Handler {
 		resolver = func(_, _ *string) string { return vehicleImageDefaultURL }
 	}
 	return &Handler{
-		pool:               d.Pool,
-		acct:               d.Account,
-		google:             d.Google,
-		tesla:              d.Tesla,
-		telemetryReader:    d.TelemetryReader,
-		superchargerReader: d.SuperchargerReader,
-		chargingWriter:     d.ChargingWriter,
-		chargingReader:     d.ChargingReader,
-		analyticsReader:    d.AnalyticsReader,
-		teslaClientID:      d.TeslaClientID,
-		teslaClientSecret:  d.TeslaClientSecret,
-		teslaRedirectURL:   d.TeslaRedirectURL,
-		vehicleImage:       resolver,
+		pool:                  d.Pool,
+		acct:                  d.Account,
+		google:                d.Google,
+		tesla:                 d.Tesla,
+		telemetryReader:       d.TelemetryReader,
+		superchargerReader:    d.SuperchargerReader,
+		chargingWriter:        d.ChargingWriter,
+		chargingReader:        d.ChargingReader,
+		analyticsReader:       d.AnalyticsReader,
+		analyticsRecalculator: d.AnalyticsRecalculator,
+		teslaClientID:         d.TeslaClientID,
+		teslaClientSecret:     d.TeslaClientSecret,
+		teslaRedirectURL:      d.TeslaRedirectURL,
+		vehicleImage:          resolver,
 	}
 }
 

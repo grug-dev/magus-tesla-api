@@ -207,7 +207,7 @@ See design.md D1–D13 for the rationale behind each group.
 > drafted in parallel against the fixtures alone and wired to the real functions
 > once 3.1–3.4 exist.
 
-- [ ] **4.1** `internal/analytics/consumed_test.go` — update for the
+- [x] **4.1** `internal/analytics/consumed_test.go` — update for the
   `deriveConsumedByDay` → `deriveVehicleMetrics` rename (signature/return-type
   change); add `TestDeriveVehicleMetrics_FixtureA`,
   `TestDeriveVehicleMetrics_FixtureB`, and **`TestDeriveVehicleMetrics_FixtureC`**
@@ -223,7 +223,7 @@ See design.md D1–D13 for the rationale behind each group.
   (roadmap D10: characterization, not a rewrite).
   `depends_on`: 3.1 · `parallel_ok`: with 4.2
 
-- [ ] **4.2** `internal/analytics/reader_test.go` — add
+- [x] **4.2** `internal/analytics/reader_test.go` — add
   `TestReader_ConsumedByDay_ReadsPrecomputedRows`,
   `TestReader_OdometerDeltaByDay_ClampsOnRead`, and
   **`TestReader_ConsumedByDay_ExcludesPredecessorlessRow` /
@@ -241,7 +241,7 @@ See design.md D1–D13 for the rationale behind each group.
   as a non-empty result here, not as a build failure).
   `depends_on`: 3.3 · `parallel_ok`: with 4.1
 
-- [ ] **4.3** `internal/gateway/handlers/history_test.go` — **[leader]**, outside the
+- [x] **4.3** `internal/gateway/handlers/history_test.go` — **[leader]**, outside the
   analytics sandbox. Pin today's `buildOdometerChart` output (before this change's
   gateway edit, Wave 5) for a fixture matching design.md's Fixture A/B, THEN assert
   the post-Wave-5 chart-only `buildOdometerChart` (fed a fake `analytics.Reader.
@@ -254,7 +254,7 @@ See design.md D1–D13 for the rationale behind each group.
 
 ## Wave 5 — gateway and composition-root re-point (leader — outside analytics sandbox)
 
-- [ ] **5.1** `internal/gateway/handlers/history.go` — `buildOdometerChart` becomes
+- [x] **5.1** `internal/gateway/handlers/history.go` — `buildOdometerChart` becomes
   chart-only: replace its snapshot-delta/clamp/bucketing body with a call to
   `h.analyticsReader.OdometerDeltaByDay(ctx, uid, teslaID, start, end)`, bucket the
   sparse result the same way `buildConsumedChart` already buckets `ConsumedByDay`'s
@@ -267,13 +267,13 @@ See design.md D1–D13 for the rationale behind each group.
   itself: untouched.
   `depends_on`: 3.4 · `parallel_ok`: no
 
-- [ ] **5.2** `internal/gateway/gateway.go`, `internal/gateway/handlers/handlers.go`
+- [x] **5.2** `internal/gateway/gateway.go`, `internal/gateway/handlers/handlers.go`
   — `Deps` gains `AnalyticsRecalculator analytics.Recalculator` (doc comment mirrors
   `AnalyticsReader`'s existing one); `Handler` gains the unexported
   `analyticsRecalculator` field; constructor forwarding updated.
   `depends_on`: 3.4 · `parallel_ok`: with 5.1
 
-- [ ] **5.3** `internal/gateway/handlers/charges.go` — `ChargeCreate`: after
+- [x] **5.3** `internal/gateway/handlers/charges.go` — `ChargeCreate`: after
   `h.chargingWriter.Create` succeeds, call
   `h.analyticsRecalculator.Recalculate(ctx, uid, entry.TeslaID, entry.ChargedOn,
   entry.ChargedOn)`, log-and-continue on error (never fail the user-facing write —
@@ -348,6 +348,20 @@ See design.md D1–D13 for the rationale behind each group.
   filter (Wave 4's version of this test fakes the filtered query result; this one
   exercises the actual SQL `WHERE ... IS NOT NULL` clause end-to-end).
   `depends_on`: 6.1 · `parallel_ok`: with 6.2
+
+- [ ] **6.4** **[appended during Wave 4 — coverage rescue, not in the original artifacts]**
+  `internal/analytics/db_integration_test.go` — assert `Recalculate`'s FETCH behaviour:
+  (a) the exact `[start, end]` lookback window it passes to each of the three source
+  ports, (b) that `accountID`/`teslaID` scoping reaches every port, and (c) that an
+  error from any one source propagates rather than being swallowed. Wave 4 task 4.2
+  removed five offline tests (`TestConsumedByDay_FetchWindows`,
+  `..._AccountIDScoping_PassedToEveryPort`, and the three `..._Error_Propagates`)
+  because `ConsumedByDay` no longer fetches through those ports at all — that fetch
+  moved into `Recalculate`. The removal was correct, but it leaves these three
+  behaviours asserted NOWHERE in the suite. This task is what makes the coverage move
+  rather than vanish. Appended rather than folded into 6.1/6.2 because tasks are
+  append-only.
+  `depends_on`: 6.1 · `parallel_ok`: no
 
 ## Wave 7 — documentation (leader — docs-track-structural-change, same change per CLAUDE.md)
 
