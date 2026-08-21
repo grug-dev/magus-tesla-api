@@ -304,6 +304,15 @@ func (s *fakeStore) previousSnapshot(_ context.Context, _ uuid.UUID, _ int64, _ 
 	return nil, nil
 }
 
+// snapshotPrecedingDay satisfies the store seam added by
+// RM29-telemetry-drop-derived-columns (design D2, wave 1). CollectAll never
+// calls it (it is exercised only through the Reader port); this no-op stub
+// (nil, nil) keeps fakeStore implementing the full store interface, mirroring
+// previousSnapshot's own no-op-return precedent above.
+func (s *fakeStore) snapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
+	return nil, nil
+}
+
 func (s *fakeStore) attemptsByVehicle() map[int64][]recordedAttempt {
 	s.mu.Lock()
 	defer s.mu.Unlock()

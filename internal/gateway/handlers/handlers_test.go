@@ -169,6 +169,16 @@ func (f *fakeReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UU
 	return nil, nil
 }
 
+// SnapshotPrecedingDay satisfies the telemetry.Reader method added by
+// RM29-telemetry-drop-derived-columns task 1.2. Like SnapshotsByVehicleUpdatedSince
+// above, no gateway handler calls it -- it exists so analytics can fetch the exact
+// predecessor of a day it is recomputing, however far back that row sits -- so this
+// returns the same no-op. A nil *Snapshot with a nil error is the port's documented
+// "no predecessor exists" answer, not an error case.
+func (f *fakeReader) SnapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*telemetry.Snapshot, error) {
+	return nil, nil
+}
+
 // newHandler builds a Handler for tests that don't involve telemetry (seeds, connect
 // flows, etc.). The TelemetryReader is left nil — it won't be reached in those paths.
 func newHandler(acct account.Service, tsvc tesla.VehicleService) *Handler {

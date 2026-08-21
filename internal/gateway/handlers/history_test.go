@@ -77,6 +77,15 @@ func (f *fakeHistoryReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ 
 	panic("fakeHistoryReader: SnapshotsByVehicleUpdatedSince must not be called by any gateway handler")
 }
 
+// SnapshotPrecedingDay satisfies the telemetry.Reader method added by
+// RM29-telemetry-drop-derived-columns task 1.2. Same reasoning as the method above:
+// it exists so analytics can fetch the exact predecessor of a day it is recomputing,
+// no gateway handler calls it, and a call from here would mean a chart builder
+// reached for the wrong port. Panic makes that visible.
+func (f *fakeHistoryReader) SnapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*telemetry.Snapshot, error) {
+	panic("fakeHistoryReader: SnapshotPrecedingDay must not be called by any gateway handler")
+}
+
 // errTestHistory is a sentinel error for history handler tests.
 var errTestHistory = errors.New("test history reader error")
 

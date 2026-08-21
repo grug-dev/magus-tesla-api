@@ -40,7 +40,7 @@ behind each group.
 > exactly as they are — they are removed in Wave 4, after analytics no longer needs
 > the columns they feed.
 
-- [ ] **1.1** `internal/telemetry/db/query.sql` — add a new query
+- [x] **1.1** `internal/telemetry/db/query.sql` — add a new query
   `SnapshotPrecedingDay :one`, exactly as specified in design.md "New query"
   (`WHERE account_id = @account_id AND tesla_id = @tesla_id AND captured_date < @day
   ORDER BY captured_at DESC LIMIT 1`), including its full doc comment (the
@@ -51,7 +51,7 @@ behind each group.
   once. Do NOT delete `PreviousSnapshotForVehicle` here. Run `make sqlc`.
   `depends_on`: — · `parallel_ok`: no
 
-- [ ] **1.2** `internal/telemetry/telemetry.go` — add
+- [x] **1.2** `internal/telemetry/telemetry.go` — add
   `SnapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error)`
   to the `Reader` interface, with the doc comment design.md D2 specifies: `day` is a
   bare UTC-midnight-normalized calendar date matching `Snapshot.CapturedDate`;
@@ -60,7 +60,7 @@ behind each group.
   signature changes.
   `depends_on`: — · `parallel_ok`: with 1.1
 
-- [ ] **1.3** `internal/telemetry/reader.go` — implement `SnapshotPrecedingDay` on the
+- [x] **1.3** `internal/telemetry/reader.go` — implement `SnapshotPrecedingDay` on the
   reader, calling the generated `SnapshotPrecedingDay` query, mapping
   `pgx.ErrNoRows` → `(nil, nil)` and any other error through unchanged, and reusing
   the existing shared `rowToSnapshot` mapper (no new mapper). Bind `day` with the
@@ -69,7 +69,7 @@ behind each group.
   previousSnapshot` shape one level down.
   `depends_on`: 1.1, 1.2 · `parallel_ok`: no
 
-- [ ] **1.4** `internal/telemetry/reader_test.go` — add `SnapshotPrecedingDay` to the
+- [x] **1.4** `internal/telemetry/reader_test.go` — add `SnapshotPrecedingDay` to the
   package's `Reader` fakes (`fakeReadStore`, `fakeHistoryStore` and any other type
   asserted against `Reader`) so the package still compiles. A fake that must never be
   called on this path `panic`s, matching the file's existing convention.

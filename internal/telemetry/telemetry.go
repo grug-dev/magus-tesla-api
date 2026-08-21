@@ -311,6 +311,55 @@ type Reader interface {
 	// via EXPLAIN in the DB-integration test, Wave 6 of that change). Reuses
 	// the single rowToSnapshot mapper — no per-method duplication.
 	SnapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
+
+	// SnapshotPrecedingDay returns the single most recently captured snapshot for
+	// the given vehicle (within the given account) whose CapturedDate is strictly
+	// before `day`, or `(nil, nil)` when the vehicle has no earlier snapshot at all
+	// (its first-ever capture) — an absent predecessor is a normal answer, never an
+	// error. `day` is a bare calendar date, UTC-midnight-normalized — the same
+	// representation `Snapshot.CapturedDate` already carries, not a precise capture
+	// instant (RM29-telemetry-drop-derived-columns design D2, carries interview
+	// outcome I2). A genuine query error is returned as-is and MUST NOT be degraded
+	// to "no predecessor" — a transient storage fault must never be mistaken by a
+	// caller for "this vehicle has no earlier snapshot" (its only intended caller,
+	// internal/analytics' Recalculate, aborts on error rather than silently NULLing
+	// a real vehicle's derived figures).
+	//
+	// The bound is evaluated against the stored `captured_date` calendar day, not
+	// against `captured_at`. This is deliberate and load-bearing: a snapshot
+	// captured 03:30 local in a UTC+ poller timezone can land on the PREVIOUS UTC
+	// calendar day, so bounding on captured_at against a UTC-midnight `day` would
+	// wrongly select a row as its own predecessor. Because `captured_date` is
+	// already the poller-zone calendar day (stamped once on the write path by
+	// `dateOnly`), the predicate is zone-free at query time, and a same-day
+	// re-capture (the "latest capture for a calendar day wins" replace rule) can
+	// never select its own about-to-be-replaced row as its own predecessor — the
+	// exact guarantee the module's former `dayStart`-bounded `previousSnapshot`
+	// seam provided, re-expressed in the schema's own day column.
+	//
+	// The port reaches the TRUE predecessor however old it is: there is no maximum
+	// lookback, no trailing-window limit, and no fixed number of days beyond which
+	// the predecessor is reported absent — unlike SnapshotsByVehicleSince/Between,
+	// which are bounded windows. This is the exact predecessor a multi-day capture
+	// gap needs; a bounded/widened-window alternative was rejected because it would
+	// yield a silently wrong delta for any gap exceeding the window (design D2).
+	//
+	// Reuses the existing idx_vehicle_snapshots_vehicle_time (account_id, tesla_id,
+	// captured_at) index as a BACKWARD scan off its two leading equality columns —
+	// no new index. `vehicle_snapshots_account_tesla_date_unique` guarantees at most
+	// one row per vehicle per calendar day, so at most one row is examined and
+	// rejected by the captured_date residual predicate before the match (verified
+	// via EXPLAIN in the DB-integration test). The account_id AND tesla_id filter
+	// provides defense-in-depth tenant isolation, mirroring every other per-vehicle
+	// method on this interface. Reuses the single `rowToSnapshot` mapper — no new
+	// mapper, no per-method duplication.
+	//
+	// This method is the module's former private `previousSnapshot` store seam
+	// promoted to the public port, with its bound changed from an instant
+	// (`captured_at < before`) to a calendar day (`captured_date < day`) so a
+	// caller holding no `*time.Location` (internal/analytics deliberately holds
+	// none) can still compute a correct, zone-free bound.
+	SnapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error)
 }
 
 // --- charge_gaps ledger (RM28-telemetry-add-charge-gap-storage, MAG-15) ---

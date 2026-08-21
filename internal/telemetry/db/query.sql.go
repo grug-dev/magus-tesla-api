@@ -570,6 +570,102 @@ func (q *Queries) PreviousSnapshotForVehicle(ctx context.Context, arg PreviousSn
 	return i, err
 }
 
+const snapshotPrecedingDay = `-- name: SnapshotPrecedingDay :one
+SELECT
+    id, account_id, tesla_id, captured_at, raw_data,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
+    car_version,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    captured_date, updated_at,
+    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+    estimated_range_km_calc, days_spanned_calc
+FROM vehicle_snapshots
+WHERE account_id   = $1
+  AND tesla_id     = $2
+  AND captured_date < $3
+ORDER BY captured_at DESC
+LIMIT 1
+`
+
+type SnapshotPrecedingDayParams struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	Day       pgtype.Date
+}
+
+// Return the single most recent snapshot for a vehicle whose captured_date is
+// strictly before the given calendar day, or pgx.ErrNoRows when none exists
+// (the vehicle's first-ever snapshot). Backs telemetry.Reader.SnapshotPrecedingDay,
+// whose only consumer is internal/analytics' Recalculate: it needs the EXACT
+// predecessor, however old, because a capture gap longer than its fetch window
+// would otherwise yield a silently wrong (or silently absent) daily delta.
+//
+// The bound is captured_date, NOT captured_at: captured_date is already the
+// poller-zone calendar day (stamped once on the write path by dateOnly), so the
+// predicate is zone-free at query time. It is exactly equivalent to the
+// captured_at < dayStart(cur.captured_at, loc) bound this query's predecessor
+// (PreviousSnapshotForVehicle) used, and it preserves that bound's purpose: a
+// same-day re-capture cannot select today's own about-to-be-replaced row as its
+// own predecessor, because that row's captured_date equals @day.
+//
+// Index reuse (no new index): the planner seeks the existing
+// idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at) on its
+// two leading equality columns and walks the ascending B-tree BACKWARD to
+// satisfy ORDER BY captured_at DESC, stopping at the first row that also passes
+// the captured_date residual predicate. Because
+// vehicle_snapshots_account_tesla_date_unique allows at most ONE row per
+// (account_id, tesla_id, captured_date), and captured_date is monotone
+// non-decreasing with captured_at for a vehicle, AT MOST ONE row is skipped
+// before the first match. Verified via EXPLAIN in the DB-integration test.
+//
+// In THIS wave (RM29-telemetry-drop-derived-columns, wave 1) the projection
+// still lists the five _calc columns, identical to PreviousSnapshotForVehicle's,
+// so the shared rowToSnapshot mapper keeps compiling; wave 4 removes them from
+// every query at once, including this one.
+func (q *Queries) SnapshotPrecedingDay(ctx context.Context, arg SnapshotPrecedingDayParams) (VehicleSnapshot, error) {
+	row := q.db.QueryRow(ctx, snapshotPrecedingDay, arg.AccountID, arg.TeslaID, arg.Day)
+	var i VehicleSnapshot
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.TeslaID,
+		&i.CapturedAt,
+		&i.RawData,
+		&i.BatteryLevelPct,
+		&i.BatteryRangeKm,
+		&i.ChargingState,
+		&i.ChargeLimitSocPct,
+		&i.OdometerKm,
+		&i.InsideTempC,
+		&i.OutsideTempC,
+		&i.Locked,
+		&i.SentryMode,
+		&i.CarVersion,
+		&i.ChargeEnergyAddedKwh,
+		&i.ChargerPowerKw,
+		&i.ChargerVoltageV,
+		&i.ChargerActualCurrentA,
+		&i.UsableBatteryLevelPct,
+		&i.MaxRangeChargeCounter,
+		&i.TpmsPressureFlPsi,
+		&i.TpmsPressureFrPsi,
+		&i.TpmsPressureRlPsi,
+		&i.TpmsPressureRrPsi,
+		&i.CapturedDate,
+		&i.UpdatedAt,
+		&i.DistanceTraveledKmCalc,
+		&i.BatteryUsedPctCalc,
+		&i.KmPerPctCalc,
+		&i.EstimatedRangeKmCalc,
+		&i.DaysSpannedCalc,
+	)
+	return i, err
+}
+
 const snapshotsByVehicleBetween = `-- name: SnapshotsByVehicleBetween :many
 SELECT
     id, account_id, tesla_id, captured_at, raw_data,

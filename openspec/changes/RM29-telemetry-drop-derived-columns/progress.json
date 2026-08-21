@@ -5,14 +5,10 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 4 - move the five _calc derivations from telemetry into analytics, add the exact-predecessor port method, then drop the columns. Owner: autopilot ON for the rest of RM29, away.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "1.2",
-      "1.3",
-      "1.4",
       "2.1",
       "2.2",
       "2.3",
@@ -48,10 +44,15 @@
       "8.4"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4"
+    ]
   },
   "created_at": "2026-08-21T22:00:00Z",
-  "updated_at": "2026-08-21T22:00:00Z",
+  "updated_at": "2026-08-21T22:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -73,13 +74,13 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T22:05:00Z",
+      "completed_at": "2026-08-21T21:52:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Added SnapshotPrecedingDay :one bound on captured_date < @day, with the zone-safety and index-reuse rationale in the comment. PreviousSnapshotForVehicle left untouched (wave 4 removes it). sqlc generate clean.",
       "budget": null
     },
     {
@@ -90,13 +91,13 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T22:05:00Z",
+      "completed_at": "2026-08-21T21:58:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Added SnapshotPrecedingDay to telemetry.Reader returning (*Snapshot, error), nil/nil meaning no predecessor. ~35-line doc comment matching the four existing methods standard. No existing signature changed.",
       "budget": null
     },
     {
@@ -107,13 +108,13 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T22:05:00Z",
+      "completed_at": "2026-08-21T22:04:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Implemented on the dbStore reader, ErrNoRows -> (nil,nil), reusing rowToSnapshot. Also widened the store interface in service.go - unavoidable, reader.store is statically typed store. Leader reviewed and accepted.",
       "budget": null
     },
     {
@@ -124,13 +125,13 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T22:05:00Z",
+      "completed_at": "2026-08-21T22:08:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Stubbed the new method on fakeReadStore, fakeHistoryStore, fakeBetweenStore and service_test.go fakeStore, each matching that fake existing previousSnapshot convention.",
       "budget": null
     },
     {
@@ -878,6 +879,21 @@
       "at": "2026-08-21T22:00:00Z",
       "agent": "leader",
       "event": "Tier 4 artifacts created by the telemetry worker and validated (openspec validate --changes --strict passes). The worker corrected SEVEN points in the leader's dispatch context; three that mattered were independently re-verified before acceptance: LIMIT 400 at query.sql:72 (real), PreviousSnapshotForVehicle already exists so I2 promotes a private seam rather than inventing a query (lowers risk), and deriveConsumption is at service.go:581 not :398 (leader was wrong). The worker also caught a timezone trap: reusing the existing query's captured_at < dayStart(...) bound would make a 03:30 Tokyo capture its own predecessor, so the new query bounds on captured_date < @day instead."
+    },
+    {
+      "at": "2026-08-21T22:05:00Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched (telemetry, Sonnet, serial): add SnapshotPrecedingDay to the port. Purely additive - no column drops, no behaviour change - so it is the safe first wave and everything downstream depends on it. Budget at dispatch: five_hour 40%, context 15%."
+    },
+    {
+      "at": "2026-08-21T22:20:00Z",
+      "agent": "leader",
+      "event": "Wave 1 COMPLETE (telemetry, additive). Worker found a gap tasks.md missed: widening the public telemetry.Reader breaks every fake of it repo-wide, not just in-module. Leader fixed the two gateway fakes itself (cross-module integration is the leader role, not a worker sandbox): fakeReader in handlers_test.go and fakeHistoryReader in history_test.go, each mirroring the precedent tier 3 set when it added SnapshotsByVehicleUpdatedSince. The worker reported only the first - go vet stops at one error per package - so the leader enumerated all implementers by grep instead of re-running vet iteratively. go vet is now clean except internal/analytics fakeTelemetryReader, which is wave 2 task 2.5 by design. Worker deviation accepted: it widened the store interface in service.go, outside the literal file list but inside its sandbox, because reader.store is statically typed and Go cannot widen an interface method set from another file; the alternative was a second parallel interface over an existing exactly-shaped seam."
+    },
+    {
+      "at": "2026-08-21T22:20:00Z",
+      "agent": "leader",
+      "event": "Leader-owned integration fix outside any worker sandbox: internal/gateway/handlers/handlers_test.go and history_test.go gained SnapshotPrecedingDay stubs. design.md Non-Goals said no gateway change because no gateway code reads a _calc field - true, but it did not anticipate that widening the Reader interface itself breaks the gateway test-only mocks. The Non-Goal is narrowed, not violated."
     }
   ]
 }

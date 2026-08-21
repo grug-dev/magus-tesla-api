@@ -61,6 +61,15 @@ type store interface {
 	// own predecessor. Added by MAG-10 (telemetry-add-derived-consumption-columns);
 	// implemented by dbStore below (T3) and by every test fake (T3/T6/T7).
 	previousSnapshot(ctx context.Context, accountID uuid.UUID, teslaID int64, before time.Time) (*Snapshot, error)
+	// snapshotPrecedingDay backs the public Reader.SnapshotPrecedingDay
+	// (RM29-telemetry-drop-derived-columns design D2): the most recent stored
+	// snapshot for (accountID, teslaID) whose captured_date is strictly before
+	// `day`, or (nil, nil) when none exists. Unlike previousSnapshot above, its
+	// bound is a calendar day, not an instant — see the Reader.SnapshotPrecedingDay
+	// doc comment (telemetry.go) for the full zone-safety rationale. Added by
+	// RM29-telemetry-drop-derived-columns wave 1; implemented by dbStore in
+	// reader.go and by every test fake in this file and reader_test.go.
+	snapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error)
 }
 
 // service is the concrete Collector. It consumes the account and tesla PORTS only
