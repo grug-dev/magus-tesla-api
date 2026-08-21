@@ -89,7 +89,11 @@ interface-first):
   means epoch**, i.e. a full backfill of the vehicle's history (`design.md` D7). It has
   **no injectable clock** and clamps in UTC — a deliberate call (RM29 D13), so do not
   widen the port to make a test deterministic; anchor fixture dates clear of the
-  boundary instead.
+  boundary instead. **`cmd/poller` is its only production caller**, once per vehicle
+  after each successful nightly cycle and *before* that cycle's charge-gap step —
+  the gateway's post-write `Recalculate` covers only the days a manual charge write
+  touches, so if this call is ever dropped, every vehicle's charts silently stop
+  advancing.
 - `DayDistance` — one calendar day's distance result, backing `OdometerDeltaByDay`.
 - `NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader) Recalculator`
   is the constructor for the write side.

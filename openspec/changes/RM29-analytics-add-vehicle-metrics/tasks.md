@@ -294,7 +294,7 @@ See design.md D1–D13 for the rationale behind each group.
   `gateway.Deps.AnalyticsRecalculator`.
   `depends_on`: 3.4, 5.2 · `parallel_ok`: with 5.5
 
-- [ ] **5.5** `cmd/poller/main.go` — `analytics.NewReader`'s call site gains the
+- [x] **5.5** `cmd/poller/main.go` — `analytics.NewReader`'s call site gains the
   leading `pool` argument (the poller already has `pool` in scope). Construct
   `analytics.NewRecalculator(...)` alongside the existing `analyticsReader`. Add a
   per-vehicle `Reconcile` call to `reconcilingCollector` (or a sibling decorator

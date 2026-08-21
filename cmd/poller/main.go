@@ -3,12 +3,19 @@
 // then runs the in-app daily scheduler with graceful shutdown. Thin by design — all
 // collection logic lives in internal/telemetry (ai/go-conventions.md).
 //
-// It is also the composition root for charge-gap reconciliation: after each
-// successful cycle it asks internal/analytics for the trailing window of consumed-per-day
-// figures and hands the flagged days to internal/telemetry's gap writer. That
-// orchestration lives HERE, and only here, because neither module may depend on the
-// other in that direction — telemetry never calls analytics. See internal/analytics's
-// ConsumedByDay and telemetry's GapWriter.
+// It is also the composition root for nightly reconciliation, which after each
+// successful cycle runs two halves per vehicle, in order: internal/analytics's
+// Reconcile advances that module's own precomputed read model (vehicle_metrics)
+// from its watermarks, and then charge-gap reconciliation asks the same module for
+// the trailing window of consumed-per-day figures and hands the flagged days to
+// internal/telemetry's gap writer. The order matters — consumed-per-day is now a
+// read of the model the first half writes. That orchestration lives HERE, and only
+// here, because neither module may depend on the other in that direction —
+// telemetry never calls analytics. See internal/analytics's Reconcile and
+// ConsumedByDay, and telemetry's GapWriter.
+//
+// This is the ONLY production caller of Reconcile: the gateway calls Recalculate
+// after a manual charge write, which covers only the days that write touches.
 //
 // BOTH paths load and validate POLLER_TIMEZONE: the nightly path schedules in it, and
 // both paths date each capture by it (telemetry.Config.Location). An invalid value is
@@ -79,22 +86,33 @@ func main() {
 	// clock).
 	tcfg := telemetry.Config{WakeTimeout: cfg.PollerWakeTimeout, Location: loc}
 
-	// The charge-gap reconciliation step (D4/D4a) decorates the collector rather
+	// The nightly reconciliation step (D4/D4a) decorates the collector rather
 	// than sitting beside it, so BOTH the scheduled path and --once get it by
 	// construction. analytics.NewReader's window argument is required by the
 	// signature but unused by ConsumedByDay — only RecentEfficiency reads it, and
 	// this command never calls that.
+	//
+	// The three sibling ports are built once and shared by the reader and the
+	// recalculator: they are stateless handles over the same pool, and building
+	// them twice would only obscure that both halves of the step read exactly the
+	// same sources.
+	telemetryReader := telemetry.NewReader(pool)
+	superchargerReader := telemetry.NewSuperchargerReader(pool)
+	chargingReader := charging.NewReader(pool)
+
 	analyticsReader := analytics.NewReader(
 		pool,
-		telemetry.NewReader(pool),
-		telemetry.NewSuperchargerReader(pool),
-		charging.NewReader(pool),
+		telemetryReader,
+		superchargerReader,
+		chargingReader,
 		acct,
 		analytics.DefaultWindow,
 	)
+	recalculator := analytics.NewRecalculator(pool, telemetryReader, superchargerReader, chargingReader)
+
 	collector := &reconcilingCollector{
 		inner:     telemetry.NewService(pool, acct, tesla.NewClient(), tcfg),
-		reconcile: newGapReconciler(acct, analyticsReader, telemetry.NewGapWriter(pool), loc),
+		reconcile: newNightlyReconciler(acct, recalculator, analyticsReader, telemetry.NewGapWriter(pool), loc),
 	}
 
 	if !*once {
@@ -123,9 +141,9 @@ func main() {
 	}
 }
 
-// reconcilingCollector decorates telemetry.Collector so the nightly charge-gap
-// reconciliation runs after every successful collection cycle — the scheduled one
-// and --once alike.
+// reconcilingCollector decorates telemetry.Collector so the nightly reconciliation
+// (metrics, then charge gaps) runs after every successful collection cycle — the
+// scheduled one and --once alike.
 //
 // Decorating (rather than calling reconcile beside CollectAll) is what makes both
 // paths share the step by construction: Scheduler.Run owns its own loop and calls
@@ -140,9 +158,9 @@ type reconcilingCollector struct {
 	reconcile func(ctx context.Context)
 }
 
-// CollectAll runs the wrapped cycle, then reconciles charge gaps only if the cycle
-// itself succeeded: detection reads the night's freshly written snapshot, so it must
-// not run before that snapshot exists (D4). A whole-cycle failure is returned
+// CollectAll runs the wrapped cycle, then reconciles only if the cycle itself
+// succeeded: both halves read the night's freshly written snapshot, so neither must
+// run before that snapshot exists (D4). A whole-cycle failure is returned
 // untouched, leaving every existing caller's error handling unchanged.
 func (c *reconcilingCollector) CollectAll(ctx context.Context) (telemetry.CycleReport, error) {
 	report, err := c.inner.CollectAll(ctx)
@@ -153,18 +171,37 @@ func (c *reconcilingCollector) CollectAll(ctx context.Context) (telemetry.CycleR
 	return report, nil
 }
 
-// newGapReconciler builds the per-cycle charge-gap reconciliation step (D4/D4a,
-// D7b). For every registered vehicle it recomputes the trailing
-// analytics.GapReconciliationWindow of consumed-per-day figures and hands the flagged
-// days to telemetry's gap writer, which upserts the days that flag and deletes the
-// days that no longer do.
+// newNightlyReconciler builds the per-cycle reconciliation step, which since
+// RM29 tier 3 has TWO halves run per vehicle, in this order:
+//
+//  1. analytics.Reconcile — advances the module's own precomputed read model,
+//     vehicle_metrics, from its three per-source watermarks (design.md D7/D8).
+//  2. charge-gap reconciliation (D4/D4a, D7b) — recomputes the trailing
+//     analytics.GapReconciliationWindow of consumed-per-day figures and hands the
+//     flagged days to telemetry's gap writer, which upserts the days that flag and
+//     deletes the days that no longer do.
+//
+// The order is a correctness requirement, not a preference. ConsumedByDay no
+// longer derives anything: it is a SELECT over vehicle_metrics (design.md D13),
+// so without step 1 first, step 2 would reconcile the night's charge gaps against
+// yesterday's metrics and never see the snapshot just collected. This is also the
+// ONLY production caller of Reconcile — the gateway's post-write Recalculate
+// (D5) only covers days a manual charge write touches, so without this call a
+// vehicle's charts would stop advancing entirely.
+//
+// A vehicle whose Reconcile fails is skipped for step 2 as well, rather than
+// falling through to it: the gap writer's ReconcileWindow DELETES flags for days
+// that no longer flag, so running it against knowingly-stale metrics would clear
+// gap rows on the strength of data we just failed to refresh. Skipping costs one
+// cycle; falling through would destroy state.
 //
 // Errors are logged, never fatal: a missed reconciliation self-heals on the next
-// cycle, because flagged is recomputed from scratch every run rather than
-// accumulated. Its log lines are prefixed "gap reconciliation:" so they stay
-// greppable and unambiguous — they are emitted inside CollectAll, hence before the
-// caller's own telemetry-cycle summary line.
-func newGapReconciler(acct account.Service, analyticsReader analytics.Reader, gapWriter telemetry.GapWriter, loc *time.Location) func(context.Context) {
+// cycle, because both halves are recomputed from scratch every run rather than
+// accumulated. Log lines stay prefixed by their half ("metrics reconciliation:",
+// "gap reconciliation:") so they remain greppable and unambiguous — they are
+// emitted inside CollectAll, hence before the caller's own telemetry-cycle
+// summary line.
+func newNightlyReconciler(acct account.Service, recalculator analytics.Recalculator, analyticsReader analytics.Reader, gapWriter telemetry.GapWriter, loc *time.Location) func(context.Context) {
 	return func(ctx context.Context) {
 		// "Yesterday" is resolved in the POLLER'S OWN ZONE, not UTC (roadmap D6/D18,
 		// design D-B12): the composition root owns the zone that answers "which days
@@ -186,6 +223,19 @@ func newGapReconciler(acct account.Service, analyticsReader analytics.Reader, ga
 		}
 
 		for _, v := range vehicles {
+			// Step 1 — advance vehicle_metrics before anything reads it. Reconcile
+			// derives its own affected window from its watermarks, so it takes no
+			// start/end from here: the [start, end] below is the gap step's trailing
+			// window, a different and unrelated question.
+			if err := recalculator.Reconcile(ctx, v.AccountID, v.TeslaID); err != nil {
+				// Per-vehicle isolation, mirroring CollectAll. Skips this vehicle's gap
+				// step too — see the doc comment: reconciling gaps against metrics we
+				// just failed to refresh would delete gap rows on stale evidence.
+				log.Printf("metrics reconciliation: vehicle %d: %v", v.TeslaID, err)
+				continue
+			}
+
+			// Step 2 — charge gaps, now reading the model step 1 just advanced.
 			days, err := analyticsReader.ConsumedByDay(ctx, v.AccountID, v.TeslaID, start, end)
 			if err != nil {
 				// Per-vehicle isolation, mirroring CollectAll: one vehicle's failure
