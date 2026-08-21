@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,9 +16,43 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
+
+// fakeRecalculator is a test double for analytics.Recalculator
+// (RM29-analytics-add-vehicle-metrics task 5.3 — the manual-charge write
+// path now calls Recalculate after every successful Create/Update/Delete,
+// design.md D5). Recalculate records its call args so tests can assert
+// wiring/timing; Reconcile PANICS — no gateway handler calls it (it is the
+// nightly poller's own concern, cmd/poller).
+type fakeRecalculator struct {
+	err error
+
+	calls []recalculateCall
+}
+
+type recalculateCall struct {
+	accountID  uuid.UUID
+	teslaID    int64
+	start, end time.Time
+}
+
+// Compile-time proof that fakeRecalculator still satisfies the real interface.
+// This is what turns a future Recalculator change into a loud compile error here
+// instead of a silent runtime gap -- the same failure mode that broke six fakes
+// in this change's Wave 1. Mirrors internal/analytics/recalculate.go:62.
+var _ analytics.Recalculator = (*fakeRecalculator)(nil)
+
+func (f *fakeRecalculator) Recalculate(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) error {
+	f.calls = append(f.calls, recalculateCall{accountID: accountID, teslaID: teslaID, start: start, end: end})
+	return f.err
+}
+
+func (f *fakeRecalculator) Reconcile(context.Context, uuid.UUID, int64) error {
+	panic("fakeRecalculator: Reconcile is never called by any gateway handler — it is cmd/poller's nightly concern")
+}
 
 // --- fakes for charging.Writer and charging.Reader ---
 
@@ -159,12 +194,123 @@ func newHandlerForCharges(writer *fakeChargeWriter, reader *fakeChargeReader) *H
 		},
 	}
 	return New(Deps{
-		Account:         acct,
-		Tesla:           &fakeTesla{},
-		TelemetryReader: &fakeReader{},
-		ChargingWriter:  writer,
-		ChargingReader:  reader,
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        writer,
+		ChargingReader:        reader,
 	})
+}
+
+// newHandlerForChargesWithRecalc is newHandlerForCharges with the analytics
+// recalculator exposed, so a test can assert the write path actually calls it
+// (RM29 task 5.3 / design.md D5). Kept separate rather than changing
+// newHandlerForCharges' signature, so the existing call sites stay untouched.
+func newHandlerForChargesWithRecalc(writer *fakeChargeWriter, reader *fakeChargeReader, recalc *fakeRecalculator) *Handler {
+	acct := &fakeAccount{
+		registered: []account.Vehicle{
+			{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+		},
+	}
+	return New(Deps{
+		AnalyticsRecalculator: recalc,
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        writer,
+		ChargingReader:        reader,
+	})
+}
+
+// postCharge submits a valid create form and returns the recorder.
+func postCharge(t *testing.T, h *Handler, uid uuid.UUID) *httptest.ResponseRecorder {
+	t.Helper()
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// TestChargeCreate_RecalculatesAfterSuccessfulWrite pins design.md D5 / IO-5:
+// the Consumed chart updates instantly today because it is computed on read, so
+// the precomputed read model MUST be refreshed on the write path or the owner
+// sees a stale chart until the nightly Reconcile. Asserts the call happens, is
+// scoped to the writing account and its vehicle, and covers the entry's own day.
+func TestChargeCreate_RecalculatesAfterSuccessfulWrite(t *testing.T) {
+	uid := uuid.New()
+	recalc := &fakeRecalculator{}
+	h := newHandlerForChargesWithRecalc(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
+
+	if w := postCharge(t, h, uid); w.Code != http.StatusOK {
+		t.Fatalf("want 200 on valid create, got %d", w.Code)
+	}
+
+	if len(recalc.calls) != 1 {
+		t.Fatalf("want exactly 1 Recalculate call after a successful create, got %d", len(recalc.calls))
+	}
+	got := recalc.calls[0]
+	if got.accountID != uid {
+		t.Errorf("want Recalculate scoped to account %s, got %s", uid, got.accountID)
+	}
+	if got.teslaID != 1001 {
+		t.Errorf("want Recalculate for the session-selected vehicle 1001, got %d", got.teslaID)
+	}
+	want := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	if !got.start.Equal(want) || !got.end.Equal(want) {
+		t.Errorf("want Recalculate over the entry's own day %s..%s, got %s..%s",
+			want.Format("2006-01-02"), want.Format("2006-01-02"),
+			got.start.Format("2006-01-02"), got.end.Format("2006-01-02"))
+	}
+}
+
+// TestChargeCreate_NoRecalculateWhenWriteFails pins the other half of D5: the
+// recalculation follows a COMMITTED write. If the write failed there is nothing
+// to recompute, and recomputing anyway would rewrite the metrics row from
+// unchanged inputs while the user is being shown an error.
+func TestChargeCreate_NoRecalculateWhenWriteFails(t *testing.T) {
+	uid := uuid.New()
+	recalc := &fakeRecalculator{}
+	writer := &fakeChargeWriter{createErr: errors.New("charging: insert failed")}
+	h := newHandlerForChargesWithRecalc(writer, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
+
+	postCharge(t, h, uid)
+
+	if len(recalc.calls) != 0 {
+		t.Fatalf("want NO Recalculate call when the write failed, got %d", len(recalc.calls))
+	}
+}
+
+// TestChargeCreate_RecalculateErrorDoesNotFailTheRequest pins D5's error policy:
+// the user's write already committed, so a recalculation failure is logged and
+// swallowed rather than surfaced -- failing their request over a derived-metrics
+// error would misreport a save that actually succeeded.
+func TestChargeCreate_RecalculateErrorDoesNotFailTheRequest(t *testing.T) {
+	uid := uuid.New()
+	recalc := &fakeRecalculator{err: errors.New("analytics: recalculate failed")}
+	h := newHandlerForChargesWithRecalc(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
+
+	if w := postCharge(t, h, uid); w.Code != http.StatusOK {
+		t.Fatalf("want 200 despite a Recalculate error (the write committed), got %d", w.Code)
+	}
+	if len(recalc.calls) != 1 {
+		t.Errorf("want the failing Recalculate to still have been attempted once, got %d", len(recalc.calls))
+	}
 }
 
 // --- Sub-task H tests ---
@@ -356,11 +502,12 @@ func TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
 	// Account with NO registered vehicles → resolveSelectedVehicle returns false.
 	acct := &fakeAccount{registered: nil}
 	h := New(Deps{
-		Account:         acct,
-		Tesla:           &fakeTesla{},
-		TelemetryReader: &fakeReader{},
-		ChargingWriter:  &fakeChargeWriter{},
-		ChargingReader:  &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
@@ -1144,11 +1291,12 @@ func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
 	}}
 	h := New(Deps{
-		Account:         acct,
-		Tesla:           &fakeTesla{},
-		TelemetryReader: &fakeReader{},
-		ChargingWriter:  &fakeChargeWriter{},
-		ChargingReader:  &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	eng := chargesContentEngine(h, uid, 2, "VIN2")
 	c := sessionCookie(eng, uid, "")
@@ -1193,11 +1341,12 @@ func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
 	}}
 	h := New(Deps{
-		Account:         acct,
-		Tesla:           &fakeTesla{},
-		TelemetryReader: &fakeReader{},
-		ChargingWriter:  &fakeChargeWriter{},
-		ChargingReader:  &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	eng := chargesContentEngine(h, uid, 1, "VIN1")
 	c := sessionCookie(eng, uid, "")
@@ -1241,11 +1390,12 @@ func TestChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 		{TeslaID: 1001, BatteryLevelPct: 73},
 	}}
 	h := New(Deps{
-		Account:         acct,
-		Tesla:           &fakeTesla{},
-		TelemetryReader: reader,
-		ChargingWriter:  &fakeChargeWriter{},
-		ChargingReader:  &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       reader,
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
@@ -1286,11 +1436,12 @@ func TestChargePage_NoBatterySuggestionWhenNoSnapshot(t *testing.T) {
 	}}
 	reader := &fakeReader{snapshots: nil} // no telemetry snapshots
 	h := New(Deps{
-		Account:         acct,
-		Tesla:           &fakeTesla{},
-		TelemetryReader: reader,
-		ChargingWriter:  &fakeChargeWriter{},
-		ChargingReader:  &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       reader,
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
@@ -1322,11 +1473,12 @@ func TestChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
 	}}
 	reader := &fakeReader{err: errFake} // simulate a telemetry store failure
 	h := New(Deps{
-		Account:         acct,
-		Tesla:           &fakeTesla{},
-		TelemetryReader: reader,
-		ChargingWriter:  &fakeChargeWriter{},
-		ChargingReader:  &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       reader,
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")

@@ -22,14 +22,14 @@
       "3.4",
       "4.1",
       "4.2",
-      "5.4",
-      "5.5"
-    ],
-    "pending": [
       "4.3",
       "5.1",
       "5.2",
       "5.3",
+      "5.4",
+      "5.5"
+    ],
+    "pending": [
       "6.1",
       "6.2",
       "6.3",
@@ -48,7 +48,7 @@
     "done": []
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T13:35:00Z",
+  "updated_at": "2026-08-21T14:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -434,14 +434,23 @@
       "depends_on": [],
       "wave": 4,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T14:20:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "history_test.go: fakeAnalyticsReader gains OdometerDeltaByDay; odometer tests pinned as characterization against the Test Contract's expected values.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": 4,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 29,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "post-reset bucket; covers the leader's completion of the gateway worker's interrupted task"
+      }
     },
     {
       "id": "5.1",
@@ -451,14 +460,23 @@
       "depends_on": [],
       "wave": 5,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T14:20:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "buildOdometerChart now consumes analytics.OdometerDeltaByDay; delta and clamp deleted from the gateway. Chart shape untouched. Its error empties only the odometer chart rather than the page.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": 4,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 29,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "post-reset bucket; covers the leader's completion of the gateway worker's interrupted task"
+      }
     },
     {
       "id": "5.2",
@@ -468,14 +486,23 @@
       "depends_on": [],
       "wave": 5,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T14:20:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Deps/Handler gain AnalyticsRecalculator alongside the existing analytics Reader, following the file's existing naming and doc conventions.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": 4,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 29,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "post-reset bucket; covers the leader's completion of the gateway worker's interrupted task"
+      }
     },
     {
       "id": "5.3",
@@ -485,14 +512,23 @@
       "depends_on": [],
       "wave": 5,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T14:20:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "charges.go calls Recalculate after each committed Create/Update/Delete; Update recalculates BOTH new and old dates when ChargedOn moves. Errors logged and swallowed - the write already committed.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": 4,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 29,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "post-reset bucket; covers the leader's completion of the gateway worker's interrupted task"
+      }
     },
     {
       "id": "5.4",
@@ -902,6 +938,24 @@
       "decision": "Accepted the removal of five reader tests, but appended task 6.4 to re-assert their behaviours against Recalculate",
       "why": "Verified ConsumedByDay no longer calls the ports, so the tests asserted a deleted path. Removal alone would have silently dropped fetch-window, scoping and error-propagation coverage.",
       "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-21T13:40:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Left the mis-scoped commit 4603172 in place instead of rewriting history",
+      "why": "The gateway worker was still writing to those files. A soft reset or amend mid-write risks capturing a torn state; an accurate follow-up commit costs nothing and keeps the record honest.",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-21T14:20:00Z",
+      "scope": "task:5.3",
+      "made_by": "leader",
+      "decision": "Leader finished the interrupted gateway task in-session rather than re-dispatching a fresh worker",
+      "why": "The work was nearly complete and its remaining state was diagnosable from git diff plus vet. A cold re-dispatch would re-read the doc pack and risk redoing finished edits.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -934,6 +988,16 @@
       "at": "2026-08-21T13:35:00Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT: 5-hour bucket at 98% (threshold 90), context 27%. Waves 1-4 committed. The gateway worker (5.1-5.3, 4.3) was still IN FLIGHT when the threshold tripped - its tasks stay in-progress in this file and its work may be uncommitted on disk; the resuming session must check `git status` first and reconcile before dispatching anything. 5-hour bucket resets at 2026-08-21T14:00:00Z."
+    },
+    {
+      "at": "2026-08-21T13:40:00Z",
+      "agent": "leader",
+      "event": "CORRECTION: commit 4603172, messaged as Wave 4, also contains partial Wave 5 + 4.3 gateway work (gateway.go, handlers.go, history.go, charges.go, history_test.go). Cause: the leader staged with `git add -A` while the gateway worker was still writing. History NOT rewritten - amending under a live writer risks a torn snapshot. The next commit carries the accurate Wave 5 scope and references this correction."
+    },
+    {
+      "at": "2026-08-21T14:20:00Z",
+      "agent": "leader",
+      "event": "Gateway worker was KILLED mid-task by the session limit, partway through checking charges_test.go for Handler constructions missing the recalculator. Leader finished it after the reset: completed the fakeRecalculator wiring (7 Deps literals - a nil there is a runtime panic go vet cannot see), added a compile-time interface assertion, and wrote the three D5/IO-5 behaviour tests the worker never reached. Build, vet and all three guards clean."
     }
   ]
 }
