@@ -246,6 +246,42 @@ WHERE account_id = @account_id
 ORDER BY captured_at ASC
 LIMIT 400;
 
+-- name: SnapshotsByVehicleUpdatedSince :many
+-- Return every snapshot for a single vehicle (within the given account) whose
+-- updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
+-- telemetry.Reader.SnapshotsByVehicleUpdatedSince to let internal/analytics'
+-- Recalculator (RM29-analytics-add-vehicle-metrics) detect which snapshots
+-- changed recently -- including a same-day REPLACE via the existing UPSERT
+-- (design D1 of telemetry-dedupe-daily-snapshots), which advances updated_at
+-- without necessarily changing captured_at's calendar day.
+--
+-- Index reuse: the existing idx_vehicle_snapshots_vehicle_time
+-- (account_id, tesla_id, captured_at) is NOT sorted on updated_at, so this
+-- query cannot use it as a pure ORDER BY-satisfying range scan the way
+-- SnapshotsByVehicleSince does on captured_at. It STILL prunes the scan to
+-- this one vehicle's rows via the index's (account_id, tesla_id) leading-
+-- column prefix before the updated_at predicate and sort are applied --
+-- updated_at is a residual filter within that scan, per this change's
+-- explicit design call (no new index; verified via EXPLAIN in the
+-- DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
+SELECT
+    id, account_id, tesla_id, captured_at, raw_data,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
+    car_version,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    captured_date, updated_at,
+    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+    estimated_range_km_calc, days_spanned_calc
+FROM vehicle_snapshots
+WHERE account_id = @account_id
+  AND tesla_id   = @tesla_id
+  AND updated_at >= @since
+ORDER BY updated_at ASC;
+
 -- name: LatestSnapshotsByAccount :many
 -- Return the latest stored snapshot for each vehicle owned by the given account.
 -- DISTINCT ON (tesla_id) with ORDER BY tesla_id, captured_at DESC picks the row
@@ -475,3 +511,27 @@ WHERE account_id = @account_id
   AND charge_stop_date_time >= @start
   AND charge_stop_date_time <  @end_bound
 ORDER BY charge_stop_date_time ASC;
+
+-- name: SuperchargerSessionsByVehicleUpdatedSince :many
+-- Return every Supercharger session for one vehicle within an account whose
+-- updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
+-- SuperchargerReader.SuperchargerSessionsByVehicleUpdatedSince to let
+-- internal/analytics' Recalculator (RM29-analytics-add-vehicle-metrics) detect
+-- which sessions changed recently -- including a billing-state revision on a
+-- session weeks old (design DBS3: supercharger_sessions is not append-only;
+-- is_paid / invoice status mutates post-session), whose charge_start_date_time /
+-- charge_stop_date_time stay unchanged while updated_at refreshes.
+--
+-- Index reuse: idx_supercharger_sessions_vehicle_time
+-- (account_id, tesla_id, charge_start_date_time DESC) is not sorted on
+-- updated_at, so this query cannot use it as a pure ORDER BY-satisfying range
+-- scan. It STILL prunes the scan to this one vehicle's rows via its
+-- (account_id, tesla_id) leading-column prefix before the updated_at predicate
+-- and sort are applied -- updated_at is a residual filter within that scan, per
+-- this change's explicit design call (no new index; verified via EXPLAIN in the
+-- DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
+SELECT * FROM supercharger_sessions
+WHERE account_id = @account_id
+  AND tesla_id   = @tesla_id
+  AND updated_at >= @since
+ORDER BY updated_at ASC;

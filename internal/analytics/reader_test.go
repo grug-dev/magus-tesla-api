@@ -64,6 +64,16 @@ func (f *fakeTelemetryReader) SnapshotsByVehicleBetween(_ context.Context, accou
 	return f.snapshots, nil
 }
 
+// SnapshotsByVehicleUpdatedSince satisfies the telemetry.Reader method added by
+// RM29-analytics-add-vehicle-metrics task 1.2. It panics because only
+// Recalculate/Reconcile call this path, and the tests in this file exercise
+// ConsumedByDay/RecentEfficiency only -- a call here means a read path reached
+// for the watermark port by mistake. Wave 4 replaces this with recording
+// behaviour when the Reconcile tests need it.
+func (f *fakeTelemetryReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
+	panic("fakeTelemetryReader: SnapshotsByVehicleUpdatedSince must not be called from a Reader path")
+}
+
 // fakeSuperchargerReader is a fake telemetry.SuperchargerReader. SuperchargerSessionsByVehicle
 // is exercised by RecentEfficiency; SuperchargerSessionsByVehicleBetween is exercised by
 // ConsumedByDay (RM28 tier 3, design.md D-B13) — both share the sessions/err fixture
@@ -97,6 +107,14 @@ func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.
 		return nil, f.err
 	}
 	return f.sessions, nil
+}
+
+// SuperchargerSessionsByVehicleUpdatedSince satisfies the
+// telemetry.SuperchargerReader method added by
+// RM29-analytics-add-vehicle-metrics task 1.3. Panics for the same reason as
+// fakeTelemetryReader's sibling above.
+func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.SuperchargerSession, error) {
+	panic("fakeSuperchargerReader: SuperchargerSessionsByVehicleUpdatedSince must not be called from a Reader path")
 }
 
 func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]telemetry.SuperchargerSession, error) {
@@ -151,6 +169,13 @@ func (f *fakeManualReader) ListEntriesByVehicleBetween(_ context.Context, accoun
 		return nil, f.err
 	}
 	return f.entries, nil
+}
+
+// ListEntriesByVehicleUpdatedSince satisfies the charging.Reader method added by
+// RM29-analytics-add-vehicle-metrics task 1.4. Panics for the same reason as the
+// two telemetry siblings above.
+func (f *fakeManualReader) ListEntriesByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]charging.Entry, error) {
+	panic("fakeManualReader: ListEntriesByVehicleUpdatedSince must not be called from a Reader path")
 }
 
 // fakeVehicleLookup is a fake vehicleLookup (the narrow account.Service consumer

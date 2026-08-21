@@ -55,6 +55,7 @@ type store interface {
 	listEntriesByVehicle(ctx context.Context, params chargingdb.ListEntriesByVehicleParams) ([]chargingdb.ManualChargeEntry, error)
 	listEntriesByAccount(ctx context.Context, params chargingdb.ListEntriesByAccountParams) ([]chargingdb.ManualChargeEntry, error)
 	listEntriesByVehicleBetween(ctx context.Context, params chargingdb.ListEntriesByVehicleBetweenParams) ([]chargingdb.ManualChargeEntry, error)
+	listEntriesByVehicleUpdatedSince(ctx context.Context, params chargingdb.ListEntriesByVehicleUpdatedSinceParams) ([]chargingdb.ManualChargeEntry, error)
 }
 
 // --- dbStore — the production store (ONLY place chargingdb + pgtype are touched) ---
@@ -88,6 +89,10 @@ func (d *dbStore) listEntriesByAccount(ctx context.Context, params chargingdb.Li
 
 func (d *dbStore) listEntriesByVehicleBetween(ctx context.Context, params chargingdb.ListEntriesByVehicleBetweenParams) ([]chargingdb.ManualChargeEntry, error) {
 	return d.q.ListEntriesByVehicleBetween(ctx, params)
+}
+
+func (d *dbStore) listEntriesByVehicleUpdatedSince(ctx context.Context, params chargingdb.ListEntriesByVehicleUpdatedSinceParams) ([]chargingdb.ManualChargeEntry, error) {
+	return d.q.ListEntriesByVehicleUpdatedSince(ctx, params)
 }
 
 // --- writerService — implements Writer ---
@@ -298,6 +303,35 @@ func (r *readerService) ListEntriesByVehicleBetween(ctx context.Context, account
 	rows, err := r.store.listEntriesByVehicleBetween(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("charging: list entries by vehicle between: %w", err)
+	}
+
+	entries := make([]Entry, 0, len(rows))
+	for _, row := range rows {
+		e, err := rowToEntry(row)
+		if err != nil {
+			return nil, fmt.Errorf("charging: mapping entry row: %w", err)
+		}
+		entries = append(entries, e)
+	}
+	return entries, nil
+}
+
+// ListEntriesByVehicleUpdatedSince returns entries for a specific vehicle within an
+// account whose updated_at is at or after since, inclusive, ordered charged_on DESC
+// (matching ListEntriesByVehicle and ListEntriesByVehicleBetween). Always returns a
+// non-nil empty slice when no rows exist. No limit parameter — since itself bounds
+// the result. Backs the analytics module's per-source incremental recompute
+// watermark (RM29-analytics-add-vehicle-metrics design D3).
+func (r *readerService) ListEntriesByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Entry, error) {
+	params := chargingdb.ListEntriesByVehicleUpdatedSinceParams{
+		AccountID: accountID,
+		TeslaID:   teslaID,
+		Since:     pgtype.Timestamptz{Time: since, Valid: true},
+	}
+
+	rows, err := r.store.listEntriesByVehicleUpdatedSince(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("charging: list entries by vehicle updated since: %w", err)
 	}
 
 	entries := make([]Entry, 0, len(rows))

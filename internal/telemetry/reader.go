@@ -71,6 +71,17 @@ func (r *reader) SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.U
 	return r.store.snapshotsByVehicleBetween(ctx, accountID, teslaID, start, end)
 }
 
+// SnapshotsByVehicleUpdatedSince implements Reader. It returns every snapshot for
+// the given vehicle (within the given account) whose UpdatedAt is at or after
+// since, ordered oldest-first by updated_at. Returns a non-nil empty slice (never
+// nil) when no snapshot has been updated in the window (parity with every other
+// Reader method's empty-result contract). Reuses the store.snapshotsByVehicleUpdatedSince
+// seam so it is fully offline-testable via a fake store, mirroring
+// SnapshotsByVehicleSince's pattern (RM29-analytics-add-vehicle-metrics task 1.2).
+func (r *reader) SnapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error) {
+	return r.store.snapshotsByVehicleUpdatedSince(ctx, accountID, teslaID, since)
+}
+
 // --- Source B: SuperchargerReader ---
 
 // superchargerReader is the concrete implementation of the SuperchargerReader port.
@@ -129,6 +140,29 @@ func (r *superchargerReader) SuperchargerSessionsByVehicle(ctx context.Context, 
 		AccountID:  accountID,
 		TeslaID:    teslaIDToPgInt8(teslaID),
 		LimitCount: resolveLimit(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+	sessions := make([]SuperchargerSession, 0, len(rows))
+	for _, row := range rows {
+		sessions = append(sessions, rowToSuperchargerSession(row))
+	}
+	return sessions, nil
+}
+
+// SuperchargerSessionsByVehicleUpdatedSince implements SuperchargerReader. It
+// returns every Supercharger session for the given vehicle (within the given
+// account) whose updated_at is at or after since, ordered oldest-first by
+// updated_at (RM29-analytics-add-vehicle-metrics task 1.3). Reuses the existing
+// rowToSuperchargerSession mapper (mapping.go) — no new field, no new mapper.
+// Returns a non-nil empty slice when no sessions have been updated in the
+// window (design DBS6 parity with every other method on this interface).
+func (r *superchargerReader) SuperchargerSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]SuperchargerSession, error) {
+	rows, err := r.q.SuperchargerSessionsByVehicleUpdatedSince(ctx, telemetrydb.SuperchargerSessionsByVehicleUpdatedSinceParams{
+		AccountID: accountID,
+		TeslaID:   teslaIDToPgInt8(teslaID),
+		Since:     timestamptzFrom(since),
 	})
 	if err != nil {
 		return nil, err

@@ -5,14 +5,15 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 3 - analytics.vehicle_metrics precomputed read model + D7 watermark + Recalculate; gateway's snapshot-derived math moves out (roadmap D5). Owner: autopilot ON, asleep.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       "1.1",
       "1.2",
       "1.3",
-      "1.4",
+      "1.4"
+    ],
+    "pending": [
       "2.1",
       "2.2",
       "2.3",
@@ -46,7 +47,7 @@
     "done": []
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T03:05:00Z",
+  "updated_at": "2026-08-21T10:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -68,14 +69,23 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T09:20:00Z",
+      "completed_at": "2026-08-21T09:35:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added Snapshot.UpdatedAt; mapped in rowToSnapshot from r.UpdatedAt.Time. Existing queries already SELECT updated_at, so no query.sql or migration change. No existing signature touched.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 41,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 8.7,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-1 delta across the parallel telemetry (1.1-1.3) and charging (1.4) workers plus the leader's fake repairs"
+      }
     },
     {
       "id": "1.2",
@@ -85,14 +95,23 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T09:35:00Z",
+      "completed_at": "2026-08-21T09:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added Reader.SnapshotsByVehicleUpdatedSince; new query.sql query, account_id/tesla_id leading with updated_at residual, no new index; implemented reusing rowToSnapshot; sqlc regenerated.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 41,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 8.7,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-1 delta across the parallel telemetry (1.1-1.3) and charging (1.4) workers plus the leader's fake repairs"
+      }
     },
     {
       "id": "1.3",
@@ -102,14 +121,23 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T09:50:00Z",
+      "completed_at": "2026-08-21T10:05:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added SuperchargerReader.SuperchargerSessionsByVehicleUpdatedSince; query mirrors SuperchargerSessionsByVehicleBetween; implemented in superchargerReader reusing rowToSuperchargerSession.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 41,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 8.7,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-1 delta across the parallel telemetry (1.1-1.3) and charging (1.4) workers plus the leader's fake repairs"
+      }
     },
     {
       "id": "1.4",
@@ -119,14 +147,23 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T09:20:00Z",
+      "completed_at": "2026-08-21T09:47:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added charging.Reader.ListEntriesByVehicleUpdatedSince; query + sqlc regen + service impl. Reuses idx_manual_charge_entries_vehicle_time as a residual-filter scan, no new index.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 41,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 8.7,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-1 delta across the parallel telemetry (1.1-1.3) and charging (1.4) workers plus the leader's fake repairs"
+      }
     },
     {
       "id": "2.1",
@@ -683,6 +720,24 @@
       "decision": "consumed_pct nullable with flagged=false on predecessor-less rows; both Reader queries filter IS NOT NULL",
       "why": "Necessary consequence of the owner's dense-table call: a stored 0 would make every vehicle's first day masquerade as a charge gap, and unfiltered reads would change ConsumedByDay's output.",
       "covered_by": "design gate revision"
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-21T09:20:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Wave 1 dispatched as TWO parallel workers (telemetry 1.1-1.3, charging 1.4) rather than one serial worker",
+      "why": "A worker is sandboxed to one module, so a single serial dispatch is impossible here. Disjoint modules, 5h bucket at 26%, and wave 1 gates all seven remaining waves.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-21T10:12:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Left internal/gateway/handlers/handlers_test.go gofmt-unclean",
+      "why": "Verified against HEAD via git stash: it was already unformatted before this change. Same call as tier 2's D6 - gofmt only what the change churns, or the tier widens.",
+      "covered_by": "tier 2 D6 precedent"
     }
   ],
   "events": [
@@ -690,6 +745,16 @@
       "at": "2026-08-21T03:05:00Z",
       "agent": "leader",
       "event": "Tier 3 opened. Artifacts by the analytics worker (Sonnet), revised once after the design gate. openspec validate --changes --strict: 1 passed / 0 failed. Owner confirmed the schema then went to sleep with autopilot ON; hard stop before T4 (destructive) stands."
+    },
+    {
+      "at": "2026-08-21T09:20:00Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched (owner asleep, autopilot). telemetry worker on 1.1-1.3, charging worker on 1.4, parallel. 5h 26%, ctx 19%. Budget delta will be recorded as a shared approx wave delta."
+    },
+    {
+      "at": "2026-08-21T10:12:00Z",
+      "agent": "leader",
+      "event": "Wave 1 landed. Leader repaired SIX test fakes broken by the interface additions across analytics + gateway, each matching its own fake's local precedent (nil-return vs panic). Both workers reported only five - go vet ./... found fakeHistoryReader in history_test.go that neither named. Repo-wide build, vet and gofmt clean."
     }
   ]
 }

@@ -51,6 +51,14 @@ func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.
 	panic("fakeSuperchargerReader: SuperchargerSessionsByVehicleBetween must not be called by any gateway handler")
 }
 
+// SuperchargerSessionsByVehicleUpdatedSince satisfies the
+// telemetry.SuperchargerReader method added by
+// RM29-analytics-add-vehicle-metrics task 1.3. Panics, mirroring the sibling
+// above: no gateway handler calls it, it serves analytics' recompute watermark.
+func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.SuperchargerSession, error) {
+	panic("fakeSuperchargerReader: SuperchargerSessionsByVehicleUpdatedSince must not be called by any gateway handler")
+}
+
 func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]telemetry.SuperchargerSession, error) {
 	f.capturedAccountID = accountID
 	f.capturedFilterID = teslaID

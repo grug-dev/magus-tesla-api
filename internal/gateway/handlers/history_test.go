@@ -69,6 +69,14 @@ func (f *fakeHistoryReader) SnapshotsByVehicleBetween(_ context.Context, account
 	return f.historySnaps, f.historyErr
 }
 
+// SnapshotsByVehicleUpdatedSince satisfies the telemetry.Reader method added by
+// RM29-analytics-add-vehicle-metrics task 1.2. No gateway handler calls it -- it
+// serves analytics' recompute watermark -- so a call here would mean a chart
+// builder reached for the wrong port. Panic makes that visible.
+func (f *fakeHistoryReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
+	panic("fakeHistoryReader: SnapshotsByVehicleUpdatedSince must not be called by any gateway handler")
+}
+
 // errTestHistory is a sentinel error for history handler tests.
 var errTestHistory = errors.New("test history reader error")
 

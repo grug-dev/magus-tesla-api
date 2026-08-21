@@ -84,15 +84,18 @@ func pgNullableInt16AsInt(v pgtype.Int2) *int {
 //
 //   - CapturedAt: pgtype.Timestamptz.Time → time.Time (UTC via the stored value)
 //   - CapturedDate: pgtype.Date.Time → time.Time (calendar date, UTC-midnight
-//     normalized; design D2 of telemetry-dedupe-daily-snapshots). updated_at is
-//     selected in every query for struct-sharing but intentionally NOT mapped
-//     onto Snapshot, mirroring the existing id-selected-but-unsurfaced precedent.
+//     normalized; design D2 of telemetry-dedupe-daily-snapshots).
 //   - EffectiveDate: derived here (no DB column) as CapturedAt.AddDate(0, 0, -1) —
 //     calendar-day arithmetic, not a 24h duration, so DST does not shift it
 //     (telemetry-add-effective-date design D3/D4). This is the ONLY place
 //     EffectiveDate is set; the write path (insertSnapshot) never goes through
 //     this mapper, so a write-built Snapshot leaves EffectiveDate at its zero
 //     value.
+//   - UpdatedAt: pgtype.Timestamptz.Time → time.Time, the same conversion as
+//     CapturedAt. Was previously selected in every query for struct-sharing but
+//     intentionally left unmapped onto Snapshot; now surfaced on the domain type
+//     (RM29-analytics-add-vehicle-metrics task 1.1) — no new DB column, no new
+//     write-path behavior.
 //   - SentryMode: pgtype.Bool → *bool: {Valid: false} → nil, {Valid: true, Bool: v} → &v
 //   - BatteryLevelPct, ChargeLimitSocPct: int32 → int (sqlc generates int32; domain uses int)
 //   - All other fields are value-compatible (float64, string, bool, uuid.UUID, []byte)
@@ -117,6 +120,7 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 		CapturedAt:        r.CapturedAt.Time,
 		CapturedDate:      r.CapturedDate.Time,
 		EffectiveDate:     r.CapturedAt.Time.AddDate(0, 0, -1),
+		UpdatedAt:         r.UpdatedAt.Time,
 		RawData:           r.RawData,
 		BatteryLevelPct:   int(r.BatteryLevelPct),
 		BatteryRangeKm:    r.BatteryRangeKm,

@@ -75,6 +75,15 @@ func (f *fakeChargeReader) ListEntriesByVehicleBetween(_ context.Context, _ uuid
 	return f.entries, f.err
 }
 
+// ListEntriesByVehicleUpdatedSince satisfies the charging.Reader method added by
+// RM29-analytics-add-vehicle-metrics task 1.4. Unlike the sibling above -- which
+// returns data because gateway handlers really do call it -- no handler calls
+// this one; it serves analytics' recompute watermark. Panic makes an accidental
+// call visible instead of silently returning an empty result.
+func (f *fakeChargeReader) ListEntriesByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]charging.Entry, error) {
+	panic("fakeChargeReader: ListEntriesByVehicleUpdatedSince must not be called by any gateway handler")
+}
+
 // --- test helpers ---
 
 // newGinEngine builds a minimal Gin engine with session middleware for charge handler tests.

@@ -161,6 +161,14 @@ func (f *fakeReader) SnapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _
 	return nil, nil
 }
 
+// SnapshotsByVehicleUpdatedSince satisfies the telemetry.Reader method added by
+// RM29-analytics-add-vehicle-metrics task 1.2. No gateway handler calls it --
+// it exists for analytics' recompute watermark -- so this returns the same
+// no-op as SnapshotsByVehicleBetween immediately above.
+func (f *fakeReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
+	return nil, nil
+}
+
 // newHandler builds a Handler for tests that don't involve telemetry (seeds, connect
 // flows, etc.). The TelemetryReader is left nil — it won't be reached in those paths.
 func newHandler(acct account.Service, tsvc tesla.VehicleService) *Handler {

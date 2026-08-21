@@ -114,3 +114,19 @@ WHERE account_id = @account_id
   AND tesla_id = @tesla_id
   AND charged_on BETWEEN @from_date AND @to_date
 ORDER BY charged_on DESC;
+
+-- name: ListEntriesByVehicleUpdatedSince :many
+-- Return entries for a specific vehicle within an account whose updated_at is at or
+-- after @since, ordered newest charged day first. Reuses
+-- idx_manual_charge_entries_vehicle_time (account_id, tesla_id, charged_on DESC):
+-- account_id and tesla_id are satisfied as leading equality predicates in the same
+-- range scan the other vehicle-scoped queries use; updated_at >= @since is a residual
+-- filter within that scan (no new index — this table is small and user-write-driven,
+-- unlike the append-only, high-volume tables). No LIMIT: @since itself bounds the
+-- result (RM29-analytics-add-vehicle-metrics design D3, specs/manual-charge-log/spec.md
+-- "List entries by vehicle updated since a given instant").
+SELECT * FROM manual_charge_entries
+WHERE account_id = @account_id
+  AND tesla_id = @tesla_id
+  AND updated_at >= @since
+ORDER BY charged_on DESC;

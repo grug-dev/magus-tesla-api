@@ -271,6 +271,14 @@ func (s *fakeStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ 
 	return []Snapshot{}, nil
 }
 
+// snapshotsByVehicleUpdatedSince satisfies the store seam added by
+// RM29-analytics-add-vehicle-metrics task 1.2. The collection service never calls
+// it; this stub keeps fakeStore implementing the full store interface (the read
+// seam widened), mirroring snapshotsByVehicleSince/Between's own precedent above.
+func (s *fakeStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+	return []Snapshot{}, nil
+}
+
 // upsertedSessions holds all sessions upserted via upsertSuperchargerSession.
 // It is a separate field so B7 tests can inspect what was upserted.
 //

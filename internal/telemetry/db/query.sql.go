@@ -804,6 +804,102 @@ func (q *Queries) SnapshotsByVehicleSince(ctx context.Context, arg SnapshotsByVe
 	return items, nil
 }
 
+const snapshotsByVehicleUpdatedSince = `-- name: SnapshotsByVehicleUpdatedSince :many
+SELECT
+    id, account_id, tesla_id, captured_at, raw_data,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
+    car_version,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    captured_date, updated_at,
+    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
+    estimated_range_km_calc, days_spanned_calc
+FROM vehicle_snapshots
+WHERE account_id = $1
+  AND tesla_id   = $2
+  AND updated_at >= $3
+ORDER BY updated_at ASC
+`
+
+type SnapshotsByVehicleUpdatedSinceParams struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	Since     pgtype.Timestamptz
+}
+
+// Return every snapshot for a single vehicle (within the given account) whose
+// updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
+// telemetry.Reader.SnapshotsByVehicleUpdatedSince to let internal/analytics'
+// Recalculator (RM29-analytics-add-vehicle-metrics) detect which snapshots
+// changed recently -- including a same-day REPLACE via the existing UPSERT
+// (design D1 of telemetry-dedupe-daily-snapshots), which advances updated_at
+// without necessarily changing captured_at's calendar day.
+//
+// Index reuse: the existing idx_vehicle_snapshots_vehicle_time
+// (account_id, tesla_id, captured_at) is NOT sorted on updated_at, so this
+// query cannot use it as a pure ORDER BY-satisfying range scan the way
+// SnapshotsByVehicleSince does on captured_at. It STILL prunes the scan to
+// this one vehicle's rows via the index's (account_id, tesla_id) leading-
+// column prefix before the updated_at predicate and sort are applied --
+// updated_at is a residual filter within that scan, per this change's
+// explicit design call (no new index; verified via EXPLAIN in the
+// DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
+func (q *Queries) SnapshotsByVehicleUpdatedSince(ctx context.Context, arg SnapshotsByVehicleUpdatedSinceParams) ([]VehicleSnapshot, error) {
+	rows, err := q.db.Query(ctx, snapshotsByVehicleUpdatedSince, arg.AccountID, arg.TeslaID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VehicleSnapshot
+	for rows.Next() {
+		var i VehicleSnapshot
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.TeslaID,
+			&i.CapturedAt,
+			&i.RawData,
+			&i.BatteryLevelPct,
+			&i.BatteryRangeKm,
+			&i.ChargingState,
+			&i.ChargeLimitSocPct,
+			&i.OdometerKm,
+			&i.InsideTempC,
+			&i.OutsideTempC,
+			&i.Locked,
+			&i.SentryMode,
+			&i.CarVersion,
+			&i.ChargeEnergyAddedKwh,
+			&i.ChargerPowerKw,
+			&i.ChargerVoltageV,
+			&i.ChargerActualCurrentA,
+			&i.UsableBatteryLevelPct,
+			&i.MaxRangeChargeCounter,
+			&i.TpmsPressureFlPsi,
+			&i.TpmsPressureFrPsi,
+			&i.TpmsPressureRlPsi,
+			&i.TpmsPressureRrPsi,
+			&i.CapturedDate,
+			&i.UpdatedAt,
+			&i.DistanceTraveledKmCalc,
+			&i.BatteryUsedPctCalc,
+			&i.KmPerPctCalc,
+			&i.EstimatedRangeKmCalc,
+			&i.DaysSpannedCalc,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const superchargerSessionsByAccount = `-- name: SuperchargerSessionsByAccount :many
 SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM supercharger_sessions
 WHERE account_id = $1
@@ -1000,6 +1096,82 @@ func (q *Queries) SuperchargerSessionsByVehicleBetween(ctx context.Context, arg 
 		arg.Start,
 		arg.EndBound,
 	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SuperchargerSession
+	for rows.Next() {
+		var i SuperchargerSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.SessionID,
+			&i.AccountID,
+			&i.Vin,
+			&i.TeslaID,
+			&i.SiteLocationName,
+			&i.CountryCode,
+			&i.ChargeStartDateTime,
+			&i.ChargeStopDateTime,
+			&i.UnlatchDateTime,
+			&i.BillingType,
+			&i.VehicleMakeType,
+			&i.EnergyKwh,
+			&i.TotalCost,
+			&i.Currency,
+			&i.IsPaid,
+			&i.RawData,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.BatteryPctSource,
+			&i.StartBatteryPctEst,
+			&i.EndBatteryPctEst,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const superchargerSessionsByVehicleUpdatedSince = `-- name: SuperchargerSessionsByVehicleUpdatedSince :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM supercharger_sessions
+WHERE account_id = $1
+  AND tesla_id   = $2
+  AND updated_at >= $3
+ORDER BY updated_at ASC
+`
+
+type SuperchargerSessionsByVehicleUpdatedSinceParams struct {
+	AccountID uuid.UUID
+	TeslaID   pgtype.Int8
+	Since     pgtype.Timestamptz
+}
+
+// Return every Supercharger session for one vehicle within an account whose
+// updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
+// SuperchargerReader.SuperchargerSessionsByVehicleUpdatedSince to let
+// internal/analytics' Recalculator (RM29-analytics-add-vehicle-metrics) detect
+// which sessions changed recently -- including a billing-state revision on a
+// session weeks old (design DBS3: supercharger_sessions is not append-only;
+// is_paid / invoice status mutates post-session), whose charge_start_date_time /
+// charge_stop_date_time stay unchanged while updated_at refreshes.
+//
+// Index reuse: idx_supercharger_sessions_vehicle_time
+// (account_id, tesla_id, charge_start_date_time DESC) is not sorted on
+// updated_at, so this query cannot use it as a pure ORDER BY-satisfying range
+// scan. It STILL prunes the scan to this one vehicle's rows via its
+// (account_id, tesla_id) leading-column prefix before the updated_at predicate
+// and sort are applied -- updated_at is a residual filter within that scan, per
+// this change's explicit design call (no new index; verified via EXPLAIN in the
+// DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
+func (q *Queries) SuperchargerSessionsByVehicleUpdatedSince(ctx context.Context, arg SuperchargerSessionsByVehicleUpdatedSinceParams) ([]SuperchargerSession, error) {
+	rows, err := q.db.Query(ctx, superchargerSessionsByVehicleUpdatedSince, arg.AccountID, arg.TeslaID, arg.Since)
 	if err != nil {
 		return nil, err
 	}

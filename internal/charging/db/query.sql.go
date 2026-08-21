@@ -319,6 +319,68 @@ func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntri
 	return items, nil
 }
 
+const listEntriesByVehicleUpdatedSince = `-- name: ListEntriesByVehicleUpdatedSince :many
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at FROM manual_charge_entries
+WHERE account_id = $1
+  AND tesla_id = $2
+  AND updated_at >= $3
+ORDER BY charged_on DESC
+`
+
+type ListEntriesByVehicleUpdatedSinceParams struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	Since     pgtype.Timestamptz
+}
+
+// Return entries for a specific vehicle within an account whose updated_at is at or
+// after @since, ordered newest charged day first. Reuses
+// idx_manual_charge_entries_vehicle_time (account_id, tesla_id, charged_on DESC):
+// account_id and tesla_id are satisfied as leading equality predicates in the same
+// range scan the other vehicle-scoped queries use; updated_at >= @since is a residual
+// filter within that scan (no new index — this table is small and user-write-driven,
+// unlike the append-only, high-volume tables). No LIMIT: @since itself bounds the
+// result (RM29-analytics-add-vehicle-metrics design D3, specs/manual-charge-log/spec.md
+// "List entries by vehicle updated since a given instant").
+func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg ListEntriesByVehicleUpdatedSinceParams) ([]ManualChargeEntry, error) {
+	rows, err := q.db.Query(ctx, listEntriesByVehicleUpdatedSince, arg.AccountID, arg.TeslaID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ManualChargeEntry
+	for rows.Next() {
+		var i ManualChargeEntry
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.TeslaID,
+			&i.Vin,
+			&i.ChargedOn,
+			&i.EnergyAddedKwh,
+			&i.Price,
+			&i.Currency,
+			&i.StartedAt,
+			&i.EndedAt,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.ChargingType,
+			&i.LocationKind,
+			&i.LocationLabel,
+			&i.Notes,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateEntry = `-- name: UpdateEntry :one
 UPDATE manual_charge_entries
 SET

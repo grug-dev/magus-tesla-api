@@ -57,6 +57,15 @@ func (f *fakeReadStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID
 	return nil, nil
 }
 
+// snapshotsByVehicleUpdatedSince satisfies the store seam added by
+// RM29-analytics-add-vehicle-metrics task 1.2. Base fakeReadStore returns nil, nil
+// (no-op), mirroring snapshotsByVehicleSince/Between's own precedent above — this
+// method is not exercised by the LatestSnapshotsByAccount-focused tests in this
+// file.
+func (f *fakeReadStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+	return nil, nil
+}
+
 func (f *fakeReadStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
 	panic("fakeReadStore: upsertSuperchargerSession must not be called from the reader path")
 }
@@ -281,6 +290,14 @@ func (f *fakeHistoryStore) snapshotsByVehicleSince(_ context.Context, accountID 
 // catch any accidental cross-path call.
 func (f *fakeHistoryStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]Snapshot, error) {
 	panic("fakeHistoryStore: snapshotsByVehicleBetween must not be called from the Since path")
+}
+
+// snapshotsByVehicleUpdatedSince satisfies the store seam added by
+// RM29-analytics-add-vehicle-metrics task 1.2. fakeHistoryStore exercises only the
+// Since path, so this panics to catch any accidental cross-path call, mirroring
+// snapshotsByVehicleBetween's own precedent immediately above.
+func (f *fakeHistoryStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+	panic("fakeHistoryStore: snapshotsByVehicleUpdatedSince must not be called from the Since path")
 }
 
 func (f *fakeHistoryStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
@@ -515,6 +532,14 @@ func (f *fakeBetweenStore) snapshotsByVehicleBetween(_ context.Context, accountI
 	out := make([]Snapshot, len(f.snapshots))
 	copy(out, f.snapshots)
 	return out, nil
+}
+
+// snapshotsByVehicleUpdatedSince satisfies the store seam added by
+// RM29-analytics-add-vehicle-metrics task 1.2. fakeBetweenStore exercises only the
+// Between path, so this panics to catch any accidental cross-path call, mirroring
+// snapshotsByVehicleSince's own precedent above.
+func (f *fakeBetweenStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+	panic("fakeBetweenStore: snapshotsByVehicleUpdatedSince must not be called from Between path")
 }
 
 func (f *fakeBetweenStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {

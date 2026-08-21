@@ -129,6 +129,16 @@ type Snapshot struct {
 	KmPerPctCalc           *float64 // km per 1% battery consumed; nil when no predecessor OR BatteryUsedPctCalc <= 0 (D2)
 	EstimatedRangeKmCalc   *float64 // km; == KmPerPctCalc * 100 whenever non-nil; nil under the same conditions as KmPerPctCalc (D2)
 	DaysSpannedCalc        *int     // whole calendar days between the predecessor and this row; nil when no predecessor
+
+	// UpdatedAt exposes the existing vehicle_snapshots.updated_at column on the
+	// domain type for the first time (RM29-analytics-add-vehicle-metrics, task
+	// 1.1). It carries no new DB column and no new write-path behavior: the
+	// column already reflects DEFAULT now() on a fresh insert and an explicit
+	// now() on a same-day conflict-update (design D5 of
+	// telemetry-dedupe-daily-snapshots) — this field simply maps that
+	// already-persisted value onto Snapshot so other modules can detect which
+	// snapshots changed recently without reading telemetrydb directly.
+	UpdatedAt time.Time
 }
 
 // Outcome is the result of a single collection attempt on one vehicle.
@@ -280,6 +290,27 @@ type Reader interface {
 	// different access patterns (open lower bound vs bounded window) and deprecation/
 	// removal of `Since`, if ever, is a separate change.
 	SnapshotsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]Snapshot, error)
+
+	// SnapshotsByVehicleUpdatedSince returns every stored snapshot for the given
+	// vehicle (within the given account) whose UpdatedAt is at or after `since`,
+	// without ordering guarantees stronger than the underlying query provides
+	// (ordered ascending by updated_at, mirroring SnapshotsByVehicleSince's
+	// oldest-first convention). It exists so other modules (internal/analytics'
+	// Recalculator, RM29-analytics-add-vehicle-metrics) can detect which
+	// snapshots changed recently — including a same-day REPLACE via the
+	// existing UPSERT (design D1 of telemetry-dedupe-daily-snapshots) — without
+	// importing telemetrydb directly. Returns a non-nil empty slice and nil
+	// error when no snapshot for the vehicle has been updated at or after
+	// `since` (parity with every other Reader method's empty-result contract —
+	// no nil-slice footgun for callers). The account_id AND tesla_id filter
+	// provides defense-in-depth tenant isolation, mirroring every other
+	// per-vehicle method on this interface. Reuses the existing
+	// idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at)
+	// index's leading (account_id, tesla_id) columns as a scan prefix;
+	// updated_at is a residual filter within that scan — no new index (verified
+	// via EXPLAIN in the DB-integration test, Wave 6 of that change). Reuses
+	// the single rowToSnapshot mapper — no per-method duplication.
+	SnapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
 }
 
 // --- charge_gaps ledger (RM28-telemetry-add-charge-gap-storage, MAG-15) ---
@@ -558,6 +589,26 @@ type SuperchargerReader interface {
 	// Reader.SnapshotsByVehicleBetween's own reasoning for why a bounded
 	// window makes an unbounded-N limit the caller's job, not this query's.
 	SuperchargerSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerSession, error)
+
+	// SuperchargerSessionsByVehicleUpdatedSince returns every stored Supercharger
+	// session for the given vehicle (within the given account) whose updated_at
+	// is at or after `since`, ordered oldest-first by updated_at. It exists so
+	// other modules (internal/analytics' Recalculator,
+	// RM29-analytics-add-vehicle-metrics) can detect which sessions changed
+	// recently — including a billing-state revision on a session weeks old,
+	// whose ChargeStartDateTime/ChargeStopDateTime stay unchanged while
+	// updated_at refreshes (design DBS3: supercharger_sessions is not
+	// append-only) — without importing telemetrydb directly. Returns a non-nil
+	// empty slice and nil error when no session for the vehicle has been
+	// updated at or after `since` (parity with every other SuperchargerReader
+	// method's empty-result contract). The account_id AND tesla_id filter
+	// provides defense-in-depth tenant isolation, mirroring every other
+	// per-vehicle method on this interface. No new index — updated_at is a
+	// residual filter within the existing (account_id, tesla_id) scan prefix
+	// (verified via EXPLAIN in the DB-integration test, Wave 6 of that
+	// change). Reuses the existing rowToSuperchargerSession mapper — no new
+	// field, no new mapper.
+	SuperchargerSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]SuperchargerSession, error)
 }
 
 // NewSuperchargerReader constructs a SuperchargerReader backed by the telemetry DB pool.

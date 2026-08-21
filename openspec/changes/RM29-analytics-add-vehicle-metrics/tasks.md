@@ -24,7 +24,7 @@ See design.md D1–D13 for the rationale behind each group.
 
 ## Wave 1 — sibling-module port additions (module: telemetry worker, module: charging worker)
 
-- [ ] **1.1** `internal/telemetry/telemetry.go` — add `UpdatedAt time.Time` to the
+- [x] **1.1** `internal/telemetry/telemetry.go` — add `UpdatedAt time.Time` to the
   `Snapshot` struct (doc comment: exposes the existing `vehicle_snapshots.updated_at`
   column, no new DB column). `internal/telemetry/mapping.go`'s `rowToSnapshot` (or
   equivalent) maps `r.UpdatedAt` onto it. No existing field, method, or port
@@ -32,7 +32,7 @@ See design.md D1–D13 for the rationale behind each group.
   Timestamp Is Exposed On The Domain Type").
   `depends_on`: — · `parallel_ok`: yes
 
-- [ ] **1.2** `internal/telemetry/telemetry.go` — add
+- [x] **1.2** `internal/telemetry/telemetry.go` — add
   `SnapshotsByVehicleUpdatedSince(ctx, accountID, teslaID, since time.Time)
   ([]Snapshot, error)` to `Reader`. `internal/telemetry/db/query.sql` — new query
   `WHERE account_id = $1 AND tesla_id = $2 AND updated_at >= $3`, scoped by
@@ -46,7 +46,7 @@ See design.md D1–D13 for the rationale behind each group.
   specs/telemetry/spec.md "Snapshot Updated-Since Read Port").
   `depends_on`: 1.1 · `parallel_ok`: with 1.3
 
-- [ ] **1.3** `internal/telemetry/telemetry.go` — add
+- [x] **1.3** `internal/telemetry/telemetry.go` — add
   `SuperchargerSessionsByVehicleUpdatedSince(ctx, accountID, teslaID, since
   time.Time) ([]SuperchargerSession, error)` to `SuperchargerReader`.
   `internal/telemetry/db/query.sql` — new query,
@@ -55,7 +55,7 @@ See design.md D1–D13 for the rationale behind each group.
   (specs/telemetry/spec.md "Supercharger Session Updated-Since Read Port").
   `depends_on`: — · `parallel_ok`: with 1.1, 1.2
 
-- [ ] **1.4** `internal/charging/charging.go` — add
+- [x] **1.4** `internal/charging/charging.go` — add
   `ListEntriesByVehicleUpdatedSince(ctx, accountID, teslaID, since time.Time)
   ([]Entry, error)` to `Reader`. `internal/charging/db/query.sql` — new query,
   `WHERE account_id = $1 AND tesla_id = $2 AND updated_at >= $3`.

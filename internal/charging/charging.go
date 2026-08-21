@@ -119,6 +119,19 @@ type Reader interface {
 	// rows match (design D4). No limit parameter (design D1, roadmap D9) — the
 	// [from, to] window itself bounds the result.
 	ListEntriesByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Entry, error)
+
+	// ListEntriesByVehicleUpdatedSince returns entries for a specific vehicle within
+	// an account whose updated_at is at or after since, inclusive. Ordered
+	// charged_on DESC, matching ListEntriesByVehicle and ListEntriesByVehicleBetween.
+	// Always returns a non-nil empty slice when no rows match. No limit parameter —
+	// the since bound itself limits the result. This port exists for the analytics
+	// module's incremental recompute watermark: manual_charge_entries is the one
+	// source a user can edit at an arbitrary hour (rather than only at the nightly
+	// poll), which is why it gets its own updated-since cursor read
+	// (RM29-analytics-add-vehicle-metrics design D3,
+	// specs/manual-charge-log/spec.md "List entries by vehicle updated since a given
+	// instant").
+	ListEntriesByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Entry, error)
 }
 
 // NewWriter constructs a Writer backed by the given pgxpool. The implementation
