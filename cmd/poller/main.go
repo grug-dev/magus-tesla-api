@@ -85,6 +85,7 @@ func main() {
 	// signature but unused by ConsumedByDay — only RecentEfficiency reads it, and
 	// this command never calls that.
 	analyticsReader := analytics.NewReader(
+		pool,
 		telemetry.NewReader(pool),
 		telemetry.NewSuperchargerReader(pool),
 		charging.NewReader(pool),

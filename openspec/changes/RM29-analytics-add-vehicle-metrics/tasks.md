@@ -123,7 +123,7 @@ See design.md D1–D13 for the rationale behind each group.
 
 ## Wave 3 — analytics domain code (module: analytics worker)
 
-- [ ] **3.1** `internal/analytics/consumed.go` — rename `deriveConsumedByDay` to
+- [x] **3.1** `internal/analytics/consumed.go` — rename `deriveConsumedByDay` to
   `deriveVehicleMetrics`, returning `[]vehicleMetricRow` (new unexported struct,
   every `vehicle_metrics` column except `id`/`created_at`/`updated_at`) instead of
   `[]DayConsumption`. **Loop shape change, required by the dense-table revision
@@ -147,7 +147,7 @@ See design.md D1–D13 for the rationale behind each group.
   `depends_on`: — · `parallel_ok`: no (consumed.go is touched by nothing else in
   this wave)
 
-- [ ] **3.2** `internal/analytics/recalculate.go` (new file) — `Recalculator`
+- [x] **3.2** `internal/analytics/recalculate.go` (new file) — `Recalculator`
   interface (`Recalculate(ctx, accountID, teslaID, start, end time.Time) error`,
   `Reconcile(ctx, accountID, teslaID) error`), the unexported `recalculator` struct
   and `NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader,
@@ -167,7 +167,7 @@ See design.md D1–D13 for the rationale behind each group.
   — unexported, D3).
   `depends_on`: 2.4, 3.1 · `parallel_ok`: no
 
-- [ ] **3.3** `internal/analytics/reader.go` — `NewReader`'s signature gains a
+- [x] **3.3** `internal/analytics/reader.go` — `NewReader`'s signature gains a
   leading `pool *pgxpool.Pool` parameter (RecentEfficiency's existing dependencies
   and window param are otherwise unchanged). `ConsumedByDay`'s implementation
   becomes the `VehicleMetricsConsumedByVehicleBetween` SELECT (2.3 — the
@@ -187,7 +187,7 @@ See design.md D1–D13 for the rationale behind each group.
   task introduces; do not consider it done without that assertion passing.
   `depends_on`: 2.4, 3.2 · `parallel_ok`: no
 
-- [ ] **3.4** `internal/analytics/analytics.go` — add the `DayDistance` domain type
+- [x] **3.4** `internal/analytics/analytics.go` — add the `DayDistance` domain type
   (`Date time.Time`, `KmDriven float64`, `OdometerKm float64`) with a doc comment
   matching `DayConsumption`'s existing style; add `OdometerDeltaByDay` to the
   `Reader` interface's doc comment block; add the `Recalculator` interface's doc

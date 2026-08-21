@@ -63,13 +63,20 @@ type Reader interface {
 	// accepted (D-B7). Do NOT re-bucket this method's Date through
 	// effectiveDayUTC -- it is already a final bucket key.
 	//
-	// Recomputed on every call -- no cache, no
-	// stored state (D2). The result is SPARSE: it contains one entry per
-	// calendar day that has a computable value, and NO entry for a day that
-	// does not (no snapshot exists for that day, or the day is the vehicle's
-	// very first-ever snapshot -- D5a). Absence from the returned slice IS
-	// the "no data" signal (design.md D-B2) -- callers bucket by Date exactly
-	// like internal/gateway/handlers/history.go's existing
+	// PRECOMPUTED, not recomputed on read (RM29-analytics-add-vehicle-metrics
+	// design.md D-precompute, superseding this port's original "no cache"
+	// contract): this method SELECTs the already-derived value from
+	// vehicle_metrics, written by Recalculator.Recalculate/Reconcile at write
+	// time. A read reflects the LAST recalculation, not the state at read
+	// time -- the manual-charge write path (design.md D5) and the nightly
+	// Reconcile call are what keep it current, not this method. The result is
+	// SPARSE: it contains one entry per calendar day that has a computable
+	// value, and NO entry for a day that does not (no vehicle_metrics row
+	// exists for that day, OR a row exists but has no computable predecessor
+	// -- design.md D13's IS NOT NULL filter excludes it just the same as no
+	// row at all). Absence from the returned slice IS the "no data" signal
+	// (design.md D-B2) -- callers bucket by Date exactly like
+	// internal/gateway/handlers/history.go's existing
 	// buildOdometerChart/buildBatteryChart already do for the odometer and
 	// battery-level charts.
 	//
@@ -78,6 +85,60 @@ type Reader interface {
 	// stance) -- keeping a window reasonable is the caller's job (the HTTP
 	// handler in tier 4, the fixed GapReconciliationWindow in cmd/poller).
 	ConsumedByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayConsumption, error)
+
+	// OdometerDeltaByDay returns, for the given vehicle and date range, the
+	// per-calendar-day distance travelled together with that day's absolute
+	// odometer reading (design.md D13, roadmap D5 -- the odometer chart's
+	// delta/clamp logic relocated out of internal/gateway/handlers/history.go's
+	// buildOdometerChart into this module). SELECTs from vehicle_metrics; a
+	// day whose stored distance figure is negative (a clock-skew/odometer-read
+	// anomaly) is reported as zero distance, never negative -- the ONLY place
+	// this clamp is ever applied; the stored column itself stays raw and
+	// unclamped. Same PRECOMPUTED and SPARSE contract as ConsumedByDay above
+	// (one entry per day with a computable distance figure; a
+	// vehicle_metrics row with no computable predecessor is excluded exactly
+	// like ConsumedByDay excludes it, design.md D13). This port performs no
+	// window-size validation or capping of its own, mirroring ConsumedByDay.
+	OdometerDeltaByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayDistance, error)
+}
+
+// Recalculator is the analytics module's write-path port
+// (ai/go-conventions.md interface-first) -- the Collector-equivalent for
+// this module's precomputed read model, vehicle_metrics
+// (RM29-analytics-add-vehicle-metrics design.md D11). Implementations live in
+// recalculate.go, mirroring Reader's own analytics.go-declares/reader.go-
+// implements split. Called by the manual-charge write path (design.md D5,
+// interim composition root internal/gateway/handlers/charges.go) and the
+// nightly poller's per-vehicle reconciliation loop (design.md D7/D8,
+// interim composition root cmd/poller) -- both interim arrangements per
+// roadmap D-non-goals; a later tier relocates the CALL, not this logic.
+type Recalculator interface {
+	// Recalculate derives and persists one vehicle_metrics row for every
+	// telemetry snapshot in [start, end] whose effective day falls in that
+	// range (design.md D9/D10/D11 -- dense: a row is written even for a day
+	// with no computable predecessor, carrying only that day's raw
+	// observations). Fetches the same 1-day/2-day-widened lookback window
+	// ConsumedByDay's reader.go used to fetch live before this tier, UPSERTs
+	// every derived row, then deletes any existing vehicle_metrics row in
+	// [start, end] whose metric_date is not among the rows just produced
+	// (self-healing symmetry with telemetry.GapWriter.ReconcileWindow's
+	// UPSERT+DELETE shape). Idempotent: re-running over an unchanged window
+	// produces a byte-identical UPSERT (design.md D4).
+	Recalculate(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) error
+
+	// Reconcile reads each of the three independent per-source watermarks
+	// (design.md D2/D3; a missing watermark is treated as the epoch, D7, so a
+	// vehicle's first-ever Reconcile backfills that source's entire history),
+	// queries each source for data updated at or after (cursor -
+	// recalcOverlap) (D4's 24h commit-skew guard), derives the union affected
+	// date range across every source that returned at least one row (coarse,
+	// widened +/-1 day, clamped to yesterday -- D8), calls Recalculate once
+	// for that window (skipped entirely when no source returned rows), then
+	// advances each source's watermark whose query returned rows to the max
+	// UpdatedAt/updated_at observed -- a source with zero returned rows
+	// leaves its watermark untouched (Reconcile's own idempotence contract,
+	// design.md's Test Contract).
+	Reconcile(ctx context.Context, accountID uuid.UUID, teslaID int64) error
 }
 
 // DayConsumption is one calendar day's corrected battery-consumed result --
@@ -118,6 +179,27 @@ type DayConsumption struct {
 	// for a normal night-to-night poll, >1 signals a multi-day span (D8) a
 	// caller may want to mark distinctly.
 	DaysSpanned int
+}
+
+// DayDistance is one calendar day's already-anomaly-clamped odometer
+// distance result — our own domain model, no vendor suffix
+// (ai/architecture.md §6). Backs OdometerDeltaByDay (design.md D13, roadmap
+// D5).
+type DayDistance struct {
+	// Date is the calendar day this entry describes — vehicle_metrics'
+	// metric_date for this row, same representation as DayConsumption.Date
+	// (UTC-midnight bare calendar date).
+	Date time.Time
+	// KmDriven is the day's stored distance_traveled_km_calc, floored at
+	// zero (roadmap D5's clamp, design.md D13) — a negative stored value (a
+	// clock-skew/odometer-read anomaly) is reported as 0, never negative.
+	// The stored column itself stays raw and unclamped; this is the ONLY
+	// place the clamp is applied.
+	KmDriven float64
+	// OdometerKm is the day's absolute odometer reading (vehicle_metrics.
+	// odometer_km), unclamped — there is nothing to clamp about an absolute
+	// reading.
+	OdometerKm float64
 }
 
 // Efficiency is one computed rolling-efficiency result — our own domain model,

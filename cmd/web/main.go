@@ -64,6 +64,7 @@ func main() {
 		// unused by ConsumedByDay — only RecentEfficiency reads it, and the
 		// gateway never calls that (mirrors cmd/poller's own construction).
 		AnalyticsReader: analytics.NewReader(
+			pool,
 			telemetry.NewReader(pool),
 			telemetry.NewSuperchargerReader(pool),
 			charging.NewReader(pool),

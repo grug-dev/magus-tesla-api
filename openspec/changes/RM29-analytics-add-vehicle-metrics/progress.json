@@ -15,21 +15,21 @@
       "2.1",
       "2.2",
       "2.3",
-      "2.4"
-    ],
-    "pending": [
+      "2.4",
       "3.1",
       "3.2",
       "3.3",
       "3.4",
+      "5.4",
+      "5.5"
+    ],
+    "pending": [
       "4.1",
       "4.2",
       "4.3",
       "5.1",
       "5.2",
       "5.3",
-      "5.4",
-      "5.5",
       "6.1",
       "6.2",
       "6.3",
@@ -47,7 +47,7 @@
     "done": []
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T10:40:00Z",
+  "updated_at": "2026-08-21T12:45:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -277,14 +277,23 @@
       "depends_on": [],
       "wave": 3,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "consumed.go: deriveConsumedByDay -> deriveVehicleMetrics, dense loop from i=0, added vehicleMetricRow. Predecessor-less rows emit raw-only fields with flagged forced false before D5/D5a runs.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
     },
     {
       "id": "3.2",
@@ -294,14 +303,23 @@
       "depends_on": [],
       "wave": 3,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "New recalculate.go: Recalculate (UPSERT+DELETE in one transaction) and Reconcile (epoch default, 24h overlap, per-source watermark advanced only when that source returned rows).",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
     },
     {
       "id": "3.3",
@@ -311,14 +329,23 @@
       "depends_on": [],
       "wave": 3,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "reader.go: NewReader gains leading *pgxpool.Pool; vehicleMetricsStore seam for Wave 4 fakes; ConsumedByDay is now SELECT+map; OdometerDeltaByDay added with the clamp applied only here.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
     },
     {
       "id": "3.4",
@@ -328,14 +355,23 @@
       "depends_on": [],
       "wave": 3,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "analytics.go: added DayDistance, OdometerDeltaByDay on Reader, Recalculator interface. Also corrected ConsumedByDay's doc comment, which still claimed no-cache/recomputed-per-call.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
     },
     {
       "id": "4.1",
@@ -447,14 +483,23 @@
       "depends_on": [],
       "wave": 5,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "cmd/web/main.go: pool inserted as NewReader's leading arg. Pulled forward from Wave 5 to unbreak the repo build.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
     },
     {
       "id": "5.5",
@@ -464,14 +509,23 @@
       "depends_on": [],
       "wave": 5,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "cmd/poller/main.go: same one-line call-site fix. Build green again; vet's two remaining failures are Wave 4 test content.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
     },
     {
       "id": "6.1",
@@ -783,6 +837,24 @@
       "decision": "Appended task 2.5 to wire Makefile MIGRATIONS_DIRS and .air.toml, rather than editing task 2.4",
       "why": "No original task covered it. sqlc reads sqlc.yaml directly, so codegen and build stay green while migrate-up never applies the analytics migrations. Tasks are append-only.",
       "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-21T12:45:00Z",
+      "scope": "task:5.4",
+      "made_by": "autopilot",
+      "decision": "Pulled tasks 5.4/5.5 forward from Wave 5 into the Wave 3 boundary",
+      "why": "NewReader's signature change broke the repo build at both cmd/ call sites. Leaving it broken across Waves 4-6 would suppress go vet - the one cheap signal covering unexecuted tests.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-21T12:45:00Z",
+      "scope": "task:3.2",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's UTC 'yesterday' clamp in Reconcile rather than adding a *time.Location parameter",
+      "why": "The poller runs at local midnight, where UTC and Bogota yesterday agree; only evening manual reruns diverge, and D4's 24h overlap self-heals that. Widening the port would reopen the gated interface.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -805,6 +877,11 @@
       "at": "2026-08-21T10:40:00Z",
       "agent": "leader",
       "event": "Wave 2 landed: analytics' first persistence layer (2 migrations + query.sql + sqlc gen). Verified the gated schema was reproduced, not redesigned, and that zero CREATE INDEX statements exist (both grep hits are the reasoning comments). Worker self-reported 'done'; leader corrected to awaiting-user-verification per the contract - done requires the owner's suite pass."
+    },
+    {
+      "at": "2026-08-21T12:45:00Z",
+      "agent": "leader",
+      "event": "Wave 3 landed: analytics domain core. Worker flagged two open items rather than hiding them - the D8 timezone tension (resolved as D13) and Reconcile having no injectable clock, which Wave 6 must address if it wants to assert the yesterday-clamp deterministically. Leader pulled 5.4/5.5 forward; go build ./... clean, go vet red only on the two Wave 4 test files."
     }
   ]
 }
