@@ -349,7 +349,7 @@ See design.md D1–D13 for the rationale behind each group.
   exercises the actual SQL `WHERE ... IS NOT NULL` clause end-to-end).
   `depends_on`: 6.1 · `parallel_ok`: with 6.2
 
-- [ ] **6.4** **[appended during Wave 4 — coverage rescue, not in the original artifacts]**
+- [x] **6.4** **[appended during Wave 4 — coverage rescue, not in the original artifacts]**
   `internal/analytics/db_integration_test.go` — assert `Recalculate`'s FETCH behaviour:
   (a) the exact `[start, end]` lookback window it passes to each of the three source
   ports, (b) that `accountID`/`teslaID` scoping reaches every port, and (c) that an

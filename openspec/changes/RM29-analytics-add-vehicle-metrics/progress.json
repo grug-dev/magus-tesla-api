@@ -7,11 +7,10 @@
   "request": "RM29 tier 3 - analytics.vehicle_metrics precomputed read model + D7 watermark + Recalculate; gateway's snapshot-derived math moves out (roadmap D5). Owner: autopilot ON, asleep.",
   "status": "in-progress",
   "rollup": {
-    "current": [],
+    "current": [
+      "6.4"
+    ],
     "pending": [
-      "6.1",
-      "6.2",
-      "6.3",
       "7.1",
       "7.2",
       "7.3",
@@ -20,10 +19,13 @@
       "8.1",
       "8.2",
       "8.3",
-      "8.4",
-      "6.4"
+      "8.4"
     ],
-    "blocked": [],
+    "blocked": [
+      "6.1",
+      "6.2",
+      "6.3"
+    ],
     "done": [
       "1.1",
       "1.2",
@@ -48,7 +50,7 @@
     ]
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T15:25:00Z",
+  "updated_at": "2026-08-21T16:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -590,14 +592,23 @@
       "depends_on": [],
       "wave": 6,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "blocked",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T16:26:00Z",
+      "completed_at": "2026-08-21T16:32:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "BLOCKED. telemetry exposes no public writer for a single vehicle_snapshots row (only Collector.CollectAll, needing a tesla.VehicleService fake this module may not import) and none at all for supercharger_sessions.",
+      "budget": {
+        "five_hour_pct_start": 28.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 4.98,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-6 delta across the single serial analytics worker (6.1-6.4)"
+      }
     },
     {
       "id": "6.2",
@@ -607,14 +618,23 @@
       "depends_on": [],
       "wave": 6,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "blocked",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T16:26:00Z",
+      "completed_at": "2026-08-21T16:32:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "BLOCKED on 6.1's seeding - Reconcile tests need real snapshots/sessions/entries plus watermark rows. Not independently resolvable.",
+      "budget": {
+        "five_hour_pct_start": 28.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 4.98,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-6 delta across the single serial analytics worker (6.1-6.4)"
+      }
     },
     {
       "id": "6.3",
@@ -624,14 +644,23 @@
       "depends_on": [],
       "wave": 6,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "blocked",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T16:26:00Z",
+      "completed_at": "2026-08-21T16:32:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "BLOCKED on 6.1's persisted rows - round-trip and Fixture-C-exclusion tests read back what Recalculate wrote.",
+      "budget": {
+        "five_hour_pct_start": 28.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 4.98,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-6 delta across the single serial analytics worker (6.1-6.4)"
+      }
     },
     {
       "id": "7.1",
@@ -796,14 +825,23 @@
       ],
       "wave": 6,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T16:26:00Z",
+      "completed_at": "2026-08-21T16:32:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Done via port fakes plus real vehicle_metrics writes: exact lookback window per source, accountID/teslaID scoping, error propagation for all three sources. go vet and gofmt clean.",
+      "budget": {
+        "five_hour_pct_start": 28.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 4.98,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-6 delta across the single serial analytics worker (6.1-6.4)"
+      }
     }
   ],
   "review": {
@@ -965,6 +1003,15 @@
       "decision": "Fixed the three failing tests rather than the implementation",
       "why": "design.md's Test Contract is authoritative and its expected values were already correct; the fixtures mis-transcribed the INPUTS. Changing the code to match a wrong fixture would have broken real behaviour.",
       "covered_by": "Test Contract, design.md"
+    },
+    {
+      "id": "D18",
+      "at": "2026-08-21T16:35:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Escalated Wave 6's cross-module fixture gap to the owner instead of picking a fix on autopilot",
+      "why": "Every fix adds shared test infrastructure or new public surface in modules this change does not own, and binds tiers 5-7 too. Outside the roadmap Decisions.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -1017,6 +1064,16 @@
       "at": "2026-08-21T15:25:00Z",
       "agent": "leader",
       "event": "OWNER-REPORTED: make test GREEN after the three test-side fixes. 20 tasks move awaiting-user-verification -> done. The verification is the OWNER'S, not assistant-run - the assistant never executed the suite. Change stays in-progress: Waves 6 (DB integration tests incl. the 6.4 coverage rescue), 7 (docs) and 8 (verification) remain, then the reviewer gate. Clean checkpoint for /clear + resume."
+    },
+    {
+      "at": "2026-08-21T16:26:00Z",
+      "agent": "leader",
+      "event": "Resumed in a fresh session. Dispatched ONE serial analytics worker (Sonnet) for Wave 6 tasks 6.1-6.4 - all four write the same new file internal/analytics/db_integration_test.go and 6.2/6.3/6.4 all depend on 6.1, so parallelism is impossible here. Budget start: 5h 28.0%, cost $0.7948, context 9%."
+    },
+    {
+      "at": "2026-08-21T16:35:00Z",
+      "agent": "leader",
+      "event": "Wave 6 PARTIAL. 6.4 delivered (fetch-window/scoping/error-propagation rescue, D14). 6.1-6.3 BLOCKED on a real gap the leader independently verified: (a) telemetry has no public snapshot or supercharger writer - grep of its exported constructors confirms only NewReader/NewGapWriter/NewSuperchargerReader/NewService; (b) //go:embed cannot cross package dirs, so an auto-provisioned analytics container holds only vehicle_metrics + vehicle_metric_watermarks. Cross-module DB fixtures are impossible from an analytics-sandboxed worker. Escalated to the owner - autopilot PAUSED (new decision not covered by the roadmap Decisions)."
     }
   ]
 }
