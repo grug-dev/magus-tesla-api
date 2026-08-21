@@ -52,7 +52,7 @@
     ]
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T18:52:00Z",
+  "updated_at": "2026-08-21T21:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -68,7 +68,7 @@
   "tasks": [
     {
       "id": "1.1",
-      "title": "`internal/telemetry/telemetry.go` — add `UpdatedAt time.Time` to the",
+      "title": "`internal/telemetry/telemetry.go` \u2014 add `UpdatedAt time.Time` to the",
       "module": "telemetry",
       "owner": "module",
       "depends_on": [],
@@ -94,7 +94,7 @@
     },
     {
       "id": "1.2",
-      "title": "`internal/telemetry/telemetry.go` — add",
+      "title": "`internal/telemetry/telemetry.go` \u2014 add",
       "module": "telemetry",
       "owner": "module",
       "depends_on": [],
@@ -120,7 +120,7 @@
     },
     {
       "id": "1.3",
-      "title": "`internal/telemetry/telemetry.go` — add",
+      "title": "`internal/telemetry/telemetry.go` \u2014 add",
       "module": "telemetry",
       "owner": "module",
       "depends_on": [],
@@ -146,7 +146,7 @@
     },
     {
       "id": "1.4",
-      "title": "`internal/charging/charging.go` — add",
+      "title": "`internal/charging/charging.go` \u2014 add",
       "module": "charging",
       "owner": "module",
       "depends_on": [],
@@ -224,7 +224,7 @@
     },
     {
       "id": "2.3",
-      "title": "`internal/analytics/db/query.sql` — sqlc queries: `UpsertVehicleMetric`",
+      "title": "`internal/analytics/db/query.sql` \u2014 sqlc queries: `UpsertVehicleMetric`",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -250,7 +250,7 @@
     },
     {
       "id": "2.4",
-      "title": "`sqlc.yaml` — add the `analytics` entry (package `analyticsdb`, `out:",
+      "title": "`sqlc.yaml` \u2014 add the `analytics` entry (package `analyticsdb`, `out:",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -276,7 +276,7 @@
     },
     {
       "id": "3.1",
-      "title": "`internal/analytics/consumed.go` — rename `deriveConsumedByDay` to",
+      "title": "`internal/analytics/consumed.go` \u2014 rename `deriveConsumedByDay` to",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -302,7 +302,7 @@
     },
     {
       "id": "3.2",
-      "title": "`internal/analytics/recalculate.go` (new file) — `Recalculator`",
+      "title": "`internal/analytics/recalculate.go` (new file) \u2014 `Recalculator`",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -328,7 +328,7 @@
     },
     {
       "id": "3.3",
-      "title": "`internal/analytics/reader.go` — `NewReader`'s signature gains a",
+      "title": "`internal/analytics/reader.go` \u2014 `NewReader`'s signature gains a",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -354,7 +354,7 @@
     },
     {
       "id": "3.4",
-      "title": "`internal/analytics/analytics.go` — add the `DayDistance` domain type",
+      "title": "`internal/analytics/analytics.go` \u2014 add the `DayDistance` domain type",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -380,7 +380,7 @@
     },
     {
       "id": "4.1",
-      "title": "`internal/analytics/consumed_test.go` — update for the",
+      "title": "`internal/analytics/consumed_test.go` \u2014 update for the",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -406,7 +406,7 @@
     },
     {
       "id": "4.2",
-      "title": "`internal/analytics/reader_test.go` — add",
+      "title": "`internal/analytics/reader_test.go` \u2014 add",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -432,7 +432,7 @@
     },
     {
       "id": "4.3",
-      "title": "`internal/gateway/handlers/history_test.go` — **[leader]**, outside the",
+      "title": "`internal/gateway/handlers/history_test.go` \u2014 **[leader]**, outside the",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -458,7 +458,7 @@
     },
     {
       "id": "5.1",
-      "title": "`internal/gateway/handlers/history.go` — `buildOdometerChart` becomes",
+      "title": "`internal/gateway/handlers/history.go` \u2014 `buildOdometerChart` becomes",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -510,7 +510,7 @@
     },
     {
       "id": "5.3",
-      "title": "`internal/gateway/handlers/charges.go` — `ChargeCreate`: after",
+      "title": "`internal/gateway/handlers/charges.go` \u2014 `ChargeCreate`: after",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -536,7 +536,7 @@
     },
     {
       "id": "5.4",
-      "title": "`cmd/web/main.go` — `analytics.NewReader`'s call site gains the leading",
+      "title": "`cmd/web/main.go` \u2014 `analytics.NewReader`'s call site gains the leading",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -562,7 +562,7 @@
     },
     {
       "id": "5.5",
-      "title": "`cmd/poller/main.go` — `analytics.NewReader`'s call site gains the",
+      "title": "`cmd/poller/main.go` \u2014 `analytics.NewReader`'s call site gains the",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -616,7 +616,7 @@
     },
     {
       "id": "6.2",
-      "title": "`internal/analytics/db_integration_test.go` — `TestReconcile_",
+      "title": "`internal/analytics/db_integration_test.go` \u2014 `TestReconcile_",
       "module": "analytics",
       "owner": "module",
       "depends_on": [
@@ -672,7 +672,7 @@
     },
     {
       "id": "7.1",
-      "title": "`internal/analytics/AGENTS.md` — \"Data ownership\" section rewritten:",
+      "title": "`internal/analytics/AGENTS.md` \u2014 \"Data ownership\" section rewritten:",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -689,7 +689,7 @@
     },
     {
       "id": "7.2",
-      "title": "Root `README.md` — Project Structure tree: add `internal/analytics/db/`",
+      "title": "Root `README.md` \u2014 Project Structure tree: add `internal/analytics/db/`",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -706,7 +706,7 @@
     },
     {
       "id": "7.3",
-      "title": "`internal/gateway/AGENTS.md` — if its `Deps.AnalyticsReader",
+      "title": "`internal/gateway/AGENTS.md` \u2014 if its `Deps.AnalyticsReader",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -723,7 +723,7 @@
     },
     {
       "id": "7.4",
-      "title": "Root `README.md` / `internal/analytics`'s own workflow docs — document",
+      "title": "Root `README.md` / `internal/analytics`'s own workflow docs \u2014 document",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -740,7 +740,7 @@
     },
     {
       "id": "7.5",
-      "title": "`openspec/roadmaps/RM29-modular-monolith-boundaries.md` — flip tier 3's",
+      "title": "`openspec/roadmaps/RM29-modular-monolith-boundaries.md` \u2014 flip tier 3's",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -853,7 +853,7 @@
     },
     {
       "id": "6.5",
-      "title": "`internal/testdb/testdb.go` — [leader] multi-directory migration provisioning",
+      "title": "`internal/testdb/testdb.go` \u2014 [leader] multi-directory migration provisioning",
       "module": "testdb",
       "owner": "leader",
       "depends_on": [],
@@ -870,7 +870,7 @@
     },
     {
       "id": "6.6",
-      "title": "`internal/analytics/testdb_test.go` — re-point TestMain at the multi-dir entry point",
+      "title": "`internal/analytics/testdb_test.go` \u2014 re-point TestMain at the multi-dir entry point",
       "module": "analytics",
       "owner": "module",
       "depends_on": [
@@ -908,7 +908,7 @@
     },
     {
       "id": "5.6",
-      "title": "cmd/web/main.go — populate Deps.AnalyticsRecalculator (Wave 5 wiring gap)",
+      "title": "cmd/web/main.go \u2014 populate Deps.AnalyticsRecalculator (Wave 5 wiring gap)",
       "module": "gateway",
       "owner": "leader",
       "depends_on": [
@@ -1296,6 +1296,11 @@
       "at": "2026-08-21T18:52:00Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT at the review boundary: five_hour_pct 99 (threshold 90), context_pct 13, bucket resets at 2026-08-21T19:00:00Z. Stopping cleanly - every status is truthful. Two gates stand between here and archive, and both are the owner's: their suite re-run against the F1 fix (their earlier green predates it), and nothing else. Resume with /kkpa-dev-harness-pipeline resume RM29-analytics-add-vehicle-metrics -> Step 8 once they report."
+    },
+    {
+      "at": "2026-08-21T21:05:00Z",
+      "agent": "leader",
+      "event": "RESUMED after the budget checkpoint: 5-hour bucket reset (99% -> 2%), context 8%, tree clean on ft/RM29-MAG-26-modular-monolith-boundaries. Re-ran every assistant-permitted signal against the F1 fix - go build, go vet, ui-guard, i18n-guard, money-guard all green; gofmt lists 8 files but all 8 are already unformatted on main, so this change introduced none. Reviewer gate is PASSED (round 2 approved). Archive waits on the single remaining gate, which is the owner's: their suite re-run, since their earlier green predates 10c08cf."
     }
   ]
 }
