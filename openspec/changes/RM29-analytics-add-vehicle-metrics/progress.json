@@ -5,7 +5,7 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 3 - analytics.vehicle_metrics precomputed read model + D7 watermark + Recalculate; gateway's snapshot-derived math moves out (roadmap D5). Owner: autopilot ON, asleep.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [
       "5.6",
@@ -19,12 +19,11 @@
       "7.2",
       "7.3",
       "7.4",
-      "7.6"
-    ],
-    "pending": [
+      "7.6",
       "8.2",
       "8.4"
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
@@ -53,7 +52,7 @@
     ]
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T17:52:00Z",
+  "updated_at": "2026-08-21T17:55:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -781,13 +780,13 @@
       "depends_on": [],
       "wave": 8,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:55:00Z",
       "completed_at": null,
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Runner written and compiling at cmd/tmp-backfill-metrics (uncommitted, throwaway). Gated on the owner: it writes to the real database and needs the two new migrations applied first. Touches no Tesla API.",
       "budget": null
     },
     {
@@ -815,13 +814,13 @@
       "depends_on": [],
       "wave": 8,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:55:00Z",
       "completed_at": null,
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Handoff issued. Suite is the owner's to run; the reviewer gate does not open until they report it.",
       "budget": null
     },
     {
@@ -1218,6 +1217,11 @@
       "at": "2026-08-21T17:52:00Z",
       "agent": "leader",
       "event": "Wave 8 signals GREEN: go build, go vet, make build/vet/bins, all three guards, and openspec validate --strict (1 passed). While checking 8.2's invocation path the leader found a genuine production bug no signal could catch: cmd/web never constructed the Recalculator, so gateway.Deps.AnalyticsRecalculator was nil and every manual charge write would panic on recalculateAfterChargeWrite. Handler tests miss it (they inject a fake Deps); go vet misses it (nil interface is runtime state). Fixed as appended task 5.6 (D22). 8.2 (backfill) and 8.4 (suite) are the owner's - both gated on the two new migrations being applied."
+    },
+    {
+      "at": "2026-08-21T17:55:00Z",
+      "agent": "leader",
+      "event": "HANDOFF (Step 6, the mandatory pre-reviewer ask). All 25 implementation tasks are written and every assistant-permitted signal is green, but nothing is done: the suite is the owner's and the reviewer gate stays shut until they report it. Status -> applied, NOT verified. cmd/tmp-backfill-metrics written for 8.2 and left uncommitted; the leader deletes it once run."
     }
   ]
 }
