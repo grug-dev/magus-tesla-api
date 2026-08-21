@@ -959,6 +959,11 @@
       "at": "2026-08-21T23:35:00Z",
       "agent": "leader",
       "event": "Waves 3 and 4 COMPLETE (ran concurrently, disjoint modules, no collision). Leader verified the end state rather than trusting two reports: go build clean; go vet fails ONLY on analytics/db_integration_test.go (62 refs to the deleted fields), which is task 6b.1 and gated on 4.8/5.2, so it is the expected boundary state and not damage; telemetry has three _calc mentions left, all inside a generated-code comment explaining the drop. Wave 3 deleted one obsolete test - checked and accepted: it left a documented tombstone in place explaining that the scenario is unconstructible once the field is gone, and Fixture C covers the surviving prev == nil trigger, so no coverage was lost and the append-only rule was honoured in substance. LEADER FIX of a real tasks.md defect the wave-4 worker flagged rather than silently resolving: 4.8 and 6a.1 both claimed authorship of the same round-trip test. 6a.1 is narrowed to rename-and-verify - the coverage requirement is untouched, only the duplicate authoring is removed. Left as-is, wave 6a would have rewritten a test wave 4 already wrote."
+    },
+    {
+      "at": "2026-08-21T23:40:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at the wave-3/4 boundary: five_hour_pct 97 (threshold 90), context_pct 22, bucket resets at 2026-08-22T02:00:00Z. Stopping cleanly - every task status is truthful. 21 of 37 tasks are recorded, 12 done and 9 awaiting-user-verification (all test-writing work the assistant wrote but is forbidden to run). Remaining: wave 5 (analytics watermark-reset migration + sqlc), wave 6a/6b (DB-integration tests), wave 7 (docs), wave 8 (verification + handoff). Resume with /kkpa-dev-harness-pipeline resume RM29-telemetry-drop-derived-columns after the bucket resets."
     }
   ]
 }
