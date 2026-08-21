@@ -97,7 +97,7 @@ expand its recompute window to the affected date range, not to "the last N days"
 |---|---|---|---|---|---|
 | **T1** | `[x]` | `RM29-analytics-rename-from-battery` | `battery`→`analytics` | Pure package rename. No DB, no behaviour change. | — |
 | **T2** | `[x]` | `RM29-charging-rename-from-manualcharge` | `manualcharge`→`charging` | Pure package rename + migrations dir + sqlc entry move. | — |
-| **T3** | `[~]` | `RM29-analytics-add-vehicle-metrics` | `analytics` | **Gold standard.** `vehicle_metrics` + `updated_at` watermark + `Recalculate`; gateway re-points and its domain calculation moves out (D5). | T1 |
+| **T3** | `[x]` | `RM29-analytics-add-vehicle-metrics` | `analytics` | **Gold standard.** `vehicle_metrics` + `updated_at` watermark + `Recalculate`; gateway re-points and its domain calculation moves out (D5). | T1 |
 | **T4** | `[ ]` | `RM29-telemetry-drop-derived-columns` | `telemetry` | Drop the five `_calc` columns from `vehicle_snapshots`. Only safe once T3 lands. | T3 |
 | **T5** | `[ ]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |
 | **T6** | `[ ]` | `RM29-charging-add-charge-sessions` | `charging` | `charge_sessions` + the five battery-pct columns move off `supercharger_sessions`. | T2 |
@@ -116,17 +116,32 @@ each other and of T4 once T1/T2 land.
 
 ## Status
 
-**T1 and T2 are archived.** Both renames are complete: `battery`→`analytics`
+**T1, T2 and T3 are archived.** The two renames landed first — `battery`→`analytics`
 (`2026-08-20-RM29-analytics-rename-from-battery`) and `manualcharge`→`charging`
-(`2026-08-21-RM29-charging-rename-from-manualcharge`), each reviewer-approved with the
-owner's reported test run. T2 also moved the migrations directory and the sqlc entry, and
-the owner confirmed `make migrate-status` clean afterwards — the check that catches a bad
-directory move, which otherwise fails silently while the build stays green.
+(`2026-08-21-RM29-charging-rename-from-manualcharge`) — followed by the gold-standard
+tier, `2026-08-21-RM29-analytics-add-vehicle-metrics`. Each was reviewer-approved with the
+owner's own reported test run. T2 also moved the migrations directory and the sqlc entry,
+and the owner confirmed `make migrate-status` clean afterwards — the check that catches a
+bad directory move, which otherwise fails silently while the build stays green.
 
-**Next unblocked: T3 and T5** (both depend only on T1). T3 is the gold-standard tier and
-should go first — it establishes the `vehicle_metrics` read-model pattern the later tiers
-mirror, and T4 cannot start until it lands. T6 is now unblocked by T2, and T7 by T1+T2.
-No artifacts exist yet for T3–T8.
+**T3 established the pattern the remaining tiers mirror:** `analytics.vehicle_metrics` as a
+precomputed daily read model (D1), the `vehicle_metric_watermarks` cursors implementing the
+D7 `updated_at` watermark, `Recalculate`/`Reconcile` behind analytics' own ports (D6), and
+the gateway's snapshot-derived arithmetic moved out per D5. `cmd/poller` is the only
+production caller of `Reconcile`; the gateway calls `Recalculate` after a manual charge
+write.
+
+One lesson from T3 worth carrying into T4–T7: its review caught a task marked done whose
+substance was never written — a missing `Reconcile` call site in `cmd/poller`. Build, vet
+and the full suite all stayed green over it, because `cmd/poller` has no tests and a call
+that is never made still compiles. Composition-root wiring in `cmd/` is invisible to every
+automated signal this project has, so it needs reading, not trusting.
+
+**Next unblocked: T4, T5, T6 and T7.** T4 (`RM29-telemetry-drop-derived-columns`) is the
+natural follow-on — it was blocked on T3 alone, and dropping the five `_calc` columns is
+what makes T3's read model the single source of those figures rather than a second one.
+T5 and T6 are independent; T7 needs only T1+T2 and is the largest. T8 stays parked (D9).
+No artifacts exist yet for T4–T8.
 
 All tiers share the branch `ft/RM29-MAG-26-modular-monolith-boundaries`. Live state is in
 `RM29-modular-monolith-boundaries.progress.json`; each tier is proposed, reviewed and

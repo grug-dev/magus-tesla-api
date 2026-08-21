@@ -102,7 +102,7 @@ See design.md D1–D13 for the rationale behind each group.
   `UpsertVehicleMetricWatermark`.
   `depends_on`: 2.1, 2.2 · `parallel_ok`: no
 
-- [ ] **2.4** `sqlc.yaml` — add the `analytics` entry (package `analyticsdb`, `out:
+- [x] **2.4** `sqlc.yaml` — add the `analytics` entry (package `analyticsdb`, `out:
   internal/analytics/db`, same `uuid → google/uuid.UUID` override as the three
   existing entries). Run `make sqlc` (Claude may run — allowed codegen command) to
   generate `internal/analytics/db/*.go`. **[leader]** (`sqlc.yaml` is outside the
@@ -288,7 +288,7 @@ See design.md D1–D13 for the rationale behind each group.
   Triggers Analytics Recalculation".
   `depends_on`: 5.2 · `parallel_ok`: no
 
-- [ ] **5.4** `cmd/web/main.go` — `analytics.NewReader`'s call site gains the leading
+- [x] **5.4** `cmd/web/main.go` — `analytics.NewReader`'s call site gains the leading
   `pool` argument; construct `analytics.NewRecalculator(pool, telemetry.NewReader(pool),
   telemetry.NewSuperchargerReader(pool), charging.NewReader(pool))` and wire it into
   `gateway.Deps.AnalyticsRecalculator`.
@@ -397,7 +397,7 @@ See design.md D1–D13 for the rationale behind each group.
   with their steps").
   `depends_on`: 2.4 · `parallel_ok`: with 7.1–7.3
 
-- [ ] **7.5** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` — flip tier 3's
+- [x] **7.5** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` — flip tier 3's
   status `[ ]` → `[~]` when these artifacts are created (leader does this at
   dispatch time, not a worker task) and → `[x]` at archive. Not a task this worker
   performs; noted here for the leader's own tracking, per the roadmap file's own
@@ -406,25 +406,25 @@ See design.md D1–D13 for the rationale behind each group.
 
 ## Wave 8 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **8.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l .`
+- [x] **8.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l .`
   (expect clean); `make build`, `make vet`, `make bins`; `make ui-guard`,
   `make i18n-guard` (NOT a no-op this tier — verify the new `charges.go` call
   sites and any new gateway string introduce no hardcoded literal), `make
   money-guard` (expected no-op — no monetary column touched).
   `depends_on`: Waves 1–7 · `parallel_ok`: no (final gate)
 
-- [ ] **8.2** Invoke `Reconcile` for every registered vehicle once, in a throwaway
+- [x] **8.2** Invoke `Reconcile` for every registered vehicle once, in a throwaway
   script or via `--once`-style manual invocation, per design.md's "Rollout note" —
   confirms the backfill path actually populates `vehicle_metrics` for existing
   history before tier 4 is proposed. Report row counts produced, not a task the
   owner needs to re-run (informational verification, not a migration).
   `depends_on`: 8.1 · `parallel_ok`: no
 
-- [ ] **8.3** Run `openspec validate --changes --strict` and report the result
+- [x] **8.3** Run `openspec validate --changes --strict` and report the result
   verbatim.
   `depends_on`: all artifact edits · `parallel_ok`: no
 
-- [ ] **8.4** Hand off to the owner. Exact commands to paste (not run by the
+- [x] **8.4** Hand off to the owner. Exact commands to paste (not run by the
   assistant, per the Test-Execution-Policy):
   ```
   go test ./internal/analytics/... ./internal/telemetry/... ./internal/charging/... ./internal/gateway/... ./cmd/...

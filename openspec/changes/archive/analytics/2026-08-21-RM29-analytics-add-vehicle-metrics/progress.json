@@ -5,11 +5,9 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 3 - analytics.vehicle_metrics precomputed read model + D7 watermark + Recalculate; gateway's snapshot-derived math moves out (roadmap D5). Owner: autopilot ON, asleep.",
-  "status": "in-progress",
+  "status": "archived",
   "rollup": {
-    "current": [
-      "5.5"
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
@@ -32,6 +30,7 @@
       "5.2",
       "5.3",
       "5.4",
+      "5.5",
       "5.6",
       "6.1",
       "6.2",
@@ -52,7 +51,7 @@
     ]
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T21:05:00Z",
+  "updated_at": "2026-08-21T21:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -568,7 +567,7 @@
       "depends_on": [],
       "wave": 5,
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-08-21T11:00:00Z",
@@ -1179,6 +1178,14 @@
       "scope": "task:5.5",
       "what": "Rename newGapReconciler to newNightlyReconciler and hoist the three sibling ports into shared locals.",
       "why": "The step now has two halves, so the old name actively misleads; the ports are stateless handles over one pool, and building them twice would hide that both halves read identical sources. No callers outside the file."
+    },
+    {
+      "id": "D-archive-domain",
+      "at": "2026-08-21T21:20:00Z",
+      "made_by": "autopilot",
+      "scope": "archive",
+      "decision": "Archived to openspec/changes/archive/analytics/ rather than the flat path the openspec CLI produces.",
+      "why": "config.yaml's archive rule mandates domain grouping; the CLI ignores it, which is why RM29 T1/T2 and 11 older changes sit flat. Followed the config and flagged the pre-existing drift to the owner."
     }
   ],
   "events": [
@@ -1301,6 +1308,16 @@
       "at": "2026-08-21T21:05:00Z",
       "agent": "leader",
       "event": "RESUMED after the budget checkpoint: 5-hour bucket reset (99% -> 2%), context 8%, tree clean on ft/RM29-MAG-26-modular-monolith-boundaries. Re-ran every assistant-permitted signal against the F1 fix - go build, go vet, ui-guard, i18n-guard, money-guard all green; gofmt lists 8 files but all 8 are already unformatted on main, so this change introduced none. Reviewer gate is PASSED (round 2 approved). Archive waits on the single remaining gate, which is the owner's: their suite re-run, since their earlier green predates 10c08cf."
+    },
+    {
+      "at": "2026-08-21T21:10:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED GREEN on the F1 fix: make migrate-up and make test both pass against 10c08cf. THE OWNER'S verification, recorded as theirs - the assistant never ran the suite. Task 5.5 -> done; all 26 tasks done. Reviewer-approved + owner-verified, so both archive gates are now open."
+    },
+    {
+      "at": "2026-08-21T21:20:00Z",
+      "agent": "leader",
+      "event": "ARCHIVED. tasks.md had 7 stale unchecked boxes against progress.json's all-done; each was verified against the code before ticking (2.4 sqlc analytics entry, 5.4 cmd/web call site) or against the recorded events (7.5, 8.1-8.4) - no box ticked on trust after the F1 lesson. openspec validate --strict passed; the CLI synced 4 delta specs into main (+9 ~2 -1); the change folder was then git mv'd from the CLI's flat path into archive/analytics/ per config.yaml. Roadmap tier 3 -> [x]."
     }
   ]
 }
