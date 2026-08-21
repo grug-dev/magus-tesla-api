@@ -51,7 +51,7 @@
     ]
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T18:05:00Z",
+  "updated_at": "2026-08-21T18:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -67,7 +67,7 @@
   "tasks": [
     {
       "id": "1.1",
-      "title": "`internal/telemetry/telemetry.go` \u2014 add `UpdatedAt time.Time` to the",
+      "title": "`internal/telemetry/telemetry.go` — add `UpdatedAt time.Time` to the",
       "module": "telemetry",
       "owner": "module",
       "depends_on": [],
@@ -93,7 +93,7 @@
     },
     {
       "id": "1.2",
-      "title": "`internal/telemetry/telemetry.go` \u2014 add",
+      "title": "`internal/telemetry/telemetry.go` — add",
       "module": "telemetry",
       "owner": "module",
       "depends_on": [],
@@ -119,7 +119,7 @@
     },
     {
       "id": "1.3",
-      "title": "`internal/telemetry/telemetry.go` \u2014 add",
+      "title": "`internal/telemetry/telemetry.go` — add",
       "module": "telemetry",
       "owner": "module",
       "depends_on": [],
@@ -145,7 +145,7 @@
     },
     {
       "id": "1.4",
-      "title": "`internal/charging/charging.go` \u2014 add",
+      "title": "`internal/charging/charging.go` — add",
       "module": "charging",
       "owner": "module",
       "depends_on": [],
@@ -223,7 +223,7 @@
     },
     {
       "id": "2.3",
-      "title": "`internal/analytics/db/query.sql` \u2014 sqlc queries: `UpsertVehicleMetric`",
+      "title": "`internal/analytics/db/query.sql` — sqlc queries: `UpsertVehicleMetric`",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -249,7 +249,7 @@
     },
     {
       "id": "2.4",
-      "title": "`sqlc.yaml` \u2014 add the `analytics` entry (package `analyticsdb`, `out:",
+      "title": "`sqlc.yaml` — add the `analytics` entry (package `analyticsdb`, `out:",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -275,7 +275,7 @@
     },
     {
       "id": "3.1",
-      "title": "`internal/analytics/consumed.go` \u2014 rename `deriveConsumedByDay` to",
+      "title": "`internal/analytics/consumed.go` — rename `deriveConsumedByDay` to",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -301,7 +301,7 @@
     },
     {
       "id": "3.2",
-      "title": "`internal/analytics/recalculate.go` (new file) \u2014 `Recalculator`",
+      "title": "`internal/analytics/recalculate.go` (new file) — `Recalculator`",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -327,7 +327,7 @@
     },
     {
       "id": "3.3",
-      "title": "`internal/analytics/reader.go` \u2014 `NewReader`'s signature gains a",
+      "title": "`internal/analytics/reader.go` — `NewReader`'s signature gains a",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -353,7 +353,7 @@
     },
     {
       "id": "3.4",
-      "title": "`internal/analytics/analytics.go` \u2014 add the `DayDistance` domain type",
+      "title": "`internal/analytics/analytics.go` — add the `DayDistance` domain type",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -379,7 +379,7 @@
     },
     {
       "id": "4.1",
-      "title": "`internal/analytics/consumed_test.go` \u2014 update for the",
+      "title": "`internal/analytics/consumed_test.go` — update for the",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -405,7 +405,7 @@
     },
     {
       "id": "4.2",
-      "title": "`internal/analytics/reader_test.go` \u2014 add",
+      "title": "`internal/analytics/reader_test.go` — add",
       "module": "analytics",
       "owner": "module",
       "depends_on": [],
@@ -431,7 +431,7 @@
     },
     {
       "id": "4.3",
-      "title": "`internal/gateway/handlers/history_test.go` \u2014 **[leader]**, outside the",
+      "title": "`internal/gateway/handlers/history_test.go` — **[leader]**, outside the",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -457,7 +457,7 @@
     },
     {
       "id": "5.1",
-      "title": "`internal/gateway/handlers/history.go` \u2014 `buildOdometerChart` becomes",
+      "title": "`internal/gateway/handlers/history.go` — `buildOdometerChart` becomes",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -509,7 +509,7 @@
     },
     {
       "id": "5.3",
-      "title": "`internal/gateway/handlers/charges.go` \u2014 `ChargeCreate`: after",
+      "title": "`internal/gateway/handlers/charges.go` — `ChargeCreate`: after",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -535,7 +535,7 @@
     },
     {
       "id": "5.4",
-      "title": "`cmd/web/main.go` \u2014 `analytics.NewReader`'s call site gains the leading",
+      "title": "`cmd/web/main.go` — `analytics.NewReader`'s call site gains the leading",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -561,7 +561,7 @@
     },
     {
       "id": "5.5",
-      "title": "`cmd/poller/main.go` \u2014 `analytics.NewReader`'s call site gains the",
+      "title": "`cmd/poller/main.go` — `analytics.NewReader`'s call site gains the",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -615,7 +615,7 @@
     },
     {
       "id": "6.2",
-      "title": "`internal/analytics/db_integration_test.go` \u2014 `TestReconcile_",
+      "title": "`internal/analytics/db_integration_test.go` — `TestReconcile_",
       "module": "analytics",
       "owner": "module",
       "depends_on": [
@@ -671,7 +671,7 @@
     },
     {
       "id": "7.1",
-      "title": "`internal/analytics/AGENTS.md` \u2014 \"Data ownership\" section rewritten:",
+      "title": "`internal/analytics/AGENTS.md` — \"Data ownership\" section rewritten:",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -688,7 +688,7 @@
     },
     {
       "id": "7.2",
-      "title": "Root `README.md` \u2014 Project Structure tree: add `internal/analytics/db/`",
+      "title": "Root `README.md` — Project Structure tree: add `internal/analytics/db/`",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -705,7 +705,7 @@
     },
     {
       "id": "7.3",
-      "title": "`internal/gateway/AGENTS.md` \u2014 if its `Deps.AnalyticsReader",
+      "title": "`internal/gateway/AGENTS.md` — if its `Deps.AnalyticsReader",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -722,7 +722,7 @@
     },
     {
       "id": "7.4",
-      "title": "Root `README.md` / `internal/analytics`'s own workflow docs \u2014 document",
+      "title": "Root `README.md` / `internal/analytics`'s own workflow docs — document",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -739,7 +739,7 @@
     },
     {
       "id": "7.5",
-      "title": "`openspec/roadmaps/RM29-modular-monolith-boundaries.md` \u2014 flip tier 3's",
+      "title": "`openspec/roadmaps/RM29-modular-monolith-boundaries.md` — flip tier 3's",
       "module": "analytics",
       "owner": "leader",
       "depends_on": [],
@@ -852,7 +852,7 @@
     },
     {
       "id": "6.5",
-      "title": "`internal/testdb/testdb.go` \u2014 [leader] multi-directory migration provisioning",
+      "title": "`internal/testdb/testdb.go` — [leader] multi-directory migration provisioning",
       "module": "testdb",
       "owner": "leader",
       "depends_on": [],
@@ -869,7 +869,7 @@
     },
     {
       "id": "6.6",
-      "title": "`internal/analytics/testdb_test.go` \u2014 re-point TestMain at the multi-dir entry point",
+      "title": "`internal/analytics/testdb_test.go` — re-point TestMain at the multi-dir entry point",
       "module": "analytics",
       "owner": "module",
       "depends_on": [
@@ -907,7 +907,7 @@
     },
     {
       "id": "5.6",
-      "title": "cmd/web/main.go \u2014 populate Deps.AnalyticsRecalculator (Wave 5 wiring gap)",
+      "title": "cmd/web/main.go — populate Deps.AnalyticsRecalculator (Wave 5 wiring gap)",
       "module": "gateway",
       "owner": "leader",
       "depends_on": [
@@ -927,8 +927,8 @@
   ],
   "review": {
     "status": "pending",
-    "agent": null,
-    "brief": null,
+    "agent": "analytics-reviewer",
+    "brief": "Review the whole of RM29 tier 3 (diff range 5952a23..HEAD, ignore progress.json churn). Validate, in order: (1) module boundaries - analytics now owns its OWN database; confirm no module reads another module's DB, cross-module data flows only through public Go interfaces (telemetry/charging updated-since read ports), the gateway calls interfaces and never a database, and no HTML escapes internal/gateway. (2) Every DB object matches the user-confirmed design: design.md 'Database Changes' (vehicle_metrics, vehicle_metric_watermarks) and its Index Plan, plus D1-D9. Any schema/index/constraint that differs from the confirmed design is a BLOCKER finding, however sensible the deviation looks. (3) The integration tests in internal/analytics/db_integration_test.go assert design.md's up-front Test Contract (Fixtures A/B/C + the Reconcile idempotence contract, design.md lines 639-788) - not whatever the implementation happens to produce. A test whose expected value was clearly read off the code is a finding. (4) Doc-pack conventions: display-unit suffixes on every persisted unit-bearing column and domain field with conversion on write not read; bilingual i18n for any user-facing gateway string; docs-track-change (README structure/architecture, module AGENTS.md/README) updated in THIS change. (5) Performance-Profile compliance - the precomputed read model and its indexes must be justified against the declared read patterns. (6) Look hard at three known-fragile spots: D5's recalculate-after-write wiring (a nil AnalyticsRecalculator in cmd/web slipped past every automated signal and was fixed late as task 5.6 - check EVERY construction site, not just the fixed one), D4's 24h commit-skew overlap guard, and D13's rule that ConsumedByDay/OdometerDeltaByDay are SELECT+map+NOT-NULL-filter with NO derivation logic left in them. (7) Anti-gaming: acceptance criteria and tasks are append-only - flag any weakened or deleted criterion, any status a worker self-approved, and any design decision the implementation quietly reinterpreted. Test signals: assistant-run were go build ./..., go vet ./..., gofmt -l, make build/vet/bins, make ui-guard/i18n-guard/money-guard, openspec validate --strict (all green). User-reported were make migrate-up, the full go test suite, and the one-off backfill run (all green, the owner's report). You must judge test QUALITY by reading the tests - never run the suite yourself.",
     "rounds": []
   },
   "decisions": [
@@ -1129,6 +1129,13 @@
       "decision": "Appended task 5.6 and fixed the nil AnalyticsRecalculator myself rather than reopening Wave 5 or leaving it for the reviewer",
       "why": "Waves 5's tasks are closed and owner-verified, so they are not reopenable. Catching it at this gate costs one commit; catching it in review costs a rework wave plus a re-review.",
       "covered_by": null
+    },
+    {
+      "at": "2026-08-21T18:20:00Z",
+      "made_by": "leader",
+      "scope": "change",
+      "what": "Amend the tip commit to remove the accidentally committed 15MB backfill binary, rather than adding a follow-up delete commit.",
+      "why": "Branch has no upstream and nobody else holds it, so amending keeps the 15MB out of git history entirely; a delete commit would leave it in every future clone."
     }
   ],
   "events": [
@@ -1226,6 +1233,11 @@
       "at": "2026-08-21T18:05:00Z",
       "agent": "leader",
       "event": "OWNER-REPORTED GREEN: make migrate-up, the full go test suite, and go run ./cmd/tmp-backfill-metrics all ran properly. THE OWNER'S verification, recorded as theirs - the assistant never executed the suite. All 26 tasks -> done; change status -> verified. Throwaway backfill runner deleted. Reviewer gate is now open."
+    },
+    {
+      "at": "2026-08-21T18:20:00Z",
+      "agent": "leader",
+      "event": "Pre-reviewer hygiene fix: the verification commit (151de6c) had swept a 15MB compiled tmp-backfill-metrics binary into the repo root alongside progress.json. Branch is local-only (no upstream), so the tip was amended to drop it and .gitignore gained a /tmp-* root rule so a throwaway runner's artifact can never ride along again. Working tree clean; no source change."
     }
   ]
 }
