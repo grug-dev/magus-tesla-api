@@ -32,3 +32,7 @@ internal/gateway/tools/tailwindcss
 /poller
 /setup
 /web
+# Throwaway one-off runners the pipeline builds at the repo root (cmd/tmp-*),
+# e.g. a one-time backfill. The source is deleted after the run; this catches
+# the compiled artifact so a 15 MB binary can never ride along in a commit.
+/tmp-*
