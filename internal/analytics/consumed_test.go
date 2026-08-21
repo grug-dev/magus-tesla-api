@@ -21,28 +21,35 @@ import (
 // vet ./... compiles them as a signature-drift signal. The owner runs
 // `go test ./internal/analytics/...` and reports the result.
 //
-// Snapshot-fixture convention (design.md Test Contract, binding, changed by D18): every
-// telemetry.Snapshot fixture below sets both CapturedAt (the instant) and CapturedDate
-// (the zoned capture day, from which effectiveDay derives the bucket day). Where a
-// scenario says "effective day D", the fixture's CapturedDate is D + 1 day. EffectiveDate
-// is left at its zero value in every fixture EXCEPT scenario (m) / T4.10, which sets it
-// deliberately wrong on purpose -- see that test's own comment.
+// RM29-telemetry-drop-derived-columns (MAG-26 tier 4, this change) rewrote every test
+// below for two reasons: (1) telemetry.Snapshot no longer carries the five _calc
+// fields (DistanceTraveledKmCalc, BatteryUsedPctCalc, KmPerPctCalc,
+// EstimatedRangeKmCalc, DaysSpannedCalc) -- they are deleted by telemetry's own wave 4
+// -- so every fixture below supplies ONLY raw observations (OdometerKm,
+// BatteryLevelPct, CapturedDate, CapturedAt) and lets deriveConsumption
+// (consumption.go) compute the five figures, the same way production now does; and
+// (2) deriveVehicleMetrics gained a leading `preceding *telemetry.Snapshot` parameter
+// (design.md D7). Every existing call site below passes `nil` for `preceding`: in
+// every one of these fixtures the lookback ("prev") snapshot sits at array index 0
+// with an effective day OUTSIDE the test's [start, end] window, so it is filtered by
+// the day-bounds check before the prev==nil branch is ever reached -- preceding is
+// therefore never consulted, identically to the pre-existing behaviour. Only the new
+// Fixture D / Fixture D2 tests below exercise `preceding` for real, matching design.md
+// D7/D8b.
 //
-// deriveVehicleMetrics rename (design.md D10, dense-table revision): every test below
-// that ported from the pre-dense deriveConsumedByDay ALSO narrows its [start, end]
-// window to exclude the fixture's own "prev" snapshot's effective day (previously d0,
-// now the window's start moves to d1/cur's day). This is a CALL-SHAPE change only --
-// no expected VALUE below differs from what deriveConsumedByDay produced for the same
-// scenario. It is required because the dense loop now iterates every fetched index
-// (i := 0), so a "prev" snapshot sitting at index 0 would itself produce a second,
-// unrelated raw-observations-only row if its own effective day fell inside the window
-// -- exactly mirroring how Recalculate always calls this function with the
-// NON-widened [start, end] (design.md D11), never the widened fetch range that brought
-// "prev" into the input slice in the first place. Two tests are deliberately NOT
-// call-shape-only ports because they target the exact scenario the dense revision
-// changed: TestDeriveVehicleMetrics_NilBatteryUsedPctCalc_RawObservationsOnly (renamed
-// from ...Skipped) and the three new TestDeriveVehicleMetrics_FixtureA/B/C tests below,
-// authored directly from design.md's Test Contract.
+// D6 retirement note: the pre-existing
+// TestDeriveVehicleMetrics_NilBatteryUsedPctCalc_RawObservationsOnly is DELETED, not
+// ported. It exercised the OLD, now-removed half of the predecessor-less condition
+// (`i == 0 || cur.BatteryUsedPctCalc == nil`) by setting a local array predecessor
+// (i >= 1) while independently forcing cur.BatteryUsedPctCalc to nil -- a scenario
+// design.md D6 explains is no longer constructible: deriveVehicleMetrics never reads a
+// BatteryUsedPctCalc field off cur any more (the field itself is gone), it always
+// derives the figure itself whenever a predecessor snapshot is available. D6 states
+// this explicitly: "the removed check and the retained one were expected to co-occur
+// ... the retained one is now the STRONGER of the two". The one remaining
+// "predecessor-less" trigger -- prev == nil -- is fully covered by
+// TestDeriveVehicleMetrics_FixtureC below (i == 0, preceding == nil), so no coverage
+// is lost.
 
 // day returns a bare calendar date at UTC midnight -- this platform's date representation
 // (the pgtype.Date convention; see consumed.go's calendarDay doc comment).
@@ -65,25 +72,22 @@ func mustFloat(t *testing.T, v *float64) float64 {
 // TestDeriveVehicleMetrics_SingleSessionSingleDay_MatchesRoadmapExample covers
 // design.md Test Contract (a) -- the roadmap's own verified worked example: one
 // Supercharger session inside a single day's window, expect ConsumedPct = 11.
+// prev/cur battery levels (22 -> 73) are chosen so deriveConsumption computes the
+// same raw BatteryUsedPctCalc (-51) the pre-move fixture hardcoded.
 func TestDeriveVehicleMetrics_SingleSessionSingleDay_MatchesRoadmapExample(t *testing.T) {
 	d0 := day(2026, 8, 13)                              // prev's effective day (outside the window -- lookback pairing only)
 	d1 := day(2026, 8, 14)                              // cur's effective day
 	t0 := time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC) // prev.CapturedAt
 	t1 := time.Date(2026, 8, 15, 8, 30, 0, 0, time.UTC) // cur.CapturedAt
 
-	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1)}
-	cur := telemetry.Snapshot{
-		CapturedAt:         t1,
-		CapturedDate:       d1.AddDate(0, 0, 1),
-		BatteryUsedPctCalc: intPtr(22 - 73), // -51
-		DaysSpannedCalc:    intPtr(1),
-	}
+	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1), BatteryLevelPct: 22}
+	cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: d1.AddDate(0, 0, 1), BatteryLevelPct: 73} // raw delta 22-73 = -51
 
 	sessions := []telemetry.SuperchargerSession{
 		{ChargeStopDateTime: t0.Add(6 * time.Hour), StartBatteryPct: intPtr(18), EndBatteryPct: intPtr(80)},
 	}
 
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, sessions, nil, d1, d1)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, sessions, nil, d1, d1)
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
 	}
@@ -111,20 +115,15 @@ func TestDeriveVehicleMetrics_TwoSessionsSameDay_SumsBoth_Not5(t *testing.T) {
 	t0 := time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC)
 	t1 := time.Date(2026, 8, 15, 8, 30, 0, 0, time.UTC)
 
-	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1)}
-	cur := telemetry.Snapshot{
-		CapturedAt:         t1,
-		CapturedDate:       d1.AddDate(0, 0, 1),
-		BatteryUsedPctCalc: intPtr(30 - 75), // -45
-		DaysSpannedCalc:    intPtr(1),
-	}
+	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1), BatteryLevelPct: 30}
+	cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: d1.AddDate(0, 0, 1), BatteryLevelPct: 75} // raw delta 30-75 = -45
 
 	sessions := []telemetry.SuperchargerSession{
 		{ChargeStopDateTime: t0.Add(4 * time.Hour), StartBatteryPct: intPtr(20), EndBatteryPct: intPtr(50)}, // earlier, +30
 		{ChargeStopDateTime: t0.Add(8 * time.Hour), StartBatteryPct: intPtr(60), EndBatteryPct: intPtr(80)}, // later, +20
 	}
 
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, sessions, nil, d1, d1)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, sessions, nil, d1, d1)
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
 	}
@@ -154,15 +153,10 @@ func TestDeriveVehicleMetrics_NegativeFlagged(t *testing.T) {
 	t0 := time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC)
 	t1 := time.Date(2026, 8, 15, 8, 30, 0, 0, time.UTC)
 
-	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1)}
-	cur := telemetry.Snapshot{
-		CapturedAt:         t1,
-		CapturedDate:       d1.AddDate(0, 0, 1),
-		BatteryUsedPctCalc: intPtr(50 - 60), // -10
-		DaysSpannedCalc:    intPtr(1),
-	}
+	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1), BatteryLevelPct: 50}
+	cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: d1.AddDate(0, 0, 1), BatteryLevelPct: 60} // raw delta 50-60 = -10
 
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, nil, nil, d1, d1)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, nil, d1, d1)
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d", len(got))
 	}
@@ -188,20 +182,14 @@ func TestDeriveVehicleMetrics_ZeroWithDistanceFlagged(t *testing.T) {
 	t0 := time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC)
 	t1 := time.Date(2026, 8, 15, 8, 30, 0, 0, time.UTC)
 
-	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1)}
-	cur := telemetry.Snapshot{
-		CapturedAt:             t1,
-		CapturedDate:           d1.AddDate(0, 0, 1),
-		BatteryUsedPctCalc:     intPtr(-20),
-		DistanceTraveledKmCalc: fp(50.0),
-		DaysSpannedCalc:        intPtr(1),
-	}
+	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1), BatteryLevelPct: 30, OdometerKm: 1000.0}
+	cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: d1.AddDate(0, 0, 1), BatteryLevelPct: 50, OdometerKm: 1050.0} // raw delta 30-50 = -20; distance 50.0
 
 	entries := []charging.Entry{
 		{ChargedOn: d1, StartBatteryPct: intPtr(30), EndBatteryPct: intPtr(50)}, // +20
 	}
 
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, nil, entries, d1, d1)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, entries, d1, d1)
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d", len(got))
 	}
@@ -236,19 +224,13 @@ func TestDeriveVehicleMetrics_ZeroWithLowDistanceNotFlagged(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1)}
-			cur := telemetry.Snapshot{
-				CapturedAt:             t1,
-				CapturedDate:           d1.AddDate(0, 0, 1),
-				BatteryUsedPctCalc:     intPtr(-20),
-				DistanceTraveledKmCalc: fp(tc.distanceKm),
-				DaysSpannedCalc:        intPtr(1),
-			}
+			prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1), BatteryLevelPct: 30, OdometerKm: 1000.0}
+			cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: d1.AddDate(0, 0, 1), BatteryLevelPct: 50, OdometerKm: 1000.0 + tc.distanceKm}
 			entries := []charging.Entry{
 				{ChargedOn: d1, StartBatteryPct: intPtr(30), EndBatteryPct: intPtr(50)}, // +20 -> ConsumedPct = 0
 			}
 
-			got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, nil, entries, d1, d1)
+			got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, entries, d1, d1)
 			if len(got) != 1 {
 				t.Fatalf("want exactly 1 entry, got %d", len(got))
 			}
@@ -256,89 +238,6 @@ func TestDeriveVehicleMetrics_ZeroWithLowDistanceNotFlagged(t *testing.T) {
 				t.Errorf("want Flagged=false at DistanceKm=%v", tc.distanceKm)
 			}
 		})
-	}
-}
-
-// TestDeriveVehicleMetrics_NilBatteryUsedPctCalc_RawObservationsOnly covers design.md
-// Test Contract (f), REVISED at the database design gate (D9/D10). Under the
-// pre-dense deriveConsumedByDay this replaces, a row with no predecessor claim
-// (BatteryUsedPctCalc = nil) was skipped entirely -- "no entry at all". Under the
-// dense-table revision it is NOT skipped: a row is still written, carrying only cur's
-// raw observations, every derived/consumed field left nil, and Flagged forced false
-// (design.md D9's dedicated rationale -- a stored 0 would falsely flag the row as a
-// suspected charge gap). This is the SAME production behavior Fixture C pins for a
-// vehicle's true first-ever snapshot (TestDeriveVehicleMetrics_FixtureC below); this
-// test instead exercises D10's SECOND, independent trigger for the identical "no
-// predecessor" branch: cur.BatteryUsedPctCalc == nil even when a LOCAL array
-// predecessor exists (i >= 1) -- telemetry's own signal takes precedence over local
-// array position (design.md D10's "defense-in-depth" note).
-//
-// This expected value is DELIBERATELY DIFFERENT from the pre-revision test it
-// replaces (len 0 -> len 1). That is not a weakened assertion: design.md D9/D10
-// explicitly and extensively documents this exact scenario's new output as the
-// database design gate's own revision, so this is the new, design-mandated contract
-// for the case this test targets, not a code disagreement papered over.
-func TestDeriveVehicleMetrics_NilBatteryUsedPctCalc_RawObservationsOnly(t *testing.T) {
-	d0 := day(2026, 8, 13)
-	d1 := day(2026, 8, 14)
-	t0 := time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC)
-	t1 := time.Date(2026, 8, 15, 8, 30, 0, 0, time.UTC)
-
-	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1)}
-	cur := telemetry.Snapshot{
-		CapturedAt:         t1,
-		CapturedDate:       d1.AddDate(0, 0, 1),
-		BatteryUsedPctCalc: nil,
-		BatteryLevelPct:    55,
-		OdometerKm:         1200.0,
-		BatteryRangeKm:     250.0,
-		DaysSpannedCalc:    intPtr(1),
-	}
-
-	// Window excludes prev's own day (d0) so only cur (i=1, the case under test) is
-	// evaluated -- prev's own i==0 raw-only row is Fixture C's scenario, tested
-	// separately below with its own single-snapshot fixture.
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, nil, nil, d1, d1)
-	if len(got) != 1 {
-		t.Fatalf("want exactly 1 entry (raw observations only, not skipped -- design.md D9/D10), got %d entries: %+v", len(got), got)
-	}
-	entry := got[0]
-
-	if !entry.MetricDate.Equal(d1) {
-		t.Errorf("MetricDate: want %v, got %v", d1, entry.MetricDate)
-	}
-	if entry.BatteryLevelPct != 55 {
-		t.Errorf("BatteryLevelPct: want 55 (raw observation always populated), got %d", entry.BatteryLevelPct)
-	}
-	if entry.OdometerKm != 1200.0 {
-		t.Errorf("OdometerKm: want 1200.0, got %v", entry.OdometerKm)
-	}
-	if entry.BatteryRangeKm != 250.0 {
-		t.Errorf("BatteryRangeKm: want 250.0, got %v", entry.BatteryRangeKm)
-	}
-	if entry.DistanceTraveledKmCalc != nil {
-		t.Errorf("DistanceTraveledKmCalc: want nil, got %v", *entry.DistanceTraveledKmCalc)
-	}
-	if entry.BatteryUsedPctCalc != nil {
-		t.Errorf("BatteryUsedPctCalc: want nil, got %v", *entry.BatteryUsedPctCalc)
-	}
-	if entry.KmPerPctCalc != nil {
-		t.Errorf("KmPerPctCalc: want nil, got %v", *entry.KmPerPctCalc)
-	}
-	if entry.EstimatedRangeKmCalc != nil {
-		t.Errorf("EstimatedRangeKmCalc: want nil, got %v", *entry.EstimatedRangeKmCalc)
-	}
-	if entry.DaysSpannedCalc != nil {
-		t.Errorf("DaysSpannedCalc: want nil, got %v", *entry.DaysSpannedCalc)
-	}
-	if entry.ConsumedPct != nil {
-		t.Errorf("ConsumedPct: want nil, got %v", *entry.ConsumedPct)
-	}
-	if entry.Flagged {
-		t.Error("want Flagged=false -- the D5/D5a comparison must not run for a no-predecessor row (design.md D9)")
-	}
-	if entry.MissingChargingType != "" {
-		t.Errorf("MissingChargingType: want \"\" (maps to SQL NULL), got %v", entry.MissingChargingType)
 	}
 }
 
@@ -353,13 +252,8 @@ func TestDeriveVehicleMetrics_MultiDaySpan_OneEntry(t *testing.T) {
 	t0 := time.Date(2026, 8, 11, 8, 30, 0, 0, time.UTC)
 	t1 := time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC)
 
-	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: prevDay.AddDate(0, 0, 1)}
-	cur := telemetry.Snapshot{
-		CapturedAt:         t1,
-		CapturedDate:       curDay.AddDate(0, 0, 1),
-		BatteryUsedPctCalc: intPtr(-30),
-		DaysSpannedCalc:    intPtr(3),
-	}
+	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: prevDay.AddDate(0, 0, 1), BatteryLevelPct: 20}
+	cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: curDay.AddDate(0, 0, 1), BatteryLevelPct: 50} // raw delta 20-50 = -30; days spanned 3
 
 	sessions := []telemetry.SuperchargerSession{
 		{ChargeStopDateTime: t0.Add(24 * time.Hour), StartBatteryPct: intPtr(40), EndBatteryPct: intPtr(55)}, // +15
@@ -376,7 +270,7 @@ func TestDeriveVehicleMetrics_MultiDaySpan_OneEntry(t *testing.T) {
 	start := prevDay.AddDate(0, 0, 1) // 2026-08-11
 	end := day(2026, 8, 31)
 
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, sessions, entries, start, end)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, sessions, entries, start, end)
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry (not one per intervening day), got %d: %+v", len(got), got)
 	}
@@ -408,7 +302,7 @@ func TestDeriveVehicleMetrics_MultiDaySpan_OneEntry(t *testing.T) {
 // lower-inclusive, upper-exclusive -- for both sumSuperchargerPctBetween and
 // inferMissingChargingType, which share the identical boundary predicate. Both helpers
 // are unchanged by the dense-table revision (design.md D10 -- "every existing helper
-// unchanged"), so this test is unmodified from the pre-revision file.
+// unchanged") and unchanged by this tier's move, so this test is unmodified.
 func TestSumSuperchargerPctBetween_IntervalBoundary_InclusiveStartExclusiveEnd(t *testing.T) {
 	from := time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC)
 	to := time.Date(2026, 8, 15, 8, 30, 0, 0, time.UTC)
@@ -450,16 +344,11 @@ func TestDeriveVehicleMetrics_Stateless_ResolvesOnRecompute(t *testing.T) {
 	t0 := time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC)
 	t1 := time.Date(2026, 8, 15, 8, 30, 0, 0, time.UTC)
 
-	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1)}
-	cur := telemetry.Snapshot{
-		CapturedAt:         t1,
-		CapturedDate:       d1.AddDate(0, 0, 1),
-		BatteryUsedPctCalc: intPtr(-10),
-		DaysSpannedCalc:    intPtr(1),
-	}
+	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1), BatteryLevelPct: 40}
+	cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: d1.AddDate(0, 0, 1), BatteryLevelPct: 50} // raw delta 40-50 = -10
 	snapshots := []telemetry.Snapshot{prev, cur}
 
-	firstCall := deriveVehicleMetrics(snapshots, nil, nil, d1, d1)
+	firstCall := deriveVehicleMetrics(nil, snapshots, nil, nil, d1, d1)
 	if len(firstCall) != 1 || !firstCall[0].Flagged {
 		t.Fatalf("first call: want one flagged entry, got %+v", firstCall)
 	}
@@ -469,7 +358,7 @@ func TestDeriveVehicleMetrics_Stateless_ResolvesOnRecompute(t *testing.T) {
 	resolvingEntries := []charging.Entry{
 		{ChargedOn: d1, StartBatteryPct: intPtr(30), EndBatteryPct: intPtr(40)}, // +10
 	}
-	secondCall := deriveVehicleMetrics(snapshots, nil, resolvingEntries, d1, d1)
+	secondCall := deriveVehicleMetrics(nil, snapshots, nil, resolvingEntries, d1, d1)
 	if len(secondCall) != 1 {
 		t.Fatalf("second call: want exactly 1 entry, got %d", len(secondCall))
 	}
@@ -491,28 +380,30 @@ func TestDeriveVehicleMetrics_Stateless_ResolvesOnRecompute(t *testing.T) {
 //
 // cur.EffectiveDate is deliberately set to the wrong (UTC, overruled) value -- the ONE
 // fixture in this file that populates it -- specifically so a regression to reading it
-// is caught by the negative assertion below. Do NOT weaken either assertion (leader
-// dispatch instruction, design.md Test Contract (m)).
+// is caught by the negative assertion below. EffectiveDate is a surviving Snapshot
+// field (read-derived, not one of the five dropped _calc columns) -- unaffected by
+// this tier. Do NOT weaken either assertion (leader dispatch instruction, design.md
+// Test Contract (m)).
 func TestDeriveVehicleMetrics_BucketsInPollerZone_NotEffectiveDate(t *testing.T) {
 	prev := telemetry.Snapshot{
-		CapturedAt:   time.Date(2026, 8, 12, 8, 30, 0, 0, time.UTC), // 03:30 Bogota Aug 12
-		CapturedDate: day(2026, 8, 12),
+		CapturedAt:      time.Date(2026, 8, 12, 8, 30, 0, 0, time.UTC), // 03:30 Bogota Aug 12
+		CapturedDate:    day(2026, 8, 12),
+		BatteryLevelPct: 70,
 	}
 	cur := telemetry.Snapshot{
 		CapturedAt:   time.Date(2026, 8, 14, 1, 0, 0, 0, time.UTC), // 20:00 Bogota Aug 13
 		CapturedDate: day(2026, 8, 13),
-		// The value internal/telemetry/mapping.go:119 really computes: CapturedAt - 1 day,
+		// The value internal/telemetry/mapping.go really computes: CapturedAt - 1 day,
 		// in UTC -- i.e. the day the OVERRULED D-B7 would have bucketed this row under.
-		EffectiveDate:      time.Date(2026, 8, 13, 1, 0, 0, 0, time.UTC),
-		BatteryUsedPctCalc: intPtr(20),
-		DaysSpannedCalc:    intPtr(1),
+		EffectiveDate:   time.Date(2026, 8, 13, 1, 0, 0, 0, time.UTC),
+		BatteryLevelPct: 50, // raw delta 70-50 = 20
 	}
 
 	// Window is exactly cur's zoned effective day (2026-08-12), excluding prev's own
 	// effective day (2026-08-11) -- call-shape adjustment only, mirrors the (a)-(e)/(i)
 	// pattern above.
 	wantZonedDate := day(2026, 8, 12)
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, nil, nil, wantZonedDate, wantZonedDate)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, nil, wantZonedDate, wantZonedDate)
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
 	}
@@ -533,12 +424,17 @@ func TestDeriveVehicleMetrics_BucketsInPollerZone_NotEffectiveDate(t *testing.T)
 		t.Errorf("MetricDate must NOT equal %v -- that is the overruled UTC EffectiveDate answer; bucketing has regressed to reading EffectiveDate", wrongUTCDate)
 	}
 
-	// D-B12 identity: effectiveDay(cur) - effectiveDay(prev) == *cur.DaysSpannedCalc, in
-	// whole days. This is a SECOND, independent guard on the same regression: under the
-	// overruled UTC rule the same fixtures give 2 days != 1.
+	// D-B12 identity: effectiveDay(cur) - effectiveDay(prev) == the row's own
+	// DaysSpannedCalc, in whole days. This is a SECOND, independent guard on the same
+	// regression: under the overruled UTC rule the same fixtures give 2 days != 1.
+	// Asserted against entry.DaysSpannedCalc (the produced row), not against a
+	// Snapshot field -- Snapshot no longer carries DaysSpannedCalc (design.md D5/D8).
+	if entry.DaysSpannedCalc == nil || *entry.DaysSpannedCalc != 1 {
+		t.Fatalf("DaysSpannedCalc: want 1, got %v", entry.DaysSpannedCalc)
+	}
 	gotSpanDays := int(effectiveDay(cur).Sub(effectiveDay(prev)).Hours() / 24)
-	if gotSpanDays != *cur.DaysSpannedCalc {
-		t.Errorf("effectiveDay(cur)-effectiveDay(prev): want %d day(s) (matching DaysSpannedCalc), got %d", *cur.DaysSpannedCalc, gotSpanDays)
+	if gotSpanDays != *entry.DaysSpannedCalc {
+		t.Errorf("effectiveDay(cur)-effectiveDay(prev): want %d day(s) (matching DaysSpannedCalc), got %d", *entry.DaysSpannedCalc, gotSpanDays)
 	}
 }
 
@@ -549,22 +445,22 @@ func TestDeriveVehicleMetrics_BucketsInPollerZone_NotEffectiveDate(t *testing.T)
 // reader_test.go asserts the fetch itself widens far enough to bring such a row back.
 func TestDeriveVehicleMetrics_ZoneShiftedRowAtWindowEnd_Emitted(t *testing.T) {
 	prev := telemetry.Snapshot{
-		CapturedAt:   time.Date(2026, 8, 20, 8, 30, 0, 0, time.UTC),
-		CapturedDate: day(2026, 8, 20), // zoned effective day 2026-08-19
+		CapturedAt:      time.Date(2026, 8, 20, 8, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 20), // zoned effective day 2026-08-19
+		BatteryLevelPct: 55,
 	}
 	cur := telemetry.Snapshot{
 		// 21:00 Bogota Aug 21 = 02:00Z Aug 22.
-		CapturedAt:         time.Date(2026, 8, 22, 2, 0, 0, 0, time.UTC),
-		CapturedDate:       day(2026, 8, 21), // zoned effective day 2026-08-20 == end
-		BatteryUsedPctCalc: intPtr(5),
-		DaysSpannedCalc:    intPtr(1),
+		CapturedAt:      time.Date(2026, 8, 22, 2, 0, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 21), // zoned effective day 2026-08-20 == end
+		BatteryLevelPct: 50,               // raw delta 55-50 = 5
 	}
 
 	// Window is exactly cur's zoned effective day (2026-08-20), excluding prev's own
 	// effective day (2026-08-19) -- call-shape adjustment only, keeping the
 	// substantive assertion (end-inclusive emission) unchanged.
 	wantDate := day(2026, 8, 20)
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, nil, nil, wantDate, wantDate)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, nil, wantDate, wantDate)
 	if len(got) != 1 {
 		t.Fatalf("want the zone-shifted row to be emitted at the window's upper edge, got %d entries: %+v", len(got), got)
 	}
@@ -580,6 +476,10 @@ func TestDeriveVehicleMetrics_ZoneShiftedRowAtWindowEnd_Emitted(t *testing.T) {
 // Every expected value below is copied verbatim from design.md's Test Contract, never
 // derived by reading consumed.go. Fixture C is new at the database design gate,
 // pinning the dense-table revision's predecessor-less-row representation (D9/D10/D13).
+// As of RM29 tier 4, the five _calc figures are no longer set directly on the fixture
+// Snapshots (the fields are gone) -- they are computed by deriveConsumption from the
+// raw OdometerKm/BatteryLevelPct/CapturedDate values below, and the SAME expected
+// numeric values are asserted against the produced row.
 
 // TestDeriveVehicleMetrics_FixtureA covers design.md's Test Contract Fixture A -- a
 // plain day, no charge events.
@@ -600,18 +500,13 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 		BatteryRangeKm:  300.0,
 	}
 	cur := telemetry.Snapshot{
-		AccountID:              accountID,
-		TeslaID:                teslaID,
-		CapturedAt:             time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
-		CapturedDate:           curDay,
-		OdometerKm:             1050.0,
-		BatteryLevelPct:        65,
-		BatteryRangeKm:         280.0,
-		DistanceTraveledKmCalc: fp(50.0),              // 1050.0 - 1000.0
-		BatteryUsedPctCalc:     intPtr(15),            // 80 - 65
-		KmPerPctCalc:           fp(50.0 / 15.0),       // 3.3333...
-		EstimatedRangeKmCalc:   fp(50.0 / 15.0 * 100), // 333.333...
-		DaysSpannedCalc:        intPtr(1),
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    curDay,
+		OdometerKm:      1050.0,
+		BatteryLevelPct: 65,
+		BatteryRangeKm:  280.0,
 	}
 
 	// Recalculate(A, 42, 2026-08-10, 2026-08-10). effectiveDay = CapturedDate - 1,
@@ -620,7 +515,7 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 	start := day(2026, 8, 10)
 	end := day(2026, 8, 10)
 
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, nil, nil, start, end)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, nil, start, end)
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
 	}
@@ -672,10 +567,9 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 }
 
 // TestDeriveVehicleMetrics_FixtureB covers design.md's Test Contract Fixture B --
-// negative odometer clamp + flagged/missing-charge day. The clamp itself
-// (OdometerDeltaByDay's math.Max(0, ...)) is a Reader-level concern asserted in
-// reader_test.go (task 4.2); this test only asserts the RAW, unclamped stored value
-// deriveVehicleMetrics produces.
+// negative odometer delta + flagged/missing-charge day. This test only asserts the
+// RAW, unclamped stored value deriveVehicleMetrics produces (any read-side clamp is a
+// Reader-level concern, tested in reader_test.go).
 func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 	accountID := uuid.New()
 	const teslaID = int64(42)
@@ -692,25 +586,18 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 		BatteryLevelPct: 40,
 	}
 	cur := telemetry.Snapshot{
-		AccountID:              accountID,
-		TeslaID:                teslaID,
-		CapturedAt:             time.Date(2026, 8, 13, 3, 30, 0, 0, time.UTC),
-		CapturedDate:           curDay,
-		OdometerKm:             1998.0,
-		BatteryLevelPct:        85,
-		DistanceTraveledKmCalc: fp(-2.0), // 1998.0 - 2000.0, stored RAW, unclamped
-		BatteryUsedPctCalc:     intPtr(-45),
-		DaysSpannedCalc:        intPtr(1),
-		// KmPerPctCalc/EstimatedRangeKmCalc left nil -- telemetry's own divisor
-		// guard (BatteryUsedPctCalc <= 0) already produced NULL for these before
-		// this row was ever fetched; deriveVehicleMetrics only copies them
-		// verbatim, never re-derives (design.md D9).
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 13, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    curDay,
+		OdometerKm:      1998.0, // 1998.0 - 2000.0 = -2.0, stored RAW, unclamped
+		BatteryLevelPct: 85,     // 40 - 85 = -45
 	}
 
 	start := day(2026, 8, 12)
 	end := day(2026, 8, 12)
 
-	got := deriveVehicleMetrics([]telemetry.Snapshot{prev, cur}, nil, nil, start, end)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, nil, start, end)
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
 	}
@@ -760,12 +647,10 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 
 // TestDeriveVehicleMetrics_FixtureC covers design.md's Test Contract Fixture C -- a
 // vehicle's true first-ever snapshot (no predecessor at all), the dense-table
-// revision's own scenario (D9/D10). A row IS written -- unlike the pre-revision
-// deriveConsumedByDay, which skipped this day entirely -- with every derived/consumed
-// field NULL, flagged == false (NOT true, NOT left to a stray zero-value comparison),
-// and missing_charging_type == "" (SQL NULL). See
-// TestDeriveVehicleMetrics_NilBatteryUsedPctCalc_RawObservationsOnly above for D10's
-// sibling trigger of the identical branch.
+// revision's own scenario (D9/D10), now also RM29 tier 4's ONLY remaining
+// "predecessor-less" trigger (design.md D6): preceding == nil at i == 0. A row IS
+// written -- with every derived/consumed field NULL, flagged == false (NOT true, NOT
+// left to a stray zero-value comparison), and missing_charging_type == "" (SQL NULL).
 func TestDeriveVehicleMetrics_FixtureC(t *testing.T) {
 	accountID := uuid.New()
 	const teslaID = int64(42)
@@ -778,18 +663,17 @@ func TestDeriveVehicleMetrics_FixtureC(t *testing.T) {
 		OdometerKm:      500.0,
 		BatteryLevelPct: 90,
 		BatteryRangeKm:  320.0,
-		// No BatteryUsedPctCalc / DistanceTraveledKmCalc / etc -- telemetry itself
-		// recorded no predecessor for this row (it is the vehicle's true
-		// first-ever capture).
 	}
 
 	// snapshots is the single-element slice telemetry.SnapshotsByVehicleBetween
 	// would return for this fetch (design.md: "returns exactly this one row --
-	// nothing exists before it") -- cur is index 0, no local prev.
+	// nothing exists before it") -- cur is index 0. preceding is explicitly nil,
+	// matching design.md's "SnapshotPrecedingDay(A, 42, 2026-08-05) returns (nil,
+	// nil)" -- the vehicle's true first-ever capture.
 	start := day(2026, 8, 4)
 	end := day(2026, 8, 4)
 
-	got := deriveVehicleMetrics([]telemetry.Snapshot{cur}, nil, nil, start, end)
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{cur}, nil, nil, start, end)
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 entry (dense table -- a row is written even with no predecessor, design.md D9), got %d: %+v", len(got), got)
 	}
@@ -837,5 +721,154 @@ func TestDeriveVehicleMetrics_FixtureC(t *testing.T) {
 	}
 	if entry.MissingChargingType != "" {
 		t.Errorf("MissingChargingType: want \"\" (maps to SQL NULL), got %v", entry.MissingChargingType)
+	}
+}
+
+// --- Fixture D, D2 (design.md "Test Contract" section) -- new at RM29 tier 4: the
+// case telemetry.Reader.SnapshotPrecedingDay and the `preceding` parameter exist for
+// (design.md D2/D7). ---
+
+// TestDeriveVehicleMetrics_FixtureD_UsesPrecedingSnapshot covers design.md's Test
+// Contract Fixture D -- a seven-day capture gap. The fetched snapshot slice contains
+// ONLY the current row; the true predecessor (seven days earlier) arrives solely
+// through the `preceding` parameter, exactly as Recalculate supplies it via
+// SnapshotPrecedingDay (design.md D7). An implementation that omits/ignores
+// `preceding` falls into the prev == nil branch and produces an ALL-NIL row with an
+// empty-looking result -- the negative assertion at the end catches exactly that.
+func TestDeriveVehicleMetrics_FixtureD_UsesPrecedingSnapshot(t *testing.T) {
+	accountID := uuid.New()
+	const teslaID = int64(42)
+
+	preceding := telemetry.Snapshot{
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 1, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 1),
+		OdometerKm:      1000.0,
+		BatteryLevelPct: 90,
+		BatteryRangeKm:  350.0,
+	}
+	cur := telemetry.Snapshot{
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 8),
+		OdometerKm:      1210.0,
+		BatteryLevelPct: 55,
+		BatteryRangeKm:  220.0,
+	}
+
+	start := day(2026, 8, 7)
+	end := day(2026, 8, 7)
+
+	got := deriveVehicleMetrics(&preceding, []telemetry.Snapshot{cur}, nil, nil, start, end)
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry (the multi-day gap must still be visible), got %d: %+v", len(got), got)
+	}
+	entry := got[0]
+
+	wantDate := day(2026, 8, 7)
+	if !entry.MetricDate.Equal(wantDate) {
+		t.Errorf("MetricDate: want %v, got %v", wantDate, entry.MetricDate)
+	}
+	if entry.BatteryLevelPct != 55 {
+		t.Errorf("BatteryLevelPct: want 55, got %d", entry.BatteryLevelPct)
+	}
+	if entry.OdometerKm != 1210.0 {
+		t.Errorf("OdometerKm: want 1210.0, got %v", entry.OdometerKm)
+	}
+	if entry.BatteryRangeKm != 220.0 {
+		t.Errorf("BatteryRangeKm: want 220.0, got %v", entry.BatteryRangeKm)
+	}
+	if !approxEqual(mustFloat(t, entry.DistanceTraveledKmCalc), 210.0) {
+		t.Errorf("DistanceTraveledKmCalc: want 210.0 (the true total across the gap, never averaged), got %v", entry.DistanceTraveledKmCalc)
+	}
+	if entry.BatteryUsedPctCalc == nil || *entry.BatteryUsedPctCalc != 35 {
+		t.Errorf("BatteryUsedPctCalc: want 35, got %v", entry.BatteryUsedPctCalc)
+	}
+	if entry.DaysSpannedCalc == nil || *entry.DaysSpannedCalc != 7 {
+		t.Errorf("DaysSpannedCalc: want 7 -- NOT 1 -- got %v", entry.DaysSpannedCalc)
+	}
+	if !approxEqual(mustFloat(t, entry.KmPerPctCalc), 6.0) {
+		t.Errorf("KmPerPctCalc: want 6.0, got %v", entry.KmPerPctCalc)
+	}
+	if !approxEqual(mustFloat(t, entry.EstimatedRangeKmCalc), 600.0) {
+		t.Errorf("EstimatedRangeKmCalc: want 600.0, got %v", entry.EstimatedRangeKmCalc)
+	}
+	if !approxEqual(mustFloat(t, entry.ConsumedPct), 35.0) {
+		t.Errorf("ConsumedPct: want 35.0 (no charge events in the gap), got %v", entry.ConsumedPct)
+	}
+	if entry.Flagged {
+		t.Error("want Flagged=false")
+	}
+	if entry.MissingChargingType != "" {
+		t.Errorf("MissingChargingType: want \"\" (NULL), got %v", entry.MissingChargingType)
+	}
+}
+
+// TestDeriveVehicleMetrics_FixtureD2_ChargeInsideTheGap covers design.md's Test
+// Contract Fixture D2 -- D8b's proof. Same gap as Fixture D, plus one manual charge
+// entry dated INSIDE the gap (four days before the un-widened fetch would have
+// started). BatteryUsedPctCalc is unaffected by charging (still 35, the raw delta),
+// but ConsumedPct must include the matched charge: 35 + 20 = 55. An implementation
+// that widened the predecessor lookup (Fixture D) but not the charge-source fetches
+// would miss this entry and wrongly report ConsumedPct 35.0 here.
+func TestDeriveVehicleMetrics_FixtureD2_ChargeInsideTheGap(t *testing.T) {
+	accountID := uuid.New()
+	const teslaID = int64(42)
+
+	preceding := telemetry.Snapshot{
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 1, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 1),
+		OdometerKm:      1000.0,
+		BatteryLevelPct: 90,
+		BatteryRangeKm:  350.0,
+	}
+	cur := telemetry.Snapshot{
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 8),
+		OdometerKm:      1210.0,
+		BatteryLevelPct: 55,
+		BatteryRangeKm:  220.0,
+	}
+
+	// Deriveation's charge-matching window for this row is
+	// (effectiveDay(preceding), effectiveDay(cur)] = (2026-07-31, 2026-08-07] --
+	// design.md D-B6 -- which THIS entry's day (2026-08-04) falls inside, well
+	// short of the un-widened fetch's own start (2026-08-06). This test exercises
+	// deriveVehicleMetrics directly (the pure function), so it is not itself proof
+	// that Recalculate's fetch widens far enough to have retrieved this entry in
+	// production -- that half of D8b is pinned by recalculate_test.go (task 3.3).
+	entries := []charging.Entry{
+		{ChargedOn: day(2026, 8, 4), StartBatteryPct: intPtr(30), EndBatteryPct: intPtr(50)}, // +20
+	}
+
+	start := day(2026, 8, 7)
+	end := day(2026, 8, 7)
+
+	got := deriveVehicleMetrics(&preceding, []telemetry.Snapshot{cur}, nil, entries, start, end)
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	entry := got[0]
+
+	if entry.BatteryUsedPctCalc == nil || *entry.BatteryUsedPctCalc != 35 {
+		t.Errorf("BatteryUsedPctCalc: want 35 (unaffected by charging), got %v", entry.BatteryUsedPctCalc)
+	}
+	if !approxEqual(mustFloat(t, entry.ConsumedPct), 55.0) {
+		t.Errorf("ConsumedPct: want 55.0 (35 raw + 20 charged inside the gap), got %v", entry.ConsumedPct)
+	}
+	if entry.Flagged {
+		t.Error("want Flagged=false")
+	}
+	if !approxEqual(mustFloat(t, entry.DistanceTraveledKmCalc), 210.0) {
+		t.Errorf("DistanceTraveledKmCalc: want 210.0, got %v", entry.DistanceTraveledKmCalc)
+	}
+	if entry.DaysSpannedCalc == nil || *entry.DaysSpannedCalc != 7 {
+		t.Errorf("DaysSpannedCalc: want 7, got %v", entry.DaysSpannedCalc)
 	}
 }

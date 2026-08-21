@@ -89,3 +89,25 @@ analytics side: a day whose predecessor is older than the recalculation window i
 computed instead of silently omitted, and a day whose predecessor row was replaced by
 a same-day re-capture is now recomputed against the replacement instead of retaining a
 stale figure.
+
+## Notes (implementation detail, not a new or changed Requirement)
+
+### `SnapshotsByVehicleBetween`'s safety cap raised: 400 → 4000 (task 4.9)
+
+This method's result cap (originally justified by the HTTP-bounded ~91-row gateway
+window, design D3 of `RM8-telemetry-between-range-port`) is also the query
+`internal/analytics`' `Reconcile` uses for its epoch backfill window. This tier's
+`Requirement: Preceding-Snapshot Read Port` above removes the analogous silent-failure
+class for the *predecessor* side of that backfill (Decision D2 rejected any bounded
+lookback specifically because a silently wrong delta is worse than an error). Decision
+**D3** of this change's `design.md`, prompted by decision **I3** (the watermark reset
+that makes `Reconcile` rebuild a vehicle's entire snapshot history in one window), found
+that the *forward* side carried the identical failure class at 400: a vehicle with more
+than 400 days of history had its newest rows silently dropped by
+`ORDER BY captured_at ASC LIMIT 400`, and `Reconcile` advanced its watermark past days it
+never recomputed — permanently wrong metrics, no error, no log line. The cap is raised to
+4000 (≈11 years at one snapshot/vehicle/day) to close that gap; it remains a
+runaway-query guard only, not a load-bearing behavior, so no `Requirement`/`Scenario` is
+added or changed here — the caller-supplied `[start, end]` window is still the actual
+correctness boundary. See `internal/telemetry/db/query.sql`'s `SnapshotsByVehicleBetween`
+comment for the full rationale.

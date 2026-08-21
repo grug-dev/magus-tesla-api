@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -51,23 +50,15 @@ type store interface {
 	// vehicle-metrics task 1.2). Reuses rowToSnapshot — no new mapper.
 	snapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
 	upsertSuperchargerSession(ctx context.Context, s SuperchargerSession) error
-	// previousSnapshot returns the most recent stored snapshot for
-	// (accountID, teslaID) strictly before the given instant, or (nil, nil)
-	// when none exists — the vehicle's first-ever snapshot (design D8/D10 of
-	// telemetry-add-derived-consumption-columns), NOT an error. Callers pass
-	// dayStart(capturedAt, loc) as `before` (design D7) — the LOCAL calendar-day
-	// start, not the incoming snapshot's own captured_at — so a same-day
-	// re-capture cannot select today's own (about-to-be-replaced) row as its
-	// own predecessor. Added by MAG-10 (telemetry-add-derived-consumption-columns);
-	// implemented by dbStore below (T3) and by every test fake (T3/T6/T7).
-	previousSnapshot(ctx context.Context, accountID uuid.UUID, teslaID int64, before time.Time) (*Snapshot, error)
 	// snapshotPrecedingDay backs the public Reader.SnapshotPrecedingDay
 	// (RM29-telemetry-drop-derived-columns design D2): the most recent stored
 	// snapshot for (accountID, teslaID) whose captured_date is strictly before
-	// `day`, or (nil, nil) when none exists. Unlike previousSnapshot above, its
-	// bound is a calendar day, not an instant — see the Reader.SnapshotPrecedingDay
-	// doc comment (telemetry.go) for the full zone-safety rationale. Added by
-	// RM29-telemetry-drop-derived-columns wave 1; implemented by dbStore in
+	// `day`, or (nil, nil) when none exists. Its bound is a calendar day, not an
+	// instant — see the Reader.SnapshotPrecedingDay doc comment (telemetry.go)
+	// for the full zone-safety rationale. This is the module's former private
+	// previousSnapshot seam (deleted, tier 4 design D8), now the sole predecessor
+	// lookup and the only one telemetry itself never calls — its one consumer is
+	// internal/analytics via the public Reader port. Implemented by dbStore in
 	// reader.go and by every test fake in this file and reader_test.go.
 	snapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error)
 }
@@ -384,28 +375,19 @@ func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, v
 		return s.logAPIError(v.TeslaID, "VehicleData", err, reasonFor(err)), vehicleConfig{}
 	}
 
-	// One clock reading serves both the snapshot's captured_at and the dayStart
-	// bound below, so the predecessor lookup is always bounded by the calendar day
-	// of THIS row (design D7). Two independent s.now() calls could straddle local
-	// midnight and bound the lookup by a different day than the row it derives.
+	// One clock reading serves the snapshot's captured_at (design D7 — surviving
+	// residue of the removed dayStart-bounded predecessor lookup: a single s.now()
+	// call still keeps every timestamp on this row internally consistent).
 	capturedAt := s.now()
 	snap := snapshotFrom(v.AccountID, v.TeslaID, capturedAt, s.location(), data, raw)
 
-	// Derived-consumption wiring (telemetry-add-derived-consumption-columns, design
-	// D7/D8): look up the predecessor bounded by the START of today's LOCAL calendar
-	// day (dayStart), not by snap's own captured_at — this is what keeps a same-day
-	// re-capture (D6/L1) from selecting today's own about-to-be-replaced row as its
-	// own predecessor. A previousSnapshot error is a TRANSIENT STORE FAILURE, mapped
-	// to ReasonAPIError and retried once by collectVehicle — it must NEVER silently
-	// proceed as "no predecessor found" (that would wrongly NULL out a real
-	// vehicle's derived columns on a transient DB hiccup); "no predecessor" is
-	// exclusively signaled by prev == nil with a NIL error (D8/D10).
-	prev, err := s.store.previousSnapshot(ctx, v.AccountID, v.TeslaID, dayStart(capturedAt, s.location()))
-	if err != nil {
-		return s.logAPIError(v.TeslaID, "previousSnapshot", err, ReasonAPIError), vehicleConfig{}
-	}
-	snap = deriveConsumption(prev, snap)
-
+	// attemptVehicle is a pure fetch → map → store pass (RM29-telemetry-drop-
+	// derived-columns, design D8): the five derived-consumption columns and the
+	// predecessor lookup that fed them were removed from this module. The
+	// derivation now lives in internal/analytics, which computes the same figures
+	// from this row's surviving raw columns (odometer_km, battery_level_pct,
+	// captured_date) via telemetry.Reader.SnapshotPrecedingDay — telemetry itself
+	// never reads its own history back on the write path.
 	if err := s.store.insertSnapshot(ctx, snap); err != nil {
 		// A store failure is transient from the cycle's point of view (retry once).
 		return s.logAPIError(v.TeslaID, "insertSnapshot", err, ReasonAPIError), vehicleConfig{}
@@ -567,49 +549,6 @@ func dateOnly(t time.Time, loc *time.Location) time.Time {
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }
 
-// dayStart returns the LOCAL-zone midnight instant that begins t's calendar day in
-// loc — an absolute time.Time in loc, NOT UTC-normalized like dateOnly (design D7 of
-// telemetry-add-derived-consumption-columns). It is the "previousSnapshot" lookup
-// boundary: bounding by the start of today's local calendar day (rather than by the
-// incoming snapshot's own captured_at) excludes today's own row from candidacy under
-// a same-day re-capture (D6/L1), so a repeat nightly run cannot select the
-// about-to-be-replaced same-day row as its own predecessor.
-func dayStart(t time.Time, loc *time.Location) time.Time {
-	y, m, d := t.In(loc).Date()
-	return time.Date(y, m, d, 0, 0, 0, 0, loc)
-}
-
-// deriveConsumption computes the five derived-consumption fields on cur by comparing
-// it against prev, its predecessor for the same (account_id, tesla_id) — design D8.
-// prev == nil (the vehicle's first-ever snapshot, D8/D10) returns cur unchanged: all
-// five fields stay nil. Otherwise distance/battery-used/days-spanned are always
-// computed, even when negative (overnight charge) or zero (parked day) — a truthful
-// reading is always stored, never clamped (D9). The two efficiency fields
-// (KmPerPctCalc, EstimatedRangeKmCalc) are computed ONLY when BatteryUsedPctCalc > 0
-// (D2): a zero or negative divisor has no truthful ratio and both stay nil.
-func deriveConsumption(prev *Snapshot, cur Snapshot) Snapshot {
-	if prev == nil {
-		return cur // D8/L5: no predecessor — all five fields stay nil.
-	}
-
-	distance := cur.OdometerKm - prev.OdometerKm
-	cur.DistanceTraveledKmCalc = &distance
-
-	batteryUsed := prev.BatteryLevelPct - cur.BatteryLevelPct
-	cur.BatteryUsedPctCalc = &batteryUsed
-
-	days := int(cur.CapturedDate.Sub(prev.CapturedDate).Hours() / 24)
-	cur.DaysSpannedCalc = &days
-
-	if batteryUsed > 0 { // D2: only a positive divisor yields a truthful ratio
-		kmPerPct := distance / float64(batteryUsed)
-		cur.KmPerPctCalc = &kmPerPct
-		estRange := kmPerPct * 100
-		cur.EstimatedRangeKmCalc = &estRange
-	}
-	return cur
-}
-
 // --- telemetrydb-backed store (the ONLY place pgtype is touched) ---
 
 // dbStore is the production store: it maps our domain Snapshot / Attempt into the
@@ -657,18 +596,6 @@ func (d *dbStore) insertSnapshot(ctx context.Context, s Snapshot) error {
 		TpmsPressureFrPsi: float64PtrToPgFloat4(s.TpmsPressureFRPSI),
 		TpmsPressureRlPsi: float64PtrToPgFloat4(s.TpmsPressureRLPSI),
 		TpmsPressureRrPsi: float64PtrToPgFloat4(s.TpmsPressureRRPSI),
-		// Derived consumption columns (telemetry-add-derived-consumption-columns,
-		// design D6/D9): computed in Go by deriveConsumption BEFORE this call, passed
-		// as ordinary bound parameters like every other typed column, so a same-day
-		// re-capture's ON CONFLICT ... DO UPDATE refreshes them identically. nil →
-		// invalid (SQL NULL); non-nil → valid. Reuses the EXISTING
-		// float64PtrToPgFloat8 (three DOUBLE PRECISION columns) and intPtrToPgInt4
-		// (two INTEGER columns) helpers — no new pgtype-boundary helper.
-		DistanceTraveledKmCalc: float64PtrToPgFloat8(s.DistanceTraveledKmCalc),
-		BatteryUsedPctCalc:     intPtrToPgInt4(s.BatteryUsedPctCalc),
-		KmPerPctCalc:           float64PtrToPgFloat8(s.KmPerPctCalc),
-		EstimatedRangeKmCalc:   float64PtrToPgFloat8(s.EstimatedRangeKmCalc),
-		DaysSpannedCalc:        intPtrToPgInt4(s.DaysSpannedCalc),
 	})
 }
 
@@ -843,31 +770,6 @@ func (d *dbStore) snapshotsByVehicleUpdatedSince(ctx context.Context, accountID 
 		snaps = append(snaps, rowToSnapshot(r))
 	}
 	return snaps, nil
-}
-
-// previousSnapshot implements the store seam design D7/D8 relies on: it calls the
-// PreviousSnapshotForVehicle query generated by sqlc and maps pgx.ErrNoRows to
-// (nil, nil) — "no predecessor exists" (the vehicle's first-ever snapshot, D8/D10)
-// is NOT an error. Any other query error is returned as-is and the caller
-// (attemptVehicle, T3.5) treats it as a transient store failure — NEVER as "no
-// predecessor" — so a real DB error cannot silently zero out a real vehicle's
-// derived columns. A found row is mapped via the existing shared rowToSnapshot
-// mapper (mapping.go, T5) — no new mapper is written. `before` is bound via the
-// existing timestamptzFrom helper — no new pgtype boundary helper needed.
-func (d *dbStore) previousSnapshot(ctx context.Context, accountID uuid.UUID, teslaID int64, before time.Time) (*Snapshot, error) {
-	row, err := d.q.PreviousSnapshotForVehicle(ctx, telemetrydb.PreviousSnapshotForVehicleParams{
-		AccountID: accountID,
-		TeslaID:   teslaID,
-		Before:    timestamptzFrom(before),
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	snap := rowToSnapshot(row)
-	return &snap, nil
 }
 
 // timestamptzFrom converts a plain time.Time into a valid pgtype.Timestamptz at the

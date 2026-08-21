@@ -151,7 +151,7 @@ behind each group.
 > no DB. Roadmap D10: **characterization only** — assertions MOVE, they are never
 > re-derived from the implementation.
 
-- [ ] **3.1** `internal/analytics/consumption_test.go` (new file) — port
+- [x] **3.1** `internal/analytics/consumption_test.go` (new file) — port
   `internal/telemetry/consumption_test.go`'s `TestDeriveConsumption` and
   `TestDeriveConsumption_NilPrevReturnsCurUnchanged` **with every expected value
   unchanged**, adapted only to the `consumptionCalc` return shape. Bring the
@@ -167,7 +167,7 @@ behind each group.
   re-asserted by 6a.3 instead.
   `depends_on`: 2.1 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** `internal/analytics/consumed_test.go` — update every
+- [x] **3.2** `internal/analytics/consumed_test.go` — update every
   `deriveVehicleMetrics` call site for the new leading `preceding` parameter. Add
   `TestDeriveVehicleMetrics_FixtureD_UsesPrecedingSnapshot`: fetched slice = the
   current row alone, `preceding` = the 2026-08-01 row, and assert the emitted
@@ -182,7 +182,7 @@ behind each group.
   `MissingChargingType == ""`.
   `depends_on`: 2.2 · `parallel_ok`: with 3.1
 
-- [ ] **3.3** `internal/analytics/recalculate` fetch-window coverage — extend the
+- [x] **3.3** `internal/analytics/recalculate` fetch-window coverage — extend the
   existing offline/fake-backed assertions (or add them where none exist) to pin
   design.md D8b: with `preceding` seven days before `lookbackStart`, the fake
   `telemetry.SuperchargerReader` and `charging.Reader` each receive
@@ -209,7 +209,7 @@ behind each group.
 > analytics derives the five figures itself and the columns are redundant
 > (design.md D11).
 
-- [ ] **4.1** `internal/telemetry/db/migrations/20260822000001_drop_derived_consumption_columns_vehicle_snapshots.sql`
+- [x] **4.1** `internal/telemetry/db/migrations/20260822000001_drop_derived_consumption_columns_vehicle_snapshots.sql`
   — the goose migration **exactly** as specified in design.md "Database Changes →
   Migration 1", including its full comment block. `-- +goose Up` drops the five
   columns; `-- +goose Down` re-adds them AND re-runs `20260814000001`'s `LAG()`
@@ -218,7 +218,7 @@ behind each group.
   in its own comment.
   `depends_on`: — · `parallel_ok`: no
 
-- [ ] **4.2** `internal/telemetry/db/query.sql` — remove
+- [x] **4.2** `internal/telemetry/db/query.sql` — remove
   `distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
   estimated_range_km_calc, days_spanned_calc` from **every** query that names them.
   There are ten sites: the `InsertVehicleSnapshot` column list, its `VALUES` list and
@@ -231,19 +231,19 @@ behind each group.
   comment block, which currently documents the five columns. Run `make sqlc`.
   `depends_on`: 4.1 · `parallel_ok`: no
 
-- [ ] **4.3** `internal/telemetry/telemetry.go` — delete the five `Snapshot` fields
+- [x] **4.3** `internal/telemetry/telemetry.go` — delete the five `Snapshot` fields
   (`DistanceTraveledKmCalc`, `BatteryUsedPctCalc`, `KmPerPctCalc`,
   `EstimatedRangeKmCalc`, `DaysSpannedCalc`) and their doc-comment block. Every other
   field, including `UpdatedAt`, is untouched.
   `depends_on`: 4.2 · `parallel_ok`: no
 
-- [ ] **4.4** `internal/telemetry/mapping.go` — remove the five assignments from
+- [x] **4.4** `internal/telemetry/mapping.go` — remove the five assignments from
   `rowToSnapshot` and the doc comment above them describing the divisor guard. If
   `pgNullableFloat64` / `pgNullableInt32AsInt` become unused after this, leave them —
   they serve other nullable columns; verify with `go vet` rather than assuming.
   `depends_on`: 4.3 · `parallel_ok`: no
 
-- [ ] **4.5** `internal/telemetry/service.go` — delete `deriveConsumption` (moved to
+- [x] **4.5** `internal/telemetry/service.go` — delete `deriveConsumption` (moved to
   analytics by 2.1), `dayStart`, the `previousSnapshot` method on the `store`
   interface and on `dbStore`, and the `prev, err := s.store.previousSnapshot(...)`
   block plus its error branch in `attemptVehicle` (which becomes fetch → map →
@@ -252,14 +252,14 @@ behind each group.
   comments, which currently explain the derived-consumption wiring (design.md D8).
   `depends_on`: 4.4 · `parallel_ok`: no
 
-- [ ] **4.6** `internal/telemetry/service_test.go`, `internal/telemetry/reader_test.go`
+- [x] **4.6** `internal/telemetry/service_test.go`, `internal/telemetry/reader_test.go`
   — remove the `previousSnapshot` method from `fakeStore`, `fakeReadStore` and
   `fakeHistoryStore` (the store seam is gone). Update
   `internal/telemetry/testdb_test.go`'s comment, which lists `deriveConsumption` among
   this package's offline tests.
   `depends_on`: 4.5 · `parallel_ok`: no
 
-- [ ] **4.7** `internal/telemetry/consumption_test.go` — delete the file.
+- [x] **4.7** `internal/telemetry/consumption_test.go` — delete the file.
   `TestDeriveConsumption` and `TestDeriveConsumption_NilPrevReturnsCurUnchanged` were
   ported to `internal/analytics/consumption_test.go` by 3.1 **with their expected
   values unchanged** — confirm that task is landed before deleting, so no assertion is
@@ -270,7 +270,7 @@ behind each group.
   `SnapshotPrecedingDay`'s `captured_date < @day` predicate (design.md D2).
   `depends_on`: 3.1, 4.5 · `parallel_ok`: no
 
-- [ ] **4.8** `internal/telemetry/db_derived_consumption_integration_test.go` — re-home
+- [x] **4.8** `internal/telemetry/db_derived_consumption_integration_test.go` — re-home
   its three tests per design.md's "Characterization parity contract" table:
   `TestStore_PreviousSnapshot_RoundTrips` **stays**, rewritten against the public
   `Reader.SnapshotPrecedingDay` (all three cases kept: predecessor exists;
@@ -283,7 +283,7 @@ behind each group.
   (e.g. `db_preceding_snapshot_integration_test.go`).
   `depends_on`: 4.5 · `parallel_ok`: with 4.7
 
-- [ ] **4.9** `internal/telemetry/db/query.sql` — raise `SnapshotsByVehicleBetween`'s
+- [x] **4.9** `internal/telemetry/db/query.sql` — raise `SnapshotsByVehicleBetween`'s
   `LIMIT 400` (line ~72) to `LIMIT 4000`, and update the D3 comment above it to say why.
   **Why this is in scope, though it is a pre-existing bug:** decision **I3** resets the
   `vehicle_snapshots` watermark so the next `Reconcile` rebuilds each vehicle's ENTIRE
@@ -332,6 +332,16 @@ behind each group.
 > types exist. Uses this package's existing `testdb.Provision` harness unchanged.
 
 - [ ] **6a.1** `internal/telemetry/db_preceding_snapshot_integration_test.go` —
+  **NARROWED BY THE LEADER at the wave-3/4 reconcile: this is now a rename-and-verify,
+  not an authoring task.** Task 4.8's own text said the round-trip test "stays,
+  rewritten against the public port", and wave 4 did exactly that — the file already
+  contains `TestStore_PreviousSnapshot_RoundTrips`, public-port-based, with all three
+  cases. 6a.1 as originally written would have had a second worker author the same test
+  from scratch. So: **rename** the existing test to
+  `TestReader_SnapshotPrecedingDay_RoundTrips` (the `Store_`/`PreviousSnapshot` name now
+  misdescribes it — the seam it was named for is deleted) and **verify** it still covers
+  all three cases below. The coverage requirement is unchanged; only the authoring is
+  already banked. If any case is missing, write it.
   `TestReader_SnapshotPrecedingDay_RoundTrips`: the three cases carried over from
   `TestStore_PreviousSnapshot_RoundTrips` (4.8), now against the public port —
   a vehicle with a predecessor returns it; a single-row vehicle queried with a `day`

@@ -152,17 +152,6 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 		TpmsPressureFRPSI: pgNullableFloat4AsFloat64(r.TpmsPressureFrPsi),
 		TpmsPressureRLPSI: pgNullableFloat4AsFloat64(r.TpmsPressureRlPsi),
 		TpmsPressureRRPSI: pgNullableFloat4AsFloat64(r.TpmsPressureRrPsi),
-		// Derived consumption columns (telemetry-add-derived-consumption-columns,
-		// design D9): pgtype nullable → *float64/*int via the EXISTING
-		// pgNullableFloat64 / pgNullableInt32AsInt helpers — no new mapping helper.
-		// nil means either "no predecessor" or (for the two efficiency fields) a
-		// non-positive BatteryUsedPctCalc divisor (D2); a stored value is always a
-		// truthful reading, never a placeholder.
-		DistanceTraveledKmCalc: pgNullableFloat64(r.DistanceTraveledKmCalc),
-		BatteryUsedPctCalc:     pgNullableInt32AsInt(r.BatteryUsedPctCalc),
-		KmPerPctCalc:           pgNullableFloat64(r.KmPerPctCalc),
-		EstimatedRangeKmCalc:   pgNullableFloat64(r.EstimatedRangeKmCalc),
-		DaysSpannedCalc:        pgNullableInt32AsInt(r.DaysSpannedCalc),
 	}
 }
 

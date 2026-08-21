@@ -294,21 +294,12 @@ func (s *fakeStore) upsertSuperchargerSession(_ context.Context, session Superch
 	return nil
 }
 
-// previousSnapshot satisfies the store seam added by
-// telemetry-add-derived-consumption-columns (T3.2/D7). It always returns (nil, nil)
-// — "no predecessor" — the minimal-implementation precedent this fake already
-// follows for latestSnapshotsByAccount/snapshotsByVehicleSince/Between above.
-// CollectAll tests do not assert on the five derived-consumption fields; that
-// coverage lives in consumption_test.go (T6) and the DB integration tests (T7).
-func (s *fakeStore) previousSnapshot(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
-	return nil, nil
-}
-
 // snapshotPrecedingDay satisfies the store seam added by
 // RM29-telemetry-drop-derived-columns (design D2, wave 1). CollectAll never
-// calls it (it is exercised only through the Reader port); this no-op stub
-// (nil, nil) keeps fakeStore implementing the full store interface, mirroring
-// previousSnapshot's own no-op-return precedent above.
+// calls it (it is exercised only through the Reader port, since attemptVehicle's
+// own predecessor lookup was deleted alongside deriveConsumption — tier 4 design
+// D8); this no-op stub (nil, nil) keeps fakeStore implementing the full store
+// interface.
 func (s *fakeStore) snapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
 	return nil, nil
 }

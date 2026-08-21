@@ -104,8 +104,9 @@ func (r *reader) SnapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, 
 // mapped via the existing shared rowToSnapshot mapper (mapping.go) — no new
 // mapper. `day` is bound via the existing dateFrom helper (service.go):
 // captured_date is a DATE column, so the parameter is pgtype.Date, not
-// pgtype.Timestamptz. Mirrors dbStore.previousSnapshot's shape (service.go) one
-// level down, with an instant bound swapped for a calendar-day bound.
+// pgtype.Timestamptz. This is the module's sole predecessor lookup: the former
+// dbStore.previousSnapshot (instant-bounded) was deleted in tier 4 (design D8)
+// once this calendar-day-bounded method took over as its only caller's need.
 func (d *dbStore) snapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error) {
 	row, err := d.q.SnapshotPrecedingDay(ctx, telemetrydb.SnapshotPrecedingDayParams{
 		AccountID: accountID,
