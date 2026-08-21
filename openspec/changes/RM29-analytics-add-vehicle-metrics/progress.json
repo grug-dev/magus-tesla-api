@@ -8,6 +8,9 @@
   "status": "in-progress",
   "rollup": {
     "current": [
+      "6.1",
+      "6.2",
+      "6.3",
       "6.4",
       "6.5",
       "6.6"
@@ -24,11 +27,7 @@
       "8.4",
       "7.6"
     ],
-    "blocked": [
-      "6.1",
-      "6.2",
-      "6.3"
-    ],
+    "blocked": [],
     "done": [
       "1.1",
       "1.2",
@@ -53,7 +52,7 @@
     ]
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T16:52:00Z",
+  "updated_at": "2026-08-21T17:10:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -597,22 +596,22 @@
       ],
       "wave": 6,
       "parallel_ok": true,
-      "status": "blocked",
+      "status": "awaiting-user-verification",
       "agent": "analytics",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T16:26:00Z",
-      "completed_at": "2026-08-21T16:32:00Z",
+      "started_at": "2026-08-21T16:55:00Z",
+      "completed_at": "2026-08-21T17:10:00Z",
       "duration_seconds": null,
-      "notes": "BLOCKED. telemetry exposes no public writer for a single vehicle_snapshots row (only Collector.CollectAll, needing a tesla.VehicleService fake this module may not import) and none at all for supercharger_sessions.",
+      "notes": "TestRecalculate_FixtureA/B/C against the Test Contract, all columns. Fixture C's dense predecessor-less row asserted explicitly: five _calc columns NULL, consumed_pct NULL, flagged compared to literal false, missing_charging_type NULL.",
       "budget": {
-        "five_hour_pct_start": 28.0,
-        "five_hour_pct_end": 41.0,
-        "five_hour_pct_delta": 13.0,
-        "cost_usd_delta": 4.98,
-        "context_pct_end": 12,
+        "five_hour_pct_start": 46.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.1,
+        "context_pct_end": 16,
         "source": "statusline-cache",
         "approx": true,
-        "note": "wave-6 delta across the single serial analytics worker (6.1-6.4)"
+        "note": "wave-6c delta: single serial analytics worker (6.1-6.3)"
       }
     },
     {
@@ -625,22 +624,22 @@
       ],
       "wave": 6,
       "parallel_ok": true,
-      "status": "blocked",
+      "status": "awaiting-user-verification",
       "agent": "analytics",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T16:26:00Z",
-      "completed_at": "2026-08-21T16:32:00Z",
+      "started_at": "2026-08-21T16:55:00Z",
+      "completed_at": "2026-08-21T17:10:00Z",
       "duration_seconds": null,
-      "notes": "BLOCKED on 6.1's seeding - Reconcile tests need real snapshots/sessions/entries plus watermark rows. Not independently resolvable.",
+      "notes": "Backfill/idempotence/revised-old-session Reconcile tests. Fixture dates anchored 20-25 days back off time.Now().UTC(), so D13's un-injectable yesterday clamp is never the boundary under test. No port widened.",
       "budget": {
-        "five_hour_pct_start": 28.0,
-        "five_hour_pct_end": 41.0,
-        "five_hour_pct_delta": 13.0,
-        "cost_usd_delta": 4.98,
-        "context_pct_end": 12,
+        "five_hour_pct_start": 46.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.1,
+        "context_pct_end": 16,
         "source": "statusline-cache",
         "approx": true,
-        "note": "wave-6 delta across the single serial analytics worker (6.1-6.4)"
+        "note": "wave-6c delta: single serial analytics worker (6.1-6.3)"
       }
     },
     {
@@ -653,22 +652,22 @@
       ],
       "wave": 6,
       "parallel_ok": true,
-      "status": "blocked",
+      "status": "awaiting-user-verification",
       "agent": "analytics",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-21T16:26:00Z",
-      "completed_at": "2026-08-21T16:32:00Z",
+      "started_at": "2026-08-21T16:55:00Z",
+      "completed_at": "2026-08-21T17:10:00Z",
       "duration_seconds": null,
-      "notes": "BLOCKED on 6.1's persisted rows - round-trip and Fixture-C-exclusion tests read back what Recalculate wrote.",
+      "notes": "Reader round-trips plus BothMethods_ExcludeFixtureCRow - direct SELECT proves the row exists, then both Reader methods return empty for that date. Real SQL proof of the IS NOT NULL filter Wave 4 only faked.",
       "budget": {
-        "five_hour_pct_start": 28.0,
-        "five_hour_pct_end": 41.0,
-        "five_hour_pct_delta": 13.0,
-        "cost_usd_delta": 4.98,
-        "context_pct_end": 12,
+        "five_hour_pct_start": 46.0,
+        "five_hour_pct_end": 52.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.1,
+        "context_pct_end": 16,
         "source": "statusline-cache",
         "approx": true,
-        "note": "wave-6 delta across the single serial analytics worker (6.1-6.4)"
+        "note": "wave-6c delta: single serial analytics worker (6.1-6.3)"
       }
     },
     {
@@ -1166,6 +1165,11 @@
       "at": "2026-08-21T16:52:00Z",
       "agent": "leader",
       "event": "Wave 6b: leader implemented 6.5 + 6.6 directly - internal/testdb is shared infrastructure, not a module, and 6.6 is its two-line call site. go build ./... and go vet clean. Discovered while implementing that a union-FS merge (the obvious first design) would have broken on the existing account/charging duplicate version -> D20. Next: re-dispatch analytics worker for 6.1-6.3."
+    },
+    {
+      "at": "2026-08-21T17:10:00Z",
+      "agent": "leader",
+      "event": "Wave 6c landed: 6.1-6.3 delivered against the now-multi-schema harness. Leader independently re-ran go vet ./internal/analytics/... + gofmt + go build ./... (all clean) and spot-read TestRecalculate_FixtureC and the exclusion test rather than taking the report on trust. Worker reported no disagreement between the implementation and design.md's Test Contract - notable, since it was told to report one rather than reshape an assertion. 11 DB-backed tests now exist where the module had none. Wave 6 fully unblocked; all six tasks awaiting-user-verification."
     }
   ]
 }

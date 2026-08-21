@@ -315,7 +315,7 @@ See design.md D1–D13 for the rationale behind each group.
 > pattern exactly (new precedent for this module, not a new pattern for the
 > codebase).
 
-- [ ] **6.1** `internal/analytics/db_integration_test.go` (new file) —
+- [x] **6.1** `internal/analytics/db_integration_test.go` (new file) —
   `TestMain`/testdb setup mirroring `internal/telemetry/testdb_test.go`'s pattern.
   `TestRecalculate_FixtureA`, `TestRecalculate_FixtureB`, and
   **`TestRecalculate_FixtureC`**: seed the fixture snapshots/sessions/entries
@@ -328,7 +328,7 @@ See design.md D1–D13 for the rationale behind each group.
   NULL**).
   `depends_on`: 2.4, 3.2 · `parallel_ok`: with 6.2
 
-- [ ] **6.2** `internal/analytics/db_integration_test.go` — `TestReconcile_
+- [x] **6.2** `internal/analytics/db_integration_test.go` — `TestReconcile_
   BackfillsOnFirstRun` (D7: no prior watermark → full history), `TestReconcile_
   Idempotent` (D-Test Contract's idempotence scenario: a second `Reconcile` call
   with no source changes performs no net row change and does not regress any
@@ -336,7 +336,7 @@ See design.md D1–D13 for the rationale behind each group.
   weeks old" scenario from specs/analytics/spec.md).
   `depends_on`: 6.1 · `parallel_ok`: no
 
-- [ ] **6.3** `internal/analytics/db_integration_test.go` —
+- [x] **6.3** `internal/analytics/db_integration_test.go` —
   `TestReader_ConsumedByDay_ReadsBackWhatRecalculateWrote` and
   `TestReader_OdometerDeltaByDay_ReadsBackWhatRecalculateWrote`: call `Recalculate`
   then the corresponding `Reader` method, assert the round-trip matches (closes the
@@ -448,7 +448,7 @@ See design.md D1–D13 for the rationale behind each group.
 > shared-harness + direct-SQL-seeding route (decision **D19**). Tasks are append-only, so
 > 6.1's "not direct SQL" clause is **superseded by D19**, not edited.
 
-- [ ] **6.5** `internal/testdb/testdb.go` — **[leader]**, shared test infrastructure,
+- [x] **6.5** `internal/testdb/testdb.go` — **[leader]**, shared test infrastructure,
   outside any module sandbox. Add a multi-directory provisioning entry point so a
   package's DB-backed tests can apply *several* modules' migrations to one throw-away
   database. Filesystem paths, not `embed` — the `..` restriction is an `embed` directive
@@ -459,7 +459,7 @@ See design.md D1–D13 for the rationale behind each group.
   (`internal/telemetry`, `internal/charging`) keep working unchanged.
   `depends_on`: — · `parallel_ok`: no (6.1–6.3 all block on it)
 
-- [ ] **6.6** `internal/analytics/testdb_test.go` — re-point this module's `TestMain` at
+- [x] **6.6** `internal/analytics/testdb_test.go` — re-point this module's `TestMain` at
   the multi-directory entry point so the analytics test database carries telemetry's and
   charging's schemas alongside its own. Update the file's header comment, which currently
   documents the single-module limitation as permanent.
