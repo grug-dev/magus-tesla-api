@@ -43,10 +43,12 @@ type vehicleMetricRow struct {
 	OdometerKm      float64
 	BatteryRangeKm  float64
 
-	// The five _calc columns tier 4 needs a home for (D9) -- copied verbatim
-	// from telemetry.Snapshot's already-computed pointer fields, no
-	// re-derivation. nil iff this row's day has no locally-available
-	// predecessor snapshot.
+	// The five _calc columns (D9) -- computed by consumption.go's
+	// deriveConsumption from this row's snapshot pair. They used to be copied
+	// verbatim off telemetry.Snapshot's own _calc fields; RM29 tier 4 moved
+	// the derivation into this module and dropped those fields, so this is
+	// now the only place they are produced. nil iff this row's day has no
+	// predecessor snapshot at all (design.md D6).
 	DistanceTraveledKmCalc *float64
 	BatteryUsedPctCalc     *int
 	KmPerPctCalc           *float64
@@ -98,8 +100,9 @@ func calendarDay(t time.Time) time.Time {
 // duration, so DST cannot shift it.
 //
 // Invariant, asserted by test (m): for any consecutive pair,
-// effectiveDay(cur) - effectiveDay(prev) == *cur.DaysSpannedCalc, because
-// telemetry derives DaysSpannedCalc from the same two CapturedDate values.
+// effectiveDay(cur) - effectiveDay(prev) == *DaysSpannedCalc, because
+// deriveConsumption (consumption.go) derives DaysSpannedCalc from the same
+// two CapturedDate values.
 func effectiveDay(s telemetry.Snapshot) time.Time {
 	return calendarDay(s.CapturedDate).AddDate(0, 0, -1)
 }
@@ -174,25 +177,42 @@ func sumManualPctBetween(entries []charging.Entry, fromDay, toDay time.Time) flo
 // filtered here, against the same day definition the emitted MetricDate
 // carries.
 //
+// preceding is the vehicle's true immediate predecessor for snapshots[0] --
+// the row Recalculate fetched via telemetry.Reader.SnapshotPrecedingDay
+// (design.md D2/D7), nil exactly when the vehicle has no earlier stored
+// snapshot at all. It is used as prev for i == 0 only; for i >= 1 the
+// predecessor is snapshots[i-1], guaranteed to be the true immediate one
+// because SnapshotsByVehicleBetween returns a contiguous window with nothing
+// skipped inside it. Passing it in (rather than looking it up here) keeps
+// this function pure and offline-testable -- the lookup is the caller's I/O,
+// exactly as the three existing fetches are.
+//
 // Loop shape (design.md D10, dense-table revision): iterates EVERY fetched
 // index i := 0 to len(snapshots)-1 -- unlike the pre-dense deriveConsumedByDay
 // this replaces, which started at i := 1 and so structurally never visited
-// snapshots[0] as cur at all. For i == 0 (no local prev available in the
-// fetched slice) OR cur.BatteryUsedPctCalc == nil (telemetry itself recorded
-// no predecessor for this row, D5a's original signal, kept as a second,
-// independent check for defense-in-depth), the emitted row carries only the
-// day's raw observations from cur, with flagged forced false and every
+// snapshots[0] as cur at all. The predecessor-less branch triggers on
+// prev == nil ALONE (RM29 tier 4, design.md D6). It used to be
+// `i == 0 || cur.BatteryUsedPctCalc == nil`, the second half being tier 3
+// D10's defense-in-depth "trust telemetry's own field, not just local array
+// position"; that check ceases to exist with the field it read. This is not
+// a weakening -- the retained signal is the STRONGER of the two, because
+// prev == nil now consults the database (via preceding) where
+// cur.BatteryUsedPctCalc == nil only ever reported what a past write path
+// concluded.
+//
+// For a predecessor-less row the emitted row carries only the day's raw
+// observations from cur, with flagged forced false and every
 // derived/consumed field left nil -- the D5/D5a flag comparison never runs
 // for this row (design.md D9's dedicated rationale: a stored 0 would falsely
 // flag a vehicle's first day as a suspected charge gap). For every other row,
 // the row is computed EXACTLY as the pre-dense derivation computed it
 // (unchanged formulas, unchanged charge-event matching against
-// prev.CapturedAt/effectiveDay(prev)), additionally carrying
-// cur.BatteryLevelPct, cur.OdometerKm, cur.BatteryRangeKm, cur.KmPerPctCalc,
-// cur.EstimatedRangeKmCalc, and cur.DaysSpannedCalc copied verbatim (no
-// fallback-to-1 -- D9's "copied verbatim, no re-derivation" instruction; the
-// old fallback-to-1 local variable is gone, not reproduced here).
-func deriveVehicleMetrics(snapshots []telemetry.Snapshot, sessions []telemetry.SuperchargerSession, entries []charging.Entry, start, end time.Time) []vehicleMetricRow {
+// prev.CapturedAt/effectiveDay(prev)), carrying cur.BatteryLevelPct,
+// cur.OdometerKm, cur.BatteryRangeKm plus the five figures deriveConsumption
+// (consumption.go) computes from the (prev, cur) pair -- which is where they
+// used to be copied verbatim off cur's own _calc fields (no fallback-to-1
+// then, none now).
+func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.Snapshot, sessions []telemetry.SuperchargerSession, entries []charging.Entry, start, end time.Time) []vehicleMetricRow {
 	out := make([]vehicleMetricRow, 0, len(snapshots))
 	for i := 0; i < len(snapshots); i++ {
 		cur := snapshots[i]
@@ -201,11 +221,18 @@ func deriveVehicleMetrics(snapshots []telemetry.Snapshot, sessions []telemetry.S
 			continue
 		}
 
-		if i == 0 || cur.BatteryUsedPctCalc == nil {
-			// D5a/D9: no predecessor claim for this row -- persist the day's raw
-			// observations only. Every derived/consumed field stays nil (-> SQL
-			// NULL). flagged is forced false here, never left to a stray
-			// zero-value comparison against distance.
+		// D6: the sole predecessor signal. snapshots[i-1] inside the fetched
+		// window, the caller's SnapshotPrecedingDay result at its left edge.
+		prev := preceding
+		if i >= 1 {
+			prev = &snapshots[i-1]
+		}
+
+		if prev == nil {
+			// D5a/D9: no predecessor for this row anywhere in storage -- persist
+			// the day's raw observations only. Every derived/consumed field stays
+			// nil (-> SQL NULL). flagged is forced false here, never left to a
+			// stray zero-value comparison against distance.
 			out = append(out, vehicleMetricRow{
 				AccountID:       cur.AccountID,
 				TeslaID:         cur.TeslaID,
@@ -218,16 +245,16 @@ func deriveVehicleMetrics(snapshots []telemetry.Snapshot, sessions []telemetry.S
 			continue
 		}
 
-		prev := snapshots[i-1]
+		calc := deriveConsumption(prev, cur)
 
 		chargePct := sumSuperchargerPctBetween(sessions, prev.CapturedAt, cur.CapturedAt) +
-			sumManualPctBetween(entries, effectiveDay(prev), day)
+			sumManualPctBetween(entries, effectiveDay(*prev), day)
 
-		consumed := float64(*cur.BatteryUsedPctCalc) + chargePct
+		consumed := float64(*calc.BatteryUsedPctCalc) + chargePct
 
 		var distanceKm float64
-		if cur.DistanceTraveledKmCalc != nil {
-			distanceKm = *cur.DistanceTraveledKmCalc
+		if calc.DistanceTraveledKmCalc != nil {
+			distanceKm = *calc.DistanceTraveledKmCalc
 		}
 
 		flagged := consumed < 0 || (consumed == 0 && distanceKm > minFlagDistanceKm)
@@ -244,11 +271,11 @@ func deriveVehicleMetrics(snapshots []telemetry.Snapshot, sessions []telemetry.S
 			BatteryLevelPct:        cur.BatteryLevelPct,
 			OdometerKm:             cur.OdometerKm,
 			BatteryRangeKm:         cur.BatteryRangeKm,
-			DistanceTraveledKmCalc: cur.DistanceTraveledKmCalc,
-			BatteryUsedPctCalc:     cur.BatteryUsedPctCalc,
-			KmPerPctCalc:           cur.KmPerPctCalc,
-			EstimatedRangeKmCalc:   cur.EstimatedRangeKmCalc,
-			DaysSpannedCalc:        cur.DaysSpannedCalc,
+			DistanceTraveledKmCalc: calc.DistanceTraveledKmCalc,
+			BatteryUsedPctCalc:     calc.BatteryUsedPctCalc,
+			KmPerPctCalc:           calc.KmPerPctCalc,
+			EstimatedRangeKmCalc:   calc.EstimatedRangeKmCalc,
+			DaysSpannedCalc:        calc.DaysSpannedCalc,
 			ConsumedPct:            &consumed,
 			Flagged:                flagged,
 			MissingChargingType:    missingType,

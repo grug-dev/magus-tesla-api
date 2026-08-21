@@ -83,7 +83,7 @@ behind each group.
 > `vehicle_snapshots` still carries them. **This is the state that makes Wave 4 safe**
 > (design.md D11).
 
-- [ ] **2.1** `internal/analytics/consumption.go` (new file) — move
+- [x] **2.1** `internal/analytics/consumption.go` (new file) — move
   `deriveConsumption` here from `internal/telemetry/service.go:581`, as the pure
   function design.md D5 specifies: `deriveConsumption(prev *telemetry.Snapshot, cur
   telemetry.Snapshot) consumptionCalc`, with the unexported `consumptionCalc` struct
@@ -96,7 +96,7 @@ behind each group.
   this task** — that is 4.4, in the other module.
   `depends_on`: — · `parallel_ok`: with 2.2
 
-- [ ] **2.2** `internal/analytics/consumed.go` — `deriveVehicleMetrics` gains a
+- [x] **2.2** `internal/analytics/consumed.go` — `deriveVehicleMetrics` gains a
   leading `preceding *telemetry.Snapshot` parameter (design.md D7). Inside the loop:
   resolve `prev` as `snapshots[i-1]` for `i >= 1` and `preceding` for `i == 0`; the
   predecessor-less branch now triggers on **`prev == nil` alone** (design.md D6 — the
@@ -114,7 +114,7 @@ behind each group.
   `minFlagDistanceKm`) is untouched.
   `depends_on`: 2.1 · `parallel_ok`: no
 
-- [ ] **2.3** `internal/analytics/recalculate.go` — `Recalculate` calls
+- [x] **2.3** `internal/analytics/recalculate.go` — `Recalculate` calls
   `r.telemetry.SnapshotPrecedingDay(ctx, accountID, teslaID, snapshots[0].CapturedDate)`
   once, unconditionally, whenever `len(snapshots) > 0` (design.md D7 — do not add the
   "skip it when snapshots[0] is the lookback row" optimisation; D7 explains why the
@@ -123,7 +123,7 @@ behind each group.
   `deriveVehicleMetrics`' new leading argument.
   `depends_on`: 1.2, 2.2 · `parallel_ok`: no
 
-- [ ] **2.4** `internal/analytics/recalculate.go` — implement design.md **D8b**, the
+- [x] **2.4** `internal/analytics/recalculate.go` — implement design.md **D8b**, the
   widened charge-source fetch (**the decision the interview did not cover — read D8b
   in full before implementing**). Compute `chargeStart := lookbackStart`, then, when
   `preceding != nil` and `effectiveDay(*preceding)` is before `chargeStart`, set
@@ -136,7 +136,7 @@ behind each group.
   Verified by Test Contract Fixture D2.
   `depends_on`: 2.3 · `parallel_ok`: no
 
-- [ ] **2.5** `internal/analytics/reader_test.go` and any other in-module fake of
+- [x] **2.5** `internal/analytics/reader_test.go` and any other in-module fake of
   `telemetry.Reader` — add the `SnapshotPrecedingDay` method so the package compiles.
   A fake used by a test with no gap returns `(nil, nil)`; Fixture D's fake returns the
   gap's predecessor.
@@ -186,8 +186,17 @@ behind each group.
   existing offline/fake-backed assertions (or add them where none exist) to pin
   design.md D8b: with `preceding` seven days before `lookbackStart`, the fake
   `telemetry.SuperchargerReader` and `charging.Reader` each receive
-  `effectiveDay(*preceding)` as their start bound; with `preceding` inside the normal
-  lookback, both receive `lookbackStart` **unchanged**. Also assert that a
+  `effectiveDay(*preceding)` as their start bound; with `preceding` being the ordinary
+  one-day lookback row, both receive **`start - 2 days`** — NOT `lookbackStart`.
+  **Corrected by the leader at the wave-2 reconcile.** The original text here said
+  `lookbackStart` **unchanged**, copied from a claim in design.md D8b that is
+  arithmetically false: `effectiveDay` is `calendarDay(CapturedDate) - 1`, so the
+  `start-1d` lookback row yields `start-2d`, which is always `Before(lookbackStart)`.
+  The widening therefore fires on every call. See D8b's Correction block for why that is
+  accepted rather than fixed. A test written against the withdrawn claim would fail
+  against a correct implementation — which is exactly why the design authors expected
+  values before the code exists, and exactly why this was corrected here rather than by
+  relaxing the test later. Also assert that a
   `SnapshotPrecedingDay` error propagates out of `Recalculate` rather than being
   swallowed into a predecessor-less row (design.md D7).
   `depends_on`: 2.4 · `parallel_ok`: with 3.1, 3.2

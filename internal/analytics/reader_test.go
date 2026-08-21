@@ -30,12 +30,24 @@ type fakeTelemetryReader struct {
 	snapshots []telemetry.Snapshot
 	err       error
 
+	// preceding/precedingErr drive SnapshotPrecedingDay independently of the
+	// snapshots/err pair above (RM29 tier 4, task 2.5): the zero value is the
+	// no-gap case — (nil, nil), "this vehicle has no earlier snapshot" — while
+	// a gap fixture (design.md Fixture D) sets preceding to the row that sits
+	// before the fetched window. Kept separate from err so the existing
+	// "SnapshotsByVehicleBetween error propagates" test keeps driving exactly
+	// one port's failure.
+	preceding    *telemetry.Snapshot
+	precedingErr error
+
 	gotAccountID uuid.UUID
 	gotTeslaID   int64
 	gotSince     time.Time
 
 	gotBetweenStart time.Time
 	gotBetweenEnd   time.Time
+
+	gotPrecedingDay time.Time
 }
 
 func (f *fakeTelemetryReader) LatestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]telemetry.Snapshot, error) {
@@ -74,6 +86,23 @@ func (f *fakeTelemetryReader) SnapshotsByVehicleBetween(_ context.Context, accou
 // behaviour when the Reconcile tests need it.
 func (f *fakeTelemetryReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
 	panic("fakeTelemetryReader: SnapshotsByVehicleUpdatedSince must not be called from a Reader path")
+}
+
+// SnapshotPrecedingDay satisfies the telemetry.Reader method added by
+// RM29-telemetry-drop-derived-columns task 1.2. Unlike
+// SnapshotsByVehicleUpdatedSince above it does NOT panic: Recalculate calls it
+// unconditionally on every run whose snapshot window returned rows (design.md
+// D7), so panicking would break every Recalculate-driven test rather than
+// catch a mistake. The zero-value fake returns (nil, nil) — the correct answer
+// for a fixture with no capture gap.
+func (f *fakeTelemetryReader) SnapshotPrecedingDay(_ context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*telemetry.Snapshot, error) {
+	f.gotAccountID = accountID
+	f.gotTeslaID = teslaID
+	f.gotPrecedingDay = day
+	if f.precedingErr != nil {
+		return nil, f.precedingErr
+	}
+	return f.preceding, nil
 }
 
 // fakeSuperchargerReader is a fake telemetry.SuperchargerReader. SuperchargerSessionsByVehicle

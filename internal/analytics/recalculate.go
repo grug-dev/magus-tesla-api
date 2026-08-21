@@ -76,7 +76,12 @@ func NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, super
 
 // Recalculate implements Recalculator (design.md D11). It fetches the
 // identical 1-day/2-day-widened lookback window ConsumedByDay's reader.go
-// used to fetch live before this tier (copied, not redesigned), runs
+// used to fetch live before this tier (copied, not redesigned), looks up the
+// exact predecessor for the window's first row (RM29 tier 4 D7 -- the module
+// derives the five _calc figures itself now, so a multi-day capture gap needs
+// a real predecessor rather than whatever happens to sit inside the window),
+// widens both charge-source fetches back to that predecessor's day when it
+// precedes the normal lookback (D8b), runs
 // deriveVehicleMetrics (consumed.go, now dense per D10) over the fetched
 // data, UPSERTs every produced row, then deletes any existing vehicle_metrics
 // row in [start, end] whose metric_date is NOT among the rows just produced
@@ -100,17 +105,66 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 		return fmt.Errorf("fetching snapshots: %w", err)
 	}
 
-	sessions, err := r.supercharger.SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end.AddDate(0, 0, 2))
+	// D7: the exact predecessor for snapshots[0]. One indexed single-row read,
+	// issued UNCONDITIONALLY whenever the window returned rows -- deliberately
+	// NOT skipped when snapshots[0] is merely the one-day lookback row whose
+	// own predecessor goes unused. That branch could only ever save a
+	// microsecond on a write path the Performance-Profile explicitly gives
+	// latitude to, and mis-deriving its guard costs a silently-NULLed day
+	// rather than an error.
+	//
+	// A query error ABORTS Recalculate and is never degraded to "no
+	// predecessor": doing so would silently NULL out a real vehicle's figures
+	// on a transient DB hiccup (telemetry.Reader.SnapshotPrecedingDay's own doc
+	// comment draws the same distinction).
+	var preceding *telemetry.Snapshot
+	if len(snapshots) > 0 {
+		preceding, err = r.telemetry.SnapshotPrecedingDay(ctx, accountID, teslaID, snapshots[0].CapturedDate)
+		if err != nil {
+			return fmt.Errorf("fetching preceding snapshot: %w", err)
+		}
+	}
+
+	// D8b: widen BOTH charge-source fetches across a capture gap. Reaching
+	// further back for the predecessor without reaching further back for that
+	// span's charge events produces a wrong consumed_pct for exactly the gap
+	// days the predecessor lookup exists to recover -- and because the error is
+	// negative, the D5/D5a rule then fires a FALSE "missing charge record"
+	// alarm on a day that was correctly charged.
+	//
+	// effectiveDay(*preceding) rather than calendarDay(preceding.CapturedAt) --
+	// one day more generous than strictly required, matching tier 3 D8's
+	// "coarse and generous, not pixel-exact" precedent. Over-fetching only
+	// costs rows read; it can never change a result, because both sum*Between
+	// helpers (consumed.go) re-filter to the exact interval in Go.
+	//
+	// Note what this actually does, because design.md D8b's prose first got it
+	// wrong: effectiveDay is calendarDay(CapturedDate) - 1, so even the ordinary
+	// one-day lookback row at start-1d yields start-2d, which is Before
+	// lookbackStart. chargeStart therefore drops to start-2d on EVERY call, not
+	// only across a gap -- the charge fetches are permanently one day wider than
+	// they were before this decision. That is deliberate and harmless: both
+	// sum...Between helpers re-filter to the exact interval in Go, so the extra
+	// day can only cost rows read, never change a result. The gap widening on
+	// top of that still fires only when a real gap exists.
+	chargeStart := lookbackStart
+	if preceding != nil {
+		if d := effectiveDay(*preceding); d.Before(chargeStart) {
+			chargeStart = d
+		}
+	}
+
+	sessions, err := r.supercharger.SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, chargeStart, end.AddDate(0, 0, 2))
 	if err != nil {
 		return fmt.Errorf("fetching supercharger sessions: %w", err)
 	}
 
-	entries, err := r.manual.ListEntriesByVehicleBetween(ctx, accountID, teslaID, lookbackStart, end)
+	entries, err := r.manual.ListEntriesByVehicleBetween(ctx, accountID, teslaID, chargeStart, end)
 	if err != nil {
 		return fmt.Errorf("fetching manual charge entries: %w", err)
 	}
 
-	rows := deriveVehicleMetrics(snapshots, sessions, entries, start, end)
+	rows := deriveVehicleMetrics(preceding, snapshots, sessions, entries, start, end)
 
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {

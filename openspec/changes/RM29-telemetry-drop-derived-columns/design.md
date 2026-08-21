@@ -330,10 +330,23 @@ more generous than strictly required, matching tier 3 D8's "coarse and generous,
 pixel-exact" precedent. Over-fetching only costs rows read; it can never change a
 result, because both `sum...Between` helpers re-filter to the exact interval in Go.
 
-The widened fetch fires **only** when a real capture gap exists, and its size is
-bounded by that gap's own length. In the steady state (`preceding` is the one-day
-lookback row) `chargeStart == lookbackStart` and the fetches are byte-identical to
-today's.
+**Correction (leader, wave-2 reconcile).** An earlier draft of this paragraph claimed
+that in the steady state `chargeStart == lookbackStart` and the fetches stay
+byte-identical to today's. That is arithmetically false, and the code block above is
+what governs. `effectiveDay(s)` is `calendarDay(s.CapturedDate).AddDate(0, 0, -1)`, so
+the ordinary one-day lookback row at `start-1d` has an effective day of `start-2d`,
+which **is** `Before(lookbackStart)`. `chargeStart` therefore drops to `start-2d` on
+*every* call, gap or no gap — the charge fetches are permanently one day wider than
+before this decision, not conditionally wider.
+
+That is accepted, not a defect: it is the same "one day more generous than strictly
+required" the paragraph above already chose deliberately, and it costs one extra day of
+charge rows read per `Recalculate` while changing no result, because both
+`sum...Between` helpers re-filter to the exact interval in Go. The *gap* widening on top
+of it still fires only when a real gap exists and is still bounded by that gap's length.
+
+Any test asserting this must expect `start-2d` in the no-gap case. Task 3.3 was written
+against the withdrawn claim and is corrected in tasks.md.
 
 **Rejected — leave the charge fetches narrow.** Trades a silently-dropped day for a
 silently-wrong one, plus a false gap alarm. Strictly worse.
