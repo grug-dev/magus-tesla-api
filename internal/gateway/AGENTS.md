@@ -54,14 +54,25 @@ It renders what other modules expose; it owns no business data.
 - `Deps.AnalyticsReader analytics.Reader` — the analytics module's read
   port; injected at construction via `gateway.Deps`/`handlers.Deps` (wired
   from `cmd/web` via `analytics.NewReader(...)`). Called by
-  `buildHistoryView`, once per `/ui/dashboard/history` fragment render
-  (`ConsumedByDay`), to populate the third "Battery consumed" chart panel
-  alongside the existing odometer/battery charts. `internal/analytics` owns
-  no database, so there is no `analyticsdb` package this rule could even be
-  tempted to import — the reminder is simply "the interface, nothing
-  deeper," same as every other sibling-module port here. Added by
+  `buildHistoryView`, once per `/ui/dashboard/history` fragment render.
+  Methods used here: `ConsumedByDay`, populating the "Battery consumed" chart
+  panel, and — since `RM29-analytics-add-vehicle-metrics` —
+  **`OdometerDeltaByDay`**. `buildOdometerChart` no longer derives per-day
+  distance from raw snapshots itself; that calculation moved into the module
+  that owns it (roadmap D5), and the gateway reads the precomputed result.
+  `internal/analytics` now DOES own a database (`analyticsdb`,
+  `vehicle_metrics`) — this bullet used to note that it did not — so the
+  standard rule applies here in full: NEVER import `internal/analytics/db`,
+  all access through this interface only. Added by
   `RM28-gateway-add-consumed-graph` (tier 4), renamed from `battery` by
   `RM29-analytics-rename-from-battery`.
+- `Deps.AnalyticsRecalculator analytics.Recalculator` — the analytics module's
+  **write** port, injected the same way (wired from `cmd/web` via
+  `analytics.NewRecalculator(...)`). Called by `ChargeCreate` after a manual
+  charge entry is written, so the affected days' `vehicle_metrics` rows are
+  recomputed immediately instead of waiting for the nightly pass
+  (`RM29-analytics-add-vehicle-metrics`, design D5). Same rule: the interface,
+  never `analyticsdb`.
 
 ## Boundaries
 

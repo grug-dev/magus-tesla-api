@@ -4,6 +4,7 @@
 // Behavior (see internal/testdb and ai/go-conventions.md §persistence):
 //   - If DATABASE_URL is set AND reachable, use it (managed/CI Postgres).
 //   - Otherwise auto-provision a disposable `postgres:16-alpine` container.
+//
 // goose migrations are embedded under db/migrations/ and applied before tests.
 //
 // Production impact: NONE. This file is a _test.go file — Go never compiles

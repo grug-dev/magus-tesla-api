@@ -611,7 +611,7 @@ func TestDashboardFor_EnrichedBento(t *testing.T) {
 			TeslaID:           42,
 			CapturedAt:        capturedAt,
 			BatteryLevelPct:   80,
-			BatteryRangeKm:    321.8688, // already km — %.0f rounds → "322 km"
+			BatteryRangeKm:    321.8688,       // already km — %.0f rounds → "322 km"
 			ChargingState:     "Disconnected", // → "Parked"
 			ChargeLimitSocPct: 80,
 			OdometerKm:        19312.128, // already km — formatKm rounds → "19,312 km"

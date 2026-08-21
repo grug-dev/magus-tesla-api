@@ -365,7 +365,7 @@ See design.md D1–D13 for the rationale behind each group.
 
 ## Wave 7 — documentation (leader — docs-track-structural-change, same change per CLAUDE.md)
 
-- [ ] **7.1** `internal/analytics/AGENTS.md` — "Data ownership" section rewritten:
+- [x] **7.1** `internal/analytics/AGENTS.md` — "Data ownership" section rewritten:
   "None" is no longer true; describe `internal/analytics/db` (migrations + sqlc,
   package `analyticsdb`), `vehicle_metrics`, `vehicle_metric_watermarks`, and that
   no other module may import `analyticsdb` (`ai/architecture.md` §2). "Public
@@ -378,19 +378,19 @@ See design.md D1–D13 for the rationale behind each group.
   shape.
   `depends_on`: 3.4, 6.1 (describes the post-change state) · `parallel_ok`: yes
 
-- [ ] **7.2** Root `README.md` — Project Structure tree: add `internal/analytics/db/`
+- [x] **7.2** Root `README.md` — Project Structure tree: add `internal/analytics/db/`
   under the `analytics/` entry. Architecture table: note analytics now owns a
   database. Dependency graph: no new edges (analytics' import set is unchanged —
   `telemetry`, `charging`, `account` — only its own persistence is new).
   `depends_on`: 3.4 · `parallel_ok`: yes
 
-- [ ] **7.3** `internal/gateway/AGENTS.md` — if its `Deps.AnalyticsReader
+- [x] **7.3** `internal/gateway/AGENTS.md` — if its `Deps.AnalyticsReader
   analytics.Reader` bullet lists the port's methods, add `OdometerDeltaByDay`; add a
   bullet for the new `Deps.AnalyticsRecalculator analytics.Recalculator` field,
   mirroring the existing `AnalyticsReader` bullet's shape.
   `depends_on`: 5.2 · `parallel_ok`: yes
 
-- [ ] **7.4** Root `README.md` / `internal/analytics`'s own workflow docs — document
+- [x] **7.4** Root `README.md` / `internal/analytics`'s own workflow docs — document
   the new `sqlc.yaml` entry and the exact commands (`make sqlc`,
   `make db-setup`/`make migrate-up` for the two new migrations) where a human or
   agent will look (CLAUDE.md "Workflow & architectural decisions are documented
@@ -471,7 +471,7 @@ See design.md D1–D13 for the rationale behind each group.
 > Every assertion — design.md's Test Contract, all columns, Fixture C's NULL
 > `consumed_pct` and `flagged = false` — stands exactly as specified.
 
-- [ ] **7.6** **[appended with Wave 6b]** Document the multi-directory test harness where
+- [x] **7.6** **[appended with Wave 6b]** Document the multi-directory test harness where
   an agent will look: `ai/go-conventions.md` §persistence/testing (a module whose
   DB-backed tests span more than one module's schema uses the multi-dir entry point, and
   why `embed` cannot), plus `internal/testdb`'s own doc comment. Per CLAUDE.md

@@ -72,6 +72,31 @@ interface-first):
   detection), `MissingChargingType` (`telemetry.MissingChargingType`, valid only when
   `Flagged`, D7a), `DaysSpanned` (the row's own `DaysSpannedCalc`, >1 signals a multi-day
   span, D8).
+- `Reader` — `OdometerDeltaByDay(ctx, accountID, teslaID, start, end) ([]DayDistance, error)`:
+  per-day distance travelled over `[start, end]`, read from the precomputed
+  `vehicle_metrics` rows. Sparse on the same principle as `ConsumedByDay` — a day whose
+  `distance_traveled_km_calc` is NULL (a predecessor-less day, D9) yields no entry, via
+  an `IS NOT NULL` filter in the SQL rather than a zero comparison. Added by
+  `RM29-analytics-add-vehicle-metrics` so the gateway stops deriving distance from
+  snapshots itself (roadmap D5).
+- `Recalculator` — `Recalculate(ctx, accountID, teslaID, start, end) error`: recomputes
+  and UPSERTs the `vehicle_metrics` rows for `[start, end]` from the three source ports.
+  Idempotent by design — re-running over the same unchanged sources produces the same
+  rows (`design.md` D4).
+- `Recalculator` — `Reconcile(ctx, accountID, teslaID) error`: the incremental pass. It
+  reads the three per-source watermarks, widens by the commit-skew overlap, clamps the
+  end to yesterday, and calls `Recalculate` for the affected span. **No prior watermark
+  means epoch**, i.e. a full backfill of the vehicle's history (`design.md` D7). It has
+  **no injectable clock** and clamps in UTC — a deliberate call (RM29 D13), so do not
+  widen the port to make a test deterministic; anchor fixture dates clear of the
+  boundary instead.
+- `DayDistance` — one calendar day's distance result, backing `OdometerDeltaByDay`.
+- `NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader) Recalculator`
+  is the constructor for the write side.
+- **`ConsumedByDay`'s signature is unchanged, but its implementation is not.** It used
+  to fetch from the three ports and derive on every call; it now reads the precomputed
+  `vehicle_metrics` rows. Callers see the same contract; the cost profile is completely
+  different, which is the point (`Performance-Profile`: read-heavy).
 - `DefaultWindow` — exported `time.Duration` constant, 30 days. Deployment code passes
   it (or a different duration) to `NewReader` at construction; the window is NOT a
   per-call argument to `RecentEfficiency` (`design.md` D3).
@@ -80,8 +105,10 @@ interface-first):
   ledger every nightly run, via `ConsumedByDay` (`design.md` D4/D4a/D7b). Unlike
   `DefaultWindow`, this is not consumed by `NewReader` — `cmd/poller` passes it directly
   as the `[start, end]` window to `ConsumedByDay`.
-- `NewReader(telemetry telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader, account vehicleLookup, window time.Duration) Reader`
-  is the constructor. `vehicleLookup` is an unexported narrow interface covering only
+- `NewReader(pool *pgxpool.Pool, telemetry telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader, account vehicleLookup, window time.Duration) Reader`
+  is the constructor — it gained the leading `*pgxpool.Pool` in
+  `RM29-analytics-add-vehicle-metrics`, since `ConsumedByDay`/`OdometerDeltaByDay` now
+  read this module's own tables. `vehicleLookup` is an unexported narrow interface covering only
   `RegisteredVehicles` — any real `account.Service` satisfies it automatically
   (structural typing), no adapter needed at the call site. `ConsumedByDay` uses only
   three of the four wired dependencies (`telemetry`, `supercharger`, `manual`) and none
@@ -103,10 +130,13 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 - `github.com/google/uuid`, stdlib (`context`, `time`).
 
 **Must NOT import:**
-- `internal/telemetry/db` (`telemetrydb`), `internal/charging/db`
-  (`chargingdb`), `internal/account/db` (`accountdb`), or `pgxpool`/`pgx` at all —
-  this module owns no database connection. Cross-module data flows only through public
-  ports (`ai/architecture.md` §2).
+- `internal/telemetry/db` (`telemetrydb`), `internal/charging/db` (`chargingdb`),
+  `internal/account/db` (`accountdb`) — another module's sqlc package is never
+  importable. Cross-module data flows only through public ports
+  (`ai/architecture.md` §2). Note this list no longer includes `pgxpool`/`pgx`: since
+  `RM29-analytics-add-vehicle-metrics` this module owns a database of its own and takes
+  a `*pgxpool.Pool` in `NewReader` and `NewRecalculator`. It reaches only its OWN
+  tables through it.
 - `internal/gateway`, `html/template`, `templ` — no HTML in a domain module
   (`ai/architecture.md` §2).
 - `internal/tesla` — this module never talks to the Fleet API directly; every value it
@@ -115,20 +145,43 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 
 ## Data ownership
 
-**None.** `internal/analytics/` owns no database, no table, no migration, and no
-`internal/analytics/db` package. It is a pure read-side derivation over sibling
-modules' stores, reached exclusively through their public `Reader` ports. The one
-piece of module-local state is `capacity.go`'s `packCapacityKWh` — an in-package Go
-`map[string]float64`, human-maintained from public Tesla spec sheets, NOT a database
-object and NOT subject to the `database` design gate (`design.md` "Database
-Changes"). Update that map directly (a code change) when a new `car_type` needs a
-capacity entry; it does not require a migration.
+`internal/analytics/` owns **its own database**, added by
+`RM29-analytics-add-vehicle-metrics` (MAG-26 tier 3). Before that change the answer
+here was "None"; it is no longer.
+
+- `internal/analytics/db/` — the module's sqlc package, `analyticsdb`, generated from
+  `internal/analytics/db/query.sql` via the `analytics` entry in the root `sqlc.yaml`.
+  **No other module may import `analyticsdb`** (`ai/architecture.md` §2), exactly as
+  this module may not import `telemetrydb` or `chargingdb`.
+- `internal/analytics/db/migrations/` — the module's own goose migrations, applied by
+  the Makefile's `MIGRATIONS_DIRS` loop like every other module's.
+- `vehicle_metrics` — one row per `(account_id, tesla_id, metric_date)` for every day
+  the vehicle reported, holding both the raw observations and the five derived `_calc`
+  columns. It is a **precomputed read model**: written by `Recalculator`, read by
+  `Reader`. It is **dense** — a day with no computable predecessor still gets a row,
+  with its `_calc` columns and `consumed_pct` NULL and `flagged` an explicit `false`
+  (`design.md` D9/D10). That is why both `Reader` queries filter `IS NOT NULL` rather
+  than trusting a zero.
+- `vehicle_metric_watermarks` — one recompute cursor per `(account_id, tesla_id,
+  source)`, three sources. Drives `Reconcile`'s incremental pass; no row means "epoch",
+  i.e. backfill the vehicle's full history (`design.md` D7).
+
+The module still owns no *domain* data: every input is another module's, read through
+its public port. What it owns is the **derivation of that input** — which is the whole
+point of the boundary (`ai/architecture.md` §6). The one non-database piece of
+module-local state remains `capacity.go`'s `packCapacityKWh`, an in-package Go
+`map[string]float64` maintained from public Tesla spec sheets, not a database object
+and not subject to the `database` design gate. Update that map directly (a code
+change); it needs no migration.
 
 ## Testing
 
-This module owns no DB, so **every test is an offline unit test** — no
-`DATABASE_URL`, no Docker, no `TestMain`/`testdb` harness (unlike
-`internal/telemetry` and `internal/account`, this module must never gain one):
+This module has **both** offline unit tests and `DATABASE_URL`-gated DB-integration
+tests. The second half is new as of `RM29-analytics-add-vehicle-metrics`; this section
+previously said the module "must never gain one", which stopped being true when the
+module gained a database.
+
+Offline (no `DATABASE_URL`, no Docker):
 
 - `derive_test.go` tests the pure derivation functions (`socReadings`,
   `deriveEfficiency`) directly with plain `[]telemetry.Snapshot` / `float64` inputs —
@@ -139,5 +192,23 @@ This module owns no DB, so **every test is an offline unit test** — no
   `newFakeReader` pattern in `internal/telemetry/reader_test.go` one level up (fake
   *ports* instead of a fake *store*).
 
-Run `go test ./internal/analytics/...` — it must pass with `DATABASE_URL` unset and
-Docker down; nothing in this module may ever self-skip for lack of a database.
+DB-backed (`testdb_test.go` + `db_integration_test.go`):
+
+- `testdb_test.go` provisions the test database with **`testdb.ProvisionDirs`**, not
+  `testdb.Provision`. This module's fixtures span three schemas — `Recalculate` reads
+  telemetry's `vehicle_snapshots` and `supercharger_sessions` and charging's
+  `manual_charge_entries`, then writes this module's `vehicle_metrics` — and
+  `//go:embed` cannot reach outside its own directory tree, so a single embedded
+  filesystem could only ever carry this module's own two tables. See
+  `ai/go-conventions.md` §persistence and `internal/testdb`'s doc comment.
+- `db_integration_test.go` seeds those cross-module fixtures with **direct `INSERT`s**
+  (RM29 decision D19). That is deliberate and authorized: `telemetry` exposes no public
+  writer for a single snapshot and none at all for a Supercharger session, and this
+  module may not import `internal/tesla` to drive `Collector.CollectAll`. Use
+  `charging.NewWriter(pool).Create` where a manual-charge entry is needed — that writer
+  does exist and is the right tool.
+- These tests **self-skip** when no Postgres is reachable and no Docker daemon can
+  provision one; the offline tests above must still run and pass in that state.
+
+Run `go test ./internal/analytics/...`. The offline tests must pass with `DATABASE_URL`
+unset and Docker down.

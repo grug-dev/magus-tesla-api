@@ -13,19 +13,18 @@
       "6.3",
       "6.4",
       "6.5",
-      "6.6"
-    ],
-    "pending": [
+      "6.6",
       "7.1",
       "7.2",
       "7.3",
       "7.4",
-      "7.5",
+      "7.6"
+    ],
+    "pending": [
       "8.1",
       "8.2",
       "8.3",
-      "8.4",
-      "7.6"
+      "8.4"
     ],
     "blocked": [],
     "done": [
@@ -48,11 +47,12 @@
       "5.2",
       "5.3",
       "5.4",
-      "5.5"
+      "5.5",
+      "7.5"
     ]
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T17:10:00Z",
+  "updated_at": "2026-08-21T17:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -605,13 +605,13 @@
       "notes": "TestRecalculate_FixtureA/B/C against the Test Contract, all columns. Fixture C's dense predecessor-less row asserted explicitly: five _calc columns NULL, consumed_pct NULL, flagged compared to literal false, missing_charging_type NULL.",
       "budget": {
         "five_hour_pct_start": 46.0,
-        "five_hour_pct_end": 52.0,
-        "five_hour_pct_delta": 6.0,
-        "cost_usd_delta": 2.1,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 22.0,
+        "cost_usd_delta": 7.1,
         "context_pct_end": 16,
         "source": "statusline-cache",
         "approx": true,
-        "note": "wave-6c delta: single serial analytics worker (6.1-6.3)"
+        "note": "wave-6c delta: single serial analytics worker (6.1-6.3); corrected from an under-estimate written before the post-wave reading"
       }
     },
     {
@@ -633,13 +633,13 @@
       "notes": "Backfill/idempotence/revised-old-session Reconcile tests. Fixture dates anchored 20-25 days back off time.Now().UTC(), so D13's un-injectable yesterday clamp is never the boundary under test. No port widened.",
       "budget": {
         "five_hour_pct_start": 46.0,
-        "five_hour_pct_end": 52.0,
-        "five_hour_pct_delta": 6.0,
-        "cost_usd_delta": 2.1,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 22.0,
+        "cost_usd_delta": 7.1,
         "context_pct_end": 16,
         "source": "statusline-cache",
         "approx": true,
-        "note": "wave-6c delta: single serial analytics worker (6.1-6.3)"
+        "note": "wave-6c delta: single serial analytics worker (6.1-6.3); corrected from an under-estimate written before the post-wave reading"
       }
     },
     {
@@ -661,13 +661,13 @@
       "notes": "Reader round-trips plus BothMethods_ExcludeFixtureCRow - direct SELECT proves the row exists, then both Reader methods return empty for that date. Real SQL proof of the IS NOT NULL filter Wave 4 only faked.",
       "budget": {
         "five_hour_pct_start": 46.0,
-        "five_hour_pct_end": 52.0,
-        "five_hour_pct_delta": 6.0,
-        "cost_usd_delta": 2.1,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 22.0,
+        "cost_usd_delta": 7.1,
         "context_pct_end": 16,
         "source": "statusline-cache",
         "approx": true,
-        "note": "wave-6c delta: single serial analytics worker (6.1-6.3)"
+        "note": "wave-6c delta: single serial analytics worker (6.1-6.3); corrected from an under-estimate written before the post-wave reading"
       }
     },
     {
@@ -678,13 +678,13 @@
       "depends_on": [],
       "wave": 7,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Data ownership rewritten from 'None' to the two tables; Testing section's 'must never gain a harness' corrected; pgx removed from forbidden imports; Recalculator, OdometerDeltaByDay and NewReader's new pool arg documented.",
       "budget": null
     },
     {
@@ -695,13 +695,13 @@
       "depends_on": [],
       "wave": 7,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Structure tree gains internal/analytics/db; Architecture row rewritten; two new rows in Database tables by module, including why the dense table forces IS NOT NULL reads.",
       "budget": null
     },
     {
@@ -712,13 +712,13 @@
       "depends_on": [],
       "wave": 7,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "AnalyticsReader bullet gains OdometerDeltaByDay and drops the now-false 'owns no database' note; new AnalyticsRecalculator bullet for the ChargeCreate write path.",
       "budget": null
     },
     {
@@ -729,13 +729,13 @@
       "depends_on": [],
       "wave": 7,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "README sqlc lines now list analyticsdb as the fourth package and the make sqlc output path.",
       "budget": null
     },
     {
@@ -746,13 +746,13 @@
       "depends_on": [],
       "wave": 7,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:35:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Leader bookkeeping. Roadmap .md already carries [~] for tier 3; the progress.json flip was made at resume. [x] happens at archive.",
       "budget": null
     },
     {
@@ -897,13 +897,13 @@
       ],
       "wave": 7,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "ai/go-conventions.md gains a Provision-vs-ProvisionDirs table, why embed cannot cross dirs, why dirs are never merged (the account/charging version collision), and when direct-SQL seeding is right.",
       "budget": null
     }
   ],
@@ -1093,6 +1093,15 @@
       "decision": "Applied each migration dir with its own goose provider instead of merging them into one union FS",
       "why": "account and charging both ship version 20260720000001; a merged FS dies on the collision. Per-dir sequencing is also exactly what the Makefile's migrate-up loop already does.",
       "covered_by": "D19"
+    },
+    {
+      "id": "D21",
+      "at": "2026-08-21T17:35:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "gofmt -w'd the two branch-touched unclean files, reversing D10's deferral; left the 8 pre-existing ones alone",
+      "why": "D10 deferred handlers_test.go only because a worker was writing it live. Nothing is live now, and task 8.1 expects gofmt clean. The other 8 predate this branch and are out of scope.",
+      "covered_by": "D10"
     }
   ],
   "events": [
@@ -1170,6 +1179,11 @@
       "at": "2026-08-21T17:10:00Z",
       "agent": "leader",
       "event": "Wave 6c landed: 6.1-6.3 delivered against the now-multi-schema harness. Leader independently re-ran go vet ./internal/analytics/... + gofmt + go build ./... (all clean) and spot-read TestRecalculate_FixtureC and the exclusion test rather than taking the report on trust. Worker reported no disagreement between the implementation and design.md's Test Contract - notable, since it was told to report one rather than reshape an assertion. 11 DB-backed tests now exist where the module had none. Wave 6 fully unblocked; all six tasks awaiting-user-verification."
+    },
+    {
+      "at": "2026-08-21T17:35:00Z",
+      "agent": "leader",
+      "event": "Wave 7 landed (leader-written docs). Checked ai/architecture.md too - its analytics mention is an illustrative EXAMPLE module in a generic tree, not a claim about the real one, so no edit. Also fixed the two gofmt-unclean files this branch actually introduced (D21); the 8 that remain predate the branch. go build ./... and go vet ./... clean. Next: Wave 8 verification, then the reviewer gate."
     }
   ]
 }
