@@ -593,8 +593,8 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 	prev := telemetry.Snapshot{
 		AccountID:       accountID,
 		TeslaID:         teslaID,
-		CapturedAt:      time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
-		CapturedDate:    prevDay.AddDate(0, 0, 1),
+		CapturedAt:      time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    prevDay,
 		OdometerKm:      1000.0,
 		BatteryLevelPct: 80,
 		BatteryRangeKm:  300.0,
@@ -602,8 +602,8 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 	cur := telemetry.Snapshot{
 		AccountID:              accountID,
 		TeslaID:                teslaID,
-		CapturedAt:             time.Date(2026, 8, 12, 3, 30, 0, 0, time.UTC),
-		CapturedDate:           curDay.AddDate(0, 0, 1),
+		CapturedAt:             time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
+		CapturedDate:           curDay,
 		OdometerKm:             1050.0,
 		BatteryLevelPct:        65,
 		BatteryRangeKm:         280.0,
@@ -614,8 +614,9 @@ func TestDeriveVehicleMetrics_FixtureA(t *testing.T) {
 		DaysSpannedCalc:        intPtr(1),
 	}
 
-	// Recalculate(A, 42, 2026-08-10, 2026-08-10) -- prev's own effective day
-	// (2026-08-09) falls outside this window, so only cur's row is produced.
+	// Recalculate(A, 42, 2026-08-10, 2026-08-10). effectiveDay = CapturedDate - 1,
+	// so prev (CapturedDate 08-10) lands on 08-09, outside this window, and cur
+	// (CapturedDate 08-11) lands on 08-10, inside it -- only cur's row is produced.
 	start := day(2026, 8, 10)
 	end := day(2026, 8, 10)
 
@@ -685,16 +686,16 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 	prev := telemetry.Snapshot{
 		AccountID:       accountID,
 		TeslaID:         teslaID,
-		CapturedAt:      time.Date(2026, 8, 13, 3, 30, 0, 0, time.UTC),
-		CapturedDate:    prevDay.AddDate(0, 0, 1),
+		CapturedAt:      time.Date(2026, 8, 12, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    prevDay,
 		OdometerKm:      2000.0,
 		BatteryLevelPct: 40,
 	}
 	cur := telemetry.Snapshot{
 		AccountID:              accountID,
 		TeslaID:                teslaID,
-		CapturedAt:             time.Date(2026, 8, 14, 3, 30, 0, 0, time.UTC),
-		CapturedDate:           curDay.AddDate(0, 0, 1),
+		CapturedAt:             time.Date(2026, 8, 13, 3, 30, 0, 0, time.UTC),
+		CapturedDate:           curDay,
 		OdometerKm:             1998.0,
 		BatteryLevelPct:        85,
 		DistanceTraveledKmCalc: fp(-2.0), // 1998.0 - 2000.0, stored RAW, unclamped

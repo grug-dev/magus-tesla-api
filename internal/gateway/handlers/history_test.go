@@ -818,8 +818,14 @@ func TestBuildOdometerChart_FixtureA_MatchesDesignTestContract(t *testing.T) {
 	if bar.Label != "08-10" {
 		t.Errorf("Label: want 08-10, got %q", bar.Label)
 	}
-	if !strings.Contains(bar.Tooltip, "50") || !strings.Contains(bar.Tooltip, "1050") {
-		t.Errorf("tooltip must contain the 50 km driven and 1050 km odometer values, got %q", bar.Tooltip)
+	// Pin the EXACT tooltip, not substrings. formatKm has always grouped
+	// thousands via commaGroup (format.go, untouched by this change), so the
+	// odometer renders "1,050" -- a substring check for "1050" asserts a format
+	// the gateway has never produced. Exact-matching is the stronger
+	// characterization anyway: it catches spacing, separator and unit drift too.
+	const wantTooltip = "08-10 · 50 km driven · odometer 1,050 km"
+	if bar.Tooltip != wantTooltip {
+		t.Errorf("tooltip: want %q, got %q", wantTooltip, bar.Tooltip)
 	}
 }
 
