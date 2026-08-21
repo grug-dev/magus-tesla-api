@@ -11,13 +11,13 @@
       "1.1",
       "1.2",
       "1.3",
-      "1.4"
-    ],
-    "pending": [
+      "1.4",
       "2.1",
       "2.2",
       "2.3",
-      "2.4",
+      "2.4"
+    ],
+    "pending": [
       "3.1",
       "3.2",
       "3.3",
@@ -47,7 +47,7 @@
     "done": []
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T10:12:00Z",
+  "updated_at": "2026-08-21T10:40:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -173,14 +173,23 @@
       "depends_on": [],
       "wave": 2,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T10:15:00Z",
+      "completed_at": "2026-08-21T10:40:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Created 20260821000001_add_vehicle_metrics.sql. DDL reproduces the gated design exactly - both constraints, dense nullability, charge_gaps-style index reasoning in comments.",
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 4.1,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta: analytics worker (2.1-2.3) plus the leader's 2.4/2.5 wiring"
+      }
     },
     {
       "id": "2.2",
@@ -190,14 +199,23 @@
       "depends_on": [],
       "wave": 2,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T10:15:00Z",
+      "completed_at": "2026-08-21T10:40:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Created 20260821000002_add_vehicle_metric_watermarks.sql; source CHECK vocabulary and UNIQUE exactly per D2/D3.",
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 4.1,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta: analytics worker (2.1-2.3) plus the leader's 2.4/2.5 wiring"
+      }
     },
     {
       "id": "2.3",
@@ -207,14 +225,23 @@
       "depends_on": [],
       "wave": 2,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T10:15:00Z",
+      "completed_at": "2026-08-21T10:40:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "query.sql: 6 queries incl. the two separate D13-filtered reads (never merged), UPSERT + array-based stale-row DELETE per D11, watermark get/upsert.",
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 4.1,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta: analytics worker (2.1-2.3) plus the leader's 2.4/2.5 wiring"
+      }
     },
     {
       "id": "2.4",
@@ -224,14 +251,23 @@
       "depends_on": [],
       "wave": 2,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T10:15:00Z",
+      "completed_at": "2026-08-21T10:40:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "sqlc.yaml analytics entry (analyticsdb, uuid override) added by the leader; make sqlc generated db.go/models.go/query.sql.go.",
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 4.1,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta: analytics worker (2.1-2.3) plus the leader's 2.4/2.5 wiring"
+      }
     },
     {
       "id": "3.1",
@@ -738,6 +774,15 @@
       "decision": "Left internal/gateway/handlers/handlers_test.go gofmt-unclean",
       "why": "Verified against HEAD via git stash: it was already unformatted before this change. Same call as tier 2's D6 - gofmt only what the change churns, or the tier widens.",
       "covered_by": "tier 2 D6 precedent"
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-21T10:40:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Appended task 2.5 to wire Makefile MIGRATIONS_DIRS and .air.toml, rather than editing task 2.4",
+      "why": "No original task covered it. sqlc reads sqlc.yaml directly, so codegen and build stay green while migrate-up never applies the analytics migrations. Tasks are append-only.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -755,6 +800,11 @@
       "at": "2026-08-21T10:12:00Z",
       "agent": "leader",
       "event": "Wave 1 landed. Leader repaired SIX test fakes broken by the interface additions across analytics + gateway, each matching its own fake's local precedent (nil-return vs panic). Both workers reported only five - go vet ./... found fakeHistoryReader in history_test.go that neither named. Repo-wide build, vet and gofmt clean."
+    },
+    {
+      "at": "2026-08-21T10:40:00Z",
+      "agent": "leader",
+      "event": "Wave 2 landed: analytics' first persistence layer (2 migrations + query.sql + sqlc gen). Verified the gated schema was reproduced, not redesigned, and that zero CREATE INDEX statements exist (both grep hits are the reasoning comments). Worker self-reported 'done'; leader corrected to awaiting-user-verification per the contract - done requires the owner's suite pass."
     }
   ]
 }

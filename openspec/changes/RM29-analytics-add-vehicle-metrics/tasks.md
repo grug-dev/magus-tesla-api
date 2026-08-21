@@ -66,7 +66,7 @@ See design.md D1–D13 for the rationale behind each group.
 
 ## Wave 2 — analytics schema (module: analytics worker)
 
-- [ ] **2.1** `internal/analytics/db/migrations/<timestamp>_add_vehicle_metrics.sql`
+- [x] **2.1** `internal/analytics/db/migrations/<timestamp>_add_vehicle_metrics.sql`
   — goose migration creating `vehicle_metrics` exactly per design.md "Database
   Changes" DDL (all columns, the two CHECK constraints, the UNIQUE constraint — no
   separate `CREATE INDEX`, per the Index Plan). **DENSE table (design-gate
@@ -78,13 +78,13 @@ See design.md D1–D13 for the rationale behind each group.
   `-- +goose Down` drops the table.
   `depends_on`: — · `parallel_ok`: with 2.2
 
-- [ ] **2.2** `internal/analytics/db/migrations/<timestamp+1>_add_vehicle_metric_watermarks.sql`
+- [x] **2.2** `internal/analytics/db/migrations/<timestamp+1>_add_vehicle_metric_watermarks.sql`
   — goose migration creating `vehicle_metric_watermarks` exactly per design.md's DDL
   (the `source` CHECK vocabulary, the UNIQUE constraint). `-- +goose Down` drops the
   table.
   `depends_on`: — · `parallel_ok`: with 2.1
 
-- [ ] **2.3** `internal/analytics/db/query.sql` — sqlc queries: `UpsertVehicleMetric`
+- [x] **2.3** `internal/analytics/db/query.sql` — sqlc queries: `UpsertVehicleMetric`
   (INSERT ... ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE, per D11),
   `DeleteVehicleMetricsInRangeExcept` (or equivalent DELETE-of-stale-rows per D11 —
   design the exact SQL shape, e.g. `DELETE ... WHERE account_id=$1 AND tesla_id=$2
@@ -110,6 +110,16 @@ See design.md D1–D13 for the rationale behind each group.
   make this edit since it only concerns this module's own entry — leader confirms at
   commit).
   `depends_on`: 2.3 · `parallel_ok`: no
+
+- [x] **2.5** **[leader — appended during Wave 2, not in the original artifacts]**
+  `Makefile` — add `internal/analytics/db/migrations` to `MIGRATIONS_DIRS` (line 38),
+  and `.air.toml` — add the same path to `exclude_dir` (line 28). Neither was covered
+  by any task in the original tasks.md: 2.4 wires `sqlc.yaml` only. This is the
+  silent-failure class tier 2's design gate was about — `sqlc` reads `sqlc.yaml`
+  directly, so codegen and `go build` both stay green while `make migrate-up` never
+  applies the analytics migrations at all. Appended rather than folded into 2.4
+  because tasks are append-only.
+  `depends_on`: — · `parallel_ok`: yes
 
 ## Wave 3 — analytics domain code (module: analytics worker)
 
