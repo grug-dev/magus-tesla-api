@@ -114,9 +114,9 @@ module boundary.
 - **GIVEN** the analytics capability's implementation
 - **WHEN** its data dependencies are inspected
 - **THEN** it imports only the public `Reader`/`SuperchargerReader` interfaces of
-  `internal/telemetry`, the public `Reader` interface of `internal/manualcharge`, and the public
+  `internal/telemetry`, the public `Reader` interface of `internal/charging`, and the public
   `Service` interface of `internal/account` — never `internal/telemetry/db`,
-  `internal/manualcharge/db`, or `internal/account/db`
+  `internal/charging/db`, or `internal/account/db`
 
 ### Requirement: Per-Day Battery-Consumed Derivation
 

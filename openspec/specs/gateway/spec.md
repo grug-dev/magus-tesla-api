@@ -456,7 +456,7 @@ own.
 The gateway SHALL serve the charge entries list as an htmx-swappable fragment at
 `GET /ui/charges/list`, returning only the fragment HTML and not the surrounding page shell.
 The fragment SHALL include per-entry derived values (cost per kWh, battery delta, session
-duration) pre-computed by the handler from the `manualcharge.Entry` value-receiver methods.
+duration) pre-computed by the handler from the `charging.Entry` value-receiver methods.
 
 #### Scenario: htmx refreshes the charge list
 
@@ -480,14 +480,12 @@ duration) pre-computed by the handler from the `manualcharge.Entry` value-receiv
 
 #### Scenario: Reader failure degrades the list gracefully
 
-- **GIVEN** the manualcharge Reader returns an error
+- **GIVEN** the charging Reader returns an error
 - **WHEN** the Charge log page or list fragment is rendered
 - **THEN** the gateway renders the page (or fragment) without a 500 or raw error string
 - **AND** a user-facing error message ("Could not load your entries") is shown in the list
   region
 - **AND** the create form remains accessible
-
----
 
 ### Requirement: Create Charge Entry
 
@@ -495,7 +493,7 @@ The gateway SHALL let a signed-in user create a manual charge entry by submittin
 form via `POST /ui/charges/create`. The form SHALL NOT include a vehicle field — the handler
 SHALL derive the target vehicle from the session-selected vehicle (the sidebar switcher) and
 enforce tenant ownership of that resolved vehicle before writing. The handler SHALL require a
-valid CSRF token and call `manualcharge.Writer.Create` on success. `location_kind` is a
+valid CSRF token and call `charging.Writer.Create` on success. `location_kind` is a
 **required** field; the handler SHALL reject a missing or unrecognized value with a 422 and a
 field-level error message. `start_battery_pct` and `end_battery_pct` are also **required**
 fields, each validated as an integer in the 0–100 range; the `start_battery_pct` input SHALL
@@ -511,7 +509,7 @@ SHALL show validation errors in place.
 - **GIVEN** a signed-in user on the Charge log page with a valid CSRF token
 - **WHEN** they submit the create form with all other required fields valid but no
   `location_kind` selected (or an unrecognized value)
-- **THEN** the handler does NOT call `manualcharge.Writer.Create`
+- **THEN** the handler does NOT call `charging.Writer.Create`
 - **AND** the create form fragment is re-rendered at HTTP 422
 - **AND** an error message is shown alongside the `location_kind` field
 - **AND** the other submitted values are pre-filled in the re-rendered form
@@ -531,7 +529,7 @@ SHALL show validation errors in place.
 - **WHEN** they submit the create form with all required fields valid, including
   `location_kind` set to one of `HOME`, `WORK`, or `OTHER`
 - **THEN** the gateway validates the CSRF token and vehicle ownership
-- **AND** calls `manualcharge.Writer.Create` with the entry including `LocationKind`
+- **AND** calls `charging.Writer.Create` with the entry including `LocationKind`
 - **AND** the new entry appears in the updated charge list
 
 #### Scenario: Create form sources the vehicle from the session selection, not a form field
@@ -546,7 +544,7 @@ SHALL show validation errors in place.
   (the same resolution the entry list already uses), not from a submitted `vehicle`
   form field
 - **AND** the server confirms the resolved `(tesla_id, vin)` belongs to the caller's
-  account before calling `manualcharge.Writer.Create`
+  account before calling `charging.Writer.Create`
 - **AND** the created entry is persisted with the selected vehicle's `tesla_id` and
   `vin`
 
@@ -578,7 +576,7 @@ SHALL show validation errors in place.
   empty, non-integer, or outside the 0–100 range
 - **THEN** the server rejects the submission with a field-level validation error
   indicating the required/invalid battery field
-- **AND** the `manualcharge.Writer.Create` port is not called
+- **AND** the `charging.Writer.Create` port is not called
 - **WHEN** both battery percentages are supplied as integers in 0–100
 - **THEN** the entry is persisted with non-nil `start_battery_pct` and
   `end_battery_pct` matching the submitted values
@@ -620,7 +618,7 @@ SHALL show validation errors in place.
 - **AND** both inputs are pre-filled with today's date in `YYYY-MM-DD` form as a
   default value
 - **AND** both fields remain OPTIONAL — the form is accepted when either or both
-  are cleared, and the `manualcharge.Entry.StartedAt` / `EndedAt` sent to the Writer
+  are cleared, and the `charging.Entry.StartedAt` / `EndedAt` sent to the Writer
   are nil for any cleared field
 
 #### Scenario: Energy added accepts up to three decimal places
@@ -637,8 +635,6 @@ SHALL show validation errors in place.
   is persisted with `energy_added_kwh = 7.345` (no server-side rounding to 2
   decimals)
 
----
-
 ### Requirement: Inline Row Editing
 
 The gateway SHALL let a signed-in user edit an existing charge entry directly in the table
@@ -650,7 +646,7 @@ reject a missing or unrecognized value with a 422 and a field-level error.
 - **GIVEN** a signed-in user with an inline edit form open for an existing entry
 - **WHEN** they submit the edit form with `location_kind` missing or not in
   `{HOME, WORK, OTHER}` (e.g. bypassing the browser constraint with a crafted request)
-- **THEN** the handler does NOT call `manualcharge.Writer.Update`
+- **THEN** the handler does NOT call `charging.Writer.Update`
 - **AND** the edit form is re-rendered at HTTP 422
 - **AND** an error message is shown alongside the `location_kind` field
 
@@ -662,14 +658,12 @@ reject a missing or unrecognized value with a 422 and a field-level error.
 - **AND** there is no blank (`value=""`) option in the `location_kind` picker
 - **AND** the stored location value is pre-selected (exactly one option carries `selected`)
 
----
-
 ### Requirement: Delete Charge Entry
 
 The gateway SHALL let a signed-in user delete an existing charge entry from the table. The
 delete action SHALL require a CSRF token, enforce tenant ownership, and on success remove the
 row from the table without a full page reload and without a browser `alert()`. On failure (a
-CSRF mismatch, a cross-tenant id, or a `manualcharge.Writer.Delete` error) the gateway SHALL
+CSRF mismatch, a cross-tenant id, or a `charging.Writer.Delete` error) the gateway SHALL
 NOT surface a plain browser `alert()`; a Writer error SHALL render a row-level error message
 in place of the row.
 
@@ -681,7 +675,7 @@ in place of the row.
   and the browser issues `DELETE /ui/charges/row/{id}` with the CSRF token
 - **THEN** the gateway validates the CSRF token
 - **AND** validates that the entry belongs to the user's account
-- **AND** calls `manualcharge.Writer.Delete(ctx, accountID, id)`
+- **AND** calls `charging.Writer.Delete(ctx, accountID, id)`
 - **AND** the row is removed from the table (swapped for an empty element via htmx
   `hx-swap="outerHTML"`)
 - **AND** no browser `alert()` is shown to the user
@@ -693,7 +687,7 @@ in place of the row.
   (older than the session's current `csrf_manualcharge` value) CSRF token
 - **WHEN** the gateway processes it
 - **THEN** the handler returns HTTP 403 (invalid csrf token)
-- **AND** `manualcharge.Writer.Delete` is NOT called
+- **AND** `charging.Writer.Delete` is NOT called
 - **AND** the row is not removed from the table
 - **AND** the delete button sends its CSRF token on the `X-CSRF-Token` request header
   (not the DELETE request body, which Go's `net/http` does not parse for a DELETE
@@ -704,7 +698,7 @@ in place of the row.
 - **GIVEN** a DELETE request to `/ui/charges/row/{id}` where `id` belongs to a different
   user's account
 - **WHEN** the gateway processes it
-  (the `manualcharge.Writer.Delete(ctx, accountID, id)` scopes the DELETE to the
+  (the `charging.Writer.Delete(ctx, accountID, id)` scopes the DELETE to the
   caller's account_id via its WHERE clause)
 - **THEN** the delete silently finds no row (the Writer's scoped DELETE affects 0 rows)
 - **AND** the gateway returns a 404 or empty response — no data is deleted
@@ -712,15 +706,13 @@ in place of the row.
 #### Scenario: Delete shows a server-side error message, not a generic alert, on failure
 
 - **GIVEN** a signed-in user clicking Delete on one of their entries
-- **WHEN** the `manualcharge.Writer.Delete` call returns an error (e.g. a transient
+- **WHEN** the `charging.Writer.Delete` call returns an error (e.g. a transient
   store failure)
 - **THEN** the server returns a non-2xx response carrying an inline row-error
   fragment rendered inside the row
 - **AND** the user sees the row-level error message (e.g. "Could not delete entry —
   please try again."), not a raw HTTP status string or a browser `alert()`
 - **AND** the entry is not removed from the list
-
----
 
 ### Requirement: Tenant Isolation
 
@@ -743,38 +735,6 @@ entries.
 - **THEN** the handler derives `accountID` from the session (`currentUID`) — not from any
   user-supplied form field
 - **AND** all Writer calls carry this session-derived `accountID` as the tenant scope
-
----
-
-### Requirement: Gateway Imports No manualchargedb Package
-
-The gateway SHALL access manual charge data exclusively through the `manualcharge.Writer`
-and `manualcharge.Reader` public interfaces. It SHALL NOT import `internal/manualcharge/db`
-(`manualchargedb`) or any generated sqlc types. On the charges page, the gateway also reads
-telemetry data (the `start_battery_pct` suggestion label) exclusively through
-`telemetry.Reader.LatestSnapshotsByAccount` and SHALL NOT import `internal/telemetry/db`
-(`telemetrydb`) for that purpose.
-
-#### Scenario: Gateway only uses manualcharge public interfaces
-
-- **GIVEN** any handler or helper in `internal/gateway/`
-- **WHEN** it reads or writes manual charge entries
-- **THEN** it does so exclusively via `manualcharge.Reader` or `manualcharge.Writer`
-- **AND** no `manualchargedb` package is imported in any gateway file
-- **AND** no `pgtype` type appears in any gateway handler, view model, or template
-
-#### Scenario: Charges page never imports manualchargedb or telemetrydb, and makes no live Tesla call
-
-- **GIVEN** the gateway handlers and helpers that build and validate the charges
-  create form
-- **WHEN** they obtain vehicle identity, telemetry for the battery-suggestion label,
-  and persist or delete an entry
-- **THEN** they do so exclusively through the `account`, `telemetry.Reader`, and
-  `manualcharge.Reader`/`manualcharge.Writer` public interfaces
-- **AND** they import no package from `internal/manualcharge/db` or
-  `internal/telemetry/db`
-- **AND** no `pgtype` type appears in any gateway file involved
-- **AND** no live Tesla Fleet API call is made on any charges-page request
 
 ---
 
@@ -2004,4 +1964,34 @@ entry list's cost-per-kWh column.
   two values
 - **AND** submitting the edit form with these unmodified values round-trips successfully (the
   browser's native number input parses the value without error)
+
+### Requirement: Gateway Imports No chargingdb Package
+
+The gateway SHALL access manual charge data exclusively through the `charging.Writer`
+and `charging.Reader` public interfaces. It SHALL NOT import `internal/charging/db`
+(`chargingdb`) or any generated sqlc types. On the charges page, the gateway also reads
+telemetry data (the `start_battery_pct` suggestion label) exclusively through
+`telemetry.Reader.LatestSnapshotsByAccount` and SHALL NOT import `internal/telemetry/db`
+(`telemetrydb`) for that purpose.
+
+#### Scenario: Gateway only uses charging public interfaces
+
+- **GIVEN** any handler or helper in `internal/gateway/`
+- **WHEN** it reads or writes manual charge entries
+- **THEN** it does so exclusively via `charging.Reader` or `charging.Writer`
+- **AND** no `chargingdb` package is imported in any gateway file
+- **AND** no `pgtype` type appears in any gateway handler, view model, or template
+
+#### Scenario: Charges page never imports chargingdb or telemetrydb, and makes no live Tesla call
+
+- **GIVEN** the gateway handlers and helpers that build and validate the charges
+  create form
+- **WHEN** they obtain vehicle identity, telemetry for the battery-suggestion label,
+  and persist or delete an entry
+- **THEN** they do so exclusively through the `account`, `telemetry.Reader`, and
+  `charging.Reader`/`charging.Writer` public interfaces
+- **AND** they import no package from `internal/charging/db` or
+  `internal/telemetry/db`
+- **AND** no `pgtype` type appears in any gateway file involved
+- **AND** no live Tesla Fleet API call is made on any charges-page request
 

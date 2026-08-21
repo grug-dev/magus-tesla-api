@@ -96,7 +96,7 @@ expand its recompute window to the affected date range, not to "the last N days"
 | # | Status | Change | Module | Scope | depends_on |
 |---|---|---|---|---|---|
 | **T1** | `[x]` | `RM29-analytics-rename-from-battery` | `battery`→`analytics` | Pure package rename. No DB, no behaviour change. | — |
-| **T2** | `[~]` | `RM29-charging-rename-from-manualcharge` | `manualcharge`→`charging` | Pure package rename + migrations dir + sqlc entry move. | — |
+| **T2** | `[x]` | `RM29-charging-rename-from-manualcharge` | `manualcharge`→`charging` | Pure package rename + migrations dir + sqlc entry move. | — |
 | **T3** | `[ ]` | `RM29-analytics-add-vehicle-metrics` | `analytics` | **Gold standard.** `vehicle_metrics` + `updated_at` watermark + `Recalculate`; gateway re-points and its domain calculation moves out (D5). | T1 |
 | **T4** | `[ ]` | `RM29-telemetry-drop-derived-columns` | `telemetry` | Drop the five `_calc` columns from `vehicle_snapshots`. Only safe once T3 lands. | T3 |
 | **T5** | `[ ]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |
@@ -116,11 +116,17 @@ each other and of T4 once T1/T2 land.
 
 ## Status
 
-**T1 (`RM29-analytics-rename-from-battery`) is in progress** — all four artifacts
-(`proposal.md`, `specs/analytics/spec.md`, `design.md`, `tasks.md`) are written and pass
-`openspec validate --changes --strict`; 25 sub-tasks are seeded in the change's
-`progress.json`. Implementation has not started. T2–T8 are pending: no artifacts of any
-kind exist for them yet.
+**T1 and T2 are archived.** Both renames are complete: `battery`→`analytics`
+(`2026-08-20-RM29-analytics-rename-from-battery`) and `manualcharge`→`charging`
+(`2026-08-21-RM29-charging-rename-from-manualcharge`), each reviewer-approved with the
+owner's reported test run. T2 also moved the migrations directory and the sqlc entry, and
+the owner confirmed `make migrate-status` clean afterwards — the check that catches a bad
+directory move, which otherwise fails silently while the build stays green.
+
+**Next unblocked: T3 and T5** (both depend only on T1). T3 is the gold-standard tier and
+should go first — it establishes the `vehicle_metrics` read-model pattern the later tiers
+mirror, and T4 cannot start until it lands. T6 is now unblocked by T2, and T7 by T1+T2.
+No artifacts exist yet for T3–T8.
 
 All tiers share the branch `ft/RM29-MAG-26-modular-monolith-boundaries`. Live state is in
 `RM29-modular-monolith-boundaries.progress.json`; each tier is proposed, reviewed and

@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM29-modular-monolith-boundaries",
   "intention": "Module boundaries match the data: analytics owns what the app calculates, charging owns charge data, telemetry owns only what Tesla reported, and an app layer owns ProcessVehicleData.",
-  "request": "MAG-26 — modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
+  "request": "MAG-26 \u2014 modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-20T21:20:00Z",
+  "updated_at": "2026-08-21T02:30:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
@@ -16,9 +16,7 @@
     "created_at": "2026-08-20T17:07:08Z"
   },
   "rollup": {
-    "current": [
-      2
-    ],
+    "current": [],
     "pending": [
       3,
       4,
@@ -29,7 +27,8 @@
     ],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [],
@@ -62,14 +61,21 @@
       "module": "manualcharge",
       "optional": false,
       "depends_on": [],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": null,
       "model": null,
       "started_at": "2026-08-20T21:20:00Z",
-      "completed_at": null,
+      "completed_at": "2026-08-21T02:30:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 18,
+        "cost_usd_delta": 7.2,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "sum of the tier-2 wave deltas across the artifacts session and the implementation/review session"
+      },
+      "notes": "manualcharge -> charging: 12 git-tracked renames, migrations dir + sqlc entry moved. Approved round 1 (1 minor). Owner verified go test + make migrate-status."
     },
     {
       "id": 3,
@@ -172,7 +178,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Parked (D9) — manual-rerun HTTP API; module/binary/auth undecided."
+      "notes": "Parked (D9) \u2014 manual-rerun HTTP API; module/binary/auth undecided."
     }
   ],
   "events": [
