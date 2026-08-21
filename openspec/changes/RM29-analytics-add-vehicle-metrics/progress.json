@@ -8,6 +8,7 @@
   "status": "in-progress",
   "rollup": {
     "current": [
+      "5.6",
       "6.1",
       "6.2",
       "6.3",
@@ -21,9 +22,7 @@
       "7.6"
     ],
     "pending": [
-      "8.1",
       "8.2",
-      "8.3",
       "8.4"
     ],
     "blocked": [],
@@ -48,11 +47,13 @@
       "5.3",
       "5.4",
       "5.5",
-      "7.5"
+      "7.5",
+      "8.1",
+      "8.3"
     ]
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T17:35:00Z",
+  "updated_at": "2026-08-21T17:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -763,13 +764,13 @@
       "depends_on": [],
       "wave": 8,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:38:00Z",
+      "completed_at": "2026-08-21T17:44:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "go build, go vet, make build/vet/bins (5 binaries), ui-guard, i18n-guard, money-guard all green. gofmt -l . lists 8 files, all pre-existing and untouched by this branch.",
       "budget": null
     },
     {
@@ -797,13 +798,13 @@
       "depends_on": [],
       "wave": 8,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:38:00Z",
+      "completed_at": "2026-08-21T17:44:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "openspec validate --changes --strict: 1 passed, 0 failed.",
       "budget": null
     },
     {
@@ -904,6 +905,25 @@
       "completed_at": "2026-08-21T17:35:00Z",
       "duration_seconds": null,
       "notes": "ai/go-conventions.md gains a Provision-vs-ProvisionDirs table, why embed cannot cross dirs, why dirs are never merged (the account/charging version collision), and when direct-SQL seeding is right.",
+      "budget": null
+    },
+    {
+      "id": "5.6",
+      "title": "cmd/web/main.go \u2014 populate Deps.AnalyticsRecalculator (Wave 5 wiring gap)",
+      "module": "gateway",
+      "owner": "leader",
+      "depends_on": [
+        "5.2",
+        "5.4"
+      ],
+      "wave": "8b",
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:45:00Z",
+      "completed_at": "2026-08-21T17:52:00Z",
+      "notes": "Deps field, call site and pool arg all landed in Wave 5, but nothing ever constructed the recalculator - nil interface, panic on every manual charge write. Also corrected gateway.go's stale 'analytics owns no database' comment.",
       "budget": null
     }
   ],
@@ -1102,6 +1122,15 @@
       "decision": "gofmt -w'd the two branch-touched unclean files, reversing D10's deferral; left the 8 pre-existing ones alone",
       "why": "D10 deferred handlers_test.go only because a worker was writing it live. Nothing is live now, and task 8.1 expects gofmt clean. The other 8 predate this branch and are out of scope.",
       "covered_by": "D10"
+    },
+    {
+      "id": "D22",
+      "at": "2026-08-21T17:52:00Z",
+      "scope": "task:5.6",
+      "made_by": "leader",
+      "decision": "Appended task 5.6 and fixed the nil AnalyticsRecalculator myself rather than reopening Wave 5 or leaving it for the reviewer",
+      "why": "Waves 5's tasks are closed and owner-verified, so they are not reopenable. Catching it at this gate costs one commit; catching it in review costs a rework wave plus a re-review.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -1184,6 +1213,11 @@
       "at": "2026-08-21T17:35:00Z",
       "agent": "leader",
       "event": "Wave 7 landed (leader-written docs). Checked ai/architecture.md too - its analytics mention is an illustrative EXAMPLE module in a generic tree, not a claim about the real one, so no edit. Also fixed the two gofmt-unclean files this branch actually introduced (D21); the 8 that remain predate the branch. go build ./... and go vet ./... clean. Next: Wave 8 verification, then the reviewer gate."
+    },
+    {
+      "at": "2026-08-21T17:52:00Z",
+      "agent": "leader",
+      "event": "Wave 8 signals GREEN: go build, go vet, make build/vet/bins, all three guards, and openspec validate --strict (1 passed). While checking 8.2's invocation path the leader found a genuine production bug no signal could catch: cmd/web never constructed the Recalculator, so gateway.Deps.AnalyticsRecalculator was nil and every manual charge write would panic on recalculateAfterChargeWrite. Handler tests miss it (they inject a fake Deps); go vet misses it (nil interface is runtime state). Fixed as appended task 5.6 (D22). 8.2 (backfill) and 8.4 (suite) are the owner's - both gated on the two new migrations being applied."
     }
   ]
 }

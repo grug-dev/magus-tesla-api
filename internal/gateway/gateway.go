@@ -59,8 +59,11 @@ type Deps struct {
 	// construction (mirrors TelemetryReader/SuperchargerReader/
 	// ChargingReader — the gateway calls ConsumedByDay once per history
 	// fragment render). Injected from cmd/web via analytics.NewReader(...).
-	// NEVER import an internal/analytics database package — internal/analytics
-	// owns no database, so there is none to accidentally import.
+	// NEVER import internal/analytics/db (analyticsdb). Since
+	// RM29-analytics-add-vehicle-metrics that package DOES exist — this
+	// comment used to say there was none to import — so the rule is the same
+	// one that applies to every other sibling module: the interface, never the
+	// database.
 	AnalyticsReader analytics.Reader
 	// AnalyticsRecalculator is the analytics module's write-path port
 	// (RM29-analytics-add-vehicle-metrics design.md D5). Injected at

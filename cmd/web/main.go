@@ -71,6 +71,18 @@ func main() {
 			acct,
 			analytics.DefaultWindow,
 		),
+		// The manual-charge write handlers call Recalculate through this port
+		// after their charging.Writer call succeeds, so the precomputed
+		// history charts stay current without a separate refresh
+		// (RM29-analytics-add-vehicle-metrics design D5). It takes no
+		// vehicleLookup and no window: the write path recomputes an explicit
+		// date range for one known vehicle.
+		AnalyticsRecalculator: analytics.NewRecalculator(
+			pool,
+			telemetry.NewReader(pool),
+			telemetry.NewSuperchargerReader(pool),
+			charging.NewReader(pool),
+		),
 		SessionSecret:     cfg.SessionSecret,
 		TeslaClientID:     cfg.ClientID,
 		TeslaClientSecret: cfg.ClientSecret,

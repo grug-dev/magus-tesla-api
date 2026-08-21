@@ -478,3 +478,19 @@ See design.md D1–D13 for the rationale behind each group.
   "Workflow & architectural decisions are documented with their steps" — this is a new
   required capability for tiers 5–7, which hit the same wall.
   `depends_on`: 6.5 · `parallel_ok`: with 7.1–7.4
+
+## Wave 8b — integration-wiring fix (appended 2026-08-21, found during Wave 8 verification)
+
+- [x] **5.6** **[appended — Wave 5 gap, found by the leader at the Wave 8 gate]**
+  `cmd/web/main.go` — populate `gateway.Deps.AnalyticsRecalculator` via
+  `analytics.NewRecalculator(pool, ...)`. Wave 5 added the `Deps` field (5.2), the
+  `ChargeCreate` call site (5.3) and the `analytics.NewReader` pool argument (5.4), but
+  **nothing ever constructed the recalculator**, so the field was nil in the running
+  server: `recalculateAfterChargeWrite` calls `Recalculate` on a nil interface and
+  panics on every manual charge create/update/delete. The handler tests do not catch it
+  because they inject their own fake `Deps`. `go vet` cannot catch it either — a nil
+  interface is a runtime state, not a type error. Also corrects
+  `internal/gateway/gateway.go`'s `Deps` comment, which still told the reader
+  "internal/analytics owns no database, so there is none to accidentally import".
+  Appended rather than reopening 5.2–5.4, which are closed and owner-verified.
+  `depends_on`: 5.2, 5.4 · `parallel_ok`: no
