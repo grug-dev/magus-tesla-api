@@ -9,15 +9,21 @@
 //   - If DATABASE_URL is set AND reachable, use it (managed/CI Postgres).
 //   - Otherwise auto-provision a disposable `postgres:16-alpine` container.
 //
-// goose migrations are embedded under db/migrations/ and applied before
-// tests. IMPORTANT: this embeds ONLY internal/analytics/db/migrations —
-// Go's //go:embed cannot reach outside this package's own directory tree
-// (embed patterns may not contain ".." path elements), so a freshly
-// auto-provisioned container for this package contains ONLY the
-// vehicle_metrics/vehicle_metric_watermarks schema. It does NOT contain
-// telemetry's vehicle_snapshots/supercharger_sessions or charging's
-// manual_charge_entries tables — see db_integration_test.go's top-of-file
-// comment for what this means for cross-module fixture seeding.
+// This package's fixtures span THREE modules' schemas: Recalculate reads
+// telemetry's vehicle_snapshots and supercharger_sessions and charging's
+// manual_charge_entries, then writes this module's own vehicle_metrics. So it
+// provisions with testdb.ProvisionDirs, which applies several modules'
+// migration DIRECTORIES to one throw-away database, rather than
+// testdb.Provision, which takes a single embedded filesystem.
+//
+// It has to be directories: the //go:embed directive may not contain ".."
+// path elements, so this package could only ever embed
+// internal/analytics/db/migrations — never telemetry's or charging's. A
+// container provisioned that way would contain vehicle_metrics and
+// vehicle_metric_watermarks and nothing else, and every cross-module fixture
+// would fail with "relation does not exist". Relative paths are safe here
+// because `go test` always runs a test binary with its own package directory
+// as the working directory (RM29 decision D19).
 //
 // Production impact: NONE. This is a _test.go file; testcontainers/goose are
 // never compiled into the deployed binary, no Docker daemon required in prod.
@@ -25,9 +31,7 @@ package analytics
 
 import (
 	"context"
-	"embed"
 	"errors"
-	"io/fs"
 	"log"
 	"os"
 	"testing"
@@ -35,8 +39,16 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/testdb"
 )
 
-//go:embed db/migrations/*.sql
-var migrationsFS embed.FS
+// migrationDirs are relative to THIS package's directory, which is `go test`'s
+// working directory for this package's test binary. Order is irrelevant today —
+// there are no cross-module foreign keys (ai/architecture.md §2) — and the
+// directories are applied one goose provider at a time, never merged, because
+// migration versions are unique within a module but not across the repo.
+var migrationDirs = []string{
+	"db/migrations",
+	"../telemetry/db/migrations",
+	"../charging/db/migrations",
+}
 
 // testDSN is the connection string provisioned by TestMain and used by
 // newTestPool. It is set once for the whole test binary run.
@@ -53,12 +65,7 @@ func TestMain(m *testing.M) {
 func runTests(m *testing.M) int {
 	ctx := context.Background()
 
-	subFS, err := fs.Sub(migrationsFS, "db/migrations")
-	if err != nil {
-		log.Fatalf("analytics testdb: sub migrations fs: %v", err)
-	}
-
-	result, err := testdb.Provision(ctx, subFS)
+	result, err := testdb.ProvisionDirs(ctx, migrationDirs...)
 	switch {
 	case errors.Is(err, testdb.ErrUnavailable):
 		// No reachable Postgres and no Docker daemon to provision one. Skip the

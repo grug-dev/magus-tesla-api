@@ -8,7 +8,9 @@
   "status": "in-progress",
   "rollup": {
     "current": [
-      "6.4"
+      "6.4",
+      "6.5",
+      "6.6"
     ],
     "pending": [
       "7.1",
@@ -19,7 +21,8 @@
       "8.1",
       "8.2",
       "8.3",
-      "8.4"
+      "8.4",
+      "7.6"
     ],
     "blocked": [
       "6.1",
@@ -50,7 +53,7 @@
     ]
   },
   "created_at": "2026-08-21T03:05:00Z",
-  "updated_at": "2026-08-21T16:35:00Z",
+  "updated_at": "2026-08-21T16:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -589,7 +592,9 @@
       "title": "`internal/analytics/db_integration_test.go` (new file)",
       "module": "analytics",
       "owner": "module",
-      "depends_on": [],
+      "depends_on": [
+        "6.6"
+      ],
       "wave": 6,
       "parallel_ok": true,
       "status": "blocked",
@@ -615,7 +620,9 @@
       "title": "`internal/analytics/db_integration_test.go` \u2014 `TestReconcile_",
       "module": "analytics",
       "owner": "module",
-      "depends_on": [],
+      "depends_on": [
+        "6.6"
+      ],
       "wave": 6,
       "parallel_ok": true,
       "status": "blocked",
@@ -641,7 +648,9 @@
       "title": "`internal/analytics/db_integration_test.go`",
       "module": "analytics",
       "owner": "module",
-      "depends_on": [],
+      "depends_on": [
+        "6.6"
+      ],
       "wave": 6,
       "parallel_ok": true,
       "status": "blocked",
@@ -842,6 +851,61 @@
         "approx": true,
         "note": "wave-6 delta across the single serial analytics worker (6.1-6.4)"
       }
+    },
+    {
+      "id": "6.5",
+      "title": "`internal/testdb/testdb.go` \u2014 [leader] multi-directory migration provisioning",
+      "module": "testdb",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": "6b",
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T16:42:00Z",
+      "completed_at": "2026-08-21T16:52:00Z",
+      "duration_seconds": null,
+      "notes": "Added testdb.ProvisionDirs (per-dir goose, never a merged FS - account and charging share version 20260720000001) and WithAllowOutofOrder, the Provider equivalent of the Makefile's -allow-missing. Provision unchanged for existing callers.",
+      "budget": null
+    },
+    {
+      "id": "6.6",
+      "title": "`internal/analytics/testdb_test.go` \u2014 re-point TestMain at the multi-dir entry point",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "6.5"
+      ],
+      "wave": "6b",
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T16:42:00Z",
+      "completed_at": "2026-08-21T16:52:00Z",
+      "duration_seconds": null,
+      "notes": "analytics TestMain now provisions db/migrations plus ../telemetry and ../charging. Dropped the embed.FS; header comment rewritten - it documented the single-module limit as permanent.",
+      "budget": null
+    },
+    {
+      "id": "7.6",
+      "title": "Document the multi-directory test harness (ai/go-conventions.md + internal/testdb doc comment)",
+      "module": "testdb",
+      "owner": "leader",
+      "depends_on": [
+        "6.5"
+      ],
+      "wave": 7,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
     }
   ],
   "review": {
@@ -1012,6 +1076,24 @@
       "decision": "Escalated Wave 6's cross-module fixture gap to the owner instead of picking a fix on autopilot",
       "why": "Every fix adds shared test infrastructure or new public surface in modules this change does not own, and binds tiers 5-7 too. Outside the roadmap Decisions.",
       "covered_by": null
+    },
+    {
+      "id": "D19",
+      "at": "2026-08-21T16:40:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Unblock 6.1-6.3 with a multi-dir testdb harness (os.DirFS over sibling migration dirs) plus direct-SQL fixture seeding",
+      "why": "Owner chose it over exporting test-only writers from telemetry (new public surface in tier 4's module) and over deferring the DB proofs that tier 4's column drop rests on.",
+      "covered_by": null
+    },
+    {
+      "id": "D20",
+      "at": "2026-08-21T16:52:00Z",
+      "scope": "task:6.5",
+      "made_by": "leader",
+      "decision": "Applied each migration dir with its own goose provider instead of merging them into one union FS",
+      "why": "account and charging both ship version 20260720000001; a merged FS dies on the collision. Per-dir sequencing is also exactly what the Makefile's migrate-up loop already does.",
+      "covered_by": "D19"
     }
   ],
   "events": [
@@ -1074,6 +1156,16 @@
       "at": "2026-08-21T16:35:00Z",
       "agent": "leader",
       "event": "Wave 6 PARTIAL. 6.4 delivered (fetch-window/scoping/error-propagation rescue, D14). 6.1-6.3 BLOCKED on a real gap the leader independently verified: (a) telemetry has no public snapshot or supercharger writer - grep of its exported constructors confirms only NewReader/NewGapWriter/NewSuperchargerReader/NewService; (b) //go:embed cannot cross package dirs, so an auto-provisioned analytics container holds only vehicle_metrics + vehicle_metric_watermarks. Cross-module DB fixtures are impossible from an analytics-sandboxed worker. Escalated to the owner - autopilot PAUSED (new decision not covered by the roadmap Decisions)."
+    },
+    {
+      "at": "2026-08-21T16:40:00Z",
+      "agent": "leader",
+      "event": "OWNER DECISION (D19): shared multi-dir test harness + direct-SQL seeding. Appended tasks 6.5/6.6 (harness + re-point) and 7.6 (document it); 6.1-6.3 now depend on 6.6 and are re-dispatched as written, with 6.1's 'not direct SQL' clause SUPERSEDED by D19 rather than edited (append-only). Autopilot resumes."
+    },
+    {
+      "at": "2026-08-21T16:52:00Z",
+      "agent": "leader",
+      "event": "Wave 6b: leader implemented 6.5 + 6.6 directly - internal/testdb is shared infrastructure, not a module, and 6.6 is its two-line call site. go build ./... and go vet clean. Discovered while implementing that a union-FS merge (the obvious first design) would have broken on the existing account/charging duplicate version -> D20. Next: re-dispatch analytics worker for 6.1-6.3."
     }
   ]
 }

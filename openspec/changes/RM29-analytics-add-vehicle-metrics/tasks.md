@@ -436,3 +436,45 @@ See design.md D1–D13 for the rationale behind each group.
   Until the owner runs one of these and reports the result, this tier's status is
   **awaiting-user-verification**, never "done" (design.md "Verification signals").
   `depends_on`: 8.1, 8.3 · `parallel_ok`: no
+
+## Wave 6b — cross-module test harness (appended 2026-08-21, owner-decided; unblocks 6.1–6.3)
+
+> **Why appended:** Wave 6 found that 6.1–6.3 are impossible from an analytics-sandboxed
+> worker — `//go:embed` cannot leave its own directory tree, so `internal/analytics`'s
+> harness can only ever apply its own migrations, and an auto-provisioned container for
+> `go test ./internal/analytics/...` contains no `vehicle_snapshots`,
+> `supercharger_sessions` or `manual_charge_entries` table at all. Separately, `telemetry`
+> exposes no public writer for a snapshot or a Supercharger session. The owner chose the
+> shared-harness + direct-SQL-seeding route (decision **D19**). Tasks are append-only, so
+> 6.1's "not direct SQL" clause is **superseded by D19**, not edited.
+
+- [ ] **6.5** `internal/testdb/testdb.go` — **[leader]**, shared test infrastructure,
+  outside any module sandbox. Add a multi-directory provisioning entry point so a
+  package's DB-backed tests can apply *several* modules' migrations to one throw-away
+  database. Filesystem paths, not `embed` — the `..` restriction is an `embed` directive
+  restriction and does not apply to `os.DirFS`, and Go always runs a test binary with its
+  own package directory as the working directory, so `../telemetry/db/migrations` resolves
+  reliably. Migration versions are timestamps and are globally unique across modules, so
+  the union applies in one ordered goose run. Existing single-FS `Provision` callers
+  (`internal/telemetry`, `internal/charging`) keep working unchanged.
+  `depends_on`: — · `parallel_ok`: no (6.1–6.3 all block on it)
+
+- [ ] **6.6** `internal/analytics/testdb_test.go` — re-point this module's `TestMain` at
+  the multi-directory entry point so the analytics test database carries telemetry's and
+  charging's schemas alongside its own. Update the file's header comment, which currently
+  documents the single-module limitation as permanent.
+  `depends_on`: 6.5 · `parallel_ok`: no
+
+> After 6.6, tasks **6.1, 6.2 and 6.3 are re-dispatched as originally written**, with the
+> single D19 deviation: fixtures are seeded with direct `INSERT`s into telemetry's and
+> charging's tables rather than through those modules' writers (there are none to call).
+> Every assertion — design.md's Test Contract, all columns, Fixture C's NULL
+> `consumed_pct` and `flagged = false` — stands exactly as specified.
+
+- [ ] **7.6** **[appended with Wave 6b]** Document the multi-directory test harness where
+  an agent will look: `ai/go-conventions.md` §persistence/testing (a module whose
+  DB-backed tests span more than one module's schema uses the multi-dir entry point, and
+  why `embed` cannot), plus `internal/testdb`'s own doc comment. Per CLAUDE.md
+  "Workflow & architectural decisions are documented with their steps" — this is a new
+  required capability for tiers 5–7, which hit the same wall.
+  `depends_on`: 6.5 · `parallel_ok`: with 7.1–7.4
