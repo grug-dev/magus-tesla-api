@@ -266,7 +266,7 @@ func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.U
 }
 
 const listPollAttemptsByVehicle = `-- name: ListPollAttemptsByVehicle :many
-SELECT id, account_id, tesla_id, attempted_at, outcome, reason FROM poll_attempts
+SELECT id, account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by FROM poll_attempts
 WHERE account_id = $1 AND tesla_id = $2
 ORDER BY attempted_at DESC
 `
@@ -294,6 +294,8 @@ func (q *Queries) ListPollAttemptsByVehicle(ctx context.Context, arg ListPollAtt
 			&i.AttemptedAt,
 			&i.Outcome,
 			&i.Reason,
+			&i.RunID,
+			&i.TriggeredBy,
 		); err != nil {
 			return nil, err
 		}

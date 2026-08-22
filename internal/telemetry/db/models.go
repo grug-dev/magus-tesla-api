@@ -16,6 +16,10 @@ type PollAttempt struct {
 	AttemptedAt pgtype.Timestamptz
 	Outcome     string
 	Reason      string
+	// Correlates every vehicle's attempt row from one app.ProcessVehicleData invocation. Generated once per invocation by internal/app (uuid.New()) and passed down via telemetry.RunContext (design.md D5). NULL on every row written before this migration — that run's identity was never recorded and is not recoverable; never backfilled, never will be.
+	RunID pgtype.UUID
+	// What triggered the run that wrote this attempt: scheduler (the nightly poller, including cmd/poller --once) or api (a future manual re-run, RM29 tier 8, parked). NOT NULL DEFAULT 'scheduler' backfills every pre-migration row correctly, since no non-scheduler entry point existed before this tier. Guarded by the typed Go constant telemetry.TriggeredBy — no DB CHECK (design.md D1/D7).
+	TriggeredBy string
 }
 
 // Tesla-billed Supercharger and DC fast-charging sessions per account. Covers sessions returned by GET /api/1/dx/charging/history only (no home/AC charging). The Tesla API itself carries no battery-percentage field; start_battery_pct/end_battery_pct/battery_pct_source are a human-owned verification/override channel, and start_battery_pct_est/end_battery_pct_est are a frozen write-once snapshot of the estimate at verification time (both added by RM27 tier 1, MAG-14) -- all five excluded from the nightly UPSERT so a verified value or its snapshot is never silently overwritten (R3). Owned by internal/telemetry; no other module reads this table directly. UPSERT on session_id (not append-only): billing state is mutable post-session.

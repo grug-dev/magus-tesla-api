@@ -5,11 +5,10 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 7 - end roadmap violation #3: create internal/app exposing Processor.ProcessVehicleData (sync fleet data, process charging data, recalculate analytics), moving cmd/poller's reconcilingCollector orchestration out of the cmd/ binary.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
       "2.1",
       "2.2",
       "2.3",
@@ -29,10 +28,12 @@
       "4.5"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1"
+    ]
   },
   "created_at": "2026-08-22T19:05:00Z",
-  "updated_at": "2026-08-22T19:05:00Z",
+  "updated_at": "2026-08-22T19:13:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -52,14 +53,22 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T19:10:00Z",
+      "completed_at": "2026-08-22T19:12:25Z",
+      "duration_seconds": 745,
+      "notes": "Migration created verbatim from the gated design; make sqlc run. InsertPollAttemptParams did NOT gain the fields - query.sql's insert text is unchanged, so that edit is task 2.3's. PollAttempt confirms run_id -> pgtype.UUID, triggered_by -> string.",
+      "budget": {
+        "five_hour_pct_start": 29.0,
+        "five_hour_pct_end": 34.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 2.1,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": false
+      }
     },
     {
       "id": "2.1",
@@ -393,6 +402,16 @@
       "at": "2026-08-22T19:05:00Z",
       "agent": "leader",
       "event": "CONTRACT DRIFT: openspec/config.yaml rules.tasks tells implementers to update progress.json live; the skill's write-ownership (leader-only, once per wave) binds instead. Stale project doc for the owner to correct."
+    },
+    {
+      "at": "2026-08-22T19:10:00Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched: task 1.1 to the telemetry worker on Sonnet (migration + make sqlc). Alone in its wave by the artifacts' own ordering rule - every other task compiles against the types sqlc regenerates here."
+    },
+    {
+      "at": "2026-08-22T19:13:00Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled. Leader verified the migration against design.md's gated block line by line - the ALTER, both COMMENT ON statements and the goose Down match RD7 exactly; no CHECK, no index. D5's open question is ANSWERED: sqlc generated run_id as pgtype.UUID (nullable defeats the uuid override) and triggered_by as plain string, so task 2.3 takes the pgtype round-trip-helper branch tasks.md anticipated. tasks.md's 1.1 text expected InsertPollAttemptParams to gain the fields from the migration alone; it does not - sqlc generates from each query's own column list, so 2.3 must edit query.sql and re-run make sqlc. The preamble already allowed for exactly this deviation."
     }
   ]
 }

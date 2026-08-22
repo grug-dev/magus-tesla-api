@@ -52,7 +52,7 @@ directly.
 
 ## Wave 1 — schema (module: telemetry worker)
 
-- [ ] **1.1** **[module: telemetry worker]** Create
+- [x] **1.1** **[module: telemetry worker]** Create
   `internal/telemetry/db/migrations/20260823000002_add_run_id_triggered_by_poll_attempts.sql`,
   transcribing design.md §"Database Changes" **verbatim** — the full `ALTER TABLE
   poll_attempts ADD COLUMN run_id UUID, ADD COLUMN triggered_by TEXT NOT NULL DEFAULT
