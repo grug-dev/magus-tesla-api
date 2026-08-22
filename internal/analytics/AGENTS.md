@@ -105,8 +105,9 @@ interface-first):
   means epoch**, i.e. a full backfill of the vehicle's history (`design.md` D7). It has
   **no injectable clock** and clamps in UTC — a deliberate call (RM29 D13), so do not
   widen the port to make a test deterministic; anchor fixture dates clear of the
-  boundary instead. **`cmd/poller` is its only production caller**, once per vehicle
-  after each successful nightly cycle and *before* that cycle's charge-gap step —
+  boundary instead. **`internal/app`'s `ProcessVehicleData` is its only production
+  caller** (it was `cmd/poller` until RM29 tier 7 moved that orchestration into the
+  application layer), once per vehicle after each successful nightly cycle and *before* that cycle's charge-gap step —
   the gateway's post-write `Recalculate` covers only the days a manual charge write
   touches, so if this call is ever dropped, every vehicle's charts silently stop
   advancing.
@@ -121,10 +122,10 @@ interface-first):
   it (or a different duration) to `NewReader` at construction; the window is NOT a
   per-call argument to `RecentEfficiency` (`design.md` D3).
 - `GapReconciliationWindow` — exported `time.Duration` constant, 30 days. The rolling
-  window `cmd/poller` re-derives and reconciles against this module's own `charge_gaps`
-  ledger every nightly run, via `ConsumedByDay` (`design.md` D4/D4a/D7b). Unlike
-  `DefaultWindow`, this is not consumed by `NewReader` — `cmd/poller` passes it directly
-  as the `[start, end]` window to `ConsumedByDay`.
+  window `internal/app` re-derives and reconciles against this module's own
+  `charge_gaps` ledger every nightly run, via `ConsumedByDay` (`design.md` D4/D4a/D7b).
+  Unlike `DefaultWindow`, this is not consumed by `NewReader` — `internal/app` passes it
+  directly as the `[start, end]` window to `ConsumedByDay`.
 - `NewReader(pool *pgxpool.Pool, telemetry telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader, account vehicleLookup, window time.Duration) Reader`
   is the constructor — it gained the leading `*pgxpool.Pool` in
   `RM29-analytics-add-vehicle-metrics`, since `ConsumedByDay`/`OdometerDeltaByDay` now
@@ -150,9 +151,9 @@ interface-first):
   below). Runs inside a single DB transaction: either every upsert/delete succeeds, or the
   call has no effect. This module both **computes** the flagged days (`ConsumedByDay`'s
   D5/D5a rule, `consumed.go`) AND **stores** the conclusion — the port and its storage now
-  agree, which was never true while `charge_gaps` sat in `internal/telemetry`. `cmd/poller`
-  is the only caller, wiring `Recalculator.Reconcile` then this port in sequence each
-  nightly run (`design.md` D2 of `RM29-analytics-own-charge-gaps`). `NewGapWriter(pool
+  agree, which was never true while `charge_gaps` sat in `internal/telemetry`.
+  `internal/app` is the only caller, wiring `Recalculator.Reconcile` then this port in
+  sequence each nightly run (`design.md` D2 of `RM29-analytics-own-charge-gaps`). `NewGapWriter(pool
   *pgxpool.Pool) GapWriter` is the constructor; implementation in `gap_writer.go`. Moved here
   from `internal/telemetry` by `RM29-analytics-own-charge-gaps` (MAG-26 tier 5) — originally
   added by `RM28-telemetry-add-charge-gap-storage` (MAG-15).
@@ -213,7 +214,7 @@ here was "None"; it is no longer.
   (migration `20260815000002`, originally `RM28-telemetry-add-charge-gap-storage`,
   MAG-15; moved into this module, unchanged, by `RM29-analytics-own-charge-gaps`,
   MAG-26 tier 5). Written through the `GapWriter` port, driven by this module's own
-  `ConsumedByDay`-derived flagging logic (D5/D5a) via `cmd/poller`'s nightly
+  `ConsumedByDay`-derived flagging logic (D5/D5a) via `internal/app`'s nightly
   reconciliation — this module both derives the gap AND stores the conclusion; no
   other module writes or reads this table. Columns: `id UUID PRIMARY KEY`,
   `account_id UUID NOT NULL`, `tesla_id BIGINT NOT NULL` (**always resolved, NOT

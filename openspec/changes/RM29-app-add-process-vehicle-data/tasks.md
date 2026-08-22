@@ -294,7 +294,7 @@ directly.
 
 ## Wave 4 — composition root + project docs (leader)
 
-- [ ] **4.1** **[leader]** `cmd/poller/main.go` — rewire the composition root to
+- [x] **4.1** **[leader]** `cmd/poller/main.go` — rewire the composition root to
   **wiring only** (design.md D3, D4, D6, D8, D11, D13). After this task `cmd/poller`
   holds **no business logic at all** — that is the point of the tier
   (`CLAUDE.md` §Non-negotiables: "`cmd/` stays thin (zero business logic)"):
@@ -327,7 +327,7 @@ directly.
   this task's acceptance signal, together with the owner's `go run ./cmd/poller --once`.
   `depends_on`: 3.2, 3.4 · `parallel_ok`: no
 
-- [ ] **4.2** **[leader]** Root `README.md` (docs-track-change, `CLAUDE.md`
+- [x] **4.2** **[leader]** Root `README.md` (docs-track-change, `CLAUDE.md`
   §Non-negotiables):
   - "Project Structure" tree — add `internal/app/` alongside the other domain modules.
   - "Architecture" table — add a row for `internal/app`: owns no data, exposes
@@ -340,14 +340,14 @@ directly.
     a one-line mention of the two new columns in its existing description.
   `depends_on`: 1.1, 3.3 · `parallel_ok`: with 4.1, 4.3
 
-- [ ] **4.3** **[leader]** `cmd/README.md` — update the `cmd/poller` row: it is now
+- [x] **4.3** **[leader]** `cmd/README.md` — update the `cmd/poller` row: it is now
   **wiring only**. It composes `internal/app`'s `Processor` and `Scheduler` and starts
   one of them; it no longer owns the three-step orchestration **nor the scheduling
   logic** — the scheduler moved `internal/telemetry` → `internal/app` (design.md D4), not
   into this binary. Mention that `--once` now calls `ProcessVehicleData` directly.
   `depends_on`: 4.1 · `parallel_ok`: with 4.2
 
-- [ ] **4.4** **[leader]** `internal/charging/AGENTS.md` — fix the one sentence design.md
+- [x] **4.4** **[leader]** `internal/charging/AGENTS.md` — fix the one sentence design.md
   **D6** flags as going stale: its forbidden-imports section says the mirror's data
   "arrives already mapped, from `cmd/poller` (the composition root)" — change this to
   name `internal/app` instead, since that is where `newSessionMirrorer`'s body now lives.
@@ -361,7 +361,7 @@ directly.
   change's artifacts) and correct it to name `internal/app` if found.
   `depends_on`: 4.1 · `parallel_ok`: with 4.2, 4.3
 
-- [ ] **4.5** **[leader]** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` — flip
+- [x] **4.5** **[leader]** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` — flip
   the **T7** row from `[ ]` to `[~]` when this change's artifacts are created, and to
   `[x]` at archive; update §Status. Mirror the same status into
   `RM29-modular-monolith-boundaries.progress.json`. **Do not** edit the D1–D10 decision

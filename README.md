@@ -108,6 +108,7 @@ magus-tesla-api/
 │   ├── charging/       # User-asserted charge entries (home/work/3rd-party sessions)
 │   ├── analytics/      # Derived vehicle metrics (Wh/km, consumed %/day, distance/day)
 │   │   └── db/             #   analyticsdb: vehicle_metrics read model + recompute watermarks
+│   ├── app/            # Application layer: ProcessVehicleData (one cycle = sync → charging → analytics) + the daily scheduler. Owns no data.
 │   ├── gateway/        # Gin + Templ + htmx + DaisyUI web layer (the ONLY place HTML lives)
 │   │   ├── handlers/       #   thin handlers: session/auth → module interface → render
 │   │   ├── i18n/           #   translation catalogue + per-request language resolution (es default, en)
@@ -195,6 +196,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/telemetry` | Nightly per-vehicle snapshot collection + storage |
 | `internal/charging` | User-asserted charge entries (home/work/3rd-party), plus **`charge_sessions`** — a mirror of each Supercharger session's window, site, energy and cost, and the home of the human-verified battery percentages. Owns all charge data the app treats as a charge, whoever reported it. |
 | `internal/analytics` | Derived vehicle metrics computed over stored telemetry: rolling Wh/km, the per-day **battery consumed %** (raw SoC delta corrected by both charge sources) and per-day **distance**, plus the gap detection it stores through its own `GapWriter`. Owns **`vehicle_metrics`**, a precomputed read model written by `Recalculator` and read by `Reader` — the derivation is no longer recomputed per request. See [docs/battery-consumed-graph.md](docs/battery-consumed-graph.md). |
+| `internal/app` | **Application layer.** Exposes one port, `Processor.ProcessVehicleData`, running one full cycle as three named steps — sync fleet data (`telemetry`) → process charging data (the Supercharger mirror into `charging`) → recalculate analytics — and hosts the daily `Scheduler` that drives it. Owns **no data**: no table, no migration, no pool. Called by `cmd/poller` and, later, the parked manual-rerun API. |
 | `internal/gateway` | Gin + Templ + htmx web layer, styled with Node-less Tailwind + DaisyUI (drawer nav, typed `ui/` component kit). The only package allowed to produce HTML. |
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
@@ -210,8 +212,8 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 ┌─ COMPOSITION ROOT ── cmd/ wires concrete types together at startup ──────┐
 │  cmd/web ────────────► gateway, account, telemetry, charging,            │
 │                        analytics, tesla, googleauth, config              │
-│  cmd/poller ─────────► telemetry, account, analytics, charging,          │
-│                        tesla, config                                     │
+│  cmd/poller ─────────► app, telemetry, account, analytics, charging,     │
+│                        tesla, config      (wiring only — no logic)       │
 │  cmd/setup ──────────► auth, config                                      │
 │  cmd/explore-tesla-api ► tesla, auth, config                             │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
@@ -222,6 +224,8 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 │    │                   templates/*                                       │
 │    ├─ templates/* ───► i18n, templates/ui                                │
 │    └─ i18n ──────────► account            (the Language type only)       │
+├─ LAYER 2.5 ── application layer ─────────────────────────────────────────┤
+│  app ────────────────► telemetry, charging, analytics, account           │
 ├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
 │  analytics ──────────► account, charging, telemetry                      │
 ├─ LAYER 1 ── domain modules ──────────────────────────────────────────────┤
@@ -273,7 +277,7 @@ must be listed in `MIGRATIONS_DIRS` in the `Makefile`.
 | | | `tesla_tokens` | The Tesla OAuth pair (access + refresh) and access-token expiry, **one row per account** (unique on `account_id`). |
 | | | `vehicles` | Tesla vehicles registered to an account — `tesla_id`, VIN, display name, access type, captured vehicle config. |
 | `internal/telemetry` | `telemetrydb` | `vehicle_snapshots` | Nightly per-vehicle snapshot: battery/charge, range, odometer, temps, TPMS pressures, lock/sentry — **one row per vehicle per calendar day**, plus the lossless `raw_data` JSONB. Carries **observations only**: the five derived consumption columns moved to `internal/analytics` (RM29 tier 4), which computes them from the exact predecessor rather than reading them back, and latitude/longitude live only in `raw_data`. |
-| | | `poll_attempts` | Audit row for **every** collection attempt (outcome + reason), successful or not. |
+| | | `poll_attempts` | Audit row for **every** collection attempt (outcome + reason), successful or not. Since RM29 tier 7 it also carries `run_id` — every row one `ProcessVehicleData` invocation writes shares one, so per-run facts come from `GROUP BY run_id` — and `triggered_by` (`scheduler` today; `api` once the parked manual-rerun API exists). The table stayed in `internal/telemetry` rather than moving to `internal/app` as the roadmap first planned: it always held our own facts (our clock, our failure classification), never anything Tesla reported. |
 | | | `supercharger_sessions` | Tesla Supercharger sessions — site, start/stop, `energy_kwh`, cost + currency, paid flag — upserted on Tesla's `session_id`. Supercharger-only: home / 3rd-party charging never appears in this feed. |
 | `internal/charging` | `chargingdb` | `manual_charge_entries` | User-asserted charge sessions (the home / work / 3rd-party gap the Tesla feed can't fill): date, kWh, price + currency, optional times, start/end %, AC-DC, location. |
 | | | `charge_sessions` | Mirror of each Supercharger session, one row per (account, Tesla session id): the charge window, site, energy, cost, currency and paid flag, refreshed nightly by `cmd/poller` as Tesla's fees settle — plus the five **human-verified** battery-percentage columns, which the sync structurally cannot touch (`charging.SessionMirror` has no field for them). Source of record for those percentages since RM29 tier 5's sibling tier; `telemetry.supercharger_sessions` keeps the vendor payload. |

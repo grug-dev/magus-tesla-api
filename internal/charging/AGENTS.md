@@ -33,11 +33,13 @@ types, in two separate tables with two separate vocabularies (see §Data Ownersh
   RM29-charging-add-charge-sessions) — a dense, one-row-per-session nightly mirror of
   `internal/telemetry`'s `supercharger_sessions`, plus a human-owned battery-percentage
   verification channel that only this module ever writes. The nightly orchestrator
-  (`cmd/poller` today) reads sessions from telemetry's public `SuperchargerReader` port,
+  (`internal/app` since RM29 tier 7; `cmd/poller` before it) reads sessions from
+  telemetry's public `SuperchargerReader` port,
   maps each one to a `charging.SessionMirror`, and calls
   `SessionWriter.MirrorSessions` to upsert them here — the mapping itself lives in
-  `cmd/poller`, the composition root, never in this module or in `telemetry` (design.md
-  D7). The two tables are deliberately not merged: roadmap D4 defers that convergence to
+  `internal/app`, the application layer, never in this module or in `telemetry`
+  (design.md D7; the mapping moved out of `cmd/poller` with RM29 tier 7). The two
+  tables are deliberately not merged: roadmap D4 defers that convergence to
   backlog item 12.
 
 This module:
@@ -112,7 +114,7 @@ type SessionMirror struct {
 }
 
 // SessionWriter is the synchronization port called by the nightly orchestrator
-// (cmd/poller today). Upsert-only: a session that disappears from Tesla's history
+// (internal/app since RM29 tier 7). Upsert-only: a session that disappears from Tesla's history
 // stays mirrored.
 type SessionWriter interface {
     // MirrorSessions upserts every supplied session under accountID, in one
@@ -173,8 +175,9 @@ This module MUST NOT import:
 - `internal/account` — no token resolution, no OwnedVehicle types.
 - `internal/telemetry` — no snapshot or Supercharger types. This is unchanged by the
   RM29 tier 6 Supercharger-session mirror: `SessionWriter.MirrorSessions` receives its
-  data already mapped to `charging.SessionMirror`, from `cmd/poller` (the composition
-  root), never fetched here. The one path-only exception is test-scoped: this package's
+  data already mapped to `charging.SessionMirror`, from `internal/app` (the application
+  layer; it was `cmd/poller` until RM29 tier 7 moved the mirror step there), never
+  fetched here. The one path-only exception is test-scoped: this package's
   `_test.go` files provision a second migration DIRECTORY from `../telemetry/db/migrations`
   (see §Testing Notes) — a filesystem path, not a Go import, and it does not appear in any
   non-test file.
