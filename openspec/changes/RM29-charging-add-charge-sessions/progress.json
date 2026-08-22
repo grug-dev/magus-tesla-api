@@ -5,28 +5,28 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 6 - internal/charging gains charge_sessions: a dense mirror of each Supercharger session's identity, window, session facts (site/energy/cost/currency/paid) and the five battery-pct verification columns. Expand-only; telemetry untouched.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [
       "1.1",
       "1.2",
       "2.1",
-      "2.2"
-    ],
-    "pending": [
+      "2.2",
       "3.1",
       "3.2",
       "3.3",
+      "4.1"
+    ],
+    "pending": [],
+    "blocked": [],
+    "done": [
       "3.4",
-      "4.1",
       "4.2",
       "4.3"
-    ],
-    "blocked": [],
-    "done": []
+    ]
   },
   "created_at": "2026-08-22T13:30:00Z",
-  "updated_at": "2026-08-22T13:52:00Z",
+  "updated_at": "2026-08-22T14:10:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -124,13 +124,13 @@
       ],
       "wave": 3,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T13:54:00Z",
+      "completed_at": "2026-08-22T14:10:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "testdb_test.go switched to testdb.ProvisionDirs(ctx, \"../telemetry/db/migrations\", \"db/migrations\") - telemetry first, so the guarded backfill has a table to read. Test-only path dependency; leader confirmed no production import of telemetry was added.",
       "budget": null
     },
     {
@@ -144,13 +144,13 @@
       ],
       "wave": 3,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T13:54:00Z",
+      "completed_at": "2026-08-22T14:10:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "db_session_integration_test.go: all 18 Group B+C cases as separate funcs. Leader verified the count and names against the Test Contract mapping - none dropped or merged.",
       "budget": null
     },
     {
@@ -164,13 +164,13 @@
       ],
       "wave": 3,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T13:54:00Z",
+      "completed_at": "2026-08-22T14:10:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "db_backfill_integration_test.go: A1/A2, extracting the shipped SQL between the BACKFILL sentinels rather than duplicating it, so the test cannot drift from the migration. A3 is documented-only per design.md.",
       "budget": null
     },
     {
@@ -183,13 +183,13 @@
       ],
       "wave": 3,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T13:54:00Z",
+      "completed_at": "2026-08-22T14:10:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "charging AGENTS.md updated across 5 sections, stating both surprising invariants: the pct columns are absent from SessionMirror entirely, and the refresh set is telemetry's own minus raw_data because a mirrored column inherits its source's write semantics.",
       "budget": null
     },
     {
@@ -202,13 +202,13 @@
       ],
       "wave": 4,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T14:10:00Z",
+      "completed_at": "2026-08-22T14:10:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "cmd/poller: added a mirror field to reconcilingCollector, called in CollectAll BEFORE reconcile, plus newSessionMirrorer (per-account dedupe, limit 0 = all, field-for-field map, log-and-continue). Leader traced both execution paths reach it.",
       "budget": null
     },
     {
@@ -221,13 +221,13 @@
       ],
       "wave": 4,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T14:10:00Z",
+      "completed_at": "2026-08-22T14:10:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "ai/go-conventions.md's 'no module's schema depends on another's' claim was made false by this change - corrected, including why a cross-module DROP can never share a change with the backfill that reads it. README gained the charge_sessions row and a reworded charging responsibility.",
       "budget": null
     },
     {
@@ -238,13 +238,13 @@
       "depends_on": [],
       "wave": 4,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T14:10:00Z",
+      "completed_at": "2026-08-22T14:10:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Roadmap T6 [~] with a Status paragraph recording expand-only, the MIGRATIONS_DIRS reason, and that the contract half must re-point analytics rather than just ALTER.",
       "budget": null
     }
   ],
@@ -321,6 +321,16 @@
       "at": "2026-08-22T13:52:00Z",
       "agent": "leader",
       "event": "Waves 1+2 COMPLETE. Leader verified rather than trusting the report: mirror conflict clause refreshes exactly the 6 sanctioned columns; all 5 pct columns are absent from the query entirely (present only in a LOAD-BEARING warning comment); generated ChargeSession carries all 19 columns; both BACKFILL sentinels and 11 COMMENT ON COLUMN present; zero forbidden imports in internal/charging; go build, go vet, gofmt all clean. Tasks are awaiting-user-verification, not done - the suite is the owner's to run. Note: the worker's prose said '14 columns' where the artifact has 19; artifact is correct, report miscounted."
+    },
+    {
+      "at": "2026-08-22T13:54:00Z",
+      "agent": "leader",
+      "event": "Wave 3 dispatched (3.1 testdb ProvisionDirs, 3.2 session integration tests B1-B11/C1-C7, 3.3 backfill tests A1-A3, 3.4 module AGENTS.md). Held separate from waves 1+2 so the leader could verify the compile boundary first - it did, and the mirror's pct-exclusion held."
+    },
+    {
+      "at": "2026-08-22T14:10:00Z",
+      "agent": "leader",
+      "event": "Waves 3+4 COMPLETE - all 11 tasks implemented. Leader verified wave 3 rather than trusting the report: 18 test funcs in the session file (B1-B11 + C1-C7) and 2 in the backfill file (A1/A2; A3 documented-only per design.md), every Test Contract case accounted for; go vet compiles them all; no production telemetry import in charging. For 4.1 the leader specifically PROVED the wiring rather than relying on a green build, because tasks.md flagged that cmd/poller has no tests and tier 3's review caught exactly a never-called path here: newSessionMirrorer is constructed at main.go:121 and invoked at main.go:178 inside CollectAll, and both execution paths reach it (--once at main.go:143, scheduler at scheduler.go:72). Eight tasks are awaiting-user-verification: their tests exist but only the owner runs the suite."
     }
   ],
   "review": {

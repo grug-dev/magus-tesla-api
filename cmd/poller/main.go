@@ -3,8 +3,12 @@
 // then runs the in-app daily scheduler with graceful shutdown. Thin by design — all
 // collection logic lives in internal/telemetry (ai/go-conventions.md).
 //
-// It is also the composition root for nightly reconciliation, which after each
-// successful cycle runs two halves per vehicle, in order: internal/analytics's
+// It is also the composition root for the nightly post-cycle work, which since RM29
+// tier 6 has THREE steps. First, per account, the session mirror copies telemetry's
+// Supercharger sessions into internal/charging's charge_sessions, so charging owns a
+// queryable record of how a vehicle was charged; it structurally cannot touch the
+// human-verified battery percentages, because charging.SessionMirror has no field for
+// them. Then reconciliation runs two halves per vehicle, in order: internal/analytics's
 // Reconcile advances that module's own precomputed read model (vehicle_metrics)
 // from its watermarks, and then charge-gap reconciliation asks the same module for
 // the trailing window of consumed-per-day figures and hands the flagged days to
@@ -36,6 +40,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
@@ -113,6 +118,7 @@ func main() {
 
 	collector := &reconcilingCollector{
 		inner:     telemetry.NewService(pool, acct, tesla.NewClient(), tcfg),
+		mirror:    newSessionMirrorer(acct, superchargerReader, charging.NewSessionWriter(pool)),
 		reconcile: newNightlyReconciler(acct, recalculator, analyticsReader, analytics.NewGapWriter(pool), loc),
 	}
 
@@ -156,6 +162,7 @@ func main() {
 // must not have it.
 type reconcilingCollector struct {
 	inner     telemetry.Collector
+	mirror    func(ctx context.Context)
 	reconcile func(ctx context.Context)
 }
 
@@ -168,8 +175,103 @@ func (c *reconcilingCollector) CollectAll(ctx context.Context) (telemetry.CycleR
 	if err != nil {
 		return report, err
 	}
+	c.mirror(ctx)
 	c.reconcile(ctx)
 	return report, nil
+}
+
+// newSessionMirrorer builds the per-cycle session-mirror step (design.md D7),
+// which runs BEFORE reconciliation inside the same post-cycle work.
+//
+// What it does: for each distinct account holding a registered vehicle, read that
+// account's Supercharger sessions from internal/telemetry and mirror them into
+// internal/charging's charge_sessions, so charging owns a queryable record of how a
+// vehicle was charged — the window, the site, the energy, the cost — without any
+// caller having to compose two modules' ports.
+//
+// The mapping is field-name-for-field-name with no renames and no derivation (D7).
+// That is deliberate: it keeps the mirror auditable by inspection, and it is why
+// charge_sessions kept telemetry's column names rather than aligning with this
+// module's own manual_charge_entries vocabulary.
+//
+// It CANNOT carry a verified battery percentage, and that is structural rather than
+// disciplinary: charging.SessionMirror has no percentage field, so a nightly poll
+// overwriting a human's verified reading would not compile. telemetry protects the
+// same five columns with a comment; here the type does it.
+//
+// Why per ACCOUNT and not per vehicle: a Supercharger session is keyed by VIN and
+// carries a tesla_id that telemetry re-resolves — NULL when the VIN is not currently
+// registered. Enumerating per account mirrors those sessions too, so a vehicle that
+// is unregistered and later re-registered does not leave a hole in the ledger.
+//
+// Why BEFORE reconciliation: reconciliation is the step that reads derived state, so
+// the composition root refreshes owned records first and derives second. Today
+// nothing reads charge_sessions (no reader port ships in this tier, design.md D9), so
+// the order is not yet load-bearing — but the moment a reader exists it is, and the
+// cheap time to establish it is now rather than in the change that adds the reader.
+//
+// Errors are logged, never fatal, with per-account isolation mirroring the
+// reconciler: one account's failure never aborts another's, and a missed mirror
+// self-heals next cycle because MirrorSessions is idempotent — it re-reads every
+// session and upserts, rather than accumulating. Log lines are prefixed
+// "session mirror:" so they stay greppable alongside "metrics reconciliation:" and
+// "gap reconciliation:".
+func newSessionMirrorer(acct account.Service, superchargerReader telemetry.SuperchargerReader, sessionWriter charging.SessionWriter) func(context.Context) {
+	return func(ctx context.Context) {
+		vehicles, err := acct.AllRegisteredVehicles(ctx)
+		if err != nil {
+			// Whole-cycle failure, mirroring the reconciler's enumeration-failure shape.
+			log.Printf("session mirror: listing vehicles: %v", err)
+			return
+		}
+
+		// One account may hold several registered vehicles, and the read below is
+		// account-wide, so mirroring per vehicle would re-mirror the same sessions
+		// once per vehicle. Deduplicate to one pass per account. Order is not
+		// significant: accounts are independent and each pass is idempotent.
+		seen := make(map[uuid.UUID]struct{}, len(vehicles))
+		for _, v := range vehicles {
+			if _, done := seen[v.AccountID]; done {
+				continue
+			}
+			seen[v.AccountID] = struct{}{}
+
+			// limit 0 means "every session": telemetry's resolveLimit maps a
+			// non-positive limit to math.MaxInt32. The mirror is a full
+			// reconciliation, not a recent-window sweep, so it must not be capped.
+			sessions, err := superchargerReader.SuperchargerSessionsByAccount(ctx, v.AccountID, 0)
+			if err != nil {
+				log.Printf("session mirror: account %s: reading sessions: %v", v.AccountID, err)
+				continue
+			}
+			if len(sessions) == 0 {
+				continue
+			}
+
+			mirrored := make([]charging.SessionMirror, 0, len(sessions))
+			for _, s := range sessions {
+				mirrored = append(mirrored, charging.SessionMirror{
+					AccountID:           s.AccountID,
+					VIN:                 s.VIN,
+					TeslaID:             s.TeslaID,
+					SessionID:           s.SessionID,
+					ChargeStartDateTime: s.ChargeStartDateTime,
+					ChargeStopDateTime:  s.ChargeStopDateTime,
+					SiteLocationName:    s.SiteLocationName,
+					EnergyKWh:           s.EnergyKWh,
+					TotalCost:           s.TotalCost,
+					Currency:            s.Currency,
+					IsPaid:              s.IsPaid,
+				})
+			}
+
+			if err := sessionWriter.MirrorSessions(ctx, v.AccountID, mirrored); err != nil {
+				log.Printf("session mirror: account %s: %v", v.AccountID, err)
+				continue
+			}
+			log.Printf("session mirror: account %s: %d session(s)", v.AccountID, len(mirrored))
+		}
+	}
 }
 
 // newNightlyReconciler builds the per-cycle reconciliation step, which since

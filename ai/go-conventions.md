@@ -159,9 +159,23 @@ the same reason both pass goose's allow-missing/out-of-order option: every modul
 own directory against ONE shared `goose_db_version` table, so a directory's versions are
 routinely lower than versions another module already recorded.
 
-Ordering between directories matters only where one module's schema depends on another's. Today
-none do — there are no cross-module foreign keys ([`architecture.md`](./architecture.md) §2) —
-so any order works.
+Ordering between directories matters where one module's migration READS another's table. There
+are still no cross-module foreign keys ([`architecture.md`](./architecture.md) §2), but since
+RM29 tier 6 there is one such read: `internal/charging`'s `20260823000001_add_charge_sessions`
+backfills `charge_sessions` from `telemetry.supercharger_sessions`, so `telemetry` must precede
+`charging` for that data to land. `MIGRATIONS_DIRS` already orders them that way.
+
+This is a **soft** dependency, deliberately. The backfill sits inside a
+`to_regclass`-guarded `DO $$ … $$` block, so on a database where telemetry's table is absent it
+emits a NOTICE and moves on instead of failing. Ordering therefore affects **data completeness,
+never migration success** — a fresh database provisioned in the wrong order still migrates
+green, it just backfills nothing.
+
+Ordering is also why a cross-module **DROP** must never share a change with the backfill that
+reads the dropped columns: goose walks the directories in `MIGRATIONS_DIRS` order, each to
+completion, so version numbers cannot reorder work across modules. A `telemetry` DROP would run
+before a `charging` backfill no matter how the two files are numbered. Split the two across
+changes — expand first, contract once the expand is confirmed applied.
 
 **Seeding another module's tables.** Prefer that module's public writer where one exists (e.g.
 `charging.NewWriter(pool).Create`). Where none exists, **direct `INSERT`s from the `_test.go`

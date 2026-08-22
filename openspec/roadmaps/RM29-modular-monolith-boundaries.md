@@ -145,6 +145,17 @@ is the owner's call: T5 (`analytics` takes `charge_gaps`) and T6 (`charging` tak
 and the only one that touches `cmd/poller`'s composition root. T8 stays parked (D9).
 Artifacts exist for T5 only; none yet for T6–T8.
 
+**T6 is in flight.** `internal/charging` gains `charge_sessions` — a dense mirror of each
+Supercharger session (window, site, energy, cost, paid) plus the five human-verified
+battery-percentage columns. **Expand only**: T6 drops nothing from `telemetry`, because
+`MIGRATIONS_DIRS` runs `telemetry` before `charging` and goose walks directories to
+completion, so a same-change DROP would execute before the backfill and destroy data that
+cannot be recomputed. The contract half — dropping telemetry's five columns — is a separate
+later change, and it is **not** a one-line `ALTER`: it must re-point `internal/analytics`'s
+consumed correction and gap detection, which read those columns today. Database design gate
+confirmed by the owner, who amended the design at the gate from a verification sidecar to a
+full mirror.
+
 **T5 archived 2026-08-22.** `charge_gaps` is `internal/analytics`'s end to end — the
 migration, the three queries, `ChargeGap`/`MissingChargingType`/`GapWriter`,
 `gap_writer.go` and the 7-test DB-integration suite, with `cmd/poller` and the gateway

@@ -109,7 +109,7 @@ its own.
 
 ## Wave 3 — tests + module docs (module: charging worker)
 
-- [ ] **3.1** **[module: charging worker]** `internal/charging/testdb_test.go` — switch
+- [x] **3.1** **[module: charging worker]** `internal/charging/testdb_test.go` — switch
   `testdb.Provision(ctx, subFS)` to
   `testdb.ProvisionDirs(ctx, "../telemetry/db/migrations", "db/migrations")`, telemetry
   **first** (design.md D8c). Remove the now-unused `//go:embed`/`embed`/`io/fs` plumbing
@@ -120,7 +120,7 @@ its own.
   Every existing `manual_charge_entries` test must still pass unchanged.
   `depends_on`: 2.2 · `parallel_ok`: with 3.4
 
-- [ ] **3.2** **[module: charging worker]** `internal/charging/db_session_integration_test.go`
+- [x] **3.2** **[module: charging worker]** `internal/charging/db_session_integration_test.go`
   (new file, `package charging_test`) — implement Test Contract **groups B and C**
   (B1–B11, C1–C7) exactly as design.md states them, with those expected values. B9–B11
   cover the nullable fee columns and account/vehicle scoping; C6–C7 cover
@@ -135,7 +135,7 @@ its own.
   (`internal/charging/AGENTS.md` §Testing Notes).
   `depends_on`: 3.1 · `parallel_ok`: with 3.3, 3.4
 
-- [ ] **3.3** **[module: charging worker]** `internal/charging/db_backfill_integration_test.go`
+- [x] **3.3** **[module: charging worker]** `internal/charging/db_backfill_integration_test.go`
   (new file, `package charging_test`) — implement Test Contract **group A** (A1, A2).
   Extract the backfill statement at runtime from the embedded migration, slicing between
   the `-- BACKFILL-BEGIN` and `-- BACKFILL-END` sentinels task 1.1 wrote, and execute
@@ -153,7 +153,7 @@ its own.
   `internal/telemetry`.
   `depends_on`: 3.1 · `parallel_ok`: with 3.2, 3.4
 
-- [ ] **3.4** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
+- [x] **3.4** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
   module's new scope (docs-track-structural-change, `CLAUDE.md` §Non-negotiables):
   - §Responsibility — the module now owns Supercharger charge sessions too; replace the
     "will also own `charge_sessions` … starting at tier 6" future-tense sentence with
@@ -176,7 +176,7 @@ its own.
 
 ## Wave 4 — orchestration + project docs (leader)
 
-- [ ] **4.1** **[leader]** `cmd/poller/main.go` — wire the nightly mirror
+- [x] **4.1** **[leader]** `cmd/poller/main.go` — wire the nightly mirror
   (design.md **D7**). Build `chargingSessionWriter := charging.NewSessionWriter(pool)`
   alongside the existing ports, and add a mirror step that runs **before** the existing
   reconcile step inside `reconcilingCollector.CollectAll`'s post-cycle work, so both the
@@ -194,7 +194,7 @@ its own.
   that failure here.
   `depends_on`: 3.2 · `parallel_ok`: with 4.2
 
-- [ ] **4.2** **[leader]** Project docs (docs-track-change, `CLAUDE.md` §Non-negotiables):
+- [x] **4.2** **[leader]** Project docs (docs-track-change, `CLAUDE.md` §Non-negotiables):
   - `ai/go-conventions.md` §Testing — the sentence "Ordering between directories matters
     only where one module's schema depends on another's. Today none do" is now false.
     Correct it: `internal/charging`'s migration reads `telemetry.supercharger_sessions`
@@ -206,7 +206,7 @@ its own.
     "Project Structure" tree for a migrations listing that needs the new file.
   `depends_on`: 1.1 · `parallel_ok`: with 4.1
 
-- [ ] **4.3** **[leader]** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` — flip
+- [x] **4.3** **[leader]** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` — flip
   the **T6** row from `[ ]` to `[~]` when this change's artifacts are created, and to
   `[x]` at archive; update §Status (T6 in flight / archived; T7 remains). Mirror the same
   status into `RM29-modular-monolith-boundaries.progress.json`. **Do not** edit the D4
