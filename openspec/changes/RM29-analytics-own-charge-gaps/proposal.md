@@ -110,7 +110,10 @@ each, identically shaped. Every in-repo consumer (`cmd/poller`,
   `GapWriter`/`ChargeGap` types from `telemetry.*` to `analytics.*`; no other change
   to its orchestration logic.
 - **`internal/gateway/`** — `handlers/history.go`'s `chargeTypeLabel` re-points its
-  parameter type; no other gateway file references either symbol.
+  parameter type; `handlers/history_test.go`'s five `DayConsumption` test fixtures
+  re-point their `MissingChargingType` values to `analytics.*` (found during the
+  artifacts pass, not named in the dispatch's binding outcomes — see design.md D3).
+  No other gateway file references either symbol.
 
 ## Database Changes
 

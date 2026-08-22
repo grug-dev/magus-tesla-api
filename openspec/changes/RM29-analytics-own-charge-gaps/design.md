@@ -186,26 +186,53 @@ part of this change — noted for the backlog, not implemented here.
 `telemetry` to reference the type. `grep -rn "MissingChargingType"
 internal/telemetry/` after this change must return nothing.
 
-`internal/analytics` already references `telemetry.MissingChargingType` in five of
-its own files today (`analytics.go`, `consumed.go`, `mapping.go`, `recalculate.go`,
-`reader.go`) — `DayConsumption.MissingChargingType`'s field type, `deriveVehicleMetrics`'s
-`inferMissingChargingType` helper, and the two `pgtype.Text` mapping helpers. Every
-one of these becomes **self-referential** after the move: the `telemetry.` qualifier
-drops, the bare `MissingChargingType` resolves to the type now defined in the same
-package. `internal/analytics/mapping.go`'s `import
+`internal/analytics` already references `telemetry.MissingChargingType` as an actual
+Go qualifier (not just a doc-comment mention) in three of its own non-test files
+today — `analytics.go` (`DayConsumption.MissingChargingType`'s field type),
+`consumed.go` (`inferMissingChargingType`'s parameter/return type and its two call
+sites), and `mapping.go` (the two `pgtype.Text` mapping helpers' signatures and
+bodies) — plus a prose-only mention in `recalculate.go`'s doc comment (no code
+reference there; it only calls `pgTextFromMissingType`, already unqualified). Every
+code reference becomes **self-referential** after the move: the `telemetry.`
+qualifier drops, the bare `MissingChargingType` resolves to the type now defined in
+the same package. `internal/analytics/mapping.go`'s `import
 "github.com/cristianpena/magus-tesla-api/internal/telemetry"` becomes unused once
 this is the only reason it was imported there — `go vet`/`go build` catches this
 directly (an unused import is a compile error, not a lint warning), so no manual
 audit is needed to find it.
 
-**The one out-of-module consumer:** `internal/gateway/handlers/history.go`'s
-`chargeTypeLabel(ctx context.Context, t telemetry.MissingChargingType) string`
-(line ~622) re-points its parameter to `analytics.MissingChargingType`. This file
-already imports `internal/analytics` (for `DayConsumption`), so no new import is
-added — only the qualifier on this one parameter and the doc comment above it
-("`telemetry.MissingChargingType` is a closed 2-value enum" → "`analytics.…`")
-change. **This is leader-owned cross-module integration** (outside both `telemetry`'s
-and `analytics`' worker sandboxes), not a worker task.
+**Two of this module's own pre-existing test files also carry the qualifier**,
+found during this artifacts pass and not named in the dispatch's binding outcomes:
+`consumed_test.go` (5 occurrences, fixture/assertion values unrelated to
+`charge_gaps` itself — they exercise `deriveVehicleMetrics`'s D5/D5a flag-inference
+logic from tier 3/4) and `db_integration_test.go` (2 occurrences). Both are
+`package analytics` (internal test package) and both keep their `internal/telemetry`
+import for unrelated `telemetry.Snapshot`/`telemetry.SuperchargerSession` fixtures —
+only the `MissingChargingType` qualifier changes, to the same self-referential form.
+
+**The two out-of-module consumers:**
+
+- `internal/gateway/handlers/history.go`'s `chargeTypeLabel(ctx context.Context, t
+  telemetry.MissingChargingType) string` (line ~622) re-points its parameter to
+  `analytics.MissingChargingType`. This file already imports `internal/analytics`
+  (for `DayConsumption`), so no new import is added — only the qualifier on this
+  one parameter and the doc comment above it ("`telemetry.MissingChargingType` is a
+  closed 2-value enum" → "`analytics.…`") change.
+- `internal/gateway/handlers/history_test.go` — found during this artifacts pass,
+  not named in the dispatch's binding outcomes: five `analytics.DayConsumption{...}`
+  test fixtures set `MissingChargingType: telemetry.MissingChargingTypeManual` /
+  `telemetry.MissingChargingTypeSupercharger`. These become
+  `analytics.MissingChargingTypeManual`/`analytics.MissingChargingTypeSupercharger`.
+  This is **not** contingent on `telemetry.MissingChargingType` being deleted (D1's
+  telemetry-side removal, task 1.7) — it breaks the moment `DayConsumption`'s field
+  type itself changes (D3 above, task 1.6), because Go treats
+  `telemetry.MissingChargingType` and `analytics.MissingChargingType` as distinct
+  named types with no implicit conversion between them, even while both
+  definitions exist side by side mid-wave. tasks.md's task 1.10 depends on 1.6, not
+  1.7, for exactly this reason.
+
+**Both are leader-owned cross-module integration** (outside both `telemetry`'s and
+`analytics`' worker sandboxes), not worker tasks.
 
 ## Database Changes (design gate — full schema, rationale, index plan)
 
@@ -274,8 +301,10 @@ port) are already served by the two objects above, unchanged by this move.
 | DB-integration suite (7 tests) | `internal/telemetry/db_gap_writer_integration_test.go` | `internal/analytics/db_gap_writer_integration_test.go` |
 | sqlc regeneration | `telemetrydb` loses `ChargeGap*` symbols | `analyticsdb` gains them (`make sqlc`, both modules) |
 
-Every reference is re-pointed in the same change (D2, D3): `cmd/poller/main.go` and
-`internal/gateway/handlers/history.go`.
+Every reference is re-pointed in the same change (D2, D3): `cmd/poller/main.go`,
+`internal/gateway/handlers/history.go`, and `internal/gateway/handlers/history_test.go`
+(the last found during this artifacts pass, not named in the dispatch's binding
+outcomes — see D3's "out-of-module consumers").
 
 ## Test Contract (restated before implementation, per `ai/go-conventions.md`)
 
@@ -369,10 +398,11 @@ after the move (D3).
   modules' query-file edits are therefore one inseparable unit — mirroring tier 2's
   identical "no safe intermediate state" call for its own rename. See tasks.md's
   wave notes for exactly which sub-tasks land together.
-- **`cmd/poller` and `internal/gateway/handlers/history.go` reference the moved
-  package directly (no interface insulates them).** Both call sites compile only
-  once the corresponding half of the move has landed — they cannot be split ahead of
-  or behind the module-level move without an intermediate non-compiling state.
+- **`cmd/poller`, `internal/gateway/handlers/history.go`, and
+  `internal/gateway/handlers/history_test.go` reference the moved package
+  directly (no interface insulates them).** All three compile only once the
+  corresponding half of the move has landed — they cannot be split ahead of or
+  behind the module-level move without an intermediate non-compiling state.
 - **The DB-integration suite is the entire test surface for this table.** There is
   no offline/pure-function test to catch a transcription error in the move; a typo
   in a re-typed assertion would only surface when the owner runs
