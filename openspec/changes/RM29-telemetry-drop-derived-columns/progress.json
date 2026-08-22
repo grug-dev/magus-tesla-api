@@ -9,8 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "5.1",
-      "5.2",
       "6a.1",
       "6a.2",
       "6a.3",
@@ -48,11 +46,13 @@
       "4.6",
       "4.7",
       "4.8",
-      "4.9"
+      "4.9",
+      "5.1",
+      "5.2"
     ]
   },
   "created_at": "2026-08-21T22:00:00Z",
-  "updated_at": "2026-08-21T23:35:00Z",
+  "updated_at": "2026-08-22T02:04:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -506,14 +506,21 @@
       ],
       "wave": 5,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:01:00Z",
+      "completed_at": "2026-08-22T02:04:00Z",
+      "duration_seconds": 180,
+      "notes": "Created 20260822000002_reset_vehicle_metric_watermarks.sql verbatim from design.md Migration 2 - data-only DELETE + SELECT 1 down, full comment block preserved. Matches the existing goose header/format convention.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 2,
+        "context_pct_start": 8,
+        "context_pct_end": 9,
+        "approx": true,
+        "note": "wave-5 delta shared across both tasks (serial worker, one dispatch)"
+      }
     },
     {
       "id": "5.2",
@@ -526,14 +533,21 @@
       ],
       "wave": 5,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:01:00Z",
+      "completed_at": "2026-08-22T02:04:00Z",
+      "duration_seconds": 180,
+      "notes": "make sqlc clean, no diff on any tracked file under internal/analytics/db/. make migrate-status ran against a live DB: both 20260822000001 (telemetry) and 20260822000002 (analytics) listed Pending, as expected pre-apply.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 2,
+        "context_pct_start": 8,
+        "context_pct_end": 9,
+        "approx": true,
+        "note": "wave-5 delta shared across both tasks (serial worker, one dispatch)"
+      }
     },
     {
       "id": "6a.1",
@@ -964,6 +978,16 @@
       "at": "2026-08-21T23:40:00Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT at the wave-3/4 boundary: five_hour_pct 97 (threshold 90), context_pct 22, bucket resets at 2026-08-22T02:00:00Z. Stopping cleanly - every task status is truthful. 21 of 37 tasks are recorded, 12 done and 9 awaiting-user-verification (all test-writing work the assistant wrote but is forbidden to run). Remaining: wave 5 (analytics watermark-reset migration + sqlc), wave 6a/6b (DB-integration tests), wave 7 (docs), wave 8 (verification + handoff). Resume with /kkpa-dev-harness-pipeline resume RM29-telemetry-drop-derived-columns after the bucket resets."
+    },
+    {
+      "at": "2026-08-22T02:05:00Z",
+      "agent": "leader",
+      "event": "Resumed after the budget checkpoint (bucket reset: five_hour 0%, context 8%). Wave 5 dispatched (analytics, Sonnet, serial): the watermark-reset migration + sqlc/migrate-status verification."
+    },
+    {
+      "at": "2026-08-22T02:04:00Z",
+      "agent": "leader",
+      "event": "Wave 5 COMPLETE (analytics). Leader verified the end state rather than trusting the report: migration file matches design.md Migration 2 verbatim, git shows NO diff on generated sqlc output (only the new untracked migration), go build + gofmt clean. go vet still red ONLY on analytics/db_integration_test.go - the expected pre-flagged wave-6b work."
     }
   ]
 }

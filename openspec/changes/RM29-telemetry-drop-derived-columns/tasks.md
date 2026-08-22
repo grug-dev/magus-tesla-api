@@ -304,7 +304,7 @@ behind each group.
 
 ## Wave 5 — analytics resets the recompute watermark (module: analytics worker)
 
-- [ ] **5.1** `internal/analytics/db/migrations/20260822000002_reset_vehicle_metric_watermarks.sql`
+- [x] **5.1** `internal/analytics/db/migrations/20260822000002_reset_vehicle_metric_watermarks.sql`
   — the goose migration **exactly** as specified in design.md "Database Changes →
   Migration 2", including its full comment block. `-- +goose Up` is
   `DELETE FROM vehicle_metric_watermarks WHERE source = 'vehicle_snapshots';`;
@@ -316,7 +316,7 @@ behind each group.
   (design.md D3).
   `depends_on`: 2.4 · `parallel_ok`: no
 
-- [ ] **5.2** Run `make sqlc` and confirm it produces **no diff** under
+- [x] **5.2** Run `make sqlc` and confirm it produces **no diff** under
   `internal/analytics/db/`. A data-only migration must regenerate nothing; a diff
   here means the migration accidentally changed a schema object. Then run
   `make migrate-status` and confirm both new migrations are listed and pending/applied
