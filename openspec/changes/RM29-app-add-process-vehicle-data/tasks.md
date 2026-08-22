@@ -174,6 +174,34 @@ directly.
   so a reader looking for them knows where they went.
   `depends_on`: 2.6 · `parallel_ok`: with 3.x (docs only; does not block `internal/app`)
 
+- [ ] **2.8** **[module: telemetry worker]** *(appended after review round 1 — finding
+  M1: design.md's Test Contract **group B** was specified up front and promised in
+  proposal.md, but no task ever assigned it, so it was never written. Appended rather
+  than folded into 2.6, which is already ticked; tasks are append-only.)*
+  `internal/telemetry/db_integration_test.go` — implement Test Contract **group B**
+  (B1–B3) exactly as design.md authored them **before** implementation. Do not read
+  `runIDToPgUUID` and write tests that agree with it; write the tests design.md
+  specifies and let them judge the mapping:
+  - **B1** — insert an `Attempt` with a concrete `RunID` (`uuid.New()`) and
+    `TriggeredBy: TriggeredByAPI` through `dbStore.insertPollAttempt`; read back with a
+    direct SQL `SELECT run_id, triggered_by FROM poll_attempts WHERE id = ...`.
+    Expected: `run_id` equals the supplied UUID **exactly**; `triggered_by = 'api'`.
+  - **B2** — direct `INSERT INTO poll_attempts (account_id, tesla_id, attempted_at,
+    outcome, reason) VALUES (...)`, omitting both new columns, reproducing what the
+    `ALTER` did to every pre-existing row. Expected: `run_id IS NULL`;
+    `triggered_by = 'scheduler'`. This is the only coverage of spec.md's "a record from
+    before this capability existed has no run identifier" scenario.
+  - **B3** — insert through the Go seam with `TriggeredBy: TriggeredByScheduler`; read
+    back. Expected: `triggered_by = 'scheduler'` — pins that the Go constant and the
+    column's own string default agree character-for-character, which B1 and B2 would
+    each pass independently while silently disagreeing.
+  Follow the file's existing pattern (`newTestStore(t)`, `cleanupVehicle`, `telemetrydb`
+  queries) and `ai/go-conventions.md` §Testing. Leave `TestStore_PollAttemptRoundTrip`
+  untouched — it is a characterization test for the pre-existing columns.
+  `depends_on`: 2.3 · `parallel_ok`: no
+
+---
+
 ---
 
 ## Wave 3 — `internal/app` (module: app worker)

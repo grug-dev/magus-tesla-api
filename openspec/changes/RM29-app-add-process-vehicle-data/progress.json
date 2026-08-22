@@ -5,9 +5,14 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 7 - end roadmap violation #3: create internal/app exposing Processor.ProcessVehicleData (sync fleet data, process charging data, recalculate analytics), moving cmd/poller's reconcilingCollector orchestration out of the cmd/ binary.",
-  "status": "applied",
+  "status": "changes-requested",
   "rollup": {
-    "current": [
+    "current": [],
+    "pending": [
+      "2.8"
+    ],
+    "blocked": [],
+    "done": [
       "1.1",
       "2.1",
       "2.2",
@@ -18,14 +23,10 @@
       "2.7",
       "3.1",
       "3.2",
+      "3.3",
       "3.4",
       "3.5",
-      "4.1"
-    ],
-    "pending": [],
-    "blocked": [],
-    "done": [
-      "3.3",
+      "4.1",
       "4.2",
       "4.3",
       "4.4",
@@ -33,7 +34,7 @@
     ]
   },
   "created_at": "2026-08-22T19:05:00Z",
-  "updated_at": "2026-08-22T19:35:00Z",
+  "updated_at": "2026-08-22T23:15:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -53,7 +54,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:10:00Z",
@@ -78,7 +79,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:16:00Z",
@@ -104,7 +105,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:16:00Z",
@@ -131,7 +132,7 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:16:00Z",
@@ -157,7 +158,7 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:16:00Z",
@@ -183,7 +184,7 @@
         "2.4"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:16:00Z",
@@ -210,7 +211,7 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:16:00Z",
@@ -236,7 +237,7 @@
         "2.6"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:16:00Z",
@@ -255,6 +256,23 @@
       }
     },
     {
+      "id": "2.8",
+      "title": "Test Contract group B (B1-B3): DB-integration coverage of run_id/triggered_by",
+      "module": "telemetry",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
       "id": "3.1",
       "title": "app.go: package doc, Processor port, NewProcessor",
       "module": "app",
@@ -263,7 +281,7 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:25:00Z",
@@ -289,7 +307,7 @@
         "3.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:25:00Z",
@@ -344,7 +362,7 @@
         "3.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:25:00Z",
@@ -370,7 +388,7 @@
         "3.4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T19:25:00Z",
@@ -397,7 +415,7 @@
         "3.4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-08-22T19:32:00Z",
@@ -520,10 +538,45 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": "Review RM29 tier 7 (commits 04c2953, b927046, dbb4398, dd41520, f9fb38f) — READ THE DIFF, not the module. Validate: (1) BOUNDARIES — internal/app imports only siblings' public ports; no pgxpool, no <module>db, no db/ dir, no migration, no sqlc entry; charging still never imports telemetry. (2) THE GATED SCHEMA — the migration must match design.md §Database Changes exactly (run_id UUID nullable, triggered_by TEXT NOT NULL DEFAULT 'scheduler', both COMMENT ON, goose Down, NO CHECK, NO index). Any deviation is a blocker: the owner confirmed this text at RD7. (3) RD8 — Scheduler + its 4 tests live in internal/app, NOT cmd/poller and NOT telemetry; no copy left behind; NewScheduler still takes cfg telemetry.Config (D13). A cmd/poller/scheduler.go existing at all means the reversal was not applied. (4) RELOCATION FIDELITY — processChargingData/recalculateAnalytics must be newSessionMirrorer/newNightlyReconciler's bodies with isolation rules and log prefixes unchanged; the leader's normalized diff said code-identical, comment rewraps only. Re-derive it, don't trust it. (5) THE TEST CONTRACT authored BEFORE implementation — group A (A1: 22 CollectAll call sites updated with NO assertion changed; A2/A3 stamping), group S (the 4 relocated tests keep their assertions, fakes now implement Processor). Tests must assert what design.md specified, not what the code happens to do. (6) D5's correctness rule — run RunContext is a PARAMETER; *service must have no RunContext field. (7) cmd/poller WIRING — this package has no tests, so a call that never fires still compiles; tiers 3 and 6 both caught exactly that. Trace both paths by reading. (8) ANTI-GAMING — no task/criterion weakened or deleted, no self-approved status, task ids not renumbered. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite — never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE: assistant-run — go build ./..., go vet ./..., gofmt -l, ui-guard, i18n-guard, money-guard (all clean repo-wide), openspec validate --strict (valid). Owner-reported — [pending at the time this brief was written]. Judge test QUALITY by reading the tests, never by running them. PERFORMANCE-PROFILE (verbatim): read-heavy — read performance is mandatory over write performance; writes are mostly done by pollers at midnight, so denormalizing, indexing aggressively, and precomputing for reads is acceptable — never at the cost of the modular-monolith boundaries or module data ownership.",
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "app-reviewer",
+    "brief": "Review RM29 tier 7 (commits 04c2953, b927046, dbb4398, dd41520, f9fb38f) — READ THE DIFF, not the module. Validate: (1) BOUNDARIES — internal/app imports only siblings' public ports; no pgxpool, no <module>db, no db/ dir, no migration, no sqlc entry; charging still never imports telemetry. (2) THE GATED SCHEMA — the migration must match design.md §Database Changes exactly (run_id UUID nullable, triggered_by TEXT NOT NULL DEFAULT 'scheduler', both COMMENT ON, goose Down, NO CHECK, NO index). Any deviation is a blocker: the owner confirmed this text at RD7. (3) RD8 — Scheduler + its 4 tests live in internal/app, NOT cmd/poller and NOT telemetry; no copy left behind; NewScheduler still takes cfg telemetry.Config (D13). A cmd/poller/scheduler.go existing at all means the reversal was not applied. (4) RELOCATION FIDELITY — processChargingData/recalculateAnalytics must be newSessionMirrorer/newNightlyReconciler's bodies with isolation rules and log prefixes unchanged; the leader's normalized diff said code-identical, comment rewraps only. Re-derive it, don't trust it. (5) THE TEST CONTRACT authored BEFORE implementation — group A (A1: 22 CollectAll call sites updated with NO assertion changed; A2/A3 stamping), group S (the 4 relocated tests keep their assertions, fakes now implement Processor). Tests must assert what design.md specified, not what the code happens to do. (6) D5's correctness rule — run RunContext is a PARAMETER; *service must have no RunContext field. (7) cmd/poller WIRING — this package has no tests, so a call that never fires still compiles; tiers 3 and 6 both caught exactly that. Trace both paths by reading. (8) ANTI-GAMING — no task/criterion weakened or deleted, no self-approved status, task ids not renumbered. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite — never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE: assistant-run — go build ./..., go vet ./..., gofmt -l, ui-guard, i18n-guard, money-guard (all clean repo-wide), openspec validate --strict (valid). Owner-reported — make migrate-up, make test, go run ./cmd/poller --once and the build ALL GREEN, reported by the owner on 2026-08-22. This is the owner's own run, not an assistant-run pass. Judge test QUALITY by reading the tests, never by running them. PERFORMANCE-PROFILE (verbatim): read-heavy — read performance is mandatory over write performance; writes are mostly done by pollers at midnight, so denormalizing, indexing aggressively, and precomputing for reads is acceptable — never at the cost of the modular-monolith boundaries or module data ownership.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "app-reviewer",
+        "model": "claude-sonnet-5",
+        "at": "2026-08-22T23:15:00Z",
+        "verdict": "changes-requested",
+        "duration_seconds": 435,
+        "budget": {
+          "five_hour_pct_start": 61.0,
+          "five_hour_pct_end": null,
+          "cost_usd_delta": null,
+          "source": "statusline-cache",
+          "approx": true,
+          "note": "round bracketed at dispatch; end reading taken at triage"
+        },
+        "recorded_by": "leader — the reviewer reported its verdict but did not write this block itself",
+        "findings": [
+          {
+            "id": "M1",
+            "severity": "major",
+            "status": "accepted",
+            "finding": "Test Contract group B (B1-B3, DB-integration coverage of run_id/triggered_by) was authored in design.md and promised in proposal.md, but no task ever assigned it, so it was never written. db_integration_test.go is untouched by the whole change.",
+            "resolution": "Task 2.8 APPENDED (2.6 is already ticked and tasks are append-only). Writing the tests, not weakening the contract - amending design.md to accept the gap would be exactly the anti-gaming move the rails forbid, and unlike D12's orchestration gap this one has no reasoned waiver."
+          },
+          {
+            "id": "M2",
+            "severity": "minor",
+            "status": "accepted",
+            "finding": "README's charge_sessions row still said the mirror is 'refreshed nightly by cmd/poller'. Task 4.4 grepped the two AGENTS.md files but not the README.",
+            "resolution": "Fixed by the leader: now names internal/app's charging step."
+          }
+        ],
+        "verified_by_reviewer": "Re-derived independently rather than trusting the leader: the migration line-for-line against the gated design block; both relocated closure bodies by extracting the pre-change sources from 04c2953~1 and diffing normalized; A1's 22 call sites; *service having no RunContext field; both cmd/poller paths by reading; tasks.md's diff showing only checkbox flips."
+      }
+    ]
   },
   "decisions": [
     {
@@ -551,6 +604,15 @@
       "made_by": "autopilot",
       "decision": "Corrected 4 stale cmd/poller claims in internal/analytics/AGENTS.md, not just the 1 sentence in charging's.",
       "why": "Task 4.4 said grep analytics and correct if found. It was found: the file called cmd/poller the sole production caller of Reconcile and GapWriter. Doc-only, same leader-owned reasoning.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-22T23:15:00Z",
+      "scope": "review:M1",
+      "made_by": "autopilot",
+      "decision": "Accepted M1 and appended task 2.8 to WRITE group B, rather than amending design.md to accept the gap.",
+      "why": "The contract was authored before implementation and promised in the proposal. Editing it afterwards to match what shipped is the exact move the append-only rail exists to stop.",
       "covered_by": null
     }
   ],
@@ -619,6 +681,21 @@
       "at": "2026-08-22T19:35:00Z",
       "agent": "leader",
       "event": "Step 6 PARK - the mandatory pre-reviewer ask. Migration 20260823000002 shows Pending in make migrate-status, so the suite cannot pass until the owner applies it. Cheap signals all green and openspec validate --strict passes, but verified requires the OWNER's reported run; the reviewer is not dispatched before it. Review brief pre-written so a resuming session dispatches the moment the report lands."
+    },
+    {
+      "at": "2026-08-22T19:40:00Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE OWNER. They reported make migrate-up, make test, go run ./cmd/poller --once and the build all green. All 18 sub-tasks awaiting-user-verification -> done on THEIR report; the assistant ran no suite and claims no pass. Change status applied -> verified. The reviewer gate may now open."
+    },
+    {
+      "at": "2026-08-22T19:40:00Z",
+      "agent": "leader",
+      "event": "Review round 1 dispatched to app-reviewer on Sonnet, instructed to escalate on doubt. Brief updated with the owner's signal provenance so the reviewer knows which signals were assistant-run and which were the owner's."
+    },
+    {
+      "at": "2026-08-22T23:15:00Z",
+      "agent": "leader",
+      "event": "Review round 1: CHANGES-REQUESTED. Both findings triaged and ACCEPTED - none rejected, so no rejection justification is owed. The reviewer earned its keep: it re-derived the migration, both relocations, A1 and the wiring itself instead of trusting the leader, and then found the one thing nobody had checked - that the artifacts pass authored a Test Contract group B and never wrote a task for it. Neither the workers nor the leader would have caught that, because every task that existed was done."
     }
   ]
 }
