@@ -496,6 +496,38 @@ while fixing `analytics-reviewer` round-1 finding **R1-1**; the reviewer itself 
 Recorded in that change's progress.json `decisions[]` as **A6**.
 
 
+## 16. telemetry / analytics — Drop the five battery-pct columns off `supercharger_sessions` (the contract half of RM29 T6)
+
+### PROPOSAL
+
+RM29 tier 6 was deliberately **expand-only**: `internal/charging` gained `charge_sessions`
+carrying the five human-verified battery-percentage columns (`start_battery_pct`,
+`end_battery_pct`, `battery_pct_source`, `start_battery_pct_est`, `end_battery_pct_est`),
+and `internal/telemetry`'s `supercharger_sessions` kept its own copies. The contract half —
+dropping telemetry's five columns — is still outstanding.
+
+It could not ship in T6 for a concrete reason worth not rediscovering: `MIGRATIONS_DIRS`
+runs the `telemetry` directory before `charging`, and goose walks each directory to
+completion, so a DROP in the same change would have executed **before** the backfill that
+reads those columns. The data is unrecoverable — nothing in the codebase writes them, so the
+one populated row was hand-entered.
+
+This is **not** a one-line `ALTER`. `internal/analytics`'s consumed correction and gap
+detection read those columns today, so they must be re-pointed at `charging`'s copies first.
+That makes this at minimum a two-module change and a database design gate. T4's history is
+the direct precedent: its drop also turned out to need the derivation moved first, making
+that tier wider than its roadmap line.
+
+**TRIGGER — pick this up when** RM29 T7 has archived (so `cmd/poller`'s composition root has
+stopped moving) and the owner is ready for another database design gate. It is explicitly
+**not** part of T7.
+
+### ORIGIN
+
+`RM29-charging-add-charge-sessions` (RM29 tier 6), decision **I4** — the owner's expand-only
+call at the database design gate, 2026-08-22.
+
+
 # BRAINSTORMING
 
 

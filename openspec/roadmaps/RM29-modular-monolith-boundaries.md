@@ -100,7 +100,7 @@ expand its recompute window to the affected date range, not to "the last N days"
 | **T3** | `[x]` | `RM29-analytics-add-vehicle-metrics` | `analytics` | **Gold standard.** `vehicle_metrics` + `updated_at` watermark + `Recalculate`; gateway re-points and its domain calculation moves out (D5). | T1 |
 | **T4** | `[x]` | `RM29-telemetry-drop-derived-columns` | `telemetry` | Drop the five `_calc` columns from `vehicle_snapshots`. Only safe once T3 lands. | T3 |
 | **T5** | `[x]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |
-| **T6** | `[~]` | `RM29-charging-add-charge-sessions` | `charging` | `charge_sessions` + the five battery-pct columns move off `supercharger_sessions`. | T2 |
+| **T6** | `[x]` | `RM29-charging-add-charge-sessions` | `charging` | `charge_sessions` mirrors each Supercharger session and adds the five battery-pct columns. **Expand only** — telemetry's copies were NOT dropped; that contract half is still outstanding. | T2 |
 | **T7** | `[ ]` | `RM29-app-add-process-vehicle-data` | `app` (new) | The three use cases + `process_runs`; `poll_attempts` moves; `cmd/poller` re-points and `reconcilingCollector` is deleted. | T1, T2 |
 | **T8** | `[ ]` | *(parked — D9)* | TBD | The manual-rerun HTTP API adapter. | T7 |
 
@@ -145,16 +145,27 @@ is the owner's call: T5 (`analytics` takes `charge_gaps`) and T6 (`charging` tak
 and the only one that touches `cmd/poller`'s composition root. T8 stays parked (D9).
 Artifacts exist for T5 only; none yet for T6–T8.
 
-**T6 is in flight.** `internal/charging` gains `charge_sessions` — a dense mirror of each
-Supercharger session (window, site, energy, cost, paid) plus the five human-verified
-battery-percentage columns. **Expand only**: T6 drops nothing from `telemetry`, because
+**T6 archived 2026-08-22.** `internal/charging` gained `charge_sessions` — a dense mirror
+of each Supercharger session (window, site, energy, cost, paid) plus the five human-verified
+battery-percentage columns. **Expand only**: T6 dropped nothing from `telemetry`, because
 `MIGRATIONS_DIRS` runs `telemetry` before `charging` and goose walks directories to
-completion, so a same-change DROP would execute before the backfill and destroy data that
-cannot be recomputed. The contract half — dropping telemetry's five columns — is a separate
-later change, and it is **not** a one-line `ALTER`: it must re-point `internal/analytics`'s
-consumed correction and gap detection, which read those columns today. Database design gate
-confirmed by the owner, who amended the design at the gate from a verification sidecar to a
-full mirror.
+completion, so a same-change DROP would have executed before the backfill and destroyed data
+that cannot be recomputed. Database design gate confirmed by the owner, who amended the
+design at the gate from a verification sidecar to a full mirror. The central invariant is
+enforced by the type system, not by convention: `charging.SessionMirror` carries **no**
+percentage fields at all, so the nightly re-mirror cannot clobber a human-entered
+percentage — writing one is a compile error. `charging-reviewer` **approved at round 1 with
+zero findings**, the only RM29 tier so far to need no rework; it re-traced the `cmd/poller`
+wiring itself and checked eight test cases verbatim against the Test Contract that design.md
+authored *before* implementation. **Owner-verified** — `make migrate-up`, `make test` and
+`cmd/poller --once` all green, reported 2026-08-22; the `--once` run matters here for the
+same reason it did in T3 and T5.
+
+**Still outstanding after T6 — the contract half.** Dropping telemetry's five battery-pct
+columns off `supercharger_sessions` is a **separate later change and is not part of T7**. It
+is not a one-line `ALTER`: it must first re-point `internal/analytics`'s consumed correction
+and gap detection, which read those columns today. T4's lesson applies — that tier's drop
+also turned out to need the derivation moved first.
 
 **T5 archived 2026-08-22.** `charge_gaps` is `internal/analytics`'s end to end — the
 migration, the three queries, `ChargeGap`/`MissingChargingType`/`GapWriter`,

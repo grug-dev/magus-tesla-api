@@ -5,9 +5,12 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 6 - internal/charging gains charge_sessions: a dense mirror of each Supercharger session's identity, window, session facts (site/energy/cost/currency/paid) and the five battery-pct verification columns. Expand-only; telemetry untouched.",
-  "status": "applied",
+  "status": "archived",
   "rollup": {
-    "current": [
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
       "1.1",
       "1.2",
       "2.1",
@@ -15,18 +18,14 @@
       "3.1",
       "3.2",
       "3.3",
-      "4.1"
-    ],
-    "pending": [],
-    "blocked": [],
-    "done": [
       "3.4",
+      "4.1",
       "4.2",
       "4.3"
     ]
   },
   "created_at": "2026-08-22T13:30:00Z",
-  "updated_at": "2026-08-22T14:15:00Z",
+  "updated_at": "2026-08-22T14:42:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -48,7 +47,7 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T13:49:20Z",
@@ -67,7 +66,7 @@
       ],
       "wave": 1,
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T13:49:23Z",
@@ -86,7 +85,7 @@
       ],
       "wave": 2,
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T13:49:42Z",
@@ -105,7 +104,7 @@
       ],
       "wave": 2,
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T13:49:56Z",
@@ -124,7 +123,7 @@
       ],
       "wave": 3,
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T13:54:00Z",
@@ -144,7 +143,7 @@
       ],
       "wave": 3,
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T13:54:00Z",
@@ -164,7 +163,7 @@
       ],
       "wave": 3,
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-22T13:54:00Z",
@@ -202,7 +201,7 @@
       ],
       "wave": 4,
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-08-22T14:10:00Z",
@@ -336,12 +335,47 @@
       "at": "2026-08-22T14:15:00Z",
       "agent": "leader",
       "event": "CHECKPOINT at the owner's request (clean stop, not a budget trip: 5h ~13%, context ~34%). All 11 tasks implemented and committed (a769da3); working tree clean; status=applied. RESUME AT STEP 6: the owner has NOT yet run the suite, and Step 6 requires their reported pass BEFORE the reviewer gate - do not dispatch the reviewer first. Two owner actions outstanding, in this order: (1) make migrate-up - charge_sessions does NOT exist in the real DB yet, and the backfill is what sets session 734860294's battery_pct_source to 'user_verified'; (2) make test AND go run ./cmd/poller --once. The --once run is load-bearing: cmd/poller has no tests, tier 3's review caught a never-called path in this exact file, and the leader proved the wiring by tracing (main.go:121 construct, main.go:178 call, both entry points at main.go:143 and scheduler.go:72) - tracing is not running. Eight tasks sit at awaiting-user-verification for that reason. After the owner reports: set those to done recording THEM as verifier, then reviewer gate (charging-reviewer), then archive to openspec/changes/archive/charging/, then T7 remains."
+    },
+    {
+      "at": "2026-08-22T14:22:00Z",
+      "agent": "leader",
+      "event": "RESUMED at Step 6 in a fresh session (5h 48%, context 8%). Working tree clean at 0d39a06. Leader re-ran every cheap signal it is allowed to: go build, go vet (which compiles all 20 new test funcs), the three guards, and openspec validate --changes --strict (1 passed) - all green. gofmt -l lists 8 files but NONE are in the T6 diff; that drift is pre-existing. The suite itself is untouched: Step 6 blocks on the OWNER's reported pass before the reviewer gate, so 8 tasks stay awaiting-user-verification and no reviewer has been dispatched."
+    },
+    {
+      "at": "2026-08-22T14:30:00Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE OWNER, not the assistant. The owner ran make migrate-up, make test and go run ./cmd/poller --once and reported all three green. The --once run is the one that matters here: cmd/poller has no tests and tier 3's review caught a never-called path in this exact file, so the leader's trace of the mirror wiring is now backed by an actual execution. The 8 awaiting-user-verification tasks -> done; status applied -> verified. Reviewer gate opens next."
+    },
+    {
+      "at": "2026-08-22T14:39:00Z",
+      "agent": "leader",
+      "event": "REVIEWER APPROVED AT ROUND 1 WITH ZERO FINDINGS - the first tier of RM29 to need no rework. charging-reviewer (Sonnet) did not take the leader's word for anything: it re-read design.md's 1289 lines, diffed 20 files cold, traced the poller wiring itself (construct main.go:121, unconditional c.mirror(ctx) in CollectAll main.go:173-181, both --once at main.go:143 and the scheduler at main.go:126 reaching it), counted 18+2 test funcs against the Test Contract and spot-checked 8 of them verbatim against design.md's expected values, and independently re-ran build/vet/gofmt/the three guards. Leader transcribed review.status=approved to top-level status=reviewer-approved, matching the tier-5 convention; the verdict itself is the reviewer's, unforged."
+    },
+    {
+      "at": "2026-08-22T14:42:00Z",
+      "agent": "leader",
+      "event": "ARCHIVED to openspec/changes/archive/charging/. openspec archive synced the delta: charge-session-log is a NEW capability spec (+5 requirements created, nothing modified or removed) - the expand-only shape holds right through to the spec layer. Status set to archived per the contract lifecycle; tier 5 left its file at reviewer-approved, which was a step short."
     }
   ],
   "review": {
-    "agent": null,
-    "status": "not-started",
-    "brief": null,
-    "rounds": []
+    "agent": "charging-reviewer",
+    "status": "approved",
+    "brief": "Review RM29 tier 6 (RM29-charging-add-charge-sessions) for archive readiness. Read the DIFF (git diff 716d727~1..HEAD), not the whole module.\n\nWHAT SHIPPED: internal/charging gains charge_sessions, a dense nightly mirror of internal/telemetry's supercharger_sessions, plus five human-owned battery-pct verification columns that ONLY this module ever writes. EXPAND-ONLY: telemetry is untouched.\n\nVALIDATE, in descending order of risk:\n\n1. PCT WRITE-PROTECTION (the change's central invariant, D6). charging.SessionMirror must carry ZERO percentage fields, so writing one is a COMPILE ERROR rather than a convention. MirrorChargeSession's INSERT column list and its ON CONFLICT DO UPDATE SET must not mention start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est or end_battery_pct_est anywhere. Any path that could clobber a human-entered percentage on a nightly re-mirror is a BLOCKER.\n\n2. EXPAND-ONLY (D4/I4). No file under internal/telemetry/ may be touched, and the migration must DROP nothing. A same-change DROP would run before the backfill (MIGRATIONS_DIRS orders telemetry before charging) and destroy unrecoverable hand-entered data. Any drop is a BLOCKER.\n\n3. cmd/poller WIRING IS ACTUALLY CALLED. Tier 3's review caught a never-called path in this exact file, which build, vet and a green suite all missed because cmd/poller has no tests. Trace it yourself: is the mirrorer constructed AND invoked, and do BOTH entry points (--once and the scheduler) reach it? A constructed-but-uncalled mirrorer is a BLOCKER.\n\n4. TEST CONTRACT COMPLIANCE. design.md has a Test Contract section authoring the expected values BEFORE implementation. Check the tests in db_session_integration_test.go and db_backfill_integration_test.go assert what the CONTRACT specifies, not what the implementation happens to do. Also confirm no contract case was silently dropped or merged.\n\n5. DB DESIGN MATCHES THE USER-CONFIRMED GATE. The owner confirmed the schema, rationale and index plan at the database design gate (decisions I1-I5). Any divergence between the shipped migration and design.md's Database Changes section is a BLOCKER. Specifically: UNIQUE (account_id, session_id); INDEX leading to charge_stop_date_time; the CHECK that a set percentage requires battery_pct_source NOT NULL; the to_regclass-guarded backfill with its BACKFILL sentinels intact (a test extracts the SQL between them).\n\n6. MODULE BOUNDARY. internal/charging must have NO production import of internal/telemetry. The test-only migration path dependency in testdb_test.go (\"../telemetry/db/migrations\") is SANCTIONED by design - do not file it as a finding. Cross-module data flows through cmd/poller (the composition root) reading telemetry's public SuperchargerReader port and mapping to charging.SessionMirror there.\n\n7. CONVENTIONS from the doc pack: unit suffixes (_kwh etc.) on every unit-bearing column and field; money is the exception (total_cost has no suffix and is paired with currency); no HTML anywhere (backend-only module, i18n not applicable).\n\n8. DOCS TRACK STRUCTURAL CHANGE. A new table + new public port is structural. Verify README.md, ai/go-conventions.md and internal/charging/AGENTS.md were updated IN THIS CHANGE and that their claims are TRUE of the shipped code. Note ai/go-conventions.md previously claimed no module's schema depends on another's - this change made that false and it was corrected; verify the correction is accurate.\n\n9. ANTI-GAMING: no acceptance criterion weakened or deleted; no task marked done that isn't; no self-approved status.\n\nTEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.\n\nWHICH SIGNALS CAME FROM WHERE: assistant-run (leader) = go build, go vet, gofmt -l, make ui-guard/i18n-guard/money-guard, openspec validate --changes --strict. OWNER-REPORTED = make migrate-up, make test, go run ./cmd/poller --once, all green. You must judge TEST QUALITY BY READING the tests - do not run the suite.\n\nPERFORMANCE-PROFILE (verbatim): read-heavy - read performance is mandatory over write performance; writes are mostly done by pollers at midnight, so denormalizing, indexing aggressively, and precomputing for reads is acceptable - never at the cost of the modular-monolith boundaries or module data ownership.\n\nEscalate on doubt: return changes-requested asking for leader re-review rather than approving anything you are not sure about.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-22T15:00:00Z",
+        "duration_seconds": null,
+        "verdict": "approved",
+        "findings": [],
+        "budget": {
+          "five_hour_pct_delta": 8.0,
+          "cost_usd_delta": 3.69,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": "bracketed 51%/$1.55 -> 59%/$5.24 around the single review round"
+        }
+      }
+    ]
   }
 }

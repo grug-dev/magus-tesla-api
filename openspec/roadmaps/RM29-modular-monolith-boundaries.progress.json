@@ -6,7 +6,7 @@
   "request": "MAG-26 \u2014 modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-22T13:30:00Z",
+  "updated_at": "2026-08-22T14:42:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
@@ -16,9 +16,7 @@
     "created_at": "2026-08-20T17:07:08Z"
   },
   "rollup": {
-    "current": [
-      6
-    ],
+    "current": [],
     "pending": [
       7,
       8
@@ -29,7 +27,8 @@
       2,
       3,
       4,
-      5
+      5,
+      6
     ]
   },
   "decisions": [
@@ -164,14 +163,23 @@
       "depends_on": [
         2
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-08-22T13:30:00Z",
-      "completed_at": null,
+      "completed_at": "2026-08-22T14:42:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 19.0,
+        "cost_usd_delta": 8.5,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts+gate+waves 1-4 in the prior session; verification, review round 1 and archive in this one"
+      },
+      "notes": "charge_sessions added as a dense nightly mirror of telemetry's supercharger_sessions. EXPAND-ONLY - telemetry untouched, nothing dropped. Reviewer-approved at ROUND 1 with zero findings, the only RM29 tier to need no rework. Owner verified make migrate-up + make test + cmd/poller --once.",
+      "archived_at": "2026-08-22T14:42:00Z",
+      "archive_path": "openspec/changes/archive/charging/2026-08-22-RM29-charging-add-charge-sessions"
     },
     {
       "id": 7,
@@ -254,6 +262,11 @@
       "at": "2026-08-22T13:30:00Z",
       "agent": "leader",
       "event": "Tier 6 STARTED. Artifacts created and the database design gate CONFIRMED by the owner, who amended the design at the gate: charge_sessions is a real mirror (gains site/energy/cost/currency/paid), not a verification sidecar. Expand-only - telemetry is untouched by T6, because MIGRATIONS_DIRS runs telemetry before charging and a same-change DROP would destroy unrecoverable hand-entered data. T6 status [ ] -> [~]."
+    },
+    {
+      "at": "2026-08-22T14:42:00Z",
+      "agent": "leader",
+      "event": "Tier 6 (RM29-charging-add-charge-sessions) ARCHIVED - charging-reviewer approved at ROUND 1 with ZERO findings, the first RM29 tier to need no rework, and it re-derived the risky claims itself rather than trusting the leader (poller wiring traced independently, 8 test cases checked verbatim against design.md's pre-authored Test Contract, cheap signals re-run). Suite pass reported by the OWNER (make migrate-up, make test, go run ./cmd/poller --once), not assistant-run. The expand-only decision held end to end: no telemetry file touched, no column dropped, and openspec archive created charge-session-log as a NEW spec (+5, -0). T7 (RM29-app-add-process-vehicle-data) is the last required tier and is now unblocked; T8 stays parked per D9. NOTE FOR T7: the contract half of T6 - dropping the five pct columns off telemetry.supercharger_sessions and re-pointing readers - is still OUTSTANDING and is NOT part of T7."
     }
   ]
 }
