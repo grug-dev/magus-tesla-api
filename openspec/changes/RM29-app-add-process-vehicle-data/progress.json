@@ -34,7 +34,7 @@
     ]
   },
   "created_at": "2026-08-22T19:05:00Z",
-  "updated_at": "2026-08-22T23:22:00Z",
+  "updated_at": "2026-08-22T23:23:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -723,6 +723,11 @@
       "at": "2026-08-22T23:22:00Z",
       "agent": "leader",
       "event": "Task 2.8 reconciled with a leader correction. The worker wrote group B faithfully in structure but substituted string(TriggeredByAPI)/string(TriggeredByScheduler) for design.md's literal expected values - which makes B1 and B3 tautologies that survive a typo in the very constant they exist to pin. Leader edited the three assertions to the literals and gave B3 the explicit constant-vs-DEFAULT check its own design rationale describes. A module-file edit by the leader, taken because re-dispatching for three one-line assertions costs more than the fix, and because the leader authored the instruction the worker followed. Disclosed here rather than folded silently into the wave. Also accepted the worker's one disclosed deviation: rows are located by (account_id, tesla_id) because InsertPollAttempt has no RETURNING id, so design's WHERE id = ... was unwritable - it changes how a row is found, no expected value."
+    },
+    {
+      "at": "2026-08-22T23:23:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT + Step 6 park, at the same boundary. 5h bucket 85% against a 90% threshold, 7-day 90%, context 28%. The bucket resets at 2026-08-22T23:50:00Z, ~27 minutes out, and the remaining work (review round 2 + archive + roadmap archive) would likely cross 90 before finishing. Parking anyway for the mandatory pre-reviewer verification ask: group B is DB-backed and unrun, and the reviewer must not run against unverified work. Resume with /kkpa-dev-harness-pipeline resume RM29-app-add-process-vehicle-data after the owner reports make test-with-db - by then the bucket will have reset."
     }
   ]
 }
