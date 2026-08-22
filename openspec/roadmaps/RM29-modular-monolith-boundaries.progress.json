@@ -6,7 +6,7 @@
   "request": "MAG-26 \u2014 modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-22T08:50:00Z",
+  "updated_at": "2026-08-22T09:05:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
@@ -151,7 +151,7 @@
         "approx": true,
         "note": "wave 1 in the prior session; waves 3-5 + 2 review rounds in this one"
       },
-      "notes": "charge_gaps moved telemetry -> analytics whole. Reviewer-approved round 2. Suite pass ASSISTANT-RUN under owner grant, not owner-reported.",
+      "notes": "charge_gaps moved telemetry -> analytics whole. Reviewer-approved round 2. Owner verified post-archive: make test green + cmd/poller --once green.",
       "archived_at": "2026-08-22T08:50:00Z",
       "archive_path": "openspec/changes/archive/analytics/2026-08-22-RM29-analytics-own-charge-gaps"
     },
@@ -243,6 +243,11 @@
       "at": "2026-08-22T08:52:00Z",
       "agent": "leader",
       "event": "PARKED before T6 - deliberate, not a budget stop (5h ~25%, context ~18%). T6 (RM29-charging-add-charge-sessions) creates charge_sessions AND drops five battery-pct columns off supercharger_sessions: new table + column drops + a data-preserving migration for columns holding real vehicle data. That is the built-in `database` design gate, which requires the owner's explicit confirmation of schema, rationale and index plan before any Apply, and Step 2's performance-design interview is leader-with-user. T4's lesson is directly relevant: its drop turned out to need the derivation moved first, making that tier wider than its roadmap line. An autopilot guess here risks real data. Awaiting the owner."
+    },
+    {
+      "at": "2026-08-22T09:05:00Z",
+      "agent": "leader",
+      "event": "Tier 5 verification upgraded: the owner reported 'make test green. cmd-poller-once OK green.' The archive-time caveat (assistant-run pass under grant) is RESOLVED - T5 now rests on the owner's own verification like tiers 1-4. Roadmap remains parked before T6 pending the database design gate."
     }
   ]
 }

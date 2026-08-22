@@ -35,7 +35,7 @@
     ]
   },
   "created_at": "2026-08-22T02:55:00Z",
-  "updated_at": "2026-08-22T08:44:00Z",
+  "updated_at": "2026-08-22T09:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -492,6 +492,15 @@
       "decision": "Left charge_gaps' stale SQL COMMENT ON (names internal/battery + internal/telemetry, mirrored into generated models.go) UNFIXED. Backlog item 15.",
       "why": "Both routes are closed unattended: editing the migration breaks design gate I1's zero-content-change rule, and a corrected COMMENT ON is DDL, which trips the database design gate needing the owner. Pre-existing since T1.",
       "covered_by": null
+    },
+    {
+      "id": "U1",
+      "at": "2026-08-22T09:05:00Z",
+      "made_by": "user",
+      "scope": "change",
+      "decision": "Owner reported the suite green AND cmd/poller --once green, after the archive.",
+      "why": "Converts the tier's assistant-run pass (A3) into the owner's own verification, which is what CLAUDE.md's Test-Execution-Policy requires. The --once run covers cmd/poller, which has no tests.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -544,6 +553,11 @@
       "at": "2026-08-22T08:44:00Z",
       "agent": "leader",
       "event": "Review round 1 triage: BOTH findings ACCEPTED, none rejected. R1-1 was a fair catch - task 1.8's own text required rewording cmd/poller's doc comments and it was ticked without doing so. Fixed 4 sites; cmd/poller needed more than a name swap, since its rationale ('neither module may depend on the other - telemetry never calls analytics') went vacuous once both halves became analytics'. Rewrote it to say why the orchestration still belongs in the composition root. Leader's own post-fix sweep then found THREE stale claims the reviewer MISSED: the moved test file's 'telemetrydb-backed' header (fixed, plus its skip description which was wrong for analytics' TestMain), and charge_gaps' SQL COMMENT ON + its sqlc-generated copy in models.go - those two are BLOCKED, see A7/backlog 15. go build, go vet clean; gofmt flags only the pre-existing scheduler_test.go."
+    },
+    {
+      "at": "2026-08-22T09:05:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED VERIFICATION RECEIVED (post-archive): 'make test green. cmd-poller-once OK green.' This SUPERSEDES the assistant-run pass this tier archived on - the caveat recorded at archive time is now resolved, and tier 5's verification is the owner's, on the same footing as tiers 1-4. The cmd/poller --once run is the load-bearing half: cmd/poller has NO tests (the exact hole behind tier 3's round-1 false-'done' blocker), and this change touched it twice - task 1.8's rewire to analytics.NewGapWriter and the review-round-1 doc fix. Build, vet and a green suite cannot exercise that file; --once can, and did."
     }
   ],
   "review": {

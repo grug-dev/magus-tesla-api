@@ -151,9 +151,9 @@ migration, the three queries, `ChargeGap`/`MissingChargingType`/`GapWriter`,
 re-pointed. `analytics-reviewer` approved at round 2 after a round-1 `major` on stale doc
 claims. The move was proved against a live database: `make migrate-status` shows the
 relocated migration still **Applied**, confirming goose does not re-run a migration that
-changed directory. **Caveat on verification** — the suite pass was assistant-run under an
-in-session grant from the owner, not the owner's own reported pass; re-run `make test` to
-convert it. **T6 and T7 remain**, mutually independent.
+changed directory. **Owner-verified** — `make test` green and `cmd/poller --once` green,
+reported 2026-08-22; the `--once` run is what covers `cmd/poller`, which has no tests of
+its own and which this tier rewired. **T6 and T7 remain**, mutually independent.
 
 **Carried into T5–T7 from T4:** two migrations (`20260822000001`, `20260822000002`) were
 committed Pending; the owner has since run `make migrate-up` — as of 2026-08-22 both show
