@@ -1,0 +1,321 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM29-charging-add-charge-sessions",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
+  "request": "RM29 tier 6 - internal/charging gains charge_sessions: a dense mirror of each Supercharger session's identity, window, session facts (site/energy/cost/currency/paid) and the five battery-pct verification columns. Expand-only; telemetry untouched.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "4.3"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-22T13:30:00Z",
+  "updated_at": "2026-08-22T13:30:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
+    "base": "main",
+    "ticket": "MAG-26",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-26/modular-monolith-refactoring",
+    "created_at": "2026-08-20T17:07:08Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "migration: CREATE TABLE charge_sessions + backfill",
+      "module": "charging",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "charging query.sql: MirrorChargeSession + make sqlc",
+      "module": "charging",
+      "owner": "module",
+      "depends_on": [
+        "1.1"
+      ],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go: SessionMirror + SessionWriter port",
+      "module": "charging",
+      "owner": "module",
+      "depends_on": [
+        "1.2"
+      ],
+      "wave": 2,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "session_writer.go implementation",
+      "module": "charging",
+      "owner": "module",
+      "depends_on": [
+        "2.1"
+      ],
+      "wave": 2,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "testdb_test.go: ProvisionDirs telemetry+charging",
+      "module": "charging",
+      "owner": "module",
+      "depends_on": [
+        "1.1"
+      ],
+      "wave": 3,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "db_session_integration_test.go (Test Contract B/C)",
+      "module": "charging",
+      "owner": "module",
+      "depends_on": [
+        "2.2",
+        "3.1"
+      ],
+      "wave": 3,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "db_backfill_integration_test.go (Test Contract A)",
+      "module": "charging",
+      "owner": "module",
+      "depends_on": [
+        "1.1",
+        "3.1"
+      ],
+      "wave": 3,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "charging AGENTS.md",
+      "module": "charging",
+      "owner": "module",
+      "depends_on": [
+        "2.2"
+      ],
+      "wave": 3,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "cmd/poller: wire the nightly mirror",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [
+        "2.2"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "project docs (README, docs/)",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [
+        "4.1"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.3",
+      "title": "roadmap T6 status flip",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "decisions": [
+    {
+      "id": "I1",
+      "at": "2026-08-22T13:00:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "charge_sessions carries identity + window + the 5 pct columns + site_location_name/energy_kwh/total_cost/currency/is_paid, using telemetry's names. Excludes country_code, unlatch_date_time, billing_type, vehicle_make_type, raw_data.",
+      "why": "Owner amended this AT the gate from a sidecar to a real mirror, so charging answers 'how was this charged' without reaching into telemetry. Telemetry names keep the backfill a literal copy."
+    },
+    {
+      "id": "I2",
+      "at": "2026-08-22T13:00:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "Dense - one row per Supercharger session, poller-written; pct columns start NULL.",
+      "why": "A date-range read over charge_sessions alone returns every session with its window and any verified pct, no join into telemetry. Matches the read-heavy profile."
+    },
+    {
+      "id": "I3",
+      "at": "2026-08-22T13:00:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "Carry both vin (durable, write-once) and tesla_id (refreshed each sync). UNIQUE (account_id, session_id); INDEX (account_id, tesla_id, charge_stop_date_time) ASC.",
+      "why": "tesla_id drifts (telemetry re-resolves it, NULL when unregistered) but reads filter on it. Index leads to stop-time because D12: energy lands at stop, which is what end_battery_pct describes."
+    },
+    {
+      "id": "I4",
+      "at": "2026-08-22T13:00:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "EXPAND ONLY. T6 ships the charging-dir migration alone and drops NOTHING from telemetry; the contract half is a later change.",
+      "why": "MIGRATIONS_DIRS runs telemetry before charging dir-by-dir, so a same-change DROP executes before the backfill and destroys data that cannot be recomputed - nothing writes those columns, so the one populated row was hand-entered."
+    },
+    {
+      "id": "I5",
+      "at": "2026-08-22T13:00:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "CHECK: pct set => battery_pct_source NOT NULL. Backfill resolves the one legacy row via COALESCE(battery_pct_source,'user_verified').",
+      "why": "No code path can write those columns, so a present percentage is by construction human-entered - inference from write-protection, not invention."
+    },
+    {
+      "id": "I6",
+      "at": "2026-08-22T13:25:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "Ship no SessionReader in this tier; do NOT file the total_cost DOUBLE PRECISION float-for-money divergence as a backlog item.",
+      "why": "Reader with no caller is speculative surface (tier 5 precedent). Money type is recorded in design.md; owner judged that sufficient."
+    },
+    {
+      "id": "A1",
+      "at": "2026-08-22T13:20:00Z",
+      "made_by": "leader",
+      "scope": "change",
+      "decision": "Probed the to_regclass-guarded DO block against sqlc before the gate rather than leaving it asserted; dropped the EXECUTE fallback.",
+      "why": "It was the design's biggest unproven assumption. make sqlc exit 0, correct ChargeSession model, no supercharger_sessions leak. Tree reverted after."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-22T13:30:00Z",
+      "agent": "leader",
+      "event": "T6 artifacts complete and validated (openspec validate --changes --strict: 1 passed). DATABASE DESIGN GATE CONFIRMED BY THE OWNER after one amendment round: charge_sessions went from a verification sidecar to a real mirror, gaining site_location_name/energy_kwh/total_cost/currency/is_paid. Consequence recorded honestly in design.md - four of those five are rewritten nightly as fees settle, so the original 'immutable subset, cannot drift' rationale no longer covers them; the guarantee is now idempotent nightly reconciliation. Mirror refreshes telemetry's own set minus raw_data and NEVER the pct columns (SessionMirror carries no pct fields, so it is a compile error, not a convention). progress.json seeded with 11 tasks across 4 waves."
+    }
+  ],
+  "review": {
+    "agent": null,
+    "status": "not-started",
+    "brief": null,
+    "rounds": []
+  }
+}
