@@ -174,7 +174,7 @@ directly.
   so a reader looking for them knows where they went.
   `depends_on`: 2.6 · `parallel_ok`: with 3.x (docs only; does not block `internal/app`)
 
-- [ ] **2.8** **[module: telemetry worker]** *(appended after review round 1 — finding
+- [x] **2.8** **[module: telemetry worker]** *(appended after review round 1 — finding
   M1: design.md's Test Contract **group B** was specified up front and promised in
   proposal.md, but no task ever assigned it, so it was never written. Appended rather
   than folded into 2.6, which is already ticked; tasks are append-only.)*
