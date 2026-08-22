@@ -417,6 +417,39 @@ Pre-existing — the odometer and battery charts have carried the identical read
 Recorded in that change's archived progress.json.
 
 
+## 14. charging — `AGENTS.md`'s forbidden-import list never named `internal/analytics`
+
+### PROPOSAL
+
+`internal/charging/AGENTS.md` "MUST NOT import" lists `internal/tesla`, `internal/account`,
+`internal/telemetry`, `internal/gateway` and any other module's `db` sub-package — but not
+`internal/analytics`. That was harmless while `GapWriter` lived in `internal/telemetry`
+(explicitly forbidden). RM29 tier 5 moved `GapWriter` and `charge_gaps` to
+`internal/analytics`, so the sentence in `docs/battery-consumed-graph.md` §"So when does your
+edit show up?" that read "its `AGENTS.md` forbids them, so it structurally cannot reach
+`GapWriter`" stopped being literally true of the forbidden list.
+
+The isolation itself is **not** broken: the same file's "Allowed Imports" is a closed
+allowlist (stdlib, `uuid`, `pgx`/`pgxpool`/`pgtype`, its own `chargingdb`), which excludes
+`internal/analytics` already, and `internal/charging` imports no domain module today —
+verified during tier 5. Tier 5 reworded the doc to cite the allowlist rather than the
+forbidden list, which is accurate. The remaining work is one belt-and-braces line: add
+`internal/analytics` to the MUST NOT list so the two lists agree.
+
+Deferred because `internal/charging` is not in RM29 tier 5's scope (analytics + telemetry +
+leader only), and pulling a third module into a pure ownership move would widen the change
+the owner deliberately kept narrow (tier 5 decision **I2**).
+
+**TRIGGER — fix this when** anything next opens `internal/charging/AGENTS.md`, or at the
+latest during RM29 **T6** (`RM29-charging-add-charge-sessions`), which owns that module and
+will be editing that file anyway.
+
+### ORIGIN
+
+`RM29-analytics-own-charge-gaps` (RM29 tier 5), leader's wave-4 doc sweep for task 4.4.
+Recorded in that change's progress.json `decisions[]`.
+
+
 # BRAINSTORMING
 
 

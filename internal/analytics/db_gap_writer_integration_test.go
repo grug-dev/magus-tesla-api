@@ -1,4 +1,4 @@
-package telemetry
+package analytics
 
 import (
 	"context"
@@ -113,7 +113,7 @@ func fetchChargeGap(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesla
 // and created_at is byte-for-byte preserved across the second call while updated_at
 // advances (T7.1).
 func TestGapWriter_ReconcileWindow_UpsertIdempotent_PreservesCreatedAtAdvancesUpdatedAt(t *testing.T) {
-	_, pool := newTestStore(t)
+	pool := newTestPool(t)
 	ctx := context.Background()
 
 	accountID := uuid.New()
@@ -181,7 +181,7 @@ func TestGapWriter_ReconcileWindow_UpsertIdempotent_PreservesCreatedAtAdvancesUp
 // while a DIFFERENT, still-flagged day in the same call's flagged set is left
 // untouched, proving per-day precision rather than a blunt clear-and-reinsert (T7.2).
 func TestGapWriter_ReconcileWindow_DeletesResolvedDay_LeavesOtherFlaggedDayUntouched(t *testing.T) {
-	_, pool := newTestStore(t)
+	pool := newTestPool(t)
 	ctx := context.Background()
 
 	accountID := uuid.New()
@@ -231,7 +231,7 @@ func TestGapWriter_ReconcileWindow_DeletesResolvedDay_LeavesOtherFlaggedDayUntou
 // empty-flagged-set case adjacent to design.md scenario (b): an empty flagged set for a
 // window clears every previously-flagged day in that window (T7.2).
 func TestGapWriter_ReconcileWindow_EmptyFlaggedSet_ClearsAllInWindow(t *testing.T) {
-	_, pool := newTestStore(t)
+	pool := newTestPool(t)
 	ctx := context.Background()
 
 	accountID := uuid.New()
@@ -270,7 +270,7 @@ func TestGapWriter_ReconcileWindow_EmptyFlaggedSet_ClearsAllInWindow(t *testing.
 // one account/vehicle never writes or deletes another account/vehicle's rows, even for
 // the SAME overlapping gap_date (T7.5).
 func TestGapWriter_ReconcileWindow_TenantIsolation_NeverTouchesOtherAccountVehicle(t *testing.T) {
-	_, pool := newTestStore(t)
+	pool := newTestPool(t)
 	ctx := context.Background()
 
 	accountA := uuid.New()
@@ -344,7 +344,7 @@ func TestGapWriter_ReconcileWindow_TenantIsolation_NeverTouchesOtherAccountVehic
 // validation is ever removed or weakened, since a removed check would let the
 // correctly-scoped first entry through as a partial write.
 func TestGapWriter_ReconcileWindow_RejectsMisScopedFlaggedEntry_WritesNothing(t *testing.T) {
-	_, pool := newTestStore(t)
+	pool := newTestPool(t)
 	ctx := context.Background()
 
 	accountID := uuid.New()
@@ -415,7 +415,7 @@ func TestGapWriter_ReconcileWindow_RejectsMisScopedFlaggedEntry_WritesNothing(t 
 // window bounds on ChargeGapDatesByVehicleBetween/DeleteChargeGap: it must fail if
 // either query's gap_date bounds are ever loosened into a table-wide clear.
 func TestGapWriter_ReconcileWindow_OutsideWindowRowUnaffected(t *testing.T) {
-	_, pool := newTestStore(t)
+	pool := newTestPool(t)
 	ctx := context.Background()
 
 	accountID := uuid.New()
@@ -481,7 +481,7 @@ func TestGapWriter_ReconcileWindow_OutsideWindowRowUnaffected(t *testing.T) {
 // ChargeGapDatesByVehicleBetween, DeleteChargeGap, or UpsertChargeGap's ON CONFLICT
 // target ever loses its tesla_id predicate while still correctly scoping account_id.
 func TestGapWriter_ReconcileWindow_DifferentVehiclesIndependent(t *testing.T) {
-	_, pool := newTestStore(t)
+	pool := newTestPool(t)
 	ctx := context.Background()
 
 	accountID := uuid.New()

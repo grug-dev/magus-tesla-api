@@ -73,7 +73,7 @@ interface-first):
 - `DayConsumption` — one calendar day's corrected consumption result: `Date` (the row's
   own effective day, never re-attributed — `design.md` D-B3), `ConsumedPct` (D13 formula,
   raw and unrounded, may be negative or zero), `DistanceKm`, `Flagged` (D5/D5a gap
-  detection), `MissingChargingType` (`telemetry.MissingChargingType`, valid only when
+  detection), `MissingChargingType` (this module's own `MissingChargingType` type, valid only when
   `Flagged`, D7a), `DaysSpanned` (the row's own `DaysSpannedCalc`, >1 signals a multi-day
   span, D8).
 - `Reader` — `OdometerDeltaByDay(ctx, accountID, teslaID, start, end) ([]DayDistance, error)`:
@@ -135,6 +135,28 @@ interface-first):
   of `account`/`window` — the signature is unchanged by `ConsumedByDay`'s addition
   (`design.md` D-B1).
 
+- `GapWriter` — one write method, `ReconcileWindow(ctx context.Context, accountID uuid.UUID,
+  teslaID int64, start, end time.Time, flagged []ChargeGap) error`: makes `charge_gaps` agree
+  with `flagged` for exactly the vehicle-day range `[start, end]` inclusive. Every day present
+  in `flagged` is upserted (inserted, or refreshed in place if `MissingChargingType`/`VIN`
+  changed since the last run — the `UNIQUE (account_id, tesla_id, gap_date)` constraint is the
+  idempotency mechanism, not application-level dedup); every existing row for
+  `(accountID, teslaID)` in `[start, end]` with no matching entry in `flagged` is **deleted**.
+  `flagged` may be empty (every previously-flagged day resolved — every existing row in the
+  window is deleted, none re-inserted). Every element of `flagged` MUST carry the SAME
+  `accountID`/`teslaID` as the call's own arguments AND a `Date` within `[start, end]`; a
+  violation returns an error and writes **nothing** (validated in a loop BEFORE any
+  transaction opens — see "`GapWriter`'s upsert-and-delete lifecycle" under "Data ownership"
+  below). Runs inside a single DB transaction: either every upsert/delete succeeds, or the
+  call has no effect. This module both **computes** the flagged days (`ConsumedByDay`'s
+  D5/D5a rule, `consumed.go`) AND **stores** the conclusion — the port and its storage now
+  agree, which was never true while `charge_gaps` sat in `internal/telemetry`. `cmd/poller`
+  is the only caller, wiring `Recalculator.Reconcile` then this port in sequence each
+  nightly run (`design.md` D2 of `RM29-analytics-own-charge-gaps`). `NewGapWriter(pool
+  *pgxpool.Pool) GapWriter` is the constructor; implementation in `gap_writer.go`. Moved here
+  from `internal/telemetry` by `RM29-analytics-own-charge-gaps` (MAG-26 tier 5) — originally
+  added by `RM28-telemetry-add-charge-gap-storage` (MAG-15).
+
 No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3).
 
 ## Allowed / forbidden imports
@@ -187,6 +209,57 @@ here was "None"; it is no longer.
 - `vehicle_metric_watermarks` — one recompute cursor per `(account_id, tesla_id,
   source)`, three sources. Drives `Reconcile`'s incremental pass; no row means "epoch",
   i.e. backfill the vehicle's full history (`design.md` D7).
+- `charge_gaps` — one row per flagged vehicle-day whose battery math does not add up
+  (migration `20260815000002`, originally `RM28-telemetry-add-charge-gap-storage`,
+  MAG-15; moved into this module, unchanged, by `RM29-analytics-own-charge-gaps`,
+  MAG-26 tier 5). Written through the `GapWriter` port, driven by this module's own
+  `ConsumedByDay`-derived flagging logic (D5/D5a) via `cmd/poller`'s nightly
+  reconciliation — this module both derives the gap AND stores the conclusion; no
+  other module writes or reads this table. Columns: `id UUID PRIMARY KEY`,
+  `account_id UUID NOT NULL`, `tesla_id BIGINT NOT NULL` (**always resolved, NOT
+  NULL** — this module filters out any vehicle/session it cannot attribute to a
+  currently-registered vehicle before gap detection ever runs), `vin TEXT NOT NULL`,
+  `gap_date DATE NOT NULL` (the flagged calendar day, plain `DATE` — no time-of-day
+  component), `missing_charging_type TEXT NOT NULL CHECK (IN ('MANUAL',
+  'SUPERCHARGER'))` (which charge source is suspected missing — `SUPERCHARGER` when
+  a Supercharger session exists that day with NULL start/end battery percentages,
+  `MANUAL` otherwise), `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` (when FIRST
+  flagged — preserved across every re-upsert of the same still-flagged day),
+  `updated_at TIMESTAMPTZ NOT NULL DEFAULT now()` (refreshed to `now()` on every
+  re-confirmation). `UNIQUE (account_id, tesla_id, gap_date)` constraint
+  (`charge_gaps_account_tesla_date_unique`) is both the write-idempotency mechanism
+  (`ON CONFLICT DO UPDATE`) and the index that serves `GapWriter`'s own
+  read-before-diff query — no separate index needed for that path. A second index,
+  `idx_charge_gaps_account (account_id, gap_date DESC)`, serves the future
+  account-wide notification read pattern (no `tesla_id` predicate) — out of scope
+  today, no read port exists for it yet. **No FK** on `account_id`/`tesla_id` (same
+  no-cross-module-FK precedent as `vehicle_metrics`/`vehicle_metric_watermarks` —
+  referential integrity is upheld by flow, not a DB constraint,
+  `ai/architecture.md` §2). **No `raw_data` JSONB** — this table stores a
+  Go-computed conclusion (this module's own derivation), not an external API
+  response, so the mandatory-`raw_data` rule (`ai/go-conventions.md` §persistence)
+  does not apply here.
+
+### `GapWriter`'s upsert-and-delete lifecycle — **no `resolved_at`, ever**
+
+`charge_gaps` has **no soft-delete / `resolved_at` column** — `ReconcileWindow`
+`UPSERT`s every day that still flags and **`DELETE`s** every previously-stored day,
+within the window it just recomputed, that no longer flags (design D7b of the
+original `RM28-telemetry-add-charge-gap-storage`). Fixing a charge entry clears the
+row on the very next nightly run with no extra wiring. This table is a **live
+worklist** ("what is outstanding right now"), not an audit trail of resolved gaps.
+
+**If you are the one adding the future notification feature or any other consumer
+of this table: do NOT "fix" this into a soft-delete/`resolved_at` shape.** A
+soft-deleted row would need its own cleanup story (when does a resolved row
+actually get purged?) that this design deliberately avoids by making resolution a
+plain `DELETE` — the row's mere existence already means "outstanding," so a
+consumer needs no `WHERE resolved_at IS NULL` filter and no purge job. If a history
+of resolved gaps is ever needed, that is a **new, separate** table (e.g. an
+append-only `charge_gap_history`), not a mutation of `charge_gaps`'s own
+delete-on-resolve contract — see the archived
+`RM28-telemetry-add-charge-gap-storage`'s `design.md` "Migration Plan" / D-Table2
+for the rejected `resolved_at` alternative and its reasoning.
 
 The module still owns no *domain* data: every input is another module's, read through
 its public port. What it owns is the **derivation of that input** — which is the whole
@@ -231,6 +304,18 @@ DB-backed (`testdb_test.go` + `db_integration_test.go`):
   does exist and is the right tool.
 - These tests **self-skip** when no Postgres is reachable and no Docker daemon can
   provision one; the offline tests above must still run and pass in that state.
+- `db_gap_writer_integration_test.go`'s 7 tests (`GapWriter.ReconcileWindow` —
+  idempotent upsert, delete-on-resolve, empty-flagged-set clear, tenant isolation,
+  mis-scoped-entry rejection, outside-window non-interference, per-vehicle
+  independence) are **DB-integration-only, with no offline counterpart** —
+  `ReconcileWindow` is a transactional read-diff-write, not a pure function, so
+  there is nothing to unit-test without a database. This mirrors `SuperchargerReader`'s
+  own testing shape one section up in this file: a write/read port whose only
+  meaningful test is against a real Postgres. Moved verbatim from
+  `internal/telemetry/db_gap_writer_integration_test.go` by
+  `RM29-analytics-own-charge-gaps`, repackaged `package telemetry` → `package
+  analytics` and re-targeted `newTestStore`'s pool half onto this file's own
+  `newTestPool` — no assertion, fixture value, or test name changed.
 
 Run `go test ./internal/analytics/...`. The offline tests must pass with `DATABASE_URL`
 unset and Docker down.

@@ -85,16 +85,16 @@ func NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, super
 // deriveVehicleMetrics (consumed.go, now dense per D10) over the fetched
 // data, UPSERTs every produced row, then deletes any existing vehicle_metrics
 // row in [start, end] whose metric_date is NOT among the rows just produced
-// (self-healing symmetry with telemetry.GapWriter.ReconcileWindow's
+// (self-healing symmetry with this package's own GapWriter.ReconcileWindow's
 // UPSERT+DELETE shape for charge_gaps -- same shape, reused rather than
 // invented). Under the dense-table revision, "stale" means "no snapshot
 // exists for that day at all anymore".
 //
 // The UPSERTs and the DELETE run inside one transaction (mirrors
-// internal/account's and internal/telemetry's gapWriter's own
-// Begin/WithTx/Commit convention, the two other transactional writers in
-// this codebase) so a Recalculate call either fully applies or has no
-// effect -- Reconcile's D4 overlap re-read makes a retry of a partially
+// internal/account's own transactional writer and this package's own gapWriter
+// (gap_writer.go) -- the other two transactional writers in this codebase --
+// and their shared Begin/WithTx/Commit convention) so a Recalculate call either
+// fully applies or has no effect -- Reconcile's D4 overlap re-read makes a retry of a partially
 // failed call a correctness no-op regardless, but the transaction avoids
 // ever persisting a half-written window.
 func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) error {

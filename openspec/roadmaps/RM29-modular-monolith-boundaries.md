@@ -137,17 +137,25 @@ and the full suite all stayed green over it, because `cmd/poller` has no tests a
 that is never made still compiles. Composition-root wiring in `cmd/` is invisible to every
 automated signal this project has, so it needs reading, not trusting.
 
-**Next unblocked: T5, T6 and T7.** T4 archived on 2026-08-22, so T3's read model is now
-the single source of the five derived figures — `vehicle_snapshots` carries observations
-only. The three remaining tiers are mutually independent, so the order is the owner's
-call: T5 (`analytics` takes `charge_gaps`) and T6 (`charging` takes `charge_sessions`)
-are each a single-module move; T7 (the new `app` module) is the largest and the only one
-that touches `cmd/poller`'s composition root. T8 stays parked (D9). No artifacts exist
-yet for T5–T8.
+**T5 is in flight; T6 and T7 are unblocked and waiting.** T4 archived on 2026-08-22, so
+T3's read model is now the single source of the five derived figures — `vehicle_snapshots`
+carries observations only. The three remaining tiers are mutually independent, so the order
+is the owner's call: T5 (`analytics` takes `charge_gaps`) and T6 (`charging` takes
+`charge_sessions`) are each a single-module move; T7 (the new `app` module) is the largest
+and the only one that touches `cmd/poller`'s composition root. T8 stays parked (D9).
+Artifacts exist for T5 only; none yet for T6–T8.
 
-**Carried into T5–T7 from T4:** two migrations (`20260822000001`, `20260822000002`) are
-committed but **Pending** — `make migrate-up` is the owner's to run, and the D3 backfill
-only lands on the next nightly `Reconcile` after that.
+**T5 progress.** Its atomic ownership wave landed in `2a0eca7` — the migration, the three
+`charge_gaps` queries, `ChargeGap`/`MissingChargingType`/`GapWriter` and `gap_writer.go`
+are all `internal/analytics`'s now, with `cmd/poller` and the gateway re-pointed. What
+remains is the DB-integration test relocation, the module/README/docs updates, and the
+reviewer gate. Per `openspec/config.yaml` tiers run one at a time, so T6 does not start
+until T5 archives.
+
+**Carried into T5–T7 from T4:** two migrations (`20260822000001`, `20260822000002`) were
+committed Pending; the owner has since run `make migrate-up` — as of 2026-08-22 both show
+**Applied** (`Sat Aug 22 03:22:06 2026`) and no directory has anything pending. The D3
+backfill lands on the next nightly `Reconcile`.
 
 All tiers share the branch `ft/RM29-MAG-26-modular-monolith-boundaries`. Live state is in
 `RM29-modular-monolith-boundaries.progress.json`; each tier is proposed, reviewed and

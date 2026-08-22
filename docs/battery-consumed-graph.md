@@ -51,7 +51,7 @@ stores.
 | `vehicle_snapshots.battery_used_pct_calc`, `.distance_traveled_km_calc`, `.days_spanned_calc` | `internal/telemetry` | the raw nightly inputs |
 | `manual_charge_entries.charged_on`, `.start_battery_pct`, `.end_battery_pct` | `internal/charging` | charges you assert by hand (home / work / 3rd-party) |
 | `supercharger_sessions.charge_stop_date_time`, `.start_battery_pct`, `.end_battery_pct` | `internal/telemetry` | sessions Tesla reports |
-| `charge_gaps` | `internal/telemetry` | the pipeline's **output** — days whose math doesn't add up |
+| `charge_gaps` | `internal/analytics` | the pipeline's **output** — days whose math doesn't add up |
 
 ### The Supercharger percentages are always NULL
 
@@ -247,7 +247,7 @@ cmd/poller
         └── per registered vehicle:
             ├── analytics.ConsumedByDay(...)
             ├── keep the days where Flagged
-            └── telemetry.GapWriter.ReconcileWindow(...)
+            └── analytics.GapWriter.ReconcileWindow(...)
 ```
 
 Details worth knowing:
@@ -266,7 +266,7 @@ Details worth knowing:
 
 ### `ReconcileWindow` — the insert *and* the delete
 
-`internal/telemetry/gap_writer.go`. One call does the whole reconciliation:
+`internal/analytics/gap_writer.go`. One call does the whole reconciliation:
 
 1. **Validate first.** Every entry is checked against the call's `(accountID, teslaID)` scope and
    the `[start, end]` window *before* a transaction is opened — a caller bug rejects the whole call
@@ -282,7 +282,7 @@ Contract points: an **empty** flagged list is legal and clears the window; days 
 
 ### Table shape
 
-`internal/telemetry/db/migrations/20260815000002_add_charge_gaps.sql` (DDL at lines 59-71; the file
+`internal/analytics/db/migrations/20260815000002_add_charge_gaps.sql` (DDL at lines 59-71; the file
 opens with ~58 lines of rationale worth reading):
 
 - `UNIQUE (account_id, tesla_id, gap_date)` — **one row per vehicle-day**, deliberately *not* per
@@ -348,10 +348,12 @@ This is the direct answer to "shouldn't adding a manual charge clear the gap row
 No transaction wrapper. No recompute. No cache bust. No event, no `HX-Trigger`. No `charge_gaps`
 touch. The service layer is equally bare — one store call, map, return.
 
-It couldn't be otherwise without a boundary change: **`internal/charging` has zero imports of
-`internal/telemetry`**, and its `AGENTS.md` forbids them, so it structurally cannot reach
-`GapWriter`. The composition root `cmd/poller` is the only place that joins `analytics`'s derivation
-to `telemetry`'s writer (**D4a**).
+It couldn't be otherwise without a boundary change: **`internal/charging` imports no other
+domain module at all** — its `AGENTS.md` "Allowed Imports" is a closed allowlist (stdlib, `uuid`,
+`pgx`, and its own `chargingdb`), so it structurally cannot reach `GapWriter`. The composition root
+`cmd/poller` is the only place that joins the derivation to the writer (**D4a**) — since RM29 tier 5
+both halves are `internal/analytics`'s, so what `cmd/poller` wires is now one module's derivation to
+its own writer, not a cross-module handoff.
 
 ### So when does your edit show up?
 
@@ -453,7 +455,7 @@ already fixed. `GapReconciliationWindow`'s own comment says the window is "gener
 a manual-entry backfill days after the fact": true for recent backfills, silent about older ones.
 
 **Where.** `cmd/poller/main.go` (`newGapReconciler`), `internal/analytics/analytics.go`
-(`GapReconciliationWindow`), `internal/telemetry/gap_writer.go` (`ReconcileWindow`).
+(`GapReconciliationWindow`), `internal/analytics/gap_writer.go` (`ReconcileWindow`).
 
 **Suggested shapes.** Either (a) sweep the stored gap dates unbounded — read all gap dates for a
 vehicle, recompute just those days, delete the resolved ones; or (b) extend `ReconcileWindow` with
@@ -468,10 +470,10 @@ and index plan need confirming before implementation.
 point of persisting it — per the original ticket, "to notify the user later (In Another ticket)" —
 is unbuilt.
 
-**Where.** `internal/telemetry/telemetry.go` exposes only `GapWriter`; the index
+**Where.** `internal/analytics/analytics.go` exposes only `GapWriter`; the index
 `idx_charge_gaps_account (account_id, gap_date DESC)` already exists for the account-wide read.
 
-**Suggested shape.** A `GapReader` port on `internal/telemetry` plus a dashboard surface listing
+**Suggested shape.** A `GapReader` port on `internal/analytics` plus a dashboard surface listing
 outstanding days, each linking to the manual-charge form pre-filled with that date. Remember
 **D14a**: the list is a lower bound, so the copy shouldn't imply it's exhaustive.
 

@@ -43,7 +43,7 @@ has no safe intermediate compiling state:
 
 ## Wave 1 — the atomic ownership move (module: analytics worker + module: telemetry worker + leader)
 
-- [ ] **1.1** **[leader]** `git mv internal/telemetry/db/migrations/20260815000002_add_charge_gaps.sql internal/analytics/db/migrations/20260815000002_add_charge_gaps.sql`.
+- [x] **1.1** **[leader]** `git mv internal/telemetry/db/migrations/20260815000002_add_charge_gaps.sql internal/analytics/db/migrations/20260815000002_add_charge_gaps.sql`.
   **Zero content change** — same filename, same `-- +goose Up`/`-- +goose Down` SQL,
   same comments (design.md D1: goose's global `goose_db_version` table means the
   already-applied version is recognized as applied in its new location; no re-run,
@@ -138,7 +138,7 @@ has no safe intermediate compiling state:
   `depends_on`: 1.4, 1.5 (analytics must already define these symbols before
   telemetry stops) · `parallel_ok`: no
 
-- [ ] **1.8** **[leader]** `cmd/poller/main.go` — `newNightlyReconciler`'s
+- [x] **1.8** **[leader]** `cmd/poller/main.go` — `newNightlyReconciler`'s
   `gapWriter telemetry.GapWriter` parameter becomes `gapWriter analytics.GapWriter`;
   the `var flagged []telemetry.ChargeGap` local and its `telemetry.ChargeGap{...}`
   struct literal become `[]analytics.ChargeGap`/`analytics.ChargeGap{...}`; the call
@@ -154,7 +154,7 @@ has no safe intermediate compiling state:
   `telemetry.NewService`, `telemetry.Config`).
   `depends_on`: 1.4, 1.5 · `parallel_ok`: with 1.9
 
-- [ ] **1.9** **[leader]** `internal/gateway/handlers/history.go` —
+- [x] **1.9** **[leader]** `internal/gateway/handlers/history.go` —
   `chargeTypeLabel`'s parameter `t telemetry.MissingChargingType` becomes
   `t analytics.MissingChargingType`; update its doc comment ("telemetry.
   MissingChargingType is a closed 2-value enum" → "analytics.MissingChargingType is
@@ -163,7 +163,7 @@ has no safe intermediate compiling state:
   used for `telemetry.Snapshot` in `buildBatteryChart`/`buildOdometerChart`).
   `depends_on`: 1.4 · `parallel_ok`: with 1.8
 
-- [ ] **1.10** **[leader]** `internal/gateway/handlers/history_test.go` — five
+- [x] **1.10** **[leader]** `internal/gateway/handlers/history_test.go` — five
   `analytics.DayConsumption{...}` fixture literals set
   `MissingChargingType: telemetry.MissingChargingTypeManual` or
   `telemetry.MissingChargingTypeSupercharger`
@@ -200,7 +200,7 @@ test to author or move for this change. The entire test surface is the
 > `ChargeGap`/`MissingChargingType`/`newGapWriter`, which exist in `internal/analytics`
 > only after 1.4/1.5.
 
-- [ ] **3.1** **[module: analytics worker]** Create
+- [x] **3.1** **[module: analytics worker]** Create
   `internal/analytics/db_gap_writer_integration_test.go` by moving
   `internal/telemetry/db_gap_writer_integration_test.go` **verbatim**, with exactly
   two mechanical changes: (a) `package telemetry` → `package analytics`; (b) every
@@ -222,7 +222,7 @@ test to author or move for this change. The entire test surface is the
   `depends_on`: 1.2, 1.4, 1.5, 1.6 (needs `analyticsdb`'s regenerated query methods
   AND the moved Go types to both exist) · `parallel_ok`: no
 
-- [ ] **3.2** **[module: telemetry worker]** Delete
+- [x] **3.2** **[module: telemetry worker]** Delete
   `internal/telemetry/db_gap_writer_integration_test.go`. Confirm 3.1 has landed
   first (its 7 tests, names and assertions intact in `internal/analytics/`) so no
   coverage is lost in the gap, mirroring tier 4's identical "confirm the port task
@@ -233,7 +233,7 @@ test to author or move for this change. The entire test surface is the
 
 ## Wave 4 — documentation (docs-track-structural-change, same change per CLAUDE.md)
 
-- [ ] **4.1** **[module: telemetry worker]** `internal/telemetry/AGENTS.md` — remove
+- [x] **4.1** **[module: telemetry worker]** `internal/telemetry/AGENTS.md` — remove
   the `GapWriter` bullet from "Public interface (the port)" (the
   `ReconcileWindow`/`NewGapWriter` paragraph), the `charge_gaps` bullet from "Data
   ownership" (the full column-by-column description), and the "###
@@ -245,7 +245,7 @@ test to author or move for this change. The entire test surface is the
   `vehicle_snapshots`/`poll_attempts`/`supercharger_sessions` entries — unaffected.
   `depends_on`: 1.7, 3.2 · `parallel_ok`: with 4.2
 
-- [ ] **4.2** **[module: analytics worker]** `internal/analytics/AGENTS.md` — add a
+- [x] **4.2** **[module: analytics worker]** `internal/analytics/AGENTS.md` — add a
   `GapWriter` entry to "Public interface (the port)" (mirroring the bullet removed
   from telemetry's AGENTS.md in 4.1, reworded to describe analytics as sole
   owner/caller rather than a two-module split — `cmd/poller` is still the only
@@ -258,7 +258,7 @@ test to author or move for this change. The entire test surface is the
   cross-module dependency.
   `depends_on`: 1.4, 1.5, 1.6, 3.1 · `parallel_ok`: with 4.1
 
-- [ ] **4.3** **[leader]** `README.md` — three mentions (verified by grep): (1) the
+- [x] **4.3** **[leader]** `README.md` — three mentions (verified by grep): (1) the
   `internal/analytics` Architecture-table row already says "the gap detection it
   hands to telemetry's `GapWriter`" — reword to "...the gap detection it stores
   through its own `GapWriter`"; (2) the Database-tables-by-module row for
@@ -270,7 +270,7 @@ test to author or move for this change. The entire test surface is the
   this change — only `charge_gaps`' owning column in the existing table changes).
   `depends_on`: Wave 1 landed · `parallel_ok`: with 4.4
 
-- [ ] **4.4** **[leader]** `docs/battery-consumed-graph.md` — update every reference
+- [x] **4.4** **[leader]** `docs/battery-consumed-graph.md` — update every reference
   that names `internal/telemetry` as `charge_gaps`'/`GapWriter`'s owner (verified by
   grep: the module-ownership table row "`charge_gaps` | `internal/telemetry`" →
   "`internal/analytics`"; the sequence-diagram line
@@ -286,7 +286,7 @@ test to author or move for this change. The entire test surface is the
   by this tier.
   `depends_on`: Wave 1 landed · `parallel_ok`: with 4.3
 
-- [ ] **4.5** **[leader]** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` —
+- [x] **4.5** **[leader]** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` —
   flip tier 5's status `[ ]` → `[~]` when these artifacts are created and `[~]` →
   `[x]` at archive; update the "Status" section's "Next unblocked" line. Leader
   bookkeeping, not a worker task; noted here per the roadmap's own status-legend
@@ -297,7 +297,7 @@ test to author or move for this change. The entire test surface is the
 
 ## Wave 5 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **5.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l .` (expect
+- [x] **5.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l .` (expect
   clean); `make build`, `make vet`, `make bins`; `make ui-guard`, `make i18n-guard`,
   `make money-guard` (all three expected to be no-ops — this change touches no
   gateway markup beyond two type-name re-points (1.9, 1.10), no new user-facing
@@ -305,7 +305,7 @@ test to author or move for this change. The entire test surface is the
   skipped).
   `depends_on`: Waves 1–4 · `parallel_ok`: no (final gate)
 
-- [ ] **5.2** Re-run `make sqlc` one final time for both the `telemetry` and
+- [x] **5.2** Re-run `make sqlc` one final time for both the `telemetry` and
   `analytics` entries and confirm a clean tree (no diff — everything was already
   regenerated in Wave 1). Then run `make migrate-status` and confirm
   `20260815000002_add_charge_gaps` is listed as applied, read from its NEW path
@@ -314,7 +314,7 @@ test to author or move for this change. The entire test surface is the
   design.md's Risks).
   `depends_on`: 5.1 · `parallel_ok`: no
 
-- [ ] **5.3** Run `openspec validate --changes --strict` and report the result
+- [x] **5.3** Run `openspec validate --changes --strict` and report the result
   verbatim.
   `depends_on`: all artifact edits · `parallel_ok`: no
 
