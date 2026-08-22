@@ -93,11 +93,14 @@ ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
 
 -- name: InsertPollAttempt :exec
 -- Record one attempt per (vehicle, run), success or failure. outcome is
--- success|failure; reason is ok|asleep-timeout|unauthorized|api-error.
+-- success|failure; reason is ok|asleep-timeout|unauthorized|api-error. run_id
+-- correlates every vehicle's row from one app.ProcessVehicleData invocation;
+-- triggered_by records what triggered that invocation (RM29-app-add-process-
+-- vehicle-data design D5/D7).
 INSERT INTO poll_attempts (
-    account_id, tesla_id, attempted_at, outcome, reason
+    account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by
 ) VALUES (
-    @account_id, @tesla_id, @attempted_at, @outcome, @reason
+    @account_id, @tesla_id, @attempted_at, @outcome, @reason, @run_id, @triggered_by
 );
 
 -- name: ListSnapshotsByVehicle :many

@@ -70,7 +70,7 @@ directly.
 
 ## Wave 2 — telemetry Go changes (module: telemetry worker)
 
-- [ ] **2.1** **[module: telemetry worker]** `internal/telemetry/telemetry.go` — add
+- [x] **2.1** **[module: telemetry worker]** `internal/telemetry/telemetry.go` — add
   `TriggeredBy` (type + `TriggeredByScheduler`/`TriggeredByAPI` constants) and
   `RunContext{RunID uuid.UUID; TriggeredBy TriggeredBy}` exactly as design.md **D5**
   specifies. Widen the `Collector` interface's `CollectAll` to
@@ -81,7 +81,7 @@ directly.
   `depends_on`: 1.1 · `parallel_ok`: with 2.2 (both touch the interface/type layer; land
   together)
 
-- [ ] **2.2** **[module: telemetry worker]** `internal/telemetry/service.go` — widen
+- [x] **2.2** **[module: telemetry worker]** `internal/telemetry/service.go` — widen
   `(s *service) CollectAll` to accept `run RunContext`; thread `run` as a plain parameter
   through `collectAccount(ctx, run, accountID, owned, report)` (currently
   `collectAccount(ctx, accountID, owned, report)`) to all four existing `s.record(...)`
@@ -94,7 +94,7 @@ directly.
   untouched — none of them calls `record`.
   `depends_on`: 1.1 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[module: telemetry worker]** `internal/telemetry/service.go` (or
+- [x] **2.3** **[module: telemetry worker]** `internal/telemetry/service.go` (or
   `mapping.go`, wherever `insertPollAttempt`'s param-building lives) — update
   `dbStore.insertPollAttempt` to pass the two new fields into
   `telemetrydb.InsertPollAttemptParams`, using whatever type task 1.1 confirmed sqlc
@@ -106,7 +106,7 @@ directly.
   needed for a write — every write supplies a real value.
   `depends_on`: 2.1, 2.2 · `parallel_ok`: no
 
-- [ ] **2.4** **[module: telemetry worker]** Create `internal/telemetry/report.go`:
+- [x] **2.4** **[module: telemetry worker]** Create `internal/telemetry/report.go`:
   relocate `LogCycle` and `formatFailures` out of `scheduler.go` verbatim (design.md
   **D11**) — same doc comments, same behavior, only the file changes. `LogCycle` stays
   **exported** and stays in `internal/telemetry`; its new caller across the module
@@ -120,7 +120,7 @@ directly.
   report**, so the app worker's relocation in 3.4 is verbatim rather than reconstructed.
   `depends_on`: 2.1 · `parallel_ok`: with 2.5
 
-- [ ] **2.5** **[module: telemetry worker]** Split
+- [x] **2.5** **[module: telemetry worker]** Split
   `internal/telemetry/scheduler_test.go` three ways, per design.md's Test Contract "What
   moves, unchanged" list:
   - `TestNextRun`, `TestScheduler_ShutsDownWithoutRunningWhenCancelled`,
@@ -144,7 +144,7 @@ directly.
   2.5's `report_test.go` sits beside; land together or in either order as long as both
   land before 2.6)
 
-- [ ] **2.6** **[module: telemetry worker]** `internal/telemetry/service_test.go` —
+- [x] **2.6** **[module: telemetry worker]** `internal/telemetry/service_test.go` —
   implement Test Contract **group A** (A1–A3). Add a small package-level test helper
   (e.g. `func testRun() RunContext { return RunContext{RunID: uuid.New(), TriggeredBy:
   TriggeredByScheduler} }`) and update every existing `svc.CollectAll(context.Background())`
@@ -157,7 +157,7 @@ directly.
   `RunID`s stamp their own, never the other's).
   `depends_on`: 2.2, 2.3 · `parallel_ok`: no
 
-- [ ] **2.7** **[module: telemetry worker]** `internal/telemetry/AGENTS.md` — update for
+- [x] **2.7** **[module: telemetry worker]** `internal/telemetry/AGENTS.md` — update for
   this tier (docs-track-structural-change): §Public Interface — `Collector.CollectAll`'s
   new signature, `RunContext`/`TriggeredBy` as new exported types, `Scheduler`/
   `NewScheduler` **no longer part of this module's surface** — state where they went:

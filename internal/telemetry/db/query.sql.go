@@ -14,9 +14,9 @@ import (
 
 const insertPollAttempt = `-- name: InsertPollAttempt :exec
 INSERT INTO poll_attempts (
-    account_id, tesla_id, attempted_at, outcome, reason
+    account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by
 ) VALUES (
-    $1, $2, $3, $4, $5
+    $1, $2, $3, $4, $5, $6, $7
 )
 `
 
@@ -26,10 +26,15 @@ type InsertPollAttemptParams struct {
 	AttemptedAt pgtype.Timestamptz
 	Outcome     string
 	Reason      string
+	RunID       pgtype.UUID
+	TriggeredBy string
 }
 
 // Record one attempt per (vehicle, run), success or failure. outcome is
-// success|failure; reason is ok|asleep-timeout|unauthorized|api-error.
+// success|failure; reason is ok|asleep-timeout|unauthorized|api-error. run_id
+// correlates every vehicle's row from one app.ProcessVehicleData invocation;
+// triggered_by records what triggered that invocation (RM29-app-add-process-
+// vehicle-data design D5/D7).
 func (q *Queries) InsertPollAttempt(ctx context.Context, arg InsertPollAttemptParams) error {
 	_, err := q.db.Exec(ctx, insertPollAttempt,
 		arg.AccountID,
@@ -37,6 +42,8 @@ func (q *Queries) InsertPollAttempt(ctx context.Context, arg InsertPollAttemptPa
 		arg.AttemptedAt,
 		arg.Outcome,
 		arg.Reason,
+		arg.RunID,
+		arg.TriggeredBy,
 	)
 	return err
 }

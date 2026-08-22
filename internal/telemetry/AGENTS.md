@@ -58,16 +58,35 @@ verification columns" below).
 
 The module's mandatory contract is a Go interface (`ai/go-conventions.md` — interface-first):
 
-- `Collector` — `CollectAll(ctx context.Context) (CycleReport, error)`: run one collection cycle
-  over every registered vehicle across all accounts, capturing a snapshot per vehicle and recording
-  every attempt. Per-vehicle isolation: one vehicle's failure never aborts the cycle. Returns an
-  error only for a whole-cycle failure (e.g. the account enumeration itself failing), never for an
-  individual vehicle.
+- `Collector` — `CollectAll(ctx context.Context, run RunContext) (CycleReport, error)`: run one
+  collection cycle over every registered vehicle across all accounts, capturing a snapshot per
+  vehicle and recording every attempt. `run` identifies the invocation (`RunContext.RunID`/
+  `TriggeredBy`) and is generated fresh by `internal/app` once per call (`uuid.New()`), then
+  threaded straight through to every `poll_attempts` row the cycle writes — `CollectAll` never
+  generates or caches a `RunContext` itself; it is a plain parameter threaded
+  `CollectAll → collectAccount → record`, never stored as a field on the service (a shared,
+  long-lived object reused across cycles). Per-vehicle isolation: one vehicle's failure never
+  aborts the cycle. Returns an error only for a whole-cycle failure (e.g. the account enumeration
+  itself failing), never for an individual vehicle. Widened by
+  `RM29-app-add-process-vehicle-data` (design.md D5).
+- `RunContext{RunID uuid.UUID; TriggeredBy TriggeredBy}` and `TriggeredBy` (a string enum,
+  `TriggeredByScheduler` | `TriggeredByAPI`) — new exported types, added by the same change.
+  `telemetry` owns both because it owns the `poll_attempts` columns they fill (design.md D5); the
+  module that generates a fresh `RunContext` per invocation (`internal/app`) only consumes the
+  type, it does not declare it.
 - Domain types (no vendor suffix — our own models, `ai/architecture.md` §6): `Snapshot` (extracted
-  typed fields + raw payload; `SentryMode *bool`), the attempt outcome/reason types, `Config`, and
-  `CycleReport`.
-- The in-app `Scheduler` (constructed with a `Collector` + schedule config) drives `CollectAll`
-  daily at 03:30 local; `Run(ctx)` blocks until `ctx` is cancelled (graceful shutdown).
+  typed fields + raw payload; `SentryMode *bool`), the attempt outcome/reason types, `Attempt`
+  (now also carrying `RunID`/`TriggeredBy`), `Config`, and `CycleReport`.
+- **`Scheduler`/`NewScheduler` are NO LONGER part of this module's public surface.** They
+  **relocated** to `internal/app` (`RM29-app-add-process-vehicle-data` design.md D4, carrying
+  owner decision RD8, which superseded an earlier RD5 plan to send them to `cmd/poller`) — this is
+  a relocation, not a deletion or a coverage loss: their four tests (`TestNextRun` and the three
+  `TestScheduler_*` tests) moved with them, intact, into `internal/app/scheduler_test.go` (design's
+  Test Contract group S). `LogCycle`/`formatFailures` stayed here — they never depended on
+  `Scheduler` — and now live in `report.go`; `LogCycle` remains **exported** because its new
+  cross-boundary caller is `internal/app`'s relocated `Scheduler.Run`, calling
+  `telemetry.LogCycle(report, err)` after each `Processor.ProcessVehicleData` invocation, exactly
+  where `Scheduler.Run` called it before the move.
 
 - `Reader` — four read methods:
   - `LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)`:
@@ -196,7 +215,15 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
   (vehicle, run): `account_id`, `tesla_id`, `attempted_at`, `outcome` (`success`|`failure`),
   `reason` (`ok`|`asleep-timeout`|`unauthorized`|`api-error`). Doubles as future availability /
   sleep-behavior data — a daily collapse would destroy that signal, so this table is explicitly
-  out of scope for the dedupe change.
+  out of scope for the dedupe change. **Gains two columns, migration `20260823000002`**
+  (`RM29-app-add-process-vehicle-data`): `run_id UUID` (nullable, permanently unbackfilled for
+  legacy rows) and `triggered_by TEXT NOT NULL DEFAULT 'scheduler'`. **This SUPERSEDES roadmap
+  D2**, which had planned to move this table to a new `internal/app`-owned `process_runs` —
+  that plan was reversed during this change's design (design.md D1): `poll_attempts` never held
+  anything Tesla reported to begin with (every existing column is already "our own fact about our
+  own attempt"), so adding `triggered_by` extends the table rather than blurring a boundary it
+  never had. `internal/app` ends up owning no schema at all. Grain is unchanged (one row per
+  vehicle per run, design.md D2); no CHECK, no index (nothing reads either column in this tier).
 - `supercharger_sessions` — one row per Tesla `session_id` (UPSERT, not append-only: billing
   state — `is_paid`, invoice status — mutates post-session, migration `20260716000001`).
   Extended by `RM27-telemetry-add-supercharger-battery-pct` (MAG-14, migration
@@ -324,8 +351,15 @@ existing `pgNullableText` helper for `BatteryPctSource`.
 - Collection-service logic is tested **offline** with fake `account.Service` and
   `tesla.VehicleService` implementations — per-vehicle isolation, reason mapping, one-retry, wake
   timeout, multi-account. NO test may make a live Tesla API call or wake a car (the calls are paid).
-- Schedule-time math (`nextRun`) and the wake helper's online-vs-timeout outcomes are unit-tested
-  pure (fake clock / short timeout).
+- The wake helper's online-vs-timeout outcomes are unit-tested pure (fake clock / short timeout),
+  now in `wake_test.go`. `report_test.go` covers `formatFailures` (`LogCycle`'s formatter).
+  **Schedule-time math (`nextRun`) and `Scheduler`'s four tests no longer live in this module** —
+  `scheduler.go`/`scheduler_test.go` were removed by `RM29-app-add-process-vehicle-data` (design.md
+  D4): the `Scheduler` type relocated to `internal/app`, and its tests (`TestNextRun`,
+  `TestScheduler_ShutsDownWithoutRunningWhenCancelled`, `TestScheduler_NilLocationDefaultsToLocal`,
+  `TestScheduler_RunsAndLogsOneCycle`) moved with it, unchanged, into
+  `internal/app/scheduler_test.go`. This is a relocation, not a coverage drop — look there, not
+  here, for that coverage.
 - Store tests use the shared `internal/testdb` helper (see `testdb_test.go`). When
   `DATABASE_URL` is set AND reachable, that managed Postgres is used; otherwise
   `TestMain` auto-provisions a disposable `postgres:16-alpine` container via

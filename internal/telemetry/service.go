@@ -118,7 +118,15 @@ func (s *service) location() *time.Location {
 // full per-vehicle isolation: a single vehicle's failure is recorded as a poll_attempt
 // and never aborts the account or the cycle. It returns an error ONLY when the
 // whole-cycle enumeration itself fails (D9) — never for an individual vehicle.
-func (s *service) CollectAll(ctx context.Context) (CycleReport, error) {
+//
+// run identifies this invocation (RunID/TriggeredBy, RM29-app-add-process-vehicle-data
+// design D5) and is threaded straight through to collectAccount/record as a plain
+// parameter — it is NEVER stored as a field on *service. *service is a long-lived
+// object built once in cmd/poller and reused across every scheduled cycle; storing the
+// current run's identity as mutable state on it would let a concurrent or future
+// overlapping call silently attribute one run's attempts to another's RunID the moment
+// two calls interleaved. A parameter cannot do that by construction.
+func (s *service) CollectAll(ctx context.Context, run RunContext) (CycleReport, error) {
 	report := CycleReport{FailuresByReason: map[Reason]int{}}
 
 	vehicles, err := s.acct.AllRegisteredVehicles(ctx)
@@ -133,7 +141,7 @@ func (s *service) CollectAll(ctx context.Context) (CycleReport, error) {
 	byAccount := groupByAccount(vehicles)
 
 	for accountID, owned := range byAccount {
-		s.collectAccount(ctx, accountID, owned, &report)
+		s.collectAccount(ctx, run, accountID, owned, &report)
 	}
 
 	return report, nil
@@ -167,7 +175,7 @@ func groupByAccount(vehicles []account.OwnedVehicle) map[uuid.UUID][]account.Own
 // only increments ChargingFetchFailures — it never aborts or affects the snapshot
 // collection. No poll_attempts row is written for charging (poll_attempts is
 // per-vehicle; charging is per-account — outcomes live in CycleReport).
-func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned []account.OwnedVehicle, report *CycleReport) {
+func (s *service) collectAccount(ctx context.Context, run RunContext, accountID uuid.UUID, owned []account.OwnedVehicle, report *CycleReport) {
 	token, err := s.acct.AccessTokenFor(ctx, accountID)
 	if err != nil {
 		// No connection (or a refresh failure) applies to the WHOLE account: record
@@ -178,7 +186,7 @@ func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned
 		// for any vehicle in this branch, so a config write-back would always be a
 		// guaranteed no-op — this omission is deliberate, not a gap.
 		for _, v := range owned {
-			s.record(ctx, accountID, v.TeslaID, ReasonUnauthorized, report)
+			s.record(ctx, run, accountID, v.TeslaID, ReasonUnauthorized, report)
 		}
 		return
 	}
@@ -195,7 +203,7 @@ func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned
 			// fetched for any vehicle in this branch, so a config write-back would
 			// always be a guaranteed no-op — this omission is deliberate, not a gap.
 			for _, v := range owned {
-				s.record(ctx, accountID, v.TeslaID, ReasonUnauthorized, report)
+				s.record(ctx, run, accountID, v.TeslaID, ReasonUnauthorized, report)
 			}
 			return
 		}
@@ -207,14 +215,14 @@ func (s *service) collectAccount(ctx context.Context, accountID uuid.UUID, owned
 		// No captureVehicleConfig call here (design.md D2): same reasoning as above —
 		// no VehicleData was fetched for any vehicle in this branch.
 		for _, v := range owned {
-			s.record(ctx, accountID, v.TeslaID, ReasonAPIError, report)
+			s.record(ctx, run, accountID, v.TeslaID, ReasonAPIError, report)
 		}
 		return
 	}
 
 	for _, v := range owned {
 		reason, cfg := s.collectVehicle(ctx, creds, v, states[v.TeslaID])
-		s.record(ctx, v.AccountID, v.TeslaID, reason, report)
+		s.record(ctx, run, v.AccountID, v.TeslaID, reason, report)
 		s.captureVehicleConfig(ctx, v, cfg, report)
 	}
 
@@ -453,7 +461,9 @@ func reasonFor(err error) Reason {
 // record writes exactly one poll_attempt for a vehicle and folds the outcome into the
 // cycle report. A store failure on the attempt row is swallowed on purpose: it must
 // never abort the cycle, and the report already reflects the true collection outcome.
-func (s *service) record(ctx context.Context, accountID uuid.UUID, teslaID int64, reason Reason, report *CycleReport) {
+// run stamps RunID/TriggeredBy onto the Attempt it writes (design D5) — it is passed
+// down unchanged from CollectAll, never generated or cached here.
+func (s *service) record(ctx context.Context, run RunContext, accountID uuid.UUID, teslaID int64, reason Reason, report *CycleReport) {
 	outcome := OutcomeFailure
 	if reason == ReasonOK {
 		outcome = OutcomeSuccess
@@ -465,6 +475,8 @@ func (s *service) record(ctx context.Context, accountID uuid.UUID, teslaID int64
 		AttemptedAt: s.now(),
 		Outcome:     outcome,
 		Reason:      reason,
+		RunID:       run.RunID,
+		TriggeredBy: run.TriggeredBy,
 	})
 
 	report.Attempted++
@@ -645,6 +657,16 @@ func teslaIDToPgInt8(v int64) pgtype.Int8 {
 	return pgtype.Int8{Int64: v, Valid: true}
 }
 
+// runIDToPgUUID wraps a non-nullable uuid.UUID as a valid pgtype.UUID query
+// parameter. The run_id COLUMN is nullable (legacy pre-migration rows only,
+// design D7), but every Attempt written by this module carries a real RunID
+// (design D5), so there is no NULL-writing branch here — mirroring
+// teslaIDToPgInt8's always-valid wrap above. uuid.UUID and pgtype.UUID.Bytes are
+// both [16]byte under the hood, so the conversion is a plain reinterpretation.
+func runIDToPgUUID(v uuid.UUID) pgtype.UUID {
+	return pgtype.UUID{Bytes: [16]byte(v), Valid: true}
+}
+
 func (d *dbStore) insertPollAttempt(ctx context.Context, a Attempt) error {
 	return d.q.InsertPollAttempt(ctx, telemetrydb.InsertPollAttemptParams{
 		AccountID:   a.AccountID,
@@ -652,6 +674,8 @@ func (d *dbStore) insertPollAttempt(ctx context.Context, a Attempt) error {
 		AttemptedAt: timestamptzFrom(a.AttemptedAt),
 		Outcome:     string(a.Outcome),
 		Reason:      string(a.Reason),
+		RunID:       runIDToPgUUID(a.RunID),
+		TriggeredBy: string(a.TriggeredBy),
 	})
 }
 
