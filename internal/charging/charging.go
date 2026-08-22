@@ -147,3 +147,45 @@ func NewWriter(pool *pgxpool.Pool) Writer {
 func NewReader(pool *pgxpool.Pool) Reader {
 	return newReader(pool)
 }
+
+// SessionMirror is the mirrorable subset of one Supercharger charge session: the
+// identity, the time window, and the session facts internal/telemetry collects.
+// It deliberately has NO battery-percentage fields — see SessionWriter. This is not
+// an oversight: it makes "a nightly poll erases a human's verified reading" a
+// compile error rather than a comment a reviewer has to notice (design.md D6).
+//
+// Field names mirror telemetry.SuperchargerSession's, which mirror the column
+// names, so the whole path stays a literal copy (design.md D1).
+type SessionMirror struct {
+	AccountID uuid.UUID
+	VIN       string
+	TeslaID   *int64 // nil when the VIN is not a currently-registered vehicle
+	SessionID int64
+
+	ChargeStartDateTime time.Time
+	ChargeStopDateTime  time.Time
+
+	SiteLocationName string
+	EnergyKWh        *float64 // nil when the session had no kWh fee
+	TotalCost        *float64 // nil when the session had no fees
+	Currency         *string  // nil when the session had no fees
+	IsPaid           *bool    // nil when the session had no fees
+}
+
+// SessionWriter is the synchronization port called by the nightly orchestrator
+// (cmd/poller today; internal/app after RM29 tier 7). Upsert-only: a session that
+// disappears from Tesla's history stays mirrored.
+type SessionWriter interface {
+	// MirrorSessions upserts every supplied session under accountID, in one
+	// transaction. Every entry's AccountID must equal accountID; a single
+	// mis-scoped entry rejects the WHOLE call and writes nothing.
+	MirrorSessions(ctx context.Context, accountID uuid.UUID, sessions []SessionMirror) error
+}
+
+// NewSessionWriter constructs a SessionWriter backed by the given pgxpool. The
+// implementation lives in session_writer.go where the chargingdb generated
+// package is used. This is the only publicly exported constructor for the
+// SessionWriter port.
+func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
+	return newSessionWriter(pool)
+}

@@ -5,14 +5,15 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 6 - internal/charging gains charge_sessions: a dense mirror of each Supercharger session's identity, window, session facts (site/energy/cost/currency/paid) and the five battery-pct verification columns. Expand-only; telemetry untouched.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       "1.1",
       "1.2",
       "2.1",
-      "2.2",
+      "2.2"
+    ],
+    "pending": [
       "3.1",
       "3.2",
       "3.3",
@@ -25,7 +26,7 @@
     "done": []
   },
   "created_at": "2026-08-22T13:30:00Z",
-  "updated_at": "2026-08-22T13:30:00Z",
+  "updated_at": "2026-08-22T13:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -47,13 +48,13 @@
       "depends_on": [],
       "wave": 1,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T13:49:20Z",
+      "completed_at": "2026-08-22T13:49:23Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Migration transcribed verbatim from design.md: table, 11 column comments, index, to_regclass-guarded backfill with both BACKFILL sentinels, Down. make sqlc exit 0; leader confirmed all 19 columns in the generated ChargeSession model.",
       "budget": null
     },
     {
@@ -66,13 +67,13 @@
       ],
       "wave": 1,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T13:49:23Z",
+      "completed_at": "2026-08-22T13:49:42Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "MirrorChargeSession :exec appended. Leader verified the conflict clause refreshes exactly energy_kwh/total_cost/currency/is_paid/tesla_id/updated_at and that no pct column appears in the INSERT or SET at all.",
       "budget": null
     },
     {
@@ -85,13 +86,13 @@
       ],
       "wave": 2,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T13:49:42Z",
+      "completed_at": "2026-08-22T13:49:56Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "SessionMirror (11 fields, zero percentage fields), SessionWriter port and NewSessionWriter added to charging.go per D6. The absent pct fields are the compile-error write-protection, documented as load-bearing.",
       "budget": null
     },
     {
@@ -104,13 +105,13 @@
       ],
       "wave": 2,
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T13:49:56Z",
+      "completed_at": "2026-08-22T13:50:29Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "session_writer.go mirrors gap_writer.go's validate-then-transact shape. Added int64PtrToPgInt8/float64PtrToPgFloat8/boolPtrToPgBool after checking none pre-existed; reused stringPtrToPgText.",
       "budget": null
     },
     {
@@ -310,6 +311,16 @@
       "at": "2026-08-22T13:30:00Z",
       "agent": "leader",
       "event": "T6 artifacts complete and validated (openspec validate --changes --strict: 1 passed). DATABASE DESIGN GATE CONFIRMED BY THE OWNER after one amendment round: charge_sessions went from a verification sidecar to a real mirror, gaining site_location_name/energy_kwh/total_cost/currency/is_paid. Consequence recorded honestly in design.md - four of those five are rewritten nightly as fees settle, so the original 'immutable subset, cannot drift' rationale no longer covers them; the guarantee is now idempotent nightly reconciliation. Mirror refreshes telemetry's own set minus raw_data and NEVER the pct columns (SessionMirror carries no pct fields, so it is a compile error, not a convention). progress.json seeded with 11 tasks across 4 waves."
+    },
+    {
+      "at": "2026-08-22T13:33:00Z",
+      "agent": "leader",
+      "event": "Waves 1+2 dispatched to the charging worker as one serial batch (1.1 migration, 1.2 query.sql+sqlc, 2.1 port types, 2.2 writer impl). Batched because all four are same-module and strictly sequential - one dispatch reads the doc pack once. Wave 3 (tests+docs) held back as a separate dispatch so the leader can run build/vet at the compile boundary first."
+    },
+    {
+      "at": "2026-08-22T13:52:00Z",
+      "agent": "leader",
+      "event": "Waves 1+2 COMPLETE. Leader verified rather than trusting the report: mirror conflict clause refreshes exactly the 6 sanctioned columns; all 5 pct columns are absent from the query entirely (present only in a LOAD-BEARING warning comment); generated ChargeSession carries all 19 columns; both BACKFILL sentinels and 11 COMMENT ON COLUMN present; zero forbidden imports in internal/charging; go build, go vet, gofmt all clean. Tasks are awaiting-user-verification, not done - the suite is the owner's to run. Note: the worker's prose said '14 columns' where the artifact has 19; artifact is correct, report miscounted."
     }
   ],
   "review": {

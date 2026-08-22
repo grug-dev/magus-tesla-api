@@ -9,6 +9,40 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Tesla Supercharger charge sessions as owned by internal/charging: identity, the session time window, the session facts (site, energy, cost, currency, paid state), and the human-owned battery-percentage verification/estimate columns. Dense — one row per session, verified or not (design D2). Deliberately carries NO country_code, unlatch_date_time, billing_type, vehicle_make_type or raw_data (closed list, design D1). Mirrored from telemetry.supercharger_sessions by the nightly orchestrator through public ports only, in the same cycle that refreshes the source; each mirrored column has exactly its source column's write semantics, so energy_kwh / total_cost / currency / is_paid / tesla_id are refreshed on every pass and everything else mirrored is write-once. The sync path can never write the five percentage columns (design D6). No other module reads this table directly.
+type ChargeSession struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	Vin       string
+	// Currently-registered vehicle id, refreshed on every sync and set NULL when the VIN is not a currently-registered vehicle of the account — the same contract telemetry.supercharger_sessions.tesla_id carries. Resolution is inherited from telemetry, never recomputed here: internal/charging may not import internal/account (design D3).
+	TeslaID             pgtype.Int8
+	SessionID           int64
+	ChargeStartDateTime pgtype.Timestamptz
+	ChargeStopDateTime  pgtype.Timestamptz
+	// Supercharger site name as Tesla reported it. Write-once: absent from telemetry's ON CONFLICT DO UPDATE SET, therefore absent from ours (design D1's rule).
+	SiteLocationName string
+	// kWh delivered, derived by telemetry from the session's fees. NULL when the session had no kWh fee. REFRESHED on every mirror pass — telemetry recomputes it nightly as fees settle.
+	EnergyKwh pgtype.Float8
+	// Total charged for the session, in the currency column's currency. Monetary amount: no unit suffix by the platform money exemption, paired with currency instead. NULL when the session had no fees. REFRESHED on every mirror pass. DOUBLE PRECISION is copied from telemetry to keep the backfill a literal copy; float is a questionable type for money and converging with manual_charge_entries.price NUMERIC(14,2) will have to reconcile the two.
+	TotalCost pgtype.Float8
+	// ISO 4217 code for total_cost. NULL when the session had no fees. REFRESHED on every mirror pass.
+	Currency pgtype.Text
+	// Whether every fee on the session is settled. NULL when the session had no fees. REFRESHED on every mirror pass — this is the column that most visibly changes after a session ends.
+	IsPaid pgtype.Bool
+	// Human-verified battery % at charge start (0-100). NULL = nothing recorded. Never written by the nightly sync — the sync port has no field for it (design D6).
+	StartBatteryPct pgtype.Int2
+	// Human-verified battery % at charge end (0-100). Same NULL convention and the same sync-path protection as start_battery_pct.
+	EndBatteryPct pgtype.Int2
+	// Provenance of start/end_battery_pct: user_verified (a human entered them) or polled (a future measured-SOC path, not implemented). Required whenever either percentage is set (charge_sessions_pct_source_required). Never 'estimated' — an estimate is computed on read and is never persisted here.
+	BatteryPctSource pgtype.Text
+	// FROZEN write-once snapshot of the live estimate at the moment start_battery_pct was verified — a drift-log entry, not a cache. Never refreshed, including by a later improved model; staleness here is correct, not a bug.
+	StartBatteryPctEst pgtype.Int2
+	// FROZEN write-once snapshot of the live estimate at the moment end_battery_pct was verified. Same write-once, never-refreshed, never-a-cache semantics as start_battery_pct_est.
+	EndBatteryPctEst pgtype.Int2
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+}
+
 // User-asserted home/work/third-party charge sessions not captured by the Tesla Fleet API. Owned by internal/manualcharge; no other module reads this table directly. Mutable table: full CRUD via Writer port (users correct hand-typed entries). No cross-module FK on account_id or tesla_id (ai/architecture.md §2). No raw_data JSONB column: user-typed data has no vendor payload to preserve (ai/go-conventions.md §persistence, design D5).
 type ManualChargeEntry struct {
 	ID              uuid.UUID

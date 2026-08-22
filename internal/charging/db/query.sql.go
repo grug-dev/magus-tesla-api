@@ -381,6 +381,85 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 	return items, nil
 }
 
+const mirrorChargeSession = `-- name: MirrorChargeSession :exec
+INSERT INTO charge_sessions (
+    account_id, vin, tesla_id, session_id,
+    charge_start_date_time, charge_stop_date_time,
+    site_location_name, energy_kwh, total_cost, currency, is_paid
+) VALUES (
+    $1, $2, $3, $4,
+    $5, $6,
+    $7, $8, $9, $10, $11
+)
+ON CONFLICT (account_id, session_id) DO UPDATE SET
+    energy_kwh = EXCLUDED.energy_kwh,
+    total_cost = EXCLUDED.total_cost,
+    currency   = EXCLUDED.currency,
+    is_paid    = EXCLUDED.is_paid,
+    tesla_id   = EXCLUDED.tesla_id,
+    updated_at = now()
+`
+
+type MirrorChargeSessionParams struct {
+	AccountID           uuid.UUID
+	Vin                 string
+	TeslaID             pgtype.Int8
+	SessionID           int64
+	ChargeStartDateTime pgtype.Timestamptz
+	ChargeStopDateTime  pgtype.Timestamptz
+	SiteLocationName    string
+	EnergyKwh           pgtype.Float8
+	TotalCost           pgtype.Float8
+	Currency            pgtype.Text
+	IsPaid              pgtype.Bool
+}
+
+// Upsert one Supercharger session's mirrorable subset. Called once per session, in
+// one transaction, by SessionWriter.MirrorSessions.
+//
+// LOAD-BEARING: start_battery_pct, end_battery_pct, battery_pct_source,
+// start_battery_pct_est and end_battery_pct_est are ABSENT from both the INSERT
+// column list and the ON CONFLICT DO UPDATE SET clause. They are human-owned; the
+// nightly sync must never write, clear or overwrite one. Unlike
+// telemetry.UpsertSuperchargerSession — which relies on this comment alone —
+// charging.SessionMirror has no field for them either, so binding one here would not
+// even compile (design.md D6). Do NOT "complete the pattern" by adding them.
+//
+// THE REFRESH SET IS NOT A JUDGEMENT CALL. It is telemetry's own ON CONFLICT DO
+// UPDATE SET, minus raw_data (a column this table does not carry): energy_kwh,
+// total_cost, currency, is_paid, tesla_id, updated_at. Everything else mirrored —
+// charge_start_date_time, charge_stop_date_time, site_location_name, created_at — is
+// write-once at the source, so it is write-once here. site_location_name in
+// particular is NOT refreshed because telemetry does not refresh it, not because a
+// site name was judged unlikely to change (design.md D1's rule: a mirrored column
+// gets exactly its source column's write semantics).
+//
+// NO WHERE PREDICATE on the DO UPDATE, deliberately (design.md D6). An earlier draft
+// carried WHERE charge_sessions.tesla_id IS DISTINCT FROM EXCLUDED.tesla_id so an
+// unchanged row was not rewritten. With five refreshable columns that predicate would
+// have to name all five, and a future column added to the SET but forgotten in the
+// WHERE would silently stop advancing updated_at, with nothing in this project able
+// to catch it. Telemetry's own upsert has no such predicate either. Consequence:
+// updated_at here means "the last mirror pass touched this row" — exactly what
+// supercharger_sessions.updated_at means — and is NOT a "this row's data changed"
+// signal on either side.
+func (q *Queries) MirrorChargeSession(ctx context.Context, arg MirrorChargeSessionParams) error {
+	_, err := q.db.Exec(ctx, mirrorChargeSession,
+		arg.AccountID,
+		arg.Vin,
+		arg.TeslaID,
+		arg.SessionID,
+		arg.ChargeStartDateTime,
+		arg.ChargeStopDateTime,
+		arg.SiteLocationName,
+		arg.EnergyKwh,
+		arg.TotalCost,
+		arg.Currency,
+		arg.IsPaid,
+	)
+	return err
+}
+
 const updateEntry = `-- name: UpdateEntry :one
 UPDATE manual_charge_entries
 SET

@@ -27,7 +27,7 @@ its own.
 
 ## Wave 1 — schema (module: charging worker)
 
-- [ ] **1.1** **[module: charging worker]** Create
+- [x] **1.1** **[module: charging worker]** Create
   `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql`, transcribing
   design.md §"Database Changes" **verbatim** — the full `CREATE TABLE charge_sessions`
   with every column, both named constraints (`charge_sessions_account_session_unique`,
@@ -56,7 +56,7 @@ its own.
   patching around it, since it would contradict a fact the leader already confirmed.
   `depends_on`: — · `parallel_ok`: no (blocks everything)
 
-- [ ] **1.2** **[module: charging worker]** `internal/charging/db/query.sql` — append
+- [x] **1.2** **[module: charging worker]** `internal/charging/db/query.sql` — append
   `-- name: MirrorChargeSession :exec` exactly as specified in design.md §"The sync
   query", including its full doc comment. The LOAD-BEARING paragraph (the five
   percentage columns absent from both the INSERT list and the `ON CONFLICT DO UPDATE
@@ -69,7 +69,7 @@ its own.
 
 ## Wave 2 — the Go port (module: charging worker)
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add
+- [x] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add
   `SessionMirror` (eleven fields: `AccountID`, `VIN`, `TeslaID`, `SessionID`,
   `ChargeStartDateTime`, `ChargeStopDateTime`, `SiteLocationName`, `EnergyKWh`,
   `TotalCost`, `Currency`, `IsPaid` — no battery-percentage field), the `SessionWriter`
@@ -82,7 +82,7 @@ its own.
   symbol. Does not compile until 2.2 supplies the constructor's body.
   `depends_on`: 1.2 · `parallel_ok`: with 2.2 (authoring only — they land together)
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/session_writer.go` (new
+- [x] **2.2** **[module: charging worker]** `internal/charging/session_writer.go` (new
   file) — implement the port, mirroring `internal/analytics/gap_writer.go`'s shape:
   an unexported `sessionWriter` struct over `*pgxpool.Pool` + `*chargingdb.Queries`, an
   unexported `newSessionWriter`, the compile-time

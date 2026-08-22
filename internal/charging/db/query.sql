@@ -130,3 +130,50 @@ WHERE account_id = @account_id
   AND tesla_id = @tesla_id
   AND updated_at >= @since
 ORDER BY charged_on DESC;
+
+-- name: MirrorChargeSession :exec
+-- Upsert one Supercharger session's mirrorable subset. Called once per session, in
+-- one transaction, by SessionWriter.MirrorSessions.
+--
+-- LOAD-BEARING: start_battery_pct, end_battery_pct, battery_pct_source,
+-- start_battery_pct_est and end_battery_pct_est are ABSENT from both the INSERT
+-- column list and the ON CONFLICT DO UPDATE SET clause. They are human-owned; the
+-- nightly sync must never write, clear or overwrite one. Unlike
+-- telemetry.UpsertSuperchargerSession — which relies on this comment alone —
+-- charging.SessionMirror has no field for them either, so binding one here would not
+-- even compile (design.md D6). Do NOT "complete the pattern" by adding them.
+--
+-- THE REFRESH SET IS NOT A JUDGEMENT CALL. It is telemetry's own ON CONFLICT DO
+-- UPDATE SET, minus raw_data (a column this table does not carry): energy_kwh,
+-- total_cost, currency, is_paid, tesla_id, updated_at. Everything else mirrored —
+-- charge_start_date_time, charge_stop_date_time, site_location_name, created_at — is
+-- write-once at the source, so it is write-once here. site_location_name in
+-- particular is NOT refreshed because telemetry does not refresh it, not because a
+-- site name was judged unlikely to change (design.md D1's rule: a mirrored column
+-- gets exactly its source column's write semantics).
+--
+-- NO WHERE PREDICATE on the DO UPDATE, deliberately (design.md D6). An earlier draft
+-- carried WHERE charge_sessions.tesla_id IS DISTINCT FROM EXCLUDED.tesla_id so an
+-- unchanged row was not rewritten. With five refreshable columns that predicate would
+-- have to name all five, and a future column added to the SET but forgotten in the
+-- WHERE would silently stop advancing updated_at, with nothing in this project able
+-- to catch it. Telemetry's own upsert has no such predicate either. Consequence:
+-- updated_at here means "the last mirror pass touched this row" — exactly what
+-- supercharger_sessions.updated_at means — and is NOT a "this row's data changed"
+-- signal on either side.
+INSERT INTO charge_sessions (
+    account_id, vin, tesla_id, session_id,
+    charge_start_date_time, charge_stop_date_time,
+    site_location_name, energy_kwh, total_cost, currency, is_paid
+) VALUES (
+    @account_id, @vin, @tesla_id, @session_id,
+    @charge_start_date_time, @charge_stop_date_time,
+    @site_location_name, @energy_kwh, @total_cost, @currency, @is_paid
+)
+ON CONFLICT (account_id, session_id) DO UPDATE SET
+    energy_kwh = EXCLUDED.energy_kwh,
+    total_cost = EXCLUDED.total_cost,
+    currency   = EXCLUDED.currency,
+    is_paid    = EXCLUDED.is_paid,
+    tesla_id   = EXCLUDED.tesla_id,
+    updated_at = now();
