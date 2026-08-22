@@ -15,14 +15,13 @@
       "2.4",
       "2.5",
       "2.6",
-      "2.7"
-    ],
-    "pending": [
+      "2.7",
       "3.1",
       "3.2",
-      "3.3",
       "3.4",
-      "3.5",
+      "3.5"
+    ],
+    "pending": [
       "4.1",
       "4.2",
       "4.3",
@@ -30,10 +29,12 @@
       "4.5"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "3.3"
+    ]
   },
   "created_at": "2026-08-22T19:05:00Z",
-  "updated_at": "2026-08-22T19:23:00Z",
+  "updated_at": "2026-08-22T19:30:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -263,14 +264,23 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T19:25:00Z",
+      "completed_at": "2026-08-22T19:26:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "app.go: Processor port + NewProcessor (7 ports + loc, no pool). Signature matches design D10 exactly.",
+      "budget": {
+        "five_hour_pct_start": 45.0,
+        "five_hour_pct_end": 55.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.05,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the 5 serial tasks of wave 3"
+      }
     },
     {
       "id": "3.2",
@@ -280,14 +290,23 @@
         "3.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T19:25:00Z",
+      "completed_at": "2026-08-22T19:27:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "processor.go: ProcessVehicleData short-circuit + the two relocated steps. Leader normalized-diffed both bodies against cmd/poller: code identical, only comment rewraps differ.",
+      "budget": {
+        "five_hour_pct_start": 45.0,
+        "five_hour_pct_end": 55.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.05,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the 5 serial tasks of wave 3"
+      }
     },
     {
       "id": "3.3",
@@ -299,14 +318,23 @@
         "3.5"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T19:25:00Z",
+      "completed_at": "2026-08-22T19:30:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "AGENTS.md needed no edit - it was written against the final design and every signature checked out. Verified, not rubber-stamped.",
+      "budget": {
+        "five_hour_pct_start": 45.0,
+        "five_hour_pct_end": 55.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.05,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the 5 serial tasks of wave 3"
+      }
     },
     {
       "id": "3.4",
@@ -317,14 +345,23 @@
         "3.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T19:25:00Z",
+      "completed_at": "2026-08-22T19:28:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "scheduler.go: 91 lines relocated from the scratchpad copy; nextRun byte-identical. Sole substantive change is the tick handler calling the Processor port + telemetry.LogCycle.",
+      "budget": {
+        "five_hour_pct_start": 45.0,
+        "five_hour_pct_end": 55.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.05,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the 5 serial tasks of wave 3"
+      }
     },
     {
       "id": "3.5",
@@ -334,14 +371,23 @@
         "3.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T19:25:00Z",
+      "completed_at": "2026-08-22T19:29:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "scheduler_test.go: the 4 tests relocated same-package; stubCollector/reportCollector keep their names but implement ProcessVehicleData. No assertion changed.",
+      "budget": {
+        "five_hour_pct_start": 45.0,
+        "five_hour_pct_end": 55.0,
+        "five_hour_pct_delta": 10.0,
+        "cost_usd_delta": 4.05,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the 5 serial tasks of wave 3"
+      }
     },
     {
       "id": "4.1",
@@ -495,6 +541,16 @@
       "at": "2026-08-22T19:23:00Z",
       "agent": "leader",
       "event": "EXPECTED BREAKAGE: go build ./... now fails in cmd/poller only (undefined telemetry.NewScheduler; CollectAll arity). Wave 4 fixes it. internal/telemetry builds and vets clean on its own."
+    },
+    {
+      "at": "2026-08-22T19:25:00Z",
+      "agent": "leader",
+      "event": "Wave 3 dispatched: tasks 3.1, 3.2, 3.4, 3.5, 3.3 to the app worker on Sonnet, one serial dispatch in dependency order. The two files wave 2 deleted were extracted from commit b927046 into the scratchpad so the worker relocates them verbatim instead of reconstructing them from memory - and so it never needs git."
+    },
+    {
+      "at": "2026-08-22T19:30:00Z",
+      "agent": "leader",
+      "event": "Wave 3 reconciled. internal/app exists: app.go, processor.go, scheduler.go, scheduler_test.go. Leader re-derived the relocation claim instead of trusting it - a normalized, whitespace- and receiver-insensitive diff of both closure bodies against cmd/poller's originals shows the CODE is identical; the only differences are comment rewraps ('the composition root owns the zone' -> 'this composition owns the zone'). ProcessVehicleData's short-circuit matches reconcilingCollector.CollectAll line for line. Task 3.3 is done rather than awaiting-verification: AGENTS.md was already accurate, and a doc check has no suite to wait on."
     }
   ]
 }

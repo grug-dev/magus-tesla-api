@@ -178,7 +178,7 @@ directly.
 
 ## Wave 3 — `internal/app` (module: app worker)
 
-- [ ] **3.1** **[module: app worker]** Create `internal/app/app.go`: the package doc
+- [x] **3.1** **[module: app worker]** Create `internal/app/app.go`: the package doc
   comment (the three-step diagram from design.md's Context, attributed to the owner),
   the `Processor` interface (design.md **D3**, **D10**) with its full doc comment
   describing the three named steps and the whole-cycle short-circuit, and
@@ -188,7 +188,7 @@ directly.
   `depends_on`: 2.1, 2.2 (needs the widened `telemetry.Collector`/`RunContext` to compile
   against) · `parallel_ok`: no (blocks 3.2)
 
-- [ ] **3.2** **[module: app worker]** Create `internal/app/processor.go`: the concrete
+- [x] **3.2** **[module: app worker]** Create `internal/app/processor.go`: the concrete
   `*processor` type implementing `Processor`, plus the compile-time
   `var _ Processor = (*processor)(nil)` assertion. `ProcessVehicleData` follows
   design.md **D8** exactly: generate `run := telemetry.RunContext{RunID: uuid.New(),
@@ -213,7 +213,7 @@ directly.
   moving.
   `depends_on`: 3.1 · `parallel_ok`: no
 
-- [ ] **3.3** **[module: app worker]** Create `internal/app/AGENTS.md` — `Agent-Name:
+- [x] **3.3** **[module: app worker]** Create `internal/app/AGENTS.md` — `Agent-Name:
   app` header, `## Doc-Pack (module)` section (may be empty — no module-specific docs
   beyond the base pack), §Responsibility (the three-step use case, design.md D3),
   §Public Interface (`Processor`, `NewProcessor`, design.md D10), §Allowed/Forbidden
@@ -241,7 +241,7 @@ directly.
   §Data Ownership stays **none**.
   `depends_on`: 3.2, 3.4, 3.5 · `parallel_ok`: with 2.7
 
-- [ ] **3.4** **[module: app worker]** Create `internal/app/scheduler.go` (`package app`)
+- [x] **3.4** **[module: app worker]** Create `internal/app/scheduler.go` (`package app`)
   — relocate `internal/telemetry/scheduler.go`'s `Scheduler` struct, `NewScheduler`,
   `Run` and the pure `nextRun` **essentially verbatim** (design.md **D4**, carrying RD8;
   the file is removed from `telemetry` by task 2.4, whose report quotes its exact prior
@@ -268,7 +268,7 @@ directly.
   `depends_on`: 3.1, 3.2 · `parallel_ok`: no (3.5 tests exactly this file; and 3.2 must
   already have produced `Processor`'s implementation for the wiring to make sense)
 
-- [ ] **3.5** **[module: app worker]** Create `internal/app/scheduler_test.go`
+- [x] **3.5** **[module: app worker]** Create `internal/app/scheduler_test.go`
   (`package app`, same-package — `TestScheduler_NilLocationDefaultsToLocal` reads the
   unexported `loc` field, and `TestNextRun` calls the unexported `nextRun`) — relocate
   the four tests removed from `internal/telemetry/scheduler_test.go` by task 2.5,
