@@ -35,7 +35,7 @@ const recalcOverlap = 24 * time.Hour
 
 // The three independent watermark sources (design.md D3, carries IO-3),
 // named after the physical table each source's data lives in --
-// self-describing, mirrors telemetry.MissingChargingType's 'MANUAL'/
+// self-describing, mirrors MissingChargingType's 'MANUAL'/
 // 'SUPERCHARGER' free-standing string-label convention. No FK: just a label
 // (see vehicle_metric_watermarks' source CHECK vocabulary).
 const (

@@ -168,7 +168,7 @@ func TestDeriveVehicleMetrics_NegativeFlagged(t *testing.T) {
 	if !entry.Flagged {
 		t.Error("want Flagged=true")
 	}
-	if entry.MissingChargingType != telemetry.MissingChargingTypeManual {
+	if entry.MissingChargingType != MissingChargingTypeManual {
 		t.Errorf("MissingChargingType: want MANUAL, got %v", entry.MissingChargingType)
 	}
 }
@@ -201,7 +201,7 @@ func TestDeriveVehicleMetrics_ZeroWithDistanceFlagged(t *testing.T) {
 	if !entry.Flagged {
 		t.Error("want Flagged=true: ConsumedPct=0 with DistanceKm=50.0 > minFlagDistanceKm")
 	}
-	if entry.MissingChargingType != telemetry.MissingChargingTypeManual {
+	if entry.MissingChargingType != MissingChargingTypeManual {
 		t.Errorf("MissingChargingType: want MANUAL, got %v", entry.MissingChargingType)
 	}
 }
@@ -323,12 +323,12 @@ func TestSumSuperchargerPctBetween_IntervalBoundary_InclusiveStartExclusiveEnd(t
 	sessionAtToNull := telemetry.SuperchargerSession{ChargeStopDateTime: to, StartBatteryPct: nil, EndBatteryPct: intPtr(90)}
 
 	gotType := inferMissingChargingType([]telemetry.SuperchargerSession{sessionAtToNull, sessionAtFromNull}, from, to)
-	if gotType != telemetry.MissingChargingTypeSupercharger {
+	if gotType != MissingChargingTypeSupercharger {
 		t.Errorf("inferMissingChargingType: want SUPERCHARGER (the in-bound NULL session at 'from' must be seen), got %v", gotType)
 	}
 
 	gotTypeOnlyOutOfBound := inferMissingChargingType([]telemetry.SuperchargerSession{sessionAtToNull}, from, to)
-	if gotTypeOnlyOutOfBound != telemetry.MissingChargingTypeManual {
+	if gotTypeOnlyOutOfBound != MissingChargingTypeManual {
 		t.Errorf("inferMissingChargingType: want MANUAL (the only NULL session present is at 'to', excluded), got %v", gotTypeOnlyOutOfBound)
 	}
 }
@@ -640,7 +640,7 @@ func TestDeriveVehicleMetrics_FixtureB(t *testing.T) {
 	if !entry.Flagged {
 		t.Error("want Flagged=true (ConsumedPct < 0)")
 	}
-	if entry.MissingChargingType != telemetry.MissingChargingTypeManual {
+	if entry.MissingChargingType != MissingChargingTypeManual {
 		t.Errorf("MissingChargingType: want MANUAL (no Supercharger session matched at all), got %v", entry.MissingChargingType)
 	}
 }

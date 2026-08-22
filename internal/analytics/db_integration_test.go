@@ -716,7 +716,7 @@ func TestRecalculate_FixtureB(t *testing.T) {
 	if row.Flagged != true {
 		t.Errorf("Flagged: want true (the actual boolean value, ConsumedPct < 0), got %v", row.Flagged)
 	}
-	if !row.MissingChargingType.Valid || row.MissingChargingType.String != string(telemetry.MissingChargingTypeManual) {
+	if !row.MissingChargingType.Valid || row.MissingChargingType.String != string(MissingChargingTypeManual) {
 		t.Errorf("MissingChargingType: want MANUAL, got %+v", row.MissingChargingType)
 	}
 }
@@ -1118,7 +1118,7 @@ func TestReader_OdometerDeltaByDay_ReadsBackWhatRecalculateWrote(t *testing.T) {
 	if !gotConsumed[0].Flagged {
 		t.Error("want Flagged=true")
 	}
-	if gotConsumed[0].MissingChargingType != telemetry.MissingChargingTypeManual {
+	if gotConsumed[0].MissingChargingType != MissingChargingTypeManual {
 		t.Errorf("MissingChargingType: want MANUAL, got %v", gotConsumed[0].MissingChargingType)
 	}
 }

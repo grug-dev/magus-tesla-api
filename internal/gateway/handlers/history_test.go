@@ -1002,7 +1002,7 @@ func TestBuildConsumedChart_NormalDay_RelativeScale(t *testing.T) {
 func TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue(t *testing.T) {
 	d := time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)
 	days := []analytics.DayConsumption{
-		{Date: d, ConsumedPct: -5.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 1},
+		{Date: d, ConsumedPct: -5.0, Flagged: true, MissingChargingType: analytics.MissingChargingTypeManual, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
 	if c.Empty || len(c.Bars) != 1 {
@@ -1029,7 +1029,7 @@ func TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue(t *testing.T) {
 func TestBuildConsumedChart_FlaggedNonSpan_Supercharger_ZeroWithDistance(t *testing.T) {
 	d := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
 	days := []analytics.DayConsumption{
-		{Date: d, ConsumedPct: 0, DistanceKm: 42, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeSupercharger, DaysSpanned: 1},
+		{Date: d, ConsumedPct: 0, DistanceKm: 42, Flagged: true, MissingChargingType: analytics.MissingChargingTypeSupercharger, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
 	if c.Empty || len(c.Bars) != 1 {
@@ -1080,7 +1080,7 @@ func TestBuildConsumedChart_MultiDaySpan_NotFlagged_ShowsRealValue(t *testing.T)
 func TestBuildConsumedChart_MultiDaySpanAndFlagged_BothMarkers_ValueShown(t *testing.T) {
 	d := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
 	days := []analytics.DayConsumption{
-		{Date: d, ConsumedPct: -3.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 2},
+		{Date: d, ConsumedPct: -3.0, Flagged: true, MissingChargingType: analytics.MissingChargingTypeManual, DaysSpanned: 2},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
 	if c.Empty || len(c.Bars) != 1 {
@@ -1114,7 +1114,7 @@ func TestBuildConsumedChart_MultiDaySpanAndFlagged_HeightClampIsolatedFromMax(t 
 	d1 := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
 	d2 := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
 	days := []analytics.DayConsumption{
-		{Date: d1, ConsumedPct: -3.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 2},
+		{Date: d1, ConsumedPct: -3.0, Flagged: true, MissingChargingType: analytics.MissingChargingTypeManual, DaysSpanned: 2},
 		{Date: d2, ConsumedPct: 10.0, Flagged: false, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d1, d2)
@@ -1220,7 +1220,7 @@ func TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp(t *testing.
 	d1 := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
 	d2 := time.Date(2026, 8, 18, 0, 0, 0, 0, time.UTC)
 	days := []analytics.DayConsumption{
-		{Date: d1, ConsumedPct: -8.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 1},
+		{Date: d1, ConsumedPct: -8.0, Flagged: true, MissingChargingType: analytics.MissingChargingTypeManual, DaysSpanned: 1},
 		{Date: d2, ConsumedPct: 12.0, Flagged: false, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d1, d2)

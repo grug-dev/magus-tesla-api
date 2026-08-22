@@ -18,8 +18,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // DefaultWindow is the recommended NewReader window — 30 days, matching the
@@ -121,7 +120,7 @@ type Recalculator interface {
 	// ConsumedByDay's reader.go used to fetch live before this tier, UPSERTs
 	// every derived row, then deletes any existing vehicle_metrics row in
 	// [start, end] whose metric_date is not among the rows just produced
-	// (self-healing symmetry with telemetry.GapWriter.ReconcileWindow's
+	// (self-healing symmetry with GapWriter.ReconcileWindow's
 	// UPSERT+DELETE shape). Idempotent: re-running over an unchanged window
 	// produces a byte-identical UPSERT (design.md D4).
 	Recalculate(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) error
@@ -171,10 +170,9 @@ type DayConsumption struct {
 	// or when it is exactly 0 while DistanceKm > minFlagDistanceKm.
 	Flagged bool
 	// MissingChargingType is the D7a inferred source, valid only when
-	// Flagged is true (zero value "" otherwise). Reuses
-	// telemetry.MissingChargingType directly -- no duplicate vocabulary
-	// (design.md D-B9).
-	MissingChargingType telemetry.MissingChargingType
+	// Flagged is true (zero value "" otherwise). Uses the type above
+	// directly -- no duplicate vocabulary (design.md D-B9).
+	MissingChargingType MissingChargingType
 	// DaysSpanned is the row's own DaysSpannedCalc (never re-derived) -- 1
 	// for a normal night-to-night poll, >1 signals a multi-day span (D8) a
 	// caller may want to mark distinctly.
@@ -222,4 +220,114 @@ type Efficiency struct {
 	// the SoC-drift correction term was dropped (design.md D1b) — the result
 	// is still a real computed value, never a fabricated one.
 	Approximate bool
+}
+
+// --- charge_gaps ledger (RM28-telemetry-add-charge-gap-storage, MAG-15;
+// relocated here from internal/telemetry by RM29-analytics-own-charge-gaps,
+// MAG-26 tier 5 — this module both computes AND stores the ledger now, so
+// the vocabulary below describes a single owner, not a two-module split) ---
+
+// MissingChargingType identifies which charge source a flagged charge_gaps
+// day is attributed to (design D-Table6, roadmap D7a). Inferred by this
+// module at detection time -- never user-chosen.
+type MissingChargingType string
+
+const (
+	// MissingChargingTypeManual -- no Supercharger session with NULL start/end
+	// battery percentages exists for the day; the vehicle was charged
+	// somewhere the Tesla Fleet API does not report (home/work/third-party AC,
+	// or a DC session GET /api/1/dx/charging/history never returned).
+	MissingChargingTypeManual MissingChargingType = "MANUAL"
+	// MissingChargingTypeSupercharger -- a Supercharger session exists for the
+	// day whose start_battery_pct/end_battery_pct are both NULL: the exact
+	// record that needs filling is already known (roadmap D7a/D14).
+	MissingChargingTypeSupercharger MissingChargingType = "SUPERCHARGER"
+)
+
+// ChargeGap is one flagged vehicle-day whose battery math does not add up --
+// this module's own derivation could not fully account for the day's
+// battery change from stored charge records, meaning a charge record is
+// missing or incomplete (D3/D7/D7a of RM28-telemetry-add-charge-gap-storage).
+// Our own domain model, no vendor suffix (ai/architecture.md §6):
+// internal/analytics both computes it and stores it through the GapWriter
+// port below. AccountID/TeslaID are carried on the type -- even though every
+// element of one ReconcileWindow call's flagged slice belongs to that call's
+// own vehicle -- so this exact shape can also serve, unmodified, as the
+// return type of a future read port for the notification feature (not built
+// in this change).
+type ChargeGap struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	VIN       string
+	// Date is the flagged calendar day -- a plain calendar DATE (UTC
+	// midnight), never a timestamp; backed by the charge_gaps.gap_date column.
+	// Must be normalized to UTC midnight the same way dateOnly/CapturedDate
+	// already are elsewhere in this module -- ReconcileWindow compares Date
+	// values for map-key equality against the stored gap_date column.
+	//
+	// DELIBERATE NAME DIFFERENCE, do NOT "fix" it in either direction: the
+	// column is gap_date because a bare `date` would be the only non-descriptive
+	// date column in this schema (cf. manual_charge_entries.charged_on,
+	// vehicle_snapshots.captured_date, supercharger_sessions.charge_start_date_time)
+	// AND `date` is a Postgres col_name_keyword. The Go field stays Date because
+	// it is already namespaced by its type -- ChargeGap.GapDate would stutter,
+	// which ai/go-conventions.md forbids. sqlc generates GapDate on the
+	// analyticsdb row struct; the single mapping seam translates it, exactly as
+	// this module already translates every other db row into a domain type.
+	Date time.Time
+	// MissingChargingType is which charge source is suspected missing for
+	// this day, inferred at detection time (D7a).
+	MissingChargingType MissingChargingType
+}
+
+// GapWriter is analytics' write port for the charge_gaps ledger (D3 of the
+// RM28 roadmap). cmd/poller is its only caller: after Recalculator derives
+// each day's consumption for a vehicle over a window and flags the days
+// whose math does not add up (roadmap D5/D5a), the poller calls
+// ReconcileWindow once per vehicle per nightly run with the FULL flagged set
+// computed for that window.
+type GapWriter interface {
+	// ReconcileWindow makes charge_gaps agree with flagged for exactly the
+	// vehicle-day range [start, end] inclusive (whole calendar days -- see
+	// ChargeGap.Date): every day present in flagged is upserted (inserted, or
+	// updated in place if its MissingChargingType or VIN changed since the
+	// last run); every existing charge_gaps row for (accountID, teslaID)
+	// whose date falls in [start, end] but has NO matching entry in flagged
+	// is deleted (roadmap D7b). Days outside [start, end] are never read or
+	// touched, even if this vehicle has older or newer flagged days stored
+	// elsewhere -- reconciliation is scoped to exactly the window the caller
+	// just recomputed, never the vehicle's whole history.
+	//
+	// flagged may be empty: every previously-flagged day in the window has
+	// resolved, and every existing row in the window is deleted, none
+	// re-inserted -- the normal steady state once a user fixes a missing
+	// charge entry.
+	//
+	// Every element of flagged MUST carry the SAME accountID and teslaID as
+	// this call's own arguments; ReconcileWindow returns an error, and writes
+	// nothing, if one does not (defense-in-depth tenant isolation, mirroring
+	// Reader.SnapshotsByVehicleBetween's account_id AND tesla_id filter
+	// convention). Every element's Date MUST fall within [start, end];
+	// ReconcileWindow returns an error, and writes nothing, if one does not
+	// (a flagged day outside its own window is a caller bug, not data to
+	// silently accept -- a later call for a different window could otherwise
+	// orphan or duplicate the row).
+	//
+	// Runs inside a single database transaction: either every upsert and
+	// every delete this call makes succeeds, or the whole call has no
+	// effect. A failed call is always safe to retry from scratch on the next
+	// nightly run, since flagged is freshly recomputed by the caller every
+	// time -- ReconcileWindow never reads charge_gaps back as an input to
+	// its own decisions, only as the set to reconcile against.
+	ReconcileWindow(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time, flagged []ChargeGap) error
+}
+
+// NewGapWriter constructs a GapWriter backed by a real Postgres pool. Callers
+// (cmd/poller) depend on the GapWriter interface, never on the concrete type
+// or on analyticsdb directly. Implementation is in gap_writer.go
+// (forward-declared here so this file compiles before that one is parsed,
+// mirroring NewSuperchargerReader's identical pattern, design B6.3 of
+// RM27-telemetry-add-supercharger-battery-pct).
+func NewGapWriter(pool *pgxpool.Pool) GapWriter {
+	return newGapWriter(pool)
 }

@@ -51,7 +51,7 @@ has no safe intermediate compiling state:
   only role whose sandbox spans both `internal/telemetry/` and `internal/analytics/`.
   `depends_on`: — · `parallel_ok`: no (blocks 1.2, 1.3)
 
-- [ ] **1.2** **[module: analytics worker]** `internal/analytics/db/query.sql` — append
+- [x] **1.2** **[module: analytics worker]** `internal/analytics/db/query.sql` — append
   the three `charge_gaps` queries, moved **verbatim** (identical SQL text and doc
   comments) from `internal/telemetry/db/query.sql`: `UpsertChargeGap :exec`,
   `DeleteChargeGap :exec`, `ChargeGapDatesByVehicleBetween :many`. Run `make sqlc`
@@ -62,14 +62,14 @@ has no safe intermediate compiling state:
   single-column `SELECT gap_date`, why no new index is needed).
   `depends_on`: 1.1 · `parallel_ok`: with 1.3
 
-- [ ] **1.3** **[module: telemetry worker]** `internal/telemetry/db/query.sql` —
+- [x] **1.3** **[module: telemetry worker]** `internal/telemetry/db/query.sql` —
   delete the same three queries and their doc comments (design.md's full inventory
   table). Run `make sqlc` for the telemetry entry — `telemetrydb` loses every
   `ChargeGap*` symbol. Verify no other query in this file references
   `charge_gaps` (design.md D1's self-containment check already confirmed none does).
   `depends_on`: 1.1 · `parallel_ok`: with 1.2
 
-- [ ] **1.4** **[module: analytics worker]** `internal/analytics/analytics.go` — add,
+- [x] **1.4** **[module: analytics worker]** `internal/analytics/analytics.go` — add,
   moved verbatim from `internal/telemetry/telemetry.go` (identical doc comments,
   updated only where they name the owning/calling module — e.g. "internal/analytics
   computes it, internal/telemetry stores it" becomes a self-description now that
@@ -83,7 +83,7 @@ has no safe intermediate compiling state:
   split.
   `depends_on`: 1.2 · `parallel_ok`: no
 
-- [ ] **1.5** **[module: analytics worker]** `internal/analytics/gap_writer.go` (new
+- [x] **1.5** **[module: analytics worker]** `internal/analytics/gap_writer.go` (new
   file) — move `internal/telemetry/gap_writer.go`'s `gapWriter` struct,
   `newGapWriter`, the compile-time `var _ GapWriter = (*gapWriter)(nil)` assertion,
   and `ReconcileWindow`'s full implementation (validate-loop, `tx.Begin`,
@@ -98,7 +98,7 @@ has no safe intermediate compiling state:
   (design.md D2, Test Contract).
   `depends_on`: 1.4 · `parallel_ok`: no
 
-- [ ] **1.6** **[module: analytics worker]** Drop the now-redundant `telemetry.`
+- [x] **1.6** **[module: analytics worker]** Drop the now-redundant `telemetry.`
   qualifier on `MissingChargingType` across the module — it is self-referential
   after 1.4:
   - `internal/analytics/analytics.go` — `DayConsumption.MissingChargingType`'s field
@@ -128,7 +128,7 @@ has no safe intermediate compiling state:
     Import stays for the same reason.
   `depends_on`: 1.4 · `parallel_ok`: with 1.5
 
-- [ ] **1.7** **[module: telemetry worker]** `internal/telemetry/telemetry.go` —
+- [x] **1.7** **[module: telemetry worker]** `internal/telemetry/telemetry.go` —
   delete `MissingChargingType` (type + both constants), `ChargeGap`, `GapWriter`,
   `NewGapWriter`, and the `"--- charge_gaps ledger ..."` section-header comment
   above them. Delete `internal/telemetry/gap_writer.go` entirely (moved to analytics

@@ -9,6 +9,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+// Nightly-detected vehicle-days whose battery math does not add up -- a charge record is missing or incomplete (RM28-telemetry-add-charge-gap-storage, MAG-15). One row per (account_id, tesla_id, gap_date): a day's shortfall is a single aggregate observation, never split across two rows. Written by internal/battery through the GapWriter port (telemetry never calls battery). No resolved_at / soft delete: a day that stops flagging is DELETED by the next nightly reconciliation, not marked resolved -- this table is a live worklist, not an audit trail. Owned by internal/telemetry; no other module reads this table directly.
+type ChargeGap struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	// Always resolved and NOT NULL: a vehicle that cannot be attributed to a currently-registered vehicle is filtered out of internal/battery's derivation before gap detection runs, unlike supercharger_sessions.tesla_id which is nullable for exactly that unattributed case.
+	TeslaID int64
+	Vin     string
+	GapDate pgtype.Date
+	// Which charge source is suspected missing for this day (D7a): SUPERCHARGER when a Supercharger session exists that day with NULL start/end battery percentages (the exact record that needs filling is already known); MANUAL otherwise (the vehicle was charged somewhere the Tesla Fleet API does not report). Inferred by internal/battery at detection time, never user-chosen.
+	MissingChargingType string
+	// When this (account_id, tesla_id, gap_date) was FIRST flagged. Preserved across every subsequent nightly re-upsert of the same still-flagged day -- NOT refreshed on conflict -- so it answers "how long has this been outstanding" for a future notification consumer.
+	CreatedAt pgtype.Timestamptz
+	// When this row was last confirmed still-flagging by a nightly run. Refreshed to now() on every UPSERT conflict; a day that stops flagging is deleted outright rather than leaving a stale updated_at behind.
+	UpdatedAt pgtype.Timestamptz
+}
+
 // Precomputed daily read model for the analytics module (RM29-analytics-add-vehicle-metrics, MAG-26 tier 3). One row per (account_id, tesla_id, metric_date) for EVERY day that has a telemetry.Snapshot -- dense, mirroring vehicle_snapshots' own grain, not a sparse subset of it (design D9, revised at the database design gate). Written exclusively by internal/analytics.Recalculator (Recalculate/Reconcile); read by internal/analytics.Reader (ConsumedByDay/OdometerDeltaByDay), both of which filter predecessor-less rows back out (design D13) to stay characterization-identical to the live-computed output this table replaces. Owned by internal/analytics; no other module reads this table directly.
 type VehicleMetric struct {
 	ID              uuid.UUID

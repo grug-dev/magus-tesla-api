@@ -112,7 +112,7 @@ func main() {
 
 	collector := &reconcilingCollector{
 		inner:     telemetry.NewService(pool, acct, tesla.NewClient(), tcfg),
-		reconcile: newNightlyReconciler(acct, recalculator, analyticsReader, telemetry.NewGapWriter(pool), loc),
+		reconcile: newNightlyReconciler(acct, recalculator, analyticsReader, analytics.NewGapWriter(pool), loc),
 	}
 
 	if !*once {
@@ -201,7 +201,7 @@ func (c *reconcilingCollector) CollectAll(ctx context.Context) (telemetry.CycleR
 // "gap reconciliation:") so they remain greppable and unambiguous — they are
 // emitted inside CollectAll, hence before the caller's own telemetry-cycle
 // summary line.
-func newNightlyReconciler(acct account.Service, recalculator analytics.Recalculator, analyticsReader analytics.Reader, gapWriter telemetry.GapWriter, loc *time.Location) func(context.Context) {
+func newNightlyReconciler(acct account.Service, recalculator analytics.Recalculator, analyticsReader analytics.Reader, gapWriter analytics.GapWriter, loc *time.Location) func(context.Context) {
 	return func(ctx context.Context) {
 		// "Yesterday" is resolved in the POLLER'S OWN ZONE, not UTC (roadmap D6/D18,
 		// design D-B12): the composition root owns the zone that answers "which days
@@ -244,12 +244,12 @@ func newNightlyReconciler(acct account.Service, recalculator analytics.Recalcula
 				continue
 			}
 
-			var flagged []telemetry.ChargeGap
+			var flagged []analytics.ChargeGap
 			for _, day := range days {
 				if !day.Flagged {
 					continue
 				}
-				flagged = append(flagged, telemetry.ChargeGap{
+				flagged = append(flagged, analytics.ChargeGap{
 					AccountID:           v.AccountID,
 					TeslaID:             v.TeslaID,
 					VIN:                 v.VIN,

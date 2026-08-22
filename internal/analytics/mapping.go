@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-
-	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
 // dateFrom converts a plain calendar-date time.Time to a valid pgtype.Date
@@ -48,11 +46,11 @@ func pgInt4FromPtr(v *int) pgtype.Int4 {
 	return pgtype.Int4{Int32: int32(*v), Valid: true}
 }
 
-// pgTextFromMissingType maps a telemetry.MissingChargingType to a nullable
+// pgTextFromMissingType maps a MissingChargingType to a nullable
 // pgtype.Text -- the zero value "" (never flagged, including a
 // predecessor-less row, design.md D9) becomes SQL NULL, matching
 // vehicle_metrics_missing_type_iff_flagged's CHECK constraint.
-func pgTextFromMissingType(v telemetry.MissingChargingType) pgtype.Text {
+func pgTextFromMissingType(v MissingChargingType) pgtype.Text {
 	if v == "" {
 		return pgtype.Text{Valid: false}
 	}
@@ -60,10 +58,10 @@ func pgTextFromMissingType(v telemetry.MissingChargingType) pgtype.Text {
 }
 
 // missingChargingTypeFromPg maps a nullable pgtype.Text back to
-// telemetry.MissingChargingType -- SQL NULL becomes the zero value "".
-func missingChargingTypeFromPg(v pgtype.Text) telemetry.MissingChargingType {
+// MissingChargingType -- SQL NULL becomes the zero value "".
+func missingChargingTypeFromPg(v pgtype.Text) MissingChargingType {
 	if !v.Valid {
 		return ""
 	}
-	return telemetry.MissingChargingType(v.String)
+	return MissingChargingType(v.String)
 }

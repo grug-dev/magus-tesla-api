@@ -1,4 +1,4 @@
-package telemetry
+package analytics
 
 import (
 	"context"
@@ -8,37 +8,38 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
+	analyticsdb "github.com/cristianpena/magus-tesla-api/internal/analytics/db"
 )
 
 // gapWriter is the concrete implementation of the GapWriter port
-// (RM28-telemetry-add-charge-gap-storage, design D3/D7/D7a/D7b). It is NOT
-// part of the store interface service.go defines for Collector/Reader —
+// (RM28-telemetry-add-charge-gap-storage, design D3/D7/D7a/D7b; relocated
+// here by RM29-analytics-own-charge-gaps). It is NOT part of the store
+// interface reader.go/recalculate.go define for Reader/Recalculator --
 // SuperchargerReader already established the precedent that a port not
 // shaped by that offline-fake-testable seam (because it is tested via real
 // DB-integration tests instead) gets its own small concrete type talking
-// directly to telemetrydb.Queries. pgtype never appears in this file: every
-// value it touches flows through the existing dateFrom (service.go) and the
-// new dateFromPg (mapping.go) helpers, both already typed in terms of
-// time.Time at the call site.
+// directly to analyticsdb.Queries. pgtype never appears in this file: every
+// value it touches flows through the existing dateFrom and dateFromPg
+// helpers (mapping.go), both already typed in terms of time.Time at the
+// call site.
 type gapWriter struct {
 	pool *pgxpool.Pool
-	q    *telemetrydb.Queries
+	q    *analyticsdb.Queries
 }
 
 // newGapWriter is the internal constructor called by the public NewGapWriter
-// in telemetry.go so the forward-declaration compiles before this file is
+// in analytics.go so the forward-declaration compiles before this file is
 // parsed (mirroring newSuperchargerReaderImpl's identical pattern, design
 // B6.3 of RM27-telemetry-add-supercharger-battery-pct).
 func newGapWriter(pool *pgxpool.Pool) *gapWriter {
-	return &gapWriter{pool: pool, q: telemetrydb.New(pool)}
+	return &gapWriter{pool: pool, q: analyticsdb.New(pool)}
 }
 
 // Compile-time assertion: *gapWriter must satisfy the public GapWriter interface.
 var _ GapWriter = (*gapWriter)(nil)
 
 // ReconcileWindow implements GapWriter. See the interface doc comment
-// (telemetry.go) for the full contract. Implementation shape (design.md's
+// (analytics.go) for the full contract. Implementation shape (design.md's
 // "Go-Level Seam Summary"):
 //
 //  1. Validate every element of flagged against (accountID, teslaID, start,
@@ -81,7 +82,7 @@ func (w *gapWriter) ReconcileWindow(ctx context.Context, accountID uuid.UUID, te
 
 	qtx := w.q.WithTx(tx)
 
-	existing, err := qtx.ChargeGapDatesByVehicleBetween(ctx, telemetrydb.ChargeGapDatesByVehicleBetweenParams{
+	existing, err := qtx.ChargeGapDatesByVehicleBetween(ctx, analyticsdb.ChargeGapDatesByVehicleBetweenParams{
 		AccountID: accountID,
 		TeslaID:   teslaID,
 		Start:     dateFrom(start),
@@ -98,7 +99,7 @@ func (w *gapWriter) ReconcileWindow(ctx context.Context, accountID uuid.UUID, te
 
 	for _, d := range existing {
 		if t := dateFromPg(d); !keep[t] {
-			if err := qtx.DeleteChargeGap(ctx, telemetrydb.DeleteChargeGapParams{
+			if err := qtx.DeleteChargeGap(ctx, analyticsdb.DeleteChargeGapParams{
 				AccountID: accountID,
 				TeslaID:   teslaID,
 				GapDate:   d,
@@ -109,7 +110,7 @@ func (w *gapWriter) ReconcileWindow(ctx context.Context, accountID uuid.UUID, te
 	}
 
 	for _, g := range flagged {
-		if err := qtx.UpsertChargeGap(ctx, telemetrydb.UpsertChargeGapParams{
+		if err := qtx.UpsertChargeGap(ctx, analyticsdb.UpsertChargeGapParams{
 			AccountID:           accountID,
 			TeslaID:             teslaID,
 			Vin:                 g.VIN,

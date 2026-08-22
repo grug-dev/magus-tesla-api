@@ -595,7 +595,7 @@ func buildConsumedChart(ctx context.Context, days []analytics.DayConsumption, st
 }
 
 // chargeTypeLabel resolves the bilingual charge-type noun used inside a
-// flagged-day tooltip. telemetry.MissingChargingType is a closed 2-value
+// flagged-day tooltip. analytics.MissingChargingType is a closed 2-value
 // enum (tier 1); this is the gateway's own closed mapping to a catalogue
 // key, kept here rather than in internal/telemetry because it is
 // presentation vocabulary, not domain vocabulary.
@@ -619,8 +619,8 @@ func buildYAxisTicks(max float64, format func(float64) string) []fragments.YAxis
 	return ticks
 }
 
-func chargeTypeLabel(ctx context.Context, t telemetry.MissingChargingType) string {
-	if t == telemetry.MissingChargingTypeSupercharger {
+func chargeTypeLabel(ctx context.Context, t analytics.MissingChargingType) string {
+	if t == analytics.MissingChargingTypeSupercharger {
 		return i18n.T(ctx, i18n.KeyHistoryChargeTypeSupercharger)
 	}
 	return i18n.T(ctx, i18n.KeyHistoryChargeTypeManual)

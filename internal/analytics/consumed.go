@@ -62,7 +62,7 @@ type vehicleMetricRow struct {
 	// for such a row (design.md D9's dedicated rationale).
 	ConsumedPct         *float64
 	Flagged             bool
-	MissingChargingType telemetry.MissingChargingType // "" maps to SQL NULL (mapping.go)
+	MissingChargingType MissingChargingType // "" maps to SQL NULL (mapping.go)
 }
 
 // calendarDay normalizes an already-bare calendar date to this platform's
@@ -130,16 +130,16 @@ func sumSuperchargerPctBetween(sessions []telemetry.SuperchargerSession, from, t
 // [from, to) exists with either battery percentage NULL (the exact record
 // needing a fill is already known); MANUAL otherwise. Only called once a day
 // is already known to be Flagged.
-func inferMissingChargingType(sessions []telemetry.SuperchargerSession, from, to time.Time) telemetry.MissingChargingType {
+func inferMissingChargingType(sessions []telemetry.SuperchargerSession, from, to time.Time) MissingChargingType {
 	for _, s := range sessions {
 		if s.ChargeStopDateTime.Before(from) || !s.ChargeStopDateTime.Before(to) {
 			continue
 		}
 		if s.StartBatteryPct == nil || s.EndBatteryPct == nil {
-			return telemetry.MissingChargingTypeSupercharger
+			return MissingChargingTypeSupercharger
 		}
 	}
-	return telemetry.MissingChargingTypeManual
+	return MissingChargingTypeManual
 }
 
 // sumManualPctBetween sums BatteryDelta() across every manual entry whose
@@ -259,7 +259,7 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 
 		flagged := consumed < 0 || (consumed == 0 && distanceKm > minFlagDistanceKm)
 
-		var missingType telemetry.MissingChargingType
+		var missingType MissingChargingType
 		if flagged {
 			missingType = inferMissingChargingType(sessions, prev.CapturedAt, cur.CapturedAt)
 		}
