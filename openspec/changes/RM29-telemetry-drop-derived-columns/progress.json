@@ -9,12 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "6a.1",
-      "6a.2",
-      "6a.3",
-      "6b.1",
-      "6b.2",
-      "6b.3",
       "7.1",
       "7.2",
       "7.3",
@@ -49,10 +43,18 @@
       "4.9",
       "5.1",
       "5.2"
+    ],
+    "awaiting-user-verification": [
+      "6a.1",
+      "6a.2",
+      "6a.3",
+      "6b.1",
+      "6b.2",
+      "6b.3"
     ]
   },
   "created_at": "2026-08-21T22:00:00Z",
-  "updated_at": "2026-08-22T02:04:00Z",
+  "updated_at": "2026-08-22T02:13:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -560,14 +562,21 @@
       ],
       "wave": 6,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Renamed TestStore_PreviousSnapshot_RoundTrips -> TestReader_SnapshotPrecedingDay_RoundTrips. All three required cases (predecessor exists; single-row vehicle with a later day; no snapshots -> nil,nil) were already present from 4.8; no new case needed.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
     },
     {
       "id": "6a.2",
@@ -580,14 +589,21 @@
       ],
       "wave": 6,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Wrote TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan from design.md Index Plan. No index added. Flagged: the tier-3 EXPLAIN precedent it was told to mirror never existed - only a doc comment claiming it does.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
     },
     {
       "id": "6a.3",
@@ -600,14 +616,21 @@
       ],
       "wave": 6,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Wrote TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor: day N-1 plus two day-N captures (second replaces first via dedupe UPSERT); asserts the day N-1 row is returned, never either day-N row. Replaces the deleted TestDayStart_* tests.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
     },
     {
       "id": "6b.1",
@@ -620,14 +643,21 @@
       ],
       "wave": 6,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Stripped the five _calc fields from every telemetry.Snapshot fixture literal and from seedSnapshot INSERT (column list + renumbered placeholders). Fixtures A/B/C expected values left byte-identical, per roadmap D10. This cleared the owner-reported vet break.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
     },
     {
       "id": "6b.2",
@@ -640,14 +670,21 @@
       ],
       "wave": 6,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added metricsFixtureD, seedManualEntry (via charging.NewWriter), TestRecalculate_FixtureD_MultiDayGap with the full-row plus non-empty ConsumedByDay/OdometerDeltaByDay assertions, and TestRecalculate_FixtureD2_ChargeInsideTheGap asserting consumed_pct 55.0 (D8b, DB-backed).",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
     },
     {
       "id": "6b.3",
@@ -660,14 +697,21 @@
       ],
       "wave": 6,
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added metricsFixtureE + TestRecalculate_ZeroDivisorGuard (non-NULL zeros, NULL efficiency, ConsumedByDay returns the day) and TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow (day N+1 moves 100.0/15 -> 70.0/5 after N is replaced).",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
     },
     {
       "id": "7.1",
@@ -926,6 +970,38 @@
       "scope": "tasks:6a.1",
       "decision": "Narrowed task 6a.1 from authoring the round-trip test to renaming and verifying the one wave 4 already wrote.",
       "why": "4.8 and 6a.1 both claimed the same test. Narrowing removes duplicate work without weakening a criterion - all three cases are still required."
+    },
+    {
+      "id": "A8",
+      "at": "2026-08-22T02:05:00Z",
+      "made_by": "autopilot",
+      "scope": "test-ask-point",
+      "decision": "Deferred the end-of-wave-5 ask for the owner to run the suite to the end of wave 6.",
+      "why": "The test binary does not compile until 6b.1 removes the deleted _calc fields, so the suite cannot run at all. Asking now spends a round-trip on a guaranteed compile error."
+    },
+    {
+      "id": "A9",
+      "at": "2026-08-22T02:05:00Z",
+      "made_by": "autopilot",
+      "scope": "parallelism",
+      "decision": "Ran waves 6a and 6b as two concurrent workers.",
+      "why": "Disjoint modules and one file each, precedent A5, and the bucket is at 5% - the collision hazard that governed A6 is gone now that wave 4 has already landed."
+    },
+    {
+      "id": "A10",
+      "at": "2026-08-22T02:13:00Z",
+      "made_by": "autopilot",
+      "scope": "tasks:8.1",
+      "decision": "Will NOT reformat to satisfy 8.1 gofmt -l . expect clean. Reporting the real result plus the finding instead.",
+      "why": "All 8 unformatted files are unformatted on main and untouched here, spanning gateway/account/config - outside this change modules. Reformatting them is scope creep across module boundaries."
+    },
+    {
+      "id": "A11",
+      "at": "2026-08-22T02:13:00Z",
+      "made_by": "autopilot",
+      "scope": "finding:docs",
+      "decision": "Left three telemetry.go doc comments claiming EXPLAIN verification that no test ever provided; recording as backlog, not fixing here.",
+      "why": "Tier-3 debt found by the 6a worker. Fixing it means auditing tier-3 claims mid-tier-4; the owner prefers scope held to the literal ticket."
     }
   ],
   "events": [
@@ -988,6 +1064,16 @@
       "at": "2026-08-22T02:04:00Z",
       "agent": "leader",
       "event": "Wave 5 COMPLETE (analytics). Leader verified the end state rather than trusting the report: migration file matches design.md Migration 2 verbatim, git shows NO diff on generated sqlc output (only the new untracked migration), go build + gofmt clean. go vet still red ONLY on analytics/db_integration_test.go - the expected pre-flagged wave-6b work."
+    },
+    {
+      "at": "2026-08-22T02:05:00Z",
+      "agent": "leader",
+      "event": "Wave 6 dispatched: 6a (telemetry, Sonnet) and 6b (analytics, Sonnet) IN PARALLEL, one file each. Budget at dispatch: five_hour 5%, context 10%. 6b.1 is the task that clears the go vet failure the owner reported."
+    },
+    {
+      "at": "2026-08-22T02:13:00Z",
+      "agent": "leader",
+      "event": "Wave 6 COMPLETE (6a telemetry + 6b analytics, concurrent, no collision). Leader verified repo-wide rather than trusting reports: go vet ./... exits 0 (owner-reported break CLEARED), go build clean. Remaining *Calc references are analytics own consumptionCalc struct, correctly untouched. Tests written but NOT run - all six are awaiting-user-verification."
     }
   ]
 }

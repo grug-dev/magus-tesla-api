@@ -25,13 +25,29 @@
 // assertion in this file matches design.md's Test Contract exactly.
 //
 // manual_charge_entries DOES have a clean public writer,
-// charging.NewWriter(pool).Create, and it is genuinely usable in bounds — but
-// none of design.md's Test Contract fixtures (A/B/C) or the D7/D8/D-Test-
-// Contract Reconcile scenarios this file covers include a manual entry, so
-// no test below calls it. A future fixture that needs one should use
-// charging.NewWriter(pool).Create, not direct SQL, exactly as this file uses
+// charging.NewWriter(pool).Create — TestRecalculate_FixtureD2_ChargeInsideTheGap
+// below (RM29-telemetry-drop-derived-columns, tier 4) is the first test in
+// this file to use it, exactly as this file uses
 // telemetry.NewReader/NewSuperchargerReader/charging.NewReader (never
 // telemetrydb/chargingdb) for every READ against seeded data.
+//
+// # RM29-telemetry-drop-derived-columns (tier 4) — tasks 6b.1/6b.2/6b.3
+//
+// Tier 4 moved the five per-day consumption figures from telemetry
+// (deriveConsumption, once computed at write time and stored as
+// vehicle_snapshots' own _calc columns) into this module
+// (consumption.go's deriveConsumption, computed by Recalculate itself).
+// vehicle_snapshots no longer HAS those five columns (telemetry migration
+// 20260822000001), so every fixture below that seeds vehicle_snapshots (via
+// seedSnapshot) now supplies ONLY the raw observations
+// (odometer_km, battery_level_pct, battery_range_km, captured_at,
+// captured_date) — the expected vehicle_metrics values are PRODUCED by
+// Recalculate's real derivation, never copied off the seed (design.md
+// D1/D10, roadmap D10). Fixtures A/B/C's expected values are UNCHANGED from
+// tier 3 (the characterization bar), and two more fixtures were added: D
+// (a multi-day capture gap — the case telemetry.Reader.SnapshotPrecedingDay
+// exists for, design.md D2/D7) and E (the battery_used_pct_calc == 0
+// divisor guard, distinct from Fixture B's negative case).
 package analytics
 
 import (
@@ -97,20 +113,14 @@ func fixtureAPair(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snaps
 		BatteryLevelPct: 80,
 		BatteryRangeKm:  300.0,
 	}
-	usedPct := 15
-	distanceKm := 50.0
-	daysSpanned := 1
 	cur = telemetry.Snapshot{
-		AccountID:              accountID,
-		TeslaID:                teslaID,
-		CapturedAt:             time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
-		CapturedDate:           time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC),
-		OdometerKm:             1050.0,
-		BatteryLevelPct:        65,
-		BatteryRangeKm:         280.0,
-		DistanceTraveledKmCalc: &distanceKm,
-		BatteryUsedPctCalc:     &usedPct,
-		DaysSpannedCalc:        &daysSpanned,
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC),
+		OdometerKm:      1050.0,
+		BatteryLevelPct: 65,
+		BatteryRangeKm:  280.0,
 	}
 	return prev, cur
 }
@@ -297,16 +307,18 @@ func TestRecalculate_ManualError_Propagates(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // seedSnapshot inserts one telemetry.Snapshot directly into vehicle_snapshots
-// (D19: telemetry exposes no public writer for a single row). Every _calc
-// column comes verbatim from the given Snapshot's own pointer fields —
-// telemetry computes these in Go at write time (deriveConsumption,
-// internal/telemetry/service.go); this helper reproduces that
-// already-computed shape rather than re-deriving it, so Recalculate's fetch
-// (telemetry.Reader.SnapshotsByVehicleBetween/UpdatedSince, the REAL
-// implementation, not a fake) reads back exactly what design.md's Test
-// Contract fixtures specify. updatedAt defaults to CapturedAt when the
-// caller leaves Snapshot.UpdatedAt at its zero value — callers that need
-// precise watermark control (task 6.2's Reconcile tests) set it explicitly.
+// (D19: telemetry exposes no public writer for a single row). As of
+// RM29-telemetry-drop-derived-columns (tier 4), vehicle_snapshots no longer
+// carries the five _calc columns at all (telemetry's migration
+// 20260822000001 dropped them, and telemetry.Snapshot lost the matching
+// fields) — this helper seeds ONLY the surviving raw columns
+// (odometer_km, battery_level_pct, battery_range_km, captured_at,
+// captured_date). The five derived figures are no longer something a caller
+// supplies: Recalculate's real read path derives them itself, from these raw
+// columns, via consumption.go's deriveConsumption — which is the entire
+// point of this tier (design.md D1/D10). updatedAt defaults to CapturedAt
+// when the caller leaves Snapshot.UpdatedAt at its zero value — callers that
+// need precise watermark control (the Reconcile tests) set it explicitly.
 func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 	t.Helper()
 	updatedAt := s.UpdatedAt
@@ -318,24 +330,18 @@ func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 			account_id, tesla_id, captured_at, captured_date, raw_data,
 			battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
 			odometer_km, inside_temp_c, outside_temp_c, locked, car_version,
-			distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
-			estimated_range_km_calc, days_spanned_calc, updated_at
+			updated_at
 		) VALUES (
 			$1, $2, $3, $4, '{}'::jsonb,
 			$5, $6, 'Complete', 0,
 			$7, 0, 0, false, '',
-			$8, $9, $10, $11, $12, $13
+			$8
 		)`,
 		s.AccountID, s.TeslaID,
 		pgtype.Timestamptz{Time: s.CapturedAt, Valid: true},
 		dateFrom(s.CapturedDate),
 		int32(s.BatteryLevelPct), s.BatteryRangeKm,
 		s.OdometerKm,
-		pgFloat8FromPtr(s.DistanceTraveledKmCalc),
-		pgInt4FromPtr(s.BatteryUsedPctCalc),
-		pgFloat8FromPtr(s.KmPerPctCalc),
-		pgFloat8FromPtr(s.EstimatedRangeKmCalc),
-		pgInt4FromPtr(s.DaysSpannedCalc),
 		pgtype.Timestamptz{Time: updatedAt, Valid: true},
 	)
 	if err != nil {
@@ -490,19 +496,23 @@ func fetchWatermark(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesla
 // ---------------------------------------------------------------------------
 // Fixture builders — design.md's Test Contract Fixtures A/B/C, reproduced
 // here (not imported from consumed_test.go — package-internal _test.go files
-// don't export across files in the sense of needing an import, but each
-// fixture here additionally carries KmPerPctCalc/EstimatedRangeKmCalc, which
-// TestDeriveVehicleMetrics_FixtureA/B/C's own local fixtures need too — kept
-// side by side rather than factored into a single shared helper because the
-// two test families assert different things (pure-function output there,
-// full-column persisted-row content plus Reader read-back here) and
-// design.md's contract is the single source both are checked against).
+// don't export across files in the sense of needing an import, but the two
+// test families assert different things: pure-function output there,
+// full-column persisted-row content plus Reader read-back here) —
+// design.md's contract is the single source both are checked against.
+//
+// As of RM29-telemetry-drop-derived-columns (tier 4), telemetry.Snapshot no
+// longer carries the five _calc fields at all, so every fixture below
+// supplies ONLY raw observations (OdometerKm, BatteryLevelPct, CapturedAt,
+// CapturedDate, BatteryRangeKm) — the expected vehicle_metrics values below
+// must now be PRODUCED by Recalculate's real derivation
+// (consumption.go's deriveConsumption), never copied off the seed, which is
+// the whole point of this tier (design.md D1/D10, roadmap D10).
 // ---------------------------------------------------------------------------
 
 // metricsFixtureA returns design.md's Test Contract Fixture A: a plain day,
-// no charge events. cur carries every _calc column telemetry would have
-// computed at write time — deriveVehicleMetrics only copies these verbatim
-// (D9/D10); direct-SQL seeding (D19) must supply them explicitly.
+// no charge events. Raw observations only — analytics computes the five
+// derived figures itself (D1/D10).
 func metricsFixtureA(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
 	prev = telemetry.Snapshot{
 		AccountID:       accountID,
@@ -514,18 +524,13 @@ func metricsFixtureA(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 		BatteryRangeKm:  300.0,
 	}
 	cur = telemetry.Snapshot{
-		AccountID:              accountID,
-		TeslaID:                teslaID,
-		CapturedAt:             time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
-		CapturedDate:           day(2026, 8, 11),
-		OdometerKm:             1050.0,
-		BatteryLevelPct:        65,
-		BatteryRangeKm:         280.0,
-		DistanceTraveledKmCalc: fp(50.0),
-		BatteryUsedPctCalc:     intPtr(15),
-		KmPerPctCalc:           fp(50.0 / 15.0),
-		EstimatedRangeKmCalc:   fp(50.0 / 15.0 * 100),
-		DaysSpannedCalc:        intPtr(1),
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 11, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 11),
+		OdometerKm:      1050.0,
+		BatteryLevelPct: 65,
+		BatteryRangeKm:  280.0,
 	}
 	return prev, cur
 }
@@ -550,16 +555,13 @@ func metricsFixtureB(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Sn
 		BatteryRangeKm:  250.0,
 	}
 	cur = telemetry.Snapshot{
-		AccountID:              accountID,
-		TeslaID:                teslaID,
-		CapturedAt:             time.Date(2026, 8, 13, 3, 30, 0, 0, time.UTC),
-		CapturedDate:           day(2026, 8, 13),
-		OdometerKm:             1998.0,
-		BatteryLevelPct:        85,
-		BatteryRangeKm:         260.0,
-		DistanceTraveledKmCalc: fp(-2.0),
-		BatteryUsedPctCalc:     intPtr(-45),
-		DaysSpannedCalc:        intPtr(1),
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 13, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 13),
+		OdometerKm:      1998.0,
+		BatteryLevelPct: 85,
+		BatteryRangeKm:  260.0,
 	}
 	return prev, cur
 }
@@ -812,9 +814,6 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 		AccountID: accountID, TeslaID: teslaID,
 		CapturedAt: day1.Add(3*time.Hour + 30*time.Minute), CapturedDate: day1,
 		OdometerKm: 520.0, BatteryLevelPct: 62, BatteryRangeKm: 240.0,
-		DistanceTraveledKmCalc: fp(20.0), BatteryUsedPctCalc: intPtr(8),
-		KmPerPctCalc: fp(20.0 / 8.0), EstimatedRangeKmCalc: fp(20.0 / 8.0 * 100),
-		DaysSpannedCalc: intPtr(1),
 	}
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
@@ -873,9 +872,6 @@ func TestReconcile_Idempotent(t *testing.T) {
 		AccountID: accountID, TeslaID: teslaID,
 		CapturedAt: day1.Add(3*time.Hour + 30*time.Minute), CapturedDate: day1,
 		OdometerKm: 1050.0, BatteryLevelPct: 65, BatteryRangeKm: 280.0,
-		DistanceTraveledKmCalc: fp(50.0), BatteryUsedPctCalc: intPtr(15),
-		KmPerPctCalc: fp(50.0 / 15.0), EstimatedRangeKmCalc: fp(50.0 / 15.0 * 100),
-		DaysSpannedCalc: intPtr(1),
 	}
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
@@ -957,9 +953,6 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 		AccountID: accountID, TeslaID: teslaID,
 		CapturedAt: curDay.Add(3*time.Hour + 30*time.Minute), CapturedDate: curDay,
 		OdometerKm: 1010.0, BatteryLevelPct: 45, BatteryRangeKm: 210.0,
-		DistanceTraveledKmCalc: fp(10.0), BatteryUsedPctCalc: intPtr(5),
-		KmPerPctCalc: fp(10.0 / 5.0), EstimatedRangeKmCalc: fp(10.0 / 5.0 * 100),
-		DaysSpannedCalc: intPtr(1),
 	}
 	seedSnapshot(t, pool, prev)
 	seedSnapshot(t, pool, cur)
@@ -1169,5 +1162,432 @@ func TestReader_BothMethods_ExcludeFixtureCRow(t *testing.T) {
 	}
 	if len(gotOdometer) != 0 {
 		t.Errorf("OdometerDeltaByDay: want empty (D13's IS NOT NULL filter excludes the predecessor-less row), got %+v", gotOdometer)
+	}
+}
+
+// ===========================================================================
+// Task 6b.2 (RM29-telemetry-drop-derived-columns, tier 4) --
+// TestRecalculate_FixtureD_MultiDayGap / _FixtureD2_ChargeInsideTheGap: the
+// DB-backed proof of design.md D2/D7 (telemetry.Reader.SnapshotPrecedingDay)
+// and D8b (the widened charge-source fetch), exercised through the REAL
+// telemetry/charging Readers, not fakes -- consumed_test.go's
+// TestDeriveVehicleMetrics_FixtureD*/consumption_test.go pin the same
+// figures through the pure functions; these tests pin that Recalculate's own
+// I/O (the real SnapshotsByVehicleBetween/SnapshotPrecedingDay/
+// SuperchargerSessionsByVehicleBetween/ListEntriesByVehicleBetween calls)
+// wires them together correctly end to end.
+// ===========================================================================
+
+// metricsFixtureD returns design.md's Test Contract Fixture D: a seven-day
+// capture gap. Raw observations only (D1/D10) -- the true predecessor
+// (2026-08-01) sits far outside Recalculate's normal one-day lookback and is
+// reachable only via telemetry.Reader.SnapshotPrecedingDay (design.md D2/D7).
+func metricsFixtureD(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
+	prev = telemetry.Snapshot{
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 1, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 1),
+		OdometerKm:      1000.0,
+		BatteryLevelPct: 90,
+		BatteryRangeKm:  350.0,
+	}
+	cur = telemetry.Snapshot{
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 8),
+		OdometerKm:      1210.0,
+		BatteryLevelPct: 55,
+		BatteryRangeKm:  220.0,
+	}
+	return prev, cur
+}
+
+// seedManualEntry creates one charging.Entry via the module's own public
+// writer, charging.NewWriter(pool).Create -- manual_charge_entries DOES have
+// a clean writer (unlike vehicle_snapshots/supercharger_sessions, D19), so
+// this is the right tool rather than direct SQL. startPct/endPct set the
+// entry's battery delta (BatteryDelta() = end - start), the only field
+// Fixture D2 cares about; every other required field is a plausible
+// placeholder.
+func seedManualEntry(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, chargedOn time.Time, startPct, endPct int) {
+	t.Helper()
+	lk := "HOME"
+	_, err := charging.NewWriter(pool).Create(context.Background(), charging.Entry{
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		VIN:             "5YJ3E1EA0NF000001",
+		ChargedOn:       chargedOn,
+		EnergyAddedKWh:  10.0,
+		Price:           1000.0,
+		Currency:        "COP",
+		LocationKind:    &lk,
+		StartBatteryPct: intPtr(startPct),
+		EndBatteryPct:   intPtr(endPct),
+	})
+	if err != nil {
+		t.Fatalf("seeding manual_charge_entries via charging.Writer: %v", err)
+	}
+}
+
+// TestRecalculate_FixtureD_MultiDayGap covers design.md's Test Contract
+// Fixture D end to end against the real telemetry Reader: seeding ONLY the
+// 2026-08-01 and 2026-08-08 snapshots (nothing in between), Recalculate's
+// own SnapshotsByVehicleBetween fetch returns just the current row -- the
+// predecessor arrives solely through the real SnapshotPrecedingDay call.
+func TestRecalculate_FixtureD_MultiDayGap(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(950001)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	prev, cur := metricsFixtureD(accountID, teslaID)
+	seedSnapshot(t, pool, prev)
+	seedSnapshot(t, pool, cur)
+	// No Supercharger sessions, no manual entries anywhere in the span.
+
+	rec := newRealRecalculator(pool)
+	start := day(2026, 8, 7)
+	end := start
+	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+		t.Fatalf("Recalculate: %v", err)
+	}
+
+	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	if !ok {
+		t.Fatal("expected a vehicle_metrics row for Fixture D's gap day, found none -- the day SnapshotPrecedingDay exists to recover")
+	}
+	if row.BatteryLevelPct != 55 {
+		t.Errorf("BatteryLevelPct: want 55, got %d", row.BatteryLevelPct)
+	}
+	if row.OdometerKm != 1210.0 {
+		t.Errorf("OdometerKm: want 1210.0, got %v", row.OdometerKm)
+	}
+	if row.BatteryRangeKm != 220.0 {
+		t.Errorf("BatteryRangeKm: want 220.0, got %v", row.BatteryRangeKm)
+	}
+	if !row.DistanceTraveledKmCalc.Valid || !approxEqual(row.DistanceTraveledKmCalc.Float64, 210.0) {
+		t.Errorf("DistanceTraveledKmCalc: want 210.0 (the true total across the gap, never averaged), got %+v", row.DistanceTraveledKmCalc)
+	}
+	if !row.BatteryUsedPctCalc.Valid || row.BatteryUsedPctCalc.Int32 != 35 {
+		t.Errorf("BatteryUsedPctCalc: want 35, got %+v", row.BatteryUsedPctCalc)
+	}
+	if !row.DaysSpannedCalc.Valid || row.DaysSpannedCalc.Int32 != 7 {
+		t.Errorf("DaysSpannedCalc: want 7 -- NOT 1 -- got %+v", row.DaysSpannedCalc)
+	}
+	if !row.KmPerPctCalc.Valid || !approxEqual(row.KmPerPctCalc.Float64, 6.0) {
+		t.Errorf("KmPerPctCalc: want 6.0, got %+v", row.KmPerPctCalc)
+	}
+	if !row.EstimatedRangeKmCalc.Valid || !approxEqual(row.EstimatedRangeKmCalc.Float64, 600.0) {
+		t.Errorf("EstimatedRangeKmCalc: want 600.0, got %+v", row.EstimatedRangeKmCalc)
+	}
+	if !row.ConsumedPct.Valid || !approxEqual(row.ConsumedPct.Float64, 35.0) {
+		t.Errorf("ConsumedPct: want 35.0 (no charge events in the gap), got %+v", row.ConsumedPct)
+	}
+	if row.Flagged != false {
+		t.Errorf("Flagged: want false, got %v", row.Flagged)
+	}
+	if row.MissingChargingType.Valid {
+		t.Errorf("MissingChargingType: want NULL, got %v", row.MissingChargingType.String)
+	}
+
+	// The non-empty assertion below IS the point (design.md): an
+	// implementation that omits the SnapshotPrecedingDay call falls into the
+	// prev == nil branch and both Reader methods return an EMPTY slice -- a
+	// silently dropped day that compiles and does not error.
+	rdr := newRealReader(pool)
+
+	gotConsumed, err := rdr.ConsumedByDay(ctx, accountID, teslaID, start, end)
+	if err != nil {
+		t.Fatalf("ConsumedByDay: %v", err)
+	}
+	if len(gotConsumed) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(gotConsumed), gotConsumed)
+	}
+	c := gotConsumed[0]
+	if !c.Date.Equal(start) {
+		t.Errorf("ConsumedByDay Date: want %v, got %v", start, c.Date)
+	}
+	if !approxEqual(c.ConsumedPct, 35.0) {
+		t.Errorf("ConsumedByDay ConsumedPct: want 35.0, got %v", c.ConsumedPct)
+	}
+	if c.DistanceKm != 210.0 {
+		t.Errorf("ConsumedByDay DistanceKm: want 210.0, got %v", c.DistanceKm)
+	}
+	if c.Flagged {
+		t.Error("ConsumedByDay: want Flagged=false")
+	}
+	if c.MissingChargingType != "" {
+		t.Errorf("ConsumedByDay MissingChargingType: want \"\", got %v", c.MissingChargingType)
+	}
+	if c.DaysSpanned != 7 {
+		t.Errorf("ConsumedByDay DaysSpanned: want 7, got %d", c.DaysSpanned)
+	}
+
+	gotOdometer, err := rdr.OdometerDeltaByDay(ctx, accountID, teslaID, start, end)
+	if err != nil {
+		t.Fatalf("OdometerDeltaByDay: %v", err)
+	}
+	if len(gotOdometer) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(gotOdometer), gotOdometer)
+	}
+	if gotOdometer[0].KmDriven != 210.0 {
+		t.Errorf("OdometerDeltaByDay KmDriven: want 210.0, got %v", gotOdometer[0].KmDriven)
+	}
+	if gotOdometer[0].OdometerKm != 1210.0 {
+		t.Errorf("OdometerDeltaByDay OdometerKm: want 1210.0, got %v", gotOdometer[0].OdometerKm)
+	}
+}
+
+// TestRecalculate_FixtureD2_ChargeInsideTheGap covers design.md's Test
+// Contract Fixture D2 -- D8b's proof, end to end against the real
+// telemetry/charging Readers. Same gap as Fixture D, plus one manual charge
+// entry dated 2026-08-04, four days before the un-widened fetch's own start
+// (2026-08-06) -- it is fetched only because Recalculate widens both
+// charge-source fetches back to effectiveDay(preceding) when preceding
+// exists and precedes the normal lookback (design.md D8b).
+func TestRecalculate_FixtureD2_ChargeInsideTheGap(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(950002)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	prev, cur := metricsFixtureD(accountID, teslaID)
+	seedSnapshot(t, pool, prev)
+	seedSnapshot(t, pool, cur)
+	seedManualEntry(t, pool, accountID, teslaID, day(2026, 8, 4), 30, 50) // +20
+
+	rec := newRealRecalculator(pool)
+	start := day(2026, 8, 7)
+	end := start
+	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+		t.Fatalf("Recalculate: %v", err)
+	}
+
+	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	if !ok {
+		t.Fatal("expected a vehicle_metrics row for Fixture D2, found none")
+	}
+	if !row.BatteryUsedPctCalc.Valid || row.BatteryUsedPctCalc.Int32 != 35 {
+		t.Errorf("BatteryUsedPctCalc: want 35 (the raw delta is unaffected by charging), got %+v", row.BatteryUsedPctCalc)
+	}
+	if !row.DistanceTraveledKmCalc.Valid || !approxEqual(row.DistanceTraveledKmCalc.Float64, 210.0) {
+		t.Errorf("DistanceTraveledKmCalc: want 210.0, got %+v", row.DistanceTraveledKmCalc)
+	}
+	if !row.DaysSpannedCalc.Valid || row.DaysSpannedCalc.Int32 != 7 {
+		t.Errorf("DaysSpannedCalc: want 7, got %+v", row.DaysSpannedCalc)
+	}
+	wantConsumed := 55.0 // 35 (raw delta) + 20 (the matched manual charge)
+	if !row.ConsumedPct.Valid || !approxEqual(row.ConsumedPct.Float64, wantConsumed) {
+		t.Errorf("ConsumedPct: want %v -- an implementation that widened the predecessor lookup (D2/D7) but not the charge-source fetches (D8b) produces 35.0 here, got %+v", wantConsumed, row.ConsumedPct)
+	}
+	if row.Flagged != false {
+		t.Errorf("Flagged: want false, got %v", row.Flagged)
+	}
+}
+
+// ===========================================================================
+// Task 6b.3 (RM29-telemetry-drop-derived-columns, tier 4) --
+// TestRecalculate_ZeroDivisorGuard / _AfterSameDayRecapture_RefreshesSuccessorRow.
+// ===========================================================================
+
+// metricsFixtureE returns design.md's Test Contract Fixture E: the
+// battery_used_pct_calc == 0 divisor guard (a parked day) -- distinct from
+// Fixture B's negative-divisor case: the guard is `batteryUsed > 0`, so zero
+// is excluded exactly like a negative. Raw observations only (D1/D10).
+func metricsFixtureE(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
+	prev = telemetry.Snapshot{
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 15, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 15),
+		OdometerKm:      3000.0,
+		BatteryLevelPct: 70,
+		BatteryRangeKm:  280.0,
+	}
+	cur = telemetry.Snapshot{
+		AccountID:       accountID,
+		TeslaID:         teslaID,
+		CapturedAt:      time.Date(2026, 8, 16, 3, 30, 0, 0, time.UTC),
+		CapturedDate:    day(2026, 8, 16),
+		OdometerKm:      3000.0,
+		BatteryLevelPct: 70,
+		BatteryRangeKm:  280.0,
+	}
+	return prev, cur
+}
+
+// TestRecalculate_ZeroDivisorGuard covers design.md's Test Contract Fixture
+// E end to end: both efficiency columns must be NULL while
+// distance_traveled_km_calc (0.0) and battery_used_pct_calc (0) are stored
+// NON-NULL -- a stored zero is a truthful reading (a parked day), never
+// treated as an absence. ConsumedByDay must still return the day: a 0 is not
+// an absence, distinguishing a correct implementation from one that
+// conflated "zero" with "absent" (the IS NOT NULL filter checks NULL-ness,
+// not falsy-ness).
+func TestRecalculate_ZeroDivisorGuard(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(960001)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	prev, cur := metricsFixtureE(accountID, teslaID)
+	seedSnapshot(t, pool, prev)
+	seedSnapshot(t, pool, cur)
+
+	rec := newRealRecalculator(pool)
+	start := day(2026, 8, 15)
+	end := start
+	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+		t.Fatalf("Recalculate: %v", err)
+	}
+
+	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	if !ok {
+		t.Fatal("expected a vehicle_metrics row for Fixture E, found none")
+	}
+	if !row.DistanceTraveledKmCalc.Valid || !approxEqual(row.DistanceTraveledKmCalc.Float64, 0.0) {
+		t.Errorf("DistanceTraveledKmCalc: want 0.0 (stored, non-NULL -- a truthful zero), got %+v", row.DistanceTraveledKmCalc)
+	}
+	if !row.BatteryUsedPctCalc.Valid || row.BatteryUsedPctCalc.Int32 != 0 {
+		t.Errorf("BatteryUsedPctCalc: want 0 (stored, non-NULL), got %+v", row.BatteryUsedPctCalc)
+	}
+	if row.KmPerPctCalc.Valid {
+		t.Errorf("KmPerPctCalc: want NULL -- the guard is batteryUsed > 0, zero is excluded exactly like a negative, got %v", row.KmPerPctCalc.Float64)
+	}
+	if row.EstimatedRangeKmCalc.Valid {
+		t.Errorf("EstimatedRangeKmCalc: want NULL (same guard), got %v", row.EstimatedRangeKmCalc.Float64)
+	}
+	if !row.DaysSpannedCalc.Valid || row.DaysSpannedCalc.Int32 != 1 {
+		t.Errorf("DaysSpannedCalc: want 1, got %+v", row.DaysSpannedCalc)
+	}
+	if !row.ConsumedPct.Valid || !approxEqual(row.ConsumedPct.Float64, 0.0) {
+		t.Errorf("ConsumedPct: want 0.0, got %+v", row.ConsumedPct)
+	}
+	if row.Flagged != false {
+		t.Errorf("Flagged: want false (consumed==0 but distanceKm 0.0 is not > minFlagDistanceKm 10.0), got %v", row.Flagged)
+	}
+	if row.MissingChargingType.Valid {
+		t.Errorf("MissingChargingType: want NULL, got %v", row.MissingChargingType.String)
+	}
+
+	rdr := newRealReader(pool)
+	gotConsumed, err := rdr.ConsumedByDay(ctx, accountID, teslaID, start, end)
+	if err != nil {
+		t.Fatalf("ConsumedByDay: %v", err)
+	}
+	if len(gotConsumed) != 1 {
+		t.Fatalf("want exactly 1 entry (a 0 is not an absence -- battery_used_pct_calc is 0, not NULL), got %d: %+v", len(gotConsumed), gotConsumed)
+	}
+	c := gotConsumed[0]
+	if !approxEqual(c.ConsumedPct, 0.0) {
+		t.Errorf("ConsumedPct: want 0.0, got %v", c.ConsumedPct)
+	}
+	if c.DistanceKm != 0.0 {
+		t.Errorf("DistanceKm: want 0.0, got %v", c.DistanceKm)
+	}
+	if c.Flagged {
+		t.Error("want Flagged=false")
+	}
+	if c.DaysSpanned != 1 {
+		t.Errorf("DaysSpanned: want 1, got %d", c.DaysSpanned)
+	}
+}
+
+// TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow is the
+// derived-columns half of telemetry's old
+// TestStore_SnapshotUpsert_RecapturesRecomputeDerivedColumns (design.md's
+// "Characterization parity contract" table), re-homed here. Before this
+// tier, a successor row's five _calc figures were computed ONCE at
+// telemetry's write time against whatever its predecessor said then, and
+// were never recomputed when that predecessor was later REPLACED by a
+// same-day re-capture (vehicle_snapshots_account_tesla_date_unique's dedupe
+// UPSERT) -- the stale-successor bug design.md D10 names, unobservable
+// before this change because there was no derivation left to re-run.
+// Recalculate now derives fresh from whatever the two rows say at recompute
+// time, so re-running it must change day N+1's stored figures to match the
+// REPLACEMENT, not the value first computed.
+func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(960002)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	snapA := telemetry.Snapshot{ // day N-1
+		AccountID: accountID, TeslaID: teslaID,
+		CapturedAt: time.Date(2026, 8, 20, 3, 30, 0, 0, time.UTC), CapturedDate: day(2026, 8, 20),
+		OdometerKm: 1000.0, BatteryLevelPct: 80, BatteryRangeKm: 300.0,
+	}
+	snapB := telemetry.Snapshot{ // day N -- the row that gets recaptured
+		AccountID: accountID, TeslaID: teslaID,
+		CapturedAt: time.Date(2026, 8, 21, 3, 30, 0, 0, time.UTC), CapturedDate: day(2026, 8, 21),
+		OdometerKm: 1050.0, BatteryLevelPct: 70, BatteryRangeKm: 280.0,
+	}
+	snapC := telemetry.Snapshot{ // day N+1 -- the successor whose row must refresh
+		AccountID: accountID, TeslaID: teslaID,
+		CapturedAt: time.Date(2026, 8, 22, 3, 30, 0, 0, time.UTC), CapturedDate: day(2026, 8, 22),
+		OdometerKm: 1150.0, BatteryLevelPct: 55, BatteryRangeKm: 250.0,
+	}
+	seedSnapshot(t, pool, snapA)
+	seedSnapshot(t, pool, snapB)
+	seedSnapshot(t, pool, snapC)
+
+	rec := newRealRecalculator(pool)
+	start := day(2026, 8, 20) // day N
+	end := day(2026, 8, 21)   // day N+1
+	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+		t.Fatalf("first Recalculate: %v", err)
+	}
+
+	dayNPlus1 := day(2026, 8, 21)
+	before, ok := fetchVehicleMetric(t, pool, accountID, teslaID, dayNPlus1)
+	if !ok {
+		t.Fatal("expected a vehicle_metrics row for day N+1 after the first Recalculate")
+	}
+	if !before.DistanceTraveledKmCalc.Valid || !approxEqual(before.DistanceTraveledKmCalc.Float64, 100.0) {
+		t.Fatalf("before: DistanceTraveledKmCalc want 100.0 (1150-1050, against day N's ORIGINAL reading), got %+v", before.DistanceTraveledKmCalc)
+	}
+	if !before.BatteryUsedPctCalc.Valid || before.BatteryUsedPctCalc.Int32 != 15 {
+		t.Fatalf("before: BatteryUsedPctCalc want 15 (70-55), got %+v", before.BatteryUsedPctCalc)
+	}
+
+	// Simulate a same-day re-capture REPLACING day N's row with different
+	// readings -- exactly what the dedupe UPSERT does to vehicle_snapshots
+	// (design D1 of telemetry-dedupe-daily-snapshots: latest capture wins).
+	// A direct UPDATE is the right substitute here: telemetry exposes no
+	// public writer for a single row (D19), and the point under test is
+	// Recalculate's read-time behavior, not the UPSERT mechanics themselves.
+	if _, err := pool.Exec(ctx,
+		`UPDATE vehicle_snapshots SET odometer_km = $1, battery_level_pct = $2, battery_range_km = $3
+		 WHERE account_id = $4 AND tesla_id = $5 AND captured_date = $6`,
+		1080.0, int32(60), 260.0, accountID, teslaID, dateFrom(day(2026, 8, 21)),
+	); err != nil {
+		t.Fatalf("simulating same-day recapture: %v", err)
+	}
+
+	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+		t.Fatalf("second Recalculate: %v", err)
+	}
+
+	after, ok := fetchVehicleMetric(t, pool, accountID, teslaID, dayNPlus1)
+	if !ok {
+		t.Fatal("expected the vehicle_metrics row for day N+1 to still exist after the recapture")
+	}
+	if !after.DistanceTraveledKmCalc.Valid || !approxEqual(after.DistanceTraveledKmCalc.Float64, 70.0) {
+		t.Errorf("after: DistanceTraveledKmCalc want 70.0 (1150-1080, against the REPLACEMENT), got %+v", after.DistanceTraveledKmCalc)
+	}
+	if !after.BatteryUsedPctCalc.Valid || after.BatteryUsedPctCalc.Int32 != 5 {
+		t.Errorf("after: BatteryUsedPctCalc want 5 (60-55, against the REPLACEMENT), got %+v", after.BatteryUsedPctCalc)
+	}
+	if !after.ConsumedPct.Valid || !approxEqual(after.ConsumedPct.Float64, 5.0) {
+		t.Errorf("after: ConsumedPct want 5.0, got %+v", after.ConsumedPct)
+	}
+	if approxEqual(after.DistanceTraveledKmCalc.Float64, before.DistanceTraveledKmCalc.Float64) {
+		t.Error("day N+1's row did not change after the recapture -- the stale-successor bug is still present")
 	}
 }

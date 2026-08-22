@@ -331,7 +331,7 @@ behind each group.
 > `DATABASE_URL`-gated; cannot compile before Wave 4's migration and regenerated sqlc
 > types exist. Uses this package's existing `testdb.Provision` harness unchanged.
 
-- [ ] **6a.1** `internal/telemetry/db_preceding_snapshot_integration_test.go` —
+- [x] **6a.1** `internal/telemetry/db_preceding_snapshot_integration_test.go` —
   **NARROWED BY THE LEADER at the wave-3/4 reconcile: this is now a rename-and-verify,
   not an authoring task.** Task 4.8's own text said the round-trip test "stays,
   rewritten against the public port", and wave 4 did exactly that — the file already
@@ -349,7 +349,7 @@ behind each group.
   `(nil, nil)` and a nil error.
   `depends_on`: 4.8, 5.2 · `parallel_ok`: with 6a.2
 
-- [ ] **6a.2** Same file — `TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan`:
+- [x] **6a.2** Same file — `TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan`:
   run `EXPLAIN (FORMAT TEXT)` over `SnapshotPrecedingDay`'s SQL against a seeded
   vehicle and assert the plan text contains `Index Scan Backward` and
   `idx_vehicle_snapshots_vehicle_time`, and does **not** contain `Seq Scan`
@@ -359,7 +359,7 @@ behind each group.
   depends on this plan being what Postgres actually chooses.
   `depends_on`: 4.8, 5.2 · `parallel_ok`: with 6a.1
 
-- [ ] **6a.3** Same file — `TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor`:
+- [x] **6a.3** Same file — `TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor`:
   seed a day N−1 row and two successive day N captures (the second replacing the
   first via the dedupe UPSERT), then assert `SnapshotPrecedingDay(day N)` returns the
   **day N−1** row, never either day-N row. This is the guarantee `dayStart` used to
@@ -374,7 +374,7 @@ behind each group.
 > `DATABASE_URL`-gated, `testdb.ProvisionDirs` (this module's fixtures span three
 > schemas). Cannot compile before Wave 4's migration and regenerated types exist.
 
-- [ ] **6b.1** `internal/analytics/db_integration_test.go` — update every fixture
+- [x] **6b.1** `internal/analytics/db_integration_test.go` — update every fixture
   helper that seeds `vehicle_snapshots`: the direct `INSERT` column list and its
   parameters lose the five `_calc` columns (they no longer exist), and the
   `telemetry.Snapshot` fixture literals lose the five fields. The fixtures now supply
@@ -385,7 +385,7 @@ behind each group.
   Contract with **every expected value unchanged** (roadmap D10).
   `depends_on`: 4.8, 5.2 · `parallel_ok`: with 6b.2
 
-- [ ] **6b.2** Same file — `TestRecalculate_FixtureD_MultiDayGap`: seed only the
+- [x] **6b.2** Same file — `TestRecalculate_FixtureD_MultiDayGap`: seed only the
   2026-08-01 and 2026-08-08 snapshots, call
   `Recalculate(A, 42, 2026-08-07, 2026-08-07)`, and assert the persisted
   `vehicle_metrics` row carries `distance_traveled_km_calc 210.0`,
@@ -399,7 +399,7 @@ behind each group.
   `+20` delta) asserting `consumed_pct 55.0` — the DB-backed proof of D8b.
   `depends_on`: 4.8, 5.2 · `parallel_ok`: with 6b.1
 
-- [ ] **6b.3** Same file — `TestRecalculate_ZeroDivisorGuard` (Fixture E: both
+- [x] **6b.3** Same file — `TestRecalculate_ZeroDivisorGuard` (Fixture E: both
   efficiency columns NULL while `distance_traveled_km_calc 0.0` and
   `battery_used_pct_calc 0` are stored **non-NULL**, and `ConsumedByDay` returns the
   day — a `0` is not an absence) and
