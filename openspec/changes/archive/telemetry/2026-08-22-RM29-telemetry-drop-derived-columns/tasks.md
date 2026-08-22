@@ -440,7 +440,7 @@ behind each group.
   the new `telemetry.Reader` method.
   `depends_on`: 5.2 · `parallel_ok`: with 7.1
 
-- [ ] **7.3** **[leader]** Root `README.md` — no module is added, removed or renamed by
+- [x] **7.3** **[leader]** Root `README.md` — no module is added, removed or renamed by
   this change, so the Project Structure tree and the dependency graph are unchanged.
   Verify that, and update only what actually moved: any "Architecture" table row or
   prose describing `vehicle_snapshots` as carrying derived values, and any mention of
@@ -448,7 +448,7 @@ behind each group.
   explicitly in the task's completion note rather than leaving it ambiguous.
   `depends_on`: 4.8 · `parallel_ok`: with 7.1, 7.2
 
-- [ ] **7.4** **[leader]** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` —
+- [x] **7.4** **[leader]** `openspec/roadmaps/RM29-modular-monolith-boundaries.md` —
   flip tier 4's status `[ ]` → `[~]` when these artifacts are created and `[~]` → `[x]`
   at archive; update the "Status" section's "Next unblocked" line. Leader bookkeeping,
   not a worker task; noted here per the roadmap's own status-legend convention.
@@ -458,23 +458,23 @@ behind each group.
 
 ## Wave 8 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **8.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l .` (expect
+- [x] **8.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l .` (expect
   clean); `make build`, `make vet`, `make bins`; `make ui-guard`, `make i18n-guard`,
   `make money-guard` (all three expected to be no-ops — this change touches no gateway
   markup, no user-facing string and no monetary column; report that they ran, not that
   they were skipped).
   `depends_on`: Waves 1–7 · `parallel_ok`: no (final gate)
 
-- [ ] **8.2** Re-run `make sqlc` one final time and confirm a clean tree, then
+- [x] **8.2** Re-run `make sqlc` one final time and confirm a clean tree, then
   `make migrate-status` and confirm both new migrations are present and applied in the
   expected order. Report the output verbatim.
   `depends_on`: 8.1 · `parallel_ok`: no
 
-- [ ] **8.3** Run `openspec validate --changes --strict` and report the result
+- [x] **8.3** Run `openspec validate --changes --strict` and report the result
   verbatim.
   `depends_on`: all artifact edits · `parallel_ok`: no
 
-- [ ] **8.4** Hand off to the owner. Exact commands to paste (not run by the
+- [x] **8.4** Hand off to the owner. Exact commands to paste (not run by the
   assistant, per the Test-Execution-Policy):
   ```
   go test ./internal/telemetry/... ./internal/analytics/... ./internal/gateway/... ./cmd/...

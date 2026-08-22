@@ -98,7 +98,7 @@ expand its recompute window to the affected date range, not to "the last N days"
 | **T1** | `[x]` | `RM29-analytics-rename-from-battery` | `battery`→`analytics` | Pure package rename. No DB, no behaviour change. | — |
 | **T2** | `[x]` | `RM29-charging-rename-from-manualcharge` | `manualcharge`→`charging` | Pure package rename + migrations dir + sqlc entry move. | — |
 | **T3** | `[x]` | `RM29-analytics-add-vehicle-metrics` | `analytics` | **Gold standard.** `vehicle_metrics` + `updated_at` watermark + `Recalculate`; gateway re-points and its domain calculation moves out (D5). | T1 |
-| **T4** | `[~]` | `RM29-telemetry-drop-derived-columns` | `telemetry` | Drop the five `_calc` columns from `vehicle_snapshots`. Only safe once T3 lands. | T3 |
+| **T4** | `[x]` | `RM29-telemetry-drop-derived-columns` | `telemetry` | Drop the five `_calc` columns from `vehicle_snapshots`. Only safe once T3 lands. | T3 |
 | **T5** | `[ ]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |
 | **T6** | `[ ]` | `RM29-charging-add-charge-sessions` | `charging` | `charge_sessions` + the five battery-pct columns move off `supercharger_sessions`. | T2 |
 | **T7** | `[ ]` | `RM29-app-add-process-vehicle-data` | `app` (new) | The three use cases + `process_runs`; `poll_attempts` moves; `cmd/poller` re-points and `reconcilingCollector` is deleted. | T1, T2 |
@@ -137,11 +137,17 @@ and the full suite all stayed green over it, because `cmd/poller` has no tests a
 that is never made still compiles. Composition-root wiring in `cmd/` is invisible to every
 automated signal this project has, so it needs reading, not trusting.
 
-**Next unblocked: T4, T5, T6 and T7.** T4 (`RM29-telemetry-drop-derived-columns`) is the
-natural follow-on — it was blocked on T3 alone, and dropping the five `_calc` columns is
-what makes T3's read model the single source of those figures rather than a second one.
-T5 and T6 are independent; T7 needs only T1+T2 and is the largest. T8 stays parked (D9).
-No artifacts exist yet for T4–T8.
+**Next unblocked: T5, T6 and T7.** T4 archived on 2026-08-22, so T3's read model is now
+the single source of the five derived figures — `vehicle_snapshots` carries observations
+only. The three remaining tiers are mutually independent, so the order is the owner's
+call: T5 (`analytics` takes `charge_gaps`) and T6 (`charging` takes `charge_sessions`)
+are each a single-module move; T7 (the new `app` module) is the largest and the only one
+that touches `cmd/poller`'s composition root. T8 stays parked (D9). No artifacts exist
+yet for T5–T8.
+
+**Carried into T5–T7 from T4:** two migrations (`20260822000001`, `20260822000002`) are
+committed but **Pending** — `make migrate-up` is the owner's to run, and the D3 backfill
+only lands on the next nightly `Reconcile` after that.
 
 All tiers share the branch `ft/RM29-MAG-26-modular-monolith-boundaries`. Live state is in
 `RM29-modular-monolith-boundaries.progress.json`; each tier is proposed, reviewed and

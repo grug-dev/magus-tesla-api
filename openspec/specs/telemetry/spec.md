@@ -679,108 +679,6 @@ is a distinct, separate concept from both: the day the row *represents*.
 - **AND** the offset is a calendar-day step (not a fixed 24-hour duration), so a 23- or 25-hour DST
   day does not move `EffectiveDate` off by an hour
 
-### Requirement: Derived Consumption Metrics
-
-The telemetry capability SHALL, when capturing a nightly snapshot for a vehicle, compute
-and store five derived consumption values against that vehicle's previous stored snapshot
-(the row for the same account and vehicle with the greatest capture time strictly before
-the start of the incoming snapshot's local calendar day): the distance traveled in
-kilometres, the battery percentage consumed, the number of calendar days the comparison
-spans, and — only when the battery percentage consumed is strictly greater than zero — the
-resulting kilometres-per-percent efficiency and the equivalent estimated full-charge range
-in kilometres. Distance traveled and battery percentage consumed SHALL always be stored as
-the true, signed difference between the two records, without averaging, clamping, or
-discarding a negative value. The two efficiency values SHALL be NULL whenever the battery
-percentage consumed is zero or negative, and SHALL also be NULL, along with the distance
-traveled, battery percentage consumed, and days-spanned values, when the vehicle has no
-prior stored snapshot. A snapshot that replaces an existing same-day snapshot (a same-day
-re-capture) SHALL have all five derived values recomputed against the correct predecessor
-and refreshed, not left at their previously stored values. The capability SHALL also
-compute these five values for every snapshot stored before this capability existed, in the
-same schema change that introduces the columns, producing the same results the ongoing
-capture-time computation would produce for the same pair of consecutive records.
-
-#### Scenario: A normal drive day computes positive distance, positive battery used, and both efficiency values
-
-- **GIVEN** a vehicle with a previously stored snapshot reporting an odometer of 42,350 km
-  and a battery level of 82%
-- **AND** its next nightly snapshot reports an odometer of 42,390 km and a battery level of
-  70%, captured the following calendar day
-- **WHEN** the new snapshot is captured and stored
-- **THEN** the stored distance traveled is 40 km
-- **AND** the stored battery used is 12%
-- **AND** the stored days spanned is 1
-- **AND** the stored km-per-percent value is approximately 3.33
-- **AND** the stored estimated range is approximately 333 km
-
-#### Scenario: A charging day stores a negative battery-used value and leaves both efficiency values NULL
-
-- **GIVEN** a vehicle with a previously stored snapshot reporting a battery level of 60%
-- **AND** its next nightly snapshot reports a battery level of 75% (the vehicle was charged
-  overnight, net battery increased) and some non-negative distance traveled
-- **WHEN** the new snapshot is captured and stored
-- **THEN** the stored battery used is -15 (a negative value, stored as reported, not clamped)
-- **AND** the stored km-per-percent value is NULL
-- **AND** the stored estimated range value is NULL
-- **AND** the stored distance traveled reflects the true odometer difference, unaffected by
-  the negative battery-used value
-
-#### Scenario: A parked day with zero battery change leaves both efficiency values NULL
-
-- **GIVEN** a vehicle with a previously stored snapshot and a next nightly snapshot whose
-  battery level is identical to the previous snapshot's battery level
-- **WHEN** the new snapshot is captured and stored
-- **THEN** the stored battery used is 0
-- **AND** the stored km-per-percent value is NULL
-- **AND** the stored estimated range value is NULL
-- **AND** the stored distance traveled is still computed and stored normally (it may be
-  zero or non-zero independent of the battery-used value)
-
-#### Scenario: A multi-day gap stores the true multi-day delta and the number of days it spans
-
-- **GIVEN** a vehicle whose previous stored snapshot is from two calendar days before the
-  next nightly capture (the poller missed an intervening night)
-- **AND** the vehicle traveled 80 km and consumed 20% battery across that whole gap
-- **WHEN** the new snapshot is captured and stored
-- **THEN** the stored distance traveled is 80 km (the true total across the gap, not
-  averaged into a per-day figure)
-- **AND** the stored battery used is 20%
-- **AND** the stored days spanned is 2
-- **AND** the stored km-per-percent and estimated range values are computed from the full
-  80 km / 20% figures, not from any per-day approximation
-
-#### Scenario: The first-ever snapshot of a vehicle has all five derived values NULL
-
-- **GIVEN** a vehicle with no previously stored snapshot
-- **WHEN** its first nightly snapshot is captured and stored
-- **THEN** all five derived values (distance traveled, battery used, days spanned,
-  km-per-percent, estimated range) are NULL on the stored snapshot
-- **AND** this is not treated as a capture failure — the snapshot is stored successfully
-  and the attempt is recorded as a success
-
-#### Scenario: A same-day re-capture recomputes and refreshes all five derived values
-
-- **GIVEN** a vehicle with a stored snapshot for calendar day N (itself computed against a
-  predecessor from day N-1) and a stored snapshot for day N-1 before that
-- **WHEN** a second capture for day N runs later the same day, replacing day N's stored
-  snapshot with different odometer and battery readings
-- **THEN** the replaced day-N row's five derived values are recomputed against the day N-1
-  predecessor (not against the first day-N capture that was just replaced)
-- **AND** the stored derived values reflect the second capture's odometer and battery
-  readings, not the first capture's
-
-#### Scenario: Existing history is backfilled when the capability is introduced
-
-- **GIVEN** a sequence of previously stored snapshots for a vehicle across several
-  consecutive calendar days, captured before this capability existed
-- **WHEN** the schema change that introduces the five derived columns is applied
-- **THEN** every row except the vehicle's oldest stored snapshot has all five derived
-  values populated
-- **AND** each populated row's values equal what capture-time computation would produce for
-  that row and its immediate predecessor
-- **AND** the vehicle's oldest stored snapshot has all five derived values NULL (it has no
-  predecessor)
-
 ### Requirement: Charge Gap Ledger
 The telemetry capability SHALL provide a durable ledger recording, per vehicle-day, that a
 charge record is missing or incomplete — a signal computed by a companion derived-metrics
@@ -934,4 +832,57 @@ when no session for that vehicle has been updated at or after the given instant.
 - **WHEN** it obtains that data
 - **THEN** it does so exclusively through this read port
 - **AND** it imports no package from `internal/telemetry/db`
+
+### Requirement: Preceding-Snapshot Read Port
+
+The telemetry capability SHALL expose a read port through which another module can
+retrieve, for one vehicle within one account, the single most recently captured
+snapshot whose capture calendar day is strictly before a caller-supplied calendar day
+— without accessing the telemetry module's database tables directly. The port SHALL
+identify the vehicle by its account and its Tesla numeric id, SHALL take the boundary
+as a whole calendar day (never an instant), and SHALL return the existing `Snapshot`
+domain type. When the vehicle has no snapshot captured before that day, the port SHALL
+return an absent result and no error — "no predecessor exists" is a normal answer, not
+a failure. A genuine lookup failure SHALL be reported as an error and SHALL NOT be
+represented as an absent result, so a transient storage fault can never be mistaken by
+a caller for "this vehicle has no earlier snapshot".
+
+The boundary SHALL be evaluated against the snapshot's stored capture calendar day,
+not against its precise capture instant. Consequently a snapshot captured on the
+boundary day itself is never returned as its own predecessor, regardless of the
+timezone the collector runs in.
+
+The port SHALL reach the true predecessor however old it is — there SHALL be no
+maximum lookback, no trailing-window limit and no fixed number of days beyond which
+the predecessor is reported absent.
+
+#### Scenario: The immediately preceding day's snapshot is returned
+- **GIVEN** a vehicle with snapshots captured on three consecutive calendar days
+- **WHEN** a caller requests the snapshot preceding the third day
+- **THEN** the second day's snapshot is returned
+
+#### Scenario: A predecessor many days older is still returned
+- **GIVEN** a vehicle whose most recent snapshot was captured seven calendar days
+  after its previous one (the collector missed six nights)
+- **WHEN** a caller requests the snapshot preceding the later capture's day
+- **THEN** the snapshot from seven days earlier is returned, not an absent result
+
+#### Scenario: A vehicle's first-ever snapshot has no predecessor
+- **GIVEN** a vehicle with exactly one stored snapshot
+- **WHEN** a caller requests the snapshot preceding that snapshot's own capture day
+- **THEN** an absent result is returned
+- **AND** no error is returned
+
+#### Scenario: A same-day re-capture is never its own predecessor
+- **GIVEN** a vehicle with a snapshot for calendar day N−1
+- **AND** a snapshot for calendar day N that was later replaced by a second capture on
+  the same day N (the existing "latest capture for a calendar day wins" rule)
+- **WHEN** a caller requests the snapshot preceding day N
+- **THEN** the day N−1 snapshot is returned
+- **AND** neither the replaced nor the replacing day-N snapshot is returned
+
+#### Scenario: A vehicle with no snapshots at all returns an absent result
+- **GIVEN** a vehicle for which no snapshot has ever been stored
+- **WHEN** a caller requests the snapshot preceding any calendar day
+- **THEN** an absent result and no error are returned
 

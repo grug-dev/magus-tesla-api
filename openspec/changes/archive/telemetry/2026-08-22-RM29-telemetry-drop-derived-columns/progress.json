@@ -57,7 +57,7 @@
     "awaiting-user-verification": []
   },
   "created_at": "2026-08-21T22:00:00Z",
-  "updated_at": "2026-08-22T02:28:00Z",
+  "updated_at": "2026-08-22T02:29:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -880,10 +880,38 @@
     }
   ],
   "review": {
-    "status": "not-started",
-    "brief": null,
-    "agent": null,
-    "rounds": []
+    "agent": "telemetry-reviewer",
+    "status": "reviewer-approved",
+    "brief": "Review RM29 tier 4 (RM29-telemetry-drop-derived-columns) across BOTH internal/telemetry and internal/analytics. Validate: (1) module-boundary compliance - no module reads another's DB or internals; the derivation crosses ONLY via the public telemetry.Reader.SnapshotPrecedingDay port; no telemetry migration writes analytics' tables and vice versa (design D-I4). (2) Every DB object matches its design.md spec exactly - migration 20260822000001 (drop five _calc columns) and 20260822000002 (data-only watermark reset). A mismatch is a BLOCKER finding. Note the built-in database design gate was passed on AUTOPILOT without the owner's explicit confirmation (decision A2), so your independent check of the DDL and index plan is the only gate that ran. (3) The Index Plan claim: design.md deliberately adds NO new index, resting on Postgres choosing an Index Scan Backward on idx_vehicle_snapshots_vehicle_time. Confirm 6a.2 asserts exactly that and that nobody added an index to make a test pass. (4) Test-contract compliance - design.md's Test Contract authored the expected values BEFORE implementation. Verify the integration tests assert THOSE numbers, not whatever the code produces. Fixtures A/B/C expected values must be byte-identical to tier 3 (roadmap D10) even though the fixtures no longer seed the five columns - that is the whole point. Check Fixture D (days_spanned_calc 7 across a seven-day gap), D2 (consumed_pct 55.0, the DB proof of D8b), the zero-divisor guard (non-NULL zeros, NULL efficiency), and the stale-successor test. (5) READ cmd/ rather than trusting signals. The roadmap records a T3 review lesson: a task was marked done whose substance was never written (a missing Reconcile call site in cmd/poller), and build, vet and the full suite all stayed green because cmd/poller has no tests and an uncalled call still compiles. The leader checked and believes tier 4 adds no new call site by design (D3 routes the backfill through the existing nightly Reconcile) - verify that independently. (6) Anti-gaming: no acceptance criterion weakened or deleted, no expected value adjusted to make a test pass, no self-approved status. Check the git history on this branch, not just the final state. (7) Docs-track-structural-change: both AGENTS.md files and the README row. Three in-clause corrections beyond the literal task text were allowed (decision A12) - judge whether each was justified. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE - judge test QUALITY by READING the tests, never by running them. Assistant-run: go build, go vet, gofmt, make build/vet/bins, ui/i18n/money guards, make sqlc, openspec validate --strict. USER-REPORTED: the owner ran make test and make vet and reported both green - that pass is theirs, not the assistant's. KNOWN NON-GREEN, already triaged, do NOT re-report as new: gofmt -l . lists 8 files, all unformatted on main and untouched by this branch (A10); both migrations are Pending because migrate-up is the owner's gated action (A13); three telemetry.go doc comments claim EXPLAIN verification that no test ever provided - tier-3 debt deliberately left for the backlog (A11).",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-22T03:00:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/telemetry/AGENTS.md",
+          "internal/analytics/AGENTS.md",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/design.md",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/tasks.md",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/progress.json",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/specs/telemetry/spec.md",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/specs/analytics/spec.md"
+        ],
+        "scope_verified": "git diff 3c1187e...9e2f7ed (the 9 tier-4 commits, 36 files), not the whole roadmap branch",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "internal/telemetry/AGENTS.md and internal/analytics/AGENTS.md both correctly describe SnapshotPrecedingDay and the derivation move; README.md Architecture table row for vehicle_snapshots correctly drops 'derived consumption' and 'location'. All three in-clause corrections claimed under decision A12 (README 'location', AGENTS.md 'two'->'four' read methods, dayStart removed from telemetry AGENTS.md testing-notes list) were independently verified against the diff and are each verifiably true and scoped to the sentence/list already being edited -- not scope creep.",
+            "status": "verified-no-action"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -1113,6 +1141,11 @@
       "at": "2026-08-22T02:28:00Z",
       "agent": "leader",
       "event": "Wave 8 verification COMPLETE (8.1-8.3, leader-run cheap signals only). All green except the pre-existing repo-wide gofmt drift recorded in A10. openspec strict validation passes. Both migrations present, correctly ordered, and PENDING - the owner applies them."
+    },
+    {
+      "at": "2026-08-22T02:29:00Z",
+      "agent": "leader",
+      "event": "Review brief written; dispatching telemetry-reviewer (Sonnet, escalate on doubt) after the owner reported the suite green."
     }
   ]
 }
