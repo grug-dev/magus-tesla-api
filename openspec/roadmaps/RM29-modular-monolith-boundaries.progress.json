@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM29-modular-monolith-boundaries",
   "intention": "Module boundaries match the data: analytics owns what the app calculates, charging owns charge data, telemetry owns only what Tesla reported, and an app layer owns ProcessVehicleData.",
-  "request": "MAG-26 \u2014 modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
+  "request": "MAG-26 — modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-22T14:42:00Z",
+  "updated_at": "2026-08-22T19:06:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
@@ -16,9 +16,10 @@
     "created_at": "2026-08-20T17:07:08Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      7
+    ],
     "pending": [
-      7,
       8
     ],
     "blocked": [],
@@ -39,6 +40,78 @@
       "scope": "tier:6",
       "decision": "Did not start T6 despite autopilot ON and budget clear.",
       "why": "T6 drops columns holding real data and adds a table - the database design gate needs the owner, and Step 2's interview cannot run while they sleep. Guessing risks data loss.",
+      "covered_by": null
+    },
+    {
+      "id": "RD2",
+      "at": "2026-08-22T15:05:00Z",
+      "made_by": "user",
+      "scope": "tier:7",
+      "decision": "SUPERSEDES D2's table move. The run log STAYS in telemetry as poll_attempts, gaining run_id + triggered_by; app passes both DOWN as parameters. process_runs is not created and internal/app gets no schema.",
+      "why": "D2 justified the move with 'triggered_by is not something Tesla reported', but that purity test belongs to vehicle_snapshots. poll_attempts always held our own facts (attempted_at, outcome, reason), so triggered_by is not foreign to it.",
+      "covered_by": null
+    },
+    {
+      "id": "RD3",
+      "at": "2026-08-22T15:05:00Z",
+      "made_by": "user",
+      "scope": "tier:7",
+      "decision": "Grain stays one row per (vehicle, run); run_id correlates one invocation, per-run facts come from GROUP BY run_id.",
+      "why": "Preserves telemetry D5's per-vehicle sleep signal and suits the read-heavy profile. It also makes the table a POLL log, which is the reason it belongs where its writer lives (RD2).",
+      "covered_by": null
+    },
+    {
+      "id": "RD4",
+      "at": "2026-08-22T15:20:00Z",
+      "made_by": "user",
+      "scope": "tier:7",
+      "decision": "ProcessVehicleData has THREE named steps - sync fleet, process charging, recalculate analytics - and Scheduler + API are peer driving adapters that CALL it, never inside it.",
+      "why": "Owner's own diagram. D2 said 'sync + recalculate'; the charging mirror T6 shipped is a first-class step, not part of sync.",
+      "covered_by": null
+    },
+    {
+      "id": "RD5",
+      "at": "2026-08-22T15:20:00Z",
+      "made_by": "user",
+      "scope": "tier:7",
+      "decision": "Scheduler moves telemetry -> cmd/poller, not into app. app exposes only the use case. Owner accepts that cmd/poller has no tests.",
+      "why": "Scheduler and the future API are both driving adapters, so both sit outside app. Cost: nextRun math loses its test coverage and --once stays the only wiring check.",
+      "covered_by": null
+    },
+    {
+      "id": "RD6",
+      "at": "2026-08-22T15:20:00Z",
+      "made_by": "user",
+      "scope": "tier:7",
+      "decision": "CollectAll widens to CollectAll(ctx, RunContext{RunID, TriggeredBy}); telemetry owns the TriggeredBy type and its constants. The mirror mapping moves cmd/poller -> app wholesale, as T6 D7 already planned; charging keeps its MUST NOT import telemetry rule.",
+      "why": "Typed constants beat a bare string. On the mapping: analytics is a derived read model so mapping is its domain, but charging owns primary data - the 11-field map is a propagation policy, which is app's.",
+      "covered_by": null
+    },
+    {
+      "id": "RD7",
+      "at": "2026-08-22T15:35:00Z",
+      "made_by": "user",
+      "scope": "tier:7",
+      "decision": "DATABASE DESIGN GATE CONFIRMED. ALTER TABLE poll_attempts ADD COLUMN run_id UUID, ADD COLUMN triggered_by TEXT NOT NULL DEFAULT 'scheduler'. No CHECK, no index, run_id nullable, --once records 'scheduler'.",
+      "why": "Owner asked for the cheapest form and does not need --once distinguishable. NOT NULL DEFAULT backfills in one metadata-only statement; the Go typed constant already guards values; no reader means no index yet (T6 I6).",
+      "covered_by": null
+    },
+    {
+      "id": "RD8",
+      "at": "2026-08-22T16:10:00Z",
+      "made_by": "user",
+      "scope": "tier:7",
+      "decision": "SUPERSEDES RD5. Scheduler moves telemetry -> internal/app, NOT cmd/poller. Its 4 Scheduler tests move with it. cmd/poller keeps wiring only.",
+      "why": "RD5 would put 131 lines of timer/date logic into cmd/, against CLAUDE.md's 'cmd/ stays thin (zero business logic)' - and T7 exists to REMOVE logic from that file. Symmetry with a parked, undesigned T8 API is taste; the rule is written.",
+      "covered_by": null
+    },
+    {
+      "id": "RD9",
+      "at": "2026-08-22T18:56:00Z",
+      "made_by": "autopilot",
+      "scope": "tier:7",
+      "decision": "Dispatched the RD8 artifacts amendment on Opus rather than the default Sonnet.",
+      "why": "It rewrites the binding decision four implementation waves are built on, and inverts a claim (coverage loss) threaded through design, tasks and AGENTS.md. A missed thread ships a false rationale.",
       "covered_by": null
     }
   ],
@@ -190,10 +263,10 @@
         1,
         2
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T14:50:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -214,7 +287,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Parked (D9) \u2014 manual-rerun HTTP API; module/binary/auth undecided."
+      "notes": "Parked (D9) — manual-rerun HTTP API; module/binary/auth undecided."
     }
   ],
   "events": [
@@ -267,6 +340,46 @@
       "at": "2026-08-22T14:42:00Z",
       "agent": "leader",
       "event": "Tier 6 (RM29-charging-add-charge-sessions) ARCHIVED - charging-reviewer approved at ROUND 1 with ZERO findings, the first RM29 tier to need no rework, and it re-derived the risky claims itself rather than trusting the leader (poller wiring traced independently, 8 test cases checked verbatim against design.md's pre-authored Test Contract, cheap signals re-run). Suite pass reported by the OWNER (make migrate-up, make test, go run ./cmd/poller --once), not assistant-run. The expand-only decision held end to end: no telemetry file touched, no column dropped, and openspec archive created charge-session-log as a NEW spec (+5, -0). T7 (RM29-app-add-process-vehicle-data) is the last required tier and is now unblocked; T8 stays parked per D9. NOTE FOR T7: the contract half of T6 - dropping the five pct columns off telemetry.supercharger_sessions and re-pointing readers - is still OUTSTANDING and is NOT part of T7."
+    },
+    {
+      "at": "2026-08-22T14:50:00Z",
+      "agent": "leader",
+      "event": "Tier 7 STARTED at Step 2 (autopilot advance, budget clear: 5h 59%, context 12%). Roadmap D2/D6/D9/D10 are reused as binding interview outcomes. Opening a FRESH interview only for what D2 predates - chiefly that D2 was written before T5 and T6 shipped, and T6 added the Supercharger mirror to the very reconcilingCollector T7 is supposed to delete. No artifacts written until the database design gate is confirmed."
+    },
+    {
+      "at": "2026-08-22T15:05:00Z",
+      "agent": "leader",
+      "event": "T7 interview, first two branches settled by the OWNER, and the second one overturns a binding roadmap decision. D2 said poll_attempts moves to app as process_runs; the owner asked why, and the answer did not hold up: D2's 'not something Tesla reported' test is violation #1's test for vehicle_snapshots, whereas poll_attempts always recorded our own clock and our own failure classification. Consequence: T7 now has NO new module schema, NO backfill and NO expand-only/contract split - it is one ALTER in telemetry's own migrations dir, and the built-in database design gate shrinks to that ALTER. MAG-26's D2 should be amended on the Linear ticket."
+    },
+    {
+      "at": "2026-08-22T15:20:00Z",
+      "agent": "leader",
+      "event": "T7 interview COMPLETE (RD2-RD6). The owner spotted an asymmetry worth recording even though they chose not to fix it now: cmd/poller holds ONLY orchestration for the analytics step (deriveVehicleMetrics lives inside analytics) but orchestration PLUS an 11-field mapping for the charging step, because charging is forbidden to import telemetry while analytics is not. Two rules for the same situation. Moving the mapping to app carries that asymmetry forward; the owner accepted it on the reasoning that a derived read model mapping from siblings is intrinsic, whereas populating a primary-data module from another's table is application policy."
+    },
+    {
+      "at": "2026-08-22T15:35:00Z",
+      "agent": "leader",
+      "event": "T7 DATABASE DESIGN GATE CONFIRMED by the owner. RD2's effect is now visible: T7's entire schema change is two columns on an existing telemetry table, in telemetry's own migrations dir - no new module schema, no MIGRATIONS_DIRS entry, no to_regclass guard, no expand-only/contract split, nothing deferred to a later change. Under D2 as written it would have been a new table in a new module dir with a backfill and a deferred DROP, i.e. T6's shape again. Proceeding to Step 3 (artifacts)."
+    },
+    {
+      "at": "2026-08-22T16:10:00Z",
+      "agent": "leader",
+      "event": "RD5 OVERTURNED by the owner after the leader corrected its own bad framing. The leader had sold RD5 partly on 'cmd/poller has no tests so the scheduler loses coverage' - overstated: Go allows tests in a main package, so the 4 Scheduler tests could have moved too. The REAL cost was the one the leader under-weighted: RD5 puts 131 lines of timer/date logic into cmd/, contradicting a CLAUDE.md non-negotiable, in the very tier whose purpose is removing logic from that file. Owner re-opened it unprompted, asked for a plain-English explanation, and chose internal/app. Artifacts had already been written encoding RD5 as design D4; amending via the same worker rather than a fresh dispatch."
+    },
+    {
+      "at": "2026-08-22T18:55:00Z",
+      "agent": "leader",
+      "event": "Resume in a fresh session (5h 3%, context 10%). Tier 7 state found: artifacts written but still encoding the OVERTURNED RD5 (design D4 = Scheduler -> cmd/poller); the prior session ended before the RD8 amendment landed. No change progress.json exists yet (Step 4 not reached), nothing committed - the change folder and internal/app/ are still untracked. Dispatched the app worker (Opus) to amend design.md D3/D4/D12/Context/Test-Contract, tasks.md waves 2-4, proposal, spec and internal/app/AGENTS.md for RD8. The T7 database design gate (RD7) is unaffected by RD8 - no schema change is involved - so it stays confirmed."
+    },
+    {
+      "at": "2026-08-22T18:55:00Z",
+      "agent": "leader",
+      "event": "CONTRACT DRIFT (pipeline Step 0.4): openspec/config.yaml rules.tasks says 'update the matching task entry live alongside tasks.md' in progress.json, which contradicts the skill's write-ownership rule that workers never write progress.json and the leader transcribes once per wave. The skill's contract binds; the config bullet is stale documentation for the owner to fix. Dispatches carry the correct rule with an explicit note to ignore that bullet."
+    },
+    {
+      "at": "2026-08-22T19:06:00Z",
+      "agent": "leader",
+      "event": "T7 RD8 amendment LANDED and openspec validate --strict passes. design.md D4 rewritten (Scheduler -> internal/app, four tests preserved), D3 reconciles RD4 with RD8 (source location moved, composition unchanged), D11/D12 amended, new D13 keeps the cfg telemetry.Config clock seam on minimum-diff grounds. tasks.md: 2.4/2.5/2.7/4.1/4.3 rewired, new 3.4/3.5, the anti-restoration bullet inverted. proposal amended; spec.md needed no change (it names the trigger value, never the package). Roadmap T7 flipped [ ] -> [~]. Change progress.json created with 18 sub-tasks in 4 waves."
     }
   ]
 }

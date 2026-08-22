@@ -1,0 +1,398 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM29-app-add-process-vehicle-data",
+  "module": "app",
+  "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
+  "request": "RM29 tier 7 - end roadmap violation #3: create internal/app exposing Processor.ProcessVehicleData (sync fleet data, process charging data, recalculate analytics), moving cmd/poller's reconcilingCollector orchestration out of the cmd/ binary.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "2.6",
+      "2.7",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "4.5"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-22T19:05:00Z",
+  "updated_at": "2026-08-22T19:05:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
+    "base": "main",
+    "ticket": "MAG-26",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-26/modular-monolith-refactoring",
+    "created_at": "2026-08-20T17:07:08Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Migration: poll_attempts gains run_id + triggered_by; run make sqlc",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "telemetry.go: add TriggeredBy/RunContext; widen Collector.CollectAll",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "service.go: thread RunContext through CollectAll/collectAccount",
+      "module": "telemetry",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "dbStore.insertPollAttempt stamps run_id + triggered_by",
+      "module": "telemetry",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "report.go: relocate LogCycle/formatFailures; delete scheduler.go (moves to app 3.4)",
+      "module": "telemetry",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.5",
+      "title": "Split scheduler_test.go: 4 Scheduler tests out (move to app 3.5), report_test.go, wake_test.go",
+      "module": "telemetry",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.6",
+      "title": "service_test.go: Test Contract group A (A1-A3) + ~24 call-site updates",
+      "module": "telemetry",
+      "depends_on": [
+        "2.2",
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.7",
+      "title": "telemetry AGENTS.md: new signature, RunContext/TriggeredBy, Scheduler moved to app",
+      "module": "telemetry",
+      "depends_on": [
+        "2.6"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "app.go: package doc, Processor port, NewProcessor",
+      "module": "app",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "processor.go: ProcessVehicleData three steps (sync, mirror, recalculate)",
+      "module": "app",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "internal/app/AGENTS.md",
+      "module": "app",
+      "depends_on": [
+        "3.2",
+        "3.4",
+        "3.5"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "scheduler.go: relocate Scheduler/NewScheduler/Run/nextRun, call the port",
+      "module": "app",
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.5",
+      "title": "scheduler_test.go: the 4 relocated tests, collector stubs become Processor fakes",
+      "module": "app",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "cmd/poller/main.go: wiring only - compose Processor + Scheduler, fix --once",
+      "module": "leader",
+      "depends_on": [
+        "3.2",
+        "3.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "Root README.md: structure tree, architecture table, dependency graph",
+      "module": "leader",
+      "depends_on": [
+        "1.1",
+        "3.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.3",
+      "title": "cmd/README.md: cmd/poller is wiring only",
+      "module": "leader",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.4",
+      "title": "charging AGENTS.md stale sentence + grep analytics AGENTS.md",
+      "module": "leader",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.5",
+      "title": "Roadmap T7 status flips + progress.json mirror",
+      "module": "leader",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-22T18:56:00Z",
+      "scope": "artifacts",
+      "made_by": "autopilot",
+      "decision": "Ran the RD8 artifacts amendment on Opus, not the default Sonnet.",
+      "why": "It rewrites the decision four waves build on and inverts a coverage claim threaded through three artifacts.",
+      "covered_by": "roadmap RD9"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-22T19:05:00Z",
+      "scope": "tasks",
+      "made_by": "autopilot",
+      "decision": "Kept task 3.3 numbered 3.3 although it now lands after 3.4/3.5; ordering is carried by depends_on.",
+      "why": "Task ids are append-only anti-gaming rails; renumbering to look tidy is exactly the edit the rails forbid.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-22T19:05:00Z",
+      "agent": "leader",
+      "event": "progress.json created (Step 4) after the RD8 artifacts amendment. 18 sub-tasks in 4 waves. Database design gate confirmed at RD7 and unaffected by RD8. openspec validate --strict passes."
+    },
+    {
+      "at": "2026-08-22T19:05:00Z",
+      "agent": "leader",
+      "event": "CONTRACT DRIFT: openspec/config.yaml rules.tasks tells implementers to update progress.json live; the skill's write-ownership (leader-only, once per wave) binds instead. Stale project doc for the owner to correct."
+    }
+  ]
+}

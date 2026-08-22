@@ -101,7 +101,7 @@ expand its recompute window to the affected date range, not to "the last N days"
 | **T4** | `[x]` | `RM29-telemetry-drop-derived-columns` | `telemetry` | Drop the five `_calc` columns from `vehicle_snapshots`. Only safe once T3 lands. | T3 |
 | **T5** | `[x]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |
 | **T6** | `[x]` | `RM29-charging-add-charge-sessions` | `charging` | `charge_sessions` mirrors each Supercharger session and adds the five battery-pct columns. **Expand only** — telemetry's copies were NOT dropped; that contract half is still outstanding. | T2 |
-| **T7** | `[ ]` | `RM29-app-add-process-vehicle-data` | `app` (new) | The three use cases + `process_runs`; `poll_attempts` moves; `cmd/poller` re-points and `reconcilingCollector` is deleted. | T1, T2 |
+| **T7** | `[~]` | `RM29-app-add-process-vehicle-data` | `app` (new) | The three use cases + `process_runs`; `poll_attempts` moves; `cmd/poller` re-points and `reconcilingCollector` is deleted. | T1, T2 |
 | **T8** | `[ ]` | *(parked — D9)* | TBD | The manual-rerun HTTP API adapter. | T7 |
 
 **Status legend:** `[ ]` pending — the tier's OpenSpec change has not been created yet ·
@@ -176,6 +176,19 @@ relocated migration still **Applied**, confirming goose does not re-run a migrat
 changed directory. **Owner-verified** — `make test` green and `cmd/poller --once` green,
 reported 2026-08-22; the `--once` run is what covers `cmd/poller`, which has no tests of
 its own and which this tier rewired. **T6 and T7 remain**, mutually independent.
+
+**T7 in flight (artifacts created 2026-08-22).** The last required tier. Two owner
+decisions at the interview reshaped it away from the scope this table's T7 row still
+records (the row is left as the historical plan, per the tier's own task 4.5). **RD2
+superseded D2's table move**: `poll_attempts` does *not* become `process_runs` in the new
+module — it stays in `telemetry` and gains `run_id` + `triggered_by`, because D2's "not
+something Tesla reported" test is `vehicle_snapshots`' test, and `poll_attempts` always
+held our own facts. So `internal/app` owns **no schema at all**, and the database design
+gate shrank to one `ALTER` in telemetry's own migrations dir (confirmed, RD7). **RD8 then
+superseded RD5**: `Scheduler` moves `telemetry` → `internal/app`, not `cmd/poller`,
+keeping its four tests — putting 131 lines of timer logic into `cmd/` would contradict
+`CLAUDE.md`'s "cmd/ stays thin" in the very tier whose purpose is emptying that file.
+`cmd/poller` ends up wiring only.
 
 **Carried into T5–T7 from T4:** two migrations (`20260822000001`, `20260822000002`) were
 committed Pending; the owner has since run `make migrate-up` — as of 2026-08-22 both show
