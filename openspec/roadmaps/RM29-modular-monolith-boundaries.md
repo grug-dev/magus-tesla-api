@@ -99,7 +99,7 @@ expand its recompute window to the affected date range, not to "the last N days"
 | **T2** | `[x]` | `RM29-charging-rename-from-manualcharge` | `manualcharge`→`charging` | Pure package rename + migrations dir + sqlc entry move. | — |
 | **T3** | `[x]` | `RM29-analytics-add-vehicle-metrics` | `analytics` | **Gold standard.** `vehicle_metrics` + `updated_at` watermark + `Recalculate`; gateway re-points and its domain calculation moves out (D5). | T1 |
 | **T4** | `[x]` | `RM29-telemetry-drop-derived-columns` | `telemetry` | Drop the five `_calc` columns from `vehicle_snapshots`. Only safe once T3 lands. | T3 |
-| **T5** | `[~]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |
+| **T5** | `[x]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |
 | **T6** | `[ ]` | `RM29-charging-add-charge-sessions` | `charging` | `charge_sessions` + the five battery-pct columns move off `supercharger_sessions`. | T2 |
 | **T7** | `[ ]` | `RM29-app-add-process-vehicle-data` | `app` (new) | The three use cases + `process_runs`; `poll_attempts` moves; `cmd/poller` re-points and `reconcilingCollector` is deleted. | T1, T2 |
 | **T8** | `[ ]` | *(parked — D9)* | TBD | The manual-rerun HTTP API adapter. | T7 |
@@ -145,12 +145,15 @@ is the owner's call: T5 (`analytics` takes `charge_gaps`) and T6 (`charging` tak
 and the only one that touches `cmd/poller`'s composition root. T8 stays parked (D9).
 Artifacts exist for T5 only; none yet for T6–T8.
 
-**T5 progress.** Its atomic ownership wave landed in `2a0eca7` — the migration, the three
-`charge_gaps` queries, `ChargeGap`/`MissingChargingType`/`GapWriter` and `gap_writer.go`
-are all `internal/analytics`'s now, with `cmd/poller` and the gateway re-pointed. What
-remains is the DB-integration test relocation, the module/README/docs updates, and the
-reviewer gate. Per `openspec/config.yaml` tiers run one at a time, so T6 does not start
-until T5 archives.
+**T5 archived 2026-08-22.** `charge_gaps` is `internal/analytics`'s end to end — the
+migration, the three queries, `ChargeGap`/`MissingChargingType`/`GapWriter`,
+`gap_writer.go` and the 7-test DB-integration suite, with `cmd/poller` and the gateway
+re-pointed. `analytics-reviewer` approved at round 2 after a round-1 `major` on stale doc
+claims. The move was proved against a live database: `make migrate-status` shows the
+relocated migration still **Applied**, confirming goose does not re-run a migration that
+changed directory. **Caveat on verification** — the suite pass was assistant-run under an
+in-session grant from the owner, not the owner's own reported pass; re-run `make test` to
+convert it. **T6 and T7 remain**, mutually independent.
 
 **Carried into T5–T7 from T4:** two migrations (`20260822000001`, `20260822000002`) were
 committed Pending; the owner has since run `make migrate-up` — as of 2026-08-22 both show

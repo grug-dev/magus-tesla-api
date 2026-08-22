@@ -5,7 +5,7 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
   "request": "RM29 tier 5 - move charge_gaps ownership from telemetry to analytics. Owner: autopilot ON, asleep; granted session-scoped permission to run the test suite.",
-  "status": "in-review",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -548,7 +548,7 @@
   ],
   "review": {
     "agent": "analytics-reviewer",
-    "status": "changes-requested",
+    "status": "approved",
     "brief": "Validate RM29 tier 5: charge_gaps ownership moved telemetry -> analytics. Check (1) the move is COMPLETE and nothing is left behind or duplicated: no charge_gaps query, migration, Go symbol or doc claim still says telemetry owns it; (2) the move is FAITHFUL - GapWriter's ReconcileWindow logic, error wording, validate-before-transaction order and all-or-nothing commit are unchanged (design.md D2 forbids collapsing it into Recalculate), and the relocated integration test differs from its telemetry original ONLY by the package clause and 7x newTestStore->newTestPool, with all 7 tests, their fixtures and 5 helpers intact; (3) module boundaries: analytics must not import telemetry for anything charge_gaps-related, telemetry must not reference the moved symbols, cmd/poller remains the only composition root joining derivation to writer; (4) the integration tests still assert what design.md's Test Contract authored up front, not merely what the implementation does; (5) docs-track-structural-change per CLAUDE.md - telemetry/analytics AGENTS.md, README ownership table, docs/battery-consumed-graph.md; (6) Performance-Profile compliance (read-heavy) - this tier adds no query and no index, so confirm none was silently added or dropped; (7) anti-gaming - no task title, criterion or test assertion weakened or deleted to make work look complete. SIGNAL PROVENANCE, read carefully: go build, go vet, gofmt, make build/vet/bins, the three guards, make sqlc, make migrate-status and openspec validate were ASSISTANT-RUN and all pass. The TEST SUITE was ALSO assistant-run (make test, plus a targeted -v run showing all 7 TestGapWriter_ tests PASS not SKIP) under a blanket in-session grant from the owner - it is NOT the owner's own reported pass that this project's Test-Execution-Policy normally requires. Judge test QUALITY by reading the tests; do not re-run the suite yourself. KNOWN AND DELIBERATE, do not report as new findings: (a) the metrics/gaps divergence when cmd/poller's step 2 errors is pre-existing and deliberately untouched (I2); (b) internal/charging/AGENTS.md's forbidden-import list never named internal/analytics - real, out of tier-5 scope, logged as backlog item 14, and the doc was reworded to cite charging's closed Allowed-Imports allowlist instead (A5); (c) gofmt -l flags 8 pre-existing files repo-wide, none touched here. A DB-object mismatch against the user-confirmed design (I1: git mv only, no DDL, no data copy) is a BLOCKER finding.",
     "rounds": [
       {
@@ -595,6 +595,42 @@
           "known_deliberate_items_a_b_c": "Not re-reported, as instructed.",
           "test_execution_note": "Test suite pass (make test, targeted TestGapWriter_ -v showing PASS not SKIP) was assistant-run under the owner's in-session blanket grant, not an owner-reported pass -- noted per policy, not treated as the owner's own verification."
         }
+      },
+      {
+        "round": 2,
+        "at": "2026-08-22T09:40:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "major",
+            "note": "Re-verified against commit 7f5b2dd, read directly (not just the commit message). All four sites fixed: cmd/poller/main.go's package-level doc comment and newNightlyReconciler's doc comment no longer say 'telemetry's gap writer' / 'telemetry's GapWriter'; internal/analytics/analytics.go's GapReconciliationWindow doc comment now says 'this package's own charge_gaps ledger'; internal/analytics/AGENTS.md's matching sentence is fixed and no longer contradicts the module's own 'Data ownership' charge_gaps entry lower in the same file. On the reworded cmd/poller rationale specifically ('a domain module does not drive the poller's per-vehicle loop or own its scheduling'): I checked it against design.md D2 and docs/battery-consumed-graph.md's already-updated D4a framing ('cmd/poller is the only place that joins the derivation to the writer... since RM29 tier 5 both halves are internal/analytics's, so what cmd/poller wires is now one module's derivation to its own writer, not a cross-module handoff') and it is consistent, not an overreach -- it correctly describes why the fleet-wide, all-accounts enumeration loop (acct.AllRegisteredVehicles) stays in the composition root rather than being pulled into analytics' per-vehicle-scoped ports, matching go-conventions.md's 'cmd/ files stay thin, wiring only' framed the other way around. No objection to the reasoning.",
+            "status": "fixed"
+          },
+          {
+            "id": "R1-2",
+            "severity": "minor",
+            "note": "Re-verified: internal/analytics/recalculate.go:51 now reads 'mirroring this package's own gapWriter precedent' -- confirmed correct, gapWriter is indeed defined in the same package now (gap_writer.go).",
+            "status": "fixed"
+          }
+        ],
+        "additional_items_from_leader_sweep": [
+          {
+            "item": "db_gap_writer_integration_test.go header called the writer 'telemetrydb-backed' and its skip-condition prose was inherited verbatim from telemetry and inaccurate for this package's TestMain (which also auto-provisions a Docker container, not only DATABASE_URL).",
+            "verdict": "Confirmed fixed. Read the new header directly: it now says 'analyticsdb-backed GapWriter... against the test Postgres this package's TestMain provisions -- DATABASE_URL when set, otherwise a Docker container -- and self-skip when neither is available'. Cross-checked against testdb_test.go's actual TestMain/runTests implementation (testdb.ProvisionDirs, ErrUnavailable skip path) -- the new text accurately describes this package's real behavior. Good catch by the leader's sweep; this reviewer missed it in round 1 since it was outside the 'no other line changes' 8-line diff round 1 checked against the pre-move file (that check was about fidelity to the ORIGINAL telemetry test, not about whether the original's own header was already accurate for its new home)."
+          },
+          {
+            "item": "charge_gaps' SQL COMMENT ON TABLE (migration line ~73) still names internal/battery (stale since T1) and internal/telemetry (stale since T5) as writer/owner, and sqlc copies that text verbatim into internal/analytics/db/models.go as the ChargeGap struct's doc comment -- left UNFIXED, logged as backlog item 15.",
+            "ruling": "CORRECTLY DEFERRED, not a blocker. Independently verified both routes are genuinely closed to an unattended fix: (1) editing the migration's SQL text -- even just the embedded COMMENT ON TABLE string -- would break design gate I1's confirmed zero-content-change invariant (verified: a diff of the migration file against its pre-move version is byte-for-byte empty; that emptiness is what makes the git mv provably safe under this project's shared goose_db_version table, per D1) and would not even fix the live database, since the migration is already Applied and never re-executes; (2) a new migration issuing a corrected COMMENT ON TABLE/COLUMN is itself DDL, which correctly trips this project's built-in 'database' design gate requiring the owner's explicit confirmation before Apply -- and the owner is asleep, per this session's standing grant. Backlog item 15 is well-written: it correctly attributes the internal/battery half to T1 (not this tier's fault) and the internal/telemetry half to T5 (this tier's own doing, since the move is what surfaced it inside internal/analytics), gives a concrete suggested fix (a comment-only migration) and a concrete trigger (next database gate touching this module, or opportunistically at T6/T7). This is the same class and severity as backlog item 14, which round 1 already accepted as correctly out-of-scope. Zero functional/behavioral impact -- it is a pg_description string and its sqlc-generated echo, never read by any code path. Do not park the change over this."
+          }
+        ],
+        "verification_signals_rechecked": {
+          "go_build": "clean",
+          "go_vet": "clean",
+          "gofmt": "same 8 pre-existing repo-wide hits as round 1 (account/service_integration_test.go, account/testdb_test.go, config/quote_test.go, gateway/templates/fragments/dashboard_vm.go, gateway/templates/pages/dashboard.go, gateway/templates/ui/nav_shell_test.go, gateway/vehicle_image_test.go, telemetry/scheduler_test.go) -- none touched by 7f5b2dd, confirmed by direct gofmt -l run, not by trusting the commit message's shorter summary.",
+          "grep_sweep": "Repo-wide grep for stale telemetry/charge_gaps ownership phrasing now returns only (a) the two correctly-historical analytics.go section comments already accepted in round 1, (b) an unrelated, correctly-scoped vehicle_metric_watermarks comment naming telemetry as vehicle_snapshots/supercharger_sessions' real owner, and (c) the deferred models.go/migration COMMENT ON text ruled on above. No other residue."
+        },
+        "outcome": "All round-1 findings (R1-1 major, R1-2 minor) confirmed fixed by direct re-reading of the changed files, not by trusting the commit message. The leader's own additional sweep found and fixed one more real instance of the same class (test file header) and correctly identified and deferred one instance that cannot be fixed unattended without violating either the I1 zero-content-change invariant or the database design gate (backlog item 15) -- both rulings independently verified and agreed with. No new findings. APPROVED for archive."
       }
     ]
   }
