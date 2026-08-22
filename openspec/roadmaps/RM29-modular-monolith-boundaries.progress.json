@@ -6,7 +6,7 @@
   "request": "MAG-26 \u2014 modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-22T02:35:00Z",
+  "updated_at": "2026-08-22T02:45:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
@@ -16,9 +16,10 @@
     "created_at": "2026-08-20T17:07:08Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      5
+    ],
     "pending": [
-      5,
       6,
       7,
       8
@@ -127,10 +128,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
+      "status": "in-progress",
       "assistant": null,
       "model": null,
-      "started_at": null,
+      "started_at": "2026-08-22T02:40:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -209,6 +210,11 @@
       "at": "2026-08-22T02:35:00Z",
       "agent": "leader",
       "event": "Tier 4 (RM29-telemetry-drop-derived-columns) ARCHIVED after telemetry-reviewer approved with no blocker or major findings. Suite pass reported by the OWNER, not the assistant. T5, T6 and T7 are now unblocked and mutually independent."
+    },
+    {
+      "at": "2026-08-22T02:45:00Z",
+      "agent": "leader",
+      "event": "Owner set autopilot ON and went to sleep. Binding limit recorded: T5 CANNOT archive tonight - Step 6 requires the owner's reported suite pass before the reviewer gate, and the assistant never runs the suite. Autopilot will implement T5 through docs + cheap signals, then PARK at the verification ask. T6 will NOT be started while T5 is unarchived (openspec/config.yaml: tiers are done one at a time). make migrate-up remains the owner's gated action."
     }
   ]
 }

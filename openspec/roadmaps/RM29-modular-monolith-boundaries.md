@@ -99,7 +99,7 @@ expand its recompute window to the affected date range, not to "the last N days"
 | **T2** | `[x]` | `RM29-charging-rename-from-manualcharge` | `manualcharge`→`charging` | Pure package rename + migrations dir + sqlc entry move. | — |
 | **T3** | `[x]` | `RM29-analytics-add-vehicle-metrics` | `analytics` | **Gold standard.** `vehicle_metrics` + `updated_at` watermark + `Recalculate`; gateway re-points and its domain calculation moves out (D5). | T1 |
 | **T4** | `[x]` | `RM29-telemetry-drop-derived-columns` | `telemetry` | Drop the five `_calc` columns from `vehicle_snapshots`. Only safe once T3 lands. | T3 |
-| **T5** | `[ ]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |
+| **T5** | `[~]` | `RM29-analytics-own-charge-gaps` | `analytics` | `charge_gaps` moves from telemetry to analytics with its `GapWriter` port. | T1 |
 | **T6** | `[ ]` | `RM29-charging-add-charge-sessions` | `charging` | `charge_sessions` + the five battery-pct columns move off `supercharger_sessions`. | T2 |
 | **T7** | `[ ]` | `RM29-app-add-process-vehicle-data` | `app` (new) | The three use cases + `process_runs`; `poll_attempts` moves; `cmd/poller` re-points and `reconcilingCollector` is deleted. | T1, T2 |
 | **T8** | `[ ]` | *(parked — D9)* | TBD | The manual-rerun HTTP API adapter. | T7 |
