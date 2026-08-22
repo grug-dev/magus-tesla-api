@@ -48,7 +48,7 @@ const (
 // (design.md D11). It is NOT part of the fake-testable seam reader.go's
 // vehicleMetricsStore interface provides for the two SELECT-only Reader
 // methods -- its own DB-integration tests (Wave 6) exercise it directly
-// against a real database, mirroring internal/telemetry's gapWriter
+// against a real database, mirroring this package's own gapWriter
 // precedent (a write-path port not shaped for an offline fake).
 type recalculator struct {
 	pool         *pgxpool.Pool

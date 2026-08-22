@@ -450,6 +450,52 @@ will be editing that file anyway.
 Recorded in that change's progress.json `decisions[]`.
 
 
+## 15. analytics — `charge_gaps`' SQL `COMMENT ON` still names `internal/battery` and `internal/telemetry`
+
+### PROPOSAL
+
+`internal/analytics/db/migrations/20260815000002_add_charge_gaps.sql` carries a
+`COMMENT ON TABLE charge_gaps` (line 73) whose text reads *"Written by `internal/battery`
+through the GapWriter port (telemetry never calls battery) … Owned by
+`internal/telemetry`"*. Both module names are wrong now: `internal/battery` was renamed
+`internal/analytics` in **RM29 T1**, and ownership moved to `internal/analytics` in
+**RM29 T5**. Because sqlc copies table/column comments into generated code, the same
+stale sentence is reproduced verbatim in `internal/analytics/db/models.go:12`, where it
+is the first thing a reader (human or agent) sees about the type.
+
+**Why T5 did not fix it.** Two routes exist and both are closed to an unattended run:
+
+1. *Edit the migration file.* T5's user-confirmed design decision **I1** is that the
+   migration moves with **zero content change** — that is precisely what makes the
+   `git mv` safe and lets goose recognize the already-applied version in its new
+   directory. Editing it would break the gate the owner confirmed, and would not change
+   the live database anyway: the migration is already applied, so its text is never
+   re-executed. The comment in the running Postgres would stay stale.
+2. *Add a new migration issuing a corrected `COMMENT ON TABLE` / `COMMENT ON COLUMN`.*
+   This is the correct fix, but it is **DDL**, so it trips the pipeline's built-in
+   `database` design gate — schema, rationale and index plan need the owner's explicit
+   confirmation before implementation. The owner was asleep.
+
+Note the staleness is **pre-existing**: the `internal/battery` half has been wrong since
+T1. T5 neither introduced nor worsened it — it only relocated the file, which is what
+made it visible inside `internal/analytics`.
+
+**Suggested shape.** A comment-only migration (`COMMENT ON TABLE charge_gaps IS …` plus
+the affected `COMMENT ON COLUMN` lines), re-running `make sqlc` so `models.go` picks up
+the corrected text. No table, column, index or constraint changes — the cheapest possible
+DDL, but DDL nonetheless, so it still needs the design-gate conversation.
+
+**TRIGGER — fix this when** the owner next confirms a database design gate for
+`internal/analytics`, or opportunistically during **T6**/**T7** if either already carries
+a migration the owner is reviewing.
+
+### ORIGIN
+
+`RM29-analytics-own-charge-gaps` (RM29 tier 5). Found by the leader's post-review sweep
+while fixing `analytics-reviewer` round-1 finding **R1-1**; the reviewer itself missed it.
+Recorded in that change's progress.json `decisions[]` as **A6**.
+
+
 # BRAINSTORMING
 
 

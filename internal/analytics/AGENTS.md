@@ -121,7 +121,7 @@ interface-first):
   it (or a different duration) to `NewReader` at construction; the window is NOT a
   per-call argument to `RecentEfficiency` (`design.md` D3).
 - `GapReconciliationWindow` — exported `time.Duration` constant, 30 days. The rolling
-  window `cmd/poller` re-derives and reconciles against `telemetry`'s `charge_gaps`
+  window `cmd/poller` re-derives and reconciles against this module's own `charge_gaps`
   ledger every nightly run, via `ConsumedByDay` (`design.md` D4/D4a/D7b). Unlike
   `DefaultWindow`, this is not consumed by `NewReader` — `cmd/poller` passes it directly
   as the `[start, end]` window to `ConsumedByDay`.

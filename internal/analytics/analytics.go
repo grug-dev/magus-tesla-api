@@ -27,7 +27,7 @@ import (
 const DefaultWindow = 30 * 24 * time.Hour
 
 // GapReconciliationWindow is the rolling window cmd/poller re-derives and
-// reconciles against telemetry's charge_gaps ledger every nightly run (D4/D4a,
+// reconciles against this package's own charge_gaps ledger every nightly run (D4/D4a,
 // D7b) — 30 days: generous enough to catch a manual-entry backfill days after
 // the fact, cheap enough to recompute nightly (bounded by ~30 snapshot rows
 // and a handful of charge rows per vehicle, per the read-heavy Performance-

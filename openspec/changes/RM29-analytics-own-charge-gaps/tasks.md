@@ -318,7 +318,7 @@ test to author or move for this change. The entire test surface is the
   verbatim.
   `depends_on`: all artifact edits · `parallel_ok`: no
 
-- [ ] **5.4** Hand off to the owner. Exact commands to paste (not run by the
+- [x] **5.4** Hand off to the owner. Exact commands to paste (not run by the
   assistant, per the Test-Execution-Policy):
   ```
   go test ./internal/telemetry/... ./internal/analytics/... ./internal/gateway/... ./cmd/...

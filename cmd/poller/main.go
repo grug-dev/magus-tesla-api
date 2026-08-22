@@ -8,11 +8,12 @@
 // Reconcile advances that module's own precomputed read model (vehicle_metrics)
 // from its watermarks, and then charge-gap reconciliation asks the same module for
 // the trailing window of consumed-per-day figures and hands the flagged days to
-// internal/telemetry's gap writer. The order matters — consumed-per-day is now a
-// read of the model the first half writes. That orchestration lives HERE, and only
-// here, because neither module may depend on the other in that direction —
-// telemetry never calls analytics. See internal/analytics's Reconcile and
-// ConsumedByDay, and telemetry's GapWriter.
+// internal/analytics's own gap writer. The order matters — consumed-per-day is now a
+// read of the model the first half writes. Since RM29 tier 5 both halves belong to
+// internal/analytics, so this is composition of one module's parts rather than a
+// cross-module handoff; the orchestration still lives HERE because a domain module
+// does not drive the poller's per-vehicle loop or own its scheduling. See
+// internal/analytics's Reconcile, ConsumedByDay and GapWriter.
 //
 // This is the ONLY production caller of Reconcile: the gateway calls Recalculate
 // after a manual charge write, which covers only the days that write touches.
@@ -178,7 +179,7 @@ func (c *reconcilingCollector) CollectAll(ctx context.Context) (telemetry.CycleR
 //     vehicle_metrics, from its three per-source watermarks (design.md D7/D8).
 //  2. charge-gap reconciliation (D4/D4a, D7b) — recomputes the trailing
 //     analytics.GapReconciliationWindow of consumed-per-day figures and hands the
-//     flagged days to telemetry's gap writer, which upserts the days that flag and
+//     flagged days to analytics's own gap writer, which upserts the days that flag and
 //     deletes the days that no longer do.
 //
 // The order is a correctness requirement, not a preference. ConsumedByDay no

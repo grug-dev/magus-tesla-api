@@ -11,10 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// These tests exercise the real telemetrydb-backed GapWriter (gap_writer.go) against a
-// live Postgres from DATABASE_URL and self-skip when it is unset, so `go test ./...`
-// stays green without a database (ai/go-conventions.md §persistence, AGENTS.md §Testing
-// notes). They require the charge_gaps table created by migration 20260815000002.
+// These tests exercise the real analyticsdb-backed GapWriter (gap_writer.go) against
+// the test Postgres this package's TestMain provisions -- DATABASE_URL when set,
+// otherwise a Docker container -- and self-skip when neither is available, so
+// `go test ./...` stays green without a database (ai/go-conventions.md §persistence,
+// AGENTS.md §Testing notes). They require the charge_gaps table created by migration
+// 20260815000002, which moved to this module with the ledger in RM29 tier 5.
 //
 // They implement the test contract authored in RM28-telemetry-add-charge-gap-storage's
 // design.md BEFORE the implementation existed (§"Test Contract"), per
