@@ -10,9 +10,10 @@ Per-module instructions for `internal/analytics/` — merged with the global rul
 Extends the project base Doc-Pack (`CLAUDE.md` → "Pipeline config") — never replaces it.
 A dispatched worker/reviewer reads: base pack + this list + this file, before any write.
 
-(No module-specific docs beyond the base pack today — this is a pure Go derivation
-module with no persistence, no HTTP surface, and no external SDK of its own. If a
-future metric needs an external doc, e.g. a battery-chemistry reference, add it here.)
+(No module-specific docs beyond the base pack today. This module owns its own
+database (`internal/analytics/db/` — sqlc + goose migrations, see "Data ownership"
+below) but still has no HTTP surface and no external SDK of its own. If a future
+metric needs an external doc, e.g. a battery-chemistry reference, add it here.)
 
 ## Responsibility
 
@@ -34,8 +35,11 @@ capacity table is model-coarse, why `Approximate` exists instead of refusing to
 answer): `openspec/changes/battery-add-efficiency-metric/design.md`.
 
 Under the RM29 roadmap (tier 1 of 8), this module owns what the application
-calculates; it will additionally own a database of its own starting at tier 3 —
-a fact not yet true today (see "Data ownership" below).
+calculates. Tier 3 gave it a database of its own (see "Data ownership" below).
+Tier 4 (`RM29-telemetry-drop-derived-columns`) moved the five per-day
+consumption figures' derivation itself into this module — they were
+previously computed in `internal/telemetry` and copied here verbatim; see
+the `Recalculator` entries under "Public interface (the port)" below.
 
 ## Public interface (the port)
 
@@ -82,7 +86,19 @@ interface-first):
 - `Recalculator` — `Recalculate(ctx, accountID, teslaID, start, end) error`: recomputes
   and UPSERTs the `vehicle_metrics` rows for `[start, end]` from the three source ports.
   Idempotent by design — re-running over the same unchanged sources produces the same
-  rows (`design.md` D4).
+  rows (`design.md` D4). It **computes** the five per-day consumption figures itself
+  (`consumption.go`'s `deriveConsumption`, moved in from `internal/telemetry` by
+  `RM29-telemetry-drop-derived-columns`) rather than copying them off
+  `telemetry.Snapshot` — nothing on `Snapshot` carries them any more. For the fetched
+  window's first row it looks up the exact predecessor via
+  `telemetry.Reader.SnapshotPrecedingDay(ctx, accountID, teslaID, day)` (a real
+  predecessor may sit outside the normal 1-day lookback after a multi-day capture gap),
+  and per `design.md` D8b it widens **both** charge-source fetches (Supercharger
+  sessions and manual entries) back to that predecessor's effective day whenever it
+  precedes the normal lookback start — otherwise a gap day's charge events go unfetched
+  and its consumed-percent comes out wrong (and can trigger a false missing-charge
+  flag). A `SnapshotPrecedingDay` error aborts `Recalculate`; it is never degraded to
+  "no predecessor".
 - `Recalculator` — `Reconcile(ctx, accountID, teslaID) error`: the incremental pass. It
   reads the three per-source watermarks, widens by the commit-skew overlap, clamps the
   end to yesterday, and calls `Recalculate` for the affected span. **No prior watermark
@@ -124,7 +140,9 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 ## Allowed / forbidden imports
 
 **May import (public ports only):**
-- `internal/telemetry` — `telemetry.Reader` (`SnapshotsByVehicleSince`),
+- `internal/telemetry` — `telemetry.Reader` (`SnapshotsByVehicleSince`,
+  `SnapshotPrecedingDay` — added by `RM29-telemetry-drop-derived-columns`, the exact-
+  predecessor lookup `Recalculate` uses to derive the five consumption figures itself),
   `telemetry.SuperchargerReader` (`SuperchargerSessionsByVehicle`), and the domain
   types `telemetry.Snapshot`, `telemetry.SuperchargerSession`.
 - `internal/charging` — `charging.Reader` (`ListEntriesByVehicle`) and the

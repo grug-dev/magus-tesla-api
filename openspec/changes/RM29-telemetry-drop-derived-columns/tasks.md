@@ -415,7 +415,7 @@ behind each group.
 
 ## Wave 7 — documentation (docs-track-structural-change, same change per CLAUDE.md)
 
-- [ ] **7.1** **[module: telemetry worker]** `internal/telemetry/AGENTS.md` — remove
+- [x] **7.1** **[module: telemetry worker]** `internal/telemetry/AGENTS.md` — remove
   the "Five derived-consumption columns" bullet from "DTO / units conventions" and the
   five-column sentence from `vehicle_snapshots`' entry under "Data ownership",
   replacing both with a short note that the derivation now lives in
@@ -425,7 +425,7 @@ behind each group.
   from the "Testing notes" list of offline tests.
   `depends_on`: 4.8 · `parallel_ok`: with 7.2
 
-- [ ] **7.2** **[module: analytics worker]** `internal/analytics/AGENTS.md` — two
+- [x] **7.2** **[module: analytics worker]** `internal/analytics/AGENTS.md` — two
   jobs. (a) **Fix the pre-existing staleness the leader flagged**: the "Doc-Pack
   (module)" section still calls this "a pure Go derivation module with no persistence,
   no HTTP surface", and "Responsibility" still says the module "will additionally own
