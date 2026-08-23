@@ -4,9 +4,9 @@
   "roadmap": "RM29-modular-monolith-boundaries",
   "intention": "Module boundaries match the data: analytics owns what the app calculates, charging owns charge data, telemetry owns only what Tesla reported, and an app layer owns ProcessVehicleData.",
   "request": "MAG-26 — modular monolith refactoring: give the platform an analytics module, a charging module, and an application layer, so no module stores another's derived values.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": true,
-  "updated_at": "2026-08-22T19:06:00Z",
+  "updated_at": "2026-08-23T01:29:31Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
@@ -16,12 +16,8 @@
     "created_at": "2026-08-20T17:07:08Z"
   },
   "rollup": {
-    "current": [
-      7
-    ],
-    "pending": [
-      8
-    ],
+    "current": [],
+    "pending": [],
     "blocked": [],
     "done": [
       1,
@@ -29,7 +25,11 @@
       3,
       4,
       5,
-      6
+      6,
+      7
+    ],
+    "parked": [
+      8
     ]
   },
   "decisions": [
@@ -263,14 +263,23 @@
         1,
         2
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-08-22T14:50:00Z",
-      "completed_at": null,
+      "completed_at": "2026-08-23T01:29:31Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 62.0,
+        "cost_usd_delta": 27.0,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts amendment + 4 waves + 2 review rounds; the last stretch ran with the cache stale, so the tail is estimated"
+      },
+      "notes": "internal/app created: Processor.ProcessVehicleData (sync -> charging -> analytics) + the relocated Scheduler. cmd/poller 370 -> 161 lines, wiring only. poll_attempts gained run_id + triggered_by; no new module schema. Approved round 2 - round 1 found a Test Contract group the artifacts pass authored but never assigned a task.",
+      "archived_at": "2026-08-23T01:29:31Z",
+      "archive_path": "openspec/changes/archive/app/2026-08-23-RM29-app-add-process-vehicle-data"
     },
     {
       "id": 8,
@@ -287,7 +296,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Parked (D9) — manual-rerun HTTP API; module/binary/auth undecided."
+      "notes": "Parked (D9) - manual-rerun HTTP API; module/binary/auth undecided. RM29 archived with T8 unstarted: it is optional, and D9 parked it deliberately. Backlog carries it."
     }
   ],
   "events": [
@@ -380,6 +389,16 @@
       "at": "2026-08-22T19:06:00Z",
       "agent": "leader",
       "event": "T7 RD8 amendment LANDED and openspec validate --strict passes. design.md D4 rewritten (Scheduler -> internal/app, four tests preserved), D3 reconciles RD4 with RD8 (source location moved, composition unchanged), D11/D12 amended, new D13 keeps the cfg telemetry.Config clock seam on minimum-diff grounds. tasks.md: 2.4/2.5/2.7/4.1/4.3 rewired, new 3.4/3.5, the anti-restoration bullet inverted. proposal amended; spec.md needed no change (it names the trigger value, never the package). Roadmap T7 flipped [ ] -> [~]. Change progress.json created with 18 sub-tasks in 4 waves."
+    },
+    {
+      "at": "2026-08-23T01:29:31Z",
+      "agent": "leader",
+      "event": "TIER 7 ARCHIVED - the last REQUIRED tier. app-reviewer approved at round 2. Round 1 earned the gate: it found that design.md authored a Test Contract group B and tasks.md never assigned it a task, so nobody skipped it and nobody wrote it - invisible to build, vet, the guards and a green suite alike, because every task that existed was done. Fixed by APPENDING task 2.8 and writing the tests, not by amending the contract to match what shipped."
+    },
+    {
+      "at": "2026-08-23T01:29:31Z",
+      "agent": "leader",
+      "event": "ROADMAP RM29 COMPLETE. All seven required tiers archived; T8 stays parked per D9 (optional, undesigned). Two owner reversals define this roadmap's real shape versus its original plan: RD2 (poll_attempts never moved - internal/app owns NO schema) and RD8 (Scheduler moved into internal/app, not cmd/, keeping its four tests). Roadmap files moved to openspec/roadmaps/archive/RM29-modular-monolith-boundaries/."
     }
   ]
 }
