@@ -15,11 +15,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/config"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -57,18 +57,31 @@ func main() {
 		Tesla:              tesla.NewClient(),
 		TelemetryReader:    telemetry.NewReader(pool),
 		SuperchargerReader: telemetry.NewSuperchargerReader(pool),
-		ManualChargeWriter: manualcharge.NewWriter(pool),
-		ManualChargeReader: manualcharge.NewReader(pool),
+		ChargingWriter:     charging.NewWriter(pool),
+		ChargingReader:     charging.NewReader(pool),
 		// The history fragment's battery-consumed chart reads through this port.
-		// battery.NewReader's window argument is required by the signature but
+		// analytics.NewReader's window argument is required by the signature but
 		// unused by ConsumedByDay — only RecentEfficiency reads it, and the
 		// gateway never calls that (mirrors cmd/poller's own construction).
-		BatteryReader: battery.NewReader(
+		AnalyticsReader: analytics.NewReader(
+			pool,
 			telemetry.NewReader(pool),
 			telemetry.NewSuperchargerReader(pool),
-			manualcharge.NewReader(pool),
+			charging.NewReader(pool),
 			acct,
-			battery.DefaultWindow,
+			analytics.DefaultWindow,
+		),
+		// The manual-charge write handlers call Recalculate through this port
+		// after their charging.Writer call succeeds, so the precomputed
+		// history charts stay current without a separate refresh
+		// (RM29-analytics-add-vehicle-metrics design D5). It takes no
+		// vehicleLookup and no window: the write path recomputes an explicit
+		// date range for one known vehicle.
+		AnalyticsRecalculator: analytics.NewRecalculator(
+			pool,
+			telemetry.NewReader(pool),
+			telemetry.NewSuperchargerReader(pool),
+			charging.NewReader(pool),
 		),
 		SessionSecret:     cfg.SessionSecret,
 		TeslaClientID:     cfg.ClientID,

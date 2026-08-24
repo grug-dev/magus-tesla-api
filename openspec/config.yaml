@@ -58,7 +58,8 @@ rules:
     - Each task must be atomic and testable.
     - Keep tasks.md updated live as I apply (so openspec status always shows real progress and any session can resume)
     - Group tasks into isolated, independent sub-tasks with explicit dependencies so separate agents can implement them — in parallel when they touch disjoint files.
-    - When applying, also maintain openspec/changes/<change>/progress.json (contract in ai/agentic-workflow.md) — update the matching task entry live alongside tasks.md.
+    - Keep openspec/changes/<change>/progress.json truthful. Its schema and write-ownership are the kkpa-dev-harness-pipeline skill's own contract (references/progress-schema.md) and are NOT project-overridable — do not restate them here or in ai/agentic-workflow.md, or the copy goes stale and teaches the wrong rules.
+    - On progress.json write-ownership — the LEADER is its only writer, apart from the reviewer's own `review` block. Module workers NEVER write it — not their task entries, not notes, not budget. They report per-task status, timestamps and a short note in their final report, and the leader transcribes once per wave (every subagent write is re-injected into the leader's context, which costs more than everything it saves). Only tasks.md checkboxes are updated live, by whoever does the work.
   archive:
     - Group archived changes by business domain under openspec/changes/archive/<domain>/ (do NOT dump them flat in openspec/changes/archive/).
     - Target path: openspec/changes/archive/<domain>/YYYY-MM-DD-<change-name>.

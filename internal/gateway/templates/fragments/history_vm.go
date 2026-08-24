@@ -30,7 +30,7 @@ type HistoryBar struct {
 	// driven, not snapshot-driven (RM8 design D3, MAG-7 fix). A Present=false
 	// bar renders at zero height with its MM-DD label retained.
 	Present bool
-	// MarkerFlagged is true when this day was flagged by internal/battery's
+	// MarkerFlagged is true when this day was flagged by internal/analytics's
 	// gap detection (D10) -- the template renders a warning-colored marker
 	// chip. Always false for every existing odometer/battery bar (they never
 	// set this field).
@@ -132,7 +132,7 @@ type HistoryView struct {
 	Battery HistoryChart
 	// Consumed contains the battery-consumed-%/day bars over the SAME fixed
 	// [start..end] axis as Odometer/Battery, bucketed on
-	// battery.DayConsumption.Date DIRECTLY (never effectiveDayUTC — D18/D18a,
+	// analytics.DayConsumption.Date DIRECTLY (never effectiveDayUTC — D18/D18a,
 	// design.md D-G2). Scaled RELATIVE to the window's max displayed value
 	// (D19), not absolute 0-100 like Battery. HeightPct is math.Max(0,
 	// ConsumedPct) scaled against that max for every bar (design.md D-G1) —

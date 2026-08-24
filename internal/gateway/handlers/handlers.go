@@ -23,13 +23,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -60,23 +60,32 @@ type Deps struct {
 	// at construction. Called by the Supercharger Stats page/fragment handlers.
 	// NEVER import internal/telemetry/db — all access through this interface only.
 	SuperchargerReader telemetry.SuperchargerReader
-	// ManualChargeWriter is the manualcharge write port. Called by write handlers
+	// ChargingWriter is the charging write port. Called by write handlers
 	// on explicit user-initiated form submissions (create/update/delete).
 	// See AGENTS.md "Exception: user-initiated writes" for constraints.
-	ManualChargeWriter manualcharge.Writer
-	// ManualChargeReader is the manualcharge read port. Called by read handlers
+	ChargingWriter charging.Writer
+	// ChargingReader is the charging read port. Called by read handlers
 	// and the dataForCharges helper to list charge entries.
-	ManualChargeReader manualcharge.Reader
-	// BatteryReader is the battery module's read port; injected at
+	ChargingReader charging.Reader
+	// AnalyticsReader is the analytics module's read port; injected at
 	// construction (mirrors TelemetryReader/SuperchargerReader/
-	// ManualChargeReader — the gateway calls ConsumedByDay once per history
-	// fragment render). NEVER construct an internal/battery internal type
-	// here — internal/battery owns no database, so there is no db package
+	// ChargingReader — the gateway calls ConsumedByDay once per history
+	// fragment render). NEVER construct an internal/analytics internal type
+	// here — internal/analytics owns no database, so there is no db package
 	// this could even accidentally import.
-	BatteryReader     battery.Reader
-	TeslaClientID     string
-	TeslaClientSecret string
-	TeslaRedirectURL  string
+	AnalyticsReader analytics.Reader
+	// AnalyticsRecalculator is the analytics module's write-path port
+	// (RM29-analytics-add-vehicle-metrics design.md D5). Called ONLY by the
+	// manual-charge write handlers (ChargeCreate, ChargeRowUpdate,
+	// ChargeRowDelete), after their corresponding chargingWriter call
+	// succeeds, so the precomputed history charts reflect the edit
+	// immediately (mirrors ChargingWriter's own narrow write-aperture
+	// exception — AGENTS.md "Exception: user-initiated writes"). Never
+	// called from a Reader-only handler.
+	AnalyticsRecalculator analytics.Recalculator
+	TeslaClientID         string
+	TeslaClientSecret     string
+	TeslaRedirectURL      string
 	// VehicleImageResolver maps a vehicle's (CarType, ExteriorColor) to a
 	// /static/img/<carType><ExteriorColor>.png URL, falling back to
 	// defaultCar.png when either field is unset or the composed file is not in
@@ -87,19 +96,20 @@ type Deps struct {
 
 // Handler carries the gateway's dependencies.
 type Handler struct {
-	pool               *pgxpool.Pool
-	acct               account.Service
-	google             *googleauth.Client
-	tesla              tesla.VehicleService
-	telemetryReader    telemetry.Reader
-	superchargerReader telemetry.SuperchargerReader
-	manualChargeWriter manualcharge.Writer
-	manualChargeReader manualcharge.Reader
-	batteryReader      battery.Reader
-	teslaClientID      string
-	teslaClientSecret  string
-	teslaRedirectURL   string
-	vehicleImage       VehicleImageResolver
+	pool                  *pgxpool.Pool
+	acct                  account.Service
+	google                *googleauth.Client
+	tesla                 tesla.VehicleService
+	telemetryReader       telemetry.Reader
+	superchargerReader    telemetry.SuperchargerReader
+	chargingWriter        charging.Writer
+	chargingReader        charging.Reader
+	analyticsReader       analytics.Reader
+	analyticsRecalculator analytics.Recalculator
+	teslaClientID         string
+	teslaClientSecret     string
+	teslaRedirectURL      string
+	vehicleImage          VehicleImageResolver
 }
 
 // VehicleImageResolver maps a vehicle's (CarType, ExteriorColor) to a static
@@ -123,19 +133,20 @@ func New(d Deps) *Handler {
 		resolver = func(_, _ *string) string { return vehicleImageDefaultURL }
 	}
 	return &Handler{
-		pool:               d.Pool,
-		acct:               d.Account,
-		google:             d.Google,
-		tesla:              d.Tesla,
-		telemetryReader:    d.TelemetryReader,
-		superchargerReader: d.SuperchargerReader,
-		manualChargeWriter: d.ManualChargeWriter,
-		manualChargeReader: d.ManualChargeReader,
-		batteryReader:      d.BatteryReader,
-		teslaClientID:      d.TeslaClientID,
-		teslaClientSecret:  d.TeslaClientSecret,
-		teslaRedirectURL:   d.TeslaRedirectURL,
-		vehicleImage:       resolver,
+		pool:                  d.Pool,
+		acct:                  d.Account,
+		google:                d.Google,
+		tesla:                 d.Tesla,
+		telemetryReader:       d.TelemetryReader,
+		superchargerReader:    d.SuperchargerReader,
+		chargingWriter:        d.ChargingWriter,
+		chargingReader:        d.ChargingReader,
+		analyticsReader:       d.AnalyticsReader,
+		analyticsRecalculator: d.AnalyticsRecalculator,
+		teslaClientID:         d.TeslaClientID,
+		teslaClientSecret:     d.TeslaClientSecret,
+		teslaRedirectURL:      d.TeslaRedirectURL,
+		vehicleImage:          resolver,
 	}
 }
 
@@ -681,7 +692,7 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 	vm := fragments.NavHeaderVM{}
 
 	// Read the latest snapshot per vehicle for this account. On error: degrade —
-	// keep the vehicle name, show "Unavailable", no battery. Never return early.
+	// keep the vehicle name, show "Unavailable", no analytics. Never return early.
 	snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
 	if snapErr != nil {
 		log.Printf("gateway: nav-header telemetry reader error for account %s: %v", uid, snapErr)

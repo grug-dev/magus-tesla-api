@@ -79,8 +79,8 @@ interface in the package that *needs* it, and wire the concrete type in at `cmd/
 is the opposite of the Java/Spring habit of defining the interface next to its implementation:
 
 ```go
-// In telemetry, if it ever needed data owned by battery (which already imports telemetry).
-// battery satisfies this without importing telemetry — no import, no cycle.
+// In telemetry, if it ever needed data owned by analytics (which already imports telemetry).
+// analytics satisfies this without importing telemetry — no import, no cycle.
 type ChargeReader interface {
 	LatestCharge(ctx context.Context, vehicleID uuid.UUID) (Charge, error)
 }
@@ -129,8 +129,8 @@ internal/
 │   ├── client.go            # calls the Tesla Fleet API using credentials passed IN
 │   └── types.go             # vendor-shaped DTOs — every struct suffixed ...Tesla
 │
-└── battery/                 # EXAMPLE domain module
-    ├── service.go           # core battery logic/math on clean domain structs
+└── analytics/               # EXAMPLE domain module
+    ├── service.go           # core derived-metrics logic/math on clean domain structs
     └── api.go               # public Go interface (+ optional /api/v1 JSON, on demand)
 ```
 
@@ -162,7 +162,7 @@ our own domain models never carry a vendor suffix.**
 
 - Tesla's raw payloads → `VehicleDataTesla`, `ChargeStateTesla`, `DriveStateTesla`, … in
   `internal/tesla/`. These are the *only* structs that unmarshal Tesla JSON.
-- Our clean domain models (owned by domain modules, e.g. `battery.State`) carry **no**
+- Our clean domain models (owned by domain modules, e.g. `analytics.State`) carry **no**
   suffix. The absence of a suffix means "this is our model, safe to build logic on."
 - The adapter's job includes **mapping** `...Tesla` → clean domain structs before data
   flows into domain logic.

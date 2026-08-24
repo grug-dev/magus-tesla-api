@@ -1,0 +1,1156 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM29-telemetry-drop-derived-columns",
+  "module": "telemetry",
+  "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
+  "request": "RM29 tier 4 - move the five _calc derivations from telemetry into analytics, add the exact-predecessor port method, then drop the columns. Owner: autopilot ON for the rest of RM29, away.",
+  "status": "verified",
+  "rollup": {
+    "current": [
+      "8.4"
+    ],
+    "pending": [
+      "8.1",
+      "8.2",
+      "8.3"
+    ],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "3.1",
+      "3.2",
+      "3.3",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "4.5",
+      "4.6",
+      "4.7",
+      "4.8",
+      "4.9",
+      "5.1",
+      "5.2",
+      "6a.1",
+      "6a.2",
+      "6a.3",
+      "6b.1",
+      "6b.2",
+      "6b.3",
+      "7.1",
+      "7.2",
+      "7.3",
+      "7.4",
+      "8.1",
+      "8.2",
+      "8.3"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-08-21T22:00:00Z",
+  "updated_at": "2026-08-22T02:50:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
+    "base": "main",
+    "ticket": "MAG-26",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-26/modular-monolith-refactoring",
+    "created_at": "2026-08-20T17:15:32Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "add PreviousSnapshotForVehicle-derived query with captured_date bound",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T22:05:00Z",
+      "completed_at": "2026-08-21T21:52:00Z",
+      "duration_seconds": null,
+      "notes": "Added SnapshotPrecedingDay :one bound on captured_date < @day, with the zone-safety and index-reuse rationale in the comment. PreviousSnapshotForVehicle left untouched (wave 4 removes it). sqlc generate clean.",
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "add SnapshotPrecedingDay to telemetry.Reader",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T22:05:00Z",
+      "completed_at": "2026-08-21T21:58:00Z",
+      "duration_seconds": null,
+      "notes": "Added SnapshotPrecedingDay to telemetry.Reader returning (*Snapshot, error), nil/nil meaning no predecessor. ~35-line doc comment matching the four existing methods standard. No existing signature changed.",
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "implement SnapshotPrecedingDay on the dbStore reader",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T22:05:00Z",
+      "completed_at": "2026-08-21T22:04:00Z",
+      "duration_seconds": null,
+      "notes": "Implemented on the dbStore reader, ErrNoRows -> (nil,nil), reusing rowToSnapshot. Also widened the store interface in service.go - unavoidable, reader.store is statically typed store. Leader reviewed and accepted.",
+      "budget": null
+    },
+    {
+      "id": "1.4",
+      "title": "add SnapshotPrecedingDay to in-module reader fakes",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T22:05:00Z",
+      "completed_at": "2026-08-21T22:08:00Z",
+      "duration_seconds": null,
+      "notes": "Stubbed the new method on fakeReadStore, fakeHistoryStore, fakeBetweenStore and service_test.go fakeStore, each matching that fake existing previousSnapshot convention.",
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "move deriveConsumption into internal/analytics/consumption.go",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "1.2",
+        "1.3"
+      ],
+      "wave": 2,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T22:25:00Z",
+      "completed_at": "2026-08-21T22:26:00Z",
+      "duration_seconds": null,
+      "notes": "New consumption.go: consumptionCalc struct + deriveConsumption moved from telemetry. Operand orders, the strict >0 divisor guard, the x100 form and the CapturedDate day count all verified token-for-token against the original.",
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "deriveVehicleMetrics gains a preceding-snapshot parameter",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "1.2",
+        "1.3"
+      ],
+      "wave": 2,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T22:25:00Z",
+      "completed_at": "2026-08-21T22:33:00Z",
+      "duration_seconds": null,
+      "notes": "deriveVehicleMetrics gained a leading preceding parameter; per D6 the predecessor test is now prev == nil alone, the five verbatim copies are replaced by the deriveConsumption result.",
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "Recalculate calls SnapshotPrecedingDay",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "1.2",
+        "1.3"
+      ],
+      "wave": 2,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T22:25:00Z",
+      "completed_at": "2026-08-21T22:38:00Z",
+      "duration_seconds": null,
+      "notes": "Recalculate calls SnapshotPrecedingDay unconditionally when the snapshot fetch returns rows (D7). A lookup error aborts with a wrapped error, never degrading into a predecessor-less row.",
+      "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "D8b: widen charge-source fetches across a predecessor gap",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "1.2",
+        "1.3"
+      ],
+      "wave": 2,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T22:25:00Z",
+      "completed_at": "2026-08-21T22:44:00Z",
+      "duration_seconds": null,
+      "notes": "D8b implemented as its code block specifies. Worker caught that D8b prose contradicted that code; leader corrected the design, the copied code comment and task 3.3 rather than let a wrong expectation reach a test.",
+      "budget": null
+    },
+    {
+      "id": "2.5",
+      "title": "update in-module telemetry.Reader fakes for the new method",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "1.2",
+        "1.3"
+      ],
+      "wave": 2,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T22:25:00Z",
+      "completed_at": "2026-08-21T22:48:00Z",
+      "duration_seconds": null,
+      "notes": "fakeTelemetryReader gained SnapshotPrecedingDay with preceding/precedingErr fixture fields and a gotPrecedingDay recorder. Only in-module fake of telemetry.Reader; db_integration_test.go reuses the same type.",
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "port the characterization tests into analytics/consumption_test.go",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.4"
+      ],
+      "wave": 3,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:05:00Z",
+      "duration_seconds": null,
+      "notes": "New consumption_test.go ports telemetry cases a-e plus the nil-prev test, values copied verbatim, adapted to consumptionCalc. Added Fixture D and E from the design Test Contract, not from running the new code.",
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "update consumed_test.go for the new derivation",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.4"
+      ],
+      "wave": 3,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:20:00Z",
+      "duration_seconds": null,
+      "notes": "Every deriveVehicleMetrics call site updated for the leading preceding param; fixtures now use raw Snapshot fields only. One obsolete test deleted with a documented tombstone explaining why the scenario is unconstructible under D6.",
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "extend recalculate fetch-window coverage",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.4"
+      ],
+      "wave": 3,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:27:00Z",
+      "duration_seconds": null,
+      "notes": "New recalculate_test.go: four fake-backed tests pinning the corrected start-2d no-gap bound, the gap-widened bound, the nil-preceding unwidened bound, and D7 error propagation with neither charge fetch firing.",
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "migration 20260822000001 drops the five _calc columns",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:23:00Z",
+      "duration_seconds": null,
+      "notes": "Drop migration written verbatim from design.md including the D9 restores/does-not-restore comment block. NOT applied - applying migrations is the owner gate.",
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "remove the five columns from telemetry queries",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:23:30Z",
+      "duration_seconds": null,
+      "notes": "Five columns removed from all 10 sites across 8 queries - count independently confirmed against design.md claim. PreviousSnapshotForVehicle deleted entirely per D8. make sqlc clean.",
+      "budget": null
+    },
+    {
+      "id": "4.3",
+      "title": "delete the five Snapshot port fields",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:24:00Z",
+      "duration_seconds": null,
+      "notes": "Five Snapshot struct fields and their doc block deleted from telemetry.go. UpdatedAt and every other field untouched.",
+      "budget": null
+    },
+    {
+      "id": "4.4",
+      "title": "remove the five assignments from rowToSnapshot",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:24:30Z",
+      "duration_seconds": null,
+      "notes": "Five assignments removed from rowToSnapshot. The pgNullable helpers verified still used by other fields rather than left dead.",
+      "budget": null
+    },
+    {
+      "id": "4.5",
+      "title": "delete deriveConsumption and dayStart from service.go",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:25:30Z",
+      "duration_seconds": null,
+      "notes": "deriveConsumption, dayStart, the previousSnapshot store seam and attemptVehicle predecessor block all deleted. dayStart callers grepped first: only deleted sites. D8 dead-plumbing rule satisfied.",
+      "budget": null
+    },
+    {
+      "id": "4.6",
+      "title": "update telemetry service/reader tests for the removed seam",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:26:00Z",
+      "duration_seconds": null,
+      "notes": "previousSnapshot removed from all four store fakes; testdb_test.go offline-test comment updated.",
+      "budget": null
+    },
+    {
+      "id": "4.7",
+      "title": "delete telemetry/consumption_test.go",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:26:10Z",
+      "duration_seconds": null,
+      "notes": "telemetry/consumption_test.go deleted, but only after verifying analytics/consumption_test.go already carried the ported cases - the concurrent wave-3 worker had landed them.",
+      "budget": null
+    },
+    {
+      "id": "4.8",
+      "title": "re-home the derived-consumption integration tests",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:26:50Z",
+      "duration_seconds": null,
+      "notes": "Round-trip test rewritten against the public port in the renamed db_preceding_snapshot_integration_test.go; the other two removed per the split/delete table. Flagged that this overlaps task 6a.1, which the leader then narrowed.",
+      "budget": null
+    },
+    {
+      "id": "4.9",
+      "title": "raise SnapshotsByVehicleBetween's LIMIT 400 -> 4000 (leader-added)",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4"
+      ],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T23:00:00Z",
+      "completed_at": "2026-08-21T23:27:00Z",
+      "duration_seconds": null,
+      "notes": "LIMIT 400 -> 4000 with a comment spelling out the silent-truncation failure mode I3 re-arms, and a spec-delta note. No truncation detection or pagination added, per the task out-of-scope line.",
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "migration 20260822000002 resets the vehicle_snapshots watermark",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "2.4",
+        "4.1"
+      ],
+      "wave": 5,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:01:00Z",
+      "completed_at": "2026-08-22T02:04:00Z",
+      "duration_seconds": 180,
+      "notes": "Created 20260822000002_reset_vehicle_metric_watermarks.sql verbatim from design.md Migration 2 - data-only DELETE + SELECT 1 down, full comment block preserved. Matches the existing goose header/format convention.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 2,
+        "context_pct_start": 8,
+        "context_pct_end": 9,
+        "approx": true,
+        "note": "wave-5 delta shared across both tasks (serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "run make sqlc and confirm no unexpected diff",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "2.4",
+        "4.1"
+      ],
+      "wave": 5,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:01:00Z",
+      "completed_at": "2026-08-22T02:04:00Z",
+      "duration_seconds": 180,
+      "notes": "make sqlc clean, no diff on any tracked file under internal/analytics/db/. make migrate-status ran against a live DB: both 20260822000001 (telemetry) and 20260822000002 (analytics) listed Pending, as expected pre-apply.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 2,
+        "context_pct_start": 8,
+        "context_pct_end": 9,
+        "approx": true,
+        "note": "wave-5 delta shared across both tasks (serial worker, one dispatch)"
+      }
+    },
+    {
+      "id": "6a.1",
+      "title": "DB-integration: SnapshotPrecedingDay round-trips",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "4.8",
+        "5.2"
+      ],
+      "wave": 6,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
+      "duration_seconds": null,
+      "notes": "Renamed TestStore_PreviousSnapshot_RoundTrips -> TestReader_SnapshotPrecedingDay_RoundTrips. All three required cases (predecessor exists; single-row vehicle with a later day; no snapshots -> nil,nil) were already present from 4.8; no new case needed.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
+    },
+    {
+      "id": "6a.2",
+      "title": "DB-integration: EXPLAIN asserts the backward index scan",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "4.8",
+        "5.2"
+      ],
+      "wave": 6,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
+      "duration_seconds": null,
+      "notes": "Wrote TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan from design.md Index Plan. No index added. Flagged: the tier-3 EXPLAIN precedent it was told to mirror never existed - only a doc comment claiming it does.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
+    },
+    {
+      "id": "6a.3",
+      "title": "DB-integration: same-day recapture is not its own predecessor",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "4.8",
+        "5.2"
+      ],
+      "wave": 6,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
+      "duration_seconds": null,
+      "notes": "Wrote TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor: day N-1 plus two day-N captures (second replaces first via dedupe UPSERT); asserts the day N-1 row is returned, never either day-N row. Replaces the deleted TestDayStart_* tests.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
+    },
+    {
+      "id": "6b.1",
+      "title": "DB-integration: update every vehicle_metrics fixture",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "4.8",
+        "5.2"
+      ],
+      "wave": 6,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
+      "duration_seconds": null,
+      "notes": "Stripped the five _calc fields from every telemetry.Snapshot fixture literal and from seedSnapshot INSERT (column list + renumbered placeholders). Fixtures A/B/C expected values left byte-identical, per roadmap D10. This cleared the owner-reported vet break.",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
+    },
+    {
+      "id": "6b.2",
+      "title": "DB-integration: Fixture D multi-day gap",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "4.8",
+        "5.2"
+      ],
+      "wave": 6,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
+      "duration_seconds": null,
+      "notes": "Added metricsFixtureD, seedManualEntry (via charging.NewWriter), TestRecalculate_FixtureD_MultiDayGap with the full-row plus non-empty ConsumedByDay/OdometerDeltaByDay assertions, and TestRecalculate_FixtureD2_ChargeInsideTheGap asserting consumed_pct 55.0 (D8b, DB-backed).",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
+    },
+    {
+      "id": "6b.3",
+      "title": "DB-integration: Fixture E zero-divisor guard",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "4.8",
+        "5.2"
+      ],
+      "wave": 6,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:05:00Z",
+      "completed_at": "2026-08-22T02:13:00Z",
+      "duration_seconds": null,
+      "notes": "Added metricsFixtureE + TestRecalculate_ZeroDivisorGuard (non-NULL zeros, NULL efficiency, ConsumedByDay returns the day) and TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow (day N+1 moves 100.0/15 -> 70.0/5 after N is replaced).",
+      "budget": {
+        "five_hour_pct_start": 5,
+        "five_hour_pct_end": 11,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "approx": true,
+        "note": "wave-6 delta shared: 6a and 6b ran concurrently, so per-task cost is not separable"
+      }
+    },
+    {
+      "id": "7.1",
+      "title": "telemetry AGENTS.md drops the derived-columns responsibility",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [
+        "4.8"
+      ],
+      "wave": 7,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:21:00Z",
+      "completed_at": "2026-08-22T02:25:00Z",
+      "duration_seconds": null,
+      "notes": "Removed the five derived-consumption bullets from DTO/units + Data ownership, added SnapshotPrecedingDay to the Reader port entry with its captured_date bound and index-reuse notes, dropped deriveConsumption and the equally-stale dayStart from Testing notes; fixed the \"two read methods\" count to four.",
+      "budget": null
+    },
+    {
+      "id": "7.2",
+      "title": "analytics AGENTS.md staleness fix (Doc-Pack + Responsibility)",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "5.2"
+      ],
+      "wave": 7,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:21:00Z",
+      "completed_at": "2026-08-22T02:25:00Z",
+      "duration_seconds": null,
+      "notes": "Fixed the two genuinely stale claims (Doc-Pack \"pure Go derivation module with no persistence\"; Responsibility \"will own a database starting at tier 3 - not yet true today\"), and documented consumption.go/deriveConsumption, the SnapshotPrecedingDay call and D8b widening. Data ownership + Testing were already correct; left alone.",
+      "budget": null
+    },
+    {
+      "id": "7.3",
+      "title": "root README check - no module added/removed/renamed",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [
+        "4.8",
+        "5.2"
+      ],
+      "wave": 7,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T02:21:00Z",
+      "completed_at": "2026-08-22T02:25:00Z",
+      "duration_seconds": null,
+      "notes": "README Architecture table: vehicle_snapshots no longer described as carrying derived consumption. Also dropped \"location\" from the same clause - lat/lng were removed in migration 20260801000001 and live only in raw_data. Structure tree and dependency graph unchanged; no module added/removed/renamed.",
+      "budget": null
+    },
+    {
+      "id": "7.4",
+      "title": "flip roadmap tier 4 status",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [
+        "6a.1",
+        "6b.1"
+      ],
+      "wave": 7,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T02:21:00Z",
+      "completed_at": "2026-08-22T02:28:00Z",
+      "duration_seconds": null,
+      "notes": "Roadmap tier 4 was already [~] from artifact creation; the [~]->[x] flip and the \"Next unblocked\" rewrite are done at archive (Step 8).",
+      "budget": null
+    },
+    {
+      "id": "8.1",
+      "title": "run build/vet/gofmt and report",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [
+        "7.1",
+        "7.2",
+        "7.3"
+      ],
+      "wave": 8,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T02:26:00Z",
+      "completed_at": "2026-08-22T02:28:00Z",
+      "duration_seconds": null,
+      "notes": "go build, go vet, make build/vet/bins all clean; ui-guard, i18n-guard, money-guard all RAN and reported no violations. gofmt -l . lists 8 files - ALL unformatted on main and untouched by this branch (decision A10), so the tasks \"expect clean\" premise was false, not the work.",
+      "budget": null
+    },
+    {
+      "id": "8.2",
+      "title": "re-run make sqlc, confirm clean tree",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [
+        "7.1",
+        "7.2",
+        "7.3"
+      ],
+      "wave": 8,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T02:26:00Z",
+      "completed_at": "2026-08-22T02:28:00Z",
+      "duration_seconds": null,
+      "notes": "make sqlc regenerated nothing: git tree clean afterwards. make migrate-status shows both new migrations PRESENT and in the right order (telemetry 20260822000001 then analytics 20260822000002) but PENDING, not applied - applying is the owners gated action.",
+      "budget": null
+    },
+    {
+      "id": "8.3",
+      "title": "openspec validate --changes --strict",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [
+        "7.1",
+        "7.2",
+        "7.3"
+      ],
+      "wave": 8,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T02:26:00Z",
+      "completed_at": "2026-08-22T02:28:00Z",
+      "duration_seconds": null,
+      "notes": "openspec validate --changes --strict: 1 passed, 0 failed.",
+      "budget": null
+    },
+    {
+      "id": "8.4",
+      "title": "hand off to the owner with the exact suite commands",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [
+        "7.1",
+        "7.2",
+        "7.3"
+      ],
+      "wave": 8,
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "agent": "telemetry-reviewer",
+    "status": "reviewer-approved",
+    "brief": "Review RM29 tier 4 (RM29-telemetry-drop-derived-columns) across BOTH internal/telemetry and internal/analytics. Validate: (1) module-boundary compliance - no module reads another's DB or internals; the derivation crosses ONLY via the public telemetry.Reader.SnapshotPrecedingDay port; no telemetry migration writes analytics' tables and vice versa (design D-I4). (2) Every DB object matches its design.md spec exactly - migration 20260822000001 (drop five _calc columns) and 20260822000002 (data-only watermark reset). A mismatch is a BLOCKER finding. Note the built-in database design gate was passed on AUTOPILOT without the owner's explicit confirmation (decision A2), so your independent check of the DDL and index plan is the only gate that ran. (3) The Index Plan claim: design.md deliberately adds NO new index, resting on Postgres choosing an Index Scan Backward on idx_vehicle_snapshots_vehicle_time. Confirm 6a.2 asserts exactly that and that nobody added an index to make a test pass. (4) Test-contract compliance - design.md's Test Contract authored the expected values BEFORE implementation. Verify the integration tests assert THOSE numbers, not whatever the code produces. Fixtures A/B/C expected values must be byte-identical to tier 3 (roadmap D10) even though the fixtures no longer seed the five columns - that is the whole point. Check Fixture D (days_spanned_calc 7 across a seven-day gap), D2 (consumed_pct 55.0, the DB proof of D8b), the zero-divisor guard (non-NULL zeros, NULL efficiency), and the stale-successor test. (5) READ cmd/ rather than trusting signals. The roadmap records a T3 review lesson: a task was marked done whose substance was never written (a missing Reconcile call site in cmd/poller), and build, vet and the full suite all stayed green because cmd/poller has no tests and an uncalled call still compiles. The leader checked and believes tier 4 adds no new call site by design (D3 routes the backfill through the existing nightly Reconcile) - verify that independently. (6) Anti-gaming: no acceptance criterion weakened or deleted, no expected value adjusted to make a test pass, no self-approved status. Check the git history on this branch, not just the final state. (7) Docs-track-structural-change: both AGENTS.md files and the README row. Three in-clause corrections beyond the literal task text were allowed (decision A12) - judge whether each was justified. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE - judge test QUALITY by READING the tests, never by running them. Assistant-run: go build, go vet, gofmt, make build/vet/bins, ui/i18n/money guards, make sqlc, openspec validate --strict. USER-REPORTED: the owner ran make test and make vet and reported both green - that pass is theirs, not the assistant's. KNOWN NON-GREEN, already triaged, do NOT re-report as new: gofmt -l . lists 8 files, all unformatted on main and untouched by this branch (A10); both migrations are Pending because migrate-up is the owner's gated action (A13); three telemetry.go doc comments claim EXPLAIN verification that no test ever provided - tier-3 debt deliberately left for the backlog (A11).",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-22T03:00:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/telemetry/AGENTS.md",
+          "internal/analytics/AGENTS.md",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/design.md",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/tasks.md",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/progress.json",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/specs/telemetry/spec.md",
+          "openspec/changes/RM29-telemetry-drop-derived-columns/specs/analytics/spec.md"
+        ],
+        "scope_verified": "git diff 3c1187e...9e2f7ed (the 9 tier-4 commits, 36 files), not the whole roadmap branch",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "internal/telemetry/AGENTS.md and internal/analytics/AGENTS.md both correctly describe SnapshotPrecedingDay and the derivation move; README.md Architecture table row for vehicle_snapshots correctly drops 'derived consumption' and 'location'. All three in-clause corrections claimed under decision A12 (README 'location', AGENTS.md 'two'->'four' read methods, dayStart removed from telemetry AGENTS.md testing-notes list) were independently verified against the diff and are each verifiably true and scoped to the sentence/list already being edited -- not scope creep.",
+            "status": "verified-no-action"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "I1",
+      "at": "2026-08-21T21:40:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "The five _calc derivations move into analytics; telemetry loses the columns, deriveConsumption, and the five Snapshot port fields.",
+      "why": "Rejected computing-on-read in telemetry: it leaves telemetry owning a derivation whose only consumer is another module, and taxes every read forever."
+    },
+    {
+      "id": "I2",
+      "at": "2026-08-21T21:45:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "Analytics gets the exact predecessor via a new telemetry port method SnapshotPrecedingDay, not a widened fixed lookback.",
+      "why": "A gap longer than any fixed N yields a silently wrong delta that looks plausible on a chart, so nothing would ever flag it."
+    },
+    {
+      "id": "I3",
+      "at": "2026-08-21T21:50:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "Existing vehicle_metrics rows are rebuilt by deleting the vehicle_snapshots watermark in a migration; the next Reconcile backfills.",
+      "why": "Reuses machinery tier 3 already built and the owner exercised. Avoids a second throwaway runner, which last time swept a 15MB binary into the repo."
+    },
+    {
+      "id": "I4",
+      "at": "2026-08-21T21:52:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "The change spans telemetry and analytics and needs two migrations, one per module; no sub-task edits both modules.",
+      "why": "A telemetry migration must never write analytics' table. Preserves module data ownership while the derivation moves."
+    },
+    {
+      "id": "A1",
+      "at": "2026-08-21T22:00:00Z",
+      "made_by": "autopilot",
+      "scope": "scope",
+      "decision": "Pulled the pre-existing SnapshotsByVehicleBetween LIMIT 400 truncation bug into this tier as task 4.9 (raise to 4000), against the worker's out-of-scope call.",
+      "why": "I3 deliberately re-runs the full-history path that trips it, and truncation is silent while the watermark still advances. Re-arming a known silent-corruption bug is not minimal scope."
+    },
+    {
+      "id": "A2",
+      "at": "2026-08-21T22:00:00Z",
+      "made_by": "autopilot",
+      "scope": "gate",
+      "decision": "Proceeded through the built-in database design gate without the owner's confirmation of the DDL and index plan.",
+      "why": "Owner said 'autopilot ON for everything' and left after confirming I1-I4, the substantive calls. Everything stays local and unpushed, so it is vetoable; full DDL leads the audit."
+    },
+    {
+      "id": "A3",
+      "at": "2026-08-21T22:25:00Z",
+      "made_by": "autopilot",
+      "scope": "model-tiering",
+      "decision": "Wave 2 dispatched on Opus rather than the Sonnet default.",
+      "why": "It is the tier correctness heart: moving a formula that must stay byte-for-byte identical, plus D8b, where under-widening the charge fetch yields a negative consumed_pct and a FALSE missing-charge alarm."
+    },
+    {
+      "id": "A4",
+      "at": "2026-08-21T22:55:00Z",
+      "made_by": "autopilot",
+      "scope": "design:D8b",
+      "decision": "Resolved D8b prose-vs-code contradiction in favour of the code: charge fetches widen on every call, not only across a gap.",
+      "why": "The code block is normative and the design own rationale authorises generous over-fetching as result-neutral. Fixed the design and task 3.3 rather than let implementation quietly define the expectation."
+    },
+    {
+      "id": "A5",
+      "at": "2026-08-21T23:00:00Z",
+      "made_by": "autopilot",
+      "scope": "parallelism",
+      "decision": "Ran waves 3 and 4 as two concurrent workers instead of the default single serial worker per wave.",
+      "why": "Disjoint modules and disjoint files, and the bucket is at 68% with a 90% checkpoint - parallel buys a whole wave of progress before the owner has to resume anything."
+    },
+    {
+      "id": "A6",
+      "at": "2026-08-21T23:00:00Z",
+      "made_by": "autopilot",
+      "scope": "parallelism-hazard",
+      "decision": "Wave 3 is forbidden from referencing the five _calc fields on telemetry.Snapshot.",
+      "why": "Wave 4 deletes those fields concurrently. A wave-3 test constructing a Snapshot literal that sets them would break the build through no fault of either worker."
+    },
+    {
+      "id": "A7",
+      "at": "2026-08-21T23:35:00Z",
+      "made_by": "autopilot",
+      "scope": "tasks:6a.1",
+      "decision": "Narrowed task 6a.1 from authoring the round-trip test to renaming and verifying the one wave 4 already wrote.",
+      "why": "4.8 and 6a.1 both claimed the same test. Narrowing removes duplicate work without weakening a criterion - all three cases are still required."
+    },
+    {
+      "id": "A8",
+      "at": "2026-08-22T02:05:00Z",
+      "made_by": "autopilot",
+      "scope": "test-ask-point",
+      "decision": "Deferred the end-of-wave-5 ask for the owner to run the suite to the end of wave 6.",
+      "why": "The test binary does not compile until 6b.1 removes the deleted _calc fields, so the suite cannot run at all. Asking now spends a round-trip on a guaranteed compile error."
+    },
+    {
+      "id": "A9",
+      "at": "2026-08-22T02:05:00Z",
+      "made_by": "autopilot",
+      "scope": "parallelism",
+      "decision": "Ran waves 6a and 6b as two concurrent workers.",
+      "why": "Disjoint modules and one file each, precedent A5, and the bucket is at 5% - the collision hazard that governed A6 is gone now that wave 4 has already landed."
+    },
+    {
+      "id": "A10",
+      "at": "2026-08-22T02:13:00Z",
+      "made_by": "autopilot",
+      "scope": "tasks:8.1",
+      "decision": "Will NOT reformat to satisfy 8.1 gofmt -l . expect clean. Reporting the real result plus the finding instead.",
+      "why": "All 8 unformatted files are unformatted on main and untouched here, spanning gateway/account/config - outside this change modules. Reformatting them is scope creep across module boundaries."
+    },
+    {
+      "id": "A11",
+      "at": "2026-08-22T02:13:00Z",
+      "made_by": "autopilot",
+      "scope": "finding:docs",
+      "decision": "Left three telemetry.go doc comments claiming EXPLAIN verification that no test ever provided; recording as backlog, not fixing here.",
+      "why": "Tier-3 debt found by the 6a worker. Fixing it means auditing tier-3 claims mid-tier-4; the owner prefers scope held to the literal ticket."
+    },
+    {
+      "id": "A12",
+      "at": "2026-08-22T02:25:00Z",
+      "made_by": "autopilot",
+      "scope": "docs",
+      "decision": "Allowed three in-clause corrections beyond the literal task text: README \"location\", AGENTS.md \"two read methods\"->four, and dayStart alongside deriveConsumption.",
+      "why": "Each was verifiably false and sat inside the exact sentence or list already being edited. Leaving a known-wrong line untouched costs a future agent more than the edit."
+    },
+    {
+      "id": "A13",
+      "at": "2026-08-22T02:28:00Z",
+      "made_by": "autopilot",
+      "scope": "handoff",
+      "decision": "Did NOT run make migrate-up. Both new migrations stay Pending until the owner applies them.",
+      "why": "Applying migrations is the owners gated action and was not requested. The D3 backfill only takes effect after apply plus the next nightly Reconcile - that is a handoff item, not a silent step."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-21T22:00:00Z",
+      "agent": "leader",
+      "event": "Tier 4 artifacts created by the telemetry worker and validated (openspec validate --changes --strict passes). The worker corrected SEVEN points in the leader's dispatch context; three that mattered were independently re-verified before acceptance: LIMIT 400 at query.sql:72 (real), PreviousSnapshotForVehicle already exists so I2 promotes a private seam rather than inventing a query (lowers risk), and deriveConsumption is at service.go:581 not :398 (leader was wrong). The worker also caught a timezone trap: reusing the existing query's captured_at < dayStart(...) bound would make a 03:30 Tokyo capture its own predecessor, so the new query bounds on captured_date < @day instead."
+    },
+    {
+      "at": "2026-08-21T22:05:00Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched (telemetry, Sonnet, serial): add SnapshotPrecedingDay to the port. Purely additive - no column drops, no behaviour change - so it is the safe first wave and everything downstream depends on it. Budget at dispatch: five_hour 40%, context 15%."
+    },
+    {
+      "at": "2026-08-21T22:20:00Z",
+      "agent": "leader",
+      "event": "Wave 1 COMPLETE (telemetry, additive). Worker found a gap tasks.md missed: widening the public telemetry.Reader breaks every fake of it repo-wide, not just in-module. Leader fixed the two gateway fakes itself (cross-module integration is the leader role, not a worker sandbox): fakeReader in handlers_test.go and fakeHistoryReader in history_test.go, each mirroring the precedent tier 3 set when it added SnapshotsByVehicleUpdatedSince. The worker reported only the first - go vet stops at one error per package - so the leader enumerated all implementers by grep instead of re-running vet iteratively. go vet is now clean except internal/analytics fakeTelemetryReader, which is wave 2 task 2.5 by design. Worker deviation accepted: it widened the store interface in service.go, outside the literal file list but inside its sandbox, because reader.store is statically typed and Go cannot widen an interface method set from another file; the alternative was a second parallel interface over an existing exactly-shaped seam."
+    },
+    {
+      "at": "2026-08-21T22:20:00Z",
+      "agent": "leader",
+      "event": "Leader-owned integration fix outside any worker sandbox: internal/gateway/handlers/handlers_test.go and history_test.go gained SnapshotPrecedingDay stubs. design.md Non-Goals said no gateway change because no gateway code reads a _calc field - true, but it did not anticipate that widening the Reader interface itself breaks the gateway test-only mocks. The Non-Goal is narrowed, not violated."
+    },
+    {
+      "at": "2026-08-21T22:25:00Z",
+      "agent": "leader",
+      "event": "Wave 2 dispatched (analytics, Opus, serial): the derivation moves in, plus D8b. Budget at dispatch: five_hour 54%, context 18%."
+    },
+    {
+      "at": "2026-08-21T22:55:00Z",
+      "agent": "leader",
+      "event": "Wave 2 COMPLETE (analytics). The worker returned a truthful red signal instead of a convenient green: go vet ./internal/analytics/... still fails on 14 deriveVehicleMetrics call sites in consumed_test.go, because 2.2 changed the signature and tasks.md assigns those updates to 3.2, not 2.5. It declined to fix them, which would have silently executed half of another wave task. Correct call - accepted as-is, wave 3 clears it. LEADER TRIAGE of the second finding, done now rather than at review: design.md D8b prose claimed the steady state stays byte-identical to the old fetch window, which is arithmetically false - effectiveDay is calendarDay(CapturedDate)-1, so the ordinary start-1d lookback row yields start-2d and the widening fires on EVERY call. The code block was right, the prose wrong. Corrected design.md D8b, the same wrong claim the worker had copied into recalculate.go comment, and task 3.3 expected value which was written from the withdrawn prose and would have failed against a correct implementation."
+    },
+    {
+      "at": "2026-08-21T23:00:00Z",
+      "agent": "leader",
+      "event": "Wave 3 dispatched (analytics tests, Sonnet) IN PARALLEL with wave 4."
+    },
+    {
+      "at": "2026-08-21T23:00:00Z",
+      "agent": "leader",
+      "event": "Wave 4 dispatched (telemetry drops + migration, Sonnet) IN PARALLEL with wave 3. Budget at dispatch: five_hour 68%, context 20%."
+    },
+    {
+      "at": "2026-08-21T23:35:00Z",
+      "agent": "leader",
+      "event": "Waves 3 and 4 COMPLETE (ran concurrently, disjoint modules, no collision). Leader verified the end state rather than trusting two reports: go build clean; go vet fails ONLY on analytics/db_integration_test.go (62 refs to the deleted fields), which is task 6b.1 and gated on 4.8/5.2, so it is the expected boundary state and not damage; telemetry has three _calc mentions left, all inside a generated-code comment explaining the drop. Wave 3 deleted one obsolete test - checked and accepted: it left a documented tombstone in place explaining that the scenario is unconstructible once the field is gone, and Fixture C covers the surviving prev == nil trigger, so no coverage was lost and the append-only rule was honoured in substance. LEADER FIX of a real tasks.md defect the wave-4 worker flagged rather than silently resolving: 4.8 and 6a.1 both claimed authorship of the same round-trip test. 6a.1 is narrowed to rename-and-verify - the coverage requirement is untouched, only the duplicate authoring is removed. Left as-is, wave 6a would have rewritten a test wave 4 already wrote."
+    },
+    {
+      "at": "2026-08-21T23:40:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at the wave-3/4 boundary: five_hour_pct 97 (threshold 90), context_pct 22, bucket resets at 2026-08-22T02:00:00Z. Stopping cleanly - every task status is truthful. 21 of 37 tasks are recorded, 12 done and 9 awaiting-user-verification (all test-writing work the assistant wrote but is forbidden to run). Remaining: wave 5 (analytics watermark-reset migration + sqlc), wave 6a/6b (DB-integration tests), wave 7 (docs), wave 8 (verification + handoff). Resume with /kkpa-dev-harness-pipeline resume RM29-telemetry-drop-derived-columns after the bucket resets."
+    },
+    {
+      "at": "2026-08-22T02:05:00Z",
+      "agent": "leader",
+      "event": "Resumed after the budget checkpoint (bucket reset: five_hour 0%, context 8%). Wave 5 dispatched (analytics, Sonnet, serial): the watermark-reset migration + sqlc/migrate-status verification."
+    },
+    {
+      "at": "2026-08-22T02:04:00Z",
+      "agent": "leader",
+      "event": "Wave 5 COMPLETE (analytics). Leader verified the end state rather than trusting the report: migration file matches design.md Migration 2 verbatim, git shows NO diff on generated sqlc output (only the new untracked migration), go build + gofmt clean. go vet still red ONLY on analytics/db_integration_test.go - the expected pre-flagged wave-6b work."
+    },
+    {
+      "at": "2026-08-22T02:05:00Z",
+      "agent": "leader",
+      "event": "Wave 6 dispatched: 6a (telemetry, Sonnet) and 6b (analytics, Sonnet) IN PARALLEL, one file each. Budget at dispatch: five_hour 5%, context 10%. 6b.1 is the task that clears the go vet failure the owner reported."
+    },
+    {
+      "at": "2026-08-22T02:13:00Z",
+      "agent": "leader",
+      "event": "Wave 6 COMPLETE (6a telemetry + 6b analytics, concurrent, no collision). Leader verified repo-wide rather than trusting reports: go vet ./... exits 0 (owner-reported break CLEARED), go build clean. Remaining *Calc references are analytics own consumptionCalc struct, correctly untouched. Tests written but NOT run - all six are awaiting-user-verification."
+    },
+    {
+      "at": "2026-08-22T02:20:00Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE USER (not the assistant): the owner ran make test and make vet and reported both green. Clears 11 awaiting-user-verification tasks -> done: 3.1, 3.2, 3.3, 4.6, 4.8, 6a.1, 6a.2, 6a.3, 6b.1, 6b.2, 6b.3. The assistant never executed the suite; this pass is the owner report."
+    },
+    {
+      "at": "2026-08-22T02:21:00Z",
+      "agent": "leader",
+      "event": "Wave 7 dispatched (docs): 7.1 telemetry + 7.2 analytics as parallel Sonnet workers; 7.3 and 7.4 are leader bookkeeping done inline. Budget at dispatch: five_hour 25%, context 13%."
+    },
+    {
+      "at": "2026-08-22T02:25:00Z",
+      "agent": "leader",
+      "event": "Wave 7 COMPLETE (docs). Leader verified both AGENTS.md edits by grep rather than trusting reports: stale phrases gone, new content present, dayStart confirmed deleted from the module. Also verified the roadmap T3 lesson (cmd/ wiring is invisible to build/vet): cmd/poller wires newNightlyReconciler and nothing in cmd/ references anything this tier changed - tier 4 adds no new call site by design (D3)."
+    },
+    {
+      "at": "2026-08-22T02:28:00Z",
+      "agent": "leader",
+      "event": "Wave 8 verification COMPLETE (8.1-8.3, leader-run cheap signals only). All green except the pre-existing repo-wide gofmt drift recorded in A10. openspec strict validation passes. Both migrations present, correctly ordered, and PENDING - the owner applies them."
+    },
+    {
+      "at": "2026-08-22T02:29:00Z",
+      "agent": "leader",
+      "event": "Review brief written; dispatching telemetry-reviewer (Sonnet, escalate on doubt) after the owner reported the suite green."
+    },
+    {
+      "at": "2026-08-22T02:50:00Z",
+      "agent": "leader",
+      "event": "ASSISTANT-EXECUTED suite run, under the owner's explicit session-scoped grant ('execute tests, vet whatever you need. Full permissions for this session') which suspends the project Test-Execution-Policy for THIS SESSION ONLY. go test ./... -count=1: all 12 packages ok, uncached, container-backed via testdb.Provision (Docker up, DATABASE_URL unset). Tier 4's new DB tests genuinely EXECUTED, not skipped: 3/3 telemetry SnapshotPrecedingDay tests and 16/16 analytics Recalculate tests PASS, including UsesIndexBackwardScan - so Postgres really does choose the backward index scan and design.md's no-new-index decision is confirmed against a real database. Distinct from, and corroborating, the owner's earlier make test report."
+    }
+  ]
+}

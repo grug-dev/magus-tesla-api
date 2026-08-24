@@ -16,10 +16,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/handlers"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -48,21 +48,34 @@ type Deps struct {
 	// NEVER import internal/telemetry/db (telemetrydb) — all access through this
 	// interface only.
 	SuperchargerReader telemetry.SuperchargerReader
-	// ManualChargeWriter is the manualcharge write port. Called by write handlers
+	// ChargingWriter is the charging write port. Called by write handlers
 	// (create/update/delete) on explicit user-initiated form submissions only.
 	// See AGENTS.md "Exception: user-initiated writes" for the full amendment.
-	ManualChargeWriter manualcharge.Writer
-	// ManualChargeReader is the manualcharge read port. Called by read handlers
+	ChargingWriter charging.Writer
+	// ChargingReader is the charging read port. Called by read handlers
 	// and the dataForCharges helper to list charge entries.
-	ManualChargeReader manualcharge.Reader
-	// BatteryReader is the battery module's read port; injected at
+	ChargingReader charging.Reader
+	// AnalyticsReader is the analytics module's read port; injected at
 	// construction (mirrors TelemetryReader/SuperchargerReader/
-	// ManualChargeReader — the gateway calls ConsumedByDay once per history
-	// fragment render). Injected from cmd/web via battery.NewReader(...).
-	// NEVER import an internal/battery database package — internal/battery
-	// owns no database, so there is none to accidentally import.
-	BatteryReader battery.Reader
-	SessionSecret string
+	// ChargingReader — the gateway calls ConsumedByDay once per history
+	// fragment render). Injected from cmd/web via analytics.NewReader(...).
+	// NEVER import internal/analytics/db (analyticsdb). Since
+	// RM29-analytics-add-vehicle-metrics that package DOES exist — this
+	// comment used to say there was none to import — so the rule is the same
+	// one that applies to every other sibling module: the interface, never the
+	// database.
+	AnalyticsReader analytics.Reader
+	// AnalyticsRecalculator is the analytics module's write-path port
+	// (RM29-analytics-add-vehicle-metrics design.md D5). Injected at
+	// construction via cmd/web's analytics.NewRecalculator(...). Called ONLY
+	// by the manual-charge write handlers (ChargeCreate, ChargeRowUpdate,
+	// ChargeRowDelete), after their corresponding charging.Writer call
+	// succeeds, to keep the precomputed history charts current with no
+	// separate refresh step — mirrors the ChargingWriter exception's narrow
+	// aperture (AGENTS.md "Exception: user-initiated writes"). Never called
+	// from a Reader-only handler.
+	AnalyticsRecalculator analytics.Recalculator
+	SessionSecret         string
 	// Tesla OAuth app credentials + the web connect redirect URI.
 	TeslaClientID     string
 	TeslaClientSecret string
@@ -117,19 +130,20 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 	}
 
 	h := handlers.New(handlers.Deps{
-		Pool:               d.Pool,
-		Account:            d.Account,
-		Google:             d.Google,
-		Tesla:              d.Tesla,
-		TelemetryReader:    d.TelemetryReader,
-		SuperchargerReader: d.SuperchargerReader,
-		ManualChargeWriter: d.ManualChargeWriter,
-		ManualChargeReader: d.ManualChargeReader,
-		BatteryReader:      d.BatteryReader,
-		TeslaClientID:      d.TeslaClientID,
-		TeslaClientSecret:  d.TeslaClientSecret,
-		TeslaRedirectURL:   d.TeslaRedirectURL,
-		VehicleImageResolver: newVehicleImageResolver(staticFS),
+		Pool:                  d.Pool,
+		Account:               d.Account,
+		Google:                d.Google,
+		Tesla:                 d.Tesla,
+		TelemetryReader:       d.TelemetryReader,
+		SuperchargerReader:    d.SuperchargerReader,
+		ChargingWriter:        d.ChargingWriter,
+		ChargingReader:        d.ChargingReader,
+		AnalyticsReader:       d.AnalyticsReader,
+		AnalyticsRecalculator: d.AnalyticsRecalculator,
+		TeslaClientID:         d.TeslaClientID,
+		TeslaClientSecret:     d.TeslaClientSecret,
+		TeslaRedirectURL:      d.TeslaRedirectURL,
+		VehicleImageResolver:  newVehicleImageResolver(staticFS),
 	})
 
 	r.GET("/", h.Home)

@@ -16,7 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
@@ -69,41 +69,100 @@ func (f *fakeHistoryReader) SnapshotsByVehicleBetween(_ context.Context, account
 	return f.historySnaps, f.historyErr
 }
 
+// SnapshotsByVehicleUpdatedSince satisfies the telemetry.Reader method added by
+// RM29-analytics-add-vehicle-metrics task 1.2. No gateway handler calls it -- it
+// serves analytics' recompute watermark -- so a call here would mean a chart
+// builder reached for the wrong port. Panic makes that visible.
+func (f *fakeHistoryReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
+	panic("fakeHistoryReader: SnapshotsByVehicleUpdatedSince must not be called by any gateway handler")
+}
+
+// SnapshotPrecedingDay satisfies the telemetry.Reader method added by
+// RM29-telemetry-drop-derived-columns task 1.2. Same reasoning as the method above:
+// it exists so analytics can fetch the exact predecessor of a day it is recomputing,
+// no gateway handler calls it, and a call from here would mean a chart builder
+// reached for the wrong port. Panic makes that visible.
+func (f *fakeHistoryReader) SnapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*telemetry.Snapshot, error) {
+	panic("fakeHistoryReader: SnapshotPrecedingDay must not be called by any gateway handler")
+}
+
 // errTestHistory is a sentinel error for history handler tests.
 var errTestHistory = errors.New("test history reader error")
 
-// fakeBatteryReader is a test double for battery.Reader, used by the
-// buildConsumedChart integration path (buildHistoryView) and the Deps
-// forwarding test (design.md Test Contract (o)). ConsumedByDay records its
-// call args so tests can assert wiring — the same call-recording-fake shape
-// fakeHistoryReader.betweenCalled already uses for TelemetryReader.
-// RecentEfficiency PANICS: design.md's "cmd/web wiring" section states the
-// gateway's history fragment never calls it (only RecentEfficiency reads
-// battery.DefaultWindow, and the gateway never calls that method) — mirrors
-// fakeHistoryReader's SnapshotsByVehicleSince panic guard for an
-// intentionally-unused method.
-type fakeBatteryReader struct {
-	days []battery.DayConsumption
+// fakeAnalyticsReader is a test double for analytics.Reader, used by the
+// buildConsumedChart/buildOdometerChart integration path (buildHistoryView)
+// and the Deps forwarding test (design.md Test Contract (o)). ConsumedByDay
+// and OdometerDeltaByDay each record their call args so tests can assert
+// wiring — the same call-recording-fake shape fakeHistoryReader.betweenCalled
+// already uses for TelemetryReader. RecentEfficiency PANICS: design.md's
+// "cmd/web wiring" section states the gateway's history fragment never calls
+// it (only RecentEfficiency reads analytics.DefaultWindow, and the gateway
+// never calls that method) — mirrors fakeHistoryReader's
+// SnapshotsByVehicleSince panic guard for an intentionally-unused method.
+type fakeAnalyticsReader struct {
+	days []analytics.DayConsumption
 	err  error
+
+	// snaps, distances, odometerErr back OdometerDeltaByDay
+	// (RM29-analytics-add-vehicle-metrics task 5.1/4.3 — the odometer chart's
+	// delta/clamp math moved out of the gateway into internal/analytics,
+	// roadmap D5). When distances is explicitly set it wins outright (tests
+	// that want to control the odometer port directly). Otherwise, when
+	// snaps is non-nil, OdometerDeltaByDay DERIVES its return value via
+	// distancesFromSnaps(snaps, start, end) using the ACTUAL (start, end)
+	// args the call receives — this is how newHandlerForHistory wires the
+	// SAME historySnaps fixture a test already builds for the battery chart
+	// into the odometer chart's new port, so every pre-existing
+	// snapshot-shaped fixture keeps driving both charts with the identical
+	// numbers the pre-move gateway code produced, with no test-body changes
+	// (characterization, roadmap D10). See distancesFromSnaps's own doc
+	// comment for what it does and does not reproduce.
+	snaps       []telemetry.Snapshot
+	distances   []analytics.DayDistance
+	odometerErr error
 
 	gotAccount          uuid.UUID
 	gotTeslaID          int64
 	gotStart            time.Time
 	gotEnd              time.Time
 	consumedByDayCalled bool
+
+	gotOdoAccount       uuid.UUID
+	gotOdoTeslaID       int64
+	gotOdoStart         time.Time
+	gotOdoEnd           time.Time
+	odometerByDayCalled bool
 }
 
-func (f *fakeBatteryReader) RecentEfficiency(context.Context, uuid.UUID, int64) (battery.Efficiency, bool, error) {
-	panic("fakeBatteryReader: RecentEfficiency is never called by the gateway's history fragment")
+func (f *fakeAnalyticsReader) RecentEfficiency(context.Context, uuid.UUID, int64) (analytics.Efficiency, bool, error) {
+	panic("fakeAnalyticsReader: RecentEfficiency is never called by the gateway's history fragment")
 }
 
-func (f *fakeBatteryReader) ConsumedByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]battery.DayConsumption, error) {
+func (f *fakeAnalyticsReader) ConsumedByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]analytics.DayConsumption, error) {
 	f.gotAccount = accountID
 	f.gotTeslaID = teslaID
 	f.gotStart = start
 	f.gotEnd = end
 	f.consumedByDayCalled = true
 	return f.days, f.err
+}
+
+func (f *fakeAnalyticsReader) OdometerDeltaByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]analytics.DayDistance, error) {
+	f.gotOdoAccount = accountID
+	f.gotOdoTeslaID = teslaID
+	f.gotOdoStart = start
+	f.gotOdoEnd = end
+	f.odometerByDayCalled = true
+	if f.odometerErr != nil {
+		return nil, f.odometerErr
+	}
+	if f.distances != nil {
+		return f.distances, nil
+	}
+	if f.snaps != nil {
+		return distancesFromSnaps(f.snaps, start, end), nil
+	}
+	return nil, nil
 }
 
 // historyEngine builds a minimal Gin engine with session middleware and the
@@ -130,25 +189,30 @@ func historyEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN string) *
 // newHandlerForHistory builds a Handler with the given fakeHistoryReader and one
 // registered vehicle. Mirrors newHandlerForCharges.
 //
-// Wires a default empty fakeBatteryReader so every pre-existing
+// Wires a default fakeAnalyticsReader so every pre-existing
 // buildHistoryView/DashboardHistoryFragment test that does not care about the
-// consumed chart keeps working: buildHistoryView (RM28 tier 4, D-G10)
-// unconditionally calls h.batteryReader.ConsumedByDay after the odometer/
-// battery charts succeed, and a nil battery.Reader interface value would
-// panic on that call — every caller of this helper needs a non-nil reader,
-// not just the tests that assert on the consumed chart's content. Tests that
-// need to control or observe BatteryReader use
-// newHandlerForHistoryWithBattery instead.
+// consumed/odometer charts keeps working: buildHistoryView (RM28 tier 4,
+// D-G10; extended to the odometer chart by RM29-analytics-add-vehicle-metrics
+// task 5.1) unconditionally calls h.analyticsReader.ConsumedByDay AND
+// h.analyticsReader.OdometerDeltaByDay, and a nil analytics.Reader interface
+// value would panic on either call — every caller of this helper needs a
+// non-nil reader. The default reader's snaps field is wired to
+// reader.historySnaps so OdometerDeltaByDay derives its answer from the SAME
+// snapshot fixture the test already built for the battery chart
+// (distancesFromSnaps — characterization, roadmap D10), with zero additional
+// setup for tests that only care about the battery/odometer charts sharing
+// one snapshot-shaped fixture. Tests that need to control or observe
+// AnalyticsReader directly use newHandlerForHistoryWithAnalytics instead.
 func newHandlerForHistory(reader *fakeHistoryReader, teslaID int64, vin string) *Handler {
-	return newHandlerForHistoryWithBattery(reader, &fakeBatteryReader{}, teslaID, vin)
+	return newHandlerForHistoryWithAnalytics(reader, &fakeAnalyticsReader{snaps: reader.historySnaps}, teslaID, vin)
 }
 
-// newHandlerForHistoryWithBattery mirrors newHandlerForHistory but wires an
-// explicit fake battery.Reader instead of the default empty one, for tests
+// newHandlerForHistoryWithAnalytics mirrors newHandlerForHistory but wires an
+// explicit fake analytics.Reader instead of the default empty one, for tests
 // that need to control (fixture days/err) or observe (call-recording) the
 // consumed-chart port — e.g. the Deps-forwarding test (design.md Test
 // Contract (o)).
-func newHandlerForHistoryWithBattery(historyReader *fakeHistoryReader, batteryReader battery.Reader, teslaID int64, vin string) *Handler {
+func newHandlerForHistoryWithAnalytics(historyReader *fakeHistoryReader, analyticsReader analytics.Reader, teslaID int64, vin string) *Handler {
 	acct := &fakeAccount{
 		registered: []account.Vehicle{
 			{TeslaID: teslaID, VIN: vin, DisplayName: "Test Vehicle"},
@@ -158,7 +222,7 @@ func newHandlerForHistoryWithBattery(historyReader *fakeHistoryReader, batteryRe
 		Account:         acct,
 		Tesla:           &fakeTesla{},
 		TelemetryReader: historyReader,
-		BatteryReader:   batteryReader,
+		AnalyticsReader: analyticsReader,
 	})
 }
 
@@ -187,6 +251,47 @@ func snapsForDays(days []time.Time, odometerBase, odometerStep float64, batteryB
 			CapturedAt:      startOfDay(d).AddDate(0, 0, 1),
 			EffectiveDate:   startOfDay(d),
 		}
+	}
+	return out
+}
+
+// distancesFromSnaps computes the []analytics.DayDistance a real
+// analytics.Reader.OdometerDeltaByDay call would have returned for a SIMPLE
+// (no multi-day-gap) snapshot fixture, over the FIXED [start, end] window —
+// this is exactly the delta+clamp+bucket algorithm the OLD buildOdometerChart
+// itself used to run in-process, before roadmap D5 moved it into
+// internal/analytics (design.md D6). Kept in THIS TEST FILE ONLY: it is the
+// characterization bridge that lets pre-existing snapshot-shaped fixtures
+// (snapsForDays, etc.) keep driving both the battery chart (still fed raw
+// telemetry.Snapshot) and the odometer chart (now fed the equivalent
+// []analytics.DayDistance) with the IDENTICAL numbers the pre-move gateway
+// code produced (roadmap D10's characterization bar) — production code no
+// longer contains this delta/clamp logic anywhere.
+//
+// Sparse, matching analytics.Reader's documented contract: a day whose
+// immediate calendar predecessor has no bucketed snapshot gets NO entry
+// (never a zero-value placeholder), mirroring design.md D13/Fixture C's
+// "no computable predecessor -> excluded" rule for the single-gap fixtures
+// this test file uses. It does NOT reproduce deriveVehicleMetrics' multi-day-
+// span widening (design.md D8) — no gateway test needs to exercise that;
+// internal/analytics' own test suite (Wave 4/6 of this change) covers it.
+func distancesFromSnaps(snaps []telemetry.Snapshot, start, end time.Time) []analytics.DayDistance {
+	byDay := make(map[time.Time]telemetry.Snapshot, len(snaps))
+	for _, s := range snaps {
+		byDay[effectiveDayUTC(s.EffectiveDate)] = s
+	}
+	var out []analytics.DayDistance
+	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+		cur, curOK := byDay[d]
+		prev, prevOK := byDay[d.AddDate(0, 0, -1)]
+		if !curOK || !prevOK {
+			continue
+		}
+		km := cur.OdometerKm - prev.OdometerKm
+		if km < 0 {
+			km = 0
+		}
+		out = append(out, analytics.DayDistance{Date: d, KmDriven: km, OdometerKm: cur.OdometerKm})
 	}
 	return out
 }
@@ -525,20 +630,34 @@ func TestLabelVerticalFor_OrientationByBarCount(t *testing.T) {
 	}
 }
 
-// --- buildOdometerChart fixed-axis unit tests (task 6.3, design D3) ---
+// --- buildOdometerChart fixed-axis unit tests (task 6.3, design D3;
+// rewritten as characterization tests by RM29-analytics-add-vehicle-metrics
+// task 4.3/5.1, roadmap D5/D10 — buildOdometerChart now takes
+// []analytics.DayDistance, already delta-computed and clamped, instead of
+// raw []telemetry.Snapshot. Every fixture below was converted from its
+// pre-move []telemetry.Snapshot shape via distancesFromSnaps, which
+// reproduces the exact delta+clamp+bucket algorithm this function itself
+// used to run — so every expected value (HeightPct/Label/Tooltip/Present)
+// below is UNCHANGED from before this move, proving the rendering is
+// behaviorally identical.) ---
 
-func TestBuildOdometerChart_EmptyWhenFewerThanTwoSnapshots(t *testing.T) {
+func TestBuildOdometerChart_EmptyWhenNoDistances(t *testing.T) {
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
-	// 0 snapshots.
+	// nil -- analytics.Reader.OdometerDeltaByDay's SPARSE "nothing computable
+	// in this window" result (roadmap D5, design.md D6/D13). Replaces the
+	// pre-move "< 2 snapshots" condition, which only existed because this
+	// function used to fetch raw snapshot pairs itself; the two conditions
+	// are equivalent in effect (a day only ever appeared in the old delta
+	// set when both it and its predecessor were present).
 	c := buildOdometerChart(historyTestCtx, nil, start, end)
 	if !c.Empty {
-		t.Error("want Empty=true for 0 snapshots")
+		t.Error("want Empty=true for nil distances")
 	}
-	// 1 snapshot (only the lookback).
-	c = buildOdometerChart(historyTestCtx, []telemetry.Snapshot{{OdometerKm: 1000, EffectiveDate: start.AddDate(0, 0, -1)}}, start, end)
+	// Empty (non-nil) slice behaves identically.
+	c = buildOdometerChart(historyTestCtx, []analytics.DayDistance{}, start, end)
 	if !c.Empty {
-		t.Error("want Empty=true for 1 snapshot")
+		t.Error("want Empty=true for empty distances slice")
 	}
 }
 
@@ -547,7 +666,8 @@ func TestBuildOdometerChart_FixedAxis_FullWindowWithLookback(t *testing.T) {
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day inclusive window
 	lookback := start.AddDate(0, 0, -1)                // 08-02 seeds the first delta
 	snaps := snapsForDays(append([]time.Time{lookback}, calendarDays(start, end)...), 1000, 10, 70)
-	c := buildOdometerChart(historyTestCtx, snaps, start, end)
+	distances := distancesFromSnaps(snaps, start, end)
+	c := buildOdometerChart(historyTestCtx, distances, start, end)
 	if c.Empty {
 		t.Fatal("want non-empty chart")
 	}
@@ -584,7 +704,8 @@ func TestBuildOdometerChart_FixedAxis_MissingDayEmptyLabeledBar(t *testing.T) {
 		start.AddDate(0, 0, 4), // 08-07
 	}
 	snaps := snapsForDays(days, 1000, 10, 70)
-	c := buildOdometerChart(historyTestCtx, snaps, start, end)
+	distances := distancesFromSnaps(snaps, start, end)
+	c := buildOdometerChart(historyTestCtx, distances, start, end)
 	if c.Empty {
 		t.Fatal("want non-empty chart")
 	}
@@ -605,60 +726,141 @@ func TestBuildOdometerChart_FixedAxis_MissingDayEmptyLabeledBar(t *testing.T) {
 	if !strings.Contains(miss.Tooltip, "no snapshot") {
 		t.Errorf("missing-day tooltip should say 'no snapshot', got %q", miss.Tooltip)
 	}
+	// 08-06 is ALSO absent (index 3): its own immediate predecessor, 08-05,
+	// has no snapshot either, so distancesFromSnaps produces no entry for it
+	// (matching the pre-move algorithm exactly — 08-06's delta was never
+	// computable against a 2-day-old snapshot). Left unasserted by the
+	// original pre-move test; asserted explicitly here since it is real,
+	// characterization-identical behavior.
+	if c.Bars[3].Present {
+		t.Error("08-06 must ALSO be Present=false — its own immediate predecessor (08-05) has no entry")
+	}
 	// Surrounding bars (08-04, 08-06) keep their own labels — no shift to fill.
 	if c.Bars[1].Label != "08-04" || c.Bars[3].Label != "08-06" {
 		t.Errorf("surrounding labels must not shift; got %q, %q", c.Bars[1].Label, c.Bars[3].Label)
 	}
 }
 
-func TestBuildOdometerChart_NegativeDeltaClampedToZero(t *testing.T) {
+// TestBuildOdometerChart_ZeroKmDistance_StaysPresentAtZeroHeight is the
+// post-move successor to the pre-move
+// TestBuildOdometerChart_NegativeDeltaClampedToZero: the negative-delta clamp
+// itself no longer lives in this function (roadmap D5) — it is applied
+// upstream, inside internal/analytics (design.md D13), before
+// buildOdometerChart ever sees the value. This test feeds a fixture whose
+// KmDriven is ALREADY 0.0 (as if analytics had just clamped a raw -100.0)
+// and asserts the SAME rendered output the pre-move code produced for its
+// equivalent negative-delta fixture: a zero-height bar that is still
+// Present=true (backed by a real day, unlike a missing-predecessor day).
+func TestBuildOdometerChart_ZeroKmDistance_StaysPresentAtZeroHeight(t *testing.T) {
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 4, 0, 0, 0, 0, time.UTC) // 2-day window
-	snaps := []telemetry.Snapshot{
-		{OdometerKm: 1000, EffectiveDate: start.AddDate(0, 0, -1)}, // 08-02 lookback
-		{OdometerKm: 900, EffectiveDate: start},                    // 08-03 — negative delta (clock skew)
-		{OdometerKm: 1050, EffectiveDate: start.AddDate(0, 0, 1)},  // 08-04
+	distances := []analytics.DayDistance{
+		{Date: start, KmDriven: 0.0, OdometerKm: 900.0},                     // 08-03 — already clamped upstream (was -100.0)
+		{Date: start.AddDate(0, 0, 1), KmDriven: 150.0, OdometerKm: 1050.0}, // 08-04
 	}
-	c := buildOdometerChart(historyTestCtx, snaps, start, end)
+	c := buildOdometerChart(historyTestCtx, distances, start, end)
 	if c.Empty {
-		t.Fatal("want non-empty for 3 snapshots")
+		t.Fatal("want non-empty for 2 distances")
 	}
 	if len(c.Bars) != 2 {
 		t.Fatalf("want 2 bars, got %d", len(c.Bars))
 	}
-	// First bar (08-03): 900-1000 = -100 → clamped to 0.
 	if c.Bars[0].HeightPct != 0 {
-		t.Errorf("negative delta bar HeightPct: want 0, got %d", c.Bars[0].HeightPct)
+		t.Errorf("zero-km bar HeightPct: want 0, got %d", c.Bars[0].HeightPct)
 	}
 	if !c.Bars[0].Present {
-		t.Error("negative-delta bar is still a PRESENT bar (backed by a snapshot)")
+		t.Error("zero-km bar is still a PRESENT bar (backed by a real day, unlike a missing-predecessor day)")
 	}
 }
 
-func TestBuildOdometerChart_TooltipUsesEffectiveDateMMDD(t *testing.T) {
-	// CapturedAt and EffectiveDate deliberately differ: the tooltip/label date
-	// comes from the axis day (== EffectiveDate calendar day), never from
-	// CapturedAt. Proves the source on the fixed axis.
-	start := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
-	end := start.AddDate(0, 0, 1)
-	snaps := []telemetry.Snapshot{
-		{OdometerKm: 12000, CapturedAt: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 6, 3, 30, 0, 0, time.UTC)}, // 08-06 lookback
-		{OdometerKm: 12100, CapturedAt: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 7, 3, 30, 0, 0, time.UTC)}, // 08-07
-		{OdometerKm: 12200, CapturedAt: time.Date(2026, 8, 9, 3, 30, 0, 0, time.UTC), EffectiveDate: time.Date(2026, 8, 8, 3, 30, 0, 0, time.UTC)}, // 08-08
-	}
-	c := buildOdometerChart(historyTestCtx, snaps, start, end)
-	if c.Empty || len(c.Bars) != 2 {
-		t.Fatalf("want 2 bars, got %d (empty=%v)", len(c.Bars), c.Empty)
+// TestBuildOdometerChart_BucketsOnDateVerbatim_NoEffectiveDayUTC replaces the
+// pre-move TestBuildOdometerChart_TooltipUsesEffectiveDateMMDD, whose whole
+// point (proving EffectiveDate, not CapturedAt, drives the bucket) no longer
+// applies: analytics.DayDistance carries no CapturedAt field at all, so
+// there is nothing left to disambiguate against -- Date is now the only
+// day-shaped field on the port's own result. Asserts buildOdometerChart
+// buckets each entry on its own Date field DIRECTLY (design.md D6, spec.md
+// "The odometer chart bucket day is the port's own Date, never re-derived")
+// -- never re-derived through effectiveDayUTC or any other re-bucketing
+// step. Mirrors TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC.
+func TestBuildOdometerChart_BucketsOnDateVerbatim_NoEffectiveDayUTC(t *testing.T) {
+	d := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
+	distances := []analytics.DayDistance{{Date: d, KmDriven: 12.5, OdometerKm: 1200.0}}
+	c := buildOdometerChart(historyTestCtx, distances, d, d)
+	if c.Empty || len(c.Bars) != 1 {
+		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
 	}
 	bar := c.Bars[0]
-	if bar.Label != "08-07" {
-		t.Errorf("want Label=08-07 (axis day), got %q", bar.Label)
+	if bar.Label != "08-10" {
+		t.Errorf("Label: want 08-10, got %q", bar.Label)
 	}
-	if !strings.Contains(bar.Tooltip, "08-07") {
-		t.Errorf("tooltip must contain 08-07, got %q", bar.Tooltip)
+	if !bar.Present {
+		t.Error("want Present=true")
 	}
-	if strings.Contains(bar.Tooltip, "2026-08-08") || strings.Contains(bar.Tooltip, "08-08") {
-		t.Errorf("tooltip must NOT contain the CapturedAt-derived date, got %q", bar.Tooltip)
+	if !strings.Contains(bar.Tooltip, "08-10") {
+		t.Errorf("tooltip must contain 08-10, got %q", bar.Tooltip)
+	}
+}
+
+// TestBuildOdometerChart_FixtureA_MatchesDesignTestContract pins design.md's
+// Test Contract Fixture A: OdometerDeltaByDay(A,42,2026-08-10,2026-08-10) ==
+// []DayDistance{{Date: 2026-08-10, KmDriven: 50.0, OdometerKm: 1050.0}} (the
+// clamp is a no-op here, 50.0 >= 0) -- and asserts buildOdometerChart renders
+// that fixture with the same HeightPct/Label/Tooltip shape the pre-move
+// gateway code rendered for the equivalent live-computed delta (roadmap D10
+// characterization; task 4.3's explicit "author against Fixture A/B"
+// instruction).
+func TestBuildOdometerChart_FixtureA_MatchesDesignTestContract(t *testing.T) {
+	d := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
+	distances := []analytics.DayDistance{{Date: d, KmDriven: 50.0, OdometerKm: 1050.0}}
+	c := buildOdometerChart(historyTestCtx, distances, d, d)
+	if c.Empty || len(c.Bars) != 1 {
+		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
+	}
+	bar := c.Bars[0]
+	if bar.HeightPct != 100 {
+		t.Errorf("HeightPct: want 100 (single bar is always the window max), got %d", bar.HeightPct)
+	}
+	if !bar.Present {
+		t.Error("want Present=true")
+	}
+	if bar.Label != "08-10" {
+		t.Errorf("Label: want 08-10, got %q", bar.Label)
+	}
+	// Pin the EXACT tooltip, not substrings. formatKm has always grouped
+	// thousands via commaGroup (format.go, untouched by this change), so the
+	// odometer renders "1,050" -- a substring check for "1050" asserts a format
+	// the gateway has never produced. Exact-matching is the stronger
+	// characterization anyway: it catches spacing, separator and unit drift too.
+	const wantTooltip = "08-10 · 50 km driven · odometer 1,050 km"
+	if bar.Tooltip != wantTooltip {
+		t.Errorf("tooltip: want %q, got %q", wantTooltip, bar.Tooltip)
+	}
+}
+
+// TestBuildOdometerChart_FixtureB_ClampAppliedUpstreamRendersZero pins
+// design.md's Test Contract Fixture B: the STORED distance_traveled_km_calc
+// is -2.0 (raw, unclamped -- analytics never mutates the stored column), but
+// OdometerDeltaByDay's read-time clamp (design.md D13) already reports
+// KmDriven: 0.0 by the time the gateway ever sees it -- buildOdometerChart
+// itself performs NO comparison against zero any more (roadmap D5): it
+// renders whatever KmDriven it was given, and 0.0 renders as a zero-height,
+// still-PRESENT bar (Fixture B's day has a real snapshot pair, it just
+// travelled backward -- unlike a missing-predecessor day, which is absent
+// from the slice entirely).
+func TestBuildOdometerChart_FixtureB_ClampAppliedUpstreamRendersZero(t *testing.T) {
+	d := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
+	distances := []analytics.DayDistance{{Date: d, KmDriven: 0.0, OdometerKm: 1998.0}}
+	c := buildOdometerChart(historyTestCtx, distances, d, d)
+	if c.Empty || len(c.Bars) != 1 {
+		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
+	}
+	bar := c.Bars[0]
+	if bar.HeightPct != 0 {
+		t.Errorf("HeightPct: want 0, got %d", bar.HeightPct)
+	}
+	if !bar.Present {
+		t.Error("want Present=true -- a clamped-to-zero day still has a real snapshot pair behind it")
 	}
 }
 
@@ -767,7 +969,7 @@ func TestBuildBatteryChart_TooltipUsesEffectiveDateMMDD(t *testing.T) {
 func TestBuildConsumedChart_NormalDay_RelativeScale(t *testing.T) {
 	start := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
+	days := []analytics.DayConsumption{
 		{Date: start, ConsumedPct: 11.0},
 		{Date: end, ConsumedPct: 20.0},
 	}
@@ -799,8 +1001,8 @@ func TestBuildConsumedChart_NormalDay_RelativeScale(t *testing.T) {
 // hides the raw value entirely (D10) — must NOT contain "-5" anywhere.
 func TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue(t *testing.T) {
 	d := time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
-		{Date: d, ConsumedPct: -5.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 1},
+	days := []analytics.DayConsumption{
+		{Date: d, ConsumedPct: -5.0, Flagged: true, MissingChargingType: analytics.MissingChargingTypeManual, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
 	if c.Empty || len(c.Bars) != 1 {
@@ -826,8 +1028,8 @@ func TestBuildConsumedChart_FlaggedNonSpan_Manual_HidesValue(t *testing.T) {
 // Contract (c): the zero-with-distance flagged case, SUPERCHARGER source.
 func TestBuildConsumedChart_FlaggedNonSpan_Supercharger_ZeroWithDistance(t *testing.T) {
 	d := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
-		{Date: d, ConsumedPct: 0, DistanceKm: 42, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeSupercharger, DaysSpanned: 1},
+	days := []analytics.DayConsumption{
+		{Date: d, ConsumedPct: 0, DistanceKm: 42, Flagged: true, MissingChargingType: analytics.MissingChargingTypeSupercharger, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
 	if c.Empty || len(c.Bars) != 1 {
@@ -849,7 +1051,7 @@ func TestBuildConsumedChart_FlaggedNonSpan_Supercharger_ZeroWithDistance(t *test
 func TestBuildConsumedChart_MultiDaySpan_NotFlagged_ShowsRealValue(t *testing.T) {
 	d1 := time.Date(2026, 8, 13, 0, 0, 0, 0, time.UTC)
 	d2 := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
+	days := []analytics.DayConsumption{
 		{Date: d1, ConsumedPct: 15.0, Flagged: false, DaysSpanned: 3},
 		{Date: d2, ConsumedPct: 20.0, Flagged: false, DaysSpanned: 1}, // sets the window max
 	}
@@ -877,8 +1079,8 @@ func TestBuildConsumedChart_MultiDaySpan_NotFlagged_ShowsRealValue(t *testing.T)
 // suppressed by a concurrent flag — D-G4's table row 4).
 func TestBuildConsumedChart_MultiDaySpanAndFlagged_BothMarkers_ValueShown(t *testing.T) {
 	d := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
-		{Date: d, ConsumedPct: -3.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 2},
+	days := []analytics.DayConsumption{
+		{Date: d, ConsumedPct: -3.0, Flagged: true, MissingChargingType: analytics.MissingChargingTypeManual, DaysSpanned: 2},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
 	if c.Empty || len(c.Bars) != 1 {
@@ -911,8 +1113,8 @@ func TestBuildConsumedChart_MultiDaySpanAndFlagged_BothMarkers_ValueShown(t *tes
 func TestBuildConsumedChart_MultiDaySpanAndFlagged_HeightClampIsolatedFromMax(t *testing.T) {
 	d1 := time.Date(2026, 8, 14, 0, 0, 0, 0, time.UTC)
 	d2 := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
-		{Date: d1, ConsumedPct: -3.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 2},
+	days := []analytics.DayConsumption{
+		{Date: d1, ConsumedPct: -3.0, Flagged: true, MissingChargingType: analytics.MissingChargingTypeManual, DaysSpanned: 2},
 		{Date: d2, ConsumedPct: 10.0, Flagged: false, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d1, d2)
@@ -942,7 +1144,7 @@ func TestBuildConsumedChart_MultiDaySpanAndFlagged_HeightClampIsolatedFromMax(t 
 func TestBuildConsumedChart_NoDataDay_DistinctFromNoSnapshotWording(t *testing.T) {
 	present := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
 	missing := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{{Date: present, ConsumedPct: 5.0}}
+	days := []analytics.DayConsumption{{Date: present, ConsumedPct: 5.0}}
 	c := buildConsumedChart(historyTestCtx, days, present, missing)
 	if c.Empty {
 		t.Fatal("want non-empty chart (one day is present)")
@@ -985,12 +1187,12 @@ func TestBuildConsumedChart_EmptyWhenZeroDays(t *testing.T) {
 
 // TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC — Test
 // Contract (i), the D-G2 regression guard: bucketing uses
-// battery.DayConsumption.Date VERBATIM, never re-derived via
+// analytics.DayConsumption.Date VERBATIM, never re-derived via
 // effectiveDayUTC. DayConsumption carries no EffectiveDate-shaped field, so
 // this only proves the bucket key came from Date directly.
 func TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC(t *testing.T) {
 	d := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{{Date: d, ConsumedPct: 11.0}}
+	days := []analytics.DayConsumption{{Date: d, ConsumedPct: 11.0}}
 	c := buildConsumedChart(historyTestCtx, days, d, d)
 	if c.Empty || len(c.Bars) != 1 {
 		t.Fatalf("want 1 bar, got %d (empty=%v)", len(c.Bars), c.Empty)
@@ -1017,8 +1219,8 @@ func TestBuildConsumedChart_BucketsOnDateVerbatim_NoEffectiveDayUTC(t *testing.T
 func TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp(t *testing.T) {
 	d1 := time.Date(2026, 8, 17, 0, 0, 0, 0, time.UTC)
 	d2 := time.Date(2026, 8, 18, 0, 0, 0, 0, time.UTC)
-	days := []battery.DayConsumption{
-		{Date: d1, ConsumedPct: -8.0, Flagged: true, MissingChargingType: telemetry.MissingChargingTypeManual, DaysSpanned: 1},
+	days := []analytics.DayConsumption{
+		{Date: d1, ConsumedPct: -8.0, Flagged: true, MissingChargingType: analytics.MissingChargingTypeManual, DaysSpanned: 1},
 		{Date: d2, ConsumedPct: 12.0, Flagged: false, DaysSpanned: 1},
 	}
 	c := buildConsumedChart(historyTestCtx, days, d1, d2)
@@ -1037,51 +1239,99 @@ func TestBuildConsumedChart_FlaggedDayNeverDistortsScale_SingleClamp(t *testing.
 	}
 }
 
-// TestHandler_BatteryReaderDepsForwarding — design.md Test Contract (o):
-// New(Deps{BatteryReader: fake}) is the SAME instance buildHistoryView
+// TestHandler_AnalyticsReaderDepsForwarding — design.md Test Contract (o):
+// New(Deps{AnalyticsReader: fake}) is the SAME instance buildHistoryView
 // calls. There is no dedicated forwarding test for SuperchargerReader or
-// ManualChargeReader in this suite to mirror name-for-name (grepped first,
+// ChargingReader in this suite to mirror name-for-name (grepped first,
 // per tasks.md T8.14's instruction) — every sibling port is instead verified
 // by exercising the handler end-to-end and asserting the fake recorded the
 // call, the same call-recording-fake technique fakeHistoryReader.betweenCalled
 // already uses for TelemetryReader (see
 // TestBuildHistoryView_PassesReadStartLookbackToEndToReader). This test
-// mirrors that shape for BatteryReader rather than inventing a reflection-
+// mirrors that shape for AnalyticsReader rather than inventing a reflection-
 // based "same pointer" check.
-func TestHandler_BatteryReaderDepsForwarding(t *testing.T) {
+func TestHandler_AnalyticsReaderDepsForwarding(t *testing.T) {
 	historyReader := &fakeHistoryReader{historySnaps: []telemetry.Snapshot{}}
-	batteryReader := &fakeBatteryReader{days: []battery.DayConsumption{}}
-	h := newHandlerForHistoryWithBattery(historyReader, batteryReader, 42, "VIN42")
+	analyticsReader := &fakeAnalyticsReader{days: []analytics.DayConsumption{}}
+	h := newHandlerForHistoryWithAnalytics(historyReader, analyticsReader, 42, "VIN42")
 
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
 	_ = h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
 
-	if !batteryReader.consumedByDayCalled {
-		t.Fatal("want ConsumedByDay called on the Deps-supplied BatteryReader — Handler.batteryReader must be the same instance New(Deps{BatteryReader: ...}) was given")
+	if !analyticsReader.consumedByDayCalled {
+		t.Fatal("want ConsumedByDay called on the Deps-supplied AnalyticsReader — Handler.analyticsReader must be the same instance New(Deps{AnalyticsReader: ...}) was given")
 	}
-	if !batteryReader.gotStart.Equal(start) || !batteryReader.gotEnd.Equal(end) {
-		t.Errorf("want ConsumedByDay called with (start=%v, end=%v), got (%v, %v)", start, end, batteryReader.gotStart, batteryReader.gotEnd)
+	if !analyticsReader.gotStart.Equal(start) || !analyticsReader.gotEnd.Equal(end) {
+		t.Errorf("want ConsumedByDay called with (start=%v, end=%v), got (%v, %v)", start, end, analyticsReader.gotStart, analyticsReader.gotEnd)
+	}
+	// OdometerDeltaByDay forwarding — RM29-analytics-add-vehicle-metrics
+	// task 5.1 gave the odometer chart its own separate port call on the
+	// same Deps-supplied AnalyticsReader; assert it the same way.
+	if !analyticsReader.odometerByDayCalled {
+		t.Fatal("want OdometerDeltaByDay called on the Deps-supplied AnalyticsReader — Handler.analyticsReader must be the same instance New(Deps{AnalyticsReader: ...}) was given")
+	}
+	if !analyticsReader.gotOdoStart.Equal(start) || !analyticsReader.gotOdoEnd.Equal(end) {
+		t.Errorf("want OdometerDeltaByDay called with (start=%v, end=%v), got (%v, %v)", start, end, analyticsReader.gotOdoStart, analyticsReader.gotOdoEnd)
 	}
 }
 
 // --- buildHistoryView (end-to-end handler logic + reader) ---
 
-func TestBuildHistoryView_ReaderError_DegradesBothChartsEmpty(t *testing.T) {
+// TestBuildHistoryView_TelemetryReaderError_DegradesBatteryChartOnly is the
+// roadmap-D5-era successor to the pre-move
+// TestBuildHistoryView_ReaderError_DegradesBothChartsEmpty: since the
+// odometer chart moved off telemetry.Reader entirely onto its own
+// analytics.Reader.OdometerDeltaByDay port (design.md D6), a
+// SnapshotsByVehicleBetween error can now only ever degrade the Battery
+// chart — the one chart still fed directly from that read (spec.md "Odometer
+// chart data comes exclusively through analytics.Reader"). This fixture
+// supplies no snaps for the default fakeAnalyticsReader to derive distances
+// from either, so v.Odometer is ALSO empty here — but for an unrelated
+// reason (no data), not because of the telemetry error; see
+// TestBuildHistoryView_AnalyticsReaderOdometerError_DegradesOdometerChartOnly
+// for the real cross-port independence proof.
+func TestBuildHistoryView_TelemetryReaderError_DegradesBatteryChartOnly(t *testing.T) {
 	reader := &fakeHistoryReader{historyErr: errTestHistory}
 	h := newHandlerForHistory(reader, 42, "VIN42")
 	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
 	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
-	if !v.Odometer.Empty {
-		t.Error("want Odometer.Empty on reader error")
-	}
 	if !v.Battery.Empty {
-		t.Error("want Battery.Empty on reader error")
+		t.Error("want Battery.Empty on telemetry reader error")
 	}
 	// Presets are still built so the selector is usable despite the read error.
 	if len(v.Presets) == 0 {
 		t.Error("want presets rendered even on reader error")
+	}
+}
+
+// TestBuildHistoryView_AnalyticsReaderOdometerError_DegradesOdometerChartOnly
+// is the real cross-port independence proof RM29-analytics-add-vehicle-
+// metrics task 5.1 introduced (spec.md "Odometer chart data comes
+// exclusively through analytics.Reader"): a SUCCESSFUL telemetry read (so
+// the Battery chart is populated) alongside a FAILING OdometerDeltaByDay
+// call degrades ONLY v.Odometer — the already-populated Battery chart,
+// sourced from the separate telemetry.Reader call, must stay intact.
+func TestBuildHistoryView_AnalyticsReaderOdometerError_DegradesOdometerChartOnly(t *testing.T) {
+	start := time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	lookback := start.AddDate(0, 0, -1)
+	snaps := snapsForDays(append([]time.Time{lookback}, calendarDays(start, end)...), 1000, 10, 70)
+	historyReader := &fakeHistoryReader{historySnaps: snaps}             // succeeds -- populates Battery
+	analyticsReader := &fakeAnalyticsReader{odometerErr: errTestHistory} // OdometerDeltaByDay fails
+	h := newHandlerForHistoryWithAnalytics(historyReader, analyticsReader, 42, "VIN42")
+
+	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
+
+	if !v.Odometer.Empty {
+		t.Error("want Odometer.Empty=true on OdometerDeltaByDay error")
+	}
+	if v.Battery.Empty {
+		t.Error("want Battery.Empty=false — an OdometerDeltaByDay error must NOT blank the already-populated battery chart")
+	}
+	if len(v.Battery.Bars) == 0 {
+		t.Error("want Battery.Bars non-empty")
 	}
 }
 
@@ -1100,9 +1350,13 @@ func TestBuildHistoryView_ConsumedReaderError_LeavesOtherChartsIntact(t *testing
 	end := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC) // 5-day window
 	lookback := start.AddDate(0, 0, -1)
 	snaps := snapsForDays(append([]time.Time{lookback}, calendarDays(start, end)...), 1000, 10, 70)
-	historyReader := &fakeHistoryReader{historySnaps: snaps} // succeeds — populates both charts
-	batteryReader := &fakeBatteryReader{err: errTestHistory} // ConsumedByDay fails
-	h := newHandlerForHistoryWithBattery(historyReader, batteryReader, 42, "VIN42")
+	historyReader := &fakeHistoryReader{historySnaps: snaps} // succeeds — populates the Battery chart
+	// snaps also seeds the odometer chart via distancesFromSnaps (see
+	// fakeAnalyticsReader's snaps field) so this test still exercises "the
+	// two ALREADY-populated charts stay intact" for both siblings, not just
+	// Battery.
+	analyticsReader := &fakeAnalyticsReader{err: errTestHistory, snaps: snaps} // ConsumedByDay fails
+	h := newHandlerForHistoryWithAnalytics(historyReader, analyticsReader, 42, "VIN42")
 
 	v := h.buildHistoryView(context.Background(), uuid.New(), 42, start, end, startOfDay(time.Now()))
 
@@ -1491,7 +1745,7 @@ func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows(
 		}
 		body := w.Body.String()
 
-		odo := buildOdometerChart(historyTestCtx, snaps, start, end)
+		odo := buildOdometerChart(historyTestCtx, distancesFromSnaps(snaps, start, end), start, end)
 		bat := buildBatteryChart(historyTestCtx, snaps, start, end)
 		for _, bar := range odo.Bars {
 			if !strings.Contains(body, bar.Label) {

@@ -38,16 +38,13 @@
 -- the ON CONFLICT clause explicitly refreshes it to now() on a same-day
 -- replace (design D5), mirroring UpsertSuperchargerSession's own
 -- `updated_at = now()`.
--- distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
--- estimated_range_km_calc, days_spanned_calc: five nullable derived-consumption
--- columns computed in Go by deriveConsumption (service.go) BEFORE this query
--- runs and bound as ordinary params, exactly like every other typed column
--- (telemetry-add-derived-consumption-columns design D3/D6/D8). NULL means "no
--- predecessor exists" (D8) or, for the two efficiency columns only, a
--- zero/negative battery-used divisor (D2). They are included in the ON
--- CONFLICT DO UPDATE SET below so a same-day re-capture recomputes and
--- refreshes them identically to every other column — this is the fix for the
--- same-day-recapture staleness bug (design D6).
+-- The five derived-consumption columns (distance_traveled_km_calc,
+-- battery_used_pct_calc, km_per_pct_calc, estimated_range_km_calc,
+-- days_spanned_calc) that used to be bound here were DROPPED by migration
+-- 20260822000001 (RM29-telemetry-drop-derived-columns tier 4, MAG-26): the
+-- derivation moved to internal/analytics, which computes the same figures
+-- from this table's surviving raw columns (odometer_km, battery_level_pct,
+-- captured_date). Nothing inside telemetry ever read them back.
 INSERT INTO vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
@@ -57,9 +54,7 @@ INSERT INTO vehicle_snapshots (
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date,
-    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
-    estimated_range_km_calc, days_spanned_calc
+    captured_date
 ) VALUES (
     @account_id, @tesla_id, @captured_at, @raw_data,
     @battery_level_pct, @battery_range_km, @charging_state, @charge_limit_soc_pct,
@@ -69,9 +64,7 @@ INSERT INTO vehicle_snapshots (
     @charger_actual_current_a, @usable_battery_level_pct,
     @max_range_charge_counter,
     @tpms_pressure_fl_psi, @tpms_pressure_fr_psi, @tpms_pressure_rl_psi, @tpms_pressure_rr_psi,
-    @captured_date,
-    @distance_traveled_km_calc, @battery_used_pct_calc, @km_per_pct_calc,
-    @estimated_range_km_calc, @days_spanned_calc
+    @captured_date
 )
 ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
     captured_at               = EXCLUDED.captured_at,
@@ -96,20 +89,18 @@ ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
     tpms_pressure_fr_psi       = EXCLUDED.tpms_pressure_fr_psi,
     tpms_pressure_rl_psi       = EXCLUDED.tpms_pressure_rl_psi,
     tpms_pressure_rr_psi       = EXCLUDED.tpms_pressure_rr_psi,
-    distance_traveled_km_calc  = EXCLUDED.distance_traveled_km_calc,
-    battery_used_pct_calc      = EXCLUDED.battery_used_pct_calc,
-    km_per_pct_calc            = EXCLUDED.km_per_pct_calc,
-    estimated_range_km_calc    = EXCLUDED.estimated_range_km_calc,
-    days_spanned_calc          = EXCLUDED.days_spanned_calc,
     updated_at                 = now();
 
 -- name: InsertPollAttempt :exec
 -- Record one attempt per (vehicle, run), success or failure. outcome is
--- success|failure; reason is ok|asleep-timeout|unauthorized|api-error.
+-- success|failure; reason is ok|asleep-timeout|unauthorized|api-error. run_id
+-- correlates every vehicle's row from one app.ProcessVehicleData invocation;
+-- triggered_by records what triggered that invocation (RM29-app-add-process-
+-- vehicle-data design D5/D7).
 INSERT INTO poll_attempts (
-    account_id, tesla_id, attempted_at, outcome, reason
+    account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by
 ) VALUES (
-    @account_id, @tesla_id, @attempted_at, @outcome, @reason
+    @account_id, @tesla_id, @attempted_at, @outcome, @reason, @run_id, @triggered_by
 );
 
 -- name: ListSnapshotsByVehicle :many
@@ -126,9 +117,7 @@ SELECT
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at,
-    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
-    estimated_range_km_calc, days_spanned_calc
+    captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = @account_id AND tesla_id = @tesla_id
 ORDER BY captured_at DESC;
@@ -163,9 +152,7 @@ SELECT
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at,
-    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
-    estimated_range_km_calc, days_spanned_calc
+    captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
@@ -219,13 +206,24 @@ LIMIT 400;
 -- the same dashboard window. No new index, no migration, no new column (design D2 —
 -- the `database` design-gate is NOT triggered).
 --
--- LIMIT 400 (D3, parity with SnapshotsByVehicleSince's D4): safety cap against an
--- accidentally large result set if capture cadence ever increases. The HTTP contract
--- (Decision #2) caps the window at <= 90 days; the gateway's 1-day lookback (Decision
--- #4) adds one day, so the realistic max return is ~91 rows (one nightly snapshot per
--- calendar day under the current cadence). 400 comfortably exceeds that without being
--- so large it re-introduces the unbounded-scan risk the cap exists to prevent; the
--- bounded window itself (not the LIMIT) is the real protection on this path.
+-- LIMIT 4000 (D3, raised from 400 by RM29-telemetry-drop-derived-columns tier 4,
+-- task 4.9): the original 400 was sized for the gateway's bounded ~91-row HTTP
+-- window (Decision #2/#4), but this same query also backs internal/analytics'
+-- Reconcile epoch backfill (roadmap D7/D8, RM29-analytics-add-vehicle-metrics),
+-- which — since RM29 tier 4's watermark reset (design D3, I3) — can call
+-- Recalculate over a SINGLE vehicle's ENTIRE snapshot history in one window. At
+-- 400, a vehicle with more than 400 days of history had its NEWEST rows
+-- silently dropped (this query is `ORDER BY captured_at ASC LIMIT 400`), and
+-- Reconcile then advanced the watermark past days it never recomputed —
+-- permanently wrong metrics, no error, no log line. That failure mode is
+-- exactly what this port's own SnapshotPrecedingDay (above) exists to prevent
+-- for the *predecessor* side; this raise closes the matching gap on the
+-- *forward window* side that the watermark reset re-arms. 4000 is ~11 years at
+-- the platform's one-snapshot-per-vehicle-per-day cadence — the cap remains a
+-- runaway-query guard (all D3 ever claimed for it), and the bounded [start,
+-- end] window supplied by the caller stays the real protection, not the LIMIT.
+-- Truncation detection or pagination for a vehicle exceeding 4000 days is
+-- explicitly out of scope (design.md Risks; do not add it here).
 SELECT
     id, account_id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
@@ -235,16 +233,48 @@ SELECT
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at,
-    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
-    estimated_range_km_calc, days_spanned_calc
+    captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND captured_at >= @start_bound
   AND captured_at <  @end_bound
 ORDER BY captured_at ASC
-LIMIT 400;
+LIMIT 4000;
+
+-- name: SnapshotsByVehicleUpdatedSince :many
+-- Return every snapshot for a single vehicle (within the given account) whose
+-- updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
+-- telemetry.Reader.SnapshotsByVehicleUpdatedSince to let internal/analytics'
+-- Recalculator (RM29-analytics-add-vehicle-metrics) detect which snapshots
+-- changed recently -- including a same-day REPLACE via the existing UPSERT
+-- (design D1 of telemetry-dedupe-daily-snapshots), which advances updated_at
+-- without necessarily changing captured_at's calendar day.
+--
+-- Index reuse: the existing idx_vehicle_snapshots_vehicle_time
+-- (account_id, tesla_id, captured_at) is NOT sorted on updated_at, so this
+-- query cannot use it as a pure ORDER BY-satisfying range scan the way
+-- SnapshotsByVehicleSince does on captured_at. It STILL prunes the scan to
+-- this one vehicle's rows via the index's (account_id, tesla_id) leading-
+-- column prefix before the updated_at predicate and sort are applied --
+-- updated_at is a residual filter within that scan, per this change's
+-- explicit design call (no new index; verified via EXPLAIN in the
+-- DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
+SELECT
+    id, account_id, tesla_id, captured_at, raw_data,
+    battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
+    odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
+    car_version,
+    charge_energy_added_kwh, charger_power_kw, charger_voltage_v,
+    charger_actual_current_a, usable_battery_level_pct,
+    max_range_charge_counter,
+    tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
+    captured_date, updated_at
+FROM vehicle_snapshots
+WHERE account_id = @account_id
+  AND tesla_id   = @tesla_id
+  AND updated_at >= @since
+ORDER BY updated_at ASC;
 
 -- name: LatestSnapshotsByAccount :many
 -- Return the latest stored snapshot for each vehicle owned by the given account.
@@ -263,26 +293,39 @@ SELECT DISTINCT ON (tesla_id)
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at,
-    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
-    estimated_range_km_calc, days_spanned_calc
+    captured_date, updated_at
 FROM vehicle_snapshots
 WHERE account_id = @account_id
 ORDER BY tesla_id, captured_at DESC;
 
--- name: PreviousSnapshotForVehicle :one
--- Return the single most recent snapshot for a vehicle strictly before the
--- given instant, or pgx.ErrNoRows when none exists (the vehicle's
--- first-ever snapshot — design D8/D10 of telemetry-add-derived-consumption-columns).
--- Callers pass dayStart(capturedAt, loc) as `before` (design D7) — the LOCAL
--- calendar-day start, not the incoming snapshot's own captured_at — so a
--- same-day re-capture cannot select today's own (about-to-be-replaced) row
--- as its own predecessor.
--- Backward scan of the existing idx_vehicle_snapshots_vehicle_time
--- (account_id, tesla_id, captured_at) index (design D7): the planner seeks
--- to (account_id, tesla_id, before) and walks the ascending B-tree in
--- reverse to satisfy ORDER BY captured_at DESC, stopping after the first
--- matching row via LIMIT 1 — no new index.
+-- name: SnapshotPrecedingDay :one
+-- Return the single most recent snapshot for a vehicle whose captured_date is
+-- strictly before the given calendar day, or pgx.ErrNoRows when none exists
+-- (the vehicle's first-ever snapshot). Backs telemetry.Reader.SnapshotPrecedingDay,
+-- whose only consumer is internal/analytics' Recalculate: it needs the EXACT
+-- predecessor, however old, because a capture gap longer than its fetch window
+-- would otherwise yield a silently wrong (or silently absent) daily delta.
+-- REPLACES PreviousSnapshotForVehicle (deleted by RM29-telemetry-drop-derived-columns
+-- tier 4, design D8): same table, same index strategy, same LIMIT 1; only the
+-- bound moved from an instant to a calendar day.
+--
+-- The bound is captured_date, NOT captured_at: captured_date is already the
+-- poller-zone calendar day (stamped once on the write path by dateOnly), so the
+-- predicate is zone-free at query time. It is exactly equivalent to the
+-- captured_at < dayStart(cur.captured_at, loc) bound the deleted
+-- PreviousSnapshotForVehicle query used, and it preserves that bound's purpose:
+-- a same-day re-capture cannot select today's own about-to-be-replaced row as
+-- its own predecessor, because that row's captured_date equals @day.
+--
+-- Index reuse (no new index): the planner seeks the existing
+-- idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at) on its
+-- two leading equality columns and walks the ascending B-tree BACKWARD to
+-- satisfy ORDER BY captured_at DESC, stopping at the first row that also passes
+-- the captured_date residual predicate. Because
+-- vehicle_snapshots_account_tesla_date_unique allows at most ONE row per
+-- (account_id, tesla_id, captured_date), and captured_date is monotone
+-- non-decreasing with captured_at for a vehicle, AT MOST ONE row is skipped
+-- before the first match. Verified via EXPLAIN in the DB-integration test.
 SELECT
     id, account_id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
@@ -292,13 +335,11 @@ SELECT
     charger_actual_current_a, usable_battery_level_pct,
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
-    captured_date, updated_at,
-    distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
-    estimated_range_km_calc, days_spanned_calc
+    captured_date, updated_at
 FROM vehicle_snapshots
-WHERE account_id = @account_id
-  AND tesla_id   = @tesla_id
-  AND captured_at < @before
+WHERE account_id   = @account_id
+  AND tesla_id     = @tesla_id
+  AND captured_date < @day
 ORDER BY captured_at DESC
 LIMIT 1;
 
@@ -307,7 +348,7 @@ LIMIT 1;
 -- are DELIBERATELY ABSENT from both the INSERT column list and the ON CONFLICT DO
 -- UPDATE SET clause below. The first three are a human-owned verification/override
 -- channel; the last two are a frozen, write-once verification-time snapshot of the
--- estimate (design D6) -- NEVER refreshed, NEVER a cache read by internal/battery
+-- estimate (design D6) -- NEVER refreshed, NEVER a cache read by internal/analytics
 -- (see the column comments added by migration 20260815000001). If this query touched
 -- any of the five, a user's verified value or its frozen snapshot would be silently
 -- overwritten by the next nightly re-upsert. A fresh INSERT leaves all five at their
@@ -369,59 +410,6 @@ WHERE account_id = @account_id
 ORDER BY charge_start_date_time DESC
 LIMIT @limit_count;
 
--- name: UpsertChargeGap :exec
--- Upsert one flagged vehicle-day. On conflict with the
--- charge_gaps_account_tesla_date_unique constraint, refresh vin (in case the
--- vehicle's VIN changed since the day was first flagged -- cheap safety, not
--- an expected case) and missing_charging_type (the inferred type can change
--- between nightly runs if detection logic evolves, or if a Supercharger
--- session with NULL percentages later appears for a day previously inferred
--- MANUAL), and refresh updated_at to now(). created_at is DELIBERATELY
--- ABSENT from the SET clause -- design D-Table2/the table's own column
--- comment: it must record when this vehicle-day was FIRST flagged, not the
--- most recent confirmation.
-INSERT INTO charge_gaps (
-    account_id, tesla_id, vin, gap_date, missing_charging_type
-) VALUES (
-    @account_id, @tesla_id, @vin, @gap_date, @missing_charging_type
-)
-ON CONFLICT (account_id, tesla_id, gap_date) DO UPDATE SET
-    vin                    = EXCLUDED.vin,
-    missing_charging_type  = EXCLUDED.missing_charging_type,
-    updated_at             = now();
-
--- name: DeleteChargeGap :exec
--- Delete one charge_gaps row scoped to (account_id, tesla_id, gap_date) -- a
--- point delete served by the charge_gaps_account_tesla_date_unique
--- constraint's own index (design.md Index Plan, Read path 1). Called by
--- GapWriter.ReconcileWindow for every previously-stored day in the window
--- that is no longer present in the caller's freshly-computed flagged set
--- (roadmap D7b).
-DELETE FROM charge_gaps
-WHERE account_id = @account_id
-  AND tesla_id   = @tesla_id
-  AND gap_date   = @gap_date;
-
--- name: ChargeGapDatesByVehicleBetween :many
--- Return every stored charge_gaps date for one vehicle (within one account)
--- in the closed range [start, end]. Used ONLY by
--- GapWriter.ReconcileWindow's internal bookkeeping to compute which
--- previously-stored days are no longer in the caller's flagged set (and so
--- must be deleted) -- not a public read port, not consumed outside this
--- module's own write path. Single-column SELECT (gap_date only): the caller
--- already has every other field it needs for any date it decides to keep
--- (it is re-upserting from its own freshly-computed flagged set, never
--- reading this table's other columns back).
---
--- Index reuse (design.md Index Plan, Read path 1): served directly by
--- charge_gaps_account_tesla_date_unique's own (account_id, tesla_id, gap_date)
--- index as a single contiguous forward range scan -- no new index.
-SELECT gap_date FROM charge_gaps
-WHERE account_id = @account_id
-  AND tesla_id   = @tesla_id
-  AND gap_date   >= @start
-  AND gap_date   <= @end_date;
-
 -- name: SuperchargerSessionsByVehicleBetween :many
 -- Return Supercharger sessions for one vehicle within an account whose
 -- charge_stop_date_time falls in the caller-supplied [start, end] window,
@@ -475,3 +463,27 @@ WHERE account_id = @account_id
   AND charge_stop_date_time >= @start
   AND charge_stop_date_time <  @end_bound
 ORDER BY charge_stop_date_time ASC;
+
+-- name: SuperchargerSessionsByVehicleUpdatedSince :many
+-- Return every Supercharger session for one vehicle within an account whose
+-- updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
+-- SuperchargerReader.SuperchargerSessionsByVehicleUpdatedSince to let
+-- internal/analytics' Recalculator (RM29-analytics-add-vehicle-metrics) detect
+-- which sessions changed recently -- including a billing-state revision on a
+-- session weeks old (design DBS3: supercharger_sessions is not append-only;
+-- is_paid / invoice status mutates post-session), whose charge_start_date_time /
+-- charge_stop_date_time stay unchanged while updated_at refreshes.
+--
+-- Index reuse: idx_supercharger_sessions_vehicle_time
+-- (account_id, tesla_id, charge_start_date_time DESC) is not sorted on
+-- updated_at, so this query cannot use it as a pure ORDER BY-satisfying range
+-- scan. It STILL prunes the scan to this one vehicle's rows via its
+-- (account_id, tesla_id) leading-column prefix before the updated_at predicate
+-- and sort are applied -- updated_at is a residual filter within that scan, per
+-- this change's explicit design call (no new index; verified via EXPLAIN in the
+-- DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
+SELECT * FROM supercharger_sessions
+WHERE account_id = @account_id
+  AND tesla_id   = @tesla_id
+  AND updated_at >= @since
+ORDER BY updated_at ASC;

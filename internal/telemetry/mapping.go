@@ -54,18 +54,9 @@ func pgNullableText(v pgtype.Text) *string {
 	return &s
 }
 
-// dateFromPg converts a non-nullable pgtype.Date to a plain time.Time,
-// mirroring dateFrom's forward direction (service.go). Used by gap_writer.go
-// to read back charge_gaps.gap_date values (always NOT NULL -- no nullable
-// variant needed, unlike the pgNullable* helpers above). RM28-telemetry-
-// add-charge-gap-storage.
-func dateFromPg(d pgtype.Date) time.Time {
-	return d.Time
-}
-
 // pgNullableInt16AsInt converts a nullable pgtype.Int2 (SMALLINT) to *int:
 // {Valid: false} -> nil, {Valid: true} -> &v. First SMALLINT column in this module;
-// mirrors internal/manualcharge's identical intPtrToPgInt2/pgInt2ToIntPtr shape for
+// mirrors internal/charging's identical intPtrToPgInt2/pgInt2ToIntPtr shape for
 // its own start_battery_pct/end_battery_pct (module boundaries mean the four-line
 // helper is duplicated here, not imported). Reused across all four SMALLINT columns
 // on supercharger_sessions (RM27-telemetry-add-supercharger-battery-pct, design D5).
@@ -84,15 +75,18 @@ func pgNullableInt16AsInt(v pgtype.Int2) *int {
 //
 //   - CapturedAt: pgtype.Timestamptz.Time → time.Time (UTC via the stored value)
 //   - CapturedDate: pgtype.Date.Time → time.Time (calendar date, UTC-midnight
-//     normalized; design D2 of telemetry-dedupe-daily-snapshots). updated_at is
-//     selected in every query for struct-sharing but intentionally NOT mapped
-//     onto Snapshot, mirroring the existing id-selected-but-unsurfaced precedent.
+//     normalized; design D2 of telemetry-dedupe-daily-snapshots).
 //   - EffectiveDate: derived here (no DB column) as CapturedAt.AddDate(0, 0, -1) —
 //     calendar-day arithmetic, not a 24h duration, so DST does not shift it
 //     (telemetry-add-effective-date design D3/D4). This is the ONLY place
 //     EffectiveDate is set; the write path (insertSnapshot) never goes through
 //     this mapper, so a write-built Snapshot leaves EffectiveDate at its zero
 //     value.
+//   - UpdatedAt: pgtype.Timestamptz.Time → time.Time, the same conversion as
+//     CapturedAt. Was previously selected in every query for struct-sharing but
+//     intentionally left unmapped onto Snapshot; now surfaced on the domain type
+//     (RM29-analytics-add-vehicle-metrics task 1.1) — no new DB column, no new
+//     write-path behavior.
 //   - SentryMode: pgtype.Bool → *bool: {Valid: false} → nil, {Valid: true, Bool: v} → &v
 //   - BatteryLevelPct, ChargeLimitSocPct: int32 → int (sqlc generates int32; domain uses int)
 //   - All other fields are value-compatible (float64, string, bool, uuid.UUID, []byte)
@@ -117,6 +111,7 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 		CapturedAt:        r.CapturedAt.Time,
 		CapturedDate:      r.CapturedDate.Time,
 		EffectiveDate:     r.CapturedAt.Time.AddDate(0, 0, -1),
+		UpdatedAt:         r.UpdatedAt.Time,
 		RawData:           r.RawData,
 		BatteryLevelPct:   int(r.BatteryLevelPct),
 		BatteryRangeKm:    r.BatteryRangeKm,
@@ -148,17 +143,6 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 		TpmsPressureFRPSI: pgNullableFloat4AsFloat64(r.TpmsPressureFrPsi),
 		TpmsPressureRLPSI: pgNullableFloat4AsFloat64(r.TpmsPressureRlPsi),
 		TpmsPressureRRPSI: pgNullableFloat4AsFloat64(r.TpmsPressureRrPsi),
-		// Derived consumption columns (telemetry-add-derived-consumption-columns,
-		// design D9): pgtype nullable → *float64/*int via the EXISTING
-		// pgNullableFloat64 / pgNullableInt32AsInt helpers — no new mapping helper.
-		// nil means either "no predecessor" or (for the two efficiency fields) a
-		// non-positive BatteryUsedPctCalc divisor (D2); a stored value is always a
-		// truthful reading, never a placeholder.
-		DistanceTraveledKmCalc: pgNullableFloat64(r.DistanceTraveledKmCalc),
-		BatteryUsedPctCalc:     pgNullableInt32AsInt(r.BatteryUsedPctCalc),
-		KmPerPctCalc:           pgNullableFloat64(r.KmPerPctCalc),
-		EstimatedRangeKmCalc:   pgNullableFloat64(r.EstimatedRangeKmCalc),
-		DaysSpannedCalc:        pgNullableInt32AsInt(r.DaysSpannedCalc),
 	}
 }
 

@@ -1,5 +1,13 @@
 // Package testdb provides a shared test-time Postgres provisioning helper used
-// by the integration tests across modules (account, manualcharge, telemetry).
+// by the integration tests across modules (account, charging, telemetry,
+// analytics).
+//
+// Two entry points:
+//   - Provision(ctx, fs) — one module's own embedded migrations. What a module
+//     whose DB-backed tests touch only its own tables uses.
+//   - ProvisionDirs(ctx, dirs...) — several modules' migration DIRECTORIES, for a
+//     package whose fixtures span more than one module's schema. Required because
+//     //go:embed cannot reach outside its own directory tree; see ProvisionDirs.
 //
 // Provisioning policy (ai/go-conventions.md §persistence):
 //   - When DATABASE_URL is set AND reachable, it is used as-is (managed/CI
@@ -64,9 +72,72 @@ type Result struct {
 // On success the caller owns any started container; on failure Provision
 // returns a non-nil error and has already cleaned up anything it started.
 func Provision(ctx context.Context, migrationsFS fs.FS) (Result, error) {
+	return provision(ctx, func(ctx context.Context, dsn string) error {
+		return applyMigrations(ctx, dsn, migrationsFS)
+	})
+}
+
+// ProvisionDirs is Provision for a package whose DB-backed tests span MORE THAN
+// ONE module's schema — for example internal/analytics, whose Recalculate reads
+// telemetry's vehicle_snapshots and charging's manual_charge_entries and writes
+// its own vehicle_metrics, so its fixtures need all three schemas in one
+// database.
+//
+// Why directories rather than an embed.FS: the //go:embed DIRECTIVE may not
+// contain ".." path elements, so a package can only ever embed its own
+// migrations — internal/analytics cannot embed internal/telemetry's. That is a
+// restriction on the directive, not on the filesystem, and `go test` always runs
+// a test binary with its own package directory as the working directory, so a
+// relative path like "../telemetry/db/migrations" resolves reliably from a
+// _test.go file. Each directory is read with os.DirFS at call time.
+//
+// Directories are applied IN THE ORDER GIVEN, each with its own goose provider
+// against the same database — exactly what the Makefile's migrate-up loop does
+// over MIGRATIONS_DIRS. They are deliberately NOT merged into one filesystem:
+// module migration versions are unique within a directory but NOT across the
+// repo (internal/account and internal/charging both ship a 20260720000001), and
+// a merged FS would fail on the collision that the per-directory sequence
+// handles fine. Order therefore matters only where one module's schema depends
+// on another's; today none do (there are no cross-module foreign keys —
+// ai/architecture.md §2), so any order works.
+//
+// Every other behaviour — the DATABASE_URL-then-container policy, ErrUnavailable,
+// Result ownership — is identical to Provision.
+func ProvisionDirs(ctx context.Context, migrationDirs ...string) (Result, error) {
+	if len(migrationDirs) == 0 {
+		return Result{}, fmt.Errorf("testdb: ProvisionDirs needs at least one migration directory")
+	}
+	// Fail fast and specifically: a mistyped relative path would otherwise
+	// surface as an empty migration set and a mystifying "relation does not
+	// exist" much later, inside a test.
+	for _, dir := range migrationDirs {
+		info, err := os.Stat(dir)
+		if err != nil {
+			return Result{}, fmt.Errorf("testdb: migration dir %q (paths are relative to the calling package's directory): %w", dir, err)
+		}
+		if !info.IsDir() {
+			return Result{}, fmt.Errorf("testdb: migration path %q is not a directory", dir)
+		}
+	}
+
+	return provision(ctx, func(ctx context.Context, dsn string) error {
+		for _, dir := range migrationDirs {
+			if err := applyMigrations(ctx, dsn, os.DirFS(dir)); err != nil {
+				return fmt.Errorf("migration dir %s: %w", dir, err)
+			}
+		}
+		return nil
+	})
+}
+
+// provision holds the DATABASE_URL-then-testcontainer policy shared by Provision
+// and ProvisionDirs. apply receives the DSN and is responsible for putting the
+// caller's schema on it; it is retried, because Postgres may reset connections
+// briefly after reporting ready.
+func provision(ctx context.Context, apply func(context.Context, string) error) (Result, error) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn != "" {
-		if err := retry(5, 2*time.Second, func() error { return applyMigrations(ctx, dsn, migrationsFS) }); err != nil {
+		if err := retry(5, 2*time.Second, func() error { return apply(ctx, dsn) }); err != nil {
 			log.Printf("testdb: DATABASE_URL not usable (%v); provisioning testcontainer", err)
 			dsn = ""
 		}
@@ -96,7 +167,7 @@ func Provision(ctx context.Context, migrationsFS fs.FS) (Result, error) {
 
 		// Postgres may reset connections briefly after the "ready" log line;
 		// retry so TestMain is robust on slow/loaded hosts.
-		if err := retry(5, 2*time.Second, func() error { return applyMigrations(ctx, dsn, migrationsFS) }); err != nil {
+		if err := retry(5, 2*time.Second, func() error { return apply(ctx, dsn) }); err != nil {
 			_ = c.Terminate(context.Background())
 			return Result{}, fmt.Errorf("testdb: apply migrations: %w", err)
 		}
@@ -121,7 +192,15 @@ func applyMigrations(ctx context.Context, dsn string, migrationsFS fs.FS) error 
 	}
 	defer db.Close()
 
-	provider, err := goose.NewProvider(goose.DialectPostgres, db, migrationsFS)
+	// WithAllowOutofOrder is the Provider API's equivalent of the goose CLI's
+	// -allow-missing, which the Makefile's migrate-up already passes for the same
+	// reason: every module applies its own directory against ONE shared
+	// goose_db_version table, so a directory's versions are routinely lower than
+	// versions another module already recorded. Without this, applying
+	// telemetry's dir to a database that already carries analytics' 20260821*
+	// rows is refused as out of order.
+	provider, err := goose.NewProvider(goose.DialectPostgres, db, migrationsFS,
+		goose.WithAllowOutofOrder(true))
 	if err != nil {
 		return fmt.Errorf("goose provider: %w", err)
 	}

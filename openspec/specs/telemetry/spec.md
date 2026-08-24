@@ -679,190 +679,125 @@ is a distinct, separate concept from both: the day the row *represents*.
 - **AND** the offset is a calendar-day step (not a fixed 24-hour duration), so a 23- or 25-hour DST
   day does not move `EffectiveDate` off by an hour
 
-### Requirement: Derived Consumption Metrics
+### Requirement: Snapshot Last-Updated Timestamp Is Exposed On The Domain Type
 
-The telemetry capability SHALL, when capturing a nightly snapshot for a vehicle, compute
-and store five derived consumption values against that vehicle's previous stored snapshot
-(the row for the same account and vehicle with the greatest capture time strictly before
-the start of the incoming snapshot's local calendar day): the distance traveled in
-kilometres, the battery percentage consumed, the number of calendar days the comparison
-spans, and — only when the battery percentage consumed is strictly greater than zero — the
-resulting kilometres-per-percent efficiency and the equivalent estimated full-charge range
-in kilometres. Distance traveled and battery percentage consumed SHALL always be stored as
-the true, signed difference between the two records, without averaging, clamping, or
-discarding a negative value. The two efficiency values SHALL be NULL whenever the battery
-percentage consumed is zero or negative, and SHALL also be NULL, along with the distance
-traveled, battery percentage consumed, and days-spanned values, when the vehicle has no
-prior stored snapshot. A snapshot that replaces an existing same-day snapshot (a same-day
-re-capture) SHALL have all five derived values recomputed against the correct predecessor
-and refreshed, not left at their previously stored values. The capability SHALL also
-compute these five values for every snapshot stored before this capability existed, in the
-same schema change that introduces the columns, producing the same results the ongoing
-capture-time computation would produce for the same pair of consecutive records.
+The telemetry capability SHALL expose, on the `Snapshot` domain type, the timestamp of when that
+row was last written or replaced (the same value the `vehicle_snapshots.updated_at` column
+already stores on every row, refreshed by the same-day-replace UPSERT). This field carries no
+new database column and no new write-path behavior — it exposes a value telemetry already
+persists but did not previously map onto its public domain type.
 
-#### Scenario: A normal drive day computes positive distance, positive battery used, and both efficiency values
+#### Scenario: A snapshot's last-updated timestamp reflects its most recent write
+- **GIVEN** a snapshot row that was first inserted at one instant and later replaced by a
+  same-day re-capture at a later instant (the existing "latest capture wins" rule)
+- **WHEN** that vehicle's snapshot is read through any of telemetry's read ports
+- **THEN** the returned `Snapshot.UpdatedAt` reflects the later, replacing write's instant, not
+  the original insert's
 
-- **GIVEN** a vehicle with a previously stored snapshot reporting an odometer of 42,350 km
-  and a battery level of 82%
-- **AND** its next nightly snapshot reports an odometer of 42,390 km and a battery level of
-  70%, captured the following calendar day
-- **WHEN** the new snapshot is captured and stored
-- **THEN** the stored distance traveled is 40 km
-- **AND** the stored battery used is 12%
-- **AND** the stored days spanned is 1
-- **AND** the stored km-per-percent value is approximately 3.33
-- **AND** the stored estimated range is approximately 333 km
+### Requirement: Snapshot Updated-Since Read Port
 
-#### Scenario: A charging day stores a negative battery-used value and leaves both efficiency values NULL
+The telemetry capability SHALL expose a read port through which other modules can retrieve every
+stored snapshot for a single vehicle whose last-updated timestamp is at or after a
+caller-supplied instant, without accessing the telemetry module's database tables directly. The
+port SHALL identify the vehicle by its account and its Tesla numeric id, and SHALL return the
+existing `Snapshot` domain type. Callers SHALL receive an empty result (not an error) when no
+snapshot for that vehicle has been updated at or after the given instant.
 
-- **GIVEN** a vehicle with a previously stored snapshot reporting a battery level of 60%
-- **AND** its next nightly snapshot reports a battery level of 75% (the vehicle was charged
-  overnight, net battery increased) and some non-negative distance traveled
-- **WHEN** the new snapshot is captured and stored
-- **THEN** the stored battery used is -15 (a negative value, stored as reported, not clamped)
-- **AND** the stored km-per-percent value is NULL
-- **AND** the stored estimated range value is NULL
-- **AND** the stored distance traveled reflects the true odometer difference, unaffected by
-  the negative battery-used value
+#### Scenario: Snapshots updated at or after the given instant are returned
+- **GIVEN** a vehicle with snapshots last updated at various instants, some before and some at or
+  after a given instant
+- **WHEN** the caller requests that vehicle's snapshots updated since that instant
+- **THEN** only the snapshots whose `UpdatedAt` is at or after the given instant are returned
 
-#### Scenario: A parked day with zero battery change leaves both efficiency values NULL
+#### Scenario: Empty result when nothing has been updated in the window
+- **GIVEN** a vehicle with no snapshot updated at or after the requested instant
+- **WHEN** the caller requests that vehicle's snapshots updated since that instant
+- **THEN** an empty collection is returned, and no error is returned
 
-- **GIVEN** a vehicle with a previously stored snapshot and a next nightly snapshot whose
-  battery level is identical to the previous snapshot's battery level
-- **WHEN** the new snapshot is captured and stored
-- **THEN** the stored battery used is 0
-- **AND** the stored km-per-percent value is NULL
-- **AND** the stored estimated range value is NULL
-- **AND** the stored distance traveled is still computed and stored normally (it may be
-  zero or non-zero independent of the battery-used value)
+#### Scenario: Callers never access the telemetry database directly for this port either
+- **GIVEN** any caller that needs to detect which of a vehicle's snapshots changed recently
+- **WHEN** it obtains that data
+- **THEN** it does so exclusively through this read port
+- **AND** it imports no package from `internal/telemetry/db`
 
-#### Scenario: A multi-day gap stores the true multi-day delta and the number of days it spans
+### Requirement: Supercharger Session Updated-Since Read Port
 
-- **GIVEN** a vehicle whose previous stored snapshot is from two calendar days before the
-  next nightly capture (the poller missed an intervening night)
-- **AND** the vehicle traveled 80 km and consumed 20% battery across that whole gap
-- **WHEN** the new snapshot is captured and stored
-- **THEN** the stored distance traveled is 80 km (the true total across the gap, not
-  averaged into a per-day figure)
-- **AND** the stored battery used is 20%
-- **AND** the stored days spanned is 2
-- **AND** the stored km-per-percent and estimated range values are computed from the full
-  80 km / 20% figures, not from any per-day approximation
+The telemetry capability SHALL expose a read port through which other modules can retrieve every
+stored Supercharger session for a single vehicle whose `updated_at` is at or after a
+caller-supplied instant, without accessing the telemetry module's database tables directly. The
+port SHALL identify the vehicle by its account and its Tesla numeric id, and SHALL return the
+existing `SuperchargerSession` domain type. Callers SHALL receive an empty result (not an error)
+when no session for that vehicle has been updated at or after the given instant.
 
-#### Scenario: The first-ever snapshot of a vehicle has all five derived values NULL
+#### Scenario: A revised session's billing state is detected by this port
+- **GIVEN** a Supercharger session originally stored weeks ago, whose billing fields are revised
+  today (its stored `updated_at` refreshes to today)
+- **WHEN** the caller requests that vehicle's sessions updated since a recent instant
+- **THEN** the revised session is included in the result, even though its `ChargeStartDateTime`/
+  `ChargeStopDateTime` are weeks in the past
 
-- **GIVEN** a vehicle with no previously stored snapshot
-- **WHEN** its first nightly snapshot is captured and stored
-- **THEN** all five derived values (distance traveled, battery used, days spanned,
-  km-per-percent, estimated range) are NULL on the stored snapshot
-- **AND** this is not treated as a capture failure — the snapshot is stored successfully
-  and the attempt is recorded as a success
+#### Scenario: Empty result when nothing has been updated in the window
+- **GIVEN** a vehicle with no Supercharger session updated at or after the requested instant
+- **WHEN** the caller requests that vehicle's sessions updated since that instant
+- **THEN** an empty collection is returned, and no error is returned
 
-#### Scenario: A same-day re-capture recomputes and refreshes all five derived values
+#### Scenario: Callers never access the telemetry database directly for this port either
+- **GIVEN** any caller that needs to detect which of a vehicle's Supercharger sessions changed
+  recently
+- **WHEN** it obtains that data
+- **THEN** it does so exclusively through this read port
+- **AND** it imports no package from `internal/telemetry/db`
 
-- **GIVEN** a vehicle with a stored snapshot for calendar day N (itself computed against a
-  predecessor from day N-1) and a stored snapshot for day N-1 before that
-- **WHEN** a second capture for day N runs later the same day, replacing day N's stored
-  snapshot with different odometer and battery readings
-- **THEN** the replaced day-N row's five derived values are recomputed against the day N-1
-  predecessor (not against the first day-N capture that was just replaced)
-- **AND** the stored derived values reflect the second capture's odometer and battery
-  readings, not the first capture's
+### Requirement: Preceding-Snapshot Read Port
 
-#### Scenario: Existing history is backfilled when the capability is introduced
+The telemetry capability SHALL expose a read port through which another module can
+retrieve, for one vehicle within one account, the single most recently captured
+snapshot whose capture calendar day is strictly before a caller-supplied calendar day
+— without accessing the telemetry module's database tables directly. The port SHALL
+identify the vehicle by its account and its Tesla numeric id, SHALL take the boundary
+as a whole calendar day (never an instant), and SHALL return the existing `Snapshot`
+domain type. When the vehicle has no snapshot captured before that day, the port SHALL
+return an absent result and no error — "no predecessor exists" is a normal answer, not
+a failure. A genuine lookup failure SHALL be reported as an error and SHALL NOT be
+represented as an absent result, so a transient storage fault can never be mistaken by
+a caller for "this vehicle has no earlier snapshot".
 
-- **GIVEN** a sequence of previously stored snapshots for a vehicle across several
-  consecutive calendar days, captured before this capability existed
-- **WHEN** the schema change that introduces the five derived columns is applied
-- **THEN** every row except the vehicle's oldest stored snapshot has all five derived
-  values populated
-- **AND** each populated row's values equal what capture-time computation would produce for
-  that row and its immediate predecessor
-- **AND** the vehicle's oldest stored snapshot has all five derived values NULL (it has no
-  predecessor)
+The boundary SHALL be evaluated against the snapshot's stored capture calendar day,
+not against its precise capture instant. Consequently a snapshot captured on the
+boundary day itself is never returned as its own predecessor, regardless of the
+timezone the collector runs in.
 
-### Requirement: Charge Gap Ledger
-The telemetry capability SHALL provide a durable ledger recording, per vehicle-day, that a
-charge record is missing or incomplete — a signal computed by a companion derived-metrics
-capability, not by telemetry itself. Each ledger row SHALL identify the owning account, the
-vehicle (its Tesla id and VIN), the flagged calendar day, and which charge source is
-suspected missing for that day (a manual charge entry not captured by the vehicle API, or a
-Supercharger session missing its battery-percentage readings). There SHALL be at most one
-ledger row per account/vehicle/day: a day's shortfall is a single aggregate observation and
-is never split across multiple rows for the same day.
+The port SHALL reach the true predecessor however old it is — there SHALL be no
+maximum lookback, no trailing-window limit and no fixed number of days beyond which
+the predecessor is reported absent.
 
-The ledger SHALL expose a write operation that reconciles a caller-supplied set of
-currently-flagged days against a caller-supplied date window for one vehicle: every flagged
-day in the set SHALL be stored (inserted if new, or updated in place if its suspected source
-changed since a prior reconciliation), and every previously-stored day within that same
-window that is absent from the newly-supplied set SHALL be removed from the ledger. The
-ledger SHALL NOT retain any record of a removed day — there is no resolved/soft-deleted
-state, only present (still flagged) or absent (not flagged, or never flagged). Days outside
-the reconciled window SHALL be unaffected by a reconciliation call, regardless of their own
-flagged state. A reconciliation call SHALL either fully apply (every insert, update, and
-removal it makes) or have no effect at all.
+#### Scenario: The immediately preceding day's snapshot is returned
+- **GIVEN** a vehicle with snapshots captured on three consecutive calendar days
+- **WHEN** a caller requests the snapshot preceding the third day
+- **THEN** the second day's snapshot is returned
 
-The ledger SHALL reject a reconciliation call, without applying any part of it, if any
-supplied flagged day does not belong to the call's own account and vehicle, or if any
-supplied flagged day's date falls outside the call's own window.
+#### Scenario: A predecessor many days older is still returned
+- **GIVEN** a vehicle whose most recent snapshot was captured seven calendar days
+  after its previous one (the collector missed six nights)
+- **WHEN** a caller requests the snapshot preceding the later capture's day
+- **THEN** the snapshot from seven days earlier is returned, not an absent result
 
-#### Scenario: A newly-flagged day is stored
-- **GIVEN** no ledger row exists for a given account, vehicle, and day
-- **WHEN** a reconciliation is performed for a window containing that day, with the day
-  present in the flagged set and attributed to a specific suspected charge source
-- **THEN** the ledger stores exactly one row for that account, vehicle, and day
-- **AND** the stored row's suspected charge source matches what was supplied
+#### Scenario: A vehicle's first-ever snapshot has no predecessor
+- **GIVEN** a vehicle with exactly one stored snapshot
+- **WHEN** a caller requests the snapshot preceding that snapshot's own capture day
+- **THEN** an absent result is returned
+- **AND** no error is returned
 
-#### Scenario: Re-flagging the same day on a later reconciliation does not duplicate it
-- **GIVEN** a ledger row already exists for a given account, vehicle, and day
-- **WHEN** a later reconciliation is performed for a window containing that day, with the
-  day still present in the flagged set
-- **THEN** the ledger still contains exactly one row for that account, vehicle, and day
-- **AND** the row's suspected charge source reflects the later reconciliation's value
+#### Scenario: A same-day re-capture is never its own predecessor
+- **GIVEN** a vehicle with a snapshot for calendar day N−1
+- **AND** a snapshot for calendar day N that was later replaced by a second capture on
+  the same day N (the existing "latest capture for a calendar day wins" rule)
+- **WHEN** a caller requests the snapshot preceding day N
+- **THEN** the day N−1 snapshot is returned
+- **AND** neither the replaced nor the replacing day-N snapshot is returned
 
-#### Scenario: A day that stops flagging is removed from the ledger
-- **GIVEN** a ledger row exists for a given account, vehicle, and day, within some window
-- **WHEN** a reconciliation is performed for that same window, with the day absent from the
-  flagged set
-- **THEN** the ledger no longer contains any row for that account, vehicle, and day
-- **AND** no trace of the removed day (such as a resolved marker) remains in the ledger
-
-#### Scenario: An empty flagged set clears every previously-flagged day in the window
-- **GIVEN** the ledger holds multiple flagged days for a vehicle within a window
-- **WHEN** a reconciliation is performed for that window with an empty flagged set
-- **THEN** the ledger contains no rows for that vehicle within that window afterward
-
-#### Scenario: Reconciliation only affects the reconciled window
-- **GIVEN** a ledger row exists for a vehicle on a day OUTSIDE a window about to be
-  reconciled
-- **WHEN** a reconciliation is performed for that window, regardless of what its flagged set
-  contains
-- **THEN** the row outside the window is unaffected — neither removed nor altered
-
-#### Scenario: A reconciliation attempting to write another account or vehicle's day is rejected entirely
-- **GIVEN** a reconciliation call scoped to one account and vehicle
-- **WHEN** its flagged set contains an entry belonging to a different account or a different
-  vehicle
-- **THEN** the reconciliation is rejected
-- **AND** no part of that call's flagged set is stored, including entries that were
-  correctly scoped
-
-#### Scenario: A reconciliation attempting to flag a day outside its own window is rejected entirely
-- **GIVEN** a reconciliation call scoped to a specific window
-- **WHEN** its flagged set contains an entry whose day falls outside that window
-- **THEN** the reconciliation is rejected
-- **AND** no part of that call's flagged set is stored
-
-#### Scenario: Ledger rows for different vehicles are independent
-- **GIVEN** two vehicles belonging to the same account, each with a ledger row for the same
-  calendar day
-- **WHEN** a reconciliation is performed for one vehicle that removes its row for that day
-- **THEN** the other vehicle's ledger row for the same day is unaffected
-
-#### Scenario: Ledger rows for different accounts are independent
-- **GIVEN** two accounts, each with a vehicle carrying a ledger row for the same calendar
-  day
-- **WHEN** a reconciliation is performed for one account's vehicle
-- **THEN** the other account's ledger row is unaffected, regardless of overlapping days or
-  vehicle identifiers
+#### Scenario: A vehicle with no snapshots at all returns an absent result
+- **GIVEN** a vehicle for which no snapshot has ever been stored
+- **WHEN** a caller requests the snapshot preceding any calendar day
+- **THEN** an absent result and no error are returned
 

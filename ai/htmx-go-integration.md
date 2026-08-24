@@ -21,12 +21,12 @@ the browser. It holds no domain state and never touches a database.
 ## Request flow (multi-tenant)
 
 ```
-browser (htmx hx-get /ui/battery)
+browser (htmx hx-get /ui/consumption)
    └─> gateway handler
          ├─ account.TokensFor(ctx, userID)      -> Credentials      (identity module)
          ├─ tesla.GetVehicleData(ctx, creds)     -> ...Tesla DTO      (adapter)
-         ├─ battery.StateFrom(...)               -> battery.State     (domain, clean model)
-         └─ render Templ fragment(battery.State) -> HTML fragment  --> back to browser
+         ├─ analytics.StateFrom(...)             -> analytics.State   (domain, clean model)
+         └─ render Templ fragment(analytics.State) -> HTML fragment --> back to browser
 ```
 
 Every arrow between modules is a **Go interface call**. The gateway orchestrates; it does
@@ -42,10 +42,10 @@ The same page component serves both the initial full-page load and the htmx part
 Define a swappable region in the `.templ` page:
 
 ```templ
-templ BatteryPage(s battery.State) {
+templ ConsumptionPage(s analytics.State) {
     @layouts.Base() {
-        @templ.Fragment("battery") {
-            @fragments.BatteryCard(s)
+        @templ.Fragment("consumption") {
+            @fragments.ConsumptionCard(s)
         }
     }
 }
@@ -55,19 +55,19 @@ Render the whole page or just the fragment from the handler:
 
 ```go
 // Initial load: render the entire page.
-func (h *Handler) BatteryPage(w http.ResponseWriter, r *http.Request) {
-    state := h.buildBatteryState(r)          // via account -> tesla -> battery interfaces
-    templ.Handler(BatteryPage(state)).ServeHTTP(w, r)
+func (h *Handler) ConsumptionPage(w http.ResponseWriter, r *http.Request) {
+    state := h.buildConsumptionState(r)      // via account -> tesla -> analytics interfaces
+    templ.Handler(ConsumptionPage(state)).ServeHTTP(w, r)
 }
 
-// htmx swap: render ONLY the "battery" fragment.
-func (h *Handler) BatteryFragment(w http.ResponseWriter, r *http.Request) {
-    state := h.buildBatteryState(r)
-    templ.Handler(BatteryPage(state), templ.WithFragments("battery")).ServeHTTP(w, r)
+// htmx swap: render ONLY the "consumption" fragment.
+func (h *Handler) ConsumptionFragment(w http.ResponseWriter, r *http.Request) {
+    state := h.buildConsumptionState(r)
+    templ.Handler(ConsumptionPage(state), templ.WithFragments("consumption")).ServeHTTP(w, r)
 }
 ```
 
-`templ.WithFragments("battery")` runs the whole template but returns only that fragment's
+`templ.WithFragments("consumption")` runs the whole template but returns only that fragment's
 HTML — ideal for `hx-target`/`hx-swap`. Source of truth for this API: Context7 `/a-h/templ`
 (verify before relying on signatures).
 

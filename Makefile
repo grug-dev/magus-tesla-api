@@ -35,7 +35,7 @@ endif
 # modules never share tables or FKs (ai/architecture.md boundary rules), so cross-module
 # version order carries no meaning; within a dir, goose still applies in version order.
 # Add a module's dir here when it gains a DB — position no longer matters.
-MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migrations internal/manualcharge/db/migrations
+MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migrations internal/charging/db/migrations internal/analytics/db/migrations
 
 # goose binary: prefer one on PATH, else the `go install` location (GOPATH/bin).
 GOOSE ?= $(shell command -v goose 2>/dev/null || echo $$(go env GOPATH)/bin/goose)

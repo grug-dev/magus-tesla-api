@@ -71,7 +71,7 @@ goose -dir internal/<module>/db/migrations postgres "$DATABASE_URL" up -allow-mi
 ```
 
 Current list: `internal/account/db/migrations`, `internal/telemetry/db/migrations`,
-`internal/manualcharge/db/migrations`.
+`internal/charging/db/migrations`.
 
 ## First-time / fresh environment
 

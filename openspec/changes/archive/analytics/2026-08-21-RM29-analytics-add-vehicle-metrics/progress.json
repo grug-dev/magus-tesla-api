@@ -1,0 +1,1323 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM29-analytics-add-vehicle-metrics",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
+  "request": "RM29 tier 3 - analytics.vehicle_metrics precomputed read model + D7 watermark + Recalculate; gateway's snapshot-derived math moves out (roadmap D5). Owner: autopilot ON, asleep.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "4.3",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.5",
+      "5.6",
+      "6.1",
+      "6.2",
+      "6.3",
+      "6.4",
+      "6.5",
+      "6.6",
+      "7.1",
+      "7.2",
+      "7.3",
+      "7.4",
+      "7.5",
+      "7.6",
+      "8.1",
+      "8.2",
+      "8.3",
+      "8.4"
+    ]
+  },
+  "created_at": "2026-08-21T03:05:00Z",
+  "updated_at": "2026-08-21T21:20:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
+    "base": "main",
+    "ticket": "MAG-26",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-26/modular-monolith-refactoring",
+    "created_at": "2026-08-20T17:15:32Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "`internal/telemetry/telemetry.go` \u2014 add `UpdatedAt time.Time` to the",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T09:20:00Z",
+      "completed_at": "2026-08-21T09:35:00Z",
+      "duration_seconds": null,
+      "notes": "Added Snapshot.UpdatedAt; mapped in rowToSnapshot from r.UpdatedAt.Time. Existing queries already SELECT updated_at, so no query.sql or migration change. No existing signature touched.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 41,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 8.7,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-1 delta across the parallel telemetry (1.1-1.3) and charging (1.4) workers plus the leader's fake repairs"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "`internal/telemetry/telemetry.go` \u2014 add",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T09:35:00Z",
+      "completed_at": "2026-08-21T09:50:00Z",
+      "duration_seconds": null,
+      "notes": "Added Reader.SnapshotsByVehicleUpdatedSince; new query.sql query, account_id/tesla_id leading with updated_at residual, no new index; implemented reusing rowToSnapshot; sqlc regenerated.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 41,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 8.7,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-1 delta across the parallel telemetry (1.1-1.3) and charging (1.4) workers plus the leader's fake repairs"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "`internal/telemetry/telemetry.go` \u2014 add",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T09:50:00Z",
+      "completed_at": "2026-08-21T10:05:00Z",
+      "duration_seconds": null,
+      "notes": "Added SuperchargerReader.SuperchargerSessionsByVehicleUpdatedSince; query mirrors SuperchargerSessionsByVehicleBetween; implemented in superchargerReader reusing rowToSuperchargerSession.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 41,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 8.7,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-1 delta across the parallel telemetry (1.1-1.3) and charging (1.4) workers plus the leader's fake repairs"
+      }
+    },
+    {
+      "id": "1.4",
+      "title": "`internal/charging/charging.go` \u2014 add",
+      "module": "charging",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T09:20:00Z",
+      "completed_at": "2026-08-21T09:47:00Z",
+      "duration_seconds": null,
+      "notes": "Added charging.Reader.ListEntriesByVehicleUpdatedSince; query + sqlc regen + service impl. Reuses idx_manual_charge_entries_vehicle_time as a residual-filter scan, no new index.",
+      "budget": {
+        "five_hour_pct_start": 26,
+        "five_hour_pct_end": 41,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 8.7,
+        "context_pct_end": 22,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared wave-1 delta across the parallel telemetry (1.1-1.3) and charging (1.4) workers plus the leader's fake repairs"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "`internal/analytics/db/migrations/<timestamp>_add_vehicle_metrics.sql`",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 2,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T10:15:00Z",
+      "completed_at": "2026-08-21T10:40:00Z",
+      "duration_seconds": null,
+      "notes": "Created 20260821000001_add_vehicle_metrics.sql. DDL reproduces the gated design exactly - both constraints, dense nullability, charge_gaps-style index reasoning in comments.",
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 4.1,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta: analytics worker (2.1-2.3) plus the leader's 2.4/2.5 wiring"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "`internal/analytics/db/migrations/<timestamp+1>_add_vehicle_metric_watermarks.sql`",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 2,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T10:15:00Z",
+      "completed_at": "2026-08-21T10:40:00Z",
+      "duration_seconds": null,
+      "notes": "Created 20260821000002_add_vehicle_metric_watermarks.sql; source CHECK vocabulary and UNIQUE exactly per D2/D3.",
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 4.1,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta: analytics worker (2.1-2.3) plus the leader's 2.4/2.5 wiring"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "`internal/analytics/db/query.sql` \u2014 sqlc queries: `UpsertVehicleMetric`",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 2,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T10:15:00Z",
+      "completed_at": "2026-08-21T10:40:00Z",
+      "duration_seconds": null,
+      "notes": "query.sql: 6 queries incl. the two separate D13-filtered reads (never merged), UPSERT + array-based stale-row DELETE per D11, watermark get/upsert.",
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 4.1,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta: analytics worker (2.1-2.3) plus the leader's 2.4/2.5 wiring"
+      }
+    },
+    {
+      "id": "2.4",
+      "title": "`sqlc.yaml` \u2014 add the `analytics` entry (package `analyticsdb`, `out:",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 2,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T10:15:00Z",
+      "completed_at": "2026-08-21T10:40:00Z",
+      "duration_seconds": null,
+      "notes": "sqlc.yaml analytics entry (analyticsdb, uuid override) added by the leader; make sqlc generated db.go/models.go/query.sql.go.",
+      "budget": {
+        "five_hour_pct_start": 41,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 4.1,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-2 delta: analytics worker (2.1-2.3) plus the leader's 2.4/2.5 wiring"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "`internal/analytics/consumed.go` \u2014 rename `deriveConsumedByDay` to",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 3,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
+      "duration_seconds": null,
+      "notes": "consumed.go: deriveConsumedByDay -> deriveVehicleMetrics, dense loop from i=0, added vehicleMetricRow. Predecessor-less rows emit raw-only fields with flagged forced false before D5/D5a runs.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "`internal/analytics/recalculate.go` (new file) \u2014 `Recalculator`",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 3,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
+      "duration_seconds": null,
+      "notes": "New recalculate.go: Recalculate (UPSERT+DELETE in one transaction) and Reconcile (epoch default, 24h overlap, per-source watermark advanced only when that source returned rows).",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "`internal/analytics/reader.go` \u2014 `NewReader`'s signature gains a",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 3,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
+      "duration_seconds": null,
+      "notes": "reader.go: NewReader gains leading *pgxpool.Pool; vehicleMetricsStore seam for Wave 4 fakes; ConsumedByDay is now SELECT+map; OdometerDeltaByDay added with the clamp applied only here.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
+    },
+    {
+      "id": "3.4",
+      "title": "`internal/analytics/analytics.go` \u2014 add the `DayDistance` domain type",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 3,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
+      "duration_seconds": null,
+      "notes": "analytics.go: added DayDistance, OdometerDeltaByDay on Reader, Recalculator interface. Also corrected ConsumedByDay's doc comment, which still claimed no-cache/recomputed-per-call.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "`internal/analytics/consumed_test.go` \u2014 update for the",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 4,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T13:35:00Z",
+      "duration_seconds": null,
+      "notes": "Ported all 10 tests to deriveVehicleMetrics/vehicleMetricRow; added Fixture A/B/C verbatim from the Test Contract. No expected value altered - only window bounds narrowed to match Recalculate's real call shape.",
+      "budget": {
+        "five_hour_pct_start": 64,
+        "five_hour_pct_end": 98,
+        "five_hour_pct_delta": 34,
+        "cost_usd_delta": 14.3,
+        "context_pct_end": 27,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared delta: analytics test worker (4.1/4.2) co-ran with the gateway worker (5.1-5.3, 4.3) still in flight"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "`internal/analytics/reader_test.go` \u2014 add",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 4,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T13:35:00Z",
+      "duration_seconds": null,
+      "notes": "Added fakeVehicleMetricsStore + 5 tests: precomputed reads, clamp-on-read, both Fixture-C exclusions, error propagation. Removed 5 obsolete port-wiring tests; coverage rescued as task 6.4.",
+      "budget": {
+        "five_hour_pct_start": 64,
+        "five_hour_pct_end": 98,
+        "five_hour_pct_delta": 34,
+        "cost_usd_delta": 14.3,
+        "context_pct_end": 27,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "shared delta: analytics test worker (4.1/4.2) co-ran with the gateway worker (5.1-5.3, 4.3) still in flight"
+      }
+    },
+    {
+      "id": "4.3",
+      "title": "`internal/gateway/handlers/history_test.go` \u2014 **[leader]**, outside the",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 4,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T14:20:00Z",
+      "duration_seconds": null,
+      "notes": "history_test.go: fakeAnalyticsReader gains OdometerDeltaByDay; odometer tests pinned as characterization against the Test Contract's expected values.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": 4,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 29,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "post-reset bucket; covers the leader's completion of the gateway worker's interrupted task"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "`internal/gateway/handlers/history.go` \u2014 `buildOdometerChart` becomes",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 5,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T14:20:00Z",
+      "duration_seconds": null,
+      "notes": "buildOdometerChart now consumes analytics.OdometerDeltaByDay; delta and clamp deleted from the gateway. Chart shape untouched. Its error empties only the odometer chart rather than the page.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": 4,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 29,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "post-reset bucket; covers the leader's completion of the gateway worker's interrupted task"
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "`internal/gateway/gateway.go`, `internal/gateway/handlers/handlers.go`",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 5,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T14:20:00Z",
+      "duration_seconds": null,
+      "notes": "Deps/Handler gain AnalyticsRecalculator alongside the existing analytics Reader, following the file's existing naming and doc conventions.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": 4,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 29,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "post-reset bucket; covers the leader's completion of the gateway worker's interrupted task"
+      }
+    },
+    {
+      "id": "5.3",
+      "title": "`internal/gateway/handlers/charges.go` \u2014 `ChargeCreate`: after",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 5,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T12:50:00Z",
+      "completed_at": "2026-08-21T14:20:00Z",
+      "duration_seconds": null,
+      "notes": "charges.go calls Recalculate after each committed Create/Update/Delete; Update recalculates BOTH new and old dates when ChargedOn moves. Errors logged and swallowed - the write already committed.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 13,
+        "five_hour_pct_delta": 4,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 29,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "post-reset bucket; covers the leader's completion of the gateway worker's interrupted task"
+      }
+    },
+    {
+      "id": "5.4",
+      "title": "`cmd/web/main.go` \u2014 `analytics.NewReader`'s call site gains the leading",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 5,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T12:45:00Z",
+      "duration_seconds": null,
+      "notes": "cmd/web/main.go: pool inserted as NewReader's leading arg. Pulled forward from Wave 5 to unbreak the repo build.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
+    },
+    {
+      "id": "5.5",
+      "title": "`cmd/poller/main.go` \u2014 `analytics.NewReader`'s call site gains the",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 5,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T11:00:00Z",
+      "completed_at": "2026-08-21T18:40:00Z",
+      "duration_seconds": null,
+      "notes": "REOPENED by review F1 and now actually done. The earlier 'done' covered only the one-line pool arg; the recalculator construction and the per-vehicle Reconcile call - the substance of the task - were never written. Reconcile now runs FIRST in the nightly per-vehicle loop, before the gap step that reads its output.",
+      "budget": {
+        "five_hour_pct_start": 49,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 15,
+        "cost_usd_delta": 5.95,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "wave-3 serial analytics worker plus the leader's early 5.4/5.5 call-site fix"
+      }
+    },
+    {
+      "id": "6.1",
+      "title": "`internal/analytics/db_integration_test.go` (new file)",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "6.6"
+      ],
+      "wave": 6,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T16:55:00Z",
+      "completed_at": "2026-08-21T17:10:00Z",
+      "duration_seconds": null,
+      "notes": "TestRecalculate_FixtureA/B/C against the Test Contract, all columns. Fixture C's dense predecessor-less row asserted explicitly: five _calc columns NULL, consumed_pct NULL, flagged compared to literal false, missing_charging_type NULL.",
+      "budget": {
+        "five_hour_pct_start": 46.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 22.0,
+        "cost_usd_delta": 7.1,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-6c delta: single serial analytics worker (6.1-6.3); corrected from an under-estimate written before the post-wave reading"
+      }
+    },
+    {
+      "id": "6.2",
+      "title": "`internal/analytics/db_integration_test.go` \u2014 `TestReconcile_",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "6.6"
+      ],
+      "wave": 6,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T16:55:00Z",
+      "completed_at": "2026-08-21T17:10:00Z",
+      "duration_seconds": null,
+      "notes": "Backfill/idempotence/revised-old-session Reconcile tests. Fixture dates anchored 20-25 days back off time.Now().UTC(), so D13's un-injectable yesterday clamp is never the boundary under test. No port widened.",
+      "budget": {
+        "five_hour_pct_start": 46.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 22.0,
+        "cost_usd_delta": 7.1,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-6c delta: single serial analytics worker (6.1-6.3); corrected from an under-estimate written before the post-wave reading"
+      }
+    },
+    {
+      "id": "6.3",
+      "title": "`internal/analytics/db_integration_test.go`",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "6.6"
+      ],
+      "wave": 6,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T16:55:00Z",
+      "completed_at": "2026-08-21T17:10:00Z",
+      "duration_seconds": null,
+      "notes": "Reader round-trips plus BothMethods_ExcludeFixtureCRow - direct SELECT proves the row exists, then both Reader methods return empty for that date. Real SQL proof of the IS NOT NULL filter Wave 4 only faked.",
+      "budget": {
+        "five_hour_pct_start": 46.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 22.0,
+        "cost_usd_delta": 7.1,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-6c delta: single serial analytics worker (6.1-6.3); corrected from an under-estimate written before the post-wave reading"
+      }
+    },
+    {
+      "id": "7.1",
+      "title": "`internal/analytics/AGENTS.md` \u2014 \"Data ownership\" section rewritten:",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 7,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
+      "duration_seconds": null,
+      "notes": "Data ownership rewritten from 'None' to the two tables; Testing section's 'must never gain a harness' corrected; pgx removed from forbidden imports; Recalculator, OdometerDeltaByDay and NewReader's new pool arg documented.",
+      "budget": null
+    },
+    {
+      "id": "7.2",
+      "title": "Root `README.md` \u2014 Project Structure tree: add `internal/analytics/db/`",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 7,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
+      "duration_seconds": null,
+      "notes": "Structure tree gains internal/analytics/db; Architecture row rewritten; two new rows in Database tables by module, including why the dense table forces IS NOT NULL reads.",
+      "budget": null
+    },
+    {
+      "id": "7.3",
+      "title": "`internal/gateway/AGENTS.md` \u2014 if its `Deps.AnalyticsReader",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 7,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
+      "duration_seconds": null,
+      "notes": "AnalyticsReader bullet gains OdometerDeltaByDay and drops the now-false 'owns no database' note; new AnalyticsRecalculator bullet for the ChargeCreate write path.",
+      "budget": null
+    },
+    {
+      "id": "7.4",
+      "title": "Root `README.md` / `internal/analytics`'s own workflow docs \u2014 document",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 7,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
+      "duration_seconds": null,
+      "notes": "README sqlc lines now list analyticsdb as the fourth package and the make sqlc output path.",
+      "budget": null
+    },
+    {
+      "id": "7.5",
+      "title": "`openspec/roadmaps/RM29-modular-monolith-boundaries.md` \u2014 flip tier 3's",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 7,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:35:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
+      "duration_seconds": null,
+      "notes": "Leader bookkeeping. Roadmap .md already carries [~] for tier 3; the progress.json flip was made at resume. [x] happens at archive.",
+      "budget": null
+    },
+    {
+      "id": "8.1",
+      "title": "Run and report: `go build ./...`, `go vet ./...`, `gofmt -l .`",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 8,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:38:00Z",
+      "completed_at": "2026-08-21T17:44:00Z",
+      "duration_seconds": null,
+      "notes": "go build, go vet, make build/vet/bins (5 binaries), ui-guard, i18n-guard, money-guard all green. gofmt -l . lists 8 files, all pre-existing and untouched by this branch.",
+      "budget": null
+    },
+    {
+      "id": "8.2",
+      "title": "Invoke `Reconcile` for every registered vehicle once, in a throwaway",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 8,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:55:00Z",
+      "completed_at": "2026-08-21T18:05:00Z",
+      "duration_seconds": null,
+      "notes": "OWNER-RUN: go run ./cmd/tmp-backfill-metrics completed after make migrate-up. Backfill populated vehicle_metrics from existing history. Throwaway runner deleted by the leader afterwards, as designed.",
+      "budget": null
+    },
+    {
+      "id": "8.3",
+      "title": "Run `openspec validate --changes --strict` and report the result",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 8,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:38:00Z",
+      "completed_at": "2026-08-21T17:44:00Z",
+      "duration_seconds": null,
+      "notes": "openspec validate --changes --strict: 1 passed, 0 failed.",
+      "budget": null
+    },
+    {
+      "id": "8.4",
+      "title": "Hand off to the owner. Exact commands to paste (not run by the",
+      "module": "analytics",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 8,
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:55:00Z",
+      "completed_at": "2026-08-21T18:05:00Z",
+      "duration_seconds": null,
+      "notes": "OWNER-REPORTED: migrations, full suite and the backfill all green. This is the owner's verification, not an assistant-run result.",
+      "budget": null
+    },
+    {
+      "id": "6.4",
+      "title": "Assert Recalculate's fetch window, account scoping and error propagation (coverage rescued from the five tests 4.2 removed)",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "6.1"
+      ],
+      "wave": 6,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-21T16:26:00Z",
+      "completed_at": "2026-08-21T16:32:00Z",
+      "duration_seconds": null,
+      "notes": "Done via port fakes plus real vehicle_metrics writes: exact lookback window per source, accountID/teslaID scoping, error propagation for all three sources. go vet and gofmt clean.",
+      "budget": {
+        "five_hour_pct_start": 28.0,
+        "five_hour_pct_end": 41.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 4.98,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave-6 delta across the single serial analytics worker (6.1-6.4)"
+      }
+    },
+    {
+      "id": "6.5",
+      "title": "`internal/testdb/testdb.go` \u2014 [leader] multi-directory migration provisioning",
+      "module": "testdb",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": "6b",
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T16:42:00Z",
+      "completed_at": "2026-08-21T16:52:00Z",
+      "duration_seconds": null,
+      "notes": "Added testdb.ProvisionDirs (per-dir goose, never a merged FS - account and charging share version 20260720000001) and WithAllowOutofOrder, the Provider equivalent of the Makefile's -allow-missing. Provision unchanged for existing callers.",
+      "budget": null
+    },
+    {
+      "id": "6.6",
+      "title": "`internal/analytics/testdb_test.go` \u2014 re-point TestMain at the multi-dir entry point",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [
+        "6.5"
+      ],
+      "wave": "6b",
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T16:42:00Z",
+      "completed_at": "2026-08-21T16:52:00Z",
+      "duration_seconds": null,
+      "notes": "analytics TestMain now provisions db/migrations plus ../telemetry and ../charging. Dropped the embed.FS; header comment rewritten - it documented the single-module limit as permanent.",
+      "budget": null
+    },
+    {
+      "id": "7.6",
+      "title": "Document the multi-directory test harness (ai/go-conventions.md + internal/testdb doc comment)",
+      "module": "testdb",
+      "owner": "leader",
+      "depends_on": [
+        "6.5"
+      ],
+      "wave": 7,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:12:00Z",
+      "completed_at": "2026-08-21T17:35:00Z",
+      "duration_seconds": null,
+      "notes": "ai/go-conventions.md gains a Provision-vs-ProvisionDirs table, why embed cannot cross dirs, why dirs are never merged (the account/charging version collision), and when direct-SQL seeding is right.",
+      "budget": null
+    },
+    {
+      "id": "5.6",
+      "title": "cmd/web/main.go \u2014 populate Deps.AnalyticsRecalculator (Wave 5 wiring gap)",
+      "module": "gateway",
+      "owner": "leader",
+      "depends_on": [
+        "5.2",
+        "5.4"
+      ],
+      "wave": "8b",
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-21T17:45:00Z",
+      "completed_at": "2026-08-21T17:52:00Z",
+      "notes": "Deps field, call site and pool arg all landed in Wave 5, but nothing ever constructed the recalculator - nil interface, panic on every manual charge write. Also corrected gateway.go's stale 'analytics owns no database' comment.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "analytics-reviewer",
+    "brief": "Review the whole of RM29 tier 3 (diff range 5952a23..HEAD, ignore progress.json churn). Validate, in order: (1) module boundaries - analytics now owns its OWN database; confirm no module reads another module's DB, cross-module data flows only through public Go interfaces (telemetry/charging updated-since read ports), the gateway calls interfaces and never a database, and no HTML escapes internal/gateway. (2) Every DB object matches the user-confirmed design: design.md 'Database Changes' (vehicle_metrics, vehicle_metric_watermarks) and its Index Plan, plus D1-D9. Any schema/index/constraint that differs from the confirmed design is a BLOCKER finding, however sensible the deviation looks. (3) The integration tests in internal/analytics/db_integration_test.go assert design.md's up-front Test Contract (Fixtures A/B/C + the Reconcile idempotence contract, design.md lines 639-788) - not whatever the implementation happens to produce. A test whose expected value was clearly read off the code is a finding. (4) Doc-pack conventions: display-unit suffixes on every persisted unit-bearing column and domain field with conversion on write not read; bilingual i18n for any user-facing gateway string; docs-track-change (README structure/architecture, module AGENTS.md/README) updated in THIS change. (5) Performance-Profile compliance - the precomputed read model and its indexes must be justified against the declared read patterns. (6) Look hard at three known-fragile spots: D5's recalculate-after-write wiring (a nil AnalyticsRecalculator in cmd/web slipped past every automated signal and was fixed late as task 5.6 - check EVERY construction site, not just the fixed one), D4's 24h commit-skew overlap guard, and D13's rule that ConsumedByDay/OdometerDeltaByDay are SELECT+map+NOT-NULL-filter with NO derivation logic left in them. (7) Anti-gaming: acceptance criteria and tasks are append-only - flag any weakened or deleted criterion, any status a worker self-approved, and any design decision the implementation quietly reinterpreted. Test signals: assistant-run were go build ./..., go vet ./..., gofmt -l, make build/vet/bins, make ui-guard/i18n-guard/money-guard, openspec validate --strict (all green). User-reported were make migrate-up, the full go test suite, and the one-off backfill run (all green, the owner's report). You must judge test QUALITY by reading the tests - never run the suite yourself.",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "blocker",
+            "note": "cmd/poller/main.go never constructs analytics.NewRecalculator and never calls Recalculator.Reconcile anywhere in production code (confirmed: grep -rn \"\\.Reconcile(\" --include=\"*.go\" . | grep -v _test.go returns zero hits repo-wide). The diff to cmd/poller/main.go is exactly one line (the new leading pool arg to analytics.NewReader, line 88) -- the rest of task 5.5 (\"Construct analytics.NewRecalculator(...) alongside the existing analyticsReader. Add a per-vehicle Reconcile call...\") was never done. This is not a minor omission: the proposal's own 'What Changes' section states 'cmd/poller gains a per-vehicle Reconcile call after each successful collection cycle' as an in-scope item (not listed under 'Out of scope'), design.md's Rollout note assumes Reconcile 'runs nightly thereafter' by 'the same code path', and internal/gateway/handlers/charges.go's own new doc comment on recalculateAfterChargeWrite says the chart 'falls back to the last-recalculated state until the next nightly Reconcile call heals it (design.md D7)' -- a guarantee the shipped code does not honor. specs/analytics/spec.md's 'Incremental Recompute Via An Analytics-Owned Watermark' requirement (ADDED, not deferred) is consequently unimplemented in production. Concrete failure: after this change ships, the nightly poller keeps writing new vehicle_snapshots and supercharger_sessions rows as always, but nothing ever calls Reconcile to propagate them into vehicle_metrics. Since ConsumedByDay/OdometerDeltaByDay now read EXCLUSIVELY from vehicle_metrics (D-precompute), every vehicle's odometer and battery-consumed dashboard charts will silently stop advancing past the one-time backfill date (task 8.2, run via a throwaway script since deleted) for any day not touched by a manual charge-entry write -- a severe, user-visible regression that directly contradicts this change's own D10 characterization bar ('pin current output, assert identical after the move'). tasks.md correctly leaves task 5.5 unchecked ([ ]), which per ai/agentic-workflow.md ('tasks.md wins on implementation done-ness') means this tier's own artifacts already know it is incomplete -- but progress.json's rollup.done lists '5.5' as done, task '5.5' status is 'done' with note 'same one-line call-site fix', and top-level status is 'verified', which is inconsistent with the actual code and should not have reached review as ready-to-archive. Fix: cmd/poller/main.go must construct analytics.NewRecalculator(pool, telemetry.NewReader(pool), telemetry.NewSuperchargerReader(pool), charging.NewReader(pool)) and add a per-vehicle Reconcile(ctx, v.AccountID, v.TeslaID) call after each successful collection cycle, mirroring newGapReconciler's existing shape, exactly as task 5.5 and the proposal's 'What Changes' section require.",
+            "status": "open"
+          }
+        ],
+        "notes": "Read the full doc pack (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/analytics/AGENTS.md, internal/gateway/AGENTS.md, internal/telemetry/AGENTS.md, internal/charging/AGENTS.md) plus proposal.md, design.md (full, all 852 lines), tasks.md (full, all 496 lines), and the change's specs/ deltas, then the diff 5952a23..HEAD cold. Schema (both migrations), Index Plan, D1-D13, the D13 SELECT+map+NOT-NULL-filter reader implementation, the D5 gateway write-path wiring (all three charges.go handlers + the one production gateway.Deps construction site in cmd/web/main.go, confirming task 5.6's nil-recalculator fix is complete and is the only such site), the D4 24h overlap, the multi-directory test harness (task 6.5/6.6), and the DB-integration + offline characterization tests against design.md's Fixture A/B/C and Reconcile idempotence contract (verbatim value matches, not back-fitted) were all verified and found compliant. The one blocker (F1) is cmd/poller's missing Reconcile wiring -- everything else in the review brief checked out clean. Escalating as changes-requested per the reviewer contract's 'escalate on doubt' rule is not needed here since F1 is a concrete, grep-confirmed gap, not an uncertain judgment call.",
+        "leader_triage": "F1 ACCEPTED in full - verified independently: grep for '.Reconcile(' outside tests returned zero hits, and cmd/poller/main.go's whole diff was the one-line pool arg. tasks.md had 5.5 correctly unchecked while progress.json called it done; the stale 'done' came from a prior leader session reading only the task title's first clause ('NewReader's call site gains the...') and treating 5.5 as the same one-line fix as 5.4. Fixed in cmd/poller/main.go: the three sibling ports are hoisted and shared, analytics.NewRecalculator is constructed, and newGapReconciler becomes newNightlyReconciler with a per-vehicle Reconcile ahead of the gap step. No other finding was raised."
+      },
+      {
+        "round": 2,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "blocker",
+            "note": "RE-VERIFIED FIXED in commit 10c08cf. cmd/poller/main.go now hoists telemetryReader/superchargerReader/chargingReader into shared locals, constructs analytics.NewRecalculator(pool, telemetryReader, superchargerReader, chargingReader), and newNightlyReconciler (renamed from newGapReconciler) calls recalculator.Reconcile(ctx, v.AccountID, v.TeslaID) as step 1 for every registered vehicle, before the existing ConsumedByDay + gapWriter.ReconcileWindow step 2. `grep -rn \"\\.Reconcile(\" --include=\"*.go\" . | grep -v _test.go` now finds the one production call site (cmd/poller/main.go). go build ./..., go vet ./cmd/poller/... ./internal/analytics/..., and gofmt -l cmd/poller/main.go all clean, confirmed directly. tasks.md 5.5 correctly flipped [ ] -> [x] (no other task/criterion text touched). Ordering claim verified against telemetry.AGENTS.md's GapWriter contract and gap_writer.go's actual ReconcileWindow implementation (read directly, lines 63-103): ConsumedByDay is a pure SELECT over vehicle_metrics per D13 (confirmed in round 1), so running the gap step before Reconcile would compute `flagged` from yesterday's model and never see the night's just-collected snapshot -- the reordering is a correctness fix, not a style preference, and correctly supersedes task 5.5's stale 'two independent calls' framing (a design fact this tier's own change made true, not a re-litigation of anything reviewed in round 1). Placement is still entirely inside reconcilingCollector.CollectAll, gated on c.inner.CollectAll(ctx) succeeding first, so RM28 D4 ('after snapshots are written' -- confirmed against openspec/changes/archive/2026-08-16-RM28-battery-derive-consumed-per-day/design.md:537) is satisfied for both halves, not just the gap half. Skip-on-failure claim verified against ReconcileWindow's real code: it DELETEs every existing charge_gaps row in [start,end] absent from the freshly-computed `flagged` set (gap_writer.go:99-103), so running step 2 on a vehicle whose Reconcile just failed would compute `flagged` from stale vehicle_metrics and delete real, still-outstanding gap rows -- skip-then-self-heal-next-cycle is correct, fall-through would destroy state. Per-vehicle isolation preserved: `continue` on a Reconcile error only advances the `for _, v := range vehicles` loop to the next vehicle, mirroring CollectAll's own existing isolation pattern; one vehicle's Reconcile failure cannot abort another vehicle's reconciliation. Docs: cmd/README.md's cmd/poller row now states the order and why it's required; internal/analytics/AGENTS.md's Reconcile bullet now states cmd/poller is Reconcile's only production caller, when it runs relative to the gap step, and what breaks if the call is dropped -- both accurate against the shipped code, both sufficient for a future agent to rediscover this without re-deriving it from source.",
+            "status": "fixed"
+          }
+        ],
+        "notes": "Round 2 scoped to F1 only, per the leader's instruction -- the rest of the change was cleared in round 1 and not re-reviewed here. F1 is fixed and verified against the actual code (not the commit message's claims alone): the missing Reconcile call now exists at the one correct composition-root site, the two judgement calls the leader flagged (ordering, skip-on-failure) both check out against the real GapWriter/D4 semantics, and both doc updates are accurate. No new findings. The owner's full-suite re-run against this fix is still pending and is the owner's report to make, not mine -- consistent with the Test-Execution-Policy, I did not run the suite; build/vet/gofmt were run directly by me as the allowed deterministic signals and are clean."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-21T03:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "IO-1 grain/PK: vehicle-day, UUID PK + UNIQUE(account_id,tesla_id,metric_date)",
+      "why": "Matches vehicle_snapshots' deduped daily grain and charge_gaps' precedent. A per-snapshot FK into telemetry was rejected as a module-boundary violation.",
+      "covered_by": "grill-me interview 2026-08-21 + design gate"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-21T03:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "IO-2 watermark in a dedicated cursor table, not a column on vehicle_metrics",
+      "why": "Survives the zero-rows first run; MAX() over the metrics table would silently rewind when a row is recomputed away.",
+      "covered_by": "grill-me interview 2026-08-21 + design gate"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-21T03:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "IO-3 one cursor row per (vehicle, source), three sources",
+      "why": "manual_charge_entries is user-edited at any hour while the other two move at midnight; one shared cursor couples those clocks.",
+      "covered_by": "grill-me interview 2026-08-21 + design gate"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-21T03:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "IO-4 commit-skew guard: 24h safety overlap on the cursor read",
+      "why": "Without it a user edit landing mid-run is skipped permanently and silently. UPSERT is idempotent so re-reads are free.",
+      "covered_by": "grill-me interview 2026-08-21 + design gate"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-21T03:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "IO-5 Recalculate after the manual-charge write",
+      "why": "That chart updates instantly today; precomputing without this ships a user-visible regression against D10's characterization bar.",
+      "covered_by": "grill-me interview 2026-08-21 + design gate"
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-21T03:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "IO-6 only snapshot-derived math leaves the gateway; Supercharger tiles defer to T6",
+      "why": "T6 moves those session rows to charging anyway - doing them here writes the same code twice.",
+      "covered_by": "grill-me interview 2026-08-21 + design gate"
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-21T03:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design gate: schema approved with one revision - dense table, nullable _calc + consumed_pct",
+      "why": "Sparse rows meant a vehicle's first day had no row, so re-pointing the battery chart later would silently drop day 1.",
+      "covered_by": "grill-me interview 2026-08-21 + design gate"
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-21T03:05:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "consumed_pct nullable with flagged=false on predecessor-less rows; both Reader queries filter IS NOT NULL",
+      "why": "Necessary consequence of the owner's dense-table call: a stored 0 would make every vehicle's first day masquerade as a charge gap, and unfiltered reads would change ConsumedByDay's output.",
+      "covered_by": "design gate revision"
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-21T09:20:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Wave 1 dispatched as TWO parallel workers (telemetry 1.1-1.3, charging 1.4) rather than one serial worker",
+      "why": "A worker is sandboxed to one module, so a single serial dispatch is impossible here. Disjoint modules, 5h bucket at 26%, and wave 1 gates all seven remaining waves.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-21T10:12:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Left internal/gateway/handlers/handlers_test.go gofmt-unclean",
+      "why": "Verified against HEAD via git stash: it was already unformatted before this change. Same call as tier 2's D6 - gofmt only what the change churns, or the tier widens.",
+      "covered_by": "tier 2 D6 precedent"
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-21T10:40:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Appended task 2.5 to wire Makefile MIGRATIONS_DIRS and .air.toml, rather than editing task 2.4",
+      "why": "No original task covered it. sqlc reads sqlc.yaml directly, so codegen and build stay green while migrate-up never applies the analytics migrations. Tasks are append-only.",
+      "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-21T12:45:00Z",
+      "scope": "task:5.4",
+      "made_by": "autopilot",
+      "decision": "Pulled tasks 5.4/5.5 forward from Wave 5 into the Wave 3 boundary",
+      "why": "NewReader's signature change broke the repo build at both cmd/ call sites. Leaving it broken across Waves 4-6 would suppress go vet - the one cheap signal covering unexecuted tests.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-21T12:45:00Z",
+      "scope": "task:3.2",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's UTC 'yesterday' clamp in Reconcile rather than adding a *time.Location parameter",
+      "why": "The poller runs at local midnight, where UTC and Bogota yesterday agree; only evening manual reruns diverge, and D4's 24h overlap self-heals that. Widening the port would reopen the gated interface.",
+      "covered_by": null
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-21T13:30:00Z",
+      "scope": "task:4.2",
+      "made_by": "leader",
+      "decision": "Accepted the removal of five reader tests, but appended task 6.4 to re-assert their behaviours against Recalculate",
+      "why": "Verified ConsumedByDay no longer calls the ports, so the tests asserted a deleted path. Removal alone would have silently dropped fetch-window, scoping and error-propagation coverage.",
+      "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-21T13:40:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Left the mis-scoped commit 4603172 in place instead of rewriting history",
+      "why": "The gateway worker was still writing to those files. A soft reset or amend mid-write risks capturing a torn state; an accurate follow-up commit costs nothing and keeps the record honest.",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-21T14:20:00Z",
+      "scope": "task:5.3",
+      "made_by": "leader",
+      "decision": "Leader finished the interrupted gateway task in-session rather than re-dispatching a fresh worker",
+      "why": "The work was nearly complete and its remaining state was diagnosable from git diff plus vet. A cold re-dispatch would re-read the doc pack and risk redoing finished edits.",
+      "covered_by": null
+    },
+    {
+      "id": "D17",
+      "at": "2026-08-21T15:10:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Fixed the three failing tests rather than the implementation",
+      "why": "design.md's Test Contract is authoritative and its expected values were already correct; the fixtures mis-transcribed the INPUTS. Changing the code to match a wrong fixture would have broken real behaviour.",
+      "covered_by": "Test Contract, design.md"
+    },
+    {
+      "id": "D18",
+      "at": "2026-08-21T16:35:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Escalated Wave 6's cross-module fixture gap to the owner instead of picking a fix on autopilot",
+      "why": "Every fix adds shared test infrastructure or new public surface in modules this change does not own, and binds tiers 5-7 too. Outside the roadmap Decisions.",
+      "covered_by": null
+    },
+    {
+      "id": "D19",
+      "at": "2026-08-21T16:40:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Unblock 6.1-6.3 with a multi-dir testdb harness (os.DirFS over sibling migration dirs) plus direct-SQL fixture seeding",
+      "why": "Owner chose it over exporting test-only writers from telemetry (new public surface in tier 4's module) and over deferring the DB proofs that tier 4's column drop rests on.",
+      "covered_by": null
+    },
+    {
+      "id": "D20",
+      "at": "2026-08-21T16:52:00Z",
+      "scope": "task:6.5",
+      "made_by": "leader",
+      "decision": "Applied each migration dir with its own goose provider instead of merging them into one union FS",
+      "why": "account and charging both ship version 20260720000001; a merged FS dies on the collision. Per-dir sequencing is also exactly what the Makefile's migrate-up loop already does.",
+      "covered_by": "D19"
+    },
+    {
+      "id": "D21",
+      "at": "2026-08-21T17:35:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "gofmt -w'd the two branch-touched unclean files, reversing D10's deferral; left the 8 pre-existing ones alone",
+      "why": "D10 deferred handlers_test.go only because a worker was writing it live. Nothing is live now, and task 8.1 expects gofmt clean. The other 8 predate this branch and are out of scope.",
+      "covered_by": "D10"
+    },
+    {
+      "id": "D22",
+      "at": "2026-08-21T17:52:00Z",
+      "scope": "task:5.6",
+      "made_by": "leader",
+      "decision": "Appended task 5.6 and fixed the nil AnalyticsRecalculator myself rather than reopening Wave 5 or leaving it for the reviewer",
+      "why": "Waves 5's tasks are closed and owner-verified, so they are not reopenable. Catching it at this gate costs one commit; catching it in review costs a rework wave plus a re-review.",
+      "covered_by": null
+    },
+    {
+      "at": "2026-08-21T18:20:00Z",
+      "made_by": "leader",
+      "scope": "change",
+      "what": "Amend the tip commit to remove the accidentally committed 15MB backfill binary, rather than adding a follow-up delete commit.",
+      "why": "Branch has no upstream and nobody else holds it, so amending keeps the 15MB out of git history entirely; a delete commit would leave it in every future clone."
+    },
+    {
+      "at": "2026-08-21T18:40:00Z",
+      "made_by": "leader",
+      "scope": "task:5.5",
+      "what": "Run Reconcile BEFORE the charge-gap step in the same per-vehicle loop, and skip a vehicle's gap step entirely when its Reconcile fails.",
+      "why": "Task 5.5 called the two calls independent; they no longer are. ConsumedByDay is now a SELECT over vehicle_metrics (D13), so gaps computed before Reconcile read yesterday's model, and ReconcileWindow would DELETE gap flags on stale evidence."
+    },
+    {
+      "at": "2026-08-21T18:40:00Z",
+      "made_by": "leader",
+      "scope": "task:5.5",
+      "what": "Rename newGapReconciler to newNightlyReconciler and hoist the three sibling ports into shared locals.",
+      "why": "The step now has two halves, so the old name actively misleads; the ports are stateless handles over one pool, and building them twice would hide that both halves read identical sources. No callers outside the file."
+    },
+    {
+      "id": "D-archive-domain",
+      "at": "2026-08-21T21:20:00Z",
+      "made_by": "autopilot",
+      "scope": "archive",
+      "decision": "Archived to openspec/changes/archive/analytics/ rather than the flat path the openspec CLI produces.",
+      "why": "config.yaml's archive rule mandates domain grouping; the CLI ignores it, which is why RM29 T1/T2 and 11 older changes sit flat. Followed the config and flagged the pre-existing drift to the owner."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-21T03:05:00Z",
+      "agent": "leader",
+      "event": "Tier 3 opened. Artifacts by the analytics worker (Sonnet), revised once after the design gate. openspec validate --changes --strict: 1 passed / 0 failed. Owner confirmed the schema then went to sleep with autopilot ON; hard stop before T4 (destructive) stands."
+    },
+    {
+      "at": "2026-08-21T09:20:00Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched (owner asleep, autopilot). telemetry worker on 1.1-1.3, charging worker on 1.4, parallel. 5h 26%, ctx 19%. Budget delta will be recorded as a shared approx wave delta."
+    },
+    {
+      "at": "2026-08-21T10:12:00Z",
+      "agent": "leader",
+      "event": "Wave 1 landed. Leader repaired SIX test fakes broken by the interface additions across analytics + gateway, each matching its own fake's local precedent (nil-return vs panic). Both workers reported only five - go vet ./... found fakeHistoryReader in history_test.go that neither named. Repo-wide build, vet and gofmt clean."
+    },
+    {
+      "at": "2026-08-21T10:40:00Z",
+      "agent": "leader",
+      "event": "Wave 2 landed: analytics' first persistence layer (2 migrations + query.sql + sqlc gen). Verified the gated schema was reproduced, not redesigned, and that zero CREATE INDEX statements exist (both grep hits are the reasoning comments). Worker self-reported 'done'; leader corrected to awaiting-user-verification per the contract - done requires the owner's suite pass."
+    },
+    {
+      "at": "2026-08-21T12:45:00Z",
+      "agent": "leader",
+      "event": "Wave 3 landed: analytics domain core. Worker flagged two open items rather than hiding them - the D8 timezone tension (resolved as D13) and Reconcile having no injectable clock, which Wave 6 must address if it wants to assert the yesterday-clamp deterministically. Leader pulled 5.4/5.5 forward; go build ./... clean, go vet red only on the two Wave 4 test files."
+    },
+    {
+      "at": "2026-08-21T13:35:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT: 5-hour bucket at 98% (threshold 90), context 27%. Waves 1-4 committed. The gateway worker (5.1-5.3, 4.3) was still IN FLIGHT when the threshold tripped - its tasks stay in-progress in this file and its work may be uncommitted on disk; the resuming session must check `git status` first and reconcile before dispatching anything. 5-hour bucket resets at 2026-08-21T14:00:00Z."
+    },
+    {
+      "at": "2026-08-21T13:40:00Z",
+      "agent": "leader",
+      "event": "CORRECTION: commit 4603172, messaged as Wave 4, also contains partial Wave 5 + 4.3 gateway work (gateway.go, handlers.go, history.go, charges.go, history_test.go). Cause: the leader staged with `git add -A` while the gateway worker was still writing. History NOT rewritten - amending under a live writer risks a torn snapshot. The next commit carries the accurate Wave 5 scope and references this correction."
+    },
+    {
+      "at": "2026-08-21T14:20:00Z",
+      "agent": "leader",
+      "event": "Gateway worker was KILLED mid-task by the session limit, partway through checking charges_test.go for Handler constructions missing the recalculator. Leader finished it after the reset: completed the fakeRecalculator wiring (7 Deps literals - a nil there is a runtime panic go vet cannot see), added a compile-time interface assertion, and wrote the three D5/IO-5 behaviour tests the worker never reached. Build, vet and all three guards clean."
+    },
+    {
+      "at": "2026-08-21T15:10:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED: go test ./... failed - 3 failures (FixtureA, FixtureB, TestBuildOdometerChart_FixtureA). Root-caused all three to WRONG TESTS, not wrong code. Fixtures A/B added a spurious +1 day to both CapturedDates, so prev's effective day fell inside the window and cur's fell outside; the contract's dates make the test's own comment true. The odometer tooltip asserted substring '1050' while formatKm has always grouped thousands as '1,050' (format.go untouched by this change). Fixed the fixtures and pinned the tooltip exactly. Production code unchanged."
+    },
+    {
+      "at": "2026-08-21T15:25:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED: make test GREEN after the three test-side fixes. 20 tasks move awaiting-user-verification -> done. The verification is the OWNER'S, not assistant-run - the assistant never executed the suite. Change stays in-progress: Waves 6 (DB integration tests incl. the 6.4 coverage rescue), 7 (docs) and 8 (verification) remain, then the reviewer gate. Clean checkpoint for /clear + resume."
+    },
+    {
+      "at": "2026-08-21T16:26:00Z",
+      "agent": "leader",
+      "event": "Resumed in a fresh session. Dispatched ONE serial analytics worker (Sonnet) for Wave 6 tasks 6.1-6.4 - all four write the same new file internal/analytics/db_integration_test.go and 6.2/6.3/6.4 all depend on 6.1, so parallelism is impossible here. Budget start: 5h 28.0%, cost $0.7948, context 9%."
+    },
+    {
+      "at": "2026-08-21T16:35:00Z",
+      "agent": "leader",
+      "event": "Wave 6 PARTIAL. 6.4 delivered (fetch-window/scoping/error-propagation rescue, D14). 6.1-6.3 BLOCKED on a real gap the leader independently verified: (a) telemetry has no public snapshot or supercharger writer - grep of its exported constructors confirms only NewReader/NewGapWriter/NewSuperchargerReader/NewService; (b) //go:embed cannot cross package dirs, so an auto-provisioned analytics container holds only vehicle_metrics + vehicle_metric_watermarks. Cross-module DB fixtures are impossible from an analytics-sandboxed worker. Escalated to the owner - autopilot PAUSED (new decision not covered by the roadmap Decisions)."
+    },
+    {
+      "at": "2026-08-21T16:40:00Z",
+      "agent": "leader",
+      "event": "OWNER DECISION (D19): shared multi-dir test harness + direct-SQL seeding. Appended tasks 6.5/6.6 (harness + re-point) and 7.6 (document it); 6.1-6.3 now depend on 6.6 and are re-dispatched as written, with 6.1's 'not direct SQL' clause SUPERSEDED by D19 rather than edited (append-only). Autopilot resumes."
+    },
+    {
+      "at": "2026-08-21T16:52:00Z",
+      "agent": "leader",
+      "event": "Wave 6b: leader implemented 6.5 + 6.6 directly - internal/testdb is shared infrastructure, not a module, and 6.6 is its two-line call site. go build ./... and go vet clean. Discovered while implementing that a union-FS merge (the obvious first design) would have broken on the existing account/charging duplicate version -> D20. Next: re-dispatch analytics worker for 6.1-6.3."
+    },
+    {
+      "at": "2026-08-21T17:10:00Z",
+      "agent": "leader",
+      "event": "Wave 6c landed: 6.1-6.3 delivered against the now-multi-schema harness. Leader independently re-ran go vet ./internal/analytics/... + gofmt + go build ./... (all clean) and spot-read TestRecalculate_FixtureC and the exclusion test rather than taking the report on trust. Worker reported no disagreement between the implementation and design.md's Test Contract - notable, since it was told to report one rather than reshape an assertion. 11 DB-backed tests now exist where the module had none. Wave 6 fully unblocked; all six tasks awaiting-user-verification."
+    },
+    {
+      "at": "2026-08-21T17:35:00Z",
+      "agent": "leader",
+      "event": "Wave 7 landed (leader-written docs). Checked ai/architecture.md too - its analytics mention is an illustrative EXAMPLE module in a generic tree, not a claim about the real one, so no edit. Also fixed the two gofmt-unclean files this branch actually introduced (D21); the 8 that remain predate the branch. go build ./... and go vet ./... clean. Next: Wave 8 verification, then the reviewer gate."
+    },
+    {
+      "at": "2026-08-21T17:52:00Z",
+      "agent": "leader",
+      "event": "Wave 8 signals GREEN: go build, go vet, make build/vet/bins, all three guards, and openspec validate --strict (1 passed). While checking 8.2's invocation path the leader found a genuine production bug no signal could catch: cmd/web never constructed the Recalculator, so gateway.Deps.AnalyticsRecalculator was nil and every manual charge write would panic on recalculateAfterChargeWrite. Handler tests miss it (they inject a fake Deps); go vet misses it (nil interface is runtime state). Fixed as appended task 5.6 (D22). 8.2 (backfill) and 8.4 (suite) are the owner's - both gated on the two new migrations being applied."
+    },
+    {
+      "at": "2026-08-21T17:55:00Z",
+      "agent": "leader",
+      "event": "HANDOFF (Step 6, the mandatory pre-reviewer ask). All 25 implementation tasks are written and every assistant-permitted signal is green, but nothing is done: the suite is the owner's and the reviewer gate stays shut until they report it. Status -> applied, NOT verified. cmd/tmp-backfill-metrics written for 8.2 and left uncommitted; the leader deletes it once run."
+    },
+    {
+      "at": "2026-08-21T18:05:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED GREEN: make migrate-up, the full go test suite, and go run ./cmd/tmp-backfill-metrics all ran properly. THE OWNER'S verification, recorded as theirs - the assistant never executed the suite. All 26 tasks -> done; change status -> verified. Throwaway backfill runner deleted. Reviewer gate is now open."
+    },
+    {
+      "at": "2026-08-21T18:20:00Z",
+      "agent": "leader",
+      "event": "Pre-reviewer hygiene fix: the verification commit (151de6c) had swept a 15MB compiled tmp-backfill-metrics binary into the repo root alongside progress.json. Branch is local-only (no upstream), so the tip was amended to drop it and .gitignore gained a /tmp-* root rule so a throwaway runner's artifact can never ride along again. Working tree clean; no source change."
+    },
+    {
+      "at": "2026-08-21T18:40:00Z",
+      "agent": "leader",
+      "event": "Review round 1: changes-requested, one blocker (F1), accepted after independent verification. Task 5.5 was never implemented beyond its first clause, yet progress.json marked it done and the change reached 'verified' - the reviewer caught a false 'done' that every automated signal and the owner's own green suite had missed, because cmd/poller has no tests and a missing call compiles fine. Consequence had it shipped: with ConsumedByDay now a pure SELECT over vehicle_metrics, nothing outside a manual charge write would ever advance the model, so every vehicle's charts freeze at the backfill date. Fixed; status verified -> in-progress."
+    },
+    {
+      "at": "2026-08-21T18:50:00Z",
+      "agent": "leader",
+      "event": "Review round 2: APPROVED. The reviewer re-verified F1 against the code rather than the commit message - one production Reconcile call site now, and it independently confirmed both leader judgement calls by reading the sources: the ordering against RM28 D4's 'after snapshots are written', and skip-on-failure against telemetry/gap_writer.go's ReconcileWindow DELETE semantics. No new findings. Reviewer gate PASSED; archive still blocked on the owner's suite re-run, which post-dates their earlier green and is theirs alone to report."
+    },
+    {
+      "at": "2026-08-21T18:52:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at the review boundary: five_hour_pct 99 (threshold 90), context_pct 13, bucket resets at 2026-08-21T19:00:00Z. Stopping cleanly - every status is truthful. Two gates stand between here and archive, and both are the owner's: their suite re-run against the F1 fix (their earlier green predates it), and nothing else. Resume with /kkpa-dev-harness-pipeline resume RM29-analytics-add-vehicle-metrics -> Step 8 once they report."
+    },
+    {
+      "at": "2026-08-21T21:05:00Z",
+      "agent": "leader",
+      "event": "RESUMED after the budget checkpoint: 5-hour bucket reset (99% -> 2%), context 8%, tree clean on ft/RM29-MAG-26-modular-monolith-boundaries. Re-ran every assistant-permitted signal against the F1 fix - go build, go vet, ui-guard, i18n-guard, money-guard all green; gofmt lists 8 files but all 8 are already unformatted on main, so this change introduced none. Reviewer gate is PASSED (round 2 approved). Archive waits on the single remaining gate, which is the owner's: their suite re-run, since their earlier green predates 10c08cf."
+    },
+    {
+      "at": "2026-08-21T21:10:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED GREEN on the F1 fix: make migrate-up and make test both pass against 10c08cf. THE OWNER'S verification, recorded as theirs - the assistant never ran the suite. Task 5.5 -> done; all 26 tasks done. Reviewer-approved + owner-verified, so both archive gates are now open."
+    },
+    {
+      "at": "2026-08-21T21:20:00Z",
+      "agent": "leader",
+      "event": "ARCHIVED. tasks.md had 7 stale unchecked boxes against progress.json's all-done; each was verified against the code before ticking (2.4 sqlc analytics entry, 5.4 cmd/web call site) or against the recorded events (7.5, 8.1-8.4) - no box ticked on trust after the F1 lesson. openspec validate --strict passed; the CLI synced 4 delta specs into main (+9 ~2 -1); the change folder was then git mv'd from the CLI's flat path into archive/analytics/ per config.yaml. Roadmap tier 3 -> [x]."
+    }
+  ]
+}

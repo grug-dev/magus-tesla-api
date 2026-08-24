@@ -1,0 +1,651 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM29-analytics-own-charge-gaps",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
+  "request": "RM29 tier 5 - move charge_gaps ownership from telemetry to analytics. Owner: autopilot ON, asleep; granted session-scoped permission to run the test suite.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.7",
+      "1.4",
+      "1.5",
+      "1.6",
+      "1.8",
+      "1.9",
+      "1.10",
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "4.5",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4"
+    ]
+  },
+  "created_at": "2026-08-22T02:55:00Z",
+  "updated_at": "2026-08-22T09:05:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
+    "base": "main",
+    "ticket": "MAG-26",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-26/modular-monolith-refactoring",
+    "created_at": "2026-08-20T17:15:32Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "git mv the charge_gaps migration into analytics",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T02:57:00Z",
+      "completed_at": "2026-08-22T02:57:00Z",
+      "duration_seconds": null,
+      "notes": "git mv 20260815000002_add_charge_gaps.sql telemetry -> analytics migrations dir. Rename recorded by git, so history follows. No DDL executed; goose will not re-run it (version already applied in the shared goose_db_version table).",
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "append the three charge_gaps queries to analytics query.sql",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:57:00Z",
+      "completed_at": "2026-08-22T03:05:00Z",
+      "duration_seconds": null,
+      "notes": "Appended UpsertChargeGap/DeleteChargeGap/ChargeGapDatesByVehicleBetween verbatim to analytics query.sql; byte-diff against the telemetry source confirmed identical, comments and constraint rationale included.",
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "remove the three charge_gaps queries from telemetry query.sql",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:57:00Z",
+      "completed_at": "2026-08-22T03:05:00Z",
+      "duration_seconds": null,
+      "notes": "Removed the same three queries and their comment blocks from telemetry query.sql (lines 410-462). No other query touched.",
+      "budget": null
+    },
+    {
+      "id": "1.4",
+      "title": "add ChargeGap + MissingChargingType + GapWriter to analytics",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T03:05:00Z",
+      "completed_at": "2026-08-22T03:10:00Z",
+      "duration_seconds": null,
+      "notes": "Ported ChargeGap, MissingChargingType + constants, GapWriter and NewGapWriter into analytics.go from git rather than paraphrasing, re-aiming the doc comments: the cross-module framing (analytics is the only caller / telemetry never calls analytics) is now vacuous and was rewritten, not deleted.",
+      "budget": null
+    },
+    {
+      "id": "1.5",
+      "title": "new analytics/gap_writer.go implementation",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T03:05:00Z",
+      "completed_at": "2026-08-22T03:10:00Z",
+      "duration_seconds": null,
+      "notes": "New analytics/gap_writer.go ported verbatim at the logic level, retargeted telemetrydb -> analyticsdb, reusing mapping.go existing dateFromPg. Validate-before-transaction, UPSERT+DELETE diff loop and all-or-nothing commit unchanged.",
+      "budget": null
+    },
+    {
+      "id": "1.6",
+      "title": "drop redundant telemetry. qualifiers across analytics (incl. tests)",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T03:05:00Z",
+      "completed_at": "2026-08-22T03:10:00Z",
+      "duration_seconds": null,
+      "notes": "Swept grep telemetry. across analytics and judged each hit rather than blanket-replacing; dropped the redundant qualifier in 5 source + 2 test files and removed the now-unused telemetry import from mapping.go and analytics.go. Test files keep it for Snapshot/SuperchargerSession fixtures.",
+      "budget": null
+    },
+    {
+      "id": "1.7",
+      "title": "delete ChargeGap, MissingChargingType, GapWriter, gap_writer.go from telemetry",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T02:57:00Z",
+      "completed_at": "2026-08-22T03:05:00Z",
+      "duration_seconds": null,
+      "notes": "Deleted MissingChargingType + constants, ChargeGap, GapWriter, NewGapWriter and the ledger section prose from telemetry.go; deleted gap_writer.go. Also removed mapping.go dateFromPg, orphaned by the deletion - leader verified 2 uses, both in the deleted file, none elsewhere.",
+      "budget": null
+    },
+    {
+      "id": "1.8",
+      "title": "cmd/poller rewire to analytics.NewGapWriter",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T03:08:00Z",
+      "completed_at": "2026-08-22T03:10:00Z",
+      "duration_seconds": null,
+      "notes": "cmd/poller: NewGapWriter, the gapWriter param type and both ChargeGap literals re-pointed telemetry -> analytics. The two-step reconcile shape, ordering and per-vehicle error handling are byte-identical, per D2.",
+      "budget": null
+    },
+    {
+      "id": "1.9",
+      "title": "gateway handlers/history.go import re-point",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T03:08:00Z",
+      "completed_at": "2026-08-22T03:10:00Z",
+      "duration_seconds": null,
+      "notes": "gateway handlers/history.go: chargeTypeLabel signature, the constant comparison and the doc comment re-pointed to analytics.MissingChargingType.",
+      "budget": null
+    },
+    {
+      "id": "1.10",
+      "title": "gateway handlers/history_test.go fixtures re-point",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 1,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T03:08:00Z",
+      "completed_at": "2026-08-22T03:10:00Z",
+      "duration_seconds": null,
+      "notes": "gateway handlers/history_test.go: all five flagged-day fixtures re-pointed to analytics.MissingChargingType*. Found by the artifacts worker sweep, not by the interview.",
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "move the gap-writer DB-integration test into analytics",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 3,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T08:25:00Z",
+      "completed_at": "2026-08-22T08:28:00Z",
+      "duration_seconds": null,
+      "notes": "Created analytics/db_gap_writer_integration_test.go from the telemetry original. Leader diffed it: exactly 8 changed lines (package + 7x newTestStore->newTestPool), 595/595 lines. No helper-name collisions with existing analytics _test.go files.",
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "delete the original telemetry gap-writer integration test",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 3,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T08:29:00Z",
+      "completed_at": "2026-08-22T08:30:00Z",
+      "duration_seconds": null,
+      "notes": "Deleted telemetry/db_gap_writer_integration_test.go after confirming all 7 tests and 5 helpers landed in analytics. newTestStore checked and left alone - leader independently confirmed ~40 call sites across 9 other telemetry test files.",
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "telemetry AGENTS.md drops charge_gaps ownership",
+      "module": "telemetry",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T08:30:00Z",
+      "completed_at": "2026-08-22T08:31:00Z",
+      "duration_seconds": null,
+      "notes": "telemetry/AGENTS.md dropped the GapWriter port bullet, the charge_gaps ownership entry and the lifecycle subsection, replaced by one sentence on the move - mirroring tier 4's dropped-_calc-columns sentence. Content confirmed preserved in analytics first.",
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "analytics AGENTS.md gains charge_gaps ownership",
+      "module": "analytics",
+      "owner": "module",
+      "depends_on": [],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-22T08:28:00Z",
+      "completed_at": "2026-08-22T08:29:00Z",
+      "duration_seconds": null,
+      "notes": "analytics/AGENTS.md gained the GapWriter port bullet, the charge_gaps data-ownership entry and the no-resolved_at lifecycle subsection, plus a Testing note. Fixed the stale telemetry.MissingChargingType cross-ref and two recalculate.go doc mentions.",
+      "budget": null
+    },
+    {
+      "id": "4.3",
+      "title": "README ownership table row",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T08:26:00Z",
+      "completed_at": "2026-08-22T08:27:00Z",
+      "duration_seconds": null,
+      "notes": "README: analytics architecture row reworded to 'its own GapWriter'; charge_gaps table row moved out of the internal/telemetry block into internal/analytics's, and its 'through telemetry's GapWriter port' wording fixed.",
+      "budget": null
+    },
+    {
+      "id": "4.4",
+      "title": "docs/battery-consumed-graph.md",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T08:27:00Z",
+      "completed_at": "2026-08-22T08:29:00Z",
+      "duration_seconds": null,
+      "notes": "docs/battery-consumed-graph.md: ownership table, sequence diagram, gap_writer.go path, migration path and both future-work Where pointers re-pointed to analytics. Reworded the internal/charging isolation claim to cite its closed allowlist (see A5).",
+      "budget": null
+    },
+    {
+      "id": "4.5",
+      "title": "roadmap tier 5 status flip",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 4,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T08:29:00Z",
+      "completed_at": "2026-08-22T08:31:00Z",
+      "duration_seconds": null,
+      "notes": "Roadmap T5 stays [~] until archive. Rewrote the stale 'No artifacts exist yet for T5-T8' / Next-unblocked prose, and refreshed the T4 carried-migrations note: migrate-status shows both applied, so the owner ran make migrate-up.",
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "build/vet/gofmt/guards",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 5,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T08:31:00Z",
+      "completed_at": "2026-08-22T08:32:00Z",
+      "duration_seconds": null,
+      "notes": "go build, go vet, make build/vet/bins all clean. Three guards ran and reported no-ops. gofmt -l flags 8 files repo-wide, all pre-existing: intersection with this change's touched files is empty.",
+      "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "make sqlc clean tree + migrate-status",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 5,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T08:32:00Z",
+      "completed_at": "2026-08-22T08:32:00Z",
+      "duration_seconds": null,
+      "notes": "make sqlc regenerated with zero diff. make migrate-status: 20260815000002_add_charge_gaps listed under internal/analytics/db/migrations, Applied At Aug 15 20:05:49, nothing pending anywhere - D1's no-re-run prediction confirmed against a live DB.",
+      "budget": null
+    },
+    {
+      "id": "5.3",
+      "title": "openspec validate --changes --strict",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 5,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T08:32:00Z",
+      "completed_at": "2026-08-22T08:32:00Z",
+      "duration_seconds": null,
+      "notes": "openspec validate --changes --strict: 'change/RM29-analytics-own-charge-gaps' passed. Totals: 1 passed, 0 failed.",
+      "budget": null
+    },
+    {
+      "id": "5.4",
+      "title": "run the suite and hand off",
+      "module": "leader",
+      "owner": "leader",
+      "depends_on": [],
+      "wave": 5,
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-22T08:33:00Z",
+      "completed_at": "2026-08-22T08:36:00Z",
+      "duration_seconds": null,
+      "notes": "make test green across every package. Targeted -v run proves the 7 relocated TestGapWriter_ tests PASS rather than SKIP, against a real testcontainer Postgres. ASSISTANT-RUN under the owner's blanket grant (A3), not an owner-reported pass.",
+      "budget": null
+    }
+  ],
+  "decisions": [
+    {
+      "id": "I1",
+      "at": "2026-08-22T02:42:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "git mv the charge_gaps migration file into analytics dir; no new migration, no DDL, no data copy.",
+      "why": "goose keys applied-ness by version in one shared table across dirs, so neither dir re-runs it. The DROP+CREATE shape would lose the data, since MIGRATIONS_DIRS runs telemetry before analytics."
+    },
+    {
+      "id": "I2",
+      "at": "2026-08-22T02:43:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "The GapWriter port moves as-is to analytics; cmd/poller keeps its two-step shape. Collapsing into Recalculate was rejected.",
+      "why": "Keeps the tier a pure ownership move. The metrics/gaps divergence on a step-2 error is pre-existing and deliberately untouched, documented so the reviewer does not read it as a regression."
+    },
+    {
+      "id": "I3",
+      "at": "2026-08-22T02:44:00Z",
+      "made_by": "user",
+      "scope": "design",
+      "decision": "MissingChargingType moves to analytics; gateway history.go re-points its import.",
+      "why": "The enum follows the data. telemetry ends with zero references; analytics stops importing telemetry for a label about its own data."
+    },
+    {
+      "id": "A1",
+      "at": "2026-08-22T02:55:00Z",
+      "made_by": "autopilot",
+      "scope": "gate",
+      "decision": "Treated the database design gate as SATISFIED by the owner interview rather than re-asking.",
+      "why": "The owner confirmed I1-I3 directly before artifacts existed, and design.md declares no DDL - verified: sqlc.yaml scopes schema per module dir, so the atomic-move constraint is real."
+    },
+    {
+      "id": "A2",
+      "at": "2026-08-22T02:55:00Z",
+      "made_by": "autopilot",
+      "scope": "process",
+      "decision": "Leader ran git add -A while a worker was writing, sweeping draft T5 artifacts into the suite-run commit; amended the message to say so rather than rewriting history.",
+      "why": "Nothing lost, branch unpushed. A commit that misdescribes its own contents is worse than an untidy one. Staging explicit paths from here."
+    },
+    {
+      "id": "A3",
+      "at": "2026-08-22T08:25:00Z",
+      "made_by": "user",
+      "scope": "change",
+      "decision": "Owner re-granted, in this session, autopilot + permission for the assistant to run the test suite (\"Full permissions. I'm sleeping\").",
+      "why": "Re-confirms last session's session-scoped grant, as its checkpoint note required. Recorded as the owner's, not claimed by the assistant; the archive summary states the suite was assistant-run under grant.",
+      "covered_by": null
+    },
+    {
+      "id": "A4",
+      "at": "2026-08-22T08:25:00Z",
+      "made_by": "autopilot",
+      "scope": "change",
+      "decision": "Batched wave 3 + wave 4 into two module dispatches (analytics: 3.1+4.2; telemetry: 3.2+4.1) instead of four.",
+      "why": "3.2 depends on 3.1 and 4.1 on 3.2, so the modules must run serially anyway; one dispatch per module reads the doc pack once.",
+      "covered_by": null
+    },
+    {
+      "id": "A5",
+      "at": "2026-08-22T08:28:00Z",
+      "made_by": "autopilot",
+      "scope": "task:4.4",
+      "decision": "Reworded docs' internal/charging isolation claim to cite its closed Allowed-Imports allowlist instead of adding internal/analytics to charging's forbidden list.",
+      "why": "The forbidden list names telemetry, not analytics, so the claim went stale when GapWriter moved. Editing a third module widens a change the owner scoped narrow (I2). Logged as backlog item 14.",
+      "covered_by": "change decision I2"
+    },
+    {
+      "id": "A6",
+      "at": "2026-08-22T08:44:00Z",
+      "made_by": "autopilot",
+      "scope": "review:R1-1",
+      "decision": "Fixed R1-1 and R1-2 in place as leader rather than re-dispatching workers; three of the four sites are inside internal/analytics.",
+      "why": "Pure doc-comment rewords, zero behavioural risk, and a worker round-trip while the owner sleeps costs more than it buys. Build and vet re-run clean after.",
+      "covered_by": null
+    },
+    {
+      "id": "A7",
+      "at": "2026-08-22T08:44:00Z",
+      "made_by": "autopilot",
+      "scope": "change",
+      "decision": "Left charge_gaps' stale SQL COMMENT ON (names internal/battery + internal/telemetry, mirrored into generated models.go) UNFIXED. Backlog item 15.",
+      "why": "Both routes are closed unattended: editing the migration breaks design gate I1's zero-content-change rule, and a corrected COMMENT ON is DDL, which trips the database design gate needing the owner. Pre-existing since T1.",
+      "covered_by": null
+    },
+    {
+      "id": "U1",
+      "at": "2026-08-22T09:05:00Z",
+      "made_by": "user",
+      "scope": "change",
+      "decision": "Owner reported the suite green AND cmd/poller --once green, after the archive.",
+      "why": "Converts the tier's assistant-run pass (A3) into the owner's own verification, which is what CLAUDE.md's Test-Execution-Policy requires. The --once run covers cmd/poller, which has no tests.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-22T02:55:00Z",
+      "agent": "leader",
+      "event": "T5 artifacts complete and validated (openspec validate --changes --strict: 1 passed). Design gate satisfied by the owner interview (I1-I3), no DDL. progress.json seeded with 21 tasks across 4 active waves. Worker found extra scope the interview did not cover: history_test.go (5 fixtures) and two analytics test files reference telemetry.MissingChargingType and must re-point in the same atomic wave."
+    },
+    {
+      "at": "2026-08-22T02:57:00Z",
+      "agent": "leader",
+      "event": "Wave 1 started (ATOMIC - the tree does not compile until all 10 tasks land). 1.1 done by leader (git mv). Dispatching 1.2 (analytics query.sql) and 1.3+1.7 (telemetry removals) in parallel - disjoint modules. make sqlc CANNOT run until both 1.2 and 1.3 land, since sqlc scopes schema per module dir."
+    },
+    {
+      "at": "2026-08-22T03:05:00Z",
+      "agent": "leader",
+      "event": "Wave 1 mid-point: query move done both halves, make sqlc regenerated cleanly - ChargeGap symbols now in analyticsdb (13 query + 1 model) and ZERO in telemetrydb, the ownership flip visible in generated code. Leader verified the orphaned dateFromPg removal was safe. Dispatching 1.4/1.5/1.6 (analytics Go surface)."
+    },
+    {
+      "at": "2026-08-22T03:10:00Z",
+      "agent": "leader",
+      "event": "Wave 1 COMPLETE (10/10, atomic). First full-tree compile since the move began: go build ./... exits 0. go vet ./... fails ONLY on internal/telemetry/db_gap_writer_integration_test.go (undefined: newGapWriter) - the file wave 3 relocates, exactly the predicted residue. Leader verified the orphaned dateFromPg removal and that residual telemetry. references in the re-pointed files are all legitimate (Snapshot/Reader/Config/Collector)."
+    },
+    {
+      "at": "2026-08-22T03:12:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at the wave-1/wave-3 boundary: five_hour_pct 89 (threshold 90), context_pct 27, bucket resets 2026-08-22T07:00:00Z (02:00 local). Stopping cleanly - every task status is truthful and wave 1 is committed (2a0eca7). 10 of 21 tasks done. Remaining: wave 3 (relocate the gap-writer integration test, 3.1/3.2), wave 4 (docs 4.1-4.5), wave 5 (verification + suite), then reviewer + archive. NOTE: the owner granted session-scoped test permission, so a resuming session CAN run the suite and carry T5 to archived - that grant is session-scoped and must be re-confirmed by the owner in a new session before relying on it."
+    },
+    {
+      "at": "2026-08-22T08:25:00Z",
+      "agent": "leader",
+      "event": "RESUME (fresh session, budget reset: 5h 2%, ctx 9%). Verified wave 1 on disk rather than trusting the file: zero telemetry.ChargeGap/GapWriter/MissingChargingType refs in cmd/ or internal/ code, migration under analytics, telemetry/gap_writer.go gone. Ticked 1.1/1.8/1.9/1.10 in tasks.md - leader bookkeeping missed at checkpoint, work itself was committed in 2a0eca7. Owner re-granted suite permission (A3). Dispatching analytics worker for 3.1+4.2."
+    },
+    {
+      "at": "2026-08-22T08:32:00Z",
+      "agent": "leader",
+      "event": "Waves 3+4 COMPLETE (batched into two module dispatches per A4) and wave 5's assistant-run signals all pass. Leader independently verified both workers rather than trusting reports: diffed the moved test file (exactly the 8 sanctioned lines), confirmed no helper collisions, confirmed newTestStore is NOT orphaned (~40 call sites in 9 files) so the delete correctly left it, and confirmed the gofmt hit on scheduler_test.go is pre-existing (untouched by this branch, clean in tree). go vet ./... is now fully clean - the undefined: newGapWriter residue is gone. make migrate-status proves the migration move: charge_gaps reads from analytics' dir, still Applied, nothing pending. Only 5.4 (the suite) remains."
+    },
+    {
+      "at": "2026-08-22T08:36:00Z",
+      "agent": "leader",
+      "event": "SUITE GREEN - but attribution matters: this was ASSISTANT-RUN under the owner's in-session blanket grant ('Full permissions. I'm sleeping.', A3), NOT the owner's own reported pass that CLAUDE.md's Test-Execution-Policy normally requires. make test (env -u DATABASE_URL, disposable testcontainer, never the real magus DB) passed every package. Because a green suite can hide self-skipped DB tests, the leader additionally ran the targeted command tasks.md 5.4 hands to the owner: all 7 TestGapWriter_ tests report PASS with sub-tests, not SKIP - so the relocated file genuinely executes in analytics. Status -> verified; proceeding to the reviewer gate. The owner should still re-run to convert this into their own verification."
+    },
+    {
+      "at": "2026-08-22T08:37:00Z",
+      "agent": "leader",
+      "event": "Review brief written; dispatching analytics-reviewer (Sonnet, instructed to escalate on doubt). Brief states signal provenance explicitly, including that the suite pass is assistant-run under grant rather than owner-reported."
+    },
+    {
+      "at": "2026-08-22T08:44:00Z",
+      "agent": "leader",
+      "event": "Review round 1 triage: BOTH findings ACCEPTED, none rejected. R1-1 was a fair catch - task 1.8's own text required rewording cmd/poller's doc comments and it was ticked without doing so. Fixed 4 sites; cmd/poller needed more than a name swap, since its rationale ('neither module may depend on the other - telemetry never calls analytics') went vacuous once both halves became analytics'. Rewrote it to say why the orchestration still belongs in the composition root. Leader's own post-fix sweep then found THREE stale claims the reviewer MISSED: the moved test file's 'telemetrydb-backed' header (fixed, plus its skip description which was wrong for analytics' TestMain), and charge_gaps' SQL COMMENT ON + its sqlc-generated copy in models.go - those two are BLOCKED, see A7/backlog 15. go build, go vet clean; gofmt flags only the pre-existing scheduler_test.go."
+    },
+    {
+      "at": "2026-08-22T09:05:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED VERIFICATION RECEIVED (post-archive): 'make test green. cmd-poller-once OK green.' This SUPERSEDES the assistant-run pass this tier archived on - the caveat recorded at archive time is now resolved, and tier 5's verification is the owner's, on the same footing as tiers 1-4. The cmd/poller --once run is the load-bearing half: cmd/poller has NO tests (the exact hole behind tier 3's round-1 false-'done' blocker), and this change touched it twice - task 1.8's rewire to analytics.NewGapWriter and the review-round-1 doc fix. Build, vet and a green suite cannot exercise that file; --once can, and did."
+    }
+  ],
+  "review": {
+    "agent": "analytics-reviewer",
+    "status": "approved",
+    "brief": "Validate RM29 tier 5: charge_gaps ownership moved telemetry -> analytics. Check (1) the move is COMPLETE and nothing is left behind or duplicated: no charge_gaps query, migration, Go symbol or doc claim still says telemetry owns it; (2) the move is FAITHFUL - GapWriter's ReconcileWindow logic, error wording, validate-before-transaction order and all-or-nothing commit are unchanged (design.md D2 forbids collapsing it into Recalculate), and the relocated integration test differs from its telemetry original ONLY by the package clause and 7x newTestStore->newTestPool, with all 7 tests, their fixtures and 5 helpers intact; (3) module boundaries: analytics must not import telemetry for anything charge_gaps-related, telemetry must not reference the moved symbols, cmd/poller remains the only composition root joining derivation to writer; (4) the integration tests still assert what design.md's Test Contract authored up front, not merely what the implementation does; (5) docs-track-structural-change per CLAUDE.md - telemetry/analytics AGENTS.md, README ownership table, docs/battery-consumed-graph.md; (6) Performance-Profile compliance (read-heavy) - this tier adds no query and no index, so confirm none was silently added or dropped; (7) anti-gaming - no task title, criterion or test assertion weakened or deleted to make work look complete. SIGNAL PROVENANCE, read carefully: go build, go vet, gofmt, make build/vet/bins, the three guards, make sqlc, make migrate-status and openspec validate were ASSISTANT-RUN and all pass. The TEST SUITE was ALSO assistant-run (make test, plus a targeted -v run showing all 7 TestGapWriter_ tests PASS not SKIP) under a blanket in-session grant from the owner - it is NOT the owner's own reported pass that this project's Test-Execution-Policy normally requires. Judge test QUALITY by reading the tests; do not re-run the suite yourself. KNOWN AND DELIBERATE, do not report as new findings: (a) the metrics/gaps divergence when cmd/poller's step 2 errors is pre-existing and deliberately untouched (I2); (b) internal/charging/AGENTS.md's forbidden-import list never named internal/analytics - real, out of tier-5 scope, logged as backlog item 14, and the doc was reworded to cite charging's closed Allowed-Imports allowlist instead (A5); (c) gofmt -l flags 8 pre-existing files repo-wide, none touched here. A DB-object mismatch against the user-confirmed design (I1: git mv only, no DDL, no data copy) is a BLOCKER finding.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-22T09:15:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "major",
+            "note": "Stale 'telemetry owns/calls GapWriter' doc claims remain in production code and in analytics' own AGENTS.md, contradicting the actual ownership move and the review brief's completeness check ('no doc claim still says internal/telemetry owns it'). Specific locations: (1) cmd/poller/main.go lines ~9-15 (package-level doc comment: '...hands the flagged days to internal/telemetry's gap writer... See internal/analytics's Reconcile and ConsumedByDay, and telemetry's GapWriter.') and lines ~180-182 (newNightlyReconciler's doc comment: '...hands the flagged days to telemetry's gap writer, which upserts...') -- both were EXPLICITLY required to be reworded by task 1.8 ('Update the doc comment above newNightlyReconciler and the file's own package-level doc comment... reword to internal/analytics's own gap writer'), which is checked off [x] and whose progress.json note ('cmd/poller: NewGapWriter, the gapWriter param type and both ChargeGap literals re-pointed... The two-step reconcile shape... are byte-identical') does not actually claim this part was done -- and it was not. (2) internal/analytics/analytics.go line 30 (GapReconciliationWindow's doc comment): 'reconciles against telemetry's charge_gaps ledger' -- charge_gaps is this module's own table now. (3) internal/analytics/AGENTS.md line 124, the same stale sentence under 'Public interface (the port)' -- directly contradicted by the correct, newly-added 'Data ownership' charge_gaps entry lower in the SAME file, so the module's own doc pack is now internally self-contradictory (one bullet says telemetry owns the ledger, another says analytics does). None of this breaks build/vet/tests or crosses a module boundary, but it is exactly the kind of doc drift CLAUDE.md's 'docs-track-structural-change' rule and this project's AI-efficiency principle (discoverable, non-contradictory docs over facts an agent must re-derive) exist to prevent, and task 1.8 was marked done without fully satisfying its own stated acceptance text. Recommend: reword all three locations to describe analytics as sole owner/caller, mirroring the correctly-updated text elsewhere in the same files (e.g. recalculate.go's already-correct re-point, or gap_writer.go's own doc comment).",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R1-2",
+            "severity": "minor",
+            "note": "internal/analytics/recalculate.go:51 (pre-existing text, not touched by this change): 'mirroring internal/telemetry's gapWriter precedent (a write-path port not shaped for an offline fake)' -- gapWriter is now defined in this same package (gap_writer.go), so the cross-module framing is stale, though this line was not in scope of any task and is not a false ownership claim in the load-bearing sense of R1-1. Optional cleanup, not blocking.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ],
+        "verified": {
+          "doc_pack_read": [
+            "CLAUDE.md",
+            "ai/architecture.md",
+            "ai/go-conventions.md",
+            "ai/agentic-workflow.md",
+            "internal/analytics/AGENTS.md",
+            "internal/telemetry/AGENTS.md"
+          ],
+          "artifacts_read": [
+            "openspec/changes/RM29-analytics-own-charge-gaps/proposal.md",
+            "openspec/changes/RM29-analytics-own-charge-gaps/design.md",
+            "openspec/changes/RM29-analytics-own-charge-gaps/tasks.md",
+            "openspec/changes/RM29-analytics-own-charge-gaps/specs/telemetry/spec.md",
+            "openspec/changes/RM29-analytics-own-charge-gaps/specs/analytics/spec.md"
+          ],
+          "i1_db_gate": "MATCHES -- migration file is byte-identical (diff against pre-move version is empty), git-mv-recorded rename, zero DDL. make migrate-status output and the commit history confirm no re-run, no CREATE/DROP, no data copy.",
+          "faithfulness": "gap_writer.go and analytics.go's GapWriter/ChargeGap/MissingChargingType are verified byte-identical at the logic and doc-comment level to the pre-move telemetry originals (only package/import qualifiers and cross-module framing changed). sqlc-generated query functions (UpsertChargeGap/DeleteChargeGap/ChargeGapDatesByVehicleBetween) are byte-identical.",
+          "test_move": "db_gap_writer_integration_test.go verified byte-identical to the telemetry original except exactly 8 lines (package clause + 7x newTestStore->newTestPool), confirmed by diff. All 7 test names, 5 helpers, and chargeGapRow type intact, no name collisions with other analytics test files. Test Contract in design.md matches the actual test bodies.",
+          "boundaries": "No charge_gaps/ChargeGap/MissingChargingType/GapWriter reference remains in internal/telemetry/*.go (grep confirmed, only AGENTS.md prose mentions the historical move). analytics does not import telemetrydb; telemetry does not import analyticsdb. cmd/poller remains the sole composition root.",
+          "performance_profile": "Confirmed no new/altered/dropped index or query -- generated code is byte-identical to pre-move.",
+          "known_deliberate_items_a_b_c": "Not re-reported, as instructed.",
+          "test_execution_note": "Test suite pass (make test, targeted TestGapWriter_ -v showing PASS not SKIP) was assistant-run under the owner's in-session blanket grant, not an owner-reported pass -- noted per policy, not treated as the owner's own verification."
+        }
+      },
+      {
+        "round": 2,
+        "at": "2026-08-22T09:40:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "major",
+            "note": "Re-verified against commit 7f5b2dd, read directly (not just the commit message). All four sites fixed: cmd/poller/main.go's package-level doc comment and newNightlyReconciler's doc comment no longer say 'telemetry's gap writer' / 'telemetry's GapWriter'; internal/analytics/analytics.go's GapReconciliationWindow doc comment now says 'this package's own charge_gaps ledger'; internal/analytics/AGENTS.md's matching sentence is fixed and no longer contradicts the module's own 'Data ownership' charge_gaps entry lower in the same file. On the reworded cmd/poller rationale specifically ('a domain module does not drive the poller's per-vehicle loop or own its scheduling'): I checked it against design.md D2 and docs/battery-consumed-graph.md's already-updated D4a framing ('cmd/poller is the only place that joins the derivation to the writer... since RM29 tier 5 both halves are internal/analytics's, so what cmd/poller wires is now one module's derivation to its own writer, not a cross-module handoff') and it is consistent, not an overreach -- it correctly describes why the fleet-wide, all-accounts enumeration loop (acct.AllRegisteredVehicles) stays in the composition root rather than being pulled into analytics' per-vehicle-scoped ports, matching go-conventions.md's 'cmd/ files stay thin, wiring only' framed the other way around. No objection to the reasoning.",
+            "status": "fixed"
+          },
+          {
+            "id": "R1-2",
+            "severity": "minor",
+            "note": "Re-verified: internal/analytics/recalculate.go:51 now reads 'mirroring this package's own gapWriter precedent' -- confirmed correct, gapWriter is indeed defined in the same package now (gap_writer.go).",
+            "status": "fixed"
+          }
+        ],
+        "additional_items_from_leader_sweep": [
+          {
+            "item": "db_gap_writer_integration_test.go header called the writer 'telemetrydb-backed' and its skip-condition prose was inherited verbatim from telemetry and inaccurate for this package's TestMain (which also auto-provisions a Docker container, not only DATABASE_URL).",
+            "verdict": "Confirmed fixed. Read the new header directly: it now says 'analyticsdb-backed GapWriter... against the test Postgres this package's TestMain provisions -- DATABASE_URL when set, otherwise a Docker container -- and self-skip when neither is available'. Cross-checked against testdb_test.go's actual TestMain/runTests implementation (testdb.ProvisionDirs, ErrUnavailable skip path) -- the new text accurately describes this package's real behavior. Good catch by the leader's sweep; this reviewer missed it in round 1 since it was outside the 'no other line changes' 8-line diff round 1 checked against the pre-move file (that check was about fidelity to the ORIGINAL telemetry test, not about whether the original's own header was already accurate for its new home)."
+          },
+          {
+            "item": "charge_gaps' SQL COMMENT ON TABLE (migration line ~73) still names internal/battery (stale since T1) and internal/telemetry (stale since T5) as writer/owner, and sqlc copies that text verbatim into internal/analytics/db/models.go as the ChargeGap struct's doc comment -- left UNFIXED, logged as backlog item 15.",
+            "ruling": "CORRECTLY DEFERRED, not a blocker. Independently verified both routes are genuinely closed to an unattended fix: (1) editing the migration's SQL text -- even just the embedded COMMENT ON TABLE string -- would break design gate I1's confirmed zero-content-change invariant (verified: a diff of the migration file against its pre-move version is byte-for-byte empty; that emptiness is what makes the git mv provably safe under this project's shared goose_db_version table, per D1) and would not even fix the live database, since the migration is already Applied and never re-executes; (2) a new migration issuing a corrected COMMENT ON TABLE/COLUMN is itself DDL, which correctly trips this project's built-in 'database' design gate requiring the owner's explicit confirmation before Apply -- and the owner is asleep, per this session's standing grant. Backlog item 15 is well-written: it correctly attributes the internal/battery half to T1 (not this tier's fault) and the internal/telemetry half to T5 (this tier's own doing, since the move is what surfaced it inside internal/analytics), gives a concrete suggested fix (a comment-only migration) and a concrete trigger (next database gate touching this module, or opportunistically at T6/T7). This is the same class and severity as backlog item 14, which round 1 already accepted as correctly out-of-scope. Zero functional/behavioral impact -- it is a pg_description string and its sqlc-generated echo, never read by any code path. Do not park the change over this."
+          }
+        ],
+        "verification_signals_rechecked": {
+          "go_build": "clean",
+          "go_vet": "clean",
+          "gofmt": "same 8 pre-existing repo-wide hits as round 1 (account/service_integration_test.go, account/testdb_test.go, config/quote_test.go, gateway/templates/fragments/dashboard_vm.go, gateway/templates/pages/dashboard.go, gateway/templates/ui/nav_shell_test.go, gateway/vehicle_image_test.go, telemetry/scheduler_test.go) -- none touched by 7f5b2dd, confirmed by direct gofmt -l run, not by trusting the commit message's shorter summary.",
+          "grep_sweep": "Repo-wide grep for stale telemetry/charge_gaps ownership phrasing now returns only (a) the two correctly-historical analytics.go section comments already accepted in round 1, (b) an unrelated, correctly-scoped vehicle_metric_watermarks comment naming telemetry as vehicle_snapshots/supercharger_sessions' real owner, and (c) the deferred models.go/migration COMMENT ON text ruled on above. No other residue."
+        },
+        "outcome": "All round-1 findings (R1-1 major, R1-2 minor) confirmed fixed by direct re-reading of the changed files, not by trusting the commit message. The leader's own additional sweep found and fixed one more real instance of the same class (test file header) and correctly identified and deferred one instance that cannot be fixed unattended without violating either the I1 zero-content-change invariant or the database design gate (backlog item 15) -- both rulings independently verified and agreed with. No new findings. APPROVED for archive."
+      }
+    ]
+  }
+}

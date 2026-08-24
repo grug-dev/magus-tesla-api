@@ -9,22 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Nightly-detected vehicle-days whose battery math does not add up -- a charge record is missing or incomplete (RM28-telemetry-add-charge-gap-storage, MAG-15). One row per (account_id, tesla_id, gap_date): a day's shortfall is a single aggregate observation, never split across two rows. Written by internal/battery through the GapWriter port (telemetry never calls battery). No resolved_at / soft delete: a day that stops flagging is DELETED by the next nightly reconciliation, not marked resolved -- this table is a live worklist, not an audit trail. Owned by internal/telemetry; no other module reads this table directly.
-type ChargeGap struct {
-	ID        uuid.UUID
-	AccountID uuid.UUID
-	// Always resolved and NOT NULL: a vehicle that cannot be attributed to a currently-registered vehicle is filtered out of internal/battery's derivation before gap detection runs, unlike supercharger_sessions.tesla_id which is nullable for exactly that unattributed case.
-	TeslaID int64
-	Vin     string
-	GapDate pgtype.Date
-	// Which charge source is suspected missing for this day (D7a): SUPERCHARGER when a Supercharger session exists that day with NULL start/end battery percentages (the exact record that needs filling is already known); MANUAL otherwise (the vehicle was charged somewhere the Tesla Fleet API does not report). Inferred by internal/battery at detection time, never user-chosen.
-	MissingChargingType string
-	// When this (account_id, tesla_id, gap_date) was FIRST flagged. Preserved across every subsequent nightly re-upsert of the same still-flagged day -- NOT refreshed on conflict -- so it answers "how long has this been outstanding" for a future notification consumer.
-	CreatedAt pgtype.Timestamptz
-	// When this row was last confirmed still-flagging by a nightly run. Refreshed to now() on every UPSERT conflict; a day that stops flagging is deleted outright rather than leaving a stale updated_at behind.
-	UpdatedAt pgtype.Timestamptz
-}
-
 type PollAttempt struct {
 	ID          uuid.UUID
 	AccountID   uuid.UUID
@@ -32,6 +16,10 @@ type PollAttempt struct {
 	AttemptedAt pgtype.Timestamptz
 	Outcome     string
 	Reason      string
+	// Correlates every vehicle's attempt row from one app.ProcessVehicleData invocation. Generated once per invocation by internal/app (uuid.New()) and passed down via telemetry.RunContext (design.md D5). NULL on every row written before this migration — that run's identity was never recorded and is not recoverable; never backfilled, never will be.
+	RunID pgtype.UUID
+	// What triggered the run that wrote this attempt: scheduler (the nightly poller, including cmd/poller --once) or api (a future manual re-run, RM29 tier 8, parked). NOT NULL DEFAULT 'scheduler' backfills every pre-migration row correctly, since no non-scheduler entry point existed before this tier. Guarded by the typed Go constant telemetry.TriggeredBy — no DB CHECK (design.md D1/D7).
+	TriggeredBy string
 }
 
 // Tesla-billed Supercharger and DC fast-charging sessions per account. Covers sessions returned by GET /api/1/dx/charging/history only (no home/AC charging). The Tesla API itself carries no battery-percentage field; start_battery_pct/end_battery_pct/battery_pct_source are a human-owned verification/override channel, and start_battery_pct_est/end_battery_pct_est are a frozen write-once snapshot of the estimate at verification time (both added by RM27 tier 1, MAG-14) -- all five excluded from the nightly UPSERT so a verified value or its snapshot is never silently overwritten (R3). Owned by internal/telemetry; no other module reads this table directly. UPSERT on session_id (not append-only): billing state is mutable post-session.
@@ -68,36 +56,31 @@ type SuperchargerSession struct {
 }
 
 type VehicleSnapshot struct {
-	ID                     uuid.UUID
-	AccountID              uuid.UUID
-	TeslaID                int64
-	CapturedAt             pgtype.Timestamptz
-	RawData                []byte
-	BatteryLevelPct        int32
-	BatteryRangeKm         float64
-	ChargingState          string
-	ChargeLimitSocPct      int32
-	OdometerKm             float64
-	InsideTempC            float64
-	OutsideTempC           float64
-	Locked                 bool
-	SentryMode             pgtype.Bool
-	CarVersion             string
-	ChargeEnergyAddedKwh   pgtype.Float8
-	ChargerPowerKw         pgtype.Int4
-	ChargerVoltageV        pgtype.Int4
-	ChargerActualCurrentA  pgtype.Int4
-	UsableBatteryLevelPct  pgtype.Int4
-	MaxRangeChargeCounter  pgtype.Int4
-	TpmsPressureFlPsi      pgtype.Float4
-	TpmsPressureFrPsi      pgtype.Float4
-	TpmsPressureRlPsi      pgtype.Float4
-	TpmsPressureRrPsi      pgtype.Float4
-	CapturedDate           pgtype.Date
-	UpdatedAt              pgtype.Timestamptz
-	DistanceTraveledKmCalc pgtype.Float8
-	BatteryUsedPctCalc     pgtype.Int4
-	KmPerPctCalc           pgtype.Float8
-	EstimatedRangeKmCalc   pgtype.Float8
-	DaysSpannedCalc        pgtype.Int4
+	ID                    uuid.UUID
+	AccountID             uuid.UUID
+	TeslaID               int64
+	CapturedAt            pgtype.Timestamptz
+	RawData               []byte
+	BatteryLevelPct       int32
+	BatteryRangeKm        float64
+	ChargingState         string
+	ChargeLimitSocPct     int32
+	OdometerKm            float64
+	InsideTempC           float64
+	OutsideTempC          float64
+	Locked                bool
+	SentryMode            pgtype.Bool
+	CarVersion            string
+	ChargeEnergyAddedKwh  pgtype.Float8
+	ChargerPowerKw        pgtype.Int4
+	ChargerVoltageV       pgtype.Int4
+	ChargerActualCurrentA pgtype.Int4
+	UsableBatteryLevelPct pgtype.Int4
+	MaxRangeChargeCounter pgtype.Int4
+	TpmsPressureFlPsi     pgtype.Float4
+	TpmsPressureFrPsi     pgtype.Float4
+	TpmsPressureRlPsi     pgtype.Float4
+	TpmsPressureRrPsi     pgtype.Float4
+	CapturedDate          pgtype.Date
+	UpdatedAt             pgtype.Timestamptz
 }

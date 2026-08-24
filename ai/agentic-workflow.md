@@ -9,7 +9,7 @@ structural rules in [`architecture.md`](./architecture.md). Referenced from `CLA
 ## The core idea
 
 **The module boundary is the unit of both code isolation *and* agent isolation.** The same
-walls that stop `internal/battery/` from touching `internal/tesla/`'s database also scope
+walls that stop `internal/analytics/` from touching `internal/tesla/`'s database also scope
 the AI agent that works on each module. This is Anthropic's **orchestrator-workers** agent
 pattern, with one added constraint: **a worker's scope == a module boundary.**
 
@@ -28,7 +28,7 @@ shipped feature.
    and may not import, its DTO conventions, where its data lives, and testing notes.
 
 `AGENTS.md` is the cross-assistant standard (read by Claude Code, OpenCode, Cursor, and
-others) and is **hierarchical**: an assistant working inside `internal/battery/` merges the
+others) and is **hierarchical**: an assistant working inside `internal/analytics/` merges the
 **global** root file with the **nearest** module file. That merge *is* the "global +
 scoped" model — no custom machinery required.
 
@@ -48,7 +48,7 @@ For a requirement that spans multiple modules:
 3. **Delegate one worker per affected module.** Each worker (a subagent, if the assistant
    supports them; otherwise the same assistant switching "hats") does its slice **inside
    that module's boundary only**, following the module's `AGENTS.md`.
-4. **Respect the sandbox.** A worker assigned to `battery` may read/edit `battery` and call
+4. **Respect the sandbox.** A worker assigned to `analytics` may read/edit `analytics` and call
    other modules only through their **public interfaces** — it must not edit another
    module's internals or query its database.
 5. **The lead integrates** — wires the modules together through interfaces and reconciles

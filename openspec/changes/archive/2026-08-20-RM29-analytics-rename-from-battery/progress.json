@@ -1,0 +1,1357 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM29-analytics-rename-from-battery",
+  "module": "battery",
+  "roadmap": "openspec/roadmaps/RM29-modular-monolith-boundaries.md",
+  "request": "please continue the artifacts for RM29-analytics-rename-from-battery",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "1.7",
+      "1.8",
+      "1.9",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "2.5",
+      "2.6",
+      "2.7",
+      "3.1",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "4.5",
+      "4.6",
+      "5.1",
+      "5.2",
+      "5.3",
+      "6.1",
+      "6.2"
+    ]
+  },
+  "created_at": "2026-08-20T17:15:32Z",
+  "updated_at": "2026-08-20T20:52:12Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM29-MAG-26-modular-monolith-boundaries",
+    "base": "main",
+    "ticket": "MAG-26",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-26/modular-monolith-refactoring",
+    "created_at": "2026-08-20T17:15:32Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Move battery.go -> analytics/analytics.go; package clause + doc comment",
+      "module": "battery",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:22:07Z",
+      "completed_at": "2026-08-20T17:23:40Z",
+      "duration_seconds": 93,
+      "notes": "mv battery.go->analytics.go; package clause + doc comment updated. Archived-change citation left intact.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "Move capacity.go; package clause only",
+      "module": "battery",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv capacity.go; package clause only.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "Move consumed.go; package clause only",
+      "module": "battery",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv consumed.go; package clause only. Domain-word 'battery' occurrences untouched.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "1.4",
+      "title": "Move derive.go; package clause only",
+      "module": "battery",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv derive.go; package clause only.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "1.5",
+      "title": "Move reader.go; package clause only (all identifiers keep names)",
+      "module": "battery",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv reader.go; package clause only. Leader later fixed one stale prose ref at line 15.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "1.6",
+      "title": "Move consumed_test.go; package clause only",
+      "module": "battery",
+      "owner": "module",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:24:10Z",
+      "duration_seconds": 30,
+      "notes": "mv consumed_test.go; package clause + one broken 'go test ./internal/battery/...' comment path.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "1.7",
+      "title": "Move derive_test.go; package clause only",
+      "module": "battery",
+      "owner": "module",
+      "depends_on": [
+        "1.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:25:00Z",
+      "duration_seconds": 80,
+      "notes": "mv derive_test.go; package clause. gofmt -w applied for a pre-existing alignment issue.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "1.8",
+      "title": "Move reader_test.go; package clause only",
+      "module": "battery",
+      "owner": "module",
+      "depends_on": [
+        "1.5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:23:40Z",
+      "completed_at": "2026-08-20T17:23:50Z",
+      "duration_seconds": 10,
+      "notes": "mv reader_test.go; package clause only.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "1.9",
+      "title": "Move AGENTS.md; Agent-Name -> analytics + RM29 scope sentence",
+      "module": "battery",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "battery",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T17:24:10Z",
+      "completed_at": "2026-08-20T17:25:00Z",
+      "duration_seconds": 50,
+      "notes": "mv AGENTS.md; Agent-Name: analytics, title, module refs, one D5 forward-looking sentence.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "cmd/poller/main.go — import, qualifiers, local batteryReader",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import, qualifiers, batteryReader->analyticsReader. Also fixed 'telemetry never calls battery' prose the token rules missed.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "cmd/web/main.go — import + Deps{AnalyticsReader:}",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import + Deps{AnalyticsReader: analytics.NewReader(...)}.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "internal/gateway/gateway.go — import + Deps.BatteryReader field rename",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import + Deps.BatteryReader->AnalyticsReader, forwarding use, doc comment. gofmt -w (mixed inherited+rename alignment).",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "2.4",
+      "title": "internal/gateway/handlers/handlers.go — Deps + Handler.analyticsReader",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import + Deps/Handler field renames, constructor forwarding, doc comment. gofmt -w: rename broke alignment (clean at HEAD).",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "2.5",
+      "title": "internal/gateway/handlers/history.go — import, qualifiers, call site",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import, battery.* qualifiers, h.analyticsReader.ConsumedByDay call site.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "2.6",
+      "title": "internal/gateway/handlers/history_test.go — import, qualifiers, 3 stale identifiers",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.4",
+        "2.5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "Import, qualifiers, fakeAnalyticsReader/newHandlerForHistoryWithAnalytics/TestHandler_AnalyticsReaderDepsForwarding. gofmt -w.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "2.7",
+      "title": "Stale internal/battery prose in hand-written Go doc comments (added mid-wave)",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:29:29Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 0,
+      "notes": "Added mid-wave: 10 stale internal/battery refs in hand-written Go doc comments. sqlc-generated ones deferred to T5.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "git mv openspec/specs/battery -> analytics; fix H1 + Purpose (gates 5.2/archive)",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:21:22Z",
+      "completed_at": "2026-08-20T17:29:29Z",
+      "duration_seconds": 487,
+      "notes": "git mv specs/battery->analytics; H1 + Purpose edited; 12 requirements byte-identical so MODIFIED delta still applies.",
+      "budget": {
+        "five_hour_pct_start": 38.0,
+        "five_hour_pct_end": 51.0,
+        "five_hour_pct_delta": 13.0,
+        "cost_usd_delta": 5.47,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 1 (worker) + wave 2/2.7/3.1 (leader) ran concurrently; delta is the joint bracket"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "README.md — structure tree, architecture table, dependency graph (5 refs)",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5",
+        "2.6"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "README tree, architecture table, dependency graph (5 refs) + 2 data-ownership rows D6 missed. Box art re-padded: all 24 lines verified 76 runes.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "ai/architecture.md — §4 blueprint, §6 DTO example, §2 cycle example",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5",
+        "2.6"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "architecture.md §2 cycle example, §4 blueprint (comment col preserved), §6 DTO example. §7 battery_level untouched.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
+    },
+    {
+      "id": "4.3",
+      "title": "internal/gateway/AGENTS.md — Deps.BatteryReader bullet + 3 follow-ons",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5",
+        "2.6"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "gateway AGENTS.md Deps bullet reflowed: AnalyticsReader/analytics.Reader/analyticsdb. Domain-word prose, testid + grouping examples untouched.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
+    },
+    {
+      "id": "4.4",
+      "title": "internal/telemetry/AGENTS.md — 5 prose refs to internal/battery",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5",
+        "2.6"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "telemetry AGENTS.md: 7 module refs cleared (D6 said 5). Archived RM27 change names preserved.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
+    },
+    {
+      "id": "4.5",
+      "title": "docs/battery-consumed-graph.md — content only, filename unchanged",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5",
+        "2.6"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "battery-consumed-graph.md: 12 path/qualifier refs; filename kept. Diagram arrow column corrected to 38.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
+    },
+    {
+      "id": "4.6",
+      "title": "openspec/roadmaps/backlog.md — §7 header + 2 paths (not archived names)",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5",
+        "2.6"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "backlog.md §7 header + 4 path refs, plus 4 more D6 missed (§14, §16, §19). Archived citations D1b/RM27 preserved.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "Assistant signals: go build, go vet, gofmt -l, ui/i18n/money guards",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "1.5",
+        "1.6",
+        "1.7",
+        "1.8",
+        "1.9",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "2.5",
+        "2.6",
+        "4.1",
+        "4.2",
+        "4.3",
+        "4.4",
+        "4.5",
+        "4.6"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "go build OK, go vet OK. gofmt -l: 10 files, all pre-existing at main, none touched by this change. ui/i18n/money guards pass.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "openspec validate --changes --strict (status/instructions reject RM29 name)",
+      "module": "battery",
+      "owner": "leader",
+      "depends_on": [
+        "3.1",
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-20T17:37:18Z",
+      "completed_at": "2026-08-20T17:42:06Z",
+      "duration_seconds": 288,
+      "notes": "openspec validate --changes --strict: 1 passed, 0 failed.",
+      "budget": {
+        "five_hour_pct_start": 55.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 8.0,
+        "cost_usd_delta": 3.4572,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 3 (4.1-4.6) + 5.1/5.2 ran as one leader-executed bracket"
+      }
+    },
+    {
+      "id": "5.3",
+      "title": "Owner runs the suite and reports — clears awaiting-user-verification",
+      "module": "battery",
+      "owner": "user",
+      "depends_on": [
+        "5.1",
+        "5.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "user",
+      "model": null,
+      "started_at": "2026-08-20T20:16:00Z",
+      "completed_at": "2026-08-20T20:16:00Z",
+      "duration_seconds": 0,
+      "notes": "Owner ran the suite and reported it passing; also manually exercised the gateway pages and cmd/poller. Recorded as the owner's verification, not the assistant's.",
+      "budget": null
+    },
+    {
+      "id": "6.1",
+      "title": "Widen sessionsTileValueRe for the font-mono StatTile markup",
+      "module": "gateway",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T18:05:00Z",
+      "completed_at": "2026-08-20T19:10:57Z",
+      "duration_seconds": 1557,
+      "notes": "Widened sessionsTileValueRe to class=\"stat-value[^\\\"]*\" for ui.StatTile's font-mono markup (8795f6b/RD11). Capture and comparison unchanged. Leader re-verified the regex matches the failing body.",
+      "budget": {
+        "five_hour_pct_start": 63.0,
+        "five_hour_pct_end": 79.0,
+        "five_hour_pct_delta": 16.0,
+        "cost_usd_delta": 7.2908,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 6: one serial gateway worker (Sonnet) for 6.1+6.2"
+      }
+    },
+    {
+      "id": "6.2",
+      "title": "Restore ui.LangSwitcher to the anonymous shell via a shared baseShell",
+      "module": "gateway",
+      "owner": "module",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-20T18:05:00Z",
+      "completed_at": "2026-08-20T19:10:57Z",
+      "duration_seconds": 1557,
+      "notes": "Extracted baseShell per D12; Base = shell + the fixed top-right chrome moved verbatim from the pages; BaseAuth navbar untouched. Removed the now-duplicate per-page switchers.",
+      "budget": {
+        "five_hour_pct_start": 63.0,
+        "five_hour_pct_end": 79.0,
+        "five_hour_pct_delta": 16.0,
+        "cost_usd_delta": 7.2908,
+        "context_pct_end": 21,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "wave 6: one serial gateway worker (Sonnet) for 6.1+6.2"
+      }
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "analytics-reviewer",
+    "brief": "Review RM29 tier 1 (battery -> analytics rename) against the DIFF, not the whole module. Validate: (1) the rename is behaviour-preserving — no identifier, signature or logic change beyond package clause + qualifiers; every one of the 6 call sites re-points correctly. (2) Module-boundary compliance: analytics still owns no DB, gateway still calls only public ports, telemetry still never imports analytics. (3) Domain-word discipline: 'battery' naming a vehicle attribute (chart labels, battery-info testid, telemetry battery_pct columns, the docs/battery-consumed-graph.md filename) MUST remain; only Go-package references changed. (4) Archived change names (D1b, battery-add-efficiency-metric, RM27-supercharger-battery-percentage) are preserved verbatim — history is never retconned. (5) Docs-track-structural-change is complete: README, ai/architecture.md, ai/agentic-workflow.md, gateway+telemetry AGENTS.md, docs/battery-consumed-graph.md, backlog.md, openspec/specs/gateway/spec.md. (6) design.md D6 UNDERCOUNTED three docs (telemetry 5->7, backlog 2->8, README 8->10) and omitted ai/agentic-workflow.md entirely — assess whether any stale reference still remains anywhere outside the deliberate exclusions (sqlc-generated + migration COMMENT ON in internal/telemetry/db, deferred to tier 5; ideas/; archives; this change's own artifacts). This is the third D6-class undercount — judge it as a pattern. (7) Wave 6 is NOT part of the rename: two pre-existing gateway failures the owner chose to fix here (D10). Judge them on their own merits — the sessionsTileValueRe widening must not weaken what the assertion proves, and the baseShell extraction (D12) must not double-render the LangSwitcher nor drop @ui.ConfirmDialog from either shell. Anti-gaming: no acceptance criterion weakened, no self-approved status, no test assertion loosened to pass. Test-Execution-Policy (verbatim): Claude writes tests but never runs the suite — never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. Signals provenance: go build, go vet, gofmt -l, ui/i18n/money guards and openspec validate --changes --strict were ASSISTANT-run and passed. The suite is USER-run — judge test quality by READING the tests, never by running them.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-20T20:22:27Z",
+        "reviewer": "analytics-reviewer",
+        "verdict": "changes-requested",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/analytics/AGENTS.md",
+          "openspec/changes/RM29-analytics-rename-from-battery/proposal.md",
+          "openspec/changes/RM29-analytics-rename-from-battery/design.md",
+          "openspec/changes/RM29-analytics-rename-from-battery/tasks.md",
+          "openspec/changes/RM29-analytics-rename-from-battery/progress.json"
+        ],
+        "signals_independently_run": {
+          "go build ./...": "pass",
+          "go vet ./...": "pass",
+          "gofmt -l (repo-wide)": "10 files, same 10 as claimed in task 5.1, none overlap this change's touched files — confirmed clean on every touched file",
+          "make ui-guard": "pass",
+          "make i18n-guard": "pass",
+          "make money-guard": "pass",
+          "openspec validate --changes --strict": "1 passed, 0 failed",
+          "templ generate (base.templ, home.templ, login.templ, run against isolated copies in scratchpad, not the working tree)": "byte-identical to the committed base_templ.go/home_templ.go/login_templ.go — make templ was genuinely run, generated output is honest"
+        },
+        "verified": [
+          "Byte-level diff (whitespace-insensitive) of every moved analytics/*.go and analytics/*_test.go file against its main:internal/battery/*.go original confirms design.md's claim exactly: only the package clause, the package doc comment, and two prose 'the battery/analytics module' references changed. No identifier, signature, or logic changed. derive_test.go's one-line diff is a pure gofmt realignment.",
+          "All 6 declared call sites (cmd/poller/main.go, cmd/web/main.go, gateway.go, handlers.go, history.go, history_test.go) diffed clean: import path + qualifier + the three battery-named identifiers (Deps.BatteryReader, Handler.batteryReader, and history_test.go's fakeBatteryReader/newHandlerForHistoryWithBattery/TestHandler_BatteryReaderDepsForwarding) renamed exactly as design.md D2 specifies. No assertion, fixture, or test-name changed.",
+          "charges_test.go's large whitespace diff is gofmt collateral from fixing a PRE-EXISTING main misalignment while the file was open for its one real edit (confirmed via `gofmt -d` against the main version and a whitespace-insensitive diff against HEAD showing exactly one semantic change).",
+          "Module boundary intact: internal/analytics imports only telemetry, manualcharge, account, uuid, stdlib — no pgx/db/gateway/tesla/templ import anywhere. internal/telemetry has zero import of internal/analytics (grep + go list -deps both empty).",
+          "Domain-word discipline holds: battery-info testid, vehicle_snapshots.battery_level_pct/battery_used_pct_calc columns, and docs/battery-consumed-graph.md's filename are all untouched.",
+          "Archived-change citations D1b, battery-add-efficiency-metric, RM27-supercharger-battery-percentage all survive verbatim, repo-wide.",
+          "Wave 6 task 6.1 (sessionsTileValueRe): confirmed the real rendered markup is class=\"stat-value font-mono\" (stat_tile.templ), the widened regex class=\"stat-value[^\"]*\" still anchors on the literal 'stat-value' prefix (not a bare wildcard), and both call sites still compare the extracted integer against an independently-derived expected count (table row count / hardcoded fixture count) — the assertion is not weakened.",
+          "Wave 6 task 6.2 (baseShell/D12/D13): confirmed ui.ConfirmDialog renders exactly once, inside baseShell only. Confirmed Base = baseShell + LangSwitcher chrome (used only by home.templ/login.templ) and BaseAuth calls baseShell directly (not Base), so the navbar's own LangSwitcher is not duplicated. Confirmed home.templ/login.templ's own per-page LangSwitcher divs were removed as the direct, correct consequence of centralizing it in Base — not a silent drop.",
+          "Anti-gaming: review.status was 'pending'/agent null before this round: no self-approval. No task, criterion, or spec requirement was edited/deleted (spec.md's 12 requirements are byte-identical to main; tasks.md matches the executed work 1:1). No test assertion was loosened."
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "note": "internal/gateway/templates/fragments/history_vm.go:135 — HistoryView.Consumed's doc comment still reads 'bucketed on battery.DayConsumption.Date DIRECTLY (never effectiveDayUTC — D18/D18a, design.md D-G2)'. Should be analytics.DayConsumption.Date. This is the SAME file task 2.7 opened to fix its one declared internal/battery reference (line ~33, 'flagged by internal/analytics's gap detection' — confirmed already fixed) — the file was reopened for exactly this purpose and a second, distinct battery.<Type> qualifier reference on the same file survived.",
+            "status": "fixed"
+          },
+          {
+            "id": "F2",
+            "severity": "major",
+            "note": "openspec/specs/gateway/spec.md:1276 — the scenario 'History charts render for the selected vehicle with the default window, now ending yesterday' still reads '...several computable `battery.DayConsumption` days'. Should be `analytics.DayConsumption`. This is inside the very file D8/the events log claims was swept for '16 refs (10 battery.Reader, 6 internal/battery) -> analytics' — one qualifier reference in a live requirement scenario (not domain-word prose) was missed by that sweep.",
+            "status": "fixed"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "internal/telemetry/db/query.sql:310 — hand-written SQL comment '...NEVER refreshed, NEVER a cache read by internal/battery'. This is a plain `--` comment in the hand-authored query.sql source (not sqlc-generated code, not a migration COMMENT ON statement), so it sits outside the declared tier-5-deferred exclusion (which covers only sqlc-generated output and already-applied migrations' COMMENT ON text) and is editable today without a new migration.",
+            "status": "fixed"
+          },
+          {
+            "id": "F4",
+            "severity": "minor",
+            "note": "ai/htmx-conventions.md:31,140 and ai/htmx-go-integration.md:28-29,45 (both in the gateway module's own Doc-Pack per CLAUDE.md) still use the old package name in illustrative example code: `battery.State`, `templ BatteryPage(s battery.State)`, `battery.StateFrom(...)`. design.md D6 treated the structurally identical illustrative use in ai/architecture.md's DTO-naming example (`battery.State`) as in-scope ('illustrative uses of the literal module name, not the domain word'); by the same reasoning these two files should have been swept too. Zero functional impact today — the web layer isn't built yet, so nothing real depends on this example — but it will mis-teach whichever agent implements the gateway's first real page.",
+            "status": "fixed"
+          },
+          {
+            "id": "F5",
+            "severity": "minor",
+            "note": "openspec/specs/gateway/spec.md, the 'Consumed chart data comes exclusively through analytics.Reader' scenario: 'AND a `analytics.Reader` error degrades only the consumed chart...' should read 'an `analytics.Reader`' — an a/an mismatch left by the mechanical battery->analytics find-replace (it read correctly as 'a `battery.Reader`' before). Cosmetic only.",
+            "status": "fixed"
+          },
+          {
+            "id": "F6",
+            "severity": "minor",
+            "note": "kkpa/plans/executed/docs/rm28-battery-consumed-pipeline-doc-2026-08-17.md still names internal/battery throughout (e.g. lines 61, 79, 132-136, 286-349). This is an executed/historical plan record from the already-shipped RM28 change, analogous to an archived change's own artifacts describing the 'from' state, and is not part of CLAUDE.md's docs-track-structural-change enumerated doc set (README/cmd-README/module-README/AGENTS.md/ai/*.md). I do not treat it as required for this tier, but flagging it since the brief asked for an independent, repo-wide sweep.",
+            "status": "wontfix"
+          }
+        ],
+        "assessment": "The core rename (F(1) behaviour preservation, F(2) module boundaries, F(3) domain-word discipline, F(4) archived-name preservation, F(7) wave-6 fixes on their own merits, anti-gaming) all check out cleanly under independent verification — including two signals the leader could not have produced dishonestly (a whitespace-insensitive diff against main's originals, and a from-scratch `templ generate` run against isolated copies of the three touched .templ files). The finding is narrowly about F(5)/F(6): the brief itself frames the D6 undercount as a recurring pattern (proposal's own count -> design.md D6's grep -> leader's D7 catch-up sweep, each one incomplete), and this round's independent sweep found it recurring a fourth time, twice in files that were deliberately reopened in this same change specifically to fix this exact class of reference (task 2.7 on history_vm.go itself; D8's dedicated gateway-spec sweep on spec.md itself). That is not a new category of error, but two more concrete instances of the pattern the leader already told this reviewer to weigh seriously. Given CLAUDE.md's docs-track-structural-change rule is stated as a hard requirement ('A change that leaves structure docs stale is incomplete'), F1/F2 are graded major and the round is changes-requested. No build, boundary, test-honesty, or behaviour-preservation defect was found — a corrected round addressing F1/F2 (F3-F6 are optional judgment calls for the leader) should re-approve cleanly."
+      },
+      {
+        "round": 2,
+        "at": "2026-08-20T20:28:14Z",
+        "reviewer": "analytics-reviewer",
+        "verdict": "approved",
+        "scope": "Re-verification per leader signal after commit be5b545 (\"fix(analytics/MAG-26): address review round 1 findings\"). Checked only prior findings plus files changed since round 1, per the leader's instruction, not the whole change again.",
+        "files_reviewed": [
+          "ai/agentic-workflow.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "internal/gateway/templates/fragments/history_vm.go",
+          "internal/telemetry/db/query.sql",
+          "internal/telemetry/db/query.sql.go",
+          "openspec/specs/gateway/spec.md",
+          "openspec/changes/RM29-analytics-rename-from-battery/progress.json"
+        ],
+        "signals_independently_run": {
+          "go build ./...": "pass",
+          "go vet ./...": "pass",
+          "gofmt -l (touched .go files + repo-wide)": "clean on both touched .go files; repo-wide still exactly the same 10 pre-existing files as round 1, none newly dirty",
+          "openspec validate --changes --strict": "1 passed, 0 failed",
+          "make sqlc (run to verify query.sql.go was genuinely regenerated, not hand-edited)": "zero diff after regeneration — query.sql.go:1137 is honest sqlc output tracking the fixed query.sql:310 comment",
+          "independent broad sweep: internal/battery (all text files, repo-wide)": "hits only in internal/telemetry/db/models.go (sqlc-generated) and internal/telemetry/db/migrations/*.sql (applied-migration COMMENT ON text) — both the declared tier-5-deferred exclusion — plus openspec/roadmaps/RM29-modular-monolith-boundaries.md's two intentional D9 references (already accepted in round 1). No hit in kkpa/plans/executed/ was excluded from this grep per the standing exclusion (D14).",
+          "independent broad sweep: battery\\.[A-Za-z_] qualifier form (all text files, repo-wide)": "ZERO hits outside excluded paths — this is the exact pattern class F1/F2 belonged to; confirms the leader's fifth fix (ai/agentic-workflow.md) plus the F1/F2 fixes actually closed out the whole class, not just the two known instances"
+        },
+        "findings_reverified": {
+          "F1": "fixed — history_vm.go:135 now reads analytics.DayConsumption.Date, confirmed",
+          "F2": "fixed — spec.md:1276 now reads `analytics.DayConsumption`, confirmed",
+          "F3": "fixed — query.sql:310 now reads internal/analytics; query.sql.go regenerated honestly (verified via make sqlc, zero diff)",
+          "F4": "fixed for the specific illustrative identifiers named (battery.State, BatteryPage, battery.StateFrom) — see new minor F7 for residual inconsistency this same edit left behind",
+          "F5": "fixed — both a/an article errors in spec.md corrected to 'an `analytics.Reader`'",
+          "F6": "leader rejected with reasoned justification (D14): an executed-plan file is a historical record, protected by the same never-retcon rule as archived change names. I agreed with this read in round 1 ('likely fine, for awareness') and still do — not required."
+        },
+        "findings": [
+          {
+            "id": "F7",
+            "severity": "minor",
+            "note": "ai/htmx-go-integration.md — round 1's fix renamed the outer illustrative example (BatteryPage->ConsumptionPage, battery.State->analytics.State) but left several inner references in the SAME snippet unrenamed: line 24 `/ui/battery` route, line 47 `@templ.Fragment(\"battery\")`, line 48 `@fragments.BatteryCard(s)`, line 59/65 `buildBatteryState`/'battery interfaces', line 63-64 the comment + function name `BatteryFragment`, line 70 `templ.WithFragments(\"battery\")` prose. This is now internally inconsistent: the .templ snippet defines `@templ.Fragment(\"battery\")` but the paired Go handler snippet calls `templ.WithFragments(\"consumption\")` two lines below — a fragment name and its consumer no longer match within the platform's own illustrative example. ai/htmx-conventions.md:151's `hx-get=\"/ui/battery\"` is the same category. None of these are `battery.<Identifier>` Go-package-qualifier violations (the broad sweep for that exact class is clean), so this doesn't reopen F4 as a majors-class issue — it's a leftover naming-consistency nit in a doc explicitly marked 'the web layer is NOT built yet' (zero compiled/runtime surface). Optional cleanup, not blocking.",
+            "status": "fixed",
+            "resolution": "Leader fixed after approval: renamed the snippet's inner references (/ui/battery route, Fragment(\"battery\"), BatteryCard, buildBatteryState, BatteryFragment, hx-get) so the illustrative example is internally consistent again."
+          }
+        ],
+        "assessment": "Both majors (F1, F2) are genuinely fixed, and — more importantly — an independent broad battery\\.[A-Za-z_] sweep I ran myself (not the leader's grep, not trusting their claim) returns zero hits outside the declared exclusions, confirming the whole pattern class is closed, not just the two known instances. make sqlc regeneration is verified honest (zero diff). The internal/battery path sweep's remaining hits are exactly the declared tier-5-deferred sqlc/migration exclusion plus the two already-accepted roadmap D9 references. D14's rejection of the kkpa/plans/executed/ finding is reasonable and consistent with the never-retcon-history principle already applied to archived change names and this change's own artifacts in round 1. One new minor (F7) surfaced — a naming-consistency leftover in the SAME illustrative doc F4 touched, zero functional impact, not a package-qualifier violation. No blocker or major remains. Approved."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-20T17:15:32Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Delta spec uses MODIFIED against a git-mv'd specs folder, not ADDED+REMOVED",
+      "why": "The ADDED path makes the archiver synthesize a TBD Purpose and orphan an empty battery/ husk. MODIFIED keeps the hand-written Purpose; cost is one hard-ordered task (3.1).",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-20T17:15:32Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Wave-1 file moves use plain mv, not git mv; the leader stages",
+      "why": "tasks.md told the module worker to run git mv, which write-ownership forbids. Git stores no renames, so mv + git add -A yields an identical commit and blame.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-20T17:15:32Z",
+      "scope": "task:2.6",
+      "made_by": "leader",
+      "decision": "Accepted the worker's rename of 3 stale identifiers in history_test.go not named in the proposal",
+      "why": "The file is compile-forced open anyway; leaving fakeBatteryReader et al. stale recreates the duplicate-vocabulary cost RM29 exists to remove. Names only, no assertion change.",
+      "covered_by": "roadmap D3"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-20T17:21:22Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Roadmap autopilot stays OFF — each tier needs an explicit go-ahead",
+      "why": "User's call at the artifact/apply boundary. Skill defaults roadmaps to autopilot; T3 (gold standard) and T4 (column drop) are natural review points.",
+      "covered_by": "roadmap D8"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-20T17:21:22Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Wave 1 (worker) and Wave 2+3.1 (leader) run concurrently, not sequentially",
+      "why": "File sets are disjoint (internal/battery vs cmd+gateway+openspec/specs) and the tree cannot compile until both land anyway, so serializing buys no safety.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-20T17:29:29Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Fixed 10 stale internal/battery refs in hand-written Go doc comments; deferred the 8 sqlc-generated ones to T5",
+      "why": "CLAUDE.md requires docs track structural change. The generated ones come from COMMENT ON in applied migrations — fixing them needs a new migration, which this tier excludes.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-20T17:42:06Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Fixed stale module refs D6's grep undercounted, plus ai/agentic-workflow.md which D6 never listed",
+      "why": "D6 said 5 telemetry refs (7 real) and 2 backlog paths (8 real); agentic-workflow.md is in the reviewer Doc-Pack, so a stale path there misteaches every dispatch.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-20T17:46:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Fix openspec/specs/gateway/spec.md's module refs directly, no specs/gateway delta",
+      "why": "Rename bookkeeping, not a requirement change — same class as 3.1's git mv, approved as D1. A delta would restate 4 long requirements verbatim to move 16 tokens.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-20T17:46:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Updated the roadmap's problem-statement ref to internal/analytics; left the tier-1 motivation sentence naming internal/battery",
+      "why": "Line 13 is forward-looking work tier 4 acts on — stale it costs a grep. Line 26 says the module 'outgrew its name', which only reads correctly with the old name.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-20T18:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Fix the 3 pre-existing gateway test failures inside RM29 rather than in a separate change",
+      "why": "Owner's explicit call after the verification run. Leader flagged that tier 1 stops being a pure rename and the reviewer will see unrelated gateway changes; owner accepted.",
+      "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-20T18:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Roadmap autopilot switched ON, superseding D4",
+      "why": "Owner's instruction mid-wave. Test execution and design gates still pause regardless — only the owner can run the suite.",
+      "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-20T18:05:00Z",
+      "scope": "task:6.2",
+      "made_by": "leader",
+      "decision": "Extract baseShell rather than moving LangSwitcher back into Base",
+      "why": "BaseAuth wraps Base, so a plain move double-renders the switcher on every authenticated page. baseShell gives login the switcher and leaves the navbar untouched.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-20T19:10:57Z",
+      "scope": "task:6.2",
+      "made_by": "leader",
+      "decision": "Accepted the worker's removal of the per-page ui.LangSwitcher from home.templ and login.templ",
+      "why": "Verified they existed at HEAD as a workaround for Base not mounting one. Leaving them with D12's Base switcher would double-render on the real pages, passing the unit test while breaking the UI.",
+      "covered_by": null
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-20T20:30:00Z",
+      "scope": "review:minor-plans-executed",
+      "made_by": "leader",
+      "decision": "REJECTED the reviewer's minor finding on kkpa/plans/executed/ still naming internal/battery",
+      "why": "An executed-plan file is a historical record of what was done at the time, same rule as archived changes and this change's own artifacts: never retconned. The reviewer itself flagged it as likely fine.",
+      "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-20T20:30:00Z",
+      "scope": "review:round-1",
+      "made_by": "leader",
+      "decision": "Accepted all other findings; fixed a 5th instance the reviewer did not catch (ai/agentic-workflow.md:51)",
+      "why": "Both majors and every minor verified as real. The 5th was in a file I had already edited twice this change — the D6-undercount pattern applies to my own sweeps, not just design.md's table.",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-20T20:52:12Z",
+      "scope": "review:F7",
+      "made_by": "leader",
+      "decision": "Fixed F7 after the reviewer approved, rather than deferring it as the optional nit it was marked",
+      "why": "Round 1's own fix created the inconsistency — the snippet declared Fragment(\"battery\") while its handler called WithFragments(\"consumption\"). A doc-pack file that teaches agents a broken example is worse than the stale name it replaced.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-20T17:15:32Z",
+      "agent": "leader",
+      "event": "resumed RM29 on a fresh session: created branch ft/RM29-MAG-26-modular-monolith-boundaries, roadmap progress.json, and committed roadmap + counter bump (c6aa4d7)"
+    },
+    {
+      "at": "2026-08-20T17:15:32Z",
+      "agent": "leader",
+      "event": "database design gate evaluated and NOT tripped — internal/battery has no db/ folder and no sqlc.yaml entry (verified independently)"
+    },
+    {
+      "at": "2026-08-20T17:15:32Z",
+      "agent": "leader",
+      "event": "dispatched battery worker (Sonnet) for design.md + tasks.md; returned validated; leader corrected git-mv rationale and two tasks.md cross-references"
+    },
+    {
+      "at": "2026-08-20T17:15:32Z",
+      "agent": "leader",
+      "event": "schema extended additively with tasks[].owner (module|leader|user) — a rename spans modules, so ownership must be explicit per task"
+    },
+    {
+      "at": "2026-08-20T17:21:22Z",
+      "agent": "leader",
+      "event": "dispatched battery worker (Sonnet) for wave 1 (1.1-1.9); leader takes 2.1-2.6 + 3.1 concurrently. Atomic wave: nothing compiles until both land. Budget start 5h=38%, cost=$7.3626"
+    },
+    {
+      "at": "2026-08-20T17:29:29Z",
+      "agent": "leader",
+      "event": "wave 1+2+2.7+3.1 reconciled. Assistant signals PASS: go build OK, go vet OK, gofmt clean on every touched file, ui/i18n/money guards pass. Suite NOT run — owner's to run."
+    },
+    {
+      "at": "2026-08-20T17:29:29Z",
+      "agent": "leader",
+      "event": "worker self-reported a sandbox violation: ran read-only git status/git show despite the no-git rule. No mutation, nothing staged; accepted with no rework, recorded for the reviewer."
+    },
+    {
+      "at": "2026-08-20T17:29:29Z",
+      "agent": "leader",
+      "event": "proposal factual error found: it claimed telemetry has one stale AGENTS.md reference; telemetry.go actually had 8 in Go doc comments. Corrected via added task 2.7."
+    },
+    {
+      "at": "2026-08-20T17:29:59Z",
+      "agent": "leader",
+      "event": "wave 1+2 committed as 2f74746; git detected all 10 moves as renames (91-99% similarity), confirming design.md D1"
+    },
+    {
+      "at": "2026-08-20T17:37:18Z",
+      "agent": "leader",
+      "event": "resumed on a fresh session; wave 3 (4.1-4.6, docs) started by the leader — all six files are outside the module sandbox. Budget start 5h=55%, cost=$0.6211"
+    },
+    {
+      "at": "2026-08-20T17:42:06Z",
+      "agent": "leader",
+      "event": "wave 3 (4.1-4.6) + 5.1/5.2 reconciled. Signals PASS: build, vet, gofmt (10 hits all pre-existing at main, none touched here), ui/i18n/money guards, openspec validate strict 1/0. Suite NOT run."
+    },
+    {
+      "at": "2026-08-20T17:42:06Z",
+      "agent": "leader",
+      "event": "design.md D6 undercounted three docs (telemetry 5->7, backlog 2->8, README 8->10) and omitted ai/agentic-workflow.md entirely; all fixed under D7. Third D6-class undercount this change."
+    },
+    {
+      "at": "2026-08-20T17:43:00Z",
+      "agent": "leader",
+      "event": "wave 3 committed as bcfa647 (9 files). Remaining before the reviewer gate: openspec/specs/gateway/spec.md still cites internal/battery in requirement text — scope call raised with the user."
+    },
+    {
+      "at": "2026-08-20T17:46:00Z",
+      "agent": "leader",
+      "event": "gateway spec fixed per user D8: 16 refs (10 battery.Reader, 6 internal/battery) -> analytics; 10 odometer/battery domain-word uses preserved. openspec validate strict still 1 passed / 0 failed."
+    },
+    {
+      "at": "2026-08-20T18:00:00Z",
+      "agent": "user",
+      "event": "owner ran `make test` (env -u DATABASE_URL go test ./...): 3 failures. internal/analytics PASSED; the RM29-touched tests in gateway/handlers passed. Failures are TestSuperchargerStatsFragment_{ChartAndSelector...,UnattributedSession...} and TestBase_RendersLangSwitcher."
+    },
+    {
+      "at": "2026-08-20T18:00:00Z",
+      "agent": "leader",
+      "event": "triaged all 3 as PRE-EXISTING on main, not caused by RM29. Every file involved (handlers/supercharger*, templates/ui/, templates/layouts/) is byte-identical to main on this branch. Causes: 8795f6b 'Fonts' added font-mono to stat-value, breaking sessionsTileValueRe; c7f9d96 'Moving vehicle selector' moved LangSwitcher from Base into BaseAuth, breaking the MAG-8 D6 'visible on every page including login' invariant. Both commits are ancestors of main."
+    },
+    {
+      "at": "2026-08-20T18:05:00Z",
+      "agent": "leader",
+      "event": "correction: 98fa7e5 'Vertical axis to bar graph' moved LangSwitcher out of Base, not c7f9d96 (which only swapped the brand div for the vehicle selector). Pre-existing-and-unrelated conclusion unchanged."
+    },
+    {
+      "at": "2026-08-20T18:05:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (Sonnet) for wave 6 (6.1, 6.2). Budget start 5h=63%."
+    },
+    {
+      "at": "2026-08-20T19:10:57Z",
+      "agent": "leader",
+      "event": "wave 6 reconciled. Worker's scope expansion verified independently: home.templ:20/login.templ:19 did carry their own LangSwitcher at HEAD; the chrome div moved into Base byte-identical, so anonymous layout is unchanged. RD11 citation confirmed real (gateway/AGENTS.md:485)."
+    },
+    {
+      "at": "2026-08-20T19:10:57Z",
+      "agent": "leader",
+      "event": "leader re-ran signals independently: build OK, vet OK, gofmt clean on all 4 touched files, ui/i18n/money guards pass, and `make templ` is a verified no-op so committed _templ.go match their sources. Suite NOT run."
+    },
+    {
+      "at": "2026-08-20T20:16:00Z",
+      "agent": "user",
+      "event": "OWNER VERIFICATION: reported the suite passing after wave 6, and additionally confirmed the gateway pages and cmd/poller work. This is the owner's report — the assistant never ran the suite. Change -> verified."
+    },
+    {
+      "at": "2026-08-20T20:30:00Z",
+      "agent": "leader",
+      "event": "review round 1 triage: 2 majors + 4 minors accepted and fixed, 1 minor rejected with justification (D14). Root cause of both majors: my sweeps matched battery.Reader and internal/battery but never the general battery.<Identifier> qualifier form, which is how DayConsumption hid twice."
+    },
+    {
+      "at": "2026-08-20T20:30:00Z",
+      "agent": "leader",
+      "event": "replaced narrow greps with a broad `battery\\.[A-Z]` sweep; it found a 5th stale ref the reviewer missed (ai/agentic-workflow.md:51). sqlc regenerated so query.sql.go tracks its hand-written source. Signals: build/vet/gofmt/validate all pass."
+    },
+    {
+      "at": "2026-08-20T20:52:12Z",
+      "agent": "reviewer",
+      "event": "REVIEW ROUND 2: approved. Reviewer independently re-ran the broad battery\\.[A-Za-z_] sweep (not trusting the leader's) — zero hits outside declared exclusions, confirming the whole pattern class is closed. It also re-ran make sqlc to verify query.sql.go was honestly regenerated rather than hand-edited (zero diff)."
+    },
+    {
+      "at": "2026-08-20T20:52:12Z",
+      "agent": "leader",
+      "event": "change status set to reviewer-approved by TRANSCRIPTION: the reviewer recorded verdict=approved and review.status=approved in round 2, then its session hit the usage limit before mirroring the change-level field. The verdict is the reviewer's; the leader copied the field and did not self-approve."
+    }
+  ]
+}

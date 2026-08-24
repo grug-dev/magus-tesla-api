@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 )
 
 // The guards below cover bugs whose whole nature is that they are quiet — a wrong
@@ -77,8 +77,8 @@ func TestErrorFragmentsCarryOptInHeader(t *testing.T) {
 func TestEditRowIssuesRequestFromForm(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
-	entry := manualcharge.Entry{ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP"}
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []manualcharge.Entry{entry}})
+	entry := charging.Entry{ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP"}
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
@@ -164,11 +164,11 @@ func TestCreateFormDateDefaults(t *testing.T) {
 func TestConfirmDialogWiring(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
-	entry := manualcharge.Entry{
+	entry := charging.Entry{
 		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP",
 		ChargedOn: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), EnergyAddedKWh: 0.79,
 	}
-	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []manualcharge.Entry{entry}})
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 

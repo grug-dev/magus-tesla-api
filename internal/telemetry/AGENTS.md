@@ -58,18 +58,37 @@ verification columns" below).
 
 The module's mandatory contract is a Go interface (`ai/go-conventions.md` — interface-first):
 
-- `Collector` — `CollectAll(ctx context.Context) (CycleReport, error)`: run one collection cycle
-  over every registered vehicle across all accounts, capturing a snapshot per vehicle and recording
-  every attempt. Per-vehicle isolation: one vehicle's failure never aborts the cycle. Returns an
-  error only for a whole-cycle failure (e.g. the account enumeration itself failing), never for an
-  individual vehicle.
+- `Collector` — `CollectAll(ctx context.Context, run RunContext) (CycleReport, error)`: run one
+  collection cycle over every registered vehicle across all accounts, capturing a snapshot per
+  vehicle and recording every attempt. `run` identifies the invocation (`RunContext.RunID`/
+  `TriggeredBy`) and is generated fresh by `internal/app` once per call (`uuid.New()`), then
+  threaded straight through to every `poll_attempts` row the cycle writes — `CollectAll` never
+  generates or caches a `RunContext` itself; it is a plain parameter threaded
+  `CollectAll → collectAccount → record`, never stored as a field on the service (a shared,
+  long-lived object reused across cycles). Per-vehicle isolation: one vehicle's failure never
+  aborts the cycle. Returns an error only for a whole-cycle failure (e.g. the account enumeration
+  itself failing), never for an individual vehicle. Widened by
+  `RM29-app-add-process-vehicle-data` (design.md D5).
+- `RunContext{RunID uuid.UUID; TriggeredBy TriggeredBy}` and `TriggeredBy` (a string enum,
+  `TriggeredByScheduler` | `TriggeredByAPI`) — new exported types, added by the same change.
+  `telemetry` owns both because it owns the `poll_attempts` columns they fill (design.md D5); the
+  module that generates a fresh `RunContext` per invocation (`internal/app`) only consumes the
+  type, it does not declare it.
 - Domain types (no vendor suffix — our own models, `ai/architecture.md` §6): `Snapshot` (extracted
-  typed fields + raw payload; `SentryMode *bool`), the attempt outcome/reason types, `Config`, and
-  `CycleReport`.
-- The in-app `Scheduler` (constructed with a `Collector` + schedule config) drives `CollectAll`
-  daily at 03:30 local; `Run(ctx)` blocks until `ctx` is cancelled (graceful shutdown).
+  typed fields + raw payload; `SentryMode *bool`), the attempt outcome/reason types, `Attempt`
+  (now also carrying `RunID`/`TriggeredBy`), `Config`, and `CycleReport`.
+- **`Scheduler`/`NewScheduler` are NO LONGER part of this module's public surface.** They
+  **relocated** to `internal/app` (`RM29-app-add-process-vehicle-data` design.md D4, carrying
+  owner decision RD8, which superseded an earlier RD5 plan to send them to `cmd/poller`) — this is
+  a relocation, not a deletion or a coverage loss: their four tests (`TestNextRun` and the three
+  `TestScheduler_*` tests) moved with them, intact, into `internal/app/scheduler_test.go` (design's
+  Test Contract group S). `LogCycle`/`formatFailures` stayed here — they never depended on
+  `Scheduler` — and now live in `report.go`; `LogCycle` remains **exported** because its new
+  cross-boundary caller is `internal/app`'s relocated `Scheduler.Run`, calling
+  `telemetry.LogCycle(report, err)` after each `Processor.ProcessVehicleData` invocation, exactly
+  where `Scheduler.Run` called it before the move.
 
-- `Reader` — two read methods:
+- `Reader` — four read methods:
   - `LatestSnapshotsByAccount(ctx context.Context, accountID uuid.UUID) ([]Snapshot, error)`:
     return the latest stored `Snapshot` for each vehicle owned by the given account (batch, single
     Postgres `DISTINCT ON` query — no N+1); empty (non-nil) slice when the account has no snapshots.
@@ -101,26 +120,24 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
     `rowToSnapshot` mapper (no per-method duplication). Additive alongside
     `SnapshotsByVehicleSince` (kept unchanged — design D4).
     Added by RM8 tier 1 (`RM8-telemetry-between-range-port`).
+  - `SnapshotPrecedingDay(ctx context.Context, accountID uuid.UUID, teslaID int64, day time.Time) (*Snapshot, error)`:
+    return the single most recently captured snapshot for one vehicle within the given account
+    whose `CapturedDate` is strictly before `day`, or `(nil, nil)` when the vehicle has no
+    earlier snapshot at all (its first-ever capture) — a genuine query error is returned as-is
+    and MUST NOT be degraded to "no predecessor". The bound is `captured_date < @day` (the
+    poller-zone calendar day, stamped once on the write path by `dateOnly`), never `captured_at`,
+    so the predicate is zone-free at query time and a same-day re-capture cannot select its own
+    about-to-be-replaced row as its own predecessor. Reuses the existing
+    `idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at)` index as a backward
+    scan off its two leading equality columns — no new index; `vehicle_snapshots_account_tesla_date_unique`
+    guarantees at most one row is examined and rejected by the `captured_date` residual before the
+    match (verified via `EXPLAIN` in the DB-integration test). Unlike the two bounded-window
+    methods above, there is no lookback limit — it reaches the TRUE predecessor however old. This
+    is the module's former private `previousSnapshot` store seam promoted to the public port; its
+    only intended caller is `internal/analytics`' `Recalculate`. Added by
+    `RM29-telemetry-drop-derived-columns` (design D2, MAG-26 tier 4).
   `NewReader(pool *pgxpool.Pool) Reader` is the constructor. The gateway (tier 5,
   `gateway-read-stored-vehicles`) depends on this interface, never on `telemetrydb` directly.
-
-- `GapWriter` — one write method, `ReconcileWindow(ctx context.Context, accountID uuid.UUID,
-  teslaID int64, start, end time.Time, flagged []ChargeGap) error`: makes `charge_gaps` agree
-  with `flagged` for exactly the vehicle-day range `[start, end]` inclusive. Every day present
-  in `flagged` is upserted (inserted, or refreshed in place if `MissingChargingType`/`VIN`
-  changed since the last run — the `UNIQUE (account_id, tesla_id, gap_date)` constraint is the
-  idempotency mechanism, not application-level dedup); every existing row for
-  `(accountID, teslaID)` in `[start, end]` with no matching entry in `flagged` is **deleted**.
-  `flagged` may be empty (every previously-flagged day resolved — every existing row in the
-  window is deleted, none re-inserted). Every element of `flagged` MUST carry the SAME
-  `accountID`/`teslaID` as the call's own arguments AND a `Date` within `[start, end]`; a
-  violation returns an error and writes **nothing** (validated in a loop BEFORE any
-  transaction opens — see "GapWriter's upsert-and-delete lifecycle" below). Runs inside a
-  single DB transaction: either every upsert/delete succeeds, or the call has no effect.
-  `internal/battery` is the only intended caller (via `cmd/poller`) — `internal/telemetry`
-  never calls `battery`, preserving the one-way dependency the platform's graph already
-  assumes. `NewGapWriter(pool *pgxpool.Pool) GapWriter` is the constructor; implementation in
-  `gap_writer.go`. Added by `RM28-telemetry-add-charge-gap-storage` (MAG-15).
 
 - `SuperchargerReader` — exposes `supercharger_sessions` for read-only consumption, a
   separate port from `Reader` (snapshot-centric):
@@ -188,16 +205,25 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
   version, 5 charge-enrichment fields, and `max_range_charge_counter` **nullable** — see migration
   20260801000001). Dropped columns (`latitude`, `longitude`, `fast_charger_type`) remain lossless
   in `raw_data`. `updated_at TIMESTAMPTZ` is the audit trail for a replace: `DEFAULT now()` on a
-  fresh insert, explicitly set to `now()` on a same-day conflict-update (design D5). Five more
-  nullable derived-consumption columns added by migration `20260814000001`:
-  `distance_traveled_km_calc DOUBLE PRECISION`, `battery_used_pct_calc INTEGER`,
-  `km_per_pct_calc DOUBLE PRECISION`, `estimated_range_km_calc DOUBLE PRECISION`,
-  `days_spanned_calc INTEGER` — see below.
+  fresh insert, explicitly set to `now()` on a same-day conflict-update (design D5). The five
+  per-day consumption figures once stored here were **dropped** by migration `20260822000001`
+  (`RM29-telemetry-drop-derived-columns`) — the derivation now lives in `internal/analytics`,
+  computed from this table's surviving `odometer_km` / `battery_level_pct` / `captured_date`
+  columns via `Reader.SnapshotPrecedingDay` (see below); this module never read the dropped
+  columns back, and their only consumer was another module.
 - `poll_attempts` — **unaffected, still append-only/immutable** (design D4): one row per
   (vehicle, run): `account_id`, `tesla_id`, `attempted_at`, `outcome` (`success`|`failure`),
   `reason` (`ok`|`asleep-timeout`|`unauthorized`|`api-error`). Doubles as future availability /
   sleep-behavior data — a daily collapse would destroy that signal, so this table is explicitly
-  out of scope for the dedupe change.
+  out of scope for the dedupe change. **Gains two columns, migration `20260823000002`**
+  (`RM29-app-add-process-vehicle-data`): `run_id UUID` (nullable, permanently unbackfilled for
+  legacy rows) and `triggered_by TEXT NOT NULL DEFAULT 'scheduler'`. **This SUPERSEDES roadmap
+  D2**, which had planned to move this table to a new `internal/app`-owned `process_runs` —
+  that plan was reversed during this change's design (design.md D1): `poll_attempts` never held
+  anything Tesla reported to begin with (every existing column is already "our own fact about our
+  own attempt"), so adding `triggered_by` extends the table rather than blurring a boundary it
+  never had. `internal/app` ends up owning no schema at all. Grain is unchanged (one row per
+  vehicle per run, design.md D2); no CHECK, no index (nothing reads either column in this tier).
 - `supercharger_sessions` — one row per Tesla `session_id` (UPSERT, not append-only: billing
   state — `is_paid`, invoice status — mutates post-session, migration `20260716000001`).
   Extended by `RM27-telemetry-add-supercharger-battery-pct` (MAG-14, migration
@@ -210,52 +236,11 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
     NULL when no override exists.
   - `start_battery_pct_est SMALLINT CHECK (0..100)`, `end_battery_pct_est SMALLINT CHECK
     (0..100)` — frozen, write-once verification-time snapshot pair (design D6).
-- `charge_gaps` — one row per flagged vehicle-day whose battery math does not add up
-  (migration `20260815000002`, `RM28-telemetry-add-charge-gap-storage`, MAG-15). Written
-  through the `GapWriter` port; `internal/battery` is the only intended caller (it derives
-  each day's consumption and detects the gap — `telemetry` never computes one itself, and
-  never calls `battery`). Columns: `id UUID PRIMARY KEY`, `account_id UUID NOT NULL`,
-  `tesla_id BIGINT NOT NULL` (**always resolved, NOT NULL** — unlike
-  `supercharger_sessions.tesla_id`, since `internal/battery` filters out any
-  vehicle/session it cannot attribute to a currently-registered vehicle before gap
-  detection ever runs), `vin TEXT NOT NULL`, `gap_date DATE NOT NULL` (the flagged calendar
-  day, plain `DATE` — no time-of-day component), `missing_charging_type TEXT NOT NULL CHECK
-  (IN ('MANUAL', 'SUPERCHARGER'))` (which charge source is suspected missing — `SUPERCHARGER`
-  when a Supercharger session exists that day with NULL start/end battery percentages,
-  `MANUAL` otherwise), `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` (when FIRST flagged —
-  preserved across every re-upsert of the same still-flagged day), `updated_at TIMESTAMPTZ
-  NOT NULL DEFAULT now()` (refreshed to `now()` on every re-confirmation). `UNIQUE
-  (account_id, tesla_id, gap_date)` constraint (`charge_gaps_account_tesla_date_unique`) is
-  both the write-idempotency mechanism (`ON CONFLICT DO UPDATE`) and the index that serves
-  `GapWriter`'s own read-before-diff query — no separate index needed for that path. A second
-  index, `idx_charge_gaps_account (account_id, gap_date DESC)`, serves the future
-  account-wide notification read pattern (no `tesla_id` predicate) — out of scope this
-  change, no read port exists for it yet. **No FK** on `account_id`/`tesla_id` (same
-  no-cross-module-FK precedent as `manual_charge_entries`/`supercharger_sessions` —
-  referential integrity is upheld by flow, not a DB constraint, `ai/architecture.md` §2).
-  **No `raw_data` JSONB** — this table stores a Go-computed conclusion (`internal/battery`'s
-  derivation), not an external API response, so the mandatory-`raw_data` rule
-  (`ai/go-conventions.md` §persistence) does not apply here (same precedent as
-  `manual_charge_entries`).
-
-### `GapWriter`'s upsert-and-delete lifecycle — **no `resolved_at`, ever**
-
-`charge_gaps` has **no soft-delete / `resolved_at` column** — `ReconcileWindow` `UPSERT`s
-every day that still flags and **`DELETE`s** every previously-stored day, within the window
-it just recomputed, that no longer flags (design D7b). Fixing a charge entry clears the row
-on the very next nightly run with no extra wiring. This table is a **live worklist** ("what
-is outstanding right now"), not an audit trail of resolved gaps.
-
-**If you are the one adding the future notification feature or any other consumer of this
-table: do NOT "fix" this into a soft-delete/`resolved_at` shape.** A soft-deleted row would
-need its own cleanup story (when does a resolved row actually get purged?) that this design
-deliberately avoids by making resolution a plain `DELETE` — the row's mere existence already
-means "outstanding," so a consumer needs no `WHERE resolved_at IS NULL` filter and no purge
-job. If a history of resolved gaps is ever needed, that is a **new, separate** table (e.g. an
-append-only `charge_gap_history`), not a mutation of `charge_gaps`'s own delete-on-resolve
-contract — see `RM28-telemetry-add-charge-gap-storage`'s `design.md` "Migration Plan" /
-D-Table2 for the rejected `resolved_at` alternative and its reasoning (once archived, that
-file moves under `openspec/changes/archive/`).
+- `charge_gaps` (the flagged-vehicle-day ledger, formerly owned here as
+  `RM28-telemetry-add-charge-gap-storage`, MAG-15) **moved to `internal/analytics`** by
+  `RM29-analytics-own-charge-gaps` (MAG-26 tier 5), table, migration, and `GapWriter` port
+  together — this module never read it back after writing it, and its only consumer was
+  another module.
 
 `account_id`/`tesla_id` are plain columns (no cross-module FK, D2 of the change design). `pgtype`
 never leaves the module — convert to/from plain domain types at the DB→domain mapping boundary
@@ -303,19 +288,15 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
   pointer-wrap convention as the 5 Source A charge-enrichment fields (D12/DSA3). SQL NULL for
   pre-migration rows; the Up migration backfills from `raw_data->'charge_state'->'max_range_charge_counter'`
   where the JSONB path exists.
-- **Five derived-consumption columns** (`DistanceTraveledKmCalc *float64`,
-  `BatteryUsedPctCalc *int`, `KmPerPctCalc *float64`, `EstimatedRangeKmCalc *float64`,
-  `DaysSpannedCalc *int`) are computed in Go, at write time, by the pure function
-  `deriveConsumption(prev, cur)` (`service.go`) — comparing the incoming snapshot against its
-  predecessor for the same `(account_id, tesla_id)` — and are **never** derived on read. NULL
-  convention: all five are NULL when no predecessor exists (the vehicle's first-ever snapshot);
-  `KmPerPctCalc`/`EstimatedRangeKmCalc` are additionally NULL whenever the battery-used divisor
-  (`BatteryUsedPctCalc`) is zero or negative (charging/parked day) — a stored value is always a
-  truthful reading, never a placeholder, per the module's D12/DSA3 NULL-vs-zero convention above.
-  `BatteryUsedPctCalc` itself may be a truthful negative (net charge overnight). Migration
-  `20260814000001` backfilled every pre-existing row in the same schema change via a one-time
-  `LAG()` window pass — no row is permanently stuck NULL except each vehicle's earliest row.
-  Introduced by `telemetry-add-derived-consumption-columns` (MAG-10).
+- **The five derived-consumption figures no longer live here.** `DistanceTraveledKmCalc`,
+  `BatteryUsedPctCalc`, `KmPerPctCalc`, `EstimatedRangeKmCalc`, and `DaysSpannedCalc` were dropped
+  from `Snapshot` (and their columns from `vehicle_snapshots`) by `RM29-telemetry-drop-derived-columns`
+  (migration `20260822000001`). The derivation moved to `internal/analytics` (`consumption.go`),
+  which computes the same figures from this table's surviving `OdometerKm` / `BatteryLevelPct` /
+  `CapturedDate` fields, fetching the exact predecessor via the new `Reader.SnapshotPrecedingDay`
+  (below) instead of reading a value this module used to precompute. This module never read the
+  dropped columns back after writing them — their only consumer was `internal/analytics`, which
+  is exactly the boundary blur `RM29-modular-monolith-boundaries` exists to fix.
 
 ### Battery-% verification columns (`supercharger_sessions`) — introduced by `RM27-telemetry-add-supercharger-battery-pct` (MAG-14)
 
@@ -326,7 +307,7 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
 existing `pgNullableText` helper for `BatteryPctSource`.
 
 > **SCOPE NOTE (2026-08-15) — there is no estimator, and there will not be one under RM27.**
-> RM27 originally planned two further tiers: a taper-curve SOC estimator in `internal/battery`
+> RM27 originally planned two further tiers: a taper-curve SOC estimator in `internal/analytics`
 > and a gateway page rendering it. **Both were descoped by the owner**; RM27 ships these five
 > columns and nothing else. Wherever the text below says an estimate is computed "on read",
 > read that as *not implemented* — the platform computes no SOC estimate anywhere. The columns
@@ -370,8 +351,15 @@ existing `pgNullableText` helper for `BatteryPctSource`.
 - Collection-service logic is tested **offline** with fake `account.Service` and
   `tesla.VehicleService` implementations — per-vehicle isolation, reason mapping, one-retry, wake
   timeout, multi-account. NO test may make a live Tesla API call or wake a car (the calls are paid).
-- Schedule-time math (`nextRun`) and the wake helper's online-vs-timeout outcomes are unit-tested
-  pure (fake clock / short timeout).
+- The wake helper's online-vs-timeout outcomes are unit-tested pure (fake clock / short timeout),
+  now in `wake_test.go`. `report_test.go` covers `formatFailures` (`LogCycle`'s formatter).
+  **Schedule-time math (`nextRun`) and `Scheduler`'s four tests no longer live in this module** —
+  `scheduler.go`/`scheduler_test.go` were removed by `RM29-app-add-process-vehicle-data` (design.md
+  D4): the `Scheduler` type relocated to `internal/app`, and its tests (`TestNextRun`,
+  `TestScheduler_ShutsDownWithoutRunningWhenCancelled`, `TestScheduler_NilLocationDefaultsToLocal`,
+  `TestScheduler_RunsAndLogsOneCycle`) moved with it, unchanged, into
+  `internal/app/scheduler_test.go`. This is a relocation, not a coverage drop — look there, not
+  here, for that coverage.
 - Store tests use the shared `internal/testdb` helper (see `testdb_test.go`). When
   `DATABASE_URL` is set AND reachable, that managed Postgres is used; otherwise
   `TestMain` auto-provisions a disposable `postgres:16-alpine` container via
@@ -383,7 +371,7 @@ existing `pgNullableText` helper for `BatteryPctSource`.
   `telemetry-add-derived-consumption-columns`). `TestMain` logs
   `no Postgres available, SKIPPING all DB-backed tests` and still runs the suite, and
   `newTestStore` calls `t.Skip`. This keeps the package's offline tests
-  (`deriveConsumption`, `dayStart`, `dateOnly`, `snapshotFrom`, scheduler math) runnable
+  (`dateOnly`, `snapshotFrom`, scheduler math) runnable
   and `make check` passable on a machine with no Docker daemon, where previously a failed
   provision called `log.Fatalf` and killed the whole test binary before any test ran.
 - **Only "no Postgres at all" skips — a broken migration still fails LOUDLY.** `TestMain`

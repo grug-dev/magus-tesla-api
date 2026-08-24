@@ -61,14 +61,14 @@ Note: the former "CHARGING STATS" backlog item shipped as roadmap **RM2-charging
 tiers archived 2026-07-16) — see `openspec/roadmaps/archive/RM2-charging-stats/`.
 
 
-## 2. manualcharge / telemetry — Semi-automatic home-charge detection
+## 2. charging / telemetry — Semi-automatic home-charge detection
 
 ### PROPOSAL
 
 Infer home / AC charging sessions from the vehicle's **own** telemetry — `charge_energy_added`
 deltas + `charging_state` transitions (unambiguously the vehicle's own data, so **no**
 multi-tenant attribution problem) — to **pre-fill or suggest** entries in the manual charge
-log (`internal/manualcharge`, shipped by RM3). This directly reduces the manual-entry
+log (`internal/charging`, shipped by RM3). This directly reduces the manual-entry
 friction (people forget to log) that RM3 ships with.
 
 **TRIGGER — pick this up when** polling gets finer than the current once-nightly cadence: a
@@ -82,7 +82,7 @@ vehicle-side automatic counterpart to RM2's "charge-session detector" future not
 adoption-friction gap of the user-asserted manual-entry approach.
 
 
-## 3. manualcharge — Integration tests for the remaining CHECK-constraint scenarios
+## 3. charging — Integration tests for the remaining CHECK-constraint scenarios
 
 ### PROPOSAL
 
@@ -93,9 +93,9 @@ have **no dedicated integration test**: `end_battery_pct` out of range (0–100)
 constraints are live and verified to exist (psql), and the closely-related `start_battery_pct=101`
 case IS tested (T6.2e) — so this is a **test-coverage** gap only, not a correctness gap.
 
-**TRIGGER — pick up when** the `manualcharge` module is next touched (e.g. RM3 tier 2 gateway UI
+**TRIGGER — pick up when** the `charging` module is next touched (e.g. RM3 tier 2 gateway UI
 work, or any change adding fields/constraints). Add three `TestCreate_CheckConstraint_*` cases in
-`internal/manualcharge/db_integration_test.go` mirroring the existing pattern; each asserts a DB
+`internal/charging/db_integration_test.go` mirroring the existing pattern; each asserts a DB
 error is returned. Cheap (~30 lines) against the live DATABASE_URL-gated harness.
 
 ### ORIGIN
@@ -148,11 +148,11 @@ Reuses the existing `account.RegisteredVehicles` + `telemetry.Reader.LatestSnaps
 `gateway-add-stitch-design-handoff` design decision **DD4** + leader decision **D13** (2026-07-26): the nav header was scoped to the primary vehicle in this change; the multi-vehicle selector was deferred and recorded here per the project's future-work rule. See the change's `design.md` §3.2 and `progress.json` `decisions[]` D13.
 
 
-## 7. battery / tesla / account / telemetry — Trim-exact pack capacity
+## 7. analytics / tesla / account / telemetry — Trim-exact pack capacity
 
 ### PROPOSAL
 
-`internal/battery`'s pack-capacity reference table (`internal/battery/capacity.go`) is keyed
+`internal/analytics`'s pack-capacity reference table (`internal/analytics/capacity.go`) is keyed
 only on the Fleet API's `vehicle_config.car_type` (e.g. `"model3"`, `"modely"`) — it cannot
 distinguish trims of the same model (e.g. Model 3 Standard Range vs. Long Range), which have
 materially different usable pack capacities. This makes the Wh/km efficiency metric's capacity
@@ -168,12 +168,12 @@ but `internal/tesla/types.go`'s `VehicleConfigTesla` extracts only `exterior_col
 `SetVehicleConfigIfEmpty`-equivalent port method to persist it (mirrors the `RM6` tier-1/tier-2
 split — a schema-touching tier plus an application-wiring tier); (3) the nightly collector
 capturing it (`internal/telemetry/service.go`, same `captureVehicleConfig` shape); (4) a
-trim-keyed (or trim+car_type-keyed) `packCapacityKWh` table in `internal/battery/capacity.go`,
+trim-keyed (or trim+car_type-keyed) `packCapacityKWh` table in `internal/analytics/capacity.go`,
 replacing or supplementing the model-coarse one.
 
 **TRIGGER — pick this up when** trim-exact pack capacity is wanted (i.e. the model-coarse
 ~±10-15% capacity error within a single `car_type` is judged material enough to fix). Until
-then, `internal/battery` returns a value with a documented model-coarse approximation
+then, `internal/analytics` returns a value with a documented model-coarse approximation
 (`Efficiency.Approximate` stays reserved for the separate "capacity fully unknown" case).
 
 ### ORIGIN
@@ -296,7 +296,7 @@ follow-ups below are therefore open, in priority order:
    value" queue is a straight `WHERE start_battery_pct IS NULL`. While no estimator exists the
    form leaves `start_battery_pct_est` / `end_battery_pct_est` NULL.
 
-2. **SOC estimator (`battery`) — DESCOPED from RM27, kept here** — solve start/end SOC from
+2. **SOC estimator (`analytics`) — DESCOPED from RM27, kept here** — solve start/end SOC from
    billed `energy_kwh` + session duration against a DC taper curve. The maths was worked out
    and validated during the MAG-14 grill (2026-08-15) and is worth recording so it need not be
    redone: `delta = energy_kwh / pack_kwh × 100` is exact and needs no curve; only `start` is
@@ -309,7 +309,7 @@ follow-ups below are therefore open, in priority order:
    "too slow" for any SOC band. Any implementation must therefore return delta-only rather than
    a fabricated pair. If this lands, item 1's form must also freeze the estimate into the
    `_est` pair per RM27 decision R8 (write-once, never refreshed; the gateway is its only legal
-   writer, since it can read `battery` and write through a telemetry port without an import
+   writer, since it can read `analytics` and write through a telemetry port without an import
    cycle).
 
 3. **Measured SOC instead of solved (`telemetry`)** — detect an active charging session and
@@ -342,13 +342,13 @@ Extended the same day when the owner **descoped the estimator and the UI tiers e
 ### PROPOSAL
 
 The platform stores charge sessions in **two tables owned by two different modules**:
-`manual_charge_entries` (`internal/manualcharge`) and `supercharger_sessions`
+`manual_charge_entries` (`internal/charging`) and `supercharger_sessions`
 (`internal/telemetry`). They carry the same conceptual payload — when the car charged, how
 much energy went in, and (per RM27) the start/end battery percentage — but no module owns
 "charging" as a domain.
 
 The cost is paid by every consumer. Any question of the form *"how was this vehicle charged?"*
-must compose two ports, sum across both shapes, and keep the two in step. `internal/battery`
+must compose two ports, sum across both shapes, and keep the two in step. `internal/analytics`
 already does this twice (`sumSuperchargerKWh` + `sumManualKWh` for efficiency), and RM28 adds
 a third pair of date-range readers plus a summation across both sources for the consumed
 graph. Each new consumer re-implements the same fan-out.
@@ -384,7 +384,7 @@ for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
 
 Go compares `time.Time` map keys on the wall clock **and the `*time.Location`**, so the two
 sides must agree on both. The write sides are UTC (`effectiveDayUTC` for odometer/battery;
-`battery.DayConsumption.Date`, normalized by `internal/battery`'s `calendarDay`, for
+`analytics.DayConsumption.Date`, normalized by `internal/analytics`'s `calendarDay`, for
 consumed). The read side is UTC only when `start` came from an explicit `?start=&end=` pair
 (`time.Parse` defaults to UTC) or the no-cookie fallback. On the **both-params-absent** path
 with a valid non-UTC `browser_tz` cookie, `start` carries that zone's `*time.Location`
@@ -415,6 +415,117 @@ Pre-existing — the odometer and battery charts have carried the identical read
 `gateway-dashboard-history-charts`; tier 4 neither introduced nor worsened it, and design.md
 **D-G3** explicitly forbade adding gateway-side timezone handling to the new function.
 Recorded in that change's archived progress.json.
+
+
+## 14. charging — `AGENTS.md`'s forbidden-import list never named `internal/analytics`
+
+### PROPOSAL
+
+`internal/charging/AGENTS.md` "MUST NOT import" lists `internal/tesla`, `internal/account`,
+`internal/telemetry`, `internal/gateway` and any other module's `db` sub-package — but not
+`internal/analytics`. That was harmless while `GapWriter` lived in `internal/telemetry`
+(explicitly forbidden). RM29 tier 5 moved `GapWriter` and `charge_gaps` to
+`internal/analytics`, so the sentence in `docs/battery-consumed-graph.md` §"So when does your
+edit show up?" that read "its `AGENTS.md` forbids them, so it structurally cannot reach
+`GapWriter`" stopped being literally true of the forbidden list.
+
+The isolation itself is **not** broken: the same file's "Allowed Imports" is a closed
+allowlist (stdlib, `uuid`, `pgx`/`pgxpool`/`pgtype`, its own `chargingdb`), which excludes
+`internal/analytics` already, and `internal/charging` imports no domain module today —
+verified during tier 5. Tier 5 reworded the doc to cite the allowlist rather than the
+forbidden list, which is accurate. The remaining work is one belt-and-braces line: add
+`internal/analytics` to the MUST NOT list so the two lists agree.
+
+Deferred because `internal/charging` is not in RM29 tier 5's scope (analytics + telemetry +
+leader only), and pulling a third module into a pure ownership move would widen the change
+the owner deliberately kept narrow (tier 5 decision **I2**).
+
+**TRIGGER — fix this when** anything next opens `internal/charging/AGENTS.md`, or at the
+latest during RM29 **T6** (`RM29-charging-add-charge-sessions`), which owns that module and
+will be editing that file anyway.
+
+### ORIGIN
+
+`RM29-analytics-own-charge-gaps` (RM29 tier 5), leader's wave-4 doc sweep for task 4.4.
+Recorded in that change's progress.json `decisions[]`.
+
+
+## 15. analytics — `charge_gaps`' SQL `COMMENT ON` still names `internal/battery` and `internal/telemetry`
+
+### PROPOSAL
+
+`internal/analytics/db/migrations/20260815000002_add_charge_gaps.sql` carries a
+`COMMENT ON TABLE charge_gaps` (line 73) whose text reads *"Written by `internal/battery`
+through the GapWriter port (telemetry never calls battery) … Owned by
+`internal/telemetry`"*. Both module names are wrong now: `internal/battery` was renamed
+`internal/analytics` in **RM29 T1**, and ownership moved to `internal/analytics` in
+**RM29 T5**. Because sqlc copies table/column comments into generated code, the same
+stale sentence is reproduced verbatim in `internal/analytics/db/models.go:12`, where it
+is the first thing a reader (human or agent) sees about the type.
+
+**Why T5 did not fix it.** Two routes exist and both are closed to an unattended run:
+
+1. *Edit the migration file.* T5's user-confirmed design decision **I1** is that the
+   migration moves with **zero content change** — that is precisely what makes the
+   `git mv` safe and lets goose recognize the already-applied version in its new
+   directory. Editing it would break the gate the owner confirmed, and would not change
+   the live database anyway: the migration is already applied, so its text is never
+   re-executed. The comment in the running Postgres would stay stale.
+2. *Add a new migration issuing a corrected `COMMENT ON TABLE` / `COMMENT ON COLUMN`.*
+   This is the correct fix, but it is **DDL**, so it trips the pipeline's built-in
+   `database` design gate — schema, rationale and index plan need the owner's explicit
+   confirmation before implementation. The owner was asleep.
+
+Note the staleness is **pre-existing**: the `internal/battery` half has been wrong since
+T1. T5 neither introduced nor worsened it — it only relocated the file, which is what
+made it visible inside `internal/analytics`.
+
+**Suggested shape.** A comment-only migration (`COMMENT ON TABLE charge_gaps IS …` plus
+the affected `COMMENT ON COLUMN` lines), re-running `make sqlc` so `models.go` picks up
+the corrected text. No table, column, index or constraint changes — the cheapest possible
+DDL, but DDL nonetheless, so it still needs the design-gate conversation.
+
+**TRIGGER — fix this when** the owner next confirms a database design gate for
+`internal/analytics`, or opportunistically during **T6**/**T7** if either already carries
+a migration the owner is reviewing.
+
+### ORIGIN
+
+`RM29-analytics-own-charge-gaps` (RM29 tier 5). Found by the leader's post-review sweep
+while fixing `analytics-reviewer` round-1 finding **R1-1**; the reviewer itself missed it.
+Recorded in that change's progress.json `decisions[]` as **A6**.
+
+
+## 16. telemetry / analytics — Drop the five battery-pct columns off `supercharger_sessions` (the contract half of RM29 T6)
+
+### PROPOSAL
+
+RM29 tier 6 was deliberately **expand-only**: `internal/charging` gained `charge_sessions`
+carrying the five human-verified battery-percentage columns (`start_battery_pct`,
+`end_battery_pct`, `battery_pct_source`, `start_battery_pct_est`, `end_battery_pct_est`),
+and `internal/telemetry`'s `supercharger_sessions` kept its own copies. The contract half —
+dropping telemetry's five columns — is still outstanding.
+
+It could not ship in T6 for a concrete reason worth not rediscovering: `MIGRATIONS_DIRS`
+runs the `telemetry` directory before `charging`, and goose walks each directory to
+completion, so a DROP in the same change would have executed **before** the backfill that
+reads those columns. The data is unrecoverable — nothing in the codebase writes them, so the
+one populated row was hand-entered.
+
+This is **not** a one-line `ALTER`. `internal/analytics`'s consumed correction and gap
+detection read those columns today, so they must be re-pointed at `charging`'s copies first.
+That makes this at minimum a two-module change and a database design gate. T4's history is
+the direct precedent: its drop also turned out to need the derivation moved first, making
+that tier wider than its roadmap line.
+
+**TRIGGER — pick this up when** RM29 T7 has archived (so `cmd/poller`'s composition root has
+stopped moving) and the owner is ready for another database design gate. It is explicitly
+**not** part of T7.
+
+### ORIGIN
+
+`RM29-charging-add-charge-sessions` (RM29 tier 6), decision **I4** — the owner's expand-only
+call at the database design gate, 2026-08-22.
 
 
 # BRAINSTORMING

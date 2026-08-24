@@ -25,7 +25,7 @@ bin = "./tmp/web"
 include_ext = ["go"]
 # Skip the generated artifacts, vendored tooling, and DB migrations folders so
 # we don't rebuild on irrecoverable churn.
-exclude_dir = ["tmp", "bin", "internal/gateway/tools", "internal/gateway/static", "internal/account/db/migrations", "internal/manualcharge/db/migrations", "internal/telemetry/db/migrations"]
+exclude_dir = ["tmp", "bin", "internal/gateway/tools", "internal/gateway/static", "internal/account/db/migrations", "internal/charging/db/migrations", "internal/telemetry/db/migrations", "internal/analytics/db/migrations"]
 # Small delay so a templ --watch batch of *_templ.go writes (one per .templ
 # edit, often several files) lands as a single rebuild instead of multiples.
 delay = 400

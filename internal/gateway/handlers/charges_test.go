@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,24 +16,58 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
-// --- fakes for manualcharge.Writer and manualcharge.Reader ---
+// fakeRecalculator is a test double for analytics.Recalculator
+// (RM29-analytics-add-vehicle-metrics task 5.3 — the manual-charge write
+// path now calls Recalculate after every successful Create/Update/Delete,
+// design.md D5). Recalculate records its call args so tests can assert
+// wiring/timing; Reconcile PANICS — no gateway handler calls it (it is the
+// nightly poller's own concern, cmd/poller).
+type fakeRecalculator struct {
+	err error
+
+	calls []recalculateCall
+}
+
+type recalculateCall struct {
+	accountID  uuid.UUID
+	teslaID    int64
+	start, end time.Time
+}
+
+// Compile-time proof that fakeRecalculator still satisfies the real interface.
+// This is what turns a future Recalculator change into a loud compile error here
+// instead of a silent runtime gap -- the same failure mode that broke six fakes
+// in this change's Wave 1. Mirrors internal/analytics/recalculate.go:62.
+var _ analytics.Recalculator = (*fakeRecalculator)(nil)
+
+func (f *fakeRecalculator) Recalculate(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) error {
+	f.calls = append(f.calls, recalculateCall{accountID: accountID, teslaID: teslaID, start: start, end: end})
+	return f.err
+}
+
+func (f *fakeRecalculator) Reconcile(context.Context, uuid.UUID, int64) error {
+	panic("fakeRecalculator: Reconcile is never called by any gateway handler — it is cmd/poller's nightly concern")
+}
+
+// --- fakes for charging.Writer and charging.Reader ---
 
 type fakeChargeWriter struct {
-	createEntry manualcharge.Entry
+	createEntry charging.Entry
 	createErr   error
-	updateEntry manualcharge.Entry
+	updateEntry charging.Entry
 	updateErr   error
 	deleteErr   error
 	deleteCalls int // count of Delete invocations — lets tests assert a rejected write never reached the port
 }
 
-func (f *fakeChargeWriter) Create(_ context.Context, e manualcharge.Entry) (manualcharge.Entry, error) {
+func (f *fakeChargeWriter) Create(_ context.Context, e charging.Entry) (charging.Entry, error) {
 	if f.createErr != nil {
-		return manualcharge.Entry{}, f.createErr
+		return charging.Entry{}, f.createErr
 	}
 	e.ID = uuid.New()
 	e.CreatedAt = time.Now()
@@ -41,9 +76,9 @@ func (f *fakeChargeWriter) Create(_ context.Context, e manualcharge.Entry) (manu
 	return e, nil
 }
 
-func (f *fakeChargeWriter) Update(_ context.Context, e manualcharge.Entry) (manualcharge.Entry, error) {
+func (f *fakeChargeWriter) Update(_ context.Context, e charging.Entry) (charging.Entry, error) {
 	if f.updateErr != nil {
-		return manualcharge.Entry{}, f.updateErr
+		return charging.Entry{}, f.updateErr
 	}
 	e.UpdatedAt = time.Now()
 	f.updateEntry = e
@@ -56,23 +91,32 @@ func (f *fakeChargeWriter) Delete(_ context.Context, _ uuid.UUID, _ uuid.UUID) e
 }
 
 type fakeChargeReader struct {
-	entries []manualcharge.Entry
+	entries []charging.Entry
 	err     error
 }
 
-func (f *fakeChargeReader) ListEntriesByVehicle(_ context.Context, _ uuid.UUID, _ int64, _ int) ([]manualcharge.Entry, error) {
+func (f *fakeChargeReader) ListEntriesByVehicle(_ context.Context, _ uuid.UUID, _ int64, _ int) ([]charging.Entry, error) {
 	return f.entries, f.err
 }
 
-func (f *fakeChargeReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, _ int) ([]manualcharge.Entry, error) {
+func (f *fakeChargeReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, _ int) ([]charging.Entry, error) {
 	return f.entries, f.err
 }
 
-// ListEntriesByVehicleBetween satisfies the manualcharge.Reader port (added by RM28
-// tier 2). No charge handler calls it — the date-range read serves internal/battery's
+// ListEntriesByVehicleBetween satisfies the charging.Reader port (added by RM28
+// tier 2). No charge handler calls it — the date-range read serves internal/analytics's
 // per-day consumed derivation — so this stub exists only to keep the fake a valid Reader.
-func (f *fakeChargeReader) ListEntriesByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]manualcharge.Entry, error) {
+func (f *fakeChargeReader) ListEntriesByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]charging.Entry, error) {
 	return f.entries, f.err
+}
+
+// ListEntriesByVehicleUpdatedSince satisfies the charging.Reader method added by
+// RM29-analytics-add-vehicle-metrics task 1.4. Unlike the sibling above -- which
+// returns data because gateway handlers really do call it -- no handler calls
+// this one; it serves analytics' recompute watermark. Panic makes an accidental
+// call visible instead of silently returning an empty result.
+func (f *fakeChargeReader) ListEntriesByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]charging.Entry, error) {
+	panic("fakeChargeReader: ListEntriesByVehicleUpdatedSince must not be called by any gateway handler")
 }
 
 // --- test helpers ---
@@ -150,12 +194,123 @@ func newHandlerForCharges(writer *fakeChargeWriter, reader *fakeChargeReader) *H
 		},
 	}
 	return New(Deps{
-		Account:            acct,
-		Tesla:              &fakeTesla{},
-		TelemetryReader:    &fakeReader{},
-		ManualChargeWriter: writer,
-		ManualChargeReader: reader,
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        writer,
+		ChargingReader:        reader,
 	})
+}
+
+// newHandlerForChargesWithRecalc is newHandlerForCharges with the analytics
+// recalculator exposed, so a test can assert the write path actually calls it
+// (RM29 task 5.3 / design.md D5). Kept separate rather than changing
+// newHandlerForCharges' signature, so the existing call sites stay untouched.
+func newHandlerForChargesWithRecalc(writer *fakeChargeWriter, reader *fakeChargeReader, recalc *fakeRecalculator) *Handler {
+	acct := &fakeAccount{
+		registered: []account.Vehicle{
+			{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+		},
+	}
+	return New(Deps{
+		AnalyticsRecalculator: recalc,
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        writer,
+		ChargingReader:        reader,
+	})
+}
+
+// postCharge submits a valid create form and returns the recorder.
+func postCharge(t *testing.T, h *Handler, uid uuid.UUID) *httptest.ResponseRecorder {
+	t.Helper()
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// TestChargeCreate_RecalculatesAfterSuccessfulWrite pins design.md D5 / IO-5:
+// the Consumed chart updates instantly today because it is computed on read, so
+// the precomputed read model MUST be refreshed on the write path or the owner
+// sees a stale chart until the nightly Reconcile. Asserts the call happens, is
+// scoped to the writing account and its vehicle, and covers the entry's own day.
+func TestChargeCreate_RecalculatesAfterSuccessfulWrite(t *testing.T) {
+	uid := uuid.New()
+	recalc := &fakeRecalculator{}
+	h := newHandlerForChargesWithRecalc(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
+
+	if w := postCharge(t, h, uid); w.Code != http.StatusOK {
+		t.Fatalf("want 200 on valid create, got %d", w.Code)
+	}
+
+	if len(recalc.calls) != 1 {
+		t.Fatalf("want exactly 1 Recalculate call after a successful create, got %d", len(recalc.calls))
+	}
+	got := recalc.calls[0]
+	if got.accountID != uid {
+		t.Errorf("want Recalculate scoped to account %s, got %s", uid, got.accountID)
+	}
+	if got.teslaID != 1001 {
+		t.Errorf("want Recalculate for the session-selected vehicle 1001, got %d", got.teslaID)
+	}
+	want := time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC)
+	if !got.start.Equal(want) || !got.end.Equal(want) {
+		t.Errorf("want Recalculate over the entry's own day %s..%s, got %s..%s",
+			want.Format("2006-01-02"), want.Format("2006-01-02"),
+			got.start.Format("2006-01-02"), got.end.Format("2006-01-02"))
+	}
+}
+
+// TestChargeCreate_NoRecalculateWhenWriteFails pins the other half of D5: the
+// recalculation follows a COMMITTED write. If the write failed there is nothing
+// to recompute, and recomputing anyway would rewrite the metrics row from
+// unchanged inputs while the user is being shown an error.
+func TestChargeCreate_NoRecalculateWhenWriteFails(t *testing.T) {
+	uid := uuid.New()
+	recalc := &fakeRecalculator{}
+	writer := &fakeChargeWriter{createErr: errors.New("charging: insert failed")}
+	h := newHandlerForChargesWithRecalc(writer, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
+
+	postCharge(t, h, uid)
+
+	if len(recalc.calls) != 0 {
+		t.Fatalf("want NO Recalculate call when the write failed, got %d", len(recalc.calls))
+	}
+}
+
+// TestChargeCreate_RecalculateErrorDoesNotFailTheRequest pins D5's error policy:
+// the user's write already committed, so a recalculation failure is logged and
+// swallowed rather than surfaced -- failing their request over a derived-metrics
+// error would misreport a save that actually succeeded.
+func TestChargeCreate_RecalculateErrorDoesNotFailTheRequest(t *testing.T) {
+	uid := uuid.New()
+	recalc := &fakeRecalculator{err: errors.New("analytics: recalculate failed")}
+	h := newHandlerForChargesWithRecalc(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}}, recalc)
+
+	if w := postCharge(t, h, uid); w.Code != http.StatusOK {
+		t.Fatalf("want 200 despite a Recalculate error (the write committed), got %d", w.Code)
+	}
+	if len(recalc.calls) != 1 {
+		t.Errorf("want the failing Recalculate to still have been attempted once, got %d", len(recalc.calls))
+	}
 }
 
 // --- Sub-task H tests ---
@@ -181,7 +336,7 @@ func TestChargePage_NoSession(t *testing.T) {
 func TestChargePage_WithSession(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(writer, reader)
 	r := engineWithSession(h, uid, "")
 	cookie := sessionCookie(r, uid, "")
@@ -220,7 +375,7 @@ func TestChargesListFragment_NoSession(t *testing.T) {
 func TestChargesListFragment_WithEntries(t *testing.T) {
 	uid := uuid.New()
 	chargedOn := time.Now()
-	entries := []manualcharge.Entry{
+	entries := []charging.Entry{
 		{
 			ID:             uuid.New(),
 			AccountID:      uid,
@@ -280,7 +435,7 @@ func TestChargesListFragment_ReaderError(t *testing.T) {
 // TestChargesListFragment_EmptyState verifies empty-state message on empty list.
 func TestChargesListFragment_EmptyState(t *testing.T) {
 	uid := uuid.New()
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(&fakeChargeWriter{}, reader)
 	r := engineWithSession(h, uid, "testcsrf")
 	c := sessionCookie(r, uid, "testcsrf")
@@ -313,11 +468,11 @@ func TestChargeCreate_CSRFMismatch(t *testing.T) {
 	c := sessionCookie(r, uid, "correcttoken")
 
 	form := url.Values{
-		"csrf_token":       {"wrongtoken"},
-		"charged_on":       {"2026-07-15"},
-		"energy_added_kwh": {"10.5"},
-		"price":            {"5000"},
-		"location_kind":    {"HOME"},
+		"csrf_token":        {"wrongtoken"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
 		"start_battery_pct": {"50"},
 		"end_battery_pct":   {"80"},
 	}
@@ -347,11 +502,12 @@ func TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
 	// Account with NO registered vehicles → resolveSelectedVehicle returns false.
 	acct := &fakeAccount{registered: nil}
 	h := New(Deps{
-		Account:            acct,
-		Tesla:              &fakeTesla{},
-		TelemetryReader:    &fakeReader{},
-		ManualChargeWriter: &fakeChargeWriter{},
-		ManualChargeReader: &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
@@ -422,13 +578,13 @@ func TestChargeCreate_MissingRequiredField(t *testing.T) {
 func TestChargeCreate_ValidInput(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
+		"csrf_token":        {"tok"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"10.5"},
 		"price":             {"5000"},
@@ -488,7 +644,7 @@ func TestChargeRowEditFragment_NoSession(t *testing.T) {
 func TestChargeRowEditFragment_WithEntry(t *testing.T) {
 	uid := uuid.New()
 	entryID := uuid.New()
-	entries := []manualcharge.Entry{
+	entries := []charging.Entry{
 		{
 			ID:             entryID,
 			AccountID:      uid,
@@ -717,7 +873,7 @@ func TestChargeRowDelete_StaleCSRF_RejectedNotAlerted(t *testing.T) {
 			w.Body.String()[:min(200, w.Body.Len())])
 	}
 	// F4 (MAG-5 follow-up): the stale-CSRF path must fail BEFORE reaching
-	// manualcharge.Writer.Delete — asserting only the HTTP response left this
+	// charging.Writer.Delete — asserting only the HTTP response left this
 	// test blind to a bug where checkCSRF rejects the response but the handler
 	// still called Delete. Assert the write never happened.
 	if writer.deleteCalls != 0 {
@@ -843,17 +999,17 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 	startPct := 60
 	endPct := 92
 
-	e := manualcharge.Entry{
-		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-		AccountID:      uuid.New(),
-		TeslaID:        1001,
-		VIN:            "VIN1001",
-		ChargedOn:      time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
-		EnergyAddedKWh: 12.5,
-		Price:          15000.0,
-		Currency:       "COP",
-		StartedAt:      &start,
-		EndedAt:        &end,
+	e := charging.Entry{
+		ID:              uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+		AccountID:       uuid.New(),
+		TeslaID:         1001,
+		VIN:             "VIN1001",
+		ChargedOn:       time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
+		EnergyAddedKWh:  12.5,
+		Price:           15000.0,
+		Currency:        "COP",
+		StartedAt:       &start,
+		EndedAt:         &end,
 		StartBatteryPct: &startPct,
 		EndBatteryPct:   &endPct,
 	}
@@ -918,7 +1074,7 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 // strings — never routed through formatMoney/commaGroup — even when the
 // underlying amount is >= 1000 and would otherwise be grouped for display.
 func TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T) {
-	e := manualcharge.Entry{
+	e := charging.Entry{
 		ID:             uuid.MustParse("00000000-0000-0000-0000-000000000002"),
 		AccountID:      uuid.New(),
 		TeslaID:        1001,
@@ -953,18 +1109,18 @@ func TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T) {
 func TestChargeCreate_MissingLocationKind(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 		// deliberately no location_kind
 		// no `vehicle` (D4), no `currency` (D5) form fields.
 	}
@@ -994,19 +1150,19 @@ func TestChargeCreate_MissingLocationKind(t *testing.T) {
 func TestChargeCreate_InvalidLocationKind(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"location_kind":      {"INVALID"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"INVALID"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1033,13 +1189,13 @@ func TestChargeRowUpdate_MissingLocationKind(t *testing.T) {
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
-form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-16"},
-		"energy_added_kwh":   {"20.0"},
-		"price":              {"9000"},
-		"start_battery_pct":  {"40"},
-		"end_battery_pct":    {"75"},
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-16"},
+		"energy_added_kwh":  {"20.0"},
+		"price":             {"9000"},
+		"start_battery_pct": {"40"},
+		"end_battery_pct":   {"75"},
 		// deliberately no location_kind
 		// no `vehicle` (D4), no `currency` (D5) form fields.
 	}
@@ -1063,19 +1219,19 @@ form := url.Values{
 func TestChargeCreate_ValidLocationKind(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"location_kind":      {"HOME"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1135,11 +1291,12 @@ func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
 	}}
 	h := New(Deps{
-		Account:            acct,
-		Tesla:              &fakeTesla{},
-		TelemetryReader:    &fakeReader{},
-		ManualChargeWriter: &fakeChargeWriter{},
-		ManualChargeReader: &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	eng := chargesContentEngine(h, uid, 2, "VIN2")
 	c := sessionCookie(eng, uid, "")
@@ -1184,11 +1341,12 @@ func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
 	}}
 	h := New(Deps{
-		Account:            acct,
-		Tesla:              &fakeTesla{},
-		TelemetryReader:    &fakeReader{},
-		ManualChargeWriter: &fakeChargeWriter{},
-		ManualChargeReader: &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	eng := chargesContentEngine(h, uid, 1, "VIN1")
 	c := sessionCookie(eng, uid, "")
@@ -1232,11 +1390,12 @@ func TestChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 		{TeslaID: 1001, BatteryLevelPct: 73},
 	}}
 	h := New(Deps{
-		Account:            acct,
-		Tesla:              &fakeTesla{},
-		TelemetryReader:    reader,
-		ManualChargeWriter: &fakeChargeWriter{},
-		ManualChargeReader: &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       reader,
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
@@ -1277,11 +1436,12 @@ func TestChargePage_NoBatterySuggestionWhenNoSnapshot(t *testing.T) {
 	}}
 	reader := &fakeReader{snapshots: nil} // no telemetry snapshots
 	h := New(Deps{
-		Account:            acct,
-		Tesla:              &fakeTesla{},
-		TelemetryReader:    reader,
-		ManualChargeWriter: &fakeChargeWriter{},
-		ManualChargeReader: &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       reader,
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
@@ -1313,11 +1473,12 @@ func TestChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
 	}}
 	reader := &fakeReader{err: errFake} // simulate a telemetry store failure
 	h := New(Deps{
-		Account:            acct,
-		Tesla:              &fakeTesla{},
-		TelemetryReader:    reader,
-		ManualChargeWriter: &fakeChargeWriter{},
-		ManualChargeReader: &fakeChargeReader{},
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       reader,
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
 	})
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
@@ -1343,18 +1504,18 @@ func TestChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
 func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"location_kind":      {"HOME"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":       {"tok"},
+		"charged_on":       {"2026-07-15"},
+		"energy_added_kwh": {"10.5"},
+		"price":            {"5000"},
+		"location_kind":    {"HOME"},
+		"end_battery_pct":  {"80"},
 		// start_battery_pct deliberately omitted
 	}
 	w := httptest.NewRecorder()
@@ -1384,15 +1545,15 @@ func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	for _, tc := range []struct {
-		name        string
-		start, end  string
-		wantInBody  string
+		name       string
+		start, end string
+		wantInBody string
 	}{
 		// Resolved language is Spanish here (KeyChargesErrorStartBatteryPctRange /
 		// KeyChargesErrorEndBatteryPctRange's ES values).
@@ -1403,13 +1564,13 @@ func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			form := url.Values{
-				"csrf_token":         {"tok"},
-				"charged_on":         {"2026-07-15"},
-				"energy_added_kwh":   {"10.5"},
-				"price":              {"5000"},
-				"location_kind":      {"HOME"},
-				"start_battery_pct":  {tc.start},
-				"end_battery_pct":    {tc.end},
+				"csrf_token":        {"tok"},
+				"charged_on":        {"2026-07-15"},
+				"energy_added_kwh":  {"10.5"},
+				"price":             {"5000"},
+				"location_kind":     {"HOME"},
+				"start_battery_pct": {tc.start},
+				"end_battery_pct":   {tc.end},
 			}
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1473,19 +1634,19 @@ func TestChargePage_DateDefaultsToToday(t *testing.T) {
 func TestChargeCreate_ClearedDates_PersistedNil(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"10.5"},
-		"price":              {"5000"},
-		"location_kind":      {"HOME"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"10.5"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 		// started_at and ended_at deliberately empty (clearing the today-default).
 	}
 	w := httptest.NewRecorder()
@@ -1519,19 +1680,19 @@ func TestChargeCreate_ClearedDates_PersistedNil(t *testing.T) {
 func TestChargeCreate_3DecimalEnergy_Accepted(t *testing.T) {
 	uid := uuid.New()
 	writer := &fakeChargeWriter{}
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
 	h := newHandlerForCharges(writer, reader)
 	r := engineWithSession(h, uid, "tok")
 	c := sessionCookie(r, uid, "tok")
 
 	form := url.Values{
-		"csrf_token":         {"tok"},
-		"charged_on":         {"2026-07-15"},
-		"energy_added_kwh":   {"7.345"},
-		"price":              {"5000"},
-		"location_kind":      {"HOME"},
-		"start_battery_pct":  {"50"},
-		"end_battery_pct":    {"80"},
+		"csrf_token":        {"tok"},
+		"charged_on":        {"2026-07-15"},
+		"energy_added_kwh":  {"7.345"},
+		"price":             {"5000"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1557,19 +1718,19 @@ func TestChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
 	uid := uuid.New()
 	for _, v := range []string{"0", "-1"} {
 		writer := &fakeChargeWriter{}
-		reader := &fakeChargeReader{entries: []manualcharge.Entry{}}
+		reader := &fakeChargeReader{entries: []charging.Entry{}}
 		h := newHandlerForCharges(writer, reader)
 		r := engineWithSession(h, uid, "tok")
 		c := sessionCookie(r, uid, "tok")
 
 		form := url.Values{
-			"csrf_token":         {"tok"},
-			"charged_on":         {"2026-07-15"},
-			"energy_added_kwh":   {v},
-			"price":              {"5000"},
-			"location_kind":      {"HOME"},
-			"start_battery_pct":  {"50"},
-			"end_battery_pct":    {"80"},
+			"csrf_token":        {"tok"},
+			"charged_on":        {"2026-07-15"},
+			"energy_added_kwh":  {v},
+			"price":             {"5000"},
+			"location_kind":     {"HOME"},
+			"start_battery_pct": {"50"},
+			"end_battery_pct":   {"80"},
 		}
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/ui/charges/create", strings.NewReader(form.Encode()))
@@ -1601,7 +1762,7 @@ func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 	// Pre-delete list carries the entry; post-delete list does not. We exercise
 	// both reads against the same fakeReader (the slice is a fixture per-call,
 	// so we re-set entries between the two GETs).
-	reader := &fakeChargeReader{entries: []manualcharge.Entry{
+	reader := &fakeChargeReader{entries: []charging.Entry{
 		{ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
 			EnergyAddedKWh: 10.0, Price: 5000.0, Currency: "COP"},
 	}}

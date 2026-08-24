@@ -1,14 +1,24 @@
 // Command poller is the background entrypoint for nightly telemetry collection. It
-// wires config, a pgx pool, the account + tesla ports, and the telemetry collector,
-// then runs the in-app daily scheduler with graceful shutdown. Thin by design — all
-// collection logic lives in internal/telemetry (ai/go-conventions.md).
+// wires config, a pgx pool, the account + tesla ports and internal/app's Processor,
+// then starts internal/app's daily scheduler with graceful shutdown.
 //
-// It is also the composition root for charge-gap reconciliation: after each
-// successful cycle it asks internal/battery for the trailing window of consumed-per-day
-// figures and hands the flagged days to internal/telemetry's gap writer. That
-// orchestration lives HERE, and only here, because neither module may depend on the
-// other in that direction — telemetry never calls battery. See internal/battery's
-// ConsumedByDay and telemetry's GapWriter.
+// Since RM29 tier 7 this file is WIRING ONLY. It owns no business logic at all:
+// what one nightly run does — sync fleet data, process charging data, recalculate
+// analytics, in that order, short-circuiting if the sync fails — is internal/app's
+// Processor.ProcessVehicleData, and WHEN it runs is internal/app's Scheduler. Both
+// used to live here (a reconcilingCollector decorator plus two closures) because
+// there was no application layer to hold them; tier 7 created one. The rule this
+// serves is CLAUDE.md §Non-negotiables: cmd/ stays thin, zero business logic.
+//
+// That matters beyond tidiness: this package has no tests and never has, so every
+// line here is invisible to go test. Code that lives in internal/app can at least
+// be tested; code that lives here can only be read. Keep it wiring.
+//
+// Both paths drive the SAME port, so they cannot diverge: the scheduler's tick and
+// --once both call ProcessVehicleData and then telemetry.LogCycle. Each invocation
+// stamps its own run_id across every poll_attempts row it writes, plus
+// triggered_by = "scheduler" for both paths (a future manual-rerun API would pass
+// "api" — RM29 tier 8, parked).
 //
 // BOTH paths load and validate POLLER_TIMEZONE: the nightly path schedules in it, and
 // both paths date each capture by it (telemetry.Config.Location). An invalid value is
@@ -31,9 +41,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/battery"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/app"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/config"
-	"github.com/cristianpena/magus-tesla-api/internal/manualcharge"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -79,25 +90,49 @@ func main() {
 	// clock).
 	tcfg := telemetry.Config{WakeTimeout: cfg.PollerWakeTimeout, Location: loc}
 
-	// The charge-gap reconciliation step (D4/D4a) decorates the collector rather
-	// than sitting beside it, so BOTH the scheduled path and --once get it by
-	// construction. battery.NewReader's window argument is required by the
-	// signature but unused by ConsumedByDay — only RecentEfficiency reads it, and
-	// this command never calls that.
-	batteryReader := battery.NewReader(
-		telemetry.NewReader(pool),
-		telemetry.NewSuperchargerReader(pool),
-		manualcharge.NewReader(pool),
+	// The sibling ports internal/app's Processor composes. Both paths get all
+	// three steps by construction now, because both call the same port — the
+	// decorator that used to guarantee that is gone with tier 7.
+	// analytics.NewReader's window argument is required by the signature but
+	// unused by ConsumedByDay — only RecentEfficiency reads it, and this command
+	// never calls that.
+	//
+	// The three sibling ports are built once and shared by the reader and the
+	// recalculator: they are stateless handles over the same pool, and building
+	// them twice would only obscure that both halves of the step read exactly the
+	// same sources.
+	telemetryReader := telemetry.NewReader(pool)
+	superchargerReader := telemetry.NewSuperchargerReader(pool)
+	chargingReader := charging.NewReader(pool)
+
+	analyticsReader := analytics.NewReader(
+		pool,
+		telemetryReader,
+		superchargerReader,
+		chargingReader,
 		acct,
-		battery.DefaultWindow,
+		analytics.DefaultWindow,
 	)
-	collector := &reconcilingCollector{
-		inner:     telemetry.NewService(pool, acct, tesla.NewClient(), tcfg),
-		reconcile: newGapReconciler(acct, batteryReader, telemetry.NewGapWriter(pool), loc),
-	}
+	recalculator := analytics.NewRecalculator(pool, telemetryReader, superchargerReader, chargingReader)
+
+	// The use case itself. Since RM29 tier 7 the three-step cycle lives behind
+	// internal/app's Processor port, not in this file: what a run DOES is
+	// application logic, and cmd/ stays thin (CLAUDE.md §Non-negotiables). Both
+	// paths below drive the same port, so neither can silently diverge from the
+	// other the way a decorator wrapped around only one of them could.
+	processor := app.NewProcessor(
+		telemetry.NewService(pool, acct, tesla.NewClient(), tcfg),
+		superchargerReader,
+		charging.NewSessionWriter(pool),
+		acct,
+		recalculator,
+		analyticsReader,
+		analytics.NewGapWriter(pool),
+		loc,
+	)
 
 	if !*once {
-		scheduler := telemetry.NewScheduler(collector, cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, tcfg)
+		scheduler := app.NewScheduler(processor, cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, tcfg)
 
 		log.Printf("poller started: nightly collection at %02d:%02d %s (wake timeout %s)",
 			cfg.PollerScheduleHour, cfg.PollerScheduleMinute, loc, cfg.PollerWakeTimeout)
@@ -109,108 +144,18 @@ func main() {
 		}
 		log.Println("poller stopped")
 	} else {
-		// One-shot mode: run a single collection cycle immediately, log the shared
-		// per-cycle report, then exit. Reuses CollectAll + LogCycle so it provably
-		// shares the exact collection + report path with the nightly scheduler.
-		// CollectAll returns nil for per-vehicle failures (per-vehicle isolation);
-		// a non-nil error means a whole-cycle (enumeration) failure → exit 1.
-		report, err := collector.CollectAll(ctx)
+		// One-shot mode: run a single cycle immediately, log the shared per-cycle
+		// report, then exit. Calls the same ProcessVehicleData + LogCycle pair the
+		// scheduler's tick calls, so it provably shares the exact three-step path
+		// with the nightly run. The cycle records triggered_by = "scheduler": this
+		// is still the poller, and the owner does not need --once distinguishable
+		// (RD7). ProcessVehicleData returns nil for per-vehicle failures
+		// (per-vehicle isolation); a non-nil error means a whole-cycle
+		// (enumeration) failure → exit 1.
+		report, err := processor.ProcessVehicleData(ctx, telemetry.TriggeredByScheduler)
 		telemetry.LogCycle(report, err)
 		if err != nil {
 			log.Fatalf("one-shot collection: %v", err)
-		}
-	}
-}
-
-// reconcilingCollector decorates telemetry.Collector so the nightly charge-gap
-// reconciliation runs after every successful collection cycle — the scheduled one
-// and --once alike.
-//
-// Decorating (rather than calling reconcile beside CollectAll) is what makes both
-// paths share the step by construction: Scheduler.Run owns its own loop and calls
-// CollectAll internally, so cmd/ has no seam to hook after a *scheduled* cycle.
-// Wrapping the port the scheduler already depends on keeps the orchestration in
-// the composition root — D4a: cmd/poller orchestrates battery → telemetry, and
-// telemetry never calls battery — instead of adding a post-cycle hook to
-// telemetry.Scheduler, which would push knowledge of this tier into a module that
-// must not have it.
-type reconcilingCollector struct {
-	inner     telemetry.Collector
-	reconcile func(ctx context.Context)
-}
-
-// CollectAll runs the wrapped cycle, then reconciles charge gaps only if the cycle
-// itself succeeded: detection reads the night's freshly written snapshot, so it must
-// not run before that snapshot exists (D4). A whole-cycle failure is returned
-// untouched, leaving every existing caller's error handling unchanged.
-func (c *reconcilingCollector) CollectAll(ctx context.Context) (telemetry.CycleReport, error) {
-	report, err := c.inner.CollectAll(ctx)
-	if err != nil {
-		return report, err
-	}
-	c.reconcile(ctx)
-	return report, nil
-}
-
-// newGapReconciler builds the per-cycle charge-gap reconciliation step (D4/D4a,
-// D7b). For every registered vehicle it recomputes the trailing
-// battery.GapReconciliationWindow of consumed-per-day figures and hands the flagged
-// days to telemetry's gap writer, which upserts the days that flag and deletes the
-// days that no longer do.
-//
-// Errors are logged, never fatal: a missed reconciliation self-heals on the next
-// cycle, because flagged is recomputed from scratch every run rather than
-// accumulated. Its log lines are prefixed "gap reconciliation:" so they stay
-// greppable and unambiguous — they are emitted inside CollectAll, hence before the
-// caller's own telemetry-cycle summary line.
-func newGapReconciler(acct account.Service, batteryReader battery.Reader, gapWriter telemetry.GapWriter, loc *time.Location) func(context.Context) {
-	return func(ctx context.Context) {
-		// "Yesterday" is resolved in the POLLER'S OWN ZONE, not UTC (roadmap D6/D18,
-		// design D-B12): the composition root owns the zone that answers "which days
-		// am I asking about", while internal/battery needs no *time.Location of its
-		// own because each row's bucket day travels with it. time.Now().UTC() here
-		// would ask for the wrong day for 5 hours out of every 24. The window ends
-		// yesterday because today's data is not captured until tomorrow's poll.
-		y, m, d := time.Now().In(loc).Date()
-		end := time.Date(y, m, d, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
-		start := end.AddDate(0, 0, -int(battery.GapReconciliationWindow.Hours()/24)+1)
-
-		log.Printf("gap reconciliation: %s → %s", start, end)
-
-		vehicles, err := acct.AllRegisteredVehicles(ctx)
-		if err != nil {
-			// Whole-cycle failure, mirroring CollectAll's own enumeration-failure shape.
-			log.Printf("gap reconciliation: listing vehicles: %v", err)
-			return
-		}
-
-		for _, v := range vehicles {
-			days, err := batteryReader.ConsumedByDay(ctx, v.AccountID, v.TeslaID, start, end)
-			if err != nil {
-				// Per-vehicle isolation, mirroring CollectAll: one vehicle's failure
-				// never aborts another vehicle's reconciliation.
-				log.Printf("gap reconciliation: vehicle %d: consumed-by-day: %v", v.TeslaID, err)
-				continue
-			}
-
-			var flagged []telemetry.ChargeGap
-			for _, day := range days {
-				if !day.Flagged {
-					continue
-				}
-				flagged = append(flagged, telemetry.ChargeGap{
-					AccountID:           v.AccountID,
-					TeslaID:             v.TeslaID,
-					VIN:                 v.VIN,
-					Date:                day.Date,
-					MissingChargingType: day.MissingChargingType,
-				})
-			}
-
-			if err := gapWriter.ReconcileWindow(ctx, v.AccountID, v.TeslaID, start, end, flagged); err != nil {
-				log.Printf("gap reconciliation: vehicle %d: reconcile window: %v", v.TeslaID, err)
-				continue
-			}
 		}
 	}
 }

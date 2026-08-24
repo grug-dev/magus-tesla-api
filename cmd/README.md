@@ -35,7 +35,7 @@ cmd/
 |---|---|---|---|
 | `cmd/setup` | `go run ./cmd/setup` | One-time Tesla OAuth token capture → saves to `.env` | Run once, exits |
 | `cmd/web` | `go run ./cmd/web` | The production multi-tenant HTTP gateway (vehicle dashboard) | Long-running, deployed |
-| `cmd/poller` | `go run ./cmd/poller` | Nightly telemetry collection (scheduled), then charge-gap reconciliation; `--once` runs a single cycle and exits | Long-running nightly, or one-shot with `--once` |
+| `cmd/poller` | `go run ./cmd/poller` | **Wiring only** since RM29 tier 7. It composes `internal/app`'s `Processor` and starts `internal/app`'s `Scheduler`; the cycle itself — sync fleet data → process charging data → recalculate analytics (metrics before charge gaps, an order gap detection depends on) — lives in `internal/app`, not here. `--once` calls the same `ProcessVehicleData` the scheduler's tick calls, so the two paths cannot diverge | Long-running nightly, or one-shot with `--once` |
 | `cmd/explore-tesla-api` | `go run ./cmd/explore-tesla-api` | On-demand inspector for raw Tesla Fleet API JSON payloads | Run on-demand, exits |
 
 For details on a specific binary, see its own README (when present):

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
@@ -328,5 +329,159 @@ func TestStore_PollAttemptRoundTrip(t *testing.T) {
 	}
 	if !row.AttemptedAt.Time.UTC().Equal(attemptedAt) {
 		t.Errorf("attempted_at wrong: want %v, got %v", attemptedAt, row.AttemptedAt.Time.UTC())
+	}
+}
+
+// The three tests below implement design.md's Test Contract group B
+// (RM29-app-add-process-vehicle-data, task 2.8) for the run_id/triggered_by
+// columns added by migration 20260823000002_add_run_id_triggered_by_poll_attempts.
+// Expected values were authored in design.md BEFORE this test file was written
+// (ai/go-conventions.md §Testing "contract-first authoring"); do not adjust them
+// to match whatever the mapping code happens to do.
+//
+// Each test reads the column back with a DIRECT SQL SELECT — not through
+// ListPollAttemptsByVehicle or any other sqlc reader query — so the assertion
+// exercises exactly the two new columns, independent of any other query's own
+// column list or mapping. The row is identified by its unique
+// (account_id, tesla_id) pair (each test uses a fresh uuid.New() account plus
+// its own unused tesla_id constant), which is unique per test exactly like
+// TestStore_PollAttemptRoundTrip's own lookup above; poll_attempts.id exists
+// but insertPollAttempt is a sqlc :exec query with no RETURNING clause, so the
+// row has no id available to the caller to filter on.
+
+// TestStore_PollAttemptRoundTrip_RunIDAndTriggeredByAPI is Test Contract B1.
+func TestStore_PollAttemptRoundTrip_RunIDAndTriggeredByAPI(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(900040)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	wantRunID := uuid.New()
+	attemptedAt := time.Now().UTC().Truncate(time.Microsecond)
+	if err := st.insertPollAttempt(ctx, Attempt{
+		AccountID:   accountID,
+		TeslaID:     teslaID,
+		AttemptedAt: attemptedAt,
+		Outcome:     OutcomeSuccess,
+		Reason:      ReasonOK,
+		RunID:       wantRunID,
+		TriggeredBy: TriggeredByAPI,
+	}); err != nil {
+		t.Fatalf("insertPollAttempt: %v", err)
+	}
+
+	var gotRunID pgtype.UUID
+	var gotTriggeredBy string
+	if err := pool.QueryRow(ctx,
+		`SELECT run_id, triggered_by FROM poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
+		accountID, teslaID,
+	).Scan(&gotRunID, &gotTriggeredBy); err != nil {
+		t.Fatalf("querying poll_attempts: %v", err)
+	}
+
+	// Expected (design.md B1): run_id equals the supplied UUID exactly.
+	if !gotRunID.Valid {
+		t.Fatalf("run_id should be non-NULL, got NULL")
+	}
+	if uuid.UUID(gotRunID.Bytes) != wantRunID {
+		t.Errorf("run_id wrong: want %v, got %v", wantRunID, uuid.UUID(gotRunID.Bytes))
+	}
+	// Expected (design.md B1): triggered_by = 'api'.
+	// The literal, not string(TriggeredByAPI): comparing the constant against a row
+	// written FROM that same constant is a tautology that passes even if the constant
+	// is misspelled. design.md B1's expected value is the wire value 'api'.
+	if gotTriggeredBy != "api" {
+		t.Errorf("triggered_by wrong: want %q, got %q (constant is %q)", "api", gotTriggeredBy, TriggeredByAPI)
+	}
+}
+
+// TestStore_PollAttempt_PreMigrationRowDefaultsRunIDNullTriggeredByScheduler is
+// Test Contract B2 — the only coverage of spec.md's "a record from before this
+// capability existed has no run identifier" scenario. It reproduces exactly
+// what happened to every real poll_attempts row when this migration's ALTER
+// ran: a direct INSERT naming neither run_id nor triggered_by.
+func TestStore_PollAttempt_PreMigrationRowDefaultsRunIDNullTriggeredByScheduler(t *testing.T) {
+	_, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(900041)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	attemptedAt := time.Now().UTC().Truncate(time.Microsecond)
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO poll_attempts (account_id, tesla_id, attempted_at, outcome, reason)
+		 VALUES ($1, $2, $3, $4, $5)`,
+		accountID, teslaID, attemptedAt, string(OutcomeSuccess), string(ReasonOK),
+	); err != nil {
+		t.Fatalf("direct INSERT into poll_attempts: %v", err)
+	}
+
+	var gotRunID pgtype.UUID
+	var gotTriggeredBy string
+	if err := pool.QueryRow(ctx,
+		`SELECT run_id, triggered_by FROM poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
+		accountID, teslaID,
+	).Scan(&gotRunID, &gotTriggeredBy); err != nil {
+		t.Fatalf("querying poll_attempts: %v", err)
+	}
+
+	// Expected (design.md B2): run_id IS NULL.
+	if gotRunID.Valid {
+		t.Errorf("run_id should be NULL for a pre-migration-shaped row, got %v", uuid.UUID(gotRunID.Bytes))
+	}
+	// Expected (design.md B2): triggered_by = 'scheduler' (the column's own default).
+	if gotTriggeredBy != "scheduler" {
+		t.Errorf("triggered_by wrong: want %q, got %q", "scheduler", gotTriggeredBy)
+	}
+}
+
+// TestStore_PollAttemptRoundTrip_TriggeredByScheduler is Test Contract B3. It
+// pins that the Go constant TriggeredByScheduler and the triggered_by column's
+// own SQL default ('scheduler') agree character-for-character: a typo in
+// either would let B1 and B2 each pass independently while silently
+// disagreeing with each other.
+func TestStore_PollAttemptRoundTrip_TriggeredByScheduler(t *testing.T) {
+	st, pool := newTestStore(t)
+	ctx := context.Background()
+
+	accountID := uuid.New()
+	const teslaID = int64(900042)
+	cleanupVehicle(t, pool, accountID, teslaID)
+
+	attemptedAt := time.Now().UTC().Truncate(time.Microsecond)
+	if err := st.insertPollAttempt(ctx, Attempt{
+		AccountID:   accountID,
+		TeslaID:     teslaID,
+		AttemptedAt: attemptedAt,
+		Outcome:     OutcomeSuccess,
+		Reason:      ReasonOK,
+		RunID:       uuid.New(),
+		TriggeredBy: TriggeredByScheduler,
+	}); err != nil {
+		t.Fatalf("insertPollAttempt: %v", err)
+	}
+
+	var gotTriggeredBy string
+	if err := pool.QueryRow(ctx,
+		`SELECT triggered_by FROM poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
+		accountID, teslaID,
+	).Scan(&gotTriggeredBy); err != nil {
+		t.Fatalf("querying poll_attempts: %v", err)
+	}
+
+	// Expected (design.md B3): triggered_by = 'scheduler' through the Go seam too.
+	if gotTriggeredBy != "scheduler" {
+		t.Errorf("triggered_by wrong: want %q, got %q", "scheduler", gotTriggeredBy)
+	}
+	// B3's whole purpose (design.md): pin that the Go constant and the column's own
+	// SQL default are the same characters. Asserted explicitly, because comparing a
+	// round-tripped value against the constant that wrote it cannot detect a typo in
+	// the constant — B2 would then fail alone, with no clue which side moved.
+	if string(TriggeredByScheduler) != "scheduler" {
+		t.Errorf("TriggeredByScheduler drifted from the migration's DEFAULT: want %q, got %q",
+			"scheduler", TriggeredByScheduler)
 	}
 }

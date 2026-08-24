@@ -5,13 +5,14 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// Base is the full-page HTML shell for unauthenticated pages (home, login). It sets
-// the DaisyUI theme via <html data-theme> (name must match a registered theme in
-// input.css), loads the vendored, minified Tailwind+DaisyUI
-// stylesheet (/static/app.css) and the pinned htmx (/static/htmx.min.js) — both embedded
-// in the binary, never an external CDN. DaisyUI is pure CSS with zero component
-// JavaScript, so htmx fragment swaps stay styled with nothing to re-initialize.
-templ Base(title string) {
+// baseShell is the bare document shell shared by Base (anonymous pages) and
+// BaseAuth (authenticated pages): <!DOCTYPE>/<html>/<head>/<body>, the DaisyUI
+// theme + vendored asset tags, and the ONE shared confirmation modal
+// (ui.ConfirmDialog, RD10), mounted here so both callers inherit it exactly
+// once instead of each mounting — and risking duplicating — their own. It
+// renders no navigation/chrome of its own; Base and BaseAuth each supply
+// their own chrome around { children... }.
+templ baseShell(title string) {
 	<!DOCTYPE html>
 	<html lang={ i18n.FromContext(ctx) } data-theme="apex">
 		<head>
@@ -33,17 +34,41 @@ templ Base(title string) {
 	</html>
 }
 
-// BaseAuth is the full-page shell for authenticated pages. It reuses Base for the
-// <head>/theme, then wraps the page body in a responsive DaisyUI drawer: a persistent
-// sidebar on lg+ screens, a hamburger-triggered slide-out on smaller ones. The sidebar
-// menu is the owned ui.NavShell component so pages/agents never re-author nav markup.
+// Base is the full-page HTML shell for unauthenticated pages (home, login). It sets
+// the DaisyUI theme via <html data-theme> (name must match a registered theme in
+// input.css), loads the vendored, minified Tailwind+DaisyUI
+// stylesheet (/static/app.css) and the pinned htmx (/static/htmx.min.js) — both embedded
+// in the binary, never an external CDN. DaisyUI is pure CSS with zero component
+// JavaScript, so htmx fragment swaps stay styled with nothing to re-initialize.
+// Composes baseShell with the anonymous-page chrome: a fixed-position language
+// switcher (MAG-8 design D6 — "visible on every page including login") pinned
+// top-right, since these pages have no navbar to host one. Callers must NOT
+// mount their own ui.LangSwitcher — Base already provides it (see
+// TestBase_RendersLangSwitcher).
+templ Base(title string) {
+	@baseShell(title) {
+		<div class="fixed top-3 right-3 z-40">
+			@ui.LangSwitcher(ui.LangSwitcherProps{Current: i18n.FromContext(ctx)})
+		</div>
+		{ children... }
+	}
+}
+
+// BaseAuth is the full-page shell for authenticated pages. It calls baseShell
+// directly for the shared <head>/theme/body/ConfirmDialog document structure
+// (NOT Base — Base's own chrome mounts a second language switcher meant only
+// for the navbar-less anonymous pages, which would double-render alongside
+// the navbar copy below), then wraps the page body in a responsive DaisyUI
+// drawer: a persistent sidebar on lg+ screens, a hamburger-triggered
+// slide-out on smaller ones. The sidebar menu is the owned ui.NavShell
+// component so pages/agents never re-author nav markup.
 //
 // path is the current request path; it lights the active nav item (navItems(path)).
 // The vehicle header slot is an htmx-swappable placeholder (#nav-header) served by
 // GET /ui/nav-header — the shell paints identity-only immediately and the header
 // swaps in after, keeping the telemetry+account reads off the critical render path.
 templ BaseAuth(title, path string) {
-	@Base(title) {
+	@baseShell(title) {
 		<script>
 			try {
 				const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;

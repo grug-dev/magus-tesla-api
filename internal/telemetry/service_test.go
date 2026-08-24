@@ -212,9 +212,11 @@ func (f *fakeTesla) ChargingHistory(_ context.Context, _ tesla.Credentials, _ te
 // --- fake store (records what CollectAll would persist) ---
 
 type recordedAttempt struct {
-	teslaID int64
-	reason  Reason
-	outcome Outcome
+	teslaID     int64
+	reason      Reason
+	outcome     Outcome
+	runID       uuid.UUID
+	triggeredBy TriggeredBy
 }
 
 type fakeStore struct {
@@ -246,7 +248,13 @@ func (s *fakeStore) insertSnapshot(_ context.Context, snap Snapshot) error {
 func (s *fakeStore) insertPollAttempt(_ context.Context, a Attempt) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.attempts = append(s.attempts, recordedAttempt{teslaID: a.TeslaID, reason: a.Reason, outcome: a.Outcome})
+	s.attempts = append(s.attempts, recordedAttempt{
+		teslaID:     a.TeslaID,
+		reason:      a.Reason,
+		outcome:     a.Outcome,
+		runID:       a.RunID,
+		triggeredBy: a.TriggeredBy,
+	})
 	return nil
 }
 
@@ -271,6 +279,14 @@ func (s *fakeStore) snapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ 
 	return []Snapshot{}, nil
 }
 
+// snapshotsByVehicleUpdatedSince satisfies the store seam added by
+// RM29-analytics-add-vehicle-metrics task 1.2. The collection service never calls
+// it; this stub keeps fakeStore implementing the full store interface (the read
+// seam widened), mirroring snapshotsByVehicleSince/Between's own precedent above.
+func (s *fakeStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]Snapshot, error) {
+	return []Snapshot{}, nil
+}
+
 // upsertedSessions holds all sessions upserted via upsertSuperchargerSession.
 // It is a separate field so B7 tests can inspect what was upserted.
 //
@@ -286,13 +302,13 @@ func (s *fakeStore) upsertSuperchargerSession(_ context.Context, session Superch
 	return nil
 }
 
-// previousSnapshot satisfies the store seam added by
-// telemetry-add-derived-consumption-columns (T3.2/D7). It always returns (nil, nil)
-// — "no predecessor" — the minimal-implementation precedent this fake already
-// follows for latestSnapshotsByAccount/snapshotsByVehicleSince/Between above.
-// CollectAll tests do not assert on the five derived-consumption fields; that
-// coverage lives in consumption_test.go (T6) and the DB integration tests (T7).
-func (s *fakeStore) previousSnapshot(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
+// snapshotPrecedingDay satisfies the store seam added by
+// RM29-telemetry-drop-derived-columns (design D2, wave 1). CollectAll never
+// calls it (it is exercised only through the Reader port, since attemptVehicle's
+// own predecessor lookup was deleted alongside deriveConsumption — tier 4 design
+// D8); this no-op stub (nil, nil) keeps fakeStore implementing the full store
+// interface.
+func (s *fakeStore) snapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*Snapshot, error) {
 	return nil, nil
 }
 
@@ -321,6 +337,14 @@ func newFakeService(acct account.Service, tsla tesla.VehicleService, st store) *
 	}
 }
 
+// testRun returns a fresh RunContext for tests that don't care about a specific
+// RunID/TriggeredBy value — only that CollectAll's widened signature is satisfied
+// (Test Contract A1, design.md D5). A fresh uuid.New() per call means parallel
+// subtests never share a RunID.
+func testRun() RunContext {
+	return RunContext{RunID: uuid.New(), TriggeredBy: TriggeredByScheduler}
+}
+
 // onlineData is a minimal DTO for an online vehicle with a couple of extracted fields.
 func onlineData(id int64, sentry *bool) *tesla.VehicleDataTesla {
 	d := &tesla.VehicleDataTesla{ID: id}
@@ -345,7 +369,7 @@ func TestCollectAll_OnlineVehicle_NoWakeStraightToFetch(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("CollectAll returned whole-cycle error: %v", err)
 	}
@@ -374,6 +398,60 @@ func TestCollectAll_OnlineVehicle_NoWakeStraightToFetch(t *testing.T) {
 	assertOneAttempt(t, fs, 10, ReasonOK, OutcomeSuccess)
 }
 
+// TestCollectAll_StampsRunContextOnAttempt covers Test Contract A2/A3 (design.md D5
+// of RM29-app-add-process-vehicle-data): record() must stamp each Attempt with the
+// CALLER-supplied RunContext, never a cached or zero value, and two separate
+// CollectAll calls must never cross-stamp each other's RunID.
+func TestCollectAll_StampsRunContextOnAttempt(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	ft.set(10, &vehicleScript{state: "online", data: onlineData(10, nil)})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{{AccountID: acctID, TeslaID: 10}},
+		tokens:   map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	// A2: a single call stamps its own RunContext onto the Attempt it writes, in
+	// addition to every field the single-vehicle-success fixture above already
+	// asserts (Outcome, Reason, AttemptedAt via assertOneAttempt's Outcome/Reason
+	// pair; AccountID/TeslaID via attemptsByVehicle's own keying).
+	run1 := RunContext{RunID: uuid.New(), TriggeredBy: TriggeredByAPI}
+	if _, err := svc.CollectAll(context.Background(), run1); err != nil {
+		t.Fatalf("CollectAll returned whole-cycle error: %v", err)
+	}
+	got := fs.attemptsByVehicle()[10]
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 attempt, got %d (%+v)", len(got), got)
+	}
+	if got[0].reason != ReasonOK || got[0].outcome != OutcomeSuccess {
+		t.Errorf("want reason=%s outcome=%s, got %s/%s", ReasonOK, OutcomeSuccess, got[0].reason, got[0].outcome)
+	}
+	if got[0].runID != run1.RunID || got[0].triggeredBy != run1.TriggeredBy {
+		t.Errorf("want stamped RunID=%v TriggeredBy=%v, got RunID=%v TriggeredBy=%v",
+			run1.RunID, run1.TriggeredBy, got[0].runID, got[0].triggeredBy)
+	}
+
+	// A3: a second call with a DIFFERENT RunID stamps its own, never the first's.
+	run2 := RunContext{RunID: uuid.New(), TriggeredBy: TriggeredByScheduler}
+	if _, err := svc.CollectAll(context.Background(), run2); err != nil {
+		t.Fatalf("CollectAll returned whole-cycle error: %v", err)
+	}
+	got = fs.attemptsByVehicle()[10]
+	if len(got) != 2 {
+		t.Fatalf("want exactly 2 attempts across both calls, got %d (%+v)", len(got), got)
+	}
+	if got[0].runID != run1.RunID {
+		t.Errorf("first call's attempt must still carry run1's RunID, got %v", got[0].runID)
+	}
+	if got[1].runID != run2.RunID || got[1].triggeredBy != run2.TriggeredBy {
+		t.Errorf("second call's attempt must carry run2's own RunID/TriggeredBy, got RunID=%v TriggeredBy=%v",
+			got[1].runID, got[1].triggeredBy)
+	}
+}
+
 func TestCollectAll_AsleepVehicle_WakeFlowRuns(t *testing.T) {
 	acctID := uuid.New()
 	ft := newFakeTesla()
@@ -389,7 +467,7 @@ func TestCollectAll_AsleepVehicle_WakeFlowRuns(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("CollectAll returned whole-cycle error: %v", err)
 	}
@@ -419,7 +497,7 @@ func TestCollectAll_AsleepTimeout(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -446,7 +524,7 @@ func TestCollectAll_UnauthorizedNoConnection_SkipsTeslaCalls(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -478,7 +556,7 @@ func TestCollectAll_AccountWideListVehicles401_AllUnauthorizedNoPerVehicleCalls(
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -511,7 +589,7 @@ func TestCollectAll_Unauthorized401_NotRetried(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -546,7 +624,7 @@ func TestCollectAll_TransientApiError_RetriedOnceThenSucceeds(t *testing.T) {
 	}
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -573,7 +651,7 @@ func TestCollectAll_PersistentApiError_RetriedOnceThenFails(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -603,7 +681,7 @@ func TestCollectAll_PerVehicleIsolation(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -637,7 +715,7 @@ func TestCollectAll_MultiAccountMultiVehicle(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -669,7 +747,7 @@ func TestCollectAll_StoreErrorRetriedThenSucceeds(t *testing.T) {
 	fs := &fakeStore{snapErr: errors.New("db: deadlock"), snapErrOnce: true}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -688,7 +766,7 @@ func TestCollectAll_WholeCycleEnumerationError(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, newFakeTesla(), fs)
 
-	_, err := svc.CollectAll(context.Background())
+	_, err := svc.CollectAll(context.Background(), testRun())
 	if err == nil {
 		t.Fatal("want a whole-cycle error when AllRegisteredVehicles fails, got nil")
 	}
@@ -717,7 +795,7 @@ func TestCollectAll_SentryModeFidelityPreserved(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	if _, err := svc.CollectAll(context.Background()); err != nil {
+	if _, err := svc.CollectAll(context.Background(), testRun()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	byID := map[int64]*bool{}
@@ -759,7 +837,7 @@ func TestCollectAll_ConfigCapture_SkipsWhenAlreadyCaptured(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -794,7 +872,7 @@ func TestCollectAll_ConfigCapture_WritesBackWhenObserved(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	if _, err := svc.CollectAll(context.Background()); err != nil {
+	if _, err := svc.CollectAll(context.Background(), testRun()); err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
 	if len(fa.configCaptures) != 1 {
@@ -823,7 +901,7 @@ func TestCollectAll_ConfigCapture_SkipsWhenObservedValueEmpty(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	if _, err := svc.CollectAll(context.Background()); err != nil {
+	if _, err := svc.CollectAll(context.Background(), testRun()); err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
 	if len(fa.configCaptures) != 0 {
@@ -848,7 +926,7 @@ func TestCollectAll_ConfigCapture_FailedCaptureAttemptSkipsWriteBack(t *testing.
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	if _, err := svc.CollectAll(context.Background()); err != nil {
+	if _, err := svc.CollectAll(context.Background(), testRun()); err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
 	if len(fa.configCaptures) != 0 {
@@ -876,7 +954,7 @@ func TestCollectAll_ConfigCapture_FailureIncrementsCounterWithoutAffectingAttemp
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -912,7 +990,7 @@ func TestCollectAll_ConfigCapture_RetryWritesBackAtMostOnce(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	if _, err := svc.CollectAll(context.Background()); err != nil {
+	if _, err := svc.CollectAll(context.Background(), testRun()); err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
 	if len(fa.configCaptures) != 1 {
@@ -972,7 +1050,7 @@ func TestCollectAll_ChargingHistory_SuccessCountsUpserted(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("CollectAll returned whole-cycle error: %v", err)
 	}
@@ -1003,7 +1081,7 @@ func TestCollectAll_ChargingHistory_FetchFailure_SnapshotUnaffected(t *testing.T
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	report, err := svc.CollectAll(context.Background())
+	report, err := svc.CollectAll(context.Background(), testRun())
 	if err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
@@ -1048,7 +1126,7 @@ func TestCollectAll_ChargingHistory_VINResolution(t *testing.T) {
 	fs := &fakeStore{}
 	svc := newFakeService(fa, ft, fs)
 
-	if _, err := svc.CollectAll(context.Background()); err != nil {
+	if _, err := svc.CollectAll(context.Background(), testRun()); err != nil {
 		t.Fatalf("unexpected whole-cycle error: %v", err)
 	}
 	if len(fs.upsertedSessions) != 2 {

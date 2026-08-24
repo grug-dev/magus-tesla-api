@@ -134,6 +134,58 @@ because of the trailing `test`. Claude runs the other five individually, so excl
   code does rather than what the design specifies. Contract-first authoring recovers most of
   TDD's benefit for tests that have no fast feedback loop.
 
+**Provisioning the test database — which entry point.** `internal/testdb` provisions a
+throw-away Postgres (a reachable `DATABASE_URL` if there is one, otherwise a disposable
+`postgres:16-alpine` container) with your migrations applied. It has two entry points, and
+picking the wrong one produces a mystifying "relation does not exist" deep inside a test:
+
+| Your package's fixtures touch… | Use | How |
+|---|---|---|
+| only its own module's tables | `testdb.Provision(ctx, fsys)` | `//go:embed db/migrations/*.sql`, then `fs.Sub`. See `internal/telemetry/testdb_test.go`. |
+| more than one module's tables | `testdb.ProvisionDirs(ctx, dirs...)` | Relative migration **directories**, e.g. `"db/migrations"`, `"../telemetry/db/migrations"`. See `internal/analytics/testdb_test.go`. |
+
+Why the second form takes paths rather than an `fs.FS`: the **`//go:embed` directive may not
+contain `..` path elements**, so a package can only ever embed its own migrations. That is a
+restriction on the directive, not on the filesystem — and `go test` always runs a test binary
+with its own package directory as the working directory, so a relative `../<module>/db/migrations`
+resolves reliably from a `_test.go` file.
+
+`ProvisionDirs` applies each directory with its **own goose provider, in the order given**. It
+deliberately does not merge them into one filesystem: migration versions are unique within a
+module but **not across the repo** (`internal/account` and `internal/charging` both ship a
+`20260720000001`), so a merged filesystem dies on the collision. Per-directory sequencing is
+also exactly what the Makefile's `migrate-up` loop over `MIGRATIONS_DIRS` already does, and for
+the same reason both pass goose's allow-missing/out-of-order option: every module applies its
+own directory against ONE shared `goose_db_version` table, so a directory's versions are
+routinely lower than versions another module already recorded.
+
+Ordering between directories matters where one module's migration READS another's table. There
+are still no cross-module foreign keys ([`architecture.md`](./architecture.md) §2), but since
+RM29 tier 6 there is one such read: `internal/charging`'s `20260823000001_add_charge_sessions`
+backfills `charge_sessions` from `telemetry.supercharger_sessions`, so `telemetry` must precede
+`charging` for that data to land. `MIGRATIONS_DIRS` already orders them that way.
+
+This is a **soft** dependency, deliberately. The backfill sits inside a
+`to_regclass`-guarded `DO $$ … $$` block, so on a database where telemetry's table is absent it
+emits a NOTICE and moves on instead of failing. Ordering therefore affects **data completeness,
+never migration success** — a fresh database provisioned in the wrong order still migrates
+green, it just backfills nothing.
+
+Ordering is also why a cross-module **DROP** must never share a change with the backfill that
+reads the dropped columns: goose walks the directories in `MIGRATIONS_DIRS` order, each to
+completion, so version numbers cannot reorder work across modules. A `telemetry` DROP would run
+before a `charging` backfill no matter how the two files are numbered. Split the two across
+changes — expand first, contract once the expand is confirmed applied.
+
+**Seeding another module's tables.** Prefer that module's public writer where one exists (e.g.
+`charging.NewWriter(pool).Create`). Where none exists, **direct `INSERT`s from the `_test.go`
+file are the right answer** — do not add an exported writer to another module just to seed a
+fixture, and never import `internal/tesla` to drive a collector. `internal/analytics`'s
+`db_integration_test.go` is the reference: `telemetry` exposes no public writer for a single
+snapshot and none at all for a Supercharger session, so its fixtures are seeded with direct
+SQL (RM29 decision D19). This is a test-only concession and does not weaken the boundary rule —
+production code still reaches another module only through its public port.
+
 ### Read optimization (project-wide)
 
 This system has an **asymmetric workload** — ~99% reads, ~1% writes (the nightly
