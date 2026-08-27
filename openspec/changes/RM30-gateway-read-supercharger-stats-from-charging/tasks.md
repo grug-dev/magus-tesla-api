@@ -9,7 +9,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
 
 ## Wave 1 — independent files, no shared state (all four fully parallel_ok)
 
-- [ ] **1.1** **[module: gateway worker]** `internal/gateway/gateway.go` — change
+- [x] **1.1** **[module: gateway worker]** `internal/gateway/gateway.go` — change
   `Deps.SuperchargerReader`'s type from `telemetry.SuperchargerReader` to
   `charging.SessionReader` (design.md D2). Update the field's doc comment (it currently says
   "the telemetry Supercharger-sessions read port... Injected from cmd/web via
@@ -19,7 +19,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
   `TelemetryReader telemetry.Reader` still needs it.
   `depends_on`: — · `parallel_ok`: with 1.2, 1.3, 1.4
 
-- [ ] **1.2** **[module: gateway worker]** `internal/gateway/handlers/handlers.go` — same type
+- [x] **1.2** **[module: gateway worker]** `internal/gateway/handlers/handlers.go` — same type
   change as 1.1, applied to `Deps.SuperchargerReader` AND `Handler.superchargerReader`
   (design.md D2). Update both doc comments. `New()`'s
   `superchargerReader: d.SuperchargerReader` wiring line needs no edit. Do NOT remove the
@@ -27,7 +27,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
   still needs it.
   `depends_on`: — · `parallel_ok`: with 1.1, 1.3, 1.4
 
-- [ ] **1.3** **[module: gateway worker]** `internal/gateway/templates/fragments/supercharger_vm.go`
+- [x] **1.3** **[module: gateway worker]** `internal/gateway/templates/fragments/supercharger_vm.go`
   — `SuperchargerStatsView`: remove the `Months int` field; change `Presets` from `[]int` to
   `[]RangePreset` (the type already exists in this same package —
   `internal/gateway/templates/fragments/history_vm.go` — no import needed, design.md Context
@@ -35,7 +35,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
   every field's doc comment that references the removed/changed fields.
   `depends_on`: — · `parallel_ok`: with 1.1, 1.2, 1.4
 
-- [ ] **1.4** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — remove the
+- [x] **1.4** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — remove the
   `KeySuperchargerCountry` and `KeySuperchargerBillingType` `Key` constants AND their `ES`/`EN`
   catalogue map entries (design.md D4). Do NOT touch `KeySuperchargerMonthsPreset` — it is
   reused unchanged (design.md D4, last sentence).

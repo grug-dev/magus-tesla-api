@@ -158,8 +158,6 @@ const (
 	KeySuperchargerEmpty         Key = "supercharger.empty"
 	KeySuperchargerDate          Key = "supercharger.date"
 	KeySuperchargerSite          Key = "supercharger.site"
-	KeySuperchargerCountry       Key = "supercharger.country"
-	KeySuperchargerBillingType   Key = "supercharger.billing_type"
 
 	// --- vehicles fragment, dead code but explicitly in scope (design.md Discoveries #3) ---
 	KeyVehiclesBatteryLabel     Key = "vehicles.battery_label"
@@ -402,8 +400,6 @@ var catalog = map[Key]entry{
 	KeySuperchargerEmpty:         {ES: "No hay sesiones de Supercharger en esta ventana.", EN: "No Supercharger sessions in this window."},
 	KeySuperchargerDate:          {ES: "Fecha", EN: "Date"},
 	KeySuperchargerSite:          {ES: "Sitio", EN: "Site"},
-	KeySuperchargerCountry:       {ES: "País", EN: "Country"},
-	KeySuperchargerBillingType:   {ES: "Tipo de facturación", EN: "Billing Type"},
 
 	KeyVehiclesBatteryLabel:     {ES: "Batería:", EN: "Battery:"},
 	KeyVehiclesRangeLabel:       {ES: "Autonomía:", EN: "Range:"},

@@ -4,9 +4,9 @@
   "change": "RM30-gateway-read-supercharger-stats-from-charging",
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM30-supercharger-stats-read-from-charging.md",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-08-27T14:54:51Z",
-  "updated_at": "2026-08-27T14:54:51Z",
+  "updated_at": "2026-08-27T14:58:24Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -20,22 +20,208 @@
   },
   "rollup": {
     "current": [],
-    "pending": ["1.1", "1.2", "1.3", "1.4", "2.1", "2.2", "2.3", "3.1", "4.1", "4.2", "4.3"],
+    "pending": [
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "4.1",
+      "4.2",
+      "4.3"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4"
+    ]
   },
   "tasks": [
-    { "id": "1.1", "title": "gateway.go — Deps.SuperchargerReader type swap", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "1.2", "title": "handlers.go — Deps/Handler type swap", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "1.3", "title": "supercharger_vm.go — drop CountryCode/BillingType", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "1.4", "title": "catalog.go — remove country/billing keys (ES+EN)", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "2.1", "title": "supercharger.go — rewrite onto SessionReader + parseSuperchargerRange", "depends_on": ["1.2", "1.3"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "2.2", "title": "supercharger_stats.templ — drop columns, start/end preset hrefs", "depends_on": ["1.3", "1.4"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "2.3", "title": "make templ regeneration + build check", "depends_on": ["2.1", "2.2"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "3.1", "title": "supercharger_test.go — rewrite to Test Contract T1-T14 + grep sweep", "depends_on": ["2.3"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "4.1", "title": "gateway AGENTS.md — per-endpoint cap wording", "depends_on": ["2.3"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "4.2", "title": "ai/architecture.md — date-filter pattern pointer (leader-owned)", "depends_on": ["4.1"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "4.3", "title": "root README.md — document convention + caps (leader-owned)", "depends_on": ["4.1"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null }
+    {
+      "id": "1.1",
+      "title": "gateway.go — Deps.SuperchargerReader type swap",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T14:55:09Z",
+      "completed_at": "2026-08-27T14:57:01Z",
+      "duration_seconds": 112,
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 0.9,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-1.4 (batched serial worker)"
+      },
+      "notes": "Deps.SuperchargerReader type telemetry.SuperchargerReader -> charging.SessionReader; doc comment now names charging.NewSessionReader. Name unchanged (D2). telemetry import kept for TelemetryReader."
+    },
+    {
+      "id": "1.2",
+      "title": "handlers.go — Deps/Handler type swap",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T14:55:09Z",
+      "completed_at": "2026-08-27T14:57:01Z",
+      "duration_seconds": 112,
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 0.9,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-1.4 (batched serial worker)"
+      },
+      "notes": "Same type swap on handlers.Deps.SuperchargerReader and Handler.superchargerReader; Deps field doc comment updated. telemetry import kept for TelemetryReader/Snapshot."
+    },
+    {
+      "id": "1.3",
+      "title": "supercharger_vm.go — drop CountryCode/BillingType",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T14:55:09Z",
+      "completed_at": "2026-08-27T14:57:01Z",
+      "duration_seconds": 112,
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 0.9,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-1.4 (batched serial worker)"
+      },
+      "notes": "SuperchargerStatsView: dropped Months int, Presets []int -> []RangePreset (same package, history_vm.go). SuperchargerRowVM: dropped CountryCode/BillingType (D4). Doc comments updated."
+    },
+    {
+      "id": "1.4",
+      "title": "catalog.go — remove country/billing keys (ES+EN)",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T14:55:09Z",
+      "completed_at": "2026-08-27T14:57:01Z",
+      "duration_seconds": 112,
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 0.9,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-1.4 (batched serial worker)"
+      },
+      "notes": "Removed KeySuperchargerCountry/KeySuperchargerBillingType constants and both ES and EN map entries. KeySuperchargerMonthsPreset untouched."
+    },
+    {
+      "id": "2.1",
+      "title": "supercharger.go — rewrite onto SessionReader + parseSuperchargerRange",
+      "depends_on": [
+        "1.2",
+        "1.3"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "2.2",
+      "title": "supercharger_stats.templ — drop columns, start/end preset hrefs",
+      "depends_on": [
+        "1.3",
+        "1.4"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "2.3",
+      "title": "make templ regeneration + build check",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "3.1",
+      "title": "supercharger_test.go — rewrite to Test Contract T1-T14 + grep sweep",
+      "depends_on": [
+        "2.3"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "4.1",
+      "title": "gateway AGENTS.md — per-endpoint cap wording",
+      "depends_on": [
+        "2.3"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "4.2",
+      "title": "ai/architecture.md — date-filter pattern pointer (leader-owned)",
+      "depends_on": [
+        "4.1"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "4.3",
+      "title": "root README.md — document convention + caps (leader-owned)",
+      "depends_on": [
+        "4.1"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
   ],
   "decisions": [
     {
@@ -86,6 +272,16 @@
       "at": "2026-08-27T14:54:51Z",
       "agent": "leader",
       "event": "Tier 2 opened on resume. gateway worker authored the artifacts; openspec validate --strict passes. Leader triaged its 3 judgment calls: 2 accepted, D9's dropped future-date 400 rule restored by leader edit (worker hit a session limit mid-revision). Also filed tier 1's archive under archive/charging/ per config rules.archive (56777d2)."
+    },
+    {
+      "at": "2026-08-27T14:55:20Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched: tasks 1.1-1.4 batched into ONE serial gateway worker (sonnet). Disjoint files, but batched not parallelized so the doc pack is read once. Budget at dispatch: 5h 8%, context 14%."
+    },
+    {
+      "at": "2026-08-27T14:58:24Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled: 1.1-1.4 done, verified against tasks.md (incl. Presets []int -> []RangePreset). Leader did the cmd/web/main.go integration (SuperchargerReader -> charging.NewSessionReader); the 2 analytics-owned telemetry.NewSuperchargerReader calls untouched. Repo does not build until wave 2 - expected. Worker reported placeholder timestamps; leader recorded the real dispatch window."
     }
   ]
 }

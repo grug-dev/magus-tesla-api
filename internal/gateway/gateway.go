@@ -42,12 +42,13 @@ type Deps struct {
 	// NEVER import internal/telemetry/db (telemetrydb) — all access through this
 	// interface only.
 	TelemetryReader telemetry.Reader
-	// SuperchargerReader is the telemetry Supercharger-sessions read port. The
-	// gateway calls SuperchargerSessionsByVehicle once per Supercharger Stats
-	// page render. Injected from cmd/web via telemetry.NewSuperchargerReader(pool).
-	// NEVER import internal/telemetry/db (telemetrydb) — all access through this
-	// interface only.
-	SuperchargerReader telemetry.SuperchargerReader
+	// SuperchargerReader is the charging module's SessionReader port over
+	// charge_sessions. The gateway calls ListSessionsByVehicleBetween once per
+	// Supercharger Stats page/fragment render, bounded by the requested
+	// ?start=&end= window. Injected from cmd/web via
+	// charging.NewSessionReader(pool). NEVER import internal/charging/db
+	// (chargingdb) for this path — all access through this interface only.
+	SuperchargerReader charging.SessionReader
 	// ChargingWriter is the charging write port. Called by write handlers
 	// (create/update/delete) on explicit user-initiated form submissions only.
 	// See AGENTS.md "Exception: user-initiated writes" for the full amendment.
