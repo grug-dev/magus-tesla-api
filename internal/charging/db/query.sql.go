@@ -635,3 +635,73 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Manua
 	)
 	return i, err
 }
+
+const verifyChargeSession = `-- name: VerifyChargeSession :one
+UPDATE charge_sessions
+SET
+    start_battery_pct  = $1,
+    end_battery_pct    = $2,
+    battery_pct_source = $3,
+    updated_at         = now()
+WHERE id = $4
+  AND account_id = $5
+RETURNING id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at
+`
+
+type VerifyChargeSessionParams struct {
+	StartBatteryPct  pgtype.Int2
+	EndBatteryPct    pgtype.Int2
+	BatteryPctSource pgtype.Text
+	ID               uuid.UUID
+	AccountID        uuid.UUID
+}
+
+// Update the human-owned verification channel on one account-scoped charge session:
+// start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No other
+// column is in this SET clause, INCLUDING start_battery_pct_est/end_battery_pct_est —
+// this is the mirror image of MirrorChargeSession's protection (that query cannot touch
+// these three; this query cannot touch anything else), by the query's shape, not by a
+// comment a reviewer has to notice (design.md D1).
+//
+// @battery_pct_source is COMPUTED IN GO (design.md D2/D7), never accepted from a caller:
+// "user_verified" when either percentage is non-nil, NULL when both are nil — satisfying
+// charge_sessions_pct_source_required in the same statement that clears or sets the
+// percentages, so no intermediate row state can violate it.
+//
+// WHERE id = @id AND account_id = @account_id mirrors UpdateEntry's scoping exactly
+// (design.md D5/D11): a point lookup on the table's PRIMARY KEY plus its leading tenant
+// column. Zero rows matched — unknown id or wrong account, indistinguishable — surfaces
+// to the caller as pgx.ErrNoRows, exactly like UpdateEntry's own not-found behavior
+// (TestUpdate_CrossAccountIsNoOp is the existing precedent for this shape).
+func (q *Queries) VerifyChargeSession(ctx context.Context, arg VerifyChargeSessionParams) (ChargeSession, error) {
+	row := q.db.QueryRow(ctx, verifyChargeSession,
+		arg.StartBatteryPct,
+		arg.EndBatteryPct,
+		arg.BatteryPctSource,
+		arg.ID,
+		arg.AccountID,
+	)
+	var i ChargeSession
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Vin,
+		&i.TeslaID,
+		&i.SessionID,
+		&i.ChargeStartDateTime,
+		&i.ChargeStopDateTime,
+		&i.SiteLocationName,
+		&i.EnergyKwh,
+		&i.TotalCost,
+		&i.Currency,
+		&i.IsPaid,
+		&i.StartBatteryPct,
+		&i.EndBatteryPct,
+		&i.BatteryPctSource,
+		&i.StartBatteryPctEst,
+		&i.EndBatteryPctEst,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

@@ -216,3 +216,31 @@ WHERE account_id = @account_id
   AND charge_stop_date_time >= @from_time
   AND charge_stop_date_time <  @end_bound
 ORDER BY charge_stop_date_time ASC;
+
+-- name: VerifyChargeSession :one
+-- Update the human-owned verification channel on one account-scoped charge session:
+-- start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No other
+-- column is in this SET clause, INCLUDING start_battery_pct_est/end_battery_pct_est —
+-- this is the mirror image of MirrorChargeSession's protection (that query cannot touch
+-- these three; this query cannot touch anything else), by the query's shape, not by a
+-- comment a reviewer has to notice (design.md D1).
+--
+-- @battery_pct_source is COMPUTED IN GO (design.md D2/D7), never accepted from a caller:
+-- "user_verified" when either percentage is non-nil, NULL when both are nil — satisfying
+-- charge_sessions_pct_source_required in the same statement that clears or sets the
+-- percentages, so no intermediate row state can violate it.
+--
+-- WHERE id = @id AND account_id = @account_id mirrors UpdateEntry's scoping exactly
+-- (design.md D5/D11): a point lookup on the table's PRIMARY KEY plus its leading tenant
+-- column. Zero rows matched — unknown id or wrong account, indistinguishable — surfaces
+-- to the caller as pgx.ErrNoRows, exactly like UpdateEntry's own not-found behavior
+-- (TestUpdate_CrossAccountIsNoOp is the existing precedent for this shape).
+UPDATE charge_sessions
+SET
+    start_battery_pct  = @start_battery_pct,
+    end_battery_pct    = @end_battery_pct,
+    battery_pct_source = @battery_pct_source,
+    updated_at         = now()
+WHERE id = @id
+  AND account_id = @account_id
+RETURNING *;

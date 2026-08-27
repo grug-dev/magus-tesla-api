@@ -21,7 +21,7 @@ rationale behind each group.
 
 ## Wave 1 — query (module: charging worker)
 
-- [ ] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
+- [x] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
   `-- name: VerifyChargeSession :one` exactly as specified in design.md §"The query",
   including its full doc comment. The `SET` clause touches **exactly** `start_battery_pct`,
   `end_battery_pct`, `battery_pct_source`, and `updated_at` — no other column, including
@@ -39,7 +39,7 @@ rationale behind each group.
 
 ## Wave 2 — the Go port (module: charging worker)
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add the
+- [x] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add the
   `SessionVerifier` interface (one method, `VerifySession(ctx context.Context, accountID
   uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error)`, with a
   doc comment stating plainly and in full: exactly which three columns plus `updated_at`
@@ -59,7 +59,7 @@ rationale behind each group.
   Does not compile until 2.2 supplies the constructor's body.
   `depends_on`: 1.1 · `parallel_ok`: with 2.2 (authoring only — they land together)
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/session_verifier.go` (new
+- [x] **2.2** **[module: charging worker]** `internal/charging/session_verifier.go` (new
   file) — implement the port, mirroring `session_writer.go`/`session_reader.go`'s shape
   exactly (design.md **D9**): an unexported `sessionVerifier` struct over `*pgxpool.Pool` +
   `*chargingdb.Queries`, an unexported `newSessionVerifier`, the compile-time `var _

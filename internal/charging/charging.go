@@ -276,3 +276,60 @@ type SessionReader interface {
 func NewSessionReader(pool *pgxpool.Pool) SessionReader {
 	return newSessionReader(pool)
 }
+
+// SessionVerifier is the human-write port over charge_sessions' verification channel
+// (RM31-charging-add-session-verification-port design.md D9). It is a deliberately
+// separate interface from SessionWriter, not a method added to it: SessionWriter's own
+// doc comment states "The gateway never calls this," and adding a gateway-triggered,
+// human-facing method to that interface would make that sentence false and would hand
+// the nightly-orchestrator wiring path and the gateway's human-edit wiring path the same
+// Go type to depend on — exactly the "one fat interface, two callers with different
+// trust models" shape the AI-efficiency "closed, small vocabularies" principle
+// (CLAUDE.md §Non-negotiables) argues against (design.md D9).
+type SessionVerifier interface {
+	// VerifySession updates exactly three columns on one account-scoped charge_sessions
+	// row — start_battery_pct, end_battery_pct, battery_pct_source — plus updated_at.
+	// No other column is reachable through this method, including
+	// start_battery_pct_est/end_battery_pct_est: the underlying query's SET clause
+	// names only these three plus updated_at, so the two _est columns are structurally
+	// unreachable, not merely undocumented as targets (design.md D1).
+	//
+	// battery_pct_source is always computed by this method, never supplied by the
+	// caller: "user_verified" when either startBatteryPct or endBatteryPct is non-nil,
+	// NULL when both are nil. The method takes no source parameter, so "polled" — a
+	// documented future value for a measured-SOC path — cannot be written by any caller
+	// of this port (design.md D2/D7).
+	//
+	// A partial call (one percentage non-nil, the other nil) is legal — a human
+	// correcting a session mid-charge is a real, expected use. Every call supplies both
+	// parameters' FINAL values, not a delta: this is not a partial-patch method, exactly
+	// like Writer.Update requires every mutable Entry field on every call. A caller
+	// wanting to add endBatteryPct to a session that already has startBatteryPct
+	// verified must re-supply the existing startBatteryPct value (read via
+	// SessionReader) alongside the new endBatteryPct, or that column is overwritten to
+	// NULL (design.md D6). Calling VerifySession(ctx, accountID, id, nil, nil) clears
+	// both percentages AND battery_pct_source to NULL in the same statement (design.md
+	// D7).
+	//
+	// Each non-nil percentage is validated to [0, 100] before the query runs; the
+	// database's own SMALLINT CHECK is the backstop, not the error message (design.md
+	// D3).
+	//
+	// No ordering between startBatteryPct and endBatteryPct is enforced by this method —
+	// deliberately, matching the table's own deliberate absence of such a CHECK
+	// (design.md D8).
+	//
+	// id/accountID scope the update exactly like Writer.Update: WHERE id = @id AND
+	// account_id = @account_id. Zero rows matched — whether id does not exist at all or
+	// exists under a different account — surfaces as an error wrapping pgx.ErrNoRows,
+	// with no distinction made between the two cases, exactly mirroring Writer.Update's
+	// own not-found semantics (design.md D5).
+	VerifySession(ctx context.Context, accountID uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error)
+}
+
+// NewSessionVerifier constructs a SessionVerifier backed by the given pgxpool. The
+// implementation lives in session_verifier.go where the chargingdb generated package is
+// used. This is the only publicly exported constructor for the SessionVerifier port.
+func NewSessionVerifier(pool *pgxpool.Pool) SessionVerifier {
+	return newSessionVerifier(pool)
+}
