@@ -81,7 +81,7 @@ rationale behind each group.
 
 ## Wave 3 — tests + module docs (module: charging worker)
 
-- [ ] **3.1** **[module: charging worker]**
+- [x] **3.1** **[module: charging worker]**
   `internal/charging/db_session_verifier_integration_test.go` (new file, `package
   charging_test`) — implement Test Contract **T1–T9** exactly as design.md states them,
   with those expected values. Seed each test's baseline session via
@@ -97,7 +97,7 @@ rationale behind each group.
   shape exactly.
   `depends_on`: 2.2 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
+- [x] **3.2** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
   module's new write surface (docs-track-structural-change, `CLAUDE.md` §Non-negotiables):
   - §Public Interface — add the `SessionVerifier`/`NewSessionVerifier` block (mirroring
     how `SessionWriter`/`NewSessionWriter` and `SessionReader`/`NewSessionReader` are

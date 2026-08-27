@@ -213,6 +213,62 @@ func NewSessionReader(pool *pgxpool.Pool) SessionReader
 The gateway and any other future caller of `SessionReader` never import `chargingdb`
 directly, exactly as for `Writer`/`Reader`/`SessionWriter` above.
 
+### The Supercharger session verification port (RM31-charging-add-session-verification-port)
+
+```go
+// SessionVerifier is the human-write port over charge_sessions' verification channel
+// (design.md D9). It is a deliberately separate interface from SessionWriter, not a
+// method added to it — SessionWriter's own doc comment states "The gateway never
+// calls this," and adding a gateway-triggered, human-facing method to that interface
+// would make that sentence false and would hand the nightly-orchestrator wiring path
+// and the gateway's human-edit wiring path the same Go type to depend on: the "one
+// fat interface, two callers with different trust models" shape the AI-efficiency
+// "closed, small vocabularies" principle (CLAUDE.md §Non-negotiables) argues against.
+type SessionVerifier interface {
+    // VerifySession updates exactly three columns on one account-scoped
+    // charge_sessions row — start_battery_pct, end_battery_pct, battery_pct_source —
+    // plus updated_at. No other column is reachable through this method, including
+    // start_battery_pct_est/end_battery_pct_est: the underlying query's SET clause
+    // names only these three plus updated_at (design.md D1).
+    //
+    // battery_pct_source is always computed by this method, never supplied by the
+    // caller: "user_verified" when either startBatteryPct or endBatteryPct is
+    // non-nil, NULL when both are nil. The method takes no source parameter, so
+    // "polled" cannot be written by any caller of this port (design.md D2/D7).
+    //
+    // A partial call (one percentage non-nil, the other nil) is legal. Every call
+    // supplies both parameters' FINAL values, not a delta — a caller wanting to add
+    // one field to an already-verified session must re-supply the other field's
+    // current value (read via SessionReader) or it is overwritten to NULL
+    // (design.md D6). Calling VerifySession(ctx, accountID, id, nil, nil) clears
+    // both percentages AND battery_pct_source to NULL in the same statement
+    // (design.md D7).
+    //
+    // Each non-nil percentage is validated to [0, 100] before the query runs; the
+    // database's own SMALLINT CHECK is the backstop, not the error message
+    // (design.md D3). No ordering between startBatteryPct and endBatteryPct is
+    // enforced, deliberately (design.md D8).
+    //
+    // id/accountID scope the update exactly like Writer.Update: WHERE id = @id AND
+    // account_id = @account_id. Zero rows matched — unknown id or wrong account,
+    // indistinguishable — surfaces as an error wrapping pgx.ErrNoRows, with no
+    // NotFound special-casing (design.md D5).
+    VerifySession(ctx context.Context, accountID uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error)
+}
+
+// NewSessionVerifier — the only publicly exported factory function for this port.
+func NewSessionVerifier(pool *pgxpool.Pool) SessionVerifier
+```
+
+`SessionVerifier` is this module's third narrow, single-purpose interface over
+`charge_sessions` (alongside `SessionWriter` and `SessionReader`) — one port per access
+pattern (batch write, read, human write), not one port per table, consistent with how
+`manual_charge_entries` already splits `Writer`/`Reader` (design.md D9). The gateway and
+any other future caller never import `chargingdb` directly, exactly as for
+`Writer`/`Reader`/`SessionWriter`/`SessionReader` above. This port ships with no caller
+in this tier — `cmd/web`/`internal/gateway` wiring is deferred to
+`RM31-gateway-add-session-battery-edit` (tier 4).
+
 ---
 
 ## Allowed Imports
@@ -296,15 +352,26 @@ paired with the `currency` column instead of a unit.
   - `tesla_id`, `energy_kwh`, `total_cost`, `currency`, `is_paid` — mirrored,
     **refreshed on every nightly pass** (telemetry's own `ON CONFLICT DO UPDATE SET`
     refreshes them too — fees settle, invoices finalize).
-  - `start_battery_pct`, `end_battery_pct`, `battery_pct_source`,
-    `start_battery_pct_est`, `end_battery_pct_est` — **charging-owned**, never mirrored,
-    never written by the nightly sync (see §Public Interface above for why that is a
-    compile error, not a discipline).
+  - `start_battery_pct`, `end_battery_pct`, `battery_pct_source` — **charging-owned**,
+    never mirrored, never written by the nightly sync (see §Public Interface above for
+    why that is a compile error, not a discipline). Since
+    RM31-charging-add-session-verification-port, these three (and only these three) are
+    writable through `SessionVerifier.VerifySession` — a human-triggered write, never
+    the nightly sync. `battery_pct_source` is always computed by that port, never
+    supplied by a caller (design.md D2/D7 of that change).
+  - `start_battery_pct_est`, `end_battery_pct_est` — **charging-owned**, never mirrored,
+    and still unwritable by any code path in this repository. Roadmap Decision 3
+    (RM31): no estimator exists yet, so these stay permanently `NULL` until one is
+    built — `SessionVerifier`'s query structurally cannot reach them either (design.md
+    D1 of that change).
   - Deliberately **not** carried, and the list is closed: `country_code`,
     `unlatch_date_time`, `billing_type`, `vehicle_make_type`, `raw_data` (design.md D1).
-- sqlc generates the `ChargeSession` model and `MirrorChargeSession` query into the same
+- sqlc generates the `ChargeSession` model and the `MirrorChargeSession`,
+  `ListSessionsByVehicleBetween`, and `VerifyChargeSession` queries into the same
   `chargingdb` package as `manual_charge_entries`'s queries. Only `session_writer.go`
-  (inside this module) may call `MirrorChargeSession`.
+  may call `MirrorChargeSession`, only `session_reader.go` may call
+  `ListSessionsByVehicleBetween`, and only `session_verifier.go` may call
+  `VerifyChargeSession` (inside this module).
 
 ---
 
@@ -314,14 +381,17 @@ paired with the `currency` column instead of a unit.
   `BatteryDelta`, `SessionDuration`) with no DB and no Tesla API. Run offline as part of
   `go test ./...`.
 - **Integration tests** (`db_integration_test.go`, `db_session_integration_test.go`,
-  `db_backfill_integration_test.go`, `db_session_reader_integration_test.go`): cover
-  full CRUD round-trips, ordering guarantees, multi-tenant isolation, CHECK constraint
-  enforcement, the Supercharger session mirror (`SessionWriter.MirrorSessions`), the
-  one-time backfill, and — since RM30-charging-add-session-read-port — the
+  `db_backfill_integration_test.go`, `db_session_reader_integration_test.go`,
+  `db_session_verifier_integration_test.go`): cover full CRUD round-trips, ordering
+  guarantees, multi-tenant isolation, CHECK constraint enforcement, the Supercharger
+  session mirror (`SessionWriter.MirrorSessions`), the one-time backfill, the
   `charge_sessions` read port (`SessionReader.ListSessionsByVehicleBetween`,
-  `db_session_reader_integration_test.go`). Reads still assert only against
-  `charging.Session` domain fields or direct SQL column values — never `pgtype`, in this
-  file or any other. The test database is provisioned by `testdb_test.go`:
+  RM30-charging-add-session-read-port), and — since
+  RM31-charging-add-session-verification-port — the `charge_sessions` verification
+  write port (`SessionVerifier.VerifySession`, `db_session_verifier_integration_test.go`,
+  design.md Test Contract T1-T9). Reads still assert only against `charging.Session`
+  domain fields or direct SQL column values — never `pgtype`, in this file or any other.
+  The test database is provisioned by `testdb_test.go`:
     - When `DATABASE_URL` is set, that managed Postgres is used (CI with a service container,
       or a local DB you've already provisioned).
     - Otherwise `TestMain` starts a disposable `postgres:16-alpine` container via
@@ -363,3 +433,8 @@ paired with the `currency` column instead of a unit.
   asserts against `SessionReader.ListSessionsByVehicleBetween`'s returned
   `charging.Session` values directly — the port's own domain mapping already keeps
   `pgtype` out, so no direct-SQL read-back is needed there.
+  `db_session_verifier_integration_test.go` (RM31-charging-add-session-verification-port)
+  asserts against `SessionVerifier.VerifySession`'s returned `charging.Session` for the
+  columns it changes, and reuses `db_session_integration_test.go`'s existing
+  `fetchChargeSession` direct-SQL helper (plain Go `*T` fields, never `pgtype`) for the
+  structural bit-identical-column proof (T8).

@@ -5,23 +5,23 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM31-supercharger-session-verification.md",
   "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Tier 1 of RM31: give internal/charging a write port over charge_sessions' human-owned verification columns \u2014 one account-scoped method updating exactly start_battery_pct, end_battery_pct and battery_pct_source ('user_verified'), never the two _est snapshot columns, never any mirrored column. No new DB object.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "3.1",
-      "3.2"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
       "2.1",
-      "2.2"
+      "2.2",
+      "3.2"
     ],
-    "awaiting-user-verification": []
+    "awaiting-user-verification": [
+      "3.1"
+    ]
   },
   "created_at": "2026-08-27T17:31:15Z",
-  "updated_at": "2026-08-27T18:13:11Z",
+  "updated_at": "2026-08-27T19:58:14Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -107,14 +107,19 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T19:51:02Z",
+      "completed_at": "2026-08-27T19:56:37Z",
+      "duration_seconds": 335,
+      "notes": "New db_session_verifier_integration_test.go implements T1-T9 per design.md expected values (T1/T4/T9 share one fixture chain, as the contract specifies); ids 950001-950099; no pgtype. Leader added T8's missing id-column assertion.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 3.57,
+        "approx": true,
+        "note": "wave 3 delta shared across 3.1/3.2 \u2014 batched into one serial worker"
+      }
     },
     {
       "id": "3.2",
@@ -124,14 +129,19 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T19:51:02Z",
+      "completed_at": "2026-08-27T19:56:37Z",
+      "duration_seconds": 335,
+      "notes": "AGENTS.md updated: SessionVerifier/NewSessionVerifier in \u00a7Public Interface with the D9 rationale; \u00a7Data Ownership now splits the 3 writable columns from the 2 permanently-unwritable _est columns; \u00a7Testing Notes lists the new file.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 3.57,
+        "approx": true,
+        "note": "wave 3 delta shared across 3.1/3.2 \u2014 batched into one serial worker"
+      }
     }
   ],
   "review": {
@@ -176,6 +186,15 @@
       "decision": "batched waves 1 and 2 (tasks 1.1, 2.1, 2.2) into ONE serial worker dispatch",
       "why": "5-hour bucket at 88% with a 2h reset. The sqlc ordering holds inside a serial worker, and one dispatch amortizes the doc-pack re-read that dominates fixed cost.",
       "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-27T19:58:14Z",
+      "scope": "wave:3",
+      "made_by": "leader",
+      "decision": "leader patched T8 to assert the id column unchanged, rather than re-dispatching the worker",
+      "why": "design.md T8 lists id among the must-be-identical columns; chargeSessionRow lives in RM29's protected test file and cannot gain an ID field. A 4-line direct-SQL check costs far less than a re-dispatch.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -218,6 +237,21 @@
       "at": "2026-08-27T18:13:11Z",
       "agent": "leader",
       "event": "budget re-read after the owner's test report: five_hour 95% (>= 90), context 10%, resets 19:50Z. Checkpoint HOLDS \u2014 wave 3 (T1-T9 integration tests) not dispatched. Resume after reset."
+    },
+    {
+      "at": "2026-08-27T18:19:53Z",
+      "agent": "leader",
+      "event": "resume attempted (Step R.3): budget re-read five_hour 98% (>= 90), context 8%, resets_at 2026-08-27T19:50:00Z not yet passed. Checkpoint HOLDS \u2014 wave 3 not dispatched. Resume after 19:50Z."
+    },
+    {
+      "at": "2026-08-27T19:51:02Z",
+      "agent": "leader",
+      "event": "5-hour bucket reset (five_hour 0%, context 8%, measured 19:51:02Z) \u2014 checkpoint cleared. Resumed at Step 5; dispatched charging worker (claude-sonnet-4-6) for wave 3 (tasks 3.1+3.2) batched serially per Step 5.1 default; budget start five_hour 0%, context 8%, cost $0.62"
+    },
+    {
+      "at": "2026-08-27T19:58:14Z",
+      "agent": "leader",
+      "event": "wave 3 returned; doc-pack acknowledgment present (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/charging/AGENTS.md); worker enumerated D1-D11; leader independently verified T1-T9 coverage against design.md's Test Contract, the 950001-950099 id range, and the no-pgtype rule, and found+fixed one gap (T8 omitted the id column \u2014 D5). go build/vet clean, gofmt clean in internal/charging. Suite NOT run by assistant. budget end five_hour 11%, context 12% (delta +11pp, +$3.57)"
     }
   ]
 }
