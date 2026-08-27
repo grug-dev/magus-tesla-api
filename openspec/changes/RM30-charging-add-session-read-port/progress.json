@@ -9,19 +9,19 @@
   "rollup": {
     "current": [],
     "pending": [
-      "2.1",
-      "2.2",
-      "2.3",
       "3.1",
       "3.2"
     ],
     "blocked": [],
     "done": [
-      "1.1"
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3"
     ]
   },
   "created_at": "2026-08-27T10:41:43Z",
-  "updated_at": "2026-08-27T11:10:17Z",
+  "updated_at": "2026-08-27T11:13:29Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -63,14 +63,20 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-08-27T11:11:30Z",
+      "completed_at": "2026-08-27T11:13:29Z",
+      "duration_seconds": 119,
+      "notes": "Added Session (19 fields) with the doc comment on why it is not a widened SessionMirror, the SessionReader interface carrying the ASC / whole-day-inclusive / nil-tesla_id contract, and the NewSessionReader forward declaration. No pgtype in charging.go.",
+      "budget": {
+        "five_hour_pct_start": 50,
+        "five_hour_pct_end": 55,
+        "cost_usd_delta": 1.355,
+        "approx": true,
+        "note": "one serial worker covered 2.1+2.2+2.3; wave delta copied onto each task"
+      }
     },
     {
       "id": "2.2",
@@ -80,14 +86,20 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-08-27T11:11:30Z",
+      "completed_at": "2026-08-27T11:13:29Z",
+      "duration_seconds": 119,
+      "notes": "New session_reader.go mirrors session_writer.go exactly: sessionReader over pool+Queries, newSessionReader, compile-time assertion, endBound computed in Go, teslaIDToPgInt8, rowToSession reusing pgTextToPtr/pgInt2ToIntPtr.",
+      "budget": {
+        "five_hour_pct_start": 50,
+        "five_hour_pct_end": 55,
+        "cost_usd_delta": 1.355,
+        "approx": true,
+        "note": "one serial worker covered 2.1+2.2+2.3; wave delta copied onto each task"
+      }
     },
     {
       "id": "2.3",
@@ -97,14 +109,20 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-08-27T11:11:30Z",
+      "completed_at": "2026-08-27T11:13:29Z",
+      "duration_seconds": 119,
+      "notes": "Added pgInt8ToInt64Ptr, pgFloat8ToFloat64Ptr, pgBoolToBoolPtr after their forward pairs; replaced each stale 'no reverse pair exists' sentence with a pointer to the new helper. MirrorSessions untouched.",
+      "budget": {
+        "five_hour_pct_start": 50,
+        "five_hour_pct_end": 55,
+        "cost_usd_delta": 1.355,
+        "approx": true,
+        "note": "one serial worker covered 2.1+2.2+2.3; wave delta copied onto each task"
+      }
     },
     {
       "id": "3.1",
@@ -230,6 +248,16 @@
       "at": "2026-08-27T11:10:17Z",
       "agent": "leader",
       "event": "Wave 1 complete (1.1). Leader independently verified sandbox via git status (only internal/charging/db/* + tasks.md touched -- no repeat of the earlier boundary violation) and re-ran go build ./... , go vet ./... , gofmt -l internal/charging: all clean. Worker reported placeholder timestamps (00:00:00Z/00:15:00Z); leader recorded true observed times instead. Budget end: five_hour 50%, context 9%, cost $1.667 (delta 4pp / $1.04)."
+    },
+    {
+      "at": "2026-08-27T11:11:30Z",
+      "agent": "leader",
+      "event": "Dispatched wave 2 (2.1+2.2+2.3) as ONE serial charging worker on sonnet -- the three tasks share package state and 2.2 calls helpers 2.3 adds, so batching avoids a cross-worker race for no gain. Budget start: five_hour 50%, context 9%, cost $1.667."
+    },
+    {
+      "at": "2026-08-27T11:13:29Z",
+      "agent": "leader",
+      "event": "Wave 2 complete (2.1/2.2/2.3). Leader verified sandbox via git status -- only internal/charging/{charging.go,session_reader.go,session_writer.go} + tasks.md; no out-of-sandbox edit this time. Re-ran go build ./... , go vet ./... , gofmt -l internal/charging: all clean. Reviewer note: sessionReader.pool is retained but unused (documented as D7 shape-parity with sessionWriter) -- deliberate, not an oversight. Budget end: five_hour 55%, context 10%, cost $3.022 (delta 5pp / $1.36)."
     }
   ]
 }

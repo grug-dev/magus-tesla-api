@@ -44,7 +44,7 @@ charging description already covers `charge_sessions` accurately and needs no ed
 
 ## Wave 2 — the Go port (module: charging worker)
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add the
+- [x] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add the
   `Session` domain type (19 fields, exactly as specified in design.md **D4**, including
   its doc comment explaining why it is a new type and not `SessionMirror` widened), the
   `SessionReader` interface (one method, `ListSessionsByVehicleBetween`, with a doc
@@ -62,7 +62,7 @@ charging description already covers `charge_sessions` accurately and needs no ed
   exported symbol. Does not compile until 2.2 supplies the constructor's body.
   `depends_on`: 1.1 · `parallel_ok`: with 2.2 (authoring only — they land together)
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/session_reader.go` (new
+- [x] **2.2** **[module: charging worker]** `internal/charging/session_reader.go` (new
   file) — implement the port, mirroring `session_writer.go`'s shape exactly (design.md
   **D7**): an unexported `sessionReader` struct over `*pgxpool.Pool` + `*chargingdb.Queries`,
   an unexported `newSessionReader`, the compile-time
@@ -78,7 +78,7 @@ charging description already covers `charge_sessions` accurately and needs no ed
   duplicate them locally.
   `depends_on`: 2.1 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[module: charging worker]** `internal/charging/session_writer.go` — add
+- [x] **2.3** **[module: charging worker]** `internal/charging/session_writer.go` — add
   the three reverse pgtype→domain helpers design.md **D6** specifies
   (`pgInt8ToInt64Ptr`, `pgFloat8ToFloat64Ptr`, `pgBoolToBoolPtr`), each placed
   immediately after its existing forward pair (`int64PtrToPgInt8`, `float64PtrToPgFloat8`,

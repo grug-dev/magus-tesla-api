@@ -93,9 +93,9 @@ func (w *sessionWriter) MirrorSessions(ctx context.Context, accountID uuid.UUID,
 }
 
 // int64PtrToPgInt8 maps a *int64 to a nullable pgtype.Int8 (BIGINT). Follows the
-// existing intPtrToPgInt2 naming/shape (service.go); no reverse
-// (pgInt8ToInt64Ptr) pair exists because SessionMirror is write-only — this
-// module exposes no reader for charge_sessions (design.md D9).
+// existing intPtrToPgInt2 naming/shape (service.go). Reverse pair: pgInt8ToInt64Ptr,
+// below (added by RM30-charging-add-session-read-port, this module's first reader for
+// charge_sessions).
 func int64PtrToPgInt8(v *int64) pgtype.Int8 {
 	if v == nil {
 		return pgtype.Int8{Valid: false}
@@ -103,9 +103,20 @@ func int64PtrToPgInt8(v *int64) pgtype.Int8 {
 	return pgtype.Int8{Int64: *v, Valid: true}
 }
 
+// pgInt8ToInt64Ptr converts a nullable pgtype.Int8 to *int64. Reverse of
+// int64PtrToPgInt8 — added by RM30-charging-add-session-read-port, this module's first
+// reader for charge_sessions.
+func pgInt8ToInt64Ptr(v pgtype.Int8) *int64 {
+	if !v.Valid {
+		return nil
+	}
+	n := v.Int64
+	return &n
+}
+
 // float64PtrToPgFloat8 maps a *float64 to a nullable pgtype.Float8 (DOUBLE
-// PRECISION). Follows the existing intPtrToPgInt2 naming/shape (service.go); no
-// reverse pair exists — see int64PtrToPgInt8.
+// PRECISION). Follows the existing intPtrToPgInt2 naming/shape (service.go). Reverse
+// pair: pgFloat8ToFloat64Ptr, below.
 func float64PtrToPgFloat8(v *float64) pgtype.Float8 {
 	if v == nil {
 		return pgtype.Float8{Valid: false}
@@ -113,12 +124,30 @@ func float64PtrToPgFloat8(v *float64) pgtype.Float8 {
 	return pgtype.Float8{Float64: *v, Valid: true}
 }
 
+// pgFloat8ToFloat64Ptr converts a nullable pgtype.Float8 to *float64. Reverse of
+// float64PtrToPgFloat8.
+func pgFloat8ToFloat64Ptr(v pgtype.Float8) *float64 {
+	if !v.Valid {
+		return nil
+	}
+	f := v.Float64
+	return &f
+}
+
 // boolPtrToPgBool maps a *bool to a nullable pgtype.Bool. Follows the existing
-// intPtrToPgInt2 naming/shape (service.go); no reverse pair exists — see
-// int64PtrToPgInt8.
+// intPtrToPgInt2 naming/shape (service.go). Reverse pair: pgBoolToBoolPtr, below.
 func boolPtrToPgBool(v *bool) pgtype.Bool {
 	if v == nil {
 		return pgtype.Bool{Valid: false}
 	}
 	return pgtype.Bool{Bool: *v, Valid: true}
+}
+
+// pgBoolToBoolPtr converts a nullable pgtype.Bool to *bool. Reverse of boolPtrToPgBool.
+func pgBoolToBoolPtr(v pgtype.Bool) *bool {
+	if !v.Valid {
+		return nil
+	}
+	b := v.Bool
+	return &b
 }
