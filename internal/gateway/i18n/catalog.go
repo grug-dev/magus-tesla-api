@@ -234,6 +234,7 @@ const (
 	KeyChargesErrorBatteryPctRequired               Key = "charges_error.battery_pct_required"
 	KeyChargesErrorStartBatteryPctRange             Key = "charges_error.start_battery_pct_range"
 	KeyChargesErrorEndBatteryPctRange               Key = "charges_error.end_battery_pct_range"
+	KeyChargesErrorEndBeforeStart                   Key = "charges_error.end_before_start"
 	KeyChargesErrorCouldNotLoadVehicles             Key = "charges_error.could_not_load_vehicles"
 	KeyChargesErrorCouldNotLoadEntries              Key = "charges_error.could_not_load_entries"
 	KeyChargesErrorCouldNotSaveEntry                Key = "charges_error.could_not_save_entry"
@@ -466,6 +467,7 @@ var catalog = map[Key]entry{
 	KeyChargesErrorBatteryPctRequired:               {ES: "El porcentaje de batería es obligatorio.", EN: "Battery percentage is required."},
 	KeyChargesErrorStartBatteryPctRange:             {ES: "El porcentaje de batería inicial debe ser un número entero entre 0 y 100.", EN: "Start battery percentage must be an integer between 0 and 100."},
 	KeyChargesErrorEndBatteryPctRange:               {ES: "El porcentaje de batería final debe ser un número entero entre 0 y 100.", EN: "End battery percentage must be an integer between 0 and 100."},
+	KeyChargesErrorEndBeforeStart:                   {ES: "La hora de finalización no puede ser anterior a la hora de inicio.", EN: "End time cannot be before start time."},
 	KeyChargesErrorCouldNotLoadVehicles:             {ES: "No se pudieron cargar tus vehículos — inténtalo de nuevo.", EN: "Could not load your vehicles — please try again."},
 	KeyChargesErrorCouldNotLoadEntries:              {ES: "No se pudieron cargar tus registros — inténtalo de nuevo.", EN: "Could not load your entries — please try again."},
 	KeyChargesErrorCouldNotSaveEntry:                {ES: "No se pudo guardar tu registro — inténtalo de nuevo.", EN: "Could not save your entry — please try again."},

@@ -817,6 +817,13 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 			entry.EndedAt = &t
 		}
 	}
+	// Session time sanity — mirrors the manual_charge_entries table-level CHECK
+	// (ended_at >= started_at when both are given) so a swapped/typo'd pair is a
+	// 422 field error, not a 500 from the DB constraint.
+	if entry.StartedAt != nil && entry.EndedAt != nil && entry.EndedAt.Before(*entry.StartedAt) {
+		errs["ended_at"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorEndBeforeStart)
+		return entry, errs, false
+	}
 	if v := c.PostForm("charging_type"); v == "AC" || v == "DC" {
 		entry.ChargingType = &v
 	}
