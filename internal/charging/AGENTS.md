@@ -48,9 +48,11 @@ This module:
 - Owns the `charge_sessions` table exclusively.
 - Is isolated from the Tesla Fleet API — it imports no `internal/tesla` package, needs no OAuth
   scope, and wakes no car.
-- Exposes CRUD (Writer) and read (Reader) ports for manual entries, and a write-only
-  `SessionWriter` port for Supercharger session mirroring — all public Go interfaces.
-  `charge_sessions` has no reader port in this tier; no consumer needs one yet (design.md D9).
+- Exposes CRUD (Writer) and read (Reader) ports for manual entries, and both a
+  `SessionWriter` (mirroring) and a `SessionReader` (windowed per-vehicle reads) port for
+  Supercharger sessions — all public Go interfaces. `charge_sessions` gained its reader in
+  RM30 tier 1 (RM30-charging-add-session-read-port), superseding RM29 tier 6's design.md D9
+  note that no consumer needed one.
 - Computes no HTML, no templates, no htmx fragments — that is the gateway's job (Tier 2).
 
 This module was renamed from `manualcharge` in RM29 tier 2, and gained `charge_sessions`
@@ -151,6 +153,66 @@ clause first, and mirror it exactly.
 The gateway and any other future caller of `SessionWriter` never import `chargingdb`
 directly, exactly as for `Writer`/`Reader` above.
 
+### The Supercharger session read port (RM30-charging-add-session-read-port)
+
+```go
+// Session is the full domain representation of one charge_sessions row: identity, the
+// session's time window, the session facts internal/telemetry collects, and the five
+// charging-owned battery-percentage verification/estimate columns. Read-only counterpart
+// to SessionMirror — NOT built by widening it: SessionMirror stays deliberately
+// percentage-free (RM29 design.md D6) so the nightly sync path has no field to bind a
+// human-verified percentage to, even by mistake. Session and SessionMirror are
+// distinct types for exactly that reason, even though Session's first thirteen fields
+// duplicate SessionMirror's eleven (design.md D4).
+type Session struct {
+    ID        uuid.UUID
+    AccountID uuid.UUID
+    VIN       string
+    TeslaID   *int64 // nil when the VIN is not a currently-registered vehicle
+    SessionID int64
+
+    ChargeStartDateTime time.Time
+    ChargeStopDateTime  time.Time
+
+    SiteLocationName string
+    EnergyKWh        *float64 // nil when the session had no kWh fee
+    TotalCost        *float64 // nil when the session had no fees
+    Currency         *string  // nil when the session had no fees
+    IsPaid           *bool    // nil when the session had no fees
+
+    // Charging-owned verification channel — never written by the nightly sync.
+    StartBatteryPct    *int
+    EndBatteryPct      *int
+    BatteryPctSource   *string
+    StartBatteryPctEst *int
+    EndBatteryPctEst   *int
+
+    CreatedAt time.Time
+    UpdatedAt time.Time
+}
+
+// SessionReader is the read port over charge_sessions. One method, shaped like
+// Reader.ListEntriesByVehicleBetween's bounded-per-vehicle-window pattern but NOT
+// identical to it: ascending order (not descending) and whole-UTC-calendar-day,
+// half-open bound semantics (not exact-value BETWEEN) — see design.md D3/D5.
+type SessionReader interface {
+    // ListSessionsByVehicleBetween returns sessions for a specific vehicle within an
+    // account whose ChargeStopDateTime falls within [from, to], to inclusive of its
+    // entire UTC calendar day (to is translated to a half-open upper bound in Go).
+    // Ordered ASCENDING by ChargeStopDateTime — the opposite of Reader's DESC order,
+    // matching telemetry's own ordering for the identical access pattern; do not
+    // "correct" this to DESC. No limit parameter; always a non-nil empty slice on no
+    // match. A session whose TeslaID is nil is never returned, for any teslaID.
+    ListSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Session, error)
+}
+
+// NewSessionReader — the only publicly exported factory function for this port.
+func NewSessionReader(pool *pgxpool.Pool) SessionReader
+```
+
+The gateway and any other future caller of `SessionReader` never import `chargingdb`
+directly, exactly as for `Writer`/`Reader`/`SessionWriter` above.
+
 ---
 
 ## Allowed Imports
@@ -212,7 +274,8 @@ paired with the `currency` column instead of a unit.
 ### `charge_sessions` (RM29 tier 6, RM29-charging-add-charge-sessions)
 
 - No other module may read or write this table directly. Access goes through the
-  write-only `SessionWriter` port — there is no reader port in this tier (design.md D9).
+  `SessionWriter` port (write) and, since RM30-charging-add-session-read-port, the
+  `SessionReader` port (read) — see §Public Interface above.
 - The migration file
   `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql` is the single
   schema source of truth, including its one-time backfill of every Supercharger session
@@ -251,10 +314,14 @@ paired with the `currency` column instead of a unit.
   `BatteryDelta`, `SessionDuration`) with no DB and no Tesla API. Run offline as part of
   `go test ./...`.
 - **Integration tests** (`db_integration_test.go`, `db_session_integration_test.go`,
-  `db_backfill_integration_test.go`): cover full CRUD round-trips, ordering guarantees,
-  multi-tenant isolation, CHECK constraint enforcement, the Supercharger session mirror
-  (`SessionWriter.MirrorSessions`), and the one-time backfill. The test database is
-  provisioned by `testdb_test.go`:
+  `db_backfill_integration_test.go`, `db_session_reader_integration_test.go`): cover
+  full CRUD round-trips, ordering guarantees, multi-tenant isolation, CHECK constraint
+  enforcement, the Supercharger session mirror (`SessionWriter.MirrorSessions`), the
+  one-time backfill, and — since RM30-charging-add-session-read-port — the
+  `charge_sessions` read port (`SessionReader.ListSessionsByVehicleBetween`,
+  `db_session_reader_integration_test.go`). Reads still assert only against
+  `charging.Session` domain fields or direct SQL column values — never `pgtype`, in this
+  file or any other. The test database is provisioned by `testdb_test.go`:
     - When `DATABASE_URL` is set, that managed Postgres is used (CI with a service container,
       or a local DB you've already provisioned).
     - Otherwise `TestMain` starts a disposable `postgres:16-alpine` container via
@@ -287,8 +354,12 @@ paired with the `currency` column instead of a unit.
 - The `tesla-exploration` exception (CLAUDE.md) does NOT apply here. Tests for this module are
   welcome and required (no paid-API risk).
 - `pgtype` must not appear in any test helper or assertion — test against `charging.Entry` /
-  `charging.SessionMirror` domain fields and raw SQL column values only. For
-  `charge_sessions`, which has no reader port (design.md D9), tests read rows back with
-  direct SQL, scanning nullable columns into plain Go `*T` fields (pgx v5 supports
-  NULL-into-pointer-to-pointer scanning natively) — never into a `chargingdb.ChargeSession`
-  (which is all `pgtype`).
+  `charging.SessionMirror` / `charging.Session` domain fields and raw SQL column values
+  only. `db_session_integration_test.go` (write-path tests, predating the reader) reads
+  rows back with direct SQL, scanning nullable columns into plain Go `*T` fields (pgx v5
+  supports NULL-into-pointer-to-pointer scanning natively) — never into a
+  `chargingdb.ChargeSession` (which is all `pgtype`).
+  `db_session_reader_integration_test.go` (RM30-charging-add-session-read-port) instead
+  asserts against `SessionReader.ListSessionsByVehicleBetween`'s returned
+  `charging.Session` values directly — the port's own domain mapping already keeps
+  `pgtype` out, so no direct-SQL read-back is needed there.

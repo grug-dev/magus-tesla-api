@@ -5,23 +5,24 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM30-supercharger-stats-read-from-charging.md",
   "request": "Source ticket: MAG-30 — https://linear.app/magus-monitor/issue/MAG-30/supercharger-stats-reads\n\nTier 1 of RM30. internal/charging owns charge_sessions but exposes only a write port (SessionWriter.MirrorSessions). Add a Session domain type and a SessionReader port (ListSessionsByVehicleBetween) over charge_sessions, plus the sqlc query and NewSessionReader, so that tier 2 can move /supercharger-stats off telemetry.SuperchargerReader onto the module that owns charge sessions. No database object is created or altered.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "3.1",
-      "3.2"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
       "2.1",
       "2.2",
-      "2.3"
+      "2.3",
+      "3.2"
+    ],
+    "awaiting-user-verification": [
+      "3.1"
     ]
   },
   "created_at": "2026-08-27T10:41:43Z",
-  "updated_at": "2026-08-27T11:13:29Z",
+  "updated_at": "2026-08-27T11:19:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -133,14 +134,20 @@
         "2.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-08-27T11:14:30Z",
+      "completed_at": "2026-08-27T11:19:30Z",
+      "duration_seconds": 253,
+      "notes": "New db_session_reader_integration_test.go (package charging_test) implements T1-T11 against design.md's pre-authored expected values; leader verified all 11 cases map to a test func and no pgtype appears outside comments. Owner must run the suite.",
+      "budget": {
+        "five_hour_pct_start": 55,
+        "five_hour_pct_end": 63,
+        "cost_usd_delta": 2.062,
+        "approx": true,
+        "note": "one serial worker covered 3.1+3.2; wave delta copied onto each task"
+      }
     },
     {
       "id": "3.2",
@@ -150,14 +157,20 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-08-27T11:14:30Z",
+      "completed_at": "2026-08-27T11:19:30Z",
+      "duration_seconds": 253,
+      "notes": "AGENTS.md updated in three sections (Public Interface, Data Ownership, Testing Notes). Worker flagged a fourth stale spot outside its assigned scope; leader fixed it.",
+      "budget": {
+        "five_hour_pct_start": 55,
+        "five_hour_pct_end": 63,
+        "cost_usd_delta": 2.062,
+        "approx": true,
+        "note": "one serial worker covered 3.1+3.2; wave delta copied onto each task"
+      }
     }
   ],
   "review": {
@@ -211,6 +224,15 @@
       "decision": "reverted the worker's unrequested edits to ai/architecture.md and internal/gateway/AGENTS.md",
       "why": "Out of the charging sandbox, assigned to tier 2, and already stale: they documented the flat 90-day cap that roadmap Decision 6 replaced with per-endpoint caps.",
       "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-27T11:19:30Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "fixed the fourth stale AGENTS.md line myself (Responsibility, line 53) instead of re-dispatching the worker",
+      "why": "The worker correctly refused to touch an unlisted location and flagged it. A one-sentence doc fix does not justify a second dispatch, and leaving it stale would breach docs-track-structural-change.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -258,6 +280,16 @@
       "at": "2026-08-27T11:13:29Z",
       "agent": "leader",
       "event": "Wave 2 complete (2.1/2.2/2.3). Leader verified sandbox via git status -- only internal/charging/{charging.go,session_reader.go,session_writer.go} + tasks.md; no out-of-sandbox edit this time. Re-ran go build ./... , go vet ./... , gofmt -l internal/charging: all clean. Reviewer note: sessionReader.pool is retained but unused (documented as D7 shape-parity with sessionWriter) -- deliberate, not an oversight. Budget end: five_hour 55%, context 10%, cost $3.022 (delta 5pp / $1.36)."
+    },
+    {
+      "at": "2026-08-27T11:14:30Z",
+      "agent": "leader",
+      "event": "Dispatched wave 3 (3.1 tests + 3.2 AGENTS.md) as ONE serial charging worker on sonnet -- both are small and share the same module context, so one dispatch reads the doc pack once. Budget start: five_hour 55%, context 10%, cost $3.022."
+    },
+    {
+      "at": "2026-08-27T11:19:30Z",
+      "agent": "leader",
+      "event": "Wave 3 complete (3.1 awaiting-user-verification, 3.2 done). Leader verified sandbox via git status (clean), re-ran go build / go vet / gofmt -l internal/charging (all clean), checked all 11 Test Contract cases map to a Go test func against design.md's pre-authored expected values, and confirmed pgtype appears only in two comments, never an assertion. Leader-fixed one stale AGENTS.md line the worker flagged out of scope. Budget end: five_hour 63%, context 12%, cost $5.084 (delta 8pp / $2.06)."
     }
   ]
 }

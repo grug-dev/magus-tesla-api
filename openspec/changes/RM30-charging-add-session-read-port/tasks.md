@@ -95,7 +95,7 @@ charging description already covers `charge_sessions` accurately and needs no ed
 
 ## Wave 3 — tests + module docs (module: charging worker)
 
-- [ ] **3.1** **[module: charging worker]** `internal/charging/db_session_reader_integration_test.go`
+- [x] **3.1** **[module: charging worker]** `internal/charging/db_session_reader_integration_test.go`
   (new file, `package charging_test`) — implement Test Contract **T1–T11** exactly as
   design.md states them (revised: T1–T4 are the day-boundary/half-open cases), with those
   expected values. Seed the baseline fixture **S1** (four sessions, `session_id`s
@@ -111,7 +111,7 @@ charging description already covers `charge_sessions` accurately and needs no ed
   for the isolation fixtures).
   `depends_on`: 2.2, 2.3 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
+- [x] **3.2** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
   module's new read surface (docs-track-structural-change, `CLAUDE.md` §Non-negotiables):
   - §Public Interface — add the `Session` type and `SessionReader`/`NewSessionReader`
     block (mirroring how `SessionMirror`/`SessionWriter`/`NewSessionWriter` are already
