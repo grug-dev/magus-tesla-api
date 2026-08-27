@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM30-charging-add-session-read-port",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM30-supercharger-stats-read-from-charging.md",
+  "request": "Source ticket: MAG-30 — https://linear.app/magus-monitor/issue/MAG-30/supercharger-stats-reads\n\nTier 1 of RM30. internal/charging owns charge_sessions but exposes only a write port (SessionWriter.MirrorSessions). Add a Session domain type and a SessionReader port (ListSessionsByVehicleBetween) over charge_sessions, plus the sqlc query and NewSessionReader, so that tier 2 can move /supercharger-stats off telemetry.SuperchargerReader onto the module that owns charge sessions. No database object is created or altered.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "2.1", "2.2", "2.3", "3.1", "3.2"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-27T10:41:43Z",
+  "updated_at": "2026-08-27T10:41:43Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM30-MAG-30-supercharger-stats-read-from-charging",
+    "base": "main",
+    "ticket": "MAG-30",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-30/supercharger-stats-reads",
+    "created_at": "2026-08-27T10:31:46Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Append ListSessionsByVehicleBetween query to internal/charging/db/query.sql; run make sqlc",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "Add Session domain type, SessionReader interface and NewSessionReader to charging.go",
+      "module": "charging",
+      "depends_on": ["1.1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "Implement sessionReader in new internal/charging/session_reader.go with rowToSession mapper",
+      "module": "charging",
+      "depends_on": ["2.1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "Add reverse pgtype helpers to session_writer.go and correct the now-false forward-helper doc comments",
+      "module": "charging",
+      "depends_on": ["2.1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "Implement Test Contract T1-T11 in db_session_reader_integration_test.go",
+      "module": "charging",
+      "depends_on": ["2.2", "2.3"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "Update internal/charging/AGENTS.md for the new read surface",
+      "module": "charging",
+      "depends_on": ["2.2"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-27T10:32:44Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "dispatched the artifact worker on Sonnet rather than Opus",
+      "why": "The Step 2 interview had already settled every design branch; the worker was authoring a decided design, not deciding one.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-27T10:41:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "accepted the worker's new D4-D7 (Session distinct from SessionMirror, exact-instant bounds, pgtype.Int8 tesla_id filter, session_reader.go split) without a user gate",
+      "why": "All four follow existing module precedent and create no DB object. Verified telemetry's current query filters tesla_id identically, so D6 preserves behaviour.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-27T10:41:30Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "recorded the ASC-vs-DESC ordering flip in the roadmap's tier-2 prompt instead of changing the port",
+      "why": "telemetry returned newest-first; the ASC port is what the index serves. Display order is tier 2's concern, so the risk belongs in its handoff, not in this port.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-27T10:32:44Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (sonnet) to author artifacts. Budget start: five_hour 16%, context 14%, cost $3.393."
+    },
+    {
+      "at": "2026-08-27T10:41:43Z",
+      "agent": "leader",
+      "event": "artifacts returned and validated (openspec validate --strict: valid). Leader independently verified no migration/.sql file was created and that idx_charge_sessions_vehicle_stop serves the query. Budget end: five_hour 27%, context 16%, cost $6.380 (delta 11pp / $2.99)."
+    },
+    {
+      "at": "2026-08-27T10:41:43Z",
+      "agent": "leader",
+      "event": "HALTED AFTER STEP 4 by invocation scope (kkpa-pickup-linear-ticket): artifacts + progress.json only. No implementation workers dispatched, no reviewer, no archive. Awaiting user review of the proposal."
+    }
+  ]
+}
