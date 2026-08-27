@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM31-supercharger-session-verification",
+  "intention": "A user can correct a Supercharger session's start/end battery % inline on /supercharger-stats, and the correction immediately reaches vehicle_metrics because analytics reads the same table the edit writes.",
+  "request": "MAG-19 — ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
+  "status": "in-progress",
+  "autopilot": false,
+  "updated_at": "2026-08-27T17:20:55Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM31-MAG-19-supercharger-session-verification",
+    "base": "main",
+    "ticket": "MAG-19",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions",
+    "created_at": "2026-08-27T17:20:55Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2, 3, 4],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-27T17:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "analytics switches its Supercharger source from telemetry.supercharger_sessions to charging.charge_sessions",
+      "why": "The edit must land where analytics reads or item 4d is a no-op. Switching beats adding a 4th source: one table owns a session's percentages, so no conflict rule is needed.",
+      "covered_by": "roadmap Decision 1"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-27T17:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "start_battery_pct_est / end_battery_pct_est stay NULL; displayed as \"—\"",
+      "why": "No SOC estimator exists (RM27 D11 descoped it), so freezing a snapshot would fabricate a drift log. Building an estimator is out of scope.",
+      "covered_by": "roadmap Decision 3"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-27T17:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "inline htmx row swap for the edit UX",
+      "why": "Matches the ticket's \"inline on the record\", reuses the page's existing fragment-swap pattern, and avoids a PATCH on accidental blur.",
+      "covered_by": "roadmap Decision 4"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-27T17:20:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "ticket item 2 (remove the Country column) gets no tier",
+      "why": "Already done: charging.Session has no CountryCode (RM29 D1) and RM30 tier 2 removed the column. Recorded so its absence is not read as a missed requirement.",
+      "covered_by": "roadmap Decision 5"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-27T17:20:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "gateway work split into two tiers — display (3) and edit (4)",
+      "why": "The display half depends on nothing and ships alone; only the edit needs tiers 1 and 2. One gateway tier would have blocked the visible win behind the whole roadmap.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM31-charging-add-session-verification-port",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 2,
+      "change": "RM31-analytics-read-sessions-from-charging",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Database design gate applies — watermark source CHECK migration."
+    },
+    {
+      "id": 3,
+      "change": "RM31-gateway-show-session-battery-pct",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 4,
+      "change": "RM31-gateway-add-session-battery-edit",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1, 2, 3],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Carries the KB update (ticket item 6)."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-27T17:20:55Z",
+      "agent": "leader",
+      "event": "roadmap RM31 created from Linear MAG-19 (pickup skill); shared work counter 31 -> 32; branch ft/RM31-MAG-19-supercharger-session-verification off main"
+    },
+    {
+      "at": "2026-08-27T17:20:55Z",
+      "agent": "leader",
+      "event": "runtime: Claude Code; native subagent dispatch + live budget both available (five_hour 64%, context 9%) — no degradations"
+    },
+    {
+      "at": "2026-08-27T17:20:55Z",
+      "agent": "leader",
+      "event": "run scope capped by the invoking kkpa-pickup-linear-ticket skill: HALT AFTER STEP 4 — tier 1 artifacts + progress.json only, no implementation workers, no reviewer, no archive"
+    }
+  ]
+}

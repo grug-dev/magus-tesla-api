@@ -1,0 +1,103 @@
+# RM31 — Supercharger session battery-% verification
+
+Source ticket: MAG-19 — https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions
+
+**Intention:** a user can correct the start/end battery percentage of a Supercharger
+session inline on `/supercharger-stats`, and that correction immediately flows into
+`vehicle_metrics` — because `analytics` reads the same table the edit writes.
+
+This closes **backlog item 11** ("Supercharger start/end SOC verification UI"), which has
+been open since RM27 shipped storage-only on 2026-08-15.
+
+## Why this is a roadmap and not one change
+
+It spans three modules — `charging` must grow a write port for its human-owned
+verification columns, `analytics` must switch its Supercharger source from `telemetry` to
+`charging`, and `gateway` must render and drive the edit.
+`openspec/config.yaml` §`rules.proposal` forbids one big cross-module change.
+
+## Findings that shaped it (verified in code, 2026-08-27)
+
+The ticket describes six items. Investigation before writing this roadmap found that two
+are already satisfied and one rests on a premise the code contradicts:
+
+- **Item 2 (remove the `Country` column) is already done.** `charging.Session` carries no
+  `CountryCode` at all — RM29 design D1 excluded `country_code` from `charge_sessions`, and
+  RM30 tier 2 removed the column and its i18n keys from the page. The table renders exactly
+  Date / Site / Energy / Cost. **No tier covers item 2.**
+- **Item 1 is small and is reuse, not new work.** `SuperchargerStatsView.Chart` already
+  reuses the `HistoryChart` / `HistoryBar` types verbatim, which already carry per-bar
+  `Label` and `YAxisTicks`. `buildYAxisTicks(max, format)` already exists in
+  `internal/gateway/handlers/history.go`. `buildSuperchargerChart` simply never populates
+  either. The work is to populate them, reusing the history gold standard.
+- **Item 4d could not have worked as the ticket assumed.** The page reads
+  `charging.charge_sessions`, but `analytics` computes `vehicle_metrics` from
+  `telemetry.SuperchargerSession` — `sumSuperchargerPctBetween` and
+  `inferMissingChargingType` both take `[]telemetry.SuperchargerSession`, and
+  `vehicle_metric_watermarks.source` is constrained to
+  `('vehicle_snapshots', 'supercharger_sessions', 'manual_charge_entries')`.
+  `charge_sessions` is **not** an analytics source. Editing the table the page displays and
+  then calling `Recalculate` would have been a no-op — the calc fields would not move.
+  Decision 1 resolves this.
+
+The five verification columns already exist on `charge_sessions`
+(`20260823000001_add_charge_sessions.sql`) and are deliberately absent from the nightly
+mirror's INSERT and `ON CONFLICT DO UPDATE` — `charging.SessionMirror` has no field for
+them, so the sync cannot overwrite a verified value even by mistake (RM29 design D6).
+**No new column is needed for the edit itself.**
+
+## Tiers
+
+Legend — `[ ]` pending (change not created) · `[~]` in progress (change created, not
+archived) · `[x]` done (archived).
+
+| Status | Change | Module | Scope | depends_on | Proposal prompt |
+|---|---|---|---|---|---|
+| `[ ]` | `RM31-charging-add-session-verification-port` | `charging` | Add the write port for the human-owned verification columns: a `SessionVerifier` port with a single method that updates **only** `start_battery_pct`, `end_battery_pct` and `battery_pct_source` on one account-scoped session, plus its sqlc query. No schema change — all five columns already exist. | — | Add a verification write port to `internal/charging` over `charge_sessions`. One method, account-scoped, updating **exactly three** columns — `start_battery_pct`, `end_battery_pct`, `battery_pct_source` — and `updated_at`. Every other column, including the two `_est` snapshot columns, must be absent from the UPDATE's SET clause, mirroring how `MirrorChargeSession` protects these five from the sync (design D6): protection by the query's shape, not by comment. `battery_pct_source` is always written `'user_verified'` — the port takes no source parameter, so no caller can write `'polled'`. Honour `charge_sessions_pct_source_required`: setting both percentages to NULL must also NULL the source, or the CHECK rejects the row. Validate 0–100 in Go before the query (the DB CHECK is the backstop, not the error message). Return the updated `Session` so the caller can re-render without a second read. Mirror `Writer.Update`'s account-scoping and not-found semantics. No new DB object — no migration. |
+| `[ ]` | `RM31-analytics-read-sessions-from-charging` | `analytics` | Switch the Supercharger source from `telemetry.SuperchargerSession` to `charging.Session`: repoint the source port, retype `sumSuperchargerPctBetween` / `inferMissingChargingType`, and migrate the watermark source value `supercharger_sessions` → `charge_sessions` (CHECK constraint + existing rows). **DB design gate applies.** | — | Switch `internal/analytics`'s Supercharger source from `telemetry` to `charging` so a user-verified percentage reaches `vehicle_metrics`. Repoint the source port onto `charging.SessionReader`; retype `sumSuperchargerPctBetween` and `inferMissingChargingType` from `[]telemetry.SuperchargerSession` to `[]charging.Session`. **Verify field parity first and report it** — `charge_sessions` deliberately has no `country_code`, `billing_type`, `unlatch_date_time`, `vehicle_make_type` or `raw_data` (RM29 design D1); if any of those feeds a calc, say so and stop rather than working around it. Note `charging.Session.TeslaID` is `*int64` (nil when the VIN is not a registered vehicle) where telemetry's is not — a nil TeslaID row is never returned by a vehicle-scoped read (RM30 design D6), but state how the retyped functions handle it. Migration: `vehicle_metric_watermarks.source` CHECK becomes `('vehicle_snapshots', 'charge_sessions', 'manual_charge_entries')` and existing `'supercharger_sessions'` rows are UPDATEd to `'charge_sessions'` in the same migration — the cursor value stays valid because both tables carry the same `updated_at` semantics from the same mirror pass. design.md MUST carry the full schema change, the rationale, and the index plan per `openspec/config.yaml` §`rules.design`; this change is **design-gated** and needs the owner's confirmation before Apply. `internal/analytics` must no longer import `internal/telemetry` for the Supercharger path (it still may for snapshots). |
+| `[ ]` | `RM31-gateway-show-session-battery-pct` | `gateway` | Display-only: populate the Supercharger chart's per-bar `YYYY-MM` labels and Y-axis ticks (ticket item 1), and surface the four battery columns on the session table (ticket item 3). No write path. | — | Two display changes to `internal/gateway`'s supercharger-stats slice, both pure reuse of the history gold standard. **(1)** `buildSuperchargerChart` currently returns `HistoryChart{Bars: bars, Empty: false}` with neither per-bar `Label` nor `YAxisTicks`. Populate `HistoryBar.Label` with the bar's month as `YYYY-MM`, and set `YAxisTicks` by calling the existing `buildYAxisTicks(max, format)` from `history.go` with a kWh formatter. Do not write a second tick algorithm and do not add a chart library — `historyBarChart` already renders both, and the template does no arithmetic. Consider `LabelVertical` given `YYYY-MM` is wider than `MM-DD`. **(2)** Add the four battery fields to `SuperchargerRowVM` and the table: the human-verified `start_battery_pct` / `end_battery_pct` and the frozen `start_battery_pct_est` / `end_battery_pct_est`, all already present on `charging.Session`. Render nil as `"—"` — per Decision 3 the `_est` pair is **always** NULL today, so it must degrade gracefully rather than look broken. Both languages in `internal/gateway/i18n/catalog.go` for every new header. Do NOT add the `Country` column back — it was removed deliberately (RM30 tier 2). |
+| `[ ]` | `RM31-gateway-add-session-battery-edit` | `gateway` | The edit itself: an htmx inline row swap that PATCHes the two percentages through `charging`'s verification port, then triggers `analytics.Recalculate` for that session's day, mirroring `recalculateAfterChargeWrite`. Plus the KB update (ticket item 6). | 1, 2, 3 | Add inline battery-% verification to `/supercharger-stats`. An Edit action per row swaps that `<tr>` for an editable row (two number inputs + save/cancel) via `hx-get`; save issues a PATCH that calls tier 1's `charging` verification port and swaps the updated row back. **No delete action** (ticket item 5). Only the two percentages are editable — `battery_pct_source` is set to `user_verified` by the port, never by the form, and the two `_est` columns are never written. Wire the recalculation exactly as the manual-charge path does: `internal/gateway/handlers/charges.go`'s `recalculateAfterChargeWrite` calls `h.analyticsRecalculator.Recalculate(ctx, uid, teslaID, chargedOn, chargedOn)` and swallows the error into a log line — reuse that helper rather than writing a parallel one, deriving the day from the session's `ChargeStopDateTime` in the vehicle's timezone. `analyticsRecalculator` is **already** on the gateway `Handler` and already wired in `cmd/web/main.go`, so no new dependency. Both ES and EN for every new string. **KB (ticket item 6):** update `kkpa/context/workflows/supercharger-stats-read.md`, which currently documents this page as having *no user write path* — add the write path and the recalculation hop, and add the INDEX rows for it. Note the `charging.Session.TeslaID` nil case: a session whose VIN is not a registered vehicle has no vehicle to recalculate for. |
+
+`cmd/web` wiring (injecting the new `charging` verification port into `gateway.Deps`) is
+leader-owned integration — it sits outside `internal/`, so it belongs to no tier.
+
+## Decisions
+
+1. **`analytics` switches its Supercharger source from `telemetry.supercharger_sessions`
+   to `charging.charge_sessions`** (owner, 2026-08-27). The user's edit has to land where
+   `analytics` reads, or item 4d is a no-op. The owner chose to move the reader rather than
+   add a fourth source, so exactly one table carries a session's percentages and no
+   conflict rule is needed. Consequences, all intended: `telemetry` returns to being purely
+   the ingest layer for this data; `vehicle_metric_watermarks.source` needs a CHECK-constraint
+   migration plus an in-place value update; and `analytics` stops importing `internal/telemetry`
+   for the Supercharger path. This is what makes tier 2 database-gated.
+2. **The edit writes `charge_sessions` only — it never propagates back to
+   `telemetry.supercharger_sessions`.** `charging` owns the human-owned channel by design
+   (RM29 D1/D5/D6), and after Decision 1 nothing downstream reads telemetry's copy of these
+   columns. Telemetry's own five columns (added by RM27/MAG-14) become vestigial for this
+   flow; removing them is **not** in scope — recorded as future work below.
+3. **`start_battery_pct_est` / `end_battery_pct_est` stay NULL** (owner, 2026-08-27). They
+   are documented as a frozen snapshot of "the estimate on screen at verification time",
+   but no code anywhere computes such an estimate — RM27 D11 descoped the SOC estimator.
+   Freezing a value that does not exist would be a fabricated drift log. They are displayed
+   (ticket item 3) and always render `"—"` until an estimator exists. Building one is
+   explicitly out of scope; it remains backlog item 11's third follow-up.
+4. **Inline htmx row swap for the edit UX** (owner, 2026-08-27), over a modal or
+   always-editable cells. It matches the ticket's "inline on the record", reuses the
+   fragment-swap pattern the page already uses, and avoids firing a PATCH on an accidental
+   blur.
+5. **Ticket item 2 requires no work** — see Findings. Called out here so a later reader does
+   not file its absence as a missed requirement.
+6. **The KB update rides in tier 4, not a separate pass** (owner, 2026-08-27), so the
+   guide and the write path it documents land together.
+7. **Tier order: `charging` first** (owner, 2026-08-27). It is the dependency for the
+   gateway edit and the smallest well-bounded piece. Tiers 1, 2 and 3 have no dependency on
+   one another and could be done in any order or in parallel; only tier 4 needs all three.
+
+## Future work
+
+- Removing the now-vestigial five verification columns from
+  `telemetry.supercharger_sessions` (see Decision 2), once tier 2 has landed and nothing
+  reads them. Not filed as a backlog item yet — it is only actionable after RM31 completes.
+- The SOC estimator that would give the `_est` snapshot columns a real value (Decision 3)
+  remains open as the third follow-up under **backlog item 11**.
