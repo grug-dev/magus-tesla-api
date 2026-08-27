@@ -118,7 +118,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
 
 ## Wave 3 — tests
 
-- [ ] **3.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger_test.go` —
+- [x] **3.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger_test.go` —
   full rewrite:
   - Rename `fakeSuperchargerReader` → `fakeSessionReader`, implementing
     `charging.SessionReader`'s single method `ListSessionsByVehicleBetween(ctx, accountID,
