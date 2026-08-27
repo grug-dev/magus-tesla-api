@@ -6,7 +6,7 @@
   "roadmap": "openspec/roadmaps/RM30-supercharger-stats-read-from-charging.md",
   "status": "in-progress",
   "created_at": "2026-08-27T14:54:51Z",
-  "updated_at": "2026-08-27T14:58:24Z",
+  "updated_at": "2026-08-27T15:38:48Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,9 +21,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "2.1",
-      "2.2",
-      "2.3",
       "3.1",
       "4.1",
       "4.2",
@@ -34,13 +31,18 @@
       "1.1",
       "1.2",
       "1.3",
-      "1.4"
+      "1.4",
+      "2.3"
+    ],
+    "awaiting-user-verification": [
+      "2.1",
+      "2.2"
     ]
   },
   "tasks": [
     {
       "id": "1.1",
-      "title": "gateway.go — Deps.SuperchargerReader type swap",
+      "title": "gateway.go \u2014 Deps.SuperchargerReader type swap",
       "depends_on": [],
       "status": "done",
       "agent": "gateway",
@@ -59,7 +61,7 @@
     },
     {
       "id": "1.2",
-      "title": "handlers.go — Deps/Handler type swap",
+      "title": "handlers.go \u2014 Deps/Handler type swap",
       "depends_on": [],
       "status": "done",
       "agent": "gateway",
@@ -78,7 +80,7 @@
     },
     {
       "id": "1.3",
-      "title": "supercharger_vm.go — drop CountryCode/BillingType",
+      "title": "supercharger_vm.go \u2014 drop CountryCode/BillingType",
       "depends_on": [],
       "status": "done",
       "agent": "gateway",
@@ -97,7 +99,7 @@
     },
     {
       "id": "1.4",
-      "title": "catalog.go — remove country/billing keys (ES+EN)",
+      "title": "catalog.go \u2014 remove country/billing keys (ES+EN)",
       "depends_on": [],
       "status": "done",
       "agent": "gateway",
@@ -116,35 +118,47 @@
     },
     {
       "id": "2.1",
-      "title": "supercharger.go — rewrite onto SessionReader + parseSuperchargerRange",
+      "title": "supercharger.go \u2014 rewrite onto SessionReader + parseSuperchargerRange",
       "depends_on": [
         "1.2",
         "1.3"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:35:17Z",
+      "completed_at": "2026-08-27T15:36:15Z",
+      "duration_seconds": 58,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 23,
+        "cost_usd_delta": 2.37,
+        "approx": true,
+        "note": "one shared wave delta across 2.1-2.3 (batched serial worker); includes the leader's superchargerStatsViewFor fix"
+      },
+      "notes": "Full rewrite onto charging.SessionReader. parseSuperchargerRange (D1) + monthsBackFrom (D5) verbatim; end.After(today) rejected (D9b); UTC today (D9a); reverse-once (D3); window-derived chart buckets (D10); rows drop CountryCode/BillingType (D4)."
     },
     {
       "id": "2.2",
-      "title": "supercharger_stats.templ — drop columns, start/end preset hrefs",
+      "title": "supercharger_stats.templ \u2014 drop columns, start/end preset hrefs",
       "depends_on": [
         "1.3",
         "1.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:36:20Z",
+      "completed_at": "2026-08-27T15:36:45Z",
+      "duration_seconds": 25,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 23,
+        "cost_usd_delta": 2.37,
+        "approx": true,
+        "note": "one shared wave delta across 2.1-2.3 (batched serial worker); includes the leader's superchargerStatsViewFor fix"
+      },
+      "notes": "superchargerMonthsSelector takes []RangePreset and emits ?start=&end= hrefs with pre-formatted p.Label; Country/Billing columns dropped; selector conditional on v.Presets != nil."
     },
     {
       "id": "2.3",
@@ -153,18 +167,24 @@
         "2.1",
         "2.2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:36:50Z",
+      "completed_at": "2026-08-27T15:36:59Z",
+      "duration_seconds": 9,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 23,
+        "cost_usd_delta": 2.37,
+        "approx": true,
+        "note": "one shared wave delta across 2.1-2.3 (batched serial worker); includes the leader's superchargerStatsViewFor fix"
+      },
+      "notes": "make templ regenerated supercharger_stats_templ.go; go build ./internal/... and go build ./... both clean; gofmt clean on edited files. go vet fails only on supercharger_test.go (old API) \u2014 task 3.1's job, expected."
     },
     {
       "id": "3.1",
-      "title": "supercharger_test.go — rewrite to Test Contract T1-T14 + grep sweep",
+      "title": "supercharger_test.go \u2014 rewrite to Test Contract T1-T14 + grep sweep",
       "depends_on": [
         "2.3"
       ],
@@ -179,7 +199,7 @@
     },
     {
       "id": "4.1",
-      "title": "gateway AGENTS.md — per-endpoint cap wording",
+      "title": "gateway AGENTS.md \u2014 per-endpoint cap wording",
       "depends_on": [
         "2.3"
       ],
@@ -194,7 +214,7 @@
     },
     {
       "id": "4.2",
-      "title": "ai/architecture.md — date-filter pattern pointer (leader-owned)",
+      "title": "ai/architecture.md \u2014 date-filter pattern pointer (leader-owned)",
       "depends_on": [
         "4.1"
       ],
@@ -209,7 +229,7 @@
     },
     {
       "id": "4.3",
-      "title": "root README.md — document convention + caps (leader-owned)",
+      "title": "root README.md \u2014 document convention + caps (leader-owned)",
       "depends_on": [
         "4.1"
       ],
@@ -259,6 +279,24 @@
       "decision": "accepted the worker's D5 (month-aligned default/presets), D10 (window-derived bucket count) and its skipping of a separate grill-me session",
       "why": "D5/D10 preserve exact prior chart-bucket behaviour; the roadmap's owner-approved Decisions satisfy the grill-me proposal rule, as in tier 1.",
       "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-27T15:38:48Z",
+      "scope": "wave-2",
+      "made_by": "leader",
+      "decision": "refactored the worker's duplicated Page/Fragment branch logic into the superchargerStatsViewFor helper tasks.md 2.1 specified, and switched the Page 400 path from render to renderError",
+      "why": "Worker inlined ~30 identical lines in both handlers; tasks.md required the helper. renderError sets errorFragmentHeader, which render omits, so htmx would have dropped the 400 body.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-27T15:38:48Z",
+      "scope": "wave-2",
+      "made_by": "leader",
+      "decision": "deferred the Step 5.7 suite ask to the end of wave 3 rather than asking now",
+      "why": "supercharger_test.go still targets the old API, so go test ./internal/gateway/... cannot compile until task 3.1 rewrites it. Asking now would return a guaranteed compile failure.",
+      "covered_by": null
     }
   ],
   "review": {
@@ -282,6 +320,16 @@
       "at": "2026-08-27T14:58:24Z",
       "agent": "leader",
       "event": "Wave 1 reconciled: 1.1-1.4 done, verified against tasks.md (incl. Presets []int -> []RangePreset). Leader did the cmd/web/main.go integration (SuperchargerReader -> charging.NewSessionReader); the 2 analytics-owned telemetry.NewSuperchargerReader calls untouched. Repo does not build until wave 2 - expected. Worker reported placeholder timestamps; leader recorded the real dispatch window."
+    },
+    {
+      "at": "2026-08-27T15:34:02Z",
+      "agent": "leader",
+      "event": "Wave 2 dispatched: tasks 2.1-2.3 batched into ONE serial gateway worker (sonnet). 2.3 depends on 2.1+2.2, so serial is required anyway; batching also reads the doc pack once. Budget at dispatch: 5h 16%, context 8%."
+    },
+    {
+      "at": "2026-08-27T15:38:48Z",
+      "agent": "leader",
+      "event": "Wave 2 reconciled: 2.1/2.2 code complete (awaiting-user-verification), 2.3 done. Leader verified against tasks.md and fixed two deviations (D5): missing superchargerStatsViewFor helper, and render instead of renderError on the Page 400 path. go build ./... clean, gofmt clean. Budget: 5h 16->23%, context 10%."
     }
   ]
 }

@@ -45,7 +45,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
 
 ## Wave 2 — core rewrite (depends on wave 1's shapes)
 
-- [ ] **2.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — full
+- [x] **2.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — full
   rewrite per design.md D1/D3/D5/D6/D9/D10:
   - Remove `internal/telemetry` import; add `internal/charging`.
   - Remove `clampSuperchargerMonths`, `defaultSuperchargerMonths`, `superchargerReadLimit`.
@@ -89,7 +89,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
     end.Equal(pEnd)`.
   `depends_on`: 1.2, 1.3 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[module: gateway worker]**
+- [x] **2.2** **[module: gateway worker]**
   `internal/gateway/templates/fragments/supercharger_stats.templ` — rewrite per design.md D1/D4:
   - `superchargerMonthsSelector(active int, presets []int)` → `superchargerMonthsSelector(presets
     []RangePreset)`, mirroring `historyDaysSelector` exactly
@@ -107,7 +107,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
     (design.md D1 — no selector on a malformed/400 request).
   `depends_on`: 1.3, 1.4 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[module: gateway worker — regeneration]** Run `make templ` (regenerates
+- [x] **2.3** **[module: gateway worker — regeneration]** Run `make templ` (regenerates
   `internal/gateway/templates/fragments/supercharger_stats_templ.go`) after 2.2 lands. Then run
   `go build ./internal/...` to confirm 2.1/2.2/1.1–1.4 compile together (full-repo
   `go build ./...` will still fail until the LEADER INTEGRATION step below updates

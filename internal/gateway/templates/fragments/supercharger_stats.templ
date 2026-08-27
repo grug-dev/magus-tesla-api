@@ -7,29 +7,32 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
-// superchargerMonthsSelector renders the month-count preset control — three
-// buttons (3 · 6 · 12) grouped via ui.Join, mirroring historyDaysSelector
-// exactly (D5: closed vocabulary, one gold-standard pattern to reuse). The
-// active preset uses the "primary" Button variant; inactive presets use
-// "ghost". Each button re-fetches GET /ui/supercharger-stats?months=N and
-// swaps the #supercharger-stats-content region's innerHTML so the selector,
-// tiles, chart, and table all refresh together. No JavaScript.
-templ superchargerMonthsSelector(active int, presets []int) {
+// superchargerMonthsSelector renders the 3/6/12-month preset control — three
+// buttons grouped via ui.Join, mirroring historyDaysSelector exactly
+// (design.md D1). Each button's hx-get is a SERVER-RENDERED absolute
+// ?start=&end= href (pre-formatted on RangePreset.StartStr/EndStr, built by
+// buildSuperchargerPresets), with hx-target="#supercharger-stats-content"
+// and hx-swap="innerHTML" so the selector, tiles, chart, and table all
+// refresh together. The active preset (RangePreset.Active) uses the
+// "primary" Button variant; inactive presets use "ghost". The button label
+// is p.Label, already formatted by the handler — no fmt.Sprintf(i18n.T(...))
+// call here. No ?months= anywhere; no client JS.
+templ superchargerMonthsSelector(presets []RangePreset) {
 	<div class="flex justify-end mb-4">
 		@ui.Join() {
 			for _, p := range presets {
-				if p == active {
+				if p.Active {
 					@ui.Button(ui.ButtonProps{
 						Variant: "primary",
 						Size:    "sm",
 						Class:   "join-item",
 						Attrs: templ.Attributes{
-							"hx-get":    fmt.Sprintf("/ui/supercharger-stats?months=%d", p),
+							"hx-get":    fmt.Sprintf("/ui/supercharger-stats?start=%s&end=%s", p.StartStr, p.EndStr),
 							"hx-target": "#supercharger-stats-content",
 							"hx-swap":   "innerHTML",
 						},
 					}) {
-						{ fmt.Sprintf(i18n.T(ctx, i18n.KeySuperchargerMonthsPreset), p) }
+						{ p.Label }
 					}
 				} else {
 					@ui.Button(ui.ButtonProps{
@@ -37,12 +40,12 @@ templ superchargerMonthsSelector(active int, presets []int) {
 						Size:    "sm",
 						Class:   "join-item",
 						Attrs: templ.Attributes{
-							"hx-get":    fmt.Sprintf("/ui/supercharger-stats?months=%d", p),
+							"hx-get":    fmt.Sprintf("/ui/supercharger-stats?start=%s&end=%s", p.StartStr, p.EndStr),
 							"hx-target": "#supercharger-stats-content",
 							"hx-swap":   "innerHTML",
 						},
 					}) {
-						{ fmt.Sprintf(i18n.T(ctx, i18n.KeySuperchargerMonthsPreset), p) }
+						{ p.Label }
 					}
 				}
 			}
@@ -89,19 +92,15 @@ templ superchargerTable(sessions []SuperchargerRowVM) {
 	@ui.Table(ui.TableProps{Headers: []string{
 		i18n.T(ctx, i18n.KeySuperchargerDate),
 		i18n.T(ctx, i18n.KeySuperchargerSite),
-		i18n.T(ctx, i18n.KeySuperchargerCountry),
 		i18n.T(ctx, i18n.KeySuperchargerEnergy),
 		i18n.T(ctx, i18n.KeySuperchargerCost),
-		i18n.T(ctx, i18n.KeySuperchargerBillingType),
 	}}) {
 		for _, s := range sessions {
 			<tr>
 				<td>{ s.DateLabel }</td>
 				<td>{ s.SiteLabel }</td>
-				<td>{ s.CountryCode }</td>
 				<td>{ s.EnergyLabel }</td>
 				<td>{ s.CostLabel }</td>
-				<td>{ s.BillingType }</td>
 			</tr>
 		}
 	}
@@ -111,14 +110,16 @@ templ superchargerTable(sessions []SuperchargerRowVM) {
 // #supercharger-stats-content region: the month selector, then either the
 // tasteful empty state (v.Empty — mirrors dashboard.templ's NeedsConnect
 // Card) or the KPI tiles, kWh/month chart, and sessions table, each in its
-// own ui.Card surface. The selector always renders (Months/Presets are
-// always populated per design.md's data-flow section) so a user landing on
-// an empty window can still pick a longer one. All values on
-// SuperchargerStatsView are pre-computed by the handler — this template
-// does no arithmetic, unit conversion, or domain-type method calls
-// (ai/htmx-conventions.md §"No business logic in templates").
+// own ui.Card surface. The selector renders only when v.Presets != nil —
+// nil on a malformed/400 request (design.md D1, mirrors
+// DashboardHistoryContent's malformed-request-hides-the-selector behavior).
+// All values on SuperchargerStatsView are pre-computed by the handler —
+// this template does no arithmetic, unit conversion, or domain-type method
+// calls (ai/htmx-conventions.md §"No business logic in templates").
 templ SuperchargerStatsContent(v SuperchargerStatsView) {
-	@superchargerMonthsSelector(v.Months, v.Presets)
+	if v.Presets != nil {
+		@superchargerMonthsSelector(v.Presets)
+	}
 	if v.Empty {
 		@ui.Card(ui.CardProps{}) {
 			<p class="text-base-content/70">{ i18n.T(ctx, i18n.KeySuperchargerEmpty) }</p>
