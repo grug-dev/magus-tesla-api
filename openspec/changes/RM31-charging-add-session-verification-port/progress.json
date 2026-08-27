@@ -13,15 +13,15 @@
       "3.2"
     ],
     "blocked": [],
-    "done": [],
-    "awaiting-user-verification": [
+    "done": [
       "1.1",
       "2.1",
       "2.2"
-    ]
+    ],
+    "awaiting-user-verification": []
   },
   "created_at": "2026-08-27T17:31:15Z",
-  "updated_at": "2026-08-27T17:48:01Z",
+  "updated_at": "2026-08-27T18:13:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -41,7 +41,7 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-27T17:46:30Z",
@@ -63,7 +63,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-27T17:46:30Z",
@@ -85,7 +85,7 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-27T17:46:30Z",
@@ -202,12 +202,22 @@
     {
       "at": "2026-08-27T17:48:01Z",
       "agent": "leader",
-      "event": "wave 1+2 returned; doc-pack acknowledgment present (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/charging/AGENTS.md); D1-D11 enumerated by worker and D1 SET-clause invariant independently confirmed by leader against query.sql; go build/vet/gofmt clean; budget end five_hour 94%, context 10% (delta +6pp, +$1.53) | wave commit 2eaba76"
+      "event": "wave 1+2 returned; doc-pack acknowledgment present (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/charging/AGENTS.md); D1-D11 enumerated by worker and D1 SET-clause invariant independently confirmed by leader against query.sql; go build/vet/gofmt clean; budget end five_hour 94%, context 10% (delta +6pp, +$1.53) | wave commit 87f4618"
     },
     {
       "at": "2026-08-27T17:48:01Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT tripped at wave boundary: five_hour_pct 94 >= Budget-Checkpoint-At 90 (context 10%, resets_at 2026-08-27T19:50:00Z). Stopping cleanly before wave 3. Resume after reset with: /kkpa-dev-harness-pipeline resume RM31-charging-add-session-verification-port"
+    },
+    {
+      "at": "2026-08-27T18:13:11Z",
+      "agent": "leader",
+      "event": "USER-REPORTED VERIFICATION: the owner ran `make test` and reported it green. Tasks 1.1/2.1/2.2 promoted awaiting-user-verification -> done on the owner's report, not the assistant's. Assistant ran only go build/vet/gofmt."
+    },
+    {
+      "at": "2026-08-27T18:13:11Z",
+      "agent": "leader",
+      "event": "budget re-read after the owner's test report: five_hour 95% (>= 90), context 10%, resets 19:50Z. Checkpoint HOLDS \u2014 wave 3 (T1-T9 integration tests) not dispatched. Resume after reset."
     }
   ]
 }
