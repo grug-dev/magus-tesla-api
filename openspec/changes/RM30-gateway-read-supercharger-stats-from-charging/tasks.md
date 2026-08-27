@@ -154,7 +154,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
 
 ## Wave 4 — docs
 
-- [ ] **4.1** **[module: gateway worker]** `internal/gateway/AGENTS.md`:
+- [x] **4.1** **[module: gateway worker]** `internal/gateway/AGENTS.md`:
   - §"Public interface" — rewrite the `Deps.SuperchargerReader` bullet: type is now
     `charging.SessionReader`; it is called by `SuperchargerStatsPage`/`SuperchargerStatsFragment`
     (via `superchargerStatsViewFor`/`buildSuperchargerStatsView`) with ONE
@@ -176,7 +176,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
     pattern with its own constants, per design.md D1).
   `depends_on`: 2.3
 
-- [ ] **4.2** **LEADER-OWNED / explicitly-granted** (outside `internal/gateway/` — the leader
+- [x] **4.2** **LEADER-OWNED / explicitly-granted** (outside `internal/gateway/` — the leader
   grants this path at Apply time) — `ai/architecture.md` §"Concrete patterns already in use":
   add one new numbered pattern entry pointing at
   `internal/gateway/AGENTS.md` §"HTTP date-filter convention" as the full handler contract
@@ -187,7 +187,7 @@ or **LEADER INTEGRATION** (not a worker sub-task at all — see the callout at t
   contract's specifics.
   `depends_on`: 4.1
 
-- [ ] **4.3** **LEADER-OWNED / explicitly-granted** (outside `internal/gateway/`) — root
+- [x] **4.3** **LEADER-OWNED / explicitly-granted** (outside `internal/gateway/`) — root
   `README.md`, in the "## Web UI (gateway)" section: add a short subsection documenting the
   `?start=&end=` HTTP date-filter convention and its per-endpoint caps (history 90 days,
   Supercharger Stats 400 days), per roadmap Decision 7 (owner request). Point to

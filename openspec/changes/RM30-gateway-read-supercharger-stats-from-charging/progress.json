@@ -6,7 +6,7 @@
   "roadmap": "openspec/roadmaps/RM30-supercharger-stats-read-from-charging.md",
   "status": "in-progress",
   "created_at": "2026-08-27T14:54:51Z",
-  "updated_at": "2026-08-27T15:46:06Z",
+  "updated_at": "2026-08-27T15:49:54Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -20,18 +20,17 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "4.1",
-      "4.2",
-      "4.3"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
       "1.2",
       "1.3",
       "1.4",
-      "2.3"
+      "2.3",
+      "4.1",
+      "4.2",
+      "4.3"
     ],
     "awaiting-user-verification": [
       "2.1",
@@ -209,14 +208,20 @@
       "depends_on": [
         "2.3"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:46:19Z",
+      "completed_at": "2026-08-27T15:49:16Z",
+      "duration_seconds": 177,
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "cost_usd_delta": 2.02,
+        "approx": true,
+        "note": "one shared wave delta across 4.1-4.3 (batched serial worker); includes the leader's two doc corrections"
+      },
+      "notes": "Deps.SuperchargerReader bullet rewritten (charging.SessionReader, ListSessionsByVehicleBetween, window-bounded not row-capped); date-filter cap documented as per-endpoint/density-based with both constants; load-bearing bullet preserved. Last two stale refs removed."
     },
     {
       "id": "4.2",
@@ -224,14 +229,20 @@
       "depends_on": [
         "4.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:46:19Z",
+      "completed_at": "2026-08-27T15:49:16Z",
+      "duration_seconds": 177,
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "cost_usd_delta": 2.02,
+        "approx": true,
+        "note": "one shared wave delta across 4.1-4.3 (batched serial worker); includes the leader's two doc corrections"
+      },
+      "notes": "Added pattern entry 5 to ai/architecture.md \u00a7Concrete patterns already in use \u2014 a pointer to the gateway AGENTS.md contract, not a restatement, matching the surrounding entry format."
     },
     {
       "id": "4.3",
@@ -239,14 +250,20 @@
       "depends_on": [
         "4.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:46:19Z",
+      "completed_at": "2026-08-27T15:49:16Z",
+      "duration_seconds": 177,
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "cost_usd_delta": 2.02,
+        "approx": true,
+        "note": "one shared wave delta across 4.1-4.3 (batched serial worker); includes the leader's two doc corrections"
+      },
+      "notes": "Added a short ?start=&end= subsection under README.md \u00a7Web UI (gateway) naming both per-endpoint caps (history 90d, Supercharger Stats 400d) and pointing at the gateway AGENTS.md contract."
     }
   ],
   "decisions": [
@@ -303,6 +320,24 @@
       "decision": "deferred the Step 5.7 suite ask to the end of wave 3 rather than asking now",
       "why": "supercharger_test.go still targets the old API, so go test ./internal/gateway/... cannot compile until task 3.1 rewrites it. Asking now would return a guaranteed compile failure.",
       "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-27T15:46:19Z",
+      "scope": "wave-4",
+      "made_by": "leader",
+      "decision": "granted the gateway worker the two LEADER-OWNED paths (ai/architecture.md, README.md) and batched 4.1-4.3 into one dispatch instead of splitting worker/leader edits",
+      "why": "tasks.md marks them 'explicitly-granted, the leader grants this path at Apply time'; 4.2/4.3 are pointers to the 4.1 section, so one agent writing all three keeps them consistent and reads the doc pack once.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-27T15:49:54Z",
+      "scope": "wave-4",
+      "made_by": "leader",
+      "decision": "corrected two things in the worker's AGENTS.md edit: a dangling 'see GET /ui/supercharger-stats below' pointer, and the flattened future-end rule",
+      "why": "There is no supercharger section below. And the rule is per-endpoint: history rejects after browser-yesterday, this endpoint accepts end == UTC today \u2014 stating it flat would mislead the next endpoint author.",
+      "covered_by": null
     }
   ],
   "review": {
@@ -346,6 +381,16 @@
       "at": "2026-08-27T15:46:06Z",
       "agent": "leader",
       "event": "Wave 3 reconciled: 3.1 awaiting-user-verification. Leader verified independently: go vet ./internal/gateway/... exit 0, D8 TeslaID filter present, T13/T14 exist at both pure and HTTP level with ~180-day windows so the 400-day cap cannot be the rejecting rule, no live ?months= URLs remain. Worker reported placeholder timestamps; leader recorded the real dispatch window. Budget: 5h 23->36%, context 12%."
+    },
+    {
+      "at": "2026-08-27T15:46:19Z",
+      "agent": "leader",
+      "event": "Wave 4 dispatched: tasks 4.1-4.3 batched into ONE serial gateway worker (sonnet), with an explicit path grant for ai/architecture.md and README.md (D7). Budget at dispatch: 5h 36%, context 12%."
+    },
+    {
+      "at": "2026-08-27T15:49:54Z",
+      "agent": "leader",
+      "event": "Wave 4 reconciled: 4.1-4.3 done. Leader verified the diffs and applied two corrections (D8). All 10 tasks now done or awaiting-user-verification. Budget: 5h 36->43%, context 13%. NEXT: blocked on the user's suite run before the Step 7 reviewer gate."
     }
   ]
 }

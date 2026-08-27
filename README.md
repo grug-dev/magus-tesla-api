@@ -338,6 +338,14 @@ git-ignored Tailwind binary (`make ui-toolchain`) is only needed on a **dev mach
 regenerates CSS** after editing templates or adding classes. See
 [`docs/0-set-up/deployment.md`](docs/0-set-up/deployment.md) → *Web UI CSS*.
 
+**Date-filtered reads: `?start=&end=`, never `?days=N`.** Every gateway endpoint that filters
+by a date range takes absolute `?start=YYYY-MM-DD&end=YYYY-MM-DD` query params (both whole
+calendar days, `end` inclusive), rejecting a malformed or over-wide window with HTTP 400. The
+window cap is set **per endpoint** by its source table's row density — `GET /ui/dashboard/history`
+caps at 90 days (`vehicle_snapshots` is dense), `GET /ui/supercharger-stats` caps at 400 days
+(`charge_sessions` is sparse). Full contract:
+[`internal/gateway/AGENTS.md`](internal/gateway/AGENTS.md) §"HTTP date-filter convention".
+
 ---
 
 ## External Services

@@ -42,15 +42,19 @@ It renders what other modules expose; it owns no business data.
   ChargeRowStatic, ChargeRowEditFragment) and the `buildChargesPage` helper to list
   charge entries. NEVER import `internal/charging/db` — all access through this
   interface only.
-- `Deps.SuperchargerReader telemetry.SuperchargerReader` — the telemetry
-  Supercharger-sessions read port; injected at construction via
+- `Deps.SuperchargerReader charging.SessionReader` — the charging module's
+  Supercharger-session read port; injected at construction via
   `gateway.Deps`/`handlers.Deps` (wired from `cmd/web` via
-  `telemetry.NewSuperchargerReader(pool)`). Called by `SuperchargerStatsPage` /
+  `charging.NewSessionReader(pool)`). Called by `SuperchargerStatsPage` /
   `SuperchargerStatsFragment` (via `superchargerStatsViewFor` /
-  `buildSuperchargerStatsView`) — ONE `SuperchargerSessionsByVehicle` read per
-  Supercharger Stats render, capped at `superchargerReadLimit` (500 rows). Added by
-  `gateway-add-supercharger-stats`. NEVER import `internal/telemetry/db`
-  (`telemetrydb`) — all access through this interface only.
+  `buildSuperchargerStatsView`) — ONE `ListSessionsByVehicleBetween` read per
+  Supercharger Stats render, bounded by the requested `?start=&end=` window
+  (not a row limit). Added by `gateway-add-supercharger-stats`; the port swap
+  from `telemetry.SuperchargerReader` to `charging.SessionReader` and the
+  `?months=N` → `?start=&end=` migration are
+  `RM30-gateway-read-supercharger-stats-from-charging`. NEVER import
+  `internal/charging/db` (`chargingdb`) for this path — all access through
+  this interface only.
 - `Deps.AnalyticsReader analytics.Reader` — the analytics module's read
   port; injected at construction via `gateway.Deps`/`handlers.Deps` (wired
   from `cmd/web` via `analytics.NewReader(...)`). Called by
@@ -339,15 +343,29 @@ whole calendar days, UTC-midnight-bounded, **`end` inclusive** — never a `?day
   calendar-day axis** so two charts consuming the same window share identical day labels by
   construction (the root cause of the MAG-7 odometer/battery day-1 axis offset was a count-based
   read where the two chart builders consumed different slice offsets of the returned snapshots).
-- **Contract** (reference implementation: `GET /ui/dashboard/history`,
-  `RM8-gateway-history-date-range` / Linear MAG-7):
+- **Contract** (reference implementations: `GET /ui/dashboard/history`,
+  `RM8-gateway-history-date-range` / Linear MAG-7; and `GET /ui/supercharger-stats`,
+  `RM30-gateway-read-supercharger-stats-from-charging`):
   - Parse via a single `parseHistoryRange`-style helper (`internal/gateway/handlers/history.go`)
     returning `(start, end time.Time, ok bool)`.
   - Default when both `start` and `end` are absent: endpoint-specific (dashboard history default
     6-day window → `today-6 .. today`).
   - Reject with HTTP **400** on any of: malformed non-ISO date, only one of `start`/`end`
-    present, `end.Before(start)`, `end.After(startOfDay(now))`, or a window wider than **90 days**
-    (hard cap against unbounded range scans — see `historyRangeMaxDays`).
+    present, `end.Before(start)`, a **future `end`**, or a window wider than the
+    **endpoint's own cap** (hard cap against unbounded range scans). The cap is **per-endpoint,
+    set by that table's row density**, not one flat number: history's source table
+    (`vehicle_snapshots`) is dense — many rows per day — so its cap is **90 days**
+    (`historyRangeMaxDays`); the Supercharger Stats endpoint's source table (`charge_sessions`)
+    is sparse — a handful of rows per month — so its cap is **400 days**
+    (`superchargerRangeMaxDays`, `RM30-gateway-read-supercharger-stats-from-charging`). A new
+    endpoint sizes its own cap the same way: measure the source table's row density, don't copy
+    either existing number by default.
+  - The "future" frame is **also per-endpoint**: history compares against the browser-local
+    today (`browserToday(c)`, the `browser_tz` cookie — RD9 below) and rejects `end` after
+    *browser yesterday*; Supercharger Stats uses plain `startOfDay(time.Now().UTC())` and
+    accepts `end == UTC today`, rejecting only strictly after it. An endpoint inherits the
+    timezone machinery only if its data is browser-local-day-sensitive; don't copy it by
+    default.
   - On 400, render the empty-state placeholder (`dashHistoryEmpty`), **do not** call the read
     port, and return no preset selector — a malformed request gets no chrome.
   - The caller may fetch a bounded extra lookback (e.g. the dashboard's 1-day pre-window for the
@@ -355,7 +373,9 @@ whole calendar days, UTC-midnight-bounded, **`end` inclusive** — never a `?day
     lookback is a **gateway concern**, never a parameter on the owning module's port method.
 - **Every future date-filtered gateway endpoint follows the same contract** — a closed
   vocabulary of one: `?start=&end=`. A new endpoint that needs date filtering reuses the
-  `parseHistoryRange` pattern and a bounded read port on the owning module.
+  `parseHistoryRange` pattern and a bounded read port on the owning module (`parseSuperchargerRange`,
+  `internal/gateway/handlers/supercharger.go`, is a second worked example of the same pattern
+  with its own default/cap constants — see the contract bullet above).
 - See also the one-line pointer in
   [`ai/go-conventions.md`](../../ai/go-conventions.md) §"Read optimization".
 
