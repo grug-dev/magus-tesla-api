@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM31-supercharger-session-verification",
   "intention": "A user can correct a Supercharger session's start/end battery % inline on /supercharger-stats, and the correction immediately reaches vehicle_metrics because analytics reads the same table the edit writes.",
-  "request": "MAG-19 — ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
+  "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-27T17:20:55Z",
+  "updated_at": "2026-08-27T17:31:15Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM31-MAG-19-supercharger-session-verification",
@@ -16,8 +16,14 @@
     "created_at": "2026-08-27T17:20:55Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2, 3, 4],
+    "current": [
+      1
+    ],
+    "pending": [
+      2,
+      3,
+      4
+    ],
     "blocked": [],
     "done": []
   },
@@ -36,7 +42,7 @@
       "at": "2026-08-27T17:15:00Z",
       "scope": "change",
       "made_by": "user",
-      "decision": "start_battery_pct_est / end_battery_pct_est stay NULL; displayed as \"—\"",
+      "decision": "start_battery_pct_est / end_battery_pct_est stay NULL; displayed as \"\u2014\"",
       "why": "No SOC estimator exists (RM27 D11 descoped it), so freezing a snapshot would fabricate a drift log. Building an estimator is out of scope.",
       "covered_by": "roadmap Decision 3"
     },
@@ -63,7 +69,7 @@
       "at": "2026-08-27T17:20:00Z",
       "scope": "change",
       "made_by": "leader",
-      "decision": "gateway work split into two tiers — display (3) and edit (4)",
+      "decision": "gateway work split into two tiers \u2014 display (3) and edit (4)",
       "why": "The display half depends on nothing and ships alone; only the edit needs tiers 1 and 2. One gateway tier would have blocked the visible win behind the whole roadmap.",
       "covered_by": null
     }
@@ -75,14 +81,21 @@
       "module": "charging",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T17:22:40Z",
       "completed_at": null,
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 11.0,
+        "cost_usd_delta": 2.4,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": false,
+        "note": "artifact-writing dispatch only; implementation not started"
+      },
+      "notes": "Artifacts written and validated --strict. SessionVerifier port, no DB object, design gate not tripped."
     },
     {
       "id": 2,
@@ -97,7 +110,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Database design gate applies — watermark source CHECK migration."
+      "notes": "Database design gate applies \u2014 watermark source CHECK migration."
     },
     {
       "id": 3,
@@ -119,7 +132,11 @@
       "change": "RM31-gateway-add-session-battery-edit",
       "module": "gateway",
       "optional": false,
-      "depends_on": [1, 2, 3],
+      "depends_on": [
+        1,
+        2,
+        3
+      ],
       "status": "not-started",
       "assistant": "Claude Code",
       "model": null,
@@ -139,12 +156,17 @@
     {
       "at": "2026-08-27T17:20:55Z",
       "agent": "leader",
-      "event": "runtime: Claude Code; native subagent dispatch + live budget both available (five_hour 64%, context 9%) — no degradations"
+      "event": "runtime: Claude Code; native subagent dispatch + live budget both available (five_hour 64%, context 9%) \u2014 no degradations"
     },
     {
       "at": "2026-08-27T17:20:55Z",
       "agent": "leader",
-      "event": "run scope capped by the invoking kkpa-pickup-linear-ticket skill: HALT AFTER STEP 4 — tier 1 artifacts + progress.json only, no implementation workers, no reviewer, no archive"
+      "event": "run scope capped by the invoking kkpa-pickup-linear-ticket skill: HALT AFTER STEP 4 \u2014 tier 1 artifacts + progress.json only, no implementation workers, no reviewer, no archive"
+    },
+    {
+      "at": "2026-08-27T17:31:15Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created by the charging worker (sonnet) and validated --strict; design gate evaluated: NOT tripped (no DB object); tier 1 -> [~]"
     }
   ]
 }
