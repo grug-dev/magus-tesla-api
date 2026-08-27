@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-30 — https://linear.app/magus-monitor/issue/MAG-30/supercharger-stats-reads\n\nI think the page /supercharger-stats is reading data from the telemetry module instead of analytics.\n\nThe supercharger_sessions database table, is only used for reading purposes by the analytics module. Then the analytics module does some calculations and save the read data into the charge_sessions database table. (Belong to the `charging` module)\n\nThe page /supercharger-stats should read data from the `charge_sessions` instead of the raw data from tesla's fleet api. Can you please double check and apply that change?\n\nYou can gather more context on this KB document /kkpa/context/workflows/supercharger-stats-read\n\nAcceptance Criteria\n\n1. /supercharger-stats reads data from charge_sessions database table via `charging` module. The gateway module should point to that out.\n2. Telemetry module is not used by the `gateway` module. Any endpoint should point out to different database tables rather than the own by the `telemetry` module. What are your thoughts, am I right that `gateway` should not read any data from `telemetry` module? If there are existing uses from gateway to telemetry different from the supercharger session, please create a ticket for that\n3. Update the KB",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-27T10:31:46Z",
+  "updated_at": "2026-08-27T11:31:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM30-MAG-30-supercharger-stats-read-from-charging",
@@ -16,10 +16,14 @@
     "created_at": "2026-08-27T10:31:46Z"
   },
   "rollup": {
-    "current": [1],
-    "pending": [2],
+    "current": [],
+    "pending": [
+      2
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -66,21 +70,29 @@
       "module": "charging",
       "optional": false,
       "depends_on": [],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
+      "model": "sonnet workers + sonnet reviewer, opus leader",
       "started_at": "2026-08-27T10:31:46Z",
-      "completed_at": null,
+      "completed_at": "2026-08-27T11:31:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts only this run; implementation halted for user review per pickup-ticket scope."
+      "budget": {
+        "five_hour_pct_start": 46,
+        "five_hour_pct_end": 70,
+        "cost_usd_delta": 6.83,
+        "approx": true,
+        "note": "resume session only; excludes the earlier artifact-authoring session"
+      },
+      "notes": "Archived as 2026-08-27-RM30-charging-add-session-read-port. 3 waves, 6 tasks, 1 review round (approved, zero findings). User ran `make test` and reported green."
     },
     {
       "id": 2,
       "change": "RM30-gateway-read-supercharger-stats-from-charging",
       "module": "gateway",
       "optional": false,
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "status": "not-started",
       "assistant": null,
       "model": null,
@@ -96,6 +108,11 @@
       "at": "2026-08-27T10:31:46Z",
       "agent": "leader",
       "event": "Runtime: Claude Code. Budget instrumentation available. Counter .work-counter 30 -> 31; legacy .ch-counter/.rm-counter already absent. Branch ft/RM30-MAG-30-supercharger-stats-read-from-charging created off main a281a3f."
+    },
+    {
+      "at": "2026-08-27T11:31:00Z",
+      "agent": "leader",
+      "event": "Tier 1 archived. Tier 2 (RM30-gateway-read-supercharger-stats-from-charging, module gateway) is now unblocked. autopilot is false, so the leader STOPS here and waits for the user before opening tier 2."
     }
   ]
 }

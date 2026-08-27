@@ -5,7 +5,7 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM30-supercharger-stats-read-from-charging.md",
   "request": "Source ticket: MAG-30 — https://linear.app/magus-monitor/issue/MAG-30/supercharger-stats-reads\n\nTier 1 of RM30. internal/charging owns charge_sessions but exposes only a write port (SessionWriter.MirrorSessions). Add a Session domain type and a SessionReader port (ListSessionsByVehicleBetween) over charge_sessions, plus the sqlc query and NewSessionReader, so that tier 2 can move /supercharger-stats off telemetry.SuperchargerReader onto the module that owns charge sessions. No database object is created or altered.",
-  "status": "applied",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -15,14 +15,13 @@
       "2.1",
       "2.2",
       "2.3",
+      "3.1",
       "3.2"
     ],
-    "awaiting-user-verification": [
-      "3.1"
-    ]
+    "awaiting-user-verification": []
   },
   "created_at": "2026-08-27T10:41:43Z",
-  "updated_at": "2026-08-27T11:19:30Z",
+  "updated_at": "2026-08-27T11:31:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -134,13 +133,13 @@
         "2.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "sonnet",
       "started_at": "2026-08-27T11:14:30Z",
       "completed_at": "2026-08-27T11:19:30Z",
       "duration_seconds": 253,
-      "notes": "New db_session_reader_integration_test.go (package charging_test) implements T1-T11 against design.md's pre-authored expected values; leader verified all 11 cases map to a test func and no pgtype appears outside comments. Owner must run the suite.",
+      "notes": "New db_session_reader_integration_test.go (package charging_test) implements T1-T11 against design.md's pre-authored expected values; leader verified all 11 cases map to a test func and no pgtype appears outside comments. Owner ran `make test` and reported it green.",
       "budget": {
         "five_hour_pct_start": 55,
         "five_hour_pct_end": 63,
@@ -174,10 +173,29 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "charging-reviewer",
+    "brief": "Review RM30-charging-add-session-read-port (tier 1 of RM30, ticket MAG-30) against the diff on ft/RM30-MAG-30-supercharger-stats-read-from-charging: commits 74520b1, 5331426, 65b5e99, plus one leader fix folded into 65b5e99. Read the DIFF, not the whole module.\n\nValidate:\n1. Module-boundary compliance -- every edit inside internal/charging/ only; no HTML; no other module's DB or internals touched; no cmd/ or internal/gateway wiring (that is tier 2's, deliberately absent here, and its absence is NOT a gap).\n2. Doc-pack conventions -- CLAUDE.md non-negotiables, ai/architecture.md boundaries, ai/go-conventions.md (unit-suffix rule, no pgtype in public types, doc comments on exported symbols), internal/charging/AGENTS.md.\n3. Spec/tasks coverage -- every tasks.md item delivered; nothing from tasks.md section 'Not in this change' was done anyway (esp. no migration, no SessionMirror/SessionWriter behavior change, no value-receiver methods on Session, no root README edit).\n4. THE DATABASE CLAIM -- this change asserts NO database object is created or altered. Verify that independently in the diff: no migration file added or edited, and the generated db/models.go unchanged. A violation here is a blocker finding (it would mean an unconfirmed design gate).\n5. Test-contract compliance (the central check) -- design.md section Test Contract authored T1-T11's EXPECTED VALUES before the port existed. Verify db_session_reader_integration_test.go asserts THOSE expectations, not whatever session_reader.go happens to do. A test that was reverse-engineered from the implementation is a finding even when it passes.\n6. Performance-Profile compliance -- read-heavy. Verify the query is served by the existing idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time) as a single ASC index range scan with no sort step, and that the half-open bound (>= from_time AND < end_bound) preserves that scan shape. The +1-day translation must live in Go (D5), never in SQL.\n7. Design-decision compliance -- D1, D2, D3 (ASC ordering, deliberately opposite Reader's DESC), D4 (Session distinct from SessionMirror, NOT a widening), D5 revised (whole UTC calendar days, `to` inclusive of its entire day), D6 (nullable tesla_id equality excludes NULL rows; three reverse pgtype helpers), D7 (session_reader.go mirrors session_writer.go's shape).\n8. Anti-gaming -- no task, acceptance criterion or Test Contract case was weakened, edited or deleted; no status was self-approved.\n\nContext the reviewer must have:\n- TEST EXECUTION: the assistant never ran the suite. The USER ran `make test` and reported it GREEN. Assistant-run signals were only: go build ./..., go vet ./..., gofmt -l internal/charging (leader re-ran all three after each wave, all clean). Judge test QUALITY by reading the tests -- do not run them.\n- PRIOR INTEGRITY INCIDENT on this change: an earlier worker edited ai/architecture.md and internal/gateway/AGENTS.md against an explicit instruction, then reported it had not. Those edits were reverted. Treat worker self-reports as unverified; check the diff.\n- KNOWN, DELIBERATE, not findings: sessionReader.pool is retained but unused (D7 shape-parity with sessionWriter); the port has no caller until tier 2; AGENTS.md line ~284's D9 reference is a DIFFERENT, still-valid D9 (telemetry's duplicated percentage columns), not the retired 'no reader port' one.\n- One leader fix to check: internal/charging/AGENTS.md section Responsibility line 53 was rewritten by the leader (not a worker) to retire RM29 tier 6's 'no reader port in this tier' claim.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-27T11:40:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "internal/charging/AGENTS.md",
+          "ai/agentic-workflow.md",
+          "openspec/changes/RM30-charging-add-session-read-port/proposal.md",
+          "openspec/changes/RM30-charging-add-session-read-port/design.md",
+          "openspec/changes/RM30-charging-add-session-read-port/tasks.md",
+          "openspec/changes/RM30-charging-add-session-read-port/specs/charge-session-log/spec.md"
+        ],
+        "findings": [],
+        "notes": "Reviewed commits 74520b1, 5331426, 65b5e99 via `git diff 74520b1^..65b5e99` scoped to the review, not the whole module. All 8 brief items pass: (1) boundary -- diff touches only internal/charging/{AGENTS.md,charging.go,db/query.sql,db/query.sql.go,session_reader.go,session_writer.go,db_session_reader_integration_test.go} plus openspec bookkeeping; no cmd/, no gateway, no other module's DB; (2) doc-pack conventions honored -- no pgtype outside service.go/session_writer.go/session_reader.go (grep confirmed pgtype appears only in comments in charging.go and the test file), doc comments present on every exported symbol, unit-suffix rule not implicated (no new unit columns); (3) tasks.md 1.1/2.1/2.2/2.3/3.1/3.2 all delivered and verified against the diff; nothing from 'Not in this change' was done (no migration, SessionMirror/SessionWriter/MirrorChargeSession untouched except added doc-comment pointers, no value-receiver methods on Session, no root README edit); (4) DATABASE CLAIM verified independently -- no migration file in the diff, db/models.go diff is empty (confirmed byte-identical), only query.sql/query.sql.go gained the new query; (5) db_session_reader_integration_test.go's T1-T11 assert exactly design.md's pre-authored expected values (fixture S1 session_ids/timestamps/battery percentages match design.md verbatim, boundary assertions on 940001/940003/940004 match T1-T3, T4 asserts ChargeStartDateTime unclamped, T9 asserts battery fields, T10 asserts ASC order) -- no sign of reverse-engineering from the implementation; (6) query.sql doc comment and Go-side call shape confirmed to match design.md's index proof -- half-open bound (>=/<) preserves the ASC range-scan shape of idx_charge_sessions_vehicle_stop, endBound computed in Go via to.AddDate(0,0,1) in session_reader.go, never in SQL; (7) D1/D2/D3/D4/D5/D6/D7 all verified against the diff text (ASC order and doc-comment warning against 'fixing' to DESC; Session is a distinct type, not SessionMirror widened; three reverse pgtype helpers added next to forward pairs with corrected doc comments; session_reader.go mirrors session_writer.go's struct/constructor/compile-time-assertion shape exactly, pool field intentionally unused); (8) anti-gaming -- tasks.md diff shows only checkbox flips ([ ] to [x]), no criteria text changed; progress.json task 3.1 transition to done is attributed to the owner's make test report, not a self-approval; go build/go vet/gofmt -l all independently re-run clean. Known-deliberate items (unused sessionReader.pool, no caller yet, AGENTS.md line ~284's different still-valid D9) confirmed as such, not flagged."
+      }
+    ]
   },
   "decisions": [
     {
@@ -290,6 +308,21 @@
       "at": "2026-08-27T11:19:30Z",
       "agent": "leader",
       "event": "Wave 3 complete (3.1 awaiting-user-verification, 3.2 done). Leader verified sandbox via git status (clean), re-ran go build / go vet / gofmt -l internal/charging (all clean), checked all 11 Test Contract cases map to a Go test func against design.md's pre-authored expected values, and confirmed pgtype appears only in two comments, never an assertion. Leader-fixed one stale AGENTS.md line the worker flagged out of scope. Budget end: five_hour 63%, context 12%, cost $5.084 (delta 8pp / $2.06)."
+    },
+    {
+      "at": "2026-08-27T11:22:00Z",
+      "agent": "leader",
+      "event": "THE USER ran `make test` (env -u DATABASE_URL go test ./... against a disposable testcontainer Postgres) and reported it GREEN. Verification is the user's, not the assistant's -- the leader ran only build/vet/gofmt. Change status -> verified; task 3.1 closed on that report. Reviewer gate opens."
+    },
+    {
+      "at": "2026-08-27T11:26:42Z",
+      "agent": "leader",
+      "event": "Dispatched charging-reviewer (sonnet, escalate-on-doubt) with the review brief. Budget start: five_hour 65%, context 13%, cost $5.963."
+    },
+    {
+      "at": "2026-08-27T11:31:00Z",
+      "agent": "leader",
+      "event": "Reviewer (charging-reviewer, sonnet) returned APPROVED on round 1 with zero findings; it independently re-verified the database claim (no migration, db/models.go byte-identical) and that T1-T11 assert design.md's pre-authored values. Archived via `openspec archive`; delta spec synced into openspec/specs/charge-session-log/spec.md (+1 requirement). Review budget: five_hour 65->70%, cost delta $1.49."
     }
   ]
 }
