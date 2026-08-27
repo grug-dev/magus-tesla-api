@@ -22,7 +22,7 @@ charging description already covers `charge_sessions` accurately and needs no ed
 
 ## Wave 1 — query (module: charging worker)
 
-- [ ] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
+- [x] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
   `-- name: ListSessionsByVehicleBetween :many` exactly as specified in design.md
   §"The query" (revised), including its full doc comment. The query is a **half-open
   range**, not `BETWEEN`: `charge_stop_date_time >= @from_time AND charge_stop_date_time
