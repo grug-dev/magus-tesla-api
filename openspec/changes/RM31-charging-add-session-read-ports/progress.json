@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM31-charging-add-session-read-ports",
+  "module": "charging",
+  "status": "proposed",
+  "roadmap": "RM31-supercharger-session-verification",
+  "roadmap_tier": 2,
+  "intention": "Grow charging.SessionReader with the two read shapes analytics needs -- ListSessionsByVehicleUpdatedSince (carries a VerifySession edit into Reconcile) and ListSessionsByVehicle (limit-bounded, for the Wh/km read). No DB object.",
+  "created_at": "2026-08-27T21:12:00Z",
+  "updated_at": "2026-08-27T21:12:00Z",
+  "leader": {
+    "agent": "leader",
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM31-MAG-19-supercharger-session-verification",
+    "base": "main",
+    "ticket": "MAG-19",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "query.sql: append ListSessionsByVehicleUpdatedSince query",
+      "depends_on": [],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "1.2",
+      "title": "query.sql: append ListSessionsByVehicle query",
+      "depends_on": [],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go: add both methods to the SessionReader interface",
+      "depends_on": [
+        "1.2"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "2.2",
+      "title": "session_reader.go: implement both methods",
+      "depends_on": [
+        "1.2",
+        "2.1"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "3.1",
+      "title": "integration tests T1-T7 (UpdatedSince)",
+      "depends_on": [
+        "2.2"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "3.2",
+      "title": "integration tests T8-T14 + T-Order2 (ByVehicle)",
+      "depends_on": [
+        "2.2"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "3.3",
+      "title": "AGENTS.md: document the two new port methods",
+      "depends_on": [
+        "2.2"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "3.3"
+    ],
+    "blocked": [],
+    "done": [],
+    "awaiting-user-verification": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-27T21:12:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "design gate NOT tripped -- artifacts add no database object",
+      "why": "No migration, table, column, index or constraint; both queries reuse idx_charge_sessions_vehicle_stop unchanged. Two sqlc queries are not DB objects. Same posture as tier 1.",
+      "covered_by": "design.md D2"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-27T21:12:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "leader amended test contract T-Order2 to run under SET LOCAL enable_seqscan = off",
+      "why": "As written it asserts the plan contains an index scan on a 4-row fixture, where the planner prefers Seq Scan -- it would fail a correct design. Sort-absence keeps full force.",
+      "covered_by": "design.md T-Order2"
+    }
+  ],
+  "review": {
+    "agent": null,
+    "status": null,
+    "brief": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-08-27T21:12:00Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created by the charging worker (sonnet), openspec validate --strict passes. Doc-pack acknowledgment received (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/charging/AGENTS.md). Worker reported design decisions D1-D7 and no new DB object -- leader independently confirmed the no-DB-object claim."
+    },
+    {
+      "at": "2026-08-27T21:12:00Z",
+      "agent": "leader",
+      "event": "leader cross-check found one test-contract defect and fixed it before dispatch: T-Order2's EXPLAIN assertion was row-count dependent (4-row fixture => Seq Scan) and would have failed a correct design. design.md + tasks.md 3.2 now require SET LOCAL enable_seqscan = off, with the rationale recorded so no one deletes it."
+    }
+  ]
+}

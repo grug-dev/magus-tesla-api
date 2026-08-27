@@ -6,7 +6,7 @@
   "request": "MAG-19 — ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-27T21:05:00Z",
+  "updated_at": "2026-08-27T21:12:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM31-MAG-19-supercharger-session-verification",
@@ -16,9 +16,10 @@
     "created_at": "2026-08-27T17:20:55Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      2
+    ],
     "pending": [
-      2,
       3,
       4,
       5
@@ -130,10 +131,10 @@
       "module": "charging",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T21:12:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -227,6 +228,11 @@
       "at": "2026-08-27T21:05:00Z",
       "agent": "leader",
       "event": "Step 2 interview (grill-me, config.yaml rules.proposal) -> owner decisions D6/D7/D8. Roadmap re-tiered: new charging tier 2 (read ports); analytics 2->3 depends_on [2]; gateway display 3->4; gateway edit 4->5 depends_on [1,2,3,4]. Tier 1 unaffected."
+    },
+    {
+      "at": "2026-08-27T21:12:00Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created and validated --strict; design gate evaluated: NOT tripped (no DB object). Leader fixed a row-count-dependent EXPLAIN assertion in the test contract before implementation. tier 2 -> [~]"
     }
   ]
 }
