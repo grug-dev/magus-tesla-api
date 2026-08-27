@@ -165,6 +165,19 @@ per `ai/htmx-go-integration.md` §"Response conventions"); `SuperchargerStatsPag
 swap target — the `HX-Error-Fragment` opt-in exists specifically for htmx's `responseHandling`
 config, which does not apply to a normal browser GET.
 
+**REVISED at Apply (wave 2, progress.json `decisions[]` D5; confirmed by review round 1 finding
+R1-1).** `SuperchargerStatsPage`'s 400 path uses **`renderError`, not plain `render`.** The
+paragraph above reasoned from *who consumes the response today*; the binding rule in
+`ai/htmx-go-integration.md` §"Response conventions" is stated in terms of *what the body is* —
+if a non-2xx body is a renderable component, it goes through `renderError`. `renderError` is
+`render` plus the `HX-Error-Fragment` header, so on a plain browser GET the two are
+byte-identical in what the user sees; the original reasoning was not wrong about today's
+behaviour, it was scoped to a caller rather than to the rule. Choosing the rule keeps the two
+entry points symmetric and means a future htmx-driven navigation to this page cannot silently
+start dropping its own 400 body. Both branches are reached through the shared
+`superchargerStatsViewFor` helper (tasks.md 2.1), which returns `(view, status)` and leaves each
+handler to pick its render pair.
+
 ### D2 — `Deps.SuperchargerReader` changes type, not name (binding — dispatch)
 
 `gateway.Deps.SuperchargerReader`, `handlers.Deps.SuperchargerReader`, and
