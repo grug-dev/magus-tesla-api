@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM31-supercharger-session-verification",
   "intention": "A user can correct a Supercharger session's start/end battery % inline on /supercharger-stats, and the correction immediately reaches vehicle_metrics because analytics reads the same table the edit writes.",
-  "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
+  "request": "MAG-19 — ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-27T20:52:10Z",
+  "updated_at": "2026-08-27T21:05:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM31-MAG-19-supercharger-session-verification",
@@ -20,7 +20,8 @@
     "pending": [
       2,
       3,
-      4
+      4,
+      5
     ],
     "blocked": [],
     "done": [
@@ -42,7 +43,7 @@
       "at": "2026-08-27T17:15:00Z",
       "scope": "change",
       "made_by": "user",
-      "decision": "start_battery_pct_est / end_battery_pct_est stay NULL; displayed as \"\u2014\"",
+      "decision": "start_battery_pct_est / end_battery_pct_est stay NULL; displayed as \"—\"",
       "why": "No SOC estimator exists (RM27 D11 descoped it), so freezing a snapshot would fabricate a drift log. Building an estimator is out of scope.",
       "covered_by": "roadmap Decision 3"
     },
@@ -69,9 +70,36 @@
       "at": "2026-08-27T17:20:00Z",
       "scope": "change",
       "made_by": "leader",
-      "decision": "gateway work split into two tiers \u2014 display (3) and edit (4)",
+      "decision": "gateway work split into two tiers — display (3) and edit (4)",
       "why": "The display half depends on nothing and ships alone; only the edit needs tiers 1 and 2. One gateway tier would have blocked the visible win behind the whole roadmap.",
       "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-27T21:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "both analytics Supercharger reads move to charge_sessions -- vehicle_metrics AND the Wh/km RecentEfficiency read",
+      "why": "telemetry.supercharger_sessions is the nightly mirror's source and nothing else's. Moving only the percentage path leaves one entity read from two tables.",
+      "covered_by": "roadmap Decision 8"
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-27T21:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "the missing charging SessionReader methods get their own tier 2; analytics becomes tier 3 and depends on it",
+      "why": "charging.SessionReader has only the Between shape; analytics needs UpdatedSince and limit too. Both are charging code, so one tier cannot hold both modules.",
+      "covered_by": "roadmap Decision 9"
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-27T21:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "watermark migration DELETEs the supercharger_sessions cursor rows instead of renaming them to charge_sessions",
+      "why": "Absent watermark = epoch (RM29 D7), so the nightly Reconcile backfills. Carrying the value risks skipping any charge_sessions row older than the inherited cursor.",
+      "covered_by": "roadmap Decision 10"
     }
   ],
   "tiers": [
@@ -98,8 +126,8 @@
     },
     {
       "id": 2,
-      "change": "RM31-analytics-read-sessions-from-charging",
-      "module": "analytics",
+      "change": "RM31-charging-add-session-read-ports",
+      "module": "charging",
       "optional": false,
       "depends_on": [],
       "status": "not-started",
@@ -109,10 +137,27 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Database design gate applies \u2014 watermark source CHECK migration."
+      "notes": "Two SessionReader methods analytics needs (UpdatedSince + limit). No DB object -- design gate not expected to trip."
     },
     {
       "id": 3,
+      "change": "RM31-analytics-read-sessions-from-charging",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [
+        2
+      ],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Database design gate applies -- watermark source CHECK migration + epoch reset (roadmap Decision 10). Blocked on tier 2's read ports."
+    },
+    {
+      "id": 4,
       "change": "RM31-gateway-show-session-battery-pct",
       "module": "gateway",
       "optional": false,
@@ -127,14 +172,15 @@
       "notes": null
     },
     {
-      "id": 4,
+      "id": 5,
       "change": "RM31-gateway-add-session-battery-edit",
       "module": "gateway",
       "optional": false,
       "depends_on": [
         1,
         2,
-        3
+        3,
+        4
       ],
       "status": "not-started",
       "assistant": "Claude Code",
@@ -155,12 +201,12 @@
     {
       "at": "2026-08-27T17:20:55Z",
       "agent": "leader",
-      "event": "runtime: Claude Code; native subagent dispatch + live budget both available (five_hour 64%, context 9%) \u2014 no degradations"
+      "event": "runtime: Claude Code; native subagent dispatch + live budget both available (five_hour 64%, context 9%) — no degradations"
     },
     {
       "at": "2026-08-27T17:20:55Z",
       "agent": "leader",
-      "event": "run scope capped by the invoking kkpa-pickup-linear-ticket skill: HALT AFTER STEP 4 \u2014 tier 1 artifacts + progress.json only, no implementation workers, no reviewer, no archive"
+      "event": "run scope capped by the invoking kkpa-pickup-linear-ticket skill: HALT AFTER STEP 4 — tier 1 artifacts + progress.json only, no implementation workers, no reviewer, no archive"
     },
     {
       "at": "2026-08-27T17:31:15Z",
@@ -171,6 +217,16 @@
       "at": "2026-08-27T20:52:10Z",
       "agent": "leader",
       "event": "tier 1 (RM31-charging-add-session-verification-port) archived after a zero-finding reviewer approval. Tiers 2 and 3 are both unblocked (no depends_on); tier 4 still blocked on 1+2+3. autopilot=false, so the leader stops here for the owner to choose the next tier."
+    },
+    {
+      "at": "2026-08-27T21:05:00Z",
+      "agent": "leader",
+      "event": "resume of tier RM31-analytics-read-sessions-from-charging: leader verified field parity PASSES (calcs read only ChargeStart/StopDateTime, Start/EndBatteryPct, EnergyKWh -- all on charging.Session) but PORT parity FAILS: charging.SessionReader exposes only ListSessionsByVehicleBetween, while analytics consumes three telemetry.SuperchargerReader methods. Tier could not start as scoped."
+    },
+    {
+      "at": "2026-08-27T21:05:00Z",
+      "agent": "leader",
+      "event": "Step 2 interview (grill-me, config.yaml rules.proposal) -> owner decisions D6/D7/D8. Roadmap re-tiered: new charging tier 2 (read ports); analytics 2->3 depends_on [2]; gateway display 3->4; gateway edit 4->5 depends_on [1,2,3,4]. Tier 1 unaffected."
     }
   ]
 }
