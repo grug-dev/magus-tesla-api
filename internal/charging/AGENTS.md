@@ -153,7 +153,7 @@ clause first, and mirror it exactly.
 The gateway and any other future caller of `SessionWriter` never import `chargingdb`
 directly, exactly as for `Writer`/`Reader` above.
 
-### The Supercharger session read port (RM30-charging-add-session-read-port)
+### The Supercharger session read ports (RM30-charging-add-session-read-port, widened by RM31-charging-add-session-read-ports)
 
 ```go
 // Session is the full domain representation of one charge_sessions row: identity, the
@@ -194,7 +194,11 @@ type Session struct {
 // SessionReader is the read port over charge_sessions. One method, shaped like
 // Reader.ListEntriesByVehicleBetween's bounded-per-vehicle-window pattern but NOT
 // identical to it: ascending order (not descending) and whole-UTC-calendar-day,
-// half-open bound semantics (not exact-value BETWEEN) — see design.md D3/D5.
+// half-open bound semantics (not exact-value BETWEEN) — see design.md D3/D5. This
+// interface is NOT widened by RM31: internal/gateway depends on exactly this
+// interface (Deps.SuperchargerReader) and calls only ListSessionsByVehicleBetween —
+// see SuperchargerSessionAnalyticsReader below, which embeds this interface instead
+// of restating or widening it (RM31 design.md D8).
 type SessionReader interface {
     // ListSessionsByVehicleBetween returns sessions for a specific vehicle within an
     // account whose ChargeStopDateTime falls within [from, to], to inclusive of its
@@ -207,11 +211,57 @@ type SessionReader interface {
 }
 
 // NewSessionReader — the only publicly exported factory function for this port.
+// Signature and return type MUST NOT change: cmd/web wires this exact function into
+// the gateway's Deps.SuperchargerReader (RM31 design.md D8).
 func NewSessionReader(pool *pgxpool.Pool) SessionReader
+
+// SuperchargerSessionAnalyticsReader is the read port over charge_sessions for
+// internal/analytics (RM31-charging-add-session-read-ports design.md D8). It is a
+// SEPARATE interface from SessionReader, not a widening of it — internal/gateway's
+// fakeSessionReader test double implements only ListSessionsByVehicleBetween, and a
+// first pass of this change widened SessionReader itself, which broke that double
+// and failed `go vet ./...` repo-wide. internal/analytics needs all three shapes
+// (ListSessionsByVehicleBetween, ListSessionsByVehicleUpdatedSince,
+// ListSessionsByVehicle), which is why this interface EMBEDS SessionReader instead
+// of restating its method. The three methods reachable through this interface do
+// NOT share a single sort-direction convention — sort direction is chosen per query
+// against the shared idx_charge_sessions_vehicle_stop index, not as a port-family
+// rule (design.md D3). "Supercharger" is a deliberate divergence from this module's
+// Session* family, for call-site readability in internal/analytics — do not "tidy"
+// it into the family (design.md D8).
+type SuperchargerSessionAnalyticsReader interface {
+    SessionReader
+
+    // ListSessionsByVehicleUpdatedSince returns every session for a specific
+    // vehicle within an account whose updated_at is at or after since. Ordered
+    // ASCENDING by ChargeStopDateTime — NOT by updated_at itself (design.md D1: this
+    // mirrors Reader.ListEntriesByVehicleUpdatedSince's index reasoning in this
+    // module, not telemetry.SuperchargerReader's updated_at-ordering choice). No
+    // limit parameter; always a non-nil empty slice on no match. A session whose
+    // TeslaID is nil is never returned, for any teslaID. This is the mechanism by
+    // which a SessionVerifier.VerifySession edit becomes visible to
+    // analytics.Recalculator.Reconcile (design.md D1).
+    ListSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Session, error)
+
+    // ListSessionsByVehicle returns the limit most recent sessions for a specific
+    // vehicle within an account, ordered DESCENDING by ChargeStopDateTime — the
+    // opposite of ListSessionsByVehicleBetween's ASC, deliberately (design.md D3).
+    // limit <= 0 uses the server default (defaultLimit, 100), mirroring
+    // Reader.ListEntriesByVehicle's identical contract. Always a non-nil empty
+    // slice on no match. A session whose TeslaID is nil is never returned, for any
+    // teslaID.
+    ListSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Session, error)
+}
+
+// NewSuperchargerSessionAnalyticsReader — the only publicly exported factory
+// function for this port. Returns the same underlying *sessionReader
+// NewSessionReader returns — one concrete type satisfies both interfaces.
+func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessionAnalyticsReader
 ```
 
 The gateway and any other future caller of `SessionReader` never import `chargingdb`
-directly, exactly as for `Writer`/`Reader`/`SessionWriter` above.
+directly, exactly as for `Writer`/`Reader`/`SessionWriter` above. The same applies to
+`SuperchargerSessionAnalyticsReader`'s future caller, `internal/analytics`.
 
 ### The Supercharger session verification port (RM31-charging-add-session-verification-port)
 
@@ -382,15 +432,22 @@ paired with the `currency` column instead of a unit.
   `go test ./...`.
 - **Integration tests** (`db_integration_test.go`, `db_session_integration_test.go`,
   `db_backfill_integration_test.go`, `db_session_reader_integration_test.go`,
-  `db_session_verifier_integration_test.go`): cover full CRUD round-trips, ordering
-  guarantees, multi-tenant isolation, CHECK constraint enforcement, the Supercharger
-  session mirror (`SessionWriter.MirrorSessions`), the one-time backfill, the
-  `charge_sessions` read port (`SessionReader.ListSessionsByVehicleBetween`,
-  RM30-charging-add-session-read-port), and — since
-  RM31-charging-add-session-verification-port — the `charge_sessions` verification
-  write port (`SessionVerifier.VerifySession`, `db_session_verifier_integration_test.go`,
-  design.md Test Contract T1-T9). Reads still assert only against `charging.Session`
-  domain fields or direct SQL column values — never `pgtype`, in this file or any other.
+  `db_session_verifier_integration_test.go`,
+  `db_session_reader_updated_since_integration_test.go`,
+  `db_session_reader_by_vehicle_integration_test.go`): cover full CRUD round-trips,
+  ordering guarantees, multi-tenant isolation, CHECK constraint enforcement, the
+  Supercharger session mirror (`SessionWriter.MirrorSessions`), the one-time backfill,
+  the `charge_sessions` read ports (`SessionReader.ListSessionsByVehicleBetween`,
+  RM30-charging-add-session-read-port; and
+  `SuperchargerSessionAnalyticsReader.ListSessionsByVehicleUpdatedSince`/
+  `ListSessionsByVehicle`, RM31-charging-add-session-read-ports,
+  `db_session_reader_updated_since_integration_test.go`/
+  `db_session_reader_by_vehicle_integration_test.go`, design.md Test Contract
+  T1-T14/T-Order2), and — since RM31-charging-add-session-verification-port — the
+  `charge_sessions` verification write port (`SessionVerifier.VerifySession`,
+  `db_session_verifier_integration_test.go`, design.md Test Contract T1-T9). Reads still
+  assert only against `charging.Session` domain fields or direct SQL column values —
+  never `pgtype`, in this file or any other.
   The test database is provisioned by `testdb_test.go`:
     - When `DATABASE_URL` is set, that managed Postgres is used (CI with a service container,
       or a local DB you've already provisioned).
@@ -438,3 +495,10 @@ paired with the `currency` column instead of a unit.
   columns it changes, and reuses `db_session_integration_test.go`'s existing
   `fetchChargeSession` direct-SQL helper (plain Go `*T` fields, never `pgtype`) for the
   structural bit-identical-column proof (T8).
+  `db_session_reader_updated_since_integration_test.go` and
+  `db_session_reader_by_vehicle_integration_test.go` (RM31-charging-add-session-read-ports)
+  assert against `SuperchargerSessionAnalyticsReader.ListSessionsByVehicleUpdatedSince`/
+  `ListSessionsByVehicle`'s returned `charging.Session` values directly, same as
+  `db_session_reader_integration_test.go` — no `pgtype` anywhere in either file.
+  `db_session_reader_by_vehicle_integration_test.go`'s T-Order2 case reads `EXPLAIN`
+  plan text via plain `string` scanning, not any generated type.

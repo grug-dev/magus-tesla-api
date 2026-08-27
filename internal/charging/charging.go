@@ -237,11 +237,13 @@ type Session struct {
 }
 
 // SessionReader is the read port over charge_sessions (RM30-charging-add-session-read-port
-// design.md D3/D5/D6/D7; widened by RM31-charging-add-session-read-ports). The three
-// methods on this interface do NOT share a single sort-direction convention — sort
-// direction is chosen per query against the shared idx_charge_sessions_vehicle_stop
-// index, not as a port-family rule (RM31 design.md D3, Context fact 3). Do not "fix" one
-// method's order to match another.
+// design.md D3/D5/D6/D7). One method, unchanged by RM31-charging-add-session-read-ports:
+// internal/gateway depends on exactly this interface (Deps.SuperchargerReader) and calls
+// only ListSessionsByVehicleBetween, so this interface is NOT widened to add the two new
+// analytics-facing read shapes — see SuperchargerSessionAnalyticsReader below, which embeds
+// this interface instead (RM31 design.md D8). Do not add methods here; a prior wave of this
+// same change did, and it broke internal/gateway's fakeSessionReader and failed
+// `go vet ./...` repo-wide.
 type SessionReader interface {
 	// ListSessionsByVehicleBetween returns charge sessions for a specific vehicle
 	// within an account whose ChargeStopDateTime falls within the window [from, to].
@@ -269,6 +271,41 @@ type SessionReader interface {
 	// true nor false, so an orphaned session is definitionally outside a
 	// vehicle-scoped read (design.md D6).
 	ListSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Session, error)
+}
+
+// NewSessionReader constructs a SessionReader backed by the given pgxpool. The
+// implementation lives in session_reader.go where the chargingdb generated package is
+// used. This is the only publicly exported constructor for the SessionReader port.
+// Its signature and return type MUST NOT change — cmd/web wires this exact function into
+// the gateway's Deps.SuperchargerReader (RM31 design.md D8).
+func NewSessionReader(pool *pgxpool.Pool) SessionReader {
+	return newSessionReader(pool)
+}
+
+// SuperchargerSessionAnalyticsReader is the read port over charge_sessions for
+// internal/analytics (RM31-charging-add-session-read-ports design.md D8). It is a
+// SEPARATE interface from SessionReader, not a widening of it, for the same "one fat
+// interface, two callers with different needs" reason RM31 tier 1's D9 made
+// SessionVerifier separate from SessionWriter: internal/gateway depends on SessionReader
+// and calls only ListSessionsByVehicleBetween, so adding methods to SessionReader itself
+// would force every implementer of that interface — including gateway's own test double,
+// which has and needs no reason to know about analytics' two extra read shapes — to carry
+// methods it never calls. internal/analytics needs all three shapes
+// (ListSessionsByVehicleBetween, ListSessionsByVehicleUpdatedSince, ListSessionsByVehicle),
+// which is why this interface EMBEDS SessionReader rather than restating its method.
+//
+// The three methods reachable through this interface do NOT share a single
+// sort-direction convention — sort direction is chosen per query against the shared
+// idx_charge_sessions_vehicle_stop index, not as a port-family rule (design.md D3,
+// Context fact 3). Do not "fix" one method's order to match another.
+//
+// Naming: "Supercharger" is the owner's deliberate divergence from this module's
+// Session* family (SessionReader, SessionWriter, SessionMirror, SessionVerifier), chosen
+// for call-site readability in internal/analytics, where the surrounding code is about
+// Supercharger sessions but the package qualifier is charging (design.md D8). Do not
+// "tidy" this name into the Session* family.
+type SuperchargerSessionAnalyticsReader interface {
+	SessionReader
 
 	// ListSessionsByVehicleUpdatedSince returns every session for a specific vehicle
 	// within an account whose updated_at is at or after since. Ordered ASCENDING by
@@ -299,10 +336,12 @@ type SessionReader interface {
 	ListSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Session, error)
 }
 
-// NewSessionReader constructs a SessionReader backed by the given pgxpool. The
-// implementation lives in session_reader.go where the chargingdb generated package is
-// used. This is the only publicly exported constructor for the SessionReader port.
-func NewSessionReader(pool *pgxpool.Pool) SessionReader {
+// NewSuperchargerSessionAnalyticsReader constructs a SuperchargerSessionAnalyticsReader
+// backed by the given pgxpool, returning the same underlying *sessionReader
+// NewSessionReader returns — one concrete type satisfies both interfaces, so
+// session_reader.go's method implementations are not duplicated (design.md D8). This is
+// the only publicly exported constructor for the SuperchargerSessionAnalyticsReader port.
+func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessionAnalyticsReader {
 	return newSessionReader(pool)
 }
 

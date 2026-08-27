@@ -52,7 +52,7 @@ behind each group.
 
 ## Wave 2 — the Go port (module: charging worker)
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — **REOPENED by
+- [x] **2.1** **[module: charging worker]** `internal/charging/charging.go` — **REOPENED by
   design.md D8 (owner, 2026-08-27).** The first pass added both methods TO `SessionReader`,
   which broke `internal/gateway`'s implementer and failed `go vet ./...`. Correct shape:
   **leave `SessionReader` exactly as it was** (one method, `ListSessionsByVehicleBetween`,
@@ -117,7 +117,7 @@ behind each group.
 
 ## Wave 3 — tests + module docs (module: charging worker)
 
-- [ ] **3.1** **[module: charging worker]** New integration test file
+- [x] **3.1** **[module: charging worker]** New integration test file
   `internal/charging/db_session_reader_updated_since_integration_test.go`
   (`package charging_test`) — implement Test Contract **T1–T7** exactly as design.md states
   them, with those expected values. Seed baseline fixture **U1** (three sessions,
@@ -132,7 +132,7 @@ behind each group.
   account).
   `depends_on`: 2.2 · `parallel_ok`: with 3.2, 3.3
 
-- [ ] **3.2** **[module: charging worker]** New integration test file
+- [x] **3.2** **[module: charging worker]** New integration test file
   `internal/charging/db_session_reader_by_vehicle_integration_test.go`
   (`package charging_test`) — implement Test Contract **T8–T14** and **T-Order2** exactly as
   design.md states them, with those expected values. Seed baseline fixture **L1** (four
@@ -152,7 +152,7 @@ behind each group.
   account and a second vehicle).
   `depends_on`: 2.2 · `parallel_ok`: with 3.1, 3.3
 
-- [ ] **3.3** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
+- [x] **3.3** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
   module's widened read surface (docs-track-structural-change, `CLAUDE.md`
   §Non-negotiables):
   - §Public Interface → "The Supercharger session read port" — add both new methods to the
