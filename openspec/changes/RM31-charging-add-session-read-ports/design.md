@@ -240,6 +240,68 @@ Contract's T-Limit cases instead.
 
 ---
 
+### D8 — The two new methods go on a NEW `SuperchargerSessionAnalyticsReader` interface that EMBEDS `SessionReader`, which is left untouched (owner, 2026-08-27 — supersedes the widening this change originally implemented)
+
+**This decision replaces the interface shape D6's wave actually shipped.** Tasks 2.1/2.2
+first added both methods *to* `SessionReader`. That compiled inside `internal/charging`, and
+`go vet ./internal/charging/...` was clean — but `go vet ./...` failed repo-wide:
+
+```
+internal/gateway/handlers/supercharger_test.go:76:23: cannot use reader (variable of type
+*fakeSessionReader) as charging.SessionReader value in struct literal:
+*fakeSessionReader does not implement charging.SessionReader
+(missing method ListSessionsByVehicle)
+```
+
+`internal/gateway` consumes `charging.SessionReader` as `Deps.SuperchargerReader` for the
+supercharger-stats page (RM30 tier 1) and calls **only** `ListSessionsByVehicleBetween`.
+Widening the port therefore forced a second module — and every future implementer, real or
+fake — to carry two methods it never calls. That is the same "one fat interface, two callers
+with different needs" shape RM31 tier 1's D9 rejected when it made `SessionVerifier` a
+separate interface rather than a method on `SessionWriter`.
+
+**The shape:**
+
+```go
+// unchanged — what internal/gateway depends on
+type SessionReader interface {
+    ListSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Session, error)
+}
+
+// new — what internal/analytics depends on
+type SuperchargerSessionAnalyticsReader interface {
+    SessionReader
+    ListSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Session, error)
+    ListSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Session, error)
+}
+```
+
+Embedding, not duplication: `analytics` needs all three shapes (`ListSessionsByVehicleBetween`
+at `recalculate.go:157`, `…UpdatedSince` at `recalculate.go:255`, `…ByVehicle` at
+`reader.go:131`), so the wider port embeds the narrow one instead of restating its method.
+The single concrete `sessionReader` satisfies both interfaces with no duplicated code, so
+D5/D6 (reuse `rowToSession`, no new file) survive unchanged.
+
+**Consequence: `internal/gateway` needs no change at all** — not its `Deps`, not its
+`fakeSessionReader`. The `go vet ./...` failure disappears rather than being patched around,
+which is the point: the cross-module break was the design telling us the port was wrong, not
+a test double that needed topping up.
+
+**Naming (owner's call).** `SuperchargerSessionAnalyticsReader`, not `SessionAnalyticsReader`.
+The leader argued for the latter — this module's `Session*` family (`SessionReader`,
+`SessionWriter`, `SessionMirror`, `SessionVerifier`) already establishes that "Session" means
+a Supercharger session here, so the prefix distinguishes nothing between two ports that both
+read `charge_sessions`, and it reads close to `telemetry.SuperchargerReader`. The owner chose
+the explicit prefix anyway, for readability at the call site in `internal/analytics`, where
+the surrounding code is about Supercharger sessions but the package qualifier is `charging`.
+Recorded so the divergence from the `Session*` family is understood as deliberate and is not
+"tidied" into the family later.
+
+**Constructor.** `NewSessionReader(pool)` keeps its exact current signature and return type
+(`SessionReader`) — `cmd/web` wires it into the gateway and must not change. A second
+constructor, `NewSuperchargerSessionAnalyticsReader(pool) SuperchargerSessionAnalyticsReader`,
+returns the same underlying `*sessionReader` for the analytics wiring.
+
 ## Database Changes
 
 **None.** No migration file is added or edited. This section exists — per

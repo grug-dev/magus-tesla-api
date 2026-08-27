@@ -237,10 +237,11 @@ type Session struct {
 }
 
 // SessionReader is the read port over charge_sessions (RM30-charging-add-session-read-port
-// design.md D3/D5/D6/D7). There is exactly one method, shaped for a bounded, per-vehicle
-// window read — the same access pattern Reader.ListEntriesByVehicleBetween already
-// established for manual_charge_entries, but NOT an identical contract; see below for
-// where it diverges and why.
+// design.md D3/D5/D6/D7; widened by RM31-charging-add-session-read-ports). The three
+// methods on this interface do NOT share a single sort-direction convention — sort
+// direction is chosen per query against the shared idx_charge_sessions_vehicle_stop
+// index, not as a port-family rule (RM31 design.md D3, Context fact 3). Do not "fix" one
+// method's order to match another.
 type SessionReader interface {
 	// ListSessionsByVehicleBetween returns charge sessions for a specific vehicle
 	// within an account whose ChargeStopDateTime falls within the window [from, to].
@@ -268,6 +269,34 @@ type SessionReader interface {
 	// true nor false, so an orphaned session is definitionally outside a
 	// vehicle-scoped read (design.md D6).
 	ListSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Session, error)
+
+	// ListSessionsByVehicleUpdatedSince returns every session for a specific vehicle
+	// within an account whose updated_at is at or after since. Ordered ASCENDING by
+	// ChargeStopDateTime — NOT by updated_at itself (RM31 design.md D1, Context fact 2:
+	// this mirrors Reader.ListEntriesByVehicleUpdatedSince's index reasoning in this
+	// module, not telemetry.SuperchargerReader's updated_at-ordering choice). No limit
+	// parameter — since itself bounds the result. Always returns a non-nil empty slice
+	// when no rows match. A session whose TeslaID is nil is never returned, for any
+	// teslaID (design.md D1, D4).
+	//
+	// This is the mechanism by which a SessionVerifier.VerifySession edit becomes
+	// visible to analytics.Recalculator.Reconcile: VerifySession sets updated_at =
+	// now() and touches no other timestamp column, and ChargeStartDateTime/
+	// ChargeStopDateTime are write-once, so updated_at is the only column that moves
+	// when a human verifies a session — this method is the sole path by which that
+	// verification reaches a cursor-driven re-derivation (design.md D1).
+	ListSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Session, error)
+
+	// ListSessionsByVehicle returns the limit most recent sessions for a specific
+	// vehicle within an account, ordered DESCENDING by ChargeStopDateTime — the
+	// opposite of ListSessionsByVehicleBetween's ASC. This divergence is deliberate
+	// (design.md D3) and must not be "corrected" to match the sibling method: a "most
+	// recent N" limit-bounded read needs newest-first by construction. limit <= 0 uses
+	// the server default (defaultLimit, 100), mirroring Reader.ListEntriesByVehicle's
+	// identical contract. Always returns a non-nil empty slice when no rows match. A
+	// session whose TeslaID is nil is never returned, for any teslaID (design.md D3,
+	// D4).
+	ListSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Session, error)
 }
 
 // NewSessionReader constructs a SessionReader backed by the given pgxpool. The

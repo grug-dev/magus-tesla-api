@@ -3,12 +3,12 @@
   "kind": "change",
   "change": "RM31-charging-add-session-read-ports",
   "module": "charging",
-  "status": "proposed",
+  "status": "in-progress",
   "roadmap": "RM31-supercharger-session-verification",
   "roadmap_tier": 2,
   "intention": "Grow charging.SessionReader with the two read shapes analytics needs -- ListSessionsByVehicleUpdatedSince (carries a VerifySession edit into Reconcile) and ListSessionsByVehicle (limit-bounded, for the Wh/km read). No DB object.",
   "created_at": "2026-08-27T21:12:00Z",
-  "updated_at": "2026-08-27T21:12:00Z",
+  "updated_at": "2026-08-27T23:24:00Z",
   "leader": {
     "agent": "leader",
     "assistant": "Claude Code",
@@ -26,27 +26,37 @@
       "id": "1.1",
       "title": "query.sql: append ListSessionsByVehicleUpdatedSince query",
       "depends_on": [],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T22:55:00Z",
+      "completed_at": "2026-08-27T23:00:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.6,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/2.1/2.2"
+      },
+      "notes": "Appended ListSessionsByVehicleUpdatedSince to query.sql verbatim from design.md Query 1, doc comment intact."
     },
     {
       "id": "1.2",
       "title": "query.sql: append ListSessionsByVehicle query",
       "depends_on": [],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T23:00:00Z",
+      "completed_at": "2026-08-27T23:05:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.6,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/2.1/2.2"
+      },
+      "notes": "Appended ListSessionsByVehicle to query.sql; ran make sqlc, generated types match the spec."
     },
     {
       "id": "2.1",
@@ -54,14 +64,19 @@
       "depends_on": [
         "1.2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "blocked",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T23:05:00Z",
+      "completed_at": "2026-08-27T23:10:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.6,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/2.1/2.2"
+      },
+      "notes": "Added both signatures + doc comments to the SessionReader interface. See leader event: widening broke gateway's fake."
     },
     {
       "id": "2.2",
@@ -70,14 +85,19 @@
         "1.2",
         "2.1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T23:10:00Z",
+      "completed_at": "2026-08-27T23:15:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.6,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/2.1/2.2"
+      },
+      "notes": "Implemented both on sessionReader, reusing rowToSession, teslaIDToPgInt8 and defaultLimit unchanged."
     },
     {
       "id": "3.1",
@@ -128,16 +148,18 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "1.2",
-      "2.1",
-      "2.2",
       "3.1",
       "3.2",
       "3.3"
     ],
-    "blocked": [],
-    "done": [],
+    "blocked": [
+      "2.1"
+    ],
+    "done": [
+      "1.1",
+      "1.2",
+      "2.2"
+    ],
     "awaiting-user-verification": []
   },
   "decisions": [
@@ -158,6 +180,24 @@
       "decision": "leader amended test contract T-Order2 to run under SET LOCAL enable_seqscan = off",
       "why": "As written it asserts the plan contains an index scan on a 4-row fixture, where the planner prefers Seq Scan -- it would fail a correct design. Sort-absence keeps full force.",
       "covered_by": "design.md T-Order2"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-27T23:16:00Z",
+      "scope": "wave:1",
+      "made_by": "leader",
+      "decision": "merged tasks.md waves 1 and 2 into one serial worker dispatch (1.1, 1.2, 2.1, 2.2 in dependency order)",
+      "why": "Same feature across three files with make sqlc between them; one dispatch reads the doc pack once and keeps the generated types in the same context. Deps are honoured by serial order.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-27T23:24:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "the two new methods go on a new SuperchargerSessionAnalyticsReader that embeds SessionReader; SessionReader itself is left untouched",
+      "why": "gateway depends on SessionReader and calls only the Between method; widening forced it to implement two methods it never calls. Owner chose the Supercharger prefix over the leader's SessionAnalyticsReader.",
+      "covered_by": "design.md D8"
     }
   ],
   "review": {
@@ -176,6 +216,26 @@
       "at": "2026-08-27T21:12:00Z",
       "agent": "leader",
       "event": "leader cross-check found one test-contract defect and fixed it before dispatch: T-Order2's EXPLAIN assertion was row-count dependent (4-row fixture => Seq Scan) and would have failed a correct design. design.md + tasks.md 3.2 now require SET LOCAL enable_seqscan = off, with the rationale recorded so no one deletes it."
+    },
+    {
+      "at": "2026-08-27T23:16:00Z",
+      "agent": "leader",
+      "event": "dispatching wave 1 (merged tasks.md waves 1+2: 1.1, 1.2, 2.1, 2.2) to the charging worker on sonnet. Budget at dispatch: five_hour 47%, context 16%, cost $8.61."
+    },
+    {
+      "at": "2026-08-27T23:20:00Z",
+      "agent": "leader",
+      "event": "wave 1 returned: 1.1/1.2/2.2 done, doc-pack acknowledged, D1-D7 compliance enumerated. make sqlc, go build ./... and gofmt clean; go vet ./internal/charging/... clean. BUT go vet ./... FAILS repo-wide: widening charging.SessionReader broke internal/gateway/handlers' fakeSessionReader, which implements only ListSessionsByVehicleBetween."
+    },
+    {
+      "at": "2026-08-27T23:20:00Z",
+      "agent": "leader",
+      "event": "2.1 set BLOCKED pending an owner design call. gateway consumes charging.SessionReader for the supercharger-stats page and calls only ListSessionsByVehicleBetween; analytics needs all three shapes. Widening one port forces gateway to carry two methods it never calls -- the interface-segregation concern tier 1's D9 raised. Alternative: keep SessionReader as-is and add a wider interface that embeds it."
+    },
+    {
+      "at": "2026-08-27T23:24:00Z",
+      "agent": "leader",
+      "event": "owner design call recorded as design.md D8; task 2.1 reopened with the corrected shape and a repo-wide go vet ./... acceptance criterion. gateway needs no edit -- the vet failure disappears rather than being patched around."
     }
   ]
 }

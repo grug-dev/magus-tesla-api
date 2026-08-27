@@ -23,7 +23,7 @@ behind each group.
 
 ## Wave 1 — queries (module: charging worker)
 
-- [ ] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
+- [x] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
   `-- name: ListSessionsByVehicleUpdatedSince :many` exactly as specified in design.md
   §"Query 1", including its full doc comment (the residual-filter index reasoning, the
   "this is the only mechanism that carries a `VerifySession` edit into `Reconcile`" note,
@@ -33,7 +33,7 @@ behind each group.
   `depends_on`: — · `parallel_ok`: with 1.2 (same file, disjoint appended blocks — land
   both together)
 
-- [ ] **1.2** **[module: charging worker]** `internal/charging/db/query.sql` — append
+- [x] **1.2** **[module: charging worker]** `internal/charging/db/query.sql` — append
   `-- name: ListSessionsByVehicle :many` exactly as specified in design.md §"Query 2",
   including its full doc comment (the DESC-vs-ASC justification against the shared
   ASC-built index, the backward-scan explanation, the `limit_count` pre-clamped-by-Go note,
@@ -52,9 +52,16 @@ behind each group.
 
 ## Wave 2 — the Go port (module: charging worker)
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add both new
-  methods' doc comments to the existing `SessionReader` interface (do not touch
-  `ListSessionsByVehicleBetween`'s existing doc comment or signature):
+- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — **REOPENED by
+  design.md D8 (owner, 2026-08-27).** The first pass added both methods TO `SessionReader`,
+  which broke `internal/gateway`'s implementer and failed `go vet ./...`. Correct shape:
+  **leave `SessionReader` exactly as it was** (one method, `ListSessionsByVehicleBetween`,
+  untouched doc comment and signature) and declare a NEW interface
+  `SuperchargerSessionAnalyticsReader` that **embeds `SessionReader`** and adds the two new
+  methods. Add `NewSuperchargerSessionAnalyticsReader(pool) SuperchargerSessionAnalyticsReader`
+  next to the existing `NewSessionReader`, returning the same underlying `*sessionReader`;
+  `NewSessionReader`'s signature and return type must NOT change (`cmd/web` wires it into the
+  gateway). The two new methods' doc comments below move onto the new interface unchanged:
   - `ListSessionsByVehicleUpdatedSince(ctx, accountID, teslaID, since) ([]Session, error)` —
     doc comment states: every session whose `updated_at` is at or after `since`; ordered
     **ascending** by `ChargeStopDateTime` (not by `updated_at`); no `limit` parameter,
@@ -69,15 +76,24 @@ behind each group.
     sibling method; `limit <= 0` uses the server default (`defaultLimit`, 100), mirroring
     `Reader.ListEntriesByVehicle`'s identical contract; non-nil empty slice on no match; a
     session whose `TeslaID` is nil is never returned, for any `teslaID` (design.md D3, D4).
-  - Also add one short interface-level sentence (near the existing interface doc comment)
-    stating that the three methods on this interface do not share a single sort-direction
-    convention — sort direction is chosen per query against the shared index, not as a
-    port-family rule (design.md D3, Context fact 3).
+  - Also add a doc comment on the new interface stating (a) why it is separate from
+    `SessionReader` rather than a widening of it — `internal/gateway` depends on
+    `SessionReader` and calls only `ListSessionsByVehicleBetween`, so widening forced a
+    second module to implement methods it never calls (design.md D8, mirroring tier 1's D9);
+    (b) why it embeds rather than restates `SessionReader` — `internal/analytics` needs all
+    three shapes; and (c) that these methods do not share a single sort-direction convention
+    — sort direction is chosen per query against the shared index, not as a port-family rule
+    (design.md D3, Context fact 3). Note in the comment that the `Supercharger` prefix is the
+    owner's deliberate divergence from the module's `Session*` family, for call-site
+    readability in `internal/analytics` (design.md D8) — do not "tidy" it into the family.
   Follow this file's existing conventions: no `pgtype` anywhere in it, doc comments on every
   exported symbol. Does not compile until 2.2 supplies both methods' bodies.
+  Verify with `go vet ./...` (repo-wide, NOT just `./internal/charging/...`): it must come
+  back clean, with `internal/gateway`'s `fakeSessionReader` left untouched. If gateway still
+  fails, the interface split is wrong — stop and report rather than editing gateway.
   `depends_on`: 1.2 · `parallel_ok`: with 2.2 (authoring only — they land together)
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/session_reader.go` — add both
+- [x] **2.2** **[module: charging worker]** `internal/charging/session_reader.go` — add both
   new methods to the existing `sessionReader` struct, next to `ListSessionsByVehicleBetween`
   (design.md D6 — no new file, no new struct):
   - `ListSessionsByVehicleUpdatedSince` — call
