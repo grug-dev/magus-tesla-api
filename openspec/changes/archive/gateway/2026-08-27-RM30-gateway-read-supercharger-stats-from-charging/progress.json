@@ -4,9 +4,9 @@
   "change": "RM30-gateway-read-supercharger-stats-from-charging",
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM30-supercharger-stats-read-from-charging.md",
-  "status": "verified",
+  "status": "archived",
   "created_at": "2026-08-27T14:54:51Z",
-  "updated_at": "2026-08-27T15:58:22Z",
+  "updated_at": "2026-08-27T16:00:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -40,7 +40,7 @@
   "tasks": [
     {
       "id": "1.1",
-      "title": "gateway.go — Deps.SuperchargerReader type swap",
+      "title": "gateway.go \u2014 Deps.SuperchargerReader type swap",
       "depends_on": [],
       "status": "done",
       "agent": "gateway",
@@ -59,7 +59,7 @@
     },
     {
       "id": "1.2",
-      "title": "handlers.go — Deps/Handler type swap",
+      "title": "handlers.go \u2014 Deps/Handler type swap",
       "depends_on": [],
       "status": "done",
       "agent": "gateway",
@@ -78,7 +78,7 @@
     },
     {
       "id": "1.3",
-      "title": "supercharger_vm.go — drop CountryCode/BillingType",
+      "title": "supercharger_vm.go \u2014 drop CountryCode/BillingType",
       "depends_on": [],
       "status": "done",
       "agent": "gateway",
@@ -97,7 +97,7 @@
     },
     {
       "id": "1.4",
-      "title": "catalog.go — remove country/billing keys (ES+EN)",
+      "title": "catalog.go \u2014 remove country/billing keys (ES+EN)",
       "depends_on": [],
       "status": "done",
       "agent": "gateway",
@@ -116,7 +116,7 @@
     },
     {
       "id": "2.1",
-      "title": "supercharger.go — rewrite onto SessionReader + parseSuperchargerRange",
+      "title": "supercharger.go \u2014 rewrite onto SessionReader + parseSuperchargerRange",
       "depends_on": [
         "1.2",
         "1.3"
@@ -138,7 +138,7 @@
     },
     {
       "id": "2.2",
-      "title": "supercharger_stats.templ — drop columns, start/end preset hrefs",
+      "title": "supercharger_stats.templ \u2014 drop columns, start/end preset hrefs",
       "depends_on": [
         "1.3",
         "1.4"
@@ -178,11 +178,11 @@
         "approx": true,
         "note": "one shared wave delta across 2.1-2.3 (batched serial worker); includes the leader's superchargerStatsViewFor fix"
       },
-      "notes": "make templ regenerated supercharger_stats_templ.go; go build ./internal/... and go build ./... both clean; gofmt clean on edited files. go vet fails only on supercharger_test.go (old API) — task 3.1's job, expected."
+      "notes": "make templ regenerated supercharger_stats_templ.go; go build ./internal/... and go build ./... both clean; gofmt clean on edited files. go vet fails only on supercharger_test.go (old API) \u2014 task 3.1's job, expected."
     },
     {
       "id": "3.1",
-      "title": "supercharger_test.go — rewrite to Test Contract T1-T14 + grep sweep",
+      "title": "supercharger_test.go \u2014 rewrite to Test Contract T1-T14 + grep sweep",
       "depends_on": [
         "2.3"
       ],
@@ -203,7 +203,7 @@
     },
     {
       "id": "4.1",
-      "title": "gateway AGENTS.md — per-endpoint cap wording",
+      "title": "gateway AGENTS.md \u2014 per-endpoint cap wording",
       "depends_on": [
         "2.3"
       ],
@@ -224,7 +224,7 @@
     },
     {
       "id": "4.2",
-      "title": "ai/architecture.md — date-filter pattern pointer (leader-owned)",
+      "title": "ai/architecture.md \u2014 date-filter pattern pointer (leader-owned)",
       "depends_on": [
         "4.1"
       ],
@@ -241,11 +241,11 @@
         "approx": true,
         "note": "one shared wave delta across 4.1-4.3 (batched serial worker); includes the leader's two doc corrections"
       },
-      "notes": "Added pattern entry 5 to ai/architecture.md §Concrete patterns already in use — a pointer to the gateway AGENTS.md contract, not a restatement, matching the surrounding entry format."
+      "notes": "Added pattern entry 5 to ai/architecture.md \u00a7Concrete patterns already in use \u2014 a pointer to the gateway AGENTS.md contract, not a restatement, matching the surrounding entry format."
     },
     {
       "id": "4.3",
-      "title": "root README.md — document convention + caps (leader-owned)",
+      "title": "root README.md \u2014 document convention + caps (leader-owned)",
       "depends_on": [
         "4.1"
       ],
@@ -262,7 +262,7 @@
         "approx": true,
         "note": "one shared wave delta across 4.1-4.3 (batched serial worker); includes the leader's two doc corrections"
       },
-      "notes": "Added a short ?start=&end= subsection under README.md §Web UI (gateway) naming both per-endpoint caps (history 90d, Supercharger Stats 400d) and pointing at the gateway AGENTS.md contract."
+      "notes": "Added a short ?start=&end= subsection under README.md \u00a7Web UI (gateway) naming both per-endpoint caps (history 90d, Supercharger Stats 400d) and pointing at the gateway AGENTS.md contract."
     }
   ],
   "decisions": [
@@ -335,7 +335,7 @@
       "scope": "wave-4",
       "made_by": "leader",
       "decision": "corrected two things in the worker's AGENTS.md edit: a dangling 'see GET /ui/supercharger-stats below' pointer, and the flattened future-end rule",
-      "why": "There is no supercharger section below. And the rule is per-endpoint: history rejects after browser-yesterday, this endpoint accepts end == UTC today — stating it flat would mislead the next endpoint author.",
+      "why": "There is no supercharger section below. And the rule is per-endpoint: history rejects after browser-yesterday, this endpoint accepts end == UTC today \u2014 stating it flat would mislead the next endpoint author.",
       "covered_by": null
     },
     {
@@ -349,7 +349,7 @@
     }
   ],
   "review": {
-    "brief": "Review the FULL diff of this change on ft/RM30-MAG-30-supercharger-stats-read-from-charging (commits 2656a9b, 7cf0eb2, 7d4e80f, 2febed7) against its artifacts. Validate: (1) MODULE BOUNDARY — nothing outside internal/gateway/ except the granted ai/architecture.md, README.md and the leader's cmd/web/main.go integration; gateway reaches charging ONLY through charging.SessionReader, never chargingdb; the two analytics-owned telemetry.NewSuperchargerReader calls in cmd/web/main.go are correctly untouched (roadmap D2). (2) ACCEPTANCE CRITERIA — /supercharger-stats now reads charge_sessions via the charging module (MAG-30 AC1); gateway no longer reads telemetry for this path (AC2); docs updated (AC3). (3) DESIGN COMPLIANCE — every design.md decision D1-D10, especially D3 (single reverse), D4 (CountryCode/BillingType gone everywhere), D9a (plain UTC today, no browserToday) and D9b (end.After(today) -> 400, end == today accepted). (4) TEST-CONTRACT FIDELITY — supercharger_test.go must assert the T1-T14 expectations design.md authored BEFORE implementation, not whatever the code happens to do. Check specifically that T14's ~180-day window means the 400-day cap cannot be what rejects it, and that fakeSessionReader keeps the D8 TeslaID-nil exclusion. Judge tests by READING them; do not run them. (5) PERFORMANCE-PROFILE — one bounded read per render, no N+1, no unbounded scan. (6) LEADER EDITS — four leader interventions are in the diff and get the same scrutiny as worker code, not a pass: D5 (superchargerStatsViewFor helper + renderError on the Page 400 path), and D8 (the two AGENTS.md doc corrections). (7) ANTI-GAMING — no acceptance criterion weakened, no Test Contract case dropped or hollowed, no self-approved status. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE: assistant-run = go build ./..., go vet ./internal/gateway/..., gofmt -l, make i18n-guard, make ui-guard (all clean). USER-REPORTED = `make test` and `make build` green, reported by the owner on 2026-08-27. Do not re-run the suite and do not claim it as your own.",
+    "brief": "Review the FULL diff of this change on ft/RM30-MAG-30-supercharger-stats-read-from-charging (commits 2656a9b, 7cf0eb2, 7d4e80f, 2febed7) against its artifacts. Validate: (1) MODULE BOUNDARY \u2014 nothing outside internal/gateway/ except the granted ai/architecture.md, README.md and the leader's cmd/web/main.go integration; gateway reaches charging ONLY through charging.SessionReader, never chargingdb; the two analytics-owned telemetry.NewSuperchargerReader calls in cmd/web/main.go are correctly untouched (roadmap D2). (2) ACCEPTANCE CRITERIA \u2014 /supercharger-stats now reads charge_sessions via the charging module (MAG-30 AC1); gateway no longer reads telemetry for this path (AC2); docs updated (AC3). (3) DESIGN COMPLIANCE \u2014 every design.md decision D1-D10, especially D3 (single reverse), D4 (CountryCode/BillingType gone everywhere), D9a (plain UTC today, no browserToday) and D9b (end.After(today) -> 400, end == today accepted). (4) TEST-CONTRACT FIDELITY \u2014 supercharger_test.go must assert the T1-T14 expectations design.md authored BEFORE implementation, not whatever the code happens to do. Check specifically that T14's ~180-day window means the 400-day cap cannot be what rejects it, and that fakeSessionReader keeps the D8 TeslaID-nil exclusion. Judge tests by READING them; do not run them. (5) PERFORMANCE-PROFILE \u2014 one bounded read per render, no N+1, no unbounded scan. (6) LEADER EDITS \u2014 four leader interventions are in the diff and get the same scrutiny as worker code, not a pass: D5 (superchargerStatsViewFor helper + renderError on the Page 400 path), and D8 (the two AGENTS.md doc corrections). (7) ANTI-GAMING \u2014 no acceptance criterion weakened, no Test Contract case dropped or hollowed, no self-approved status. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE: assistant-run = go build ./..., go vet ./internal/gateway/..., gofmt -l, make i18n-guard, make ui-guard (all clean). USER-REPORTED = `make test` and `make build` green, reported by the owner on 2026-08-27. Do not re-run the suite and do not claim it as your own.",
     "agent": "gateway-reviewer",
     "status": "reviewer-approved",
     "rounds": [
@@ -374,11 +374,11 @@
           {
             "id": "R1-1",
             "severity": "minor",
-            "note": "internal/gateway/handlers/supercharger.go:154 — SuperchargerStatsPage's 400 path now calls renderError, which sets HX-Error-Fragment: true. design.md D1 (lines ~163-166) explicitly states 'SuperchargerStatsPage uses plain render at the same 400 status, because it is a full top-level page navigation, not an htmx swap target.' The leader's wave-2 decision D5 (progress.json decisions[]) consciously overrode this and switched Page's 400 path to renderError, reasoning that render omits the header. That reasoning is actually the stronger read of the binding project rule in ai/htmx-go-integration.md ('a non-2xx error fragment MUST be rendered with renderError ... if the non-2xx body is a component, it goes through renderError') and is functionally harmless here (the nav link to /supercharger-stats is a plain <a href>, not htmx-boosted, so the extra header is inert on a normal browser navigation — confirmed no HX-Error-Fragment/renderError assertion exists in supercharger_test.go for the Page route, and no other renderError call in the codebase targets a full-page route, so this is a genuinely new pattern). The gap is that design.md D1 was never amended to reflect this reversal — unlike D9, which got an explicit 'revised — leader triage' rewrite when the leader changed course. A future reader of design.md alone would believe the code still uses plain render on the Page path. RE-VERIFIED round 1 follow-up: leader amended design.md D1 in place with a 'REVISED at Apply (wave 2, decisions D5; confirmed by review round 1 finding R1-1)' note (design.md lines ~168-177) that keeps the original paragraph, states the actual shipped behavior (renderError, not render), and gives the corrected rationale — the binding ai/htmx-go-integration.md rule is keyed on what the response body IS (a renderable component), not on who consumes it, so a component-body 400 goes through renderError regardless of route; renderError is render plus one header, byte-identical for a plain browser GET today, and keeps the Page/Fragment entry points symmetric against a future htmx-driven navigation to this route. This fully resolves the documentation-fidelity gap the finding raised — design.md and the shipped code now agree, with the same kind of explicit revision marker D9 already used. No code, template, or test file changed; verified via re-read of design.md only, no re-run of build/vet/guards was needed since nothing they cover changed.",
+            "note": "internal/gateway/handlers/supercharger.go:154 \u2014 SuperchargerStatsPage's 400 path now calls renderError, which sets HX-Error-Fragment: true. design.md D1 (lines ~163-166) explicitly states 'SuperchargerStatsPage uses plain render at the same 400 status, because it is a full top-level page navigation, not an htmx swap target.' The leader's wave-2 decision D5 (progress.json decisions[]) consciously overrode this and switched Page's 400 path to renderError, reasoning that render omits the header. That reasoning is actually the stronger read of the binding project rule in ai/htmx-go-integration.md ('a non-2xx error fragment MUST be rendered with renderError ... if the non-2xx body is a component, it goes through renderError') and is functionally harmless here (the nav link to /supercharger-stats is a plain <a href>, not htmx-boosted, so the extra header is inert on a normal browser navigation \u2014 confirmed no HX-Error-Fragment/renderError assertion exists in supercharger_test.go for the Page route, and no other renderError call in the codebase targets a full-page route, so this is a genuinely new pattern). The gap is that design.md D1 was never amended to reflect this reversal \u2014 unlike D9, which got an explicit 'revised \u2014 leader triage' rewrite when the leader changed course. A future reader of design.md alone would believe the code still uses plain render on the Page path. RE-VERIFIED round 1 follow-up: leader amended design.md D1 in place with a 'REVISED at Apply (wave 2, decisions D5; confirmed by review round 1 finding R1-1)' note (design.md lines ~168-177) that keeps the original paragraph, states the actual shipped behavior (renderError, not render), and gives the corrected rationale \u2014 the binding ai/htmx-go-integration.md rule is keyed on what the response body IS (a renderable component), not on who consumes it, so a component-body 400 goes through renderError regardless of route; renderError is render plus one header, byte-identical for a plain browser GET today, and keeps the Page/Fragment entry points symmetric against a future htmx-driven navigation to this route. This fully resolves the documentation-fidelity gap the finding raised \u2014 design.md and the shipped code now agree, with the same kind of explicit revision marker D9 already used. No code, template, or test file changed; verified via re-read of design.md only, no re-run of build/vet/guards was needed since nothing they cover changed.",
             "status": "fixed"
           }
         ],
-        "summary": "Reviewed the full diff 56777d2..2febed7 (commits d149b62, 2656a9b, 7cf0eb2, 7d4e80f, 2febed7) cold against the doc pack and change artifacts. (1) MODULE BOUNDARY: clean — grep confirms zero chargingdb/internal/charging/db references anywhere in internal/gateway; only files touched outside internal/gateway/ are the explicitly-granted ai/architecture.md, README.md, and the leader-owned cmd/web/main.go one-line integration; the two analytics-owned telemetry.NewSuperchargerReader(pool) calls in cmd/web/main.go (lines ~69, ~83) are untouched, only the gateway's SuperchargerReader constructor call changed to charging.NewSessionReader(pool). (2) ACCEPTANCE CRITERIA: AC1/AC2/AC3 all satisfied — buildSuperchargerStatsView's single read is ListSessionsByVehicleBetween (charging.SessionReader), no internal/telemetry import remains anywhere under internal/gateway for this path (grep clean), and README.md/ai/architecture.md/internal/gateway/AGENTS.md were all updated in this same change. (3) DESIGN COMPLIANCE: D1-D10 verified line-by-line against the shipped code — parseSuperchargerRange, monthsBackFrom, the single reverse-in-place (D3), CountryCode/BillingType removed from SuperchargerRowVM/template/catalog with a grep sweep confirming zero remaining references (D4), UTC-only today via startOfDay(time.Now().UTC()) with no browserToday/browser_tz reference (D9a), and end.After(today) rejected while end==today is accepted (D9b) — all match. buildSuperchargerChart's window-derived bucket count (D10) matches the verbatim snippet in design.md. (4) TEST-CONTRACT FIDELITY: read (not run) supercharger_test.go in full — T1-T14 are all present as named test functions with the exact expected values design.md specified (T1's 2026-03-01 default start, T6's 400/401-day boundary, T11's exact preset StartStr values and 6-bar regression assertion). T14's window is start=today-180d, end=today+1d (~181 days, confirmed well under the 400-day cap so the cap cannot be what rejects it) and asserts 400 + the empty-state placeholder text + absence of 'btn-primary'/'join-item' in the fragment body. fakeSessionReader.ListSessionsByVehicleBetween keeps the TeslaID!=nil && *TeslaID==teslaID filter (D8) verbatim. No Test Contract case was dropped, hollowed, or weakened; T12 is correctly represented as a compile-time comment, not a fake runtime test. (5) PERFORMANCE-PROFILE: exactly one ListSessionsByVehicleBetween call per buildSuperchargerStatsView invocation, bounded by the requested [start,end] window at the database (tier 1's idx_charge_sessions_vehicle_stop index, already reviewed/archived); no loop-driven per-session or per-vehicle query. (6) LEADER EDITS: superchargerStatsViewFor helper matches tasks.md 2.1's required shape and mirrors DashboardHistoryFragment's parse->400->resolve->build pattern correctly; the renderError-on-Page-400 change is functionally sound but left design.md D1 undocumented/stale (finding R1-1, minor). The two AGENTS.md doc corrections (D8: dangling pointer retarget, per-endpoint future-end split) are both accurate on inspection. (7) ANTI-GAMING: tasks.md and specs/ are untouched by any suspicious edit (git diff shows only the artifact-creation commit adding them, no post-hoc weakening); progress.json task statuses match the code; the reviewer verdict field was null before this round, confirming no self-approval. Independently ran (permitted, non-test signals): go build ./... (clean), go vet ./internal/gateway/... (clean), gofmt -l on every file this change touches (clean — the four gofmt hits in the repo are pre-existing files this change does not touch), make i18n-guard (clean), make ui-guard (clean), make money-guard (clean), go tool templ generate on supercharger_stats.templ (0 updates, confirms the committed *_templ.go is not stale), and openspec validate --strict (valid). Did not run go test/make test/make check; the owner's 2026-08-27 make test + make build green report is accepted as-is per the Test-Execution-Policy and is not re-verified or claimed as mine. Verdict: approved — the one finding (R1-1) is a design.md documentation-fidelity gap with no functional or boundary impact; recommend the leader amend design.md D1 with a short revision note (mirroring how D9 was handled) in a future pass, but it does not block archiving."
+        "summary": "Reviewed the full diff 56777d2..2febed7 (commits d149b62, 2656a9b, 7cf0eb2, 7d4e80f, 2febed7) cold against the doc pack and change artifacts. (1) MODULE BOUNDARY: clean \u2014 grep confirms zero chargingdb/internal/charging/db references anywhere in internal/gateway; only files touched outside internal/gateway/ are the explicitly-granted ai/architecture.md, README.md, and the leader-owned cmd/web/main.go one-line integration; the two analytics-owned telemetry.NewSuperchargerReader(pool) calls in cmd/web/main.go (lines ~69, ~83) are untouched, only the gateway's SuperchargerReader constructor call changed to charging.NewSessionReader(pool). (2) ACCEPTANCE CRITERIA: AC1/AC2/AC3 all satisfied \u2014 buildSuperchargerStatsView's single read is ListSessionsByVehicleBetween (charging.SessionReader), no internal/telemetry import remains anywhere under internal/gateway for this path (grep clean), and README.md/ai/architecture.md/internal/gateway/AGENTS.md were all updated in this same change. (3) DESIGN COMPLIANCE: D1-D10 verified line-by-line against the shipped code \u2014 parseSuperchargerRange, monthsBackFrom, the single reverse-in-place (D3), CountryCode/BillingType removed from SuperchargerRowVM/template/catalog with a grep sweep confirming zero remaining references (D4), UTC-only today via startOfDay(time.Now().UTC()) with no browserToday/browser_tz reference (D9a), and end.After(today) rejected while end==today is accepted (D9b) \u2014 all match. buildSuperchargerChart's window-derived bucket count (D10) matches the verbatim snippet in design.md. (4) TEST-CONTRACT FIDELITY: read (not run) supercharger_test.go in full \u2014 T1-T14 are all present as named test functions with the exact expected values design.md specified (T1's 2026-03-01 default start, T6's 400/401-day boundary, T11's exact preset StartStr values and 6-bar regression assertion). T14's window is start=today-180d, end=today+1d (~181 days, confirmed well under the 400-day cap so the cap cannot be what rejects it) and asserts 400 + the empty-state placeholder text + absence of 'btn-primary'/'join-item' in the fragment body. fakeSessionReader.ListSessionsByVehicleBetween keeps the TeslaID!=nil && *TeslaID==teslaID filter (D8) verbatim. No Test Contract case was dropped, hollowed, or weakened; T12 is correctly represented as a compile-time comment, not a fake runtime test. (5) PERFORMANCE-PROFILE: exactly one ListSessionsByVehicleBetween call per buildSuperchargerStatsView invocation, bounded by the requested [start,end] window at the database (tier 1's idx_charge_sessions_vehicle_stop index, already reviewed/archived); no loop-driven per-session or per-vehicle query. (6) LEADER EDITS: superchargerStatsViewFor helper matches tasks.md 2.1's required shape and mirrors DashboardHistoryFragment's parse->400->resolve->build pattern correctly; the renderError-on-Page-400 change is functionally sound but left design.md D1 undocumented/stale (finding R1-1, minor). The two AGENTS.md doc corrections (D8: dangling pointer retarget, per-endpoint future-end split) are both accurate on inspection. (7) ANTI-GAMING: tasks.md and specs/ are untouched by any suspicious edit (git diff shows only the artifact-creation commit adding them, no post-hoc weakening); progress.json task statuses match the code; the reviewer verdict field was null before this round, confirming no self-approval. Independently ran (permitted, non-test signals): go build ./... (clean), go vet ./internal/gateway/... (clean), gofmt -l on every file this change touches (clean \u2014 the four gofmt hits in the repo are pre-existing files this change does not touch), make i18n-guard (clean), make ui-guard (clean), make money-guard (clean), go tool templ generate on supercharger_stats.templ (0 updates, confirms the committed *_templ.go is not stale), and openspec validate --strict (valid). Did not run go test/make test/make check; the owner's 2026-08-27 make test + make build green report is accepted as-is per the Test-Execution-Policy and is not re-verified or claimed as mine. Verdict: approved \u2014 the one finding (R1-1) is a design.md documentation-fidelity gap with no functional or boundary impact; recommend the leader amend design.md D1 with a short revision note (mirroring how D9 was handled) in a future pass, but it does not block archiving."
       }
     ]
   },
@@ -437,6 +437,11 @@
       "at": "2026-08-27T15:58:22Z",
       "agent": "leader",
       "event": "Review round 1: gateway-reviewer verdict APPROVED with one minor finding (R1-1). Leader triaged: ACCEPTED, no findings rejected. design.md D1 amended with a REVISED note (D9). Reviewer's review block left untouched per write-ownership; R1-1 is addressed even though its entry still reads status open."
+    },
+    {
+      "at": "2026-08-27T16:00:11Z",
+      "agent": "leader",
+      "event": "Archived as openspec/changes/archive/gateway/2026-08-27-RM30-gateway-read-supercharger-stats-from-charging (config rules.archive: grouped by domain, not flat). openspec archive synced 3 modified requirements into openspec/specs/gateway/spec.md."
     }
   ]
 }
