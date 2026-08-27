@@ -118,7 +118,7 @@ reported as blocked rather than implemented**, because it would trip the project
 owner's explicit sign-off before Apply. That conclusion was not reached — see the index
 proof below — so this change proceeds without a gate confirmation step.
 
-### D3 — Ascending order, distinct from `Reader`'s descending order (binding — dispatch)
+### D3 — Ascending order, distinct from `Reader`'s descending order, matching `telemetry`'s dated-read convention (binding — dispatch; strengthened on revision)
 
 `ListSessionsByVehicleBetween` returns rows **ascending** by `charge_stop_date_time` (ASC,
 oldest-first) — matching `idx_charge_sessions_vehicle_stop`'s own creation order (see the
@@ -134,6 +134,18 @@ carry. **This divergence is deliberate and must not be "fixed" into DESC** by a 
 reader who assumes the two `…Between` methods on the same module should match exactly;
 doing so would force a sort step on every call. The port's own doc comment states this
 explicitly (task list, Wave 2).
+
+**ASC is not a local oddity — it matches `telemetry.SuperchargerSessionsByVehicleBetween`
+exactly**, which is also oldest-first ascending by `charge_stop_date_time`, over the
+identically-shaped `idx_supercharger_sessions_vehicle_time`-adjacent access pattern for a
+bounded dated read. With D5's revision below (this port now taking the same whole-day,
+half-open-range `?start=&end=` contract telemetry's method already serves), the two
+methods are not just independently ASC — they are the **same shape twice**: same
+column filtered, same bound semantics, same sort direction. ASC is therefore the
+platform's convention for a bounded dated-window read on a stop-time-indexed table, not
+an accident of this table's particular index. A future third such read (any module,
+any table) should default to ASC/half-open/stop-time unless it has a documented reason
+not to.
 
 ### D4 — `Session` is a new type, not a widened `SessionMirror`
 
@@ -193,30 +205,68 @@ percentage from the sync path, which was the entire point of RM29 D6. The two ty
 sharing thirteen field names is an acceptable duplication cost against that guarantee,
 exactly as the dispatch instructs.
 
-### D5 — Inclusive bounds are exact instants, not calendar-day translated
+### D5 — Inclusive of the whole end calendar day, translated in Go, mirroring `telemetry.SuperchargerSessionsByVehicleBetween` exactly (revised — see revision note below)
 
-`from` and `to` are compared against `charge_stop_date_time` with a direct
-`BETWEEN @from_time AND @to_time` — both bounds inclusive, no arithmetic performed on
-either value before binding. This mirrors `ListEntriesByVehicleBetween`'s SQL shape
-(`charged_on BETWEEN @from_date AND @to_date`) at the level the dispatch asked for
-("inclusive on both bounds... exactly").
+> **Revised after Apply, before implementation.** The original version of this decision
+> assumed tier 2's caller would pass exact instants and rejected calendar-day
+> translation on that basis. The owner subsequently brought tier 2's endpoint into
+> compliance with the project's existing HTTP date-filter convention
+> (`internal/gateway/AGENTS.md` §"HTTP date-filter convention", `ai/go-conventions.md`
+> §"Read optimization") instead of the ad hoc `since`/`now` shape this design first
+> assumed — so the caller now passes `?start=YYYY-MM-DD&end=YYYY-MM-DD`, both whole UTC
+> calendar days, `end` inclusive. That makes the original premise false, and the
+> decision is replaced below rather than left standing. No other decision in this
+> document changes.
 
-**This is deliberately unlike `telemetry.SuperchargerSessionsByVehicleBetween`**, which
-takes whole calendar days and translates `end` into `end.AddDate(0, 0, 1)` in Go so the
-underlying `>= start AND < endBound` half-open range includes every instant of the end
-calendar day (`ai/go-conventions.md`'s HTTP date-filter convention: `?start=…&end=…` are
-whole UTC days). That translation exists because *that* method's declared callers pass
-calendar dates. This port's declared caller — tier 2's gateway swap — passes exact
-instants: the roadmap's own proposal prompt for tier 2 says the call becomes
-`ListSessionsByVehicleBetween(from=since, to=now)`, where `since` and `now` are Go
-`time.Time` instants, not day boundaries. A caller that does want whole-day semantics can
-still get them by passing `from` at 00:00:00 and `to` at 23:59:59.999999999 (or the start
-of the next day minus a nanosecond) — the port does no rounding on its own, so it does not
-surprise a caller who *does* pass exact instants by silently widening the window by up to
-a day. `Reader.ListEntriesByVehicleBetween` gets away with a plain `BETWEEN` because
-`charged_on` is a `DATE` column (day-granularity by construction); `charge_sessions.charge
-_stop_date_time` is `TIMESTAMPTZ` (instant-granularity), so "inclusive of both bounds"
-here means inclusive of the two literal instants supplied, not of two calendar days.
+`from` and `to` are two whole UTC calendar days, `to` inclusive. `to` is translated to a
+half-open upper bound **in Go**, exactly as `telemetry.SuperchargerSessionsByVehicleBetween`
+already does — the case this design originally cited only as a contrast is now the
+mechanism to copy:
+
+```go
+endBound := to.AddDate(0, 0, 1)
+```
+
+The SQL becomes half-open, not `BETWEEN`:
+
+```sql
+charge_stop_date_time >= @from_time AND charge_stop_date_time < @end_bound
+```
+
+**Why day-semantics is correct here now.** The caller is an HTTP endpoint bound to the
+documented `?start=&end=` contract: `end` parses to UTC midnight of the given calendar
+day, so a plain `BETWEEN @from_time AND @to_time` would silently drop every session that
+stopped later that same day (e.g. 14:00) — exactly the off-by-a-day trap the convention's
+`end`-inclusive rule exists to prevent, and exactly what a plain `BETWEEN` on a
+`TIMESTAMPTZ` bound to a midnight value produces. Translating `end` into `end+1 day` and
+comparing with `<` closes that gap deterministically: every instant of the `to` calendar
+day is included, and the boundary is expressed once, in Go, at the one place a caller's
+raw date input becomes a timestamp — not left for every caller to remember to add a day
+itself.
+
+**This makes `charging`'s and `telemetry`'s dated session reads behave identically — one
+convention across both modules, not two.** Before this revision, this port would have been
+the *second* dated-window shape in the codebase (instant-`BETWEEN`, next to telemetry's
+day-half-open); after it, both modules' `SuperchargerSessionsByVehicleBetween` and
+`ListSessionsByVehicleBetween` methods share the same column (`charge_stop_date_time`),
+the same bound semantics (whole UTC calendar days, `end` inclusive, translated to a
+half-open range in Go), and the same sort direction (D3). A future third dated-session
+read has exactly one pattern to copy, not two to choose between — the closed-vocabulary
+instance the AI-efficiency rule asks for.
+
+**`Reader.ListEntriesByVehicleBetween` is unaffected and stays a plain `BETWEEN`** — its
+`charged_on` column is `DATE` (day-granularity by construction, no midnight ambiguity to
+translate away), and it predates the HTTP date-filter convention's gateway-endpoint
+contract. This port does not retroactively change that method; the two ports' bound
+mechanics differ because their columns' granularities differ, not because one is more
+"correct" than the other.
+
+**Parameter names are unchanged: `from, to`.** Renaming them (e.g. to `start, end`) was
+considered and rejected, to keep this method's Go signature consistent with
+`ListEntriesByVehicleBetween`'s `from, to time.Time` within the same module — intra-module
+naming consistency outweighs mirroring the HTTP query-param names of one particular
+caller. The day-inclusive, half-open-translated semantics are documented in the method's
+doc comment instead of being implied by a param rename.
 
 ### D6 — `tesla_id` filtering: nullable equality, reused conversion pattern
 
@@ -336,16 +386,30 @@ schema change.
 ```sql
 -- name: ListSessionsByVehicleBetween :many
 -- Return charge sessions for a specific vehicle within an account whose
--- charge_stop_date_time falls within [@from_time, @to_time], inclusive of both bounds
--- (design.md D5 — exact instants, no calendar-day translation), ordered oldest-first
+-- charge_stop_date_time falls within the whole UTC calendar-day window
+-- [@from_time, @to_time], @to_time inclusive of its entire day, ordered oldest-first
 -- (ascending charge_stop_date_time, design.md D3 — deliberately UNLIKE
--- ListEntriesByVehicleBetween's charged_on DESC). Uses idx_charge_sessions_vehicle_stop
--- (account_id, tesla_id, charge_stop_date_time) as a single ascending index range scan:
--- account_id and tesla_id prune to the tenant and vehicle as leading equality
--- predicates, charge_stop_date_time BETWEEN walks the trailing range, and the index's
--- own ASC order satisfies ORDER BY with no separate sort step and no backward scan
--- (design.md D1). No LIMIT: the caller-supplied [from, to] window is the safety bound,
--- matching ListEntriesByVehicleBetween's precedent.
+-- ListEntriesByVehicleBetween's charged_on DESC, but matching
+-- telemetry.SuperchargerSessionsByVehicleBetween's ordering exactly).
+--
+-- @end_bound is @to_time + 1 calendar day, COMPUTED IN GO (design.md D5), exactly
+-- mirroring telemetry.SuperchargerSessionsByVehicleBetween's own end-bound translation
+-- — do NOT compute it in SQL. The predicate below is therefore half-open
+-- (>= ... AND < ...), not BETWEEN: a plain BETWEEN against @to_time's UTC-midnight
+-- value would silently drop every session that stopped later that same calendar day,
+-- which is exactly the trap the project's ?start=&end= HTTP date-filter convention
+-- (internal/gateway/AGENTS.md) exists to prevent.
+--
+-- Uses idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time)
+-- as a single ascending index range scan: account_id and tesla_id prune to the tenant
+-- and vehicle as leading equality predicates, the half-open charge_stop_date_time
+-- range walks the trailing column, and the index's own ASC order satisfies ORDER BY
+-- with no separate sort step and no backward scan (design.md D1). A half-open range is
+-- exactly as scannable as a closed BETWEEN on a B-tree index — both are a single
+-- contiguous leaf-page walk bounded on two sides; only the boundary comparison
+-- operator differs (design.md §"Index proof"). No LIMIT: the caller-supplied
+-- [from_time, end_bound) window is the safety bound, matching
+-- ListEntriesByVehicleBetween's precedent.
 --
 -- tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
 -- NULL (SQL's NULL = value is neither true nor false) — an orphaned session (VIN no
@@ -355,8 +419,25 @@ schema change.
 SELECT * FROM charge_sessions
 WHERE account_id = @account_id
   AND tesla_id = @tesla_id
-  AND charge_stop_date_time BETWEEN @from_time AND @to_time
+  AND charge_stop_date_time >= @from_time
+  AND charge_stop_date_time <  @end_bound
 ORDER BY charge_stop_date_time ASC;
+```
+
+**Go-side call shape** (mirroring `superchargerReader.SuperchargerSessionsByVehicleBetween`,
+`internal/telemetry/reader.go`, verbatim):
+
+```go
+func (r *sessionReader) ListSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Session, error) {
+	endBound := to.AddDate(0, 0, 1)
+	rows, err := r.q.ListSessionsByVehicleBetween(ctx, chargingdb.ListSessionsByVehicleBetweenParams{
+		AccountID: accountID,
+		TeslaID:   teslaIDToPgInt8(teslaID),
+		FromTime:  pgtype.Timestamptz{Time: from, Valid: true},
+		EndBound:  pgtype.Timestamptz{Time: endBound, Valid: true},
+	})
+	// ... error handling + rowToSession mapping, as any other Reader method in this file
+}
 ```
 
 ### Index proof — why `idx_charge_sessions_vehicle_stop` already serves this query
@@ -372,19 +453,29 @@ CREATE INDEX idx_charge_sessions_vehicle_stop
 |---|---|---|
 | `WHERE account_id = @account_id` | `account_id` (1st) | Leading equality predicate — prunes to the tenant, per the platform's account-id-leads convention (`ai/go-conventions.md` §"Read optimization"). |
 | `WHERE tesla_id = @tesla_id` | `tesla_id` (2nd) | Second equality predicate in the same range scan — prunes to the vehicle. |
-| `WHERE charge_stop_date_time BETWEEN @from_time AND @to_time` | `charge_stop_date_time` (3rd, trailing) | Range predicate on the trailing column — satisfied as a single contiguous index range scan following the two leading equalities. |
+| `WHERE charge_stop_date_time >= @from_time AND charge_stop_date_time < @end_bound` | `charge_stop_date_time` (3rd, trailing) | Half-open range predicate on the trailing column — satisfied as a single contiguous index range scan following the two leading equalities. |
 | `ORDER BY charge_stop_date_time ASC` | same trailing column, index built ASC | The index's natural order already matches the requested order — **no sort step**. |
 
-All four query elements map onto the three-column composite index in leading-to-trailing
-order with no gaps, which is the textbook shape for a pure index range scan with no
-filter, no sort, and no bookmark lookup beyond the index's own leaf pages (Postgres can
-serve `SELECT *` from a non-covering index via a plain index scan + heap fetch per
-matching row; no covering/INCLUDE index is warranted at this table's current 4-row
-volume — the same call RM29 tier 6's own Index Plan already made explicit for the general
-case, see that design's "Write cost accepted"). This is the query RM29 tier 6's Index Plan
-named as the exact reason this index was built ahead of any caller ("the deferred
-re-point... and any future verification-UI or charge-history listing"). **No new index,
-column, or constraint is required — D2's conclusion.**
+**A half-open range is not a weaker fit than the `BETWEEN` this proof originally assumed
+— confirmed, not assumed.** A B-tree index range scan is bounded by two comparisons
+against the leading key of the scanned range; whether those comparisons are
+`(>=, <=)` (as `BETWEEN` compiles to) or `(>=, <)` (this query's half-open form) changes
+only which comparison operator bounds the top of the scan, not the scan's shape. Postgres
+walks the same contiguous run of index leaf entries either way — it does not fall back to
+a full scan, a bitmap scan, or an in-memory filter for a half-open bound on an indexed
+column. `telemetry.SuperchargerSessionsByVehicleBetween` is the existing, already-running
+proof of exactly this: it has used `(account_id, tesla_id, charge_start_date_time DESC)`'s
+analogous three-column index with this same `>= start AND < endBound` half-open shape
+since RM28, over the same table family, with no reported degradation. The conclusion is
+unchanged from the original proof: this is still a pure index range scan with no sort
+step and no bookmark lookup beyond the index's own leaf pages (Postgres serves
+`SELECT *` from a non-covering index via a plain index scan + heap fetch per matching
+row; no covering/INCLUDE index is warranted at this table's current 4-row volume — the
+same call RM29 tier 6's own Index Plan already made explicit for the general case, see
+that design's "Write cost accepted"). This is the query RM29 tier 6's Index Plan named as
+the exact reason this index was built ahead of any caller ("the deferred re-point... and
+any future verification-UI or charge-history listing"). **No new index, column, or
+constraint is required by the half-open form either — D2's conclusion stands unchanged.**
 
 **Deliberately NOT added, restating RM29 tier 6's own Index Plan (unchanged by this
 tier):** an account-wide `(account_id, charge_stop_date_time)` index (no such read is
@@ -406,43 +497,49 @@ ids and `session_id`s in the **940001–940099** range (disjoint from RM29 tier 
 920001–920099 and from the real backfilled `734860294`).
 
 Baseline fixture **S1**, seeded via one `SessionWriter.MirrorSessions` call under account
-`acctA`:
+`acctA`, `TeslaID = 940001`, all four rows queried with **`from = 2026-08-01, to =
+2026-08-31`** (whole calendar dates — `from_time = 2026-08-01T00:00:00Z`,
+`end_bound = to.AddDate(0,0,1) = 2026-09-01T00:00:00Z`, per D5):
 
-| SessionID | TeslaID | ChargeStartDateTime | ChargeStopDateTime |
+| SessionID | ChargeStartDateTime | ChargeStopDateTime | In `[2026-08-01, 2026-08-31]`? |
 |---|---|---|---|
-| 940001 | 940001 | 2026-08-01T09:00:00Z | 2026-08-01T09:40:00Z |
-| 940002 | 940001 | 2026-08-14T23:50:00Z | 2026-08-15T00:20:00Z (spans midnight) |
-| 940003 | 940001 | 2026-08-30T10:00:00Z | 2026-08-30T10:30:00Z |
+| 940001 | 2026-08-01T00:00:00Z | 2026-08-01T00:00:00Z | **included** — stops exactly at `from_time`, the lower bound |
+| 940002 | 2026-07-31T23:50:00Z | 2026-08-01T00:10:00Z | **included** — starts *before* the window but stops within it (the straddle case D1 is about) |
+| 940003 | 2026-08-31T23:00:00Z | 2026-08-31T23:59:59.999999Z | **included** — stops at the last representable instant of the `to` calendar day |
+| 940004 | 2026-08-31T23:50:00Z | 2026-09-01T00:00:00Z | **excluded** — stops exactly at `end_bound`, the first instant of the day *after* `to`; its start is inside the window but its stop is not |
 
 Battery percentages are then written directly by SQL onto 940002 only
 (`start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified',
 start_battery_pct_est = 22, end_battery_pct_est = 78`), so the returned `Session` for that
-row is asserted to carry them and the other two rows are asserted to carry all five as
-`nil`.
+row is asserted to carry them and 940001/940003 are asserted to carry all five as `nil`.
 
-**T1. The lower bound is inclusive.** Call with
-`from = 940001`'s exact `ChargeStopDateTime` (`2026-08-01T09:40:00Z`),
-`to = 940003`'s `ChargeStopDateTime`. Expected: all three sessions returned, ascending by
-`ChargeStopDateTime`; 940001 is present (not excluded by an off-by-one).
+**T1. The lower bound is inclusive: a session stopping exactly at `from`'s midnight is
+included.** Call with `from = 2026-08-01, to = 2026-08-31`. Expected: 940001 is present in
+the result (not excluded by an off-by-one on `>= from_time`).
 
-**T2. The upper bound is inclusive.** Call with `from` before 940001, `to` = exactly
-940003's `ChargeStopDateTime`. Expected: all three returned; 940003 is present.
+**T2. A session stopping at the very last instant of the `to` calendar day is included**
+— the case that motivates translating `to` into a half-open upper bound rather than
+comparing against `to`'s own midnight value. Same call as T1. Expected: 940003 is present
+(`23:59:59.999999Z` on `2026-08-31` is `< end_bound` = `2026-09-01T00:00:00Z`).
 
-**T3. A session whose start precedes the window but whose stop falls inside it is
-included (the boundary case D1 is about).** Call with
-`from = 2026-08-15T00:00:00Z, to = 2026-08-15T23:59:59Z` (a window that does **not**
-contain 940002's start instant, `2026-08-14T23:50:00Z`, but does contain its stop
-instant, `2026-08-15T00:20:00Z`). Expected: exactly one session returned — 940002 — with
-`ChargeStartDateTime` still `2026-08-14T23:50:00Z` (the field is returned as recorded,
-even though it precedes the window).
+**T3. A session stopping exactly at the first instant of the day *after* `to` is
+excluded** — the boundary case that motivated this design's D5 revision (a plain
+`BETWEEN` against `to`'s raw midnight value would have wrongly excluded 940003 above while
+correctly excluding this one; the half-open `< end_bound` form gets both right from one
+mechanism). Same call as T1. Expected: 940004 is **absent** from the result, even though
+its `ChargeStartDateTime` (`2026-08-31T23:50:00Z`) falls inside the window — a session's
+membership is decided by its stop instant alone (D1).
 
-**T4. A session whose stop instant is outside the window is excluded**, even when its
-start instant is inside it. Call with `from = 2026-08-14T00:00:00Z, to =
-2026-08-14T23:59:59Z` (contains 940002's start but not its stop). Expected: zero sessions
-for that vehicle in that window (S1 has no session whose *stop* falls there).
+**T4. A session whose start precedes the window but whose stop falls inside it is
+included (the boundary case D1 is about).** Same call as T1 (940002 already satisfies
+this: start `2026-07-31T23:50:00Z` is before `from_time`, stop
+`2026-08-01T00:10:00Z` is inside `[from_time, end_bound)`). Expected: 940002 is present,
+with `ChargeStartDateTime` still reported as `2026-07-31T23:50:00Z` — the field is
+returned as recorded, even though it precedes the window.
 
-**T5. No match returns a non-nil empty slice.** Call for a `teslaID` with no sessions at
-all in `[from, to]`. Expected: `len(result) == 0` and `result != nil`.
+**T5. No match returns a non-nil empty slice.** Call for a `teslaID` with no sessions
+stopping inside `[from_time, end_bound)` for any `from, to`. Expected: `len(result) == 0`
+and `result != nil`.
 
 **T6. Multi-tenant isolation: another account's session with the same `tesla_id` and
 overlapping window does not leak.** Seed an identical session under account `acctB` with
@@ -466,8 +563,10 @@ fixture: 940002's `Session.StartBatteryPct == 20`, `EndBatteryPct == 80`,
 proves the point of reading `charging` instead of `telemetry` at all.
 
 **T10. Ordering is ascending by `ChargeStopDateTime`**, not insertion order and not
-descending. Asserted directly by T1/T2's three-row results: `result[0].SessionID ==
-940001`, `result[1].SessionID == 940002`, `result[2].SessionID == 940003`.
+descending. Asserted directly by T1–T4's shared three-row result (940004 excluded, D5):
+`result[0].SessionID == 940001`, `result[1].SessionID == 940002`, `result[2].SessionID ==
+940003` — in stop-time order, not `SessionID` order (which happens to coincide here; the
+fixture in a real re-run should not rely on that coincidence to catch an ordering bug).
 
 **T11. Nullable fee fields round-trip as `nil` through the reverse helpers.** Mirror a
 session with `EnergyKWh: nil, TotalCost: nil, Currency: nil, IsPaid: nil` (D6's reverse
@@ -492,11 +591,17 @@ helpers exercised directly). Expected: all four fields `nil` on the returned `Se
   roadmap's first tier (RM29 tier 6 shipped `SessionWriter` the same way, one tier ahead
   of `cmd/poller`'s wiring). The port is exercised only by its own integration tests until
   tier 2 lands; `go vet` and `make build` still cover it structurally.
-- **D5's exact-instant semantics require tier 2's implementer to compute `from`/`to`
-  correctly** (e.g. `since` and `now()`, not calendar-day-rounded values) — unlike
-  `Reader.ListEntriesByVehicleBetween`, whose `DATE` column makes day-rounding implicit.
-  This is called out explicitly in the port's doc comment (Wave 2) so tier 2 does not
-  assume day-rounding it has to add itself.
+- **`from`/`to` are whole-day semantics on a `TIMESTAMPTZ` column, which is easy to
+  misuse if a future caller passes an exact instant expecting `to` to be honored as given.**
+  `to` is always translated to `to.AddDate(0, 0, 1)` and compared with `<` (D5); a caller
+  that passes `time.Now()` as `to` intending "up to right now" instead gets "up to the end
+  of today" — a wider window than asked for, silently. This is the correct contract for
+  this port's actual caller (tier 2's `?start=&end=` endpoint, which only ever supplies
+  whole calendar days), but it means `ListSessionsByVehicleBetween` is **not** a safe
+  drop-in for a future caller that wants sub-day precision; such a caller needs its own
+  port or an explicit exception documented here, not a silent reinterpretation of `to`.
+  The port's doc comment states the whole-day contract explicitly (Wave 2) so this is
+  discoverable before a future misuse, not after.
 - **`session_writer.go` gains three reverse helpers it does not itself call** — read-only
   helpers living in a file whose existing content is entirely write-path. Accepted over a
   new `session_reader.go`-local trio to keep every `pgtype.IntN`/`Float8`/`Bool`

@@ -4,9 +4,10 @@
 
 The charging capability SHALL provide a way to retrieve every charge session record
 belonging to a specific vehicle within an account whose stop instant falls within a
-caller-specified time window, inclusive of both the window's start and end instants. The
-retrieved records SHALL be ordered by their stop instant, earliest first. A retrieval that
-matches no record SHALL return an empty result, never an absence or an error.
+caller-specified window of whole calendar days, inclusive of every instant of the
+window's first day and every instant of its last day. The retrieved records SHALL be
+ordered by their stop instant, earliest first. A retrieval that matches no record SHALL
+return an empty result, never an absence or an error.
 
 Each retrieved record SHALL carry every fact the capability holds for that session,
 including the session's charging site, energy delivered, cost, currency, payment status,
@@ -18,19 +19,23 @@ A record whose vehicle is not currently registered to the account SHALL NOT be r
 this retrieval, for any vehicle requested, even though the record itself continues to
 exist and to be retained.
 
-#### Scenario: A session stopping exactly at the window's start is included
-- **GIVEN** a charge session record for a vehicle, whose stop instant equals a given
-  instant
-- **WHEN** that vehicle's sessions are retrieved for a window whose start is exactly that
-  instant
+#### Scenario: A session stopping at the very start of the window's first day is included
+- **GIVEN** a charge session record for a vehicle, whose stop instant is the first instant
+  of a given day
+- **WHEN** that vehicle's sessions are retrieved for a window whose first day is that day
 - **THEN** the record is included in the result
 
-#### Scenario: A session stopping exactly at the window's end is included
-- **GIVEN** a charge session record for a vehicle, whose stop instant equals a given
-  instant
-- **WHEN** that vehicle's sessions are retrieved for a window whose end is exactly that
-  instant
+#### Scenario: A session stopping at the very last instant of the window's last day is included
+- **GIVEN** a charge session record for a vehicle, whose stop instant is the last instant
+  of a given day
+- **WHEN** that vehicle's sessions are retrieved for a window whose last day is that day
 - **THEN** the record is included in the result
+
+#### Scenario: A session stopping at the start of the day after the window's last day is excluded
+- **GIVEN** a charge session record for a vehicle, whose stop instant is the first instant
+  of the day immediately following a given window's last day
+- **WHEN** that vehicle's sessions are retrieved for that window
+- **THEN** the record is NOT included in the result
 
 #### Scenario: A session that starts before the window but stops within it is included
 - **GIVEN** a charge session record whose start instant falls before a given window but
@@ -41,9 +46,10 @@ exist and to be retained.
 
 #### Scenario: A session that starts within the window but stops after it is excluded
 - **GIVEN** a charge session record whose start instant falls within a given window but
-  whose stop instant falls after it
+  whose stop instant falls after the window's last day
 - **WHEN** that vehicle's sessions are retrieved for that window
 - **THEN** the record is NOT included in the result
+- **AND** this holds even when the record's start instant is itself within the window
 
 #### Scenario: No matching session returns an empty result
 - **GIVEN** a vehicle with no charge session record whose stop instant falls within a

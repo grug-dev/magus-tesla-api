@@ -24,14 +24,20 @@ charging description already covers `charge_sessions` accurately and needs no ed
 
 - [ ] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
   `-- name: ListSessionsByVehicleBetween :many` exactly as specified in design.md
-  §"The query", including its full doc comment (the index-column-mapping rationale, the
+  §"The query" (revised), including its full doc comment. The query is a **half-open
+  range**, not `BETWEEN`: `charge_stop_date_time >= @from_time AND charge_stop_date_time
+  < @end_bound`, with `@end_bound` bound by the caller to `to.AddDate(0, 0, 1)` computed
+  in Go (design.md **D5** — do not compute the +1-day translation in SQL). The
+  index-column-mapping rationale, the half-open-vs-`BETWEEN` scan-shape note, the
   `tesla_id = @tesla_id` nullable-exclusion note, and the D1/D3/D5/D6 cross-references are
-  part of the deliverable, not decoration — do not shorten them). Do **not** add or edit
+  part of the deliverable, not decoration — do not shorten them. Do **not** add or edit
   any migration file. Run `make sqlc` and report the result — this generates
-  `chargingdb.ListSessionsByVehicleBetweenParams` and the `ListSessionsByVehicleBetween`
-  method against the *existing* `ChargeSession` model (already generated from the table's
-  schema by RM29 tier 6, before this tier's query even existed — confirm the model
-  reappears unchanged in the diff, since no migration changed).
+  `chargingdb.ListSessionsByVehicleBetweenParams` (fields `AccountID`, `TeslaID`,
+  `FromTime`, `EndBound` — **not** `ToTime`, since the query never binds `to` itself) and
+  the `ListSessionsByVehicleBetween` method against the *existing* `ChargeSession` model
+  (already generated from the table's schema by RM29 tier 6, before this tier's query even
+  existed — confirm the model reappears unchanged in the diff, since no migration
+  changed).
   `depends_on`: — · `parallel_ok`: no (blocks everything)
 
 ---
@@ -42,12 +48,15 @@ charging description already covers `charge_sessions` accurately and needs no ed
   `Session` domain type (19 fields, exactly as specified in design.md **D4**, including
   its doc comment explaining why it is a new type and not `SessionMirror` widened), the
   `SessionReader` interface (one method, `ListSessionsByVehicleBetween`, with a doc
-  comment that states plainly: inclusive-both-bounds on exact instants (design.md D5, not
-  calendar-day rounded), ordered **ascending** by `ChargeStopDateTime` — call out
-  explicitly that this differs from `Reader.ListEntriesByVehicleBetween`'s `DESC` and
-  must not be "corrected" to match it (design.md **D3**), no limit parameter, non-nil
-  empty slice on no match, and that a session whose `tesla_id` is absent is never returned
-  by any vehicle id (design.md **D6**)), and the forward-declaring constructor
+  comment that states plainly: `from` and `to` are **whole UTC calendar days**, `to`
+  **inclusive of its entire day** — mirroring `telemetry.SuperchargerSessionsByVehicleBetween`'s
+  `end.AddDate(0,0,1)`/half-open contract exactly, **not** `ListEntriesByVehicleBetween`'s
+  exact-value `BETWEEN` (design.md **D5**, revised) — ordered **ascending** by
+  `ChargeStopDateTime`, matching `telemetry`'s own ordering (design.md **D3**, strengthened) —
+  call out explicitly that the ASC-vs-`Reader`'s-DESC divergence is deliberate and must
+  not be "corrected" to match `Reader` — no limit parameter, non-nil empty slice on no
+  match, and that a session whose `tesla_id` is absent is never returned by any vehicle id
+  (design.md **D6**)), and the forward-declaring constructor
   `func NewSessionReader(pool *pgxpool.Pool) SessionReader`. Follow this file's existing
   conventions: no `pgtype` anywhere in it, `*T` for optional values, doc comments on every
   exported symbol. Does not compile until 2.2 supplies the constructor's body.
@@ -57,10 +66,13 @@ charging description already covers `charge_sessions` accurately and needs no ed
   file) — implement the port, mirroring `session_writer.go`'s shape exactly (design.md
   **D7**): an unexported `sessionReader` struct over `*pgxpool.Pool` + `*chargingdb.Queries`,
   an unexported `newSessionReader`, the compile-time
-  `var _ SessionReader = (*sessionReader)(nil)` assertion, `ListSessionsByVehicleBetween`
-  building `chargingdb.ListSessionsByVehicleBetweenParams` (mapping `teslaID int64` via
-  the new `teslaIDToPgInt8` helper — design.md **D6** — and `from`/`to` via
-  `pgtype.Timestamptz{Time: …, Valid: true}`), and a `rowToSession` mapper converting each
+  `var _ SessionReader = (*sessionReader)(nil)` assertion, and `ListSessionsByVehicleBetween`
+  computing `endBound := to.AddDate(0, 0, 1)` **in Go** (design.md D5 — do not push this
+  arithmetic into SQL) before building
+  `chargingdb.ListSessionsByVehicleBetweenParams{AccountID, TeslaID: teslaIDToPgInt8(teslaID),
+  FromTime: pgtype.Timestamptz{Time: from, Valid: true}, EndBound:
+  pgtype.Timestamptz{Time: endBound, Valid: true}}` (mapping `teslaID int64` via the new
+  `teslaIDToPgInt8` helper — design.md **D6**), and a `rowToSession` mapper converting each
   `chargingdb.ChargeSession` row to `Session`. Reuse `service.go`'s existing `pgTextToPtr`
   and `pgInt2ToIntPtr` for `Currency` and the four `SMALLINT` percentage columns — do not
   duplicate them locally.
@@ -85,9 +97,11 @@ charging description already covers `charge_sessions` accurately and needs no ed
 
 - [ ] **3.1** **[module: charging worker]** `internal/charging/db_session_reader_integration_test.go`
   (new file, `package charging_test`) — implement Test Contract **T1–T11** exactly as
-  design.md states them, with those expected values. Seed the baseline fixture **S1**
-  (three sessions, `session_id`s **940001–940003**) via `SessionWriter.MirrorSessions`,
-  then write the battery percentages onto 940002 directly by SQL (mirroring
+  design.md states them (revised: T1–T4 are the day-boundary/half-open cases), with those
+  expected values. Seed the baseline fixture **S1** (four sessions, `session_id`s
+  **940001–940004**, one of them — 940004 — deliberately outside the `[from, to)` window)
+  via `SessionWriter.MirrorSessions`, then write the battery percentages onto 940002
+  directly by SQL (mirroring
   `db_session_integration_test.go`'s existing pattern of direct-SQL writes for the
   human-owned columns). Add whatever small helpers this file needs
   (e.g. `fetchSessionsByVehicleBetween` wrapping the port call) as this file's own test
