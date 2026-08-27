@@ -189,3 +189,90 @@ type SessionWriter interface {
 func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
 	return newSessionWriter(pool)
 }
+
+// Session is the full domain representation of one charge_sessions row: identity, the
+// session's time window, the session facts internal/telemetry collects, and the five
+// charging-owned battery-percentage verification/estimate columns. Read-only counterpart
+// to SessionMirror — NOT built by adding fields to it.
+//
+// SessionMirror stays deliberately percentage-free (RM29 design.md D6): a nightly sync
+// that took a Session instead of a SessionMirror would have a field to bind a
+// human-verified percentage to, defeating the compile-time protection that is RM29 tier
+// 6's central invariant. Session and SessionMirror are separate types for exactly that
+// reason, even though Session's first thirteen fields duplicate SessionMirror's eleven
+// (RM30-charging-add-session-read-port design.md D4).
+//
+// Nineteen fields, one per charge_sessions column. Field names/types follow this
+// module's existing conventions exactly: *T for every nullable column (matching Entry's
+// pattern), time.Time for every TIMESTAMPTZ, int64/*int64 for BIGINT/nullable BIGINT,
+// *int for nullable SMALLINT (matching Entry.StartBatteryPct's identical type), *string
+// for nullable TEXT. No pgtype anywhere in this type (ai/architecture.md §2, RM29 D6's
+// own rule applied to the read side).
+type Session struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	VIN       string
+	TeslaID   *int64 // nil when the VIN is not a currently-registered vehicle
+	SessionID int64
+
+	ChargeStartDateTime time.Time
+	ChargeStopDateTime  time.Time
+
+	SiteLocationName string
+	EnergyKWh        *float64 // nil when the session had no kWh fee
+	TotalCost        *float64 // nil when the session had no fees
+	Currency         *string  // nil when the session had no fees
+	IsPaid           *bool    // nil when the session had no fees
+
+	// Charging-owned verification channel (RM29 design.md D1/D5/D6). Never written by
+	// the nightly sync — SessionWriter has no field for any of these five.
+	StartBatteryPct    *int    // 0-100 inclusive; nil = nothing recorded
+	EndBatteryPct      *int    // 0-100 inclusive; nil = nothing recorded
+	BatteryPctSource   *string // "user_verified" or "polled"; nil iff both percentages are nil
+	StartBatteryPctEst *int    // frozen snapshot at verification time; nil = nothing recorded
+	EndBatteryPctEst   *int    // frozen snapshot at verification time; nil = nothing recorded
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// SessionReader is the read port over charge_sessions (RM30-charging-add-session-read-port
+// design.md D3/D5/D6/D7). There is exactly one method, shaped for a bounded, per-vehicle
+// window read — the same access pattern Reader.ListEntriesByVehicleBetween already
+// established for manual_charge_entries, but NOT an identical contract; see below for
+// where it diverges and why.
+type SessionReader interface {
+	// ListSessionsByVehicleBetween returns charge sessions for a specific vehicle
+	// within an account whose ChargeStopDateTime falls within the window [from, to].
+	//
+	// from and to are whole UTC calendar days, to inclusive of its entire day —
+	// mirroring telemetry.SuperchargerSessionsByVehicleBetween's end.AddDate(0,0,1)/
+	// half-open contract exactly (design.md D5, revised), NOT
+	// ListEntriesByVehicleBetween's exact-value BETWEEN semantics: to is translated to
+	// a half-open upper bound (to+1 calendar day) before the database sees it, so every
+	// session that stopped later on the to calendar day is still included.
+	//
+	// Results are ordered ASCENDING by ChargeStopDateTime (oldest first), matching
+	// telemetry's own ordering for the identical access pattern (design.md D3,
+	// strengthened). This is DELIBERATELY THE OPPOSITE of Reader's DESC order — the two
+	// `…Between` methods on this module do not share a sort-direction convention,
+	// because sort direction here is a property of each table's own index, not a
+	// port-family rule. Do NOT "fix" this to DESC to match Reader; doing so would force
+	// a sort step on every call.
+	//
+	// No limit parameter — the [from, to] window itself bounds the result. Always
+	// returns a non-nil empty slice when no rows match.
+	//
+	// A session whose TeslaID is nil (the VIN is not a currently-registered vehicle) is
+	// NEVER returned by this method for any teslaID — SQL's NULL = value is neither
+	// true nor false, so an orphaned session is definitionally outside a
+	// vehicle-scoped read (design.md D6).
+	ListSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, from, to time.Time) ([]Session, error)
+}
+
+// NewSessionReader constructs a SessionReader backed by the given pgxpool. The
+// implementation lives in session_reader.go where the chargingdb generated package is
+// used. This is the only publicly exported constructor for the SessionReader port.
+func NewSessionReader(pool *pgxpool.Pool) SessionReader {
+	return newSessionReader(pool)
+}

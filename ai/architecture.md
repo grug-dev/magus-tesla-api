@@ -243,6 +243,15 @@ months of raw snapshots and aggregating on the fly).
    are `INSERT`-only (no UPDATE/DELETE). Writes are cheap; reads are indexed.
    Convention: historical event tables are append-only.
 
+5. **`?start=&end=` date-filtered gateway reads, never `?days=N`** — every gateway HTTP
+   endpoint that filters by date bounds the read on both ends with absolute
+   `?start=YYYY-MM-DD&end=YYYY-MM-DD` params, rejecting a malformed or over-wide window with
+   HTTP 400 before the read port is ever called. Full contract (parse helper, per-endpoint
+   default/cap set by the source table's row density, 400-on-malformed, no-selector-on-400):
+   [`internal/gateway/AGENTS.md`](../internal/gateway/AGENTS.md) §"HTTP date-filter
+   convention". Convention: a new date-filtered endpoint follows that contract rather than
+   inventing a `days` count.
+
 ### What this means for any new feature
 
 Before adding a new query, table, or module interface, ask:

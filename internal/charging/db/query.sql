@@ -177,3 +177,42 @@ ON CONFLICT (account_id, session_id) DO UPDATE SET
     is_paid    = EXCLUDED.is_paid,
     tesla_id   = EXCLUDED.tesla_id,
     updated_at = now();
+
+-- name: ListSessionsByVehicleBetween :many
+-- Return charge sessions for a specific vehicle within an account whose
+-- charge_stop_date_time falls within the whole UTC calendar-day window
+-- [@from_time, @to_time], @to_time inclusive of its entire day, ordered oldest-first
+-- (ascending charge_stop_date_time, design.md D3 — deliberately UNLIKE
+-- ListEntriesByVehicleBetween's charged_on DESC, but matching
+-- telemetry.SuperchargerSessionsByVehicleBetween's ordering exactly).
+--
+-- @end_bound is @to_time + 1 calendar day, COMPUTED IN GO (design.md D5), exactly
+-- mirroring telemetry.SuperchargerSessionsByVehicleBetween's own end-bound translation
+-- — do NOT compute it in SQL. The predicate below is therefore half-open
+-- (>= ... AND < ...), not BETWEEN: a plain BETWEEN against @to_time's UTC-midnight
+-- value would silently drop every session that stopped later that same calendar day,
+-- which is exactly the trap the project's ?start=&end= HTTP date-filter convention
+-- (internal/gateway/AGENTS.md) exists to prevent.
+--
+-- Uses idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time)
+-- as a single ascending index range scan: account_id and tesla_id prune to the tenant
+-- and vehicle as leading equality predicates, the half-open charge_stop_date_time
+-- range walks the trailing column, and the index's own ASC order satisfies ORDER BY
+-- with no separate sort step and no backward scan (design.md D1). A half-open range is
+-- exactly as scannable as a closed BETWEEN on a B-tree index — both are a single
+-- contiguous leaf-page walk bounded on two sides; only the boundary comparison
+-- operator differs (design.md §"Index proof"). No LIMIT: the caller-supplied
+-- [from_time, end_bound) window is the safety bound, matching
+-- ListEntriesByVehicleBetween's precedent.
+--
+-- tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
+-- NULL (SQL's NULL = value is neither true nor false) — an orphaned session (VIN no
+-- longer a currently-registered vehicle) is correctly outside a teslaID-keyed read
+-- (design.md D6). This is the same behavior telemetry's own
+-- SuperchargerSessionsByVehicleBetween already has over the identical column shape.
+SELECT * FROM charge_sessions
+WHERE account_id = @account_id
+  AND tesla_id = @tesla_id
+  AND charge_stop_date_time >= @from_time
+  AND charge_stop_date_time <  @end_bound
+ORDER BY charge_stop_date_time ASC;

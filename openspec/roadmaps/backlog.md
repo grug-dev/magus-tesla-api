@@ -528,6 +528,46 @@ stopped moving) and the owner is ready for another database design gate. It is e
 call at the database design gate, 2026-08-22.
 
 
+## 17. gateway / telemetry — Decide whether `gateway` should read `telemetry.Reader` / `Snapshot` at all
+
+### PROPOSAL
+
+MAG-30 asked a broader question than it fixed: *"am I right that `gateway` should not read
+any data from the `telemetry` module?"* RM30 moved the supercharger-stats path off
+`telemetry` (charge sessions are owned by `charging`), but **two other `gateway` reads of
+`telemetry` remain**, and both are through the public port, not the DB:
+
+- `internal/gateway/handlers/handlers.go` — the dashboard vehicle tiles read
+  `telemetry.Reader.LatestSnapshotsBy` and map `telemetry.Snapshot` (battery %, range,
+  status) into the vehicle cards.
+- `internal/gateway/handlers/history.go` — `buildBatteryChart` reads
+  `telemetry.Reader.SnapshotsByVehicleBetween` and buckets `telemetry.Snapshot` per day.
+
+Roughly 24 `telemetry.Reader` and 64 `telemetry.Snapshot` references live in `gateway`.
+
+**The RM30 position was that these are correct and should stay.** The principle that
+actually explains MAG-30 is *"the gateway reads the module that OWNS the domain, through
+its port, never its DB"* — not *"gateway may never import telemetry"*. `telemetry` owns
+live vehicle snapshots; no other module does. Supercharger stats were misfiled because
+`charging` owns charge sessions, not because `telemetry` is off-limits.
+
+Picking this up therefore means answering a **design** question, not doing a mechanical
+move: is there a read model that should own dashboard/history snapshot presentation
+(e.g. an `analytics` projection), or is `telemetry.Reader` the right owner permanently? If
+the answer is "it stays", the outcome is a one-paragraph rule in
+`internal/gateway/AGENTS.md` and this item closes with no code change.
+
+**TRIGGER — pick this up when** the owner wants the boundary rule settled in writing, or
+when a third consumer of `telemetry.Snapshot` appears in `gateway` and the ad-hoc mapping
+starts to duplicate.
+
+### ORIGIN
+
+Linear MAG-30 acceptance criterion 2, and the RM30 Step 2 interview (2026-08-27) — the
+owner asked for a follow-up ticket rather than folding the work into RM30.
+
+
+
 # BRAINSTORMING
 
 

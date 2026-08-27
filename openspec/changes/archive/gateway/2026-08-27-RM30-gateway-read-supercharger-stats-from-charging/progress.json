@@ -1,0 +1,447 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM30-gateway-read-supercharger-stats-from-charging",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM30-supercharger-stats-read-from-charging.md",
+  "status": "archived",
+  "created_at": "2026-08-27T14:54:51Z",
+  "updated_at": "2026-08-27T16:00:11Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM30-MAG-30-supercharger-stats-read-from-charging",
+    "base": "main",
+    "ticket": "MAG-30",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-30/supercharger-stats-reads"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "4.1",
+      "4.2",
+      "4.3"
+    ],
+    "awaiting-user-verification": []
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "gateway.go \u2014 Deps.SuperchargerReader type swap",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T14:55:09Z",
+      "completed_at": "2026-08-27T14:57:01Z",
+      "duration_seconds": 112,
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 0.9,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-1.4 (batched serial worker)"
+      },
+      "notes": "Deps.SuperchargerReader type telemetry.SuperchargerReader -> charging.SessionReader; doc comment now names charging.NewSessionReader. Name unchanged (D2). telemetry import kept for TelemetryReader."
+    },
+    {
+      "id": "1.2",
+      "title": "handlers.go \u2014 Deps/Handler type swap",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T14:55:09Z",
+      "completed_at": "2026-08-27T14:57:01Z",
+      "duration_seconds": 112,
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 0.9,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-1.4 (batched serial worker)"
+      },
+      "notes": "Same type swap on handlers.Deps.SuperchargerReader and Handler.superchargerReader; Deps field doc comment updated. telemetry import kept for TelemetryReader/Snapshot."
+    },
+    {
+      "id": "1.3",
+      "title": "supercharger_vm.go \u2014 drop CountryCode/BillingType",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T14:55:09Z",
+      "completed_at": "2026-08-27T14:57:01Z",
+      "duration_seconds": 112,
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 0.9,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-1.4 (batched serial worker)"
+      },
+      "notes": "SuperchargerStatsView: dropped Months int, Presets []int -> []RangePreset (same package, history_vm.go). SuperchargerRowVM: dropped CountryCode/BillingType (D4). Doc comments updated."
+    },
+    {
+      "id": "1.4",
+      "title": "catalog.go \u2014 remove country/billing keys (ES+EN)",
+      "depends_on": [],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T14:55:09Z",
+      "completed_at": "2026-08-27T14:57:01Z",
+      "duration_seconds": 112,
+      "budget": {
+        "five_hour_pct_start": 8,
+        "five_hour_pct_end": 11,
+        "cost_usd_delta": 0.9,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-1.4 (batched serial worker)"
+      },
+      "notes": "Removed KeySuperchargerCountry/KeySuperchargerBillingType constants and both ES and EN map entries. KeySuperchargerMonthsPreset untouched."
+    },
+    {
+      "id": "2.1",
+      "title": "supercharger.go \u2014 rewrite onto SessionReader + parseSuperchargerRange",
+      "depends_on": [
+        "1.2",
+        "1.3"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:35:17Z",
+      "completed_at": "2026-08-27T15:36:15Z",
+      "duration_seconds": 58,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 23,
+        "cost_usd_delta": 2.37,
+        "approx": true,
+        "note": "one shared wave delta across 2.1-2.3 (batched serial worker); includes the leader's superchargerStatsViewFor fix"
+      },
+      "notes": "Full rewrite onto charging.SessionReader. parseSuperchargerRange (D1) + monthsBackFrom (D5) verbatim; end.After(today) rejected (D9b); UTC today (D9a); reverse-once (D3); window-derived chart buckets (D10); rows drop CountryCode/BillingType (D4)."
+    },
+    {
+      "id": "2.2",
+      "title": "supercharger_stats.templ \u2014 drop columns, start/end preset hrefs",
+      "depends_on": [
+        "1.3",
+        "1.4"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:36:20Z",
+      "completed_at": "2026-08-27T15:36:45Z",
+      "duration_seconds": 25,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 23,
+        "cost_usd_delta": 2.37,
+        "approx": true,
+        "note": "one shared wave delta across 2.1-2.3 (batched serial worker); includes the leader's superchargerStatsViewFor fix"
+      },
+      "notes": "superchargerMonthsSelector takes []RangePreset and emits ?start=&end= hrefs with pre-formatted p.Label; Country/Billing columns dropped; selector conditional on v.Presets != nil."
+    },
+    {
+      "id": "2.3",
+      "title": "make templ regeneration + build check",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:36:50Z",
+      "completed_at": "2026-08-27T15:36:59Z",
+      "duration_seconds": 9,
+      "budget": {
+        "five_hour_pct_start": 16,
+        "five_hour_pct_end": 23,
+        "cost_usd_delta": 2.37,
+        "approx": true,
+        "note": "one shared wave delta across 2.1-2.3 (batched serial worker); includes the leader's superchargerStatsViewFor fix"
+      },
+      "notes": "make templ regenerated supercharger_stats_templ.go; go build ./internal/... and go build ./... both clean; gofmt clean on edited files. go vet fails only on supercharger_test.go (old API) \u2014 task 3.1's job, expected."
+    },
+    {
+      "id": "3.1",
+      "title": "supercharger_test.go \u2014 rewrite to Test Contract T1-T14 + grep sweep",
+      "depends_on": [
+        "2.3"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:38:58Z",
+      "completed_at": "2026-08-27T15:45:35Z",
+      "duration_seconds": 397,
+      "budget": {
+        "five_hour_pct_start": 23,
+        "five_hour_pct_end": 36,
+        "cost_usd_delta": 3.01,
+        "approx": true,
+        "note": "single-task wave; includes the leader's verification pass"
+      },
+      "notes": "Full rewrite: fakeSessionReader with the D8 TeslaID-nil filter, T1-T14 implemented (T12 as a compile-time comment), Tiles/Rows/Chart fixtures on charging.Session, every ?months=N URL replaced by a computed ?start=&end=. 34 test funcs. Written, not executed."
+    },
+    {
+      "id": "4.1",
+      "title": "gateway AGENTS.md \u2014 per-endpoint cap wording",
+      "depends_on": [
+        "2.3"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:46:19Z",
+      "completed_at": "2026-08-27T15:49:16Z",
+      "duration_seconds": 177,
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "cost_usd_delta": 2.02,
+        "approx": true,
+        "note": "one shared wave delta across 4.1-4.3 (batched serial worker); includes the leader's two doc corrections"
+      },
+      "notes": "Deps.SuperchargerReader bullet rewritten (charging.SessionReader, ListSessionsByVehicleBetween, window-bounded not row-capped); date-filter cap documented as per-endpoint/density-based with both constants; load-bearing bullet preserved. Last two stale refs removed."
+    },
+    {
+      "id": "4.2",
+      "title": "ai/architecture.md \u2014 date-filter pattern pointer (leader-owned)",
+      "depends_on": [
+        "4.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:46:19Z",
+      "completed_at": "2026-08-27T15:49:16Z",
+      "duration_seconds": 177,
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "cost_usd_delta": 2.02,
+        "approx": true,
+        "note": "one shared wave delta across 4.1-4.3 (batched serial worker); includes the leader's two doc corrections"
+      },
+      "notes": "Added pattern entry 5 to ai/architecture.md \u00a7Concrete patterns already in use \u2014 a pointer to the gateway AGENTS.md contract, not a restatement, matching the surrounding entry format."
+    },
+    {
+      "id": "4.3",
+      "title": "root README.md \u2014 document convention + caps (leader-owned)",
+      "depends_on": [
+        "4.1"
+      ],
+      "status": "done",
+      "agent": "gateway",
+      "model": "sonnet",
+      "started_at": "2026-08-27T15:46:19Z",
+      "completed_at": "2026-08-27T15:49:16Z",
+      "duration_seconds": 177,
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 43,
+        "cost_usd_delta": 2.02,
+        "approx": true,
+        "note": "one shared wave delta across 4.1-4.3 (batched serial worker); includes the leader's two doc corrections"
+      },
+      "notes": "Added a short ?start=&end= subsection under README.md \u00a7Web UI (gateway) naming both per-endpoint caps (history 90d, Supercharger Stats 400d) and pointing at the gateway AGENTS.md contract."
+    }
+  ],
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-27T14:54:51Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "restored the end.After(today) 400 rule the worker's design.md D9 had dropped, at UTC today rather than history's browser-yesterday",
+      "why": "AGENTS.md states the 400 rules as a closed set and the roadmap said 'same 400 rules'; D10 derives chart buckets from the window, so a far-future end inside the 400-day cap would render empty future bars.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-27T14:54:51Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "kept the worker's UTC 'today' frame (no browser_tz cookie, no browserToday) for this endpoint",
+      "why": "Avoids adding timezone coupling the roadmap never asked for; matches the old clampSuperchargerMonths path. Cost: this endpoint's future-date boundary sits one day from history's.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-27T14:54:51Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "applied the D9 revision as leader edits instead of re-dispatching the worker",
+      "why": "The worker died on a session limit before editing; a cold worker would re-read the full doc pack (~300k tokens) to make four targeted artifact edits.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-27T14:54:51Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "accepted the worker's D5 (month-aligned default/presets), D10 (window-derived bucket count) and its skipping of a separate grill-me session",
+      "why": "D5/D10 preserve exact prior chart-bucket behaviour; the roadmap's owner-approved Decisions satisfy the grill-me proposal rule, as in tier 1.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-27T15:38:48Z",
+      "scope": "wave-2",
+      "made_by": "leader",
+      "decision": "refactored the worker's duplicated Page/Fragment branch logic into the superchargerStatsViewFor helper tasks.md 2.1 specified, and switched the Page 400 path from render to renderError",
+      "why": "Worker inlined ~30 identical lines in both handlers; tasks.md required the helper. renderError sets errorFragmentHeader, which render omits, so htmx would have dropped the 400 body.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-27T15:38:48Z",
+      "scope": "wave-2",
+      "made_by": "leader",
+      "decision": "deferred the Step 5.7 suite ask to the end of wave 3 rather than asking now",
+      "why": "supercharger_test.go still targets the old API, so go test ./internal/gateway/... cannot compile until task 3.1 rewrites it. Asking now would return a guaranteed compile failure.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-27T15:46:19Z",
+      "scope": "wave-4",
+      "made_by": "leader",
+      "decision": "granted the gateway worker the two LEADER-OWNED paths (ai/architecture.md, README.md) and batched 4.1-4.3 into one dispatch instead of splitting worker/leader edits",
+      "why": "tasks.md marks them 'explicitly-granted, the leader grants this path at Apply time'; 4.2/4.3 are pointers to the 4.1 section, so one agent writing all three keeps them consistent and reads the doc pack once.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-27T15:49:54Z",
+      "scope": "wave-4",
+      "made_by": "leader",
+      "decision": "corrected two things in the worker's AGENTS.md edit: a dangling 'see GET /ui/supercharger-stats below' pointer, and the flattened future-end rule",
+      "why": "There is no supercharger section below. And the rule is per-endpoint: history rejects after browser-yesterday, this endpoint accepts end == UTC today \u2014 stating it flat would mislead the next endpoint author.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-27T15:58:22Z",
+      "scope": "review:R1-1",
+      "made_by": "leader",
+      "decision": "ACCEPTED review finding R1-1 and amended design.md D1 with a REVISED note recording the render -> renderError reversal",
+      "why": "D9 got a revision note when it changed; D1 did not. Leaving the stale text would tell the next reader the Page 400 path uses plain render, contradicting the shipped code.",
+      "covered_by": null
+    }
+  ],
+  "review": {
+    "brief": "Review the FULL diff of this change on ft/RM30-MAG-30-supercharger-stats-read-from-charging (commits 2656a9b, 7cf0eb2, 7d4e80f, 2febed7) against its artifacts. Validate: (1) MODULE BOUNDARY \u2014 nothing outside internal/gateway/ except the granted ai/architecture.md, README.md and the leader's cmd/web/main.go integration; gateway reaches charging ONLY through charging.SessionReader, never chargingdb; the two analytics-owned telemetry.NewSuperchargerReader calls in cmd/web/main.go are correctly untouched (roadmap D2). (2) ACCEPTANCE CRITERIA \u2014 /supercharger-stats now reads charge_sessions via the charging module (MAG-30 AC1); gateway no longer reads telemetry for this path (AC2); docs updated (AC3). (3) DESIGN COMPLIANCE \u2014 every design.md decision D1-D10, especially D3 (single reverse), D4 (CountryCode/BillingType gone everywhere), D9a (plain UTC today, no browserToday) and D9b (end.After(today) -> 400, end == today accepted). (4) TEST-CONTRACT FIDELITY \u2014 supercharger_test.go must assert the T1-T14 expectations design.md authored BEFORE implementation, not whatever the code happens to do. Check specifically that T14's ~180-day window means the 400-day cap cannot be what rejects it, and that fakeSessionReader keeps the D8 TeslaID-nil exclusion. Judge tests by READING them; do not run them. (5) PERFORMANCE-PROFILE \u2014 one bounded read per render, no N+1, no unbounded scan. (6) LEADER EDITS \u2014 four leader interventions are in the diff and get the same scrutiny as worker code, not a pass: D5 (superchargerStatsViewFor helper + renderError on the Page 400 path), and D8 (the two AGENTS.md doc corrections). (7) ANTI-GAMING \u2014 no acceptance criterion weakened, no Test Contract case dropped or hollowed, no self-approved status. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. SIGNAL PROVENANCE: assistant-run = go build ./..., go vet ./internal/gateway/..., gofmt -l, make i18n-guard, make ui-guard (all clean). USER-REPORTED = `make test` and `make build` green, reported by the owner on 2026-08-27. Do not re-run the suite and do not claim it as your own.",
+    "agent": "gateway-reviewer",
+    "status": "reviewer-approved",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-27T16:30:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "internal/gateway/AGENTS.md",
+          "ai/agentic-workflow.md",
+          "openspec/changes/RM30-gateway-read-supercharger-stats-from-charging/proposal.md",
+          "openspec/changes/RM30-gateway-read-supercharger-stats-from-charging/design.md",
+          "openspec/changes/RM30-gateway-read-supercharger-stats-from-charging/tasks.md",
+          "openspec/changes/RM30-gateway-read-supercharger-stats-from-charging/specs/gateway/spec.md"
+        ],
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/supercharger.go:154 \u2014 SuperchargerStatsPage's 400 path now calls renderError, which sets HX-Error-Fragment: true. design.md D1 (lines ~163-166) explicitly states 'SuperchargerStatsPage uses plain render at the same 400 status, because it is a full top-level page navigation, not an htmx swap target.' The leader's wave-2 decision D5 (progress.json decisions[]) consciously overrode this and switched Page's 400 path to renderError, reasoning that render omits the header. That reasoning is actually the stronger read of the binding project rule in ai/htmx-go-integration.md ('a non-2xx error fragment MUST be rendered with renderError ... if the non-2xx body is a component, it goes through renderError') and is functionally harmless here (the nav link to /supercharger-stats is a plain <a href>, not htmx-boosted, so the extra header is inert on a normal browser navigation \u2014 confirmed no HX-Error-Fragment/renderError assertion exists in supercharger_test.go for the Page route, and no other renderError call in the codebase targets a full-page route, so this is a genuinely new pattern). The gap is that design.md D1 was never amended to reflect this reversal \u2014 unlike D9, which got an explicit 'revised \u2014 leader triage' rewrite when the leader changed course. A future reader of design.md alone would believe the code still uses plain render on the Page path. RE-VERIFIED round 1 follow-up: leader amended design.md D1 in place with a 'REVISED at Apply (wave 2, decisions D5; confirmed by review round 1 finding R1-1)' note (design.md lines ~168-177) that keeps the original paragraph, states the actual shipped behavior (renderError, not render), and gives the corrected rationale \u2014 the binding ai/htmx-go-integration.md rule is keyed on what the response body IS (a renderable component), not on who consumes it, so a component-body 400 goes through renderError regardless of route; renderError is render plus one header, byte-identical for a plain browser GET today, and keeps the Page/Fragment entry points symmetric against a future htmx-driven navigation to this route. This fully resolves the documentation-fidelity gap the finding raised \u2014 design.md and the shipped code now agree, with the same kind of explicit revision marker D9 already used. No code, template, or test file changed; verified via re-read of design.md only, no re-run of build/vet/guards was needed since nothing they cover changed.",
+            "status": "fixed"
+          }
+        ],
+        "summary": "Reviewed the full diff 56777d2..2febed7 (commits d149b62, 2656a9b, 7cf0eb2, 7d4e80f, 2febed7) cold against the doc pack and change artifacts. (1) MODULE BOUNDARY: clean \u2014 grep confirms zero chargingdb/internal/charging/db references anywhere in internal/gateway; only files touched outside internal/gateway/ are the explicitly-granted ai/architecture.md, README.md, and the leader-owned cmd/web/main.go one-line integration; the two analytics-owned telemetry.NewSuperchargerReader(pool) calls in cmd/web/main.go (lines ~69, ~83) are untouched, only the gateway's SuperchargerReader constructor call changed to charging.NewSessionReader(pool). (2) ACCEPTANCE CRITERIA: AC1/AC2/AC3 all satisfied \u2014 buildSuperchargerStatsView's single read is ListSessionsByVehicleBetween (charging.SessionReader), no internal/telemetry import remains anywhere under internal/gateway for this path (grep clean), and README.md/ai/architecture.md/internal/gateway/AGENTS.md were all updated in this same change. (3) DESIGN COMPLIANCE: D1-D10 verified line-by-line against the shipped code \u2014 parseSuperchargerRange, monthsBackFrom, the single reverse-in-place (D3), CountryCode/BillingType removed from SuperchargerRowVM/template/catalog with a grep sweep confirming zero remaining references (D4), UTC-only today via startOfDay(time.Now().UTC()) with no browserToday/browser_tz reference (D9a), and end.After(today) rejected while end==today is accepted (D9b) \u2014 all match. buildSuperchargerChart's window-derived bucket count (D10) matches the verbatim snippet in design.md. (4) TEST-CONTRACT FIDELITY: read (not run) supercharger_test.go in full \u2014 T1-T14 are all present as named test functions with the exact expected values design.md specified (T1's 2026-03-01 default start, T6's 400/401-day boundary, T11's exact preset StartStr values and 6-bar regression assertion). T14's window is start=today-180d, end=today+1d (~181 days, confirmed well under the 400-day cap so the cap cannot be what rejects it) and asserts 400 + the empty-state placeholder text + absence of 'btn-primary'/'join-item' in the fragment body. fakeSessionReader.ListSessionsByVehicleBetween keeps the TeslaID!=nil && *TeslaID==teslaID filter (D8) verbatim. No Test Contract case was dropped, hollowed, or weakened; T12 is correctly represented as a compile-time comment, not a fake runtime test. (5) PERFORMANCE-PROFILE: exactly one ListSessionsByVehicleBetween call per buildSuperchargerStatsView invocation, bounded by the requested [start,end] window at the database (tier 1's idx_charge_sessions_vehicle_stop index, already reviewed/archived); no loop-driven per-session or per-vehicle query. (6) LEADER EDITS: superchargerStatsViewFor helper matches tasks.md 2.1's required shape and mirrors DashboardHistoryFragment's parse->400->resolve->build pattern correctly; the renderError-on-Page-400 change is functionally sound but left design.md D1 undocumented/stale (finding R1-1, minor). The two AGENTS.md doc corrections (D8: dangling pointer retarget, per-endpoint future-end split) are both accurate on inspection. (7) ANTI-GAMING: tasks.md and specs/ are untouched by any suspicious edit (git diff shows only the artifact-creation commit adding them, no post-hoc weakening); progress.json task statuses match the code; the reviewer verdict field was null before this round, confirming no self-approval. Independently ran (permitted, non-test signals): go build ./... (clean), go vet ./internal/gateway/... (clean), gofmt -l on every file this change touches (clean \u2014 the four gofmt hits in the repo are pre-existing files this change does not touch), make i18n-guard (clean), make ui-guard (clean), make money-guard (clean), go tool templ generate on supercharger_stats.templ (0 updates, confirms the committed *_templ.go is not stale), and openspec validate --strict (valid). Did not run go test/make test/make check; the owner's 2026-08-27 make test + make build green report is accepted as-is per the Test-Execution-Policy and is not re-verified or claimed as mine. Verdict: approved \u2014 the one finding (R1-1) is a design.md documentation-fidelity gap with no functional or boundary impact; recommend the leader amend design.md D1 with a short revision note (mirroring how D9 was handled) in a future pass, but it does not block archiving."
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-08-27T14:54:51Z",
+      "agent": "leader",
+      "event": "Tier 2 opened on resume. gateway worker authored the artifacts; openspec validate --strict passes. Leader triaged its 3 judgment calls: 2 accepted, D9's dropped future-date 400 rule restored by leader edit (worker hit a session limit mid-revision). Also filed tier 1's archive under archive/charging/ per config rules.archive (56777d2)."
+    },
+    {
+      "at": "2026-08-27T14:55:20Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched: tasks 1.1-1.4 batched into ONE serial gateway worker (sonnet). Disjoint files, but batched not parallelized so the doc pack is read once. Budget at dispatch: 5h 8%, context 14%."
+    },
+    {
+      "at": "2026-08-27T14:58:24Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled: 1.1-1.4 done, verified against tasks.md (incl. Presets []int -> []RangePreset). Leader did the cmd/web/main.go integration (SuperchargerReader -> charging.NewSessionReader); the 2 analytics-owned telemetry.NewSuperchargerReader calls untouched. Repo does not build until wave 2 - expected. Worker reported placeholder timestamps; leader recorded the real dispatch window."
+    },
+    {
+      "at": "2026-08-27T15:34:02Z",
+      "agent": "leader",
+      "event": "Wave 2 dispatched: tasks 2.1-2.3 batched into ONE serial gateway worker (sonnet). 2.3 depends on 2.1+2.2, so serial is required anyway; batching also reads the doc pack once. Budget at dispatch: 5h 16%, context 8%."
+    },
+    {
+      "at": "2026-08-27T15:38:48Z",
+      "agent": "leader",
+      "event": "Wave 2 reconciled: 2.1/2.2 code complete (awaiting-user-verification), 2.3 done. Leader verified against tasks.md and fixed two deviations (D5): missing superchargerStatsViewFor helper, and render instead of renderError on the Page 400 path. go build ./... clean, gofmt clean. Budget: 5h 16->23%, context 10%."
+    },
+    {
+      "at": "2026-08-27T15:38:58Z",
+      "agent": "leader",
+      "event": "Wave 3 dispatched: task 3.1 (supercharger_test.go rewrite to design.md Test Contract T1-T14) to a gateway worker (sonnet). Budget at dispatch: 5h 23%, context 10%."
+    },
+    {
+      "at": "2026-08-27T15:46:06Z",
+      "agent": "leader",
+      "event": "Wave 3 reconciled: 3.1 awaiting-user-verification. Leader verified independently: go vet ./internal/gateway/... exit 0, D8 TeslaID filter present, T13/T14 exist at both pure and HTTP level with ~180-day windows so the 400-day cap cannot be the rejecting rule, no live ?months= URLs remain. Worker reported placeholder timestamps; leader recorded the real dispatch window. Budget: 5h 23->36%, context 12%."
+    },
+    {
+      "at": "2026-08-27T15:46:19Z",
+      "agent": "leader",
+      "event": "Wave 4 dispatched: tasks 4.1-4.3 batched into ONE serial gateway worker (sonnet), with an explicit path grant for ai/architecture.md and README.md (D7). Budget at dispatch: 5h 36%, context 12%."
+    },
+    {
+      "at": "2026-08-27T15:49:54Z",
+      "agent": "leader",
+      "event": "Wave 4 reconciled: 4.1-4.3 done. Leader verified the diffs and applied two corrections (D8). All 10 tasks now done or awaiting-user-verification. Budget: 5h 36->43%, context 13%. NEXT: blocked on the user's suite run before the Step 7 reviewer gate."
+    },
+    {
+      "at": "2026-08-27T15:52:24Z",
+      "agent": "leader",
+      "event": "USER-REPORTED VERIFICATION: the owner ran `make test` and `make build` and reported both green. Tasks 2.1/2.2/3.1 move awaiting-user-verification -> done on the owner's report; the leader did not run the suite and does not claim it. Change status -> verified. Review brief written."
+    },
+    {
+      "at": "2026-08-27T15:58:22Z",
+      "agent": "leader",
+      "event": "Review round 1: gateway-reviewer verdict APPROVED with one minor finding (R1-1). Leader triaged: ACCEPTED, no findings rejected. design.md D1 amended with a REVISED note (D9). Reviewer's review block left untouched per write-ownership; R1-1 is addressed even though its entry still reads status open."
+    },
+    {
+      "at": "2026-08-27T16:00:11Z",
+      "agent": "leader",
+      "event": "Archived as openspec/changes/archive/gateway/2026-08-27-RM30-gateway-read-supercharger-stats-from-charging (config rules.archive: grouped by domain, not flat). openspec archive synced 3 modified requirements into openspec/specs/gateway/spec.md."
+    }
+  ]
+}

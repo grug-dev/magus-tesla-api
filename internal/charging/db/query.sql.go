@@ -381,6 +381,98 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 	return items, nil
 }
 
+const listSessionsByVehicleBetween = `-- name: ListSessionsByVehicleBetween :many
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at FROM charge_sessions
+WHERE account_id = $1
+  AND tesla_id = $2
+  AND charge_stop_date_time >= $3
+  AND charge_stop_date_time <  $4
+ORDER BY charge_stop_date_time ASC
+`
+
+type ListSessionsByVehicleBetweenParams struct {
+	AccountID uuid.UUID
+	TeslaID   pgtype.Int8
+	FromTime  pgtype.Timestamptz
+	EndBound  pgtype.Timestamptz
+}
+
+// Return charge sessions for a specific vehicle within an account whose
+// charge_stop_date_time falls within the whole UTC calendar-day window
+// [@from_time, @to_time], @to_time inclusive of its entire day, ordered oldest-first
+// (ascending charge_stop_date_time, design.md D3 — deliberately UNLIKE
+// ListEntriesByVehicleBetween's charged_on DESC, but matching
+// telemetry.SuperchargerSessionsByVehicleBetween's ordering exactly).
+//
+// @end_bound is @to_time + 1 calendar day, COMPUTED IN GO (design.md D5), exactly
+// mirroring telemetry.SuperchargerSessionsByVehicleBetween's own end-bound translation
+// — do NOT compute it in SQL. The predicate below is therefore half-open
+// (>= ... AND < ...), not BETWEEN: a plain BETWEEN against @to_time's UTC-midnight
+// value would silently drop every session that stopped later that same calendar day,
+// which is exactly the trap the project's ?start=&end= HTTP date-filter convention
+// (internal/gateway/AGENTS.md) exists to prevent.
+//
+// Uses idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time)
+// as a single ascending index range scan: account_id and tesla_id prune to the tenant
+// and vehicle as leading equality predicates, the half-open charge_stop_date_time
+// range walks the trailing column, and the index's own ASC order satisfies ORDER BY
+// with no separate sort step and no backward scan (design.md D1). A half-open range is
+// exactly as scannable as a closed BETWEEN on a B-tree index — both are a single
+// contiguous leaf-page walk bounded on two sides; only the boundary comparison
+// operator differs (design.md §"Index proof"). No LIMIT: the caller-supplied
+// [from_time, end_bound) window is the safety bound, matching
+// ListEntriesByVehicleBetween's precedent.
+//
+// tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
+// NULL (SQL's NULL = value is neither true nor false) — an orphaned session (VIN no
+// longer a currently-registered vehicle) is correctly outside a teslaID-keyed read
+// (design.md D6). This is the same behavior telemetry's own
+// SuperchargerSessionsByVehicleBetween already has over the identical column shape.
+func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSessionsByVehicleBetweenParams) ([]ChargeSession, error) {
+	rows, err := q.db.Query(ctx, listSessionsByVehicleBetween,
+		arg.AccountID,
+		arg.TeslaID,
+		arg.FromTime,
+		arg.EndBound,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChargeSession
+	for rows.Next() {
+		var i ChargeSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Vin,
+			&i.TeslaID,
+			&i.SessionID,
+			&i.ChargeStartDateTime,
+			&i.ChargeStopDateTime,
+			&i.SiteLocationName,
+			&i.EnergyKwh,
+			&i.TotalCost,
+			&i.Currency,
+			&i.IsPaid,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.BatteryPctSource,
+			&i.StartBatteryPctEst,
+			&i.EndBatteryPctEst,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const mirrorChargeSession = `-- name: MirrorChargeSession :exec
 INSERT INTO charge_sessions (
     account_id, vin, tesla_id, session_id,

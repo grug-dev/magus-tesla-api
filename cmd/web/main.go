@@ -56,7 +56,7 @@ func main() {
 		Google:             google,
 		Tesla:              tesla.NewClient(),
 		TelemetryReader:    telemetry.NewReader(pool),
-		SuperchargerReader: telemetry.NewSuperchargerReader(pool),
+		SuperchargerReader: charging.NewSessionReader(pool),
 		ChargingWriter:     charging.NewWriter(pool),
 		ChargingReader:     charging.NewReader(pool),
 		// The history fragment's battery-consumed chart reads through this port.

@@ -56,10 +56,13 @@ type Deps struct {
 	// The gateway calls LatestSnapshotsByAccount once per dashboard render.
 	// NEVER import internal/telemetry/db — all access through this interface only.
 	TelemetryReader telemetry.Reader
-	// SuperchargerReader is the telemetry Supercharger-sessions read port; injected
-	// at construction. Called by the Supercharger Stats page/fragment handlers.
-	// NEVER import internal/telemetry/db — all access through this interface only.
-	SuperchargerReader telemetry.SuperchargerReader
+	// SuperchargerReader is the charging module's SessionReader port over
+	// charge_sessions; injected at construction. Called by the Supercharger
+	// Stats page/fragment handlers, one ListSessionsByVehicleBetween read per
+	// render bounded by the requested ?start=&end= window.
+	// NEVER import internal/charging/db (chargingdb) for this path — all
+	// access through this interface only.
+	SuperchargerReader charging.SessionReader
 	// ChargingWriter is the charging write port. Called by write handlers
 	// on explicit user-initiated form submissions (create/update/delete).
 	// See AGENTS.md "Exception: user-initiated writes" for constraints.
@@ -101,7 +104,7 @@ type Handler struct {
 	google                *googleauth.Client
 	tesla                 tesla.VehicleService
 	telemetryReader       telemetry.Reader
-	superchargerReader    telemetry.SuperchargerReader
+	superchargerReader    charging.SessionReader
 	chargingWriter        charging.Writer
 	chargingReader        charging.Reader
 	analyticsReader       analytics.Reader

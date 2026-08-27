@@ -18,55 +18,39 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
-	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
+	"github.com/cristianpena/magus-tesla-api/internal/charging"
 )
 
 // --- fakes for the Supercharger Stats handler tests ---
 
-// fakeSuperchargerReader is a test double for telemetry.SuperchargerReader.
-// SuperchargerSessionsByVehicle mirrors the REAL port's contract: it only
-// ever returns sessions whose TeslaID matches the requested filter, so a
-// session with a nil TeslaID (D2 — unattributed, VIN doesn't match any
-// registered vehicle) can never be returned to any teslaID filter, exactly
-// like the real SQL WHERE tesla_id = $2 clause would exclude a NULL column.
-type fakeSuperchargerReader struct {
-	sessions []telemetry.SuperchargerSession
+// fakeSessionReader is a test double for charging.SessionReader (renamed from
+// fakeSuperchargerReader — RM30-gateway-read-supercharger-stats-from-charging,
+// design.md D2). ListSessionsByVehicleBetween mirrors the REAL port's
+// contract: it only ever returns sessions whose TeslaID matches the requested
+// filter, so a session with a nil TeslaID (unattributed — the VIN doesn't
+// match any registered vehicle) can never be returned to any teslaID filter,
+// exactly like the real SQL WHERE tesla_id = $2 clause excludes a NULL
+// column (design.md D8, carrying forward tier 1 D6's NULL-exclusion contract
+// into this test double — do not drop this filtering).
+type fakeSessionReader struct {
+	sessions []charging.Session
 	err      error
 
 	capturedAccountID uuid.UUID
-	capturedFilterID  int64
-	capturedLimit     int
+	capturedTeslaID   int64
+	capturedStart     time.Time
+	capturedEnd       time.Time
 }
 
-func (f *fakeSuperchargerReader) SuperchargerSessionsByAccount(_ context.Context, _ uuid.UUID, _ int) ([]telemetry.SuperchargerSession, error) {
-	return f.sessions, f.err
-}
-
-// SuperchargerSessionsByVehicleBetween satisfies the port's third method
-// (RM28-telemetry-add-charge-gap-storage). No gateway handler reads a bounded
-// window today — the Supercharger Stats page uses the limit-based methods above
-// — so a call here means a handler started using the new read without this
-// double being updated to mirror its contract.
-func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]telemetry.SuperchargerSession, error) {
-	panic("fakeSuperchargerReader: SuperchargerSessionsByVehicleBetween must not be called by any gateway handler")
-}
-
-// SuperchargerSessionsByVehicleUpdatedSince satisfies the
-// telemetry.SuperchargerReader method added by
-// RM29-analytics-add-vehicle-metrics task 1.3. Panics, mirroring the sibling
-// above: no gateway handler calls it, it serves analytics' recompute watermark.
-func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.SuperchargerSession, error) {
-	panic("fakeSuperchargerReader: SuperchargerSessionsByVehicleUpdatedSince must not be called by any gateway handler")
-}
-
-func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]telemetry.SuperchargerSession, error) {
+func (f *fakeSessionReader) ListSessionsByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]charging.Session, error) {
 	f.capturedAccountID = accountID
-	f.capturedFilterID = teslaID
-	f.capturedLimit = limit
+	f.capturedTeslaID = teslaID
+	f.capturedStart = start
+	f.capturedEnd = end
 	if f.err != nil {
 		return nil, f.err
 	}
-	out := make([]telemetry.SuperchargerSession, 0, len(f.sessions))
+	out := make([]charging.Session, 0, len(f.sessions))
 	for _, s := range f.sessions {
 		if s.TeslaID != nil && *s.TeslaID == teslaID {
 			out = append(out, s)
@@ -80,7 +64,7 @@ var errTestSupercharger = errors.New("test supercharger reader error")
 
 // newHandlerForSupercharger builds a Handler with the given fake reader and one
 // registered vehicle. Mirrors newHandlerForHistory.
-func newHandlerForSupercharger(reader *fakeSuperchargerReader, teslaID int64, vin string) *Handler {
+func newHandlerForSupercharger(reader *fakeSessionReader, teslaID int64, vin string) *Handler {
 	acct := &fakeAccount{
 		registered: []account.Vehicle{
 			{TeslaID: teslaID, VIN: vin, DisplayName: "Test Vehicle"},
@@ -120,52 +104,187 @@ func superchargerEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN stri
 func ptrF64(f float64) *float64 { return &f }
 func ptrInt64(i int64) *int64   { return &i }
 
-// --- clampSuperchargerMonths unit tests (pure function) ---
-
-func TestClampSuperchargerMonths_Presets(t *testing.T) {
-	tests := []struct {
-		raw  string
-		want int
-	}{
-		{"3", 3},
-		{"6", 6},
-		{"12", 12},
-		{"", defaultSuperchargerMonths},
-		{"abc", defaultSuperchargerMonths},
-		{"0", defaultSuperchargerMonths},
-		{"-3", defaultSuperchargerMonths},
-		{"9", defaultSuperchargerMonths},
-		{"100", defaultSuperchargerMonths},
-		{"6.0", defaultSuperchargerMonths},
+// parseSuperchargerRangeAt builds a gin.Context with the given start/end query
+// params and runs parseSuperchargerRange against the given explicit today —
+// mirrors history_test.go's parseRange helper, but for
+// parseSuperchargerRange's (c, today) signature: today is an explicit
+// parameter here, not derived from browserToday(c) (design.md D9a).
+func parseSuperchargerRangeAt(start, end string, today time.Time) (time.Time, time.Time, bool) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	url := "/?"
+	if start != "" {
+		url += "start=" + start + "&"
 	}
-	for _, tc := range tests {
-		got := clampSuperchargerMonths(tc.raw)
-		if got != tc.want {
-			t.Errorf("clampSuperchargerMonths(%q): want %d, got %d", tc.raw, tc.want, got)
-		}
+	if end != "" {
+		url += "end=" + end
+	}
+	c.Request = httptest.NewRequest(http.MethodGet, url, nil)
+	return parseSuperchargerRange(c, today)
+}
+
+// superchargerRangeURL builds a /ui/supercharger-stats?start=&end= (or
+// /supercharger-stats?start=&end=) URL from explicit start/end times,
+// computed the SAME WAY the handler computes a window — mirrors
+// history_test.go's rule of never hardcoding a date that will go stale.
+func superchargerRangeURL(path string, start, end time.Time) string {
+	return fmt.Sprintf("%s?start=%s&end=%s", path, start.Format("2006-01-02"), end.Format("2006-01-02"))
+}
+
+// --- parseSuperchargerRange unit tests (design.md D1, Test Contract T1-T6, T13-T14) ---
+
+// TestParseSuperchargerRange_BothAbsent_DefaultSixMonthWindow is Test
+// Contract T1: both params absent -> the month-aligned 6-month default
+// window (design.md D5). For today=2026-08-27: end=2026-08-27,
+// start=2026-03-01 (startOfMonth(2026-08-27)=2026-08-01, minus 5 months).
+func TestParseSuperchargerRange_BothAbsent_DefaultSixMonthWindow(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	start, end, ok := parseSuperchargerRangeAt("", "", today)
+	if !ok {
+		t.Fatal("want ok=true for both absent")
+	}
+	if !end.Equal(today) {
+		t.Errorf("want end=today (%v), got %v", today, end)
+	}
+	wantStart := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	if !start.Equal(wantStart) {
+		t.Errorf("want start=%v, got %v", wantStart, start)
 	}
 }
 
-// --- buildSuperchargerStatsView unit tests ---
+// TestParseSuperchargerRange_ExplicitWindowHonoredUnaligned is Test Contract
+// T2: an explicit, valid window is honored exactly as given, NOT rounded to
+// a month boundary — month-alignment is a preset/default convenience only
+// (design.md D5).
+func TestParseSuperchargerRange_ExplicitWindowHonoredUnaligned(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	start, end, ok := parseSuperchargerRangeAt("2026-06-15", "2026-08-20", today)
+	if !ok {
+		t.Fatal("want ok=true for a valid explicit window")
+	}
+	wantStart := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+	wantEnd := time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC)
+	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
+		t.Errorf("want (%v,%v), got (%v,%v)", wantStart, wantEnd, start, end)
+	}
+}
 
-func TestBuildSuperchargerStatsView_CorrectSincePassedToReader(t *testing.T) {
-	reader := &fakeSuperchargerReader{}
+// TestParseSuperchargerRange_EndBeforeStart is Test Contract T3.
+func TestParseSuperchargerRange_EndBeforeStart(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	if _, _, ok := parseSuperchargerRangeAt("2026-08-20", "2026-06-15", today); ok {
+		t.Error("want ok=false when end < start")
+	}
+}
+
+// TestParseSuperchargerRange_MalformedNonISO is Test Contract T4.
+func TestParseSuperchargerRange_MalformedNonISO(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	if _, _, ok := parseSuperchargerRangeAt("2026-13-40", "2026-08-20", today); ok {
+		t.Error("want ok=false for malformed start")
+	}
+	if _, _, ok := parseSuperchargerRangeAt("2026-06-15", "not-a-date", today); ok {
+		t.Error("want ok=false for malformed end")
+	}
+}
+
+// TestParseSuperchargerRange_MissingPartner is Test Contract T5.
+func TestParseSuperchargerRange_MissingPartner(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	if _, _, ok := parseSuperchargerRangeAt("2026-06-15", "", today); ok {
+		t.Error("want ok=false when start present but end absent")
+	}
+	if _, _, ok := parseSuperchargerRangeAt("", "2026-08-20", today); ok {
+		t.Error("want ok=false when end present but start absent")
+	}
+}
+
+// TestParseSuperchargerRange_MaxDaysCap is Test Contract T6: a 401-day window
+// is rejected; the SAME start with a 400-day-wide end is accepted
+// (design.md D6 — superchargerRangeMaxDays=400).
+func TestParseSuperchargerRange_MaxDaysCap(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	if _, _, ok := parseSuperchargerRangeAt("2025-07-01", "2026-08-06", today); ok {
+		t.Error("want ok=false for a window wider than the 400-day cap")
+	}
+	if _, _, ok := parseSuperchargerRangeAt("2025-07-01", "2026-08-05", today); !ok {
+		t.Error("want ok=true for a window exactly 400 days wide")
+	}
+}
+
+// TestParseSuperchargerRange_EndEqualsTodayAccepted is Test Contract T13
+// (design.md D9b, inclusive boundary): end == UTC today IS accepted — this
+// endpoint does NOT inherit history's browser-yesterday cap.
+func TestParseSuperchargerRange_EndEqualsTodayAccepted(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	_, end, ok := parseSuperchargerRangeAt("2026-03-01", "2026-08-27", today)
+	if !ok {
+		t.Fatal("want ok=true when end == today")
+	}
+	if !end.Equal(today) {
+		t.Errorf("want end=today, got %v", end)
+	}
+}
+
+// TestParseSuperchargerRange_EndAfterTodayRejected is Test Contract T14
+// (design.md D9b, exclusive boundary): end one day after UTC today is
+// rejected. The window is kept ~180 days wide (well under the 400-day cap
+// asserted by T6) so the cap cannot be what rejects it — otherwise the test
+// would pass for the wrong reason. Also asserts a far-future end still
+// inside the cap is rejected by the same rule.
+func TestParseSuperchargerRange_EndAfterTodayRejected(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	if _, _, ok := parseSuperchargerRangeAt("2026-03-01", "2026-08-28", today); ok {
+		t.Error("want ok=false when end is one day after today")
+	}
+	if _, _, ok := parseSuperchargerRangeAt("2026-03-01", "2026-12-31", today); ok {
+		t.Error("want ok=false for a far-future end well inside the 400-day cap")
+	}
+}
+
+// Test Contract T12 ("SuperchargerRowVM and charging.Session carry no
+// CountryCode/BillingType") is a COMPILE-TIME note, not a runtime test
+// (design.md) — deliberately not represented as a Test... function here.
+// Neither field is reintroduced anywhere in this file.
+
+// --- buildSuperchargerStatsView unit tests (Test Contract T7-T10) ---
+
+// TestBuildSuperchargerStatsView_EmptyWhenZeroSessionsInWindow is Test
+// Contract T7: zero sessions in the resolved window renders the empty state
+// with all four tile strings at their zero-value/placeholder form.
+func TestBuildSuperchargerStatsView_EmptyWhenZeroSessionsInWindow(t *testing.T) {
+	reader := &fakeSessionReader{}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
-	since := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	_ = h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, 6, since)
-	if reader.capturedFilterID != 42 {
-		t.Errorf("want teslaID=42 passed to reader, got %d", reader.capturedFilterID)
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end)
+
+	if !v.Empty {
+		t.Error("want v.Empty=true when the reader returns zero sessions")
 	}
-	if reader.capturedLimit != superchargerReadLimit {
-		t.Errorf("want limit=%d passed to reader, got %d", superchargerReadLimit, reader.capturedLimit)
+	if !v.Chart.Empty {
+		t.Error("want v.Chart.Empty=true")
+	}
+	if len(v.Sessions) != 0 {
+		t.Errorf("want len(v.Sessions)=0, got %d", len(v.Sessions))
+	}
+	if v.Tiles.Sessions != "0" {
+		t.Errorf("want Tiles.Sessions=\"0\", got %q", v.Tiles.Sessions)
+	}
+	if v.Tiles.AvgKWh != "—" {
+		t.Errorf("want Tiles.AvgKWh=\"—\", got %q", v.Tiles.AvgKWh)
 	}
 }
 
+// TestBuildSuperchargerStatsView_ReaderErrorDegradesEmpty is Test Contract
+// T8: a reader error degrades to the empty state, never propagates.
 func TestBuildSuperchargerStatsView_ReaderErrorDegradesEmpty(t *testing.T) {
-	reader := &fakeSuperchargerReader{err: errTestSupercharger}
+	reader := &fakeSessionReader{err: errTestSupercharger}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
-	since := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, 6, since)
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end)
+
 	if !v.Empty {
 		t.Error("want v.Empty=true on reader error")
 	}
@@ -174,51 +293,59 @@ func TestBuildSuperchargerStatsView_ReaderErrorDegradesEmpty(t *testing.T) {
 	}
 }
 
-func TestBuildSuperchargerStatsView_EmptyWhenZeroSessionsInWindow(t *testing.T) {
-	// Session exists but predates the window.
-	reader := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
-		{
-			TeslaID:             ptrInt64(42),
-			ChargeStartDateTime: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		},
+// TestBuildSuperchargerStatsView_NewestFirstDisplayOrder is Test Contract T9:
+// the fake returns three sessions ASCENDING by ChargeStopDateTime (the exact
+// order the real port returns), and the handler's single reverse (design.md
+// D3) must leave v.Sessions[0] as the MOST recent and v.Sessions[len-1] as
+// the OLDEST — proven by asserting the output order is the reverse of the
+// fake's input order, not a hardcoded expectation that happens to coincide.
+func TestBuildSuperchargerStatsView_NewestFirstDisplayOrder(t *testing.T) {
+	reader := &fakeSessionReader{sessions: []charging.Session{
+		{SessionID: 1, TeslaID: ptrInt64(42), SiteLocationName: "S1-Jan", ChargeStartDateTime: time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC), ChargeStopDateTime: time.Date(2026, 1, 15, 1, 0, 0, 0, time.UTC)},
+		{SessionID: 2, TeslaID: ptrInt64(42), SiteLocationName: "S2-Feb", ChargeStartDateTime: time.Date(2026, 2, 15, 0, 0, 0, 0, time.UTC), ChargeStopDateTime: time.Date(2026, 2, 15, 1, 0, 0, 0, time.UTC)},
+		{SessionID: 3, TeslaID: ptrInt64(42), SiteLocationName: "S3-Mar", ChargeStartDateTime: time.Date(2026, 3, 15, 0, 0, 0, 0, time.UTC), ChargeStopDateTime: time.Date(2026, 3, 15, 1, 0, 0, 0, time.UTC)},
 	}}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
-	since := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, 6, since)
-	if !v.Empty {
-		t.Error("want v.Empty=true when the only session predates the window")
+	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end)
+
+	if len(v.Sessions) != 3 {
+		t.Fatalf("want 3 rows, got %d", len(v.Sessions))
 	}
-	if len(v.Sessions) != 0 {
-		t.Errorf("want 0 rows, got %d", len(v.Sessions))
+	if v.Sessions[0].SiteLabel != "S3-Mar" {
+		t.Errorf("want v.Sessions[0]=S3-Mar (most recent), got %q", v.Sessions[0].SiteLabel)
+	}
+	if v.Sessions[2].SiteLabel != "S1-Jan" {
+		t.Errorf("want v.Sessions[2]=S1-Jan (oldest), got %q", v.Sessions[2].SiteLabel)
 	}
 }
 
-// TestBuildSuperchargerStatsView_UnattributedSessionsNeverAppear covers D2: a
-// session with TeslaID == nil (VIN doesn't match any registered vehicle) must
-// never appear in the tiles/table, and the fake's SuperchargerSessionsByVehicle
-// enforces that by never returning it to ANY teslaID filter — mirroring the
-// real port's WHERE tesla_id = $2 contract. Only one read is made (no second,
-// account-wide read to discover it).
+// TestBuildSuperchargerStatsView_UnattributedSessionsNeverAppear is Test
+// Contract T10 (design.md D8): a session with TeslaID==nil never appears —
+// the fake filters exactly like the real port's SQL WHERE tesla_id = $2
+// clause would.
 func TestBuildSuperchargerStatsView_UnattributedSessionsNeverAppear(t *testing.T) {
-	since := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	reader := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
-		{ // unattributed — TeslaID nil, VIN not matched to a registered vehicle
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	reader := &fakeSessionReader{sessions: []charging.Session{
+		{ // unattributed — TeslaID nil, VIN not matched to a registered vehicle.
 			SessionID:           1,
 			TeslaID:             nil,
 			SiteLocationName:    "Ghost Site",
-			ChargeStartDateTime: since.AddDate(0, 0, 5),
+			ChargeStartDateTime: start.AddDate(0, 0, 5),
 			EnergyKWh:           ptrF64(50),
 		},
-		{ // attributed to the selected vehicle
+		{ // attributed to the selected vehicle.
 			SessionID:           2,
 			TeslaID:             ptrInt64(42),
 			SiteLocationName:    "Real Site",
-			ChargeStartDateTime: since.AddDate(0, 0, 6),
+			ChargeStartDateTime: start.AddDate(0, 0, 6),
 			EnergyKWh:           ptrF64(10),
 		},
 	}}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
-	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, 6, since)
+	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end)
 
 	if v.Empty {
 		t.Fatal("want a non-empty view — the attributed session is in the window")
@@ -230,17 +357,72 @@ func TestBuildSuperchargerStatsView_UnattributedSessionsNeverAppear(t *testing.T
 		t.Errorf("want only the attributed session's site, got %q", v.Sessions[0].SiteLabel)
 	}
 	if v.Tiles.Sessions != "1" {
-		t.Errorf("want Sessions tile = 1 (unattributed excluded), got %q", v.Tiles.Sessions)
+		t.Errorf("want Tiles.Sessions=1 (unattributed excluded), got %q", v.Tiles.Sessions)
 	}
 	if v.Tiles.Energy != "10.0 kWh" {
-		t.Errorf("want Energy tile = 10.0 kWh (unattributed's 50 kWh excluded), got %q", v.Tiles.Energy)
+		t.Errorf("want Tiles.Energy=10.0 kWh (unattributed's 50 kWh excluded), got %q", v.Tiles.Energy)
 	}
 }
 
-// --- buildSuperchargerTiles unit tests (D7 + D4) ---
+// --- buildSuperchargerPresets / D5+D10 regression (Test Contract T11) ---
+
+// TestBuildSuperchargerPresets_ExactValues asserts the first half of Test
+// Contract T11: for today=2026-08-27, the 3/6/12-month presets resolve to
+// the exact StartStr/EndStr design.md specifies, and the n=6 preset is
+// marked Active for the resolved 6-month default window.
+func TestBuildSuperchargerPresets_ExactValues(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	start := monthsBackFrom(today, 6)
+	end := today
+	presets := buildSuperchargerPresets(context.Background(), start, end, today)
+	if len(presets) != 3 {
+		t.Fatalf("want 3 presets, got %d", len(presets))
+	}
+	if presets[0].StartStr != "2026-06-01" || presets[0].EndStr != "2026-08-27" {
+		t.Errorf("preset[0] (n=3): want start=2026-06-01 end=2026-08-27, got start=%s end=%s", presets[0].StartStr, presets[0].EndStr)
+	}
+	if presets[1].StartStr != "2026-03-01" {
+		t.Errorf("preset[1] (n=6): want start=2026-03-01, got %s", presets[1].StartStr)
+	}
+	if !presets[1].Active {
+		t.Error("preset[1] (n=6) should be Active for the resolved 6-month window")
+	}
+	if presets[2].StartStr != "2025-09-01" {
+		t.Errorf("preset[2] (n=12): want start=2025-09-01, got %s", presets[2].StartStr)
+	}
+}
+
+// TestBuildSuperchargerChart_SixMonthPresetYieldsExactlySixBars is the second
+// half of Test Contract T11 — the D5/D10 regression this design exists to
+// prevent: one session per month across all 6 months of the n=6 preset's
+// resolved window must render EXACTLY 6 bars, not 5, not 7.
+func TestBuildSuperchargerChart_SixMonthPresetYieldsExactlySixBars(t *testing.T) {
+	today := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
+	start := monthsBackFrom(today, 6) // 2026-03-01
+	end := today
+
+	sessions := make([]charging.Session, 0, 6)
+	for i := 0; i < 6; i++ {
+		sessions = append(sessions, charging.Session{
+			ChargeStartDateTime: start.AddDate(0, i, 2),
+			EnergyKWh:           ptrF64(10),
+		})
+	}
+	c := buildSuperchargerChart(sessions, start, end)
+	if c.Empty {
+		t.Fatal("want non-empty chart")
+	}
+	if len(c.Bars) != 6 {
+		t.Fatalf("want exactly 6 bars for the 6-month preset (not 5, not 7 — D5/D10), got %d", len(c.Bars))
+	}
+}
+
+// --- buildSuperchargerTiles unit tests (D7 + D4) — fixture element type is
+// charging.Session now; assertions themselves are UNCHANGED (design.md
+// "What must NOT change"). ---
 
 func TestBuildSuperchargerTiles_SessionsEnergyAvg(t *testing.T) {
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{EnergyKWh: ptrF64(10)},
 		{EnergyKWh: ptrF64(20)},
 		{EnergyKWh: nil}, // still counted in Sessions, skipped in Energy/Avg
@@ -259,7 +441,7 @@ func TestBuildSuperchargerTiles_SessionsEnergyAvg(t *testing.T) {
 }
 
 func TestBuildSuperchargerTiles_AvgDivideByZeroGuard(t *testing.T) {
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{EnergyKWh: nil},
 		{EnergyKWh: nil},
 	}
@@ -276,7 +458,7 @@ func TestBuildSuperchargerTiles_AvgDivideByZeroGuard(t *testing.T) {
 // two different currencies render as two separate cost lines, sorted by
 // currency code, never combined into one number.
 func TestBuildSuperchargerTiles_MultiCurrencyNeverSummed(t *testing.T) {
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{TotalCost: ptrF64(40.12), Currency: ptrStr("USD")},
 		{TotalCost: ptrF64(58000), Currency: ptrStr("COP")},
 		{TotalCost: ptrF64(9.88), Currency: ptrStr("USD")},
@@ -303,7 +485,7 @@ func TestBuildSuperchargerTiles_MultiCurrencyNeverSummed(t *testing.T) {
 // a session missing cost or currency is dropped from the cost aggregation but
 // still counted in Sessions and Energy.
 func TestBuildSuperchargerTiles_NilCostOrCurrencyExcludedFromCostOnly(t *testing.T) {
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{EnergyKWh: ptrF64(5), TotalCost: nil, Currency: nil},                   // no fee data at all
 		{EnergyKWh: ptrF64(7), TotalCost: ptrF64(3.5), Currency: nil},           // cost w/o currency
 		{EnergyKWh: ptrF64(9), TotalCost: nil, Currency: ptrStr("USD")},         // currency w/o cost
@@ -324,23 +506,26 @@ func TestBuildSuperchargerTiles_NilCostOrCurrencyExcludedFromCostOnly(t *testing
 	}
 }
 
-// --- buildSuperchargerChart unit tests ---
+// --- buildSuperchargerChart unit tests (design.md D10 — new (sessions,
+// start, end) signature) ---
 
-func TestBuildSuperchargerChart_EmptyWhenFilteredEmpty(t *testing.T) {
-	since := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
-	c := buildSuperchargerChart(nil, 6, since)
+func TestBuildSuperchargerChart_EmptyWhenSessionsEmpty(t *testing.T) {
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
+	c := buildSuperchargerChart(nil, start, end)
 	if !c.Empty {
-		t.Error("want Empty=true for an empty filtered slice")
+		t.Error("want Empty=true for an empty sessions slice")
 	}
 }
 
 func TestBuildSuperchargerChart_OneBarPerMonthInWindow(t *testing.T) {
-	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
-	sessions := []telemetry.SuperchargerSession{
-		{ChargeStartDateTime: since.AddDate(0, 0, 2), EnergyKWh: ptrF64(10)}, // month 0 (Mar)
-		{ChargeStartDateTime: since.AddDate(0, 2, 2), EnergyKWh: ptrF64(30)}, // month 2 (May) — tallest
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 5, 31, 0, 0, 0, 0, time.UTC) // 3-month window: Mar, Apr, May
+	sessions := []charging.Session{
+		{ChargeStartDateTime: start.AddDate(0, 0, 2), EnergyKWh: ptrF64(10)}, // month 0 (Mar)
+		{ChargeStartDateTime: start.AddDate(0, 2, 2), EnergyKWh: ptrF64(30)}, // month 2 (May) — tallest
 	}
-	c := buildSuperchargerChart(sessions, 3, since)
+	c := buildSuperchargerChart(sessions, start, end)
 	if c.Empty {
 		t.Fatal("want non-empty chart")
 	}
@@ -360,11 +545,12 @@ func TestBuildSuperchargerChart_OneBarPerMonthInWindow(t *testing.T) {
 }
 
 func TestBuildSuperchargerChart_TooltipContainsMonthAndKWh(t *testing.T) {
-	since := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
-	sessions := []telemetry.SuperchargerSession{
-		{ChargeStartDateTime: since.AddDate(0, 0, 2), EnergyKWh: ptrF64(12.3)},
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	sessions := []charging.Session{
+		{ChargeStartDateTime: start.AddDate(0, 0, 2), EnergyKWh: ptrF64(12.3)},
 	}
-	c := buildSuperchargerChart(sessions, 1, since)
+	c := buildSuperchargerChart(sessions, start, end)
 	if c.Empty || len(c.Bars) == 0 {
 		t.Fatal("want bars")
 	}
@@ -376,14 +562,13 @@ func TestBuildSuperchargerChart_TooltipContainsMonthAndKWh(t *testing.T) {
 	}
 }
 
-// --- buildSuperchargerRows unit tests ---
+// --- buildSuperchargerRows unit tests — CountryCode/BillingType dropped
+// (design.md D4); every other field/assertion UNCHANGED. ---
 
 func TestBuildSuperchargerRows_NilEnergyAndCostRenderDash(t *testing.T) {
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{
 			SiteLocationName: "Site A",
-			CountryCode:      "US",
-			BillingType:      "per_kwh",
 			EnergyKWh:        nil,
 			TotalCost:        nil,
 			Currency:         nil,
@@ -402,11 +587,9 @@ func TestBuildSuperchargerRows_NilEnergyAndCostRenderDash(t *testing.T) {
 }
 
 func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{
 			SiteLocationName:    "Downtown Supercharger",
-			CountryCode:         "MX",
-			BillingType:         "per_kwh",
 			ChargeStartDateTime: time.Date(2026, 7, 4, 10, 0, 0, 0, time.UTC),
 			EnergyKWh:           ptrF64(23.456),
 			TotalCost:           ptrF64(99.9),
@@ -417,17 +600,11 @@ func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
 	if rows[0].SiteLabel != "Downtown Supercharger" {
 		t.Errorf("want SiteLabel, got %q", rows[0].SiteLabel)
 	}
-	if rows[0].CountryCode != "MX" {
-		t.Errorf("want CountryCode=MX, got %q", rows[0].CountryCode)
-	}
 	if rows[0].EnergyLabel != "23.46 kWh" {
 		t.Errorf("want EnergyLabel=23.46 kWh, got %q", rows[0].EnergyLabel)
 	}
 	if rows[0].CostLabel != "99.90 MXN" {
 		t.Errorf("want CostLabel=99.90 MXN, got %q", rows[0].CostLabel)
-	}
-	if rows[0].BillingType != "per_kwh" {
-		t.Errorf("want BillingType=per_kwh, got %q", rows[0].BillingType)
 	}
 }
 
@@ -436,11 +613,9 @@ func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
 // TestBuildSuperchargerTiles_MultiCurrencyNeverSummed) must go through
 // formatMoney and comma-group amounts >= 1000.
 func TestBuildSuperchargerRows_CostLabelCommaGrouped(t *testing.T) {
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{
 			SiteLocationName: "Big Session",
-			CountryCode:      "CO",
-			BillingType:      "per_kwh",
 			TotalCost:        ptrF64(58000),
 			Currency:         ptrStr("COP"),
 		},
@@ -454,7 +629,7 @@ func TestBuildSuperchargerRows_CostLabelCommaGrouped(t *testing.T) {
 // --- HTTP-level handler tests ---
 
 func TestSuperchargerStatsPage_AnonymousRedirectsToLogin(t *testing.T) {
-	reader := &fakeSuperchargerReader{}
+	reader := &fakeSessionReader{}
 	h := newHandlerForSupercharger(reader, 1, "VIN1")
 	eng := superchargerEngine(h, uuid.Nil, 0, "")
 
@@ -471,7 +646,7 @@ func TestSuperchargerStatsPage_AnonymousRedirectsToLogin(t *testing.T) {
 }
 
 func TestSuperchargerStatsFragment_AnonymousRedirectsToLogin(t *testing.T) {
-	reader := &fakeSuperchargerReader{}
+	reader := &fakeSessionReader{}
 	h := newHandlerForSupercharger(reader, 1, "VIN1")
 	eng := superchargerEngine(h, uuid.Nil, 0, "")
 
@@ -489,7 +664,7 @@ func TestSuperchargerStatsFragment_AnonymousRedirectsToLogin(t *testing.T) {
 
 func TestSuperchargerStatsPage_NoRegisteredVehicleShowsEmptyState(t *testing.T) {
 	uid := uuid.New()
-	reader := &fakeSuperchargerReader{}
+	reader := &fakeSessionReader{}
 	acct := &fakeAccount{registered: nil} // nothing registered
 	h := New(Deps{Account: acct, Tesla: &fakeTesla{}, SuperchargerReader: reader})
 	eng := superchargerEngine(h, uid, 0, "")
@@ -517,7 +692,7 @@ func TestSuperchargerStatsPage_NoRegisteredVehicleShowsEmptyState(t *testing.T) 
 
 func TestSuperchargerStatsFragment_ReaderErrorDegradesNo500(t *testing.T) {
 	uid := uuid.New()
-	reader := &fakeSuperchargerReader{err: errTestSupercharger}
+	reader := &fakeSessionReader{err: errTestSupercharger}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	eng := superchargerEngine(h, uid, 42, "VIN42")
 	c := sessionCookie(eng, uid, "")
@@ -540,13 +715,13 @@ func TestSuperchargerStatsFragment_ReaderErrorDegradesNo500(t *testing.T) {
 
 func TestSuperchargerStatsFragment_DefaultMonthsIsSix(t *testing.T) {
 	uid := uuid.New()
-	reader := &fakeSuperchargerReader{}
+	reader := &fakeSessionReader{}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	eng := superchargerEngine(h, uid, 42, "VIN42")
 	c := sessionCookie(eng, uid, "")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats", nil) // both start/end absent -> default window
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -561,23 +736,91 @@ func TestSuperchargerStatsFragment_DefaultMonthsIsSix(t *testing.T) {
 	}
 }
 
+// TestSuperchargerStatsFragment_ValidPresetsAccepted replaces the old
+// ?months=N sweep with the ?start=&end= equivalent: for each preset month
+// count, the URL is built from monthsBackFrom(today, n)..today — the exact
+// window the handler itself would compute for that preset — never a
+// hardcoded date.
 func TestSuperchargerStatsFragment_ValidPresetsAccepted(t *testing.T) {
 	uid := uuid.New()
-	reader := &fakeSuperchargerReader{}
+	reader := &fakeSessionReader{}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	eng := superchargerEngine(h, uid, 42, "VIN42")
 	c := sessionCookie(eng, uid, "")
 
-	for _, p := range superchargerMonthPresets {
+	today := startOfDay(time.Now().UTC())
+	for _, n := range superchargerMonthPresets {
+		start := monthsBackFrom(today, n)
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/ui/supercharger-stats?months=%d", p), nil)
+		req := httptest.NewRequest(http.MethodGet, superchargerRangeURL("/ui/supercharger-stats", start, today), nil)
 		if c != nil {
 			req.AddCookie(c)
 		}
 		eng.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
-			t.Errorf("months=%d: want 200, got %d", p, w.Code)
+			t.Errorf("n=%d months: want 200, got %d", n, w.Code)
 		}
+	}
+}
+
+// TestSuperchargerStatsFragment_EndEqualsTodayAccepted is the HTTP-level
+// half of Test Contract T13: an explicit window whose end is UTC today is
+// accepted (200), not rejected.
+func TestSuperchargerStatsFragment_EndEqualsTodayAccepted(t *testing.T) {
+	uid := uuid.New()
+	reader := &fakeSessionReader{}
+	h := newHandlerForSupercharger(reader, 42, "VIN42")
+	eng := superchargerEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	today := startOfDay(time.Now().UTC())
+	start := monthsBackFrom(today, 6)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, superchargerRangeURL("/ui/supercharger-stats", start, today), nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 when end == today, got %d", w.Code)
+	}
+}
+
+// TestSuperchargerStatsFragment_FutureEndRejectedWithNoSelector is the
+// HTTP-level half of Test Contract T14: end one day after UTC today is
+// rejected with HTTP 400, the empty-state placeholder, and NO preset
+// selector rendered (design.md D1/D9b — mirrors DashboardHistoryFragment's
+// malformed-request branch). The window is kept ~180 days wide so the
+// 400-day cap cannot be what rejects it.
+func TestSuperchargerStatsFragment_FutureEndRejectedWithNoSelector(t *testing.T) {
+	uid := uuid.New()
+	reader := &fakeSessionReader{}
+	h := newHandlerForSupercharger(reader, 42, "VIN42")
+	eng := superchargerEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	today := startOfDay(time.Now().UTC())
+	future := today.AddDate(0, 0, 1)
+	start := today.AddDate(0, 0, -180)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, superchargerRangeURL("/ui/supercharger-stats", start, future), nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 for a future end, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if strings.Contains(body, "btn-primary") || strings.Contains(body, "join-item") {
+		t.Errorf("no preset selector should render on a 400 response, body:\n%s", body)
+	}
+	if !strings.Contains(body, "No hay sesiones de Supercharger") {
+		t.Errorf("want the empty-state placeholder on a 400 response, body:\n%s", body)
 	}
 }
 
@@ -603,24 +846,23 @@ var sessionsTileValueRe = regexp.MustCompile(`stat-title">Sesiones</div><div cla
 // single-source-of-truth check — the number of <tr> rows inside the sessions
 // table's <tbody> equals the Sessions tile's own rendered value, both parsed
 // independently out of the rendered HTML (not out of the test fixture).
+// Anchored on the default (both start/end absent) 6-month window, computed
+// via monthsBackFrom, not a hardcoded date.
 func TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile(t *testing.T) {
 	uid := uuid.New()
-	// Anchor to the SAME window-start formula the handler itself computes for
-	// months=6 (startOfMonth(now).AddDate(0, -months+1, 0)) so the fixture
-	// dates land inside the live window regardless of what "now" is when the
-	// test runs.
-	since := startOfMonth(time.Now()).AddDate(0, -6+1, 0)
-	reader := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
-		{SessionID: 1, TeslaID: ptrInt64(42), SiteLocationName: "Site A", ChargeStartDateTime: since.AddDate(0, 0, 2), EnergyKWh: ptrF64(10)},
-		{SessionID: 2, TeslaID: ptrInt64(42), SiteLocationName: "Site B", ChargeStartDateTime: since.AddDate(0, 1, 2), EnergyKWh: ptrF64(20)},
-		{SessionID: 3, TeslaID: ptrInt64(42), SiteLocationName: "Site C", ChargeStartDateTime: since.AddDate(0, 2, 2), EnergyKWh: ptrF64(30)},
+	today := startOfDay(time.Now().UTC())
+	start := monthsBackFrom(today, superchargerRangeDefaultMonths)
+	reader := &fakeSessionReader{sessions: []charging.Session{
+		{SessionID: 1, TeslaID: ptrInt64(42), SiteLocationName: "Site A", ChargeStartDateTime: start.AddDate(0, 0, 2), EnergyKWh: ptrF64(10)},
+		{SessionID: 2, TeslaID: ptrInt64(42), SiteLocationName: "Site B", ChargeStartDateTime: start.AddDate(0, 1, 2), EnergyKWh: ptrF64(20)},
+		{SessionID: 3, TeslaID: ptrInt64(42), SiteLocationName: "Site C", ChargeStartDateTime: start.AddDate(0, 2, 2), EnergyKWh: ptrF64(30)},
 	}}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	eng := superchargerEngine(h, uid, 42, "VIN42")
 	c := sessionCookie(eng, uid, "")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats?months=6", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats", nil) // default window (6 months)
 	if c != nil {
 		req.AddCookie(c)
 	}
@@ -667,31 +909,31 @@ func TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile(t
 	}
 }
 
-// --- F.2: render test — D2 unattributed sessions never appear in the rendered output ---
+// --- F.2: render test — D2/D8 unattributed sessions never appear in the rendered output ---
 
 // TestSuperchargerStatsFragment_UnattributedSessionNeverRendered covers F.2:
-// with a fake reader whose SuperchargerSessionsByVehicle honors the real
+// with a fake reader whose ListSessionsByVehicleBetween honors the real
 // port's contract (a session is only returned when its TeslaID matches the
 // requested filter — an unattributed, TeslaID == nil session is simply never
 // returned to any filter), the rendered fragment must not show that session
 // anywhere: not in the table, not in the Sessions/Energy tiles.
 func TestSuperchargerStatsFragment_UnattributedSessionNeverRendered(t *testing.T) {
 	uid := uuid.New()
-	// Same window-anchor rationale as the F.1 render test above.
-	since := startOfMonth(time.Now()).AddDate(0, -6+1, 0)
-	reader := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
+	today := startOfDay(time.Now().UTC())
+	start := monthsBackFrom(today, superchargerRangeDefaultMonths)
+	reader := &fakeSessionReader{sessions: []charging.Session{
 		{ // unattributed — TeslaID nil, VIN not matched to a registered vehicle.
 			SessionID:           1,
 			TeslaID:             nil,
 			SiteLocationName:    "Ghost Site",
-			ChargeStartDateTime: since.AddDate(0, 0, 5),
+			ChargeStartDateTime: start.AddDate(0, 0, 5),
 			EnergyKWh:           ptrF64(999),
 		},
 		{ // attributed to the selected vehicle.
 			SessionID:           2,
 			TeslaID:             ptrInt64(42),
 			SiteLocationName:    "Real Site",
-			ChargeStartDateTime: since.AddDate(0, 0, 6),
+			ChargeStartDateTime: start.AddDate(0, 0, 6),
 			EnergyKWh:           ptrF64(10),
 		},
 	}}
@@ -700,7 +942,7 @@ func TestSuperchargerStatsFragment_UnattributedSessionNeverRendered(t *testing.T
 	c := sessionCookie(eng, uid, "")
 
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats?months=6", nil)
+	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats", nil)
 	if c != nil {
 		req.AddCookie(c)
 	}
