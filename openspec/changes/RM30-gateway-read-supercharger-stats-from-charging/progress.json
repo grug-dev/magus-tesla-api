@@ -1,0 +1,91 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM30-gateway-read-supercharger-stats-from-charging",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM30-supercharger-stats-read-from-charging.md",
+  "status": "proposed",
+  "created_at": "2026-08-27T14:54:51Z",
+  "updated_at": "2026-08-27T14:54:51Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM30-MAG-30-supercharger-stats-read-from-charging",
+    "base": "main",
+    "ticket": "MAG-30",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-30/supercharger-stats-reads"
+  },
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "1.2", "1.3", "1.4", "2.1", "2.2", "2.3", "3.1", "4.1", "4.2", "4.3"],
+    "blocked": [],
+    "done": []
+  },
+  "tasks": [
+    { "id": "1.1", "title": "gateway.go — Deps.SuperchargerReader type swap", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "1.2", "title": "handlers.go — Deps/Handler type swap", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "1.3", "title": "supercharger_vm.go — drop CountryCode/BillingType", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "1.4", "title": "catalog.go — remove country/billing keys (ES+EN)", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "2.1", "title": "supercharger.go — rewrite onto SessionReader + parseSuperchargerRange", "depends_on": ["1.2", "1.3"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "2.2", "title": "supercharger_stats.templ — drop columns, start/end preset hrefs", "depends_on": ["1.3", "1.4"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "2.3", "title": "make templ regeneration + build check", "depends_on": ["2.1", "2.2"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "3.1", "title": "supercharger_test.go — rewrite to Test Contract T1-T14 + grep sweep", "depends_on": ["2.3"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "4.1", "title": "gateway AGENTS.md — per-endpoint cap wording", "depends_on": ["2.3"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "4.2", "title": "ai/architecture.md — date-filter pattern pointer (leader-owned)", "depends_on": ["4.1"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "4.3", "title": "root README.md — document convention + caps (leader-owned)", "depends_on": ["4.1"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null }
+  ],
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-27T14:54:51Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "restored the end.After(today) 400 rule the worker's design.md D9 had dropped, at UTC today rather than history's browser-yesterday",
+      "why": "AGENTS.md states the 400 rules as a closed set and the roadmap said 'same 400 rules'; D10 derives chart buckets from the window, so a far-future end inside the 400-day cap would render empty future bars.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-27T14:54:51Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "kept the worker's UTC 'today' frame (no browser_tz cookie, no browserToday) for this endpoint",
+      "why": "Avoids adding timezone coupling the roadmap never asked for; matches the old clampSuperchargerMonths path. Cost: this endpoint's future-date boundary sits one day from history's.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-27T14:54:51Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "applied the D9 revision as leader edits instead of re-dispatching the worker",
+      "why": "The worker died on a session limit before editing; a cold worker would re-read the full doc pack (~300k tokens) to make four targeted artifact edits.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-27T14:54:51Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "accepted the worker's D5 (month-aligned default/presets), D10 (window-derived bucket count) and its skipping of a separate grill-me session",
+      "why": "D5/D10 preserve exact prior chart-bucket behaviour; the roadmap's owner-approved Decisions satisfy the grill-me proposal rule, as in tier 1.",
+      "covered_by": null
+    }
+  ],
+  "review": {
+    "brief": null,
+    "agent": null,
+    "status": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-08-27T14:54:51Z",
+      "agent": "leader",
+      "event": "Tier 2 opened on resume. gateway worker authored the artifacts; openspec validate --strict passes. Leader triaged its 3 judgment calls: 2 accepted, D9's dropped future-date 400 rule restored by leader edit (worker hit a session limit mid-revision). Also filed tier 1's archive under archive/charging/ per config rules.archive (56777d2)."
+    }
+  ]
+}
