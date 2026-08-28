@@ -6,7 +6,7 @@
   "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-28T16:12:00Z",
+  "updated_at": "2026-08-28T16:25:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM31-MAG-19-supercharger-session-verification",
@@ -291,6 +291,11 @@
       "at": "2026-08-28T16:12:00Z",
       "agent": "leader",
       "event": "Tier 4 (RM31-gateway-show-session-battery-pct) ARCHIVED after a round-3 gateway-reviewer approval; owner reported go test ./internal/gateway/... + go vet PASS. Tier 5 (RM31-gateway-add-session-battery-edit) is now UNBLOCKED -- its depends_on [1,2,3,4] are all archived. It is the LAST tier and carries the KB update (ticket item 6). autopilot=false, so the leader STOPS here for the owner's go-ahead. Budget clear: five_hour 14%, context 12%."
+    },
+    {
+      "at": "2026-08-28T16:25:00Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED full `make test` GREEN across the whole repo after tier 4's archive -- broader than the per-module gateway run and confirming tiers 1-4 are green together on this branch. Verification is the owner's, not the assistant's. CHECKPOINT: owner is clearing context before tier 5. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
     }
   ]
 }
