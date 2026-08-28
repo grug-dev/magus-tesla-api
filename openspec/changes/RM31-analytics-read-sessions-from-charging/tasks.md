@@ -72,7 +72,7 @@ because those tests cannot compile until both the migration and the retyped sign
 
 ## Wave 2 — DB-integration tests + docs (depends on ALL of Wave 1)
 
-- [ ] **2.1 — Update `internal/analytics/AGENTS.md`** (`depends_on`: 1.2, 1.3, 1.4)
+- [x] **2.1 — Update `internal/analytics/AGENTS.md`** (`depends_on`: 1.2, 1.3, 1.4)
   Update "Allowed / forbidden imports" §"May import": `internal/telemetry` bullet drops
   `SuperchargerReader (SuperchargerSessionsByVehicle)` and `telemetry.SuperchargerSession`
   (keep `telemetry.Reader`'s methods and `telemetry.Snapshot` unchanged); `internal/charging`
@@ -86,7 +86,7 @@ because those tests cannot compile until both the migration and the retyped sign
   `telemetry.SuperchargerSession` anywhere in this file; `NewRecalculator`/`NewReader`
   constructor signatures documented here match the retyped Go signatures exactly.
 
-- [ ] **2.2 — Retarget `db_integration_test.go`'s Supercharger fixture seeding to `charge_sessions`**
+- [x] **2.2 — Retarget `db_integration_test.go`'s Supercharger fixture seeding to `charge_sessions`**
   (`depends_on`: 1.1, 1.2, 1.3, 1.4)
   Retarget the direct-SQL seeding helper(s) that currently `INSERT`/`UPDATE` against
   `supercharger_sessions` to seed `charge_sessions` instead, using that table's actual column
@@ -111,7 +111,7 @@ because those tests cannot compile until both the migration and the retyped sign
   pinned values exactly — write assertions against those values, not against whatever the
   implementation happens to produce.
 
-- [ ] **2.3 — Add Test Contract T1 and T3 as DB-integration tests** (`depends_on`: 1.1, 1.2,
+- [x] **2.3 — Add Test Contract T1 and T3 as DB-integration tests** (`depends_on`: 1.1, 1.2,
   1.3, 1.4, 2.2)
   Depends on 2.2 for its shared seeding helpers (retargeted to `charge_sessions`). **T1** (the
   migration DELETEs only the `supercharger_sessions` watermark, leaving its sibling sources
@@ -147,7 +147,7 @@ documents exactly what the leader must change. **The package will not build end-
 tier's Wave 1/2** — `go build ./internal/analytics/...` (module-scoped) is the correct signal
 for this worker to run; the repo-wide build is expected to fail until the leader's follow-up.
 
-- [ ] **2.4 — Fix the stale package doc in `analytics.go`** (`depends_on`: 1.2, 1.3, 1.4)
+- [x] **2.4 — Fix the stale package doc in `analytics.go`** (`depends_on`: 1.2, 1.3, 1.4)
   Appended by the leader after Wave 1. `internal/analytics/analytics.go` line 6's package
   doc still reads "internal/telemetry's `SuperchargerReader` and internal/charging", which
   is false as of this tier — analytics reads `charging.SuperchargerSessionAnalyticsReader`

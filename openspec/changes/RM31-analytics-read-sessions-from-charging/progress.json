@@ -3,12 +3,12 @@
   "kind": "change",
   "change": "RM31-analytics-read-sessions-from-charging",
   "module": "analytics",
-  "status": "in-progress",
+  "status": "applied",
   "roadmap": "RM31-supercharger-session-verification",
   "roadmap_tier": 3,
   "intention": "Switch analytics' Supercharger source from telemetry.SuperchargerSession to charging.Session so a human-verified battery percentage reaches vehicle_metrics. Includes the vehicle_metric_watermarks.source CHECK-constraint migration (DELETE/epoch-reset per roadmap Decision 10).",
   "created_at": "2026-08-28T09:50:00Z",
-  "updated_at": "2026-08-28T10:08:00Z",
+  "updated_at": "2026-08-28T10:35:00Z",
   "leader": {
     "agent": "leader",
     "assistant": "Claude Code",
@@ -102,14 +102,19 @@
         "1.3",
         "1.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:30:00Z",
+      "completed_at": "2026-08-28T10:32:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta pending the boundary reading"
+      },
+      "notes": "AGENTS.md imports, constructor signatures and Responsibility/Testing prose updated; grep confirms zero telemetry.SuperchargerReader / telemetry.SuperchargerSession references remain."
     },
     {
       "id": "2.2",
@@ -120,14 +125,19 @@
         "1.3",
         "1.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:15:00Z",
+      "completed_at": "2026-08-28T10:25:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta pending the boundary reading"
+      },
+      "notes": "Fixed both build errors (helpers now use charging.NewSuperchargerSessionAnalyticsReader), renamed the constant refs, added seedChargeSession/reviseChargeSession helpers, retargeted the revised-session test, added T2 and T4. Tests written, not executed."
     },
     {
       "id": "2.3",
@@ -139,14 +149,19 @@
         "1.4",
         "2.2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:25:00Z",
+      "completed_at": "2026-08-28T10:30:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta pending the boundary reading"
+      },
+      "notes": "T1 in a new db_watermark_migration_integration_test.go driving goose via ApplyVersion only (DownTo/Up choke on the shared cross-module goose_db_version table). T3 added to db_integration_test.go. Not executed."
     },
     {
       "id": "2.4",
@@ -156,32 +171,37 @@
         "1.3",
         "1.4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:32:00Z",
+      "completed_at": "2026-08-28T10:33:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta pending the boundary reading"
+      },
+      "notes": "Package doc now names charging.SuperchargerSessionAnalyticsReader and charging.Reader; no reference to the old telemetry port survives in analytics.go."
     }
   ],
   "rollup": {
     "current": [],
-    "pending": [
-      "2.1",
-      "2.2",
-      "2.3",
-      "2.4"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
       "1.2",
       "1.3",
-      "1.4"
+      "1.4",
+      "2.1",
+      "2.4"
     ],
-    "awaiting-user-verification": []
+    "awaiting-user-verification": [
+      "2.2",
+      "2.3"
+    ]
   },
   "decisions": [
     {
@@ -237,6 +257,15 @@
       "decision": "cmd/poller keeps TWO Supercharger ports: telemetry's for the mirror step, charging's for analytics",
       "why": "app.NewProcessor still reads supercharger_sessions to WRITE charge_sessions, so a straight swap would have broken the mirror. The worker flagged this call site rather than assuming a swap.",
       "covered_by": "design.md 4"
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-28T10:28:00Z",
+      "scope": "task:2.3",
+      "made_by": "leader",
+      "decision": "accepted the worker's deviation from design.md T3's illustrative SessionID 901 -- it uses nextSessionID() instead",
+      "why": "supercharger_sessions.session_id is globally unique, not account-scoped, so a hardcoded literal collides on a rerun against a persistent DATABASE_URL. T3 asserts consumed_pct, never the SessionID.",
+      "covered_by": "design.md 5 T3"
     }
   ],
   "review": {
@@ -275,6 +304,26 @@
       "at": "2026-08-28T10:08:00Z",
       "agent": "leader",
       "event": "leader-owned cmd/ wiring applied (outside the worker's sandbox): cmd/web/main.go's two analytics constructors now take charging.NewSuperchargerSessionAnalyticsReader(pool); cmd/poller/main.go now builds TWO ports -- superchargerReader (telemetry, still feeding app.NewProcessor's mirror step) and sessionAnalyticsReader (charging, feeding analytics). After wiring: go build ./... exit 0, gofmt -l clean, go vet ./... fails ONLY on db_integration_test.go, which is task 2.2's scope. Budget at boundary: five_hour 51%, context 23%."
+    },
+    {
+      "at": "2026-08-28T10:12:00Z",
+      "agent": "leader",
+      "event": "OWNER ran `env -u DATABASE_URL go test ./...` and reported it RED. Diagnosis: NOT a regression -- a build failure confined to internal/analytics/db_integration_test.go at lines 590, 598 (constructor call sites) and 848, 1006 (sourceSuperchargerSessions), the exact four sites go vet already flagged and that task 2.2 exists to retarget. Every other package passes. No fix wave needed; wave 2 IS the fix."
+    },
+    {
+      "at": "2026-08-28T10:15:00Z",
+      "agent": "leader",
+      "event": "dispatching wave 2 (2.1 AGENTS.md, 2.2 retarget + T2/T4, 2.3 T1/T3, 2.4 package doc) to the analytics worker on sonnet as ONE serial worker: 2.3 depends on 2.2's retargeted seeding helpers, so the chain dominates and parallelism would buy nothing. Budget at dispatch: five_hour 51%, context 23%."
+    },
+    {
+      "at": "2026-08-28T10:35:00Z",
+      "agent": "leader",
+      "event": "wave 2 returned: 2.1/2.4 done, 2.2/2.3 awaiting-user-verification (tests written, never executed). Doc-pack acknowledged. LEADER VERIFIED THE LOAD-BEARING ASSERTIONS INDEPENDENTLY, not on the worker's report: T1 asserts supercharger_sessions count 0 'GONE, not renamed' (line 224), the epoch read (256), and count STILL 0 after Down (270); T3 asserts ConsumedPct == 75 AND != 45 with the stray-call-site rationale in a comment (1457-1468). go build ./... exit 0, go vet ./... exit 0 REPO-WIDE, gofmt -l clean."
+    },
+    {
+      "at": "2026-08-28T10:35:00Z",
+      "agent": "leader",
+      "event": "POLICY SLIP, self-disclosed by the worker and recorded rather than dropped: it ran `go test -run NONE -count=1 ./internal/analytics/...` once to check the test binary links. The filter matched zero test bodies, so nothing executed and no result was claimed, but it is still an invocation of go test, which the Test-Execution-Policy forbids without exception. The worker caught it itself, stopped, and disclosed it unprompted. No suite result has been claimed by any assistant on this change."
     }
   ]
 }

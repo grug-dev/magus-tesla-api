@@ -21,8 +21,8 @@ metric needs an external doc, e.g. a battery-chemistry reference, add it here.)
 analytics computed FROM other modules' stored data, not the data itself. Its first
 (and currently only) metric is rolling energy-per-kilometre (Wh/km) over a fixed
 window, derived from `internal/telemetry/`'s snapshot history plus the two
-charging-cost sources the platform stores (`telemetry.SuperchargerReader` and
-`internal/charging`), with a pack-capacity correction sourced from a small
+charging-cost sources the platform stores (`charging.SuperchargerSessionAnalyticsReader`
+and `charging.Reader`), with a pack-capacity correction sourced from a small
 in-package reference table keyed on the vehicle's `car_type`
 (`internal/account.Vehicle.CarType`).
 
@@ -112,8 +112,11 @@ interface-first):
   touches, so if this call is ever dropped, every vehicle's charts silently stop
   advancing.
 - `DayDistance` — one calendar day's distance result, backing `OdometerDeltaByDay`.
-- `NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader) Recalculator`
-  is the constructor for the write side.
+- `NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger charging.SuperchargerSessionAnalyticsReader, manual charging.Reader) Recalculator`
+  is the constructor for the write side. `supercharger`'s type retyped from
+  telemetry's own Supercharger-session port to `charging.SuperchargerSessionAnalyticsReader`
+  by `RM31-analytics-read-sessions-from-charging` (MAG-19 tier 3) — the parameter name is
+  unchanged (it describes the role, not the package).
 - **`ConsumedByDay`'s signature is unchanged, but its implementation is not.** It used
   to fetch from the three ports and derive on every call; it now reads the precomputed
   `vehicle_metrics` rows. Callers see the same contract; the cost profile is completely
@@ -126,10 +129,13 @@ interface-first):
   `charge_gaps` ledger every nightly run, via `ConsumedByDay` (`design.md` D4/D4a/D7b).
   Unlike `DefaultWindow`, this is not consumed by `NewReader` — `internal/app` passes it
   directly as the `[start, end]` window to `ConsumedByDay`.
-- `NewReader(pool *pgxpool.Pool, telemetry telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader, account vehicleLookup, window time.Duration) Reader`
+- `NewReader(pool *pgxpool.Pool, telemetry telemetry.Reader, supercharger charging.SuperchargerSessionAnalyticsReader, manual charging.Reader, account vehicleLookup, window time.Duration) Reader`
   is the constructor — it gained the leading `*pgxpool.Pool` in
   `RM29-analytics-add-vehicle-metrics`, since `ConsumedByDay`/`OdometerDeltaByDay` now
-  read this module's own tables. `vehicleLookup` is an unexported narrow interface covering only
+  read this module's own tables. `supercharger`'s type retyped from
+  telemetry's own Supercharger-session port to `charging.SuperchargerSessionAnalyticsReader`
+  by `RM31-analytics-read-sessions-from-charging` (MAG-19 tier 3). `vehicleLookup` is an
+  unexported narrow interface covering only
   `RegisteredVehicles` — any real `account.Service` satisfies it automatically
   (structural typing), no adapter needed at the call site. `ConsumedByDay` uses only
   three of the four wired dependencies (`telemetry`, `supercharger`, `manual`) and none
@@ -166,10 +172,16 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 - `internal/telemetry` — `telemetry.Reader` (`SnapshotsByVehicleSince`,
   `SnapshotPrecedingDay` — added by `RM29-telemetry-drop-derived-columns`, the exact-
   predecessor lookup `Recalculate` uses to derive the five consumption figures itself),
-  `telemetry.SuperchargerReader` (`SuperchargerSessionsByVehicle`), and the domain
-  types `telemetry.Snapshot`, `telemetry.SuperchargerSession`.
-- `internal/charging` — `charging.Reader` (`ListEntriesByVehicle`) and the
-  domain type `charging.Entry`.
+  and the domain type `telemetry.Snapshot`. As of
+  `RM31-analytics-read-sessions-from-charging` (MAG-19 tier 3) this module no longer
+  imports telemetry's own Supercharger-session port or domain type at all — that read
+  moved to `internal/charging` (below).
+- `internal/charging` — `charging.Reader` (`ListEntriesByVehicle`) and the domain type
+  `charging.Entry`, plus, as of `RM31-analytics-read-sessions-from-charging`,
+  `charging.SuperchargerSessionAnalyticsReader` (`ListSessionsByVehicleBetween`,
+  `ListSessionsByVehicleUpdatedSince`, `ListSessionsByVehicle`) and the domain type
+  `charging.Session` — this module's Supercharger-session source, replacing the
+  telemetry-backed port/type this section named before that tier.
 - `internal/account` — the narrow `RegisteredVehicles` method (satisfied by
   `account.Service`) and the domain type `account.Vehicle`.
 - `github.com/google/uuid`, stdlib (`context`, `time`).
@@ -283,7 +295,7 @@ Offline (no `DATABASE_URL`, no Docker):
   `deriveEfficiency`) directly with plain `[]telemetry.Snapshot` / `float64` inputs —
   no fakes needed, since they have zero I/O.
 - `reader_test.go` tests `RecentEfficiency` against hand-written fakes of the four
-  dependencies (`telemetry.Reader`, `telemetry.SuperchargerReader`,
+  dependencies (`telemetry.Reader`, `charging.SuperchargerSessionAnalyticsReader`,
   `charging.Reader`, `vehicleLookup`), mirroring the `fakeReadStore`/
   `newFakeReader` pattern in `internal/telemetry/reader_test.go` one level up (fake
   *ports* instead of a fake *store*).
