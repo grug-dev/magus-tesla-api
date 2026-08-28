@@ -6,7 +6,7 @@
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
   "status": "in-progress",
-  "updated_at": "2026-08-28T21:17:29Z",
+  "updated_at": "2026-08-28T21:45:03Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -656,6 +656,31 @@
       "at": "2026-08-28T21:17:29Z",
       "agent": "leader",
       "event": "5.4 is `done` on the leader's own cheap signals: its acceptance criterion is literally `go build ./...` and `go vet ./...` succeeding, both assistant-runnable. 5.1-5.3 are `awaiting-user-verification` - the tests COMPILE but have never been EXECUTED by anyone, and only the owner runs the suite."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `make test` RED -- ONE failure, TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile: 'table row count (0) must equal the Sessions tile's own rendered count (3) -- single source of truth (D7)'. Every other package passed. Verification is the OWNER'S."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "LEADER TRIAGE: not a product regression. The D7 invariant still holds; the tier-4 test's COUNTING TECHNIQUE went stale. It counted a bare `<tr>`, but wave 2's supercharger_row.templ:35 renders `<tr id=\"supercharger-row-{ID}\">` because htmx needs a stable per-row id for the outerHTML swap. Bare-`<tr>` count therefore = 0. This sat latent for three waves because the handlers package could not compile from wave 3 until wave 5 -- the second defect that window hid, after the buildSuperchargerStatsView drift."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "Fix dispatched by SendMessage to the SAME wave-5 worker (context reuse, no cold re-dispatch) with four binding constraints: do not weaken the D7 comparison, do not change product markup to fit the stale test, count the row-identity marker precisely, and document the coupling. Leader flagged the trap that the edit row (supercharger_row_edit.templ:41) and error row (supercharger_row.templ:65) reuse the same id prefix."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "Fix verified by the leader: counter is now `<tr id=\"supercharger-row-`; the D7 comparison is byte-for-byte unchanged (strict `gotRows != wantRows` -> t.Errorf, fixture's expected 3 untouched) -- NOT weakened, NOT skipped. `go build ./...`, `go vet ./...`, gofmt all clean; zero product files touched. The worker's inflation-risk analysis is correct: this fragment renders only the STATIC row, the edit/error variants being reachable solely from the row-level handlers."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "Tasks 5.1-5.3 remain awaiting-user-verification pending the owner's RE-RUN; the fix is build/vet-verified but no one has executed the suite."
     }
   ]
 }

@@ -1035,7 +1035,23 @@ func TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile(t
 	if tbodyIdx == -1 {
 		t.Fatal("body missing <tbody>")
 	}
-	gotRows := strings.Count(body[tbodyIdx:], "<tr>")
+	// Count the row-IDENTITY marker, not a bare "<tr>": supercharger_row.templ:35
+	// renders the static row as `<tr id="supercharger-row-{vm.ID}">` (htmx needs
+	// the stable id to target the outerHTML row swap), so a bare "<tr>" count went
+	// stale at 0 the moment that id was added — the row markup changed, not the
+	// D7 invariant it is meant to check. Coupled to that shape: if
+	// supercharger_row.templ's <tr id=…> prefix ever changes, update this string
+	// to match.
+	//
+	// Inflation risk: supercharger_row_edit.templ:41 (the edit row) and
+	// supercharger_row.templ:65 (SuperchargerRowError) both reuse the SAME
+	// "supercharger-row-" id prefix. Neither can appear here: this fragment is
+	// SuperchargerStatsFragment -> buildSuperchargerRows -> SuperchargerRow only
+	// (the STATIC row) — the edit/error variants are rendered exclusively by the
+	// row-level handlers (SuperchargerRowEditFragment / SuperchargerRowUpdate),
+	// never by this page/fragment handler — so the marker cannot be inflated by
+	// either variant in this test.
+	gotRows := strings.Count(body[tbodyIdx:], `<tr id="supercharger-row-`)
 	if gotRows != wantRows {
 		t.Errorf("table row count (%d) must equal the Sessions tile's own rendered count (%d) — single source of truth (D7)", gotRows, wantRows)
 	}
