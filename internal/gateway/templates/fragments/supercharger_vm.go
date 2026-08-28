@@ -58,4 +58,12 @@ type SuperchargerRowVM struct {
 	EnergyLabel string
 	// CostLabel is "N.NN <currency>", or "—" when TotalCost or Currency is nil.
 	CostLabel string
+	// StartBatteryPctLabel is "N%", or "—" when StartBatteryPct is nil.
+	StartBatteryPctLabel string
+	// EndBatteryPctLabel is "N%", or "—" when EndBatteryPct is nil.
+	EndBatteryPctLabel string
+	// StartBatteryPctEstLabel is "N%", or "—" when StartBatteryPctEst is nil.
+	StartBatteryPctEstLabel string
+	// EndBatteryPctEstLabel is "N%", or "—" when EndBatteryPctEst is nil.
+	EndBatteryPctEstLabel string
 }

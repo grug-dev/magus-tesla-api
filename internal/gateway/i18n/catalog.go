@@ -158,6 +158,10 @@ const (
 	KeySuperchargerEmpty         Key = "supercharger.empty"
 	KeySuperchargerDate          Key = "supercharger.date"
 	KeySuperchargerSite          Key = "supercharger.site"
+	KeySuperchargerStartBattery  Key = "supercharger.start_battery"
+	KeySuperchargerEndBattery    Key = "supercharger.end_battery"
+	KeySuperchargerStartEstimate Key = "supercharger.start_estimate"
+	KeySuperchargerEndEstimate   Key = "supercharger.end_estimate"
 
 	// --- vehicles fragment, dead code but explicitly in scope (design.md Discoveries #3) ---
 	KeyVehiclesBatteryLabel     Key = "vehicles.battery_label"
@@ -400,6 +404,10 @@ var catalog = map[Key]entry{
 	KeySuperchargerEmpty:         {ES: "No hay sesiones de Supercharger en esta ventana.", EN: "No Supercharger sessions in this window."},
 	KeySuperchargerDate:          {ES: "Fecha", EN: "Date"},
 	KeySuperchargerSite:          {ES: "Sitio", EN: "Site"},
+	KeySuperchargerStartBattery:  {ES: "Batería inicial", EN: "Start battery"},
+	KeySuperchargerEndBattery:    {ES: "Batería final", EN: "End battery"},
+	KeySuperchargerStartEstimate: {ES: "Estimación inicial", EN: "Start estimate"},
+	KeySuperchargerEndEstimate:   {ES: "Estimación final", EN: "End estimate"},
 
 	KeyVehiclesBatteryLabel:     {ES: "Batería:", EN: "Battery:"},
 	KeyVehiclesRangeLabel:       {ES: "Autonomía:", EN: "Range:"},

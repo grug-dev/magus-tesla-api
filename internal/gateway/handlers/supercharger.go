@@ -294,19 +294,19 @@ func buildSuperchargerTiles(sessions []charging.Session) fragments.SuperchargerT
 // zero-energy month inside a non-empty window still renders as a bar.
 func buildSuperchargerChart(sessions []charging.Session, start, end time.Time) fragments.HistoryChart {
 	if len(sessions) == 0 {
-		return fragments.HistoryChart{Empty: true}
+		return fragments.HistoryChart{Empty: true, LabelVertical: true}
 	}
 
 	anchor := startOfMonth(start)
 	numMonths := monthsBetween(anchor, startOfMonth(end)) + 1
 
 	type bucket struct {
-		label string
+		month time.Time
 		kwh   float64
 	}
 	buckets := make([]bucket, numMonths)
 	for i := 0; i < numMonths; i++ {
-		buckets[i].label = anchor.AddDate(0, i, 0).Format("Jan 2006")
+		buckets[i].month = anchor.AddDate(0, i, 0)
 	}
 
 	for _, s := range sessions {
@@ -335,10 +335,16 @@ func buildSuperchargerChart(sessions []charging.Session, start, end time.Time) f
 		}
 		bars[i] = fragments.HistoryBar{
 			HeightPct: pct,
-			Tooltip:   fmt.Sprintf("%s · %.1f kWh", b.label, b.kwh),
+			Tooltip:   fmt.Sprintf("%s · %.1f kWh", b.month.Format("Jan 2006"), b.kwh),
+			Label:     b.month.Format("2006-01"),
 		}
 	}
-	return fragments.HistoryChart{Bars: bars, Empty: false}
+	return fragments.HistoryChart{
+		Bars:          bars,
+		Empty:         false,
+		LabelVertical: true,
+		YAxisTicks:    buildYAxisTicks(maxKWh, func(kWh float64) string { return fmt.Sprintf("%.1f kWh", kWh) }),
+	}
 }
 
 // monthsBetween returns how many calendar months t is after since (0 when
