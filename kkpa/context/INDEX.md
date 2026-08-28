@@ -14,6 +14,8 @@
 | `supercharger stats` | `SuperchargerStatsPage` / `charging.SessionReader` (`charge_sessions`) | entity | `workflows/supercharger-stats-read.md` |
 | `Supercharger session` | raw: `telemetry.SuperchargerSession` / `supercharger_sessions`; page reads the `charge_sessions` mirror | entity | `workflows/supercharger-stats-read.md` |
 | `fast charging stats` | synonym of `supercharger stats` | entity | `workflows/supercharger-stats-read.md` |
+| `charge session log` | `charging.SessionReader` / `charging.SessionWriter` (`charge_sessions`) | entity | `workflows/supercharger-stats-read.md` |
+| `charge session record` | synonym of `charge session log` | entity | `workflows/supercharger-stats-read.md` |
 | `vehicle metrics` | `analytics.Recalculator` / `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calc fields` | the `_calc` columns of `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calculated fields` | synonym of `calc fields` | entity | `entities/vehicle-metrics/guide.md` |

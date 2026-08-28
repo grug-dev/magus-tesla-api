@@ -8,7 +8,7 @@
   "roadmap_tier": 3,
   "intention": "Switch analytics' Supercharger source from telemetry.SuperchargerSession to charging.Session so a human-verified battery percentage reaches vehicle_metrics. Includes the vehicle_metric_watermarks.source CHECK-constraint migration (DELETE/epoch-reset per roadmap Decision 10).",
   "created_at": "2026-08-28T09:50:00Z",
-  "updated_at": "2026-08-28T10:35:00Z",
+  "updated_at": "2026-08-28T10:45:00Z",
   "leader": {
     "agent": "leader",
     "assistant": "Claude Code",
@@ -266,6 +266,24 @@
       "decision": "accepted the worker's deviation from design.md T3's illustrative SessionID 901 -- it uses nextSessionID() instead",
       "why": "supercharger_sessions.session_id is globally unique, not account-scoped, so a hardcoded literal collides on a rerun against a persistent DATABASE_URL. T3 asserts consumed_pct, never the SessionID.",
       "covered_by": "design.md 5 T3"
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-28T10:42:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "DESIGN GATE RE-OPENED and approved: the Down migration gains a symmetric DELETE of source='charge_sessions' rows before restoring the old CHECK",
+      "why": "Without it the Down fails SQLSTATE 23514 and leaves the table unconstrained. Reconcile writes those rows every pass, so Down was unrunnable in production from the first nightly run.",
+      "covered_by": "design.md 2e Down"
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-28T10:43:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "leader applied the Down fix directly instead of re-dispatching the analytics worker",
+      "why": "Three lines of SQL plus one test assertion, fully diagnosed already. A worker dispatch costs a full doc-pack re-read, and the 5-hour bucket was at 81%.",
+      "covered_by": null
     }
   ],
   "review": {
@@ -324,6 +342,16 @@
       "at": "2026-08-28T10:35:00Z",
       "agent": "leader",
       "event": "POLICY SLIP, self-disclosed by the worker and recorded rather than dropped: it ran `go test -run NONE -count=1 ./internal/analytics/...` once to check the test binary links. The filter matched zero test bodies, so nothing executed and no result was claimed, but it is still an invocation of go test, which the Test-Execution-Policy forbids without exception. The worker caught it itself, stopped, and disclosed it unprompted. No suite result has been claimed by any assistant on this change."
+    },
+    {
+      "at": "2026-08-28T10:40:00Z",
+      "agent": "leader",
+      "event": "OWNER ran `make test`: one REAL FAILURE, TestMigration_WatermarkSourceVocabulary at db_watermark_migration_integration_test.go:261 -- the Down round-trip, SQLSTATE 23514. Diagnosis (confirmed in source, not guessed): the Down restored the old CHECK while a source='charge_sessions' row existed. NOT a test artifact -- recalculate.go:318 calls advanceWatermark(..., sourceChargeSessions, ...) on every pass, so production would have had those rows from the first nightly run and the Down was unrunnable from that moment. The design as approved was asymmetric: Up cleared the retired vocabulary's rows, Down cleared nothing. T1's round-trip assertion is what caught it."
+    },
+    {
+      "at": "2026-08-28T10:45:00Z",
+      "agent": "leader",
+      "event": "fix applied by the leader: Down now DELETEs source='charge_sessions' before ADD CONSTRAINT, with the rationale written into the migration so nobody removes it as tidying; design.md 2e's Down block updated to match; T1 gained a post-Down charge_sessions count assertion. go build ./..., go vet ./... and gofmt -l all clean repo-wide. Tasks 2.2/2.3 remain awaiting-user-verification -- the assistant has not run the suite."
     }
   ]
 }

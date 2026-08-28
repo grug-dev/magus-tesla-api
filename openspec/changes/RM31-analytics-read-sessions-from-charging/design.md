@@ -273,6 +273,15 @@ COMMENT ON COLUMN vehicle_metric_watermarks.source IS
 ALTER TABLE vehicle_metric_watermarks
     DROP CONSTRAINT IF EXISTS vehicle_metric_watermarks_source_check;
 
+-- CORRECTION (2026-08-28, owner-confirmed at a re-opened design gate). This DELETE was
+-- absent from the design as first approved, and its absence was a real defect: restoring
+-- the old vocabulary while any source = 'charge_sessions' row exists fails with SQLSTATE
+-- 23514 and leaves the table with NO constraint. Reconcile writes such rows on every pass
+-- (recalculate.go's advanceWatermark), so the Down was unrunnable in production from the
+-- first nightly run after Up. Caught by this change's own T1 round-trip test.
+DELETE FROM vehicle_metric_watermarks
+WHERE source = 'charge_sessions';
+
 ALTER TABLE vehicle_metric_watermarks
     ADD CONSTRAINT vehicle_metric_watermarks_source_check
     CHECK (source IN ('vehicle_snapshots', 'supercharger_sessions', 'manual_charge_entries'));

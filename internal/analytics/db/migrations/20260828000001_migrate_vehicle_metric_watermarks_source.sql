@@ -82,8 +82,23 @@ COMMENT ON COLUMN vehicle_metric_watermarks.source IS
 -- table/column COMMENTs, so a rollback leaves the schema exactly as it was before Up
 -- -- only the deleted rows themselves are unrecoverable, and their absence degrades
 -- to "epoch," never to an error.
+--
+-- THE DELETE BELOW IS LOAD-BEARING, NOT TIDYING. Restoring the old vocabulary while a
+-- single source = 'charge_sessions' row exists makes the ADD CONSTRAINT fail with
+-- SQLSTATE 23514, leaving the table with NO constraint at all. And such rows are the
+-- normal case, not an edge case: Reconcile calls advanceWatermark(..., 
+-- sourceChargeSessions, ...) on every pass (recalculate.go), so the first nightly run
+-- after Up creates them. Without this DELETE the Down is unrunnable in production from
+-- that moment on. It mirrors Up's own DELETE exactly -- each direction clears the rows
+-- written under the vocabulary the other direction retires -- and rests on the same D7
+-- argument: an absent cursor IS the epoch, so the cost is one redundant backfill pass.
+-- Found by this change's own T1 round-trip test, which is why T1 asserts the round trip
+-- rather than only the forward migration.
 ALTER TABLE vehicle_metric_watermarks
     DROP CONSTRAINT IF EXISTS vehicle_metric_watermarks_source_check;
+
+DELETE FROM vehicle_metric_watermarks
+WHERE source = 'charge_sessions';
 
 ALTER TABLE vehicle_metric_watermarks
     ADD CONSTRAINT vehicle_metric_watermarks_source_check

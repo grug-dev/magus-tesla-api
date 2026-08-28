@@ -270,6 +270,15 @@ func TestMigration_WatermarkSourceVocabulary(t *testing.T) {
 	if n := countWatermarkRows(t, pool, accountID, teslaID, "supercharger_sessions"); n != 0 {
 		t.Errorf("supercharger_sessions watermark count after Down: want STILL 0 (Down does not resurrect the deleted row), got %d", n)
 	}
+	// Down's own DELETE, the mirror image of Up's. A charge_sessions row was
+	// inserted above to prove the new vocabulary was accepted; Down must clear
+	// it, or restoring the old CHECK fails with SQLSTATE 23514 and leaves the
+	// table unconstrained. This is not a hypothetical: Reconcile writes a
+	// charge_sessions cursor on every pass, so production has these rows from
+	// the first nightly run after Up. This assertion is what caught it.
+	if n := countWatermarkRows(t, pool, otherAccountID, otherTeslaID, "charge_sessions"); n != 0 {
+		t.Errorf("charge_sessions watermark count after Down: want 0 (Down clears the rows written under the new vocabulary, mirroring Up), got %d", n)
+	}
 
 	// t.Cleanup (registered above) removes both vehicles' rows and
 	// re-applies the migration so every other test in this package sees the
