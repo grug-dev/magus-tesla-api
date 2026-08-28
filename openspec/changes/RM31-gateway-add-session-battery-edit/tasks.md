@@ -139,7 +139,7 @@ whether the task's files are disjoint from its concurrent siblings.
 
 ## Wave 4 — Deps/route wiring (depends on the handlers existing)
 
-- [ ] **4.1** **[module: gateway worker]** `internal/gateway/handlers/handlers.go` — add
+- [x] **4.1** **[module: gateway worker]** `internal/gateway/handlers/handlers.go` — add
   `SuperchargerVerifier charging.SessionVerifier` to `Deps`, `superchargerVerifier
   charging.SessionVerifier` to `Handler`, and thread it in `New()`, mirroring
   `SuperchargerReader`'s existing three-point wiring exactly; update `SuperchargerStatsPage`'s and
@@ -149,7 +149,7 @@ whether the task's files are disjoint from its concurrent siblings.
   `internal/gateway/AGENTS.md`'s new amendment (1.3); no other `Deps` field is touched.
   `depends_on`: 1.3, 3.3, 3.4 · `parallel_ok`: no (same file as 4.2 in spirit — coordinate).
 
-- [ ] **4.2** **[module: gateway worker]** `internal/gateway/gateway.go` — register
+- [x] **4.2** **[module: gateway worker]** `internal/gateway/gateway.go` — register
   `r.GET("/ui/supercharger-stats/row/:id", h.SuperchargerRowStatic)`,
   `r.GET("/ui/supercharger-stats/row/:id/edit", h.SuperchargerRowEditFragment)`,
   `r.PATCH("/ui/supercharger-stats/row/:id", h.SuperchargerRowUpdate)`, immediately after the
@@ -158,12 +158,17 @@ whether the task's files are disjoint from its concurrent siblings.
   3.4 · `parallel_ok`: yes, with 4.1 once 3.4 lands (disjoint files: `gateway.go` vs
   `handlers.go`).
 
-- [ ] **4.3** **[LEADER TASK — outside `internal/`, NOT this worker]** `cmd/web/main.go` — wire
+- [x] **4.3** **[LEADER TASK — outside `internal/`, NOT this worker]** `cmd/web/main.go` — wire
   `charging.NewSessionVerifier(pool)` into `gateway.Deps.SuperchargerVerifier`, alongside the
   existing `charging.NewSessionReader(pool)` → `Deps.SuperchargerReader` wiring. This sits outside
   the gateway module's sandbox; the leader (or a worker explicitly re-dispatched with a `cmd/`
   grant) performs it, never this module worker. Acceptance: `go build ./...` succeeds
   repo-wide with `Deps.SuperchargerVerifier` populated. `depends_on`: 4.1 · `parallel_ok`: no.
+  - _Leader note (additive, RM31 D21):_ satisfying this acceptance criterion also required the
+    `gateway.Deps` → `handlers.Deps` passthrough for `SuperchargerVerifier` in
+    `internal/gateway/gateway.go`, which neither 4.1 (handlers.go only) nor 4.2 (routes only)
+    named. `cmd/web` constructs `gateway.Deps`, so the build cannot go green without it. Done
+    by the leader as part of 4.3; mirrors `SuperchargerReader`'s existing passthrough exactly.
 
 ## Wave 5 — tests (pure/offline first, per project test-authoring order)
 

@@ -6,7 +6,7 @@
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
   "status": "in-progress",
-  "updated_at": "2026-08-28T18:01:00Z",
+  "updated_at": "2026-08-28T21:02:15Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -19,16 +19,12 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions"
   },
   "rollup": {
-    "current": [
-      "4.1",
-      "4.2"
-    ],
+    "current": [],
     "pending": [
       "3.1",
       "3.2",
       "3.3",
       "3.4",
-      "4.3",
       "5.1",
       "5.2",
       "5.3",
@@ -46,7 +42,8 @@
       "1.3",
       "2.1",
       "2.2"
-    ]
+    ],
+    "awaiting_user_verification": []
   },
   "decisions": [
     {
@@ -83,6 +80,15 @@
       "made_by": "user",
       "decision": "override the tripped 5-hour budget gate (93% vs threshold 90) and run wave 4 now",
       "why": "Wave 3 left the branch non-compiling (D19). Wave 4 is mechanical wiring, plausibly 3-5% vs the 7% left, and closing it restores a tree the owner can actually test.",
+      "covered_by": null
+    },
+    {
+      "id": "D21",
+      "at": "2026-08-28T21:02:15Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "leader closed the gateway.Deps -> handlers.Deps SuperchargerVerifier passthrough itself, under 4.3's acceptance criterion",
+      "why": "Neither 4.1 (handlers.go) nor 4.2 (routes) named it, but cmd/web constructs gateway.Deps so the build cannot go green without it. 4.3 is already a leader task demanding a repo-wide green build.",
       "covered_by": null
     }
   ],
@@ -261,7 +267,7 @@
     },
     {
       "id": "4.1",
-      "status": "in-progress",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "1.3",
         "3.3",
@@ -270,38 +276,53 @@
       "agent": "gateway",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-28T18:01:00Z",
-      "completed_at": null,
+      "completed_at": "2026-08-28T21:02:15Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "unrecordable: the worker was KILLED mid-wave by the 5-hour session limit; the bucket then reset (five_hour_pct now null), so no valid start/end bracket exists"
+      },
+      "notes": "Deps.SuperchargerVerifier + Handler field + New() threading, mirroring SuperchargerReader's three-point wiring; doc comment cross-references AGENTS.md. D8 CSRF split exact: Page issues via generateCSRFToken, Fragment only reads."
     },
     {
       "id": "4.2",
-      "status": "in-progress",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "3.4"
       ],
       "agent": "gateway",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-08-28T18:01:00Z",
-      "completed_at": null,
+      "completed_at": "2026-08-28T21:02:15Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "unrecordable: the worker was KILLED mid-wave by the 5-hour session limit; the bucket then reset (five_hour_pct now null), so no valid start/end bracket exists"
+      },
+      "notes": "Three routes registered after the existing two Supercharger Stats routes, mirroring the /ui/charges/row block. PATCH verb per roadmap D10, deliberately not PUT. No other route touched."
     },
     {
       "id": "4.3",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "4.1"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-28T21:02:15Z",
+      "completed_at": "2026-08-28T21:02:15Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "unrecordable: the worker was KILLED mid-wave by the 5-hour session limit; the bucket then reset (five_hour_pct now null), so no valid start/end bracket exists"
+      },
+      "notes": "LEADER task. Wired charging.NewSessionVerifier(pool) into cmd/web/main.go, plus the gateway.Deps->handlers.Deps passthrough neither 4.1 nor 4.2 named (D21). go build ./... now CLEAN repo-wide."
     },
     {
       "id": "5.1",
@@ -553,6 +574,41 @@
       "at": "2026-08-28T18:01:00Z",
       "agent": "leader",
       "event": "Wave 4 dispatched to ONE batched serial gateway worker (sonnet): tasks 4.1 + 4.2. 4.2 is parallel_ok:yes but batched serially anyway -- one dispatch reads the doc pack once, which matters most under a tripped bucket. 4.3 is a LEADER task (cmd/web/main.go, outside the module sandbox) and stays pending until 4.1 lands. budget_start: five_hour 93%, context 10%, cost $0.62."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "Resumed after the wave-4 worker was KILLED mid-wave by the 5-hour session limit -- the D20 override did NOT pay off. Leader verified the worker had in fact COMPLETED 4.1 and 4.2 substantively before dying; it died at the verification step, not during implementation."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "STATE ANOMALY, recorded not corrected: the wave-4 work reached the branch via commit 76dd874 'Updating', authored by the owner outside the pipeline. That commit bundles wave 4's three files together with UNRELATED work (i18n/catalog.go, layouts/nav.go, ui/icon.templ, icon_templ.go, nav_shell_test.go) and the leader's own bracket write to progress.json. It carries none of the pipeline's conventional-commit grammar or trailers, so wave 4 has no Tasks:/Pipeline-Step: trailer in history."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "Leader independently verified the worker's output against design.md: D8's issuance split is exact (SuperchargerStatsPage generates+saves via generateCSRFToken, SuperchargerStatsFragment only reads), Deps doc comment cross-references AGENTS.md's new amendment per 4.1's acceptance, no other Deps field touched, routes mirror the /ui/charges/row block with the deliberate PATCH verb (roadmap D10). No design decision missed."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "GAP FOUND at reconcile: gateway.Deps is a struct distinct from handlers.Deps and cmd/web constructs the former; the worker wired only the latter, so `unknown field SuperchargerVerifier in struct literal of type gateway.Deps` blocked the build. Task decomposition hole -- neither 4.1 nor 4.2 named the passthrough. Leader closed it under 4.3 (D21); tasks.md got an APPENDED note, no criterion edited or weakened."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "Cheap signals after 4.3: `go build ./...` CLEAN repo-wide; `make ui-guard` and `make i18n-guard` both PASS; gofmt clean on all four touched files. `go vet ./...` STILL RED, expected and NOT a wave-4 defect: internal/gateway/handlers/supercharger_test.go:264 calls buildSuperchargerStatsView with wave-3's old 6-arg signature. That stale test is wave 5's to close -- task 5.4's acceptance criterion is literally `go vet ./...` succeeding."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "CONSEQUENCE: the owner CANNOT run the gateway suite at this boundary -- the handlers package tests do not compile. Tasks 3.1-3.4 and 4.1-4.3 all remain awaiting-user-verification and can only clear once wave 5 lands. This is the second consecutive boundary with an unrunnable suite."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "The working tree carries UNRELATED in-flight nav-shell work (i18n/catalog.go, static/app.css, layouts/nav.go, ui/nav_shell.templ, nav_shell_templ.go, nav_shell_test.go). The leader staged NONE of it -- the wave-4 commit is restricted to cmd/web/main.go, internal/gateway/gateway.go, tasks.md and progress.json."
     }
   ]
 }

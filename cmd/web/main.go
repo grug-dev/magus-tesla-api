@@ -57,8 +57,12 @@ func main() {
 		Tesla:              tesla.NewClient(),
 		TelemetryReader:    telemetry.NewReader(pool),
 		SuperchargerReader: charging.NewSessionReader(pool),
-		ChargingWriter:     charging.NewWriter(pool),
-		ChargingReader:     charging.NewReader(pool),
+		// Write port for the Supercharger row-edit save (PATCH
+		// /ui/supercharger-stats/row/:id). Its VerifySession is account-scoped,
+		// which is the tenant boundary for that route.
+		SuperchargerVerifier: charging.NewSessionVerifier(pool),
+		ChargingWriter:       charging.NewWriter(pool),
+		ChargingReader:       charging.NewReader(pool),
 		// The history fragment's battery-consumed chart reads through this port.
 		// analytics.NewReader's window argument is required by the signature but
 		// unused by ConsumedByDay — only RecentEfficiency reads it, and the

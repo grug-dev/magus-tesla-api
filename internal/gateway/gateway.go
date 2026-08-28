@@ -49,6 +49,15 @@ type Deps struct {
 	// charging.NewSessionReader(pool). NEVER import internal/charging/db
 	// (chargingdb) for this path — all access through this interface only.
 	SuperchargerReader charging.SessionReader
+	// SuperchargerVerifier is the charging module's SessionVerifier write
+	// port over charge_sessions. Injected from cmd/web via
+	// charging.NewSessionVerifier(pool) and passed straight through to
+	// handlers.Deps. Called ONLY by SuperchargerRowUpdate on an explicit
+	// user-initiated row save. See internal/gateway/AGENTS.md "Exception:
+	// Supercharger session battery verification". NEVER import
+	// internal/charging/db (chargingdb) for this path. Added by
+	// RM31-gateway-add-session-battery-edit.
+	SuperchargerVerifier charging.SessionVerifier
 	// ChargingWriter is the charging write port. Called by write handlers
 	// (create/update/delete) on explicit user-initiated form submissions only.
 	// See AGENTS.md "Exception: user-initiated writes" for the full amendment.
@@ -137,6 +146,7 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 		Tesla:                 d.Tesla,
 		TelemetryReader:       d.TelemetryReader,
 		SuperchargerReader:    d.SuperchargerReader,
+		SuperchargerVerifier:  d.SuperchargerVerifier,
 		ChargingWriter:        d.ChargingWriter,
 		ChargingReader:        d.ChargingReader,
 		AnalyticsReader:       d.AnalyticsReader,
