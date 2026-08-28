@@ -7,7 +7,7 @@ whether the task's files are disjoint from its concurrent siblings.
 
 ## Wave 1 — independent vocabulary (parallel_ok: yes; disjoint files)
 
-- [ ] **1.1** **[module: gateway worker]** `internal/gateway/templates/fragments/supercharger_vm.go`
+- [x] **1.1** **[module: gateway worker]** `internal/gateway/templates/fragments/supercharger_vm.go`
   — add `ID string` (session UUID), `RawStartBatteryPct string`, `RawEndBatteryPct string` to
   `SuperchargerRowVM` (empty string when the corresponding percentage is nil, matching
   `ChargeEntryVM.RawStartBatteryPct`'s convention exactly); add `CSRFToken string`,
@@ -15,7 +15,7 @@ whether the task's files are disjoint from its concurrent siblings.
   `charging.Session` type or pointer leaks into the VM; doc comments state the raw-string
   emptiness convention. `depends_on`: — · `parallel_ok`: yes, with 1.2 and 1.3.
 
-- [ ] **1.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — append the 10 new
+- [x] **1.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — append the 10 new
   bilingual ES/EN keys per design.md D3/D8/D9/D10 (namespaces `supercharger.actions`,
   `supercharger_row.*` for Edit/Save/Cancel, `supercharger_error.*` for invalid-id,
   session-not-found, malformed-body, start-range, end-range, could-not-save). Acceptance: every
@@ -23,7 +23,7 @@ whether the task's files are disjoint from its concurrent siblings.
   constant/map ordering convention; no existing key is modified. `depends_on`: — · `parallel_ok`:
   yes, with 1.1 and 1.3.
 
-- [ ] **1.3** **[module: gateway worker]** `internal/gateway/AGENTS.md` — add the
+- [x] **1.3** **[module: gateway worker]** `internal/gateway/AGENTS.md` — add the
   `Deps.SuperchargerVerifier charging.SessionVerifier` bullet under "Public interface" (mirroring
   the existing `Deps.SuperchargerReader`/`Deps.ChargingWriter` bullets: what calls it, what it may
   never do — no `chargingdb` import); add a new "Exception: Supercharger session battery

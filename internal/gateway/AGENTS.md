@@ -55,6 +55,17 @@ It renders what other modules expose; it owns no business data.
   `RM30-gateway-read-supercharger-stats-from-charging`. NEVER import
   `internal/charging/db` (`chargingdb`) for this path — all access through
   this interface only.
+- `Deps.SuperchargerVerifier charging.SessionVerifier` — the charging
+  module's Supercharger-session verification write port; injected at
+  construction via `gateway.Deps`/`handlers.Deps` (wired from `cmd/web` via
+  `charging.NewSessionVerifier(pool)`). Called ONLY by
+  `SuperchargerRowUpdate` (`PATCH /ui/supercharger-stats/row/:id`), on an
+  explicit user-initiated row save, to call `VerifySession` — the sole
+  write this port permits (start/end battery percentage correction). See
+  "Exception: Supercharger session battery verification" below. NEVER
+  import `internal/charging/db` (`chargingdb`) for this path — all access
+  through this interface only. Added by
+  `RM31-gateway-add-session-battery-edit`.
 - `Deps.AnalyticsReader analytics.Reader` — the analytics module's read
   port; injected at construction via `gateway.Deps`/`handlers.Deps` (wired
   from `cmd/web` via `analytics.NewReader(...)`). Called by
@@ -304,6 +315,48 @@ endpoint must work for anonymous callers too:
 4. **Scope stays narrow.** Only `account.Service.SetLanguage` is permitted under this
    exception. Every other handler stays Reader-only except the pre-existing D4
    aperture above.
+
+### Exception: Supercharger session battery verification (D8 amendment — RM31-gateway-add-session-battery-edit)
+
+The gateway MAY call `charging.SessionVerifier.VerifySession` from
+`SuperchargerRowUpdate` (`PATCH /ui/supercharger-stats/row/:id`), subject to
+ALL of the following constraints. `SessionVerifier` is a DIFFERENT port from
+D4's `charging.Writer` — this amendment does not stretch D4's language to
+cover it, it names its own aperture:
+
+1. **Auth guard first** — `currentUID(c)` must resolve a valid session UID or
+   the handler redirects to `/login` and returns. No write proceeds without an
+   authenticated user.
+2. **CSRF token on the write route** — the handler calls
+   `checkCSRFKey(c, csrfSuperchargerKey)`, where `csrfSuperchargerKey =
+   "csrf_supercharger"` is a NEW session key, distinct from D4's
+   `"csrf_manualcharge"`. Issued once by `SuperchargerStatsPage`; read (never
+   re-issued) by `SuperchargerStatsFragment` and every row-level handler.
+   Returns HTTP 403 on a missing/stale/mismatched token; no write proceeds.
+3. **No separate `RegisteredVehicles` ownership check — a deliberate
+   divergence from D4, not an oversight.** D4's write path validates the
+   submitted `(TeslaID, VIN)` pair against `account.RegisteredVehicles`
+   before calling `Writer`. This aperture does NOT perform that check.
+   `VerifySession`'s own `WHERE id = @id AND account_id = @account_id` clause
+   is the sole tenant boundary for this write: it has no `TeslaID`/vehicle
+   predicate at all, so a session belonging to a different vehicle on the
+   SAME account remains writable through this route (not a tenancy
+   escalation — the account owns both sessions), while a session belonging
+   to a DIFFERENT account's data is excluded by the `WHERE` clause itself,
+   never reachable regardless of the id supplied.
+4. **Only `charging.SessionVerifier.VerifySession` is permitted** — this is
+   the narrow aperture. This amendment does NOT open general write access to
+   the gateway; Reader-only remains the default for ALL other handlers, and
+   D4's own `RegisteredVehicles` ownership check remains required on D4's
+   write path — this amendment changes nothing about D4.
+
+**Rationale:** identical in shape to D4's — an explicit user-initiated form
+save, CSRF-protected — but the ownership-check divergence (point 3) exists
+because `VerifySession` was designed (tier 1,
+`RM29-charging-add-session-verification`) with account-scoping as its own
+complete tenant boundary, and re-deriving a `TeslaID`-based check the port's
+own `WHERE` clause does not use would test a predicate the write itself never
+applies.
 
 ## Vehicle-scoped reads — always send the selected TeslaID
 

@@ -5,8 +5,8 @@
   "module": "gateway",
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
-  "status": "proposed",
-  "updated_at": "2026-08-28T16:20:00Z",
+  "status": "in-progress",
+  "updated_at": "2026-08-28T17:31:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -19,11 +19,11 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       "1.1",
-      "1.2",
-      "1.3",
+      "1.2"
+    ],
+    "pending": [
       "2.1",
       "2.2",
       "3.1",
@@ -44,45 +44,62 @@
       "7.2"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.3"
+    ]
   },
   "decisions": [],
   "tasks": [
     {
       "id": "1.1",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:25:00Z",
+      "completed_at": "2026-08-28T17:31:30Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.64,
+        "approx": true,
+        "note": "wave 1 bracket: five_hour 53->60%, cost $10.33->$12.97; single serial worker, exact"
+      },
+      "notes": "Added ID, RawStartBatteryPct, RawEndBatteryPct to SuperchargerRowVM and CSRFToken/WindowStartStr/WindowEndStr to SuperchargerStatsView, mirroring ChargeEntryVM's raw-string emptiness convention; no charging.Session leak."
     },
     {
       "id": "1.2",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:25:00Z",
+      "completed_at": "2026-08-28T17:31:30Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.64,
+        "approx": true,
+        "note": "wave 1 bracket: five_hour 53->60%, cost $10.33->$12.97; single serial worker, exact"
+      },
+      "notes": "Appended exactly 10 bilingual keys (1 supercharger.actions, 3 supercharger_row.*, 6 supercharger_error.*); all ES/EN non-empty on the same map line; no existing key touched. Leader verified all 10 independently."
     },
     {
       "id": "1.3",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:25:00Z",
+      "completed_at": "2026-08-28T17:31:30Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.64,
+        "approx": true,
+        "note": "wave 1 bracket: five_hour 53->60%, cost $10.33->$12.97; single serial worker, exact"
+      },
+      "notes": "Added Deps.SuperchargerVerifier bullet under Public interface plus a new 'Exception: Supercharger session battery verification' subsection in D4/D-lang numbered format, stating the divergence from D4's ownership check explicitly."
     },
     {
       "id": "2.1",
@@ -379,6 +396,21 @@
       "at": "2026-08-28T16:20:00Z",
       "agent": "leader",
       "event": "Worker flagged the dispatch's ambiguity on the KB (artifacts-only header vs the D-I8 kkpa/context/ grant) and planned the KB as Wave 6 tasks 6.1-6.3 rather than editing it now. Leader ACCEPTS: the KB documents the shipped write path, so it belongs with implementation. The grant stands for the Wave 6 dispatch."
+    },
+    {
+      "at": "2026-08-28T17:25:00Z",
+      "agent": "leader",
+      "event": "Owner reported the branch suite + go vet GREEN as a BASELINE (tiers 1-4); no tier-5 code exists yet, so this verifies no tier-5 task. Recorded as the clean starting point for wave 1."
+    },
+    {
+      "at": "2026-08-28T17:25:00Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched to one batched serial gateway worker (sonnet): tasks 1.1, 1.2, 1.3 - disjoint files, independent vocabulary. budget_start: five_hour 53%, context 18%, cost $10.33."
+    },
+    {
+      "at": "2026-08-28T17:31:30Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled. Leader independently re-ran go build ./... + go vet ./... (both clean) and verified all 10 i18n keys carry non-empty ES and EN, and that both touched Go files are gofmt-clean (the gofmt -l entries the worker reported are pre-existing, from an unrelated commit). Worker did NOT write progress.json - write-ownership rail held. Worker's reported timestamps were placeholders (00:00:00Z); leader substituted real dispatch/return times. 1.1/1.2 are awaiting-user-verification (code, untested); 1.3 is done (documentation)."
     }
   ]
 }
