@@ -87,8 +87,14 @@ templ superchargerChart(chart HistoryChart) {
 // window + read cap already bound the row count) composing ui.Table, never
 // inline table/tr/td class soup. No arithmetic, no conditionals beyond the
 // presence-driven "—" placeholders already baked into each row's labels by
-// the handler.
-templ superchargerTable(sessions []SuperchargerRowVM) {
+// the handler. Each row delegates to SuperchargerRow (supercharger_row.templ,
+// RM31-gateway-add-session-battery-edit) rather than an inline <tr> — the
+// same component the row-level handlers (SuperchargerRowStatic,
+// SuperchargerRowUpdate) render on their own, so the static row's markup has
+// exactly one source. csrfToken/windowStartStr/windowEndStr are threaded
+// straight through to every row's Edit action URL (design.md D2) — built
+// once here, not duplicated per row.
+templ superchargerTable(sessions []SuperchargerRowVM, csrfToken, windowStartStr, windowEndStr string) {
 	@ui.Table(ui.TableProps{Headers: []string{
 		i18n.T(ctx, i18n.KeySuperchargerDate),
 		i18n.T(ctx, i18n.KeySuperchargerSite),
@@ -98,18 +104,10 @@ templ superchargerTable(sessions []SuperchargerRowVM) {
 		i18n.T(ctx, i18n.KeySuperchargerEndBattery),
 		i18n.T(ctx, i18n.KeySuperchargerStartEstimate),
 		i18n.T(ctx, i18n.KeySuperchargerEndEstimate),
+		i18n.T(ctx, i18n.KeySuperchargerActions),
 	}}) {
 		for _, s := range sessions {
-			<tr>
-				<td>{ s.DateLabel }</td>
-				<td>{ s.SiteLabel }</td>
-				<td>{ s.EnergyLabel }</td>
-				<td>{ s.CostLabel }</td>
-				<td>{ s.StartBatteryPctLabel }</td>
-				<td>{ s.EndBatteryPctLabel }</td>
-				<td>{ s.StartBatteryPctEstLabel }</td>
-				<td>{ s.EndBatteryPctEstLabel }</td>
-			</tr>
+			@SuperchargerRow(s, csrfToken, windowStartStr, windowEndStr)
 		}
 	}
 }
@@ -140,7 +138,7 @@ templ SuperchargerStatsContent(v SuperchargerStatsView) {
 			@superchargerChart(v.Chart)
 		}
 		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerSessions)}) {
-			@superchargerTable(v.Sessions)
+			@superchargerTable(v.Sessions, v.CSRFToken, v.WindowStartStr, v.WindowEndStr)
 		}
 	}
 }

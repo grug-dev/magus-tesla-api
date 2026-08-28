@@ -6,7 +6,7 @@
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
   "status": "in-progress",
-  "updated_at": "2026-08-28T17:44:30Z",
+  "updated_at": "2026-08-28T17:55:06Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -55,6 +55,24 @@
       "made_by": "leader",
       "decision": "SuperchargerRow/SuperchargerRowEdit take windowStartStr+windowEndStr as trailing params, not new SuperchargerRowVM fields",
       "why": "The window is one value per page, already on SuperchargerStatsView; copying it onto every row VM duplicates state. Task 3.2 already grants this latitude.",
+      "covered_by": null
+    },
+    {
+      "id": "D18",
+      "at": "2026-08-28T17:55:06Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "accept the worker's extra fetchSuperchargerRowVM read on the 422 validation branch",
+      "why": "The two-input form never submits date/site/energy/cost, so without the re-read the 422 row renders blank. D9's one-extra-read cost note covers only the writer-error path.",
+      "covered_by": null
+    },
+    {
+      "id": "D19",
+      "at": "2026-08-28T17:55:06Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "commit wave 3 as a NON-COMPILING checkpoint rather than pulling wave 4 forward to close the gap",
+      "why": "Budget gate tripped at exactly 90%. Dispatching wave 4 now risks exhausting the bucket mid-wave, which leaves progress.json untruthful - worse than a broken intermediate commit on a feature branch.",
       "covered_by": null
     }
   ],
@@ -152,64 +170,84 @@
     },
     {
       "id": "3.1",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "1.1"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:46:06Z",
+      "completed_at": "2026-08-28T17:55:06Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.29,
+        "approx": true,
+        "note": "wave 3 bracket: five_hour 76->90%, cost $0.62->$4.91; single batched serial worker, exact"
+      },
+      "notes": "Extracted superchargerRowVMFromSession (D11); buildSuperchargerRows delegates to it, no behavior change. Threaded csrfToken through superchargerStatsViewFor/buildSuperchargerStatsView; both now set CSRFToken/WindowStartStr/WindowEndStr."
     },
     {
       "id": "3.2",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "2.1",
         "3.1"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:46:06Z",
+      "completed_at": "2026-08-28T17:55:06Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.29,
+        "approx": true,
+        "note": "wave 3 bracket: five_hour 76->90%, cost $0.62->$4.91; single batched serial worker, exact"
+      },
+      "notes": "superchargerTable takes (sessions, csrfToken, windowStartStr, windowEndStr) and delegates each row to @SuperchargerRow (4-arg, D17); 9th Actions header added; SuperchargerStatsContent threads the three view fields. make templ regenerated cleanly."
     },
     {
       "id": "3.3",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "1.1",
         "3.1"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:46:06Z",
+      "completed_at": "2026-08-28T17:55:06Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.29,
+        "approx": true,
+        "note": "wave 3 bracket: five_hour 76->90%, cost $0.62->$4.91; single batched serial worker, exact"
+      },
+      "notes": "Added csrfSuperchargerKey, fetchSuperchargerRowVM (D1/D2 list-and-match, every failure collapses to (zero,false)), and recalculateAfterSessionVerify (D4/D5, UTC ChargeStopDateTime +/-1 day). recalculateAfterChargeWrite byte-for-byte untouched."
     },
     {
       "id": "3.4",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "1.1",
         "1.2",
         "3.1",
         "3.3"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:46:06Z",
+      "completed_at": "2026-08-28T17:55:06Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.29,
+        "approx": true,
+        "note": "wave 3 bracket: five_hour 76->90%, cost $0.62->$4.91; single batched serial worker, exact"
+      },
+      "notes": "Added SuperchargerRowStatic, SuperchargerRowEditFragment, SuperchargerRowUpdate per D3/D6/D7/D8/D9. Strict GetPostForm body, [0,100] range only, no ordering check, nil TeslaID logs+skips. Package does not compile pending 4.1."
     },
     {
       "id": "4.1",
@@ -470,6 +508,31 @@
       "at": "2026-08-28T17:44:30Z",
       "agent": "leader",
       "event": "CHECKPOINT at the wave-2/wave-3 boundary: owner is clearing context before wave 3. Budget clear (five_hour 74%, context 13%, cost $3.44) - this is the recommended per-wave /clear for a 7-wave change, NOT a threshold trip. NEXT: wave 3 = tasks 3.1, 3.2, 3.3, 3.4 - ALL parallel_ok:no, so ONE serial worker in dependency order 3.1 -> 3.3 -> 3.2 -> 3.4 (3.2 is supercharger_stats.templ; 3.1/3.3/3.4 are handlers/supercharger.go). Dispatch MUST carry D17: SuperchargerRow/SuperchargerRowEdit take windowStartStr+windowEndStr as trailing params, so 3.2/3.4 render calls are 4-arg. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T17:46:06Z",
+      "agent": "leader",
+      "event": "Resumed (fresh session, Claude Code / Opus 5 leader). Working tree clean, on ft/RM31-MAG-19-supercharger-session-verification. Wave 3 dispatched to ONE batched serial gateway worker (sonnet): tasks 3.1 -> 3.3 -> 3.2 -> 3.4, all parallel_ok:no (same file family). Dispatch carries D17's 4-arg render shape. budget_start: five_hour 76%, context 9%, cost $0.62."
+    },
+    {
+      "at": "2026-08-28T17:55:06Z",
+      "agent": "leader",
+      "event": "Wave 3 reconciled. Leader independently re-ran go build (3 errors, see below), verified charges.go is byte-for-byte untouched, no NEW pgx import in the gateway (the 3 pgxpool hits are pre-existing in gateway.go/handlers.go/gateway_test.go, all unchanged), and read the full supercharger.go diff against design.md D1-D11. make ui-guard + make i18n-guard PASS. Worker did NOT write progress.json - write-ownership rail held."
+    },
+    {
+      "at": "2026-08-28T17:55:06Z",
+      "agent": "leader",
+      "event": "EXPECTED BUILD BREAK at the wave-3/wave-4 boundary, NOT a defect: `go build ./...` fails with exactly 3 errors, all in code task 4.1 explicitly owns - supercharger.go:218 and :237 (SuperchargerStatsPage/Fragment still call superchargerStatsViewFor with 2 args) and :654 (h.superchargerVerifier undefined until Deps is wired). Consequence: `go vet` cannot run and the OWNER CANNOT RUN THE SUITE at this boundary. Tasks 3.1-3.4 are awaiting-user-verification and can only be verified once wave 4 lands."
+    },
+    {
+      "at": "2026-08-28T17:55:06Z",
+      "agent": "leader",
+      "event": "Worker FLAGGED a judgment call rather than absorbing it: the 422 validation branch re-reads the row via fetchSuperchargerRowVM to repopulate the read-only cells the two-input form never submits, then overrides only the two raw values. Leader ACCEPTS - recorded as D18. No acceptance criterion weakened; T5 is unaffected either way."
+    },
+    {
+      "at": "2026-08-28T17:55:06Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT TRIPPED at the wave-3/wave-4 boundary: five_hour_pct 90, threshold 90 - CROSSED. context_pct 13, cost $4.91 this session. five_hour_resets_at 2026-08-28T20:20:00Z. Wave 4 (4.1 handlers.go Deps+CSRF issuance, 4.2 gateway.go routes, 4.3 LEADER task cmd/web/main.go) is unblocked but NOT started. Resume AFTER 20:20:00Z with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
     }
   ]
 }

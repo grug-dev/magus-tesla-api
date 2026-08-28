@@ -78,7 +78,7 @@ whether the task's files are disjoint from its concurrent siblings.
 > `SuperchargerRowEdit(...)` / `SuperchargerRow(...)` render calls. Every other acceptance criterion stands.
 
 
-- [ ] **3.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — extract
+- [x] **3.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — extract
   `superchargerRowVMFromSession(s charging.Session) fragments.SuperchargerRowVM` out of
   `buildSuperchargerRows`'s existing per-session body (design.md D11), now also setting `ID`,
   `RawStartBatteryPct`, `RawEndBatteryPct`; `buildSuperchargerRows` calls it per element with NO
@@ -90,7 +90,7 @@ whether the task's files are disjoint from its concurrent siblings.
   place that formats these five fields; existing chart/tile tests remain green under `go vet`.
   `depends_on`: 1.1 · `parallel_ok`: no (same file as 3.2-3.4; serialize within this wave).
 
-- [ ] **3.2** **[module: gateway worker]** `internal/gateway/templates/fragments/supercharger_stats.templ`
+- [x] **3.2** **[module: gateway worker]** `internal/gateway/templates/fragments/supercharger_stats.templ`
   — `superchargerTable` signature becomes `superchargerTable(sessions []SuperchargerRowVM,
   csrfToken, windowStartStr, windowEndStr string)`, replacing its inline `<tr>` loop body with a
   call to `@SuperchargerRow(s, csrfToken)` per session (2.1); each row's Edit URL is built here
@@ -102,7 +102,7 @@ whether the task's files are disjoint from its concurrent siblings.
   rendering to `historyBarChart` unchanged. `depends_on`: 2.1, 3.1 · `parallel_ok`: no (same file
   family as 3.1/3.3/3.4).
 
-- [ ] **3.3** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — add
+- [x] **3.3** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — add
   `csrfSuperchargerKey = "csrf_supercharger"` constant; add `fetchSuperchargerRowVM(c
   *gin.Context, uid uuid.UUID, id uuid.UUID) (fragments.SuperchargerRowVM, bool)` per design.md
   D1/D2 (parse `?start=&end=` from the request → `resolveSelectedVehicle` →
@@ -115,7 +115,7 @@ whether the task's files are disjoint from its concurrent siblings.
   `chargeStopDateTime.UTC()`, never `browserToday(c)`. `depends_on`: 1.1, 3.1 · `parallel_ok`: no
   (same file as 3.1/3.2/3.4).
 
-- [ ] **3.4** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — add the
+- [x] **3.4** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — add the
   three route handlers:
   - `SuperchargerRowStatic(c)` — auth guard → parse `id` (400 on bad UUID,
     `KeySuperchargerErrorInvalidID`) → read `csrf_supercharger` from session (do NOT reissue,
