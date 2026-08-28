@@ -29,4 +29,6 @@ that state. Checkboxes are updated live only when their acceptance is actually m
 
 - [x] **4.1** **[module: gateway worker]** Re-read the implemented diff against design.md D1–D6 and specs/gateway/spec.md, then update only the completed task checkboxes in this file. Acceptance: no code outside `internal/gateway/`, no database object, write path, estimator, Country restoration, or new chart implementation has entered the change. `depends_on`: 3.1, 3.2, 3.3 · `parallel_ok`: no.
 
-- [ ] **4.2** **[owner verification]** Run `go test ./internal/gateway/...`. Acceptance: report the result to the leader; until then the work remains awaiting-user-verification, not done. `depends_on`: 4.1 · `parallel_ok`: no.
+- [x] **4.2** **[owner verification]** Run `go test ./internal/gateway/...`. Acceptance: report the result to the leader; until then the work remains awaiting-user-verification, not done. `depends_on`: 4.1 · `parallel_ok`: no.
+
+- [ ] **4.3** **[owner re-verification]** Re-run `go test ./internal/gateway/...` after review finding R1's test-coverage correction. Acceptance: report the result to the leader; until then R1 cannot be closed or re-reviewed. `depends_on`: 3.2 · `parallel_ok`: no.

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -19,6 +20,8 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 )
 
 // --- fakes for the Supercharger Stats handler tests ---
@@ -777,6 +780,33 @@ func TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues(t *testing.T) 
 	}
 	if strings.Contains(body, "País") {
 		t.Error("Country must remain absent from the Supercharger table")
+	}
+}
+
+func TestSuperchargerStatsContent_RendersEnglishHeadersAndNilBatteryValues(t *testing.T) {
+	var body bytes.Buffer
+	err := fragments.SuperchargerStatsContent(fragments.SuperchargerStatsView{
+		Sessions: []fragments.SuperchargerRowVM{{
+			DateLabel:               "Fri Aug 1, 2026",
+			SiteLabel:               "Nil Battery Site",
+			EnergyLabel:             "—",
+			CostLabel:               "—",
+			StartBatteryPctLabel:    "—",
+			EndBatteryPctLabel:      "—",
+			StartBatteryPctEstLabel: "—",
+			EndBatteryPctEstLabel:   "—",
+		}},
+	}).Render(i18n.WithLang(context.Background(), "en"), &body)
+	if err != nil {
+		t.Fatalf("render Supercharger Stats content: %v", err)
+	}
+	for _, want := range []string{"Start battery", "End battery", "Start estimate", "End estimate"} {
+		if !strings.Contains(body.String(), want) {
+			t.Errorf("want English rendered header %q", want)
+		}
+	}
+	if strings.Count(body.String(), "—") < 6 {
+		t.Errorf("want all four nil battery cells to render em dashes, body: %s", body.String())
 	}
 }
 
