@@ -102,6 +102,7 @@ func superchargerEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN stri
 // ptrF64 / ptrInt64 are small pointer helpers for building nullable session
 // fields. ptrStr already exists in charges_test.go — reused here.
 func ptrF64(f float64) *float64 { return &f }
+func ptrInt(i int) *int         { return &i }
 func ptrInt64(i int64) *int64   { return &i }
 
 // parseSuperchargerRangeAt builds a gin.Context with the given start/end query
@@ -516,6 +517,9 @@ func TestBuildSuperchargerChart_EmptyWhenSessionsEmpty(t *testing.T) {
 	if !c.Empty {
 		t.Error("want Empty=true for an empty sessions slice")
 	}
+	if !c.LabelVertical {
+		t.Error("want empty chart labels to be vertical")
+	}
 }
 
 func TestBuildSuperchargerChart_OneBarPerMonthInWindow(t *testing.T) {
@@ -541,6 +545,20 @@ func TestBuildSuperchargerChart_OneBarPerMonthInWindow(t *testing.T) {
 	}
 	if c.Bars[0].HeightPct != 33 && c.Bars[0].HeightPct != 34 {
 		t.Errorf("want month 0 (10/30=33%%) bar, got %d", c.Bars[0].HeightPct)
+	}
+	for i, want := range []string{"2026-03", "2026-04", "2026-05"} {
+		if c.Bars[i].Label != want {
+			t.Errorf("bar %d: want Label=%q, got %q", i, want, c.Bars[i].Label)
+		}
+	}
+	if !c.LabelVertical {
+		t.Error("want month labels to be vertical")
+	}
+	if len(c.YAxisTicks) != 5 {
+		t.Fatalf("want 5 y-axis ticks, got %d", len(c.YAxisTicks))
+	}
+	if c.YAxisTicks[0].Label != "30.0 kWh" || c.YAxisTicks[4].Label != "0.0 kWh" {
+		t.Errorf("want 30.0 kWh..0.0 kWh ticks, got %#v", c.YAxisTicks)
 	}
 }
 
@@ -584,6 +602,11 @@ func TestBuildSuperchargerRows_NilEnergyAndCostRenderDash(t *testing.T) {
 	if rows[0].CostLabel != "—" {
 		t.Errorf("want CostLabel=—, got %q", rows[0].CostLabel)
 	}
+	for _, label := range []string{rows[0].StartBatteryPctLabel, rows[0].EndBatteryPctLabel, rows[0].StartBatteryPctEstLabel, rows[0].EndBatteryPctEstLabel} {
+		if label != "—" {
+			t.Errorf("want nil battery value to render em dash, got %q", label)
+		}
+	}
 }
 
 func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
@@ -594,6 +617,10 @@ func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
 			EnergyKWh:           ptrF64(23.456),
 			TotalCost:           ptrF64(99.9),
 			Currency:            ptrStr("MXN"),
+			StartBatteryPct:     ptrInt(40),
+			EndBatteryPct:       ptrInt(80),
+			StartBatteryPctEst:  ptrInt(42),
+			EndBatteryPctEst:    ptrInt(78),
 		},
 	}
 	rows := buildSuperchargerRows(sessions)
@@ -605,6 +632,9 @@ func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
 	}
 	if rows[0].CostLabel != "99.90 MXN" {
 		t.Errorf("want CostLabel=99.90 MXN, got %q", rows[0].CostLabel)
+	}
+	if rows[0].StartBatteryPctLabel != "40%" || rows[0].EndBatteryPctLabel != "80%" || rows[0].StartBatteryPctEstLabel != "42%" || rows[0].EndBatteryPctEstLabel != "78%" {
+		t.Errorf("want four formatted battery labels, got %#v", rows[0])
 	}
 }
 
@@ -710,6 +740,43 @@ func TestSuperchargerStatsFragment_ReaderErrorDegradesNo500(t *testing.T) {
 	// Resolved language is Spanish here (see the NoRegisteredVehicle comment above).
 	if !strings.Contains(w.Body.String(), "No hay sesiones de Supercharger") {
 		t.Errorf("want empty-state placeholder on reader error; body: %s", w.Body.String())
+	}
+}
+
+func TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues(t *testing.T) {
+	uid := uuid.New()
+	reader := &fakeSessionReader{sessions: []charging.Session{{
+		TeslaID:             ptrInt64(42),
+		SiteLocationName:    "Battery Site",
+		ChargeStartDateTime: time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 8, 1, 11, 0, 0, 0, time.UTC),
+		StartBatteryPct:     ptrInt(40),
+		EndBatteryPct:       ptrInt(80),
+		StartBatteryPctEst:  ptrInt(42),
+		EndBatteryPctEst:    ptrInt(78),
+	}}}
+	h := newHandlerForSupercharger(reader, 42, "VIN42")
+	eng := superchargerEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{"Batería inicial", "Batería final", "Estimación inicial", "Estimación final", "40%", "80%", "42%", "78%"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("want rendered supercharger table to contain %q", want)
+		}
+	}
+	if strings.Contains(body, "País") {
+		t.Error("Country must remain absent from the Supercharger table")
 	}
 }
 

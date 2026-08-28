@@ -384,7 +384,7 @@ func buildSuperchargerRows(sessions []charging.Session) []fragments.Supercharger
 	return rows
 }
 
-func formatBatteryPct(pct *int16) string {
+func formatBatteryPct(pct *int) string {
 	if pct == nil {
 		return "—"
 	}
