@@ -33,4 +33,4 @@ that state. Checkboxes are updated live only when their acceptance is actually m
 
 - [x] **4.3** **[owner re-verification]** Re-run `go test ./internal/gateway/...` after review finding R1's test-coverage correction. Acceptance: report the result to the leader; until then R1 cannot be closed or re-reviewed. `depends_on`: 3.2 · `parallel_ok`: no.
 
-- [ ] **4.4** **[owner verification]** Re-run `go test ./internal/gateway/...` after review finding R2's missing zero-max y-axis ticks test. Acceptance: report the result to the leader; until then R2 cannot be closed or re-reviewed. `depends_on`: 3.1 · `parallel_ok`: no.
+- [x] **4.4** **[owner verification]** Re-run `go test ./internal/gateway/...` after review finding R2's missing zero-max y-axis ticks test. Acceptance: report the result to the leader; until then R2 cannot be closed or re-reviewed. `depends_on`: 3.1 · `parallel_ok`: no.
