@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM31-supercharger-session-verification",
   "intention": "A user can correct a Supercharger session's start/end battery % inline on /supercharger-stats, and the correction immediately reaches vehicle_metrics because analytics reads the same table the edit writes.",
-  "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
+  "request": "MAG-19 — ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-28T16:25:00Z",
+  "updated_at": "2026-08-28T16:20:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM31-MAG-19-supercharger-session-verification",
@@ -16,10 +16,10 @@
     "created_at": "2026-08-27T17:20:55Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       5
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1,
@@ -43,7 +43,7 @@
       "at": "2026-08-27T17:15:00Z",
       "scope": "change",
       "made_by": "user",
-      "decision": "start_battery_pct_est / end_battery_pct_est stay NULL; displayed as \"\u2014\"",
+      "decision": "start_battery_pct_est / end_battery_pct_est stay NULL; displayed as \"—\"",
       "why": "No SOC estimator exists (RM27 D11 descoped it), so freezing a snapshot would fabricate a drift log. Building an estimator is out of scope.",
       "covered_by": "roadmap Decision 3"
     },
@@ -70,7 +70,7 @@
       "at": "2026-08-27T17:20:00Z",
       "scope": "change",
       "made_by": "leader",
-      "decision": "gateway work split into two tiers \u2014 display (3) and edit (4)",
+      "decision": "gateway work split into two tiers — display (3) and edit (4)",
       "why": "The display half depends on nothing and ships alone; only the edit needs tiers 1 and 2. One gateway tier would have blocked the visible win behind the whole roadmap.",
       "covered_by": null
     },
@@ -118,6 +118,78 @@
       "decision": "corrected the roadmap's tier-3 table cell, which said UPDATE and contradicted Decision 10",
       "why": "The stale cell is what the leader dispatched from, producing a design that reversed a settled owner decision. Left uncorrected it would mislead the next session the same way.",
       "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "list-and-match resolves a session by ID; no new charging by-ID port",
+      "why": "charging.SessionReader has only ListSessionsByVehicleBetween. A by-ID port would be charging code and spawn a tier 6. Mirrors fetchEntryVM's documented no-GetEntry shape.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "save verb is PATCH with strict body semantics: both keys required, empty=NULL, absent key=400",
+      "why": "Owner chose PATCH over the gateway's PUT gold standard: the write is partial at the resource level (3 of ~18 columns). The 400 closes PATCH's partial-body invitation, which VerifySession would answer with a silent NULL.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "recalculation window is +/-1 day around the session's stop day, via a NEW helper",
+      "why": "A session stopping between midnight and the ~03:30 poller hour belongs to the previous metric day (effectiveDay = CapturedDate-1). Matches Reconcile's own D8 widening. recalculateAfterChargeWrite is left alone.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "the day comes from ChargeStopDateTime, computed in UTC",
+      "why": "sumSuperchargerPctBetween filters on ChargeStopDateTime; the page already rules plain UTC (D9a) and the gateway cannot see the poller's Location. The +/-1 window absorbs the zone error; the shifts cannot compound.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "TeslaID == nil: skip recalculation and log; the write still succeeds",
+      "why": "VerifySession has no vehicle predicate, so a hand-built PATCH can return a nil TeslaID. Account-scoping is the security boundary and holds. Matches recalculateAfterChargeWrite's swallow-and-log posture.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "blank inputs clear a value; no end<start ordering validation",
+      "why": "An irreversible verification UI is a trap, and VerifySession(nil,nil) clears the source too. Ordering is declined per tier 1 D8, which matches the table's deliberate absence of that CHECK. Only 0-100 is validated.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "new csrfSuperchargerKey; the page issues the token, fragments read it",
+      "why": "csrfManualChargeKey is issued only by GET /charges and checkCSRFKey fails closed, so reuse would block any user arriving directly. A row-edit fragment issuing fresh would invalidate a second open row's token.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "KB update also corrects the now-false 'ONE concept with a user write path' cross-reference; file is not renamed",
+      "why": "Leaving it would tell the next agent this page has no write path, one file from the write path we added. Renaming -read.md churns the INDEX and every inbound reference for a cosmetic gain.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
     }
   ],
   "tiers": [
@@ -211,14 +283,14 @@
         3,
         4
       ],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T16:20:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Carries the KB update (ticket item 6)."
+      "notes": "Artifacts created and validated --strict. No DB object -> database design gate NOT tripped. 21 sub-tasks across 7 waves. Carries the KB update (Wave 6)."
     }
   ],
   "events": [
@@ -230,12 +302,12 @@
     {
       "at": "2026-08-27T17:20:55Z",
       "agent": "leader",
-      "event": "runtime: Claude Code; native subagent dispatch + live budget both available (five_hour 64%, context 9%) \u2014 no degradations"
+      "event": "runtime: Claude Code; native subagent dispatch + live budget both available (five_hour 64%, context 9%) — no degradations"
     },
     {
       "at": "2026-08-27T17:20:55Z",
       "agent": "leader",
-      "event": "run scope capped by the invoking kkpa-pickup-linear-ticket skill: HALT AFTER STEP 4 \u2014 tier 1 artifacts + progress.json only, no implementation workers, no reviewer, no archive"
+      "event": "run scope capped by the invoking kkpa-pickup-linear-ticket skill: HALT AFTER STEP 4 — tier 1 artifacts + progress.json only, no implementation workers, no reviewer, no archive"
     },
     {
       "at": "2026-08-27T17:31:15Z",
@@ -296,6 +368,16 @@
       "at": "2026-08-28T16:25:00Z",
       "agent": "leader",
       "event": "OWNER REPORTED full `make test` GREEN across the whole repo after tier 4's archive -- broader than the per-module gateway run and confirming tiers 1-4 are green together on this branch. Verification is the owner's, not the assistant's. CHECKPOINT: owner is clearing context before tier 5. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T16:05:00Z",
+      "agent": "leader",
+      "event": "Resumed for tier 5 (last tier). Step 2 grill-me interview run with the owner per config.yaml rules.proposal -> 8 binding decisions D9-D16. Leader port-parity check BEFORE the interview confirmed tier 5 IS buildable inside the gateway boundary (D9), unlike tier 3. Worker (sonnet) dispatched for artifacts with an explicit kkpa/context/ sandbox grant (D16). No DB object expected -> database design gate not anticipated to trip."
+    },
+    {
+      "at": "2026-08-28T16:20:00Z",
+      "agent": "leader",
+      "event": "Tier 5 artifacts created and validated --strict; database design gate NOT tripped (no DB object). Tier 5 -> [~]/proposed. Change progress.json seeded with 21 tasks across 7 waves, all pending. STOPPING before Apply for the owner's go-ahead (autopilot=false)."
     }
   ]
 }
