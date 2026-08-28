@@ -6,7 +6,7 @@
 ## Glossary
 
 - **Known as:** `supercharger stats`, `Supercharger session`, `charge session log`, `Supercharger Stats page`, `/supercharger-stats`, `fast charging stats`
-- **Internal name:** `SuperchargerStatsPage` / `SuperchargerStatsFragment` (gateway handlers) → `charging.SessionReader` / `charging.SessionWriter` (`charge_sessions` table).
+- **Internal name:** `SuperchargerStatsPage` / `SuperchargerStatsFragment` (gateway handlers) → `charging.SessionReader` (`ListSessionsByVehicleBetween`) / `charging.SessionWriter` — table `charge_sessions`, owned by the `charging` module. **Changed by RM30** (was `telemetry.SuperchargerReader` over `supercharger_sessions`, the raw ingestion buffer).
 
 ## Component map
 
@@ -52,11 +52,11 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 ## How maintenance works
 
-- **Read (page load / fragment swap):** `GET /supercharger-stats` or `GET /ui/supercharger-stats?start=YYYY-MM-DD&end=YYYY-MM-DD` → auth guard (`currentUID`) → `superchargerStatsViewFor`: `parseSuperchargerRange` (both absent → month-aligned default: `end=today`, `start=monthsBackFrom(end, 6)`; malformed/one-sided/`end<start`/future `end`/wider than 400 days → HTTP 400, empty state, no preset selector) → `resolveSelectedVehicle` (no vehicle → empty state, not an error) → `buildSuperchargerStatsView`: ONE `ListSessionsByVehicleBetween(ctx, uid, teslaID, start, end)` call → tiles + chart + rows VM → render page / `renderFragment(…, "supercharger-stats")`.
-- **Add a KPI tile / table column:** `internal/gateway/handlers/supercharger.go` (`buildSuperchargerTiles` / `buildSuperchargerRows` — all formatting here) → `internal/gateway/templates/fragments/supercharger_stats.templ` (present the pre-formatted string) → i18n keys in `internal/gateway/i18n/catalog.go` (ES + EN) → `make templ && make css`.
-- **Change the window presets/default:** `superchargerRangeDefaultMonths` / preset construction in `internal/gateway/handlers/supercharger.go`; presets are rendered as absolute `?start=&end=` dates server-side, so only the constants and tests change.
-- **Create / Update / Delete a session:** NO user-facing path exists — by design. `charge_sessions` rows are written only by the nightly mirror (`app.processor` step 2 via `charging.SessionWriter`); raw `supercharger_sessions` only by the telemetry collector. Do not add a gateway write handler for this concept.
-- **Add a new field from the raw session:** the mirror copies a fixed column set — extend `charge_sessions` DDL + `SessionWriter.UpsertSession` + the mirror in `internal/app/processor.go`, then surface it through `SessionReader`/`Session`. The page never reads `supercharger_sessions` directly.
+- **Read (page load / fragment swap):** `GET /supercharger-stats` or `GET /ui/supercharger-stats?start=YYYY-MM-DD&end=YYYY-MM-DD` → auth guard (`currentUID`) → `superchargerStatsViewFor` (shared by both entry points; returns `(view, httpStatus)`): `parseSuperchargerRange` → on `ok=false` return the empty view with `Presets: nil` at HTTP 400 → `resolveSelectedVehicle` (account read; no vehicle → empty state, not an error) → `buildSuperchargerStatsView`: ONE `ListSessionsByVehicleBetween(ctx, uid, teslaID, start, end)` call → reverse the oldest-first slice once for newest-first display → tiles + chart + rows VM. The page renders via `render` / `renderError`; the fragment via `renderFragment` / `renderFragmentError` (`"supercharger-stats"`).
+- **Change the window contract (default, cap, presets):** `superchargerRangeDefaultMonths` (6), `superchargerRangeMaxDays` (400) and `superchargerMonthPresets` (`{3, 6, 12}`) are constants in `internal/gateway/handlers/supercharger.go`; `monthsBackFrom` computes month-aligned starts and `buildSuperchargerPresets` builds the selector's absolute `?start=&end=` hrefs. The template iterates `[]RangePreset`, so only the constants + tests change.
+- **Add a KPI tile / table column:** `internal/gateway/handlers/supercharger.go` (`buildSuperchargerTiles` / `buildSuperchargerRows` — all formatting here) → `internal/gateway/templates/fragments/supercharger_stats.templ` (present the pre-formatted string) → i18n keys in `internal/gateway/i18n/catalog.go` (ES + EN) → `make templ && make css`. A column only exists if `charging.Session` carries the field — RM30 dropped the Country and Billing-type columns precisely because it does not.
+- **Widen the readable window:** raise `superchargerRangeMaxDays` in the gateway — the port is already time-bounded, so no `charging` change is needed. Size the cap from the source table's row density, per `internal/gateway/AGENTS.md` §"HTTP date-filter convention".
+- **Create / Update / Delete a session:** NO user-facing path exists — by design. Sessions are written by the analytics recalculation path into `charge_sessions`; the gateway registers only the two GETs. Do not add a gateway write handler for this concept.
 
 ## Conventions & gotchas
 

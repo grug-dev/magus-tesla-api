@@ -12,7 +12,7 @@
 | `charges form` | `ChargeCreate` / `parseChargeForm` | entity | `workflows/manual-charge-crud.md` |
 | `Manual Records` | `/charges` page (`ChargePage`) | entity | `workflows/manual-charge-crud.md` |
 | `supercharger stats` | `SuperchargerStatsPage` / `charging.SessionReader` (`charge_sessions`) | entity | `workflows/supercharger-stats-read.md` |
-| `Supercharger session` | raw: `telemetry.SuperchargerSession` / `supercharger_sessions`; page reads the `charge_sessions` mirror | entity | `workflows/supercharger-stats-read.md` |
+| `Supercharger session` | `charging.Session` / written by the analytics recalculation path (no gateway write path) | entity | `workflows/supercharger-stats-read.md` |
 | `fast charging stats` | synonym of `supercharger stats` | entity | `workflows/supercharger-stats-read.md` |
 | `charge session log` | `charging.SessionReader` / `charging.SessionWriter` (`charge_sessions`) | entity | `workflows/supercharger-stats-read.md` |
 | `charge session record` | synonym of `charge session log` | entity | `workflows/supercharger-stats-read.md` |
@@ -27,6 +27,7 @@
 |---|---|
 | `manual charge CRUD` (create/edit/delete a manual charge, incl. analytics recalc hook) | `workflows/manual-charge-crud.md` |
 | `supercharger stats read` (page/fragment read flow; no user write path) | `workflows/supercharger-stats-read.md` |
+| `supercharger stats date filter` (`?start=&end=`, 400-day cap) | `workflows/supercharger-stats-read.md` |
 
 ## Architecture topics
 
