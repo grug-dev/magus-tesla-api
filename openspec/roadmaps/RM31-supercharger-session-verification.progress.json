@@ -270,6 +270,11 @@
       "at": "2026-08-28T09:40:00Z",
       "agent": "leader",
       "event": "DESIGN GATE (database) held with the owner: the UPDATE-vs-DELETE fork was surfaced explicitly, along with the leader's own finding that the nightly mirror bumps every updated_at unconditionally -- which makes DELETE nearly free rather than making UPDATE safe. Owner ruled for DELETE, honouring Decision 10. Worker re-messaged (context retained, no fresh dispatch) with 7 scoped corrections; roadmap tier-3 cell corrected by the leader. NOT yet approved for Apply -- the gate reopens when the revised artifacts return."
+    },
+    {
+      "at": "2026-08-28T11:02:00Z",
+      "agent": "leader",
+      "event": "Tier 3 archived (commit 6ef1bbd) after analytics-reviewer approval. BUDGET CHECKPOINT at the tier boundary: five_hour_pct 96, threshold 90 - CROSSED; context_pct 12; cost $4.31 this session; five_hour_resets_at 1787924400 (2026-08-28T13:40:00Z). Tier 4 (RM31-gateway-show-session-battery-pct) is unblocked but NOT started: autopilot is false (owner chose one tier at a time) AND the budget gate is tripped. OUTSTANDING FOLLOW-UP, deliberately not run for the same reason: the global openspec-archive-kb-sync rule owes a `/kkpa-context-curate from-spec openspec/specs/analytics/spec.md` to stage a KB proposal for the analytics capability. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
     }
   ]
 }
