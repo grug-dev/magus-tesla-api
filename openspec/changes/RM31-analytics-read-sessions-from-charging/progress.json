@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM31-analytics-read-sessions-from-charging",
+  "module": "analytics",
+  "status": "proposed",
+  "roadmap": "RM31-supercharger-session-verification",
+  "roadmap_tier": 3,
+  "intention": "Switch analytics' Supercharger source from telemetry.SuperchargerSession to charging.Session so a human-verified battery percentage reaches vehicle_metrics. Includes the vehicle_metric_watermarks.source CHECK-constraint migration (DELETE/epoch-reset per roadmap Decision 10).",
+  "created_at": "2026-08-28T09:50:00Z",
+  "updated_at": "2026-08-28T09:50:00Z",
+  "leader": { "agent": "leader", "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM31-MAG-19-supercharger-session-verification",
+    "base": "main",
+    "ticket": "MAG-19",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions"
+  },
+  "tasks": [
+    { "id": "1.1", "title": "Migration: vehicle_metric_watermarks.source vocabulary change (DELETE/epoch-reset)", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "1.2", "title": "Retype consumed.go + consumed_test.go to []charging.Session", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "1.3", "title": "Retype reader.go + reader_test.go to charging.SuperchargerSessionAnalyticsReader", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "1.4", "title": "Retype recalculate.go + recalculate_test.go; rename sourceSuperchargerSessions -> sourceChargeSessions", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "2.1", "title": "Update internal/analytics/AGENTS.md imports and public-interface prose", "depends_on": ["1.2", "1.3", "1.4"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "2.2", "title": "Retarget db_integration_test.go seeding to charge_sessions; add T2 and T4", "depends_on": ["1.1", "1.2", "1.3", "1.4"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
+    { "id": "2.3", "title": "Add Test Contract T1 (migration) and T3 (charging value wins) as DB-integration tests", "depends_on": ["1.1", "1.2", "1.3", "1.4", "2.2"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null }
+  ],
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "1.2", "1.3", "1.4", "2.1", "2.2", "2.3"],
+    "blocked": [],
+    "done": [],
+    "awaiting-user-verification": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-28T09:35:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "DESIGN GATE APPROVED (database). The watermark migration DELETEs the supercharger_sessions cursor rows rather than UPDATEing them in place -- roadmap Decision 10 stands.",
+      "why": "Carrying the cursor is load-bearing on the nightly mirror never having stalled, unverifiable at migration time. DELETE costs ~nothing since the next pass re-reads everything anyway.",
+      "covered_by": "design.md 2b/2c/2e; roadmap Decision 10"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-28T09:35:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "the vehicle_metric_watermarks.source label IS migrated to 'charge_sessions'; keeping 'supercharger_sessions' as an opaque string was rejected",
+      "why": "The closed vocabulary and its column COMMENT would otherwise name a table analytics no longer reads, defeating the column's documented purpose.",
+      "covered_by": "design.md 2a"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-28T09:40:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "LEADER ERROR, corrected: the tier-3 dispatch was written from the roadmap's stale table cell (UPDATE) without reading Decision 10 (DELETE) in the same file",
+      "why": "The worker flagged the contradiction instead of complying silently; the leader surfaced it at the gate rather than shipping it. Roadmap cell has been corrected.",
+      "covered_by": "design.md 2c"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-28T09:42:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "revised the artifacts by messaging the SAME worker agent rather than dispatching a fresh one",
+      "why": "The agent retained full artifact context, so the seven corrections cost no doc-pack re-read and kept design.md's cross-references coherent.",
+      "covered_by": null
+    }
+  ],
+  "review": { "agent": null, "status": null, "brief": null, "rounds": [] },
+  "events": [
+    {
+      "at": "2026-08-28T09:20:00Z",
+      "agent": "leader",
+      "event": "tier 3 artifacts created by the analytics worker (sonnet); openspec validate --strict passes. Doc-pack acknowledged (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/analytics/AGENTS.md) plus openspec/config.yaml. Worker reported D1-D6 and correctly FLAGGED that the dispatch contradicted roadmap Decision 10."
+    },
+    {
+      "at": "2026-08-28T09:35:00Z",
+      "agent": "leader",
+      "event": "DESIGN GATE (database) held with the owner. The UPDATE-vs-DELETE fork was surfaced explicitly along with the leader's own finding that MirrorChargeSession bumps every updated_at unconditionally -- which makes DELETE nearly free rather than making UPDATE safe. Owner ruled for DELETE and approved the design for Apply."
+    },
+    {
+      "at": "2026-08-28T09:45:00Z",
+      "agent": "leader",
+      "event": "revised artifacts verified INDEPENDENTLY by the leader, not accepted on the worker's report: Up contains DELETE and no UPDATE; Down restores only constraint + COMMENTs and does not resurrect rows; grep for 'byte-for-byte' / 'preserved in place' / 'supersed' across the change folder returns zero hits; openspec validate --strict valid; git status confirms no internal/analytics/ file and no migration file on disk."
+    }
+  ]
+}

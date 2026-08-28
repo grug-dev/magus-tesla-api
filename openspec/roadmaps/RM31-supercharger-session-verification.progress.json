@@ -6,7 +6,7 @@
   "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-28T09:02:00Z",
+  "updated_at": "2026-08-28T09:40:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM31-MAG-19-supercharger-session-verification",
@@ -16,9 +16,10 @@
     "created_at": "2026-08-27T17:20:55Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      3
+    ],
     "pending": [
-      3,
       4,
       5
     ],
@@ -100,6 +101,24 @@
       "decision": "watermark migration DELETEs the supercharger_sessions cursor rows instead of renaming them to charge_sessions",
       "why": "Absent watermark = epoch (RM29 D7), so the nightly Reconcile backfills. Carrying the value risks skipping any charge_sessions row older than the inherited cursor.",
       "covered_by": "roadmap Decision 10"
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-28T09:35:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "Decision 10 STANDS -- the watermark migration DELETEs the supercharger_sessions cursor rows; it does not UPDATE them in place",
+      "why": "Carrying the cursor is load-bearing on the nightly mirror running; a stalled mirror strands rows behind it undetectably. DELETE costs ~nothing since the next pass re-reads everything anyway.",
+      "covered_by": "roadmap Decision 10"
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-28T09:35:00Z",
+      "scope": "tier:3",
+      "made_by": "leader",
+      "decision": "corrected the roadmap's tier-3 table cell, which said UPDATE and contradicted Decision 10",
+      "why": "The stale cell is what the leader dispatched from, producing a design that reversed a settled owner decision. Left uncorrected it would mislead the next session the same way.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -152,10 +171,10 @@
       "depends_on": [
         2
       ],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
       "model": null,
-      "started_at": null,
+      "started_at": "2026-08-28T09:20:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -242,6 +261,16 @@
       "at": "2026-08-28T09:02:00Z",
       "agent": "leader",
       "event": "tier 2 (RM31-charging-add-session-read-ports) archived after a zero-finding reviewer round; owner reported `make test` GREEN. Tiers 3 and 4 are now unblocked (4 never had a dependency); tier 5 still waits on 3 and 4. autopilot is false, so the leader STOPS here and does not open tier 3 without the owner's go-ahead."
+    },
+    {
+      "at": "2026-08-28T09:40:00Z",
+      "agent": "leader",
+      "event": "tier 3 artifacts created by the analytics worker (sonnet); openspec validate --strict passes. Doc-pack acknowledgment received (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/analytics/AGENTS.md) plus openspec/config.yaml. Worker reported D1-D6 and FLAGGED that the dispatch contradicted roadmap Decision 10 -- correctly. LEADER ERROR: the dispatch was written from the roadmap's tier-3 table cell (UPDATE) without reading Decision 10 (DELETE) further down the same file."
+    },
+    {
+      "at": "2026-08-28T09:40:00Z",
+      "agent": "leader",
+      "event": "DESIGN GATE (database) held with the owner: the UPDATE-vs-DELETE fork was surfaced explicitly, along with the leader's own finding that the nightly mirror bumps every updated_at unconditionally -- which makes DELETE nearly free rather than making UPDATE safe. Owner ruled for DELETE, honouring Decision 10. Worker re-messaged (context retained, no fresh dispatch) with 7 scoped corrections; roadmap tier-3 cell corrected by the leader. NOT yet approved for Apply -- the gate reopens when the revised artifacts return."
     }
   ]
 }
