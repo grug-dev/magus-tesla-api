@@ -6,7 +6,7 @@
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
   "status": "in-progress",
-  "updated_at": "2026-08-28T17:41:00Z",
+  "updated_at": "2026-08-28T17:44:30Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -42,9 +42,7 @@
     "done": [
       "1.1",
       "1.2",
-      "1.3"
-    ],
-    "awaiting-user-verification": [
+      "1.3",
       "2.1",
       "2.2"
     ]
@@ -114,7 +112,7 @@
     },
     {
       "id": "2.1",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "1.1",
         "1.2"
@@ -134,7 +132,7 @@
     },
     {
       "id": "2.2",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "1.1",
         "1.2"
@@ -462,6 +460,16 @@
       "at": "2026-08-28T17:41:00Z",
       "agent": "leader",
       "event": "budget_end: five_hour 72%, context 12%, cost $2.85. Checkpoint gate NOT tripped (thresholds 90/40). 2.1 and 2.2 are code, untested -> awaiting-user-verification pending the OWNER's suite run."
+    },
+    {
+      "at": "2026-08-28T17:44:30Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `make test` GREEN (whole repo). Verification is the OWNER'S - the assistant never ran the suite. Tasks 2.1 and 2.2 move awaiting-user-verification -> done; wave 2 fully closed."
+    },
+    {
+      "at": "2026-08-28T17:44:30Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the wave-2/wave-3 boundary: owner is clearing context before wave 3. Budget clear (five_hour 74%, context 13%, cost $3.44) - this is the recommended per-wave /clear for a 7-wave change, NOT a threshold trip. NEXT: wave 3 = tasks 3.1, 3.2, 3.3, 3.4 - ALL parallel_ok:no, so ONE serial worker in dependency order 3.1 -> 3.3 -> 3.2 -> 3.4 (3.2 is supercharger_stats.templ; 3.1/3.3/3.4 are handlers/supercharger.go). Dispatch MUST carry D17: SuperchargerRow/SuperchargerRowEdit take windowStartStr+windowEndStr as trailing params, so 3.2/3.4 render calls are 4-arg. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
     }
   ]
 }
