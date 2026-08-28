@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM31-gateway-show-session-battery-pct",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM31-supercharger-session-verification.md",
+  "request": "MAG-19 — ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "1.2", "1.3", "2.1", "2.2", "3.1", "3.2", "3.3", "4.1", "4.2"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-28T11:22:21Z",
+  "updated_at": "2026-08-28T11:22:21Z",
+  "leader": {
+    "assistant": "Codex",
+    "model": "GPT-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM31-MAG-19-supercharger-session-verification",
+    "base": "main",
+    "ticket": "MAG-19",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions",
+    "created_at": "2026-08-27T17:20:55Z"
+  },
+  "tasks": [
+    {"id": "1.1", "title": "Add battery display labels to SuperchargerRowVM", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null},
+    {"id": "1.2", "title": "Add bilingual battery table catalogue keys", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null},
+    {"id": "1.3", "title": "Render four battery columns in Supercharger table", "module": "gateway", "depends_on": ["1.1", "1.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null},
+    {"id": "2.1", "title": "Add monthly chart labels, ticks, and vertical orientation", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null},
+    {"id": "2.2", "title": "Map session battery percentages to display labels", "module": "gateway", "depends_on": ["1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null},
+    {"id": "3.1", "title": "Add chart and battery row mapping tests", "module": "gateway", "depends_on": ["2.1", "2.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null},
+    {"id": "3.2", "title": "Add rendered Supercharger battery table tests", "module": "gateway", "depends_on": ["1.2", "1.3", "2.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null},
+    {"id": "3.3", "title": "Regenerate Supercharger Stats Templ output", "module": "gateway", "depends_on": ["1.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null},
+    {"id": "4.1", "title": "Reconcile implementation against artifacts", "module": "gateway", "depends_on": ["3.1", "3.2", "3.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null},
+    {"id": "4.2", "title": "Owner verifies gateway tests", "module": "gateway", "depends_on": ["4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null}
+  ],
+  "review": {"status": "pending", "agent": null, "brief": null, "rounds": []},
+  "decisions": [],
+  "events": [
+    {"at": "2026-08-28T11:22:21Z", "agent": "leader", "event": "Runtime: Codex. The budget helper cache identifies a foreign Claude session (Opus 5), so live budget is unavailable and this resumed tier runs with budget:null; native module-worker/reviewer dispatch is available."},
+    {"at": "2026-08-28T11:22:21Z", "agent": "leader", "event": "Tier 4 artifacts created by gateway worker, acknowledged all required doc-pack files, and passed openspec validate --strict. Database design gate not tripped: no DB object or query changes."}
+  ]
+}

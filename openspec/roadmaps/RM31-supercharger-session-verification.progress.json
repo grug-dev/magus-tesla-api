@@ -6,7 +6,7 @@
   "request": "MAG-19 — ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-28T11:00:00Z",
+  "updated_at": "2026-08-28T11:22:21Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM31-MAG-19-supercharger-session-verification",
@@ -16,7 +16,9 @@
     "created_at": "2026-08-27T17:20:55Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      4
+    ],
     "pending": [
       4,
       5
@@ -185,14 +187,14 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "in-flight",
       "assistant": "Claude Code",
       "model": null,
-      "started_at": null,
+      "started_at": "2026-08-28T11:22:21Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Artifacts created and validated --strict. Display-only gateway slice; no database object, no design gate."
     },
     {
       "id": 5,
@@ -275,6 +277,12 @@
       "at": "2026-08-28T11:02:00Z",
       "agent": "leader",
       "event": "Tier 3 archived (commit 6ef1bbd) after analytics-reviewer approval. BUDGET CHECKPOINT at the tier boundary: five_hour_pct 96, threshold 90 - CROSSED; context_pct 12; cost $4.31 this session; five_hour_resets_at 1787924400 (2026-08-28T13:40:00Z). Tier 4 (RM31-gateway-show-session-battery-pct) is unblocked but NOT started: autopilot is false (owner chose one tier at a time) AND the budget gate is tripped. OUTSTANDING FOLLOW-UP, deliberately not run for the same reason: the global openspec-archive-kb-sync rule owes a `/kkpa-context-curate from-spec openspec/specs/analytics/spec.md` to stage a KB proposal for the analytics capability. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    }
+    ,
+    {
+      "at": "2026-08-28T11:22:21Z",
+      "agent": "leader",
+      "event": "Resumed under Codex: the saved Claude Code budget cache is foreign, so budget accounting is degraded (budget:null) and cannot block this run. Tier 4 artifacts passed strict validation; status advanced to in-flight."
     }
   ]
 }
