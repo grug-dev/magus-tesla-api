@@ -565,6 +565,39 @@ func TestBuildSuperchargerChart_OneBarPerMonthInWindow(t *testing.T) {
 	}
 }
 
+// design.md T2 / spec.md "A non-empty zero-energy chart has no fabricated axis
+// scale": sessions exist, so the chart is NOT Empty, but nothing was charged.
+// The bars and their YYYY-MM labels stay; the y-axis must not invent a scale.
+func TestBuildSuperchargerChart_ZeroEnergyHasNoYAxisTicks(t *testing.T) {
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC) // 2-month window: Mar, Apr
+	sessions := []charging.Session{
+		{ChargeStartDateTime: start.AddDate(0, 0, 2), EnergyKWh: ptrF64(0)}, // explicit zero
+		{ChargeStartDateTime: start.AddDate(0, 1, 2), EnergyKWh: nil},       // unknown energy
+	}
+	c := buildSuperchargerChart(sessions, start, end)
+	if c.Empty {
+		t.Fatal("want a non-empty chart: the sessions exist, only their energy is zero/nil")
+	}
+	if len(c.Bars) != 2 {
+		t.Fatalf("want 2 bars (one per month in the window), got %d", len(c.Bars))
+	}
+	for i, want := range []string{"2026-03", "2026-04"} {
+		if c.Bars[i].Label != want {
+			t.Errorf("bar %d: want Label=%q, got %q", i, want, c.Bars[i].Label)
+		}
+		if c.Bars[i].HeightPct != 0 {
+			t.Errorf("bar %d: want 0%% height at a zero maximum, got %d", i, c.Bars[i].HeightPct)
+		}
+	}
+	if len(c.YAxisTicks) != 0 {
+		t.Errorf("want no y-axis ticks at a zero maximum, got %#v", c.YAxisTicks)
+	}
+	if !c.LabelVertical {
+		t.Error("want month labels to be vertical")
+	}
+}
+
 func TestBuildSuperchargerChart_TooltipContainsMonthAndKWh(t *testing.T) {
 	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)

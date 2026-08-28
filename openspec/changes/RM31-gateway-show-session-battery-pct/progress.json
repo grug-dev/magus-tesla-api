@@ -4,16 +4,30 @@
   "change": "RM31-gateway-show-session-battery-pct",
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM31-supercharger-session-verification.md",
-  "request": "MAG-19 — ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
-  "status": "verified",
+  "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
+  "status": "applied",
   "rollup": {
-    "current": [],
+    "current": [
+      "4.4"
+    ],
     "pending": [],
     "blocked": [],
-    "done": ["1.1", "1.2", "1.3", "2.1", "2.2", "3.1", "3.2", "3.3", "4.1", "4.2", "4.3"]
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "3.3",
+      "4.1",
+      "4.2",
+      "4.3"
+    ]
   },
   "created_at": "2026-08-28T11:22:21Z",
-  "updated_at": "2026-08-28T15:26:40Z",
+  "updated_at": "2026-08-28T15:52:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -27,35 +41,345 @@
     "created_at": "2026-08-27T17:20:55Z"
   },
   "tasks": [
-    {"id": "1.1", "title": "Add battery display labels to SuperchargerRowVM", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:23:53Z", "completed_at": "2026-08-28T11:27:42Z", "duration_seconds": 229, "notes": "Added four presentation-only battery labels; no domain type leaked into the VM.", "budget": null},
-    {"id": "1.2", "title": "Add bilingual battery table catalogue keys", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:23:53Z", "completed_at": "2026-08-28T11:27:42Z", "duration_seconds": 229, "notes": "Added four same-line ES/EN Supercharger battery header keys; Country remains absent.", "budget": null},
-    {"id": "1.3", "title": "Render four battery columns in Supercharger table", "module": "gateway", "depends_on": ["1.1", "1.2"], "parallel_ok": true, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:27:42Z", "completed_at": "2026-08-28T11:30:02Z", "duration_seconds": 140, "notes": "Added four i18n-backed battery columns in matching header/cell order; Country remains absent.", "budget": null},
-    {"id": "2.1", "title": "Add monthly chart labels, ticks, and vertical orientation", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:23:53Z", "completed_at": "2026-08-28T11:27:42Z", "duration_seconds": 229, "notes": "Reused HistoryChart labels, existing y-axis ticks, and vertical orientation; preserved existing tooltip behavior.", "budget": null},
-    {"id": "2.2", "title": "Map session battery percentages to display labels", "module": "gateway", "depends_on": ["1.1"], "parallel_ok": true, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:27:42Z", "completed_at": "2026-08-28T11:30:02Z", "duration_seconds": 140, "notes": "Mapped all four nullable session percentages through one nil-safe display formatter.", "budget": null},
-    {"id": "3.1", "title": "Add chart and battery row mapping tests", "module": "gateway", "depends_on": ["2.1", "2.2"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:30:02Z", "completed_at": "2026-08-28T11:31:56Z", "duration_seconds": 114, "notes": "Added direct chart-axis and battery-label mapping assertions; execution remains owner verification.", "budget": null},
-    {"id": "3.2", "title": "Add rendered Supercharger battery table tests", "module": "gateway", "depends_on": ["1.2", "1.3", "2.2"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:30:02Z", "completed_at": "2026-08-28T11:31:56Z", "duration_seconds": 114, "notes": "Added rendered Spanish headers/cells and Country-absence coverage; execution remains owner verification.", "budget": null},
-    {"id": "3.3", "title": "Regenerate Supercharger Stats Templ output", "module": "gateway", "depends_on": ["1.3"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:27:42Z", "completed_at": "2026-08-28T11:30:02Z", "duration_seconds": 140, "notes": "Regenerated the committed Supercharger Stats Templ output with make templ.", "budget": null},
-    {"id": "4.1", "title": "Reconcile implementation against artifacts", "module": "gateway", "depends_on": ["3.1", "3.2", "3.3"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:31:56Z", "completed_at": "2026-08-28T11:31:56Z", "duration_seconds": 0, "notes": "Diff matches D1-D6: display-only, no DB/write/estimator/Country/chart fork; codegen output regenerated.", "budget": null},
-    {"id": "4.2", "title": "Owner verifies gateway tests", "module": "gateway", "depends_on": ["4.1"], "parallel_ok": false, "status": "done", "agent": "user", "model": null, "started_at": "2026-08-28T15:15:00Z", "completed_at": "2026-08-28T15:15:00Z", "duration_seconds": 0, "notes": "Owner reported go test ./internal/gateway/... passed.", "budget": null},
-    {"id": "4.3", "title": "Owner re-verifies review correction", "module": "gateway", "depends_on": ["3.2"], "parallel_ok": false, "status": "done", "agent": "user", "model": null, "started_at": "2026-08-28T15:19:22Z", "completed_at": "2026-08-28T15:19:22Z", "duration_seconds": 0, "notes": "Owner reported go test ./internal/gateway/... passed after R1 correction.", "budget": null}
+    {
+      "id": "1.1",
+      "title": "Add battery display labels to SuperchargerRowVM",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "GPT-5",
+      "started_at": "2026-08-28T11:23:53Z",
+      "completed_at": "2026-08-28T11:27:42Z",
+      "duration_seconds": 229,
+      "notes": "Added four presentation-only battery labels; no domain type leaked into the VM.",
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "Add bilingual battery table catalogue keys",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "GPT-5",
+      "started_at": "2026-08-28T11:23:53Z",
+      "completed_at": "2026-08-28T11:27:42Z",
+      "duration_seconds": 229,
+      "notes": "Added four same-line ES/EN Supercharger battery header keys; Country remains absent.",
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "Render four battery columns in Supercharger table",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "GPT-5",
+      "started_at": "2026-08-28T11:27:42Z",
+      "completed_at": "2026-08-28T11:30:02Z",
+      "duration_seconds": 140,
+      "notes": "Added four i18n-backed battery columns in matching header/cell order; Country remains absent.",
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "Add monthly chart labels, ticks, and vertical orientation",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "GPT-5",
+      "started_at": "2026-08-28T11:23:53Z",
+      "completed_at": "2026-08-28T11:27:42Z",
+      "duration_seconds": 229,
+      "notes": "Reused HistoryChart labels, existing y-axis ticks, and vertical orientation; preserved existing tooltip behavior.",
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "Map session battery percentages to display labels",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "GPT-5",
+      "started_at": "2026-08-28T11:27:42Z",
+      "completed_at": "2026-08-28T11:30:02Z",
+      "duration_seconds": 140,
+      "notes": "Mapped all four nullable session percentages through one nil-safe display formatter.",
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "Add chart and battery row mapping tests",
+      "module": "gateway",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "GPT-5",
+      "started_at": "2026-08-28T11:30:02Z",
+      "completed_at": "2026-08-28T11:31:56Z",
+      "duration_seconds": 114,
+      "notes": "Added direct chart-axis and battery-label mapping assertions; execution remains owner verification.",
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "Add rendered Supercharger battery table tests",
+      "module": "gateway",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "GPT-5",
+      "started_at": "2026-08-28T11:30:02Z",
+      "completed_at": "2026-08-28T11:31:56Z",
+      "duration_seconds": 114,
+      "notes": "Added rendered Spanish headers/cells and Country-absence coverage; execution remains owner verification.",
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "Regenerate Supercharger Stats Templ output",
+      "module": "gateway",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "GPT-5",
+      "started_at": "2026-08-28T11:27:42Z",
+      "completed_at": "2026-08-28T11:30:02Z",
+      "duration_seconds": 140,
+      "notes": "Regenerated the committed Supercharger Stats Templ output with make templ.",
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "Reconcile implementation against artifacts",
+      "module": "gateway",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "GPT-5",
+      "started_at": "2026-08-28T11:31:56Z",
+      "completed_at": "2026-08-28T11:31:56Z",
+      "duration_seconds": 0,
+      "notes": "Diff matches D1-D6: display-only, no DB/write/estimator/Country/chart fork; codegen output regenerated.",
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "Owner verifies gateway tests",
+      "module": "gateway",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "user",
+      "model": null,
+      "started_at": "2026-08-28T15:15:00Z",
+      "completed_at": "2026-08-28T15:15:00Z",
+      "duration_seconds": 0,
+      "notes": "Owner reported go test ./internal/gateway/... passed.",
+      "budget": null
+    },
+    {
+      "id": "4.3",
+      "title": "Owner re-verifies review correction",
+      "module": "gateway",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "user",
+      "model": null,
+      "started_at": "2026-08-28T15:19:22Z",
+      "completed_at": "2026-08-28T15:19:22Z",
+      "duration_seconds": 0,
+      "notes": "Owner reported go test ./internal/gateway/... passed after R1 correction.",
+      "budget": null
+    },
+    {
+      "id": "4.4",
+      "title": "Owner verifies the R2 zero-max ticks test",
+      "module": "gateway",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "user",
+      "model": null,
+      "started_at": "2026-08-28T15:52:00Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Awaiting owner run of go test ./internal/gateway/... after the R2 fix. Leader ran go vet + gofmt only.",
+      "budget": null
+    }
   ],
-  "review": {"status": "changes-requested", "agent": "gateway-reviewer", "brief": "Validate RM31 tier 4 against proposal/design/spec/tasks: module boundary and doc-pack conventions; shared HistoryChart/HistoryBar/buildYAxisTicks reuse; YYYY-MM labels, five kWh ticks, vertical labels and zero-max behavior; four ES/EN headers and nil-to-em-dash mapping; generated Templ output; no Country, DB, write path, estimator, extra read, or chart fork; owner-reported go test ./internal/gateway/... pass; no weakened criteria or self-approval.", "rounds": [{"at": "2026-08-28T15:16:55Z", "agent": "gateway-reviewer", "verdict": "changes-requested", "findings": [{"id": "R1", "severity": "major", "note": "Accepted: added direct English rendering plus nil battery-cell em-dash assertions; owner re-verification remains pending.", "status": "fixed", "triage": "accepted"}]}]},
+  "review": {
+    "status": "changes-requested",
+    "agent": "gateway-reviewer",
+    "brief": "Validate RM31 tier 4 against proposal/design/spec/tasks: module boundary and doc-pack conventions; shared HistoryChart/HistoryBar/buildYAxisTicks reuse; YYYY-MM labels, five kWh ticks, vertical labels and zero-max behavior; four ES/EN headers and nil-to-em-dash mapping; generated Templ output; no Country, DB, write path, estimator, extra read, or chart fork; owner-reported go test ./internal/gateway/... pass; no weakened criteria or self-approval.",
+    "rounds": [
+      {
+        "at": "2026-08-28T15:16:55Z",
+        "agent": "gateway-reviewer",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Accepted: added direct English rendering plus nil battery-cell em-dash assertions; owner re-verification remains pending.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-28T15:45:00Z",
+        "agent": "gateway-reviewer",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R2",
+            "severity": "major",
+            "note": "design.md Test Contract T2 / spec.md scenario 'A non-empty zero-energy chart has no fabricated axis scale' and task 3.1's own acceptance ('no ticks at zero max') are untested. internal/gateway/handlers/supercharger_test.go has no case with non-nil, zero-total monthly energy asserting YAxisTicks is nil/empty. Code (buildSuperchargerChart -> buildYAxisTicks) is correct on inspection, but the promised test is missing while task 3.1 is marked done. | LEADER TRIAGE: accepted, verified independently against design.md T2, spec.md and tasks.md 3.1. Fixed by TestBuildSuperchargerChart_ZeroEnergyHasNoYAxisTicks; awaiting owner execution (task 4.4).",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
+  },
   "events": [
-    {"at": "2026-08-28T11:22:21Z", "agent": "leader", "event": "Runtime: Codex. The budget helper cache identifies a foreign Claude session (Opus 5), so live budget is unavailable and this resumed tier runs with budget:null; native module-worker/reviewer dispatch is available."},
-    {"at": "2026-08-28T11:22:21Z", "agent": "leader", "event": "Tier 4 artifacts created by gateway worker, acknowledged all required doc-pack files, and passed openspec validate --strict. Database design gate not tripped: no DB object or query changes."}
-    ,
-    {"at": "2026-08-28T11:23:53Z", "agent": "leader", "event": "Dispatched serial wave 1 to gateway for tasks 1.1, 1.2, and 2.1. Serialized to amortize the gateway doc-pack and avoid concurrent same-module context cost; tasks touch disjoint files."},
-    {"at": "2026-08-28T11:24:00Z", "agent": "leader", "event": "Gateway worker could not start because the Codex account reported a usage limit. The leader is executing the scoped gateway work serially as the runtime fallback; reviewer independence is degraded until a reviewer can run."},
-    {"at": "2026-08-28T11:27:42Z", "agent": "leader", "event": "Wave 1 complete: tasks 1.1, 1.2, 2.1 reconciled. gofmt and git diff --check passed; project policy forbids assistant test-suite execution."},
-    {"at": "2026-08-28T11:30:02Z", "agent": "leader", "event": "Wave 2 complete: tasks 1.3, 2.2, 3.3 reconciled. make templ regenerated only the affected Templ output; test tasks 3.1 and 3.2 are current."},
-    {"at": "2026-08-28T11:31:56Z", "agent": "leader", "event": "Wave 3 and reconciliation complete: tests were added and the diff matches D1-D6. Per project policy the assistant did not run go test; task 4.2 is awaiting owner verification, so change status is applied."},
-    {"at": "2026-08-28T15:15:00Z", "agent": "leader", "event": "Owner reported go test ./internal/gateway/... passed. All tasks are done; status advanced to verified and reviewer gate is ready."},
-    {"at": "2026-08-28T15:18:00Z", "agent": "leader", "event": "Review finding R1 accepted and corrected with direct English-header and nil-cell rendering coverage. Added owner re-verification task 4.3 before reviewer re-check."},
-    {"at": "2026-08-28T15:19:22Z", "agent": "leader", "event": "Owner reported the corrected go test ./internal/gateway/... pass. Status returned to verified; reviewer re-check requested for R1 only."},
-    {"at": "2026-08-28T15:26:40Z", "agent": "leader", "event": "Resumed under Claude Code (leader handoff from Codex). Live budget restored and available: five_hour_pct 3, context_pct 9 - no checkpoint. Codex ran the prior waves as a serial leader fallback, so reviewer independence was degraded for round 1; round 2 gets a real gateway-reviewer subagent."},
-    {"at": "2026-08-28T15:26:40Z", "agent": "leader", "event": "Working-tree triage before the reviewer gate. (a) internal/analytics/db/models.go was stale sqlc output: archived tier 3 shipped its watermark migration COMMENT ON without re-running sqlc generate. Regenerated deterministically and committed here. (b) internal/gateway/static/app.css had a spurious make css regeneration adding an unused .table-cell utility - reverted; the class exists nowhere in templates, Tailwind scraped it from openspec markdown."}
+    {
+      "at": "2026-08-28T11:22:21Z",
+      "agent": "leader",
+      "event": "Runtime: Codex. The budget helper cache identifies a foreign Claude session (Opus 5), so live budget is unavailable and this resumed tier runs with budget:null; native module-worker/reviewer dispatch is available."
+    },
+    {
+      "at": "2026-08-28T11:22:21Z",
+      "agent": "leader",
+      "event": "Tier 4 artifacts created by gateway worker, acknowledged all required doc-pack files, and passed openspec validate --strict. Database design gate not tripped: no DB object or query changes."
+    },
+    {
+      "at": "2026-08-28T11:23:53Z",
+      "agent": "leader",
+      "event": "Dispatched serial wave 1 to gateway for tasks 1.1, 1.2, and 2.1. Serialized to amortize the gateway doc-pack and avoid concurrent same-module context cost; tasks touch disjoint files."
+    },
+    {
+      "at": "2026-08-28T11:24:00Z",
+      "agent": "leader",
+      "event": "Gateway worker could not start because the Codex account reported a usage limit. The leader is executing the scoped gateway work serially as the runtime fallback; reviewer independence is degraded until a reviewer can run."
+    },
+    {
+      "at": "2026-08-28T11:27:42Z",
+      "agent": "leader",
+      "event": "Wave 1 complete: tasks 1.1, 1.2, 2.1 reconciled. gofmt and git diff --check passed; project policy forbids assistant test-suite execution."
+    },
+    {
+      "at": "2026-08-28T11:30:02Z",
+      "agent": "leader",
+      "event": "Wave 2 complete: tasks 1.3, 2.2, 3.3 reconciled. make templ regenerated only the affected Templ output; test tasks 3.1 and 3.2 are current."
+    },
+    {
+      "at": "2026-08-28T11:31:56Z",
+      "agent": "leader",
+      "event": "Wave 3 and reconciliation complete: tests were added and the diff matches D1-D6. Per project policy the assistant did not run go test; task 4.2 is awaiting owner verification, so change status is applied."
+    },
+    {
+      "at": "2026-08-28T15:15:00Z",
+      "agent": "leader",
+      "event": "Owner reported go test ./internal/gateway/... passed. All tasks are done; status advanced to verified and reviewer gate is ready."
+    },
+    {
+      "at": "2026-08-28T15:18:00Z",
+      "agent": "leader",
+      "event": "Review finding R1 accepted and corrected with direct English-header and nil-cell rendering coverage. Added owner re-verification task 4.3 before reviewer re-check."
+    },
+    {
+      "at": "2026-08-28T15:19:22Z",
+      "agent": "leader",
+      "event": "Owner reported the corrected go test ./internal/gateway/... pass. Status returned to verified; reviewer re-check requested for R1 only."
+    },
+    {
+      "at": "2026-08-28T15:26:40Z",
+      "agent": "leader",
+      "event": "Resumed under Claude Code (leader handoff from Codex). Live budget restored and available: five_hour_pct 3, context_pct 9 - no checkpoint. Codex ran the prior waves as a serial leader fallback, so reviewer independence was degraded for round 1; round 2 gets a real gateway-reviewer subagent."
+    },
+    {
+      "at": "2026-08-28T15:26:40Z",
+      "agent": "leader",
+      "event": "Working-tree triage before the reviewer gate. (a) internal/analytics/db/models.go was stale sqlc output: archived tier 3 shipped its watermark migration COMMENT ON without re-running sqlc generate. Regenerated deterministically and committed here. (b) internal/gateway/static/app.css had a spurious make css regeneration adding an unused .table-cell utility - reverted; the class exists nowhere in templates, Tailwind scraped it from openspec markdown."
+    },
+    {
+      "at": "2026-08-28T15:45:00Z",
+      "agent": "leader",
+      "event": "Review round 2 (independent gateway-reviewer, sonnet) returned changes-requested. R1 RE-VERIFIED FIXED: the English-header test genuinely renders under i18n.WithLang(ctx,'en') and the nil-cell em-dash count is non-vacuous. One NEW finding R2 (major)."
+    },
+    {
+      "at": "2026-08-28T15:52:00Z",
+      "agent": "leader",
+      "event": "R2 triaged ACCEPTED after independent leader verification: design.md T2, spec.md 'non-empty zero-energy chart' scenario and task 3.1's own acceptance all demand a zero-max ticks assertion; supercharger_test.go asserted only the positive-max case. Fixed by adding TestBuildSuperchargerChart_ZeroEnergyHasNoYAxisTicks (explicit-zero AND nil energy, asserting bars+YYYY-MM labels present, 0% heights, len(YAxisTicks)==0). go vet + gofmt clean; suite NOT run by the assistant. Status verified -> applied pending owner verification 4.4."
+    }
   ],
   "decisions": [
-    {"id": "D1", "at": "2026-08-28T11:24:00Z", "scope": "change", "made_by": "leader", "decision": "Use serial leader fallback for gateway implementation", "why": "The required module worker was blocked by the Codex usage limit; preserving the approved module scope and durable state is safer than abandoning the tier.", "covered_by": null}
+    {
+      "id": "D1",
+      "at": "2026-08-28T11:24:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Use serial leader fallback for gateway implementation",
+      "why": "The required module worker was blocked by the Codex usage limit; preserving the approved module scope and durable state is safer than abandoning the tier.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-28T15:52:00Z",
+      "scope": "review:R2",
+      "made_by": "leader",
+      "decision": "R2 accepted and fixed by the leader rather than re-dispatching the gateway worker",
+      "why": "Single scoped test addition in a file the leader already owns this round; a worker dispatch would re-read the whole doc-pack for one test function.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-28T15:52:00Z",
+      "scope": "review:R2",
+      "made_by": "leader",
+      "decision": "task 3.1 stays checked done rather than being reverted to pending",
+      "why": "Its acceptance is now genuinely met by the added test. Reverting a checkbox would rewrite history; the gap is recorded here and in events instead.",
+      "covered_by": null
+    }
   ]
 }
