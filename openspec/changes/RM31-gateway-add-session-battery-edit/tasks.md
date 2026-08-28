@@ -172,7 +172,7 @@ whether the task's files are disjoint from its concurrent siblings.
 
 ## Wave 5 — tests (pure/offline first, per project test-authoring order)
 
-- [ ] **5.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger_test.go` — pure
+- [x] **5.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger_test.go` — pure
   tests for `SuperchargerRowUpdate`'s body-parsing and validation branches: design.md T1 (absent
   key → 400, zero `VerifySession` calls), T2 (both present-empty → `VerifySession(nil, nil)`,
   "—" render), T5 (out-of-range → 422, field-specific error, echoed raw values, zero
@@ -182,7 +182,7 @@ whether the task's files are disjoint from its concurrent siblings.
   with 5.2 and 5.3 (same file — coordinate additions, no shared helper conflicts expected since
   each covers disjoint scenarios).
 
-- [ ] **5.2** **[module: gateway worker]** `internal/gateway/handlers/supercharger_test.go` — pure
+- [x] **5.2** **[module: gateway worker]** `internal/gateway/handlers/supercharger_test.go` — pure
   tests for the recalculation window: design.md T3 (just-after-UTC-midnight session →
   `Recalculate(day-1, day+1)` computed from `ChargeStopDateTime` alone, ignoring a differently-
   dated `ChargeStartDateTime`) and T4 (nil `TeslaID` → zero `Recalculate` calls, save still
@@ -190,14 +190,14 @@ whether the task's files are disjoint from its concurrent siblings.
   `analytics.Recalculator` call count asserted per T4. `depends_on`: 3.3, 3.4 · `parallel_ok`:
   yes, with 5.1 and 5.3.
 
-- [ ] **5.3** **[module: gateway worker]** `internal/gateway/handlers/supercharger_test.go` — pure
+- [x] **5.3** **[module: gateway worker]** `internal/gateway/handlers/supercharger_test.go` — pure
   tests for CSRF and not-found resolution: design.md T6 (no token ever issued → 403, zero
   `VerifySession` calls) and T7 (a `GET .../row/:id/edit` whose window excludes `id` → 404).
   Acceptance: matches design.md's Test Contract exactly; also assert a stale/mismatched token
   (distinct fixture from T6's never-issued case) is rejected the same way. `depends_on`: 3.3, 3.4
   · `parallel_ok`: yes, with 5.1 and 5.2.
 
-- [ ] **5.4** **[module: gateway worker — codegen]** Run `make templ` after the wave-2/3 `.templ`
+- [x] **5.4** **[module: gateway worker — codegen]** Run `make templ` after the wave-2/3 `.templ`
   changes and include the regenerated `supercharger_row_templ.go`,
   `supercharger_row_edit_templ.go`, and `supercharger_stats_templ.go`. Run `make css` only if a
   new Tailwind/DaisyUI class was introduced (none is designed here — confirm against design.md

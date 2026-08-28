@@ -6,7 +6,7 @@
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
   "status": "in-progress",
-  "updated_at": "2026-08-28T21:02:15Z",
+  "updated_at": "2026-08-28T21:17:29Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -25,10 +25,6 @@
       "3.2",
       "3.3",
       "3.4",
-      "5.1",
-      "5.2",
-      "5.3",
-      "5.4",
       "6.1",
       "6.2",
       "6.3",
@@ -41,7 +37,8 @@
       "1.2",
       "1.3",
       "2.1",
-      "2.2"
+      "2.2",
+      "5.4"
     ],
     "awaiting_user_verification": []
   },
@@ -326,51 +323,66 @@
     },
     {
       "id": "5.1",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "3.4"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T21:09:47Z",
+      "completed_at": "2026-08-28T21:17:29Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.83,
+        "approx": false,
+        "note": "wave 5 bracket: five_hour 8->20%, cost $5.49->$9.32; single batched serial worker, exact"
+      },
+      "notes": "T1 (absent key->400), T2 (both-empty->VerifySession(nil,nil)), T5 (out-of-range->422, raw 101 echoed, zero calls), plus the decreasing-order accept case proving D14's deliberate absence of ordering validation."
     },
     {
       "id": "5.2",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "3.3",
         "3.4"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T21:09:47Z",
+      "completed_at": "2026-08-28T21:17:29Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.83,
+        "approx": false,
+        "note": "wave 5 bracket: five_hour 8->20%, cost $5.49->$9.32; single batched serial worker, exact"
+      },
+      "notes": "T3 asserts Recalculate(2026-03-14,2026-03-16) exactly, from a fixture whose ChargeStartDateTime is a DIFFERENT UTC day - proving the window derives from ChargeStopDateTime alone. T4: nil TeslaID -> zero calls, still 200, log asserted."
     },
     {
       "id": "5.3",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "3.3",
         "3.4"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T21:09:47Z",
+      "completed_at": "2026-08-28T21:17:29Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.83,
+        "approx": false,
+        "note": "wave 5 bracket: five_hour 8->20%, cost $5.49->$9.32; single batched serial worker, exact"
+      },
+      "notes": "T6 (token never issued -> 403, zero calls) plus a DISTINCT stale/mismatched-token fixture, and T7 (id outside the window -> 404). Reused fakeRecalculator from charges_test.go rather than duplicating a fake."
     },
     {
       "id": "5.4",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "2.1",
         "2.2",
@@ -378,13 +390,18 @@
         "4.1",
         "4.2"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T21:09:47Z",
+      "completed_at": "2026-08-28T21:17:29Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.83,
+        "approx": false,
+        "note": "wave 5 bracket: five_hour 8->20%, cost $5.49->$9.32; single batched serial worker, exact"
+      },
+      "notes": "Repaired the 4 stale buildSuperchargerStatsView call sites (wave-3 drift) without touching the 7-arg signature. make templ produces no diff; make css correctly skipped (no new utility class). Leader re-verified build+vet green."
     },
     {
       "id": "6.1",
@@ -609,6 +626,36 @@
       "at": "2026-08-28T21:02:15Z",
       "agent": "leader",
       "event": "The working tree carries UNRELATED in-flight nav-shell work (i18n/catalog.go, static/app.css, layouts/nav.go, ui/nav_shell.templ, nav_shell_templ.go, nav_shell_test.go). The leader staged NONE of it -- the wave-4 commit is restricted to cmd/web/main.go, internal/gateway/gateway.go, tasks.md and progress.json."
+    },
+    {
+      "at": "2026-08-28T21:09:47Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `env -u DATABASE_URL go test ./...` FAIL. Verification is the OWNER'S. Exactly one package fails -- internal/gateway/handlers [build failed] -- on FOUR stale buildSuperchargerStatsView call sites (lines 264, 290, 315, 352), not the single one vet's first-error output showed. Every other package passes. Per Step 5.7 a FAIL is fixed in the next wave, never quietly marked done; tasks 3.1-3.4 and 4.1-4.3 stay awaiting-user-verification."
+    },
+    {
+      "at": "2026-08-28T21:09:47Z",
+      "agent": "leader",
+      "event": "Wave 5 dispatched to ONE batched serial gateway worker (sonnet): 5.1, 5.2, 5.3, 5.4. Serial is forced, not chosen -- all four touch internal/gateway/handlers/supercharger_test.go. The dispatch carries the owner's verbatim failure output and names the wave-3 signature drift as 5.4's blocking precondition. budget_start: five_hour 8%, context 15%, cost $5.49."
+    },
+    {
+      "at": "2026-08-28T21:17:29Z",
+      "agent": "leader",
+      "event": "Wave 5 reconciled. Leader independently re-ran `go build ./...` and `go vet ./...` -- BOTH NOW CLEAN, closing the two-boundary suite blockage. Also verified: supercharger.go byte-for-byte untouched (the worker did NOT bend buildSuperchargerStatsView back to 6 args to fit the stale tests, which was the tempting wrong fix); `make templ` produces no diff; tasks.md diff is checkbox-only, zero acceptance-criterion text edited. Worker did NOT write progress.json - write-ownership rail held."
+    },
+    {
+      "at": "2026-08-28T21:17:29Z",
+      "agent": "leader",
+      "event": "ANTI-GAMING CHECK on a test wave, the wave where it matters most: T3's test asserts Recalculate(2026-03-14T00:00:00Z, 2026-03-16T00:00:00Z) from a 2026-03-15T00:20:00Z stop, matching design.md lines 373-377 VERBATIM. The contract was authored before any implementation existed, and the test asserts the contract rather than what the code happens to do. T5's field-vs-_top assertion is a negative one (absence of role=\"alert\") - weaker than naming the field key, but paired with the positive value=\"101\" echo it holds, and the worker reported the indirection honestly rather than hiding it."
+    },
+    {
+      "at": "2026-08-28T21:17:29Z",
+      "agent": "leader",
+      "event": "Worker's reported timestamps were wrong again (17:10-18:45Z, predating the 21:09:47Z dispatch); leader substituted real dispatch/return times. Same defect as wave 1 - worth noting if this recurs across tiers."
+    },
+    {
+      "at": "2026-08-28T21:17:29Z",
+      "agent": "leader",
+      "event": "5.4 is `done` on the leader's own cheap signals: its acceptance criterion is literally `go build ./...` and `go vet ./...` succeeding, both assistant-runnable. 5.1-5.3 are `awaiting-user-verification` - the tests COMPILE but have never been EXECUTED by anyone, and only the owner runs the suite."
     }
   ]
 }
