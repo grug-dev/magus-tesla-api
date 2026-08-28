@@ -6,7 +6,7 @@
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
   "status": "in-progress",
-  "updated_at": "2026-08-28T21:45:03Z",
+  "updated_at": "2026-08-28T21:47:27Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,10 +21,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "3.1",
-      "3.2",
-      "3.3",
-      "3.4",
       "6.1",
       "6.2",
       "6.3",
@@ -38,6 +34,16 @@
       "1.3",
       "2.1",
       "2.2",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "4.3",
+      "5.1",
+      "5.2",
+      "5.3",
       "5.4"
     ],
     "awaiting_user_verification": []
@@ -183,7 +189,7 @@
     },
     {
       "id": "3.1",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "1.1"
       ],
@@ -202,7 +208,7 @@
     },
     {
       "id": "3.2",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "2.1",
         "3.1"
@@ -222,7 +228,7 @@
     },
     {
       "id": "3.3",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "1.1",
         "3.1"
@@ -242,7 +248,7 @@
     },
     {
       "id": "3.4",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "1.1",
         "1.2",
@@ -264,7 +270,7 @@
     },
     {
       "id": "4.1",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "1.3",
         "3.3",
@@ -285,7 +291,7 @@
     },
     {
       "id": "4.2",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "3.4"
       ],
@@ -304,7 +310,7 @@
     },
     {
       "id": "4.3",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "4.1"
       ],
@@ -323,7 +329,7 @@
     },
     {
       "id": "5.1",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "3.4"
       ],
@@ -342,7 +348,7 @@
     },
     {
       "id": "5.2",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "3.3",
         "3.4"
@@ -362,7 +368,7 @@
     },
     {
       "id": "5.3",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "3.3",
         "3.4"
@@ -681,6 +687,16 @@
       "at": "2026-08-28T21:45:03Z",
       "agent": "leader",
       "event": "Tasks 5.1-5.3 remain awaiting-user-verification pending the owner's RE-RUN; the fix is build/vet-verified but no one has executed the suite."
+    },
+    {
+      "at": "2026-08-28T21:47:27Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `make test` and the build GREEN after the D7 counter fix. Verification is the OWNER'S, not the assistant's -- the assistant never ran the suite. This single run clears TEN tasks that had been awaiting-user-verification across three boundaries: 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 5.1, 5.2, 5.3. Waves 1-5 are now fully closed."
+    },
+    {
+      "at": "2026-08-28T21:47:27Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the wave-5/wave-6 boundary: owner is clearing context. Budget CLEAR (five_hour 28.000000000000004%, context 19%, cost $11.83) -- this is the recommended per-wave /clear for a 7-wave change, NOT a threshold trip. NEXT: wave 6 = tasks 6.1, 6.2, 6.3 -- the KB update (ticket item 6, the last unshipped requirement). 6.1 and 6.2 have NO depends_on and are already unblocked; 6.3 depends on both. The wave-6 dispatch REQUIRES the explicit kkpa/context/ sandbox grant (roadmap D16), which is OUTSIDE internal/gateway -- the gateway worker cannot write it without that grant. D16 also binds: the KB update must correct the now-false 'ONE concept with a user write path' cross-reference, and the file is NOT renamed. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
     }
   ]
 }
