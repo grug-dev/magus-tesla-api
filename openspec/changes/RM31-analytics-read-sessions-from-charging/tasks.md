@@ -9,7 +9,7 @@ because those tests cannot compile until both the migration and the retyped sign
 
 ## Wave 1 — migration + offline retypes (parallel-safe: disjoint files)
 
-- [ ] **1.1 — Migration: `vehicle_metric_watermarks.source` vocabulary change**
+- [x] **1.1 — Migration: `vehicle_metric_watermarks.source` vocabulary change**
   (`depends_on`: none)
   Add `internal/analytics/db/migrations/20260828000001_migrate_vehicle_metric_watermarks_source.sql`
   with the exact `-- +goose Up` / `-- +goose Down` SQL specified in design.md §2e: drop the
@@ -27,7 +27,7 @@ because those tests cannot compile until both the migration and the retyped sign
   restoration — the row loss is documented as irreversible-but-harmless, mirroring
   `20260822000002_reset_vehicle_metric_watermarks.sql`'s own Down).
 
-- [ ] **1.2 — Retype `consumed.go` + `consumed_test.go`** (`depends_on`: none)
+- [x] **1.2 — Retype `consumed.go` + `consumed_test.go`** (`depends_on`: none)
   In `consumed.go`: retype `sumSuperchargerPctBetween`, `inferMissingChargingType`, and
   `deriveVehicleMetrics`'s `sessions` parameter from `[]telemetry.SuperchargerSession` to
   `[]charging.Session` (design.md §3 "consumed.go" — bodies unchanged, only the parameter
@@ -39,7 +39,7 @@ because those tests cannot compile until both the migration and the retyped sign
   land (this task alone will not compile in isolation — that is expected, see design.md §3's
   opening note).
 
-- [ ] **1.3 — Retype `reader.go` + `reader_test.go`** (`depends_on`: none)
+- [x] **1.3 — Retype `reader.go` + `reader_test.go`** (`depends_on`: none)
   In `reader.go`: retype the `reader.supercharger` field and `NewReader`'s `supercharger`
   parameter from `telemetry.SuperchargerReader` to
   `charging.SuperchargerSessionAnalyticsReader`; retype `sumSuperchargerKWh`'s `sessions`
@@ -53,7 +53,7 @@ because those tests cannot compile until both the migration and the retyped sign
   **Acceptance:** same compile note as 1.2. `RecentEfficiency`'s existing test assertions
   (efficiency values, `ok`/error cases) are unchanged — this is a pure type/call-site swap.
 
-- [ ] **1.4 — Retype `recalculate.go` + `recalculate_test.go`** (`depends_on`: none)
+- [x] **1.4 — Retype `recalculate.go` + `recalculate_test.go`** (`depends_on`: none)
   In `recalculate.go`: retype the `recalculator.supercharger` field and `NewRecalculator`'s
   `supercharger` parameter to `charging.SuperchargerSessionAnalyticsReader`; change
   `Recalculate`'s call site from `SuperchargerSessionsByVehicleBetween` to
@@ -146,3 +146,14 @@ documents exactly what the leader must change. **The package will not build end-
 (`go build ./...` at the repo root) until that leader-owned wiring change lands alongside this
 tier's Wave 1/2** — `go build ./internal/analytics/...` (module-scoped) is the correct signal
 for this worker to run; the repo-wide build is expected to fail until the leader's follow-up.
+
+- [ ] **2.4 — Fix the stale package doc in `analytics.go`** (`depends_on`: 1.2, 1.3, 1.4)
+  Appended by the leader after Wave 1. `internal/analytics/analytics.go` line 6's package
+  doc still reads "internal/telemetry's `SuperchargerReader` and internal/charging", which
+  is false as of this tier — analytics reads `charging.SuperchargerSessionAnalyticsReader`
+  for the Supercharger path and `telemetry.Reader` only for snapshots. The Wave 1 worker
+  found it and correctly left it alone: it is not in design.md §3's retype-plan file list.
+  It is in scope for THIS change all the same, per `CLAUDE.md` §Non-negotiables
+  ("docs track structural change ... in the same change, never as a follow-up").
+  **Acceptance:** the package doc names the ports analytics actually consumes; no reference
+  to `telemetry.SuperchargerReader` survives in `analytics.go`.

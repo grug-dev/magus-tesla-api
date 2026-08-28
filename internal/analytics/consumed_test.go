@@ -12,7 +12,7 @@ import (
 
 // The consumed tests exercise deriveVehicleMetrics and its helpers fully OFFLINE and
 // with zero fakes: all are pure functions over plain telemetry.Snapshot /
-// SuperchargerSession / charging.Entry values (design.md D-B1 through D-B13, D9/D10),
+// charging.Session / charging.Entry values (design.md D-B1 through D-B13, D9/D10),
 // so there is no I/O seam to fake -- mirrors derive_test.go's own zero-fakes style.
 // Expected values are hand-computed from design.md's Test Contract (authored before
 // this implementation existed), never derived by reading consumed.go itself.
@@ -83,7 +83,7 @@ func TestDeriveVehicleMetrics_SingleSessionSingleDay_MatchesRoadmapExample(t *te
 	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1), BatteryLevelPct: 22}
 	cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: d1.AddDate(0, 0, 1), BatteryLevelPct: 73} // raw delta 22-73 = -51
 
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{ChargeStopDateTime: t0.Add(6 * time.Hour), StartBatteryPct: intPtr(18), EndBatteryPct: intPtr(80)},
 	}
 
@@ -118,7 +118,7 @@ func TestDeriveVehicleMetrics_TwoSessionsSameDay_SumsBoth_Not5(t *testing.T) {
 	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: d0.AddDate(0, 0, 1), BatteryLevelPct: 30}
 	cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: d1.AddDate(0, 0, 1), BatteryLevelPct: 75} // raw delta 30-75 = -45
 
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{ChargeStopDateTime: t0.Add(4 * time.Hour), StartBatteryPct: intPtr(20), EndBatteryPct: intPtr(50)}, // earlier, +30
 		{ChargeStopDateTime: t0.Add(8 * time.Hour), StartBatteryPct: intPtr(60), EndBatteryPct: intPtr(80)}, // later, +20
 	}
@@ -255,7 +255,7 @@ func TestDeriveVehicleMetrics_MultiDaySpan_OneEntry(t *testing.T) {
 	prev := telemetry.Snapshot{CapturedAt: t0, CapturedDate: prevDay.AddDate(0, 0, 1), BatteryLevelPct: 20}
 	cur := telemetry.Snapshot{CapturedAt: t1, CapturedDate: curDay.AddDate(0, 0, 1), BatteryLevelPct: 50} // raw delta 20-50 = -30; days spanned 3
 
-	sessions := []telemetry.SuperchargerSession{
+	sessions := []charging.Session{
 		{ChargeStopDateTime: t0.Add(24 * time.Hour), StartBatteryPct: intPtr(40), EndBatteryPct: intPtr(55)}, // +15
 	}
 	entries := []charging.Entry{
@@ -307,10 +307,10 @@ func TestSumSuperchargerPctBetween_IntervalBoundary_InclusiveStartExclusiveEnd(t
 	from := time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC)
 	to := time.Date(2026, 8, 15, 8, 30, 0, 0, time.UTC)
 
-	sessionAtFrom := telemetry.SuperchargerSession{ChargeStopDateTime: from, StartBatteryPct: intPtr(10), EndBatteryPct: intPtr(30)} // +20, included (lower-inclusive)
-	sessionAtTo := telemetry.SuperchargerSession{ChargeStopDateTime: to, StartBatteryPct: intPtr(40), EndBatteryPct: intPtr(90)}     // +50, excluded (upper-exclusive)
+	sessionAtFrom := charging.Session{ChargeStopDateTime: from, StartBatteryPct: intPtr(10), EndBatteryPct: intPtr(30)} // +20, included (lower-inclusive)
+	sessionAtTo := charging.Session{ChargeStopDateTime: to, StartBatteryPct: intPtr(40), EndBatteryPct: intPtr(90)}     // +50, excluded (upper-exclusive)
 
-	got := sumSuperchargerPctBetween([]telemetry.SuperchargerSession{sessionAtFrom, sessionAtTo}, from, to)
+	got := sumSuperchargerPctBetween([]charging.Session{sessionAtFrom, sessionAtTo}, from, to)
 	want := 20.0
 	if !approxEqual(got, want) {
 		t.Errorf("sumSuperchargerPctBetween: want %v (only the session exactly AT 'from'), got %v", want, got)
@@ -319,15 +319,15 @@ func TestSumSuperchargerPctBetween_IntervalBoundary_InclusiveStartExclusiveEnd(t
 	// inferMissingChargingType shares the identical [from, to) boundary (design.md D-B5):
 	// a NULL-percentage session exactly at 'from' must be seen; one exactly at 'to' must
 	// not.
-	sessionAtFromNull := telemetry.SuperchargerSession{ChargeStopDateTime: from, StartBatteryPct: nil, EndBatteryPct: intPtr(30)}
-	sessionAtToNull := telemetry.SuperchargerSession{ChargeStopDateTime: to, StartBatteryPct: nil, EndBatteryPct: intPtr(90)}
+	sessionAtFromNull := charging.Session{ChargeStopDateTime: from, StartBatteryPct: nil, EndBatteryPct: intPtr(30)}
+	sessionAtToNull := charging.Session{ChargeStopDateTime: to, StartBatteryPct: nil, EndBatteryPct: intPtr(90)}
 
-	gotType := inferMissingChargingType([]telemetry.SuperchargerSession{sessionAtToNull, sessionAtFromNull}, from, to)
+	gotType := inferMissingChargingType([]charging.Session{sessionAtToNull, sessionAtFromNull}, from, to)
 	if gotType != MissingChargingTypeSupercharger {
 		t.Errorf("inferMissingChargingType: want SUPERCHARGER (the in-bound NULL session at 'from' must be seen), got %v", gotType)
 	}
 
-	gotTypeOnlyOutOfBound := inferMissingChargingType([]telemetry.SuperchargerSession{sessionAtToNull}, from, to)
+	gotTypeOnlyOutOfBound := inferMissingChargingType([]charging.Session{sessionAtToNull}, from, to)
 	if gotTypeOnlyOutOfBound != MissingChargingTypeManual {
 		t.Errorf("inferMissingChargingType: want MANUAL (the only NULL session present is at 'to', excluded), got %v", gotTypeOnlyOutOfBound)
 	}

@@ -3,13 +3,17 @@
   "kind": "change",
   "change": "RM31-analytics-read-sessions-from-charging",
   "module": "analytics",
-  "status": "proposed",
+  "status": "in-progress",
   "roadmap": "RM31-supercharger-session-verification",
   "roadmap_tier": 3,
   "intention": "Switch analytics' Supercharger source from telemetry.SuperchargerSession to charging.Session so a human-verified battery percentage reaches vehicle_metrics. Includes the vehicle_metric_watermarks.source CHECK-constraint migration (DELETE/epoch-reset per roadmap Decision 10).",
   "created_at": "2026-08-28T09:50:00Z",
-  "updated_at": "2026-08-28T09:50:00Z",
-  "leader": { "agent": "leader", "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-08-28T10:08:00Z",
+  "leader": {
+    "agent": "leader",
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM31-MAG-19-supercharger-session-verification",
@@ -18,19 +22,165 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions"
   },
   "tasks": [
-    { "id": "1.1", "title": "Migration: vehicle_metric_watermarks.source vocabulary change (DELETE/epoch-reset)", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "1.2", "title": "Retype consumed.go + consumed_test.go to []charging.Session", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "1.3", "title": "Retype reader.go + reader_test.go to charging.SuperchargerSessionAnalyticsReader", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "1.4", "title": "Retype recalculate.go + recalculate_test.go; rename sourceSuperchargerSessions -> sourceChargeSessions", "depends_on": [], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "2.1", "title": "Update internal/analytics/AGENTS.md imports and public-interface prose", "depends_on": ["1.2", "1.3", "1.4"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "2.2", "title": "Retarget db_integration_test.go seeding to charge_sessions; add T2 and T4", "depends_on": ["1.1", "1.2", "1.3", "1.4"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null },
-    { "id": "2.3", "title": "Add Test Contract T1 (migration) and T3 (charging value wins) as DB-integration tests", "depends_on": ["1.1", "1.2", "1.3", "1.4", "2.2"], "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "budget": null, "notes": null }
+    {
+      "id": "1.1",
+      "title": "Migration: vehicle_metric_watermarks.source vocabulary change (DELETE/epoch-reset)",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:02:00Z",
+      "completed_at": "2026-08-28T10:03:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 3.92,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/1.3/1.4 (one serial worker)"
+      },
+      "notes": "Added the migration file; diffed programmatically against design.md 2e -- exact match (DELETE, not UPDATE). No other file changes."
+    },
+    {
+      "id": "1.2",
+      "title": "Retype consumed.go + consumed_test.go to []charging.Session",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:03:00Z",
+      "completed_at": "2026-08-28T10:04:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 3.92,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/1.3/1.4 (one serial worker)"
+      },
+      "notes": "Retyped sumSuperchargerPctBetween/inferMissingChargingType/deriveVehicleMetrics sessions param + doc comments; literal field-swap of all consumed_test.go fixtures. Bodies and assertions unchanged."
+    },
+    {
+      "id": "1.3",
+      "title": "Retype reader.go + reader_test.go to charging.SuperchargerSessionAnalyticsReader",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:04:00Z",
+      "completed_at": "2026-08-28T10:05:30Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 3.92,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/1.3/1.4 (one serial worker)"
+      },
+      "notes": "Retyped reader.go's field/param/sumSuperchargerKWh; call site now ListSessionsByVehicle. Retyped fakeSuperchargerReader, dropped the dead SuperchargerSessionsByAccount stub, kept the must-not-be-called panic."
+    },
+    {
+      "id": "1.4",
+      "title": "Retype recalculate.go + recalculate_test.go; rename sourceSuperchargerSessions -> sourceChargeSessions",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:05:30Z",
+      "completed_at": "2026-08-28T10:06:30Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 3.92,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/1.3/1.4 (one serial worker)"
+      },
+      "notes": "Retyped recalculate.go's field/param; renamed sourceSuperchargerSessions -> sourceChargeSessions (value charge_sessions) at all 4 sites. recalculate_test.go needed no edit -- it uses the shared retyped fake with zero session fixtures."
+    },
+    {
+      "id": "2.1",
+      "title": "Update internal/analytics/AGENTS.md imports and public-interface prose",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "1.4"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "2.2",
+      "title": "Retarget db_integration_test.go seeding to charge_sessions; add T2 and T4",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "2.3",
+      "title": "Add Test Contract T1 (migration) and T3 (charging value wins) as DB-integration tests",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "2.2"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "2.4",
+      "title": "Fix the stale package doc in analytics.go (leader-appended after wave 1)",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "1.4"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
   ],
   "rollup": {
     "current": [],
-    "pending": ["1.1", "1.2", "1.3", "1.4", "2.1", "2.2", "2.3"],
+    "pending": [
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4"
+    ],
     "blocked": [],
-    "done": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
     "awaiting-user-verification": []
   },
   "decisions": [
@@ -69,9 +219,32 @@
       "decision": "revised the artifacts by messaging the SAME worker agent rather than dispatching a fresh one",
       "why": "The agent retained full artifact context, so the seven corrections cost no doc-pack re-read and kept design.md's cross-references coherent.",
       "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-28T10:07:00Z",
+      "scope": "wave:1",
+      "made_by": "leader",
+      "decision": "appended task 2.4 for analytics.go's stale package doc, rather than leaving it as a follow-up",
+      "why": "CLAUDE.md requires docs to track structural change in the SAME change. The worker correctly left it -- it is absent from design.md's file list -- so the gap is the design's, not the worker's.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-28T10:06:00Z",
+      "scope": "wave:1",
+      "made_by": "leader",
+      "decision": "cmd/poller keeps TWO Supercharger ports: telemetry's for the mirror step, charging's for analytics",
+      "why": "app.NewProcessor still reads supercharger_sessions to WRITE charge_sessions, so a straight swap would have broken the mirror. The worker flagged this call site rather than assuming a swap.",
+      "covered_by": "design.md 4"
     }
   ],
-  "review": { "agent": null, "status": null, "brief": null, "rounds": [] },
+  "review": {
+    "agent": null,
+    "status": null,
+    "brief": null,
+    "rounds": []
+  },
   "events": [
     {
       "at": "2026-08-28T09:20:00Z",
@@ -87,6 +260,21 @@
       "at": "2026-08-28T09:45:00Z",
       "agent": "leader",
       "event": "revised artifacts verified INDEPENDENTLY by the leader, not accepted on the worker's report: Up contains DELETE and no UPDATE; Down restores only constraint + COMMENTs and does not resurrect rows; grep for 'byte-for-byte' / 'preserved in place' / 'supersed' across the change folder returns zero hits; openspec validate --strict valid; git status confirms no internal/analytics/ file and no migration file on disk."
+    },
+    {
+      "at": "2026-08-28T10:02:00Z",
+      "agent": "leader",
+      "event": "dispatching wave 1 (1.1 migration + 1.2/1.3/1.4 retypes) to the analytics worker on sonnet, as ONE serial worker rather than four parallel ones: the three retypes do not compile independently (design.md Sec 3), so a single dispatch is the only way go vet is a meaningful signal, and it reads the doc pack once. Budget at dispatch: five_hour 42%, context 21%, cost $15.28."
+    },
+    {
+      "at": "2026-08-28T10:08:00Z",
+      "agent": "leader",
+      "event": "wave 1 returned: 1.1-1.4 all done, doc-pack acknowledged, design decisions D3/D7/D8/Decision-10/2c/2d enumerated with compliance statements. Leader verified the migration on disk independently: it contains DELETE FROM vehicle_metric_watermarks WHERE source = 'supercharger_sessions' and no UPDATE; the Down restores constraint + COMMENTs only."
+    },
+    {
+      "at": "2026-08-28T10:08:00Z",
+      "agent": "leader",
+      "event": "leader-owned cmd/ wiring applied (outside the worker's sandbox): cmd/web/main.go's two analytics constructors now take charging.NewSuperchargerSessionAnalyticsReader(pool); cmd/poller/main.go now builds TWO ports -- superchargerReader (telemetry, still feeding app.NewProcessor's mirror step) and sessionAnalyticsReader (charging, feeding analytics). After wiring: go build ./... exit 0, gofmt -l clean, go vet ./... fails ONLY on db_integration_test.go, which is task 2.2's scope. Budget at boundary: five_hour 51%, context 23%."
     }
   ]
 }

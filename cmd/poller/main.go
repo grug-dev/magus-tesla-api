@@ -102,18 +102,25 @@ func main() {
 	// them twice would only obscure that both halves of the step read exactly the
 	// same sources.
 	telemetryReader := telemetry.NewReader(pool)
+	// Two Supercharger-session ports, deliberately, reading two different tables.
+	// superchargerReader is telemetry's, and stays: the mirror step reads
+	// supercharger_sessions to WRITE charge_sessions, so it must keep its source.
+	// sessionAnalyticsReader is charging's, and is what analytics now reads --
+	// since RM31 tier 3 the metrics derive from charge_sessions, the table a
+	// human's verified battery percentages land in.
 	superchargerReader := telemetry.NewSuperchargerReader(pool)
+	sessionAnalyticsReader := charging.NewSuperchargerSessionAnalyticsReader(pool)
 	chargingReader := charging.NewReader(pool)
 
 	analyticsReader := analytics.NewReader(
 		pool,
 		telemetryReader,
-		superchargerReader,
+		sessionAnalyticsReader,
 		chargingReader,
 		acct,
 		analytics.DefaultWindow,
 	)
-	recalculator := analytics.NewRecalculator(pool, telemetryReader, superchargerReader, chargingReader)
+	recalculator := analytics.NewRecalculator(pool, telemetryReader, sessionAnalyticsReader, chargingReader)
 
 	// The use case itself. Since RM29 tier 7 the three-step cycle lives behind
 	// internal/app's Processor port, not in this file: what a run DOES is

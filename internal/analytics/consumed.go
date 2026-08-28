@@ -6,7 +6,7 @@
 // computable predecessor, or the day's raw observations alone (every derived
 // field left NULL, flagged forced false) for a day WITHOUT one -- the
 // dense-table revision (design.md D9/D10). Fully offline: no I/O, only plain
-// telemetry.Snapshot / telemetry.SuperchargerSession / charging.Entry values
+// telemetry.Snapshot / charging.Session / charging.Entry values
 // in, []vehicleMetricRow out (mirrors derive.go's zero-I/O style).
 package analytics
 
@@ -113,7 +113,7 @@ func effectiveDay(s telemetry.Snapshot) time.Time {
 // (design.md D-B5). Sessions with either percentage NULL (D14: always true
 // today) contribute 0 -- their absence is what inferMissingChargingType
 // flags below, not something this function should estimate.
-func sumSuperchargerPctBetween(sessions []telemetry.SuperchargerSession, from, to time.Time) float64 {
+func sumSuperchargerPctBetween(sessions []charging.Session, from, to time.Time) float64 {
 	var total float64
 	for _, s := range sessions {
 		if s.ChargeStopDateTime.Before(from) || !s.ChargeStopDateTime.Before(to) {
@@ -130,7 +130,7 @@ func sumSuperchargerPctBetween(sessions []telemetry.SuperchargerSession, from, t
 // [from, to) exists with either battery percentage NULL (the exact record
 // needing a fill is already known); MANUAL otherwise. Only called once a day
 // is already known to be Flagged.
-func inferMissingChargingType(sessions []telemetry.SuperchargerSession, from, to time.Time) MissingChargingType {
+func inferMissingChargingType(sessions []charging.Session, from, to time.Time) MissingChargingType {
 	for _, s := range sessions {
 		if s.ChargeStopDateTime.Before(from) || !s.ChargeStopDateTime.Before(to) {
 			continue
@@ -164,7 +164,7 @@ func sumManualPctBetween(entries []charging.Entry, fromDay, toDay time.Time) flo
 }
 
 // deriveVehicleMetrics is the pure D9/D10/D13 derivation, fully offline: no
-// I/O, only plain telemetry.Snapshot / telemetry.SuperchargerSession /
+// I/O, only plain telemetry.Snapshot / charging.Session /
 // charging.Entry values in, []vehicleMetricRow out. snapshots MUST be
 // ordered chronologically ascending and MUST include the one-day lookback
 // row before start when it exists (D9a; Recalculate, recalculate.go,
@@ -212,7 +212,7 @@ func sumManualPctBetween(entries []charging.Entry, fromDay, toDay time.Time) flo
 // (consumption.go) computes from the (prev, cur) pair -- which is where they
 // used to be copied verbatim off cur's own _calc fields (no fallback-to-1
 // then, none now).
-func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.Snapshot, sessions []telemetry.SuperchargerSession, entries []charging.Entry, start, end time.Time) []vehicleMetricRow {
+func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.Snapshot, sessions []charging.Session, entries []charging.Entry, start, end time.Time) []vehicleMetricRow {
 	out := make([]vehicleMetricRow, 0, len(snapshots))
 	for i := 0; i < len(snapshots); i++ {
 		cur := snapshots[i]

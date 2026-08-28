@@ -66,7 +66,7 @@ func main() {
 		AnalyticsReader: analytics.NewReader(
 			pool,
 			telemetry.NewReader(pool),
-			telemetry.NewSuperchargerReader(pool),
+			charging.NewSuperchargerSessionAnalyticsReader(pool),
 			charging.NewReader(pool),
 			acct,
 			analytics.DefaultWindow,
@@ -80,7 +80,7 @@ func main() {
 		AnalyticsRecalculator: analytics.NewRecalculator(
 			pool,
 			telemetry.NewReader(pool),
-			telemetry.NewSuperchargerReader(pool),
+			charging.NewSuperchargerSessionAnalyticsReader(pool),
 			charging.NewReader(pool),
 		),
 		SessionSecret:     cfg.SessionSecret,

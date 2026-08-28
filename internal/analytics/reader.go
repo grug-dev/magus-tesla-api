@@ -42,7 +42,7 @@ type vehicleMetricsStore interface {
 type reader struct {
 	metrics      vehicleMetricsStore
 	telemetry    telemetry.Reader
-	supercharger telemetry.SuperchargerReader
+	supercharger charging.SuperchargerSessionAnalyticsReader
 	manual       charging.Reader
 	account      vehicleLookup
 	window       time.Duration
@@ -57,7 +57,7 @@ var _ Reader = (*reader)(nil)
 // and task 3.3) plus the three sibling ports RecentEfficiency still reads
 // live and a narrow account lookup, with window fixed at construction time
 // (design.md D3).
-func NewReader(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader, acct vehicleLookup, window time.Duration) Reader {
+func NewReader(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger charging.SuperchargerSessionAnalyticsReader, manual charging.Reader, acct vehicleLookup, window time.Duration) Reader {
 	return &reader{
 		metrics:      analyticsdb.New(pool),
 		telemetry:    telemetryReader,
@@ -88,8 +88,8 @@ func carTypeFor(ctx context.Context, acct vehicleLookup, accountID uuid.UUID, te
 
 // sumSuperchargerKWh sums EnergyKWh across sessions at or after since. Sessions
 // before since are skipped — this is the D6 in-Go date filter, since
-// SuperchargerSessionsByVehicle only supports a limit, not a since parameter.
-func sumSuperchargerKWh(sessions []telemetry.SuperchargerSession, since time.Time) float64 {
+// ListSessionsByVehicle only supports a limit, not a since parameter.
+func sumSuperchargerKWh(sessions []charging.Session, since time.Time) float64 {
 	var total float64
 	for _, s := range sessions {
 		if s.ChargeStartDateTime.Before(since) {
@@ -128,7 +128,7 @@ func (r *reader) RecentEfficiency(ctx context.Context, accountID uuid.UUID, tesl
 		return Efficiency{}, false, err
 	}
 
-	sessions, err := r.supercharger.SuperchargerSessionsByVehicle(ctx, accountID, teslaID, chargingSourceLimit)
+	sessions, err := r.supercharger.ListSessionsByVehicle(ctx, accountID, teslaID, chargingSourceLimit)
 	if err != nil {
 		return Efficiency{}, false, err
 	}
