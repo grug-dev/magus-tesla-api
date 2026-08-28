@@ -38,7 +38,7 @@ whether the task's files are disjoint from its concurrent siblings.
 
 ## Wave 2 — templates (depends on the VM shape)
 
-- [ ] **2.1** **[module: gateway worker]** NEW `internal/gateway/templates/fragments/supercharger_row.templ`
+- [x] **2.1** **[module: gateway worker]** NEW `internal/gateway/templates/fragments/supercharger_row.templ`
   — `SuperchargerRow(vm fragments.SuperchargerRowVM, csrfToken string)`: the addressable static
   row, `id="supercharger-row-{vm.ID}"`, all eight existing cells plus a new Actions cell holding
   ONE `ui.Button` Edit control (`hx-get` to the edit route carrying `?start={vm's window}&end=...`
@@ -49,7 +49,7 @@ whether the task's files are disjoint from its concurrent siblings.
   (composes `ui.Button` only); no hardcoded user-facing text (every label via `i18n.T`).
   `depends_on`: 1.1, 1.2 · `parallel_ok`: yes, with 2.2 (disjoint files).
 
-- [ ] **2.2** **[module: gateway worker]** NEW `internal/gateway/templates/fragments/supercharger_row_edit.templ`
+- [x] **2.2** **[module: gateway worker]** NEW `internal/gateway/templates/fragments/supercharger_row_edit.templ`
   — `SuperchargerRowEdit(vm fragments.SuperchargerRowVM, csrfToken string, validationErrors
   map[string]string)` per design.md D10: `<tr id="supercharger-row-{vm.ID}"><td colspan="9">`
   containing one `<form hx-patch="/ui/supercharger-stats/row/{vm.ID}?start=...&end=...">` (the
@@ -65,6 +65,18 @@ whether the task's files are disjoint from its concurrent siblings.
   `depends_on`: 1.1, 1.2 · `parallel_ok`: yes, with 2.1 (disjoint files).
 
 ## Wave 3 — presentation wiring and one refactor (single file, coordinate or serialize)
+
+> **Leader note (appended after wave 2 — clarification, no criterion is changed or relaxed).**
+> Wave 2 shipped the two components with an extra pair of trailing string parameters, because
+> `SuperchargerRowVM` carries no window field (design.md keeps the window on
+> `SuperchargerStatsView`, one value per page, not per row):
+> `SuperchargerRow(vm, csrfToken, windowStartStr, windowEndStr string)` and
+> `SuperchargerRowEdit(vm, csrfToken, windowStartStr, windowEndStr string, validationErrors map[string]string)`.
+> Task 3.2's `@SuperchargerRow(s, csrfToken)` shorthand is therefore a **4-argument** call in practice —
+> `@SuperchargerRow(s, csrfToken, windowStartStr, windowEndStr)` — which is exactly the "built here or
+> inside `SuperchargerRow` — implementer's choice" latitude 3.2 already grants. Same for 3.4's
+> `SuperchargerRowEdit(...)` / `SuperchargerRow(...)` render calls. Every other acceptance criterion stands.
+
 
 - [ ] **3.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — extract
   `superchargerRowVMFromSession(s charging.Session) fragments.SuperchargerRowVM` out of

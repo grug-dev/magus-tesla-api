@@ -1,0 +1,70 @@
+package fragments
+
+import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// SuperchargerRow renders the static view of one Supercharger session as a
+// table row. Its id="supercharger-row-{vm.ID}" matches the templ.Fragment id
+// pattern and is the target for the inline-edit swap — mirrors ChargeRow
+// (charge_row.templ).
+//
+// windowStartStr/windowEndStr are the SAME ?start=&end= window the table was
+// rendered under (design.md D2, RM31-gateway-add-session-battery-edit) —
+// threaded here (rather than through SuperchargerStatsView directly) because
+// tasks.md 3.2 leaves "build the URL here or inside SuperchargerRow" as an
+// implementer's choice, and SuperchargerRowVM itself carries no window
+// field (only SuperchargerStatsView does) — a per-row Edit URL cannot be
+// built without them reaching this component somehow. Every row action URL
+// carries them so the row-level handlers' list-and-match resolve (D1) stays
+// deterministic against the currently-rendered window.
+//
+// csrfToken is threaded through for signature symmetry with the edit row
+// (SuperchargerRowEdit) even though the static row itself issues no write —
+// Edit is a plain GET, so no CSRF token is needed here; it exists to keep
+// the two components' call sites (both driven from superchargerTable, wave
+// 3.2) uniform.
+//
+// NO delete action exists for a Supercharger session (design.md Non-Goals) —
+// unlike ChargeRow, this row has exactly one action button and no
+// hx-confirm.
+templ SuperchargerRow(vm SuperchargerRowVM, csrfToken, windowStartStr, windowEndStr string) {
+	<tr id={ "supercharger-row-" + vm.ID }>
+		<td>{ vm.DateLabel }</td>
+		<td>{ vm.SiteLabel }</td>
+		<td>{ vm.EnergyLabel }</td>
+		<td>{ vm.CostLabel }</td>
+		<td>{ vm.StartBatteryPctLabel }</td>
+		<td>{ vm.EndBatteryPctLabel }</td>
+		<td>{ vm.StartBatteryPctEstLabel }</td>
+		<td>{ vm.EndBatteryPctEstLabel }</td>
+		<td>
+			@ui.Button(ui.ButtonProps{
+				Variant: "ghost",
+				Size:    "sm",
+				Attrs: templ.Attributes{
+					"hx-get":    fmt.Sprintf("/ui/supercharger-stats/row/%s/edit?start=%s&end=%s", vm.ID, windowStartStr, windowEndStr),
+					"hx-target": "#supercharger-row-" + vm.ID,
+					"hx-swap":   "outerHTML",
+				},
+			}) {
+				{ i18n.T(ctx, i18n.KeySuperchargerRowEdit) }
+			}
+		</td>
+	</tr>
+}
+
+// SuperchargerRowError renders an error <tr> when a row-level write fails on
+// an existing session — mirrors ChargeRowError. colspan="9" matches the
+// static row's full column count (8 data cells + Actions, design.md D10 —
+// the header count after 3.2 adds the "Actions" header).
+templ SuperchargerRowError(id string, msg string) {
+	<tr id={ "supercharger-row-" + id }>
+		<td colspan="9">
+			<span class="text-error">{ msg }</span>
+		</td>
+	</tr>
+}

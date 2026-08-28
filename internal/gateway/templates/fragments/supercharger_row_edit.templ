@@ -1,0 +1,100 @@
+package fragments
+
+import (
+	"fmt"
+
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
+)
+
+// SuperchargerRowEdit renders the inline edit form for a single Supercharger
+// session row (design.md D10, RM31-gateway-add-session-battery-edit). Its
+// id="supercharger-row-{vm.ID}" matches the static row's id (SuperchargerRow)
+// so htmx hx-swap="outerHTML" can swap between the two views in-place.
+// validationErrors maps field names ("start_battery_pct"/"end_battery_pct"/
+// "_top") to error messages; nil or empty means no errors.
+//
+// Only TWO fields are editable — RawStartBatteryPct / RawEndBatteryPct — via
+// charging.SessionVerifier's own narrow write surface (design.md D10). Every
+// other cell (date, site, energy, cost, the two *_est columns) renders as
+// plain read-only text: this port cannot write them, so no input is offered
+// for them. Neither input is Required — an empty value is a valid, explicit
+// clear of that percentage (design.md D7a), NOT a validation error, unlike
+// ChargeRowEdit's Required battery fields.
+//
+// windowStartStr/windowEndStr are the SAME ?start=&end= window the table was
+// rendered under (design.md D2) — the form's own hx-patch action URL and the
+// Cancel button's hx-get both carry them, so the row-level handlers' list-
+// and-match resolve (D1) stays deterministic against the currently-rendered
+// window. See SuperchargerRow's doc comment for why these are threaded as
+// explicit parameters rather than living on SuperchargerRowVM.
+//
+// The hx-patch lives on the <form> and Save is type="submit" — NOT hx-patch
+// on the button — for the same HTML5-validation reason documented on
+// ChargeRowEdit (ai/htmx-conventions.md §htmx attribute conventions): htmx
+// only runs constraint validation when the element issuing the request is
+// the form itself.
+//
+// NO ordering validation is rendered here (design.md D7b — end < start is
+// accepted; the port and the schema both deliberately have no such check).
+templ SuperchargerRowEdit(vm SuperchargerRowVM, csrfToken, windowStartStr, windowEndStr string, validationErrors map[string]string) {
+	<tr id={ "supercharger-row-" + vm.ID }>
+		<td colspan="9">
+			if validationErrors["_top"] != "" {
+				@ui.Alert(ui.AlertProps{Kind: "error"}) {
+					{ validationErrors["_top"] }
+				}
+			}
+			<form
+				hx-patch={ fmt.Sprintf("/ui/supercharger-stats/row/%s?start=%s&end=%s", vm.ID, windowStartStr, windowEndStr) }
+				hx-target={ "#supercharger-row-" + vm.ID }
+				hx-swap="outerHTML"
+				class="flex flex-col gap-3"
+			>
+				<input type="hidden" name="csrf_token" value={ csrfToken }/>
+				<div class="grid gap-3 sm:grid-cols-2">
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerDate)}) {
+						<span class="text-base-content/80">{ vm.DateLabel }</span>
+					}
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerSite)}) {
+						<span class="text-base-content/80">{ vm.SiteLabel }</span>
+					}
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerEnergy)}) {
+						<span class="text-base-content/80">{ vm.EnergyLabel }</span>
+					}
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerCost)}) {
+						<span class="text-base-content/80">{ vm.CostLabel }</span>
+					}
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerStartEstimate)}) {
+						<span class="text-base-content/80">{ vm.StartBatteryPctEstLabel }</span>
+					}
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerEndEstimate)}) {
+						<span class="text-base-content/80">{ vm.EndBatteryPctEstLabel }</span>
+					}
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerStartBattery), Error: validationErrors["start_battery_pct"]}) {
+						@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Value: vm.RawStartBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+					}
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeySuperchargerEndBattery), Error: validationErrors["end_battery_pct"]}) {
+						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: vm.RawEndBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+					}
+				</div>
+				<div class="flex gap-2">
+					@ui.Button(ui.ButtonProps{Type: "submit", Variant: "primary", Size: "sm"}) {
+						{ i18n.T(ctx, i18n.KeySuperchargerRowSave) }
+					}
+					@ui.Button(ui.ButtonProps{
+						Variant: "ghost",
+						Size:    "sm",
+						Attrs: templ.Attributes{
+							"hx-get":    fmt.Sprintf("/ui/supercharger-stats/row/%s?start=%s&end=%s", vm.ID, windowStartStr, windowEndStr),
+							"hx-target": "#supercharger-row-" + vm.ID,
+							"hx-swap":   "outerHTML",
+						},
+					}) {
+						{ i18n.T(ctx, i18n.KeySuperchargerRowCancel) }
+					}
+				</div>
+			</form>
+		</td>
+	</tr>
+}

@@ -6,7 +6,7 @@
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
   "status": "in-progress",
-  "updated_at": "2026-08-28T17:36:00Z",
+  "updated_at": "2026-08-28T17:41:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,8 +21,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "2.1",
-      "2.2",
       "3.1",
       "3.2",
       "3.3",
@@ -45,9 +43,23 @@
       "1.1",
       "1.2",
       "1.3"
+    ],
+    "awaiting-user-verification": [
+      "2.1",
+      "2.2"
     ]
   },
-  "decisions": [],
+  "decisions": [
+    {
+      "id": "D17",
+      "at": "2026-08-28T17:41:00Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "SuperchargerRow/SuperchargerRowEdit take windowStartStr+windowEndStr as trailing params, not new SuperchargerRowVM fields",
+      "why": "The window is one value per page, already on SuperchargerStatsView; copying it onto every row VM duplicates state. Task 3.2 already grants this latitude.",
+      "covered_by": null
+    }
+  ],
   "tasks": [
     {
       "id": "1.1",
@@ -102,33 +114,43 @@
     },
     {
       "id": "2.1",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "1.1",
         "1.2"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:37:00Z",
+      "completed_at": "2026-08-28T17:41:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.2,
+        "approx": false,
+        "note": "wave 2 bracket: five_hour 64->72%, cost $0.65->$2.85; single batched serial worker, exact"
+      },
+      "notes": "New supercharger_row.templ - SuperchargerRow + SuperchargerRowError, mirrors charge_row.templ. One Edit ui.Button, no delete, no hx-confirm, colspan=9 on the error row. All labels via i18n.T."
     },
     {
       "id": "2.2",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "1.1",
         "1.2"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:37:00Z",
+      "completed_at": "2026-08-28T17:41:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.2,
+        "approx": false,
+        "note": "wave 2 bracket: five_hour 64->72%, cost $0.65->$2.85; single batched serial worker, exact"
+      },
+      "notes": "New supercharger_row_edit.templ - colspan=9 wrapper, hx-patch on the <form>, hidden csrf_token, six read-only labels, exactly two number inputs (not Required), _top ui.Alert, no ordering check."
     },
     {
       "id": "3.1",
@@ -420,6 +442,26 @@
       "at": "2026-08-28T17:36:00Z",
       "agent": "leader",
       "event": "CHECKPOINT at the wave-1/wave-2 boundary: owner is clearing context before wave 2. Budget clear at checkpoint (five_hour 60%, context 19%) - this is the recommended per-wave /clear for a 7-wave change, not a threshold trip. NEXT: wave 2 = tasks 2.1 + 2.2, the two new .templ fragments (supercharger_row.templ, supercharger_row_edit.templ); disjoint files, parallel_ok, depends_on 1.1+1.2 which are now done. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T17:37:00Z",
+      "agent": "leader",
+      "event": "Resumed (fresh session, Claude Code / Opus 5 leader). Working tree clean, on ft/RM31-MAG-19-supercharger-session-verification. Wave 2 dispatched to ONE batched serial gateway worker (sonnet): tasks 2.1 + 2.2, the two new .templ fragments. budget_start: five_hour 64%, context 9%, cost $0.65."
+    },
+    {
+      "at": "2026-08-28T17:41:00Z",
+      "agent": "leader",
+      "event": "Wave 2 reconciled. Leader independently re-ran go build ./... + go vet ./... + make ui-guard + make i18n-guard (all clean) and read both new .templ files against charge_row/charge_row_edit: colspan=9, hx-patch on the <form>, exactly two non-Required number inputs, no ordering check, no delete button, zero hardcoded strings. Generated *_templ.go are gofmt-clean (the 4 gofmt -l hits are pre-existing, untouched files). Worker did NOT write progress.json - write-ownership rail held."
+    },
+    {
+      "at": "2026-08-28T17:41:00Z",
+      "agent": "leader",
+      "event": "Worker FLAGGED a signature deviation rather than silently absorbing it: SuperchargerRowVM has no window field, so both components take windowStartStr/windowEndStr as trailing params (recorded as D17). tasks.md wave 3 got an APPENDED leader note stating the 4-arg call shape - additive clarification, no acceptance criterion edited or relaxed."
+    },
+    {
+      "at": "2026-08-28T17:41:00Z",
+      "agent": "leader",
+      "event": "budget_end: five_hour 72%, context 12%, cost $2.85. Checkpoint gate NOT tripped (thresholds 90/40). 2.1 and 2.2 are code, untested -> awaiting-user-verification pending the OWNER's suite run."
     }
   ]
 }
