@@ -61,7 +61,7 @@ func TestNavShell_RendersIconsAndSoonBadges(t *testing.T) {
 // TestIcon_ClosedVocabulary asserts every shipped glyph renders an <svg> and an
 // unknown name degrades to no markup (the closed-vocabulary contract).
 func TestIcon_ClosedVocabulary(t *testing.T) {
-	for _, name := range []string{"dashboard", "ev_station", "analytics", "settings", "menu", "battery"} {
+	for _, name := range []string{"dashboard", "ev_station", "analytics", "settings", "menu", "battery", "speed", "groups"} {
 		var buf bytes.Buffer
 		if err := templ.Handler(Icon(IconProps{Name: name})).Component.Render(context.Background(), &buf); err != nil {
 			t.Fatalf("render Icon %q: %v", name, err)

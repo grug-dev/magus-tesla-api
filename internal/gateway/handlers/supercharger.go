@@ -207,7 +207,9 @@ func superchargerWindowStrs(c *gin.Context) (startStr, endStr string) {
 }
 
 // SuperchargerStatsPage renders the full Supercharger Stats page for the
-// session-selected vehicle (initial load).
+// session-selected vehicle (initial load). It generates a fresh
+// csrf_supercharger token and saves it to the session (design.md D8) —
+// mirroring ChargePage's generateCSRFToken/sess.Set/sess.Save shape exactly.
 func (h *Handler) SuperchargerStatsPage(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -215,7 +217,16 @@ func (h *Handler) SuperchargerStatsPage(c *gin.Context) {
 		return
 	}
 
-	v, status := h.superchargerStatsViewFor(c, uid)
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorCouldNotSave))
+		return
+	}
+	sess := sessions.Default(c)
+	sess.Set(csrfSuperchargerKey, csrfToken)
+	_ = sess.Save()
+
+	v, status := h.superchargerStatsViewFor(c, uid, csrfToken)
 	if status != http.StatusOK {
 		renderError(c, status, pages.SuperchargerStatsPage(v))
 		return
@@ -226,7 +237,9 @@ func (h *Handler) SuperchargerStatsPage(c *gin.Context) {
 // SuperchargerStatsFragment renders ONLY the #supercharger-stats-content
 // fragment (htmx swap served by GET /ui/supercharger-stats?start=&end=) — the
 // month-preset selector's hx-get target and the vehicle switcher's
-// "vehicle-changed" subscriber.
+// "vehicle-changed" subscriber. It READS the existing csrf_supercharger
+// session value — it does NOT re-issue one (design.md D8; mirrors
+// ChargesListFragment's sess.Get shape exactly).
 func (h *Handler) SuperchargerStatsFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -234,7 +247,10 @@ func (h *Handler) SuperchargerStatsFragment(c *gin.Context) {
 		return
 	}
 
-	v, status := h.superchargerStatsViewFor(c, uid)
+	sess := sessions.Default(c)
+	csrfToken, _ := sess.Get(csrfSuperchargerKey).(string)
+
+	v, status := h.superchargerStatsViewFor(c, uid, csrfToken)
 	if status != http.StatusOK {
 		renderFragmentError(c, status, pages.SuperchargerStatsPage(v), "supercharger-stats")
 		return

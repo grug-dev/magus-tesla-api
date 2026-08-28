@@ -30,7 +30,9 @@ const (
 	KeyNavDashboard         Key = "nav.dashboard"
 	KeyNavManualRecords     Key = "nav.manual_records"
 	KeyNavSuperchargerStats Key = "nav.supercharger_stats"
-	KeyNavSettings          Key = "nav.settings"
+	KeyNavVehicleStats       Key = "nav.vehicle_stats"
+	KeyNavCommunityBenchmark Key = "nav.community_benchmark"
+	KeyNavSettings           Key = "nav.settings"
 	KeyNavSoonBadge         Key = "nav.soon_badge"
 	KeyNavOpenSidebar       Key = "nav.open_sidebar"
 	KeyNavCloseSidebar      Key = "nav.close_sidebar"
@@ -306,7 +308,9 @@ var catalog = map[Key]entry{
 	KeyNavDashboard:         {ES: "Panel", EN: "Dashboard"},
 	KeyNavManualRecords:     {ES: "Registros manuales", EN: "Manual Records"},
 	KeyNavSuperchargerStats: {ES: "Estadísticas Supercharger", EN: "Supercharger Stats"},
-	KeyNavSettings:          {ES: "Configuración", EN: "Settings"},
+	KeyNavVehicleStats:       {ES: "Estadísticas", EN: "Vehicle Stats"},
+	KeyNavCommunityBenchmark: {ES: "Comparativa", EN: "Community Benchmark"},
+	KeyNavSettings:           {ES: "Configuración", EN: "Settings"},
 	KeyNavSoonBadge:         {ES: "Pronto", EN: "Soon"},
 	KeyNavOpenSidebar:       {ES: "Abrir menú lateral", EN: "open sidebar"},
 	KeyNavCloseSidebar:      {ES: "Cerrar menú lateral", EN: "close sidebar"},

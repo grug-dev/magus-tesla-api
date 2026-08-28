@@ -174,6 +174,9 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 
 	r.GET("/supercharger-stats", h.SuperchargerStatsPage)
 	r.GET("/ui/supercharger-stats", h.SuperchargerStatsFragment)
+	r.GET("/ui/supercharger-stats/row/:id", h.SuperchargerRowStatic)
+	r.GET("/ui/supercharger-stats/row/:id/edit", h.SuperchargerRowEditFragment)
+	r.PATCH("/ui/supercharger-stats/row/:id", h.SuperchargerRowUpdate)
 
 	return r, nil
 }
