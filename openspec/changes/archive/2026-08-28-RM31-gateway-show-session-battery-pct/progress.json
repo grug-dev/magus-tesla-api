@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM31-supercharger-session-verification.md",
   "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -26,7 +26,7 @@
     ]
   },
   "created_at": "2026-08-28T11:22:21Z",
-  "updated_at": "2026-08-28T15:58:00Z",
+  "updated_at": "2026-08-28T16:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "Opus 5"
@@ -246,7 +246,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "gateway-reviewer",
     "brief": "Validate RM31 tier 4 against proposal/design/spec/tasks: module boundary and doc-pack conventions; shared HistoryChart/HistoryBar/buildYAxisTicks reuse; YYYY-MM labels, five kWh ticks, vertical labels and zero-max behavior; four ES/EN headers and nil-to-em-dash mapping; generated Templ output; no Country, DB, write path, estimator, extra read, or chart fork; owner-reported go test ./internal/gateway/... pass; no weakened criteria or self-approval.",
     "rounds": [
@@ -275,6 +275,19 @@
             "note": "design.md Test Contract T2 / spec.md scenario 'A non-empty zero-energy chart has no fabricated axis scale' and task 3.1's own acceptance ('no ticks at zero max') are untested. internal/gateway/handlers/supercharger_test.go has no case with non-nil, zero-total monthly energy asserting YAxisTicks is nil/empty. Code (buildSuperchargerChart -> buildYAxisTicks) is correct on inspection, but the promised test is missing while task 3.1 is marked done. | LEADER TRIAGE: accepted, verified independently against design.md T2, spec.md and tasks.md 3.1. Fixed by TestBuildSuperchargerChart_ZeroEnergyHasNoYAxisTicks; awaiting owner execution (task 4.4).",
             "status": "fixed",
             "triage": "accepted"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-28T16:05:00Z",
+        "agent": "gateway-reviewer",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R2",
+            "severity": "major",
+            "note": "Verified fixed: TestBuildSuperchargerChart_ZeroEnergyHasNoYAxisTicks (supercharger_test.go, after OneBarPerMonthInWindow) uses zero+nil EnergyKWh sessions, is non-vacuous (Empty=false via len(sessions)!=0; HeightPct=0 and YAxisTicks=nil both driven by maxKWh==0), matches design.md T2 / spec.md scenario, and is purely additive -- no pre-existing assertion touched.",
+            "status": "fixed"
           }
         ]
       }
@@ -355,6 +368,16 @@
       "at": "2026-08-28T15:58:00Z",
       "agent": "leader",
       "event": "OWNER REPORTED go test ./internal/gateway/... and go vet PASS after the R2 fix. Verification is the owner's, not the assistant's. Task 4.4 -> done; all 12 tasks done; status applied -> verified. Reviewer round 3 requested for R2 re-check only."
+    },
+    {
+      "at": "2026-08-28T16:05:00Z",
+      "agent": "leader",
+      "event": "Review round 3: gateway-reviewer APPROVED. R2 re-verified non-vacuous (reviewer traced that nil-energy is skipped and zero-energy keeps maxKWh at exactly 0.0, independently driving both the height branch and buildYAxisTicks -> nil; c.Empty is gated on len(sessions) so it cannot pass by accident). Reviewer also endorsed decisions D2 and D3."
+    },
+    {
+      "at": "2026-08-28T16:12:00Z",
+      "agent": "leader",
+      "event": "ARCHIVED as 2026-08-28-RM31-gateway-show-session-battery-pct. openspec archive first ABORTED: the delta spec declared both requirements MODIFIED but neither header existed in openspec/specs/gateway/spec.md. Leader switched the block to ADDED (decision D4) and re-validated --strict. Archive applied +2 added, ~0 modified, -0 removed -- the pre-existing 'kWh-per-month chart' and 'sessions table is unpaginated' requirements survive intact."
     }
   ],
   "decisions": [
@@ -383,6 +406,15 @@
       "made_by": "leader",
       "decision": "task 3.1 stays checked done rather than being reverted to pending",
       "why": "Its acceptance is now genuinely met by the added test. Reverting a checkbox would rewrite history; the gap is recorded here and in events instead.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-28T16:10:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "delta spec header changed from '## MODIFIED Requirements' to '## ADDED Requirements' at archive time",
+      "why": "Neither header existed in the main gateway spec, so archive aborted. Both are genuinely new requirements; MODIFIED would have REPLACED the existing chart/table requirements and destroyed their SVG and no-arithmetic constraints.",
       "covered_by": null
     }
   ]

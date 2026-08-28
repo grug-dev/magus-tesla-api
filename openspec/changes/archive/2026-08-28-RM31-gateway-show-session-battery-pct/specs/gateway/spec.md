@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Supercharger Stats monthly chart has readable month and kWh axes
 
