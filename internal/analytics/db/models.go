@@ -54,12 +54,12 @@ type VehicleMetric struct {
 	UpdatedAt           pgtype.Timestamptz
 }
 
-// One recompute cursor per (account_id, tesla_id, source) for internal/analytics.Recalculator.Reconcile (RM29-analytics-add-vehicle-metrics, MAG-26 tier 3). Three independent sources (design D3): vehicle_snapshots, supercharger_sessions, manual_charge_entries -- each advances on its own row, never coupled to the others' clocks. No watermark row yet for a (account_id, tesla_id, source) means "epoch" (design D7): Reconcile backfills the vehicle's full history in one pass. Owned by internal/analytics; no other module reads this table directly.
+// One recompute cursor per (account_id, tesla_id, source) for internal/analytics.Recalculator.Reconcile (RM29-analytics-add-vehicle-metrics, MAG-26 tier 3). Three independent sources (design D3): vehicle_snapshots, charge_sessions, manual_charge_entries -- each advances on its own row, never coupled to the others' clocks. No watermark row yet for a (account_id, tesla_id, source) means "epoch" (design D7): Reconcile backfills the vehicle's full history in one pass. Owned by internal/analytics; no other module reads this table directly. source's vocabulary was migrated from supercharger_sessions to charge_sessions by RM31-analytics-read-sessions-from-charging (MAG-19 tier 3) when the Supercharger read moved from internal/telemetry to internal/charging; existing supercharger_sessions cursor rows were reset to epoch (DELETEd), not renamed in place (roadmap Decision 10; design.md Sec 2b/2c of that change).
 type VehicleMetricWatermark struct {
 	ID        uuid.UUID
 	AccountID uuid.UUID
 	TeslaID   int64
-	// Closed 3-value vocabulary naming the physical table this cursor tracks (design D3): 'vehicle_snapshots' (internal/telemetry), 'supercharger_sessions' (internal/telemetry), or 'manual_charge_entries' (internal/charging). No FK -- a free-standing string label, mirroring charge_gaps.missing_charging_type's identical convention.
+	// Closed 3-value vocabulary naming the physical table this cursor tracks (design D3): 'vehicle_snapshots' (internal/telemetry), 'charge_sessions' (internal/charging, as of RM31-analytics-read-sessions-from-charging -- previously 'supercharger_sessions' in internal/telemetry), or 'manual_charge_entries' (internal/charging). No FK -- a free-standing string label, mirroring charge_gaps.missing_charging_type's identical convention.
 	Source string
 	// The maximum UpdatedAt (vehicle_snapshots/supercharger_sessions) or updated_at (manual_charge_entries) Reconcile has observed from this source for this vehicle, as of its last run. Reconcile queries each source's ...UpdatedSince(source_updated_at - recalcOverlap) (design D4's 24h commit-skew guard) and advances this column only when that query returns rows -- a source with zero returned rows on a given run leaves its own watermark row untouched (design D2's "Reconcile idempotence contract").
 	SourceUpdatedAt pgtype.Timestamptz

@@ -5,18 +5,18 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM31-supercharger-session-verification.md",
   "request": "MAG-19 — ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
-    "current": ["4.3"],
+    "current": [],
     "pending": [],
     "blocked": [],
-    "done": ["1.1", "1.2", "1.3", "2.1", "2.2", "3.1", "3.2", "3.3", "4.1", "4.2"]
+    "done": ["1.1", "1.2", "1.3", "2.1", "2.2", "3.1", "3.2", "3.3", "4.1", "4.2", "4.3"]
   },
   "created_at": "2026-08-28T11:22:21Z",
-  "updated_at": "2026-08-28T15:18:00Z",
+  "updated_at": "2026-08-28T15:26:40Z",
   "leader": {
-    "assistant": "Codex",
-    "model": "GPT-5"
+    "assistant": "Claude Code",
+    "model": "Opus 5"
   },
   "git": {
     "strategy": "auto",
@@ -37,7 +37,7 @@
     {"id": "3.3", "title": "Regenerate Supercharger Stats Templ output", "module": "gateway", "depends_on": ["1.3"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:27:42Z", "completed_at": "2026-08-28T11:30:02Z", "duration_seconds": 140, "notes": "Regenerated the committed Supercharger Stats Templ output with make templ.", "budget": null},
     {"id": "4.1", "title": "Reconcile implementation against artifacts", "module": "gateway", "depends_on": ["3.1", "3.2", "3.3"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "GPT-5", "started_at": "2026-08-28T11:31:56Z", "completed_at": "2026-08-28T11:31:56Z", "duration_seconds": 0, "notes": "Diff matches D1-D6: display-only, no DB/write/estimator/Country/chart fork; codegen output regenerated.", "budget": null},
     {"id": "4.2", "title": "Owner verifies gateway tests", "module": "gateway", "depends_on": ["4.1"], "parallel_ok": false, "status": "done", "agent": "user", "model": null, "started_at": "2026-08-28T15:15:00Z", "completed_at": "2026-08-28T15:15:00Z", "duration_seconds": 0, "notes": "Owner reported go test ./internal/gateway/... passed.", "budget": null},
-    {"id": "4.3", "title": "Owner re-verifies review correction", "module": "gateway", "depends_on": ["3.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null}
+    {"id": "4.3", "title": "Owner re-verifies review correction", "module": "gateway", "depends_on": ["3.2"], "parallel_ok": false, "status": "done", "agent": "user", "model": null, "started_at": "2026-08-28T15:19:22Z", "completed_at": "2026-08-28T15:19:22Z", "duration_seconds": 0, "notes": "Owner reported go test ./internal/gateway/... passed after R1 correction.", "budget": null}
   ],
   "review": {"status": "changes-requested", "agent": "gateway-reviewer", "brief": "Validate RM31 tier 4 against proposal/design/spec/tasks: module boundary and doc-pack conventions; shared HistoryChart/HistoryBar/buildYAxisTicks reuse; YYYY-MM labels, five kWh ticks, vertical labels and zero-max behavior; four ES/EN headers and nil-to-em-dash mapping; generated Templ output; no Country, DB, write path, estimator, extra read, or chart fork; owner-reported go test ./internal/gateway/... pass; no weakened criteria or self-approval.", "rounds": [{"at": "2026-08-28T15:16:55Z", "agent": "gateway-reviewer", "verdict": "changes-requested", "findings": [{"id": "R1", "severity": "major", "note": "Accepted: added direct English rendering plus nil battery-cell em-dash assertions; owner re-verification remains pending.", "status": "fixed", "triage": "accepted"}]}]},
   "events": [
@@ -50,7 +50,10 @@
     {"at": "2026-08-28T11:30:02Z", "agent": "leader", "event": "Wave 2 complete: tasks 1.3, 2.2, 3.3 reconciled. make templ regenerated only the affected Templ output; test tasks 3.1 and 3.2 are current."},
     {"at": "2026-08-28T11:31:56Z", "agent": "leader", "event": "Wave 3 and reconciliation complete: tests were added and the diff matches D1-D6. Per project policy the assistant did not run go test; task 4.2 is awaiting owner verification, so change status is applied."},
     {"at": "2026-08-28T15:15:00Z", "agent": "leader", "event": "Owner reported go test ./internal/gateway/... passed. All tasks are done; status advanced to verified and reviewer gate is ready."},
-    {"at": "2026-08-28T15:18:00Z", "agent": "leader", "event": "Review finding R1 accepted and corrected with direct English-header and nil-cell rendering coverage. Added owner re-verification task 4.3 before reviewer re-check."}
+    {"at": "2026-08-28T15:18:00Z", "agent": "leader", "event": "Review finding R1 accepted and corrected with direct English-header and nil-cell rendering coverage. Added owner re-verification task 4.3 before reviewer re-check."},
+    {"at": "2026-08-28T15:19:22Z", "agent": "leader", "event": "Owner reported the corrected go test ./internal/gateway/... pass. Status returned to verified; reviewer re-check requested for R1 only."},
+    {"at": "2026-08-28T15:26:40Z", "agent": "leader", "event": "Resumed under Claude Code (leader handoff from Codex). Live budget restored and available: five_hour_pct 3, context_pct 9 - no checkpoint. Codex ran the prior waves as a serial leader fallback, so reviewer independence was degraded for round 1; round 2 gets a real gateway-reviewer subagent."},
+    {"at": "2026-08-28T15:26:40Z", "agent": "leader", "event": "Working-tree triage before the reviewer gate. (a) internal/analytics/db/models.go was stale sqlc output: archived tier 3 shipped its watermark migration COMMENT ON without re-running sqlc generate. Regenerated deterministically and committed here. (b) internal/gateway/static/app.css had a spurious make css regeneration adding an unused .table-cell utility - reverted; the class exists nowhere in templates, Tailwind scraped it from openspec markdown."}
   ],
   "decisions": [
     {"id": "D1", "at": "2026-08-28T11:24:00Z", "scope": "change", "made_by": "leader", "decision": "Use serial leader fallback for gateway implementation", "why": "The required module worker was blocked by the Codex usage limit; preserving the approved module scope and durable state is safer than abandoning the tier.", "covered_by": null}
