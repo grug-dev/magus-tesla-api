@@ -6,7 +6,7 @@
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
   "status": "in-progress",
-  "updated_at": "2026-08-28T17:31:30Z",
+  "updated_at": "2026-08-28T17:36:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -19,10 +19,7 @@
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions"
   },
   "rollup": {
-    "current": [
-      "1.1",
-      "1.2"
-    ],
+    "current": [],
     "pending": [
       "2.1",
       "2.2",
@@ -45,6 +42,8 @@
     ],
     "blocked": [],
     "done": [
+      "1.1",
+      "1.2",
       "1.3"
     ]
   },
@@ -52,7 +51,7 @@
   "tasks": [
     {
       "id": "1.1",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [],
       "agent": "gateway",
       "model": "claude-sonnet-4-6",
@@ -69,7 +68,7 @@
     },
     {
       "id": "1.2",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [],
       "agent": "gateway",
       "model": "claude-sonnet-4-6",
@@ -411,6 +410,16 @@
       "at": "2026-08-28T17:31:30Z",
       "agent": "leader",
       "event": "Wave 1 reconciled. Leader independently re-ran go build ./... + go vet ./... (both clean) and verified all 10 i18n keys carry non-empty ES and EN, and that both touched Go files are gofmt-clean (the gofmt -l entries the worker reported are pre-existing, from an unrelated commit). Worker did NOT write progress.json - write-ownership rail held. Worker's reported timestamps were placeholders (00:00:00Z); leader substituted real dispatch/return times. 1.1/1.2 are awaiting-user-verification (code, untested); 1.3 is done (documentation)."
+    },
+    {
+      "at": "2026-08-28T17:36:00Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `make test` GREEN (whole repo, broader than the per-module gateway run that was asked for). Verification is the OWNER'S, not the assistant's - the assistant never ran the suite. Tasks 1.1 and 1.2 move awaiting-user-verification -> done; wave 1 fully closed (1.1, 1.2, 1.3)."
+    },
+    {
+      "at": "2026-08-28T17:36:00Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the wave-1/wave-2 boundary: owner is clearing context before wave 2. Budget clear at checkpoint (five_hour 60%, context 19%) - this is the recommended per-wave /clear for a 7-wave change, not a threshold trip. NEXT: wave 2 = tasks 2.1 + 2.2, the two new .templ fragments (supercharger_row.templ, supercharger_row_edit.templ); disjoint files, parallel_ok, depends_on 1.1+1.2 which are now done. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
     }
   ]
 }
