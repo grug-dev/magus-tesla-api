@@ -9,13 +9,13 @@ that state. Checkboxes are updated live only when their acceptance is actually m
 
 - [x] **1.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — append four semantic Supercharger battery-header keys and same-line non-empty ES/EN catalogue entries, following the existing constant/map ordering. Acceptance: every new table header has exactly one catalogue key and both translations are non-empty; do not add Country. `depends_on`: — · `parallel_ok`: yes, with 1.1 and 1.3.
 
-- [ ] **1.3** **[module: gateway worker]** `internal/gateway/templates/fragments/supercharger_stats.templ` — extend the existing `ui.Table` headers/cells with the four i18n-backed battery columns and the four VM labels, preserving Date/Site/Energy/Cost and delegation to `historyBarChart`. Acceptance: no hardcoded user-facing text, no HTML comments, no raw DaisyUI table class, no Country column, and header/cell order is identical. `depends_on`: 1.1, 1.2 · `parallel_ok`: yes after 1.1/1.2 land; otherwise wait for their shapes.
+- [x] **1.3** **[module: gateway worker]** `internal/gateway/templates/fragments/supercharger_stats.templ` — extend the existing `ui.Table` headers/cells with the four i18n-backed battery columns and the four VM labels, preserving Date/Site/Energy/Cost and delegation to `historyBarChart`. Acceptance: no hardcoded user-facing text, no HTML comments, no raw DaisyUI table class, no Country column, and header/cell order is identical. `depends_on`: 1.1, 1.2 · `parallel_ok`: yes after 1.1/1.2 land; otherwise wait for their shapes.
 
 ## Wave 2 — presentation mapping and shared chart reuse
 
 - [x] **2.1** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — in `buildSuperchargerChart`, set every bucket bar label to `YYYY-MM`, use the existing `buildYAxisTicks(maxKWh, kWh formatter)`, and set `LabelVertical: true` for empty and non-empty results. Keep existing bucket count, heights, tooltip semantics, and shared renderer. Acceptance: no second tick helper/chart renderer/chart library; zero max produces nil/empty ticks. `depends_on`: — · `parallel_ok`: yes, with 2.2 (disjoint functions in one file require conflict-free coordination; default serial worker is preferred).
 
-- [ ] **2.2** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — in `buildSuperchargerRows`, map all four existing `charging.Session` battery fields to the new VM labels as `<integer>%` or exactly `"—"` when nil. Acceptance: estimates remain a direct nil-safe display mapping only; no estimator, write, extra read, Country field, or template formatting is introduced. `depends_on`: 1.1 · `parallel_ok`: yes with 2.1 only if the same-file edit is coordinated; otherwise serial.
+- [x] **2.2** **[module: gateway worker]** `internal/gateway/handlers/supercharger.go` — in `buildSuperchargerRows`, map all four existing `charging.Session` battery fields to the new VM labels as `<integer>%` or exactly `"—"` when nil. Acceptance: estimates remain a direct nil-safe display mapping only; no estimator, write, extra read, Country field, or template formatting is introduced. `depends_on`: 1.1 · `parallel_ok`: yes with 2.1 only if the same-file edit is coordinated; otherwise serial.
 
 ## Wave 3 — deterministic tests and generated template
 
@@ -23,7 +23,7 @@ that state. Checkboxes are updated live only when their acceptance is actually m
 
 - [ ] **3.2** **[module: gateway worker]** `internal/gateway/handlers/supercharger_test.go` — add/update an existing page/fragment `httptest` assertion covering both-language header resolution, populated battery cells, nil em-dash cells, and Country absence. Acceptance: meets design.md T6–T7 using the existing language-context/fake-reader patterns; no database or network dependency. `depends_on`: 1.2, 1.3, 2.2 · `parallel_ok`: no (shared test file with 3.1).
 
-- [ ] **3.3** **[module: gateway worker — codegen]** Run `make templ` after the `.templ` change and include the regenerated `internal/gateway/templates/fragments/supercharger_stats_templ.go`. Acceptance: generated artifact reflects the four header/cell additions and is not hand-edited. Do not run build or test commands. `depends_on`: 1.3 · `parallel_ok`: no (must run after all template edits).
+- [x] **3.3** **[module: gateway worker — codegen]** Run `make templ` after the `.templ` change and include the regenerated `internal/gateway/templates/fragments/supercharger_stats_templ.go`. Acceptance: generated artifact reflects the four header/cell additions and is not hand-edited. Do not run build or test commands. `depends_on`: 1.3 · `parallel_ok`: no (must run after all template edits).
 
 ## Wave 4 — artifact and owner verification handoff
 

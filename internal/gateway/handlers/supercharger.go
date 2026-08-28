@@ -371,11 +371,22 @@ func buildSuperchargerRows(sessions []charging.Session) []fragments.Supercharger
 			costLabel = formatMoney(*s.TotalCost, *s.Currency)
 		}
 		rows = append(rows, fragments.SuperchargerRowVM{
-			DateLabel:   s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),
-			SiteLabel:   s.SiteLocationName,
-			EnergyLabel: energyLabel,
-			CostLabel:   costLabel,
+			DateLabel:               s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),
+			SiteLabel:               s.SiteLocationName,
+			EnergyLabel:             energyLabel,
+			CostLabel:               costLabel,
+			StartBatteryPctLabel:    formatBatteryPct(s.StartBatteryPct),
+			EndBatteryPctLabel:      formatBatteryPct(s.EndBatteryPct),
+			StartBatteryPctEstLabel: formatBatteryPct(s.StartBatteryPctEst),
+			EndBatteryPctEstLabel:   formatBatteryPct(s.EndBatteryPctEst),
 		})
 	}
 	return rows
+}
+
+func formatBatteryPct(pct *int16) string {
+	if pct == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%d%%", *pct)
 }
