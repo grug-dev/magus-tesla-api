@@ -76,6 +76,11 @@ These were confirmed by the user and are authoritative for every tier's design/s
    and the gateway imports the same set to drive which inputs render as required/disabled. Adding a
    field to the skip set later is a one-line, one-file change that both layers follow — the ticket's
    "easy to maintain" requirement. Initial `IN_PROGRESS` skip set: `ended_at`, `end_battery_pct`.
+   **Confirmed at the 2026-08-29 design gate:** the skip set means both fields are **REQUIRED when
+   status is `DONE`**. This is a real tightening — `ended_at` is optional today in both the DB and
+   the form — and the user confirmed it explicitly. Consequence: tier 2 renders `ended_at` as
+   required once DONE is selected, and an existing DONE record with no `ended_at` cannot be
+   re-saved without filling it in.
    **No DB CHECK backstop**: it was offered and rejected, because every future change to the skip
    set would then require a migration, working against the maintainability requirement.
 6. **D6 — `odometer_km INTEGER NULL CHECK (odometer_km >= 0)`.** The `_km` suffix is mandated by the
@@ -129,6 +134,23 @@ These were confirmed by the user and are authoritative for every tier's design/s
     (casa/destino)` / `DC — Carga rápida (Supercargador)`. EN: `AC — Slow charging
     (home/destination)` / `DC — Fast charging (Supercharger)`. The DB still stores `'AC'`/`'DC'`;
     only `value=` is unchanged. Both languages are mandatory per the i18n rule.
+
+## Design gate — confirmed 2026-08-29
+
+The user reviewed the tier-1 DDL (three added columns, `energy_added_kwh` NOT NULL dropped, no
+indexes, `inferred_capacity_kwh_calc` untouched), its rationale and its index plan, and
+**approved it**. Two follow-up questions the worker raised were settled at the same gate:
+
+- **D5's DONE semantics** — confirmed: DONE requires both `ended_at` and `end_battery_pct` (folded
+  into D5 above).
+- **D17 — the `EnergyAddedKWh *float64` compile break is fixed inside tier 1, as task `L1`.**
+  Making the field a pointer breaks `internal/gateway`'s compilation at ~14 call sites. A
+  charging-scoped worker cannot cross the module boundary to fix it, so tier 1 alone would leave
+  `go build ./...` red repo-wide and its reviewer gate unenforceable (the reviewer runs that
+  signal). `L1` is a **minimal, purely mechanical** nil-handling fix dispatched to a gateway-scoped
+  worker in tier 1's final wave — no feature change. All real gateway work stays in tiers 2 and 3.
+  Rejected: merging tiers 1 and 2 (tier 1 stops being a clean schema unit), and accepting a red
+  build (blocks the user from running the suite between tiers).
 
 ## Tiers
 

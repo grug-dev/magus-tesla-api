@@ -1,0 +1,385 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM33-charging-add-entry-status",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM33-manual-record-status.md",
+  "request": "Source ticket: MAG-18 \u2014 https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records. Tier 1 of roadmap RM33-manual-record-status, module charging, implementing roadmap decisions D1-D8: add status (IN_PROGRESS/DONE), energy_source (USER/ESTIMATED) and odometer_km columns to manual_charge_entries; drop NOT NULL on energy_added_kwh; add the declarative RequiredFieldsFor status-conditional validation; add the packCapacityKWh seam and derive energy on write when the user leaves it blank.",
+  "status": "proposed",
+  "created_at": "2026-08-29T11:13:27Z",
+  "updated_at": "2026-08-29T11:13:27Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM33-MAG-18-manual-record-status",
+    "base": "5d01e81",
+    "ticket": "MAG-18",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records",
+    "created_at": "2026-08-29T11:13:27Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "5.1",
+      "L1",
+      "L2"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Create migration 20260829000002_add_entry_status.sql",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "db/query.sql \u2014 bind three columns in CreateEntry/UpdateEntry",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "make sqlc + verify the diff shape against design.md",
+      "module": "charging",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go \u2014 Status/EnergySource/Field types, 3 Entry fields, EnergyAddedKWh *float64, nil-safe CostPerKWh",
+      "module": "charging",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "New capacity.go \u2014 packCapacityKWh + derivedEnergyKWh",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "New validation.go \u2014 RequiredFieldsFor, normalizeStatus, missingFields",
+      "module": "charging",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "service.go \u2014 validation + derivation + nullable-energy mapping (join point)",
+      "module": "charging",
+      "depends_on": [
+        "1.3",
+        "2.1",
+        "2.2",
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "New entry_status_test.go \u2014 offline Test Contract A1\u2013A5, A7\u2013A9",
+      "module": "charging",
+      "depends_on": [
+        "2.2",
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "charging_test.go \u2014 *float64 adaptation + A6",
+      "module": "charging",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "New db_entry_status_integration_test.go \u2014 Test Contract B1\u2013B8, C1\u2013C16",
+      "module": "charging",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "Adapt existing integration fixtures to *float64 (no expected value edited)",
+      "module": "charging",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "internal/charging/AGENTS.md \u2014 3 sections",
+      "module": "charging",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "KB note kkpa/context/workflows/manual-charge-crud.md (leader-owned: outside module sandbox)",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "gofmt -l, go build ./..., go vet ./... \u2014 confirm no residual failures",
+      "module": "charging",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "3.3",
+        "3.4",
+        "4.1",
+        "L1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "L1",
+      "title": "Minimal mechanical *float64 nil-handling fix in internal/gateway (~14 sites, no feature change)",
+      "module": "gateway",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "L2",
+      "title": "Confirm root README.md needs no edit",
+      "module": "charging",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-29T11:13:27Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate APPROVED: 3 added columns, energy_added_kwh NOT NULL dropped, no indexes, inferred_capacity_kwh_calc untouched",
+      "why": "User reviewed the full DDL, rationale and index plan at the Step 3 gate and confirmed.",
+      "covered_by": "roadmap D1-D8 + Design gate section"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-29T11:13:27Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "status='DONE' requires BOTH ended_at and end_battery_pct",
+      "why": "Resolves the worker's gap: the skip set only defined IN_PROGRESS. Tightens ended_at, optional today.",
+      "covered_by": "roadmap D5"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-29T11:13:27Z",
+      "scope": "task:L1",
+      "made_by": "user",
+      "decision": "The EnergyAddedKWh *float64 gateway compile break is fixed inside tier 1 via mechanical task L1",
+      "why": "Tier 1 alone would leave go build red repo-wide, making its reviewer gate unenforceable.",
+      "covered_by": "roadmap D17"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-29T11:13:27Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Unit and integration tests are INCLUDED",
+      "why": "Overrides the owner's standing no-tests default; the module already has DB-backed tests on this table.",
+      "covered_by": "roadmap header"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-29T11:13:27Z",
+      "agent": "leader",
+      "event": "artifacts created by the charging worker (opus); openspec validate --strict passed"
+    },
+    {
+      "at": "2026-08-29T11:13:27Z",
+      "agent": "leader",
+      "event": "database design gate presented to the user and APPROVED; 2 worker-raised gaps resolved (DONE semantics, gateway compile break -> task L1)"
+    },
+    {
+      "at": "2026-08-29T11:13:27Z",
+      "agent": "leader",
+      "event": "HALTED AFTER STEP 4 per kkpa-pickup-linear-ticket scope \u2014 no implementation workers dispatched, no reviewer, no archive"
+    }
+  ]
+}
