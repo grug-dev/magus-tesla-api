@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM33-manual-record-status",
   "intention": "A user can save a manual charge record as IN PROGRESS with partial data and complete it later, leave energy and price blank (energy derived from the battery delta, price defaulting to 0), record the odometer, and review entries through a date filter with aggregation tiles and an at-a-glance completeness indicator.",
-  "request": "Source ticket: MAG-18 \u2014 https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
+  "request": "Source ticket: MAG-18 — https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
   "autopilot": false,
   "status": "in-progress",
-  "updated_at": "2026-08-29T15:11:39Z",
+  "updated_at": "2026-08-29T15:40:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM33-MAG-18-manual-record-status",
@@ -16,9 +16,10 @@
     "created_at": "2026-08-29T10:49:07Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      2
+    ],
     "pending": [
-      2,
       3
     ],
     "blocked": [],
@@ -62,6 +63,42 @@
       "decision": "Three tiers: charging schema/domain, then gateway form and gateway dashboard independently",
       "why": "Both gateway tiers depend only on tier 1 and touch disjoint template files, so neither blocks the other.",
       "covered_by": "roadmap Tiers table"
+    },
+    {
+      "id": "D-RM33-5",
+      "at": "2026-08-29T15:25:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Tier 2 covers BOTH charge_create_form.templ and charge_row_edit.templ with the full treatment",
+      "why": "The inline edit row is the only UI that can move a record IN_PROGRESS -> DONE, the ticket's headline flow; the roadmap's file list omitted it.",
+      "covered_by": "tier-2 interview 2026-08-29"
+    },
+    {
+      "id": "D-RM33-6",
+      "at": "2026-08-29T15:25:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "A client-side JS listener on the status select toggles `required` on D5's skip-set fields; no htmx round-trip",
+      "why": "Instant feedback, native browser validation, consistent with D12's client-side date sync and D10's no-round-trip rule. RequiredFieldsFor stays the server-side gate.",
+      "covered_by": "tier-2 interview 2026-08-29"
+    },
+    {
+      "id": "D-RM33-7",
+      "at": "2026-08-29T15:25:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "The odometer input renders inside the 'More details' collapsed section",
+      "why": "Matches the ticket's own 'Optional fields' grouping and keeps the main card to fields filled every time.",
+      "covered_by": "tier-2 interview 2026-08-29"
+    },
+    {
+      "id": "D-RM33-8",
+      "at": "2026-08-29T15:25:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "The disabled Currency input is REMOVED from both forms; the COP suffix inside the price input replaces it",
+      "why": "Resolves D7's ambiguity toward the ticket's literal request. Pure UI removal: parseChargeForm already hardcodes COP and the column keeps its NOT NULL DEFAULT.",
+      "covered_by": "tier-2 interview 2026-08-29"
     }
   ],
   "tiers": [
@@ -95,10 +132,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers) / claude-opus-5 (leader)",
+      "started_at": "2026-08-29T15:40:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -136,7 +173,17 @@
     {
       "at": "2026-08-29T15:11:39Z",
       "agent": "leader",
-      "event": "tier 1 (RM33-charging-add-entry-status) archived; tiers 2 and 3 both unblocked \u2014 they depend only on tier 1 and touch disjoint template files"
+      "event": "tier 1 (RM33-charging-add-entry-status) archived; tiers 2 and 3 both unblocked — they depend only on tier 1 and touch disjoint template files"
+    },
+    {
+      "at": "2026-08-29T15:25:00Z",
+      "agent": "leader",
+      "event": "tier 2 started; Step 2 interview resolved 4 gaps the roadmap decisions did not cover (D-RM33-5..8): edit-row scope, required-toggle mechanism, odometer placement, currency-field removal"
+    },
+    {
+      "at": "2026-08-29T15:40:00Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created and validated (openspec validate --strict passed); no design gate tripped; tier 2 -> [~] in-flight"
     }
   ]
 }
