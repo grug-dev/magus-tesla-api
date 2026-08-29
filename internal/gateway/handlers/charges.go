@@ -36,11 +36,13 @@ const csrfManualChargeKey = "csrf_manualcharge"
 // one home.
 const csrfVehicleSelectKey = "csrf_vehicle_select"
 
-// defaultChargeLimit is the default max number of entries returned for a list call.
-const defaultChargeLimit = 100
-
 // ChargePage renders the full Charge log page. It auth-guards, generates a CSRF
 // token, builds page data, and renders the full page (initial load path).
+//
+// ChargePage does NOT parse ?start=&end= itself (design.md §D-Range/§Test
+// Contract) — the date-filter contract is scoped to GET /ui/charges/list; a
+// full page reload has no reason to remember a prior filter click. It always
+// uses the default chargesRangeDefaultDays window (defaultChargesWindow).
 func (h *Handler) ChargePage(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -66,11 +68,20 @@ func (h *Handler) ChargePage(c *gin.Context) {
 	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
 		filterTeslaID = sel.TeslaID
 	}
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+	today := browserToday(c)
+	start, end := defaultChargesWindow(today)
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 	render(c, http.StatusOK, pages.ChargePage(d))
 }
 
-// ChargesListFragment renders only the charges-list fragment (htmx refresh path).
+// ChargesListFragment renders only the charges-list fragment (htmx refresh
+// path AND the date-filter endpoint, design.md §D-RM33-10/§Context fact 4 —
+// same route, new query contract). Parses ?start=&end= via parseChargesRange;
+// on a malformed window it renders the SAME NoFilterChrome empty-state
+// fragment at HTTP 400 with NO read against charging.Reader, mirroring the
+// platform's own "on 400, render the empty-state placeholder... and return no
+// preset selector" convention (internal/gateway/AGENTS.md §"HTTP date-filter
+// convention").
 func (h *Handler) ChargesListFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -79,13 +90,26 @@ func (h *Handler) ChargesListFragment(c *gin.Context) {
 	}
 	sess := sessions.Default(c)
 	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
+
+	today := browserToday(c)
+	start, end, okRange := parseChargesRange(c, today)
+	if !okRange {
+		d := fragments.ChargesPageData{
+			CSRFToken:      csrfToken,
+			EmptyState:     true,
+			NoFilterChrome: true,
+		}
+		renderFragmentError(c, http.StatusBadRequest, pages.ChargePage(d), "charges-list")
+		return
+	}
+
 	// Scope the htmx-refreshed list to the selected vehicle context, same as the
 	// full ChargePage render, so the list stays consistent with the switcher.
 	filterTeslaID := int64(0)
 	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
 		filterTeslaID = sel.TeslaID
 	}
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-list")
 }
 
@@ -117,11 +141,21 @@ func (h *Handler) ChargesContentFragment(c *gin.Context) {
 	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
 		filterTeslaID = sel.TeslaID
 	}
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+	// Not itemized by a Wave 5 sub-task, but this call site must move to the
+	// new 7-arg buildChargesPage signature regardless (5.1); a vehicle switch
+	// has no filter state to preserve, so it uses the default window, same as
+	// ChargePage.
+	today := browserToday(c)
+	start, end := defaultChargesWindow(today)
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-create-form", "charges-list")
 }
 
-// ChargeRowStatic renders the static row for one entry (used by cancel-edit path).
+// ChargeRowStatic renders the static row for one entry (used by cancel-edit
+// path). Threads the caller's active filter window (?start=&end=, read via
+// windowFromQuery — best-effort, never a gate) into fragments.ChargeRow's
+// mandatory windowStartStr/windowEndStr params (design.md §D-Refresh, leader
+// resolution L3) so a Cancel never silently resets the user's filter.
 func (h *Handler) ChargeRowStatic(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -142,10 +176,16 @@ func (h *Handler) ChargeRowStatic(c *gin.Context) {
 		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
 		return
 	}
-	render(c, http.StatusOK, fragments.ChargeRow(vm, csrfToken))
+	start, end := windowFromQuery(c, browserToday(c))
+	windowStartStr := start.Format("2006-01-02")
+	windowEndStr := end.Format("2006-01-02")
+	render(c, http.StatusOK, fragments.ChargeRow(vm, csrfToken, windowStartStr, windowEndStr))
 }
 
-// ChargeRowEditFragment swaps the static row for an inline edit form.
+// ChargeRowEditFragment swaps the static row for an inline edit form. Threads
+// the active filter window the same way ChargeRowStatic does (design.md
+// §D-Refresh, leader resolution L3) into fragments.ChargeRowEdit's new hidden
+// start/end inputs.
 func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -166,7 +206,10 @@ func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
 		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
 		return
 	}
-	render(c, http.StatusOK, fragments.ChargeRowEdit(vm, csrfToken, nil))
+	start, end := windowFromQuery(c, browserToday(c))
+	windowStartStr := start.Format("2006-01-02")
+	windowEndStr := end.Format("2006-01-02")
+	render(c, http.StatusOK, fragments.ChargeRowEdit(vm, csrfToken, nil, windowStartStr, windowEndStr))
 }
 
 // ChargeCreate handles POST /ui/charges/create. It auth-guards, CSRF-checks,
@@ -204,7 +247,11 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 				filterTeslaID = sel.TeslaID
 			}
 		}
-		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+		// design.md §Wave 5.4: a 422 never renders #charges-list, so it stays on
+		// the plain default window — do NOT thread windowFromForm here.
+		today := browserToday(c)
+		start, end := defaultChargesWindow(today)
+		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 		// design.md §D-Values (roadmap D15): overwrite the fresh-load defaults
 		// with what the user actually submitted, so a validation failure never
 		// discards a value they typed — including charged_on/started_at/ended_at,
@@ -231,7 +278,11 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 				filterTeslaID = sel.TeslaID
 			}
 		}
-		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+		// design.md §Wave 5.4: same plain-default-window treatment as the 422
+		// branch above — a 500 also never renders #charges-list.
+		today := browserToday(c)
+		start, end := defaultChargesWindow(today)
+		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 		// design.md §D-Values (roadmap D15): same value-preservation treatment on
 		// the 500 (writer-error) branch as the 422 (validation-error) branch.
 		d.DefaultChargedOn = c.PostForm("charged_on")
@@ -257,7 +308,13 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 			filterTeslaID = sel.TeslaID
 		}
 	}
-	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+	// design.md §D-Include: the SUCCESS path (only) resolves the OOB refresh
+	// window from the hx-include'd hidden inputs (windowFromForm), so the
+	// #charges-list OOB swap reflects the filter window active at submit time,
+	// not the default.
+	today := browserToday(c)
+	start, end := windowFromForm(c, today)
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
 	render(c, http.StatusOK, fragments.ChargeCreateSuccessOOB(d))
 }
 
@@ -287,6 +344,16 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	sess := sessions.Default(c)
 	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
 
+	// design.md §D-Include: the hidden start/end inputs charge_row_edit.templ
+	// (Wave 4.3) now renders inside the edit form are read here via
+	// windowFromForm's exact best-effort fallback shape — never a validation
+	// gate. Computed once and reused by every branch below (success and
+	// error) so the echoed window is consistent.
+	today := browserToday(c)
+	start, end := windowFromForm(c, today)
+	windowStartStr := start.Format("2006-01-02")
+	windowEndStr := end.Format("2006-01-02")
+
 	entry, raw, validationErrors, ok2 := h.parseChargeForm(c, uid, vehicles)
 	if !ok2 {
 		if validationErrors == nil {
@@ -300,7 +367,11 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 		vm.RawChargedOn = c.PostForm("charged_on")
 		vm.RawStartedAt = c.PostForm("started_at")
 		vm.RawEndedAt = c.PostForm("ended_at")
-		renderError(c, http.StatusUnprocessableEntity, fragments.ChargeRowEdit(vm, csrfToken, validationErrors))
+		// The validation-ERROR path is UNCHANGED in shape (design.md §D-Refresh)
+		// — still fragments.ChargeRowEdit only, no #charges-list touch — only the
+		// call site's new windowStartStr/windowEndStr params are added, echoing
+		// back whatever was posted.
+		renderError(c, http.StatusUnprocessableEntity, fragments.ChargeRowEdit(vm, csrfToken, validationErrors, windowStartStr, windowEndStr))
 		return
 	}
 	entry.ID = id
@@ -318,14 +389,16 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	if err != nil {
 		log.Printf("gateway: ChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
 		// Same value-preservation treatment on the 500 (writer-error) branch as
-		// the 422 (validation-error) branch above — design.md §D-Values.
+		// the 422 (validation-error) branch above — design.md §D-Values. Same
+		// "unchanged shape, only add the window params" treatment as the 422
+		// branch — design.md §D-Refresh.
 		vm := chargeEntryVMFromRawValues(idStr, raw, h.vehicleLabelForSelected(c, uid, vehicles))
 		vm.RawChargedOn = c.PostForm("charged_on")
 		vm.RawStartedAt = c.PostForm("started_at")
 		vm.RawEndedAt = c.PostForm("ended_at")
 		renderError(c, http.StatusInternalServerError, fragments.ChargeRowEdit(vm, csrfToken, map[string]string{
 			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
-		}))
+		}, windowStartStr, windowEndStr))
 		return
 	}
 	h.recalculateAfterChargeWrite(c.Request.Context(), uid, updated.TeslaID, updated.ChargedOn)
@@ -333,11 +406,21 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 		h.recalculateAfterChargeWrite(c.Request.Context(), uid, updated.TeslaID, oldChargedOn)
 	}
 	vm := chargeEntryVMFromEntry(updated, vehicles)
-	render(c, http.StatusOK, fragments.ChargeRow(vm, csrfToken))
+	// design.md §D-Refresh: success mirrors ChargeCreateSuccessOOB rather than
+	// inventing a second mechanism — the primary #charge-row-{id} swap plus an
+	// OOB #charges-list refresh, built from the SAME buildChargesPage path
+	// every other list render uses (no new render function).
+	list := h.buildChargesPage(c.Request.Context(), uid, csrfToken, updated.TeslaID, today, start, end)
+	render(c, http.StatusOK, fragments.ChargeRowUpdateSuccessOOB(vm, csrfToken, windowStartStr, windowEndStr, list))
 }
 
 // ChargeRowDelete handles DELETE /ui/charges/row/:id. Deletes the entry and
-// returns an empty <tr> so htmx outerHTML swap removes the row.
+// re-renders the WHOLE #charges-list region (design.md §D-Refresh) — the
+// delete button's hx-target is "#charges-list", not "#charge-row-{id}", since
+// after a successful delete the row no longer exists to swap into. This makes
+// ChargeRowDelete structurally identical to ChargesListFragment, preceded by
+// the actual Writer.Delete call: same buildChargesPage path, same
+// renderFragment/renderFragmentError machinery, no new render function.
 //
 // Root cause of the MAG-5 delete-row alert (T1.1 — root-caused by STATIC analysis;
 // live reproduce deferred to T7.4 manual smoke, leader-authorized deviation, see
@@ -374,6 +457,20 @@ func (h *Handler) ChargeRowDelete(c *gin.Context) {
 		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyChargesErrorInvalidID))
 		return
 	}
+	sess := sessions.Default(c)
+	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
+
+	// design.md §D-Refresh/§D-Include: the row's own Delete URL carries
+	// ?start=&end= (threaded by charge_row.templ's hx-delete, Wave 4.2), read
+	// here via windowFromQuery's best-effort fallback — never a validation
+	// gate (leader resolution L2).
+	today := browserToday(c)
+	start, end := windowFromQuery(c, today)
+
+	filterTeslaID := int64(0)
+	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+		filterTeslaID = sel.TeslaID
+	}
 
 	// Resolve the entry's ChargedOn (and TeslaID) BEFORE calling Delete — the
 	// Delete port does not return the deleted entry, so this is the only
@@ -382,24 +479,59 @@ func (h *Handler) ChargeRowDelete(c *gin.Context) {
 	// proceeds.
 	entryTeslaID, entryChargedOn, hadEntry := h.fetchEntryTeslaIDAndChargedOn(c.Request.Context(), uid, id)
 
-	if err := h.chargingWriter.Delete(c.Request.Context(), uid, id); err != nil {
+	err = h.chargingWriter.Delete(c.Request.Context(), uid, id)
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+	if err != nil {
 		log.Printf("gateway: ChargeRowDelete writer error for account %s, id %s: %v", uid, id, err)
-		renderError(c, http.StatusInternalServerError, fragments.ChargeRowError(id.String(), i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotDeleteEntry)))
+		d.Error = i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotDeleteEntry)
+		renderFragmentError(c, http.StatusInternalServerError, pages.ChargePage(d), "charges-list")
 		return
 	}
 	if hadEntry {
 		h.recalculateAfterChargeWrite(c.Request.Context(), uid, entryTeslaID, entryChargedOn)
 	}
-	render(c, http.StatusOK, fragments.ChargeRowEmpty(id.String()))
+	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-list")
+}
+
+// defaultChargesWindow returns the standard chargesRangeDefaultDays window
+// ending today, with no parsing involved — used by callers that never read
+// ?start=&end= themselves (ChargePage, ChargesContentFragment, and
+// ChargeCreate/ChargeRowUpdate's non-#charges-list-touching error branches),
+// so the chargesRangeDefaultDays math (also in parseChargesRange and
+// bestEffortWindow) is not duplicated inline a fourth time.
+func defaultChargesWindow(today time.Time) (start, end time.Time) {
+	end = today
+	start = end.AddDate(0, 0, -(chargesRangeDefaultDays - 1))
+	return start, end
 }
 
 // buildChargesPage is the gin-free helper that calls module ports and builds
 // ChargesPageData. Decoupled from Gin so it can be called with fake port
 // implementations in tests.
-// today is the user's LOCAL calendar day (browserToday(c)), passed in rather than
-// computed here so the helper stays gin-free and testable — the same shape as
-// dashboardFor(ctx, uid, teslaID, browserToday(c)).
-func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken string, teslaIDFilter int64, today time.Time) fragments.ChargesPageData {
+//
+// The frozen 7-arg signature (design.md §Wave 5.1, tasks.md 5.1): today is
+// RETAINED alongside start/end — they are different concepts and neither
+// substitutes for the other. today is the BROWSER's calendar day
+// (browserToday(c)) and drives the create form's D1 date defaults
+// (day/todayDate) and the D2 battery suggestion; start/end is the LIST's
+// filter window (design.md §D-Range). Deriving the form's default date from
+// end would make the "This month" preset pre-fill the create form with the
+// last day of the month.
+func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken string, teslaIDFilter int64, today, start, end time.Time) fragments.ChargesPageData {
+	// design.md §D-RM33-9: no vehicle resolved -> NO read of any kind against
+	// charging.Reader (nor account.RegisteredVehicles, which is only needed to
+	// map entries the empty-state path never fetches) — just the same
+	// no-chrome empty state ChargesListFragment/ChargePage render on a
+	// malformed window (design.md §D-Empty state 1: both conditions collapse
+	// to the identical render).
+	if teslaIDFilter == 0 {
+		return fragments.ChargesPageData{
+			CSRFToken:      csrfToken,
+			EmptyState:     true,
+			NoFilterChrome: true,
+		}
+	}
+
 	vehicles, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
 		log.Printf("gateway: RegisteredVehicles error for account %s: %v", uid, err)
@@ -409,22 +541,24 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		}
 	}
 
-	// The manual-records page is scoped to the selected vehicle context (the
-	// sidebar switcher). When a filter is explicitly passed (non-zero) it wins;
-	// otherwise we show all entries by account and pre-select no vehicle — the
-	// caller (ChargePage) normally passes the session-selected TeslaID.
-	var entries []charging.Entry
-	if teslaIDFilter != 0 {
-		entries, err = h.chargingReader.ListEntriesByVehicle(ctx, uid, teslaIDFilter, defaultChargeLimit)
-	} else {
-		entries, err = h.chargingReader.ListEntriesByAccount(ctx, uid, defaultChargeLimit)
-	}
+	// design.md §D-Range/§Context fact 1: switched onto
+	// ListEntriesByVehicleBetween — [start, end] inclusive of both bounds, no
+	// limit parameter, the window itself bounds the result (D13).
+	entries, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, uid, teslaIDFilter, start, end)
 	var pageError string
 	if err != nil {
 		log.Printf("gateway: charging reader error for account %s: %v", uid, err)
 		pageError = i18n.T(ctx, i18n.KeyChargesErrorCouldNotLoadEntries)
 		entries = nil
 	}
+
+	// design.md §D-Tiles: computed over the SAME entries slice
+	// ListEntriesByVehicleBetween returned, BEFORE the VM-mapping loop below,
+	// so the tiles and the table are provably the same data (D13). On a reader
+	// error entries is nil, so buildChargeTiles(nil) naturally yields the
+	// zero/em-dash tile values (design.md §D-Empty state 2) with no special
+	// casing.
+	tiles := buildChargeTiles(entries)
 
 	vms := make([]fragments.ChargeEntryVM, 0, len(entries))
 	for _, e := range entries {
@@ -481,6 +615,10 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		CSRFToken:                 csrfToken,
 		EmptyState:                len(vms) == 0 && pageError == "",
 		Error:                     pageError,
+		Presets:                   buildChargesPresets(ctx, start, end, today),
+		Tiles:                     tiles,
+		WindowStartStr:            start.Format("2006-01-02"),
+		WindowEndStr:              end.Format("2006-01-02"),
 		DefaultChargedOn:          day,
 		DefaultStartedAt:          todayDate,
 		DefaultEndedAt:            todayDate,
@@ -491,6 +629,39 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		RequiredEndedAt:       required[charging.FieldEndedAt],
 		RequiredEndBatteryPct: required[charging.FieldEndBatteryPct],
 	}
+}
+
+// bestEffortWindow parses a start/end pair from whichever source the caller
+// reads, falling back to the default window. Cosmetic threading only
+// (design.md §D-Include) — never a validation gate, in either direction: an
+// absent or malformed pair only affects which window a write's post-write
+// refresh re-renders, never whether the write itself succeeds. This is
+// deliberately NOT parseChargesRange, which REJECTS a malformed window (right
+// for the user-driven filter route the caller 400s on; wrong here, where a
+// malformed window must never turn a successful write into an error).
+func bestEffortWindow(rawStart, rawEnd string, today time.Time) (start, end time.Time) {
+	s, errS := time.Parse("2006-01-02", rawStart)
+	e, errE := time.Parse("2006-01-02", rawEnd)
+	if errS != nil || errE != nil || e.Before(s) {
+		return defaultChargesWindow(today)
+	}
+	return s, e
+}
+
+// windowFromForm resolves the active start/end for a write handler's
+// post-write OOB refresh, from POSTed form values (design.md §D-Include). See
+// bestEffortWindow for the shared fallback contract.
+func windowFromForm(c *gin.Context, today time.Time) (start, end time.Time) {
+	return bestEffortWindow(c.PostForm("start"), c.PostForm("end"), today)
+}
+
+// windowFromQuery is windowFromForm's GET-query sibling (design.md
+// §D-Include, leader resolution L2), used by ChargeRowDelete/ChargeRowStatic/
+// ChargeRowEditFragment's ?start=&end= query params. Delegates to the SAME
+// bestEffortWindow so the "never a gate" behaviour cannot drift between the
+// POST and GET sides.
+func windowFromQuery(c *gin.Context, today time.Time) (start, end time.Time) {
+	return bestEffortWindow(c.Query("start"), c.Query("end"), today)
 }
 
 // fetchEntryVM fetches a single entry by listing all account entries and finding
@@ -596,11 +767,13 @@ func (h *Handler) checkCSRFKey(c *gin.Context, key string) bool {
 func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragments.ChargeEntryVM {
 	label := vehicleLabelFor(e.TeslaID, vehicles)
 
-	costLabel := ""
+	// D14 extends the "—" empty-placeholder convention (already applied to
+	// EnergyKWh) to CostPerKWhLabel, BatteryDelta, and DurationLabel.
+	costLabel := "—"
 	if v := e.CostPerKWh(); v != nil {
 		costLabel = formatMoney(*v, e.Currency) + "/kWh"
 	}
-	batteryDelta := ""
+	batteryDelta := "—"
 	if d := e.BatteryDelta(); d != nil {
 		if *d >= 0 {
 			batteryDelta = fmt.Sprintf("+%d%%", *d)
@@ -608,7 +781,14 @@ func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragme
 			batteryDelta = fmt.Sprintf("%d%%", *d)
 		}
 	}
-	durationLabel := ""
+	// BatteryRange (D11/D14): "22% -> 70%"-shaped when both StartBatteryPct and
+	// EndBatteryPct are present, else "—". Rendered ALONGSIDE BatteryDelta, not
+	// in place of it.
+	batteryRange := "—"
+	if e.StartBatteryPct != nil && e.EndBatteryPct != nil {
+		batteryRange = fmt.Sprintf("%d%% → %d%%", *e.StartBatteryPct, *e.EndBatteryPct)
+	}
+	durationLabel := "—"
 	if dur := e.SessionDuration(); dur != nil {
 		h2 := int(dur.Hours())
 		m := int(dur.Minutes()) % 60
@@ -691,6 +871,7 @@ func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragme
 		Currency:           e.Currency,
 		CostPerKWhLabel:    costLabel,
 		BatteryDelta:       batteryDelta,
+		BatteryRange:       batteryRange,
 		DurationLabel:      durationLabel,
 		ChargingType:       chargingType,
 		LocationKind:       locationKind,
@@ -709,6 +890,11 @@ func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragme
 
 		Status:    string(e.Status),
 		RawStatus: string(e.Status),
+
+		// Complete (design.md §D-Dot) is the handler-computed completeness
+		// signal driving the completeness dot's colour — computed via
+		// entryComplete(e) (handlers/charges_tiles.go), never in the template.
+		Complete: entryComplete(e),
 
 		RequiredEndedAt:       required[charging.FieldEndedAt],
 		RequiredEndBatteryPct: required[charging.FieldEndBatteryPct],

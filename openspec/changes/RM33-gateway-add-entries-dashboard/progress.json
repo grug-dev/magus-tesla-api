@@ -9,13 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "5.1",
-      "5.2",
-      "5.3",
-      "5.4",
-      "5.5",
-      "5.6",
-      "5.7",
       "6.1",
       "6.2",
       "7.1",
@@ -40,11 +33,18 @@
       "4.1",
       "4.2",
       "4.3",
-      "4.4"
+      "4.4",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.5",
+      "5.6",
+      "5.7"
     ]
   },
   "created_at": "2026-08-29T19:35:00Z",
-  "updated_at": "2026-08-29T20:01:29Z",
+  "updated_at": "2026-08-29T20:09:41Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -352,14 +352,23 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:01:48Z",
+      "completed_at": "2026-08-29T20:09:41Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "7-arg signature; teslaIDFilter==0 early-returns NoFilterChrome with zero reads; switched to ListEntriesByVehicleBetween; tiles computed over the same slice before the VM loop; unused defaultChargeLimit removed after grep.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 13,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 5's seven sequential sub-tasks"
+      }
     },
     {
       "id": "5.2",
@@ -369,14 +378,23 @@
         "5.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:01:48Z",
+      "completed_at": "2026-08-29T20:09:41Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Complete + BatteryRange added; em-dash fallback extended to CostPerKWhLabel/BatteryDelta/DurationLabel; bestEffortWindow/windowFromForm/windowFromQuery transcribed verbatim, never a validation gate.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 13,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 5's seven sequential sub-tasks"
+      }
     },
     {
       "id": "5.3",
@@ -386,14 +404,23 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:01:48Z",
+      "completed_at": "2026-08-29T20:09:41Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "ChargePage uses a new defaultChargesWindow helper only; ChargesListFragment parses via parseChargesRange and renders the NoFilterChrome empty state at 400 with no reader call.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 13,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 5's seven sequential sub-tasks"
+      }
     },
     {
       "id": "5.4",
@@ -403,14 +430,23 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:01:48Z",
+      "completed_at": "2026-08-29T20:09:41Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Success path resolves the window via windowFromForm; 422/500 branches deliberately left on the default window per design.md.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 13,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 5's seven sequential sub-tasks"
+      }
     },
     {
       "id": "5.5",
@@ -420,14 +456,23 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:01:48Z",
+      "completed_at": "2026-08-29T20:09:41Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "windowFromForm parsed once; success renders ChargeRowUpdateSuccessOOB with a list from the same buildChargesPage; error paths unchanged but for the two new ChargeRowEdit params.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 13,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 5's seven sequential sub-tasks"
+      }
     },
     {
       "id": "5.6",
@@ -437,14 +482,23 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:01:48Z",
+      "completed_at": "2026-08-29T20:09:41Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Rewritten to design.md's verbatim structure: windowFromQuery, resolveSelectedVehicle, unconditional buildChargesPage, renderFragment(..., \"charges-list\"). ChargeRowEmpty/ChargeRowError now dead.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 13,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 5's seven sequential sub-tasks"
+      }
     },
     {
       "id": "5.7",
@@ -454,14 +508,23 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:01:48Z",
+      "completed_at": "2026-08-29T20:09:41Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Both fragment handlers read windowFromQuery and thread the window into ChargeRow/ChargeRowEdit. ChargesContentFragment's call site also updated, compile-forced by 5.1.",
+      "budget": {
+        "five_hour_pct_start": 44,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 13,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 15,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 5's seven sequential sub-tasks"
+      }
     },
     {
       "id": "6.1",
@@ -693,6 +756,15 @@
       "decision": "Test Contract B5's Cost expectation corrected from \"1500.00 COP\" to \"1,500.00 COP\"",
       "why": "formatMoney, the pre-existing helper the design reuses, always commaGroups. The behavioral assertion (cost summed across the nil-energy entry) is unchanged; only its rendering was mis-authored.",
       "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-29T20:09:41Z",
+      "scope": "wave:5",
+      "made_by": "autopilot",
+      "decision": "The mandatory end-of-wave test ask is DEFERRED past wave 5 to the wave-9/10 boundary",
+      "why": "charges_test.go does not compile until 9.4 rewrites it, so the suite cannot run at all here. Asking now would send the owner to a guaranteed compile error.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -755,6 +827,16 @@
       "at": "2026-08-29T20:01:29Z",
       "agent": "leader",
       "event": "deviation noted, accepted: the *_templ.go files were regenerated during wave 4 despite the dispatch deferring codegen to wave 8. Leader re-ran make templ \u2014 updates=0, so generated output matches the sources. Wave 8.1 still runs after wave 6 edits charge_row.templ again."
+    },
+    {
+      "at": "2026-08-29T20:01:48Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (claude-sonnet-5) for wave 5: 5.1-5.7, all sequential in handlers/charges.go. Budget start: 5h 44%, ctx 13%, $3.07"
+    },
+    {
+      "at": "2026-08-29T20:09:41Z",
+      "agent": "leader",
+      "event": "wave 5 complete (7 tasks, handlers/charges.go). Leader independently ran go build ./... (exit 0, GREEN again), go vet ./... (single error, confined to charges_test.go as expected), gofmt -l (charges.go clean). Worker reported ui-guard and i18n-guard clean. Budget: 5h 44%->57%, $4.55"
     }
   ]
 }

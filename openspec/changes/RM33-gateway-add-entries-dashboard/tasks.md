@@ -309,7 +309,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
 
 ## Wave 5 — handler rewire (`internal/gateway/handlers/charges.go`, single file, sequential)
 
-- [ ] **5.1** **[module: gateway worker]** `buildChargesPage` — the frozen signature is
+- [x] **5.1** **[module: gateway worker]** `buildChargesPage` — the frozen signature is
   **7 args**: `(ctx, uid, csrfToken string, teslaIDFilter int64, today, start, end time.Time)`.
   `today` is RETAINED alongside the new `start, end` — they are different concepts and neither
   substitutes for the other: `today` is the BROWSER's calendar day and drives the create form's
@@ -335,7 +335,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
   `depends_on`: 4.1, 4.2, 4.3, 4.4 (Wave 4 complete), 2.1, 2.2 · `parallel_ok`: no (same file as
   5.2–5.7)
 
-- [ ] **5.2** **[module: gateway worker]** `chargeEntryVMFromEntry` — add:
+- [x] **5.2** **[module: gateway worker]** `chargeEntryVMFromEntry` — add:
   - `vm.Complete = entryComplete(e)`.
   - `vm.BatteryRange`: `"22% → 70%"`-shaped when both `StartBatteryPct`/`EndBatteryPct` are
     present, else `"—"` (D11/D14).
@@ -351,7 +351,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
   post-write refresh.
   `depends_on`: 5.1 · `parallel_ok`: no
 
-- [ ] **5.3** **[module: gateway worker]** `ChargePage` / `ChargesListFragment`:
+- [x] **5.3** **[module: gateway worker]** `ChargePage` / `ChargesListFragment`:
   - `ChargePage` (full-page `GET /charges`) keeps using the DEFAULT 7-day window only — it does
     NOT parse `?start=&end=` itself (spec.md's date-filter contract is scoped to `GET
     /ui/charges/list`; a full page reload has no reason to remember a prior filter click). Call
@@ -367,7 +367,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
     convention (`internal/gateway/AGENTS.md` §"HTTP date-filter convention").
   `depends_on`: 5.2 · `parallel_ok`: no
 
-- [ ] **5.4** **[module: gateway worker]** `ChargeCreate`:
+- [x] **5.4** **[module: gateway worker]** `ChargeCreate`:
   - **Success path only**: resolve the OOB refresh window via `windowFromForm(c, browserToday(c))`
     (design.md §D-Include) and pass it into the `buildChargesPage` call feeding
     `fragments.ChargeCreateSuccessOOB(d)`.
@@ -378,7 +378,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
     from 5.1 (Go's compiler enforces every call site is fixed).
   `depends_on`: 5.2 · `parallel_ok`: no
 
-- [ ] **5.5** **[module: gateway worker]** `ChargeRowUpdate`:
+- [x] **5.5** **[module: gateway worker]** `ChargeRowUpdate`:
   - Parse the hidden `start`/`end` inputs (added in 4.3) via `c.PostForm("start")`/`"end"` —
     reuse `windowFromForm`'s exact fallback shape (best-effort, default on malformed/absent).
   - On success, render `fragments.ChargeRowUpdateSuccessOOB(vm, csrfToken, windowStartStr,
@@ -391,7 +391,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
     whatever was posted, via the same best-effort parse).
   `depends_on`: 5.2 · `parallel_ok`: no
 
-- [ ] **5.6** **[module: gateway worker]** `ChargeRowDelete` — rewrite per design.md §D-Refresh
+- [x] **5.6** **[module: gateway worker]** `ChargeRowDelete` — rewrite per design.md §D-Refresh
   **verbatim structure**:
   ```go
   func (h *Handler) ChargeRowDelete(c *gin.Context) {
@@ -424,7 +424,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
   render already uses (no new render function).
   `depends_on`: 5.2 · `parallel_ok`: no
 
-- [ ] **5.7** **[module: gateway worker]** `ChargeRowStatic` / `ChargeRowEditFragment` — thread
+- [x] **5.7** **[module: gateway worker]** `ChargeRowStatic` / `ChargeRowEditFragment` — thread
   the window through the two remaining row routes so `ChargeRow`'s new required
   `windowStartStr`/`windowEndStr` params and `ChargeRowEdit`'s new hidden-input params always
   have a real value, not an empty string that would silently reset a user's filter on Cancel:
