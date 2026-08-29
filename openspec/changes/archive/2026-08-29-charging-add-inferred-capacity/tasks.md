@@ -253,9 +253,9 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
 Two things only the owner can do. Neither is a worker task and neither may be reported as
 `done` by an assistant.
 
-- [ ] **V1 — apply the migration.** `make migrate-up` (or `make db-setup`) against the real
+- [x] **V1 — apply the migration.** `make migrate-up` (or `make db-setup`) against the real
   database.
-- [ ] **V2 — confirm existing rows were backfilled**, which is the ticket's acceptance
+- [x] **V2 — confirm existing rows were backfilled**, which is the ticket's acceptance
   criterion's second half. Paste:
   ```sql
   SELECT count(*) FILTER (WHERE inferred_capacity_kwh_calc IS NOT NULL) AS computed,
@@ -279,7 +279,7 @@ Two things only the owner can do. Neither is a worker task and neither may be re
   (sessions only), or with a non-increasing delta — **not** an arbitrary number. A `computed`
   count of zero on a table that has such rows means the migration did not do what design.md
   **D9** reproduced, and is a stop-and-report.
-- [ ] **V3 — run the suite.** The exact commands are in §"Handing back" below.
+- [x] **V3 — run the suite.** The exact commands are in §"Handing back" below.
 
 ---
 
