@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-18 — https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
   "autopilot": false,
   "status": "in-progress",
-  "updated_at": "2026-08-29T15:40:00Z",
+  "updated_at": "2026-08-29T15:42:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM33-MAG-18-manual-record-status",
@@ -184,6 +184,11 @@
       "at": "2026-08-29T15:40:00Z",
       "agent": "leader",
       "event": "tier 2 artifacts created and validated (openspec validate --strict passed); no design gate tripped; tier 2 -> [~] in-flight"
+    },
+    {
+      "at": "2026-08-29T15:42:00Z",
+      "agent": "leader",
+      "event": "budget checkpoint at tier 2's wave-1 boundary (five_hour 86% vs threshold 90, resets 2026-08-29T19:10:00Z); tier 2 artifacts committed, implementation not started"
     }
   ]
 }
