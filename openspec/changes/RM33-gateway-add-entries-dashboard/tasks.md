@@ -542,7 +542,7 @@ same real merge-risk caveat tier 2's Wave 8 accepted for its own same-file test 
 
 ## Wave 10 — signals
 
-- [ ] **10.1** **[module: gateway worker]** Run the cheap deterministic signals the
+- [x] **10.1** **[module: gateway worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./internal/gateway`, `go build ./...`, `go vet
   ./...`, `make ui-guard`, `make i18n-guard`. Confirm every i18n key added in 1.2 and every key
   removed in 6.2 is consistent (`make i18n-guard`'s static scan catches a missed
