@@ -9,10 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "6.1",
-      "6.2",
-      "7.1",
-      "8.1",
       "9.1",
       "9.2",
       "9.3",
@@ -40,11 +36,15 @@
       "5.4",
       "5.5",
       "5.6",
-      "5.7"
+      "5.7",
+      "6.1",
+      "6.2",
+      "7.1",
+      "8.1"
     ]
   },
   "created_at": "2026-08-29T19:35:00Z",
-  "updated_at": "2026-08-29T20:09:41Z",
+  "updated_at": "2026-08-29T20:14:15Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -535,14 +535,23 @@
         "5.6"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:09:55Z",
+      "completed_at": "2026-08-29T20:14:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "ChargeRowEmpty/ChargeRowError deleted from charge_row.templ after a repo-wide grep proved the only hits were the definitions and two comments.",
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.41,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 6-8"
+      }
     },
     {
       "id": "6.2",
@@ -553,14 +562,23 @@
         "5.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:09:55Z",
+      "completed_at": "2026-08-29T20:14:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Swept all 213 catalogue keys, not just the two named: exactly KeyChargesListRefresh and KeyChargesListHeaderVehicle were unreferenced. Both constants and map entries removed.",
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.41,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 6-8"
+      }
     },
     {
       "id": "7.1",
@@ -570,14 +588,23 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:09:55Z",
+      "completed_at": "2026-08-29T20:14:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "ui.Dot added to AGENTS.md's ui/ kit list plus a bullet covering DotProps, the variant vocabulary, and the dot-vs-badge colour disjointness (D-Dot).",
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.41,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 6-8"
+      }
     },
     {
       "id": "8.1",
@@ -591,14 +618,23 @@
         "6.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T20:09:55Z",
+      "completed_at": "2026-08-29T20:14:15Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "make templ regenerated charge_row_templ.go. make css also run and required \u2014 wave 4's grid-cols-4/rounded-full/join-item reach app.css only through it.",
+      "budget": {
+        "five_hour_pct_start": 57,
+        "five_hour_pct_end": 64,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.41,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 6-8"
+      }
     },
     {
       "id": "9.1",
@@ -765,6 +801,33 @@
       "decision": "The mandatory end-of-wave test ask is DEFERRED past wave 5 to the wave-9/10 boundary",
       "why": "charges_test.go does not compile until 9.4 rewrites it, so the suite cannot run at all here. Asking now would send the owner to a guaranteed compile error.",
       "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-29T20:09:55Z",
+      "scope": "wave:6-8",
+      "made_by": "autopilot",
+      "decision": "Waves 6, 7 and 8 batched into ONE serial worker instead of three dispatches",
+      "why": "Four small tasks \u2014 two grep-gated deletions, one doc edit, one make command \u2014 whose deps are all satisfied. One dispatch reads the doc pack once instead of three times.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-29T20:14:15Z",
+      "scope": "task:8.1",
+      "made_by": "autopilot",
+      "decision": "make css accepted as part of 8.1 though tasks.md's wave 8 named only make templ",
+      "why": "Verified gap, not scope creep: wave 4's grid-cols-4, rounded-full and join-item appear in app.css only after regeneration. Shipping without it would render the new markup unstyled.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-29T20:14:15Z",
+      "scope": "wave:6-8",
+      "made_by": "autopilot",
+      "decision": "Leader fixed a stale doc comment in supercharger_row.templ referencing the deleted ChargeRowError",
+      "why": "Worker correctly flagged it as outside its 6.1 sandbox. One-line integration-level tidy; leaving it would leave a dangling symbol reference for a reviewer to find.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -837,6 +900,16 @@
       "at": "2026-08-29T20:09:41Z",
       "agent": "leader",
       "event": "wave 5 complete (7 tasks, handlers/charges.go). Leader independently ran go build ./... (exit 0, GREEN again), go vet ./... (single error, confined to charges_test.go as expected), gofmt -l (charges.go clean). Worker reported ui-guard and i18n-guard clean. Budget: 5h 44%->57%, $4.55"
+    },
+    {
+      "at": "2026-08-29T20:09:55Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (claude-sonnet-5) for batched waves 6-8: 6.1 dead-templ removal, 6.2 i18n key removal, 7.1 AGENTS.md ui.Dot doc, 8.1 make templ. Budget start: 5h 57%, ctx 15%, $7.63"
+    },
+    {
+      "at": "2026-08-29T20:14:15Z",
+      "agent": "leader",
+      "event": "batched waves 6-8 complete (4 tasks). Deletions were grep-proven, including a full 213-key catalogue sweep. Leader independently verified app.css gains the new classes, ran go build ./... (GREEN) and re-ran make templ after the comment fix. Budget: 5h 57%->64%, $2.41"
     }
   ]
 }

@@ -132,9 +132,8 @@ const (
 	KeyChargesRowConfirmLabel   Key = "charges_row.confirm_label"
 
 	// --- charges list (templates/fragments/charges_list.templ) ---
-	KeyChargesListTitle   Key = "charges_list.title"
-	KeyChargesListRefresh Key = "charges_list.refresh"
-	KeyChargesListEmpty   Key = "charges_list.empty"
+	KeyChargesListTitle Key = "charges_list.title"
+	KeyChargesListEmpty Key = "charges_list.empty"
 
 	// --- charges page (templates/pages/charges.templ) ---
 	KeyChargesPageTitle           Key = "charges_page.title"
@@ -288,7 +287,6 @@ const (
 	// mandate targets the same string in the same role, not merely the same word) —
 	// leader decision, gap found in wave 2 review of charges_list.templ.
 	KeyChargesListHeaderDate       Key = "charges_list.header_date"
-	KeyChargesListHeaderVehicle    Key = "charges_list.header_vehicle"
 	KeyChargesListHeaderEnergy     Key = "charges_list.header_energy"
 	KeyChargesListHeaderPrice      Key = "charges_list.header_price"
 	KeyChargesListHeaderCostPerKWh Key = "charges_list.header_cost_per_kwh"
@@ -430,9 +428,8 @@ var catalog = map[Key]entry{
 	KeyChargesRowConfirmTitle:   {ES: "Eliminar entrada de carga", EN: "Delete charge entry"},
 	KeyChargesRowConfirmLabel:   {ES: "Eliminar entrada", EN: "Delete entry"},
 
-	KeyChargesListTitle:   {ES: "Tus registros", EN: "Your entries"},
-	KeyChargesListRefresh: {ES: "Actualizar", EN: "Refresh"},
-	KeyChargesListEmpty:   {ES: "Aún no hay cargas registradas. Usa el formulario de arriba para registrar tu primera carga.", EN: "No charge entries yet. Use the form above to log your first charge."},
+	KeyChargesListTitle: {ES: "Tus registros", EN: "Your entries"},
+	KeyChargesListEmpty: {ES: "Aún no hay cargas registradas. Usa el formulario de arriba para registrar tu primera carga.", EN: "No charge entries yet. Use the form above to log your first charge."},
 
 	KeyChargesPageTitle:           {ES: "Registro de cargas", EN: "Charge log"},
 	KeyChargesPageBackToDashboard: {ES: "Volver al panel", EN: "Back to dashboard"},
@@ -559,7 +556,6 @@ var catalog = map[Key]entry{
 	KeyLangSwitchErrorCouldNotBuildRedirect: {ES: "no se pudo construir la redirección", EN: "could not build redirect"},
 
 	KeyChargesListHeaderDate:       {ES: "Fecha", EN: "Date"},
-	KeyChargesListHeaderVehicle:    {ES: "Vehículo", EN: "Vehicle"},
 	KeyChargesListHeaderEnergy:     {ES: "Energía", EN: "Energy"},
 	KeyChargesListHeaderPrice:      {ES: "Precio", EN: "Price"},
 	KeyChargesListHeaderCostPerKWh: {ES: "Costo/kWh", EN: "Cost/kWh"},

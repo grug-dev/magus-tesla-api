@@ -112,12 +112,24 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
 - **The `ui/` kit is an anti-corruption adapter around DaisyUI** — an external library that
   ships breaking changes across majors. Routing every DaisyUI **component class** through a
   `ui.*` wrapper makes a version bump a one-file edit per component, not an app-wide sweep.
-- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Table, PageHeader, NavShell,
-  ConfirmDialog, and the form set **Field / Input / Select / Textarea**) — **never inline a DaisyUI component
-  class** (`btn`, `input`, `card`, `fieldset`, …) in a page/fragment; that's a bug. If a
-  repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme tokens
-  (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable layers.
-  Pages/fragments pass VM-ready strings in.
+- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Dot, Table, PageHeader,
+  NavShell, ConfirmDialog, and the form set **Field / Input / Select / Textarea**) — **never inline
+  a DaisyUI component class** (`btn`, `input`, `card`, `fieldset`, …) in a page/fragment; that's a
+  bug. If a repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme
+  tokens (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable
+  layers. Pages/fragments pass VM-ready strings in.
+- **`ui.Dot`** (`templates/ui/dot.templ`, `DotProps{Variant, Tooltip, Class}`) — a small
+  colour-only completeness/status indicator with a native hover tooltip, for a spot where
+  `ui.Badge`'s mandatory text would be redundant with an adjacent label. `Variant` is one of
+  `"success"|"warning"|"error"|"neutral"` (DaisyUI semantic token, mapped by `dotClass` exactly
+  like `badgeClass` maps `Badge`'s `Kind`); `Tooltip` renders as the `title` attribute and is
+  omitted when empty. Gold standard: the charges table's Status column
+  (`fragments/charge_row.templ`), which pairs a `ui.Dot` (`success`/`warning`, completeness) with
+  an adjacent `ui.Badge` (`primary`/`ghost`, lifecycle status) — the two colour vocabularies are
+  **deliberately disjoint** so the badge's colour never reads as a second completeness signal
+  (design.md §D-Dot, `RM33-gateway-add-entries-dashboard`). Reuse this pairing shape for any
+  future dot+badge combination; never repurpose `success`/`warning` for a badge that sits next to
+  a dot.
 - **Semantic tokens only — never hex / raw palette** (`bg-base-100`, `primary`,
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).

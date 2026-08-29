@@ -118,27 +118,3 @@ templ ChargeRowUpdateSuccessOOB(vm ChargeEntryVM, csrfToken, windowStartStr, win
 		@ChargesList(list)
 	</div>
 }
-
-// ChargeRowEmpty renders an empty <tr> used as the delete-success swap target.
-// htmx hx-swap="outerHTML" replaces the static row with this empty element,
-// which effectively removes the row from the table.
-//
-// Dead as of design.md §D-Refresh's delete retarget (ChargeRowDelete now
-// re-renders the whole #charges-list region instead) — kept until Wave 6.1
-// confirms via grep that nothing still calls it, per tasks.md's
-// deferred-deletion pattern.
-templ ChargeRowEmpty(id string) {
-	<tr id={ "charge-row-" + id }></tr>
-}
-
-// ChargeRowError renders an error <tr> when a write operation fails on an existing row.
-//
-// Dead as of design.md §D-Refresh's delete retarget — kept until Wave 6.1
-// confirms via grep that nothing still calls it.
-templ ChargeRowError(id string, msg string) {
-	<tr id={ "charge-row-" + id }>
-		<td colspan="8">
-			<span class="text-error">{ msg }</span>
-		</td>
-	</tr>
-}

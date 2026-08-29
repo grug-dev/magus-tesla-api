@@ -444,14 +444,14 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
 
 ## Wave 6 — deferred dead-code + i18n-key cleanup
 
-- [ ] **6.1** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_row.templ`
+- [x] **6.1** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_row.templ`
   — run `grep -rn "ChargeRowEmpty\|ChargeRowError" internal/gateway` (excluding `_templ.go`);
   once it returns matches ONLY inside `charge_row.templ` itself (i.e. `charges.go` no longer
   calls either after Wave 5.6), delete both `templ ChargeRowEmpty(...)` and `templ
   ChargeRowError(...)`. If the grep still shows a live caller, do NOT delete — report which one.
   `depends_on`: 4.2, 5.6 · `parallel_ok`: with 6.2
 
-- [ ] **6.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — run `grep -rn
+- [x] **6.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — run `grep -rn
   "KeyChargesListRefresh\|KeyChargesListHeaderVehicle" internal/gateway` (excluding
   `catalog.go`, `_templ.go`); once it returns ZERO matches, delete both `Key` constants and their
   catalogue map entries. If any reference remains, do NOT delete that key — report which one and
@@ -462,7 +462,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
 
 ## Wave 7 — documentation (new `ui/` primitive, `CLAUDE.md` docs-track-change rule)
 
-- [ ] **7.1** **[module: gateway worker]** `internal/gateway/AGENTS.md` — add `Dot` to the
+- [x] **7.1** **[module: gateway worker]** `internal/gateway/AGENTS.md` — add `Dot` to the
   enumerated `ui/` kit list in the "UI stack (styling)" section's "Compose the `ui/` kit" bullet
   (currently `Card, StatTile, Button, Alert, Badge, Table, PageHeader, NavShell, ConfirmDialog,
   and the form set Field/Input/Select/Textarea`), with a short parenthetical noting its purpose
@@ -476,7 +476,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
 
 ## Wave 8 — codegen
 
-- [ ] **8.1** **[module: gateway worker]** Run `make templ` (regenerates `*_templ.go` for all
+- [x] **8.1** **[module: gateway worker]** Run `make templ` (regenerates `*_templ.go` for all
   four Wave 4 files, `ui/dot_templ.go`, and `charge_row.templ` again after Wave 6.1's deletion),
   then `make css` (the new `ui.Dot`/`ui.StatTile`/`ui.Join`/`ui.Badge` usage may introduce classes
   not yet in the committed `static/app.css` — check `git diff --stat
