@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-18 \u2014 https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
   "autopilot": false,
   "status": "in-progress",
-  "updated_at": "2026-08-29T15:57:00Z",
+  "updated_at": "2026-08-29T17:22:54Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM33-MAG-18-manual-record-status",
@@ -132,14 +132,14 @@
       "depends_on": [
         1
       ],
-      "status": "proposed",
+      "status": "in-progress",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5 (workers) / claude-opus-5 (leader)",
       "started_at": "2026-08-29T15:40:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Wave 1 (ui.Input suffix, i18n keys, view models, RD12/RD13 JS) shipped and owner-verified green. Waves 2-9 pending; task 4.3 appended for the deferred i18n key deletion."
+      "notes": "Waves 1-3 shipped and owner-verified green (11 of 17 tasks done): ui.Input Suffix, i18n keys, view models, RD12/RD13 JS, handler status/required/optional parsing with the D15 value-preservation fix, and both .templ forms + codegen + the deferred i18n key deletion. Remaining: 7.1 docs, 8.1-8.3 tests, 8.4 owner manual JS, 9.1 signals."
     },
     {
       "id": 3,
@@ -189,6 +189,11 @@
       "at": "2026-08-29T15:42:00Z",
       "agent": "leader",
       "event": "budget checkpoint at tier 2's wave-1 boundary (five_hour 86% vs threshold 90, resets 2026-08-29T19:10:00Z); tier 2 artifacts committed, implementation not started"
+    },
+    {
+      "at": "2026-08-29T17:22:54Z",
+      "agent": "leader",
+      "event": "tier 2 wave 3 complete and owner-verified green (commit 4818d6c); session checkpoint at the owner's request. Tier 2 status corrected from 'proposed' to 'in-progress' \u2014 it has been in implementation since wave 1."
     }
   ]
 }
