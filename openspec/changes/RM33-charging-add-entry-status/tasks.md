@@ -38,7 +38,7 @@ Ownership legend: **[module: charging worker]** — inside `internal/charging/` 
 
 ## Wave 1 — schema + codegen (serialization point)
 
-- [ ] **1.1** **[module: charging worker]** Create
+- [x] **1.1** **[module: charging worker]** Create
   `internal/charging/db/migrations/20260829000002_add_entry_status.sql` with the DDL in design.md
   §"Database Changes" → "The migration", **verbatim, including its full header comment and all
   three `COMMENT ON COLUMN` statements**. That comment block is documentation, not decoration — it
@@ -59,7 +59,7 @@ Ownership legend: **[module: charging worker]** — inside `internal/charging/` 
     `20260823000001:229`).
   `depends_on`: the owner's design-gate confirmation · `parallel_ok`: with 1.2 and 2.2
 
-- [ ] **1.2** **[module: charging worker]** Edit `internal/charging/db/query.sql`:
+- [x] **1.2** **[module: charging worker]** Edit `internal/charging/db/query.sql`:
   - `CreateEntry` — add `status`, `energy_source`, `odometer_km` to the column list and
     `@status`, `@energy_source`, `@odometer_km` to the `VALUES`.
   - `UpdateEntry` — add `status = @status`, `energy_source = @energy_source`,
@@ -74,7 +74,7 @@ Ownership legend: **[module: charging worker]** — inside `internal/charging/` 
     outside this change entirely.
   `depends_on`: — · `parallel_ok`: with 1.1 and 2.2
 
-- [ ] **1.3** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md` §"Builds &
+- [x] **1.3** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md` §"Builds &
   local checks") and **review the diff against design.md §"Expected sqlc diff"**, which is this
   task's acceptance criterion — not "it ran":
   - `db/models.go` — `ManualChargeEntry` gains **exactly three** fields: `Status string`,
@@ -121,7 +121,7 @@ Ownership legend: **[module: charging worker]** — inside `internal/charging/` 
     are `Session` and `SessionMirror`.
   `depends_on`: 1.3 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[module: charging worker]** Create `internal/charging/capacity.go` — a new file, so
+- [x] **2.2** **[module: charging worker]** Create `internal/charging/capacity.go` — a new file, so
   backlog #18 is a one-file change:
   - `packCapacityKWh(ctx context.Context, vin string) (float64, error)` returning `62.0, nil`, with
     the full doc comment from design.md **D7**, including the `TODO(MAG-18)` naming backlog #18

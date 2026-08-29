@@ -5,9 +5,9 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM33-manual-record-status.md",
   "request": "Source ticket: MAG-18 \u2014 https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records. Tier 1 of roadmap RM33-manual-record-status, module charging, implementing roadmap decisions D1-D8: add status (IN_PROGRESS/DONE), energy_source (USER/ESTIMATED) and odometer_km columns to manual_charge_entries; drop NOT NULL on energy_added_kwh; add the declarative RequiredFieldsFor status-conditional validation; add the packCapacityKWh seam and derive energy on write when the user leaves it blank.",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-08-29T11:13:27Z",
-  "updated_at": "2026-08-29T11:13:27Z",
+  "updated_at": "2026-08-29T14:21:21Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,11 +23,7 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "1.2",
-      "1.3",
       "2.1",
-      "2.2",
       "2.3",
       "2.4",
       "3.1",
@@ -41,7 +37,12 @@
       "L2"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.2"
+    ]
   },
   "tasks": [
     {
@@ -50,14 +51,23 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:18:27Z",
+      "completed_at": "2026-08-29T14:21:21Z",
+      "duration_seconds": 174,
+      "notes": "Migration created verbatim from design.md: 3 ADD COLUMNs + DROP NOT NULL, 3 COMMENT ON COLUMN, guarded destructive Down with goose StatementBegin/End. No index, generated column untouched.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 9,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.734,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 1.1+1.2+1.3+2.2; wave delta copied onto each"
+      }
     },
     {
       "id": "1.2",
@@ -65,14 +75,23 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:18:27Z",
+      "completed_at": "2026-08-29T14:21:21Z",
+      "duration_seconds": 174,
+      "notes": "CreateEntry/UpdateEntry bind status, energy_source, odometer_km; energy_source documented as Go-computed (battery_pct_source precedent). No read query and no charge_sessions query touched.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 9,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.734,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 1.1+1.2+1.3+2.2; wave delta copied onto each"
+      }
     },
     {
       "id": "1.3",
@@ -83,14 +102,23 @@
         "1.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:18:27Z",
+      "completed_at": "2026-08-29T14:21:21Z",
+      "duration_seconds": 174,
+      "notes": "make sqlc clean. Diff matches design.md exactly: 3 new model fields, EnergyAddedKwh still pgtype.Numeric, ChargeSession zero diff, no other *Params changed, sqlc.yaml untouched.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 9,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.734,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 1.1+1.2+1.3+2.2; wave delta copied onto each"
+      }
     },
     {
       "id": "2.1",
@@ -115,14 +143,23 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:18:27Z",
+      "completed_at": "2026-08-29T14:21:21Z",
+      "duration_seconds": 174,
+      "notes": "New capacity.go: packCapacityKWh(ctx,vin) returning 62.0 with the TODO(MAG-18)/backlog-18 doc, plus pure derivedEnergyKWh with half-away-from-zero 2dp rounding. No pgtype/chargingdb imports.",
+      "budget": {
+        "five_hour_pct_start": 3,
+        "five_hour_pct_end": 9,
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.734,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 1.1+1.2+1.3+2.2; wave delta copied onto each"
+      }
     },
     {
       "id": "2.3",
@@ -380,6 +417,16 @@
       "at": "2026-08-29T11:13:27Z",
       "agent": "leader",
       "event": "HALTED AFTER STEP 4 per kkpa-pickup-linear-ticket scope \u2014 no implementation workers dispatched, no reviewer, no archive"
+    },
+    {
+      "at": "2026-08-29T14:18:27Z",
+      "agent": "leader",
+      "event": "resumed at Step 5; dispatched charging worker (sonnet) for wave 1 (1.1, 1.2, 1.3, 2.2) \u2014 budget start 5h=3% ctx=10%"
+    },
+    {
+      "at": "2026-08-29T14:21:21Z",
+      "agent": "leader",
+      "event": "wave 1 complete (1.1,1.2,1.3,2.2) \u2014 leader verified migration DDL, query.sql and the sqlc diff against design.md; 5h 3%->9%, $1.73"
     }
   ]
 }

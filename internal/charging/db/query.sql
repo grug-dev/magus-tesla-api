@@ -9,6 +9,13 @@
 -- optional fields use nullable params (sqlc maps them to pgtype nullable types via the
 -- schema column types). RETURNING * hands back the server-assigned id, created_at, and
 -- updated_at so the gateway can display the stored entry without a second round-trip.
+--
+-- status, odometer_km: bound as supplied by the caller (RM33 / MAG-18).
+--
+-- energy_source is COMPUTED IN GO, never accepted from the caller as a stored value's
+-- true provenance -- the same shape VerifyChargeSession's @battery_pct_source already
+-- uses for charge_sessions' human-write channel. service.go computes USER/ESTIMATED
+-- before binding this param; the query itself has no way to tell the two apart.
 INSERT INTO manual_charge_entries (
     account_id,
     tesla_id,
@@ -24,7 +31,10 @@ INSERT INTO manual_charge_entries (
     charging_type,
     location_kind,
     location_label,
-    notes
+    notes,
+    status,
+    energy_source,
+    odometer_km
 ) VALUES (
     @account_id,
     @tesla_id,
@@ -40,7 +50,10 @@ INSERT INTO manual_charge_entries (
     @charging_type,
     @location_kind,
     @location_label,
-    @notes
+    @notes,
+    @status,
+    @energy_source,
+    @odometer_km
 )
 RETURNING *;
 
@@ -50,6 +63,12 @@ RETURNING *;
 -- UUID — cross-tenant mutation is blocked at the SQL level (design D4).
 -- Immutable columns (id, account_id, tesla_id, vin, created_at) are never touched.
 -- updated_at is refreshed to now() on every successful update.
+--
+-- status, odometer_km: bound as supplied by the caller (RM33 / MAG-18).
+--
+-- energy_source is COMPUTED IN GO, never accepted from the caller as a stored value's
+-- true provenance -- same shape as CreateEntry's @energy_source above, and the same
+-- precedent VerifyChargeSession's @battery_pct_source sets for charge_sessions.
 UPDATE manual_charge_entries
 SET
     charged_on        = @charged_on,
@@ -64,6 +83,9 @@ SET
     location_kind     = @location_kind,
     location_label    = @location_label,
     notes             = @notes,
+    status            = @status,
+    energy_source     = @energy_source,
+    odometer_km       = @odometer_km,
     updated_at        = now()
 WHERE id = @id
   AND account_id = @account_id
