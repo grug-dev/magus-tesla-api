@@ -568,6 +568,32 @@ owner asked for a follow-up ticket rather than folding the work into RM30.
 
 
 
+## 18. charging — Replace the hardcoded 62 kWh pack capacity with a real per-vehicle value
+
+### PROPOSAL
+
+`internal/charging` derives `energy_added_kwh` from the battery delta when the user leaves the
+field blank (RM33 / MAG-18, decision D3). The pack capacity that derivation multiplies by is a
+hardcoded `62.0` behind `packCapacityKWh(ctx, vin) (float64, error)` — the ctx+error signature
+exists precisely so this becomes a one-body change with zero caller churn.
+
+Replace it with a real value, sourced either from a future vehicle-spec table/module keyed by VIN,
+or from the average of `inferred_capacity_kwh_calc` over that vehicle's own rows.
+
+**If the average approach is taken it MUST filter `WHERE energy_source = 'USER'`** (RM33 decision
+D4). Rows whose energy was itself derived return exactly the capacity constant by algebra
+(`(C · d/100) ÷ (d/100) = C`), so including them feeds the seed value back into the average and it
+stops converging on the pack's real capacity.
+
+**Trigger:** enough user-entered (non-derived) entries exist to average meaningfully, or a
+vehicle-spec module lands.
+
+### ORIGIN
+
+RM33 `manual-record-status` decision D8 (and D4), settled in the 2026-08-29 grill-me interview for
+Linear MAG-18.
+
+
 # BRAINSTORMING
 
 

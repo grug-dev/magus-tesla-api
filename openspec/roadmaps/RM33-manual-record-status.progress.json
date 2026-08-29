@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM33-manual-record-status",
+  "intention": "A user can save a manual charge record as IN PROGRESS with partial data and complete it later, leave energy and price blank (energy derived from the battery delta, price defaulting to 0), record the odometer, and review entries through a date filter with aggregation tiles and an at-a-glance completeness indicator.",
+  "request": "Source ticket: MAG-18 — https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
+  "autopilot": false,
+  "status": "in-progress",
+  "updated_at": "2026-08-29T10:49:07Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM33-MAG-18-manual-record-status",
+    "base": "5d01e81",
+    "ticket": "MAG-18",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records",
+    "created_at": "2026-08-29T10:49:07Z"
+  },
+  "rollup": {
+    "current": [1],
+    "pending": [2, 3],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D-RM33-1",
+      "at": "2026-08-29T10:49:07Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Record energy provenance via a new energy_source column; leave MAG-25's generated inferred_capacity_kwh_calc untouched",
+      "why": "Derived energy makes inferred capacity echo the seed constant; the planned averaging feature would stop converging. Provenance cannot be reconstructed later.",
+      "covered_by": "roadmap Decision D4"
+    },
+    {
+      "id": "D-RM33-2",
+      "at": "2026-08-29T10:49:07Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Backfill existing rows' status to IN_PROGRESS rather than DONE",
+      "why": "User chose it over the leader's DONE recommendation, accepting that historical rows render unfinished as a prompt to re-check them.",
+      "covered_by": "roadmap Decision D1"
+    },
+    {
+      "id": "D-RM33-3",
+      "at": "2026-08-29T10:49:07Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Unit and integration tests are INCLUDED in every tier",
+      "why": "Overrides the owner's standing no-tests default; internal/charging already has DB-backed integration tests asserting against this table.",
+      "covered_by": "roadmap header, Unit tests"
+    },
+    {
+      "id": "D-RM33-4",
+      "at": "2026-08-29T10:49:07Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Three tiers: charging schema/domain, then gateway form and gateway dashboard independently",
+      "why": "Both gateway tiers depend only on tier 1 and touch disjoint template files, so neither blocks the other.",
+      "covered_by": "roadmap Tiers table"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM33-charging-add-entry-status",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": "2026-08-29T10:49:07Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Artifacts only this run; implementation halted at pipeline Step 4 per the pickup skill's scope."
+    },
+    {
+      "id": 2,
+      "change": "RM33-gateway-update-charge-form",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 3,
+      "change": "RM33-gateway-add-entries-dashboard",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "events": [
+    { "at": "2026-08-29T10:49:07Z", "agent": "leader", "event": "RM33 roadmap created from Linear MAG-18 via kkpa-pickup-linear-ticket; branch ft/RM33-MAG-18-manual-record-status off 5d01e81; work-counter 33 -> 34" },
+    { "at": "2026-08-29T10:49:07Z", "agent": "leader", "event": "Step 2 interview completed with the user (grill-me, mandated by openspec/config.yaml proposal rules); 16 binding decisions D1-D16 recorded in the roadmap .md" }
+  ]
+}
