@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM33-manual-record-status",
   "intention": "A user can save a manual charge record as IN PROGRESS with partial data and complete it later, leave energy and price blank (energy derived from the battery delta, price defaulting to 0), record the odometer, and review entries through a date filter with aggregation tiles and an at-a-glance completeness indicator.",
-  "request": "Source ticket: MAG-18 — https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
+  "request": "Source ticket: MAG-18 \u2014 https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
   "autopilot": false,
   "status": "in-progress",
-  "updated_at": "2026-08-29T19:35:00Z",
+  "updated_at": "2026-08-29T20:34:56Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM33-MAG-18-manual-record-status",
@@ -104,7 +104,7 @@
       "at": "2026-08-29T18:56:00Z",
       "scope": "tier:3",
       "made_by": "user",
-      "decision": "With no vehicle resolved (teslaID==0) the page renders the empty state — no tiles, no table, no filter; the ListEntriesByAccount fallback is dropped",
+      "decision": "With no vehicle resolved (teslaID==0) the page renders the empty state \u2014 no tiles, no table, no filter; the ListEntriesByAccount fallback is dropped",
       "why": "ListEntriesByVehicleBetween is vehicle-scoped and D13 forbids a new port. Only reachable for an account with zero vehicles, which cannot create entries either.",
       "covered_by": "tier-3 interview 2026-08-29"
     },
@@ -215,7 +215,7 @@
     {
       "at": "2026-08-29T15:11:39Z",
       "agent": "leader",
-      "event": "tier 1 (RM33-charging-add-entry-status) archived; tiers 2 and 3 both unblocked — they depend only on tier 1 and touch disjoint template files"
+      "event": "tier 1 (RM33-charging-add-entry-status) archived; tiers 2 and 3 both unblocked \u2014 they depend only on tier 1 and touch disjoint template files"
     },
     {
       "at": "2026-08-29T15:25:00Z",
@@ -235,7 +235,7 @@
     {
       "at": "2026-08-29T17:22:54Z",
       "agent": "leader",
-      "event": "tier 2 wave 3 complete and owner-verified green (commit 4818d6c); session checkpoint at the owner's request. Tier 2 status corrected from 'proposed' to 'in-progress' — it has been in implementation since wave 1."
+      "event": "tier 2 wave 3 complete and owner-verified green (commit 4818d6c); session checkpoint at the owner's request. Tier 2 status corrected from 'proposed' to 'in-progress' \u2014 it has been in implementation since wave 1."
     },
     {
       "at": "2026-08-29T18:56:00Z",
@@ -246,6 +246,11 @@
       "at": "2026-08-29T19:35:00Z",
       "agent": "leader",
       "event": "tier 3 artifacts complete (tasks.md authored on resume, 27 sub-tasks / 10 waves) and validated; no design gate tripped; tier 3 -> [~] in-flight"
+    },
+    {
+      "at": "2026-08-29T20:34:56Z",
+      "agent": "leader",
+      "event": "tier 3 implementation complete through wave 10 and owner-verified green; change status verified. Session checkpointed at the owner's request before the reviewer gate. Tier 3 remains in-progress until the reviewer approves and the change archives."
     }
   ]
 }

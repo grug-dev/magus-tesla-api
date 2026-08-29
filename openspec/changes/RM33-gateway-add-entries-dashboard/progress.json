@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM33-manual-record-status.md",
   "request": "Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Roadmap RM33 tier 3, decisions D9, D10, D11, D13, D14. Source ticket MAG-18.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [],
@@ -17,9 +17,7 @@
       "2.1",
       "2.2",
       "3.1",
-      "3.2"
-    ],
-    "awaiting-user-verification": [
+      "3.2",
       "4.1",
       "4.2",
       "4.3",
@@ -40,10 +38,11 @@
       "9.3",
       "9.4",
       "10.1"
-    ]
+    ],
+    "awaiting-user-verification": []
   },
   "created_at": "2026-08-29T19:35:00Z",
-  "updated_at": "2026-08-29T20:25:02Z",
+  "updated_at": "2026-08-29T20:34:50Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -242,12 +241,12 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T19:56:09Z",
       "completed_at": "2026-08-29T20:01:29Z",
-      "duration_seconds": null,
+      "duration_seconds": 320,
       "notes": "Refresh removed; chargesRangeSelector + chargeTiles mirror the supercharger gold standard; hidden window inputs; 3-state D-Empty branching; 9-column headers; ChargeRow call updated to 4 args.",
       "budget": {
         "five_hour_pct_start": 35,
@@ -270,12 +269,12 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T19:56:09Z",
       "completed_at": "2026-08-29T20:01:29Z",
-      "duration_seconds": null,
+      "duration_seconds": 320,
       "notes": "4-arg ChargeRow; Vehicle cell removed; Status cell = ui.Dot + ui.Badge (primary/ghost, no colour collision); BatteryRange cell; window threaded into Edit/Delete URLs; Delete retargeted to #charges-list; ChargeRowUpdateSuccessOOB added verbatim.",
       "budget": {
         "five_hour_pct_start": 35,
@@ -296,12 +295,12 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T19:56:09Z",
       "completed_at": "2026-08-29T20:01:29Z",
-      "duration_seconds": null,
+      "duration_seconds": 320,
       "notes": "colspan 8 -> 9; ChargeRowEdit gained trailing windowStartStr/windowEndStr, rendered as hidden start/end inputs beside csrf_token.",
       "budget": {
         "five_hour_pct_start": 35,
@@ -320,12 +319,12 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T19:56:09Z",
       "completed_at": "2026-08-29T20:01:29Z",
-      "duration_seconds": null,
+      "duration_seconds": 320,
       "notes": "hx-include of the two window inputs added to the create form; no other change, no new RD entry per design.md.",
       "budget": {
         "five_hour_pct_start": 35,
@@ -351,12 +350,12 @@
         "2.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:01:48Z",
       "completed_at": "2026-08-29T20:09:41Z",
-      "duration_seconds": null,
+      "duration_seconds": 473,
       "notes": "7-arg signature; teslaIDFilter==0 early-returns NoFilterChrome with zero reads; switched to ListEntriesByVehicleBetween; tiles computed over the same slice before the VM loop; unused defaultChargeLimit removed after grep.",
       "budget": {
         "five_hour_pct_start": 44,
@@ -377,12 +376,12 @@
         "5.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:01:48Z",
       "completed_at": "2026-08-29T20:09:41Z",
-      "duration_seconds": null,
+      "duration_seconds": 473,
       "notes": "Complete + BatteryRange added; em-dash fallback extended to CostPerKWhLabel/BatteryDelta/DurationLabel; bestEffortWindow/windowFromForm/windowFromQuery transcribed verbatim, never a validation gate.",
       "budget": {
         "five_hour_pct_start": 44,
@@ -403,12 +402,12 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:01:48Z",
       "completed_at": "2026-08-29T20:09:41Z",
-      "duration_seconds": null,
+      "duration_seconds": 473,
       "notes": "ChargePage uses a new defaultChargesWindow helper only; ChargesListFragment parses via parseChargesRange and renders the NoFilterChrome empty state at 400 with no reader call.",
       "budget": {
         "five_hour_pct_start": 44,
@@ -429,12 +428,12 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:01:48Z",
       "completed_at": "2026-08-29T20:09:41Z",
-      "duration_seconds": null,
+      "duration_seconds": 473,
       "notes": "Success path resolves the window via windowFromForm; 422/500 branches deliberately left on the default window per design.md.",
       "budget": {
         "five_hour_pct_start": 44,
@@ -455,12 +454,12 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:01:48Z",
       "completed_at": "2026-08-29T20:09:41Z",
-      "duration_seconds": null,
+      "duration_seconds": 473,
       "notes": "windowFromForm parsed once; success renders ChargeRowUpdateSuccessOOB with a list from the same buildChargesPage; error paths unchanged but for the two new ChargeRowEdit params.",
       "budget": {
         "five_hour_pct_start": 44,
@@ -481,12 +480,12 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:01:48Z",
       "completed_at": "2026-08-29T20:09:41Z",
-      "duration_seconds": null,
+      "duration_seconds": 473,
       "notes": "Rewritten to design.md's verbatim structure: windowFromQuery, resolveSelectedVehicle, unconditional buildChargesPage, renderFragment(..., \"charges-list\"). ChargeRowEmpty/ChargeRowError now dead.",
       "budget": {
         "five_hour_pct_start": 44,
@@ -507,12 +506,12 @@
         "5.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:01:48Z",
       "completed_at": "2026-08-29T20:09:41Z",
-      "duration_seconds": null,
+      "duration_seconds": 473,
       "notes": "Both fragment handlers read windowFromQuery and thread the window into ChargeRow/ChargeRowEdit. ChargesContentFragment's call site also updated, compile-forced by 5.1.",
       "budget": {
         "five_hour_pct_start": 44,
@@ -534,12 +533,12 @@
         "5.6"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:09:55Z",
       "completed_at": "2026-08-29T20:14:15Z",
-      "duration_seconds": null,
+      "duration_seconds": 260,
       "notes": "ChargeRowEmpty/ChargeRowError deleted from charge_row.templ after a repo-wide grep proved the only hits were the definitions and two comments.",
       "budget": {
         "five_hour_pct_start": 57,
@@ -561,12 +560,12 @@
         "5.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:09:55Z",
       "completed_at": "2026-08-29T20:14:15Z",
-      "duration_seconds": null,
+      "duration_seconds": 260,
       "notes": "Swept all 213 catalogue keys, not just the two named: exactly KeyChargesListRefresh and KeyChargesListHeaderVehicle were unreferenced. Both constants and map entries removed.",
       "budget": {
         "five_hour_pct_start": 57,
@@ -587,12 +586,12 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:09:55Z",
       "completed_at": "2026-08-29T20:14:15Z",
-      "duration_seconds": null,
+      "duration_seconds": 260,
       "notes": "ui.Dot added to AGENTS.md's ui/ kit list plus a bullet covering DotProps, the variant vocabulary, and the dot-vs-badge colour disjointness (D-Dot).",
       "budget": {
         "five_hour_pct_start": 57,
@@ -617,12 +616,12 @@
         "6.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:09:55Z",
       "completed_at": "2026-08-29T20:14:15Z",
-      "duration_seconds": null,
+      "duration_seconds": 260,
       "notes": "make templ regenerated charge_row_templ.go. make css also run and required \u2014 wave 4's grid-cols-4/rounded-full/join-item reach app.css only through it.",
       "budget": {
         "five_hour_pct_start": 57,
@@ -644,12 +643,12 @@
         "5.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:14:32Z",
       "completed_at": "2026-08-29T20:25:02Z",
-      "duration_seconds": null,
+      "duration_seconds": 630,
       "notes": "C1-C3 render ChargeRow through chargeEntryVMFromEntry so the real entryComplete wiring is exercised; assert bg-success / bg-warning / never bg-error plus the ES badge text.",
       "budget": {
         "five_hour_pct_start": 64,
@@ -673,12 +672,12 @@
         "5.6"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:14:32Z",
       "completed_at": "2026-08-29T20:25:02Z",
-      "duration_seconds": null,
+      "duration_seconds": 630,
       "notes": "D1-D4 httptest across create/update/delete, asserting the OOB #charges-list carries the requested window and, for D4, that the deleted row is absent within it.",
       "budget": {
         "five_hour_pct_start": 64,
@@ -701,12 +700,12 @@
         "5.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:14:32Z",
       "completed_at": "2026-08-29T20:25:02Z",
-      "duration_seconds": null,
+      "duration_seconds": 630,
       "notes": "E1-E4 pin the three-way empty branching apart \u2014 no-chrome vs reader-error-with-chrome vs valid-empty-with-chrome \u2014 via join-item / stat-title / <table presence and absence.",
       "budget": {
         "five_hour_pct_start": 64,
@@ -728,12 +727,12 @@
         "5.6"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T20:14:32Z",
       "completed_at": "2026-08-29T20:25:02Z",
-      "duration_seconds": null,
+      "duration_seconds": 630,
       "notes": "Fixed the vet-breaking renderEditRow call, renamed the delete test to the #charges-list shape, strengthened the three ChargesListFragment tests for the default window, dropped the stale ChargeRowError comment.",
       "budget": {
         "five_hour_pct_start": 64,
@@ -757,12 +756,12 @@
         "9.4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-08-29T20:25:02Z",
       "completed_at": "2026-08-29T20:25:02Z",
-      "duration_seconds": null,
+      "duration_seconds": 0,
       "notes": "Leader ran all six: go build, go vet (both exit 0), gofmt -l on handlers (clean), ui-guard, i18n-guard, money-guard (all pass). Suite is the owner's.",
       "budget": {
         "five_hour_pct_start": 78,
@@ -992,6 +991,16 @@
       "at": "2026-08-29T20:25:02Z",
       "agent": "leader",
       "event": "bookkeeping: the wave-9-10 commit was made before this reconcile landed (a stale shell cwd sent the write to the wrong path); amended into the same commit, no history rewrite beyond the unpushed tip."
+    },
+    {
+      "at": "2026-08-29T20:34:50Z",
+      "agent": "leader",
+      "event": "OWNER ran the suite after waves 4-10 and reported it GREEN. Verification is the owner's, not the assistant's. All 20 remaining tasks -> done; change status -> verified. The 11 new Test Contract tests (C1-C3/D1-D4/E1-E4) pass as authored, confirming the implementation matches the pre-authored contract."
+    },
+    {
+      "at": "2026-08-29T20:34:50Z",
+      "agent": "leader",
+      "event": "session checkpoint at the owner's request, at the wave-10 / pre-reviewer boundary. Budget 5h 78%, ctx ~19%, 7d 88% \u2014 checkpoint is the owner's call, not a threshold trip. Resume at Step 7: write the review brief and dispatch the gateway reviewer."
     }
   ]
 }
