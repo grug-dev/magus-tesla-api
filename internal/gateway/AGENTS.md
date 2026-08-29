@@ -122,10 +122,12 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
 - **No client-side JS init** — keeps htmx swaps safe. Prefer CSS-only DaisyUI patterns
-  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **two**
+  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **four**
   standing exceptions, each with its own recorded decision below: **RD9** (the `browser_tz`
-  cookie script in `layouts.BaseAuth`) and **RD10** (`ui.ConfirmDialog`, whose JS lives in
-  the shared `static/app.js`). Adding a third needs its own RD entry per RD8.
+  cookie script in `layouts.BaseAuth`), **RD10** (`ui.ConfirmDialog`, whose JS lives in
+  the shared `static/app.js`), **RD12** (date→time-preserving sync on the charge forms), and
+  **RD13** (status-driven required toggle on the charge forms) — the last two also live in
+  `static/app.js`. Adding a fifth needs its own RD entry per RD8.
 - **Confirmations: never write a modal, never call `window.confirm`.** Put `hx-confirm`
   (plus optional `data-confirm-title` / `data-confirm-label` / `data-confirm-variant="danger"`)
   on the triggering control and the shared `ui.ConfirmDialog` — mounted once in
@@ -479,8 +481,9 @@ to every future AI agent or human who reads this doc at the start of a session.
 
 The gateway's declared **zero-JS** DaisyUI foundation (`ai/htmx-conventions.md`
 §"Styling" — "Do not introduce a component that needs client-side JS init") has
-exactly **TWO** sanctioned exceptions: this one and **RD10** (the confirmation
-modal) below. This entry covers the first: a single inline `<script>` in
+exactly **FOUR** sanctioned exceptions: this one, **RD10** (the confirmation
+modal) below, and **RD12**/**RD13** (the charge-form date-sync and
+status-required toggle) further below. This entry covers the first: a single inline `<script>` in
 `layouts.BaseAuth` that sets the `browser_tz` cookie. Added by
 `gateway-browser-tz-cookie` (MAG-7, shipped 2026-08-11; documented here in the
 MAG-7 review fix round, 2026-08-12).
@@ -519,7 +522,8 @@ error surfaces to the user and no page render breaks.
 
 ## Client-side JS exception: confirmation modal (RD10)
 
-The **second** (and currently last) sanctioned exception to the zero-JS rule: the
+The **second** sanctioned exception to the zero-JS rule (see **RD12**/**RD13** below for
+the third and fourth): the
 `htmx:confirm` interception in `static/app.js` that drives `ui.ConfirmDialog`. Added by
 `gateway-add-confirm-dialog` (MAG-5, shipped 2026-08-12, PR #24; documented here
 2026-08-13).
@@ -618,6 +622,93 @@ only is shipped; add other subsets (cyrillic, etc.) only when a real page needs 
 do not front-load every subset. Fonts live under `static/fonts/` so the existing
 `//go:embed static` picks them up with no embed directive change; never put a font
 anywhere else.
+
+## Client-side JS exception: date→time-preserving sync (RD12)
+
+The **third** sanctioned exception to the zero-JS rule: a `change` listener on
+`input[name="charged_on"]` in `static/app.js` that keeps the manual-charge forms'
+`started_at`/`ended_at` time-of-day intact when the user edits the date. Added by
+`RM33-gateway-update-charge-form` (tier 2 of `RM33-manual-record-status`, ticket
+MAG-18, roadmap decision D12).
+
+**What:** One `change` listener, delegated on `document.body`, matching
+`input[name="charged_on"]`. On fire, it looks up `started_at`/`ended_at` within
+`evt.target.closest("form")` and, for each that is **non-empty**, rewrites only the
+date portion: `input.value = newDate + input.value.slice(10)`. A `datetime-local`
+input's value is always `YYYY-MM-DDTHH:MM`, so `.slice(10)` is exactly `"THH:MM"` —
+the time half is preserved verbatim. An empty `started_at`/`ended_at` is left empty;
+the listener never auto-fills one (roadmap D12's explicit rejection of "clobber to
+midnight"). Delegation on `document.body` (the same pattern RD9/RD10 use) means the
+create form and any number of simultaneously-open inline edit rows all get the
+behavior with no per-row re-binding when htmx swaps a row in.
+
+**Why:** Both charge forms let the user set `charged_on` (the calendar day) alongside
+`started_at`/`ended_at` (timestamps for the same day). Without this listener, editing
+the date leaves the time fields pointing at the *old* date while displaying only a
+time — an easy way to silently record a charge session on the wrong day. The
+**rejected alternative** was a CSS-only DaisyUI pattern: rejected because this is a
+value *transformation* (splicing one field's substring into another field's value),
+which no CSS mechanism (`dropdown`/`<dialog>`/`collapse`) can express — those patterns
+toggle presentational state, they cannot rewrite an input's value.
+
+**Boundary — this is NOT an opening for general client-side JS.** Like RD9/RD10, it is
+a narrow, sanctioned exception (one listener, one value-splice rule, two named target
+fields), not a precedent. Any further client-side JS needs its own RD entry per RD8,
+with its own rationale and rejected alternative.
+
+**Graceful degradation:** if `started_at`/`ended_at` are empty, or the changed input
+isn't inside a `<form>`, the listener no-ops — no error, no partial write. Without JS
+entirely, the fields simply keep whatever the user last typed; the browser still
+accepts a mismatched date/time pair (a minor UX regression, not a data-integrity
+issue — the server does not derive one field from the other).
+
+## Client-side JS exception: status-driven required toggle (RD13)
+
+The **fourth** sanctioned exception to the zero-JS rule: a `change` + `htmx:load`
+listener pair on `select[name="status"]` in `static/app.js` that toggles
+`ended_at`/`end_battery_pct`'s `required` attribute live, with no htmx round-trip.
+Added by `RM33-gateway-update-charge-form` (tier 2 of `RM33-manual-record-status`,
+ticket MAG-18, roadmap decision D-RM33-6).
+
+**What:** A `change` listener, delegated on `document.body`, matching
+`select[name="status"]`, plus an `htmx:load` listener that re-applies the same logic
+to every `select[name="status"]` present in the loaded/swapped content (covers the
+initial full-page load and every htmx-swapped fragment, e.g. a freshly-opened inline
+edit row, with no separate `DOMContentLoaded` handler). Both call one helper,
+`applyChargeStatusRequiredToggle(select)`, which resolves `select.closest("form")` and
+sets `ended_at.required` / `end_battery_pct.required` to `select.value === "DONE"`.
+Running on `htmx:load` as well as `change` means a freshly-rendered or
+freshly-swapped form is always correct immediately, not just after the user's first
+interaction with the dropdown — the literal ask in D-RM33-6 ("must run on page load as
+well as on change"). This deliberately duplicates the server-rendered initial
+`required` state computed from `charging.RequiredFieldsFor` (design.md §D-Fields,
+`RM33-gateway-update-charge-form`): if the two ever disagree, the JS state wins in the
+live DOM after it runs, and the disagreement is inert — never something that can only
+be fixed by special-casing the template.
+
+**Why:** D-RM33-6 explicitly asks for "no htmx round-trip" — the user must see the
+required asterisk change the instant they pick `DONE`, before they've filled in
+anything else. The **rejected alternative** was relying solely on the server-rendered
+initial `required` state and letting a status change take effect only after a full
+submit/re-render round-trip: rejected because that is exactly the round-trip
+D-RM33-6 asks to avoid.
+
+**Why it does not erode the `ui/` boundary:** the listener only ever reads
+`select.value` and writes a native DOM `.required` boolean — no DaisyUI class string,
+no markup, no styling decision is made in JavaScript. The `ui/` kit's ownership of
+component classes is untouched.
+
+**Boundary — this is NOT an opening for general client-side JS.** Like RD9/RD10/RD12,
+it is a narrow, sanctioned exception (one delegated listener pair, one boolean
+toggle, two named target fields), not a precedent. Any further client-side JS needs
+its own RD entry per RD8, with its own rationale and rejected alternative.
+
+**Graceful degradation:** if a matched `<select>` has no enclosing `<form>`, or the
+form has no `ended_at`/`end_battery_pct` input, the helper no-ops on the missing
+piece (`if (endedAt) endedAt.required = isDone`). Without JS entirely, the
+server-rendered initial `required` state from §D-Fields still governs at submit time —
+the fields simply stop updating live on a status change, falling back to correctness
+only on the next full page render rather than instantly.
 
 ---
 

@@ -214,6 +214,9 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 		d.DefaultStartedAt = c.PostForm("started_at")
 		d.DefaultEndedAt = c.PostForm("ended_at")
 		d.FormValues = raw
+		// design.md §D-Fields: the Required* pair must track the SUBMITTED status,
+		// not buildChargesPage's fresh-load IN_PROGRESS default.
+		applyRawRequiredState(&d, raw)
 		renderError(c, http.StatusUnprocessableEntity, fragments.ChargeCreateForm(d, validationErrors))
 		return
 	}
@@ -235,6 +238,8 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 		d.DefaultStartedAt = c.PostForm("started_at")
 		d.DefaultEndedAt = c.PostForm("ended_at")
 		d.FormValues = raw
+		// design.md §D-Fields: same recomputation on the 500 branch as the 422 one.
+		applyRawRequiredState(&d, raw)
 		renderError(c, http.StatusInternalServerError, fragments.ChargeCreateForm(d, map[string]string{
 			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
 		}))
@@ -734,6 +739,35 @@ func (h *Handler) vehicleLabelForSelected(c *gin.Context, uid uuid.UUID, vehicle
 		return vehicleLabelFor(sel.TeslaID, vehicles)
 	}
 	return ""
+}
+
+// applyRawRequiredState recomputes a ChargesPageData's RequiredEndedAt /
+// RequiredEndBatteryPct pair from the status the user actually submitted, so an
+// error re-render of the create form agrees with the status it is rendering.
+//
+// Without this, the 4xx/5xx branches overwrite FormValues with `raw` (roadmap
+// D15) while leaving the Required* pair on buildChargesPage's fresh-load
+// IN_PROGRESS default — a user who picks DONE and trips an unrelated validation
+// error gets ended_at/end_battery_pct back without their `required` attribute.
+// design.md §D-Fields requires the served HTML to carry the correct `required`
+// state "for the status being rendered", with no flash-of-wrong-state before JS
+// runs, so relying on RD13's htmx:load listener to correct it client-side is not
+// sufficient. This is the create-form counterpart of the same recomputation
+// chargeEntryVMFromRawValues already does for the inline edit row.
+//
+// Unknown/absent statuses fail closed to DONE (the strictest required set),
+// matching chargeEntryVMFromRawValues and charging.RequiredFieldsFor.
+func applyRawRequiredState(d *fragments.ChargesPageData, raw fragments.ChargeFormValues) {
+	status := charging.Status(raw.Status)
+	if status != charging.StatusInProgress && status != charging.StatusDone {
+		status = charging.StatusDone
+	}
+	required := make(map[charging.Field]bool)
+	for _, f := range charging.RequiredFieldsFor(status) {
+		required[f] = true
+	}
+	d.RequiredEndedAt = required[charging.FieldEndedAt]
+	d.RequiredEndBatteryPct = required[charging.FieldEndBatteryPct]
 }
 
 // chargeEntryVMFromRawValues builds a ChargeEntryVM directly from the raw

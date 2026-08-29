@@ -262,7 +262,7 @@ the human. See design.md for the rationale behind each group.
 
 ## Wave 7 — documentation (RD8: record every client-side-JS decision in the same change)
 
-- [ ] **7.1** **[module: gateway worker]** `internal/gateway/AGENTS.md`:
+- [x] **7.1** **[module: gateway worker]** `internal/gateway/AGENTS.md`:
   - Add **RD12 — date→time-preserving sync** and **RD13 — status-driven required toggle** as new
     sections mirroring RD9/RD10/RD11's exact shape (What / Why / Rejected alternative / Boundary —
     this is NOT an opening for general client-side JS), using design.md §D-JS's content as the
@@ -290,23 +290,35 @@ the human. See design.md for the rationale behind each group.
 > did, until fixed). A new negative test must therefore supply a valid `status` **and** assert the
 > specific i18n message for the field under test, not just the status code.
 
-- [ ] **8.1** **[module: gateway worker]** `internal/gateway/handlers/charges_test.go` — Group A
+- [x] **8.1** **[module: gateway worker]** `internal/gateway/handlers/charges_test.go` — Group A
   (design.md Test Contract A1–A8): status-conditional required validation, optional
   energy/price, odometer parsing, unconditional `start_battery_pct` requirement across both
   statuses. Mirror the existing fake-`Writer`/fake-`Reader` fixture style already in this file
   (`TestChargeCreate_MissingBatteryPct_Rejected` etc. are the closest existing precedent).
   `depends_on`: 3.3 · `parallel_ok`: with 8.2, 8.3
 
-- [ ] **8.2** **[module: gateway worker]** `internal/gateway/handlers/charges_test.go` — Group B
+- [x] **8.2** **[module: gateway worker]** `internal/gateway/handlers/charges_test.go` — Group B
   (design.md Test Contract B1–B4): the D15 value-preservation assertions for both the create form
   and the inline edit row, plus the B4 no-regression check on a fresh (non-error) render.
   `depends_on`: 3.3, 4.1, 4.2 · `parallel_ok`: with 8.1, 8.3
 
-- [ ] **8.3** **[module: gateway worker]** `internal/gateway/handlers/charges_test.go` — Group C
+- [x] **8.3** **[module: gateway worker]** `internal/gateway/handlers/charges_test.go` — Group C
   (design.md Test Contract C1–C7): rendered-markup assertions for required attributes, the
   status-select default/persisted-selection, the removed Currency field / COP suffix, the AC/DC
   option text (both languages), and the odometer input's placement inside "More details".
   `depends_on`: 4.1, 4.2, 5.1 · `parallel_ok`: with 8.1, 8.2
+
+- [x] **8.5** **[leader]** `internal/gateway/handlers/charges.go` + `charges_test.go` — leader
+  triage fix for the finding 8.3 surfaced: `ChargeCreate`'s 422/500 branches set
+  `d.FormValues = raw` (roadmap D15) but left `RequiredEndedAt`/`RequiredEndBatteryPct` on
+  `buildChargesPage`'s fresh-load `IN_PROGRESS` default, so a DONE submission that tripped an
+  unrelated validation error re-rendered `ended_at`/`end_battery_pct` without `required` —
+  violating design.md §D-Fields' "correct `required` attribute for the status being rendered,
+  no flash-of-wrong-state before JS runs". Added `applyRawRequiredState` (fail-closed to DONE,
+  mirroring `chargeEntryVMFromRawValues`, which already did this for the inline edit row) and
+  called it from both branches; added the handler-level regression test C3 could not reach.
+  Appended in wave 4, not a rescoping of 3.3.
+  `depends_on`: 3.3, 8.3 · `parallel_ok`: no
 
 - [ ] **8.4** **[owner]** Manually verify the three JS behaviors design.md's Test Contract
   "Owner-verified, not automatable here" section lists (date-sync preserving time; live required
@@ -319,7 +331,7 @@ the human. See design.md for the rationale behind each group.
 
 ## Wave 9 — signals
 
-- [ ] **9.1** **[module: gateway worker]** Run the cheap deterministic signals the
+- [x] **9.1** **[module: gateway worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./internal/gateway`, `go build ./...`,
   `go vet ./...`, `make ui-guard`, `make i18n-guard`. Confirm
   `TestCatalog_AllKeysHaveBothLanguages`-relevant catalogue entries are present for every key

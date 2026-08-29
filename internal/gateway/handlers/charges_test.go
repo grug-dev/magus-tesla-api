@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
@@ -18,6 +19,8 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -63,9 +66,12 @@ type fakeChargeWriter struct {
 	updateErr   error
 	deleteErr   error
 	deleteCalls int // count of Delete invocations — lets tests assert a rejected write never reached the port
+	createCalls int // count of Create invocations — mirrors deleteCalls (RM33 Group A "Writer.Create never called" assertions)
+	updateCalls int // count of Update invocations — mirrors deleteCalls
 }
 
 func (f *fakeChargeWriter) Create(_ context.Context, e charging.Entry) (charging.Entry, error) {
+	f.createCalls++
 	if f.createErr != nil {
 		return charging.Entry{}, f.createErr
 	}
@@ -77,6 +83,7 @@ func (f *fakeChargeWriter) Create(_ context.Context, e charging.Entry) (charging
 }
 
 func (f *fakeChargeWriter) Update(_ context.Context, e charging.Entry) (charging.Entry, error) {
+	f.updateCalls++
 	if f.updateErr != nil {
 		return charging.Entry{}, f.updateErr
 	}
@@ -1825,5 +1832,775 @@ func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 	if strings.Contains(wList.Body.String(), "charge-row-"+id.String()) {
 		t.Errorf("post-delete list must NOT contain the row id, got body=%q",
 			wList.Body.String()[:min(400, wList.Body.Len())])
+	}
+}
+
+// ============================================================================
+// RM33-gateway-update-charge-form (MAG-18) — Test Contract (design.md).
+//
+// The tests below implement design.md's Test Contract Groups A, B, C. See the
+// "Fixture convention" blockquote at the top of tasks.md §Wave 8: every
+// url.Values fixture that reaches parseChargeForm carries an explicit
+// "status" (Test Contract A4 makes a missing status a validation error in its
+// own right), and every negative test asserts the SPECIFIC i18n message for
+// the field under test, not just the response status code — a bare
+// 422+writer-not-called assertion would stay green even if the checked
+// field's own validation were deleted.
+// ============================================================================
+
+// submitForm issues method to path with form on a fresh session for uid,
+// returning the recorder. Mirrors postCharge's shape but is parameterized
+// over method/path/form so the Group A/B/C tests below can vary all three
+// (including a GET with an empty url.Values{} for B4's fresh-load check).
+func submitForm(t *testing.T, h *Handler, uid uuid.UUID, method, path string, form url.Values) *httptest.ResponseRecorder {
+	t.Helper()
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(method, path, strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// validCreateForm returns a baseline valid create-form url.Values fixture —
+// every Test Contract precondition satisfied for status=IN_PROGRESS — so each
+// Group A/B test only overrides the one or two fields it is exercising.
+// csrf_token is always "tok", matching submitForm's session token.
+func validCreateForm() url.Values {
+	return url.Values{
+		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
+		"charged_on":        {"2026-07-15"},
+		"location_kind":     {"HOME"},
+		"start_battery_pct": {"50"},
+	}
+}
+
+// --- Group A — parseChargeForm / handler-level (design.md Test Contract A1-A8) ---
+
+// TestChargeCreate_A1_InProgress_OptionalFieldsOmitted_Succeeds verifies Test
+// Contract A1: status=IN_PROGRESS with no energy_added_kwh, no price, no
+// ended_at, no end_battery_pct still succeeds, persisting EnergyAddedKWh=nil,
+// Price=0, EndedAt=nil, EndBatteryPct=nil, Status=IN_PROGRESS.
+func TestChargeCreate_A1_InProgress_OptionalFieldsOmitted_Succeeds(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", validCreateForm())
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("A1: want 200, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	if writer.createEntry.EnergyAddedKWh != nil {
+		t.Errorf("A1: want EnergyAddedKWh nil, got %v", *writer.createEntry.EnergyAddedKWh)
+	}
+	if writer.createEntry.Price != 0 {
+		t.Errorf("A1: want Price 0, got %v", writer.createEntry.Price)
+	}
+	if writer.createEntry.EndedAt != nil {
+		t.Errorf("A1: want EndedAt nil, got %v", *writer.createEntry.EndedAt)
+	}
+	if writer.createEntry.EndBatteryPct != nil {
+		t.Errorf("A1: want EndBatteryPct nil, got %v", *writer.createEntry.EndBatteryPct)
+	}
+	if writer.createEntry.Status != charging.StatusInProgress {
+		t.Errorf("A1: want Status IN_PROGRESS, got %v", writer.createEntry.Status)
+	}
+}
+
+// TestChargeCreate_A2_Done_MissingEndedAtAndEndBatteryPct_Rejected verifies
+// Test Contract A2: the same omission under status=DONE is rejected on BOTH
+// conditionally-required fields, and Writer.Create is never reached.
+func TestChargeCreate_A2_Done_MissingEndedAtAndEndBatteryPct_Rejected(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm()
+	form.Set("status", "DONE")
+	// ended_at / end_battery_pct deliberately omitted.
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("A2: want 422, got %d", w.Code)
+	}
+	if writer.createCalls != 0 {
+		t.Errorf("A2: Writer.Create must NOT be called, got %d calls", writer.createCalls)
+	}
+	body := w.Body.String()
+	// Resolved language is Spanish (KeyChargesErrorEndedAtRequired /
+	// KeyChargesErrorBatteryPctRequired's ES values).
+	if !strings.Contains(body, "La hora de fin es obligatoria cuando el estado es Finalizada") {
+		t.Errorf("A2: want ended_at-required message, body=%q", body[:min(500, len(body))])
+	}
+	if !strings.Contains(body, "El porcentaje de batería es obligatorio") {
+		t.Errorf("A2: want end_battery_pct-required message, body=%q", body[:min(500, len(body))])
+	}
+}
+
+// TestChargeCreate_A3_Done_WithEndedAtAndEndBatteryPct_Succeeds verifies Test
+// Contract A3: status=DONE with both conditionally-required fields supplied
+// and valid succeeds, persisting Status=DONE.
+func TestChargeCreate_A3_Done_WithEndedAtAndEndBatteryPct_Succeeds(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm()
+	form.Set("status", "DONE")
+	form.Set("ended_at", "2026-07-15T18:00")
+	form.Set("end_battery_pct", "90")
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("A3: want 200, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	if writer.createEntry.Status != charging.StatusDone {
+		t.Errorf("A3: want Status DONE, got %v", writer.createEntry.Status)
+	}
+}
+
+// TestChargeCreate_A4_MissingOrInvalidStatus_Rejected verifies Test Contract
+// A4: an absent or unrecognized status value is rejected on the status field
+// itself, before RequiredFieldsFor is ever consulted.
+func TestChargeCreate_A4_MissingOrInvalidStatus_Rejected(t *testing.T) {
+	uid := uuid.New()
+	for _, tc := range []struct {
+		name string
+		set  string
+		omit bool
+	}{
+		{"missing", "", true},
+		{"unrecognized", "BOGUS", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			writer := &fakeChargeWriter{}
+			h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+			form := validCreateForm()
+			if tc.omit {
+				form.Del("status")
+			} else {
+				form.Set("status", tc.set)
+			}
+
+			w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("A4 %s: want 422, got %d", tc.name, w.Code)
+			}
+			if writer.createCalls != 0 {
+				t.Errorf("A4 %s: Writer.Create must NOT be called, got %d calls", tc.name, writer.createCalls)
+			}
+			body := w.Body.String()
+			// Resolved language is Spanish (KeyChargesErrorStatusInvalid's ES value).
+			if !strings.Contains(body, "Estado inválido") {
+				t.Errorf("A4 %s: want status-invalid message, body=%q", tc.name, body[:min(500, len(body))])
+			}
+		})
+	}
+}
+
+// TestChargeCreate_A5_PriceOptional verifies Test Contract A5: price="" ->
+// 0/no error; price="-1" -> validation error, Writer not called; price
+// "150.50" -> persisted as-is.
+func TestChargeCreate_A5_PriceOptional(t *testing.T) {
+	uid := uuid.New()
+
+	t.Run("empty_defaults_to_zero", func(t *testing.T) {
+		writer := &fakeChargeWriter{}
+		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		form := validCreateForm()
+		form.Set("price", "")
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200 on empty price, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+		}
+		if writer.createEntry.Price != 0 {
+			t.Errorf("want Price 0 on empty submission, got %v", writer.createEntry.Price)
+		}
+	})
+
+	t.Run("negative_rejected", func(t *testing.T) {
+		writer := &fakeChargeWriter{}
+		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		form := validCreateForm()
+		form.Set("price", "-1")
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("want 422 on negative price, got %d", w.Code)
+		}
+		if writer.createCalls != 0 {
+			t.Errorf("Writer.Create must NOT be called on negative price, got %d calls", writer.createCalls)
+		}
+		// Resolved language is Spanish (KeyChargesErrorPriceNonNegative's ES value).
+		if !strings.Contains(w.Body.String(), "El precio debe ser un número no negativo") {
+			t.Errorf("want price-non-negative message, body=%q", w.Body.String()[:min(500, w.Body.Len())])
+		}
+	})
+
+	t.Run("valid_decimal_persisted", func(t *testing.T) {
+		writer := &fakeChargeWriter{}
+		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		form := validCreateForm()
+		form.Set("price", "150.50")
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200 on valid price, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+		}
+		if writer.createEntry.Price != 150.50 {
+			t.Errorf("want Price 150.50 persisted, got %v", writer.createEntry.Price)
+		}
+	})
+}
+
+// TestChargeCreate_A6_EnergyOptional verifies Test Contract A6:
+// energy_added_kwh="" -> nil/no error; energy_added_kwh="0" -> rejected by
+// the existing "must be positive" rule, now conditioned on non-empty rather
+// than always-on.
+func TestChargeCreate_A6_EnergyOptional(t *testing.T) {
+	uid := uuid.New()
+
+	t.Run("empty_is_nil_no_error", func(t *testing.T) {
+		writer := &fakeChargeWriter{}
+		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		form := validCreateForm()
+		form.Set("energy_added_kwh", "")
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200 on empty energy, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+		}
+		if writer.createEntry.EnergyAddedKWh != nil {
+			t.Errorf("want EnergyAddedKWh nil on empty submission, got %v", *writer.createEntry.EnergyAddedKWh)
+		}
+	})
+
+	t.Run("zero_rejected", func(t *testing.T) {
+		writer := &fakeChargeWriter{}
+		h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+		form := validCreateForm()
+		form.Set("energy_added_kwh", "0")
+		w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("want 422 on energy=0, got %d", w.Code)
+		}
+		if writer.createCalls != 0 {
+			t.Errorf("Writer.Create must NOT be called on energy=0, got %d calls", writer.createCalls)
+		}
+		// Resolved language is Spanish (KeyChargesErrorEnergyPositive's ES value).
+		if !strings.Contains(w.Body.String(), "La energía debe ser un número positivo") {
+			t.Errorf("want energy-positive message, body=%q", w.Body.String()[:min(500, w.Body.Len())])
+		}
+	})
+}
+
+// TestChargeCreate_A7_OdometerOptional verifies Test Contract A7: odometer_km
+// is a new always-optional non-negative integer field.
+func TestChargeCreate_A7_OdometerOptional(t *testing.T) {
+	uid := uuid.New()
+	for _, tc := range []struct {
+		name      string
+		value     string
+		wantOK    bool
+		wantKm    *int
+		wantErrES string // substring of the ES error message expected when wantOK is false
+	}{
+		{"empty_is_nil", "", true, nil, ""},
+		{"valid_persisted", "45210", true, ptrInt(45210), ""},
+		{"negative_rejected", "-1", false, nil, "El odómetro debe ser un número entero no negativo"},
+		{"non_numeric_rejected", "abc", false, nil, "El odómetro debe ser un número entero no negativo"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			writer := &fakeChargeWriter{}
+			h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+			form := validCreateForm()
+			form.Set("odometer_km", tc.value)
+			w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+
+			if tc.wantOK {
+				if w.Code != http.StatusOK {
+					t.Fatalf("%s: want 200, got %d body=%q", tc.name, w.Code, w.Body.String()[:min(500, w.Body.Len())])
+				}
+				got := writer.createEntry.OdometerKm
+				if tc.wantKm == nil {
+					if got != nil {
+						t.Errorf("%s: want OdometerKm nil, got %v", tc.name, *got)
+					}
+				} else if got == nil || *got != *tc.wantKm {
+					t.Errorf("%s: want OdometerKm %d, got %v", tc.name, *tc.wantKm, got)
+				}
+			} else {
+				if w.Code != http.StatusUnprocessableEntity {
+					t.Fatalf("%s: want 422, got %d", tc.name, w.Code)
+				}
+				if writer.createCalls != 0 {
+					t.Errorf("%s: Writer.Create must NOT be called, got %d calls", tc.name, writer.createCalls)
+				}
+				if !strings.Contains(w.Body.String(), tc.wantErrES) {
+					t.Errorf("%s: want %q in body, got %q", tc.name, tc.wantErrES, w.Body.String()[:min(500, w.Body.Len())])
+				}
+			}
+		})
+	}
+}
+
+// TestChargeCreate_A8_StartBatteryPctRequired_BothStatuses verifies Test
+// Contract A8: start_battery_pct is unconditionally required, unchanged by
+// RM33, for BOTH status values.
+func TestChargeCreate_A8_StartBatteryPctRequired_BothStatuses(t *testing.T) {
+	uid := uuid.New()
+	for _, status := range []string{"IN_PROGRESS", "DONE"} {
+		t.Run(status, func(t *testing.T) {
+			writer := &fakeChargeWriter{}
+			h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+			form := validCreateForm()
+			form.Set("status", status)
+			form.Del("start_battery_pct")
+			if status == "DONE" {
+				form.Set("ended_at", "2026-07-15T18:00")
+				form.Set("end_battery_pct", "90")
+			}
+			w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status=%s: want 422 on missing start_battery_pct, got %d", status, w.Code)
+			}
+			if writer.createCalls != 0 {
+				t.Errorf("status=%s: Writer.Create must NOT be called, got %d calls", status, writer.createCalls)
+			}
+			// Resolved language is Spanish (KeyChargesErrorBatteryPctRequired's ES value).
+			if !strings.Contains(w.Body.String(), "El porcentaje de batería es obligatorio") {
+				t.Errorf("status=%s: want battery-required message, body=%q", status, w.Body.String()[:min(500, w.Body.Len())])
+			}
+		})
+	}
+}
+
+// --- Group B — D15 value-preservation (design.md Test Contract B1-B4) ---
+
+// TestChargeCreate_B1_ValidationFailure_PreservesLocationAndEndBatteryPct
+// verifies Test Contract B1: a valid location_kind=WORK and battery values
+// but an out-of-range end_battery_pct under status=DONE re-renders the 422
+// create form with WORK still selected and the invalid "150" still echoed in
+// end_battery_pct's value — the raw ChargeFormValues, not a blank/default
+// field, survives the failed validation (roadmap D15).
+func TestChargeCreate_B1_ValidationFailure_PreservesLocationAndEndBatteryPct(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm()
+	form.Set("status", "DONE")
+	form.Set("location_kind", "WORK")
+	form.Set("ended_at", "2026-07-15T18:00")
+	form.Set("end_battery_pct", "150") // out of range (0-100) — the sole invalid field
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("B1: want 422, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `value="WORK" selected`) {
+		t.Errorf("B1: want location_kind=WORK still selected on re-render, body=%q", body[:min(800, len(body))])
+	}
+	if !strings.Contains(body, `name="end_battery_pct" value="150"`) {
+		t.Errorf("B1: want the submitted invalid end_battery_pct=150 echoed back, body=%q", body[:min(800, len(body))])
+	}
+}
+
+// TestChargeRowUpdate_B2_ValidationFailure_PreservesNotesAndLocationLabel
+// verifies Test Contract B2: the inline edit row's 422 re-render still
+// carries the submitted notes/location_label text even though a different
+// field (start_battery_pct, out of range) is what failed validation, and even
+// though charging_type carries a value the <select> could never submit (a raw
+// POST bypassing the browser control).
+func TestChargeRowUpdate_B2_ValidationFailure_PreservesNotesAndLocationLabel(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{})
+
+	form := validCreateForm()
+	form.Set("start_battery_pct", "150") // out of range — triggers the 422
+	form.Set("charging_type", "BOGUS")   // a raw POST can submit what the <select> never would
+	form.Set("notes", "Charged at the mall")
+	form.Set("location_label", "Centro Comercial")
+
+	w := submitForm(t, h, uid, http.MethodPut, "/ui/charges/row/"+id.String(), form)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("B2: want 422, got %d", w.Code)
+	}
+	if writer.updateCalls != 0 {
+		t.Errorf("B2: Writer.Update must NOT be called, got %d calls", writer.updateCalls)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Charged at the mall") {
+		t.Errorf("B2: want submitted notes preserved on re-render, body=%q", body[:min(800, len(body))])
+	}
+	if !strings.Contains(body, "Centro Comercial") {
+		t.Errorf("B2: want submitted location_label preserved on re-render, body=%q", body[:min(800, len(body))])
+	}
+}
+
+// TestChargeCreate_B3_StatusDoneClearedEndedAt_StatusSelectionPreserved
+// verifies Test Contract B3: status="DONE" with ended_at cleared re-renders
+// the create form's status <select> still showing DONE selected — the error
+// path must not silently reset it to the IN_PROGRESS default.
+func TestChargeCreate_B3_StatusDoneClearedEndedAt_StatusSelectionPreserved(t *testing.T) {
+	uid := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm()
+	form.Set("status", "DONE")
+	form.Set("end_battery_pct", "90")
+	// ended_at deliberately cleared — the only invalid field.
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("B3: want 422, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `value="DONE" selected`) {
+		t.Errorf("B3: want status DONE still selected on re-render, body=%q", body[:min(800, len(body))])
+	}
+	if strings.Contains(body, `value="IN_PROGRESS" selected`) {
+		t.Errorf("B3: status must NOT reset to IN_PROGRESS on re-render, body=%q", body[:min(800, len(body))])
+	}
+}
+
+// TestChargePage_B4_FreshLoad_NoRegressionInBlankFieldRendering verifies Test
+// Contract B4: a fresh GET /charges (no submission) still renders
+// energy_added_kwh / price with an empty value and no location_kind option
+// pre-selected — ChargeFormValues{}'s zero value reproduces today's
+// fresh-load behavior with no regression from adding the struct.
+func TestChargePage_B4_FreshLoad_NoRegressionInBlankFieldRendering(t *testing.T) {
+	uid := uuid.New()
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+	w := submitForm(t, h, uid, http.MethodGet, "/charges", url.Values{})
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("B4: want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `name="energy_added_kwh" value=""`) {
+		t.Errorf("B4: want energy_added_kwh rendered with an empty value on fresh load, body=%q", body[:min(800, len(body))])
+	}
+	if !strings.Contains(body, `name="price" value=""`) {
+		t.Errorf("B4: want price rendered with an empty value on fresh load, body=%q", body[:min(800, len(body))])
+	}
+	for _, want := range []string{`value="HOME" selected`, `value="WORK" selected`, `value="OTHER" selected`} {
+		if strings.Contains(body, want) {
+			t.Errorf("B4: want no location_kind option pre-selected on fresh load, found %q in body", want)
+		}
+	}
+}
+
+// --- Group C — template/markup assertions (design.md Test Contract C1-C7) ---
+//
+// These render fragments.ChargeCreateForm / fragments.ChargeRowEdit directly
+// (mirrors supercharger_test.go's TestChargeCreateForm-style direct-render
+// pattern and history_test.go's TestBaseAuth_RendersBrowserTZScript) rather
+// than going through the full HTTP handler chain — Group C is a
+// template/markup assertion, not a handler-behavior one, so it exercises the
+// templates' binding of ChargesPageData/ChargeEntryVM fields directly,
+// independent of which handler code path produced those field values.
+
+// renderCreateForm renders fragments.ChargeCreateForm(d, nil) to a string in
+// the given language ("es"/"en" via i18n.WithLang, or "" for the ambient
+// default — i18n.FromContext resolves an unset context to Spanish).
+func renderCreateForm(t *testing.T, d fragments.ChargesPageData, lang string) string {
+	t.Helper()
+	ctx := context.Background()
+	if lang != "" {
+		ctx = i18n.WithLang(ctx, lang)
+	}
+	var body bytes.Buffer
+	if err := fragments.ChargeCreateForm(d, nil).Render(ctx, &body); err != nil {
+		t.Fatalf("render ChargeCreateForm: %v", err)
+	}
+	return body.String()
+}
+
+// renderEditRow renders fragments.ChargeRowEdit(vm, "tok", nil) to a string,
+// same language convention as renderCreateForm.
+func renderEditRow(t *testing.T, vm fragments.ChargeEntryVM, lang string) string {
+	t.Helper()
+	ctx := context.Background()
+	if lang != "" {
+		ctx = i18n.WithLang(ctx, lang)
+	}
+	var body bytes.Buffer
+	if err := fragments.ChargeRowEdit(vm, "tok", nil).Render(ctx, &body); err != nil {
+		t.Fatalf("render ChargeRowEdit: %v", err)
+	}
+	return body.String()
+}
+
+// tagAttrsFor extracts the substring of a rendered <input>/<select> tag from
+// name="<field>" up to (and including) that tag's closing ">" — narrowed to
+// exactly the one named control so a required/selected check on one field can
+// never false-match a different one.
+func tagAttrsFor(body, name string) string {
+	idx := strings.Index(body, `name="`+name+`"`)
+	if idx == -1 {
+		return ""
+	}
+	end := strings.Index(body[idx:], ">")
+	if end == -1 {
+		return body[idx:]
+	}
+	return body[idx : idx+end+1]
+}
+
+// TestChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalFieldsDo
+// verifies Test Contract C1 for BOTH forms: energy_added_kwh and price carry
+// no `required` attribute; start_battery_pct, charged_on, location_kind still
+// carry `required` (unconditional fields, unchanged by RM33).
+func TestChargeForms_C1_OptionalFieldsCarryNoRequired_UnconditionalFieldsDo(t *testing.T) {
+	createBody := renderCreateForm(t, fragments.ChargesPageData{}, "")
+	editBody := renderEditRow(t, fragments.ChargeEntryVM{}, "")
+
+	for _, form := range []struct {
+		name string
+		body string
+	}{{"create", createBody}, {"edit", editBody}} {
+		t.Run(form.name, func(t *testing.T) {
+			for _, optional := range []string{"energy_added_kwh", "price"} {
+				if attrs := tagAttrsFor(form.body, optional); strings.Contains(attrs, "required") {
+					t.Errorf("%s form: %s must NOT carry required, got %q", form.name, optional, attrs)
+				}
+			}
+			for _, unconditional := range []string{"start_battery_pct", "charged_on", "location_kind"} {
+				if attrs := tagAttrsFor(form.body, unconditional); !strings.Contains(attrs, "required") {
+					t.Errorf("%s form: %s must carry required, got %q", form.name, unconditional, attrs)
+				}
+			}
+		})
+	}
+}
+
+// TestChargeCreateForm_C2_FreshRender_InProgressDefaultsNoEndRequired
+// verifies Test Contract C2: a create-form ChargesPageData matching a fresh
+// (non-error) render — Status=IN_PROGRESS, RequiredEndedAt/
+// RequiredEndBatteryPct both false, mirroring buildChargesPage's own
+// fresh-load computation (design.md §D-Values/§D-Fields) — renders
+// IN_PROGRESS selected and no required attribute on ended_at/end_battery_pct.
+func TestChargeCreateForm_C2_FreshRender_InProgressDefaultsNoEndRequired(t *testing.T) {
+	d := fragments.ChargesPageData{
+		FormValues:            fragments.ChargeFormValues{Status: string(charging.StatusInProgress)},
+		RequiredEndedAt:       false,
+		RequiredEndBatteryPct: false,
+	}
+	body := renderCreateForm(t, d, "")
+
+	if !strings.Contains(body, `value="IN_PROGRESS" selected`) {
+		t.Errorf("C2: want IN_PROGRESS selected on fresh render, body=%q", body[:min(800, len(body))])
+	}
+	if strings.Contains(body, `value="DONE" selected`) {
+		t.Errorf("C2: DONE must not be selected on fresh render")
+	}
+	for _, name := range []string{"ended_at", "end_battery_pct"} {
+		if attrs := tagAttrsFor(body, name); strings.Contains(attrs, "required") {
+			t.Errorf("C2: %s must carry no required attribute on fresh render, got %q", name, attrs)
+		}
+	}
+}
+
+// TestChargeCreateForm_C3_DoneRequiredState_RendersRequiredAttributes
+// verifies Test Contract C3: when the create form's ChargesPageData carries
+// the required-state a DONE submission produces (RequiredEndedAt=true,
+// RequiredEndBatteryPct=true — the same charging.RequiredFieldsFor(DONE)
+// lookup design.md §D-Fields describes), ended_at and end_battery_pct render
+// with the `required` attribute.
+//
+// This is a template-binding assertion (Group C's stated scope is
+// "template/markup assertions"), independent of which handler code path
+// populates these two booleans. WORKER FINDING (2026-08-29): ChargeCreate's
+// OWN 422/500 branches do not currently recompute RequiredEndedAt/
+// RequiredEndBatteryPct from the submitted raw.Status (task 3.3 wired that
+// recompute only for the edit-row path, via chargeEntryVMFromRawValues) — so
+// a create-form validation failure under status=DONE will NOT itself produce
+// this exact ChargesPageData shape today; the create form's error re-render
+// keeps whatever buildChargesPage's unconditional StatusInProgress-based
+// computation set. RD13's client-side htmx:load listener is design.md's own
+// documented mitigation for this ("if the two ever disagree ... the
+// disagreement is inert"), but it means the SERVER-rendered HTML on that one
+// path does not, by itself, satisfy this test's premise. See this worker's
+// final report for the full writeup; not fixed here (out of this task's
+// assigned scope — task 3.3 owns that wiring).
+func TestChargeCreateForm_C3_DoneRequiredState_RendersRequiredAttributes(t *testing.T) {
+	d := fragments.ChargesPageData{
+		FormValues:            fragments.ChargeFormValues{Status: string(charging.StatusDone)},
+		RequiredEndedAt:       true,
+		RequiredEndBatteryPct: true,
+	}
+	body := renderCreateForm(t, d, "")
+
+	for _, name := range []string{"ended_at", "end_battery_pct"} {
+		if attrs := tagAttrsFor(body, name); !strings.Contains(attrs, "required") {
+			t.Errorf("C3: %s must carry required when RequiredEndedAt/RequiredEndBatteryPct are true, got %q", name, attrs)
+		}
+	}
+}
+
+// TestChargeRowEdit_C4_StatusSelectReflectsPersistedValue verifies Test
+// Contract C4: the edit row's status <select> shows the PERSISTED entry's
+// status selected — DONE for a DONE entry, IN_PROGRESS for an IN_PROGRESS one.
+func TestChargeRowEdit_C4_StatusSelectReflectsPersistedValue(t *testing.T) {
+	for _, status := range []string{"DONE", "IN_PROGRESS"} {
+		t.Run(status, func(t *testing.T) {
+			vm := fragments.ChargeEntryVM{ID: uuid.New().String(), RawStatus: status}
+			body := renderEditRow(t, vm, "")
+
+			if !strings.Contains(body, `value="`+status+`" selected`) {
+				t.Errorf("C4: want %s selected, body=%q", status, body[:min(800, len(body))])
+			}
+			other := "IN_PROGRESS"
+			if status == "IN_PROGRESS" {
+				other = "DONE"
+			}
+			if strings.Contains(body, `value="`+other+`" selected`) {
+				t.Errorf("C4: %s must NOT be selected when the persisted status is %s", other, status)
+			}
+		})
+	}
+}
+
+// TestChargeForms_C5_NoCurrencyField_PriceHasCOPSuffix verifies Test Contract
+// C5: neither form renders a Currency <input> (removed — design.md §D-Suffix
+// replaces it with a COP suffix on the price input); the price input's
+// rendered HTML contains a <span class="label">COP</span> inside a
+// <label class="input w-full"> wrapper (DaisyUI v5's compound-input idiom).
+func TestChargeForms_C5_NoCurrencyField_PriceHasCOPSuffix(t *testing.T) {
+	createBody := renderCreateForm(t, fragments.ChargesPageData{}, "")
+	editBody := renderEditRow(t, fragments.ChargeEntryVM{}, "")
+
+	for _, form := range []struct {
+		name string
+		body string
+	}{{"create", createBody}, {"edit", editBody}} {
+		t.Run(form.name, func(t *testing.T) {
+			if strings.Contains(form.body, `name="currency"`) {
+				t.Errorf("%s form: must NOT render a Currency input, body=%q", form.name, form.body[:min(1500, len(form.body))])
+			}
+			if !strings.Contains(form.body, `<span class="label">COP</span>`) {
+				t.Errorf("%s form: want a COP suffix span, body=%q", form.name, form.body[:min(1500, len(form.body))])
+			}
+			if !strings.Contains(form.body, `<label class="input w-full">`) {
+				t.Errorf("%s form: want the price input wrapped in DaisyUI's compound label, body=%q", form.name, form.body[:min(1500, len(form.body))])
+			}
+		})
+	}
+}
+
+// TestChargeForms_C6_ACDCOptionText_BothLanguages verifies Test Contract C6:
+// both forms' AC/DC <option> text matches roadmap D16's descriptive strings,
+// in both ES and EN (i18n.WithLang, mirroring the catalogue completeness
+// test's language-switch pattern).
+func TestChargeForms_C6_ACDCOptionText_BothLanguages(t *testing.T) {
+	for _, tc := range []struct {
+		lang   string
+		wantAC string
+		wantDC string
+	}{
+		{"es", "AC — Carga lenta (casa/destino)", "DC — Carga rápida (Supercargador)"},
+		{"en", "AC — Slow charging (home/destination)", "DC — Fast charging (Supercharger)"},
+	} {
+		t.Run(tc.lang, func(t *testing.T) {
+			createBody := renderCreateForm(t, fragments.ChargesPageData{}, tc.lang)
+			editBody := renderEditRow(t, fragments.ChargeEntryVM{}, tc.lang)
+			for _, form := range []struct {
+				name string
+				body string
+			}{{"create", createBody}, {"edit", editBody}} {
+				if !strings.Contains(form.body, tc.wantAC) {
+					t.Errorf("%s form (%s): want AC option text %q, body=%q", form.name, tc.lang, tc.wantAC, form.body[:min(1500, len(form.body))])
+				}
+				if !strings.Contains(form.body, tc.wantDC) {
+					t.Errorf("%s form (%s): want DC option text %q, body=%q", form.name, tc.lang, tc.wantDC, form.body[:min(1500, len(form.body))])
+				}
+			}
+		})
+	}
+}
+
+// TestChargeForms_C7_OdometerInsideMoreDetails verifies Test Contract C7:
+// both forms render an odometer_km number input inside the <details>/"More
+// details" block — after <summary> and before </details>.
+func TestChargeForms_C7_OdometerInsideMoreDetails(t *testing.T) {
+	createBody := renderCreateForm(t, fragments.ChargesPageData{}, "")
+	editBody := renderEditRow(t, fragments.ChargeEntryVM{}, "")
+
+	for _, form := range []struct {
+		name string
+		body string
+	}{{"create", createBody}, {"edit", editBody}} {
+		t.Run(form.name, func(t *testing.T) {
+			summaryIdx := strings.Index(form.body, "<summary")
+			detailsCloseIdx := strings.Index(form.body, "</details>")
+			odometerIdx := strings.Index(form.body, `name="odometer_km"`)
+			if summaryIdx == -1 || detailsCloseIdx == -1 || odometerIdx == -1 {
+				t.Fatalf("%s form: missing <summary>/</details>/odometer_km markers, body=%q", form.name, form.body[:min(1500, len(form.body))])
+			}
+			if !(odometerIdx > summaryIdx && odometerIdx < detailsCloseIdx) {
+				t.Errorf("%s form: odometer_km must render between <summary> and </details>, summary=%d odometer=%d detailsClose=%d",
+					form.name, summaryIdx, odometerIdx, detailsCloseIdx)
+			}
+		})
+	}
+}
+
+// TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes is the
+// handler-level counterpart to Test Contract C3, added in wave 4 after the C3
+// template test surfaced that ChargeCreate's error branches did not satisfy it.
+//
+// C3 asserts the create form renders `required` on ended_at/end_battery_pct for
+// a DONE status, and the template does — but only if the handler hands it a
+// ChargesPageData whose Required* pair was computed from the SUBMITTED status.
+// The 4xx/5xx branches overwrite FormValues with the raw submission (roadmap
+// D15) and used to leave Required* on buildChargesPage's fresh-load IN_PROGRESS
+// default, so a user who picked DONE and tripped an unrelated validation error
+// got those two inputs back without `required` — the flash-of-wrong-state
+// design.md §D-Fields rules out. applyRawRequiredState fixes it; this test
+// pins the handler path a direct template render cannot reach.
+func TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes(t *testing.T) {
+	uid := uuid.New()
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
+
+	// Valid in every respect EXCEPT location_kind, so the 422 is triggered by a
+	// field unrelated to the status-gated pair under assertion. Per the wave-8
+	// fixture convention, status is explicit and the failure is a named field —
+	// not a spurious missing-status error.
+	form := validCreateForm()
+	form.Set("status", "DONE")
+	form.Set("ended_at", "2026-07-15T10:00")
+	form.Set("end_battery_pct", "80")
+	form.Del("location_kind")
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 when location_kind is missing, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	for _, name := range []string{"ended_at", "end_battery_pct"} {
+		attrs := tagAttrsFor(body, name)
+		if attrs == "" {
+			t.Fatalf("%s input not found in the 422 re-render", name)
+		}
+		if !strings.Contains(attrs, "required") {
+			t.Errorf("design.md §D-Fields: %s must carry required on a DONE error re-render, got %q", name, attrs)
+		}
 	}
 }
