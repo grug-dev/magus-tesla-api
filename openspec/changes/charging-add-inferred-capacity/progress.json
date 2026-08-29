@@ -4,17 +4,36 @@
   "change": "charging-add-inferred-capacity",
   "module": "charging",
   "roadmap": null,
-  "request": "Source ticket: MAG-25 — https://linear.app/magus-monitor/issue/MAG-25/inferred-capacity\n\nInferred Capacity. This data will be saved per vehicle. The idea is to calculate the value every time a record is inserted or updated into the charging module tables (charge_sessions and manual_charge_entries). The formula is inferred_capacity_calc = energy_added / ((end_soc - start_soc) / 100), calculated only when the record contains energy added, end battery % and start battery %; otherwise NULL. Acceptance criteria: the new column is created and calculated for existing rows in charge_sessions and manual_charge_entries. Picked up via /kkpa-pickup-linear-ticket with AUTOPILOT ON; pipeline scope HALT AFTER STEP 4 (artifacts only, no implementation).",
-  "status": "proposed",
+  "request": "Source ticket: MAG-25 \u2014 https://linear.app/magus-monitor/issue/MAG-25/inferred-capacity\n\nInferred Capacity. This data will be saved per vehicle. The idea is to calculate the value every time a record is inserted or updated into the charging module tables (charge_sessions and manual_charge_entries). The formula is inferred_capacity_calc = energy_added / ((end_soc - start_soc) / 100), calculated only when the record contains energy added, end battery % and start battery %; otherwise NULL. Acceptance criteria: the new column is created and calculated for existing rows in charge_sessions and manual_charge_entries. Picked up via /kkpa-pickup-linear-ticket with AUTOPILOT ON; pipeline scope HALT AFTER STEP 4 (artifacts only, no implementation).",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["1.1", "1.2", "2.1", "2.2", "2.3", "3.1", "3.2", "3.3", "3.4", "V1", "V2", "V3"],
+    "pending": [
+      "3.1",
+      "3.2",
+      "V1",
+      "V2",
+      "V3"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "3.3",
+      "3.4"
+    ],
+    "awaiting-user-verification": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "2.3"
+    ]
   },
   "created_at": "2026-08-29T09:04:49Z",
-  "updated_at": "2026-08-29T09:04:49Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-08-29T09:32:41Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/CH32-MAG-25-charging-add-inferred-capacity",
@@ -30,80 +49,130 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Blocked on the owner's design-gate confirmation of design.md (result type D4).",
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "Migration created verbatim: both generated columns, full header comment, both COMMENT ON COLUMN. query.sql untouched (D8). Leader re-verified DDL, Down order, no index, no CHECK.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
     },
     {
       "id": "1.2",
       "title": "Run make sqlc and review the diff against design.md D8's probed expectations",
       "module": "charging",
-      "depends_on": ["1.1"],
+      "depends_on": [
+        "1.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "make sqlc clean. Diff matches D8 exactly: 2 model fields, 10 column-list + 10 Scan additions. Leader diffed all four *Params struct bodies old vs new \u2014 byte-identical.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
     },
     {
       "id": "2.1",
-      "title": "charging.go — add InferredCapacityKWhCalc *float64 to Entry and Session",
+      "title": "charging.go \u2014 add InferredCapacityKWhCalc *float64 to Entry and Session",
       "module": "charging",
-      "depends_on": ["1.2"],
+      "depends_on": [
+        "1.2"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "InferredCapacityKWhCalc *float64 on Entry and Session with full D7 doc comments; also corrected a stale field-count comment on Session.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
     },
     {
       "id": "2.2",
-      "title": "service.go — add pgNumericToFloat64Ptr helper and wire into rowToEntry",
+      "title": "service.go \u2014 add pgNumericToFloat64Ptr helper and wire into rowToEntry",
       "module": "charging",
-      "depends_on": ["2.1"],
+      "depends_on": [
+        "2.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "pgNumericToFloat64Ptr added non-erroring per D8, beside the existing pg*To*Ptr helpers; wired into rowToEntry.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
     },
     {
       "id": "2.3",
-      "title": "session_reader.go — wire helper into rowToSession; build/vet/gofmt clean",
+      "title": "session_reader.go \u2014 wire helper into rowToSession; build/vet/gofmt clean",
       "module": "charging",
-      "depends_on": ["2.2"],
+      "depends_on": [
+        "2.2"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "Wired into rowToSession; session_verifier.go/session_writer.go untouched (VerifySession already routes through rowToSession).",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
     },
     {
       "id": "3.1",
       "title": "Integration test: entries (Test Contract Group A, T1-T12 + T24)",
       "module": "charging",
-      "depends_on": ["2.3"],
+      "depends_on": [
+        "2.3"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -118,7 +187,9 @@
       "id": "3.2",
       "title": "Integration test: sessions (Test Contract Group B, T13-T23)",
       "module": "charging",
-      "depends_on": ["2.3"],
+      "depends_on": [
+        "2.3"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -131,39 +202,61 @@
     },
     {
       "id": "3.3",
-      "title": "internal/charging/AGENTS.md — units, public interface, data ownership, testing notes",
+      "title": "internal/charging/AGENTS.md \u2014 units, public interface, data ownership, testing notes",
       "module": "charging",
-      "depends_on": ["2.1"],
+      "depends_on": [
+        "2.1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "Durable half: write down the <what>_<unit>_calc derived-column rule.",
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "AGENTS.md: <what>_<unit>_calc rule written down, field documented on Entry/Session (not SessionMirror), engine-generated column category, testing notes + D10.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
     },
     {
       "id": "3.4",
-      "title": "Root README.md — Database tables by module rows for both charging tables",
+      "title": "Root README.md \u2014 Database tables by module rows for both charging tables",
       "module": null,
-      "depends_on": ["1.1"],
+      "depends_on": [
+        "1.1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": "LEADER task — README is outside every module sandbox.",
-      "budget": null
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "Leader task. Both internal/charging README rows now describe the generated column and when it is NULL. No other README section changed \u2014 no module added/renamed/re-scoped.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
     },
     {
       "id": "V1",
       "title": "Owner: apply the migration (make migrate-up / make db-setup)",
       "module": null,
-      "depends_on": ["1.1"],
+      "depends_on": [
+        "1.1"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -178,7 +271,9 @@
       "id": "V2",
       "title": "Owner: confirm existing rows were backfilled (acceptance criterion, 2nd half)",
       "module": null,
-      "depends_on": ["V1"],
+      "depends_on": [
+        "V1"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -193,7 +288,10 @@
       "id": "V3",
       "title": "Owner: run the suite (make check)",
       "module": null,
-      "depends_on": ["3.1", "3.2"],
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -227,7 +325,7 @@
       "scope": "task:artifacts",
       "made_by": "autopilot",
       "decision": "Dispatched the artifact worker on Opus, not the Sonnet default",
-      "why": "Gated database design requiring rejected-alternatives analysis and an up-front test contract — the SKILL.md Step 5.2 integration-heavy exception.",
+      "why": "Gated database design requiring rejected-alternatives analysis and an up-front test contract \u2014 the SKILL.md Step 5.2 integration-heavy exception.",
       "covered_by": null
     },
     {
@@ -256,6 +354,24 @@
       "decision": "Left three items open for the owner rather than deciding them",
       "why": "Result type confirmation, the minimum-delta quality floor (a product question), and the ticket's imprecise worked figures. All are the owner's call, not autopilot's.",
       "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-29T09:26:17Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design gate CONFIRMED: unconstrained NUMERIC + ROUND(...,3); no minimum-delta floor in the column; tests assert exact scale-3 values (66.629 / 73.624 / 73.620).",
+      "why": "Owner chose all three recommendations at the gate. design.md needs no revision \u2014 it is already written this way. Closes the three items D5 left open.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-29T09:32:41Z",
+      "scope": "wave:1",
+      "made_by": "autopilot",
+      "decision": "Batched the whole serial chain 1.1-2.3 plus 3.3 into ONE Sonnet worker rather than per-task dispatches",
+      "why": "depends_on makes the chain strictly serial, so parallelism was impossible; one dispatch reads the doc pack once. design.md is prescriptive enough that Opus was unwarranted.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -267,7 +383,7 @@
     {
       "at": "2026-08-29T02:47:00Z",
       "agent": "leader",
-      "event": "Step 1a: took N=32 from openspec/.work-counter, wrote 33 back. No legacy .ch-counter/.rm-counter present (migration already complete). Ticket MAG-25 auto-detected from the Source ticket line — no prompt. Created branch ft/CH32-MAG-25-charging-add-inferred-capacity off main @ 3dd02d53."
+      "event": "Step 1a: took N=32 from openspec/.work-counter, wrote 33 back. No legacy .ch-counter/.rm-counter present (migration already complete). Ticket MAG-25 auto-detected from the Source ticket line \u2014 no prompt. Created branch ft/CH32-MAG-25-charging-add-inferred-capacity off main @ 3dd02d53."
     },
     {
       "at": "2026-08-29T02:52:00Z",
@@ -292,7 +408,17 @@
     {
       "at": "2026-08-29T09:04:49Z",
       "agent": "leader",
-      "event": "Step 4: progress.json created, status 'proposed'. HALTING per the pickup skill's declared scope — no implementation workers dispatched, no reviewer, no archive. DESIGN GATE OPEN: the owner must confirm design.md (result type) before task 1.1. Budget note: the 5-hour bucket reset mid-run (60% -> 4%), so no meaningful bucket delta; artifact phase cost ~13.75 USD, context 11% -> 14%."
+      "event": "Step 4: progress.json created, status 'proposed'. HALTING per the pickup skill's declared scope \u2014 no implementation workers dispatched, no reviewer, no archive. DESIGN GATE OPEN: the owner must confirm design.md (result type) before task 1.1. Budget note: the 5-hour bucket reset mid-run (60% -> 4%), so no meaningful bucket delta; artifact phase cost ~13.75 USD, context 11% -> 14%."
+    },
+    {
+      "at": "2026-08-29T09:26:17Z",
+      "agent": "leader",
+      "event": "Resume: design gate CLOSED by the owner \u2014 unconstrained NUMERIC, no delta floor, exact scale-3 test values; all three match design.md as written, so no artifact revision. Status -> in-progress. Wave 1 dispatched: 1.1,1.2,2.1,2.2,2.3,3.3 batched into ONE serial charging worker (Sonnet). Budget at dispatch: 5h 11%, context 10%."
+    },
+    {
+      "at": "2026-08-29T09:32:41Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled. Worker reported all six done; leader independently verified before accepting: migration DDL/Down/no-index/no-CHECK match design.md; all four *Params struct bodies byte-identical to HEAD (D8's load-bearing claim); 20 added lines in query.sql.go = 10 column-list + 10 Scan, no struct fields. go build/vet clean, gofmt -l internal/charging clean. Leader completed 3.4 (README). Timestamps: the worker reported placeholder times (00:00-00:35Z); substituted the real dispatch bracket. Code tasks 1.1-2.3 set awaiting-user-verification, not done \u2014 nothing has run against a database or a suite. Budget: 5h 11%->20%, context 10%->13%."
     }
   ]
 }

@@ -90,6 +90,15 @@ func NewWriter(pool *pgxpool.Pool) Writer
 func NewReader(pool *pgxpool.Pool) Reader
 ```
 
+**`Entry.InferredCapacityKWhCalc *float64`** (MAG-25, charging-add-inferred-capacity)
+is reachable through both `Writer` and `Reader` above — it is a field on `Entry`, not
+a new method. It is **database-computed and read-only**: a value set on the `Entry`
+passed to `Writer.Create` / `Writer.Update` is silently ignored (the underlying
+`INSERT`/`UPDATE` never names the column), and the database physically rejects any
+direct write to it. `nil` means the record's inputs (energy, both percentages, a
+strictly increasing delta) did not support the formula — never an error. See
+§Data Ownership below for the guard and §Units convention for the naming rule.
+
 The gateway (Tier 2 `RM3-gateway-add-manual-charge-ui`) wires these interfaces into `cmd/web`
 Deps and calls them from handlers. The gateway never imports `chargingdb` directly.
 
@@ -186,6 +195,12 @@ type Session struct {
     BatteryPctSource   *string
     StartBatteryPctEst *int
     EndBatteryPctEst   *int
+
+    // InferredCapacityKWhCalc — database-computed, read-only (MAG-25,
+    // charging-add-inferred-capacity). nil when EnergyKWh is nil, either
+    // percentage is nil, or the delta is not strictly positive. See §Data
+    // Ownership below.
+    InferredCapacityKWhCalc *float64
 
     CreatedAt time.Time
     UpdatedAt time.Time
@@ -361,7 +376,27 @@ Platform-wide unit rule: `openspec/specs/unit-of-measure/spec.md` / `ai/go-conve
 §Coding Rules — display units, unit-suffixed column names, converted once on write. This table
 is **compliant**: `energy_added_kwh`, `start_battery_pct`, `end_battery_pct` already carry their
 unit suffix. `price` is the platform's named monetary exemption — it takes no suffix and is
-paired with the `currency` column instead of a unit.
+paired with the `currency` column instead of a unit. `inferred_capacity_kwh_calc`
+(MAG-25, charging-add-inferred-capacity) is compliant too — see the naming rule below.
+
+### Naming a stored, derived column: `<what>_<unit>_calc`
+
+This project names a **stored, derived** column `<what>_<unit>_calc` — unit suffix
+first, `_calc` last. `internal/analytics/vehicle_metrics`
+(`internal/analytics/db/migrations/20260821000001_add_vehicle_metrics.sql:67-71`) is
+the precedent: it carries five such columns — `distance_traveled_km_calc`,
+`battery_used_pct_calc`, `km_per_pct_calc`, `estimated_range_km_calc`,
+`days_spanned_calc` — each a value computed rather than observed, persisted rather
+than derived on read, each placing `_calc` **after** its unit suffix.
+`inferred_capacity_kwh_calc` follows the identical shape.
+
+**`ai/go-conventions.md` documents the unit-suffix half of this pattern and says
+nothing about `_calc`** — it is an established *code* convention with no written
+home until this paragraph. The next agent naming a derived column should read this
+rule rather than re-deriving it from `vehicle_metrics` (or missing it entirely).
+This is also why `inferred_capacity_kwh_calc` is not the ticket's literal
+`inferred_capacity_calc`: that name is the same convention, missing the mandatory
+unit segment (design.md D1, charging-add-inferred-capacity).
 
 ## Data Ownership
 
@@ -376,6 +411,15 @@ paired with the `currency` column instead of a unit.
 - sqlc generates `package chargingdb` into `internal/charging/db/` from `query.sql`
   against the migration directory. Only `service.go` and `session_writer.go` (inside
   this module) may import it.
+- `inferred_capacity_kwh_calc` (MAG-25, charging-add-inferred-capacity,
+  `internal/charging/db/migrations/20260829000001_add_inferred_capacity.sql`) —
+  **engine-generated**: a PostgreSQL `GENERATED ALWAYS AS (...) STORED` column,
+  written by nobody. Present (non-`NULL`) only when `start_battery_pct` and
+  `end_battery_pct` are both non-`NULL` and `end_battery_pct > start_battery_pct`;
+  `NULL` otherwise (an equal delta is a division by zero, a decreasing one a
+  negative capacity — design.md D3). Recomputed automatically by the engine on
+  every `INSERT`/`UPDATE` through `Writer.Create`/`Writer.Update`; unwritable by
+  any caller (`428C9` on a direct attempt).
 
 ### `charge_sessions` (RM29 tier 6, RM29-charging-add-charge-sessions)
 
@@ -416,6 +460,21 @@ paired with the `currency` column instead of a unit.
     D1 of that change).
   - Deliberately **not** carried, and the list is closed: `country_code`,
     `unlatch_date_time`, `billing_type`, `vehicle_make_type`, `raw_data` (design.md D1).
+  - `inferred_capacity_kwh_calc` (MAG-25, charging-add-inferred-capacity) —
+    a **fourth** category, alongside mirrored-write-once / mirrored-refreshed /
+    charging-owned: **engine-generated**. Written by nobody — a PostgreSQL
+    `GENERATED ALWAYS AS (...) STORED` column
+    (`internal/charging/db/migrations/20260829000001_add_inferred_capacity.sql`) —
+    recomputed automatically whenever `energy_kwh`, `start_battery_pct` or
+    `end_battery_pct` changes, through either `SessionWriter.MirrorSessions`
+    (the nightly refresh of `energy_kwh`) or `SessionVerifier.VerifySession`
+    (a human correcting the percentages), without either write path naming the
+    column. `NULL` when `energy_kwh` is `NULL` (no kWh fee), either percentage is
+    `NULL`, or the delta is not strictly positive (design.md D3). The RM29
+    "protection by compile error" pattern — `SessionMirror` has no field for the
+    battery percentages, so the nightly sync cannot touch them even by mistake —
+    is here strengthened to **protection by the database itself**: there is no
+    query, port method, or Go code path that can write this column at all.
 - sqlc generates the `ChargeSession` model and the `MirrorChargeSession`,
   `ListSessionsByVehicleBetween`, and `VerifyChargeSession` queries into the same
   `chargingdb` package as `manual_charge_entries`'s queries. Only `session_writer.go`
@@ -434,7 +493,9 @@ paired with the `currency` column instead of a unit.
   `db_backfill_integration_test.go`, `db_session_reader_integration_test.go`,
   `db_session_verifier_integration_test.go`,
   `db_session_reader_updated_since_integration_test.go`,
-  `db_session_reader_by_vehicle_integration_test.go`): cover full CRUD round-trips,
+  `db_session_reader_by_vehicle_integration_test.go`,
+  `db_inferred_capacity_entries_integration_test.go`,
+  `db_inferred_capacity_sessions_integration_test.go`): cover full CRUD round-trips,
   ordering guarantees, multi-tenant isolation, CHECK constraint enforcement, the
   Supercharger session mirror (`SessionWriter.MirrorSessions`), the one-time backfill,
   the `charge_sessions` read ports (`SessionReader.ListSessionsByVehicleBetween`,
@@ -448,6 +509,20 @@ paired with the `currency` column instead of a unit.
   `db_session_verifier_integration_test.go`, design.md Test Contract T1-T9). Reads still
   assert only against `charging.Session` domain fields or direct SQL column values —
   never `pgtype`, in this file or any other.
+  Since MAG-25 (charging-add-inferred-capacity),
+  `db_inferred_capacity_entries_integration_test.go` and
+  `db_inferred_capacity_sessions_integration_test.go` cover
+  `inferred_capacity_kwh_calc` on both tables against the change's design.md Test
+  Contract Groups A/B (T1-T24) — the guard, the type's overflow safety, the
+  column's unwritability, and recomputation on `Writer.Update`,
+  `SessionWriter.MirrorSessions`'s nightly refresh, and
+  `SessionVerifier.VerifySession`. **Backfill of rows that existed before the
+  migration is deliberately NOT covered by an integration test** (design.md D10):
+  the package's test database is provisioned fresh with every migration applied
+  before any row exists, so there is nothing to backfill in that environment —
+  the real check is the owner's post-`migrate-up` query
+  (`openspec/changes/charging-add-inferred-capacity/tasks.md` §"Owner
+  verification").
   The test database is provisioned by `testdb_test.go`:
     - When `DATABASE_URL` is set, that managed Postgres is used (CI with a service container,
       or a local DB you've already provisioned).

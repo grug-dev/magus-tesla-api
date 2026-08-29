@@ -47,7 +47,7 @@ INSERT INTO manual_charge_entries (
     $14,
     $15
 )
-RETURNING id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at
+RETURNING id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc
 `
 
 type CreateEntryParams struct {
@@ -115,6 +115,7 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Manua
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InferredCapacityKwhCalc,
 	)
 	return i, err
 }
@@ -140,7 +141,7 @@ func (q *Queries) DeleteEntry(ctx context.Context, arg DeleteEntryParams) error 
 }
 
 const listEntriesByAccount = `-- name: ListEntriesByAccount :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at FROM manual_charge_entries
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc FROM manual_charge_entries
 WHERE account_id = $1
 ORDER BY charged_on DESC
 LIMIT $2
@@ -183,6 +184,7 @@ func (q *Queries) ListEntriesByAccount(ctx context.Context, arg ListEntriesByAcc
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InferredCapacityKwhCalc,
 		); err != nil {
 			return nil, err
 		}
@@ -195,7 +197,7 @@ func (q *Queries) ListEntriesByAccount(ctx context.Context, arg ListEntriesByAcc
 }
 
 const listEntriesByVehicle = `-- name: ListEntriesByVehicle :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at FROM manual_charge_entries
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc FROM manual_charge_entries
 WHERE account_id = $1
   AND tesla_id = $2
 ORDER BY charged_on DESC
@@ -241,6 +243,7 @@ func (q *Queries) ListEntriesByVehicle(ctx context.Context, arg ListEntriesByVeh
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InferredCapacityKwhCalc,
 		); err != nil {
 			return nil, err
 		}
@@ -253,7 +256,7 @@ func (q *Queries) ListEntriesByVehicle(ctx context.Context, arg ListEntriesByVeh
 }
 
 const listEntriesByVehicleBetween = `-- name: ListEntriesByVehicleBetween :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at FROM manual_charge_entries
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc FROM manual_charge_entries
 WHERE account_id = $1
   AND tesla_id = $2
   AND charged_on BETWEEN $3 AND $4
@@ -308,6 +311,7 @@ func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntri
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InferredCapacityKwhCalc,
 		); err != nil {
 			return nil, err
 		}
@@ -320,7 +324,7 @@ func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntri
 }
 
 const listEntriesByVehicleUpdatedSince = `-- name: ListEntriesByVehicleUpdatedSince :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at FROM manual_charge_entries
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc FROM manual_charge_entries
 WHERE account_id = $1
   AND tesla_id = $2
   AND updated_at >= $3
@@ -370,6 +374,7 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 			&i.Notes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InferredCapacityKwhCalc,
 		); err != nil {
 			return nil, err
 		}
@@ -382,7 +387,7 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 }
 
 const listSessionsByVehicle = `-- name: ListSessionsByVehicle :many
-SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at FROM charge_sessions
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charge_sessions
 WHERE account_id = $1
   AND tesla_id = $2
 ORDER BY charge_stop_date_time DESC
@@ -453,6 +458,7 @@ func (q *Queries) ListSessionsByVehicle(ctx context.Context, arg ListSessionsByV
 			&i.EndBatteryPctEst,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InferredCapacityKwhCalc,
 		); err != nil {
 			return nil, err
 		}
@@ -465,7 +471,7 @@ func (q *Queries) ListSessionsByVehicle(ctx context.Context, arg ListSessionsByV
 }
 
 const listSessionsByVehicleBetween = `-- name: ListSessionsByVehicleBetween :many
-SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at FROM charge_sessions
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charge_sessions
 WHERE account_id = $1
   AND tesla_id = $2
   AND charge_stop_date_time >= $3
@@ -545,6 +551,7 @@ func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSess
 			&i.EndBatteryPctEst,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InferredCapacityKwhCalc,
 		); err != nil {
 			return nil, err
 		}
@@ -557,7 +564,7 @@ func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSess
 }
 
 const listSessionsByVehicleUpdatedSince = `-- name: ListSessionsByVehicleUpdatedSince :many
-SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at FROM charge_sessions
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charge_sessions
 WHERE account_id = $1
   AND tesla_id = $2
   AND updated_at >= $3
@@ -628,6 +635,7 @@ func (q *Queries) ListSessionsByVehicleUpdatedSince(ctx context.Context, arg Lis
 			&i.EndBatteryPctEst,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InferredCapacityKwhCalc,
 		); err != nil {
 			return nil, err
 		}
@@ -736,7 +744,7 @@ SET
     updated_at        = now()
 WHERE id = $13
   AND account_id = $14
-RETURNING id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at
+RETURNING id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc
 `
 
 type UpdateEntryParams struct {
@@ -798,6 +806,7 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Manua
 		&i.Notes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InferredCapacityKwhCalc,
 	)
 	return i, err
 }
@@ -811,7 +820,7 @@ SET
     updated_at         = now()
 WHERE id = $4
   AND account_id = $5
-RETURNING id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at
+RETURNING id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc
 `
 
 type VerifyChargeSessionParams struct {
@@ -868,6 +877,7 @@ func (q *Queries) VerifyChargeSession(ctx context.Context, arg VerifyChargeSessi
 		&i.EndBatteryPctEst,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InferredCapacityKwhCalc,
 	)
 	return i, err
 }

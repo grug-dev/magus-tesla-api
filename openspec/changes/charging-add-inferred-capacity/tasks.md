@@ -38,7 +38,7 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
 
 ## Wave 1 — schema + codegen (module: charging worker)
 
-- [ ] **1.1** **[module: charging worker]** Create
+- [x] **1.1** **[module: charging worker]** Create
   `internal/charging/db/migrations/20260829000001_add_inferred_capacity.sql` with the DDL in
   design.md §"Database Changes" → "The migration", **verbatim, including its full header
   comment and both `COMMENT ON COLUMN` statements**. That comment block is the deliverable's
@@ -63,7 +63,7 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
   query change is needed or permitted.
   `depends_on`: — (owner's design-gate confirmation) · `parallel_ok`: no (blocks everything)
 
-- [ ] **1.2** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md`
+- [x] **1.2** **[module: charging worker]** Run `make sqlc` (allowed by `CLAUDE.md`
   §"Builds & local checks") and **review the diff against design.md D8's probed
   expectations**, which is this task's acceptance criterion, not "it ran":
   - `internal/charging/db/models.go` — `ManualChargeEntry` and `ChargeSession` each gain
@@ -89,7 +89,7 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
 
 ## Wave 2 — domain surface + mapping (module: charging worker)
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add
+- [x] **2.1** **[module: charging worker]** `internal/charging/charging.go` — add
   `InferredCapacityKWhCalc *float64` to **both** `Entry` and `Session`, each with a doc comment
   stating in full (design.md **D7**):
   - what it is (the pack capacity in kWh implied by this record alone) and the formula;
@@ -110,7 +110,7 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
   signature changes.**
   `depends_on`: 1.2 · `parallel_ok`: no (2.2 and 2.3 both build on it)
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/service.go` —
+- [x] **2.2** **[module: charging worker]** `internal/charging/service.go` —
   - add `pgNumericToFloat64Ptr(v pgtype.Numeric) *float64` beside the existing
     `pgTimestamptzToPtr` / `pgInt2ToIntPtr` / `pgTextToPtr` helpers: invalid (SQL `NULL`)
     → `nil`; otherwise the value via `Float64Value()`. Write it **non-erroring**
@@ -125,7 +125,7 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
   those columns are `NOT NULL` and their current erroring path is correct for them.
   `depends_on`: 2.1 · `parallel_ok`: no (2.3 needs the helper)
 
-- [ ] **2.3** **[module: charging worker]** `internal/charging/session_reader.go` — wire the
+- [x] **2.3** **[module: charging worker]** `internal/charging/session_reader.go` — wire the
   helper into `rowToSession`:
   `InferredCapacityKWhCalc: pgNumericToFloat64Ptr(r.InferredCapacityKwhCalc)`. Do **not** duplicate
   the helper here; do **not** change `rowToSession`'s signature. `session_verifier.go` and
@@ -194,7 +194,7 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
   - Same float-tolerance, explicit-`nil` and **no-`pgtype`** rules as 3.1.
   `depends_on`: 2.3 · `parallel_ok`: with 3.1, 3.3, 3.4
 
-- [ ] **3.3** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
+- [x] **3.3** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
   module's new surface (docs-track-structural-change, `CLAUDE.md` §Non-negotiables):
   - **§Units convention** — add `inferred_capacity_kwh_calc` to the compliant-column list,
     **and write down the naming rule it follows**, which is the durable half of this task.
@@ -227,7 +227,7 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
     provisions a fresh database, so there is nothing in it to backfill).
   `depends_on`: 2.1 · `parallel_ok`: with 3.1, 3.2, 3.4
 
-- [ ] **3.4** **[leader]** Root `README.md` §"Database tables by module" — its rows describe
+- [x] **3.4** **[leader]** Root `README.md` §"Database tables by module" — its rows describe
   each table's columns, and both `internal/charging` rows go stale with this change.
   README's own §"Making a change" table makes this mandatory for a new column: *"add the
   table to the README **Database tables by module** list in the same change."* Add one clause

@@ -49,6 +49,22 @@ type Entry struct {
 	LocationLabel   *string    // free text, especially useful for 'OTHER'
 	Notes           *string    // any user comment
 
+	// InferredCapacityKWhCalc is the pack capacity in kWh implied by this entry
+	// alone: EnergyAddedKWh / ((EndBatteryPct - StartBatteryPct) / 100), rounded to
+	// 3 decimals (MAG-25, charging-add-inferred-capacity design.md D7). It is
+	// COMPUTED BY THE DATABASE and READ-ONLY: this is a PostgreSQL
+	// GENERATED ALWAYS AS (...) STORED column (design.md D2), so a value set here
+	// on the struct passed to Writer.Create / Writer.Update is silently ignored —
+	// exactly as ID, CreatedAt and UpdatedAt already are — and the database
+	// rejects any direct write to the column with
+	// `column "inferred_capacity_kwh_calc" can only be updated to DEFAULT`
+	// (SQLSTATE 428C9). nil means this record's inputs did not support the
+	// formula: a missing StartBatteryPct or EndBatteryPct, or EndBatteryPct not
+	// strictly greater than StartBatteryPct (an equal delta is a division by
+	// zero, a decreasing one a negative "capacity" — design.md D3). nil is not an
+	// error.
+	InferredCapacityKWhCalc *float64
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -202,7 +218,7 @@ func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
 // reason, even though Session's first thirteen fields duplicate SessionMirror's eleven
 // (RM30-charging-add-session-read-port design.md D4).
 //
-// Nineteen fields, one per charge_sessions column. Field names/types follow this
+// Twenty fields, one per charge_sessions column. Field names/types follow this
 // module's existing conventions exactly: *T for every nullable column (matching Entry's
 // pattern), time.Time for every TIMESTAMPTZ, int64/*int64 for BIGINT/nullable BIGINT,
 // *int for nullable SMALLINT (matching Entry.StartBatteryPct's identical type), *string
@@ -231,6 +247,23 @@ type Session struct {
 	BatteryPctSource   *string // "user_verified" or "polled"; nil iff both percentages are nil
 	StartBatteryPctEst *int    // frozen snapshot at verification time; nil = nothing recorded
 	EndBatteryPctEst   *int    // frozen snapshot at verification time; nil = nothing recorded
+
+	// InferredCapacityKWhCalc is the pack capacity in kWh implied by this session
+	// alone: EnergyKWh / ((EndBatteryPct - StartBatteryPct) / 100), rounded to 3
+	// decimals (MAG-25, charging-add-inferred-capacity design.md D7). It is
+	// COMPUTED BY THE DATABASE and READ-ONLY: this is a PostgreSQL
+	// GENERATED ALWAYS AS (...) STORED column (design.md D2), so a value set here
+	// on a struct is never written by this module — no port takes a Session as
+	// input — and the database rejects any direct write to the column with
+	// `column "inferred_capacity_kwh_calc" can only be updated to DEFAULT`
+	// (SQLSTATE 428C9). nil means this record's inputs did not support the
+	// formula: a missing StartBatteryPct or EndBatteryPct, EndBatteryPct not
+	// strictly greater than StartBatteryPct (design.md D3), or — for Session
+	// only — no kWh fee at all (EnergyKWh == nil). The value recomputes both when
+	// the nightly mirror (SessionWriter.MirrorSessions) refreshes EnergyKWh and
+	// when SessionVerifier.VerifySession corrects the percentages, without either
+	// write path naming this column (design.md D2). nil is not an error.
+	InferredCapacityKWhCalc *float64
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

@@ -133,6 +133,9 @@ func teslaIDToPgInt8(teslaID int64) pgtype.Int8 {
 //   - StartBatteryPct, EndBatteryPct, StartBatteryPctEst, EndBatteryPctEst:
 //     pgtype.Int2 → *int via pgInt2ToIntPtr (service.go).
 //   - BatteryPctSource: pgtype.Text → *string via pgTextToPtr (service.go).
+//   - InferredCapacityKwhCalc: pgtype.Numeric → *float64 via pgNumericToFloat64Ptr
+//     (service.go) — nullable GENERATED ALWAYS AS ... STORED column (MAG-25
+//     design D8).
 func rowToSession(r chargingdb.ChargeSession) Session {
 	return Session{
 		ID:        r.ID,
@@ -158,5 +161,7 @@ func rowToSession(r chargingdb.ChargeSession) Session {
 
 		CreatedAt: r.CreatedAt.Time,
 		UpdatedAt: r.UpdatedAt.Time,
+
+		InferredCapacityKWhCalc: pgNumericToFloat64Ptr(r.InferredCapacityKwhCalc),
 	}
 }
