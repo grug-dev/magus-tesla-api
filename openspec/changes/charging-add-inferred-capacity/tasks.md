@@ -139,7 +139,7 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
 
 ## Wave 3 — tests + docs (module: charging worker)
 
-- [ ] **3.1** **[module: charging worker]**
+- [x] **3.1** **[module: charging worker]**
   `internal/charging/db_inferred_capacity_entries_integration_test.go` (new file, `package
   charging_test`) — implement design.md §Test Contract **Group A (T1–T12) and T24**, with
   those exact expected values. Points that decide whether this test is right:
@@ -164,7 +164,7 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
     Notes).
   `depends_on`: 2.3 · `parallel_ok`: with 3.2, 3.3, 3.4
 
-- [ ] **3.2** **[module: charging worker]**
+- [x] **3.2** **[module: charging worker]**
   `internal/charging/db_inferred_capacity_sessions_integration_test.go` (new file, `package
   charging_test`) — implement design.md §Test Contract **Group B (T13–T23)**, with those
   exact expected values. Points that decide whether this test is right:
@@ -187,6 +187,11 @@ not do it. See design.md **D1–D10** for the rationale behind each group.
     fields for them, by RM29 D6 design, and that is correct and must not be "fixed". Mirror
     first, then set percentages via `SessionVerifier.VerifySession` (one `nil` argument for
     T15/T16); skip the verify step entirely for T14's no-percentage case.
+    **[LEADER CORRECTION, 2026-08-29 — this bullet was wrong; design.md governs.]**
+    design.md's Test Contract lists **T14 as `energy_kwh = NULL` with percentages 29 → 100
+    set** — there is no no-percentage row among T13–T19, so T14 *does* need the verify step.
+    That is deliberate: it isolates the "no kWh fee" guard from the missing-percentage
+    guards. Implemented per design.md. No expected value changed.
   - `session_id`s in the **960001–960099** range, disjoint from RM29's 920001–920099,
     RM30's 940001–940099, RM31's 950001–950099 and the real backfilled `734860294`.
   - **T22** needs direct SQL, same shape as T12. **T23** reads through
