@@ -275,6 +275,21 @@ the human. See design.md for the rationale behind each group.
 
 ## Wave 8 — tests (offline `httptest`, no DB — this tier's only test wave)
 
+> **Fixture convention (established while repairing wave 2's fallout, 2026-08-29 — read before
+> writing any new fixture in `charges_test.go`).** design.md Test Contract **A4** makes a *missing*
+> `status` a validation error, so every `url.Values` fixture that reaches `parseChargeForm` must
+> carry an explicit `"status"`. Of the file's 19 charge-form fixtures, 15 now do. The **four that
+> must NOT** are `TestChargeCreate_CSRFMismatch`, `TestChargeRowUpdate_CSRFMismatch`,
+> `TestChargeCreate_NoSessionToken` and `TestChargeRowUpdate_NoSessionToken` — both handlers check
+> CSRF and the session *before* calling `parseChargeForm`, so a status there would imply a
+> dependency the code does not have.
+>
+> **The trap:** a validation test that asserts only `422` + writer-not-called passes off the
+> spurious missing-status error and stays green even if the check it names is deleted
+> (`TestChargeCreate_NonPositiveEnergy_Rejected` and `TestChargeCreate_MissingRequiredField` both
+> did, until fixed). A new negative test must therefore supply a valid `status` **and** assert the
+> specific i18n message for the field under test, not just the status code.
+
 - [ ] **8.1** **[module: gateway worker]** `internal/gateway/handlers/charges_test.go` — Group A
   (design.md Test Contract A1–A8): status-conditional required validation, optional
   energy/price, odometer parsing, unconditional `start_battery_pct` requirement across both
