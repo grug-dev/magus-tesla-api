@@ -104,7 +104,7 @@ the human. See design.md for the rationale behind each group.
 
 ## Wave 3 — handler logic (single file, sequential)
 
-- [ ] **3.1** **[module: gateway worker]** `internal/gateway/handlers/charges.go` —
+- [x] **3.1** **[module: gateway worker]** `internal/gateway/handlers/charges.go` —
   `parseChargeForm`:
   - Change the signature to return `(charging.Entry, fragments.ChargeFormValues,
     map[string]string, bool)` per design.md §D-Values. Build the `ChargeFormValues` from
@@ -130,7 +130,7 @@ the human. See design.md for the rationale behind each group.
     ...Required` branches entirely (their catalogue keys were removed in 1.2).
   `depends_on`: 2.1 · `parallel_ok`: no (same file as 3.2/3.3)
 
-- [ ] **3.2** **[module: gateway worker]** `internal/gateway/handlers/charges.go` —
+- [x] **3.2** **[module: gateway worker]** `internal/gateway/handlers/charges.go` —
   `buildChargesPage` and `chargeEntryVMFromEntry`:
   - `buildChargesPage`: set `d.FormValues.Status = string(charging.StatusInProgress)` on the
     fresh-page-load path (design.md §D-Values — "fresh-load fields keep rendering blank"). Compute
@@ -144,7 +144,7 @@ the human. See design.md for the rationale behind each group.
     `charging.RequiredFieldsFor(e.Status)`.
   `depends_on`: 3.1 · `parallel_ok`: no (same file)
 
-- [ ] **3.3** **[module: gateway worker]** `internal/gateway/handlers/charges.go` — wire the D15
+- [x] **3.3** **[module: gateway worker]** `internal/gateway/handlers/charges.go` — wire the D15
   fix into the two error-render paths:
   - `ChargeCreate`'s 422 and 500 branches: after `d := h.buildChargesPage(...)`, overwrite
     `d.DefaultChargedOn`/`d.DefaultStartedAt`/`d.DefaultEndedAt` with the submitted raw

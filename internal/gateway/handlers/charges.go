@@ -190,7 +190,7 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 	sess := sessions.Default(c)
 	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
 
-	entry, validationErrors, ok2 := h.parseChargeForm(c, uid, vehicles)
+	entry, raw, validationErrors, ok2 := h.parseChargeForm(c, uid, vehicles)
 	if !ok2 {
 		if validationErrors == nil {
 			return
@@ -205,6 +205,15 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 			}
 		}
 		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+		// design.md §D-Values (roadmap D15): overwrite the fresh-load defaults
+		// with what the user actually submitted, so a validation failure never
+		// discards a value they typed — including charged_on/started_at/ended_at,
+		// which have no home on ChargeFormValues (they already have a Default*
+		// slot on ChargesPageData for the fresh-load case).
+		d.DefaultChargedOn = c.PostForm("charged_on")
+		d.DefaultStartedAt = c.PostForm("started_at")
+		d.DefaultEndedAt = c.PostForm("ended_at")
+		d.FormValues = raw
 		renderError(c, http.StatusUnprocessableEntity, fragments.ChargeCreateForm(d, validationErrors))
 		return
 	}
@@ -220,6 +229,12 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 			}
 		}
 		d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, browserToday(c))
+		// design.md §D-Values (roadmap D15): same value-preservation treatment on
+		// the 500 (writer-error) branch as the 422 (validation-error) branch.
+		d.DefaultChargedOn = c.PostForm("charged_on")
+		d.DefaultStartedAt = c.PostForm("started_at")
+		d.DefaultEndedAt = c.PostForm("ended_at")
+		d.FormValues = raw
 		renderError(c, http.StatusInternalServerError, fragments.ChargeCreateForm(d, map[string]string{
 			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
 		}))
@@ -267,12 +282,19 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	sess := sessions.Default(c)
 	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
 
-	entry, validationErrors, ok2 := h.parseChargeForm(c, uid, vehicles)
+	entry, raw, validationErrors, ok2 := h.parseChargeForm(c, uid, vehicles)
 	if !ok2 {
 		if validationErrors == nil {
 			return
 		}
-		vm := chargeEntryVMFromEntry(entry, vehicles)
+		// design.md §D-Values (roadmap D15): build the re-rendered row's VM from
+		// the raw submission, not from the (possibly zero-value) parsed entry —
+		// a value that failed validation has no representation in entry's typed
+		// fields, so only the raw string survives to be echoed back.
+		vm := chargeEntryVMFromRawValues(idStr, raw, h.vehicleLabelForSelected(c, uid, vehicles))
+		vm.RawChargedOn = c.PostForm("charged_on")
+		vm.RawStartedAt = c.PostForm("started_at")
+		vm.RawEndedAt = c.PostForm("ended_at")
 		renderError(c, http.StatusUnprocessableEntity, fragments.ChargeRowEdit(vm, csrfToken, validationErrors))
 		return
 	}
@@ -290,7 +312,12 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	updated, err := h.chargingWriter.Update(c.Request.Context(), entry)
 	if err != nil {
 		log.Printf("gateway: ChargeRowUpdate writer error for account %s, id %s: %v", uid, id, err)
-		vm := chargeEntryVMFromEntry(entry, vehicles)
+		// Same value-preservation treatment on the 500 (writer-error) branch as
+		// the 422 (validation-error) branch above — design.md §D-Values.
+		vm := chargeEntryVMFromRawValues(idStr, raw, h.vehicleLabelForSelected(c, uid, vehicles))
+		vm.RawChargedOn = c.PostForm("charged_on")
+		vm.RawStartedAt = c.PostForm("started_at")
+		vm.RawEndedAt = c.PostForm("ended_at")
 		renderError(c, http.StatusInternalServerError, fragments.ChargeRowEdit(vm, csrfToken, map[string]string{
 			"_top": i18n.T(c.Request.Context(), i18n.KeyChargesErrorCouldNotSaveEntry),
 		}))
@@ -433,6 +460,17 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		}
 	}
 
+	// RM33/design.md §D-Values: the create form's status control always defaults
+	// to IN_PROGRESS on a fresh (non-error) render — the error-render path
+	// (ChargeCreate's 4xx/5xx branches, task 3.3) overwrites FormValues with the
+	// user's actual submission afterward. RequiredEndedAt/RequiredEndBatteryPct
+	// are computed from the SAME status so the two never disagree on a fresh
+	// load (design.md §D-Fields).
+	required := make(map[charging.Field]bool)
+	for _, f := range charging.RequiredFieldsFor(charging.StatusInProgress) {
+		required[f] = true
+	}
+
 	return fragments.ChargesPageData{
 		Entries:                   vms,
 		CSRFToken:                 csrfToken,
@@ -442,6 +480,11 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 		DefaultStartedAt:          todayDate,
 		DefaultEndedAt:            todayDate,
 		StartBatteryPctSuggestion: suggestion,
+		FormValues: fragments.ChargeFormValues{
+			Status: string(charging.StatusInProgress),
+		},
+		RequiredEndedAt:       required[charging.FieldEndedAt],
+		RequiredEndBatteryPct: required[charging.FieldEndBatteryPct],
 	}
 }
 
@@ -604,6 +647,18 @@ func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragme
 	if e.EndBatteryPct != nil {
 		rawEndPct = strconv.Itoa(*e.EndBatteryPct)
 	}
+	rawOdometerKm := ""
+	if e.OdometerKm != nil {
+		rawOdometerKm = strconv.Itoa(*e.OdometerKm)
+	}
+
+	// RM33/design.md §D-Fields: RequiredEndedAt/RequiredEndBatteryPct are
+	// computed here (handler), never in the template, from
+	// charging.RequiredFieldsFor(e.Status) — the single source of truth.
+	required := make(map[charging.Field]bool)
+	for _, f := range charging.RequiredFieldsFor(e.Status) {
+		required[f] = true
+	}
 
 	// EnergyKWh is display text (RM33 tier 1, design.md D2/D11): an IN_PROGRESS
 	// entry may not know its energy yet, so a nil EnergyAddedKWh renders the
@@ -643,8 +698,15 @@ func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragme
 		RawEndedAt:         rawEndedAt,
 		RawStartBatteryPct: rawStartPct,
 		RawEndBatteryPct:   rawEndPct,
+		RawOdometerKm:      rawOdometerKm,
 		TeslaID:            e.TeslaID,
 		VIN:                e.VIN,
+
+		Status:    string(e.Status),
+		RawStatus: string(e.Status),
+
+		RequiredEndedAt:       required[charging.FieldEndedAt],
+		RequiredEndBatteryPct: required[charging.FieldEndBatteryPct],
 	}
 }
 
@@ -659,10 +721,77 @@ func vehicleLabelFor(teslaID int64, vehicles []account.Vehicle) string {
 	return strconv.FormatInt(teslaID, 10)
 }
 
+// vehicleLabelForSelected resolves the session-selected vehicle's display
+// label — the "vehicle context the handler already has independent of
+// parsing" (design.md §D-Values) used to populate a raw-values-sourced
+// ChargeEntryVM on a parseChargeForm failure, where entry.TeslaID cannot be
+// trusted (parseChargeForm returns a zero-value Entry on validation
+// failure). Mirrors the same resolveSelectedVehicle call ChargeCreate's
+// error branches already make for their filterTeslaID fallback. Empty
+// string if no vehicle can be resolved.
+func (h *Handler) vehicleLabelForSelected(c *gin.Context, uid uuid.UUID, vehicles []account.Vehicle) string {
+	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+		return vehicleLabelFor(sel.TeslaID, vehicles)
+	}
+	return ""
+}
+
+// chargeEntryVMFromRawValues builds a ChargeEntryVM directly from the raw
+// submitted POST values (design.md §D-Values, roadmap D15) for the inline
+// edit row's 4xx/5xx re-render — used INSTEAD OF chargeEntryVMFromEntry so a
+// value that failed validation (with no representation in charging.Entry's
+// typed fields) is still echoed back to the user, not silently discarded on
+// re-render. id and vehicleLabel are the untouched context the handler
+// already has independent of parsing (chargeEntryVMFromEntry's non-error
+// path sources these from a persisted charging.Entry instead). The caller
+// additionally sets RawChargedOn/RawStartedAt/RawEndedAt from c.PostForm —
+// mirroring ChargesPageData.DefaultChargedOn/DefaultStartedAt/DefaultEndedAt's
+// same treatment in ChargeCreate's error branches — since ChargeFormValues
+// carries no charged_on/started_at/ended_at fields (design.md §D-Values).
+//
+// RequiredEndedAt/RequiredEndBatteryPct are computed from raw.Status via
+// charging.RequiredFieldsFor, falling back to the strictest (DONE) set when
+// raw.Status fails to parse as a recognized charging.Status — the same
+// fail-closed posture charging.RequiredFieldsFor documents for its own
+// unrecognized-status default case (internal/charging/validation.go).
+func chargeEntryVMFromRawValues(id string, raw fragments.ChargeFormValues, vehicleLabel string) fragments.ChargeEntryVM {
+	status := charging.Status(raw.Status)
+	if status != charging.StatusInProgress && status != charging.StatusDone {
+		status = charging.StatusDone
+	}
+	required := make(map[charging.Field]bool)
+	for _, f := range charging.RequiredFieldsFor(status) {
+		required[f] = true
+	}
+
+	return fragments.ChargeEntryVM{
+		ID:                    id,
+		VehicleLabel:          vehicleLabel,
+		RawEnergyKWh:          raw.EnergyAddedKWh,
+		RawPrice:              raw.Price,
+		LocationKind:          raw.LocationKind,
+		RawStartBatteryPct:    raw.StartBatteryPct,
+		RawEndBatteryPct:      raw.EndBatteryPct,
+		ChargingType:          raw.ChargingType,
+		LocationLabel:         raw.LocationLabel,
+		Notes:                 raw.Notes,
+		RawOdometerKm:         raw.OdometerKm,
+		Status:                raw.Status,
+		RawStatus:             raw.Status,
+		RequiredEndedAt:       required[charging.FieldEndedAt],
+		RequiredEndBatteryPct: required[charging.FieldEndBatteryPct],
+	}
+}
+
 // parseChargeForm parses and validates the charge form from a Gin context.
-// Returns the entry, any validation errors, and whether parsing succeeded.
-// On a 403-level ownership failure it writes the response itself and returns
-// validationErrors=nil, ok=false so the caller knows to stop.
+// Returns the entry, the raw submitted form values (for a 4xx/5xx re-render —
+// roadmap D15, design.md §D-Values), any validation errors, and whether parsing
+// succeeded. On a 403-level ownership failure it writes the response itself and
+// returns validationErrors=nil, ok=false so the caller knows to stop.
+//
+// raw is built from c.PostForm(...) calls FIRST, before any parsing, so it is
+// populated identically on every return path (success and every failure) —
+// design.md §D-Values.
 //
 // MAG-5 form changes (D1/D4/D5/D6/D7) baked in here:
 //   - D4: vehicle is sourced from the session-selected vehicle via
@@ -677,19 +806,45 @@ func vehicleLabelFor(teslaID int64, vehicles []account.Vehicle) string {
 //     reading c.PostForm("currency") would always be ""). The
 //     charging.Entry.Currency column stays a column the gateway always
 //     sends COP down; no service change.
-//   - D6: start_battery_pct and end_battery_pct are REQUIRED (empty or non-int /
-//     out-of-range -> validation error). The service contract stays nullable
-//     (manual-charge-log spec unchanged); the gateway just always sends a non-nil
-//     pair. Energy/Price/ChargedOn/LocationKind validation is unchanged.
+//   - D6: start_battery_pct is REQUIRED (empty or non-int / out-of-range ->
+//     validation error), unconditionally, unchanged by RM33. end_battery_pct's
+//     required-ness is now conditioned on RequiredFieldsFor(status) — see
+//     RM33/D-Fields below.
 //   - D1: started_at / ended_at stay OPTIONAL — clearing either still persists
 //     nil StartedAt / EndedAt. The today's-date DEFAULT is a UI concern
 //     (DefaultStartedAt on ChargesPageData); parseChargeForm still accepts an
-//     empty (cleared) field.
+//     empty (cleared) field. ended_at's REQUIRED-ness (RM33) is separate from
+//     whether it parses when present — see RM33/D-Fields below.
 //   - D7: energy_added_kwh accepts 3-decimal precision (UI step=0.001). No
 //     server-side rounding — strconv.ParseFloat already accepts any precision.
-//     The energy <= 0 rejection stays (positive only).
-func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []account.Vehicle) (charging.Entry, map[string]string, bool) {
+//     The energy <= 0 rejection stays (positive only) when non-empty.
+//
+// RM33 (MAG-18) additions baked in here, design.md §D-Fields/§D-Values:
+//   - status is parsed and validated FIRST (IN_PROGRESS/DONE only); an invalid
+//     status short-circuits before RequiredFieldsFor is ever called, matching
+//     the "reject before any data is written" contract charging.Writer follows.
+//   - charging.RequiredFieldsFor(entry.Status) is the single source of truth for
+//     whether ended_at / end_battery_pct are required — the gateway never
+//     hardcodes that rule itself (roadmap D5's shape, applied at this call site).
+//   - energy_added_kwh and price are now genuinely optional (empty ->
+//     nil / 0, no error); odometer_km is a new always-optional non-negative int.
+func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []account.Vehicle) (charging.Entry, fragments.ChargeFormValues, map[string]string, bool) {
 	errs := make(map[string]string)
+
+	// design.md §D-Values: build raw from c.PostForm(...) BEFORE any other
+	// parsing, so it is populated on every return path (success and failure).
+	raw := fragments.ChargeFormValues{
+		Status:          c.PostForm("status"),
+		EnergyAddedKWh:  c.PostForm("energy_added_kwh"),
+		Price:           c.PostForm("price"),
+		LocationKind:    c.PostForm("location_kind"),
+		StartBatteryPct: c.PostForm("start_battery_pct"),
+		EndBatteryPct:   c.PostForm("end_battery_pct"),
+		ChargingType:    c.PostForm("charging_type"),
+		LocationLabel:   c.PostForm("location_label"),
+		Notes:           c.PostForm("notes"),
+		OdometerKm:      c.PostForm("odometer_km"),
+	}
 
 	// D4: source (teslaID, vin) from the session-selected vehicle, not a form field.
 	var teslaID int64
@@ -702,7 +857,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		// account's list, so this is a belt-and-suspenders guard).
 		if !vehicleOwned(teslaID, vin, vehicles) {
 			c.String(http.StatusForbidden, i18n.T(c.Request.Context(), i18n.KeyChargesErrorVehicleNotOwned))
-			return charging.Entry{}, nil, false
+			return charging.Entry{}, raw, nil, false
 		}
 	} else {
 		// No resolvable selected vehicle (account has no registered vehicles or
@@ -714,6 +869,32 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		// visible surface when there is no matching ui.Field to render the per-
 		// field error slot.
 		errs["_top"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorSelectVehicle)
+	}
+
+	// RM33/design.md §D-Fields: status is parsed FIRST. An invalid status
+	// short-circuits before RequiredFieldsFor is ever called.
+	var status charging.Status
+	switch raw.Status {
+	case string(charging.StatusInProgress):
+		status = charging.StatusInProgress
+	case string(charging.StatusDone):
+		status = charging.StatusDone
+	default:
+		errs["status"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorStatusInvalid)
+	}
+
+	// required is the single source of truth for which of ended_at /
+	// end_battery_pct this submission must carry — imported from charging, never
+	// re-derived (design.md §D-Fields). Only computed once status parsed
+	// successfully; an invalid status already recorded its own error above and
+	// required stays nil (both lookups below default to "not required" in that
+	// case, which is fine — the status error alone fails validation).
+	var required map[charging.Field]bool
+	if status != "" {
+		required = make(map[charging.Field]bool)
+		for _, f := range charging.RequiredFieldsFor(status) {
+			required[f] = true
+		}
 	}
 
 	chargedOnStr := c.PostForm("charged_on")
@@ -728,27 +909,27 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		}
 	}
 
-	energyStr := c.PostForm("energy_added_kwh")
-	var energy float64
-	if energyStr == "" {
-		errs["energy_added_kwh"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorEnergyRequired)
-	} else {
-		var parseErr error
-		energy, parseErr = strconv.ParseFloat(energyStr, 64)
-		if parseErr != nil || energy <= 0 {
+	// energy_added_kwh is always optional now (roadmap D7 territory extended by
+	// RM33/design.md §D-Fields — never part of RequiredFieldsFor's domain).
+	// Empty -> nil, no error. Non-empty -> parse and validate > 0 as before.
+	var energy *float64
+	if raw.EnergyAddedKWh != "" {
+		v, parseErr := strconv.ParseFloat(raw.EnergyAddedKWh, 64)
+		if parseErr != nil || v <= 0 {
 			errs["energy_added_kwh"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorEnergyPositive)
+		} else {
+			energy = &v
 		}
 	}
 
-	priceStr := c.PostForm("price")
+	// price is always optional now (roadmap D7 — empty -> 0, no error).
 	var price float64
-	if priceStr == "" {
-		errs["price"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorPriceRequired)
-	} else {
-		var parseErr error
-		price, parseErr = strconv.ParseFloat(priceStr, 64)
-		if parseErr != nil || price < 0 {
+	if raw.Price != "" {
+		v, parseErr := strconv.ParseFloat(raw.Price, 64)
+		if parseErr != nil || v < 0 {
 			errs["price"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorPriceNonNegative)
+		} else {
+			price = v
 		}
 	}
 
@@ -762,22 +943,23 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 	// location_kind is required (tier 3 made the DB column NOT NULL; the gateway
 	// must enforce field-level feedback before calling the service). Valid values:
 	// HOME, WORK, OTHER. Any other value (including empty string) is an error.
-	locationKindVal := c.PostForm("location_kind")
+	// Unconditionally required — not gated by RequiredFieldsFor's map lookup
+	// since it is unconditionally in both the IN_PROGRESS and DONE sets.
 	var locationKindPtr *string
-	if locationKindVal == "HOME" || locationKindVal == "WORK" || locationKindVal == "OTHER" {
-		lk := locationKindVal // local copy — avoids any implicit alias
+	if raw.LocationKind == "HOME" || raw.LocationKind == "WORK" || raw.LocationKind == "OTHER" {
+		lk := raw.LocationKind // local copy — avoids any implicit alias
 		locationKindPtr = &lk
 	} else {
 		errs["location_kind"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorLocationRequired)
 	}
 
-	// D6: start_battery_pct + end_battery_pct are REQUIRED. The 0–100 bound check
-	// matches the manual-charge-log spec (BETWEEN 0 AND 100 when present); the
-	// gateway applies it unconditionally now (the service still accepts a nullable
-	// pair — the gateway just always sends a non-nil pair). No relative-order
+	// start_battery_pct stays UNCONDITIONALLY required — it has no
+	// charging.Field constant (not in RequiredFieldsFor's domain), unchanged by
+	// RM33 (design.md §D-Fields). The 0–100 bound check matches the
+	// manual-charge-log spec (BETWEEN 0 AND 100 when present). No relative-order
 	// check (start < end): a partial charge with prior driving can legitimately
 	// start above the previous end; the user-asserted entry is the user's truth.
-	startPctStr := strings.TrimSpace(c.PostForm("start_battery_pct"))
+	startPctStr := strings.TrimSpace(raw.StartBatteryPct)
 	var startPct int
 	if startPctStr == "" {
 		errs["start_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorBatteryPctRequired)
@@ -790,21 +972,49 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		}
 	}
 
-	endPctStr := strings.TrimSpace(c.PostForm("end_battery_pct"))
-	var endPct int
+	// end_battery_pct's required-ness is now gated by RequiredFieldsFor(status)
+	// (design.md §D-Fields) — required only when charging.FieldEndBatteryPct is
+	// in the set for the submitted status (DONE), not unconditionally as before.
+	endPctStr := strings.TrimSpace(raw.EndBatteryPct)
+	var endPct *int
 	if endPctStr == "" {
-		errs["end_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorBatteryPctRequired)
+		if required[charging.FieldEndBatteryPct] {
+			errs["end_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorBatteryPctRequired)
+		}
 	} else {
 		n, perr := strconv.Atoi(endPctStr)
 		if perr != nil || n < 0 || n > 100 {
 			errs["end_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorEndBatteryPctRange)
 		} else {
-			endPct = n
+			endPct = &n
 		}
 	}
 
+	// odometer_km is new (RM33) and always optional. Empty -> nil. Non-empty ->
+	// parse as integer, validate >= 0.
+	var odometerKm *int
+	if raw.OdometerKm != "" {
+		n, perr := strconv.Atoi(raw.OdometerKm)
+		if perr != nil || n < 0 {
+			errs["odometer_km"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorOdometerInvalid)
+		} else {
+			odometerKm = &n
+		}
+	}
+
+	// ended_at's required-ness is gated by RequiredFieldsFor(status) (design.md
+	// §D-Fields) — required only when charging.FieldEndedAt is in the set for
+	// the submitted status (DONE). Checked here (raw presence only) so it
+	// participates in the same len(errs)>0 gate as every other field; the
+	// actual time.Parse of a present value happens below, alongside the
+	// started_at/ended_at chronology check.
+	endedAtStr := c.PostForm("ended_at")
+	if endedAtStr == "" && required[charging.FieldEndedAt] {
+		errs["ended_at"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorEndedAtRequired)
+	}
+
 	if len(errs) > 0 {
-		return charging.Entry{}, errs, false
+		return charging.Entry{}, raw, errs, false
 	}
 
 	entry := charging.Entry{
@@ -812,24 +1022,28 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		TeslaID:         teslaID,
 		VIN:             vin,
 		ChargedOn:       chargedOn,
-		EnergyAddedKWh:  &energy,
+		Status:          status,
+		EnergyAddedKWh:  energy,
 		Price:           price,
 		Currency:        currency,
 		LocationKind:    locationKindPtr,
 		StartBatteryPct: &startPct,
-		EndBatteryPct:   &endPct,
+		EndBatteryPct:   endPct,
+		OdometerKm:      odometerKm,
 	}
 
 	// D1: started_at / ended_at STAY optional — clearing either still persists a
-	// nil pointer (UTC parse only on a non-empty value).
+	// nil pointer (UTC parse only on a non-empty value). ended_at's presence
+	// requirement (RM33) was already validated above (in the same len(errs)>0
+	// gate as every other field) via endedAtStr; this block only parses it.
 	if v := c.PostForm("started_at"); v != "" {
 		if t, err := time.Parse("2006-01-02T15:04", v); err == nil {
 			t = t.UTC()
 			entry.StartedAt = &t
 		}
 	}
-	if v := c.PostForm("ended_at"); v != "" {
-		if t, err := time.Parse("2006-01-02T15:04", v); err == nil {
+	if endedAtStr != "" {
+		if t, err := time.Parse("2006-01-02T15:04", endedAtStr); err == nil {
 			t = t.UTC()
 			entry.EndedAt = &t
 		}
@@ -839,7 +1053,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 	// 422 field error, not a 500 from the DB constraint.
 	if entry.StartedAt != nil && entry.EndedAt != nil && entry.EndedAt.Before(*entry.StartedAt) {
 		errs["ended_at"] = i18n.T(c.Request.Context(), i18n.KeyChargesErrorEndBeforeStart)
-		return entry, errs, false
+		return entry, raw, errs, false
 	}
 	if v := c.PostForm("charging_type"); v == "AC" || v == "DC" {
 		entry.ChargingType = &v
@@ -851,7 +1065,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		entry.Notes = &v
 	}
 
-	return entry, nil, true
+	return entry, raw, nil, true
 }
 
 // vehicleOwned returns true if the (teslaID, vin) pair belongs to the user's
