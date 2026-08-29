@@ -9,10 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "4.1",
-      "4.2",
-      "4.3",
-      "4.4",
       "5.1",
       "5.2",
       "5.3",
@@ -39,10 +35,16 @@
       "2.2",
       "3.1",
       "3.2"
+    ],
+    "awaiting-user-verification": [
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4"
     ]
   },
   "created_at": "2026-08-29T19:35:00Z",
-  "updated_at": "2026-08-29T20:00:00Z",
+  "updated_at": "2026-08-29T20:01:29Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -58,7 +60,7 @@
   "tasks": [
     {
       "id": "1.1",
-      "title": "ui/dot.templ — new ui.Dot/DotProps primitive (D-Dot)",
+      "title": "ui/dot.templ \u2014 new ui.Dot/DotProps primitive (D-Dot)",
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
@@ -82,7 +84,7 @@
     },
     {
       "id": "1.2",
-      "title": "i18n/catalog.go — add the tier's ES+EN keys",
+      "title": "i18n/catalog.go \u2014 add the tier's ES+EN keys",
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
@@ -106,7 +108,7 @@
     },
     {
       "id": "1.3",
-      "title": "fragments/charges_vm.go — ChargeTiles struct + VM fields",
+      "title": "fragments/charges_vm.go \u2014 ChargeTiles struct + VM fields",
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
@@ -130,7 +132,7 @@
     },
     {
       "id": "2.1",
-      "title": "handlers/charges_range.go — parseChargesRange, endOfMonth, buildChargesPresets",
+      "title": "handlers/charges_range.go \u2014 parseChargesRange, endOfMonth, buildChargesPresets",
       "module": "gateway",
       "depends_on": [
         "1.2"
@@ -156,7 +158,7 @@
     },
     {
       "id": "2.2",
-      "title": "handlers/charges_tiles.go — entryComplete, buildChargeTiles",
+      "title": "handlers/charges_tiles.go \u2014 entryComplete, buildChargeTiles",
       "module": "gateway",
       "depends_on": [
         "1.3"
@@ -182,7 +184,7 @@
     },
     {
       "id": "3.1",
-      "title": "charges_range_test.go — Test Contract Group A (A1-A8)",
+      "title": "charges_range_test.go \u2014 Test Contract Group A (A1-A8)",
       "module": "gateway",
       "depends_on": [
         "2.1"
@@ -208,7 +210,7 @@
     },
     {
       "id": "3.2",
-      "title": "charges_tiles_test.go — Test Contract Group B (B1-B5)",
+      "title": "charges_tiles_test.go \u2014 Test Contract Group B (B1-B5)",
       "module": "gateway",
       "depends_on": [
         "2.2"
@@ -234,25 +236,34 @@
     },
     {
       "id": "4.1",
-      "title": "charges_list.templ — presets, tiles, 3 empty states, window inputs",
+      "title": "charges_list.templ \u2014 presets, tiles, 3 empty states, window inputs",
       "module": "gateway",
       "depends_on": [
         "1.2",
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T19:56:09Z",
+      "completed_at": "2026-08-29T20:01:29Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Refresh removed; chargesRangeSelector + chargeTiles mirror the supercharger gold standard; hidden window inputs; 3-state D-Empty branching; 9-column headers; ChargeRow call updated to 4 args.",
+      "budget": {
+        "five_hour_pct_start": 35,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 2.46,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 4's four files"
+      }
     },
     {
       "id": "4.2",
-      "title": "charge_row.templ — dot + badge, battery range, delete retarget, OOB",
+      "title": "charge_row.templ \u2014 dot + badge, battery range, delete retarget, OOB",
       "module": "gateway",
       "depends_on": [
         "1.1",
@@ -260,50 +271,77 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T19:56:09Z",
+      "completed_at": "2026-08-29T20:01:29Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "4-arg ChargeRow; Vehicle cell removed; Status cell = ui.Dot + ui.Badge (primary/ghost, no colour collision); BatteryRange cell; window threaded into Edit/Delete URLs; Delete retargeted to #charges-list; ChargeRowUpdateSuccessOOB added verbatim.",
+      "budget": {
+        "five_hour_pct_start": 35,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 2.46,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 4's four files"
+      }
     },
     {
       "id": "4.3",
-      "title": "charge_row_edit.templ — hidden window inputs + colspan 8->9",
+      "title": "charge_row_edit.templ \u2014 hidden window inputs + colspan 8->9",
       "module": "gateway",
       "depends_on": [
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T19:56:09Z",
+      "completed_at": "2026-08-29T20:01:29Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "colspan 8 -> 9; ChargeRowEdit gained trailing windowStartStr/windowEndStr, rendered as hidden start/end inputs beside csrf_token.",
+      "budget": {
+        "five_hour_pct_start": 35,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 2.46,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 4's four files"
+      }
     },
     {
       "id": "4.4",
-      "title": "charge_create_form.templ — hx-include of the window inputs",
+      "title": "charge_create_form.templ \u2014 hx-include of the window inputs",
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T19:56:09Z",
+      "completed_at": "2026-08-29T20:01:29Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "hx-include of the two window inputs added to the create form; no other change, no new RD entry per design.md.",
+      "budget": {
+        "five_hour_pct_start": 35,
+        "five_hour_pct_end": 44,
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 2.46,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for wave 4's four files"
+      }
     },
     {
       "id": "5.1",
-      "title": "charges.go — buildChargesPage 7-arg signature, windowed read, tiles, D-RM33-9",
+      "title": "charges.go \u2014 buildChargesPage 7-arg signature, windowed read, tiles, D-RM33-9",
       "module": "gateway",
       "depends_on": [
         "4.1",
@@ -325,7 +363,7 @@
     },
     {
       "id": "5.2",
-      "title": "charges.go — chargeEntryVMFromEntry fields + bestEffortWindow/FromForm/FromQuery",
+      "title": "charges.go \u2014 chargeEntryVMFromEntry fields + bestEffortWindow/FromForm/FromQuery",
       "module": "gateway",
       "depends_on": [
         "5.1"
@@ -342,7 +380,7 @@
     },
     {
       "id": "5.3",
-      "title": "charges.go — ChargePage default window, ChargesListFragment parseChargesRange + 400",
+      "title": "charges.go \u2014 ChargePage default window, ChargesListFragment parseChargesRange + 400",
       "module": "gateway",
       "depends_on": [
         "5.2"
@@ -359,7 +397,7 @@
     },
     {
       "id": "5.4",
-      "title": "charges.go — ChargeCreate success-path window threading",
+      "title": "charges.go \u2014 ChargeCreate success-path window threading",
       "module": "gateway",
       "depends_on": [
         "5.2"
@@ -376,7 +414,7 @@
     },
     {
       "id": "5.5",
-      "title": "charges.go — ChargeRowUpdate + ChargeRowUpdateSuccessOOB",
+      "title": "charges.go \u2014 ChargeRowUpdate + ChargeRowUpdateSuccessOOB",
       "module": "gateway",
       "depends_on": [
         "5.2"
@@ -393,7 +431,7 @@
     },
     {
       "id": "5.6",
-      "title": "charges.go — ChargeRowDelete rewritten to the list-fragment shape",
+      "title": "charges.go \u2014 ChargeRowDelete rewritten to the list-fragment shape",
       "module": "gateway",
       "depends_on": [
         "5.2"
@@ -410,7 +448,7 @@
     },
     {
       "id": "5.7",
-      "title": "charges.go — window threaded through ChargeRowStatic/ChargeRowEditFragment",
+      "title": "charges.go \u2014 window threaded through ChargeRowStatic/ChargeRowEditFragment",
       "module": "gateway",
       "depends_on": [
         "5.2"
@@ -427,7 +465,7 @@
     },
     {
       "id": "6.1",
-      "title": "charge_row.templ — remove ChargeRowEmpty/ChargeRowError dead code",
+      "title": "charge_row.templ \u2014 remove ChargeRowEmpty/ChargeRowError dead code",
       "module": "gateway",
       "depends_on": [
         "4.2",
@@ -445,7 +483,7 @@
     },
     {
       "id": "6.2",
-      "title": "catalog.go — remove keys left unreferenced after the cleanup",
+      "title": "catalog.go \u2014 remove keys left unreferenced after the cleanup",
       "module": "gateway",
       "depends_on": [
         "4.1",
@@ -463,7 +501,7 @@
     },
     {
       "id": "7.1",
-      "title": "internal/gateway/AGENTS.md — document the new ui.Dot primitive",
+      "title": "internal/gateway/AGENTS.md \u2014 document the new ui.Dot primitive",
       "module": "gateway",
       "depends_on": [
         "1.1"
@@ -480,7 +518,7 @@
     },
     {
       "id": "8.1",
-      "title": "make templ — regenerate *_templ.go",
+      "title": "make templ \u2014 regenerate *_templ.go",
       "module": "gateway",
       "depends_on": [
         "4.1",
@@ -501,7 +539,7 @@
     },
     {
       "id": "9.1",
-      "title": "charges_test.go — Test Contract Group C (C1-C3)",
+      "title": "charges_test.go \u2014 Test Contract Group C (C1-C3)",
       "module": "gateway",
       "depends_on": [
         "8.1",
@@ -519,7 +557,7 @@
     },
     {
       "id": "9.2",
-      "title": "charges_test.go — Test Contract Group D (D1-D4)",
+      "title": "charges_test.go \u2014 Test Contract Group D (D1-D4)",
       "module": "gateway",
       "depends_on": [
         "8.1",
@@ -539,7 +577,7 @@
     },
     {
       "id": "9.3",
-      "title": "charges_test.go — Test Contract Group E (E1-E4)",
+      "title": "charges_test.go \u2014 Test Contract Group E (E1-E4)",
       "module": "gateway",
       "depends_on": [
         "8.1",
@@ -558,7 +596,7 @@
     },
     {
       "id": "9.4",
-      "title": "charges_test.go — the four existing-test REWRITE items",
+      "title": "charges_test.go \u2014 the four existing-test REWRITE items",
       "module": "gateway",
       "depends_on": [
         "8.1",
@@ -607,9 +645,9 @@
       "at": "2026-08-29T19:35:00Z",
       "scope": "artifacts",
       "made_by": "autopilot",
-      "decision": "buildChargesPage is frozen at 7 args (…, today, start, end); design.md's stray trailing `true` corrected",
+      "decision": "buildChargesPage is frozen at 7 args (\u2026, today, start, end); design.md's stray trailing `true` corrected",
       "why": "today drives the create form's D1 date defaults, start/end the list window. Dropping today would pre-fill the form with the month's last day under 'This month'.",
-      "covered_by": "tasks.md §Leader resolutions L1"
+      "covered_by": "tasks.md \u00a7Leader resolutions L1"
     },
     {
       "id": "D2",
@@ -618,7 +656,7 @@
       "made_by": "autopilot",
       "decision": "windowFromQuery defined in design.md as a bestEffortWindow caller alongside windowFromForm, not extrapolated by a worker",
       "why": "Writes the never-a-validation-gate rule once so the POST and GET sides cannot drift; parseChargesRange rejects, which is wrong for a post-write refresh.",
-      "covered_by": "tasks.md §Leader resolutions L2"
+      "covered_by": "tasks.md \u00a7Leader resolutions L2"
     },
     {
       "id": "D3",
@@ -626,8 +664,8 @@
       "scope": "task:5.7",
       "made_by": "autopilot",
       "decision": "Threading the window through ChargeRowStatic/ChargeRowEditFragment is in scope, not over-reach",
-      "why": "Compile-forced by ChargeRow's new mandatory window params; the only alternative is passing \"\", which silently resets the filter on Cancel — the failure D-RM33-11 exists to prevent.",
-      "covered_by": "tasks.md §Leader resolutions L3"
+      "why": "Compile-forced by ChargeRow's new mandatory window params; the only alternative is passing \"\", which silently resets the filter on Cancel \u2014 the failure D-RM33-11 exists to prevent.",
+      "covered_by": "tasks.md \u00a7Leader resolutions L3"
     },
     {
       "id": "D4",
@@ -666,7 +704,7 @@
     {
       "at": "2026-08-29T19:35:00Z",
       "agent": "leader",
-      "event": "session resumed; artifacts were incomplete (tasks.md missing). gateway worker (claude-sonnet-5) authored tasks.md — 28 sub-tasks, 10 waves; openspec validate --strict passes"
+      "event": "session resumed; artifacts were incomplete (tasks.md missing). gateway worker (claude-sonnet-5) authored tasks.md \u2014 28 sub-tasks, 10 waves; openspec validate --strict passes"
     },
     {
       "at": "2026-08-29T19:35:00Z",
@@ -686,7 +724,7 @@
     {
       "at": "2026-08-29T19:46:51Z",
       "agent": "leader",
-      "event": "waves 1-3 complete (7 tasks). Leader ran go build ./... and go vet ./... — both clean; worker reported make ui-guard and make i18n-guard clean. Suite NOT run: all 7 tasks awaiting-user-verification. Budget: 5h 20%->30%, $3.93 (commit 51bf96d)"
+      "event": "waves 1-3 complete (7 tasks). Leader ran go build ./... and go vet ./... \u2014 both clean; worker reported make ui-guard and make i18n-guard clean. Suite NOT run: all 7 tasks awaiting-user-verification. Budget: 5h 20%->30%, $3.93 (commit 51bf96d)"
     },
     {
       "at": "2026-08-29T19:58:00Z",
@@ -701,7 +739,22 @@
     {
       "at": "2026-08-29T20:00:00Z",
       "agent": "leader",
-      "event": "session checkpoint at the wave-1-3 boundary at the owner's request. Budget healthy (5h 33%, ctx 17%, 7d 83%) — checkpoint is the 3+-wave standing recommendation, not a threshold trip. Resume at wave 4 (four disjoint .templ files)."
+      "event": "session checkpoint at the wave-1-3 boundary at the owner's request. Budget healthy (5h 33%, ctx 17%, 7d 83%) \u2014 checkpoint is the 3+-wave standing recommendation, not a threshold trip. Resume at wave 4 (four disjoint .templ files)."
+    },
+    {
+      "at": "2026-08-29T19:56:09Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (claude-sonnet-5) for wave 4 serially: 4.1-4.4, four disjoint .templ files. Budget start: 5h 35%, ctx 9%, $0.62"
+    },
+    {
+      "at": "2026-08-29T20:01:29Z",
+      "agent": "leader",
+      "event": "wave 4 complete (4 .templ files). Leader ran go build ./internal/gateway/templates/... \u2014 exit 0, which typechecks every new i18n key, VM field and ui primitive the markup references. make ui-guard and make i18n-guard reported clean by the worker. go build ./... is expected-RED until wave 5 lands. Budget: 5h 35%->44%, $2.46"
+    },
+    {
+      "at": "2026-08-29T20:01:29Z",
+      "agent": "leader",
+      "event": "deviation noted, accepted: the *_templ.go files were regenerated during wave 4 despite the dispatch deferring codegen to wave 8. Leader re-ran make templ \u2014 updates=0, so generated output matches the sources. Wave 8.1 still runs after wave 6 edits charge_row.templ again."
     }
   ]
 }

@@ -44,6 +44,15 @@ import (
 //   - Every submitted value survives a validation failure via
 //     d.FormValues (design.md §D-Values, roadmap D15).
 //   - odometer_km is a new optional field inside "More details" (D-RM33-7).
+//
+// RM33 tier 3 addition, design.md §D-Include: the <form> carries
+// hx-include="#charges-window-start, #charges-window-end" — a plain,
+// declarative htmx attribute (not client-side JS, needs no RD entry) that
+// folds the two hidden window inputs rendered inside #charges-list into this
+// form's request at SUBMIT time, so the create write's post-write OOB refresh
+// (ChargeCreate -> windowFromForm) targets whichever filter window is
+// currently active, even though this form is a SIBLING of #charges-list, not
+// a descendant of it.
 templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 	<div id="charges-create-form">
 		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesFormTitle)}) {
@@ -56,6 +65,7 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 				hx-post="/ui/charges/create"
 				hx-target="#charges-create-form"
 				hx-swap="outerHTML"
+				hx-include="#charges-window-start, #charges-window-end"
 				class="flex flex-col gap-3"
 			>
 				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>

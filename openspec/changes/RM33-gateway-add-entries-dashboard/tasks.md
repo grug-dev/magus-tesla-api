@@ -212,7 +212,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
 
 ## Wave 4 — templates (four disjoint files, parallel; all depend on Wave 1 only)
 
-- [ ] **4.1** **[module: gateway worker]** `internal/gateway/templates/fragments/charges_list.templ`:
+- [x] **4.1** **[module: gateway worker]** `internal/gateway/templates/fragments/charges_list.templ`:
   - **Remove** the Refresh button entirely (D9 proposal — subsumed by any filter click).
   - **Add** a `chargesRangeSelector(presets []RangePreset)` component, structurally identical to
     `superchargerMonthsSelector` (`supercharger_stats.templ`) — `ui.Join` wrapping one
@@ -244,7 +244,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
   - Run `make templ` deferred to Wave 8 — do not run it per-task.
   `depends_on`: 1.2, 1.3 · `parallel_ok`: with 4.2, 4.3, 4.4
 
-- [ ] **4.2** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_row.templ`:
+- [x] **4.2** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_row.templ`:
   - Change `ChargeRow`'s signature to `templ ChargeRow(vm ChargeEntryVM, csrfToken,
     windowStartStr, windowEndStr string)`.
   - **Remove** the Vehicle `<td>{ vm.VehicleLabel }</td>` cell.
@@ -282,7 +282,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
     still calls them until Wave 5.6 rewrites `ChargeRowDelete`; deletion is Wave 6.1.
   `depends_on`: 1.1, 1.2, 1.3 · `parallel_ok`: with 4.1, 4.3, 4.4
 
-- [ ] **4.3** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_row_edit.templ`:
+- [x] **4.3** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_row_edit.templ`:
   - **`<td colspan="8">` → `<td colspan="9">`** (design.md §D-Colspan — the deferred fix from
     tier 2's own design.md, now that the table is 9 columns: Vehicle removed, Status + Battery
     Range added, net +1).
@@ -295,7 +295,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
     button's CSRF-header workaround).
   `depends_on`: 1.3 · `parallel_ok`: with 4.1, 4.2, 4.4
 
-- [ ] **4.4** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_create_form.templ`:
+- [x] **4.4** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_create_form.templ`:
   - Add `hx-include="#charges-window-start, #charges-window-end"` to the `<form>` element
     (design.md §D-Include). This is a plain htmx attribute — it does NOT touch the module's
     "no client-side JS" rule (`ai/htmx-conventions.md` §Styling) and needs NO new RD entry in

@@ -37,9 +37,16 @@ import (
 // "COP" suffix via ui.InputProps.Suffix (design.md §D-Suffix).
 // odometer_km is a new optional field inside "More details" (D-RM33-7),
 // bound to vm.RawOdometerKm.
-templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[string]string) {
+//
+// windowStartStr/windowEndStr (design.md §D-Refresh) are the SAME ?start=&end=
+// window the table was rendered under, threaded through as two hidden form
+// inputs ("start"/"end") — unlike the DELETE button's CSRF-header workaround,
+// PUT DOES parse request bodies, so plain hidden inputs are a valid wire path
+// here. ChargeRowUpdate reads them (best-effort, never a validation gate) to
+// resolve the window its post-write #charges-list OOB refresh renders.
+templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[string]string, windowStartStr, windowEndStr string) {
 	<tr id={ "charge-row-" + vm.ID }>
-		<td colspan="8">
+		<td colspan="9">
 			if validationErrors["_top"] != "" {
 				@ui.Alert(ui.AlertProps{Kind: "error"}) {
 					{ validationErrors["_top"] }
@@ -53,6 +60,8 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 			>
 				<input type="hidden" name="csrf_token" value={ csrfToken }/>
 				<input type="hidden" name="id" value={ vm.ID }/>
+				<input type="hidden" name="start" value={ windowStartStr }/>
+				<input type="hidden" name="end" value={ windowEndStr }/>
 				<div class="grid gap-3 sm:grid-cols-2">
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStatus), Error: validationErrors["status"]}) {
 						@ui.Select(ui.SelectProps{Name: "status", Required: true}) {
