@@ -41,6 +41,8 @@ type ChargeSession struct {
 	EndBatteryPctEst pgtype.Int2
 	CreatedAt        pgtype.Timestamptz
 	UpdatedAt        pgtype.Timestamptz
+	// Pack capacity in kWh implied by this session: energy_kwh / ((end_battery_pct - start_battery_pct) / 100), rounded to 3 decimals. Same GENERATED ALWAYS AS ... STORED mechanism, same guard, and the same unconstrained NUMERIC type as manual_charge_entries.inferred_capacity_kwh_calc -- the two expressions differ only in the energy IS NOT NULL guard (energy_kwh is nullable here) and the ::NUMERIC cast (energy_kwh is DOUBLE PRECISION here), both forced by the source column (design D4). NULL additionally whenever energy_kwh is NULL, i.e. the session had no kWh fee. This column recomputes when the nightly mirror refreshes energy_kwh AND when a human corrects the percentages through SessionVerifier.VerifySession -- neither write path names this column, and neither has to (design D2).
+	InferredCapacityKwhCalc pgtype.Numeric
 }
 
 // User-asserted home/work/third-party charge sessions not captured by the Tesla Fleet API. Owned by internal/manualcharge; no other module reads this table directly. Mutable table: full CRUD via Writer port (users correct hand-typed entries). No cross-module FK on account_id or tesla_id (ai/architecture.md §2). No raw_data JSONB column: user-typed data has no vendor payload to preserve (ai/go-conventions.md §persistence, design D5).
@@ -63,4 +65,6 @@ type ManualChargeEntry struct {
 	Notes           pgtype.Text
 	CreatedAt       pgtype.Timestamptz
 	UpdatedAt       pgtype.Timestamptz
+	// Pack capacity in kWh implied by this entry: energy_added_kwh / ((end_battery_pct - start_battery_pct) / 100), rounded to 3 decimals. GENERATED ALWAYS AS ... STORED -- recomputed by the engine on every INSERT and UPDATE, and unwritable by any caller (design D2). NULL when either percentage is absent or when end_battery_pct is not strictly greater than start_battery_pct -- an equal delta would be a division by zero and a negative delta a negative capacity, neither of which is a physical quantity (design D3). Unconstrained NUMERIC because NUMERIC(8,3) would reject a legal max-energy/min-delta row (design D4). NOT indexed: nothing predicates on it (design D6).
+	InferredCapacityKwhCalc pgtype.Numeric
 }

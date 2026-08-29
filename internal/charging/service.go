@@ -375,6 +375,8 @@ func newReader(pool *pgxpool.Pool) Reader {
 //   - StartBatteryPct, EndBatteryPct: pgtype.Int2 → *int (nullable SMALLINT).
 //   - ChargingType, LocationKind, LocationLabel, Notes: pgtype.Text → *string (nullable TEXT).
 //   - EnergyAddedKwh, Price: pgtype.Numeric → float64 via Float64Value() (design D9).
+//   - InferredCapacityKwhCalc: pgtype.Numeric → *float64 via pgNumericToFloat64Ptr
+//     (nullable GENERATED ALWAYS AS ... STORED column, MAG-25 design D8).
 func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 	// EnergyAddedKwh: NUMERIC → float64 (required column; Float64Value returns a
 	// pgtype.Float8 wrapper — use its Float64 field after error check, design D9).
@@ -414,6 +416,8 @@ func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 		// Required TIMESTAMPTZ → time.Time
 		CreatedAt: r.CreatedAt.Time,
 		UpdatedAt: r.UpdatedAt.Time,
+		// Nullable NUMERIC (GENERATED ALWAYS AS ... STORED) → *float64
+		InferredCapacityKWhCalc: pgNumericToFloat64Ptr(r.InferredCapacityKwhCalc),
 	}, nil
 }
 
@@ -505,6 +509,34 @@ func pgTextToPtr(v pgtype.Text) *string {
 	}
 	s := v.String
 	return &s
+}
+
+// pgNumericToFloat64Ptr converts a nullable pgtype.Numeric to *float64.
+// !Valid (SQL NULL) → nil; Valid → a pointer to the numeric's float64 value via
+// Float64Value(). Backs InferredCapacityKwhCalc on both ManualChargeEntry and
+// ChargeSession (design D8) — the one nullable pgtype this module had no
+// …ToPtr helper for before MAG-25 (charging-add-inferred-capacity).
+//
+// Written NON-ERRORING, deliberately (design.md D8): on a Float64Value() error
+// this returns nil rather than propagating the error. That branch is
+// unreachable for this column — the stored value is always a quotient of two
+// finite numerics (or NULL), so it is finite by construction and
+// Float64Value() cannot fail on it. The alternative — widening rowToSession's
+// return to (Session, error) — would ripple through session_reader.go,
+// session_verifier.go and every caller of SessionReader /
+// SuperchargerSessionAnalyticsReader / SessionVerifier for a branch that can
+// never execute. rowToEntry already returns (Entry, error) for its own
+// NOT NULL numeric columns, so this helper's nil-on-error path costs it
+// nothing there either — it simply never triggers.
+func pgNumericToFloat64Ptr(v pgtype.Numeric) *float64 {
+	if !v.Valid {
+		return nil
+	}
+	f8, err := v.Float64Value()
+	if err != nil {
+		return nil
+	}
+	return &f8.Float64
 }
 
 // requiredToStringPtr maps a NOT NULL string column to *string, keeping the

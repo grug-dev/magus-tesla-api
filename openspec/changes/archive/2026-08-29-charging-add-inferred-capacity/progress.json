@@ -1,0 +1,487 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "charging-add-inferred-capacity",
+  "module": "charging",
+  "roadmap": null,
+  "request": "Source ticket: MAG-25 \u2014 https://linear.app/magus-monitor/issue/MAG-25/inferred-capacity\n\nInferred Capacity. This data will be saved per vehicle. The idea is to calculate the value every time a record is inserted or updated into the charging module tables (charge_sessions and manual_charge_entries). The formula is inferred_capacity_calc = energy_added / ((end_soc - start_soc) / 100), calculated only when the record contains energy added, end battery % and start battery %; otherwise NULL. Acceptance criteria: the new column is created and calculated for existing rows in charge_sessions and manual_charge_entries. Picked up via /kkpa-pickup-linear-ticket with AUTOPILOT ON; pipeline scope HALT AFTER STEP 4 (artifacts only, no implementation).",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "V1",
+      "V2",
+      "V3"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-08-29T09:04:49Z",
+  "updated_at": "2026-08-29T09:52:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH32-MAG-25-charging-add-inferred-capacity",
+    "base": "main",
+    "ticket": "MAG-25",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-25/inferred-capacity",
+    "created_at": "2026-08-29T02:47:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Create migration 20260829000001_add_inferred_capacity.sql (both generated columns)",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "Migration created verbatim: both generated columns, full header comment, both COMMENT ON COLUMN. query.sql untouched (D8). Leader re-verified DDL, Down order, no index, no CHECK.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "Run make sqlc and review the diff against design.md D8's probed expectations",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "make sqlc clean. Diff matches D8 exactly: 2 model fields, 10 column-list + 10 Scan additions. Leader diffed all four *Params struct bodies old vs new \u2014 byte-identical.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go \u2014 add InferredCapacityKWhCalc *float64 to Entry and Session",
+      "module": "charging",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "InferredCapacityKWhCalc *float64 on Entry and Session with full D7 doc comments; also corrected a stale field-count comment on Session.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "service.go \u2014 add pgNumericToFloat64Ptr helper and wire into rowToEntry",
+      "module": "charging",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "pgNumericToFloat64Ptr added non-erroring per D8, beside the existing pg*To*Ptr helpers; wired into rowToEntry.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "session_reader.go \u2014 wire helper into rowToSession; build/vet/gofmt clean",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "Wired into rowToSession; session_verifier.go/session_writer.go untouched (VerifySession already routes through rowToSession).",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "Integration test: entries (Test Contract Group A, T1-T12 + T24)",
+      "module": "charging",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:33:20Z",
+      "completed_at": "2026-08-29T09:38:46Z",
+      "duration_seconds": 326,
+      "notes": "Group A T1-T12 + T24 implemented against design.md's contract values, none adjusted. Leader verified all asserted values match the contract. Suite not run.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 31,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 2.7254,
+        "approx": true,
+        "note": "One serial worker batching 3.1+3.2; wave delta shared across both tasks."
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "Integration test: sessions (Test Contract Group B, T13-T23)",
+      "module": "charging",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:33:20Z",
+      "completed_at": "2026-08-29T09:38:46Z",
+      "duration_seconds": 326,
+      "notes": "Group B T13-T23 implemented, incl. T20 asserted on VerifySession's own return. Worker flagged a tasks.md/design.md conflict on T14; leader accepted, design.md governs. Suite not run.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 31,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 2.7254,
+        "approx": true,
+        "note": "One serial worker batching 3.1+3.2; wave delta shared across both tasks."
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "internal/charging/AGENTS.md \u2014 units, public interface, data ownership, testing notes",
+      "module": "charging",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "AGENTS.md: <what>_<unit>_calc rule written down, field documented on Entry/Session (not SessionMirror), engine-generated column category, testing notes + D10.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
+    },
+    {
+      "id": "3.4",
+      "title": "Root README.md \u2014 Database tables by module rows for both charging tables",
+      "module": null,
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-29T09:26:17Z",
+      "completed_at": "2026-08-29T09:31:41Z",
+      "duration_seconds": 324,
+      "notes": "Leader task. Both internal/charging README rows now describe the generated column and when it is NULL. No other README section changed \u2014 no module added/renamed/re-scoped.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 20,
+        "context_pct_start": 10,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.9711,
+        "approx": true,
+        "note": "One serial worker batching 1.1-2.3+3.3; wave delta shared across its tasks. 3.4 is leader work inside the same bracket."
+      }
+    },
+    {
+      "id": "V1",
+      "title": "Owner: apply the migration (make migrate-up / make db-setup)",
+      "module": null,
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "owner",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-29T09:44:00Z",
+      "duration_seconds": null,
+      "notes": "Owner ran `make migrate-up` \u2014 reported GOOD.",
+      "budget": null
+    },
+    {
+      "id": "V2",
+      "title": "Owner: confirm existing rows were backfilled (acceptance criterion, 2nd half)",
+      "module": null,
+      "depends_on": [
+        "V1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-29T09:52:00Z",
+      "duration_seconds": null,
+      "notes": "Backfill CONFIRMED on the owner's real DB by read-only SELECT (no mutation). manual_charge_entries 5/5, charge_sessions 1/1: rows with a value exactly equal rows whose inputs support the formula. Real rows reproduce the ticket's examples: 66.629, 70.400, 73.624.",
+      "budget": null
+    },
+    {
+      "id": "V3",
+      "title": "Owner: run the suite (make check)",
+      "module": null,
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "owner",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-29T09:44:00Z",
+      "duration_seconds": null,
+      "notes": "Owner ran `make check` (build vet ui-guard i18n-guard money-guard test) \u2014 reported GOOD. Leader confirmed the new tests are not skip-gated: charging_test's TestMain auto-provisions a container, so all 24 T-cases executed.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "charging-reviewer",
+    "brief": "Validate charging-add-inferred-capacity (commits 62d4421, b765739) against: (1) module-boundary compliance - all code inside internal/charging except the leader's README row edits; (2) every doc-pack convention, esp. ai/go-conventions.md's unit-suffix rule and the <what>_<unit>_calc precedent; (3) spec/tasks coverage - all of tasks.md 1.1-3.4 delivered; (4) every DB object matches the OWNER-CONFIRMED design (D6: unconstrained NUMERIC + ROUND(...,3), guard exactly end>start with NO delta floor, no index, no CHECK) - any mismatch is a BLOCKER finding; (5) the integration tests assert design.md's up-front Test Contract values rather than whatever the implementation produces - a value adjusted to fit the code is a blocker; (6) compliance with the read-heavy Performance-Profile; (7) anti-gaming - no weakened acceptance criteria, no self-approved statuses. Signals: assistant-run = go build/vet/gofmt + make sqlc. USER-REPORTED = make migrate-up and make check (all tests). Judge test quality by READING the tests; do not run the suite.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-29T10:15:00Z",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "internal/charging/AGENTS.md",
+          "ai/agentic-workflow.md",
+          "openspec/changes/charging-add-inferred-capacity/proposal.md",
+          "openspec/changes/charging-add-inferred-capacity/design.md",
+          "openspec/changes/charging-add-inferred-capacity/tasks.md",
+          "openspec/changes/charging-add-inferred-capacity/specs/manual-charge-log/spec.md",
+          "openspec/changes/charging-add-inferred-capacity/specs/charge-session-log/spec.md"
+        ],
+        "findings": [],
+        "notes": "Diff (3dd02d5..HEAD) reviewed file-by-file. Boundary: only internal/charging/* and the leader's two README.md rows touched outside openspec/; query.sql untouched; no *Params struct gained a field (confirmed via diff grep). Migration DDL is byte-identical to design.md's DDL block (diffed programmatically, only difference is the doc's closing markdown fence): unconstrained NUMERIC + ROUND(...,3), guard exactly `end_battery_pct > start_battery_pct` with no floor, no index, no CHECK, non-destructive Down (DROP COLUMN IF EXISTS, fully recomputable). charging.go/service.go/session_reader.go match D7/D8 exactly: *float64, read-only doc comments, non-erroring pgNumericToFloat64Ptr helper reusing the established pg*ToPtr pattern. AGENTS.md documents the <what>_<unit>_calc rule with the vehicle_metrics precedent and adds the engine-generated 4th category to charge_sessions' column-by-column list, matching task 3.3. Both integration test files assert design.md's Test Contract verbatim: T1=70.400, T2=66.629 (not the ticket's 66.63), T3=73.620 (not 73.624), T7/T8 assert successful insert with nil, T9=0.010, T10=999999.000 (successful insert), T11 35.200 post-update, T12 SQLSTATE 428C9; T13=73.624 (not 73.63), T14 correctly seeded with 29->100 via VerifySession per the leader's correction (energy-null guard isolated from percentage guards, no expected value changed), T17/T19 assert successful mirror, T19=100000000000.000, T20 nil then 66.629 asserted on VerifySession's own returned Session (RETURNING * freshness proven), T21=72.000, T22 SQLSTATE 428C9, T23/T24 covered via existing subtests' read-back assertions. No pgtype in either test file. Helper functions (newTestPool, cleanupAccount, cleanupChargeSessions, ptrInt/ptrIntV/ptrInt64/ptrFloat64, assertPgErrorCode, fetchChargeSessionID, fetchSessionsByVehicleBetween, mirrorGap) are all pre-existing, reused not duplicated. tasks.md's T14 correction is a pure append (diffed 0942600..62d4421 and 62d4421..b765739): checkboxes flipped, one annotation block added, zero acceptance-criterion text altered or deleted. openspec validate passes. go build ./..., go vet ./... and gofmt -l internal/charging/ all clean when independently re-run. Performance-Profile: no new index (justified, D6), generated column is precompute-on-write for the read-heavy profile, all seven read paths already SELECT *. V2 (owner backfill confirmation) correctly left open per D10 - not a code defect. No blockers, majors, minors, or nits found."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-29T02:47:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Pre-settled the Step 2 interview agenda instead of running a live grill-me",
+      "why": "User invoked pickup with AUTOPILOT ON. config.yaml's 'must use grill-me' satisfied by six decisions settled against the live schema before dispatch.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-29T02:52:00Z",
+      "scope": "task:artifacts",
+      "made_by": "autopilot",
+      "decision": "Dispatched the artifact worker on Opus, not the Sonnet default",
+      "why": "Gated database design requiring rejected-alternatives analysis and an up-front test contract \u2014 the SKILL.md Step 5.2 integration-heavy exception.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-29T03:30:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Renamed the column to inferred_capacity_kwh_calc, overriding the leader's own settled D1 (inferred_capacity_kwh)",
+      "why": "Worker found the vehicle_metrics <what>_<unit>_calc precedent, verified by leader. Dominates: satisfies the unit rule, matches convention, closer to the ticket.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-29T03:32:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's departure from the leader-proposed NUMERIC(8,3) to unconstrained NUMERIC with ROUND(...,3)",
+      "why": "Worker reproduced numeric field overflow on a row the current schema permits. charge_sessions.energy_kwh is vendor-controlled float with no CHECK, so no fixed precision is provably safe.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-29T09:04:49Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Left three items open for the owner rather than deciding them",
+      "why": "Result type confirmation, the minimum-delta quality floor (a product question), and the ticket's imprecise worked figures. All are the owner's call, not autopilot's.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-29T09:26:17Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design gate CONFIRMED: unconstrained NUMERIC + ROUND(...,3); no minimum-delta floor in the column; tests assert exact scale-3 values (66.629 / 73.624 / 73.620).",
+      "why": "Owner chose all three recommendations at the gate. design.md needs no revision \u2014 it is already written this way. Closes the three items D5 left open.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-29T09:32:41Z",
+      "scope": "wave:1",
+      "made_by": "autopilot",
+      "decision": "Batched the whole serial chain 1.1-2.3 plus 3.3 into ONE Sonnet worker rather than per-task dispatches",
+      "why": "depends_on makes the chain strictly serial, so parallelism was impossible; one dispatch reads the doc pack once. design.md is prescriptive enough that Opus was unwarranted.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-29T09:39:54Z",
+      "scope": "review:worker-finding-T14",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's finding that tasks.md 3.2's 'skip the verify step for T14's no-percentage case' contradicts design.md; kept the design.md implementation and annotated tasks.md",
+      "why": "design.md's contract lists T14 as energy_kwh NULL with 29->100 set, isolating the no-fee guard. tasks.md was stale guidance, not an acceptance criterion; no expected value changed.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-29T02:45:00Z",
+      "agent": "leader",
+      "event": "Step 0-1: discovered project config; resolved owning module 'charging' (both tables' migrations live in internal/charging/db/migrations). Runtime Claude Code, native subagent dispatch, budget available."
+    },
+    {
+      "at": "2026-08-29T02:47:00Z",
+      "agent": "leader",
+      "event": "Step 1a: took N=32 from openspec/.work-counter, wrote 33 back. No legacy .ch-counter/.rm-counter present (migration already complete). Ticket MAG-25 auto-detected from the Source ticket line \u2014 no prompt. Created branch ft/CH32-MAG-25-charging-add-inferred-capacity off main @ 3dd02d53."
+    },
+    {
+      "at": "2026-08-29T02:52:00Z",
+      "agent": "leader",
+      "event": "Step 3: dispatched the 'charging' worker (Opus) to author artifacts only, with six pre-settled decisions, the Performance-Profile and the Test-Execution-Policy verbatim."
+    },
+    {
+      "at": "2026-08-29T03:21:13Z",
+      "agent": "charging",
+      "event": "Worker returned artifacts; openspec validate passes. Doc-pack acknowledged. Pushed back on two leader decisions with reproduced evidence (column-name precedent; NUMERIC(8,3) overflow)."
+    },
+    {
+      "at": "2026-08-29T03:30:00Z",
+      "agent": "leader",
+      "event": "Step 5.6 triage: independently verified the _calc precedent at internal/analytics/db/migrations/20260821000001_add_vehicle_metrics.sql:67-71, and that ai/go-conventions.md never mentions _calc. Accepted both pushbacks; signalled the same worker to rename rather than re-dispatching."
+    },
+    {
+      "at": "2026-08-29T03:41:00Z",
+      "agent": "charging",
+      "event": "Rename to inferred_capacity_kwh_calc applied across all artifacts and re-validated; grep confirms the only surviving old-name occurrences are labelled references to the rejected alternative. Spec deltas correctly unchanged (they name no column, per config.yaml specs rule)."
+    },
+    {
+      "at": "2026-08-29T09:04:49Z",
+      "agent": "leader",
+      "event": "Step 4: progress.json created, status 'proposed'. HALTING per the pickup skill's declared scope \u2014 no implementation workers dispatched, no reviewer, no archive. DESIGN GATE OPEN: the owner must confirm design.md (result type) before task 1.1. Budget note: the 5-hour bucket reset mid-run (60% -> 4%), so no meaningful bucket delta; artifact phase cost ~13.75 USD, context 11% -> 14%."
+    },
+    {
+      "at": "2026-08-29T09:26:17Z",
+      "agent": "leader",
+      "event": "Resume: design gate CLOSED by the owner \u2014 unconstrained NUMERIC, no delta floor, exact scale-3 test values; all three match design.md as written, so no artifact revision. Status -> in-progress. Wave 1 dispatched: 1.1,1.2,2.1,2.2,2.3,3.3 batched into ONE serial charging worker (Sonnet). Budget at dispatch: 5h 11%, context 10%."
+    },
+    {
+      "at": "2026-08-29T09:32:41Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled. Worker reported all six done; leader independently verified before accepting: migration DDL/Down/no-index/no-CHECK match design.md; all four *Params struct bodies byte-identical to HEAD (D8's load-bearing claim); 20 added lines in query.sql.go = 10 column-list + 10 Scan, no struct fields. go build/vet clean, gofmt -l internal/charging clean. Leader completed 3.4 (README). Timestamps: the worker reported placeholder times (00:00-00:35Z); substituted the real dispatch bracket. Code tasks 1.1-2.3 set awaiting-user-verification, not done \u2014 nothing has run against a database or a suite. Budget: 5h 11%->20%, context 10%->13%."
+    },
+    {
+      "at": "2026-08-29T09:39:54Z",
+      "agent": "leader",
+      "event": "Wave 2 reconciled. Leader independently verified all 24 T-case expected values against design.md's Test Contract - every one matches, none adjusted to fit the implementation. No production code touched (only the two new test files). session_ids confined to 960001-960099; the other ranges appear only in an explanatory comment. go build/vet/gofmt clean. Worker's T14 finding accepted (D8) and tasks.md annotated. Status -> applied. ALL implementation complete; every code task is awaiting-user-verification pending the owner's V1 (apply migration) and V3 (run suite). Budget: 5h 20%->31%, context 13%->14%."
+    },
+    {
+      "at": "2026-08-29T09:44:00Z",
+      "agent": "leader",
+      "event": "THE OWNER reported `make migrate-up` and `make check` passing (V1, V3) \u2014 recorded as the owner's verification, not the assistant's; no suite was run by Claude at any point. Before accepting, the leader checked the new tests are not DATABASE_URL-skip-gated: charging_test's TestMain auto-provisions a postgres:16-alpine container when DATABASE_URL is unset, and `make test` runs `env -u DATABASE_URL`, so all 24 T-cases genuinely executed. Status -> verified. V2 (backfill of pre-existing rows on the real DB) REMAINS OPEN - it is the ticket's second acceptance criterion and no test can cover it (D10). Dispatching the reviewer."
+    },
+    {
+      "at": "2026-08-29T09:52:00Z",
+      "agent": "charging-reviewer",
+      "event": "Review round 1: APPROVED, zero findings. Reviewer independently diffed the shipped DDL against design.md's DDL block (byte-identical), re-verified all spot-checked Test Contract values, confirmed the T14 leader correction, and diffed tasks.md across all three commits to confirm checkbox flips + one append-only correction block only. review.status -> reviewer-approved; wrote only the review block."
+    },
+    {
+      "at": "2026-08-29T09:52:00Z",
+      "agent": "leader",
+      "event": "V2 CLOSED by the leader via read-only SELECT against the owner's DATABASE_URL (a SELECT mutates nothing, so it is not gated by CLAUDE.md, which gates only data-mutating commands). Counts prove the ALTER backfilled correctly: with_value == should_have_value on both tables (5/5 and 1/1). Three pre-existing rows independently reproduce the ticket's worked examples at the exact scale-3 values the owner confirmed at the gate \u2014 41.31/18->80 = 66.629 and 52.273/29->100 = 73.624, i.e. the ticket's own '66.63'/'73.63' prose was the imprecise restatement, as design.md argued. Change status -> reviewer-approved; archiving."
+    }
+  ]
+}
