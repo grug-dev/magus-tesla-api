@@ -8,14 +8,28 @@
 
 Target guide: `workflows/supercharger-stats-read.md`
 Source spec:  `openspec/specs/gateway/spec.md`
-Generated:    2026-08-28
+Generated:    2026-08-29
 Status: PENDING REVIEW
 
-Scope of this proposal: the **two requirements added by RM31 tier 4**
-(`2026-08-28-RM31-gateway-show-session-battery-pct`) — "Supercharger Stats monthly chart has
-readable month and kWh axes" and "Supercharger Stats session table displays battery
-percentages". The rest of the `gateway` capability spec is already reflected in the target
-guide and is deliberately not restated here.
+**Supersedes the 2026-08-28 draft of this same file** (which was never applied). Regenerated after
+`RM31-gateway-add-session-battery-edit` (tier 5) archived and synced five more requirements into
+the `gateway` capability spec.
+
+Scope of this proposal, after diffing the spec against the guide **as wave 6 of tier 5 left it**:
+
+1. The **two RM31 tier-4 requirements** — "Supercharger Stats monthly chart has readable month and
+   kWh axes" and "Supercharger Stats session table displays battery percentages" — carried forward
+   verbatim from the superseded draft. These are still genuinely absent from the live guide.
+2. **One** residual bullet from the five RM31 tier-5 requirements. Tier 5's own wave-6 KB task
+   already wrote the write path into the guide directly (strict `PATCH` body, `±1 day`
+   recalculation window and its rationale, nil-`TeslaID` skip-but-save, swallowed `Recalculate`
+   error, `csrf_supercharger`, the tenant boundary, and the window-carrying row action URLs), so
+   those requirements are **already reflected** and are deliberately not restated.
+
+> **Why the Glossary block below is an edit, not the superseded draft's version.** That draft was
+> generated before tier 5's wave 6 rewrote the live glossary. Applying its `REPLACE` verbatim today
+> would **delete** the RM31 write-path aliases and internal names the guide now carries. The block
+> below merges tier 4's chart/battery-column wording into the *current* glossary instead.
 
 ---
 
@@ -41,8 +55,8 @@ Rules:
 
 ## [guide] ## Glossary — REPLACE
 
-- **Known as:** `supercharger stats`, `Supercharger session`, `charge session log`, `Supercharger Stats page`, `/supercharger-stats`, `fast charging stats`, `session battery percentages`, `supercharger chart axes`
-- **Internal name:** `SuperchargerStatsPage` / `SuperchargerStatsFragment` (gateway handlers) → `charging.SessionReader` (`ListSessionsByVehicleBetween`) / `charging.SessionWriter` — table `charge_sessions`, owned by the `charging` module. **Changed by RM30** (was `telemetry.SuperchargerReader` over `supercharger_sessions`, the raw ingestion buffer). **Extended by RM31 tier 4**: the chart carries `YYYY-MM` bar labels + reused kWh y-axis ticks, and the session table carries the four `charging.Session` battery-percentage columns.
+- **Known as:** `supercharger stats`, `Supercharger session`, `charge session log`, `Supercharger Stats page`, `/supercharger-stats`, `fast charging stats`, `session battery edit`, `verify session battery`, `battery percentage correction`, `session battery percentages`, `supercharger chart axes`
+- **Internal name:** `SuperchargerStatsPage` / `SuperchargerStatsFragment` / `SuperchargerRowStatic` / `SuperchargerRowEditFragment` / `SuperchargerRowUpdate` (gateway handlers) → `charging.SessionReader` (`ListSessionsByVehicleBetween`) / `charging.SessionVerifier` (`VerifySession`) / `charging.SessionWriter` — table `charge_sessions`, owned by the `charging` module. **Changed by RM30** (was `telemetry.SuperchargerReader` over `supercharger_sessions`, the raw ingestion buffer). **Extended by RM31 tier 4**: the chart carries `YYYY-MM` bar labels + reused kWh y-axis ticks, and the session table carries the four `charging.Session` battery-percentage columns. **Write path added by RM31 tier 5** (`RM31-gateway-add-session-battery-edit`): a signed-in user can now correct a session's `start_battery_pct`/`end_battery_pct` inline through `charging.SessionVerifier.VerifySession` — still NO Create and NO Delete (see "Write path" below).
 
 ## [guide] ## How maintenance works — APPEND
 
@@ -61,6 +75,7 @@ Rules:
 - **A missing percentage is `"—"`, never `0%` and never an empty cell.** `0%` is a real, meaningful reading; conflating it with "unknown" would misreport a fully-drained arrival. _Source: spec gateway — Requirement: Supercharger Stats session table displays battery percentages._
 - **Country stays gone — do not restore the column, the cell, or a Country i18n key.** The table retains Date, Site, Energy and Cost only; `charging.Session` carries no `CountryCode` (RM29 D1) and RM30 removed the column deliberately. _Source: spec gateway — Requirement: Supercharger Stats session table displays battery percentages._
 - **Every new header resolves through the i18n catalogue with non-empty ES *and* EN.** A hardcoded or Spanish-only header is incomplete work here exactly as everywhere else in the gateway. _Source: spec gateway — Requirement: Supercharger Stats session table displays battery percentages._
+- **A saved battery-percentage edit must NOT refresh the KPI tiles or the chart.** The swap replaces the row and nothing else: session count, energy, cost and average kWh/session, and every chart bar, are derived from energy and cost — never from a battery percentage — so re-rendering the region on save would be pure churn presented to the user as a change. _Source: spec gateway — Requirement: Supercharger session battery percentages are correctable inline._
 
 ## [index] ## Workflows — ADD ROWS
 
