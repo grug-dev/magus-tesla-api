@@ -35,10 +35,10 @@ const (
 	KeyNavSectionCharging    Key = "nav.section.charging"
 	KeyNavSectionInsights    Key = "nav.section.insights"
 	KeyNavSettings           Key = "nav.settings"
-	KeyNavSoonBadge         Key = "nav.soon_badge"
-	KeyNavOpenSidebar       Key = "nav.open_sidebar"
-	KeyNavCloseSidebar      Key = "nav.close_sidebar"
-	KeyNavLogout            Key = "nav.logout"
+	KeyNavSoonBadge          Key = "nav.soon_badge"
+	KeyNavOpenSidebar        Key = "nav.open_sidebar"
+	KeyNavCloseSidebar       Key = "nav.close_sidebar"
+	KeyNavLogout             Key = "nav.logout"
 
 	// --- nav-header fragment (templates/fragments/nav_header.templ) ---
 	KeyNavHeaderNoTesla           Key = "nav_header.no_tesla"
@@ -119,6 +119,11 @@ const (
 	KeyChargesFormLocationKind    Key = "charges_form.location_kind"
 	KeyChargesFormSave            Key = "charges_form.save"
 	KeyChargesFormCancel          Key = "charges_form.cancel"
+	// --- status control + odometer, added by RM33-gateway-update-charge-form ---
+	KeyChargesFormStatus           Key = "charges_form.status"
+	KeyChargesFormStatusInProgress Key = "charges_form.status_in_progress"
+	KeyChargesFormStatusDone       Key = "charges_form.status_done"
+	KeyChargesFormOdometer         Key = "charges_form.odometer"
 
 	// --- charge row (templates/fragments/charge_row.templ) ---
 	KeyChargesRowEdit           Key = "charges_row.edit"
@@ -269,6 +274,10 @@ const (
 	KeyChargesErrorCouldNotValidateVehicleOwnership Key = "charges_error.could_not_validate_vehicle_ownership"
 	KeyChargesErrorVehicleNotOwned                  Key = "charges_error.vehicle_not_owned"
 	KeyChargesErrorInvalidCSRFToken                 Key = "charges_error.invalid_csrf_token"
+	// --- status + odometer validation, added by RM33-gateway-update-charge-form ---
+	KeyChargesErrorEndedAtRequired Key = "charges_error.ended_at_required"
+	KeyChargesErrorStatusInvalid   Key = "charges_error.status_invalid"
+	KeyChargesErrorOdometerInvalid Key = "charges_error.odometer_invalid"
 
 	// --- language switch errors (handlers/lang.go) ---
 	KeyLangSwitchErrorUnsupportedLanguage   Key = "lang_switch_error.unsupported_language"
@@ -315,10 +324,10 @@ var catalog = map[Key]entry{
 	KeyNavSectionCharging:    {ES: "Carga", EN: "Charging"},
 	KeyNavSectionInsights:    {ES: "Análisis", EN: "Insights"},
 	KeyNavSettings:           {ES: "Configuración", EN: "Settings"},
-	KeyNavSoonBadge:         {ES: "Pronto", EN: "Soon"},
-	KeyNavOpenSidebar:       {ES: "Abrir menú lateral", EN: "open sidebar"},
-	KeyNavCloseSidebar:      {ES: "Cerrar menú lateral", EN: "close sidebar"},
-	KeyNavLogout:            {ES: "Cerrar sesión", EN: "Log out"},
+	KeyNavSoonBadge:          {ES: "Pronto", EN: "Soon"},
+	KeyNavOpenSidebar:        {ES: "Abrir menú lateral", EN: "open sidebar"},
+	KeyNavCloseSidebar:       {ES: "Cerrar menú lateral", EN: "close sidebar"},
+	KeyNavLogout:             {ES: "Cerrar sesión", EN: "Log out"},
 
 	KeyNavHeaderNoTesla:           {ES: "Ningún Tesla conectado.", EN: "No Tesla connected."},
 	KeyNavHeaderConnectLink:       {ES: "Conecta tu Tesla", EN: "Connect your Tesla"},
@@ -367,30 +376,34 @@ var catalog = map[Key]entry{
 	KeyDashboardStatusParked:          {ES: "Estacionado", EN: "Parked"},
 	KeyDashboardStatusSoftwareVersion: {ES: "Software v%s", EN: "Software v%s"},
 
-	KeyChargesFormTitle:           {ES: "Registrar una carga", EN: "Log a charge"},
-	KeyChargesFormDate:            {ES: "Fecha", EN: "Date"},
-	KeyChargesFormEnergyAdded:     {ES: "Energía agregada (kWh)", EN: "Energy added (kWh)"},
-	KeyChargesFormPrice:           {ES: "Precio", EN: "Price"},
-	KeyChargesFormCurrency:        {ES: "Moneda", EN: "Currency"},
-	KeyChargesFormLocation:        {ES: "Ubicación", EN: "Location"},
-	KeyChargesFormHome:            {ES: "Casa", EN: "Home"},
-	KeyChargesFormWork:            {ES: "Trabajo", EN: "Work"},
-	KeyChargesFormOther:           {ES: "Otro", EN: "Other"},
-	KeyChargesFormStartedAt:       {ES: "Hora de inicio", EN: "Started at"},
-	KeyChargesFormEndedAt:         {ES: "Hora de fin", EN: "Ended at"},
-	KeyChargesFormStartBatteryPct: {ES: "% de batería inicial", EN: "Start battery %"},
-	KeyChargesFormEndBatteryPct:   {ES: "% de batería final", EN: "End battery %"},
-	KeyChargesFormMoreDetails:     {ES: "Más detalles", EN: "More details"},
-	KeyChargesFormChargingType:    {ES: "Tipo de carga", EN: "Charging type"},
-	KeyChargesFormAC:              {ES: "AC", EN: "AC"},
-	KeyChargesFormDC:              {ES: "DC", EN: "DC"},
-	KeyChargesFormLocationLabel:   {ES: "Etiqueta de ubicación", EN: "Location label"},
-	KeyChargesFormNotes:           {ES: "Notas", EN: "Notes"},
-	KeyChargesFormLogCharge:       {ES: "Registrar carga", EN: "Log charge"},
-	KeyChargesFormVehicle:         {ES: "Vehículo", EN: "Vehicle"},
-	KeyChargesFormLocationKind:    {ES: "Tipo de ubicación", EN: "Location kind"},
-	KeyChargesFormSave:            {ES: "Guardar", EN: "Save"},
-	KeyChargesFormCancel:          {ES: "Cancelar", EN: "Cancel"},
+	KeyChargesFormTitle:            {ES: "Registrar una carga", EN: "Log a charge"},
+	KeyChargesFormDate:             {ES: "Fecha", EN: "Date"},
+	KeyChargesFormEnergyAdded:      {ES: "Energía agregada (kWh)", EN: "Energy added (kWh)"},
+	KeyChargesFormPrice:            {ES: "Precio", EN: "Price"},
+	KeyChargesFormCurrency:         {ES: "Moneda", EN: "Currency"},
+	KeyChargesFormLocation:         {ES: "Ubicación", EN: "Location"},
+	KeyChargesFormHome:             {ES: "Casa", EN: "Home"},
+	KeyChargesFormWork:             {ES: "Trabajo", EN: "Work"},
+	KeyChargesFormOther:            {ES: "Otro", EN: "Other"},
+	KeyChargesFormStartedAt:        {ES: "Hora de inicio", EN: "Started at"},
+	KeyChargesFormEndedAt:          {ES: "Hora de fin", EN: "Ended at"},
+	KeyChargesFormStartBatteryPct:  {ES: "% de batería inicial", EN: "Start battery %"},
+	KeyChargesFormEndBatteryPct:    {ES: "% de batería final", EN: "End battery %"},
+	KeyChargesFormMoreDetails:      {ES: "Más detalles", EN: "More details"},
+	KeyChargesFormChargingType:     {ES: "Tipo de carga", EN: "Charging type"},
+	KeyChargesFormAC:               {ES: "AC — Carga lenta (casa/destino)", EN: "AC — Slow charging (home/destination)"},
+	KeyChargesFormDC:               {ES: "DC — Carga rápida (Supercargador)", EN: "DC — Fast charging (Supercharger)"},
+	KeyChargesFormLocationLabel:    {ES: "Etiqueta de ubicación", EN: "Location label"},
+	KeyChargesFormNotes:            {ES: "Notas", EN: "Notes"},
+	KeyChargesFormLogCharge:        {ES: "Registrar carga", EN: "Log charge"},
+	KeyChargesFormVehicle:          {ES: "Vehículo", EN: "Vehicle"},
+	KeyChargesFormLocationKind:     {ES: "Tipo de ubicación", EN: "Location kind"},
+	KeyChargesFormSave:             {ES: "Guardar", EN: "Save"},
+	KeyChargesFormCancel:           {ES: "Cancelar", EN: "Cancel"},
+	KeyChargesFormStatus:           {ES: "Estado", EN: "Status"},
+	KeyChargesFormStatusInProgress: {ES: "En progreso", EN: "In progress"},
+	KeyChargesFormStatusDone:       {ES: "Finalizada", EN: "Done"},
+	KeyChargesFormOdometer:         {ES: "Odómetro (km)", EN: "Odometer (km)"},
 
 	KeyChargesRowEdit:           {ES: "Editar", EN: "Edit"},
 	KeyChargesRowDelete:         {ES: "Eliminar", EN: "Delete"},
@@ -520,6 +533,9 @@ var catalog = map[Key]entry{
 	KeyChargesErrorCouldNotValidateVehicleOwnership: {ES: "no se pudo validar la propiedad del vehículo", EN: "could not validate vehicle ownership"},
 	KeyChargesErrorVehicleNotOwned:                  {ES: "el vehículo no pertenece a esta cuenta", EN: "vehicle not owned by this account"},
 	KeyChargesErrorInvalidCSRFToken:                 {ES: "token csrf inválido", EN: "invalid csrf token"},
+	KeyChargesErrorEndedAtRequired:                  {ES: "La hora de fin es obligatoria cuando el estado es Finalizada.", EN: "Ended at is required when status is Done."},
+	KeyChargesErrorStatusInvalid:                    {ES: "Estado inválido.", EN: "Invalid status."},
+	KeyChargesErrorOdometerInvalid:                  {ES: "El odómetro debe ser un número entero no negativo.", EN: "Odometer must be a non-negative whole number."},
 
 	KeyLangSwitchErrorUnsupportedLanguage:   {ES: "idioma no soportado", EN: "unsupported language"},
 	KeyLangSwitchErrorCouldNotSaveLanguage:  {ES: "no se pudo guardar la preferencia de idioma", EN: "could not save language preference"},

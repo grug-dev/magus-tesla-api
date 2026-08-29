@@ -9,21 +9,40 @@ type InputProps struct {
 	Value    string
 	Required bool
 	Disabled bool             // rendered as the HTML boolean attribute (mirrors SelectProps.Disabled)
+	Suffix   string           // renders a DaisyUI v5 compound `label` wrapper with this trailing text
 	Class    string           // extra layout utilities only
 	Attrs    templ.Attributes // min/max/step/placeholder/etc. (string values)
 }
 
 // Input renders a themed input. The DaisyUI `input` class is OWNED here (the
 // adapter): an engine upgrade that renames or restructures it is a one-file
-// change, never a sweep across every form.
+// change, never a sweep across every form. When Suffix is set, it renders
+// DaisyUI v5's compound `label` idiom (a trailing addon, e.g. a currency
+// code) instead of the plain input — see design.md §D-Suffix
+// (RM33-gateway-update-charge-form).
 templ Input(p InputProps) {
-	<input
-		type={ inputType(p.Type) }
-		name={ p.Name }
-		value={ p.Value }
-		class={ "input font-mono w-full", p.Class }
-		required?={ p.Required }
-		disabled?={ p.Disabled }
-		{ p.Attrs... }
-	/>
+	if p.Suffix == "" {
+		<input
+			type={ inputType(p.Type) }
+			name={ p.Name }
+			value={ p.Value }
+			class={ "input font-mono w-full", p.Class }
+			required?={ p.Required }
+			disabled?={ p.Disabled }
+			{ p.Attrs... }
+		/>
+	} else {
+		<label class={ "input w-full", p.Class }>
+			<input
+				type={ inputType(p.Type) }
+				name={ p.Name }
+				value={ p.Value }
+				class="grow font-mono"
+				required?={ p.Required }
+				disabled?={ p.Disabled }
+				{ p.Attrs... }
+			/>
+			<span class="label">{ p.Suffix }</span>
+		</label>
+	}
 }

@@ -45,7 +45,7 @@ the human. See design.md for the rationale behind each group.
 
 ## Wave 1 — foundation (ui kit + i18n catalogue)
 
-- [ ] **1.1** **[module: gateway worker]** `internal/gateway/templates/ui/input.templ` — add
+- [x] **1.1** **[module: gateway worker]** `internal/gateway/templates/ui/input.templ` — add
   `Suffix string` to `InputProps` and the conditional `label`-wrapped render path from design.md
   §D-Suffix, verbatim (DaisyUI v5's `<label class="input"><input class="grow".../><span
   class="label">{Suffix}</span></label>` idiom, confirmed via Context7 against
@@ -55,7 +55,7 @@ the human. See design.md for the rationale behind each group.
   `internal/gateway` tree, not just the charges templates) is untouched.
   `depends_on`: — · `parallel_ok`: with 1.2
 
-- [ ] **1.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go`:
+- [x] **1.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go`:
   - **Add** keys (both `ES`/`EN` on the catalogue map line, per `internal/gateway/AGENTS.md` §i18n
     D1 convention): status field label, `IN_PROGRESS` option text, `DONE` option text, odometer
     field label, and validation messages for: `ended_at` required (when status is DONE), status
@@ -79,7 +79,7 @@ the human. See design.md for the rationale behind each group.
 
 ## Wave 2 — view-model surface
 
-- [ ] **2.1** **[module: gateway worker]** `internal/gateway/templates/fragments/charges_vm.go`:
+- [x] **2.1** **[module: gateway worker]** `internal/gateway/templates/fragments/charges_vm.go`:
   - Add the `ChargeFormValues` struct from design.md §D-Values, verbatim (all ten fields, doc
     comment included).
   - Add `FormValues ChargeFormValues` to `ChargesPageData`, with a doc comment cross-referencing
@@ -214,6 +214,17 @@ the human. See design.md for the rationale behind each group.
   - **Do not touch `<td colspan="8">`** — design.md §D-Colspan, tier 3's territory.
   `depends_on`: 1.1, 1.2, 2.1, 3.2, 3.3 · `parallel_ok`: with 4.1
 
+
+- [ ] **4.3** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — **deferred deletion
+  from task 1.2.** Wave 1 could not remove `KeyChargesFormCurrency`,
+  `KeyChargesErrorEnergyRequired` and `KeyChargesErrorPriceRequired` because 1.2's mandated grep
+  still found live references (`charge_create_form.templ:58`, `charge_row_edit.templ:54`,
+  `handlers/charges.go:734,746`) — tasks 3.1/4.1/4.2 remove those call sites. Re-run the grep from
+  1.2 now; when it returns **zero** matches outside `catalog.go` and `_templ.go`, delete all three
+  (`Key` constant + catalogue map entry). If any reference still remains, do NOT delete that key —
+  report which one and where, because that means 3.1/4.1/4.2 left a call site behind.
+  `depends_on`: 3.3, 4.1, 4.2 · `parallel_ok`: no
+
 ---
 
 ## Wave 5 — codegen
@@ -230,7 +241,7 @@ the human. See design.md for the rationale behind each group.
 
 ## Wave 6 — client-side JS (RD12 + RD13)
 
-- [ ] **6.1** **[module: gateway worker]** `internal/gateway/static/app.js` — add the two listeners
+- [x] **6.1** **[module: gateway worker]** `internal/gateway/static/app.js` — add the two listeners
   from design.md §D-JS:
   - RD12: a `change` listener (delegated on `document.body`) matching
     `input[name="charged_on"]`, rewriting the date portion of `started_at`/`ended_at` within

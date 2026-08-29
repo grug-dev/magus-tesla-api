@@ -28,8 +28,42 @@ type ChargeEntryVM struct {
 	RawEndedAt         string // "2006-01-02T15:04" or ""
 	RawStartBatteryPct string // "80" or ""
 	RawEndBatteryPct   string // "92" or ""
+	RawOdometerKm      string // "45210" or "" — mirrors RawEnergyKWh/RawPrice (leader addition, 2026-08-29, design.md §D-Values gap closed by tasks.md 2.1)
 	TeslaID            int64  // the entry's owning vehicle (identity key, not rendered — asserted by TestChargeEntryVMFromEntry)
 	VIN                string // durable vehicle key (identity key, not rendered — asserted by TestChargeEntryVMFromEntry)
+
+	// Status is a possible future display label (unused by this tier's markup,
+	// kept for symmetry with every other VM field pair). RawStatus is the raw
+	// persisted status string ("IN_PROGRESS" | "DONE") used to drive the edit
+	// form's status <select> `selected` binding. Added by
+	// RM33-gateway-update-charge-form (design.md §D-Fields).
+	Status    string
+	RawStatus string
+
+	// RequiredEndedAt / RequiredEndBatteryPct are computed by the handler from
+	// charging.RequiredFieldsFor(e.Status) — never computed in the template
+	// (design.md §D-Fields). They drive the `required` attribute on the
+	// ended_at / end_battery_pct inputs of the inline edit row.
+	RequiredEndedAt       bool
+	RequiredEndBatteryPct bool
+}
+
+// ChargeFormValues carries the raw, unparsed POST values a user submitted, so a
+// 4xx/5xx re-render can echo exactly what they typed — including a value that
+// failed validation — rather than a blank or default field (roadmap D15).
+// Every field is the literal c.PostForm(name) string; no parsing, no trimming
+// beyond what parseChargeForm already applies for its own validation.
+type ChargeFormValues struct {
+	Status          string // "IN_PROGRESS" | "DONE" | "" (fresh page load)
+	EnergyAddedKWh  string
+	Price           string
+	LocationKind    string
+	StartBatteryPct string
+	EndBatteryPct   string
+	ChargingType    string
+	LocationLabel   string
+	Notes           string
+	OdometerKm      string
 }
 
 // VehicleOptionVM is one option in the nav-header vehicle context-switcher <select>
@@ -77,4 +111,17 @@ type ChargesPageData struct {
 	// Example non-empty value: "Latest: 73%". The template renders it as the
 	// input's placeholder attribute; the field remains a normal required integer.
 	StartBatteryPctSuggestion string
+
+	// FormValues carries the raw submitted POST values for a 4xx/5xx re-render
+	// of the create form, so no submitted value is lost on validation failure
+	// (roadmap D15, design.md §D-Values). Zero-value ChargeFormValues{} on a
+	// fresh (non-error) page load, reproducing today's blank-field behavior.
+	FormValues ChargeFormValues
+
+	// RequiredEndedAt / RequiredEndBatteryPct are computed by the handler from
+	// charging.RequiredFieldsFor, never in the template (design.md §D-Fields).
+	// They drive the `required` attribute on the create form's ended_at /
+	// end_battery_pct inputs.
+	RequiredEndedAt       bool
+	RequiredEndBatteryPct bool
 }
