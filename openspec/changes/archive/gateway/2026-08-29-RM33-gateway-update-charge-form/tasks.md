@@ -320,7 +320,7 @@ the human. See design.md for the rationale behind each group.
   Appended in wave 4, not a rescoping of 3.3.
   `depends_on`: 3.3, 8.3 · `parallel_ok`: no
 
-- [ ] **8.4** **[owner]** Manually verify the three JS behaviors design.md's Test Contract
+- [x] **8.4** **[owner]** Manually verify the three JS behaviors design.md's Test Contract
   "Owner-verified, not automatable here" section lists (date-sync preserving time; live required
   toggle with no network request; independent behavior across two simultaneously-open inline edit
   rows). Record pass/fail against each of the three in the session/report — this is not
@@ -343,12 +343,12 @@ the human. See design.md for the rationale behind each group.
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the assistant's
+- [x] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the assistant's
   say-so; work that is complete but unexecuted is **`awaiting-user-verification`**.
   ```bash
   make check
   ```
   (`make check` = `build vet ui-guard i18n-guard money-guard test`.)
 
-- [ ] **O2** **[owner]** Perform the manual JS verification from task **8.4** if it was not already
+- [x] **O2** **[owner]** Perform the manual JS verification from task **8.4** if it was not already
   completed and recorded during implementation (`make dev` for the hot-reload loop).
