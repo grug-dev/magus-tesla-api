@@ -26,6 +26,12 @@ API ────────┘                         ├── Process Chargi
                                       └── Recalculate Analytics (analytics)
 ```
 
+**Cross-module map of one cycle:** `kkpa/context/architecture/nightly-cycle.md` — every port
+call, every table effect per step, and the failure blast-radius table. Read it before changing
+the steps or their order; it is where the facts that span `telemetry`/`charging`/`analytics`
+live, so this file does not have to restate another module's internals. (It also links a
+rendered diagram; the code is the source of truth, then that guide, then the diagram.)
+
 `Scheduler` and the future manual-rerun API (roadmap tier 8, parked) are **peer driving
 adapters that CALL this port** — **neither is inside `Processor`**. `ProcessVehicleData`
 has no knowledge of *when* a cycle runs or *how* it was triggered beyond the
