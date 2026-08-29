@@ -626,9 +626,15 @@ target — see the explicit list at the end of this section.
   per-field).
 - **B5.** `buildChargeTiles` over three entries: one with `EnergyAddedKWh = 10.0`, `Price =
   1000`; one with `EnergyAddedKWh = nil`, `Price = 500`; one with `EnergyAddedKWh = 5.0`, `Price
-  = 0` → `Sessions == "3"`, `Energy == "15.0 kWh"` (nil-skip), `Cost == "1500.00 COP"` (summed
+  = 0` → `Sessions == "3"`, `Energy == "15.0 kWh"` (nil-skip), `Cost == "1,500.00 COP"` (summed
   regardless of nil energy), `AvgKWh == "7.5 kWh"` (15.0 / 2, the count of non-nil-energy
   entries, NOT 3).
+  *(Corrected by the leader after the owner's first suite run: originally authored as
+  `"1500.00 COP"`. `formatMoney` — the pre-existing helper this design explicitly reuses — has
+  always applied `commaGroup` thousands separation, so the un-grouped form was never a value it
+  could return. The BEHAVIORAL assertion is unchanged: the cost is still summed across all three
+  entries including the nil-energy one, 1000 + 500 + 0. Only the rendering of that sum was
+  mis-authored. B4's `"0.00 COP"` is unaffected — it has no thousands to group.)*
 
 ### Group C — the completeness dot / status badge render (offline, rendered-HTML assertions)
 

@@ -101,7 +101,7 @@ func TestBuildChargeTiles_B4_EmptySlice(t *testing.T) {
 
 // TestBuildChargeTiles_B5_ThreeEntriesOneNilEnergy is Test Contract B5:
 // three entries (one with nil EnergyAddedKWh) -> Sessions=="3",
-// Energy=="15.0 kWh" (nil-skip), Cost=="1500.00 COP" (summed regardless of
+// Energy=="15.0 kWh" (nil-skip), Cost=="1,500.00 COP" (summed regardless of
 // nil energy), AvgKWh=="7.5 kWh" (divided by the non-nil-energy COUNT (2),
 // not the entry count (3)).
 func TestBuildChargeTiles_B5_ThreeEntriesOneNilEnergy(t *testing.T) {
@@ -117,8 +117,12 @@ func TestBuildChargeTiles_B5_ThreeEntriesOneNilEnergy(t *testing.T) {
 	if tiles.Energy != "15.0 kWh" {
 		t.Errorf("want Energy=15.0 kWh, got %s", tiles.Energy)
 	}
-	if tiles.Cost != "1500.00 COP" {
-		t.Errorf("want Cost=1500.00 COP, got %s", tiles.Cost)
+	// formatMoney applies commaGroup thousands separation (format.go) — the
+	// contract originally authored this un-grouped, corrected after the owner's
+	// first suite run. The summed VALUE (1000+500+0) is what B5 pins; only its
+	// rendering was mis-authored.
+	if tiles.Cost != "1,500.00 COP" {
+		t.Errorf("want Cost=1,500.00 COP, got %s", tiles.Cost)
 	}
 	if tiles.AvgKWh != "7.5 kWh" {
 		t.Errorf("want AvgKWh=7.5 kWh, got %s", tiles.AvgKWh)
