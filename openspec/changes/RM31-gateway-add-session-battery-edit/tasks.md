@@ -240,6 +240,6 @@ whether the task's files are disjoint from its concurrent siblings.
   no `pgx` import in the gateway, and `recalculateAfterChargeWrite` is byte-for-byte unchanged.
   `depends_on`: 5.1, 5.2, 5.3, 5.4, 6.3 · `parallel_ok`: no.
 
-- [ ] **7.2** **[owner verification]** Run `go test ./internal/gateway/...`. Acceptance: report
+- [x] **7.2** **[owner verification]** Run `go test ./internal/gateway/...`. Acceptance: report
   the result to the leader; until then the work remains awaiting-user-verification, not done.
   `depends_on`: 7.1 · `parallel_ok`: no.

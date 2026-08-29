@@ -5,8 +5,8 @@
   "module": "gateway",
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
-  "status": "applied",
-  "updated_at": "2026-08-29T02:05:00Z",
+  "status": "verified",
+  "updated_at": "2026-08-29T02:04:05Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -42,11 +42,10 @@
       "6.1",
       "6.2",
       "6.3",
-      "7.1"
-    ],
-    "awaiting_user_verification": [
+      "7.1",
       "7.2"
-    ]
+    ],
+    "awaiting_user_verification": []
   },
   "decisions": [
     {
@@ -496,17 +495,17 @@
     },
     {
       "id": "7.2",
-      "status": "awaiting-user-verification",
+      "status": "done",
       "depends_on": [
         "7.1"
       ],
-      "agent": null,
+      "agent": "user",
       "model": null,
       "started_at": null,
-      "completed_at": null,
+      "completed_at": "2026-08-29T02:04:05Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "OWNER reported make test and the build GREEN. Verification is the owner's; the assistant never ran the suite."
     }
   ],
   "review": {
@@ -765,6 +764,16 @@
       "at": "2026-08-29T02:05:00Z",
       "agent": "leader",
       "event": "CHEAP SIGNALS, permitted by the Test-Execution-Policy: go build ./... OK, go vet ./... OK. gofmt -l shows internal/gateway/i18n/catalog.go unformatted at HEAD but NOT on main. Leader bisected it: catalog.go was gofmt-CLEAN through wave 3 at f463811 and cd469d6, and became unformatted at commit 76dd874 Updating -- the OWNER's commit, which added the longer KeyNavVehicleStats/KeyNavCommunityBenchmark nav keys and forced a realignment of the const block without re-running gofmt. NOT a tier-5 defect and deliberately NOT fixed by the leader: the owner has uncommitted edits to that same file right now, so a fix would collide with their working tree. The other 7 gofmt hits are pre-existing on main."
+    },
+    {
+      "at": "2026-08-29T02:04:05Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED test and build OK at the wave-7 boundary. This clears task 7.2, the LAST open task -- all 21 sub-tasks across waves 1-7 are now done and change status advances to verified. Per the Test-Execution-Policy this pass is recorded as the OWNER'S report and is never claimed by the assistant, which ran only go build and go vet."
+    },
+    {
+      "at": "2026-08-29T02:04:05Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the wave-7 / reviewer-gate boundary: owner clearing context before the review round. Budget CLEAR, not a threshold trip -- five_hour 14 pct, context 15 pct, cost 8.76 this session. NEXT STEP on resume is Step 7: write the review brief into review.brief and dispatch kkpa-module-reviewer scoped to gateway on a cheaper model, instructed to escalate on doubt. The brief MUST carry two scope exclusions the leader already established: 1) cmd/web/main.go is task 4.3, an explicit LEADER task outside internal/, NOT a boundary violation; 2) FOUR files in the tier-5 commit range are the owner's own commit 76dd874 and are NOT pipeline work -- nav.go, ui/icon.templ, ui/icon_templ.go, ui/nav_shell_test.go. The brief must also state that build/vet were assistant-run while the SUITE result is the owner's report, and that the catalog.go gofmt hit predates this tier via 76dd874. After reviewer approval: archive tier 5, flip the roadmap tier to [x], then AUTO-ARCHIVE roadmap RM31 itself since tier 5 is the last tier -- git mv both roadmap files into openspec/roadmaps/archive/RM31-supercharger-session-verification/. Also still OUTSTANDING from tier 3: the openspec-archive-kb-sync rule owes a /kkpa-context-curate from-spec run for the analytics capability. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
     }
   ]
 }
