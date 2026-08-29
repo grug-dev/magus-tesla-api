@@ -490,7 +490,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
 `httptest`/rendered-HTML wave; all sub-tasks land in `internal/gateway/handlers/charges_test.go`,
 same real merge-risk caveat tier 2's Wave 8 accepted for its own same-file test tasks)
 
-- [ ] **9.1** **[module: gateway worker]** Group **C1–C3** (design.md §Test Contract Group C) —
+- [x] **9.1** **[module: gateway worker]** Group **C1–C3** (design.md §Test Contract Group C) —
   rendered-HTML assertions on the completeness dot / status badge:
   - C1: a `DONE`, fully-complete entry's row renders `ui.Dot` with a class containing
     `bg-success` and the status badge text matches the DONE label.
@@ -499,7 +499,7 @@ same real merge-risk caveat tier 2's Wave 8 accepted for its own same-file test 
   - C3: a normally-shaped `IN_PROGRESS` entry renders the warning dot AND the IN_PROGRESS badge.
   `depends_on`: 8.1, 5.2 · `parallel_ok`: with 9.2, 9.3, 9.4
 
-- [ ] **9.2** **[module: gateway worker]** Group **D1–D4** (design.md §Test Contract Group D) —
+- [x] **9.2** **[module: gateway worker]** Group **D1–D4** (design.md §Test Contract Group D) —
   window-preservation `httptest` assertions:
   - D1: `POST /ui/charges/create` with a valid submission plus `start=2026-08-01&end=2026-08-31`
     in the form body → the OOB `#charges-list` reflects that window, not the default.
@@ -512,7 +512,7 @@ same real merge-risk caveat tier 2's Wave 8 accepted for its own same-file test 
     window, and the deleted row's id is absent from it.
   `depends_on`: 8.1, 5.4, 5.5, 5.6 · `parallel_ok`: with 9.1, 9.3, 9.4
 
-- [ ] **9.3** **[module: gateway worker]** Group **E1–E4** (design.md §Test Contract Group E) —
+- [x] **9.3** **[module: gateway worker]** Group **E1–E4** (design.md §Test Contract Group E) —
   no-vehicle / malformed-window / reader-error empty states:
   - E1: zero registered vehicles → `GET /charges` contains `ChargesEmptyState()`'s message and
     contains NEITHER a preset button NOR any `ui.StatTile` NOR a `<table>` (assert absence).
@@ -525,7 +525,7 @@ same real merge-risk caveat tier 2's Wave 8 accepted for its own same-file test 
     table rows.
   `depends_on`: 8.1, 5.1, 5.3 · `parallel_ok`: with 9.1, 9.2, 9.4
 
-- [ ] **9.4** **[module: gateway worker]** The four existing-test REWRITE items design.md
+- [x] **9.4** **[module: gateway worker]** The four existing-test REWRITE items design.md
   enumerates so nothing silently breaks (§Test Contract "Existing tests requiring REWRITE"):
   - `TestChargesListFragment_WithEntries`, `TestChargesListFragment_ReaderError`,
     `TestChargesListFragment_EmptyState` — account for the default-window `?start=&end=`

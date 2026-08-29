@@ -380,13 +380,20 @@ func TestChargesListFragment_NoSession(t *testing.T) {
 	}
 }
 
-// TestChargesListFragment_WithEntries verifies the list fragment returns only the fragment.
+// TestChargesListFragment_WithEntries verifies the list fragment returns only
+// the fragment. REWRITTEN for RM33 tier 3 (design.md §Test Contract "Existing
+// tests requiring REWRITE"): GET /ui/charges/list with NO ?start=&end= now
+// resolves the default 7-day window via parseChargesRange (rather than taking
+// every account entry unconditionally) and the response now also carries the
+// preset selector and the four aggregation tiles — asserted here alongside
+// the pre-existing charges-list/row-id checks, not merely the div's presence.
 func TestChargesListFragment_WithEntries(t *testing.T) {
 	uid := uuid.New()
 	chargedOn := time.Now()
+	entryID := uuid.New()
 	entries := []charging.Entry{
 		{
-			ID:             uuid.New(),
+			ID:             entryID,
 			AccountID:      uid,
 			TeslaID:        1001,
 			VIN:            "VIN1001",
@@ -415,9 +422,23 @@ func TestChargesListFragment_WithEntries(t *testing.T) {
 	if !strings.Contains(body, "charges-list") {
 		t.Errorf("want charges-list div in fragment response, body=%q", body[:min(500, len(body))])
 	}
+	if !strings.Contains(body, "charge-row-"+entryID.String()) {
+		t.Errorf("want the entry's row in the response, body=%q", body[:min(800, len(body))])
+	}
+	if !strings.Contains(body, "join-item") {
+		t.Errorf("want the default-window preset selector rendered, body=%q", body[:min(1500, len(body))])
+	}
+	if got := strings.Count(body, "stat-title"); got != 4 {
+		t.Errorf("want the four aggregation tiles rendered, got %d stat-title occurrences, body=%q", got, body[:min(1500, len(body))])
+	}
 }
 
-// TestChargesListFragment_ReaderError verifies graceful degradation on reader failure.
+// TestChargesListFragment_ReaderError verifies graceful degradation on reader
+// failure. REWRITTEN for RM33 tier 3 (design.md §Test Contract "Existing
+// tests requiring REWRITE" + §D-Empty state 2): the default-window resolution
+// now applies here too, and a reader error keeps the preset selector AND the
+// (zero-valued) tiles visible — it is NOT the same no-chrome collapse as a
+// malformed window (Group E1/E2) or a no-vehicle response.
 func TestChargesListFragment_ReaderError(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeChargeReader{err: errFake}
@@ -439,9 +460,20 @@ func TestChargesListFragment_ReaderError(t *testing.T) {
 	if strings.Contains(body, "500") || strings.Contains(body, "internal server error") {
 		t.Errorf("want no 500 in graceful degradation response, body=%q", body[:min(500, len(body))])
 	}
+	if !strings.Contains(body, "join-item") {
+		t.Errorf("want the preset selector STILL shown on a reader error (D-Empty state 2), body=%q", body[:min(1500, len(body))])
+	}
+	if got := strings.Count(body, "stat-title"); got != 4 {
+		t.Errorf("want the four (zero-valued) tiles STILL shown on a reader error, got %d stat-title occurrences, body=%q", got, body[:min(1500, len(body))])
+	}
 }
 
-// TestChargesListFragment_EmptyState verifies empty-state message on empty list.
+// TestChargesListFragment_EmptyState verifies empty-state message on empty
+// list. REWRITTEN for RM33 tier 3 (design.md §Test Contract "Existing tests
+// requiring REWRITE" + §D-Empty state 3): a valid vehicle + valid (default)
+// window with zero rows is NOT the same as the no-chrome collapse (Group
+// E1/E2) — D13 requires the selector and tiles to still render (0/—), only
+// the table body swaps for ChargesEmptyState().
 func TestChargesListFragment_EmptyState(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeChargeReader{entries: []charging.Entry{}}
@@ -466,6 +498,15 @@ func TestChargesListFragment_EmptyState(t *testing.T) {
 	// (RM24-gateway-translate-all-pages, mirroring tier 2's T6.4 precedent).
 	if !strings.Contains(body, "Aún no hay cargas registradas") {
 		t.Errorf("want empty-state message, body=%q", body[:min(500, len(body))])
+	}
+	if !strings.Contains(body, "join-item") {
+		t.Errorf("want the preset selector STILL shown on a valid empty range (D13), body=%q", body[:min(1500, len(body))])
+	}
+	if got := strings.Count(body, "stat-title"); got != 4 {
+		t.Errorf("want the four tiles STILL shown at 0/— on a valid empty range (D13/D14), got %d stat-title occurrences, body=%q", got, body[:min(1500, len(body))])
+	}
+	if strings.Contains(body, "<table") {
+		t.Errorf("want NO <table> element — the table body is replaced by ChargesEmptyState(), body=%q", body[:min(1500, len(body))])
 	}
 }
 
@@ -818,15 +859,22 @@ func TestChargeRowDelete_CSRFMismatch(t *testing.T) {
 	}
 }
 
-// TestChargeRowDelete_ValidInput_RendersEmptyRow verifies a valid DELETE returns
-// the empty-row fragment (T1.3 — MAG-5 D3). The success body is the empty
-// `<tr id="charge-row-<id>"></tr>` that htmx outerHTML-swaps in for the deleted
-// row; it must NOT contain a `<td>` (which would be the error-row variant). The
-// CSRF token is sent via the X-CSRF-Token HEADER (matching the charge_row.templ
-// fix that emits hx-headers carrying X-CSRF-Token — Go's net/http parses DELETE
+// TestChargeRowDelete_ValidInput_RendersChargesListFragment is the RM33 tier 3
+// REWRITE of the old TestChargeRowDelete_ValidInput_RendersEmptyRow (design.md
+// §Test Contract "Existing tests requiring REWRITE"). The delete button's
+// hx-target moved from "#charge-row-{id}" to "#charges-list" (design.md
+// §D-Refresh) — after a successful delete there is no row left to swap into,
+// so the handler now re-renders the WHOLE #charges-list region (selector +
+// tiles + table/empty-state), structurally identical to ChargesListFragment's
+// own response. The old bare `<tr id="charge-row-<id>"></tr>` empty-row shape
+// (`fragments.ChargeRowEmpty`, deleted in Wave 6.1) must NOT appear. Same
+// assertion shape as Group D4 (TestChargeRowDelete_D4_...), kept as its own
+// test per design.md's explicit REWRITE-item enumeration. The CSRF token is
+// sent via the X-CSRF-Token HEADER (matching the charge_row.templ fix that
+// emits hx-headers carrying X-CSRF-Token — Go's net/http parses DELETE
 // request BODIES for no method, so the prior hx-include body path silently
 // 403'd; the header path is the fix — see ChargeRowDelete doc comment).
-func TestChargeRowDelete_ValidInput_RendersEmptyRow(t *testing.T) {
+func TestChargeRowDelete_ValidInput_RendersChargesListFragment(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
@@ -846,14 +894,15 @@ func TestChargeRowDelete_ValidInput_RendersEmptyRow(t *testing.T) {
 		t.Fatalf("want 200 on valid delete, got %d", w.Code)
 	}
 	body := w.Body.String()
-	wantEmpty := `<tr id="charge-row-` + id.String() + `"></tr>`
-	if !strings.Contains(body, wantEmpty) {
-		t.Errorf("want empty row %q in delete response, got body=%q", wantEmpty, body[:min(500, len(body))])
+	if !strings.Contains(body, `id="charges-list"`) {
+		t.Errorf("want the full #charges-list fragment in the delete response, got body=%q", body[:min(500, len(body))])
 	}
-	// Stronger: an error-row (ChargeRowError) would contain a <td> child; the
-	// empty row must not.
-	if strings.Contains(body, "<td") {
-		t.Errorf("delete success response must NOT contain a <td> (would be the error-row variant), got body=%q",
+	// The old MAG-5 empty-row shape (fragments.ChargeRowEmpty, now deleted)
+	// must never appear — the response is the whole list region, not a bare
+	// empty <tr>.
+	wantOldEmptyRow := `<tr id="charge-row-` + id.String() + `"></tr>`
+	if strings.Contains(body, wantOldEmptyRow) {
+		t.Errorf("delete response must NOT be the old bare empty <tr> shape, got body=%q",
 			body[:min(500, len(body))])
 	}
 }
@@ -1781,6 +1830,14 @@ func TestChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
 // returns a static slice; we pre-seed the entry being deleted and assert the
 // charge-row-<id> marker is absent from a GET /ui/charges/list when the fake
 // reader's slice no longer carries that id (simulating the post-delete state).
+//
+// RE-POINTED for RM33 tier 3 (design.md §Test Contract "Existing tests
+// requiring REWRITE" — "likely still valid in INTENT but must be re-pointed
+// at the new response shape"): the original intent (a later GET reflects the
+// removal) is unchanged, so nothing below it was altered; this adds one new
+// assertion on the delete response ITSELF, confirming ChargeRowDelete now
+// returns the full #charges-list fragment (design.md §D-Refresh), not the old
+// MAG-5 bare empty-row shape.
 func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
@@ -1818,6 +1875,10 @@ func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 	r.ServeHTTP(wDel, reqDel)
 	if wDel.Code != http.StatusOK {
 		t.Fatalf("want 200 on delete, got %d", wDel.Code)
+	}
+	if !strings.Contains(wDel.Body.String(), `id="charges-list"`) {
+		t.Errorf("want the delete response ITSELF to be the full #charges-list fragment (design.md §D-Refresh), got body=%q",
+			wDel.Body.String()[:min(500, wDel.Body.Len())])
 	}
 
 	// Post-delete list render: simulate the entry's removal from the read
@@ -2333,8 +2394,12 @@ func renderCreateForm(t *testing.T, d fragments.ChargesPageData, lang string) st
 	return body.String()
 }
 
-// renderEditRow renders fragments.ChargeRowEdit(vm, "tok", nil) to a string,
-// same language convention as renderCreateForm.
+// renderEditRow renders fragments.ChargeRowEdit(vm, "tok", nil, "", "") to a
+// string, same language convention as renderCreateForm. The two trailing ""
+// args are windowStartStr/windowEndStr (design.md §D-Refresh, RM33 tier 3) —
+// Group C's template/markup assertions (C1-C7) are all indifferent to the
+// filter window, so empty strings are the correct fixture here; the window
+// itself is pinned separately by Group D (§D-Include/§D-Refresh).
 func renderEditRow(t *testing.T, vm fragments.ChargeEntryVM, lang string) string {
 	t.Helper()
 	ctx := context.Background()
@@ -2342,7 +2407,7 @@ func renderEditRow(t *testing.T, vm fragments.ChargeEntryVM, lang string) string
 		ctx = i18n.WithLang(ctx, lang)
 	}
 	var body bytes.Buffer
-	if err := fragments.ChargeRowEdit(vm, "tok", nil).Render(ctx, &body); err != nil {
+	if err := fragments.ChargeRowEdit(vm, "tok", nil, "", "").Render(ctx, &body); err != nil {
 		t.Fatalf("render ChargeRowEdit: %v", err)
 	}
 	return body.String()
@@ -2611,5 +2676,458 @@ func TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes(t *testin
 		if !strings.Contains(attrs, "required") {
 			t.Errorf("design.md §D-Fields: %s must carry required on a DONE error re-render, got %q", name, attrs)
 		}
+	}
+}
+
+// ============================================================================
+// RM33-gateway-add-entries-dashboard (MAG-18, tier 3) — Test Contract Groups
+// C, D, E (design.md). Groups A (parseChargesRange/buildChargesPresets) and B
+// (entryComplete/buildChargeTiles) already live in charges_range_test.go /
+// charges_tiles_test.go (Wave 3). These are the rendered-HTML (C) and
+// httptest (D, E) groups — Wave 9.
+// ============================================================================
+
+// --- Group C — the completeness dot / status badge render (design.md Test
+// Contract C1-C3, offline rendered-HTML assertions) ---
+
+// renderChargeRow builds a ChargeEntryVM from e via chargeEntryVMFromEntry
+// (exercising the REAL entryComplete/Complete wiring — design.md §D-Dot,
+// tasks.md 9.1 depends_on 5.2) and renders fragments.ChargeRow to a string.
+// Mirrors renderEditRow/renderCreateForm's direct-render pattern (tier 2's
+// pre-existing Group C tests) — ambient context.Background() resolves to
+// Spanish (i18n.FromContext's default), matching this file's established
+// convention (see TestChargesListFragment_EmptyState's comment).
+func renderChargeRow(t *testing.T, e charging.Entry, vehicles []account.Vehicle) string {
+	t.Helper()
+	vm := chargeEntryVMFromEntry(e, vehicles)
+	var body bytes.Buffer
+	if err := fragments.ChargeRow(vm, "tok", "2026-08-23", "2026-08-29").Render(context.Background(), &body); err != nil {
+		t.Fatalf("render ChargeRow: %v", err)
+	}
+	return body.String()
+}
+
+// TestChargeRow_C1_DoneComplete_RendersSuccessDotAndDoneBadge verifies Test
+// Contract C1: a DONE, fully-complete entry's row renders ui.Dot with a class
+// containing bg-success (dotClass("success")) and the status badge text
+// matches the DONE label (KeyChargesBadgeDone's ES value, "Finalizada").
+func TestChargeRow_C1_DoneComplete_RendersSuccessDotAndDoneBadge(t *testing.T) {
+	e := charging.Entry{
+		ID:              uuid.New(),
+		AccountID:       uuid.New(),
+		TeslaID:         1001,
+		VIN:             "VIN1001",
+		Status:          charging.StatusDone,
+		ChargedOn:       time.Now(),
+		Price:           5000,
+		Currency:        "COP",
+		EnergyAddedKWh:  ptrF64(10.0),
+		StartBatteryPct: ptrInt(50),
+		EndBatteryPct:   ptrInt(80),
+		StartedAt:       ptrTime(time.Now()),
+		EndedAt:         ptrTime(time.Now()),
+	}
+	body := renderChargeRow(t, e, nil)
+
+	if !strings.Contains(body, "bg-success") {
+		t.Errorf("C1: want the success dot class (bg-success) for a fully-complete DONE entry, body=%q", body[:min(1200, len(body))])
+	}
+	if strings.Contains(body, "bg-warning") {
+		t.Errorf("C1: want NO warning dot class on a fully-complete entry, body=%q", body[:min(1200, len(body))])
+	}
+	if !strings.Contains(body, "Finalizada") {
+		t.Errorf("C1: want the DONE status badge text (KeyChargesBadgeDone), body=%q", body[:min(1200, len(body))])
+	}
+}
+
+// TestChargeRow_C2_DoneMissingEndBatteryPct_RendersWarningNeverError verifies
+// Test Contract C2: a DONE entry missing EndBatteryPct (a data state the
+// domain permits even though the gateway's own form now requires it for a NEW
+// DONE save — e.g. seeded directly or edited by an earlier code path) renders
+// the WARNING dot class, never the success one, and never bg-error
+// (D-RM33-12 — ChargeRow only ever passes "success"/"warning" to ui.Dot; this
+// pins that the row template never regresses to a third variant).
+func TestChargeRow_C2_DoneMissingEndBatteryPct_RendersWarningNeverError(t *testing.T) {
+	e := charging.Entry{
+		ID:              uuid.New(),
+		AccountID:       uuid.New(),
+		TeslaID:         1001,
+		VIN:             "VIN1001",
+		Status:          charging.StatusDone,
+		ChargedOn:       time.Now(),
+		Price:           5000,
+		Currency:        "COP",
+		EnergyAddedKWh:  ptrF64(10.0),
+		StartBatteryPct: ptrInt(50),
+		EndBatteryPct:   nil, // the missing field under test
+		StartedAt:       ptrTime(time.Now()),
+		EndedAt:         ptrTime(time.Now()),
+	}
+	body := renderChargeRow(t, e, nil)
+
+	if !strings.Contains(body, "bg-warning") {
+		t.Errorf("C2: want the warning dot class for a DONE entry missing EndBatteryPct, body=%q", body[:min(1200, len(body))])
+	}
+	if strings.Contains(body, "bg-success") {
+		t.Errorf("C2: want NO success dot class when EndBatteryPct is missing, body=%q", body[:min(1200, len(body))])
+	}
+	if strings.Contains(body, "bg-error") {
+		t.Errorf("C2: want NO error/red dot variant ever (D-RM33-12 — two-state only), body=%q", body[:min(1200, len(body))])
+	}
+}
+
+// TestChargeRow_C3_InProgress_RendersWarningDotAndInProgressBadge verifies
+// Test Contract C3: a normally-shaped IN_PROGRESS entry (EndedAt/EndBatteryPct
+// both nil, the valid shape for that status) renders the warning dot AND the
+// IN_PROGRESS badge — both signals independently correct on the same row.
+func TestChargeRow_C3_InProgress_RendersWarningDotAndInProgressBadge(t *testing.T) {
+	e := charging.Entry{
+		ID:              uuid.New(),
+		AccountID:       uuid.New(),
+		TeslaID:         1001,
+		VIN:             "VIN1001",
+		Status:          charging.StatusInProgress,
+		ChargedOn:       time.Now(),
+		Price:           0,
+		Currency:        "COP",
+		StartBatteryPct: ptrInt(50),
+		// EndedAt, EndBatteryPct, EnergyAddedKWh all nil — the normal
+		// IN_PROGRESS shape.
+	}
+	body := renderChargeRow(t, e, nil)
+
+	if !strings.Contains(body, "bg-warning") {
+		t.Errorf("C3: want the warning dot class for a normally-shaped IN_PROGRESS entry, body=%q", body[:min(1200, len(body))])
+	}
+	if strings.Contains(body, "bg-success") {
+		t.Errorf("C3: want NO success dot class for an incomplete entry, body=%q", body[:min(1200, len(body))])
+	}
+	if !strings.Contains(body, "En progreso") {
+		t.Errorf("C3: want the IN_PROGRESS status badge text (KeyChargesBadgeInProgress), body=%q", body[:min(1200, len(body))])
+	}
+	if strings.Contains(body, "Finalizada") {
+		t.Errorf("C3: want NO DONE badge text on an IN_PROGRESS entry, body=%q", body[:min(1200, len(body))])
+	}
+}
+
+// --- Group D — window preservation (design.md Test Contract D1-D4, offline httptest) ---
+
+// todayUTCMidnight replicates what browserToday(c) resolves to when the
+// request carries no browser_tz cookie (the fallback every test in this file
+// exercises, since none set the cookie) — UTC midnight for the wall-clock day
+// the test suite runs on. Used by D2 to compute the expected fallback window
+// without hardcoding a date that would eventually go stale.
+func todayUTCMidnight() time.Time {
+	now := time.Now().UTC()
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// TestChargeCreate_D1_WindowFromFormThreadsIntoOOBRefresh verifies Test
+// Contract D1: POST /ui/charges/create with a valid submission AND
+// start=2026-08-01&end=2026-08-31 in the form body (simulating hx-include,
+// design.md §D-Include) -> the response's OOB #charges-list div reflects THAT
+// window, not the default 7-day one. Asserted via the pre-formatted hidden
+// #charges-window-start/#charges-window-end input values (design.md's own
+// suggested assertion method), since those two inputs are rendered from
+// ChargesPageData.WindowStartStr/WindowEndStr on every #charges-list render.
+func TestChargeCreate_D1_WindowFromFormThreadsIntoOOBRefresh(t *testing.T) {
+	uid := uuid.New()
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm()
+	form.Set("start", "2026-08-01")
+	form.Set("end", "2026-08-31")
+
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	if w.Code != http.StatusOK {
+		t.Fatalf("D1: want 200 on valid create, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `id="charges-window-start" value="2026-08-01"`) {
+		t.Errorf("D1: want the OOB #charges-list to reflect the hx-include'd start=2026-08-01, body=%q", body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, `id="charges-window-end" value="2026-08-31"`) {
+		t.Errorf("D1: want the OOB #charges-list to reflect the hx-include'd end=2026-08-31, body=%q", body[:min(1500, len(body))])
+	}
+}
+
+// TestChargeCreate_D2_StartEndAbsent_FallsBackToDefaultWindow verifies Test
+// Contract D2: same as D1 but the start/end form fields are ABSENT (a client
+// with hx-include disabled/stripped) -> the OOB refresh falls back to the
+// default 7-day window, and the write's success status is unaffected
+// (design.md §D-Include: "cosmetic only, never a validation gate").
+func TestChargeCreate_D2_StartEndAbsent_FallsBackToDefaultWindow(t *testing.T) {
+	uid := uuid.New()
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := validCreateForm() // no start/end fields at all
+	w := submitForm(t, h, uid, http.MethodPost, "/ui/charges/create", form)
+	if w.Code != http.StatusOK {
+		t.Fatalf("D2: want 200 (absent window must never gate the write), got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+
+	today := todayUTCMidnight()
+	wantStart := today.AddDate(0, 0, -(chargesRangeDefaultDays - 1)).Format("2006-01-02")
+	wantEnd := today.Format("2006-01-02")
+	body := w.Body.String()
+	if !strings.Contains(body, `id="charges-window-start" value="`+wantStart+`"`) {
+		t.Errorf("D2: want the OOB refresh to fall back to the default window start %s, body=%q", wantStart, body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, `id="charges-window-end" value="`+wantEnd+`"`) {
+		t.Errorf("D2: want the OOB refresh to fall back to the default window end %s, body=%q", wantEnd, body[:min(1500, len(body))])
+	}
+}
+
+// TestChargeRowUpdate_D3_WindowFromFormThreadsIntoOOBRefresh verifies Test
+// Contract D3: PUT /ui/charges/row/{id} with a valid submission and hidden
+// start/end inputs set to a non-default window -> the response's OOB
+// #charges-list div reflects that window (mirrors D1 for the edit-row path).
+func TestChargeRowUpdate_D3_WindowFromFormThreadsIntoOOBRefresh(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
+		"charged_on":        {"2026-07-16"},
+		"energy_added_kwh":  {"20.0"},
+		"price":             {"9000"},
+		"location_kind":     {"WORK"},
+		"start_battery_pct": {"40"},
+		"end_battery_pct":   {"75"},
+		"start":             {"2026-08-01"},
+		"end":               {"2026-08-31"},
+	}
+	w := submitForm(t, h, uid, http.MethodPut, "/ui/charges/row/"+id.String(), form)
+	if w.Code != http.StatusOK {
+		t.Fatalf("D3: want 200 on valid update, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `hx-swap-oob="outerHTML:#charges-list"`) {
+		t.Fatalf("D3: want an OOB #charges-list refresh in the update response (design.md §D-Refresh), body=%q", body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, `id="charges-window-start" value="2026-08-01"`) {
+		t.Errorf("D3: want the OOB #charges-list to reflect the posted start=2026-08-01, body=%q", body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, `id="charges-window-end" value="2026-08-31"`) {
+		t.Errorf("D3: want the OOB #charges-list to reflect the posted end=2026-08-31, body=%q", body[:min(1500, len(body))])
+	}
+}
+
+// TestChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow verifies
+// Test Contract D4: DELETE /ui/charges/row/{id}?start=2026-08-01&end=2026-08-31
+// -> the response is a full #charges-list fragment (not a bare <tr>)
+// reflecting the post-delete state within THAT window, and the deleted row's
+// id is absent from it. The fake Reader has no relationship to the fake
+// Writer's Delete call, so reader.entries is pre-set to already exclude the
+// deleted id — simulating the read a real charging.Reader would return after
+// the write committed (the same convention
+// TestChargeRowDelete_ThenListReflectsRemoval uses for its own later GET).
+func TestChargeRowDelete_D4_RendersFullChargesListWithinRequestedWindow(t *testing.T) {
+	uid := uuid.New()
+	keptID := uuid.New()
+	deletedID := uuid.New()
+	reader := &fakeChargeReader{entries: []charging.Entry{
+		{ID: keptID, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
+			EnergyAddedKWh: ptrF64(10.0), Price: 5000.0, Currency: "COP"},
+	}}
+	writer := &fakeChargeWriter{}
+	h := newHandlerForCharges(writer, reader)
+	r := engineWithSession(h, uid, "tok")
+	c := sessionCookie(r, uid, "tok")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/ui/charges/row/"+deletedID.String()+"?start=2026-08-01&end=2026-08-31", nil)
+	req.Header.Set("X-CSRF-Token", "tok")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("D4: want 200 on valid delete, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `id="charges-list"`) {
+		t.Fatalf("D4: want the full #charges-list fragment in the response, got body=%q", body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, "charge-row-"+keptID.String()) {
+		t.Errorf("D4: want the kept entry's row still present, body=%q", body[:min(1500, len(body))])
+	}
+	if strings.Contains(body, "charge-row-"+deletedID.String()) {
+		t.Errorf("D4: want the deleted entry's row absent, body=%q", body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, `id="charges-window-start" value="2026-08-01"`) {
+		t.Errorf("D4: want the response to reflect the requested window start=2026-08-01, body=%q", body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, `id="charges-window-end" value="2026-08-31"`) {
+		t.Errorf("D4: want the response to reflect the requested window end=2026-08-31, body=%q", body[:min(1500, len(body))])
+	}
+	wantOldEmptyRow := `<tr id="charge-row-` + deletedID.String() + `"></tr>`
+	if strings.Contains(body, wantOldEmptyRow) {
+		t.Errorf("D4: delete response must NOT be a bare empty <tr> (design.md §D-Refresh), got body=%q", body[:min(500, len(body))])
+	}
+}
+
+// --- Group E — no-vehicle / malformed-window / reader-error empty states
+// (design.md Test Contract E1-E4, offline httptest) ---
+
+// TestChargePage_E1_NoRegisteredVehicles_NoFilterChrome verifies Test
+// Contract E1: a signed-in user with ZERO registered vehicles requests
+// GET /charges -> the response contains ChargesEmptyState()'s message and
+// contains NEITHER a preset button NOR any ui.StatTile markup NOR a <table>
+// (D-RM33-9 — assert absence, not just presence of the message).
+func TestChargePage_E1_NoRegisteredVehicles_NoFilterChrome(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{registered: nil}
+	h := New(Deps{
+		AnalyticsRecalculator: &fakeRecalculator{},
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		TelemetryReader:       &fakeReader{},
+		ChargingWriter:        &fakeChargeWriter{},
+		ChargingReader:        &fakeChargeReader{},
+	})
+	r := engineWithSession(h, uid, "")
+	c := sessionCookie(r, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/charges", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("E1: want 200 for a signed-in user with no vehicles, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Aún no hay cargas registradas") {
+		t.Errorf("E1: want the existing empty-state message, body=%q", body[:min(800, len(body))])
+	}
+	if strings.Contains(body, "join-item") {
+		t.Errorf("E1: want NO preset button (D-RM33-9 no-chrome), body=%q", body[:min(1500, len(body))])
+	}
+	if strings.Contains(body, "stat-title") {
+		t.Errorf("E1: want NO ui.StatTile markup (D-RM33-9 no-chrome), body=%q", body[:min(1500, len(body))])
+	}
+	if strings.Contains(body, "<table") {
+		t.Errorf("E1: want NO <table> (D-RM33-9 no-chrome), body=%q", body[:min(1500, len(body))])
+	}
+}
+
+// TestChargesListFragment_E2_MalformedWindow_NoFilterChrome400 verifies Test
+// Contract E2: GET /ui/charges/list?start=not-a-date&end=2026-08-31 -> HTTP
+// 400, same no-chrome assertions as E1 (design.md §D-Empty state 1, the
+// malformed-window branch — both conditions collapse to the identical
+// render).
+func TestChargesListFragment_E2_MalformedWindow_NoFilterChrome400(t *testing.T) {
+	uid := uuid.New()
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
+	r := engineWithSession(h, uid, "testcsrf")
+	c := sessionCookie(r, uid, "testcsrf")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list?start=not-a-date&end=2026-08-31", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("E2: want 400 on a malformed window, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Aún no hay cargas registradas") {
+		t.Errorf("E2: want the existing empty-state message on a 400, body=%q", body[:min(800, len(body))])
+	}
+	if strings.Contains(body, "join-item") {
+		t.Errorf("E2: want NO preset button on a 400 (D-Empty state 1), body=%q", body[:min(1500, len(body))])
+	}
+	if strings.Contains(body, "stat-title") {
+		t.Errorf("E2: want NO ui.StatTile markup on a 400 (D-Empty state 1), body=%q", body[:min(1500, len(body))])
+	}
+	if strings.Contains(body, "<table") {
+		t.Errorf("E2: want NO <table> on a 400 (D-Empty state 1), body=%q", body[:min(1500, len(body))])
+	}
+}
+
+// TestChargesListFragment_E3_ReaderError_ShowsPresetsAndTilesAndAlert
+// verifies Test Contract E3: a valid vehicle + valid window, fake Reader
+// returns an error -> response contains the preset buttons AND four
+// ui.StatTiles (all zero/—) AND a ui.Alert with the error message — NOT the
+// same render as E1/E2 (design.md §D-Empty state 2 is a strictly different
+// render from state 1).
+func TestChargesListFragment_E3_ReaderError_ShowsPresetsAndTilesAndAlert(t *testing.T) {
+	uid := uuid.New()
+	reader := &fakeChargeReader{err: errFake}
+	h := newHandlerForCharges(&fakeChargeWriter{}, reader)
+	r := engineWithSession(h, uid, "testcsrf")
+	c := sessionCookie(r, uid, "testcsrf")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list?start=2026-08-01&end=2026-08-05", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("E3: want 200 (graceful degradation) on a reader error, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "join-item") {
+		t.Errorf("E3: want the preset buttons STILL shown on a reader error (D-Empty state 2), body=%q", body[:min(1500, len(body))])
+	}
+	if got := strings.Count(body, "stat-title"); got != 4 {
+		t.Errorf("E3: want the four ui.StatTiles STILL shown (zero/—) on a reader error, got %d stat-title occurrences, body=%q", got, body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, "No se pudieron cargar tus registros") {
+		t.Errorf("E3: want the reader-error message rendered via ui.Alert, body=%q", body[:min(1500, len(body))])
+	}
+}
+
+// TestChargesListFragment_E4_ReaderSucceedsEmptySlice_TilesZeroTableEmpty
+// verifies Test Contract E4: a valid vehicle + valid window, fake Reader
+// returns []charging.Entry{} (no error) -> response contains the preset
+// buttons, tiles showing 0/— (not hidden), and ChargesEmptyState()'s message
+// in place of table rows (design.md §D-Empty state 3).
+func TestChargesListFragment_E4_ReaderSucceedsEmptySlice_TilesZeroTableEmpty(t *testing.T) {
+	uid := uuid.New()
+	reader := &fakeChargeReader{entries: []charging.Entry{}}
+	h := newHandlerForCharges(&fakeChargeWriter{}, reader)
+	r := engineWithSession(h, uid, "testcsrf")
+	c := sessionCookie(r, uid, "testcsrf")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/charges/list?start=2026-08-01&end=2026-08-05", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("E4: want 200 for a valid empty-range fetch, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "join-item") {
+		t.Errorf("E4: want the preset buttons shown (D13 — empty range still renders chrome), body=%q", body[:min(1500, len(body))])
+	}
+	if got := strings.Count(body, "stat-title"); got != 4 {
+		t.Errorf("E4: want the four ui.StatTiles shown at 0/— (D13/D14), got %d stat-title occurrences, body=%q", got, body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, `class="stat-value font-mono">0</div>`) {
+		t.Errorf("E4: want at least one tile rendering the zero value, body=%q", body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, `class="stat-value font-mono">—</div>`) {
+		t.Errorf("E4: want the AvgKWh tile rendering the em-dash, body=%q", body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, "Aún no hay cargas registradas") {
+		t.Errorf("E4: want ChargesEmptyState() in place of table rows (D-Empty state 3), body=%q", body[:min(1500, len(body))])
+	}
+	if strings.Contains(body, "<table") {
+		t.Errorf("E4: want NO <table> element when the table body is replaced by the empty state, body=%q", body[:min(1500, len(body))])
 	}
 }
