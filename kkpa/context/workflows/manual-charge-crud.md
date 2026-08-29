@@ -80,5 +80,5 @@ Order of operations for the common changes. Reference the files above by path.
 ## Related KB
 
 - Features: (none yet)
-- Workflows: `../../workflows/supercharger-stats-read.md` (the contrast case: a read-only page with NO user write path)
+- Workflows: `workflows/supercharger-stats-read.md` (a sibling user-write path — a single narrow correction of two battery-percentage fields over an existing `charge_sessions` row via `charging.SessionVerifier.VerifySession`, with no Create and no Delete, vs. this concept's full Create/Update/Delete over `manual_charge_entries`)
 - Architecture: (none yet)

@@ -207,7 +207,7 @@ whether the task's files are disjoint from its concurrent siblings.
 
 ## Wave 6 — KB update (ticket item 6; granted `kkpa/context/` path, independent of waves 1-5)
 
-- [ ] **6.1** **[module: gateway worker — KB]** `kkpa/context/workflows/supercharger-stats-read.md`
+- [x] **6.1** **[module: gateway worker — KB]** `kkpa/context/workflows/supercharger-stats-read.md`
   — add the write path (the three new routes, `SessionVerifier`, the strict-body/clear/validation
   rules) and the recalculation hop (`recalculateAfterSessionVerify`, the `±1 day` window and why)
   to the "How maintenance works" and "Conventions & gotchas" sections; update the file's own
@@ -218,14 +218,14 @@ whether the task's files are disjoint from its concurrent siblings.
   user-facing path" claim remains. `depends_on`: — (documents the design, not the merged code;
   may be written any time after this design.md exists) · `parallel_ok`: yes, with 6.2.
 
-- [ ] **6.2** **[module: gateway worker — KB]** `kkpa/context/workflows/manual-charge-crud.md` —
+- [x] **6.2** **[module: gateway worker — KB]** `kkpa/context/workflows/manual-charge-crud.md` —
   correct its "Related KB" line that currently calls `supercharger-stats-read.md` "the contrast
   case: a read-only page with NO user write path" (no longer accurate); update the counterpart
   line in `supercharger-stats-read.md`'s own "Related KB" section similarly. Acceptance: neither
   file claims the other is write-path-free when it now has one. `depends_on`: — · `parallel_ok`:
   yes, with 6.1 (disjoint files, but keep the two "Related KB" edits consistent with each other).
 
-- [ ] **6.3** **[module: gateway worker — KB]** `kkpa/context/INDEX.md` — add/update the rows for
+- [x] **6.3** **[module: gateway worker — KB]** `kkpa/context/INDEX.md` — add/update the rows for
   `supercharger-stats-read.md` and `manual-charge-crud.md` reflecting the corrected scope.
   Acceptance: INDEX rows resolve to the same glossary terms already used in each guide; no
   `kkpa/context/pending-spec-to-sync/` file is touched (owner's human-gated step, out of scope

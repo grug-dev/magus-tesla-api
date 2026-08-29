@@ -6,7 +6,7 @@
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
   "status": "in-progress",
-  "updated_at": "2026-08-28T21:47:27Z",
+  "updated_at": "2026-08-29T01:57:58Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,9 +21,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "6.1",
-      "6.2",
-      "6.3",
       "7.1",
       "7.2"
     ],
@@ -44,7 +41,10 @@
       "5.1",
       "5.2",
       "5.3",
-      "5.4"
+      "5.4",
+      "6.1",
+      "6.2",
+      "6.3"
     ],
     "awaiting_user_verification": []
   },
@@ -411,42 +411,57 @@
     },
     {
       "id": "6.1",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T23:40:56Z",
+      "completed_at": "2026-08-29T01:40:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.26,
+        "approx": true,
+        "note": "wave 6 bracket shared across 6.1-6.3: cost $1.18->$6.45; five_hour delta unmeasurable (bucket reset 32%->9% mid-wave); includes one stalled run + its resume"
+      },
+      "notes": "Write path, 3 routes, strict-body/clear/validation rules and the +/-1-day recalculation hop documented in How-maintenance-works + gotchas; stale NO-user-facing-path line replaced; RM29 citation corrected to RM31-charging-add-session-verification-port."
     },
     {
       "id": "6.2",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-29T01:20:00Z",
+      "completed_at": "2026-08-29T01:35:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "covered by the shared wave-6 bracket recorded on 6.1"
+      },
+      "notes": "Both Related-KB lines corrected and made mutually consistent (broad-CRUD vs narrow-correction framing); also fixed an incorrect ../../ relative path in manual-charge-crud.md that pointed outside kkpa/context/."
     },
     {
       "id": "6.3",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "6.1",
         "6.2"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-29T01:35:00Z",
+      "completed_at": "2026-08-29T01:45:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "covered by the shared wave-6 bracket recorded on 6.1"
+      },
+      "notes": "Corrected INDEX lines 15/29 false write-path claims; added 3 glossary/INDEX rows for the write-path concept, backed by matching terms added to the guide Glossary first; pending-spec-to-sync untouched."
     },
     {
       "id": "7.1",
@@ -697,6 +712,31 @@
       "at": "2026-08-28T21:47:27Z",
       "agent": "leader",
       "event": "CHECKPOINT at the wave-5/wave-6 boundary: owner is clearing context. Budget CLEAR (five_hour 28.000000000000004%, context 19%, cost $11.83) -- this is the recommended per-wave /clear for a 7-wave change, NOT a threshold trip. NEXT: wave 6 = tasks 6.1, 6.2, 6.3 -- the KB update (ticket item 6, the last unshipped requirement). 6.1 and 6.2 have NO depends_on and are already unblocked; 6.3 depends on both. The wave-6 dispatch REQUIRES the explicit kkpa/context/ sandbox grant (roadmap D16), which is OUTSIDE internal/gateway -- the gateway worker cannot write it without that grant. D16 also binds: the KB update must correct the now-false 'ONE concept with a user write path' cross-reference, and the file is NOT renamed. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T23:40:56Z",
+      "agent": "leader",
+      "event": "WAVE 6 DISPATCHED (single serial gateway worker, sonnet): tasks 6.1, 6.2, 6.3 -- the KB update, ticket item 6. Batched serial rather than parallel 6.1/6.2: three small doc edits that must stay mutually consistent, and one dispatch reads the doc pack once. Sandbox extended beyond internal/gateway/ to kkpa/context/ per roadmap D16 -- the ONLY grant; D16 also binds the write-path cross-reference correction and forbids renaming the file. Budget at dispatch: five_hour 32%, context 9%, cost $1.18."
+    },
+    {
+      "at": "2026-08-29T01:57:58Z",
+      "agent": "leader",
+      "event": "WAVE 6 worker STALLED mid-run (watchdog: no output 600s) after landing 6.1 and the supercharger-stats-read.md half of 6.2. Disk state was intact, so the leader RESUMED THE SAME AGENT via SendMessage (context reuse) rather than cold re-dispatching -- a fresh worker would have re-read the doc pack and re-derived 6.1. No work lost."
+    },
+    {
+      "at": "2026-08-29T01:57:58Z",
+      "agent": "leader",
+      "event": "LEADER VERIFICATION of 6.1 before resuming caught a factual KB error the worker could not have caught from memory: the guide cited a nonexistent change RM29-charging-add-session-verification as the tier that shipped SessionVerifier. Real name (checked in openspec/changes/archive/charging/): RM31-charging-add-session-verification-port. Handed back as a binding correction; worker fixed it and swept its other RM29/RM30/RM31 citations. This is the accuracy bar the KB dispatch demands -- a future agent would have grepped for a change that does not exist."
+    },
+    {
+      "at": "2026-08-29T01:57:58Z",
+      "agent": "leader",
+      "event": "WAVE 6 RECONCILED -- 6.1/6.2/6.3 all done. Leader independently verified on disk: all 5 supercharger routes and csrfSuperchargerKey=csrf_supercharger match the shipped code; the RM29 citation is gone; the 3 new INDEX rows resolve to glossary terms the worker first added to the guide body (acceptance criterion met); tasks.md checkboxes 6.1-6.3 ticked and 7.x untouched; pending-spec-to-sync/ untouched. ANTI-GAMING RAIL HELD: worker wrote no progress.json (task notes still null at reconcile time). Worker also fixed an unasked-for real bug -- a ../../ relative path in manual-charge-crud.md resolving outside kkpa/context/."
+    },
+    {
+      "at": "2026-08-29T01:57:58Z",
+      "agent": "leader",
+      "event": "BUDGET: five_hour bucket RESET mid-wave (32% -> 9%), so the wave-6 five_hour delta is unmeasurable and recorded null; cost delta $1.18 -> $6.45 = $5.26 across the stalled run plus its resume, booked on 6.1 with 6.2/6.3 pointing at that shared bracket. Budget CLEAR for wave 7: five_hour 9%, context 13%."
     }
   ]
 }
