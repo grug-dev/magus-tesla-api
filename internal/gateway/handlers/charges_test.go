@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -2497,7 +2498,15 @@ func TestChargeForms_C5_NoCurrencyField_PriceHasCOPSuffix(t *testing.T) {
 			if !strings.Contains(form.body, `<span class="label">COP</span>`) {
 				t.Errorf("%s form: want a COP suffix span, body=%q", form.name, form.body[:min(1500, len(form.body))])
 			}
-			if !strings.Contains(form.body, `<label class="input w-full">`) {
+			// Match structurally, not by literal class string: Templ concatenates
+			// ui.InputProps.Class onto the base classes and leaves a trailing
+			// space when it is empty (`class="input w-full "`), exactly as it does
+			// for every other component in this output (`class="fieldset "`). The
+			// regex also pins what C5 actually requires and a substring check
+			// cannot — that the price input is INSIDE the compound-label wrapper,
+			// rather than the wrapper and the input merely both existing somewhere.
+			wrapped := regexp.MustCompile(`<label class="input[^"]*"><input type="number" name="price"`)
+			if !wrapped.MatchString(form.body) {
 				t.Errorf("%s form: want the price input wrapped in DaisyUI's compound label, body=%q", form.name, form.body[:min(1500, len(form.body))])
 			}
 		})
