@@ -322,7 +322,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
   change, not this tier's.
   `depends_on`: 2.1 · `parallel_ok`: with Wave 3, Wave 4 and L1
 
-- [ ] **3.5** **[module: charging worker]** *(appended by the leader at the wave-3 reconcile — a
+- [x] **3.5** **[module: charging worker]** *(appended by the leader at the wave-3 reconcile — a
   wave-2 regression the wave-3 worker correctly reported instead of silently fixing, since it fell
   outside the lines task 3.4 authorized.)* `internal/charging/db_integration_test.go` lines **841,
   873 and 979** (`TestCreate_RejectsNilLocationKind`, `TestCreate_RejectsEmptyLocationKind`,

@@ -838,8 +838,8 @@ func TestCreate_RejectsNilLocationKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("Create with nil LocationKind: expected non-nil error, got nil")
 	}
-	if !strings.Contains(err.Error(), "location_kind is required") {
-		t.Errorf("expected error to mention 'location_kind is required', got: %v", err)
+	if !strings.Contains(err.Error(), "charging: status IN_PROGRESS requires: location_kind") {
+		t.Errorf("expected error to mention 'charging: status IN_PROGRESS requires: location_kind', got: %v", err)
 	}
 
 	// Assert no row was inserted.
@@ -870,8 +870,8 @@ func TestCreate_RejectsEmptyLocationKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("Create with empty LocationKind: expected non-nil error, got nil")
 	}
-	if !strings.Contains(err.Error(), "location_kind is required") {
-		t.Errorf("expected error to mention 'location_kind is required', got: %v", err)
+	if !strings.Contains(err.Error(), "charging: status IN_PROGRESS requires: location_kind") {
+		t.Errorf("expected error to mention 'charging: status IN_PROGRESS requires: location_kind', got: %v", err)
 	}
 
 	// Assert no row was inserted.
@@ -976,8 +976,8 @@ func TestUpdate_RejectsNilLocationKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("Update with nil LocationKind: expected non-nil error, got nil")
 	}
-	if !strings.Contains(err.Error(), "location_kind is required") {
-		t.Errorf("expected error to mention 'location_kind is required', got: %v", err)
+	if !strings.Contains(err.Error(), "charging: status IN_PROGRESS requires: location_kind") {
+		t.Errorf("expected error to mention 'charging: status IN_PROGRESS requires: location_kind', got: %v", err)
 	}
 
 	// Assert the original row is unchanged.
