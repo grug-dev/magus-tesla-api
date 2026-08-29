@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM31-charging-add-session-verification-port",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM31-supercharger-session-verification.md",
+  "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Tier 1 of RM31: give internal/charging a write port over charge_sessions' human-owned verification columns \u2014 one account-scoped method updating exactly start_battery_pct, end_battery_pct and battery_pct_source ('user_verified'), never the two _est snapshot columns, never any mirrored column. No new DB object.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-08-27T17:31:15Z",
+  "updated_at": "2026-08-27T20:52:10Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM31-MAG-19-supercharger-session-verification",
+    "base": "main",
+    "ticket": "MAG-19",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions",
+    "created_at": "2026-08-27T17:20:55Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "query.sql \u2014 append the VerifyChargeSession UPDATE (3 columns + updated_at, RETURNING *)",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T17:46:30Z",
+      "completed_at": "2026-08-27T17:48:01Z",
+      "duration_seconds": 91,
+      "notes": "Appended VerifyChargeSession :one to db/query.sql per design.md \u00a7The query; make sqlc generated VerifyChargeSessionParams/VerifyChargeSession; models.go ChargeSession unchanged (no migration touched).",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.53,
+        "approx": true,
+        "note": "wave delta shared across 1.1/2.1/2.2 \u2014 batched into one serial worker (D4)"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go \u2014 declare the SessionVerifier port + the user_verified constant",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T17:46:30Z",
+      "completed_at": "2026-08-27T17:48:01Z",
+      "duration_seconds": 91,
+      "notes": "Added SessionVerifier interface + NewSessionVerifier to charging.go; doc comment covers D1, D2/D7, D6, D3, D8, D5.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.53,
+        "approx": true,
+        "note": "wave delta shared across 1.1/2.1/2.2 \u2014 batched into one serial worker (D4)"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "session_verifier.go \u2014 implement the port (0-100 validation, source computed in Go, rowToSession)",
+      "module": "charging",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T17:46:30Z",
+      "completed_at": "2026-08-27T17:48:01Z",
+      "duration_seconds": 91,
+      "notes": "New session_verifier.go mirrors session_writer.go/session_reader.go (D9); reuses intPtrToPgInt2/stringPtrToPgText and rowToSession, no duplication; batteryPctSourceUserVerified const (D10).",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 1.53,
+        "approx": true,
+        "note": "wave delta shared across 1.1/2.1/2.2 \u2014 batched into one serial worker (D4)"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "Integration tests T1-T9 against the design.md test contract",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T19:51:02Z",
+      "completed_at": "2026-08-27T19:56:37Z",
+      "duration_seconds": 335,
+      "notes": "New db_session_verifier_integration_test.go implements T1-T9 per design.md expected values (T1/T4/T9 share one fixture chain, as the contract specifies); ids 950001-950099; no pgtype. Leader added T8's missing id-column assertion.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 3.57,
+        "approx": true,
+        "note": "wave 3 delta shared across 3.1/3.2 \u2014 batched into one serial worker"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "internal/charging/AGENTS.md \u2014 document the new port in the public interface",
+      "module": "charging",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T19:51:02Z",
+      "completed_at": "2026-08-27T19:56:37Z",
+      "duration_seconds": 335,
+      "notes": "AGENTS.md updated: SessionVerifier/NewSessionVerifier in \u00a7Public Interface with the D9 rationale; \u00a7Data Ownership now splits the 3 writable columns from the 2 permanently-unwritable _est columns; \u00a7Testing Notes lists the new file.",
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 3.57,
+        "approx": true,
+        "note": "wave 3 delta shared across 3.1/3.2 \u2014 batched into one serial worker"
+      }
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "charging-reviewer",
+    "brief": "Review RM31 tier 1 (the charging SessionVerifier write port) for archive-readiness. Read the DIFF of commits 87f4618 (waves 1-2) and 8d01823 (wave 3), not the whole module. Validate: (1) D1's central invariant \u2014 VerifyChargeSession's SET clause names EXACTLY start_battery_pct, end_battery_pct, battery_pct_source, updated_at and nothing else, and T8 actually proves it structurally rather than spot-checking; (2) D2/D7 \u2014 battery_pct_source computed in Go, no source parameter, cleared to NULL in the same statement; (3) D3 range validation strictly before any DB round-trip; (4) D5 \u2014 unknown id and wrong account indistinguishable, wrapping pgx.ErrNoRows with no NotFound special-casing; (5) D9 \u2014 separate interface, not a SessionWriter method; (6) every test in the new file asserts design.md's PRE-AUTHORED expected values (Test Contract T1-T9), not whatever the implementation happens to do \u2014 this is the test-contract rule and the highest-value check here; (7) no pgtype in any assertion; session_ids confined to 950001-950099; (8) module-boundary compliance \u2014 nothing edited outside internal/charging/ and the change folder; (9) tasks.md's 'Not in this change' list fully honored, especially: no migration, no _est column written, no SessionWriter edit, no gateway/cmd wiring; (10) docs-track-structural-change \u2014 AGENTS.md's three updated sections match what actually shipped; (11) anti-gaming \u2014 no task, criterion, or design decision was weakened or deleted to make the work look complete. Performance-Profile compliance: read-heavy; this change adds one UPDATE served by the table's existing primary key, and D11/design.md \u00a7Database Changes claims no new index is needed \u2014 confirm that claim against the WHERE clause. Test-Execution-Policy (verbatim): 'Claude writes tests but never runs the suite \u2014 never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.' Signal provenance: go build ./..., go vet ./..., gofmt -l internal/charging were ASSISTANT-run and clean. make test-with-db was USER-run and reported green by the owner at 2026-08-27T20:41Z \u2014 judge test QUALITY by reading the tests, never by running them.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-27T20:44:05Z",
+        "agent": "charging-reviewer",
+        "model": "claude-sonnet-5",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-27T17:31:15Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "database design gate evaluated and NOT tripped",
+      "why": "All five verification columns already exist (20260823000001). The change adds only an UPDATE query served by the existing primary key; no schema object is created or altered.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-27T17:31:15Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "artifact-writing dispatched on Sonnet, not Opus",
+      "why": "Well-bounded single-port addition with no schema work and a highly specified brief. Sonnet is the declared default; Opus needs a justified exception.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-27T17:31:15Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "worker chose integration-only tests (no separate offline unit tests); surfaced to the owner rather than overridden",
+      "why": "Matches RM29 tier 6 / RM30 tier 1 precedent for this module. The owner's standing default is no unit tests, so the call needs visibility, not correction.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-27T17:46:30Z",
+      "scope": "wave:1-2",
+      "made_by": "leader",
+      "decision": "batched waves 1 and 2 (tasks 1.1, 2.1, 2.2) into ONE serial worker dispatch",
+      "why": "5-hour bucket at 88% with a 2h reset. The sqlc ordering holds inside a serial worker, and one dispatch amortizes the doc-pack re-read that dominates fixed cost.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-27T19:58:14Z",
+      "scope": "wave:3",
+      "made_by": "leader",
+      "decision": "leader patched T8 to assert the id column unchanged, rather than re-dispatching the worker",
+      "why": "design.md T8 lists id among the must-be-identical columns; chargeSessionRow lives in RM29's protected test file and cannot gain an ID field. A 4-line direct-SQL check costs far less than a re-dispatch.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-27T17:22:40Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (claude-sonnet-4-6) to write tier 1 artifacts; budget start five_hour 73%, context 16%"
+    },
+    {
+      "at": "2026-08-27T17:31:15Z",
+      "agent": "leader",
+      "event": "worker returned; doc-pack acknowledgment present (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/charging/AGENTS.md); openspec validate --strict passed; budget end five_hour 84%, context 17% (delta +11pp, +$2.40)"
+    },
+    {
+      "at": "2026-08-27T17:31:15Z",
+      "agent": "leader",
+      "event": "run HALTED after Step 4 by the invoking kkpa-pickup-linear-ticket skill's scope \u2014 no implementation workers dispatched, no reviewer, no archive. Resume with: /kkpa-dev-harness-pipeline resume RM31-charging-add-session-verification-port"
+    },
+    {
+      "at": "2026-08-27T17:46:30Z",
+      "agent": "leader",
+      "event": "resumed at Step 5; dispatched charging worker (claude-sonnet-4-6) for tasks 1.1+2.1+2.2 serially; budget start five_hour 88%, context 8%, resets 19:50Z"
+    },
+    {
+      "at": "2026-08-27T17:48:01Z",
+      "agent": "leader",
+      "event": "wave 1+2 returned; doc-pack acknowledgment present (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/charging/AGENTS.md); D1-D11 enumerated by worker and D1 SET-clause invariant independently confirmed by leader against query.sql; go build/vet/gofmt clean; budget end five_hour 94%, context 10% (delta +6pp, +$1.53) | wave commit 87f4618"
+    },
+    {
+      "at": "2026-08-27T17:48:01Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT tripped at wave boundary: five_hour_pct 94 >= Budget-Checkpoint-At 90 (context 10%, resets_at 2026-08-27T19:50:00Z). Stopping cleanly before wave 3. Resume after reset with: /kkpa-dev-harness-pipeline resume RM31-charging-add-session-verification-port"
+    },
+    {
+      "at": "2026-08-27T18:13:11Z",
+      "agent": "leader",
+      "event": "USER-REPORTED VERIFICATION: the owner ran `make test` and reported it green. Tasks 1.1/2.1/2.2 promoted awaiting-user-verification -> done on the owner's report, not the assistant's. Assistant ran only go build/vet/gofmt."
+    },
+    {
+      "at": "2026-08-27T18:13:11Z",
+      "agent": "leader",
+      "event": "budget re-read after the owner's test report: five_hour 95% (>= 90), context 10%, resets 19:50Z. Checkpoint HOLDS \u2014 wave 3 (T1-T9 integration tests) not dispatched. Resume after reset."
+    },
+    {
+      "at": "2026-08-27T18:19:53Z",
+      "agent": "leader",
+      "event": "resume attempted (Step R.3): budget re-read five_hour 98% (>= 90), context 8%, resets_at 2026-08-27T19:50:00Z not yet passed. Checkpoint HOLDS \u2014 wave 3 not dispatched. Resume after 19:50Z."
+    },
+    {
+      "at": "2026-08-27T19:51:02Z",
+      "agent": "leader",
+      "event": "5-hour bucket reset (five_hour 0%, context 8%, measured 19:51:02Z) \u2014 checkpoint cleared. Resumed at Step 5; dispatched charging worker (claude-sonnet-4-6) for wave 3 (tasks 3.1+3.2) batched serially per Step 5.1 default; budget start five_hour 0%, context 8%, cost $0.62"
+    },
+    {
+      "at": "2026-08-27T19:58:14Z",
+      "agent": "leader",
+      "event": "wave 3 returned; doc-pack acknowledgment present (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/charging/AGENTS.md); worker enumerated D1-D11; leader independently verified T1-T9 coverage against design.md's Test Contract, the 950001-950099 id range, and the no-pgtype rule, and found+fixed one gap (T8 omitted the id column \u2014 D5). go build/vet clean, gofmt clean in internal/charging. Suite NOT run by assistant. budget end five_hour 11%, context 12% (delta +11pp, +$3.57)"
+    },
+    {
+      "at": "2026-08-27T20:41:59Z",
+      "agent": "leader",
+      "event": "USER-REPORTED VERIFICATION: the owner ran `make test-with-db` and reported it green. Task 3.1 promoted awaiting-user-verification -> done on the owner's report, not the assistant's; change status -> verified. Assistant ran only go build/vet/gofmt."
+    },
+    {
+      "at": "2026-08-27T20:41:59Z",
+      "agent": "leader",
+      "event": "dispatched charging-reviewer (claude-sonnet-4-6) for review round 1; budget start five_hour 12%, context 12%, cost $4.63"
+    },
+    {
+      "at": "2026-08-27T20:52:10Z",
+      "agent": "leader",
+      "event": "reviewer round 1 verdict approved with ZERO findings (charging-reviewer, claude-sonnet-4-6); reviewer independently re-ran go build/vet/gofmt clean and confirmed the no-new-index claim against charge_sessions_pkey. Archived via `openspec archive` (delta synced into openspec/specs/charge-session-log/spec.md, +1 requirement) and moved into archive/charging/ to match the RM29/RM30 module-folder precedent."
+    }
+  ]
+}

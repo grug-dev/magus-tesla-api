@@ -436,6 +436,130 @@ func reviseSuperchargerSession(t *testing.T, pool *pgxpool.Pool, sessionID int64
 }
 
 // ---------------------------------------------------------------------------
+// RM31-analytics-read-sessions-from-charging (tier 3) seeding helpers —
+// charge_sessions is now this module's real Supercharger-session source
+// (design.md §3); seedSuperchargerSession/reviseSuperchargerSession above are
+// KEPT, not removed — Test Contract T3 (below) still legitimately seeds
+// telemetry.supercharger_sessions as the "stale telemetry copy" side of its
+// comparison (tasks.md 2.2's own acceptance note). Only this module's OWN
+// Supercharger-session fixtures move to charge_sessions.
+// ---------------------------------------------------------------------------
+
+// pgTextFromStringPtr maps a *string to a nullable pgtype.Text — the
+// charge_sessions.currency shape (nullable TEXT). Test-local like
+// pgInt8FromPtr/pgInt2FromIntPtr above: this column belongs to charging, not
+// analytics, so the conversion does not belong in mapping.go.
+func pgTextFromStringPtr(v *string) pgtype.Text {
+	if v == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: *v, Valid: true}
+}
+
+// pgBoolFromPtr maps a *bool to a nullable pgtype.Bool — the
+// charge_sessions.is_paid shape (nullable BOOLEAN). Test-local for the same
+// reason as pgTextFromStringPtr above.
+func pgBoolFromPtr(v *bool) pgtype.Bool {
+	if v == nil {
+		return pgtype.Bool{Valid: false}
+	}
+	return pgtype.Bool{Bool: *v, Valid: true}
+}
+
+// seedChargeSession inserts one charging.Session directly into
+// charge_sessions (D19: no public writer can construct an arbitrary row with
+// specific percentages in one call — SessionWriter.MirrorSessions has no
+// percentage fields at all, design D6 of RM29-charging-add-session-storage,
+// and SessionVerifier.VerifySession requires an existing row's id — this
+// module's own AGENTS.md §Testing, design.md §3 "Test files"). Returns the
+// session_id actually used: s.SessionID when the caller set one (nonzero),
+// otherwise a fresh value from nextSessionID — charge_sessions' own
+// uniqueness is scoped (account_id, session_id)
+// (charge_sessions_account_session_unique), unlike supercharger_sessions'
+// GLOBAL session_id uniqueness, but reusing the same counter is still safe
+// and keeps this file's one sequence simple. updatedAt defaults to
+// ChargeStopDateTime and createdAt to updatedAt when the caller leaves
+// Session.UpdatedAt/CreatedAt at their zero value, mirroring
+// seedSuperchargerSession's identical convention. vin/siteLocationName
+// default to placeholders when empty (both NOT NULL columns; neither is read
+// by any of this module's three retyped functions, design.md §1a). When
+// either StartBatteryPct or EndBatteryPct is set, battery_pct_source
+// defaults to "user_verified" to satisfy charge_sessions_pct_source_required
+// — callers needing a different provenance may still set
+// s.BatteryPctSource explicitly.
+func seedChargeSession(t *testing.T, pool *pgxpool.Pool, s charging.Session) int64 {
+	t.Helper()
+	sessionID := s.SessionID
+	if sessionID == 0 {
+		sessionID = nextSessionID()
+	}
+	updatedAt := s.UpdatedAt
+	if updatedAt.IsZero() {
+		updatedAt = s.ChargeStopDateTime
+	}
+	createdAt := s.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = updatedAt
+	}
+	vin := s.VIN
+	if vin == "" {
+		vin = "5YJ3E1EA0NF000001"
+	}
+	siteLocationName := s.SiteLocationName
+	if siteLocationName == "" {
+		siteLocationName = "Test Supercharger Site"
+	}
+	batteryPctSource := s.BatteryPctSource
+	if batteryPctSource == nil && (s.StartBatteryPct != nil || s.EndBatteryPct != nil) {
+		src := "user_verified"
+		batteryPctSource = &src
+	}
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO charge_sessions (
+			account_id, vin, tesla_id, session_id,
+			charge_start_date_time, charge_stop_date_time,
+			site_location_name, energy_kwh, total_cost, currency, is_paid,
+			start_battery_pct, end_battery_pct, battery_pct_source,
+			start_battery_pct_est, end_battery_pct_est,
+			created_at, updated_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+		s.AccountID, vin, pgInt8FromPtr(s.TeslaID), sessionID,
+		pgtype.Timestamptz{Time: s.ChargeStartDateTime, Valid: true},
+		pgtype.Timestamptz{Time: s.ChargeStopDateTime, Valid: true},
+		siteLocationName, pgFloat8FromPtr(s.EnergyKWh), pgFloat8FromPtr(s.TotalCost),
+		pgTextFromStringPtr(s.Currency), pgBoolFromPtr(s.IsPaid),
+		pgInt2FromIntPtr(s.StartBatteryPct), pgInt2FromIntPtr(s.EndBatteryPct),
+		pgTextFromStringPtr(batteryPctSource),
+		pgInt2FromIntPtr(s.StartBatteryPctEst), pgInt2FromIntPtr(s.EndBatteryPctEst),
+		pgtype.Timestamptz{Time: createdAt, Valid: true},
+		pgtype.Timestamptz{Time: updatedAt, Valid: true},
+	)
+	if err != nil {
+		t.Fatalf("seeding charge_sessions: %v", err)
+	}
+	return sessionID
+}
+
+// reviseChargeSession simulates a Tesla billing-state revision, or a human
+// SessionVerifier.VerifySession edit, on an already-seeded charge_sessions
+// row — the charge_sessions analogue of reviseSuperchargerSession above,
+// scoped by (account_id, session_id) rather than a global session_id since
+// that is this table's actual unique key
+// (charge_sessions_account_session_unique). charge_start_date_time/
+// charge_stop_date_time are left untouched (the session's own calendar day
+// never moves), only end_battery_pct and updated_at change.
+func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, sessionID int64, endBatteryPct int, updatedAt time.Time) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(),
+		`UPDATE charge_sessions SET end_battery_pct = $1, updated_at = $2 WHERE account_id = $3 AND session_id = $4`,
+		int16(endBatteryPct), pgtype.Timestamptz{Time: updatedAt, Valid: true}, accountID, sessionID,
+	)
+	if err != nil {
+		t.Fatalf("revising charge_sessions: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Read-back helpers — direct SQL against this module's OWN tables (never
 // telemetrydb/chargingdb). Reuse analyticsdb.VehicleMetric (models.go) as the
 // scan target rather than a hand-rolled struct: its field types already
@@ -586,16 +710,24 @@ func metricsFixtureC(accountID uuid.UUID, teslaID int64) telemetry.Snapshot {
 // on, unlike task 6.4's fakeTelemetryReader/fakeSuperchargerReader/
 // fakeManualReader (reader_test.go), which stay in use only for 6.4's own
 // fetch-shape assertions above.
+//
+// RM31-analytics-read-sessions-from-charging (tier 3): the Supercharger port
+// retypes from telemetry.SuperchargerReader to
+// charging.SuperchargerSessionAnalyticsReader (design.md §3) — this call site
+// is exactly what the leader's Wave 2 dispatch flagged as failing to build
+// (telemetry.NewSuperchargerReader(pool) no longer satisfies NewRecalculator's
+// retyped parameter).
 func newRealRecalculator(pool *pgxpool.Pool) Recalculator {
-	return NewRecalculator(pool, telemetry.NewReader(pool), telemetry.NewSuperchargerReader(pool), charging.NewReader(pool))
+	return NewRecalculator(pool, telemetry.NewReader(pool), charging.NewSuperchargerSessionAnalyticsReader(pool), charging.NewReader(pool))
 }
 
 // newRealReader builds a Reader the same way — real telemetry/charging
 // Readers, a fresh *pgxpool-backed analyticsdb.Queries via NewReader's own
 // pool parameter. account is a no-op fakeVehicleLookup (reader_test.go):
-// ConsumedByDay/OdometerDeltaByDay never call it.
+// ConsumedByDay/OdometerDeltaByDay never call it. Same RM31 tier 3 retype as
+// newRealRecalculator above.
 func newRealReader(pool *pgxpool.Pool) Reader {
-	return NewReader(pool, telemetry.NewReader(pool), telemetry.NewSuperchargerReader(pool), charging.NewReader(pool), &fakeVehicleLookup{}, DefaultWindow)
+	return NewReader(pool, telemetry.NewReader(pool), charging.NewSuperchargerSessionAnalyticsReader(pool), charging.NewReader(pool), &fakeVehicleLookup{}, DefaultWindow)
 }
 
 // ===========================================================================
@@ -845,8 +977,11 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 	// on the very first run (design.md D2/D3's idempotence contract) -- no
 	// Supercharger session and no manual entry was ever seeded for this
 	// vehicle, so both of those sources' cursors stay at "no row = epoch".
-	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions); ok {
-		t.Error("want no supercharger_sessions watermark row (no session data ever seeded for this vehicle)")
+	// RM31 tier 3: this source's label is charge_sessions now (sourceChargeSessions),
+	// not supercharger_sessions -- the underlying table this cursor tracks moved
+	// from internal/telemetry to internal/charging (design.md §2).
+	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceChargeSessions); ok {
+		t.Error("want no charge_sessions watermark row (no session data ever seeded for this vehicle)")
 	}
 	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceManualChargeEntries); ok {
 		t.Error("want no manual_charge_entries watermark row (no entry ever seeded for this vehicle)")
@@ -932,12 +1067,21 @@ func TestReconcile_Idempotent(t *testing.T) {
 	}
 }
 
+// TestReconcile_RevisedOldSuperchargerSession retargeted by
+// RM31-analytics-read-sessions-from-charging (tier 3): the Supercharger
+// session it seeds/revises now lives in charging.charge_sessions, not
+// telemetry.supercharger_sessions -- Reconcile reads through
+// charging.SuperchargerSessionAnalyticsReader after this tier (design.md §3),
+// so a fixture seeded into the OLD table would never be observed. The test's
+// own name and business intent (spec.md "A revised Supercharger session
+// weeks old is picked up") are unchanged; only the seeding/revision table and
+// the watermark source label move.
 func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 	pool := newTestPool(t)
 	ctx := context.Background()
 	accountID := uuid.New()
 	const teslaIDConst = int64(930003)
-	teslaID := teslaIDConst // addressable copy for SuperchargerSession.TeslaID (*int64)
+	teslaID := teslaIDConst // addressable copy for charging.Session.TeslaID (*int64)
 	cleanupVehicleMetrics(t, pool, accountID, teslaID)
 
 	refNow := time.Now().UTC()
@@ -958,7 +1102,7 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 	seedSnapshot(t, pool, cur)
 
 	t0 := oldDay.Add(11 * time.Hour) // the session's original sync time -- itself weeks old
-	session := telemetry.SuperchargerSession{
+	session := charging.Session{
 		AccountID:           accountID,
 		TeslaID:             &teslaID,
 		ChargeStartDateTime: oldDay.Add(10 * time.Hour),
@@ -967,7 +1111,7 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 		EndBatteryPct:       intPtr(40),
 		UpdatedAt:           t0,
 	}
-	sessionID := seedSuperchargerSession(t, pool, session)
+	sessionID := seedChargeSession(t, pool, session)
 
 	rec := newRealRecalculator(pool)
 	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
@@ -987,8 +1131,12 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 	// Simulate a billing revision "today": end_battery_pct changes and
 	// updated_at refreshes, while the session's own calendar day (three-plus
 	// weeks old) never moves -- spec.md "A revised Supercharger session weeks
-	// old is picked up".
-	reviseSuperchargerSession(t, pool, sessionID, 50, refNow)
+	// old is picked up". reviseChargeSession is the charge_sessions analogue
+	// of the retired reviseSuperchargerSession helper -- a direct-SQL stand-in
+	// for a real SessionVerifier.VerifySession edit (out of this module's
+	// sandbox), scoped by (account_id, session_id) rather than the globally
+	// unique supercharger_sessions.session_id.
+	reviseChargeSession(t, pool, accountID, sessionID, 50, refNow)
 
 	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
 		t.Fatalf("second Reconcile: %v", err)
@@ -1003,12 +1151,320 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 		t.Errorf("ConsumedPct after revision: want %v (the day, well outside any trailing window measured from today, must still be recomputed), got %+v", wantConsumedAfter, after.ConsumedPct)
 	}
 
-	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions)
+	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceChargeSessions)
 	if !ok {
-		t.Fatal("expected a supercharger_sessions watermark row")
+		t.Fatal("expected a charge_sessions watermark row")
 	}
 	if watermark.Before(t0) {
-		t.Errorf("supercharger_sessions watermark did not advance past the original sync time: got %s", watermark)
+		t.Errorf("charge_sessions watermark did not advance past the original sync time: got %s", watermark)
+	}
+}
+
+// ===========================================================================
+// RM31-analytics-read-sessions-from-charging (tier 3), tasks 2.2/2.3 —
+// design.md §5 Test Contract T1-T4. T1 (the migration itself) lives in its
+// own file, db_watermark_migration_integration_test.go, because it drives
+// goose directly rather than Recalculator/Reader. T2, T3, T4 below.
+// ===========================================================================
+
+// recordingSuperchargerReader is a fake charging.SuperchargerSessionAnalyticsReader
+// local to this file, distinct in PURPOSE from reader_test.go's own
+// fakeSuperchargerReader (which exists to test RecentEfficiency's own
+// call shape and simply returns every fixture session unconditionally): this
+// fake exists to (a) prove WHICH port method Reconcile actually calls
+// (design.md §5 T2's call-log assertion) and (b) when teslaScoped is true,
+// enforce the SAME "a session whose TeslaID is nil is never returned for any
+// teslaID" filter the real SQL implementation guarantees
+// (charging.go's SuperchargerSessionAnalyticsReader doc comment, design.md
+// §1c / T4) -- rather than trusting consumed.go to filter it, which it
+// structurally cannot (neither sumSuperchargerPctBetween nor
+// inferMissingChargingType reads TeslaID at all).
+type recordingSuperchargerReader struct {
+	sessions    []charging.Session
+	teslaScoped bool
+
+	updatedSinceCalled bool
+	betweenCalled      bool
+	listCalled         bool
+}
+
+// filtered returns f.sessions as-is when teslaScoped is false, or -- when
+// true -- only the sessions whose TeslaID is non-nil and equals teslaID,
+// mirroring "SQL NULL = value is never true" (design.md §1c).
+func (f *recordingSuperchargerReader) filtered(teslaID int64) []charging.Session {
+	if !f.teslaScoped {
+		return f.sessions
+	}
+	out := make([]charging.Session, 0, len(f.sessions))
+	for _, s := range f.sessions {
+		if s.TeslaID != nil && *s.TeslaID == teslaID {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func (f *recordingSuperchargerReader) ListSessionsByVehicleBetween(_ context.Context, _ uuid.UUID, teslaID int64, _, _ time.Time) ([]charging.Session, error) {
+	f.betweenCalled = true
+	return f.filtered(teslaID), nil
+}
+
+func (f *recordingSuperchargerReader) ListSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, teslaID int64, _ time.Time) ([]charging.Session, error) {
+	f.updatedSinceCalled = true
+	return f.filtered(teslaID), nil
+}
+
+func (f *recordingSuperchargerReader) ListSessionsByVehicle(_ context.Context, _ uuid.UUID, teslaID int64, _ int) ([]charging.Session, error) {
+	f.listCalled = true
+	return f.filtered(teslaID), nil
+}
+
+// Compile-time assertion: *recordingSuperchargerReader must satisfy
+// charging.SuperchargerSessionAnalyticsReader.
+var _ charging.SuperchargerSessionAnalyticsReader = (*recordingSuperchargerReader)(nil)
+
+// TestReconcile_T2_ReadsSessionsThroughChargingPort implements design.md §5
+// Test Contract T2. It combines a REAL pool + REAL telemetry.Reader (so the
+// written vehicle_metrics row is genuinely derived from real seeded snapshots
+// and read back from the real table) with a FAKE supercharger port (so
+// exactly which of its three methods Reconcile calls is directly observable
+// -- design.md's own "call-log" framing). There is no "old" sibling method to
+// prove uncalled any more: charging.SuperchargerSessionAnalyticsReader is the
+// only type this dependency can even be, post-retype, so a fake satisfying it
+// structurally cannot expose SuperchargerSessionsByVehicleUpdatedSince at
+// all -- the direct, still-meaningful proof left is that
+// ListSessionsByVehicleUpdatedSince (Reconcile's own cursor read) is in fact
+// invoked.
+func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(970001)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	// prev/cur CapturedDate are one day past each fixture's own EFFECTIVE day
+	// (day(2026,8,13)/day(2026,8,14) respectively) -- effectiveDay(s) =
+	// calendarDay(s.CapturedDate) - 1 day (consumed.go), and design.md's own
+	// "Then" bullet pins the resulting row's metric_date at day(2026,8,14).
+	prev := telemetry.Snapshot{
+		AccountID: accountID, TeslaID: teslaID,
+		CapturedAt: day(2026, 8, 14).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 14),
+		OdometerKm: 100.0, BatteryLevelPct: 80,
+	}
+	cur := telemetry.Snapshot{
+		AccountID: accountID, TeslaID: teslaID,
+		CapturedAt: day(2026, 8, 15).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 15),
+		OdometerKm: 140.0, BatteryLevelPct: 75,
+	}
+	seedSnapshot(t, pool, prev)
+	seedSnapshot(t, pool, cur)
+
+	teslaIDCopy := teslaID
+	energyKWh := 30.0
+	session := charging.Session{
+		SessionID:           900, // fake-only fixture, never written to a real table -- no collision risk
+		TeslaID:             &teslaIDCopy,
+		ChargeStartDateTime: time.Date(2026, 8, 14, 8, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC),
+		StartBatteryPct:     intPtr(20),
+		EndBatteryPct:       intPtr(80),
+		EnergyKWh:           &energyKWh,
+		UpdatedAt:           time.Date(2026, 8, 14, 9, 0, 0, 0, time.UTC),
+	}
+	superchargerFake := &recordingSuperchargerReader{sessions: []charging.Session{session}}
+
+	rec := NewRecalculator(pool, telemetry.NewReader(pool), superchargerFake, charging.NewReader(pool))
+	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	if !superchargerFake.updatedSinceCalled {
+		t.Error("want ListSessionsByVehicleUpdatedSince to be called by Reconcile's own cursor read, was not -- the retype did not actually change which port method is consulted")
+	}
+
+	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, day(2026, 8, 14))
+	if !ok {
+		t.Fatal("expected a vehicle_metrics row for 2026-08-14, found none")
+	}
+	if !row.BatteryUsedPctCalc.Valid || row.BatteryUsedPctCalc.Int32 != 5 {
+		t.Errorf("BatteryUsedPctCalc: want 5 (80-75), got %+v", row.BatteryUsedPctCalc)
+	}
+	wantConsumed := 65.0 // 5 (BatteryUsedPctCalc) + 60 (session delta 80-20)
+	if !row.ConsumedPct.Valid || !approxEqual(row.ConsumedPct.Float64, wantConsumed) {
+		t.Errorf("ConsumedPct: want %v, got %+v", wantConsumed, row.ConsumedPct)
+	}
+	if row.Flagged != false {
+		t.Errorf("Flagged: want false (65 is neither negative nor zero), got %v", row.Flagged)
+	}
+
+	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceChargeSessions)
+	if !ok {
+		t.Fatal("expected a charge_sessions watermark row to be created (no prior row -- epoch)")
+	}
+	if !watermark.Equal(session.UpdatedAt) {
+		t.Errorf("charge_sessions watermark: want advanced to the session's own updated_at %s, got %s", session.UpdatedAt, watermark)
+	}
+}
+
+// TestReconcile_T4_NilTeslaIDSessionExcludedByPort implements design.md §5
+// Test Contract T4 -- a non-regression, not new filtering (design.md §1c):
+// the fake enforces the same tesla_id scoping the real SQL implementation
+// does, so a session whose TeslaID is nil is never returned for any teslaID,
+// and neither sumSuperchargerPctBetween nor inferMissingChargingType (which
+// never read TeslaID at all) ever sees it.
+func TestReconcile_T4_NilTeslaIDSessionExcludedByPort(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(970002)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	prev := telemetry.Snapshot{
+		AccountID: accountID, TeslaID: teslaID,
+		CapturedAt: day(2026, 8, 14).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 14),
+		OdometerKm: 100.0, BatteryLevelPct: 80,
+	}
+	cur := telemetry.Snapshot{
+		AccountID: accountID, TeslaID: teslaID,
+		CapturedAt: day(2026, 8, 15).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 15),
+		OdometerKm: 140.0, BatteryLevelPct: 75,
+	}
+	seedSnapshot(t, pool, prev)
+	seedSnapshot(t, pool, cur)
+
+	// An orphaned session -- TeslaID nil, its ChargeStopDateTime otherwise
+	// falls inside [prev.CapturedAt, cur.CapturedAt) for teslaID -- exactly
+	// design.md T2's own session, minus TeslaID. The fake's teslaScoped
+	// filtering (not consumed.go) is what excludes it.
+	orphan := charging.Session{
+		SessionID:           902,
+		TeslaID:             nil,
+		ChargeStartDateTime: time.Date(2026, 8, 14, 8, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 8, 14, 8, 30, 0, 0, time.UTC),
+		StartBatteryPct:     intPtr(20),
+		EndBatteryPct:       intPtr(80),
+		UpdatedAt:           time.Date(2026, 8, 14, 9, 0, 0, 0, time.UTC),
+	}
+	superchargerFake := &recordingSuperchargerReader{sessions: []charging.Session{orphan}, teslaScoped: true}
+
+	rec := NewRecalculator(pool, telemetry.NewReader(pool), superchargerFake, charging.NewReader(pool))
+	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, day(2026, 8, 14))
+	if !ok {
+		t.Fatal("expected a vehicle_metrics row for 2026-08-14, found none")
+	}
+	if !row.BatteryUsedPctCalc.Valid || row.BatteryUsedPctCalc.Int32 != 5 {
+		t.Errorf("BatteryUsedPctCalc: want 5 (80-75), got %+v", row.BatteryUsedPctCalc)
+	}
+	wantConsumed := 5.0 // NO session delta -- the nil-TeslaID session must never surface for teslaID=42's equivalent here
+	if !row.ConsumedPct.Valid || !approxEqual(row.ConsumedPct.Float64, wantConsumed) {
+		t.Errorf("ConsumedPct: want %v (the orphaned session's delta must be absent, design.md T4), got %+v", wantConsumed, row.ConsumedPct)
+	}
+
+	// design.md T4's own closing note: even a hypothetical future port that
+	// failed to filter would not crash these two functions, because neither
+	// reads TeslaID at all -- a documented property, not the primary thing
+	// under test here, exercised directly for completeness.
+	_ = sumSuperchargerPctBetween([]charging.Session{orphan}, prev.CapturedAt, cur.CapturedAt)
+	_ = inferMissingChargingType([]charging.Session{orphan}, prev.CapturedAt, cur.CapturedAt)
+}
+
+// TestReconcile_T3_ChargingSourcedValueWinsOverStaleTelemetryCopy implements
+// design.md §5 Test Contract T3 -- the direct proof that the retyped read
+// PATH, not merely a type change, has the intended effect. The SAME
+// Supercharger session exists simultaneously in BOTH
+// telemetry.supercharger_sessions (a stale/unverified copy) and
+// charging.charge_sessions (the human-verified copy) -- exactly as they
+// would mid-migration, or in any test proving the read moved. Recalculate
+// must derive from charge_sessions, never from telemetry's stale copy.
+//
+// telemetry.supercharger_sessions is seeded here deliberately (not a
+// leftover): this module's own AGENTS.md/tasks.md 2.2 note that
+// seedSuperchargerSession is KEPT for exactly this purpose.
+func TestReconcile_T3_ChargingSourcedValueWinsOverStaleTelemetryCopy(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(970003)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	// prev/cur CapturedDate one day past each fixture's own effective day
+	// (day(2026,8,20)/day(2026,8,21)) -- design.md's "Then" pins the row's
+	// metric_date at day(2026,8,21).
+	prev := telemetry.Snapshot{
+		AccountID: accountID, TeslaID: teslaID,
+		CapturedAt: day(2026, 8, 21).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 21),
+		OdometerKm: 1000.0, BatteryLevelPct: 90,
+	}
+	cur := telemetry.Snapshot{
+		AccountID: accountID, TeslaID: teslaID,
+		CapturedAt: day(2026, 8, 22).Add(3*time.Hour + 30*time.Minute), CapturedDate: day(2026, 8, 22),
+		OdometerKm: 1000.0, BatteryLevelPct: 85,
+	}
+	seedSnapshot(t, pool, prev)
+	seedSnapshot(t, pool, cur)
+
+	// A single shared session id correlates "the same session, two
+	// representations" -- generated via nextSessionID rather than design.md's
+	// illustrative literal 901, because supercharger_sessions.session_id is
+	// GLOBALLY unique (unlike charge_sessions' account-scoped key) and this
+	// value is never itself asserted by T3's "Then" clauses, only the
+	// resulting consumed_pct is.
+	sessionID := nextSessionID()
+	startAt := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+	stopAt := time.Date(2026, 8, 21, 8, 30, 0, 0, time.UTC)
+	teslaIDCopy := teslaID
+
+	// The STALE telemetry copy -- never read by Recalculate any more after
+	// this tier's retype; seeded only to prove it is NOT what consumed_pct
+	// comes from.
+	seedSuperchargerSession(t, pool, telemetry.SuperchargerSession{
+		AccountID:           accountID,
+		SessionID:           sessionID,
+		TeslaID:             &teslaIDCopy,
+		ChargeStartDateTime: startAt,
+		ChargeStopDateTime:  stopAt,
+		StartBatteryPct:     intPtr(30),
+		EndBatteryPct:       intPtr(70),
+	})
+
+	// The human-verified charging copy -- what Recalculate must read from.
+	seedChargeSession(t, pool, charging.Session{
+		AccountID:           accountID,
+		SessionID:           sessionID,
+		TeslaID:             &teslaIDCopy,
+		ChargeStartDateTime: startAt,
+		ChargeStopDateTime:  stopAt,
+		StartBatteryPct:     intPtr(20),
+		EndBatteryPct:       intPtr(90),
+	})
+
+	rec := newRealRecalculator(pool)
+	if err := rec.Reconcile(ctx, accountID, teslaID); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+
+	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, day(2026, 8, 21))
+	if !ok {
+		t.Fatal("expected a vehicle_metrics row for 2026-08-21, found none")
+	}
+	if !row.ConsumedPct.Valid {
+		t.Fatal("ConsumedPct: want a value, got NULL")
+	}
+	wantConsumed := 75.0 // 5 (BatteryUsedPctCalc: 90-85) + 70 (charging-sourced delta: 90-20)
+	if !approxEqual(row.ConsumedPct.Float64, wantConsumed) {
+		t.Errorf("ConsumedPct: want %v (the charging-sourced delta), got %v", wantConsumed, row.ConsumedPct.Float64)
+	}
+	// The negative assertion IS the point of this test (design.md T3): a
+	// retype that compiled but left a stray call site pointed at the old
+	// telemetry-backed port would still produce this value, undetected by the
+	// positive assertion alone.
+	wantStaleConsumed := 45.0 // 5 + 40 (telemetry's stale delta: 70-30)
+	if approxEqual(row.ConsumedPct.Float64, wantStaleConsumed) {
+		t.Errorf("ConsumedPct: got the STALE telemetry-sourced value %v -- Recalculate is still reading telemetry.supercharger_sessions instead of charging.charge_sessions", row.ConsumedPct.Float64)
 	}
 }
 

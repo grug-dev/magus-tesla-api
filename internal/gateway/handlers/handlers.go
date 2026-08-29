@@ -63,6 +63,16 @@ type Deps struct {
 	// NEVER import internal/charging/db (chargingdb) for this path — all
 	// access through this interface only.
 	SuperchargerReader charging.SessionReader
+	// SuperchargerVerifier is the charging module's SessionVerifier write
+	// port over charge_sessions; injected at construction. Called ONLY by
+	// SuperchargerRowUpdate (PATCH /ui/supercharger-stats/row/:id), on an
+	// explicit user-initiated row save, to call VerifySession — the sole
+	// write this port permits (start/end battery percentage correction).
+	// See AGENTS.md "Exception: Supercharger session battery verification"
+	// for constraints. NEVER import internal/charging/db (chargingdb) for
+	// this path — all access through this interface only. Added by
+	// RM31-gateway-add-session-battery-edit.
+	SuperchargerVerifier charging.SessionVerifier
 	// ChargingWriter is the charging write port. Called by write handlers
 	// on explicit user-initiated form submissions (create/update/delete).
 	// See AGENTS.md "Exception: user-initiated writes" for constraints.
@@ -105,6 +115,7 @@ type Handler struct {
 	tesla                 tesla.VehicleService
 	telemetryReader       telemetry.Reader
 	superchargerReader    charging.SessionReader
+	superchargerVerifier  charging.SessionVerifier
 	chargingWriter        charging.Writer
 	chargingReader        charging.Reader
 	analyticsReader       analytics.Reader
@@ -142,6 +153,7 @@ func New(d Deps) *Handler {
 		tesla:                 d.Tesla,
 		telemetryReader:       d.TelemetryReader,
 		superchargerReader:    d.SuperchargerReader,
+		superchargerVerifier:  d.SuperchargerVerifier,
 		chargingWriter:        d.ChargingWriter,
 		chargingReader:        d.ChargingReader,
 		analyticsReader:       d.AnalyticsReader,

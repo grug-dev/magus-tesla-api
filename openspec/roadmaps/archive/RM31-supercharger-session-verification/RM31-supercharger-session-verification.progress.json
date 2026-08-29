@@ -1,0 +1,390 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM31-supercharger-session-verification",
+  "intention": "A user can correct a Supercharger session's start/end battery % inline on /supercharger-stats, and the correction immediately reaches vehicle_metrics because analytics reads the same table the edit writes.",
+  "request": "MAG-19 \u2014 ALLOW EDITING Supercharger sessions. Chart YYYY-MM labels + Y-axis; remove Country column; show the four battery-% columns; add an inline Edit action writing start_battery_pct/end_battery_pct + battery_pct_source='user_verified' via PATCH; re-run the vehicle_metrics calculated fields as the manual-charge path does; no delete action; update the KB.",
+  "status": "complete",
+  "autopilot": false,
+  "updated_at": "2026-08-29T02:11:30Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM31-MAG-19-supercharger-session-verification",
+    "base": "main",
+    "ticket": "MAG-19",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions",
+    "created_at": "2026-08-27T17:20:55Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-27T17:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "analytics switches its Supercharger source from telemetry.supercharger_sessions to charging.charge_sessions",
+      "why": "The edit must land where analytics reads or item 4d is a no-op. Switching beats adding a 4th source: one table owns a session's percentages, so no conflict rule is needed.",
+      "covered_by": "roadmap Decision 1"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-27T17:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "start_battery_pct_est / end_battery_pct_est stay NULL; displayed as \"\u2014\"",
+      "why": "No SOC estimator exists (RM27 D11 descoped it), so freezing a snapshot would fabricate a drift log. Building an estimator is out of scope.",
+      "covered_by": "roadmap Decision 3"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-27T17:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "inline htmx row swap for the edit UX",
+      "why": "Matches the ticket's \"inline on the record\", reuses the page's existing fragment-swap pattern, and avoids a PATCH on accidental blur.",
+      "covered_by": "roadmap Decision 4"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-27T17:20:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "ticket item 2 (remove the Country column) gets no tier",
+      "why": "Already done: charging.Session has no CountryCode (RM29 D1) and RM30 tier 2 removed the column. Recorded so its absence is not read as a missed requirement.",
+      "covered_by": "roadmap Decision 5"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-27T17:20:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "gateway work split into two tiers \u2014 display (3) and edit (4)",
+      "why": "The display half depends on nothing and ships alone; only the edit needs tiers 1 and 2. One gateway tier would have blocked the visible win behind the whole roadmap.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-27T21:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "both analytics Supercharger reads move to charge_sessions -- vehicle_metrics AND the Wh/km RecentEfficiency read",
+      "why": "telemetry.supercharger_sessions is the nightly mirror's source and nothing else's. Moving only the percentage path leaves one entity read from two tables.",
+      "covered_by": "roadmap Decision 8"
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-27T21:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "the missing charging SessionReader methods get their own tier 2; analytics becomes tier 3 and depends on it",
+      "why": "charging.SessionReader has only the Between shape; analytics needs UpdatedSince and limit too. Both are charging code, so one tier cannot hold both modules.",
+      "covered_by": "roadmap Decision 9"
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-27T21:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "watermark migration DELETEs the supercharger_sessions cursor rows instead of renaming them to charge_sessions",
+      "why": "Absent watermark = epoch (RM29 D7), so the nightly Reconcile backfills. Carrying the value risks skipping any charge_sessions row older than the inherited cursor.",
+      "covered_by": "roadmap Decision 10"
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-28T09:35:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "Decision 10 STANDS -- the watermark migration DELETEs the supercharger_sessions cursor rows; it does not UPDATE them in place",
+      "why": "Carrying the cursor is load-bearing on the nightly mirror running; a stalled mirror strands rows behind it undetectably. DELETE costs ~nothing since the next pass re-reads everything anyway.",
+      "covered_by": "roadmap Decision 10"
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-28T09:35:00Z",
+      "scope": "tier:3",
+      "made_by": "leader",
+      "decision": "corrected the roadmap's tier-3 table cell, which said UPDATE and contradicted Decision 10",
+      "why": "The stale cell is what the leader dispatched from, producing a design that reversed a settled owner decision. Left uncorrected it would mislead the next session the same way.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "list-and-match resolves a session by ID; no new charging by-ID port",
+      "why": "charging.SessionReader has only ListSessionsByVehicleBetween. A by-ID port would be charging code and spawn a tier 6. Mirrors fetchEntryVM's documented no-GetEntry shape.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "save verb is PATCH with strict body semantics: both keys required, empty=NULL, absent key=400",
+      "why": "Owner chose PATCH over the gateway's PUT gold standard: the write is partial at the resource level (3 of ~18 columns). The 400 closes PATCH's partial-body invitation, which VerifySession would answer with a silent NULL.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "recalculation window is +/-1 day around the session's stop day, via a NEW helper",
+      "why": "A session stopping between midnight and the ~03:30 poller hour belongs to the previous metric day (effectiveDay = CapturedDate-1). Matches Reconcile's own D8 widening. recalculateAfterChargeWrite is left alone.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "the day comes from ChargeStopDateTime, computed in UTC",
+      "why": "sumSuperchargerPctBetween filters on ChargeStopDateTime; the page already rules plain UTC (D9a) and the gateway cannot see the poller's Location. The +/-1 window absorbs the zone error; the shifts cannot compound.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "TeslaID == nil: skip recalculation and log; the write still succeeds",
+      "why": "VerifySession has no vehicle predicate, so a hand-built PATCH can return a nil TeslaID. Account-scoping is the security boundary and holds. Matches recalculateAfterChargeWrite's swallow-and-log posture.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "blank inputs clear a value; no end<start ordering validation",
+      "why": "An irreversible verification UI is a trap, and VerifySession(nil,nil) clears the source too. Ordering is declined per tier 1 D8, which matches the table's deliberate absence of that CHECK. Only 0-100 is validated.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "new csrfSuperchargerKey; the page issues the token, fragments read it",
+      "why": "csrfManualChargeKey is issued only by GET /charges and checkCSRFKey fails closed, so reuse would block any user arriving directly. A row-edit fragment issuing fresh would invalidate a second open row's token.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-28T16:05:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "KB update also corrects the now-false 'ONE concept with a user write path' cross-reference; file is not renamed",
+      "why": "Leaving it would tell the next agent this page has no write path, one file from the write path we added. Renaming -read.md churns the INDEX and every inbound reference for a cosmetic gain.",
+      "covered_by": "tier 5 Step 2 interview (grill-me)"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM31-charging-add-session-verification-port",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T17:22:40Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 28,
+        "cost_usd_delta": 7.5,
+        "approx": true,
+        "note": "tier 1 total across artifacts + wave 1-2 + wave 3 + review round 1, spanning two 5-hour buckets"
+      },
+      "notes": "Artifacts written and validated --strict. SessionVerifier port, no DB object, design gate not tripped.",
+      "archived_at": "2026-08-27T20:52:10Z"
+    },
+    {
+      "id": 2,
+      "change": "RM31-charging-add-session-read-ports",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T21:12:00Z",
+      "completed_at": "2026-08-28T09:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.6,
+        "approx": true,
+        "note": "wave 1 delta only; wave 2 and the review round ran while the statusline cache held a foreign session_id, so those deltas are unrecorded"
+      },
+      "notes": "Archived. Two read methods landed on a NEW SuperchargerSessionAnalyticsReader embedding an untouched SessionReader (owner call D8) -- gateway needed no edit. No DB object. Reviewer round 1 approved, zero findings."
+    },
+    {
+      "id": 3,
+      "change": "RM31-analytics-read-sessions-from-charging",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [
+        2
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": "2026-08-28T09:20:00Z",
+      "completed_at": "2026-08-28T11:00:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Database design gate applies -- watermark source CHECK migration + epoch reset (roadmap Decision 10). Blocked on tier 2's read ports."
+    },
+    {
+      "id": 4,
+      "change": "RM31-gateway-show-session-battery-pct",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Codex (waves) -> Claude Code (review + archive)",
+      "model": null,
+      "started_at": "2026-08-28T11:22:21Z",
+      "completed_at": "2026-08-28T16:12:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.99,
+        "approx": true,
+        "note": "Claude Code review+archive portion only; the Codex implementation waves are unrecorded (foreign budget cache)."
+      },
+      "notes": "Archived. Display-only slice: YYYY-MM chart labels + kWh y-axis ticks, four battery columns ES/EN, nil -> em-dash. 3 review rounds (R1 English/nil coverage, R2 zero-max ticks test). Delta spec was MODIFIED->ADDED at archive.",
+      "archived_at": "2026-08-28T16:12:00Z"
+    },
+    {
+      "id": 5,
+      "change": "RM31-gateway-add-session-battery-edit",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T16:20:00Z",
+      "completed_at": "2026-08-29T02:11:30Z",
+      "duration_seconds": null,
+      "budget": {
+        "cost_usd_delta_approx": null,
+        "note": "tier 5 ran across several sessions with a mid-wave five_hour reset (see change events); per-wave brackets are in the change's progress.json, no reliable tier total"
+      },
+      "notes": "Artifacts created and validated --strict. No DB object -> database design gate NOT tripped. 21 sub-tasks across 7 waves. Carries the KB update (Wave 6)."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-27T17:20:55Z",
+      "agent": "leader",
+      "event": "roadmap RM31 created from Linear MAG-19 (pickup skill); shared work counter 31 -> 32; branch ft/RM31-MAG-19-supercharger-session-verification off main"
+    },
+    {
+      "at": "2026-08-27T17:20:55Z",
+      "agent": "leader",
+      "event": "runtime: Claude Code; native subagent dispatch + live budget both available (five_hour 64%, context 9%) \u2014 no degradations"
+    },
+    {
+      "at": "2026-08-27T17:20:55Z",
+      "agent": "leader",
+      "event": "run scope capped by the invoking kkpa-pickup-linear-ticket skill: HALT AFTER STEP 4 \u2014 tier 1 artifacts + progress.json only, no implementation workers, no reviewer, no archive"
+    },
+    {
+      "at": "2026-08-27T17:31:15Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created by the charging worker (sonnet) and validated --strict; design gate evaluated: NOT tripped (no DB object); tier 1 -> [~]"
+    },
+    {
+      "at": "2026-08-27T20:52:10Z",
+      "agent": "leader",
+      "event": "tier 1 (RM31-charging-add-session-verification-port) archived after a zero-finding reviewer approval. Tiers 2 and 3 are both unblocked (no depends_on); tier 4 still blocked on 1+2+3. autopilot=false, so the leader stops here for the owner to choose the next tier."
+    },
+    {
+      "at": "2026-08-27T21:05:00Z",
+      "agent": "leader",
+      "event": "resume of tier RM31-analytics-read-sessions-from-charging: leader verified field parity PASSES (calcs read only ChargeStart/StopDateTime, Start/EndBatteryPct, EnergyKWh -- all on charging.Session) but PORT parity FAILS: charging.SessionReader exposes only ListSessionsByVehicleBetween, while analytics consumes three telemetry.SuperchargerReader methods. Tier could not start as scoped."
+    },
+    {
+      "at": "2026-08-27T21:05:00Z",
+      "agent": "leader",
+      "event": "Step 2 interview (grill-me, config.yaml rules.proposal) -> owner decisions D6/D7/D8. Roadmap re-tiered: new charging tier 2 (read ports); analytics 2->3 depends_on [2]; gateway display 3->4; gateway edit 4->5 depends_on [1,2,3,4]. Tier 1 unaffected."
+    },
+    {
+      "at": "2026-08-27T21:12:00Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created and validated --strict; design gate evaluated: NOT tripped (no DB object). Leader fixed a row-count-dependent EXPLAIN assertion in the test contract before implementation. tier 2 -> [~]"
+    },
+    {
+      "at": "2026-08-28T09:02:00Z",
+      "agent": "leader",
+      "event": "tier 2 (RM31-charging-add-session-read-ports) archived after a zero-finding reviewer round; owner reported `make test` GREEN. Tiers 3 and 4 are now unblocked (4 never had a dependency); tier 5 still waits on 3 and 4. autopilot is false, so the leader STOPS here and does not open tier 3 without the owner's go-ahead."
+    },
+    {
+      "at": "2026-08-28T09:40:00Z",
+      "agent": "leader",
+      "event": "tier 3 artifacts created by the analytics worker (sonnet); openspec validate --strict passes. Doc-pack acknowledgment received (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/analytics/AGENTS.md) plus openspec/config.yaml. Worker reported D1-D6 and FLAGGED that the dispatch contradicted roadmap Decision 10 -- correctly. LEADER ERROR: the dispatch was written from the roadmap's tier-3 table cell (UPDATE) without reading Decision 10 (DELETE) further down the same file."
+    },
+    {
+      "at": "2026-08-28T09:40:00Z",
+      "agent": "leader",
+      "event": "DESIGN GATE (database) held with the owner: the UPDATE-vs-DELETE fork was surfaced explicitly, along with the leader's own finding that the nightly mirror bumps every updated_at unconditionally -- which makes DELETE nearly free rather than making UPDATE safe. Owner ruled for DELETE, honouring Decision 10. Worker re-messaged (context retained, no fresh dispatch) with 7 scoped corrections; roadmap tier-3 cell corrected by the leader. NOT yet approved for Apply -- the gate reopens when the revised artifacts return."
+    },
+    {
+      "at": "2026-08-28T11:02:00Z",
+      "agent": "leader",
+      "event": "Tier 3 archived (commit 6ef1bbd) after analytics-reviewer approval. BUDGET CHECKPOINT at the tier boundary: five_hour_pct 96, threshold 90 - CROSSED; context_pct 12; cost $4.31 this session; five_hour_resets_at 1787924400 (2026-08-28T13:40:00Z). Tier 4 (RM31-gateway-show-session-battery-pct) is unblocked but NOT started: autopilot is false (owner chose one tier at a time) AND the budget gate is tripped. OUTSTANDING FOLLOW-UP, deliberately not run for the same reason: the global openspec-archive-kb-sync rule owes a `/kkpa-context-curate from-spec openspec/specs/analytics/spec.md` to stage a KB proposal for the analytics capability. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T11:22:21Z",
+      "agent": "leader",
+      "event": "Resumed under Codex: the saved Claude Code budget cache is foreign, so budget accounting is degraded (budget:null) and cannot block this run. Tier 4 artifacts passed strict validation; status advanced to in-flight."
+    },
+    {
+      "at": "2026-08-28T16:12:00Z",
+      "agent": "leader",
+      "event": "Tier 4 (RM31-gateway-show-session-battery-pct) ARCHIVED after a round-3 gateway-reviewer approval; owner reported go test ./internal/gateway/... + go vet PASS. Tier 5 (RM31-gateway-add-session-battery-edit) is now UNBLOCKED -- its depends_on [1,2,3,4] are all archived. It is the LAST tier and carries the KB update (ticket item 6). autopilot=false, so the leader STOPS here for the owner's go-ahead. Budget clear: five_hour 14%, context 12%."
+    },
+    {
+      "at": "2026-08-28T16:25:00Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED full `make test` GREEN across the whole repo after tier 4's archive -- broader than the per-module gateway run and confirming tiers 1-4 are green together on this branch. Verification is the owner's, not the assistant's. CHECKPOINT: owner is clearing context before tier 5. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T16:05:00Z",
+      "agent": "leader",
+      "event": "Resumed for tier 5 (last tier). Step 2 grill-me interview run with the owner per config.yaml rules.proposal -> 8 binding decisions D9-D16. Leader port-parity check BEFORE the interview confirmed tier 5 IS buildable inside the gateway boundary (D9), unlike tier 3. Worker (sonnet) dispatched for artifacts with an explicit kkpa/context/ sandbox grant (D16). No DB object expected -> database design gate not anticipated to trip."
+    },
+    {
+      "at": "2026-08-28T16:20:00Z",
+      "agent": "leader",
+      "event": "Tier 5 artifacts created and validated --strict; database design gate NOT tripped (no DB object). Tier 5 -> [~]/proposed. Change progress.json seeded with 21 tasks across 7 waves, all pending. STOPPING before Apply for the owner's go-ahead (autopilot=false)."
+    },
+    {
+      "at": "2026-08-29T02:11:30Z",
+      "agent": "leader",
+      "event": "TIER 5 ARCHIVED as 2026-08-29-RM31-gateway-add-session-battery-edit after review round 1 approved with zero findings. ALL FIVE TIERS archived -> roadmap RM31 is COMPLETE; auto-archiving both roadmap files into openspec/roadmaps/archive/RM31-supercharger-session-verification/. .work-counter untouched (monotonic)."
+    }
+  ]
+}

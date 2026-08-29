@@ -381,6 +381,89 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 	return items, nil
 }
 
+const listSessionsByVehicle = `-- name: ListSessionsByVehicle :many
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at FROM charge_sessions
+WHERE account_id = $1
+  AND tesla_id = $2
+ORDER BY charge_stop_date_time DESC
+LIMIT $3
+`
+
+type ListSessionsByVehicleParams struct {
+	AccountID  uuid.UUID
+	TeslaID    pgtype.Int8
+	LimitCount int32
+}
+
+// Return the limit_count most recent charge sessions for a specific vehicle within an
+// account, ordered newest-first (descending charge_stop_date_time), limited to
+// @limit_count rows.
+//
+// Sort direction is DESC here, DELIBERATELY UNLIKE ListSessionsByVehicleBetween's ASC
+// (design.md D3 of this change -- ListSessionsByVehicleBetween's own doc comment already
+// warns these two Session reads do not share a sort-direction rule). A "most recent N"
+// limit-bounded read needs newest-first by construction, the same reasoning
+// Reader.ListEntriesByVehicle already applies to manual_charge_entries and
+// telemetry.SuperchargerSessionsByVehicle already applies to supercharger_sessions.
+//
+// idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time) was
+// built ASC, not DESC (RM30 D1, for ListSessionsByVehicleBetween's own bounded-window
+// read). This query still needs NO new index: Postgres serves
+// ORDER BY charge_stop_date_time DESC LIMIT @limit_count from the SAME ascending btree
+// via a backward index scan -- a B-tree index is traversable in either direction at
+// identical cost, so account_id/tesla_id still prune the scan to a single contiguous
+// leaf-page range and only the walk direction (and hence the row order handed up)
+// differs (design.md D3, "Index proof" below). Confirmed by EXPLAIN in the integration
+// test (Test Contract T-Order2), not merely asserted.
+//
+// limit_count is always a positive int32 by the time this query runs: the Go caller
+// clamps a non-positive limit to the module's existing defaultLimit (100) before
+// calling (design.md D3), mirroring ListEntriesByVehicle's identical clamp -- this
+// query itself has no default-handling logic, exactly like ListEntriesByVehicle's own
+// :many query.
+//
+// tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
+// NULL, same as every other vehicle-scoped query on this table (design.md D4).
+func (q *Queries) ListSessionsByVehicle(ctx context.Context, arg ListSessionsByVehicleParams) ([]ChargeSession, error) {
+	rows, err := q.db.Query(ctx, listSessionsByVehicle, arg.AccountID, arg.TeslaID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChargeSession
+	for rows.Next() {
+		var i ChargeSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Vin,
+			&i.TeslaID,
+			&i.SessionID,
+			&i.ChargeStartDateTime,
+			&i.ChargeStopDateTime,
+			&i.SiteLocationName,
+			&i.EnergyKwh,
+			&i.TotalCost,
+			&i.Currency,
+			&i.IsPaid,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.BatteryPctSource,
+			&i.StartBatteryPctEst,
+			&i.EndBatteryPctEst,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSessionsByVehicleBetween = `-- name: ListSessionsByVehicleBetween :many
 SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at FROM charge_sessions
 WHERE account_id = $1
@@ -435,6 +518,89 @@ func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSess
 		arg.FromTime,
 		arg.EndBound,
 	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ChargeSession
+	for rows.Next() {
+		var i ChargeSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.AccountID,
+			&i.Vin,
+			&i.TeslaID,
+			&i.SessionID,
+			&i.ChargeStartDateTime,
+			&i.ChargeStopDateTime,
+			&i.SiteLocationName,
+			&i.EnergyKwh,
+			&i.TotalCost,
+			&i.Currency,
+			&i.IsPaid,
+			&i.StartBatteryPct,
+			&i.EndBatteryPct,
+			&i.BatteryPctSource,
+			&i.StartBatteryPctEst,
+			&i.EndBatteryPctEst,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSessionsByVehicleUpdatedSince = `-- name: ListSessionsByVehicleUpdatedSince :many
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at FROM charge_sessions
+WHERE account_id = $1
+  AND tesla_id = $2
+  AND updated_at >= $3
+ORDER BY charge_stop_date_time ASC
+`
+
+type ListSessionsByVehicleUpdatedSinceParams struct {
+	AccountID uuid.UUID
+	TeslaID   pgtype.Int8
+	Since     pgtype.Timestamptz
+}
+
+// Return charge sessions for a specific vehicle within an account whose updated_at is at
+// or after @since, ordered oldest-first by charge_stop_date_time (design.md D1) — NOT by
+// updated_at itself, and NOT ListEntriesByVehicleUpdatedSince's DESC: this table's index
+// is built ASC (RM30 D1), so ascending on the index's own trailing column is the order
+// that needs no sort step. Reuses idx_charge_sessions_vehicle_stop (account_id, tesla_id,
+// charge_stop_date_time) as a single ascending index range scan: account_id and tesla_id
+// prune to the tenant and vehicle as leading equality predicates in the same scan every
+// other vehicle-scoped query on this table already uses; updated_at >= @since is a
+// RESIDUAL filter evaluated per matching row within that scan, not a separately-indexed
+// predicate (design.md D1) -- the identical reasoning
+// ListEntriesByVehicleUpdatedSince (query.sql:118) already documents for
+// manual_charge_entries's own index. No new index: this table receives roughly one row
+// per Supercharger session per account, written nightly, the same low-volume,
+// write-driven profile that already justified skipping a dedicated updated_at index
+// there.
+//
+// THIS QUERY IS THE ONLY MECHANISM (design.md D1) that carries a
+// SessionVerifier.VerifySession edit into analytics.Recalculator.Reconcile once tier 3
+// repoints the source port: VerifySession sets updated_at = now() and touches no other
+// timestamp column, and charge_start_date_time/charge_stop_date_time are write-once
+// (RM29 D1), so updated_at is the only column that moves when a human verifies a
+// session.
+//
+// No LIMIT: @since itself bounds the result, matching ListEntriesByVehicleUpdatedSince's
+// and ListSessionsByVehicleBetween's own precedent.
+//
+// tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
+// NULL (SQL's NULL = value is neither true nor false) -- an orphaned session is
+// correctly outside a teslaID-keyed read (design.md D4, restating RM29 D6/RM30 D6).
+func (q *Queries) ListSessionsByVehicleUpdatedSince(ctx context.Context, arg ListSessionsByVehicleUpdatedSinceParams) ([]ChargeSession, error) {
+	rows, err := q.db.Query(ctx, listSessionsByVehicleUpdatedSince, arg.AccountID, arg.TeslaID, arg.Since)
 	if err != nil {
 		return nil, err
 	}
@@ -630,6 +796,76 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Manua
 		&i.LocationKind,
 		&i.LocationLabel,
 		&i.Notes,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const verifyChargeSession = `-- name: VerifyChargeSession :one
+UPDATE charge_sessions
+SET
+    start_battery_pct  = $1,
+    end_battery_pct    = $2,
+    battery_pct_source = $3,
+    updated_at         = now()
+WHERE id = $4
+  AND account_id = $5
+RETURNING id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at
+`
+
+type VerifyChargeSessionParams struct {
+	StartBatteryPct  pgtype.Int2
+	EndBatteryPct    pgtype.Int2
+	BatteryPctSource pgtype.Text
+	ID               uuid.UUID
+	AccountID        uuid.UUID
+}
+
+// Update the human-owned verification channel on one account-scoped charge session:
+// start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No other
+// column is in this SET clause, INCLUDING start_battery_pct_est/end_battery_pct_est —
+// this is the mirror image of MirrorChargeSession's protection (that query cannot touch
+// these three; this query cannot touch anything else), by the query's shape, not by a
+// comment a reviewer has to notice (design.md D1).
+//
+// @battery_pct_source is COMPUTED IN GO (design.md D2/D7), never accepted from a caller:
+// "user_verified" when either percentage is non-nil, NULL when both are nil — satisfying
+// charge_sessions_pct_source_required in the same statement that clears or sets the
+// percentages, so no intermediate row state can violate it.
+//
+// WHERE id = @id AND account_id = @account_id mirrors UpdateEntry's scoping exactly
+// (design.md D5/D11): a point lookup on the table's PRIMARY KEY plus its leading tenant
+// column. Zero rows matched — unknown id or wrong account, indistinguishable — surfaces
+// to the caller as pgx.ErrNoRows, exactly like UpdateEntry's own not-found behavior
+// (TestUpdate_CrossAccountIsNoOp is the existing precedent for this shape).
+func (q *Queries) VerifyChargeSession(ctx context.Context, arg VerifyChargeSessionParams) (ChargeSession, error) {
+	row := q.db.QueryRow(ctx, verifyChargeSession,
+		arg.StartBatteryPct,
+		arg.EndBatteryPct,
+		arg.BatteryPctSource,
+		arg.ID,
+		arg.AccountID,
+	)
+	var i ChargeSession
+	err := row.Scan(
+		&i.ID,
+		&i.AccountID,
+		&i.Vin,
+		&i.TeslaID,
+		&i.SessionID,
+		&i.ChargeStartDateTime,
+		&i.ChargeStopDateTime,
+		&i.SiteLocationName,
+		&i.EnergyKwh,
+		&i.TotalCost,
+		&i.Currency,
+		&i.IsPaid,
+		&i.StartBatteryPct,
+		&i.EndBatteryPct,
+		&i.BatteryPctSource,
+		&i.StartBatteryPctEst,
+		&i.EndBatteryPctEst,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

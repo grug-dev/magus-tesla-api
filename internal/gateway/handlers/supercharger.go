@@ -18,8 +18,10 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
@@ -28,6 +30,13 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 )
+
+// csrfSuperchargerKey is the session key for the Supercharger Stats row-edit
+// CSRF token (design.md D8, RM31-gateway-add-session-battery-edit) — distinct
+// from csrfManualChargeKey (charges.go). Issued only by SuperchargerStatsPage/
+// SuperchargerStatsFragment; read (never re-issued) by the row-level handlers
+// below.
+const csrfSuperchargerKey = "csrf_supercharger"
 
 // superchargerMonthPresets is the closed, small vocabulary of month counts
 // the preset selector renders (unchanged UX — design.md D5/D-preset).
@@ -114,34 +123,93 @@ func parseSuperchargerRange(c *gin.Context, today time.Time) (start, end time.Ti
 // only a fragment handler — so the two Supercharger entry points cannot drift
 // apart. today is resolved ONCE, in UTC (design.md D9a — NOT browserToday(c)).
 //
+// csrfToken is the already-issued/read csrf_supercharger session value
+// (design.md D8) — SuperchargerStatsPage/SuperchargerStatsFragment resolve it
+// and thread it in here; this function does no session I/O of its own.
+//
 // Returned status is StatusBadRequest ONLY for a malformed/out-of-range
 // window, in which case Presets is left nil so the template renders no
 // selector (design.md D1).
-func (h *Handler) superchargerStatsViewFor(c *gin.Context, uid uuid.UUID) (fragments.SuperchargerStatsView, int) {
+func (h *Handler) superchargerStatsViewFor(c *gin.Context, uid uuid.UUID, csrfToken string) (fragments.SuperchargerStatsView, int) {
 	today := startOfDay(time.Now().UTC()) // design.md D9a — plain UTC, NOT browserToday(c)
 
 	start, end, ok := parseSuperchargerRange(c, today)
 	if !ok {
 		return fragments.SuperchargerStatsView{
-			Chart: fragments.HistoryChart{Empty: true},
-			Empty: true,
+			Chart:     fragments.HistoryChart{Empty: true},
+			Empty:     true,
+			CSRFToken: csrfToken,
 		}, http.StatusBadRequest
 	}
 
 	selected, sOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
 	if !sOK {
 		return fragments.SuperchargerStatsView{
-			Presets: buildSuperchargerPresets(c.Request.Context(), start, end, today),
-			Chart:   fragments.HistoryChart{Empty: true},
-			Empty:   true,
+			Presets:        buildSuperchargerPresets(c.Request.Context(), start, end, today),
+			Chart:          fragments.HistoryChart{Empty: true},
+			Empty:          true,
+			CSRFToken:      csrfToken,
+			WindowStartStr: start.Format("2006-01-02"),
+			WindowEndStr:   end.Format("2006-01-02"),
 		}, http.StatusOK
 	}
 
-	return h.buildSuperchargerStatsView(c.Request.Context(), uid, selected.TeslaID, start, end, today), http.StatusOK
+	return h.buildSuperchargerStatsView(c.Request.Context(), uid, selected.TeslaID, start, end, today, csrfToken), http.StatusOK
+}
+
+// fetchSuperchargerRowVM resolves a single Supercharger session row's view
+// model by re-listing that vehicle's sessions within the SAME ?start=&end=
+// window the row's own action link carries (design.md D1/D2) and matching id
+// in memory — mirrors fetchEntryVM's documented no-GetEntry-port shape
+// (charges.go, design decision D6 there / D1 here). Every failure mode — a
+// malformed/absent window, no resolvable selected vehicle, a reader error, or
+// "no session in the window matches id" — collapses to (zero, false); none is
+// distinguished from another (design.md D1's documented non-distinction).
+func (h *Handler) fetchSuperchargerRowVM(c *gin.Context, uid uuid.UUID, id uuid.UUID) (fragments.SuperchargerRowVM, bool) {
+	today := startOfDay(time.Now().UTC()) // design.md D9a — plain UTC, NOT browserToday(c)
+	start, end, ok := parseSuperchargerRange(c, today)
+	if !ok {
+		return fragments.SuperchargerRowVM{}, false
+	}
+
+	selected, sOK := h.resolveSelectedVehicle(c.Request.Context(), c, uid)
+	if !sOK {
+		return fragments.SuperchargerRowVM{}, false
+	}
+
+	sessions, err := h.superchargerReader.ListSessionsByVehicleBetween(c.Request.Context(), uid, selected.TeslaID, start, end)
+	if err != nil {
+		return fragments.SuperchargerRowVM{}, false
+	}
+
+	for _, s := range sessions {
+		if s.ID == id {
+			return superchargerRowVMFromSession(s), true
+		}
+	}
+	return fragments.SuperchargerRowVM{}, false
+}
+
+// superchargerWindowStrs re-derives the request's ?start=&end= window as
+// pre-formatted "2006-01-02" strings, for echoing back onto a row's own
+// Edit/Cancel/Save action URLs (design.md D2). parseSuperchargerRange is pure
+// and side-effect-free, so a second parse alongside fetchSuperchargerRowVM's
+// own internal one costs nothing beyond the one extra (in-memory) call; it
+// keeps fetchSuperchargerRowVM's return shape (VM, bool) unchanged rather than
+// widening it to also hand back the window strings.
+func superchargerWindowStrs(c *gin.Context) (startStr, endStr string) {
+	today := startOfDay(time.Now().UTC())
+	start, end, ok := parseSuperchargerRange(c, today)
+	if !ok {
+		return "", ""
+	}
+	return start.Format("2006-01-02"), end.Format("2006-01-02")
 }
 
 // SuperchargerStatsPage renders the full Supercharger Stats page for the
-// session-selected vehicle (initial load).
+// session-selected vehicle (initial load). It generates a fresh
+// csrf_supercharger token and saves it to the session (design.md D8) —
+// mirroring ChargePage's generateCSRFToken/sess.Set/sess.Save shape exactly.
 func (h *Handler) SuperchargerStatsPage(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -149,7 +217,16 @@ func (h *Handler) SuperchargerStatsPage(c *gin.Context) {
 		return
 	}
 
-	v, status := h.superchargerStatsViewFor(c, uid)
+	csrfToken, err := generateCSRFToken()
+	if err != nil {
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorCouldNotSave))
+		return
+	}
+	sess := sessions.Default(c)
+	sess.Set(csrfSuperchargerKey, csrfToken)
+	_ = sess.Save()
+
+	v, status := h.superchargerStatsViewFor(c, uid, csrfToken)
 	if status != http.StatusOK {
 		renderError(c, status, pages.SuperchargerStatsPage(v))
 		return
@@ -160,7 +237,9 @@ func (h *Handler) SuperchargerStatsPage(c *gin.Context) {
 // SuperchargerStatsFragment renders ONLY the #supercharger-stats-content
 // fragment (htmx swap served by GET /ui/supercharger-stats?start=&end=) — the
 // month-preset selector's hx-get target and the vehicle switcher's
-// "vehicle-changed" subscriber.
+// "vehicle-changed" subscriber. It READS the existing csrf_supercharger
+// session value — it does NOT re-issue one (design.md D8; mirrors
+// ChargesListFragment's sess.Get shape exactly).
 func (h *Handler) SuperchargerStatsFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -168,7 +247,10 @@ func (h *Handler) SuperchargerStatsFragment(c *gin.Context) {
 		return
 	}
 
-	v, status := h.superchargerStatsViewFor(c, uid)
+	sess := sessions.Default(c)
+	csrfToken, _ := sess.Get(csrfSuperchargerKey).(string)
+
+	v, status := h.superchargerStatsViewFor(c, uid, csrfToken)
 	if status != http.StatusOK {
 		renderFragmentError(c, status, pages.SuperchargerStatsPage(v), "supercharger-stats")
 		return
@@ -206,9 +288,18 @@ func buildSuperchargerPresets(ctx context.Context, start, end, today time.Time) 
 // its pre-existing newest-first display order, then builds the logic-free
 // view model. On reader error it degrades to an empty view rather than
 // propagating a 500 (mirrors buildHistoryView).
-func (h *Handler) buildSuperchargerStatsView(ctx context.Context, uid uuid.UUID, teslaID int64, start, end, today time.Time) fragments.SuperchargerStatsView {
+//
+// csrfToken/WindowStartStr/WindowEndStr are threaded onto the returned view
+// verbatim (design.md D2/D8, RM31-gateway-add-session-battery-edit) — every
+// row's own Edit/Cancel/Save action URL is built from the SAME window this
+// view was resolved under, keeping fetchSuperchargerRowVM's list-and-match
+// resolve deterministic.
+func (h *Handler) buildSuperchargerStatsView(ctx context.Context, uid uuid.UUID, teslaID int64, start, end, today time.Time, csrfToken string) fragments.SuperchargerStatsView {
 	v := fragments.SuperchargerStatsView{
-		Presets: buildSuperchargerPresets(ctx, start, end, today),
+		Presets:        buildSuperchargerPresets(ctx, start, end, today),
+		CSRFToken:      csrfToken,
+		WindowStartStr: start.Format("2006-01-02"),
+		WindowEndStr:   end.Format("2006-01-02"),
 	}
 
 	sessions, err := h.superchargerReader.ListSessionsByVehicleBetween(ctx, uid, teslaID, start, end)
@@ -294,19 +385,19 @@ func buildSuperchargerTiles(sessions []charging.Session) fragments.SuperchargerT
 // zero-energy month inside a non-empty window still renders as a bar.
 func buildSuperchargerChart(sessions []charging.Session, start, end time.Time) fragments.HistoryChart {
 	if len(sessions) == 0 {
-		return fragments.HistoryChart{Empty: true}
+		return fragments.HistoryChart{Empty: true, LabelVertical: true}
 	}
 
 	anchor := startOfMonth(start)
 	numMonths := monthsBetween(anchor, startOfMonth(end)) + 1
 
 	type bucket struct {
-		label string
+		month time.Time
 		kwh   float64
 	}
 	buckets := make([]bucket, numMonths)
 	for i := 0; i < numMonths; i++ {
-		buckets[i].label = anchor.AddDate(0, i, 0).Format("Jan 2006")
+		buckets[i].month = anchor.AddDate(0, i, 0)
 	}
 
 	for _, s := range sessions {
@@ -335,10 +426,16 @@ func buildSuperchargerChart(sessions []charging.Session, start, end time.Time) f
 		}
 		bars[i] = fragments.HistoryBar{
 			HeightPct: pct,
-			Tooltip:   fmt.Sprintf("%s · %.1f kWh", b.label, b.kwh),
+			Tooltip:   fmt.Sprintf("%s · %.1f kWh", b.month.Format("Jan 2006"), b.kwh),
+			Label:     b.month.Format("2006-01"),
 		}
 	}
-	return fragments.HistoryChart{Bars: bars, Empty: false}
+	return fragments.HistoryChart{
+		Bars:          bars,
+		Empty:         false,
+		LabelVertical: true,
+		YAxisTicks:    buildYAxisTicks(maxKWh, func(kWh float64) string { return fmt.Sprintf("%.1f kWh", kWh) }),
+	}
 }
 
 // monthsBetween returns how many calendar months t is after since (0 when
@@ -349,27 +446,253 @@ func monthsBetween(since, t time.Time) int {
 }
 
 // buildSuperchargerRows maps every session in the window (unpaginated) to a
-// display row. Energy/cost render "—" when their source field is nil —
-// EnergyLabel needs only EnergyKWh; CostLabel needs BOTH TotalCost and
-// Currency. charging.Session carries no CountryCode/BillingType (design.md
-// D4), so the row no longer sets either.
+// display row via superchargerRowVMFromSession — no behavior change from the
+// pre-extraction inline body (design.md D11).
 func buildSuperchargerRows(sessions []charging.Session) []fragments.SuperchargerRowVM {
 	rows := make([]fragments.SuperchargerRowVM, 0, len(sessions))
 	for _, s := range sessions {
-		energyLabel := "—"
-		if s.EnergyKWh != nil {
-			energyLabel = fmt.Sprintf("%.2f kWh", *s.EnergyKWh)
-		}
-		costLabel := "—"
-		if s.TotalCost != nil && s.Currency != nil {
-			costLabel = formatMoney(*s.TotalCost, *s.Currency)
-		}
-		rows = append(rows, fragments.SuperchargerRowVM{
-			DateLabel:   s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),
-			SiteLabel:   s.SiteLocationName,
-			EnergyLabel: energyLabel,
-			CostLabel:   costLabel,
-		})
+		rows = append(rows, superchargerRowVMFromSession(s))
 	}
 	return rows
+}
+
+// superchargerRowVMFromSession maps one charging.Session to its row view
+// model — the ONE place that formats these fields (design.md D11,
+// RM31-gateway-add-session-battery-edit). Extracted out of
+// buildSuperchargerRows's former per-session body so buildSuperchargerRows
+// (list build), fetchSuperchargerRowVM (single-row GET resolve), and
+// SuperchargerRowUpdate's success path (using VerifySession's own returned
+// Session, no extra read) all share one mapper — mirrors
+// chargeEntryVMFromEntry's identical "one mapper, multiple call sites" shape.
+// Energy/cost render "—" when their source field is nil — EnergyLabel needs
+// only EnergyKWh; CostLabel needs BOTH TotalCost and Currency.
+// RawStartBatteryPct/RawEndBatteryPct are "" when the corresponding
+// percentage is nil, matching ChargeEntryVM.RawStartBatteryPct's convention
+// exactly.
+func superchargerRowVMFromSession(s charging.Session) fragments.SuperchargerRowVM {
+	energyLabel := "—"
+	if s.EnergyKWh != nil {
+		energyLabel = fmt.Sprintf("%.2f kWh", *s.EnergyKWh)
+	}
+	costLabel := "—"
+	if s.TotalCost != nil && s.Currency != nil {
+		costLabel = formatMoney(*s.TotalCost, *s.Currency)
+	}
+	rawStartPct := ""
+	if s.StartBatteryPct != nil {
+		rawStartPct = strconv.Itoa(*s.StartBatteryPct)
+	}
+	rawEndPct := ""
+	if s.EndBatteryPct != nil {
+		rawEndPct = strconv.Itoa(*s.EndBatteryPct)
+	}
+	return fragments.SuperchargerRowVM{
+		ID:                      s.ID.String(),
+		DateLabel:               s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),
+		SiteLabel:               s.SiteLocationName,
+		EnergyLabel:             energyLabel,
+		CostLabel:               costLabel,
+		StartBatteryPctLabel:    formatBatteryPct(s.StartBatteryPct),
+		EndBatteryPctLabel:      formatBatteryPct(s.EndBatteryPct),
+		StartBatteryPctEstLabel: formatBatteryPct(s.StartBatteryPctEst),
+		EndBatteryPctEstLabel:   formatBatteryPct(s.EndBatteryPctEst),
+		RawStartBatteryPct:      rawStartPct,
+		RawEndBatteryPct:        rawEndPct,
+	}
+}
+
+func formatBatteryPct(pct *int) string {
+	if pct == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%d%%", *pct)
+}
+
+// recalculateAfterSessionVerify calls the analytics module's recalculation
+// port for the given vehicle, over a window spanning ONE calendar day before
+// through ONE calendar day after the UTC calendar day of chargeStopDateTime
+// (design.md D4/D5) — a SEPARATE function from recalculateAfterChargeWrite
+// (charges.go), which this function does NOT call or modify. See design.md
+// D4/D5 for the full safety argument for why a single day is provably wrong
+// and this ±1-day window is provably sufficient to cover the true metric day
+// regardless of the nightly poller's own configured local timezone.
+func (h *Handler) recalculateAfterSessionVerify(ctx context.Context, uid uuid.UUID, teslaID int64, chargeStopDateTime time.Time) {
+	day := startOfDay(chargeStopDateTime.UTC()) // D5 — plain UTC, ChargeStopDateTime
+	from := day.AddDate(0, 0, -1)
+	to := day.AddDate(0, 0, 1)
+	if err := h.analyticsRecalculator.Recalculate(ctx, uid, teslaID, from, to); err != nil {
+		log.Printf("gateway: analytics recalculate error for account %s, vehicle %d, session window %s..%s: %v",
+			uid, teslaID, from.Format("2006-01-02"), to.Format("2006-01-02"), err)
+	}
+}
+
+// SuperchargerRowStatic renders the static view of one Supercharger session
+// row (used by the Cancel-edit path). Mirrors ChargeRowStatic exactly.
+func (h *Handler) SuperchargerRowStatic(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorInvalidID))
+		return
+	}
+
+	vm, ok2 := h.fetchSuperchargerRowVM(c, uid, id)
+	if !ok2 {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorSessionNotFound))
+		return
+	}
+
+	sess := sessions.Default(c)
+	csrfToken, _ := sess.Get(csrfSuperchargerKey).(string)
+	windowStartStr, windowEndStr := superchargerWindowStrs(c)
+
+	render(c, http.StatusOK, fragments.SuperchargerRow(vm, csrfToken, windowStartStr, windowEndStr))
+}
+
+// SuperchargerRowEditFragment swaps the static row for the inline edit form.
+// Mirrors ChargeRowEditFragment exactly.
+func (h *Handler) SuperchargerRowEditFragment(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorInvalidID))
+		return
+	}
+
+	vm, ok2 := h.fetchSuperchargerRowVM(c, uid, id)
+	if !ok2 {
+		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorSessionNotFound))
+		return
+	}
+
+	sess := sessions.Default(c)
+	csrfToken, _ := sess.Get(csrfSuperchargerKey).(string)
+	windowStartStr, windowEndStr := superchargerWindowStrs(c)
+
+	render(c, http.StatusOK, fragments.SuperchargerRowEdit(vm, csrfToken, windowStartStr, windowEndStr, nil))
+}
+
+// SuperchargerRowUpdate handles PATCH /ui/supercharger-stats/row/:id. Saves
+// the verified battery percentages via charging.SessionVerifier.VerifySession
+// and swaps back to the static row on success, or re-renders the edit form
+// with validation errors / a top-of-form save error. See design.md D3
+// (strict body — an absent key is 400, an empty value clears), D6 (nil
+// TeslaID skips recalculation but the write still succeeds), D7 (blanks
+// clear, no ordering validation, [0,100] range validated first), D8
+// (CSRF via csrfSuperchargerKey; no separate RegisteredVehicles ownership
+// check — VerifySession's own account-scoped WHERE clause is the sole tenant
+// boundary, a deliberate divergence from ChargeRowUpdate/D4), and D9
+// (writer-error branching re-resolves via fetchSuperchargerRowVM instead of
+// inspecting the wrapped pgx error, keeping pgx out of the gateway's import
+// graph).
+func (h *Handler) SuperchargerRowUpdate(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	if !h.checkCSRFKey(c, csrfSuperchargerKey) {
+		return
+	}
+	idStr := c.Param("id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorInvalidID))
+		return
+	}
+
+	sess := sessions.Default(c)
+	csrfToken, _ := sess.Get(csrfSuperchargerKey).(string)
+	windowStartStr, windowEndStr := superchargerWindowStrs(c)
+
+	// D3 — STRICT body: c.GetPostForm distinguishes "absent" (ok=false) from
+	// "present but empty" (ok=true, value==""), unlike c.PostForm. Either key
+	// absent -> 400, VerifySession never called, no fragment rendered.
+	startRaw, startPresent := c.GetPostForm("start_battery_pct")
+	endRaw, endPresent := c.GetPostForm("end_battery_pct")
+	if !startPresent || !endPresent {
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorMalformedBody))
+		return
+	}
+
+	// D7c — range/type validation BEFORE calling VerifySession. A present,
+	// empty (or whitespace-only) value is a valid explicit clear (D7a), not a
+	// validation error; it stays nil and is NOT range-checked.
+	validationErrors := make(map[string]string)
+	var startPct, endPct *int
+
+	startTrimmed := strings.TrimSpace(startRaw)
+	if startTrimmed != "" {
+		if n, perr := strconv.Atoi(startTrimmed); perr != nil || n < 0 || n > 100 {
+			validationErrors["start_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorStartRange)
+		} else {
+			startPct = &n
+		}
+	}
+	endTrimmed := strings.TrimSpace(endRaw)
+	if endTrimmed != "" {
+		if n, perr := strconv.Atoi(endTrimmed); perr != nil || n < 0 || n > 100 {
+			validationErrors["end_battery_pct"] = i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorEndRange)
+		} else {
+			endPct = &n
+		}
+	}
+
+	if len(validationErrors) > 0 {
+		// Re-resolve the row's read-only display context (date/site/energy/
+		// cost/estimates — not submitted by this form's two-input body) via
+		// the same list-and-match helper the GET routes use, then override
+		// ONLY the two raw values with what the user actually submitted
+		// (design.md T5 — echoed unmodified, not reset to the old stored
+		// values). A resolve failure here (rare: the session vanished mid-
+		// edit) falls back to just the id + submitted raw values rather than
+		// escalating a validation error into a 404.
+		vm, vmOK := h.fetchSuperchargerRowVM(c, uid, id)
+		if !vmOK {
+			vm = fragments.SuperchargerRowVM{ID: idStr}
+		}
+		vm.RawStartBatteryPct = startRaw
+		vm.RawEndBatteryPct = endRaw
+		renderError(c, http.StatusUnprocessableEntity, fragments.SuperchargerRowEdit(vm, csrfToken, windowStartStr, windowEndStr, validationErrors))
+		return
+	}
+
+	updated, err := h.superchargerVerifier.VerifySession(c.Request.Context(), uid, id, startPct, endPct)
+	if err != nil {
+		log.Printf("gateway: SuperchargerRowUpdate writer error for account %s, id %s: %v", uid, id, err)
+		// D9 — distinguish 404 from 500 by RE-RESOLVING via
+		// fetchSuperchargerRowVM rather than inspecting the (possibly
+		// pgx.ErrNoRows-wrapping) error — the gateway does not import pgx.
+		vm, vmOK := h.fetchSuperchargerRowVM(c, uid, id)
+		if !vmOK {
+			c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorSessionNotFound))
+			return
+		}
+		renderError(c, http.StatusInternalServerError, fragments.SuperchargerRowEdit(vm, csrfToken, windowStartStr, windowEndStr, map[string]string{
+			"_top": i18n.T(c.Request.Context(), i18n.KeySuperchargerErrorCouldNotSave),
+		}))
+		return
+	}
+
+	// D6 — a nil TeslaID (the session's VIN is not a currently-registered
+	// vehicle) skips recalculation and logs it; the write itself already
+	// succeeded above regardless.
+	if updated.TeslaID != nil {
+		h.recalculateAfterSessionVerify(c.Request.Context(), uid, *updated.TeslaID, updated.ChargeStopDateTime)
+	} else {
+		log.Printf("gateway: supercharger session %s verified with nil TeslaID for account %s — skipping recalculation", id, uid)
+	}
+
+	vm := superchargerRowVMFromSession(updated)
+	render(c, http.StatusOK, fragments.SuperchargerRow(vm, csrfToken, windowStartStr, windowEndStr))
 }

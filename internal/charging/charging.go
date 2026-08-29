@@ -237,10 +237,13 @@ type Session struct {
 }
 
 // SessionReader is the read port over charge_sessions (RM30-charging-add-session-read-port
-// design.md D3/D5/D6/D7). There is exactly one method, shaped for a bounded, per-vehicle
-// window read — the same access pattern Reader.ListEntriesByVehicleBetween already
-// established for manual_charge_entries, but NOT an identical contract; see below for
-// where it diverges and why.
+// design.md D3/D5/D6/D7). One method, unchanged by RM31-charging-add-session-read-ports:
+// internal/gateway depends on exactly this interface (Deps.SuperchargerReader) and calls
+// only ListSessionsByVehicleBetween, so this interface is NOT widened to add the two new
+// analytics-facing read shapes — see SuperchargerSessionAnalyticsReader below, which embeds
+// this interface instead (RM31 design.md D8). Do not add methods here; a prior wave of this
+// same change did, and it broke internal/gateway's fakeSessionReader and failed
+// `go vet ./...` repo-wide.
 type SessionReader interface {
 	// ListSessionsByVehicleBetween returns charge sessions for a specific vehicle
 	// within an account whose ChargeStopDateTime falls within the window [from, to].
@@ -273,6 +276,128 @@ type SessionReader interface {
 // NewSessionReader constructs a SessionReader backed by the given pgxpool. The
 // implementation lives in session_reader.go where the chargingdb generated package is
 // used. This is the only publicly exported constructor for the SessionReader port.
+// Its signature and return type MUST NOT change — cmd/web wires this exact function into
+// the gateway's Deps.SuperchargerReader (RM31 design.md D8).
 func NewSessionReader(pool *pgxpool.Pool) SessionReader {
 	return newSessionReader(pool)
+}
+
+// SuperchargerSessionAnalyticsReader is the read port over charge_sessions for
+// internal/analytics (RM31-charging-add-session-read-ports design.md D8). It is a
+// SEPARATE interface from SessionReader, not a widening of it, for the same "one fat
+// interface, two callers with different needs" reason RM31 tier 1's D9 made
+// SessionVerifier separate from SessionWriter: internal/gateway depends on SessionReader
+// and calls only ListSessionsByVehicleBetween, so adding methods to SessionReader itself
+// would force every implementer of that interface — including gateway's own test double,
+// which has and needs no reason to know about analytics' two extra read shapes — to carry
+// methods it never calls. internal/analytics needs all three shapes
+// (ListSessionsByVehicleBetween, ListSessionsByVehicleUpdatedSince, ListSessionsByVehicle),
+// which is why this interface EMBEDS SessionReader rather than restating its method.
+//
+// The three methods reachable through this interface do NOT share a single
+// sort-direction convention — sort direction is chosen per query against the shared
+// idx_charge_sessions_vehicle_stop index, not as a port-family rule (design.md D3,
+// Context fact 3). Do not "fix" one method's order to match another.
+//
+// Naming: "Supercharger" is the owner's deliberate divergence from this module's
+// Session* family (SessionReader, SessionWriter, SessionMirror, SessionVerifier), chosen
+// for call-site readability in internal/analytics, where the surrounding code is about
+// Supercharger sessions but the package qualifier is charging (design.md D8). Do not
+// "tidy" this name into the Session* family.
+type SuperchargerSessionAnalyticsReader interface {
+	SessionReader
+
+	// ListSessionsByVehicleUpdatedSince returns every session for a specific vehicle
+	// within an account whose updated_at is at or after since. Ordered ASCENDING by
+	// ChargeStopDateTime — NOT by updated_at itself (RM31 design.md D1, Context fact 2:
+	// this mirrors Reader.ListEntriesByVehicleUpdatedSince's index reasoning in this
+	// module, not telemetry.SuperchargerReader's updated_at-ordering choice). No limit
+	// parameter — since itself bounds the result. Always returns a non-nil empty slice
+	// when no rows match. A session whose TeslaID is nil is never returned, for any
+	// teslaID (design.md D1, D4).
+	//
+	// This is the mechanism by which a SessionVerifier.VerifySession edit becomes
+	// visible to analytics.Recalculator.Reconcile: VerifySession sets updated_at =
+	// now() and touches no other timestamp column, and ChargeStartDateTime/
+	// ChargeStopDateTime are write-once, so updated_at is the only column that moves
+	// when a human verifies a session — this method is the sole path by which that
+	// verification reaches a cursor-driven re-derivation (design.md D1).
+	ListSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Session, error)
+
+	// ListSessionsByVehicle returns the limit most recent sessions for a specific
+	// vehicle within an account, ordered DESCENDING by ChargeStopDateTime — the
+	// opposite of ListSessionsByVehicleBetween's ASC. This divergence is deliberate
+	// (design.md D3) and must not be "corrected" to match the sibling method: a "most
+	// recent N" limit-bounded read needs newest-first by construction. limit <= 0 uses
+	// the server default (defaultLimit, 100), mirroring Reader.ListEntriesByVehicle's
+	// identical contract. Always returns a non-nil empty slice when no rows match. A
+	// session whose TeslaID is nil is never returned, for any teslaID (design.md D3,
+	// D4).
+	ListSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Session, error)
+}
+
+// NewSuperchargerSessionAnalyticsReader constructs a SuperchargerSessionAnalyticsReader
+// backed by the given pgxpool, returning the same underlying *sessionReader
+// NewSessionReader returns — one concrete type satisfies both interfaces, so
+// session_reader.go's method implementations are not duplicated (design.md D8). This is
+// the only publicly exported constructor for the SuperchargerSessionAnalyticsReader port.
+func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessionAnalyticsReader {
+	return newSessionReader(pool)
+}
+
+// SessionVerifier is the human-write port over charge_sessions' verification channel
+// (RM31-charging-add-session-verification-port design.md D9). It is a deliberately
+// separate interface from SessionWriter, not a method added to it: SessionWriter's own
+// doc comment states "The gateway never calls this," and adding a gateway-triggered,
+// human-facing method to that interface would make that sentence false and would hand
+// the nightly-orchestrator wiring path and the gateway's human-edit wiring path the same
+// Go type to depend on — exactly the "one fat interface, two callers with different
+// trust models" shape the AI-efficiency "closed, small vocabularies" principle
+// (CLAUDE.md §Non-negotiables) argues against (design.md D9).
+type SessionVerifier interface {
+	// VerifySession updates exactly three columns on one account-scoped charge_sessions
+	// row — start_battery_pct, end_battery_pct, battery_pct_source — plus updated_at.
+	// No other column is reachable through this method, including
+	// start_battery_pct_est/end_battery_pct_est: the underlying query's SET clause
+	// names only these three plus updated_at, so the two _est columns are structurally
+	// unreachable, not merely undocumented as targets (design.md D1).
+	//
+	// battery_pct_source is always computed by this method, never supplied by the
+	// caller: "user_verified" when either startBatteryPct or endBatteryPct is non-nil,
+	// NULL when both are nil. The method takes no source parameter, so "polled" — a
+	// documented future value for a measured-SOC path — cannot be written by any caller
+	// of this port (design.md D2/D7).
+	//
+	// A partial call (one percentage non-nil, the other nil) is legal — a human
+	// correcting a session mid-charge is a real, expected use. Every call supplies both
+	// parameters' FINAL values, not a delta: this is not a partial-patch method, exactly
+	// like Writer.Update requires every mutable Entry field on every call. A caller
+	// wanting to add endBatteryPct to a session that already has startBatteryPct
+	// verified must re-supply the existing startBatteryPct value (read via
+	// SessionReader) alongside the new endBatteryPct, or that column is overwritten to
+	// NULL (design.md D6). Calling VerifySession(ctx, accountID, id, nil, nil) clears
+	// both percentages AND battery_pct_source to NULL in the same statement (design.md
+	// D7).
+	//
+	// Each non-nil percentage is validated to [0, 100] before the query runs; the
+	// database's own SMALLINT CHECK is the backstop, not the error message (design.md
+	// D3).
+	//
+	// No ordering between startBatteryPct and endBatteryPct is enforced by this method —
+	// deliberately, matching the table's own deliberate absence of such a CHECK
+	// (design.md D8).
+	//
+	// id/accountID scope the update exactly like Writer.Update: WHERE id = @id AND
+	// account_id = @account_id. Zero rows matched — whether id does not exist at all or
+	// exists under a different account — surfaces as an error wrapping pgx.ErrNoRows,
+	// with no distinction made between the two cases, exactly mirroring Writer.Update's
+	// own not-found semantics (design.md D5).
+	VerifySession(ctx context.Context, accountID uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error)
+}
+
+// NewSessionVerifier constructs a SessionVerifier backed by the given pgxpool. The
+// implementation lives in session_verifier.go where the chargingdb generated package is
+// used. This is the only publicly exported constructor for the SessionVerifier port.
+func NewSessionVerifier(pool *pgxpool.Pool) SessionVerifier {
+	return newSessionVerifier(pool)
 }

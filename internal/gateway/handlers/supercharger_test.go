@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,6 +22,8 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 )
 
 // --- fakes for the Supercharger Stats handler tests ---
@@ -102,6 +107,7 @@ func superchargerEngine(h *Handler, uid uuid.UUID, selTeslaID int64, selVIN stri
 // ptrF64 / ptrInt64 are small pointer helpers for building nullable session
 // fields. ptrStr already exists in charges_test.go — reused here.
 func ptrF64(f float64) *float64 { return &f }
+func ptrInt(i int) *int         { return &i }
 func ptrInt64(i int64) *int64   { return &i }
 
 // parseSuperchargerRangeAt builds a gin.Context with the given start/end query
@@ -257,7 +263,7 @@ func TestBuildSuperchargerStatsView_EmptyWhenZeroSessionsInWindow(t *testing.T) 
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
-	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end)
+	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end, "test-csrf")
 
 	if !v.Empty {
 		t.Error("want v.Empty=true when the reader returns zero sessions")
@@ -283,7 +289,7 @@ func TestBuildSuperchargerStatsView_ReaderErrorDegradesEmpty(t *testing.T) {
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 8, 27, 0, 0, 0, 0, time.UTC)
-	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end)
+	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end, "test-csrf")
 
 	if !v.Empty {
 		t.Error("want v.Empty=true on reader error")
@@ -308,7 +314,7 @@ func TestBuildSuperchargerStatsView_NewestFirstDisplayOrder(t *testing.T) {
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
-	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end)
+	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end, "test-csrf")
 
 	if len(v.Sessions) != 3 {
 		t.Fatalf("want 3 rows, got %d", len(v.Sessions))
@@ -345,7 +351,7 @@ func TestBuildSuperchargerStatsView_UnattributedSessionsNeverAppear(t *testing.T
 		},
 	}}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
-	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end)
+	v := h.buildSuperchargerStatsView(context.Background(), uuid.New(), 42, start, end, end, "test-csrf")
 
 	if v.Empty {
 		t.Fatal("want a non-empty view — the attributed session is in the window")
@@ -516,6 +522,9 @@ func TestBuildSuperchargerChart_EmptyWhenSessionsEmpty(t *testing.T) {
 	if !c.Empty {
 		t.Error("want Empty=true for an empty sessions slice")
 	}
+	if !c.LabelVertical {
+		t.Error("want empty chart labels to be vertical")
+	}
 }
 
 func TestBuildSuperchargerChart_OneBarPerMonthInWindow(t *testing.T) {
@@ -541,6 +550,53 @@ func TestBuildSuperchargerChart_OneBarPerMonthInWindow(t *testing.T) {
 	}
 	if c.Bars[0].HeightPct != 33 && c.Bars[0].HeightPct != 34 {
 		t.Errorf("want month 0 (10/30=33%%) bar, got %d", c.Bars[0].HeightPct)
+	}
+	for i, want := range []string{"2026-03", "2026-04", "2026-05"} {
+		if c.Bars[i].Label != want {
+			t.Errorf("bar %d: want Label=%q, got %q", i, want, c.Bars[i].Label)
+		}
+	}
+	if !c.LabelVertical {
+		t.Error("want month labels to be vertical")
+	}
+	if len(c.YAxisTicks) != 5 {
+		t.Fatalf("want 5 y-axis ticks, got %d", len(c.YAxisTicks))
+	}
+	if c.YAxisTicks[0].Label != "30.0 kWh" || c.YAxisTicks[4].Label != "0.0 kWh" {
+		t.Errorf("want 30.0 kWh..0.0 kWh ticks, got %#v", c.YAxisTicks)
+	}
+}
+
+// design.md T2 / spec.md "A non-empty zero-energy chart has no fabricated axis
+// scale": sessions exist, so the chart is NOT Empty, but nothing was charged.
+// The bars and their YYYY-MM labels stay; the y-axis must not invent a scale.
+func TestBuildSuperchargerChart_ZeroEnergyHasNoYAxisTicks(t *testing.T) {
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 4, 30, 0, 0, 0, 0, time.UTC) // 2-month window: Mar, Apr
+	sessions := []charging.Session{
+		{ChargeStartDateTime: start.AddDate(0, 0, 2), EnergyKWh: ptrF64(0)}, // explicit zero
+		{ChargeStartDateTime: start.AddDate(0, 1, 2), EnergyKWh: nil},       // unknown energy
+	}
+	c := buildSuperchargerChart(sessions, start, end)
+	if c.Empty {
+		t.Fatal("want a non-empty chart: the sessions exist, only their energy is zero/nil")
+	}
+	if len(c.Bars) != 2 {
+		t.Fatalf("want 2 bars (one per month in the window), got %d", len(c.Bars))
+	}
+	for i, want := range []string{"2026-03", "2026-04"} {
+		if c.Bars[i].Label != want {
+			t.Errorf("bar %d: want Label=%q, got %q", i, want, c.Bars[i].Label)
+		}
+		if c.Bars[i].HeightPct != 0 {
+			t.Errorf("bar %d: want 0%% height at a zero maximum, got %d", i, c.Bars[i].HeightPct)
+		}
+	}
+	if len(c.YAxisTicks) != 0 {
+		t.Errorf("want no y-axis ticks at a zero maximum, got %#v", c.YAxisTicks)
+	}
+	if !c.LabelVertical {
+		t.Error("want month labels to be vertical")
 	}
 }
 
@@ -584,6 +640,11 @@ func TestBuildSuperchargerRows_NilEnergyAndCostRenderDash(t *testing.T) {
 	if rows[0].CostLabel != "—" {
 		t.Errorf("want CostLabel=—, got %q", rows[0].CostLabel)
 	}
+	for _, label := range []string{rows[0].StartBatteryPctLabel, rows[0].EndBatteryPctLabel, rows[0].StartBatteryPctEstLabel, rows[0].EndBatteryPctEstLabel} {
+		if label != "—" {
+			t.Errorf("want nil battery value to render em dash, got %q", label)
+		}
+	}
 }
 
 func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
@@ -594,6 +655,10 @@ func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
 			EnergyKWh:           ptrF64(23.456),
 			TotalCost:           ptrF64(99.9),
 			Currency:            ptrStr("MXN"),
+			StartBatteryPct:     ptrInt(40),
+			EndBatteryPct:       ptrInt(80),
+			StartBatteryPctEst:  ptrInt(42),
+			EndBatteryPctEst:    ptrInt(78),
 		},
 	}
 	rows := buildSuperchargerRows(sessions)
@@ -605,6 +670,9 @@ func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
 	}
 	if rows[0].CostLabel != "99.90 MXN" {
 		t.Errorf("want CostLabel=99.90 MXN, got %q", rows[0].CostLabel)
+	}
+	if rows[0].StartBatteryPctLabel != "40%" || rows[0].EndBatteryPctLabel != "80%" || rows[0].StartBatteryPctEstLabel != "42%" || rows[0].EndBatteryPctEstLabel != "78%" {
+		t.Errorf("want four formatted battery labels, got %#v", rows[0])
 	}
 }
 
@@ -710,6 +778,70 @@ func TestSuperchargerStatsFragment_ReaderErrorDegradesNo500(t *testing.T) {
 	// Resolved language is Spanish here (see the NoRegisteredVehicle comment above).
 	if !strings.Contains(w.Body.String(), "No hay sesiones de Supercharger") {
 		t.Errorf("want empty-state placeholder on reader error; body: %s", w.Body.String())
+	}
+}
+
+func TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues(t *testing.T) {
+	uid := uuid.New()
+	reader := &fakeSessionReader{sessions: []charging.Session{{
+		TeslaID:             ptrInt64(42),
+		SiteLocationName:    "Battery Site",
+		ChargeStartDateTime: time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 8, 1, 11, 0, 0, 0, time.UTC),
+		StartBatteryPct:     ptrInt(40),
+		EndBatteryPct:       ptrInt(80),
+		StartBatteryPctEst:  ptrInt(42),
+		EndBatteryPctEst:    ptrInt(78),
+	}}}
+	h := newHandlerForSupercharger(reader, 42, "VIN42")
+	eng := superchargerEngine(h, uid, 42, "VIN42")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/supercharger-stats", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{"Batería inicial", "Batería final", "Estimación inicial", "Estimación final", "40%", "80%", "42%", "78%"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("want rendered supercharger table to contain %q", want)
+		}
+	}
+	if strings.Contains(body, "País") {
+		t.Error("Country must remain absent from the Supercharger table")
+	}
+}
+
+func TestSuperchargerStatsContent_RendersEnglishHeadersAndNilBatteryValues(t *testing.T) {
+	var body bytes.Buffer
+	err := fragments.SuperchargerStatsContent(fragments.SuperchargerStatsView{
+		Sessions: []fragments.SuperchargerRowVM{{
+			DateLabel:               "Fri Aug 1, 2026",
+			SiteLabel:               "Nil Battery Site",
+			EnergyLabel:             "—",
+			CostLabel:               "—",
+			StartBatteryPctLabel:    "—",
+			EndBatteryPctLabel:      "—",
+			StartBatteryPctEstLabel: "—",
+			EndBatteryPctEstLabel:   "—",
+		}},
+	}).Render(i18n.WithLang(context.Background(), "en"), &body)
+	if err != nil {
+		t.Fatalf("render Supercharger Stats content: %v", err)
+	}
+	for _, want := range []string{"Start battery", "End battery", "Start estimate", "End estimate"} {
+		if !strings.Contains(body.String(), want) {
+			t.Errorf("want English rendered header %q", want)
+		}
+	}
+	if strings.Count(body.String(), "—") < 6 {
+		t.Errorf("want all four nil battery cells to render em dashes, body: %s", body.String())
 	}
 }
 
@@ -903,7 +1035,23 @@ func TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile(t
 	if tbodyIdx == -1 {
 		t.Fatal("body missing <tbody>")
 	}
-	gotRows := strings.Count(body[tbodyIdx:], "<tr>")
+	// Count the row-IDENTITY marker, not a bare "<tr>": supercharger_row.templ:35
+	// renders the static row as `<tr id="supercharger-row-{vm.ID}">` (htmx needs
+	// the stable id to target the outerHTML row swap), so a bare "<tr>" count went
+	// stale at 0 the moment that id was added — the row markup changed, not the
+	// D7 invariant it is meant to check. Coupled to that shape: if
+	// supercharger_row.templ's <tr id=…> prefix ever changes, update this string
+	// to match.
+	//
+	// Inflation risk: supercharger_row_edit.templ:41 (the edit row) and
+	// supercharger_row.templ:65 (SuperchargerRowError) both reuse the SAME
+	// "supercharger-row-" id prefix. Neither can appear here: this fragment is
+	// SuperchargerStatsFragment -> buildSuperchargerRows -> SuperchargerRow only
+	// (the STATIC row) — the edit/error variants are rendered exclusively by the
+	// row-level handlers (SuperchargerRowEditFragment / SuperchargerRowUpdate),
+	// never by this page/fragment handler — so the marker cannot be inflated by
+	// either variant in this test.
+	gotRows := strings.Count(body[tbodyIdx:], `<tr id="supercharger-row-`)
 	if gotRows != wantRows {
 		t.Errorf("table row count (%d) must equal the Sessions tile's own rendered count (%d) — single source of truth (D7)", gotRows, wantRows)
 	}
@@ -972,5 +1120,530 @@ func TestSuperchargerStatsFragment_UnattributedSessionNeverRendered(t *testing.T
 	}
 	if strings.Contains(body, "999") {
 		t.Error("the unattributed session's 999 kWh must not appear anywhere in the rendered output")
+	}
+}
+
+// --- Wave 5 (RM31-gateway-add-session-battery-edit): SuperchargerRowUpdate /
+// SuperchargerRowStatic / SuperchargerRowEditFragment tests, per design.md's
+// Test Contract T1-T7. fakeSessionVerifier is a NEW test double
+// (charging.SessionVerifier did not exist as a gateway dependency before this
+// tier); fakeRecalculator (charges_test.go, same package) is reused as-is —
+// its Recalculate call-recording shape already fits this tier's assertions
+// without modification.
+
+// verifySessionCall records one VerifySession invocation's arguments, so
+// tests can assert both the call COUNT and the exact percentages passed
+// through (design.md T1/T2/T5's "VerifySession is/is not called" assertions).
+type verifySessionCall struct {
+	accountID        uuid.UUID
+	id               uuid.UUID
+	startPct, endPct *int
+}
+
+// fakeSessionVerifier is a test double for charging.SessionVerifier
+// (RM31-gateway-add-session-battery-edit). result is returned on every
+// successful call; err, when set, is returned instead (and result ignored) —
+// mirrors fakeChargeWriter's result/err shape.
+type fakeSessionVerifier struct {
+	result charging.Session
+	err    error
+
+	calls []verifySessionCall
+}
+
+// Compile-time proof fakeSessionVerifier still satisfies the real interface —
+// the same "loud compile error over silent runtime gap" reasoning
+// fakeRecalculator's own compile-time assertion documents (charges_test.go).
+var _ charging.SessionVerifier = (*fakeSessionVerifier)(nil)
+
+func (f *fakeSessionVerifier) VerifySession(_ context.Context, accountID uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (charging.Session, error) {
+	f.calls = append(f.calls, verifySessionCall{accountID: accountID, id: id, startPct: startBatteryPct, endPct: endBatteryPct})
+	if f.err != nil {
+		return charging.Session{}, f.err
+	}
+	return f.result, nil
+}
+
+// newHandlerForSuperchargerRow builds a Handler wired for the row-level
+// Supercharger handler tests: SuperchargerReader (fetchSuperchargerRowVM's
+// list-and-match resolve, D1), SuperchargerVerifier (VerifySession), and
+// AnalyticsRecalculator (recalculateAfterSessionVerify) — mirrors
+// newHandlerForChargesWithRecalc's write-plus-recalculate wiring shape, one
+// registered vehicle so resolveSelectedVehicle auto-selects it with no
+// explicit session selection needed.
+func newHandlerForSuperchargerRow(reader *fakeSessionReader, verifier *fakeSessionVerifier, recalc *fakeRecalculator, teslaID int64, vin string) *Handler {
+	acct := &fakeAccount{
+		registered: []account.Vehicle{
+			{TeslaID: teslaID, VIN: vin, DisplayName: "Test Vehicle"},
+		},
+	}
+	return New(Deps{
+		Account:               acct,
+		Tesla:                 &fakeTesla{},
+		SuperchargerReader:    reader,
+		SuperchargerVerifier:  verifier,
+		AnalyticsRecalculator: recalc,
+	})
+}
+
+// superchargerRowEngine builds a minimal Gin engine with session middleware
+// and the three row-level Supercharger routes (SuperchargerRowStatic,
+// SuperchargerRowEditFragment, SuperchargerRowUpdate). issueCSRF is a BOOL,
+// not a string, because T6 needs a session where csrf_supercharger was NEVER
+// set at all — distinct from an issued-but-empty value — so the /_session
+// helper must be able to skip the sess.Set call entirely, not just set "".
+func superchargerRowEngine(h *Handler, uid uuid.UUID, csrfToken string, issueCSRF bool) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		sess.Set("uid", uid.String())
+		if issueCSRF {
+			sess.Set(csrfSuperchargerKey, csrfToken)
+		}
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.GET("/ui/supercharger-stats/row/:id", h.SuperchargerRowStatic)
+	r.GET("/ui/supercharger-stats/row/:id/edit", h.SuperchargerRowEditFragment)
+	r.PATCH("/ui/supercharger-stats/row/:id", h.SuperchargerRowUpdate)
+	return r
+}
+
+// --- T1 ---
+
+// TestSuperchargerRowUpdate_AbsentKeyIs400 is Test Contract T1: a PATCH body
+// containing only start_battery_pct (end_battery_pct key entirely absent)
+// gets HTTP 400 and calls VerifySession zero times.
+func TestSuperchargerRowUpdate_AbsentKeyIs400(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	verifier := &fakeSessionVerifier{}
+	reader := &fakeSessionReader{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
+	r := superchargerRowEngine(h, uid, "tok", true)
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {"50"},
+		// end_battery_pct deliberately absent — not even an empty value.
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 when end_battery_pct key is absent, got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(verifier.calls) != 0 {
+		t.Errorf("want zero VerifySession calls on a malformed body, got %d", len(verifier.calls))
+	}
+}
+
+// --- T2 ---
+
+// TestSuperchargerRowUpdate_BothEmptyClearsBothPercentages is Test Contract
+// T2: both keys present with empty values calls VerifySession(nil, nil)
+// exactly once; on the fake returning a session with both percentages (and
+// BatteryPctSource) nil, the response is 200 rendering the static row with
+// both battery cells as "—". EnergyKWh/TotalCost/Currency/*Est fields are
+// all set to non-nil fixture values so the em-dash count is attributable
+// ONLY to the two cleared percentages, not incidental zero-values.
+func TestSuperchargerRowUpdate_BothEmptyClearsBothPercentages(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	verifier := &fakeSessionVerifier{result: charging.Session{
+		ID:                  id,
+		TeslaID:             ptrInt64(42),
+		SiteLocationName:    "Clear Site",
+		ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
+		EnergyKWh:           ptrF64(20),
+		TotalCost:           ptrF64(50),
+		Currency:            ptrStr("USD"),
+		StartBatteryPct:     nil,
+		EndBatteryPct:       nil,
+		BatteryPctSource:    nil,
+		StartBatteryPctEst:  ptrInt(42),
+		EndBatteryPctEst:    ptrInt(78),
+	}}
+	reader := &fakeSessionReader{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
+	r := superchargerRowEngine(h, uid, "tok", true)
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {""},
+		"end_battery_pct":   {""},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for a clearing update, got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(verifier.calls) != 1 {
+		t.Fatalf("want exactly 1 VerifySession call, got %d", len(verifier.calls))
+	}
+	if call := verifier.calls[0]; call.startPct != nil || call.endPct != nil {
+		t.Errorf("want VerifySession called with (nil, nil), got (%v, %v)", call.startPct, call.endPct)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Clear Site") {
+		t.Fatalf("want the static row rendered, body=%q", body)
+	}
+	if !strings.Contains(body, "42%") || !strings.Contains(body, "78%") {
+		t.Errorf("want the (unchanged) estimate cells still rendered, body=%q", body)
+	}
+	if got := strings.Count(body, "—"); got != 2 {
+		t.Errorf("want exactly 2 em dashes (the cleared start/end battery cells), got %d, body=%q", got, body)
+	}
+}
+
+// TestSuperchargerRowUpdate_DecreasingOrderAccepted covers the accepted-
+// decreasing-order case (design.md D7b — end_battery_pct < start_battery_pct
+// is NOT rejected; there is deliberately no ordering validation).
+func TestSuperchargerRowUpdate_DecreasingOrderAccepted(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	verifier := &fakeSessionVerifier{result: charging.Session{
+		ID:                  id,
+		TeslaID:             ptrInt64(42),
+		ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
+		StartBatteryPct:     ptrInt(80),
+		EndBatteryPct:       ptrInt(20),
+	}}
+	reader := &fakeSessionReader{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
+	r := superchargerRowEngine(h, uid, "tok", true)
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {"80"},
+		"end_battery_pct":   {"20"}, // end < start
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for a decreasing-order update (no ordering validation, D7b), got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(verifier.calls) != 1 {
+		t.Fatalf("want exactly 1 VerifySession call, got %d", len(verifier.calls))
+	}
+	call := verifier.calls[0]
+	if call.startPct == nil || *call.startPct != 80 || call.endPct == nil || *call.endPct != 20 {
+		t.Errorf("want VerifySession called with (80, 20), got (%v, %v)", call.startPct, call.endPct)
+	}
+}
+
+// --- T3 ---
+
+// TestSuperchargerRowUpdate_RecalculateWindowFromChargeStopDateTime is Test
+// Contract T3: a verified session whose ChargeStopDateTime is
+// 2026-03-15T00:20:00Z (20 minutes after UTC midnight) triggers
+// Recalculate(2026-03-14T00:00:00Z, 2026-03-16T00:00:00Z) — computed from
+// ChargeStopDateTime ALONE, ignoring ChargeStartDateTime, which the fixture
+// deliberately sets to a DIFFERENT calendar day (2026-03-14).
+func TestSuperchargerRowUpdate_RecalculateWindowFromChargeStopDateTime(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	stop := time.Date(2026, 3, 15, 0, 20, 0, 0, time.UTC)
+	start := time.Date(2026, 3, 14, 23, 0, 0, 0, time.UTC) // different calendar day than stop
+	verifier := &fakeSessionVerifier{result: charging.Session{
+		ID:                  id,
+		TeslaID:             ptrInt64(42),
+		ChargeStartDateTime: start,
+		ChargeStopDateTime:  stop,
+		StartBatteryPct:     ptrInt(40),
+		EndBatteryPct:       ptrInt(80),
+	}}
+	reader := &fakeSessionReader{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
+	r := superchargerRowEngine(h, uid, "tok", true)
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {"40"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(recalc.calls) != 1 {
+		t.Fatalf("want exactly 1 Recalculate call, got %d", len(recalc.calls))
+	}
+	call := recalc.calls[0]
+	wantFrom := time.Date(2026, 3, 14, 0, 0, 0, 0, time.UTC)
+	wantTo := time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)
+	if !call.start.Equal(wantFrom) || !call.end.Equal(wantTo) {
+		t.Errorf("want Recalculate(%v, %v) — day-1..day+1 from ChargeStopDateTime alone, got (%v, %v)", wantFrom, wantTo, call.start, call.end)
+	}
+	if call.teslaID != 42 {
+		t.Errorf("want teslaID=42, got %d", call.teslaID)
+	}
+}
+
+// --- T4 ---
+
+// TestSuperchargerRowUpdate_NilTeslaIDSkipsRecalculationAndLogs is Test
+// Contract T4: a successful VerifySession whose returned Session.TeslaID is
+// nil records ZERO Recalculate calls, the response is still 200 rendering
+// the static row with the verified values, and a log line is emitted.
+func TestSuperchargerRowUpdate_NilTeslaIDSkipsRecalculationAndLogs(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	verifier := &fakeSessionVerifier{result: charging.Session{
+		ID:                  id,
+		TeslaID:             nil, // orphaned — VIN not (or no longer) a registered vehicle
+		ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
+		StartBatteryPct:     ptrInt(40),
+		EndBatteryPct:       ptrInt(80),
+	}}
+	reader := &fakeSessionReader{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
+	r := superchargerRowEngine(h, uid, "tok", true)
+	c := sessionCookie(r, uid, "tok")
+
+	var logBuf bytes.Buffer
+	prevOut := log.Writer()
+	prevFlags := log.Flags()
+	log.SetOutput(&logBuf)
+	defer func() {
+		log.SetOutput(prevOut)
+		log.SetFlags(prevFlags)
+	}()
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {"40"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 (write still succeeds on nil TeslaID), got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(recalc.calls) != 0 {
+		t.Errorf("want zero Recalculate calls when TeslaID is nil, got %d", len(recalc.calls))
+	}
+	if !strings.Contains(logBuf.String(), "nil TeslaID") {
+		t.Errorf("want a log line noting the nil-TeslaID recalculation skip, got log=%q", logBuf.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "40%") || !strings.Contains(body, "80%") {
+		t.Errorf("want the static row rendering the verified values, body=%q", body)
+	}
+}
+
+// --- T5 ---
+
+// TestSuperchargerRowUpdate_OutOfRangeFieldErrorIs422 is Test Contract T5: an
+// out-of-range start_battery_pct (101) with a valid end_battery_pct (50)
+// gets HTTP 422, HX-Error-Fragment: true, a FIELD-level error (not a
+// top-of-form alert), the submitted raw values echoed back verbatim, and
+// zero VerifySession calls.
+func TestSuperchargerRowUpdate_OutOfRangeFieldErrorIs422(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	verifier := &fakeSessionVerifier{}
+	reader := &fakeSessionReader{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
+	r := superchargerRowEngine(h, uid, "tok", true)
+	c := sessionCookie(r, uid, "tok")
+
+	form := url.Values{
+		"csrf_token":        {"tok"},
+		"start_battery_pct": {"101"},
+		"end_battery_pct":   {"50"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("want 422 for an out-of-range field, got %d body=%q", w.Code, w.Body.String())
+	}
+	if got := w.Header().Get("HX-Error-Fragment"); got != "true" {
+		t.Errorf("HX-Error-Fragment = %q, want \"true\" — htmx would otherwise discard this 422 body", got)
+	}
+	body := w.Body.String()
+	// ES catalogue value — superchargerRowEngine wires no LanguageMiddleware, so
+	// i18n.FromContext falls back to Spanish (mirrors this file's existing
+	// resolved-language assertions, e.g. TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues).
+	if !strings.Contains(body, "El porcentaje de batería inicial debe ser un número entero entre 0 y 100.") {
+		t.Errorf("want the start-range field error message rendered, body=%q", body)
+	}
+	if strings.Contains(body, "El porcentaje de batería final debe ser un número entero entre 0 y 100.") {
+		t.Errorf("end_battery_pct (50) is valid — its error message must not render, body=%q", body)
+	}
+	if strings.Contains(body, `role="alert"`) {
+		t.Errorf("want a FIELD-level error, not a top-of-form ui.Alert (_top), body=%q", body)
+	}
+	if !strings.Contains(body, `value="101"`) {
+		t.Errorf("want the submitted raw start value 101 echoed back (not reset), body=%q", body)
+	}
+	if !strings.Contains(body, `value="50"`) {
+		t.Errorf("want the submitted raw end value 50 echoed back, body=%q", body)
+	}
+	if len(verifier.calls) != 0 {
+		t.Errorf("want zero VerifySession calls on a validation failure, got %d", len(verifier.calls))
+	}
+}
+
+// --- T6 ---
+
+// TestSuperchargerRowUpdate_NoTokenEverIssuedIs403 is Test Contract T6: a
+// session that never had csrf_supercharger set at all (a client that reached
+// PATCH without first loading GET /supercharger-stats or
+// GET /ui/supercharger-stats in this session) gets HTTP 403 via the
+// existing fail-closed checkCSRFKey path, and zero VerifySession calls.
+func TestSuperchargerRowUpdate_NoTokenEverIssuedIs403(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	verifier := &fakeSessionVerifier{}
+	reader := &fakeSessionReader{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
+	r := superchargerRowEngine(h, uid, "", false) // issueCSRF=false — key never set
+	c := sessionCookie(r, uid, "")
+
+	form := url.Values{
+		"csrf_token":        {"whatever"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("want 403 when no csrf_supercharger token was ever issued, got %d", w.Code)
+	}
+	if len(verifier.calls) != 0 {
+		t.Errorf("want zero VerifySession calls on CSRF rejection, got %d", len(verifier.calls))
+	}
+}
+
+// TestSuperchargerRowUpdate_StaleTokenRejected covers the SAME 403 outcome
+// as T6 above, via a DISTINCT fixture: a token WAS issued ("freshtoken"),
+// unlike T6's never-issued session, but the submitted token is stale/
+// mismatched ("staletoken"). Both paths reach checkCSRFKey's fail-closed
+// compare, but from different starting session states.
+func TestSuperchargerRowUpdate_StaleTokenRejected(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	verifier := &fakeSessionVerifier{}
+	reader := &fakeSessionReader{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
+	r := superchargerRowEngine(h, uid, "freshtoken", true)
+	c := sessionCookie(r, uid, "freshtoken")
+
+	form := url.Values{
+		"csrf_token":        {"staletoken"},
+		"start_battery_pct": {"50"},
+		"end_battery_pct":   {"80"},
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/ui/supercharger-stats/row/"+id.String(), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("want 403 for a stale/mismatched csrf token, got %d", w.Code)
+	}
+	if len(verifier.calls) != 0 {
+		t.Errorf("want zero VerifySession calls on CSRF rejection, got %d", len(verifier.calls))
+	}
+}
+
+// --- T7 ---
+
+// TestSuperchargerRowEditFragment_NotInWindowIs404 is Test Contract T7: a
+// GET .../row/:id/edit request whose ?start=&end= window contains sessions
+// but none matching id resolves as 404 (D1's inherited failure mode).
+func TestSuperchargerRowEditFragment_NotInWindowIs404(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New() // no fixture session carries this id
+	reader := &fakeSessionReader{sessions: []charging.Session{
+		{
+			ID:                  uuid.New(),
+			TeslaID:             ptrInt64(42),
+			SiteLocationName:    "Other Session",
+			ChargeStartDateTime: time.Date(2026, 6, 1, 10, 0, 0, 0, time.UTC),
+			ChargeStopDateTime:  time.Date(2026, 6, 1, 11, 0, 0, 0, time.UTC),
+		},
+	}}
+	verifier := &fakeSessionVerifier{}
+	recalc := &fakeRecalculator{}
+	h := newHandlerForSuperchargerRow(reader, verifier, recalc, 42, "VIN42")
+	r := superchargerRowEngine(h, uid, "tok", true)
+	c := sessionCookie(r, uid, "tok")
+
+	start := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, superchargerRangeURL("/ui/supercharger-stats/row/"+id.String()+"/edit", start, end), nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("want 404 when id is not in the resolved window, got %d body=%q", w.Code, w.Body.String())
 	}
 }

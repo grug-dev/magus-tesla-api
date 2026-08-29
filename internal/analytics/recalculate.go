@@ -39,9 +39,9 @@ const recalcOverlap = 24 * time.Hour
 // 'SUPERCHARGER' free-standing string-label convention. No FK: just a label
 // (see vehicle_metric_watermarks' source CHECK vocabulary).
 const (
-	sourceVehicleSnapshots     = "vehicle_snapshots"
-	sourceSuperchargerSessions = "supercharger_sessions"
-	sourceManualChargeEntries  = "manual_charge_entries"
+	sourceVehicleSnapshots    = "vehicle_snapshots"
+	sourceChargeSessions      = "charge_sessions"
+	sourceManualChargeEntries = "manual_charge_entries"
 )
 
 // recalculator is the concrete implementation of the Recalculator port
@@ -54,7 +54,7 @@ type recalculator struct {
 	pool         *pgxpool.Pool
 	q            *analyticsdb.Queries
 	telemetry    telemetry.Reader
-	supercharger telemetry.SuperchargerReader
+	supercharger charging.SuperchargerSessionAnalyticsReader
 	manual       charging.Reader
 }
 
@@ -64,7 +64,7 @@ var _ Recalculator = (*recalculator)(nil)
 // NewRecalculator constructs a Recalculator over the analytics module's own
 // database pool plus the three sibling ports it reads to derive each day's
 // row (design.md D11).
-func NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger telemetry.SuperchargerReader, manual charging.Reader) Recalculator {
+func NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger charging.SuperchargerSessionAnalyticsReader, manual charging.Reader) Recalculator {
 	return &recalculator{
 		pool:         pool,
 		q:            analyticsdb.New(pool),
@@ -154,7 +154,7 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 		}
 	}
 
-	sessions, err := r.supercharger.SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, chargeStart, end.AddDate(0, 0, 2))
+	sessions, err := r.supercharger.ListSessionsByVehicleBetween(ctx, accountID, teslaID, chargeStart, end.AddDate(0, 0, 2))
 	if err != nil {
 		return fmt.Errorf("fetching supercharger sessions: %w", err)
 	}
@@ -239,9 +239,9 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 	if err != nil {
 		return fmt.Errorf("reading %s watermark: %w", sourceVehicleSnapshots, err)
 	}
-	scsCursor, err := r.watermark(ctx, accountID, teslaID, sourceSuperchargerSessions)
+	scsCursor, err := r.watermark(ctx, accountID, teslaID, sourceChargeSessions)
 	if err != nil {
-		return fmt.Errorf("reading %s watermark: %w", sourceSuperchargerSessions, err)
+		return fmt.Errorf("reading %s watermark: %w", sourceChargeSessions, err)
 	}
 	manualCursor, err := r.watermark(ctx, accountID, teslaID, sourceManualChargeEntries)
 	if err != nil {
@@ -252,7 +252,7 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 	if err != nil {
 		return fmt.Errorf("fetching updated snapshots: %w", err)
 	}
-	sessions, err := r.supercharger.SuperchargerSessionsByVehicleUpdatedSince(ctx, accountID, teslaID, scsCursor.Add(-recalcOverlap))
+	sessions, err := r.supercharger.ListSessionsByVehicleUpdatedSince(ctx, accountID, teslaID, scsCursor.Add(-recalcOverlap))
 	if err != nil {
 		return fmt.Errorf("fetching updated supercharger sessions: %w", err)
 	}
@@ -315,7 +315,7 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 		}
 	}
 	if len(sessions) > 0 {
-		if err := r.advanceWatermark(ctx, accountID, teslaID, sourceSuperchargerSessions, maxSessionUpdated); err != nil {
+		if err := r.advanceWatermark(ctx, accountID, teslaID, sourceChargeSessions, maxSessionUpdated); err != nil {
 			return err
 		}
 	}

@@ -1,0 +1,302 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM31-charging-add-session-read-ports",
+  "module": "charging",
+  "status": "archived",
+  "roadmap": "RM31-supercharger-session-verification",
+  "roadmap_tier": 2,
+  "intention": "Grow charging.SessionReader with the two read shapes analytics needs -- ListSessionsByVehicleUpdatedSince (carries a VerifySession edit into Reconcile) and ListSessionsByVehicle (limit-bounded, for the Wh/km read). No DB object.",
+  "created_at": "2026-08-27T21:12:00Z",
+  "updated_at": "2026-08-28T09:00:00Z",
+  "leader": {
+    "agent": "leader",
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM31-MAG-19-supercharger-session-verification",
+    "base": "main",
+    "ticket": "MAG-19",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "query.sql: append ListSessionsByVehicleUpdatedSince query",
+      "depends_on": [],
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T22:55:00Z",
+      "completed_at": "2026-08-27T23:00:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.6,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/2.1/2.2"
+      },
+      "notes": "Appended ListSessionsByVehicleUpdatedSince to query.sql verbatim from design.md Query 1, doc comment intact."
+    },
+    {
+      "id": "1.2",
+      "title": "query.sql: append ListSessionsByVehicle query",
+      "depends_on": [],
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T23:00:00Z",
+      "completed_at": "2026-08-27T23:05:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.6,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/2.1/2.2"
+      },
+      "notes": "Appended ListSessionsByVehicle to query.sql; ran make sqlc, generated types match the spec."
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go: add both methods to the SessionReader interface",
+      "depends_on": [
+        "1.2"
+      ],
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T23:00:00Z",
+      "completed_at": "2026-08-27T23:15:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta not recorded -- budget signal degraded (foreign session_id in the statusline cache)"
+      },
+      "notes": "Reverted SessionReader to its original single-method shape; added SuperchargerSessionAnalyticsReader embedding it plus both methods, and NewSuperchargerSessionAnalyticsReader. NewSessionReader unchanged."
+    },
+    {
+      "id": "2.2",
+      "title": "session_reader.go: implement both methods",
+      "depends_on": [
+        "1.2",
+        "2.1"
+      ],
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T23:10:00Z",
+      "completed_at": "2026-08-27T23:15:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.6,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/2.1/2.2"
+      },
+      "notes": "Implemented both on sessionReader, reusing rowToSession, teslaIDToPgInt8 and defaultLimit unchanged."
+    },
+    {
+      "id": "3.1",
+      "title": "integration tests T1-T7 (UpdatedSince)",
+      "depends_on": [
+        "2.2"
+      ],
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T23:15:00Z",
+      "completed_at": "2026-08-27T23:25:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta not recorded -- budget signal degraded (foreign session_id in the statusline cache)"
+      },
+      "notes": "New db_session_reader_updated_since_integration_test.go, T1-T7 per design.md's exact values. Compiles under go vet; not executed."
+    },
+    {
+      "id": "3.2",
+      "title": "integration tests T8-T14 + T-Order2 (ByVehicle)",
+      "depends_on": [
+        "2.2"
+      ],
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T23:25:00Z",
+      "completed_at": "2026-08-27T23:32:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta not recorded -- budget signal degraded (foreign session_id in the statusline cache)"
+      },
+      "notes": "New db_session_reader_by_vehicle_integration_test.go, T8-T14 + T-Order2 including the SET LOCAL enable_seqscan = off transaction. Compiles; not executed."
+    },
+    {
+      "id": "3.3",
+      "title": "AGENTS.md: document the two new port methods",
+      "depends_on": [
+        "2.2"
+      ],
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-27T23:32:00Z",
+      "completed_at": "2026-08-27T23:32:20Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta not recorded -- budget signal degraded (foreign session_id in the statusline cache)"
+      },
+      "notes": "AGENTS.md Public Interface rewritten for the SessionReader / SuperchargerSessionAnalyticsReader split; Testing Notes lists both new test files."
+    }
+  ],
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "3.3"
+    ],
+    "awaiting-user-verification": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-27T21:12:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "design gate NOT tripped -- artifacts add no database object",
+      "why": "No migration, table, column, index or constraint; both queries reuse idx_charge_sessions_vehicle_stop unchanged. Two sqlc queries are not DB objects. Same posture as tier 1.",
+      "covered_by": "design.md D2"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-27T21:12:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "leader amended test contract T-Order2 to run under SET LOCAL enable_seqscan = off",
+      "why": "As written it asserts the plan contains an index scan on a 4-row fixture, where the planner prefers Seq Scan -- it would fail a correct design. Sort-absence keeps full force.",
+      "covered_by": "design.md T-Order2"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-27T23:16:00Z",
+      "scope": "wave:1",
+      "made_by": "leader",
+      "decision": "merged tasks.md waves 1 and 2 into one serial worker dispatch (1.1, 1.2, 2.1, 2.2 in dependency order)",
+      "why": "Same feature across three files with make sqlc between them; one dispatch reads the doc pack once and keeps the generated types in the same context. Deps are honoured by serial order.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-27T23:24:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "the two new methods go on a new SuperchargerSessionAnalyticsReader that embeds SessionReader; SessionReader itself is left untouched",
+      "why": "gateway depends on SessionReader and calls only the Between method; widening forced it to implement two methods it never calls. Owner chose the Supercharger prefix over the leader's SessionAnalyticsReader.",
+      "covered_by": "design.md D8"
+    }
+  ],
+  "review": {
+    "agent": "charging-reviewer",
+    "status": "reviewer-approved",
+    "brief": "Review the diff d16b3d0..HEAD (7 files under internal/charging/ + the change folder) for RM31-charging-add-session-read-ports, tier 2 of roadmap RM31. Validate, as blockers unless noted: (1) module-boundary compliance -- zero files touched outside internal/charging/ and the change folder; charging imports no other module; no HTML/templates. (2) D8 (owner design call): SessionReader must be UNCHANGED at its original single method (ListSessionsByVehicleBetween); the two new methods must live on a new SuperchargerSessionAnalyticsReader that EMBEDS SessionReader, with NewSuperchargerSessionAnalyticsReader alongside an unchanged NewSessionReader. A widened SessionReader is a blocker -- internal/gateway/handlers' fakeSessionReader depends on the narrow shape. (3) D2/D1 no new DB object: no migration, no new index, no altered table/column/constraint; both queries must be served by the existing idx_charge_sessions_vehicle_stop. Any new DB object is a blocker (database is a built-in design gate). (4) query.sql matches design.md Query 1 and Query 2 verbatim in shape; generated query.sql.go is the product of `make sqlc`, not hand-edited. (5) D3 sort direction: ListSessionsByVehicle orders DESC by charge_stop_date_time (backward index scan), deliberately unlike ListSessionsByVehicleBetween's ASC -- and the doc comment says why. (6) D4 nullable tesla_id: both methods use the existing nullable-equality pattern; a NULL-TeslaID row can never be returned by a vehicle-scoped read, and the doc comments say so. Both methods return a non-nil empty slice on no match. (7) D5/D6 reuse: rowToSession, teslaIDToPgInt8 and defaultLimit reused unchanged; both methods on the existing sessionReader in session_reader.go -- no new file, no duplicated helper. (8) TEST CONTRACT -- the highest-value check. design.md authored the expected values BEFORE implementation (section 'Test Contract', T1-T7 for UpdatedSince, T8-T14 + T-Order2 for ByVehicle). Read the two new integration test files against that section and confirm each test asserts the value design.md specified, NOT whatever the implementation happens to produce. A test whose expectation was reverse-engineered from the code is a blocker finding. Confirm T-Order2 still runs its EXPLAIN under `SET LOCAL enable_seqscan = off` (leader decision D2 in progress.json: without it a 4-row fixture makes the planner choose Seq Scan and the assertion would fail a CORRECT design) -- removing that SET is a blocker. (9) spec delta coverage: specs/charge-session-log/spec.md covers both new methods; tasks.md checkboxes all ticked. (10) AGENTS.md documents the SessionReader / SuperchargerSessionAnalyticsReader split and lists both new test files. (11) go-conventions: unit suffixes on unit-bearing fields, km/C/PSI display units, account-scoping on every query. (12) Performance-Profile compliance (read-heavy -- see below). (13) anti-gaming: no acceptance criterion weakened or deleted, no task self-approved, tasks.md append-only. TEST-EXECUTION SPLIT you must respect: assistant-run signals were `make sqlc`, `go build ./...`, `go vet ./...` (exit 0 repo-wide) and `gofmt -l` (no charging file listed). The SUITE was run by the OWNER, who reported `make test` GREEN on 2026-08-28. You do NOT run the suite -- judge test quality by READING the tests against design.md's Test Contract.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-28T09:15:00Z",
+        "agent": "charging-reviewer",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-08-27T21:12:00Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created by the charging worker (sonnet), openspec validate --strict passes. Doc-pack acknowledgment received (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/charging/AGENTS.md). Worker reported design decisions D1-D7 and no new DB object -- leader independently confirmed the no-DB-object claim."
+    },
+    {
+      "at": "2026-08-27T21:12:00Z",
+      "agent": "leader",
+      "event": "leader cross-check found one test-contract defect and fixed it before dispatch: T-Order2's EXPLAIN assertion was row-count dependent (4-row fixture => Seq Scan) and would have failed a correct design. design.md + tasks.md 3.2 now require SET LOCAL enable_seqscan = off, with the rationale recorded so no one deletes it."
+    },
+    {
+      "at": "2026-08-27T23:16:00Z",
+      "agent": "leader",
+      "event": "dispatching wave 1 (merged tasks.md waves 1+2: 1.1, 1.2, 2.1, 2.2) to the charging worker on sonnet. Budget at dispatch: five_hour 47%, context 16%, cost $8.61."
+    },
+    {
+      "at": "2026-08-27T23:20:00Z",
+      "agent": "leader",
+      "event": "wave 1 returned: 1.1/1.2/2.2 done, doc-pack acknowledged, D1-D7 compliance enumerated. make sqlc, go build ./... and gofmt clean; go vet ./internal/charging/... clean. BUT go vet ./... FAILS repo-wide: widening charging.SessionReader broke internal/gateway/handlers' fakeSessionReader, which implements only ListSessionsByVehicleBetween."
+    },
+    {
+      "at": "2026-08-27T23:20:00Z",
+      "agent": "leader",
+      "event": "2.1 set BLOCKED pending an owner design call. gateway consumes charging.SessionReader for the supercharger-stats page and calls only ListSessionsByVehicleBetween; analytics needs all three shapes. Widening one port forces gateway to carry two methods it never calls -- the interface-segregation concern tier 1's D9 raised. Alternative: keep SessionReader as-is and add a wider interface that embeds it."
+    },
+    {
+      "at": "2026-08-27T23:24:00Z",
+      "agent": "leader",
+      "event": "owner design call recorded as design.md D8; task 2.1 reopened with the corrected shape and a repo-wide go vet ./... acceptance criterion. gateway needs no edit -- the vet failure disappears rather than being patched around."
+    },
+    {
+      "at": "2026-08-27T23:25:00Z",
+      "agent": "leader",
+      "event": "dispatching wave 2 (2.1 reshape per D8 + 3.1/3.2/3.3 tests and module docs) to the charging worker on sonnet."
+    },
+    {
+      "at": "2026-08-27T23:25:00Z",
+      "agent": "leader",
+      "event": "DEGRADED budget signal: scripts/budget.sh now reports session_id 7568b1e4 (foreign to this session 652eefb3), so context_pct/cost are another session's numbers and are not trusted. five_hour_pct 58% is account-level and still meaningful; below the 90 threshold, so the wave proceeds."
+    },
+    {
+      "at": "2026-08-27T23:35:00Z",
+      "agent": "leader",
+      "event": "wave 2 returned and was independently verified by the leader: go vet ./... exits 0 repo-wide; git status --porcelain shows zero files outside internal/charging/ and the change folder, so D8's split is proven correct with gateway untouched; SET LOCAL enable_seqscan = off is present in T-Order2; SessionReader is back to one method and SuperchargerSessionAnalyticsReader embeds it."
+    },
+    {
+      "at": "2026-08-27T23:35:00Z",
+      "agent": "leader",
+      "event": "Step 5.7 ask point: implementation is code-complete but the suite has NOT been run by the assistant. 3.1 and 3.2 are awaiting-user-verification pending the owner's go test run. The reviewer gate does not open until the owner reports the result."
+    },
+    {
+      "at": "2026-08-28T08:45:00Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session (Step R -> Step 6). Working tree clean, both waves committed (c594916, 0ac44b6) on ft/RM31-MAG-19-supercharger-session-verification. Leader re-ran the cheap signals: go build ./... exit 0, go vet ./... exit 0 repo-wide, gofmt -l lists no internal/charging file. Budget signal restored (session_id matches): five_hour 0%, context 8%. Awaiting the owner's suite run before the reviewer gate."
+    },
+    {
+      "at": "2026-08-28T08:52:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED VERIFICATION: the owner ran `make test` (testcontainer Postgres) and reported it GREEN. The assistant did not run the suite. Tasks 3.1 and 3.2 move awaiting-user-verification -> done on the owner's report; change status -> verified. Reviewer gate now open."
+    },
+    {
+      "at": "2026-08-28T08:56:00Z",
+      "agent": "charging-reviewer",
+      "event": "review round 1 verdict APPROVED with zero findings. Reviewer independently ran go build ./..., go vet ./... and gofmt -l internal/charging/ (all clean) and confirmed the three sink-checks: D8 shape intact (SessionReader byte-for-byte unchanged, SuperchargerSessionAnalyticsReader embeds it, zero files under internal/gateway/ touched); no migration file in the diff and query.sql.go is sqlc-shaped, not hand-edited; T1-T14 + T-Order2 assert design.md's pre-authored fixtures (960001-960003, 960011-960014) rather than values back-fit from the implementation, with SET LOCAL enable_seqscan = off still present in T-Order2."
+    },
+    {
+      "at": "2026-08-28T09:00:00Z",
+      "agent": "leader",
+      "event": "archived. openspec archive -y synced the delta into openspec/specs/charge-session-log/spec.md (+2 requirements added, 0 modified, 0 removed); the change folder was then moved from the CLI's top-level default into archive/charging/, matching the RM29/RM30/RM31-tier-1 module-folder precedent. Roadmap RM31 tier 2 flipped to [x]."
+    }
+  ]
+}

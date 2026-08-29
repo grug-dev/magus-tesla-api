@@ -27,10 +27,14 @@ const missingKeyMarker = "!!"
 // internal/gateway/AGENTS.md "i18n" section.
 const (
 	// --- sidebar nav (layouts/nav.go, templates/ui/nav_shell.templ) ---
-	KeyNavDashboard         Key = "nav.dashboard"
-	KeyNavManualRecords     Key = "nav.manual_records"
-	KeyNavSuperchargerStats Key = "nav.supercharger_stats"
-	KeyNavSettings          Key = "nav.settings"
+	KeyNavDashboard          Key = "nav.dashboard"
+	KeyNavManualRecords      Key = "nav.manual_records"
+	KeyNavSuperchargerStats  Key = "nav.supercharger_stats"
+	KeyNavVehicleStats       Key = "nav.vehicle_stats"
+	KeyNavCommunityBenchmark Key = "nav.community_benchmark"
+	KeyNavSectionCharging    Key = "nav.section.charging"
+	KeyNavSectionInsights    Key = "nav.section.insights"
+	KeyNavSettings           Key = "nav.settings"
 	KeyNavSoonBadge         Key = "nav.soon_badge"
 	KeyNavOpenSidebar       Key = "nav.open_sidebar"
 	KeyNavCloseSidebar      Key = "nav.close_sidebar"
@@ -158,6 +162,26 @@ const (
 	KeySuperchargerEmpty         Key = "supercharger.empty"
 	KeySuperchargerDate          Key = "supercharger.date"
 	KeySuperchargerSite          Key = "supercharger.site"
+	KeySuperchargerStartBattery  Key = "supercharger.start_battery"
+	KeySuperchargerEndBattery    Key = "supercharger.end_battery"
+	KeySuperchargerStartEstimate Key = "supercharger.start_estimate"
+	KeySuperchargerEndEstimate   Key = "supercharger.end_estimate"
+	KeySuperchargerActions       Key = "supercharger.actions"
+
+	// --- supercharger row edit (fragments/supercharger_row.templ, supercharger_row_edit.templ)
+	// RM31-gateway-add-session-battery-edit design.md D3/D8/D9/D10 ---
+	KeySuperchargerRowEdit   Key = "supercharger_row.edit"
+	KeySuperchargerRowSave   Key = "supercharger_row.save"
+	KeySuperchargerRowCancel Key = "supercharger_row.cancel"
+
+	// --- supercharger row validation + errors (handlers/supercharger.go)
+	// RM31-gateway-add-session-battery-edit design.md D3/D8/D9/D10 ---
+	KeySuperchargerErrorInvalidID       Key = "supercharger_error.invalid_id"
+	KeySuperchargerErrorSessionNotFound Key = "supercharger_error.session_not_found"
+	KeySuperchargerErrorMalformedBody   Key = "supercharger_error.malformed_body"
+	KeySuperchargerErrorStartRange      Key = "supercharger_error.start_range"
+	KeySuperchargerErrorEndRange        Key = "supercharger_error.end_range"
+	KeySuperchargerErrorCouldNotSave    Key = "supercharger_error.could_not_save"
 
 	// --- vehicles fragment, dead code but explicitly in scope (design.md Discoveries #3) ---
 	KeyVehiclesBatteryLabel     Key = "vehicles.battery_label"
@@ -283,10 +307,14 @@ const (
 // languages" — this map literal is the only place that rule can be violated,
 // and that test fails at `go test` time if it ever is.
 var catalog = map[Key]entry{
-	KeyNavDashboard:         {ES: "Panel", EN: "Dashboard"},
-	KeyNavManualRecords:     {ES: "Registros manuales", EN: "Manual Records"},
-	KeyNavSuperchargerStats: {ES: "Estadísticas Supercharger", EN: "Supercharger Stats"},
-	KeyNavSettings:          {ES: "Configuración", EN: "Settings"},
+	KeyNavDashboard:          {ES: "Panel", EN: "Dashboard"},
+	KeyNavManualRecords:      {ES: "Registros manuales", EN: "Manual Records"},
+	KeyNavSuperchargerStats:  {ES: "Estadísticas Supercharger", EN: "Supercharger Stats"},
+	KeyNavVehicleStats:       {ES: "Estadísticas", EN: "Vehicle Stats"},
+	KeyNavCommunityBenchmark: {ES: "Comparativa", EN: "Community Benchmark"},
+	KeyNavSectionCharging:    {ES: "Carga", EN: "Charging"},
+	KeyNavSectionInsights:    {ES: "Análisis", EN: "Insights"},
+	KeyNavSettings:           {ES: "Configuración", EN: "Settings"},
 	KeyNavSoonBadge:         {ES: "Pronto", EN: "Soon"},
 	KeyNavOpenSidebar:       {ES: "Abrir menú lateral", EN: "open sidebar"},
 	KeyNavCloseSidebar:      {ES: "Cerrar menú lateral", EN: "close sidebar"},
@@ -400,6 +428,22 @@ var catalog = map[Key]entry{
 	KeySuperchargerEmpty:         {ES: "No hay sesiones de Supercharger en esta ventana.", EN: "No Supercharger sessions in this window."},
 	KeySuperchargerDate:          {ES: "Fecha", EN: "Date"},
 	KeySuperchargerSite:          {ES: "Sitio", EN: "Site"},
+	KeySuperchargerStartBattery:  {ES: "Batería inicial", EN: "Start battery"},
+	KeySuperchargerEndBattery:    {ES: "Batería final", EN: "End battery"},
+	KeySuperchargerStartEstimate: {ES: "Estimación inicial", EN: "Start estimate"},
+	KeySuperchargerEndEstimate:   {ES: "Estimación final", EN: "End estimate"},
+	KeySuperchargerActions:       {ES: "Acciones", EN: "Actions"},
+
+	KeySuperchargerRowEdit:   {ES: "Editar", EN: "Edit"},
+	KeySuperchargerRowSave:   {ES: "Guardar", EN: "Save"},
+	KeySuperchargerRowCancel: {ES: "Cancelar", EN: "Cancel"},
+
+	KeySuperchargerErrorInvalidID:       {ES: "id inválido", EN: "invalid id"},
+	KeySuperchargerErrorSessionNotFound: {ES: "sesión no encontrada", EN: "session not found"},
+	KeySuperchargerErrorMalformedBody:   {ES: "cuerpo de la solicitud mal formado", EN: "malformed request body"},
+	KeySuperchargerErrorStartRange:      {ES: "El porcentaje de batería inicial debe ser un número entero entre 0 y 100.", EN: "Start battery percentage must be an integer between 0 and 100."},
+	KeySuperchargerErrorEndRange:        {ES: "El porcentaje de batería final debe ser un número entero entre 0 y 100.", EN: "End battery percentage must be an integer between 0 and 100."},
+	KeySuperchargerErrorCouldNotSave:    {ES: "No se pudo guardar la sesión — inténtalo de nuevo.", EN: "Could not save the session — please try again."},
 
 	KeyVehiclesBatteryLabel:     {ES: "Batería:", EN: "Battery:"},
 	KeyVehiclesRangeLabel:       {ES: "Autonomía:", EN: "Range:"},

@@ -1,0 +1,413 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM31-analytics-read-sessions-from-charging",
+  "module": "analytics",
+  "status": "archived",
+  "roadmap": "RM31-supercharger-session-verification",
+  "roadmap_tier": 3,
+  "intention": "Switch analytics' Supercharger source from telemetry.SuperchargerSession to charging.Session so a human-verified battery percentage reaches vehicle_metrics. Includes the vehicle_metric_watermarks.source CHECK-constraint migration (DELETE/epoch-reset per roadmap Decision 10).",
+  "created_at": "2026-08-28T09:50:00Z",
+  "updated_at": "2026-08-28T11:00:00Z",
+  "leader": {
+    "agent": "leader",
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM31-MAG-19-supercharger-session-verification",
+    "base": "main",
+    "ticket": "MAG-19",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Migration: vehicle_metric_watermarks.source vocabulary change (DELETE/epoch-reset)",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:02:00Z",
+      "completed_at": "2026-08-28T10:03:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 3.92,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/1.3/1.4 (one serial worker)"
+      },
+      "notes": "Added the migration file; diffed programmatically against design.md 2e -- exact match (DELETE, not UPDATE). No other file changes."
+    },
+    {
+      "id": "1.2",
+      "title": "Retype consumed.go + consumed_test.go to []charging.Session",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:03:00Z",
+      "completed_at": "2026-08-28T10:04:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 3.92,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/1.3/1.4 (one serial worker)"
+      },
+      "notes": "Retyped sumSuperchargerPctBetween/inferMissingChargingType/deriveVehicleMetrics sessions param + doc comments; literal field-swap of all consumed_test.go fixtures. Bodies and assertions unchanged."
+    },
+    {
+      "id": "1.3",
+      "title": "Retype reader.go + reader_test.go to charging.SuperchargerSessionAnalyticsReader",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:04:00Z",
+      "completed_at": "2026-08-28T10:05:30Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 3.92,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/1.3/1.4 (one serial worker)"
+      },
+      "notes": "Retyped reader.go's field/param/sumSuperchargerKWh; call site now ListSessionsByVehicle. Retyped fakeSuperchargerReader, dropped the dead SuperchargerSessionsByAccount stub, kept the must-not-be-called panic."
+    },
+    {
+      "id": "1.4",
+      "title": "Retype recalculate.go + recalculate_test.go; rename sourceSuperchargerSessions -> sourceChargeSessions",
+      "depends_on": [],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:05:30Z",
+      "completed_at": "2026-08-28T10:06:30Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 9,
+        "cost_usd_delta": 3.92,
+        "approx": true,
+        "note": "wave 1 delta shared across 1.1/1.2/1.3/1.4 (one serial worker)"
+      },
+      "notes": "Retyped recalculate.go's field/param; renamed sourceSuperchargerSessions -> sourceChargeSessions (value charge_sessions) at all 4 sites. recalculate_test.go needed no edit -- it uses the shared retyped fake with zero session fixtures."
+    },
+    {
+      "id": "2.1",
+      "title": "Update internal/analytics/AGENTS.md imports and public-interface prose",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "1.4"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:30:00Z",
+      "completed_at": "2026-08-28T10:32:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta pending the boundary reading"
+      },
+      "notes": "AGENTS.md imports, constructor signatures and Responsibility/Testing prose updated; grep confirms zero telemetry.SuperchargerReader / telemetry.SuperchargerSession references remain."
+    },
+    {
+      "id": "2.2",
+      "title": "Retarget db_integration_test.go seeding to charge_sessions; add T2 and T4",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:15:00Z",
+      "completed_at": "2026-08-28T10:25:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta pending the boundary reading"
+      },
+      "notes": "Fixed both build errors (helpers now use charging.NewSuperchargerSessionAnalyticsReader), renamed the constant refs, added seedChargeSession/reviseChargeSession helpers, retargeted the revised-session test, added T2 and T4. Tests written, not executed."
+    },
+    {
+      "id": "2.3",
+      "title": "Add Test Contract T1 (migration) and T3 (charging value wins) as DB-integration tests",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "1.4",
+        "2.2"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:25:00Z",
+      "completed_at": "2026-08-28T10:30:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta pending the boundary reading"
+      },
+      "notes": "T1 in a new db_watermark_migration_integration_test.go driving goose via ApplyVersion only (DownTo/Up choke on the shared cross-module goose_db_version table). T3 added to db_integration_test.go. Not executed."
+    },
+    {
+      "id": "2.4",
+      "title": "Fix the stale package doc in analytics.go (leader-appended after wave 1)",
+      "depends_on": [
+        "1.2",
+        "1.3",
+        "1.4"
+      ],
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T10:32:00Z",
+      "completed_at": "2026-08-28T10:33:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "wave 2 delta pending the boundary reading"
+      },
+      "notes": "Package doc now names charging.SuperchargerSessionAnalyticsReader and charging.Reader; no reference to the old telemetry port survives in analytics.go."
+    }
+  ],
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4"
+    ],
+    "awaiting-user-verification": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-28T09:35:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "DESIGN GATE APPROVED (database). The watermark migration DELETEs the supercharger_sessions cursor rows rather than UPDATEing them in place -- roadmap Decision 10 stands.",
+      "why": "Carrying the cursor is load-bearing on the nightly mirror never having stalled, unverifiable at migration time. DELETE costs ~nothing since the next pass re-reads everything anyway.",
+      "covered_by": "design.md 2b/2c/2e; roadmap Decision 10"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-28T09:35:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "the vehicle_metric_watermarks.source label IS migrated to 'charge_sessions'; keeping 'supercharger_sessions' as an opaque string was rejected",
+      "why": "The closed vocabulary and its column COMMENT would otherwise name a table analytics no longer reads, defeating the column's documented purpose.",
+      "covered_by": "design.md 2a"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-28T09:40:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "LEADER ERROR, corrected: the tier-3 dispatch was written from the roadmap's stale table cell (UPDATE) without reading Decision 10 (DELETE) in the same file",
+      "why": "The worker flagged the contradiction instead of complying silently; the leader surfaced it at the gate rather than shipping it. Roadmap cell has been corrected.",
+      "covered_by": "design.md 2c"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-28T09:42:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "revised the artifacts by messaging the SAME worker agent rather than dispatching a fresh one",
+      "why": "The agent retained full artifact context, so the seven corrections cost no doc-pack re-read and kept design.md's cross-references coherent.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-28T10:07:00Z",
+      "scope": "wave:1",
+      "made_by": "leader",
+      "decision": "appended task 2.4 for analytics.go's stale package doc, rather than leaving it as a follow-up",
+      "why": "CLAUDE.md requires docs to track structural change in the SAME change. The worker correctly left it -- it is absent from design.md's file list -- so the gap is the design's, not the worker's.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-28T10:06:00Z",
+      "scope": "wave:1",
+      "made_by": "leader",
+      "decision": "cmd/poller keeps TWO Supercharger ports: telemetry's for the mirror step, charging's for analytics",
+      "why": "app.NewProcessor still reads supercharger_sessions to WRITE charge_sessions, so a straight swap would have broken the mirror. The worker flagged this call site rather than assuming a swap.",
+      "covered_by": "design.md 4"
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-28T10:28:00Z",
+      "scope": "task:2.3",
+      "made_by": "leader",
+      "decision": "accepted the worker's deviation from design.md T3's illustrative SessionID 901 -- it uses nextSessionID() instead",
+      "why": "supercharger_sessions.session_id is globally unique, not account-scoped, so a hardcoded literal collides on a rerun against a persistent DATABASE_URL. T3 asserts consumed_pct, never the SessionID.",
+      "covered_by": "design.md 5 T3"
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-28T10:42:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "DESIGN GATE RE-OPENED and approved: the Down migration gains a symmetric DELETE of source='charge_sessions' rows before restoring the old CHECK",
+      "why": "Without it the Down fails SQLSTATE 23514 and leaves the table unconstrained. Reconcile writes those rows every pass, so Down was unrunnable in production from the first nightly run.",
+      "covered_by": "design.md 2e Down"
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-28T10:43:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "leader applied the Down fix directly instead of re-dispatching the analytics worker",
+      "why": "Three lines of SQL plus one test assertion, fully diagnosed already. A worker dispatch costs a full doc-pack re-read, and the 5-hour bucket was at 81%.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-28T10:55:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "scoped the reviewer to b5aab47..HEAD, not the checkpoint note's d16b3d0..HEAD",
+      "why": "d16b3d0 predates tier 2, which was already reviewed and archived; re-reviewing 1.4k lines of charging code would cost a full round for zero signal.",
+      "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-28T11:00:00Z",
+      "scope": "review:F1",
+      "made_by": "leader",
+      "decision": "accepted reviewer finding F1 without a fix: T2 asserts the new port method IS called instead of logging that the old one is not",
+      "why": "Post-retype the fake no longer implements the telemetry port, so invoking the old method is a compile error - a stronger guarantee than a runtime call-log, which can no longer be written at all.",
+      "covered_by": "design.md 5 T2"
+    }
+  ],
+  "review": {
+    "agent": "analytics-reviewer",
+    "status": "reviewer-approved",
+    "brief": "SCOPE: git diff b5aab47..HEAD -- internal/analytics/ cmd/web/main.go cmd/poller/main.go (tier-3 commits only: 4b4b3f5, 95f2b76, 13e9939, 8e4aa00). Read the DIFF, not the whole module. Tier 2 (internal/charging) was reviewed and archived already - out of scope.\n\nVALIDATE:\n1. Module boundaries (ai/architecture.md): analytics consumes charging ONLY through the public charging.SuperchargerSessionAnalyticsReader port; no cross-module DB access; cmd/ stays thin. Confirm cmd/poller deliberately keeps TWO Supercharger ports (decision D6) and that the telemetry one still feeds app.NewProcessor's mirror step - a straight swap there would silently break the mirror.\n2. DB design match (BLOCKER on mismatch): 20260828000001_migrate_vehicle_metric_watermarks_source.sql must match design.md 2e exactly. Up = DROP CHECK, DELETE (never UPDATE) rows with source='supercharger_sessions', re-add 3-value CHECK, refresh COMMENTs (decisions D1/D2). Down = DELETE source='charge_sessions' BEFORE restoring the old CHECK, with its rationale comment intact (decision D8 - without it Down fails SQLSTATE 23514 in production). Sibling watermark sources (vehicle_snapshots, manual_charge_entries) must be untouched.\n3. Test-contract rule: integration tests must assert design.md 5's PINNED values T1-T4, not whatever the implementation produces. Specifically: T1 asserts the supercharger_sessions watermark is GONE not renamed, the epoch read, and still-gone after the Down round-trip; T3 asserts consumed_pct == 75 AND explicitly != 45 (the negative assertion IS the test); T2 asserts the OLD telemetry method names are never invoked; T4 is the nil-TeslaID non-regression. Flag any assertion reverse-engineered from the code.\n4. tasks.md Acceptance clauses: every one of 1.1-1.4, 2.1-2.4 actually met. Note 2.4 was leader-appended (decision D5) for analytics.go's stale package doc - CLAUDE.md requires docs to track structural change in the SAME change.\n5. Doc-pack conventions: CLAUDE.md non-negotiables (unit suffixes, modular packages, docs-track-change, bilingual i18n where user-facing), ai/go-conventions.md, internal/analytics/AGENTS.md (its own import list must now be accurate - zero telemetry.SuperchargerReader / telemetry.SuperchargerSession references).\n6. Performance-Profile compliance (read-heavy, verbatim in the dispatch).\n7. Anti-gaming: no tasks.md acceptance criterion weakened, edited or deleted; no test skipped, t.Skip'd or loosened to pass; no status self-approved; no assistant claiming a suite result.\n\nTEST SIGNALS - who ran what: ASSISTANT-RUN (allowed cheap signals only) go build ./... exit 0, go vet ./... exit 0 repo-wide, gofmt -l clean. USER-REPORTED: the owner ran `make test` at 2026-08-28T10:49Z and reported GREEN, including TestMigration_WatermarkSourceVocabulary's Down round-trip which was RED on the prior run. You MUST judge test quality by READING the tests. Do not run the suite. One policy slip is on record (a worker ran `go test -run NONE` to check linking; zero test bodies matched, no result claimed, self-disclosed) - confirm no suite result is claimed as an assistant's anywhere in the artifacts or commit messages.\n\nVERDICT: `approved` or `changes-requested`. Escalate on doubt - return changes-requested rather than approving anything you are not sure about.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "analytics-reviewer",
+        "model": "claude-sonnet-4-6",
+        "started_at": "2026-08-28T11:00:00Z",
+        "completed_at": "2026-08-28T11:35:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "file": "internal/analytics/db_integration_test.go",
+            "line": 1226,
+            "summary": "T2's recordingSuperchargerReader cannot literally prove 'the OLD telemetry method is never invoked' via a call-log, because post-retype the fake can only implement charging.SuperchargerSessionAnalyticsReader -- the old method no longer exists on the type, so calling it is a compile error, not a runtime possibility. The test substitutes a positive assertion (ListSessionsByVehicleUpdatedSince IS called) with a clear comment explaining the deviation from the review brief's literal wording. This is a reasonable, honest engineering call given the retype's nature, not gaming -- noted for the record only, non-blocking."
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-08-28T09:20:00Z",
+      "agent": "leader",
+      "event": "tier 3 artifacts created by the analytics worker (sonnet); openspec validate --strict passes. Doc-pack acknowledged (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/analytics/AGENTS.md) plus openspec/config.yaml. Worker reported D1-D6 and correctly FLAGGED that the dispatch contradicted roadmap Decision 10."
+    },
+    {
+      "at": "2026-08-28T09:35:00Z",
+      "agent": "leader",
+      "event": "DESIGN GATE (database) held with the owner. The UPDATE-vs-DELETE fork was surfaced explicitly along with the leader's own finding that MirrorChargeSession bumps every updated_at unconditionally -- which makes DELETE nearly free rather than making UPDATE safe. Owner ruled for DELETE and approved the design for Apply."
+    },
+    {
+      "at": "2026-08-28T09:45:00Z",
+      "agent": "leader",
+      "event": "revised artifacts verified INDEPENDENTLY by the leader, not accepted on the worker's report: Up contains DELETE and no UPDATE; Down restores only constraint + COMMENTs and does not resurrect rows; grep for 'byte-for-byte' / 'preserved in place' / 'supersed' across the change folder returns zero hits; openspec validate --strict valid; git status confirms no internal/analytics/ file and no migration file on disk."
+    },
+    {
+      "at": "2026-08-28T10:02:00Z",
+      "agent": "leader",
+      "event": "dispatching wave 1 (1.1 migration + 1.2/1.3/1.4 retypes) to the analytics worker on sonnet, as ONE serial worker rather than four parallel ones: the three retypes do not compile independently (design.md Sec 3), so a single dispatch is the only way go vet is a meaningful signal, and it reads the doc pack once. Budget at dispatch: five_hour 42%, context 21%, cost $15.28."
+    },
+    {
+      "at": "2026-08-28T10:08:00Z",
+      "agent": "leader",
+      "event": "wave 1 returned: 1.1-1.4 all done, doc-pack acknowledged, design decisions D3/D7/D8/Decision-10/2c/2d enumerated with compliance statements. Leader verified the migration on disk independently: it contains DELETE FROM vehicle_metric_watermarks WHERE source = 'supercharger_sessions' and no UPDATE; the Down restores constraint + COMMENTs only."
+    },
+    {
+      "at": "2026-08-28T10:08:00Z",
+      "agent": "leader",
+      "event": "leader-owned cmd/ wiring applied (outside the worker's sandbox): cmd/web/main.go's two analytics constructors now take charging.NewSuperchargerSessionAnalyticsReader(pool); cmd/poller/main.go now builds TWO ports -- superchargerReader (telemetry, still feeding app.NewProcessor's mirror step) and sessionAnalyticsReader (charging, feeding analytics). After wiring: go build ./... exit 0, gofmt -l clean, go vet ./... fails ONLY on db_integration_test.go, which is task 2.2's scope. Budget at boundary: five_hour 51%, context 23%."
+    },
+    {
+      "at": "2026-08-28T10:12:00Z",
+      "agent": "leader",
+      "event": "OWNER ran `env -u DATABASE_URL go test ./...` and reported it RED. Diagnosis: NOT a regression -- a build failure confined to internal/analytics/db_integration_test.go at lines 590, 598 (constructor call sites) and 848, 1006 (sourceSuperchargerSessions), the exact four sites go vet already flagged and that task 2.2 exists to retarget. Every other package passes. No fix wave needed; wave 2 IS the fix."
+    },
+    {
+      "at": "2026-08-28T10:15:00Z",
+      "agent": "leader",
+      "event": "dispatching wave 2 (2.1 AGENTS.md, 2.2 retarget + T2/T4, 2.3 T1/T3, 2.4 package doc) to the analytics worker on sonnet as ONE serial worker: 2.3 depends on 2.2's retargeted seeding helpers, so the chain dominates and parallelism would buy nothing. Budget at dispatch: five_hour 51%, context 23%."
+    },
+    {
+      "at": "2026-08-28T10:35:00Z",
+      "agent": "leader",
+      "event": "wave 2 returned: 2.1/2.4 done, 2.2/2.3 awaiting-user-verification (tests written, never executed). Doc-pack acknowledged. LEADER VERIFIED THE LOAD-BEARING ASSERTIONS INDEPENDENTLY, not on the worker's report: T1 asserts supercharger_sessions count 0 'GONE, not renamed' (line 224), the epoch read (256), and count STILL 0 after Down (270); T3 asserts ConsumedPct == 75 AND != 45 with the stray-call-site rationale in a comment (1457-1468). go build ./... exit 0, go vet ./... exit 0 REPO-WIDE, gofmt -l clean."
+    },
+    {
+      "at": "2026-08-28T10:35:00Z",
+      "agent": "leader",
+      "event": "POLICY SLIP, self-disclosed by the worker and recorded rather than dropped: it ran `go test -run NONE -count=1 ./internal/analytics/...` once to check the test binary links. The filter matched zero test bodies, so nothing executed and no result was claimed, but it is still an invocation of go test, which the Test-Execution-Policy forbids without exception. The worker caught it itself, stopped, and disclosed it unprompted. No suite result has been claimed by any assistant on this change."
+    },
+    {
+      "at": "2026-08-28T10:40:00Z",
+      "agent": "leader",
+      "event": "OWNER ran `make test`: one REAL FAILURE, TestMigration_WatermarkSourceVocabulary at db_watermark_migration_integration_test.go:261 -- the Down round-trip, SQLSTATE 23514. Diagnosis (confirmed in source, not guessed): the Down restored the old CHECK while a source='charge_sessions' row existed. NOT a test artifact -- recalculate.go:318 calls advanceWatermark(..., sourceChargeSessions, ...) on every pass, so production would have had those rows from the first nightly run and the Down was unrunnable from that moment. The design as approved was asymmetric: Up cleared the retired vocabulary's rows, Down cleared nothing. T1's round-trip assertion is what caught it."
+    },
+    {
+      "at": "2026-08-28T10:45:00Z",
+      "agent": "leader",
+      "event": "fix applied by the leader: Down now DELETEs source='charge_sessions' before ADD CONSTRAINT, with the rationale written into the migration so nobody removes it as tidying; design.md 2e's Down block updated to match; T1 gained a post-Down charge_sessions count assertion. go build ./..., go vet ./... and gofmt -l all clean repo-wide. Tasks 2.2/2.3 remain awaiting-user-verification -- the assistant has not run the suite."
+    },
+    {
+      "at": "2026-08-28T10:49:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED VERIFICATION: the owner ran `make test` (env -u DATABASE_URL go test ./..., disposable testcontainer) and reported it GREEN, including TestMigration_WatermarkSourceVocabulary's Down round-trip, which failed on the previous run. The assistant did not run the suite. Tasks 2.2 and 2.3 move awaiting-user-verification -> done on the owner's report; change status -> verified. Reviewer gate is now open but NOT yet dispatched."
+    },
+    {
+      "at": "2026-08-28T10:50:00Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the owner's request, taken at a clean boundary (status verified, tree committed, nothing in flight). Budget at checkpoint: five_hour_pct 84 (threshold 90), context_pct 27 (threshold 40), cost $32.06, five_hour_resets_at 1787924400. The 5-hour bucket has NOT reset -- this is a voluntary context checkpoint, so resume is immediate in a fresh session, no waiting. NEXT STEP on resume: Step 7, dispatch the charging/analytics reviewer (kkpa-module-reviewer, sonnet, escalate-on-doubt) against diff d16b3d0..HEAD scoped to internal/analytics. Nothing else is pending."
+    },
+    {
+      "at": "2026-08-28T10:55:00Z",
+      "agent": "leader",
+      "event": "RESUMED in a fresh session at status verified, on branch ft/RM31-MAG-19-supercharger-session-verification, ticket MAG-19 taken from git.ticket (Step 1a not re-run). Budget at resume: five_hour_pct 86 (threshold 90), context_pct 9, cost $0.62 this session. 5-hour bucket resets 13:40Z; proceeding rather than waiting ~3h, since a sonnet reviewer round scoped to a 971-line diff is far cheaper than a worker wave. Review brief written; dispatching the analytics reviewer."
+    },
+    {
+      "at": "2026-08-28T11:00:00Z",
+      "agent": "leader",
+      "event": "REVIEWER APPROVED (analytics-reviewer, sonnet, round 1): verdict approved with one minor finding F1 and no blockers. Reviewer independently confirmed the migration matches design.md 2e (Up DELETE not UPDATE; Down carries the D8 DELETE before the CHECK restore), the T1-T4 pinned assertions, the two-port cmd/poller wiring (D6), and that no assistant claims a suite result. F1 accepted as-is, not fixed: T2's call-log proof of 'the old telemetry method is never invoked' became a compile-time guarantee once the fake stopped implementing telemetry.SuperchargerReader, so the positive assertion is strictly stronger than the log check the brief asked for. Delta spec synced into openspec/specs/analytics/spec.md; change archived to openspec/changes/archive/2026-08-28-RM31-analytics-read-sessions-from-charging/. Budget at archive: five_hour_pct 94 (threshold 90 - CROSSED), context_pct 11, cost $3.57 this session."
+    }
+  ],
+  "archived_at": "2026-08-28T11:00:00Z"
+}

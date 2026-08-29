@@ -23,6 +23,18 @@ type SuperchargerStatsView struct {
 	// Empty is true when zero sessions fall in the window; drives the
 	// page-level empty state.
 	Empty bool
+	// CSRFToken is the session-scoped "csrf_supercharger" token (design.md D8,
+	// RM31-gateway-add-session-battery-edit), issued once by SuperchargerStatsPage
+	// and read (never re-issued) by SuperchargerStatsFragment and every row-level
+	// handler. Rendered into the edit form's hidden csrf_token input.
+	CSRFToken string
+	// WindowStartStr / WindowEndStr are the already-resolved start/end window,
+	// pre-formatted "2006-01-02" (design.md D2, RM31-gateway-add-session-battery-edit).
+	// Every row's Edit/Cancel/Save action URL carries these two values as
+	// ?start=&end= so the row-level handlers' list-and-match resolve (D1) stays
+	// deterministic against the SAME window the table was rendered under.
+	WindowStartStr string
+	WindowEndStr   string
 }
 
 // SuperchargerTiles holds the four pre-formatted KPI strings shown as
@@ -58,4 +70,26 @@ type SuperchargerRowVM struct {
 	EnergyLabel string
 	// CostLabel is "N.NN <currency>", or "—" when TotalCost or Currency is nil.
 	CostLabel string
+	// StartBatteryPctLabel is "N%", or "—" when StartBatteryPct is nil.
+	StartBatteryPctLabel string
+	// EndBatteryPctLabel is "N%", or "—" when EndBatteryPct is nil.
+	EndBatteryPctLabel string
+	// StartBatteryPctEstLabel is "N%", or "—" when StartBatteryPctEst is nil.
+	StartBatteryPctEstLabel string
+	// EndBatteryPctEstLabel is "N%", or "—" when EndBatteryPctEst is nil.
+	EndBatteryPctEstLabel string
+	// ID is the session's UUID, formatted as a string for URL path params
+	// (RM31-gateway-add-session-battery-edit) — the row's addressable id
+	// (id="supercharger-row-{ID}") and the row-level route parameter.
+	ID string
+	// RawStartBatteryPct is the raw editable value for the inline edit form's
+	// start_battery_pct input, e.g. "80", or "" when StartBatteryPct is nil —
+	// matching ChargeEntryVM.RawStartBatteryPct's convention exactly
+	// (RM31-gateway-add-session-battery-edit).
+	RawStartBatteryPct string
+	// RawEndBatteryPct is the raw editable value for the inline edit form's
+	// end_battery_pct input, e.g. "92", or "" when EndBatteryPct is nil —
+	// matching ChargeEntryVM.RawEndBatteryPct's convention exactly
+	// (RM31-gateway-add-session-battery-edit).
+	RawEndBatteryPct string
 }

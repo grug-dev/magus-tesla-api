@@ -216,3 +216,103 @@ WHERE account_id = @account_id
   AND charge_stop_date_time >= @from_time
   AND charge_stop_date_time <  @end_bound
 ORDER BY charge_stop_date_time ASC;
+
+-- name: VerifyChargeSession :one
+-- Update the human-owned verification channel on one account-scoped charge session:
+-- start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No other
+-- column is in this SET clause, INCLUDING start_battery_pct_est/end_battery_pct_est —
+-- this is the mirror image of MirrorChargeSession's protection (that query cannot touch
+-- these three; this query cannot touch anything else), by the query's shape, not by a
+-- comment a reviewer has to notice (design.md D1).
+--
+-- @battery_pct_source is COMPUTED IN GO (design.md D2/D7), never accepted from a caller:
+-- "user_verified" when either percentage is non-nil, NULL when both are nil — satisfying
+-- charge_sessions_pct_source_required in the same statement that clears or sets the
+-- percentages, so no intermediate row state can violate it.
+--
+-- WHERE id = @id AND account_id = @account_id mirrors UpdateEntry's scoping exactly
+-- (design.md D5/D11): a point lookup on the table's PRIMARY KEY plus its leading tenant
+-- column. Zero rows matched — unknown id or wrong account, indistinguishable — surfaces
+-- to the caller as pgx.ErrNoRows, exactly like UpdateEntry's own not-found behavior
+-- (TestUpdate_CrossAccountIsNoOp is the existing precedent for this shape).
+UPDATE charge_sessions
+SET
+    start_battery_pct  = @start_battery_pct,
+    end_battery_pct    = @end_battery_pct,
+    battery_pct_source = @battery_pct_source,
+    updated_at         = now()
+WHERE id = @id
+  AND account_id = @account_id
+RETURNING *;
+
+-- name: ListSessionsByVehicleUpdatedSince :many
+-- Return charge sessions for a specific vehicle within an account whose updated_at is at
+-- or after @since, ordered oldest-first by charge_stop_date_time (design.md D1) — NOT by
+-- updated_at itself, and NOT ListEntriesByVehicleUpdatedSince's DESC: this table's index
+-- is built ASC (RM30 D1), so ascending on the index's own trailing column is the order
+-- that needs no sort step. Reuses idx_charge_sessions_vehicle_stop (account_id, tesla_id,
+-- charge_stop_date_time) as a single ascending index range scan: account_id and tesla_id
+-- prune to the tenant and vehicle as leading equality predicates in the same scan every
+-- other vehicle-scoped query on this table already uses; updated_at >= @since is a
+-- RESIDUAL filter evaluated per matching row within that scan, not a separately-indexed
+-- predicate (design.md D1) -- the identical reasoning
+-- ListEntriesByVehicleUpdatedSince (query.sql:118) already documents for
+-- manual_charge_entries's own index. No new index: this table receives roughly one row
+-- per Supercharger session per account, written nightly, the same low-volume,
+-- write-driven profile that already justified skipping a dedicated updated_at index
+-- there.
+--
+-- THIS QUERY IS THE ONLY MECHANISM (design.md D1) that carries a
+-- SessionVerifier.VerifySession edit into analytics.Recalculator.Reconcile once tier 3
+-- repoints the source port: VerifySession sets updated_at = now() and touches no other
+-- timestamp column, and charge_start_date_time/charge_stop_date_time are write-once
+-- (RM29 D1), so updated_at is the only column that moves when a human verifies a
+-- session.
+--
+-- No LIMIT: @since itself bounds the result, matching ListEntriesByVehicleUpdatedSince's
+-- and ListSessionsByVehicleBetween's own precedent.
+--
+-- tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
+-- NULL (SQL's NULL = value is neither true nor false) -- an orphaned session is
+-- correctly outside a teslaID-keyed read (design.md D4, restating RM29 D6/RM30 D6).
+SELECT * FROM charge_sessions
+WHERE account_id = @account_id
+  AND tesla_id = @tesla_id
+  AND updated_at >= @since
+ORDER BY charge_stop_date_time ASC;
+
+-- name: ListSessionsByVehicle :many
+-- Return the limit_count most recent charge sessions for a specific vehicle within an
+-- account, ordered newest-first (descending charge_stop_date_time), limited to
+-- @limit_count rows.
+--
+-- Sort direction is DESC here, DELIBERATELY UNLIKE ListSessionsByVehicleBetween's ASC
+-- (design.md D3 of this change -- ListSessionsByVehicleBetween's own doc comment already
+-- warns these two Session reads do not share a sort-direction rule). A "most recent N"
+-- limit-bounded read needs newest-first by construction, the same reasoning
+-- Reader.ListEntriesByVehicle already applies to manual_charge_entries and
+-- telemetry.SuperchargerSessionsByVehicle already applies to supercharger_sessions.
+--
+-- idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time) was
+-- built ASC, not DESC (RM30 D1, for ListSessionsByVehicleBetween's own bounded-window
+-- read). This query still needs NO new index: Postgres serves
+-- ORDER BY charge_stop_date_time DESC LIMIT @limit_count from the SAME ascending btree
+-- via a backward index scan -- a B-tree index is traversable in either direction at
+-- identical cost, so account_id/tesla_id still prune the scan to a single contiguous
+-- leaf-page range and only the walk direction (and hence the row order handed up)
+-- differs (design.md D3, "Index proof" below). Confirmed by EXPLAIN in the integration
+-- test (Test Contract T-Order2), not merely asserted.
+--
+-- limit_count is always a positive int32 by the time this query runs: the Go caller
+-- clamps a non-positive limit to the module's existing defaultLimit (100) before
+-- calling (design.md D3), mirroring ListEntriesByVehicle's identical clamp -- this
+-- query itself has no default-handling logic, exactly like ListEntriesByVehicle's own
+-- :many query.
+--
+-- tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
+-- NULL, same as every other vehicle-scoped query on this table (design.md D4).
+SELECT * FROM charge_sessions
+WHERE account_id = @account_id
+  AND tesla_id = @tesla_id
+ORDER BY charge_stop_date_time DESC
+LIMIT @limit_count;

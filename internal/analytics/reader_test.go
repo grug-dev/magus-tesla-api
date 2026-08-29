@@ -16,7 +16,7 @@ import (
 )
 
 // The reader tests exercise RecentEfficiency fully OFFLINE: one hand-written fake per
-// consumed port (telemetry.Reader, telemetry.SuperchargerReader, charging.Reader,
+// consumed port (telemetry.Reader, charging.SuperchargerSessionAnalyticsReader, charging.Reader,
 // vehicleLookup), constructed directly as &reader{...} rather than through NewReader —
 // mirrors fakeReadStore/newFakeReader in internal/telemetry/reader_test.go one level up
 // (fake ports instead of a fake store, since this module owns no store of its own).
@@ -105,12 +105,19 @@ func (f *fakeTelemetryReader) SnapshotPrecedingDay(_ context.Context, accountID 
 	return f.preceding, nil
 }
 
-// fakeSuperchargerReader is a fake telemetry.SuperchargerReader. SuperchargerSessionsByVehicle
-// is exercised by RecentEfficiency; SuperchargerSessionsByVehicleBetween is exercised by
-// ConsumedByDay (RM28 tier 3, design.md D-B13) — both share the sessions/err fixture
-// fields (safe: no existing RecentEfficiency test calls the Between path).
+// fakeSuperchargerReader is a fake charging.SuperchargerSessionAnalyticsReader
+// (RM31-analytics-read-sessions-from-charging tier 3 retype — was a fake
+// telemetry.SuperchargerReader before this tier). ListSessionsByVehicle is
+// exercised by RecentEfficiency; ListSessionsByVehicleBetween/
+// ListSessionsByVehicleUpdatedSince are not called from any Reader path today
+// and remain defensive panics — both share the sessions/err fixture fields
+// with ListSessionsByVehicle (safe: no existing RecentEfficiency test calls
+// the Between/UpdatedSince paths). The old telemetry.SuperchargerReader
+// SuperchargerSessionsByAccount stub is dropped entirely: it has no
+// equivalent on charging.SuperchargerSessionAnalyticsReader, which this type
+// now implements.
 type fakeSuperchargerReader struct {
-	sessions []telemetry.SuperchargerSession
+	sessions []charging.Session
 	err      error
 
 	gotAccountID uuid.UUID
@@ -121,15 +128,12 @@ type fakeSuperchargerReader struct {
 	gotBetweenEnd   time.Time
 }
 
-func (f *fakeSuperchargerReader) SuperchargerSessionsByAccount(_ context.Context, _ uuid.UUID, _ int) ([]telemetry.SuperchargerSession, error) {
-	panic("fakeSuperchargerReader: SuperchargerSessionsByAccount must not be called from RecentEfficiency")
-}
-
-// SuperchargerSessionsByVehicleBetween implements the bounded-window fetch ConsumedByDay
-// issues (design.md D-B13 — start-1/end+2, the widest tail of the three ports). Un-panicked
-// by RM28 tier 3 (task T5.2); previously a defensive stub since RecentEfficiency never
-// called it.
-func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]telemetry.SuperchargerSession, error) {
+// ListSessionsByVehicleBetween implements the SessionReader half of
+// charging.SuperchargerSessionAnalyticsReader. Not called by any Reader path
+// today (ConsumedByDay reads precomputed vehicle_metrics rows instead, per
+// AGENTS.md D-precompute) — recorded here defensively, matching the sibling
+// panics below for the paths RecentEfficiency truly never calls.
+func (f *fakeSuperchargerReader) ListSessionsByVehicleBetween(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]charging.Session, error) {
 	f.gotAccountID = accountID
 	f.gotTeslaID = teslaID
 	f.gotBetweenStart = start
@@ -140,15 +144,15 @@ func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.
 	return f.sessions, nil
 }
 
-// SuperchargerSessionsByVehicleUpdatedSince satisfies the
-// telemetry.SuperchargerReader method added by
-// RM29-analytics-add-vehicle-metrics task 1.3. Panics for the same reason as
+// ListSessionsByVehicleUpdatedSince satisfies
+// charging.SuperchargerSessionAnalyticsReader (Recalculator's Reconcile path
+// calls this, not Reader). Panics for the same reason as
 // fakeTelemetryReader's sibling above.
-func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.SuperchargerSession, error) {
-	panic("fakeSuperchargerReader: SuperchargerSessionsByVehicleUpdatedSince must not be called from a Reader path")
+func (f *fakeSuperchargerReader) ListSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]charging.Session, error) {
+	panic("fakeSuperchargerReader: ListSessionsByVehicleUpdatedSince must not be called from a Reader path")
 }
 
-func (f *fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]telemetry.SuperchargerSession, error) {
+func (f *fakeSuperchargerReader) ListSessionsByVehicle(_ context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]charging.Session, error) {
 	f.gotAccountID = accountID
 	f.gotTeslaID = teslaID
 	f.gotLimit = limit
@@ -247,7 +251,7 @@ func TestRecentEfficiency_HappyPath_ComputesValue(t *testing.T) {
 	sessionEnergy := 3.0
 	entryEnergy := 2.0
 	telemetryFake := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{start, end}}
-	superchargerFake := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
+	superchargerFake := &fakeSuperchargerReader{sessions: []charging.Session{
 		{ChargeStartDateTime: since.Add(24 * time.Hour), EnergyKWh: fp(sessionEnergy)},
 	}}
 	manualFake := &fakeManualReader{entries: []charging.Entry{
@@ -301,7 +305,7 @@ func TestRecentEfficiency_WindowExcludesOldEntries(t *testing.T) {
 
 	// One in-window session/entry, one out-of-window (before since) each.
 	telemetryFake := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{start, end}}
-	superchargerFake := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
+	superchargerFake := &fakeSuperchargerReader{sessions: []charging.Session{
 		{ChargeStartDateTime: since.Add(24 * time.Hour), EnergyKWh: fp(3.0)},    // in window
 		{ChargeStartDateTime: since.Add(-24 * time.Hour), EnergyKWh: fp(100.0)}, // before window
 	}}
@@ -357,7 +361,7 @@ func TestRecentEfficiency_UnknownVehicle_ApproximateTrue(t *testing.T) {
 	end := snap(1100, 60, nil)
 
 	telemetryFake := &fakeTelemetryReader{snapshots: []telemetry.Snapshot{start, end}}
-	superchargerFake := &fakeSuperchargerReader{sessions: []telemetry.SuperchargerSession{
+	superchargerFake := &fakeSuperchargerReader{sessions: []charging.Session{
 		{ChargeStartDateTime: since.Add(time.Hour), EnergyKWh: fp(5.0)},
 	}}
 	manualFake := &fakeManualReader{}

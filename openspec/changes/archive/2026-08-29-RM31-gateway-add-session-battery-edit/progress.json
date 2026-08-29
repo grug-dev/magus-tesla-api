@@ -1,0 +1,808 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM31-gateway-add-session-battery-edit",
+  "module": "gateway",
+  "roadmap": "RM31-supercharger-session-verification",
+  "tier": 5,
+  "status": "reviewer-approved",
+  "updated_at": "2026-08-29T02:10:26Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM31-MAG-19-supercharger-session-verification",
+    "base": "main",
+    "ticket": "MAG-19",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-19/allow-editing-supercharger-sessions"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "4.3",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "6.1",
+      "6.2",
+      "6.3",
+      "7.1",
+      "7.2"
+    ],
+    "awaiting_user_verification": []
+  },
+  "decisions": [
+    {
+      "id": "D17",
+      "at": "2026-08-28T17:41:00Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "SuperchargerRow/SuperchargerRowEdit take windowStartStr+windowEndStr as trailing params, not new SuperchargerRowVM fields",
+      "why": "The window is one value per page, already on SuperchargerStatsView; copying it onto every row VM duplicates state. Task 3.2 already grants this latitude.",
+      "covered_by": null
+    },
+    {
+      "id": "D18",
+      "at": "2026-08-28T17:55:06Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "accept the worker's extra fetchSuperchargerRowVM read on the 422 validation branch",
+      "why": "The two-input form never submits date/site/energy/cost, so without the re-read the 422 row renders blank. D9's one-extra-read cost note covers only the writer-error path.",
+      "covered_by": null
+    },
+    {
+      "id": "D19",
+      "at": "2026-08-28T17:55:06Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "commit wave 3 as a NON-COMPILING checkpoint rather than pulling wave 4 forward to close the gap",
+      "why": "Budget gate tripped at exactly 90%. Dispatching wave 4 now risks exhausting the bucket mid-wave, which leaves progress.json untruthful - worse than a broken intermediate commit on a feature branch.",
+      "covered_by": null
+    },
+    {
+      "id": "D20",
+      "at": "2026-08-28T18:01:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "override the tripped 5-hour budget gate (93% vs threshold 90) and run wave 4 now",
+      "why": "Wave 3 left the branch non-compiling (D19). Wave 4 is mechanical wiring, plausibly 3-5% vs the 7% left, and closing it restores a tree the owner can actually test.",
+      "covered_by": null
+    },
+    {
+      "id": "D21",
+      "at": "2026-08-28T21:02:15Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "leader closed the gateway.Deps -> handlers.Deps SuperchargerVerifier passthrough itself, under 4.3's acceptance criterion",
+      "why": "Neither 4.1 (handlers.go) nor 4.2 (routes) named it, but cmd/web constructs gateway.Deps so the build cannot go green without it. 4.3 is already a leader task demanding a repo-wide green build.",
+      "covered_by": null
+    },
+    {
+      "id": "D22",
+      "at": "2026-08-29T02:05:00Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "leader ran task 7.1 itself instead of dispatching the gateway worker",
+      "why": "7.1 is a mechanical audit of already-shipped code, and a worker auditing its own work is the weaker check. Saved a doc-pack re-read; the reviewer gate still follows."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "1.1",
+      "status": "done",
+      "depends_on": [],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:25:00Z",
+      "completed_at": "2026-08-28T17:31:30Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.64,
+        "approx": true,
+        "note": "wave 1 bracket: five_hour 53->60%, cost $10.33->$12.97; single serial worker, exact"
+      },
+      "notes": "Added ID, RawStartBatteryPct, RawEndBatteryPct to SuperchargerRowVM and CSRFToken/WindowStartStr/WindowEndStr to SuperchargerStatsView, mirroring ChargeEntryVM's raw-string emptiness convention; no charging.Session leak."
+    },
+    {
+      "id": "1.2",
+      "status": "done",
+      "depends_on": [],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:25:00Z",
+      "completed_at": "2026-08-28T17:31:30Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.64,
+        "approx": true,
+        "note": "wave 1 bracket: five_hour 53->60%, cost $10.33->$12.97; single serial worker, exact"
+      },
+      "notes": "Appended exactly 10 bilingual keys (1 supercharger.actions, 3 supercharger_row.*, 6 supercharger_error.*); all ES/EN non-empty on the same map line; no existing key touched. Leader verified all 10 independently."
+    },
+    {
+      "id": "1.3",
+      "status": "done",
+      "depends_on": [],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:25:00Z",
+      "completed_at": "2026-08-28T17:31:30Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": 2.64,
+        "approx": true,
+        "note": "wave 1 bracket: five_hour 53->60%, cost $10.33->$12.97; single serial worker, exact"
+      },
+      "notes": "Added Deps.SuperchargerVerifier bullet under Public interface plus a new 'Exception: Supercharger session battery verification' subsection in D4/D-lang numbered format, stating the divergence from D4's ownership check explicitly."
+    },
+    {
+      "id": "2.1",
+      "status": "done",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:37:00Z",
+      "completed_at": "2026-08-28T17:41:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.2,
+        "approx": false,
+        "note": "wave 2 bracket: five_hour 64->72%, cost $0.65->$2.85; single batched serial worker, exact"
+      },
+      "notes": "New supercharger_row.templ - SuperchargerRow + SuperchargerRowError, mirrors charge_row.templ. One Edit ui.Button, no delete, no hx-confirm, colspan=9 on the error row. All labels via i18n.T."
+    },
+    {
+      "id": "2.2",
+      "status": "done",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:37:00Z",
+      "completed_at": "2026-08-28T17:41:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.2,
+        "approx": false,
+        "note": "wave 2 bracket: five_hour 64->72%, cost $0.65->$2.85; single batched serial worker, exact"
+      },
+      "notes": "New supercharger_row_edit.templ - colspan=9 wrapper, hx-patch on the <form>, hidden csrf_token, six read-only labels, exactly two number inputs (not Required), _top ui.Alert, no ordering check."
+    },
+    {
+      "id": "3.1",
+      "status": "done",
+      "depends_on": [
+        "1.1"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:46:06Z",
+      "completed_at": "2026-08-28T17:55:06Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.29,
+        "approx": true,
+        "note": "wave 3 bracket: five_hour 76->90%, cost $0.62->$4.91; single batched serial worker, exact"
+      },
+      "notes": "Extracted superchargerRowVMFromSession (D11); buildSuperchargerRows delegates to it, no behavior change. Threaded csrfToken through superchargerStatsViewFor/buildSuperchargerStatsView; both now set CSRFToken/WindowStartStr/WindowEndStr."
+    },
+    {
+      "id": "3.2",
+      "status": "done",
+      "depends_on": [
+        "2.1",
+        "3.1"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:46:06Z",
+      "completed_at": "2026-08-28T17:55:06Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.29,
+        "approx": true,
+        "note": "wave 3 bracket: five_hour 76->90%, cost $0.62->$4.91; single batched serial worker, exact"
+      },
+      "notes": "superchargerTable takes (sessions, csrfToken, windowStartStr, windowEndStr) and delegates each row to @SuperchargerRow (4-arg, D17); 9th Actions header added; SuperchargerStatsContent threads the three view fields. make templ regenerated cleanly."
+    },
+    {
+      "id": "3.3",
+      "status": "done",
+      "depends_on": [
+        "1.1",
+        "3.1"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:46:06Z",
+      "completed_at": "2026-08-28T17:55:06Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.29,
+        "approx": true,
+        "note": "wave 3 bracket: five_hour 76->90%, cost $0.62->$4.91; single batched serial worker, exact"
+      },
+      "notes": "Added csrfSuperchargerKey, fetchSuperchargerRowVM (D1/D2 list-and-match, every failure collapses to (zero,false)), and recalculateAfterSessionVerify (D4/D5, UTC ChargeStopDateTime +/-1 day). recalculateAfterChargeWrite byte-for-byte untouched."
+    },
+    {
+      "id": "3.4",
+      "status": "done",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "3.1",
+        "3.3"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T17:46:06Z",
+      "completed_at": "2026-08-28T17:55:06Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 14,
+        "cost_usd_delta": 4.29,
+        "approx": true,
+        "note": "wave 3 bracket: five_hour 76->90%, cost $0.62->$4.91; single batched serial worker, exact"
+      },
+      "notes": "Added SuperchargerRowStatic, SuperchargerRowEditFragment, SuperchargerRowUpdate per D3/D6/D7/D8/D9. Strict GetPostForm body, [0,100] range only, no ordering check, nil TeslaID logs+skips. Package does not compile pending 4.1."
+    },
+    {
+      "id": "4.1",
+      "status": "done",
+      "depends_on": [
+        "1.3",
+        "3.3",
+        "3.4"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T18:01:00Z",
+      "completed_at": "2026-08-28T21:02:15Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "unrecordable: the worker was KILLED mid-wave by the 5-hour session limit; the bucket then reset (five_hour_pct now null), so no valid start/end bracket exists"
+      },
+      "notes": "Deps.SuperchargerVerifier + Handler field + New() threading, mirroring SuperchargerReader's three-point wiring; doc comment cross-references AGENTS.md. D8 CSRF split exact: Page issues via generateCSRFToken, Fragment only reads."
+    },
+    {
+      "id": "4.2",
+      "status": "done",
+      "depends_on": [
+        "3.4"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T18:01:00Z",
+      "completed_at": "2026-08-28T21:02:15Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "unrecordable: the worker was KILLED mid-wave by the 5-hour session limit; the bucket then reset (five_hour_pct now null), so no valid start/end bracket exists"
+      },
+      "notes": "Three routes registered after the existing two Supercharger Stats routes, mirroring the /ui/charges/row block. PATCH verb per roadmap D10, deliberately not PUT. No other route touched."
+    },
+    {
+      "id": "4.3",
+      "status": "done",
+      "depends_on": [
+        "4.1"
+      ],
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-28T21:02:15Z",
+      "completed_at": "2026-08-28T21:02:15Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "unrecordable: the worker was KILLED mid-wave by the 5-hour session limit; the bucket then reset (five_hour_pct now null), so no valid start/end bracket exists"
+      },
+      "notes": "LEADER task. Wired charging.NewSessionVerifier(pool) into cmd/web/main.go, plus the gateway.Deps->handlers.Deps passthrough neither 4.1 nor 4.2 named (D21). go build ./... now CLEAN repo-wide."
+    },
+    {
+      "id": "5.1",
+      "status": "done",
+      "depends_on": [
+        "3.4"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T21:09:47Z",
+      "completed_at": "2026-08-28T21:17:29Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.83,
+        "approx": false,
+        "note": "wave 5 bracket: five_hour 8->20%, cost $5.49->$9.32; single batched serial worker, exact"
+      },
+      "notes": "T1 (absent key->400), T2 (both-empty->VerifySession(nil,nil)), T5 (out-of-range->422, raw 101 echoed, zero calls), plus the decreasing-order accept case proving D14's deliberate absence of ordering validation."
+    },
+    {
+      "id": "5.2",
+      "status": "done",
+      "depends_on": [
+        "3.3",
+        "3.4"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T21:09:47Z",
+      "completed_at": "2026-08-28T21:17:29Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.83,
+        "approx": false,
+        "note": "wave 5 bracket: five_hour 8->20%, cost $5.49->$9.32; single batched serial worker, exact"
+      },
+      "notes": "T3 asserts Recalculate(2026-03-14,2026-03-16) exactly, from a fixture whose ChargeStartDateTime is a DIFFERENT UTC day - proving the window derives from ChargeStopDateTime alone. T4: nil TeslaID -> zero calls, still 200, log asserted."
+    },
+    {
+      "id": "5.3",
+      "status": "done",
+      "depends_on": [
+        "3.3",
+        "3.4"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T21:09:47Z",
+      "completed_at": "2026-08-28T21:17:29Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.83,
+        "approx": false,
+        "note": "wave 5 bracket: five_hour 8->20%, cost $5.49->$9.32; single batched serial worker, exact"
+      },
+      "notes": "T6 (token never issued -> 403, zero calls) plus a DISTINCT stale/mismatched-token fixture, and T7 (id outside the window -> 404). Reused fakeRecalculator from charges_test.go rather than duplicating a fake."
+    },
+    {
+      "id": "5.4",
+      "status": "done",
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "3.2",
+        "4.1",
+        "4.2"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T21:09:47Z",
+      "completed_at": "2026-08-28T21:17:29Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.83,
+        "approx": false,
+        "note": "wave 5 bracket: five_hour 8->20%, cost $5.49->$9.32; single batched serial worker, exact"
+      },
+      "notes": "Repaired the 4 stale buildSuperchargerStatsView call sites (wave-3 drift) without touching the 7-arg signature. make templ produces no diff; make css correctly skipped (no new utility class). Leader re-verified build+vet green."
+    },
+    {
+      "id": "6.1",
+      "status": "done",
+      "depends_on": [],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-28T23:40:56Z",
+      "completed_at": "2026-08-29T01:40:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": 5.26,
+        "approx": true,
+        "note": "wave 6 bracket shared across 6.1-6.3: cost $1.18->$6.45; five_hour delta unmeasurable (bucket reset 32%->9% mid-wave); includes one stalled run + its resume"
+      },
+      "notes": "Write path, 3 routes, strict-body/clear/validation rules and the +/-1-day recalculation hop documented in How-maintenance-works + gotchas; stale NO-user-facing-path line replaced; RM29 citation corrected to RM31-charging-add-session-verification-port."
+    },
+    {
+      "id": "6.2",
+      "status": "done",
+      "depends_on": [],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-29T01:20:00Z",
+      "completed_at": "2026-08-29T01:35:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "covered by the shared wave-6 bracket recorded on 6.1"
+      },
+      "notes": "Both Related-KB lines corrected and made mutually consistent (broad-CRUD vs narrow-correction framing); also fixed an incorrect ../../ relative path in manual-charge-crud.md that pointed outside kkpa/context/."
+    },
+    {
+      "id": "6.3",
+      "status": "done",
+      "depends_on": [
+        "6.1",
+        "6.2"
+      ],
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-08-29T01:35:00Z",
+      "completed_at": "2026-08-29T01:45:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "covered by the shared wave-6 bracket recorded on 6.1"
+      },
+      "notes": "Corrected INDEX lines 15/29 false write-path claims; added 3 glossary/INDEX rows for the write-path concept, backed by matching terms added to the guide Glossary first; pending-spec-to-sync untouched."
+    },
+    {
+      "id": "7.1",
+      "status": "done",
+      "depends_on": [
+        "5.1",
+        "5.2",
+        "5.3",
+        "5.4",
+        "6.3"
+      ],
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-29T01:58:00Z",
+      "completed_at": "2026-08-29T02:05:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "leader-run audit, no dispatch"
+      },
+      "notes": "All 6 acceptance criteria verified by the leader against the tier-5 diff. Only non-gateway file is cmd/web/main.go = task 4.3, an explicit leader task. build+vet clean."
+    },
+    {
+      "id": "7.2",
+      "status": "done",
+      "depends_on": [
+        "7.1"
+      ],
+      "agent": "user",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-29T02:04:05Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "OWNER reported make test and the build GREEN. Verification is the owner's; the assistant never ran the suite."
+    }
+  ],
+  "review": {
+    "brief": "REVIEW BRIEF \u2014 RM31-gateway-add-session-battery-edit (roadmap RM31, tier 5, module `gateway`).\n\nWHAT TO REVIEW: the tier-5 diff only \u2014 `git diff 7829c5b^..HEAD` on branch ft/RM31-MAG-19-supercharger-session-verification. Read the DIFF, not the whole module.\n\nSCOPE EXCLUSIONS (established by the leader in wave 7.1; do NOT report these as findings):\n(1) `cmd/web/main.go` is task 4.3, an explicit LEADER task the tasks.md marks as outside `internal/` \u2014 not a boundary violation.\n(2) FOUR files inside the commit range come from the OWNER's own commit 76dd874 \"Updating\", interleaved between waves 3 and 4, and are NOT pipeline work: templates/layouts/nav.go, templates/ui/icon.templ, templates/ui/icon_templ.go, templates/ui/nav_shell_test.go.\n(3) The working tree is DIRTY with the owner's in-flight edits (i18n/catalog.go, static/app.css, static/themes/apex.css, layouts/nav.go, ui/nav_shell*.go|templ). Review committed state; ignore uncommitted hunks.\n(4) `gofmt -l` flags i18n/catalog.go at HEAD. The leader bisected it to the owner's commit 76dd874, not to tier-5 work, and deliberately left it (owner has uncommitted edits to that same file). Not a finding.\n\nVALIDATE:\n1. DESIGN COMPLIANCE \u2014 every decision D1-D11 in design.md, which are BINDING (D1-D8 are the owner's own D-I1..D-I7). Highest-risk: D3 STRICT PATCH body semantics (absent key => 400, empty value clears); D4 recalculation window \u00b11 day via the new helper; D5 day from ChargeStopDateTime in UTC; D6 TeslaID==nil skips recalc, logs, write still succeeds; D7 blanks clear, NO ordering validation; D9 no `pgx` import in gateway.\n2. TEST CONTRACT (design.md \"Test Contract\", T1-T7) \u2014 the integration/handler tests must assert the expectations design.md authored UP FRONT, not whatever the implementation happens to do. A test that was clearly written by reading the implementation is a finding.\n3. MODULE BOUNDARIES (ai/architecture.md) \u2014 no HTML outside internal/gateway/; gateway calls public interfaces, never a database; no reach into another module's internals. Confirm D1 held: NO new `charging` read port was added and the read-back is list-and-match.\n4. i18n \u2014 every user-facing string in the diff resolves through i18n.T(ctx, key); the 10 new catalog keys have BOTH ES and EN non-empty.\n5. htmx/Templ conventions (ai/htmx-conventions.md, ai/htmx-go-integration.md) \u2014 fragment/route shape, D2's requirement that row action URLs carry the SAME ?start=&end= the table was rendered under, D8's CSRF split (page issues, fragments read).\n6. UNITS \u2014 km/\u00b0C/PSI display units, conversion on write never on read; percentages carry the _pct suffix.\n7. DOCS-TRACK-CHANGE \u2014 the KB updates (wave 6) and internal/gateway/AGENTS.md write-aperture amendment (task 1.3) actually match what shipped.\n8. NO DATABASE OBJECT was created or altered in this tier (design.md \"Database Changes\" says none). Any migration/query.sql in the diff is a BLOCKER \u2014 the design gate never ran for one.\n9. ANTI-GAMING \u2014 no acceptance criterion weakened or deleted in tasks.md/spec.md; no self-approved statuses; recalculateAfterChargeWrite must be byte-for-byte unchanged vs main.\n\nPERFORMANCE-PROFILE (verbatim, binding): read-heavy \u2014 read performance is mandatory over write performance; writes are mostly done by pollers at midnight, so denormalizing, indexing aggressively, and precomputing for reads is acceptable \u2014 never at the cost of the modular-monolith boundaries or module data ownership.\n\nTEST-EXECUTION-POLICY (verbatim, binding on YOU too): Claude writes tests but never runs the suite \u2014 never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.\n\nSIGNALS ALREADY IN HAND \u2014 judge test QUALITY BY READING the tests, never by running them:\n- ASSISTANT-RUN (leader, wave 7): `go build ./...` OK, `go vet ./...` OK.\n- USER-REPORTED (owner, 2026-08-29T02:04:05Z): test + build OK at the wave-7 boundary, clearing task 7.2. This pass is the OWNER's, not the assistant's.\n\nVERDICT: `approved` or `changes-requested`. Escalate on doubt \u2014 return `changes-requested` asking for leader re-review rather than approving anything you are not sure about. You are the ONLY role that may set reviewer-approved.",
+    "agent": "gateway-reviewer",
+    "status": "reviewer-approved",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "gateway-reviewer",
+        "model": "claude-sonnet-5",
+        "started_at": "2026-08-29T02:00:00Z",
+        "completed_at": "2026-08-29T02:09:44Z",
+        "verdict": "approved",
+        "findings": [],
+        "duration_seconds": 584,
+        "budget": {
+          "five_hour_pct_start": 18,
+          "five_hour_pct_end": 26,
+          "cost_usd_start": 0.8366,
+          "cost_usd_end": 3.3221,
+          "cost_usd_delta": 2.4855,
+          "approx": false
+        }
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-08-28T16:20:00Z",
+      "agent": "leader",
+      "event": "Step 2 grill-me interview run with the owner (config.yaml rules.proposal) -> 8 binding decisions, recorded as D9-D16 on the roadmap progress. Leader port-parity check first confirmed tier 5 is buildable inside the gateway boundary with no new charging port (D9)."
+    },
+    {
+      "at": "2026-08-28T16:20:00Z",
+      "agent": "leader",
+      "event": "Artifacts created by the gateway worker (sonnet); openspec validate --strict PASSES. Doc-pack acknowledgment received (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, internal/gateway/AGENTS.md, ai/htmx-conventions.md, ai/htmx-go-integration.md). Worker added three self-derived decisions D9-D11 (no pgx import in gateway; edit-row column shape; shared row mapper) - leader reviewed all three and accepts them."
+    },
+    {
+      "at": "2026-08-28T16:20:00Z",
+      "agent": "leader",
+      "event": "DESIGN GATE (database): NOT tripped. design.md Database Changes states no table/column/index/constraint/view/migration/query; git status confirms no migration file added. Write path is tier 1's already-shipped VerifySession."
+    },
+    {
+      "at": "2026-08-28T16:20:00Z",
+      "agent": "leader",
+      "event": "Worker flagged the dispatch's ambiguity on the KB (artifacts-only header vs the D-I8 kkpa/context/ grant) and planned the KB as Wave 6 tasks 6.1-6.3 rather than editing it now. Leader ACCEPTS: the KB documents the shipped write path, so it belongs with implementation. The grant stands for the Wave 6 dispatch."
+    },
+    {
+      "at": "2026-08-28T17:25:00Z",
+      "agent": "leader",
+      "event": "Owner reported the branch suite + go vet GREEN as a BASELINE (tiers 1-4); no tier-5 code exists yet, so this verifies no tier-5 task. Recorded as the clean starting point for wave 1."
+    },
+    {
+      "at": "2026-08-28T17:25:00Z",
+      "agent": "leader",
+      "event": "Wave 1 dispatched to one batched serial gateway worker (sonnet): tasks 1.1, 1.2, 1.3 - disjoint files, independent vocabulary. budget_start: five_hour 53%, context 18%, cost $10.33."
+    },
+    {
+      "at": "2026-08-28T17:31:30Z",
+      "agent": "leader",
+      "event": "Wave 1 reconciled. Leader independently re-ran go build ./... + go vet ./... (both clean) and verified all 10 i18n keys carry non-empty ES and EN, and that both touched Go files are gofmt-clean (the gofmt -l entries the worker reported are pre-existing, from an unrelated commit). Worker did NOT write progress.json - write-ownership rail held. Worker's reported timestamps were placeholders (00:00:00Z); leader substituted real dispatch/return times. 1.1/1.2 are awaiting-user-verification (code, untested); 1.3 is done (documentation)."
+    },
+    {
+      "at": "2026-08-28T17:36:00Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `make test` GREEN (whole repo, broader than the per-module gateway run that was asked for). Verification is the OWNER'S, not the assistant's - the assistant never ran the suite. Tasks 1.1 and 1.2 move awaiting-user-verification -> done; wave 1 fully closed (1.1, 1.2, 1.3)."
+    },
+    {
+      "at": "2026-08-28T17:36:00Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the wave-1/wave-2 boundary: owner is clearing context before wave 2. Budget clear at checkpoint (five_hour 60%, context 19%) - this is the recommended per-wave /clear for a 7-wave change, not a threshold trip. NEXT: wave 2 = tasks 2.1 + 2.2, the two new .templ fragments (supercharger_row.templ, supercharger_row_edit.templ); disjoint files, parallel_ok, depends_on 1.1+1.2 which are now done. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T17:37:00Z",
+      "agent": "leader",
+      "event": "Resumed (fresh session, Claude Code / Opus 5 leader). Working tree clean, on ft/RM31-MAG-19-supercharger-session-verification. Wave 2 dispatched to ONE batched serial gateway worker (sonnet): tasks 2.1 + 2.2, the two new .templ fragments. budget_start: five_hour 64%, context 9%, cost $0.65."
+    },
+    {
+      "at": "2026-08-28T17:41:00Z",
+      "agent": "leader",
+      "event": "Wave 2 reconciled. Leader independently re-ran go build ./... + go vet ./... + make ui-guard + make i18n-guard (all clean) and read both new .templ files against charge_row/charge_row_edit: colspan=9, hx-patch on the <form>, exactly two non-Required number inputs, no ordering check, no delete button, zero hardcoded strings. Generated *_templ.go are gofmt-clean (the 4 gofmt -l hits are pre-existing, untouched files). Worker did NOT write progress.json - write-ownership rail held."
+    },
+    {
+      "at": "2026-08-28T17:41:00Z",
+      "agent": "leader",
+      "event": "Worker FLAGGED a signature deviation rather than silently absorbing it: SuperchargerRowVM has no window field, so both components take windowStartStr/windowEndStr as trailing params (recorded as D17). tasks.md wave 3 got an APPENDED leader note stating the 4-arg call shape - additive clarification, no acceptance criterion edited or relaxed."
+    },
+    {
+      "at": "2026-08-28T17:41:00Z",
+      "agent": "leader",
+      "event": "budget_end: five_hour 72%, context 12%, cost $2.85. Checkpoint gate NOT tripped (thresholds 90/40). 2.1 and 2.2 are code, untested -> awaiting-user-verification pending the OWNER's suite run."
+    },
+    {
+      "at": "2026-08-28T17:44:30Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `make test` GREEN (whole repo). Verification is the OWNER'S - the assistant never ran the suite. Tasks 2.1 and 2.2 move awaiting-user-verification -> done; wave 2 fully closed."
+    },
+    {
+      "at": "2026-08-28T17:44:30Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the wave-2/wave-3 boundary: owner is clearing context before wave 3. Budget clear (five_hour 74%, context 13%, cost $3.44) - this is the recommended per-wave /clear for a 7-wave change, NOT a threshold trip. NEXT: wave 3 = tasks 3.1, 3.2, 3.3, 3.4 - ALL parallel_ok:no, so ONE serial worker in dependency order 3.1 -> 3.3 -> 3.2 -> 3.4 (3.2 is supercharger_stats.templ; 3.1/3.3/3.4 are handlers/supercharger.go). Dispatch MUST carry D17: SuperchargerRow/SuperchargerRowEdit take windowStartStr+windowEndStr as trailing params, so 3.2/3.4 render calls are 4-arg. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T17:46:06Z",
+      "agent": "leader",
+      "event": "Resumed (fresh session, Claude Code / Opus 5 leader). Working tree clean, on ft/RM31-MAG-19-supercharger-session-verification. Wave 3 dispatched to ONE batched serial gateway worker (sonnet): tasks 3.1 -> 3.3 -> 3.2 -> 3.4, all parallel_ok:no (same file family). Dispatch carries D17's 4-arg render shape. budget_start: five_hour 76%, context 9%, cost $0.62."
+    },
+    {
+      "at": "2026-08-28T17:55:06Z",
+      "agent": "leader",
+      "event": "Wave 3 reconciled. Leader independently re-ran go build (3 errors, see below), verified charges.go is byte-for-byte untouched, no NEW pgx import in the gateway (the 3 pgxpool hits are pre-existing in gateway.go/handlers.go/gateway_test.go, all unchanged), and read the full supercharger.go diff against design.md D1-D11. make ui-guard + make i18n-guard PASS. Worker did NOT write progress.json - write-ownership rail held."
+    },
+    {
+      "at": "2026-08-28T17:55:06Z",
+      "agent": "leader",
+      "event": "EXPECTED BUILD BREAK at the wave-3/wave-4 boundary, NOT a defect: `go build ./...` fails with exactly 3 errors, all in code task 4.1 explicitly owns - supercharger.go:218 and :237 (SuperchargerStatsPage/Fragment still call superchargerStatsViewFor with 2 args) and :654 (h.superchargerVerifier undefined until Deps is wired). Consequence: `go vet` cannot run and the OWNER CANNOT RUN THE SUITE at this boundary. Tasks 3.1-3.4 are awaiting-user-verification and can only be verified once wave 4 lands."
+    },
+    {
+      "at": "2026-08-28T17:55:06Z",
+      "agent": "leader",
+      "event": "Worker FLAGGED a judgment call rather than absorbing it: the 422 validation branch re-reads the row via fetchSuperchargerRowVM to repopulate the read-only cells the two-input form never submits, then overrides only the two raw values. Leader ACCEPTS - recorded as D18. No acceptance criterion weakened; T5 is unaffected either way."
+    },
+    {
+      "at": "2026-08-28T17:55:06Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT TRIPPED at the wave-3/wave-4 boundary: five_hour_pct 90, threshold 90 - CROSSED. context_pct 13, cost $4.91 this session. five_hour_resets_at 2026-08-28T20:20:00Z. Wave 4 (4.1 handlers.go Deps+CSRF issuance, 4.2 gateway.go routes, 4.3 LEADER task cmd/web/main.go) is unblocked but NOT started. Resume AFTER 20:20:00Z with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T18:01:00Z",
+      "agent": "leader",
+      "event": "Resumed (fresh session, Claude Code / Opus 5 leader). Step R.3 budget re-read: bucket had NOT reset -- five_hour_pct 93 (worse than the 90 at checkpoint), resets_at 2026-08-28T20:20:00Z. Leader did NOT dispatch unilaterally; surfaced the gate to the owner, who OVERRODE it (D20). Build break confirmed as exactly the 3 expected errors task 4.1 owns; working tree clean at cd469d6."
+    },
+    {
+      "at": "2026-08-28T18:01:00Z",
+      "agent": "leader",
+      "event": "Wave 4 dispatched to ONE batched serial gateway worker (sonnet): tasks 4.1 + 4.2. 4.2 is parallel_ok:yes but batched serially anyway -- one dispatch reads the doc pack once, which matters most under a tripped bucket. 4.3 is a LEADER task (cmd/web/main.go, outside the module sandbox) and stays pending until 4.1 lands. budget_start: five_hour 93%, context 10%, cost $0.62."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "Resumed after the wave-4 worker was KILLED mid-wave by the 5-hour session limit -- the D20 override did NOT pay off. Leader verified the worker had in fact COMPLETED 4.1 and 4.2 substantively before dying; it died at the verification step, not during implementation."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "STATE ANOMALY, recorded not corrected: the wave-4 work reached the branch via commit 76dd874 'Updating', authored by the owner outside the pipeline. That commit bundles wave 4's three files together with UNRELATED work (i18n/catalog.go, layouts/nav.go, ui/icon.templ, icon_templ.go, nav_shell_test.go) and the leader's own bracket write to progress.json. It carries none of the pipeline's conventional-commit grammar or trailers, so wave 4 has no Tasks:/Pipeline-Step: trailer in history."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "Leader independently verified the worker's output against design.md: D8's issuance split is exact (SuperchargerStatsPage generates+saves via generateCSRFToken, SuperchargerStatsFragment only reads), Deps doc comment cross-references AGENTS.md's new amendment per 4.1's acceptance, no other Deps field touched, routes mirror the /ui/charges/row block with the deliberate PATCH verb (roadmap D10). No design decision missed."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "GAP FOUND at reconcile: gateway.Deps is a struct distinct from handlers.Deps and cmd/web constructs the former; the worker wired only the latter, so `unknown field SuperchargerVerifier in struct literal of type gateway.Deps` blocked the build. Task decomposition hole -- neither 4.1 nor 4.2 named the passthrough. Leader closed it under 4.3 (D21); tasks.md got an APPENDED note, no criterion edited or weakened."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "Cheap signals after 4.3: `go build ./...` CLEAN repo-wide; `make ui-guard` and `make i18n-guard` both PASS; gofmt clean on all four touched files. `go vet ./...` STILL RED, expected and NOT a wave-4 defect: internal/gateway/handlers/supercharger_test.go:264 calls buildSuperchargerStatsView with wave-3's old 6-arg signature. That stale test is wave 5's to close -- task 5.4's acceptance criterion is literally `go vet ./...` succeeding."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "CONSEQUENCE: the owner CANNOT run the gateway suite at this boundary -- the handlers package tests do not compile. Tasks 3.1-3.4 and 4.1-4.3 all remain awaiting-user-verification and can only clear once wave 5 lands. This is the second consecutive boundary with an unrunnable suite."
+    },
+    {
+      "at": "2026-08-28T21:02:15Z",
+      "agent": "leader",
+      "event": "The working tree carries UNRELATED in-flight nav-shell work (i18n/catalog.go, static/app.css, layouts/nav.go, ui/nav_shell.templ, nav_shell_templ.go, nav_shell_test.go). The leader staged NONE of it -- the wave-4 commit is restricted to cmd/web/main.go, internal/gateway/gateway.go, tasks.md and progress.json."
+    },
+    {
+      "at": "2026-08-28T21:09:47Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `env -u DATABASE_URL go test ./...` FAIL. Verification is the OWNER'S. Exactly one package fails -- internal/gateway/handlers [build failed] -- on FOUR stale buildSuperchargerStatsView call sites (lines 264, 290, 315, 352), not the single one vet's first-error output showed. Every other package passes. Per Step 5.7 a FAIL is fixed in the next wave, never quietly marked done; tasks 3.1-3.4 and 4.1-4.3 stay awaiting-user-verification."
+    },
+    {
+      "at": "2026-08-28T21:09:47Z",
+      "agent": "leader",
+      "event": "Wave 5 dispatched to ONE batched serial gateway worker (sonnet): 5.1, 5.2, 5.3, 5.4. Serial is forced, not chosen -- all four touch internal/gateway/handlers/supercharger_test.go. The dispatch carries the owner's verbatim failure output and names the wave-3 signature drift as 5.4's blocking precondition. budget_start: five_hour 8%, context 15%, cost $5.49."
+    },
+    {
+      "at": "2026-08-28T21:17:29Z",
+      "agent": "leader",
+      "event": "Wave 5 reconciled. Leader independently re-ran `go build ./...` and `go vet ./...` -- BOTH NOW CLEAN, closing the two-boundary suite blockage. Also verified: supercharger.go byte-for-byte untouched (the worker did NOT bend buildSuperchargerStatsView back to 6 args to fit the stale tests, which was the tempting wrong fix); `make templ` produces no diff; tasks.md diff is checkbox-only, zero acceptance-criterion text edited. Worker did NOT write progress.json - write-ownership rail held."
+    },
+    {
+      "at": "2026-08-28T21:17:29Z",
+      "agent": "leader",
+      "event": "ANTI-GAMING CHECK on a test wave, the wave where it matters most: T3's test asserts Recalculate(2026-03-14T00:00:00Z, 2026-03-16T00:00:00Z) from a 2026-03-15T00:20:00Z stop, matching design.md lines 373-377 VERBATIM. The contract was authored before any implementation existed, and the test asserts the contract rather than what the code happens to do. T5's field-vs-_top assertion is a negative one (absence of role=\"alert\") - weaker than naming the field key, but paired with the positive value=\"101\" echo it holds, and the worker reported the indirection honestly rather than hiding it."
+    },
+    {
+      "at": "2026-08-28T21:17:29Z",
+      "agent": "leader",
+      "event": "Worker's reported timestamps were wrong again (17:10-18:45Z, predating the 21:09:47Z dispatch); leader substituted real dispatch/return times. Same defect as wave 1 - worth noting if this recurs across tiers."
+    },
+    {
+      "at": "2026-08-28T21:17:29Z",
+      "agent": "leader",
+      "event": "5.4 is `done` on the leader's own cheap signals: its acceptance criterion is literally `go build ./...` and `go vet ./...` succeeding, both assistant-runnable. 5.1-5.3 are `awaiting-user-verification` - the tests COMPILE but have never been EXECUTED by anyone, and only the owner runs the suite."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `make test` RED -- ONE failure, TestSuperchargerStatsFragment_ChartAndSelectorAndTableMatchesSessionsTile: 'table row count (0) must equal the Sessions tile's own rendered count (3) -- single source of truth (D7)'. Every other package passed. Verification is the OWNER'S."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "LEADER TRIAGE: not a product regression. The D7 invariant still holds; the tier-4 test's COUNTING TECHNIQUE went stale. It counted a bare `<tr>`, but wave 2's supercharger_row.templ:35 renders `<tr id=\"supercharger-row-{ID}\">` because htmx needs a stable per-row id for the outerHTML swap. Bare-`<tr>` count therefore = 0. This sat latent for three waves because the handlers package could not compile from wave 3 until wave 5 -- the second defect that window hid, after the buildSuperchargerStatsView drift."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "Fix dispatched by SendMessage to the SAME wave-5 worker (context reuse, no cold re-dispatch) with four binding constraints: do not weaken the D7 comparison, do not change product markup to fit the stale test, count the row-identity marker precisely, and document the coupling. Leader flagged the trap that the edit row (supercharger_row_edit.templ:41) and error row (supercharger_row.templ:65) reuse the same id prefix."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "Fix verified by the leader: counter is now `<tr id=\"supercharger-row-`; the D7 comparison is byte-for-byte unchanged (strict `gotRows != wantRows` -> t.Errorf, fixture's expected 3 untouched) -- NOT weakened, NOT skipped. `go build ./...`, `go vet ./...`, gofmt all clean; zero product files touched. The worker's inflation-risk analysis is correct: this fragment renders only the STATIC row, the edit/error variants being reachable solely from the row-level handlers."
+    },
+    {
+      "at": "2026-08-28T21:45:03Z",
+      "agent": "leader",
+      "event": "Tasks 5.1-5.3 remain awaiting-user-verification pending the owner's RE-RUN; the fix is build/vet-verified but no one has executed the suite."
+    },
+    {
+      "at": "2026-08-28T21:47:27Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED `make test` and the build GREEN after the D7 counter fix. Verification is the OWNER'S, not the assistant's -- the assistant never ran the suite. This single run clears TEN tasks that had been awaiting-user-verification across three boundaries: 3.1, 3.2, 3.3, 3.4, 4.1, 4.2, 4.3, 5.1, 5.2, 5.3. Waves 1-5 are now fully closed."
+    },
+    {
+      "at": "2026-08-28T21:47:27Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the wave-5/wave-6 boundary: owner is clearing context. Budget CLEAR (five_hour 28.000000000000004%, context 19%, cost $11.83) -- this is the recommended per-wave /clear for a 7-wave change, NOT a threshold trip. NEXT: wave 6 = tasks 6.1, 6.2, 6.3 -- the KB update (ticket item 6, the last unshipped requirement). 6.1 and 6.2 have NO depends_on and are already unblocked; 6.3 depends on both. The wave-6 dispatch REQUIRES the explicit kkpa/context/ sandbox grant (roadmap D16), which is OUTSIDE internal/gateway -- the gateway worker cannot write it without that grant. D16 also binds: the KB update must correct the now-false 'ONE concept with a user write path' cross-reference, and the file is NOT renamed. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-28T23:40:56Z",
+      "agent": "leader",
+      "event": "WAVE 6 DISPATCHED (single serial gateway worker, sonnet): tasks 6.1, 6.2, 6.3 -- the KB update, ticket item 6. Batched serial rather than parallel 6.1/6.2: three small doc edits that must stay mutually consistent, and one dispatch reads the doc pack once. Sandbox extended beyond internal/gateway/ to kkpa/context/ per roadmap D16 -- the ONLY grant; D16 also binds the write-path cross-reference correction and forbids renaming the file. Budget at dispatch: five_hour 32%, context 9%, cost $1.18."
+    },
+    {
+      "at": "2026-08-29T01:57:58Z",
+      "agent": "leader",
+      "event": "WAVE 6 worker STALLED mid-run (watchdog: no output 600s) after landing 6.1 and the supercharger-stats-read.md half of 6.2. Disk state was intact, so the leader RESUMED THE SAME AGENT via SendMessage (context reuse) rather than cold re-dispatching -- a fresh worker would have re-read the doc pack and re-derived 6.1. No work lost."
+    },
+    {
+      "at": "2026-08-29T01:57:58Z",
+      "agent": "leader",
+      "event": "LEADER VERIFICATION of 6.1 before resuming caught a factual KB error the worker could not have caught from memory: the guide cited a nonexistent change RM29-charging-add-session-verification as the tier that shipped SessionVerifier. Real name (checked in openspec/changes/archive/charging/): RM31-charging-add-session-verification-port. Handed back as a binding correction; worker fixed it and swept its other RM29/RM30/RM31 citations. This is the accuracy bar the KB dispatch demands -- a future agent would have grepped for a change that does not exist."
+    },
+    {
+      "at": "2026-08-29T01:57:58Z",
+      "agent": "leader",
+      "event": "WAVE 6 RECONCILED -- 6.1/6.2/6.3 all done. Leader independently verified on disk: all 5 supercharger routes and csrfSuperchargerKey=csrf_supercharger match the shipped code; the RM29 citation is gone; the 3 new INDEX rows resolve to glossary terms the worker first added to the guide body (acceptance criterion met); tasks.md checkboxes 6.1-6.3 ticked and 7.x untouched; pending-spec-to-sync/ untouched. ANTI-GAMING RAIL HELD: worker wrote no progress.json (task notes still null at reconcile time). Worker also fixed an unasked-for real bug -- a ../../ relative path in manual-charge-crud.md resolving outside kkpa/context/."
+    },
+    {
+      "at": "2026-08-29T01:57:58Z",
+      "agent": "leader",
+      "event": "BUDGET: five_hour bucket RESET mid-wave (32% -> 9%), so the wave-6 five_hour delta is unmeasurable and recorded null; cost delta $1.18 -> $6.45 = $5.26 across the stalled run plus its resume, booked on 6.1 with 6.2/6.3 pointing at that shared bracket. Budget CLEAR for wave 7: five_hour 9%, context 13%."
+    },
+    {
+      "at": "2026-08-29T02:05:00Z",
+      "agent": "leader",
+      "event": "WAVE 7.1 AUDIT PASSED, all six acceptance criteria verified against the tier-5 diff 7829c5b^..HEAD: 1) no delete route for this concept -- the DELETE at gateway.go:183 is /ui/charges/row/:id, pre-existing on main; 2) no pgx import added -- the only +pgx lines in the tier-5 diff are COMMENTS stating pgx is deliberately not imported, and supercharger.go references pgx only in prose, honouring D9; 3) no new charging port -- internal/charging/ absent from the tier-5 diff; 4) no database object -- no migration or query.sql in the tier-5 diff; 5) recalculateAfterChargeWrite byte-for-byte unchanged -- charges.go is IDENTICAL to main, and recalculateAfterSessionVerify is a separate func at supercharger.go:519 per D4; 6) no ordering validation -- only a comment mentions it."
+    },
+    {
+      "at": "2026-08-29T02:05:00Z",
+      "agent": "leader",
+      "event": "SCOPE NOTE for the reviewer: the only tier-5 file outside internal/gateway/ is cmd/web/main.go, which is task 4.3 -- an explicit LEADER task the tasks.md marks as outside internal/. Not a boundary violation. Additionally FOUR files in the tier-5 commit range are NOT pipeline work and must be excluded from review: nav.go, ui/icon.templ, ui/icon_templ.go, ui/nav_shell_test.go, all from the owner's own commit 76dd874 Updating, interleaved between waves 3 and 4."
+    },
+    {
+      "at": "2026-08-29T02:05:00Z",
+      "agent": "leader",
+      "event": "CHEAP SIGNALS, permitted by the Test-Execution-Policy: go build ./... OK, go vet ./... OK. gofmt -l shows internal/gateway/i18n/catalog.go unformatted at HEAD but NOT on main. Leader bisected it: catalog.go was gofmt-CLEAN through wave 3 at f463811 and cd469d6, and became unformatted at commit 76dd874 Updating -- the OWNER's commit, which added the longer KeyNavVehicleStats/KeyNavCommunityBenchmark nav keys and forced a realignment of the const block without re-running gofmt. NOT a tier-5 defect and deliberately NOT fixed by the leader: the owner has uncommitted edits to that same file right now, so a fix would collide with their working tree. The other 7 gofmt hits are pre-existing on main."
+    },
+    {
+      "at": "2026-08-29T02:04:05Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED test and build OK at the wave-7 boundary. This clears task 7.2, the LAST open task -- all 21 sub-tasks across waves 1-7 are now done and change status advances to verified. Per the Test-Execution-Policy this pass is recorded as the OWNER'S report and is never claimed by the assistant, which ran only go build and go vet."
+    },
+    {
+      "at": "2026-08-29T02:04:05Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the wave-7 / reviewer-gate boundary: owner clearing context before the review round. Budget CLEAR, not a threshold trip -- five_hour 14 pct, context 15 pct, cost 8.76 this session. NEXT STEP on resume is Step 7: write the review brief into review.brief and dispatch kkpa-module-reviewer scoped to gateway on a cheaper model, instructed to escalate on doubt. The brief MUST carry two scope exclusions the leader already established: 1) cmd/web/main.go is task 4.3, an explicit LEADER task outside internal/, NOT a boundary violation; 2) FOUR files in the tier-5 commit range are the owner's own commit 76dd874 and are NOT pipeline work -- nav.go, ui/icon.templ, ui/icon_templ.go, ui/nav_shell_test.go. The brief must also state that build/vet were assistant-run while the SUITE result is the owner's report, and that the catalog.go gofmt hit predates this tier via 76dd874. After reviewer approval: archive tier 5, flip the roadmap tier to [x], then AUTO-ARCHIVE roadmap RM31 itself since tier 5 is the last tier -- git mv both roadmap files into openspec/roadmaps/archive/RM31-supercharger-session-verification/. Also still OUTSTANDING from tier 3: the openspec-archive-kb-sync rule owes a /kkpa-context-curate from-spec run for the analytics capability. Resume with: /kkpa-dev-harness-pipeline resume RM31-supercharger-session-verification"
+    },
+    {
+      "at": "2026-08-29T02:06:42Z",
+      "agent": "leader",
+      "event": "STEP 7 RESUME: review brief written to review.brief; dispatching kkpa-module-reviewer as gateway-reviewer on Sonnet (cheaper model, escalate-on-doubt) over the tier-5 diff 7829c5b^..HEAD. Budget bracket start: five_hour 18 pct, context 8 pct, cost $0.84."
+    },
+    {
+      "at": "2026-08-29T02:10:26Z",
+      "agent": "leader",
+      "event": "REVIEW ROUND 1 returned APPROVED with ZERO findings by gateway-reviewer (Sonnet). Reviewer independently confirmed D1-D11, the T1-T7 contract-first test values, no new charging port, no DB object, recalculateAfterChargeWrite byte-for-byte unchanged, and ran make i18n-guard + make ui-guard clean. Change status advances to reviewer-approved on the REVIEWER's verdict, not the leader's. Round cost $2.49, five_hour 18->26 pct."
+    }
+  ]
+}

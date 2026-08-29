@@ -62,6 +62,51 @@ func (r *sessionReader) ListSessionsByVehicleBetween(ctx context.Context, accoun
 	return sessions, nil
 }
 
+// ListSessionsByVehicleUpdatedSince implements SessionReader. See the interface doc
+// comment (charging.go) for the full contract. since is used as-is — no endBound
+// translation, unlike ListSessionsByVehicleBetween (design.md D1).
+func (r *sessionReader) ListSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Session, error) {
+	rows, err := r.q.ListSessionsByVehicleUpdatedSince(ctx, chargingdb.ListSessionsByVehicleUpdatedSinceParams{
+		AccountID: accountID,
+		TeslaID:   teslaIDToPgInt8(teslaID),
+		Since:     pgtype.Timestamptz{Time: since, Valid: true},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("charging: list sessions by vehicle updated since: %w", err)
+	}
+
+	sessions := make([]Session, 0, len(rows))
+	for _, row := range rows {
+		sessions = append(sessions, rowToSession(row))
+	}
+	return sessions, nil
+}
+
+// ListSessionsByVehicle implements SessionReader. See the interface doc comment
+// (charging.go) for the full contract. The limit <= 0 clamp runs in Go, before the query
+// is issued (design.md D3), reusing the module's existing defaultLimit constant
+// (service.go) — no new constant.
+func (r *sessionReader) ListSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]Session, error) {
+	if limit <= 0 {
+		limit = defaultLimit
+	}
+
+	rows, err := r.q.ListSessionsByVehicle(ctx, chargingdb.ListSessionsByVehicleParams{
+		AccountID:  accountID,
+		TeslaID:    teslaIDToPgInt8(teslaID),
+		LimitCount: int32(limit),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("charging: list sessions by vehicle: %w", err)
+	}
+
+	sessions := make([]Session, 0, len(rows))
+	for _, row := range rows {
+		sessions = append(sessions, rowToSession(row))
+	}
+	return sessions, nil
+}
+
 // teslaIDToPgInt8 maps a plain int64 vehicle id to a valid pgtype.Int8 filter param.
 // Named and shaped after telemetry.teslaIDToPgInt8 (internal/telemetry/reader.go) — the
 // identical situation: a NOT NULL Go parameter filtering a nullable BIGINT column

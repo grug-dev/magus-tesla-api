@@ -61,7 +61,7 @@ func TestNavShell_RendersIconsAndSoonBadges(t *testing.T) {
 // TestIcon_ClosedVocabulary asserts every shipped glyph renders an <svg> and an
 // unknown name degrades to no markup (the closed-vocabulary contract).
 func TestIcon_ClosedVocabulary(t *testing.T) {
-	for _, name := range []string{"dashboard", "ev_station", "analytics", "settings", "menu", "battery"} {
+	for _, name := range []string{"dashboard", "ev_station", "analytics", "settings", "menu", "battery", "speed", "groups"} {
 		var buf bytes.Buffer
 		if err := templ.Handler(Icon(IconProps{Name: name})).Component.Render(context.Background(), &buf); err != nil {
 			t.Fatalf("render Icon %q: %v", name, err)
@@ -80,5 +80,43 @@ func TestIcon_ClosedVocabulary(t *testing.T) {
 	}
 	if strings.TrimSpace(buf.String()) != "" {
 		t.Errorf("unknown glyph should render nothing, got %q", buf.String())
+	}
+}
+
+// TestNavShell_RendersSectionTitles asserts section titles (menu-title) appear
+// above the first item of each named section, and whitespace separators (mt-2)
+// appear on items that leave a section.
+func TestNavShell_RendersSectionTitles(t *testing.T) {
+	items := []NavItem{
+		{Label: "Dashboard", Href: "/dashboard", Icon: "dashboard"},
+		{Label: "Manual Records", Href: "/charges", Icon: "ev_station", SectionLabel: "Charging"},
+		{Label: "Supercharger Stats", Href: "/supercharger-stats", Icon: "analytics", SectionLabel: "Charging"},
+		{Label: "Vehicle Stats", Icon: "speed", Placeholder: true, SectionLabel: "Insights"},
+		{Label: "Community Benchmark", Icon: "groups", Placeholder: true, SectionLabel: "Insights"},
+		{Label: "Settings", Icon: "settings", Placeholder: true},
+	}
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	var buf bytes.Buffer
+	if err := templ.Handler(NavShell(items, nil)).Component.Render(ctx, &buf); err != nil {
+		t.Fatalf("render NavShell: %v", err)
+	}
+	body := buf.String()
+
+	// Exactly two section titles (Charging, Insights)
+	if got := strings.Count(body, "menu-title"); got != 2 {
+		t.Errorf("want 2 menu-title rows, got %d", got)
+	}
+	if !strings.Contains(body, "Charging") || !strings.Contains(body, "Insights") {
+		t.Errorf("want both section labels rendered:\n%s", body)
+	}
+
+	// Soon appears only on the three placeholders
+	if got := strings.Count(body, "Soon"); got != 3 {
+		t.Errorf("want 3 'Soon' badges, got %d", got)
+	}
+
+	// Whitespace separator (mt-2) on Settings (leaves Insights section)
+	if !strings.Contains(body, `class="mt-2"`) {
+		t.Errorf("want mt-2 class on item leaving section (Settings):\n%s", body)
 	}
 }
