@@ -230,6 +230,7 @@ func postCharge(t *testing.T, h *Handler, uid uuid.UUID) *httptest.ResponseRecor
 	c := sessionCookie(r, uid, "tok")
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"10.5"},
 		"price":             {"5000"},
@@ -514,6 +515,7 @@ func TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"10.5"},
 		"price":             {"5000"},
@@ -549,6 +551,7 @@ func TestChargeCreate_MissingRequiredField(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token": {"tok"},
+		"status":     {"IN_PROGRESS"},
 		"price":      {"5000"},
 		// deliberately omit charged_on, energy_added_kwh, location_kind,
 		// start_battery_pct, end_battery_pct — every required field.
@@ -720,6 +723,7 @@ func TestChargeRowUpdate_ValidationError(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token": {"tok"},
+		"status":     {"IN_PROGRESS"},
 		"price":      {"5000"},
 		// deliberately omit charged_on, energy_added_kwh, location_kind,
 		// start_battery_pct, end_battery_pct.
@@ -1120,6 +1124,7 @@ func TestChargeCreate_MissingLocationKind(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"10.5"},
 		"price":             {"5000"},
@@ -1161,6 +1166,7 @@ func TestChargeCreate_InvalidLocationKind(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"10.5"},
 		"price":             {"5000"},
@@ -1195,6 +1201,7 @@ func TestChargeRowUpdate_MissingLocationKind(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-16"},
 		"energy_added_kwh":  {"20.0"},
 		"price":             {"9000"},
@@ -1516,6 +1523,7 @@ func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":       {"tok"},
+		"status":           {"IN_PROGRESS"},
 		"charged_on":       {"2026-07-15"},
 		"energy_added_kwh": {"10.5"},
 		"price":            {"5000"},
@@ -1570,6 +1578,7 @@ func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			form := url.Values{
 				"csrf_token":        {"tok"},
+				"status":            {"IN_PROGRESS"},
 				"charged_on":        {"2026-07-15"},
 				"energy_added_kwh":  {"10.5"},
 				"price":             {"5000"},
@@ -1732,6 +1741,7 @@ func TestChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
 
 		form := url.Values{
 			"csrf_token":        {"tok"},
+			"status":            {"IN_PROGRESS"},
 			"charged_on":        {"2026-07-15"},
 			"energy_added_kwh":  {v},
 			"price":             {"5000"},
