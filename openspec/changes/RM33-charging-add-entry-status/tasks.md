@@ -95,7 +95,7 @@ Ownership legend: **[module: charging worker]** — inside `internal/charging/` 
 
 ## Wave 2 — domain surface, validation, derivation
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/charging.go` — the domain surface:
+- [x] **2.1** **[module: charging worker]** `internal/charging/charging.go` — the domain surface:
   - Add the exported types and constants from design.md **D5**: `Status` (`StatusInProgress`,
     `StatusDone`), `EnergySource` (`EnergySourceUser`, `EnergySourceEstimated`), `Field`
     (`FieldChargedOn`, `FieldLocationKind`, `FieldEndedAt`, `FieldEndBatteryPct`). Each `Field`
@@ -137,7 +137,7 @@ Ownership legend: **[module: charging worker]** — inside `internal/charging/` 
     `pgtype` and no `chargingdb` here — this file is pure.
   `depends_on`: — · `parallel_ok`: yes (new file, disjoint from everything)
 
-- [ ] **2.3** **[module: charging worker]** Create `internal/charging/validation.go`:
+- [x] **2.3** **[module: charging worker]** Create `internal/charging/validation.go`:
   - `RequiredFieldsFor(s Status) []Field`'s body: the two sets from design.md **D5**'s table,
     returned as a **fresh slice on every call**; an unrecognized status returns the `DONE`
     (strictest) set.
@@ -152,7 +152,7 @@ Ownership legend: **[module: charging worker]** — inside `internal/charging/` 
     error struct** — explicitly rejected in design.md **D5**.
   `depends_on`: 2.1 · `parallel_ok`: with 2.2
 
-- [ ] **2.4** **[module: charging worker]** `internal/charging/service.go` — wire it together. This
+- [x] **2.4** **[module: charging worker]** `internal/charging/service.go` — wire it together. This
   is the join point:
   - **Create and Update, in this exact order** (design.md **D3**): normalize + validate the status
     (2.3) → enforce `missingFields` and reject listing all of them → derive energy → build params.
@@ -308,3 +308,16 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
   ```
   Expected on a database migrated from before this change: exactly one row —
   `IN_PROGRESS | USER | <total> | 0`.
+
+- [ ] **L1b** **[leader → an `analytics` worker]** *(appended by the leader after wave 2 —
+  design.md **D11** and task **L1** both name only `internal/gateway`, but the `*float64` break
+  also lands in `internal/analytics`, and `internal/gateway` imports `internal/analytics`, so L1
+  alone cannot make `go build ./...` green.)* The minimal mechanical fix:
+  `internal/analytics/reader.go:114` — `sumManualKWh` does `total += e.EnergyAddedKWh`; nil-guard
+  it exactly as the `s.EnergyKWh != nil` guard nine lines above already does for supercharger
+  sessions, so an entry with unknown energy contributes nothing. Plus the fixture sites
+  `internal/analytics/reader_test.go:258, 313, 314` and
+  `internal/analytics/db_integration_test.go:1678`. **Nothing behavioural beyond that** — whether
+  an unknown-energy entry should be excluded from the efficiency window differently is a separate
+  change, not this tier's.
+  `depends_on`: 2.1 · `parallel_ok`: with Wave 3, Wave 4 and L1

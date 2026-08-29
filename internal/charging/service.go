@@ -18,9 +18,9 @@ package charging
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -108,18 +108,30 @@ type writerService struct {
 // id, created_at, and updated_at. Maps required and optional Entry fields into
 // CreateEntryParams at the DB boundary; the row result is mapped back via rowToEntry
 // so the caller never sees pgtype (design D4, D8).
+//
+// Order, exactly as Update below (MAG-18/RM33 design.md D3): normalize + validate
+// the status, enforce RequiredFieldsFor and reject listing every missing field,
+// THEN derive energy. Rejecting first matters — the capacity seam (resolveEnergy)
+// will one day hit a database, and a rejected entry should never pay for that.
 func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
-	// location_kind is required — reject nil or empty before any pgtype conversion
-	// or database call. The domain field stays *string (design D4) for gateway
-	// compatibility; the required-ness is enforced here (design D3) and by the DB
-	// NOT NULL constraint (design D1). Error prefix follows the "charging: ..."
-	// convention used throughout this file.
-	if e.LocationKind == nil || *e.LocationKind == "" {
-		return Entry{}, errors.New("charging: location_kind is required")
+	status, err := normalizeStatus(e.Status)
+	if err != nil {
+		return Entry{}, err
+	}
+	e.Status = status
+
+	if missing := missingFields(e); len(missing) > 0 {
+		return Entry{}, missingFieldsError(status, missing)
 	}
 
-	// Build required NUMERIC params from float64 fields.
-	energy, err := numericFromFloat64(e.EnergyAddedKWh)
+	energy, source, err := resolveEnergy(ctx, e)
+	if err != nil {
+		return Entry{}, err
+	}
+
+	// Build NUMERIC params. energy_added_kwh is now optional (design.md D2):
+	// numericPtrFromFloat64 maps a nil *float64 to SQL NULL.
+	energyParam, err := numericPtrFromFloat64(energy)
 	if err != nil {
 		return Entry{}, fmt.Errorf("charging: encoding energy_added_kwh: %w", err)
 	}
@@ -133,7 +145,7 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 		TeslaID:        e.TeslaID,
 		Vin:            e.VIN,
 		ChargedOn:      dateFromTime(e.ChargedOn),
-		EnergyAddedKwh: energy,
+		EnergyAddedKwh: energyParam,
 		Price:          price,
 		Currency:       e.Currency,
 		// Nullable fields — nil → invalid pgtype (SQL NULL); non-nil → valid.
@@ -142,11 +154,17 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 		StartBatteryPct: intPtrToPgInt2(e.StartBatteryPct),
 		EndBatteryPct:   intPtrToPgInt2(e.EndBatteryPct),
 		ChargingType:    stringPtrToPgText(e.ChargingType),
-		// location_kind is NOT NULL in the DB (required field, design D3); the
-		// pointer is guaranteed non-nil by the validation above.
+		// location_kind is now enforced via RequiredFieldsFor/missingFields above
+		// (design.md D5), not the ad-hoc nil/empty check this replaced.
 		LocationKind:  stringPtrToRequired(e.LocationKind),
 		LocationLabel: stringPtrToPgText(e.LocationLabel),
 		Notes:         stringPtrToPgText(e.Notes),
+		// status and energy_source are both module-computed — status by
+		// normalizeStatus above, energy_source by resolveEnergy (design.md D4).
+		// The caller's own e.EnergySource is never read.
+		Status:       string(status),
+		EnergySource: string(source),
+		OdometerKm:   intPtrToPgInt4(e.OdometerKm),
 	}
 
 	row, err := w.store.createEntry(ctx, params)
@@ -160,14 +178,27 @@ func (w *writerService) Create(ctx context.Context, e Entry) (Entry, error) {
 // account (WHERE id = @id AND account_id = @account_id). Returns the stored Entry.
 // Immutable columns (id, account_id, tesla_id, vin, created_at) are never touched
 // (design D4, T4.3).
+//
+// Same order as Create above, and for the same reason (MAG-18/RM33 design.md D3):
+// normalize + validate status, enforce RequiredFieldsFor, THEN derive energy. A
+// rejected update writes nothing — the row it targets is left unchanged.
 func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
-	// location_kind is required on Update (same constraint as Create — design D3).
-	// Reject nil or empty before any pgtype conversion or database call.
-	if e.LocationKind == nil || *e.LocationKind == "" {
-		return Entry{}, errors.New("charging: location_kind is required")
+	status, err := normalizeStatus(e.Status)
+	if err != nil {
+		return Entry{}, err
+	}
+	e.Status = status
+
+	if missing := missingFields(e); len(missing) > 0 {
+		return Entry{}, missingFieldsError(status, missing)
 	}
 
-	energy, err := numericFromFloat64(e.EnergyAddedKWh)
+	energy, source, err := resolveEnergy(ctx, e)
+	if err != nil {
+		return Entry{}, err
+	}
+
+	energyParam, err := numericPtrFromFloat64(energy)
 	if err != nil {
 		return Entry{}, fmt.Errorf("charging: encoding energy_added_kwh: %w", err)
 	}
@@ -180,7 +211,7 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 		ID:              e.ID,
 		AccountID:       e.AccountID,
 		ChargedOn:       dateFromTime(e.ChargedOn),
-		EnergyAddedKwh:  energy,
+		EnergyAddedKwh:  energyParam,
 		Price:           price,
 		Currency:        e.Currency,
 		StartedAt:       timestamptzPtrToPg(e.StartedAt),
@@ -188,11 +219,16 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 		StartBatteryPct: intPtrToPgInt2(e.StartBatteryPct),
 		EndBatteryPct:   intPtrToPgInt2(e.EndBatteryPct),
 		ChargingType:    stringPtrToPgText(e.ChargingType),
-		// location_kind is NOT NULL in the DB (required field, design D3); the
-		// pointer is guaranteed non-nil by the validation above.
+		// location_kind is now enforced via RequiredFieldsFor/missingFields above
+		// (design.md D5), not the ad-hoc nil/empty check this replaced.
 		LocationKind:  stringPtrToRequired(e.LocationKind),
 		LocationLabel: stringPtrToPgText(e.LocationLabel),
 		Notes:         stringPtrToPgText(e.Notes),
+		// status and energy_source are both module-computed (design.md D4) — the
+		// caller's own e.EnergySource is never read.
+		Status:       string(status),
+		EnergySource: string(source),
+		OdometerKm:   intPtrToPgInt4(e.OdometerKm),
 	}
 
 	row, err := w.store.updateEntry(ctx, params)
@@ -200,6 +236,42 @@ func (w *writerService) Update(ctx context.Context, e Entry) (Entry, error) {
 		return Entry{}, fmt.Errorf("charging: update entry: %w", err)
 	}
 	return rowToEntry(row)
+}
+
+// missingFieldsError builds the plain error Create/Update return when
+// missingFields is non-empty: every missing field, in the lookup's own
+// deterministic order, e.g. "charging: status DONE requires: ended_at,
+// end_battery_pct". No typed error struct — explicitly rejected in design.md D5:
+// the gateway drives its own per-field messages from RequiredFieldsFor before
+// calling, so this error is a backstop a human reads, not a structure a caller
+// parses.
+func missingFieldsError(status Status, missing []Field) error {
+	names := make([]string, len(missing))
+	for i, f := range missing {
+		names[i] = string(f)
+	}
+	return fmt.Errorf("charging: status %s requires: %s", status, strings.Join(names, ", "))
+}
+
+// resolveEnergy applies the design.md D3 derivation rule for Create/Update: when
+// the caller supplied no energy (e.EnergyAddedKWh == nil), it derives one from
+// the pack capacity (packCapacityKWh) and the battery delta (derivedEnergyKWh); a
+// non-nil derivation is EnergySourceEstimated. In every other case — energy was
+// supplied, or no derivation was possible — it returns exactly what the caller
+// gave (nil included) as EnergySourceUser. The caller's own e.EnergySource is
+// never read (design.md D4).
+func resolveEnergy(ctx context.Context, e Entry) (*float64, EnergySource, error) {
+	if e.EnergyAddedKWh == nil {
+		capacity, err := packCapacityKWh(ctx, e.VIN)
+		if err != nil {
+			return nil, "", fmt.Errorf("charging: resolving pack capacity: %w", err)
+		}
+		if derived := derivedEnergyKWh(capacity, e.StartBatteryPct, e.EndBatteryPct); derived != nil {
+			return derived, EnergySourceEstimated, nil
+		}
+		return nil, EnergySourceUser, nil
+	}
+	return e.EnergyAddedKWh, EnergySourceUser, nil
 }
 
 // Delete removes the entry identified by id, scoped to the caller's accountID.
@@ -374,30 +446,34 @@ func newReader(pool *pgxpool.Pool) Reader {
 //   - StartedAt, EndedAt: pgtype.Timestamptz → *time.Time (nullable TIMESTAMPTZ).
 //   - StartBatteryPct, EndBatteryPct: pgtype.Int2 → *int (nullable SMALLINT).
 //   - ChargingType, LocationKind, LocationLabel, Notes: pgtype.Text → *string (nullable TEXT).
-//   - EnergyAddedKwh, Price: pgtype.Numeric → float64 via Float64Value() (design D9).
+//   - Price: pgtype.Numeric → float64 via Float64Value() (design D9).
 //   - InferredCapacityKwhCalc: pgtype.Numeric → *float64 via pgNumericToFloat64Ptr
 //     (nullable GENERATED ALWAYS AS ... STORED column, MAG-25 design D8).
+//   - EnergyAddedKwh: pgtype.Numeric → *float64 via pgNumericToFloat64Ptr — reuses
+//     the same helper as InferredCapacityKwhCalc, now that the column is nullable
+//     (MAG-18/RM33 design.md D2; no second helper was added, per task 2.4).
+//   - Status: string → Status; EnergySource: string → EnergySource — plain string
+//     conversions, both module-computed on write (MAG-18/RM33 design.md D4/D5/D8).
+//   - OdometerKm: pgtype.Int4 → *int via pgInt4ToIntPtr (MAG-18/RM33 design.md D6).
 func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
-	// EnergyAddedKwh: NUMERIC → float64 (required column; Float64Value returns a
+	// Price: NUMERIC → float64 (required column; Float64Value returns a
 	// pgtype.Float8 wrapper — use its Float64 field after error check, design D9).
-	energyF8, err := r.EnergyAddedKwh.Float64Value()
-	if err != nil {
-		return Entry{}, fmt.Errorf("charging: reading energy_added_kwh: %w", err)
-	}
-
-	// Price: same NUMERIC → float64 path (design D9).
 	priceF8, err := r.Price.Float64Value()
 	if err != nil {
 		return Entry{}, fmt.Errorf("charging: reading price: %w", err)
 	}
 
 	return Entry{
-		ID:             r.ID,
-		AccountID:      r.AccountID,
-		TeslaID:        r.TeslaID,
-		VIN:            r.Vin,
-		ChargedOn:      r.ChargedOn.Time, // pgtype.Date.Time → time.Time
-		EnergyAddedKWh: energyF8.Float64,
+		ID:        r.ID,
+		AccountID: r.AccountID,
+		TeslaID:   r.TeslaID,
+		VIN:       r.Vin,
+		Status:    Status(r.Status),
+		ChargedOn: r.ChargedOn.Time, // pgtype.Date.Time → time.Time
+		// EnergyAddedKwh is nullable since design.md D2; pgNumericToFloat64Ptr
+		// is the existing helper this module already uses for
+		// InferredCapacityKwhCalc — reused here rather than duplicated.
+		EnergyAddedKWh: pgNumericToFloat64Ptr(r.EnergyAddedKwh),
 		Price:          priceF8.Float64,
 		Currency:       r.Currency,
 		// Nullable TIMESTAMPTZ → *time.Time
@@ -413,6 +489,9 @@ func rowToEntry(r chargingdb.ManualChargeEntry) (Entry, error) {
 		LocationKind:  requiredToStringPtr(r.LocationKind),
 		LocationLabel: pgTextToPtr(r.LocationLabel),
 		Notes:         pgTextToPtr(r.Notes),
+		EnergySource:  EnergySource(r.EnergySource),
+		// Nullable INTEGER → *int
+		OdometerKm: pgInt4ToIntPtr(r.OdometerKm),
 		// Required TIMESTAMPTZ → time.Time
 		CreatedAt: r.CreatedAt.Time,
 		UpdatedAt: r.UpdatedAt.Time,
@@ -433,6 +512,17 @@ func numericFromFloat64(f float64) (pgtype.Numeric, error) {
 		return pgtype.Numeric{}, err
 	}
 	return n, nil
+}
+
+// numericPtrFromFloat64 converts a *float64 to a nullable pgtype.Numeric. nil →
+// pgtype.Numeric{Valid: false} (SQL NULL); non-nil → the same decimal-string Scan
+// path numericFromFloat64 uses. Backs EnergyAddedKWh on the write path, now that
+// energy_added_kwh is optional (MAG-18/RM33 design.md D2).
+func numericPtrFromFloat64(f *float64) (pgtype.Numeric, error) {
+	if f == nil {
+		return pgtype.Numeric{Valid: false}, nil
+	}
+	return numericFromFloat64(*f)
 }
 
 // dateFromTime converts a time.Time to a valid pgtype.Date for a DATE column.
@@ -457,6 +547,16 @@ func intPtrToPgInt2(v *int) pgtype.Int2 {
 		return pgtype.Int2{Valid: false}
 	}
 	return pgtype.Int2{Int16: int16(*v), Valid: true}
+}
+
+// intPtrToPgInt4 maps a *int to a nullable pgtype.Int4 (INTEGER).
+// nil → invalid (SQL NULL); non-nil → valid Int32. Backs OdometerKm on the write
+// path (MAG-18/RM33 design.md D6).
+func intPtrToPgInt4(v *int) pgtype.Int4 {
+	if v == nil {
+		return pgtype.Int4{Valid: false}
+	}
+	return pgtype.Int4{Int32: int32(*v), Valid: true}
 }
 
 // stringPtrToPgText maps a *string to a nullable pgtype.Text.
@@ -498,6 +598,17 @@ func pgInt2ToIntPtr(v pgtype.Int2) *int {
 		return nil
 	}
 	n := int(v.Int16)
+	return &n
+}
+
+// pgInt4ToIntPtr converts a nullable pgtype.Int4 to *int.
+// !Valid → nil (SQL NULL); Valid → pointer to int(v.Int32). Backs OdometerKm on
+// the read path (MAG-18/RM33 design.md D6).
+func pgInt4ToIntPtr(v pgtype.Int4) *int {
+	if !v.Valid {
+		return nil
+	}
+	n := int(v.Int32)
 	return &n
 }
 

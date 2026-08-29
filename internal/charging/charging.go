@@ -2,9 +2,12 @@
 // entries: home/work/third-party charging sessions that Tesla's Fleet API cannot
 // capture (no Fleet API call, no OAuth scope, no vehicle wake). Users manually log
 // the date, energy added (kWh), cost, and optional metadata (battery before/after,
-// timing, charging type, location). The module persists and retrieves these entries,
-// enforces multi-tenant data isolation, and computes derived values (cost-per-kWh,
-// battery delta, session duration) on read as value-receiver methods on Entry.
+// timing, charging type, location, odometer). Every entry carries a lifecycle
+// Status (IN_PROGRESS or DONE, MAG-18/RM33), and energy may be omitted and derived
+// on write from the pack capacity and the battery delta (design.md D3). The module
+// persists and retrieves these entries, enforces multi-tenant data isolation, and
+// computes derived values (cost-per-kWh, battery delta, session duration) on read
+// as value-receiver methods on Entry.
 //
 // Public ports are Writer (Create/Update/Delete) and Reader (list by vehicle / by
 // account). No HTML, no Templ, no Tesla adapter — this module is backend-only.
@@ -20,6 +23,49 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// Status is the lifecycle state of a manual charge entry (TEXT + CHECK in the DB,
+// MAG-18/RM33 design.md D1/D5). The required-field set for storing an Entry is a
+// function of its Status — see RequiredFieldsFor.
+type Status string
+
+const (
+	// StatusInProgress is both the column's DEFAULT and what an empty Status
+	// normalizes to (normalizeStatus, design.md D8) — a charge logged at
+	// plug-in time, which may lack the end-of-session facts.
+	StatusInProgress Status = "IN_PROGRESS"
+	// StatusDone is a complete charge record. RequiredFieldsFor additionally
+	// requires EndedAt and EndBatteryPct for this status. There is no status
+	// transition rule — DONE -> IN_PROGRESS is permitted (design.md D5).
+	StatusDone Status = "DONE"
+)
+
+// EnergySource is the provenance of Entry.EnergyAddedKWh: EnergySourceUser when
+// the value came from the person, EnergySourceEstimated when this module derived
+// it from the pack capacity and the battery delta on write (design.md D3/D4).
+// ALWAYS COMPUTED BY internal/charging on Create/Update — a value set on the Entry
+// passed to Writer is ignored and overwritten, the same shape
+// charge_sessions.battery_pct_source already uses via SessionVerifier.VerifySession.
+type EnergySource string
+
+const (
+	EnergySourceUser      EnergySource = "USER"
+	EnergySourceEstimated EnergySource = "ESTIMATED"
+)
+
+// Field names one field of an Entry whose presence RequiredFieldsFor can evaluate.
+// Its string value is the database COLUMN NAME, which is ALSO the gateway's form
+// input name and its validation-error map key (handlers/charges.go) — so the
+// gateway can map a Field straight onto an input with no translation table
+// (design.md D5).
+type Field string
+
+const (
+	FieldChargedOn     Field = "charged_on"
+	FieldLocationKind  Field = "location_kind"
+	FieldEndedAt       Field = "ended_at"
+	FieldEndBatteryPct Field = "end_battery_pct"
+)
+
 // Entry is our domain model for one user-asserted charge session (no vendor suffix —
 // this is our own type, safe to build logic on, distinct from any external-API DTO;
 // see ai/architecture.md §6). Optional fields use *T: nil means the user did not
@@ -33,11 +79,15 @@ type Entry struct {
 	TeslaID   int64
 	VIN       string
 
+	// Status is this entry's lifecycle state. The required-field set for
+	// Create/Update is a function of Status — see RequiredFieldsFor. An empty
+	// Status normalizes to StatusInProgress (design.md D8).
+	Status Status
+
 	// Required fields — user must supply on Create.
-	ChargedOn      time.Time // DATE column: midnight UTC of the charge day
-	EnergyAddedKWh float64   // kWh added; NUMERIC(6,2) in DB; must be > 0
-	Price          float64   // cost in Currency; NUMERIC(14,2) in DB; must be >= 0
-	Currency       string    // ISO 4217 code; defaults to 'COP' in DB
+	ChargedOn time.Time // DATE column: midnight UTC of the charge day
+	Price     float64   // cost in Currency; NUMERIC(14,2) in DB; must be >= 0
+	Currency  string    // ISO 4217 code; defaults to 'COP' in DB
 
 	// Optional fields — nil when not supplied by the user (NULL in DB).
 	StartedAt       *time.Time // TIMESTAMPTZ: exact session start, when known
@@ -48,6 +98,28 @@ type Entry struct {
 	LocationKind    *string    // 'HOME', 'WORK', or 'OTHER'; TEXT CHECK in DB
 	LocationLabel   *string    // free text, especially useful for 'OTHER'
 	Notes           *string    // any user comment
+
+	// EnergyAddedKWh is the energy added, in kWh; NUMERIC(6,2) in DB,
+	// CHECK (> 0) when non-NULL (the CHECK evaluates NULL, not false, on a NULL
+	// input, so it still rejects 0 and negatives while permitting NULL). nil
+	// means not supplied and not derivable — an IN_PROGRESS entry legitimately
+	// has no end-of-session facts, so no honest value exists yet (design.md D2).
+	// When nil and both battery percentages are present with EndBatteryPct >
+	// StartBatteryPct, Writer.Create/Update derives a value on write and sets
+	// EnergySource to EnergySourceEstimated (design.md D3). Never a fabricated 0.
+	EnergyAddedKWh *float64
+
+	// EnergySource is the provenance of EnergyAddedKWh. ALWAYS COMPUTED BY THIS
+	// MODULE on Create/Update — a value set here is ignored and overwritten,
+	// the same way InferredCapacityKWhCalc below is ignored on write
+	// (design.md D4).
+	EnergySource EnergySource
+
+	// OdometerKm is the odometer reading, in kilometres, observed AT this
+	// charge event — an observation belonging to the event, not current
+	// vehicle state, which is why it lives here and not on a vehicle table
+	// (design.md D6). nil means not recorded.
+	OdometerKm *int
 
 	// InferredCapacityKWhCalc is the pack capacity in kWh implied by this entry
 	// alone: EnergyAddedKWh / ((EndBatteryPct - StartBatteryPct) / 100), rounded to
@@ -70,14 +142,16 @@ type Entry struct {
 }
 
 // CostPerKWh returns the effective cost per kilowatt-hour for this entry:
-// Price / EnergyAddedKWh. Returns nil when EnergyAddedKWh is zero (defensive
-// nil-guard; the DB CHECK constraint prevents zero, but this method is nil-safe
-// by convention). Derived on read, never stored (design D2j).
+// Price / EnergyAddedKWh. Returns nil when EnergyAddedKWh is nil (not supplied
+// and not derivable, design.md D2) or when it points at zero (defensive
+// nil-guard surviving the *float64 change; the DB CHECK constraint prevents a
+// stored zero, but this method stays nil-safe by convention). Derived on read,
+// never stored (design D2j).
 func (e Entry) CostPerKWh() *float64 {
-	if e.EnergyAddedKWh == 0 {
+	if e.EnergyAddedKWh == nil || *e.EnergyAddedKWh == 0 {
 		return nil
 	}
-	v := e.Price / e.EnergyAddedKWh
+	v := e.Price / *e.EnergyAddedKWh
 	return &v
 }
 

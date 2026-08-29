@@ -7,7 +7,7 @@
   "request": "Source ticket: MAG-18 \u2014 https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records. Tier 1 of roadmap RM33-manual-record-status, module charging, implementing roadmap decisions D1-D8: add status (IN_PROGRESS/DONE), energy_source (USER/ESTIMATED) and odometer_km columns to manual_charge_entries; drop NOT NULL on energy_added_kwh; add the declarative RequiredFieldsFor status-conditional validation; add the packCapacityKWh seam and derive energy on write when the user leaves it blank.",
   "status": "in-progress",
   "created_at": "2026-08-29T11:13:27Z",
-  "updated_at": "2026-08-29T14:21:21Z",
+  "updated_at": "2026-08-29T14:28:02Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,9 +23,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "2.1",
-      "2.3",
-      "2.4",
       "3.1",
       "3.2",
       "3.3",
@@ -34,14 +31,18 @@
       "4.2",
       "5.1",
       "L1",
-      "L2"
+      "L2",
+      "L1b"
     ],
     "blocked": [],
     "done": [
       "1.1",
       "1.2",
       "1.3",
-      "2.2"
+      "2.2",
+      "2.1",
+      "2.3",
+      "2.4"
     ]
   },
   "tasks": [
@@ -128,14 +129,23 @@
         "1.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:22:09Z",
+      "completed_at": "2026-08-29T14:28:02Z",
+      "duration_seconds": 353,
+      "notes": "Status/EnergySource/Field types and constants added, three new Entry fields, EnergyAddedKWh now *float64 in the optional block, CostPerKWh nil-safe over the pointer. No interface re-signed.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 19,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 2.812,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 2.1+2.3+2.4; wave delta copied onto each"
+      }
     },
     {
       "id": "2.2",
@@ -169,14 +179,23 @@
         "2.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:22:09Z",
+      "completed_at": "2026-08-29T14:28:02Z",
+      "duration_seconds": 353,
+      "notes": "New validation.go: RequiredFieldsFor (fresh slice, fail-closed default), normalizeStatus ('' -> IN_PROGRESS, unknown -> error), missingFields in lookup order. Plain error, no typed struct.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 19,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 2.812,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 2.1+2.3+2.4; wave delta copied onto each"
+      }
     },
     {
       "id": "2.4",
@@ -189,14 +208,23 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:22:09Z",
+      "completed_at": "2026-08-29T14:28:02Z",
+      "duration_seconds": 353,
+      "notes": "Create/Update now normalize -> validate -> derive; both ad-hoc location_kind checks deleted; resolveEnergy never reads the caller's EnergySource; rowToEntry reuses pgNumericToFloat64Ptr; dead energyF8 block removed.",
+      "budget": {
+        "five_hour_pct_start": 9,
+        "five_hour_pct_end": 19,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 2.812,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one serial worker ran 2.1+2.3+2.4; wave delta copied onto each"
+      }
     },
     {
       "id": "3.1",
@@ -302,28 +330,6 @@
       "budget": null
     },
     {
-      "id": "5.1",
-      "title": "gofmt -l, go build ./..., go vet ./... \u2014 confirm no residual failures",
-      "module": "charging",
-      "depends_on": [
-        "3.1",
-        "3.2",
-        "3.3",
-        "3.4",
-        "4.1",
-        "L1"
-      ],
-      "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
-    },
-    {
       "id": "L1",
       "title": "Minimal mechanical *float64 nil-handling fix in internal/gateway (~14 sites, no feature change)",
       "module": "gateway",
@@ -348,6 +354,46 @@
         "4.1"
       ],
       "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "L1b",
+      "title": "Mechanical *float64 nil-handling fix in internal/analytics (reader.go:114 + 4 test fixture sites)",
+      "module": "analytics",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "gofmt -l, go build ./..., go vet ./... \u2014 confirm no residual failures",
+      "module": "charging",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "3.3",
+        "3.4",
+        "4.1",
+        "L1",
+        "L1b"
+      ],
+      "parallel_ok": false,
       "status": "pending",
       "agent": null,
       "model": null,
@@ -400,6 +446,33 @@
       "decision": "Unit and integration tests are INCLUDED",
       "why": "Overrides the owner's standing no-tests default; the module already has DB-backed tests on this table.",
       "covered_by": "roadmap header"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-29T14:22:09Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Defer the Step 5.7 suite ask to the end of wave 3 rather than after waves 1 and 2",
+      "why": "This change's tests are authored in wave 3; running the suite before they exist verifies nothing new and costs the owner two round-trips.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-29T14:28:02Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Append task L1b: the same mechanical *float64 fix in internal/analytics, which design.md D11 and task L1 both omit",
+      "why": "analytics/reader.go:114 sums Entry.EnergyAddedKWh; gateway imports analytics, so L1 alone cannot make go build green. Verified by the leader, not just reported.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-29T14:28:02Z",
+      "scope": "task:L1b",
+      "made_by": "leader",
+      "decision": "sumManualKWh skips nil energy rather than counting it as a known zero; no efficiency-semantics change in this tier",
+      "why": "Mirrors the s.EnergyKWh nil-guard two lines above and keeps L1b mechanical. Whether unknown-energy entries should distort efficiency is a separate change.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -427,6 +500,21 @@
       "at": "2026-08-29T14:21:21Z",
       "agent": "leader",
       "event": "wave 1 complete (1.1,1.2,1.3,2.2) \u2014 leader verified migration DDL, query.sql and the sqlc diff against design.md; 5h 3%->9%, $1.73"
+    },
+    {
+      "at": "2026-08-29T14:22:09Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (sonnet) for wave 2 (2.1, 2.3, 2.4) \u2014 budget start 5h=9% ctx=12%"
+    },
+    {
+      "at": "2026-08-29T14:28:02Z",
+      "agent": "leader",
+      "event": "wave 2 complete (2.1,2.3,2.4) \u2014 leader reviewed the service.go/validation.go diff against design.md D3/D4/D5/D8; 5h 9%->19%, $2.81"
+    },
+    {
+      "at": "2026-08-29T14:28:02Z",
+      "agent": "leader",
+      "event": "design.md D11 gap found and verified: the *float64 break also hits internal/analytics (reader.go:114, reader_test.go:258/313/314, db_integration_test.go:1678). Task L1b appended; 5.1 now also depends on it"
     }
   ]
 }
