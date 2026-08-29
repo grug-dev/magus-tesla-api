@@ -33,7 +33,7 @@
     ]
   },
   "created_at": "2026-08-29T15:40:00Z",
-  "updated_at": "2026-08-29T16:05:01Z",
+  "updated_at": "2026-08-29T16:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -468,6 +468,15 @@
       "decision": "Left a present-but-malformed ended_at on a DONE entry to the charging module's own write validator rather than adding a gateway parse-error branch",
       "why": "charging/validation.go already rejects a nil EndedAt for DONE and names the field; a second gateway check would duplicate module-owned rules. Flagged to the reviewer.",
       "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-29T16:12:00Z",
+      "scope": "wave:2",
+      "made_by": "leader",
+      "decision": "Added status=IN_PROGRESS to 5 pre-existing test fixtures the new required field broke, rather than relaxing the gateway's empty-status rejection",
+      "why": "design.md Test Contract A4 specifies a MISSING status must 422. The five tests assert nothing about status; adding the now-always-submitted field restores their original intent.",
+      "covered_by": "design.md Test Contract A4"
     }
   ],
   "events": [
@@ -520,6 +529,11 @@
       "at": "2026-08-29T16:05:01Z",
       "agent": "leader",
       "event": "WAVE 2 RECONCILED: 3.1, 3.2, 3.3 complete, all in handlers/charges.go. Leader-run signals all clean: gofmt (charges.go), go build ./..., go vet ./..., make ui-guard, make i18n-guard. Worker caught and fixed a real ordering bug (ended_at required-check moved into the same len(errs)>0 gate so Test Contract A2 reports both errors together). Tasks held at awaiting-user-verification pending the owner's suite run. Budget: five_hour 2->14%, cost $0.91->$4.35."
+    },
+    {
+      "at": "2026-08-29T16:12:00Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION (wave 2): the owner ran `make check` and reported it RED — 5 pre-existing handler tests 422'd (TestChargeCreate_ValidInput, TestChargeRowUpdate_ValidInput, TestChargeCreate_ValidLocationKind, TestChargeCreate_ClearedDates_PersistedNil, TestChargeCreate_3DecimalEnergy_Accepted), all posting no status field. Not a code defect: design.md A4 specifies missing status must 422. Leader repaired the 5 fixtures in place (added status=IN_PROGRESS; no assertion weakened — D8). go vet clean. Tasks 3.1-3.3 remain awaiting-user-verification pending a re-run."
     }
   ]
 }

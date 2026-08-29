@@ -585,6 +585,7 @@ func TestChargeCreate_ValidInput(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"10.5"},
 		"price":             {"5000"},
@@ -747,6 +748,7 @@ func TestChargeRowUpdate_ValidInput(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-16"},
 		"energy_added_kwh":  {"20.0"},
 		"price":             {"9000"},
@@ -1228,6 +1230,7 @@ func TestChargeCreate_ValidLocationKind(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"10.5"},
 		"price":             {"5000"},
@@ -1643,6 +1646,7 @@ func TestChargeCreate_ClearedDates_PersistedNil(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"10.5"},
 		"price":             {"5000"},
@@ -1689,6 +1693,7 @@ func TestChargeCreate_3DecimalEnergy_Accepted(t *testing.T) {
 
 	form := url.Values{
 		"csrf_token":        {"tok"},
+		"status":            {"IN_PROGRESS"},
 		"charged_on":        {"2026-07-15"},
 		"energy_added_kwh":  {"7.345"},
 		"price":             {"5000"},
