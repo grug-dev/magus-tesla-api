@@ -1675,7 +1675,7 @@ func seedManualEntry(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesl
 		TeslaID:         teslaID,
 		VIN:             "5YJ3E1EA0NF000001",
 		ChargedOn:       chargedOn,
-		EnergyAddedKWh:  10.0,
+		EnergyAddedKWh:  fp(10.0),
 		Price:           1000.0,
 		Currency:        "COP",
 		LocationKind:    &lk,

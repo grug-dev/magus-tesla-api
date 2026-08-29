@@ -605,11 +605,28 @@ func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragme
 		rawEndPct = strconv.Itoa(*e.EndBatteryPct)
 	}
 
+	// EnergyKWh is display text (RM33 tier 1, design.md D2/D11): an IN_PROGRESS
+	// entry may not know its energy yet, so a nil EnergyAddedKWh renders the
+	// project-wide empty placeholder "—" (roadmap D14), not a fabricated
+	// "0.00 kWh". Mirrors dashStat's "—" fallback (templates/pages/dashboard.go).
+	energyLabel := "—"
+	if e.EnergyAddedKWh != nil {
+		energyLabel = fmt.Sprintf("%.2f kWh", *e.EnergyAddedKWh)
+	}
+	// RawEnergyKWh feeds a number input's value attribute, not display text —
+	// an em-dash there would be an invalid/confusing input value, so a nil
+	// energy is the empty string, matching every other Raw* field on this VM
+	// (RawStartedAt, RawEndedAt, RawStartBatteryPct, ...) for an absent value.
+	rawEnergyKWh := ""
+	if e.EnergyAddedKWh != nil {
+		rawEnergyKWh = strconv.FormatFloat(*e.EnergyAddedKWh, 'f', 2, 64)
+	}
+
 	return fragments.ChargeEntryVM{
 		ID:                 e.ID.String(),
 		VehicleLabel:       label,
 		ChargedOnLabel:     e.ChargedOn.Format("Mon Jan 2, 2006"),
-		EnergyKWh:          fmt.Sprintf("%.2f kWh", e.EnergyAddedKWh),
+		EnergyKWh:          energyLabel,
 		PriceLabel:         formatMoney(e.Price, e.Currency),
 		Currency:           e.Currency,
 		CostPerKWhLabel:    costLabel,
@@ -620,7 +637,7 @@ func chargeEntryVMFromEntry(e charging.Entry, vehicles []account.Vehicle) fragme
 		LocationLabel:      locationLabelStr,
 		Notes:              notes,
 		RawChargedOn:       e.ChargedOn.Format("2006-01-02"),
-		RawEnergyKWh:       strconv.FormatFloat(e.EnergyAddedKWh, 'f', 2, 64),
+		RawEnergyKWh:       rawEnergyKWh,
 		RawPrice:           strconv.FormatFloat(e.Price, 'f', 2, 64),
 		RawStartedAt:       rawStartedAt,
 		RawEndedAt:         rawEndedAt,
@@ -795,7 +812,7 @@ func (h *Handler) parseChargeForm(c *gin.Context, uid uuid.UUID, vehicles []acco
 		TeslaID:         teslaID,
 		VIN:             vin,
 		ChargedOn:       chargedOn,
-		EnergyAddedKWh:  energy,
+		EnergyAddedKWh:  &energy,
 		Price:           price,
 		Currency:        currency,
 		LocationKind:    locationKindPtr,

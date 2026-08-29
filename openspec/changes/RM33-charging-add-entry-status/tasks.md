@@ -187,7 +187,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
 `math.Abs(*got-want) < 1e-9`; never `pgtype` in any assertion or helper
 (`internal/charging/AGENTS.md` §Testing Notes).
 
-- [ ] **3.1** **[module: charging worker]** Create `internal/charging/entry_status_test.go` —
+- [x] **3.1** **[module: charging worker]** Create `internal/charging/entry_status_test.go` —
   offline, no DB. Cover design.md Test Contract **A1–A5** (`RequiredFieldsFor`: both sets exactly
   and in order; **A3 as a set difference**, so the test states roadmap D5's skip-set rule rather
   than restating two literal slices; the defensive-copy property; fail-closed on an unknown
@@ -197,13 +197,13 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
   and an unknown VIN).
   `depends_on`: 2.2, 2.3 · `parallel_ok`: with 3.2, 3.3, 3.4
 
-- [ ] **3.2** **[module: charging worker]** `internal/charging/charging_test.go` — adapt to
+- [x] **3.2** **[module: charging worker]** `internal/charging/charging_test.go` — adapt to
   `*float64` at lines 21 and 40, and add design.md Test Contract **A6**: `CostPerKWh()` is `nil`
   for `EnergyAddedKWh == nil` (the new case), `nil` for `ptr(0)` (the existing guard, which must
   survive), and `≈64.516129` for `Price` 1000 / `ptr(15.5)`.
   `depends_on`: 2.1 · `parallel_ok`: with 3.1, 3.3, 3.4
 
-- [ ] **3.3** **[module: charging worker]** Create
+- [x] **3.3** **[module: charging worker]** Create
   `internal/charging/db_entry_status_integration_test.go` — `DATABASE_URL`-gated, mirroring
   `db_inferred_capacity_entries_integration_test.go`'s style and using the package's existing
   `testdb_test.go` pool. Cover design.md Test Contract **B1–B8** (direct SQL: the `DEFAULT`-path
@@ -217,7 +217,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
   Assert SQLSTATE `23514` on `CHECK` violations rather than message text.
   `depends_on`: 2.4 · `parallel_ok`: with 3.1, 3.2, 3.4
 
-- [ ] **3.4** **[module: charging worker]** Adapt the existing integration fixtures to `*float64` —
+- [x] **3.4** **[module: charging worker]** Adapt the existing integration fixtures to `*float64` —
   **mechanical, no behavioural change, and no expected value may be edited**:
   `db_integration_test.go` lines 69, 123, 238, 256 and
   `db_inferred_capacity_entries_integration_test.go` lines 128, 170, 203. Lines 238/256 set energy
@@ -229,7 +229,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
 
 ## Wave 4 — documentation (`CLAUDE.md` §Non-negotiables: docs track change)
 
-- [ ] **4.1** **[module: charging worker]** `internal/charging/AGENTS.md`:
+- [x] **4.1** **[module: charging worker]** `internal/charging/AGENTS.md`:
   - §Public Interface — the `Status` / `EnergySource` / `Field` types and constants,
     `RequiredFieldsFor` and its two sets, `Entry.EnergyAddedKWh` now `*float64`, the three new
     `Entry` fields, and that `EnergySource` is module-computed and ignored when supplied.
@@ -266,7 +266,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
 
 ## Cross-module task the leader owns
 
-- [ ] **L1** **[leader → a `gateway` worker]** The minimal mechanical compile fix for
+- [x] **L1** **[leader → a `gateway` worker]** The minimal mechanical compile fix for
   `Entry.EnergyAddedKWh` becoming `*float64` (design.md **D11**, proposal.md §Breaking). Sites:
   `internal/gateway/handlers/charges.go:612, 623, 798`;
   `internal/gateway/handlers/charges_test.go` (~10 fixture/assertion sites);
@@ -309,7 +309,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
   Expected on a database migrated from before this change: exactly one row —
   `IN_PROGRESS | USER | <total> | 0`.
 
-- [ ] **L1b** **[leader → an `analytics` worker]** *(appended by the leader after wave 2 —
+- [x] **L1b** **[leader → an `analytics` worker]** *(appended by the leader after wave 2 —
   design.md **D11** and task **L1** both name only `internal/gateway`, but the `*float64` break
   also lands in `internal/analytics`, and `internal/gateway` imports `internal/analytics`, so L1
   alone cannot make `go build ./...` green.)* The minimal mechanical fix:
@@ -321,3 +321,18 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
   an unknown-energy entry should be excluded from the efficiency window differently is a separate
   change, not this tier's.
   `depends_on`: 2.1 · `parallel_ok`: with Wave 3, Wave 4 and L1
+
+- [ ] **3.5** **[module: charging worker]** *(appended by the leader at the wave-3 reconcile — a
+  wave-2 regression the wave-3 worker correctly reported instead of silently fixing, since it fell
+  outside the lines task 3.4 authorized.)* `internal/charging/db_integration_test.go` lines **841,
+  873 and 979** (`TestCreate_RejectsNilLocationKind`, `TestCreate_RejectsEmptyLocationKind`,
+  `TestUpdate_RejectsNilLocationKind`) assert `strings.Contains(err.Error(), "location_kind is
+  required")`. Task 2.4 deleted the ad-hoc check that produced that sentence (design.md **D5**),
+  so the error is now `charging: status IN_PROGRESS requires: location_kind`. These three compile
+  cleanly — `go vet` is silent — and fail only at run time.
+  - Update the expected text to the **D5 message format**, and the `t.Errorf` text with it.
+  - **Change nothing else in those tests.** The `err != nil` assertion and the "no row was
+    inserted" / "row unchanged" assertions are the actual behavioural contract, they are still
+    correct, and they must survive untouched. This is a message-format update, not a weakening of
+    what the tests prove.
+  `depends_on`: 2.4 · `parallel_ok`: yes

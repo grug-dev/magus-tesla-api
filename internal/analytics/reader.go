@@ -104,14 +104,18 @@ func sumSuperchargerKWh(sessions []charging.Session, since time.Time) float64 {
 
 // sumManualKWh sums EnergyAddedKWh across entries at or after since — the D6 in-Go
 // date filter for the manual-charge source (ListEntriesByVehicle also has no
-// since parameter).
+// since parameter). EnergyAddedKWh is nullable since MAG-18/RM33; an entry with
+// unknown energy (nil) contributes nothing to the total, consistent with how
+// sumSuperchargerKWh handles sessions with nil EnergyKWh (design.md D2).
 func sumManualKWh(entries []charging.Entry, since time.Time) float64 {
 	var total float64
 	for _, e := range entries {
 		if e.ChargedOn.Before(since) {
 			continue
 		}
-		total += e.EnergyAddedKWh
+		if e.EnergyAddedKWh != nil {
+			total += *e.EnergyAddedKWh
+		}
 	}
 	return total
 }

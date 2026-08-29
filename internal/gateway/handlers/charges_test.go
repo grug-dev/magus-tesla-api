@@ -382,7 +382,7 @@ func TestChargesListFragment_WithEntries(t *testing.T) {
 			TeslaID:        1001,
 			VIN:            "VIN1001",
 			ChargedOn:      chargedOn,
-			EnergyAddedKWh: 10.0,
+			EnergyAddedKWh: ptrF64(10.0),
 			Price:          5000.0,
 			Currency:       "COP",
 		},
@@ -603,8 +603,10 @@ func TestChargeCreate_ValidInput(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("want 200 on valid create, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
-	if writer.createEntry.EnergyAddedKWh != 10.5 {
-		t.Errorf("want energy 10.5 persisted, got %f", writer.createEntry.EnergyAddedKWh)
+	if got := writer.createEntry.EnergyAddedKWh; got == nil {
+		t.Errorf("want energy 10.5 persisted, got nil")
+	} else if *got != 10.5 {
+		t.Errorf("want energy 10.5 persisted, got %f", *got)
 	}
 	// D5: Currency hardcoded COP despite no `currency` form field.
 	if writer.createEntry.Currency != "COP" {
@@ -651,7 +653,7 @@ func TestChargeRowEditFragment_WithEntry(t *testing.T) {
 			TeslaID:        1001,
 			VIN:            "VIN1001",
 			ChargedOn:      time.Now(),
-			EnergyAddedKWh: 15.0,
+			EnergyAddedKWh: ptrF64(15.0),
 			Price:          7000.0,
 			Currency:       "COP",
 		},
@@ -915,8 +917,8 @@ func TestChargeCreate_NoSessionToken(t *testing.T) {
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("want 403 when session has no csrf token and none submitted, got %d", w.Code)
 	}
-	if writer.createEntry.EnergyAddedKWh != 0 {
-		t.Errorf("no entry should be created on CSRF failure, got energy %f", writer.createEntry.EnergyAddedKWh)
+	if writer.createEntry.EnergyAddedKWh != nil {
+		t.Errorf("no entry should be created on CSRF failure, got energy %v", *writer.createEntry.EnergyAddedKWh)
 	}
 }
 
@@ -949,8 +951,8 @@ func TestChargeRowUpdate_NoSessionToken(t *testing.T) {
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("want 403 on update when session has no csrf token, got %d", w.Code)
 	}
-	if writer.updateEntry.EnergyAddedKWh != 0 {
-		t.Errorf("no entry should be updated on CSRF failure, got energy %f", writer.updateEntry.EnergyAddedKWh)
+	if writer.updateEntry.EnergyAddedKWh != nil {
+		t.Errorf("no entry should be updated on CSRF failure, got energy %v", *writer.updateEntry.EnergyAddedKWh)
 	}
 }
 
@@ -1005,7 +1007,7 @@ func TestChargeEntryVMFromEntry(t *testing.T) {
 		TeslaID:         1001,
 		VIN:             "VIN1001",
 		ChargedOn:       time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
-		EnergyAddedKWh:  12.5,
+		EnergyAddedKWh:  ptrF64(12.5),
 		Price:           15000.0,
 		Currency:        "COP",
 		StartedAt:       &start,
@@ -1080,7 +1082,7 @@ func TestChargeEntryVMFromEntry_RawFieldsNeverCommaGrouped(t *testing.T) {
 		TeslaID:        1001,
 		VIN:            "VIN1001",
 		ChargedOn:      time.Date(2026, 7, 15, 0, 0, 0, 0, time.UTC),
-		EnergyAddedKWh: 1200.5,
+		EnergyAddedKWh: ptrF64(1200.5),
 		Price:          58000.0,
 		Currency:       "COP",
 	}
@@ -1135,9 +1137,9 @@ func TestChargeCreate_MissingLocationKind(t *testing.T) {
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("want 422 on missing location_kind, got %d", w.Code)
 	}
-	if writer.createEntry.EnergyAddedKWh != 0 {
-		t.Errorf("Writer.Create must NOT be called on missing location_kind, got energy %f",
-			writer.createEntry.EnergyAddedKWh)
+	if writer.createEntry.EnergyAddedKWh != nil {
+		t.Errorf("Writer.Create must NOT be called on missing location_kind, got energy %v",
+			*writer.createEntry.EnergyAddedKWh)
 	}
 	body := w.Body.String()
 	// Resolved language is Spanish here (KeyChargesErrorLocationRequired's ES value).
@@ -1175,7 +1177,7 @@ func TestChargeCreate_InvalidLocationKind(t *testing.T) {
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("want 422 on invalid location_kind, got %d", w.Code)
 	}
-	if writer.createEntry.EnergyAddedKWh != 0 {
+	if writer.createEntry.EnergyAddedKWh != nil {
 		t.Errorf("Writer.Create must NOT be called on invalid location_kind")
 	}
 }
@@ -1210,7 +1212,7 @@ func TestChargeRowUpdate_MissingLocationKind(t *testing.T) {
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("want 422 on missing location_kind for update, got %d", w.Code)
 	}
-	if writer.updateEntry.EnergyAddedKWh != 0 {
+	if writer.updateEntry.EnergyAddedKWh != nil {
 		t.Errorf("Writer.Update must NOT be called on missing location_kind")
 	}
 }
@@ -1529,7 +1531,7 @@ func TestChargeCreate_MissingBatteryPct_Rejected(t *testing.T) {
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("want 422 on missing start_battery_pct, got %d", w.Code)
 	}
-	if writer.createEntry.EnergyAddedKWh != 0 {
+	if writer.createEntry.EnergyAddedKWh != nil {
 		t.Errorf("Writer.Create must NOT be called when start_battery_pct is missing")
 	}
 	body := w.Body.String()
@@ -1583,7 +1585,7 @@ func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 			if w.Code != http.StatusUnprocessableEntity {
 				t.Fatalf("want 422 on out-of-range battery, got %d", w.Code)
 			}
-			if writer.createEntry.EnergyAddedKWh != 0 {
+			if writer.createEntry.EnergyAddedKWh != nil {
 				t.Errorf("Writer.Create must NOT be called on out-of-range battery")
 			}
 			if !strings.Contains(w.Body.String(), tc.wantInBody) {
@@ -1706,9 +1708,9 @@ func TestChargeCreate_3DecimalEnergy_Accepted(t *testing.T) {
 		t.Fatalf("want 200 on 3-decimal energy, got %d body=%q",
 			w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
-	if writer.createEntry.EnergyAddedKWh != 7.345 {
+	if got := writer.createEntry.EnergyAddedKWh; got == nil || *got != 7.345 {
 		t.Errorf("want EnergyAddedKWh=7.345 persisted (no server-side rounding — D7), got %v",
-			writer.createEntry.EnergyAddedKWh)
+			got)
 	}
 }
 
@@ -1743,7 +1745,7 @@ func TestChargeCreate_NonPositiveEnergy_Rejected(t *testing.T) {
 		if w.Code != http.StatusUnprocessableEntity {
 			t.Errorf("energy=%v: want 422 (non-positive rejected), got %d", v, w.Code)
 		}
-		if writer.createEntry.EnergyAddedKWh != 0 {
+		if writer.createEntry.EnergyAddedKWh != nil {
 			t.Errorf("energy=%v: Writer.Create must NOT be called", v)
 		}
 	}
@@ -1764,7 +1766,7 @@ func TestChargeRowDelete_ThenListReflectsRemoval(t *testing.T) {
 	// so we re-set entries between the two GETs).
 	reader := &fakeChargeReader{entries: []charging.Entry{
 		{ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", ChargedOn: time.Now(),
-			EnergyAddedKWh: 10.0, Price: 5000.0, Currency: "COP"},
+			EnergyAddedKWh: ptrF64(10.0), Price: 5000.0, Currency: "COP"},
 	}}
 	writer := &fakeChargeWriter{}
 	h := newHandlerForCharges(writer, reader)

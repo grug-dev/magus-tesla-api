@@ -255,7 +255,7 @@ func TestRecentEfficiency_HappyPath_ComputesValue(t *testing.T) {
 		{ChargeStartDateTime: since.Add(24 * time.Hour), EnergyKWh: fp(sessionEnergy)},
 	}}
 	manualFake := &fakeManualReader{entries: []charging.Entry{
-		{ChargedOn: since.Add(48 * time.Hour), EnergyAddedKWh: entryEnergy},
+		{ChargedOn: since.Add(48 * time.Hour), EnergyAddedKWh: fp(entryEnergy)},
 	}}
 	vehicleFake := &fakeVehicleLookup{vehicles: []account.Vehicle{
 		{TeslaID: teslaID, CarType: sp("model3")},
@@ -310,8 +310,8 @@ func TestRecentEfficiency_WindowExcludesOldEntries(t *testing.T) {
 		{ChargeStartDateTime: since.Add(-24 * time.Hour), EnergyKWh: fp(100.0)}, // before window
 	}}
 	manualFake := &fakeManualReader{entries: []charging.Entry{
-		{ChargedOn: since.Add(48 * time.Hour), EnergyAddedKWh: 2.0},   // in window
-		{ChargedOn: since.Add(-48 * time.Hour), EnergyAddedKWh: 50.0}, // before window
+		{ChargedOn: since.Add(48 * time.Hour), EnergyAddedKWh: fp(2.0)},   // in window
+		{ChargedOn: since.Add(-48 * time.Hour), EnergyAddedKWh: fp(50.0)}, // before window
 	}}
 	vehicleFake := &fakeVehicleLookup{vehicles: []account.Vehicle{
 		{TeslaID: teslaID, CarType: sp("model3")},

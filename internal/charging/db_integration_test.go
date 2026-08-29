@@ -66,7 +66,7 @@ func minEntry(accountID uuid.UUID, teslaID int64) charging.Entry {
 		TeslaID:        teslaID,
 		VIN:            "5YJ3E1EA0NF000001",
 		ChargedOn:      time.Date(2026, 7, 18, 0, 0, 0, 0, time.UTC),
-		EnergyAddedKWh: 20.5,
+		EnergyAddedKWh: ptrFloat64(20.5),
 		Price:          45000.00,
 		Currency:       "COP",
 		LocationKind:   &lk,
@@ -120,7 +120,7 @@ func TestCreate_RequiredOnly(t *testing.T) {
 	if got, want := created.VIN, e.VIN; got != want {
 		t.Errorf("VIN: got %q, want %q", got, want)
 	}
-	if got, want := created.EnergyAddedKWh, e.EnergyAddedKWh; got != want {
+	if got, want := created.EnergyAddedKWh, e.EnergyAddedKWh; got == nil || want == nil || *got != *want {
 		t.Errorf("EnergyAddedKWh: got %v, want %v", got, want)
 	}
 	if got, want := created.Price, e.Price; got != want {
@@ -235,7 +235,7 @@ func TestCreate_CheckConstraint_EnergyZero(t *testing.T) {
 	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 111)
-	e.EnergyAddedKWh = 0 // violates CHECK (energy_added_kwh > 0)
+	e.EnergyAddedKWh = ptrFloat64(0) // violates CHECK (energy_added_kwh > 0)
 
 	_, err := w.Create(ctx, e)
 	if err == nil {
@@ -253,7 +253,7 @@ func TestCreate_CheckConstraint_EnergyNegative(t *testing.T) {
 	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 112)
-	e.EnergyAddedKWh = -5.0 // violates CHECK (energy_added_kwh > 0)
+	e.EnergyAddedKWh = ptrFloat64(-5.0) // violates CHECK (energy_added_kwh > 0)
 
 	_, err := w.Create(ctx, e)
 	if err == nil {

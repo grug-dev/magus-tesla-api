@@ -102,6 +102,76 @@ strictly increasing delta) did not support the formula — never an error. See
 The gateway (Tier 2 `RM3-gateway-add-manual-charge-ui`) wires these interfaces into `cmd/web`
 Deps and calls them from handlers. The gateway never imports `chargingdb` directly.
 
+### Entry lifecycle status and energy provenance (MAG-18/RM33, RM33-charging-add-entry-status)
+
+```go
+// Status is the lifecycle state of a manual charge entry (TEXT + CHECK in the DB).
+type Status string
+
+const (
+    StatusInProgress Status = "IN_PROGRESS" // logged at plug-in time; may lack end-of-session facts
+    StatusDone       Status = "DONE"        // complete; no transition rule -- DONE -> IN_PROGRESS is permitted
+)
+
+// EnergySource is the provenance of Entry.EnergyAddedKWh. ALWAYS COMPUTED BY THIS
+// MODULE on Create/Update -- a value set on the Entry passed to Writer is ignored
+// and overwritten, the same shape charge_sessions.battery_pct_source already uses.
+type EnergySource string
+
+const (
+    EnergySourceUser      EnergySource = "USER"      // the value came from the person
+    EnergySourceEstimated EnergySource = "ESTIMATED" // derived from pack capacity + battery delta on write
+)
+
+// Field names one field of an Entry whose presence RequiredFieldsFor can evaluate.
+// Its string value is the database column name, which is ALSO the gateway's form
+// input name and its validation-error map key (handlers/charges.go).
+type Field string
+
+const (
+    FieldChargedOn     Field = "charged_on"
+    FieldLocationKind  Field = "location_kind"
+    FieldEndedAt       Field = "ended_at"
+    FieldEndBatteryPct Field = "end_battery_pct"
+)
+
+// RequiredFieldsFor is the SINGLE SOURCE OF TRUTH for which fields an entry must
+// carry to be stored with the given status: Writer.Create/Update enforce exactly
+// this, and internal/gateway (tier 2) drives which inputs render as required from
+// exactly this. Returns a fresh slice on every call. An unrecognized status
+// returns the DONE (strictest) set -- fail-closed.
+func RequiredFieldsFor(s Status) []Field
+```
+
+| `Status` | `RequiredFieldsFor` set |
+|---|---|
+| `IN_PROGRESS` | `charged_on`, `location_kind` |
+| `DONE` | `charged_on`, `location_kind`, `ended_at`, `end_battery_pct` |
+
+**`Entry.EnergyAddedKWh` is `*float64`, not `float64`** (was `float64` before this
+change). `nil` means not supplied and not derivable -- an `IN_PROGRESS` entry
+legitimately has no end-of-session facts, so no honest value exists yet. When
+`nil` and both battery percentages are present with `EndBatteryPct >
+StartBatteryPct`, `Writer.Create`/`Update` derives a value on write from the
+(currently hardcoded `62.0`) pack capacity and sets `EnergySource` to
+`EnergySourceEstimated` -- never a fabricated `0`. `CostPerKWh()` is nil-safe
+over the pointer: `nil` when `EnergyAddedKWh == nil` and (as before) when it
+points at `0`.
+
+`Entry` gained three more fields in the same change:
+
+- **`Status Status`** -- see above; an empty `Status` normalizes to
+  `StatusInProgress` on `Create`/`Update` (any other unrecognized value is
+  rejected in Go, before any DB call).
+- **`EnergySource EnergySource`** -- **module-computed and ignored when
+  supplied**: a value set on the `Entry` handed to `Writer.Create`/`Update` is
+  never read; the module always overwrites it (`EnergySourceEstimated` when it
+  derived the energy, `EnergySourceUser` in every other case, including a `nil`
+  it could not derive).
+- **`OdometerKm *int`** -- the odometer reading, in kilometres, observed **at**
+  this charge event (an observation belonging to the event, not current vehicle
+  state). `nil` means not recorded.
+
 ### The Supercharger mirror port (RM29 tier 6)
 
 ```go
@@ -420,6 +490,37 @@ unit segment (design.md D1, charging-add-inferred-capacity).
   negative capacity — design.md D3). Recomputed automatically by the engine on
   every `INSERT`/`UPDATE` through `Writer.Create`/`Writer.Update`; unwritable by
   any caller (`428C9` on a direct attempt).
+- **`status`, `energy_source`, `odometer_km`, and a relaxed `energy_added_kwh`**
+  (MAG-18/RM33, RM33-charging-add-entry-status,
+  `internal/charging/db/migrations/20260829000002_add_entry_status.sql`):
+  - `status TEXT NOT NULL DEFAULT 'IN_PROGRESS' CHECK (status IN ('IN_PROGRESS','DONE'))`
+    — every pre-existing row backfilled to `IN_PROGRESS` by the column `DEFAULT`
+    (deliberate: historical entries surface as unreviewed, design.md D1). The
+    required-field set per status lives in Go (`RequiredFieldsFor`), **not** as a
+    second DB `CHECK` — a `CHECK` backstop would turn every future change to the
+    skip set into a migration (design.md D5).
+  - `energy_source TEXT NOT NULL DEFAULT 'USER' CHECK (energy_source IN ('USER','ESTIMATED'))`
+    — always computed by this module, never accepted from a caller (design.md D4).
+  - `odometer_km INTEGER CHECK (odometer_km >= 0)` — nullable; the odometer
+    reading observed at the charge event.
+  - `energy_added_kwh` **drops its `NOT NULL`** (was `NOT NULL` before this
+    change). `CHECK (energy_added_kwh > 0)` is **retained unchanged** and still
+    rejects `0` and every negative — a `CHECK` evaluates `NULL`, not `false`, on
+    a `NULL` input, so the same constraint now also accepts `NULL` for free
+    (design.md D2).
+  - **No index was added on any of the three new columns** — none is
+    predicated on by any read query in this tier; an index on a column nothing
+    filters/orders/joins by is pure write and storage cost for no read benefit
+    (design.md §Index Plan, D9). If a future change needs to filter by `status`,
+    the design's revisit trigger is a **partial**, `account_id`-leading index
+    over `WHERE status = 'IN_PROGRESS'` — not a standalone `(status)` index.
+  - Energy may be **derived on write** via the unexported `packCapacityKWh(ctx,
+    vin) (float64, error)` seam in `capacity.go`, which today returns a
+    hardcoded `62.0` for every vehicle (`TODO(MAG-18)`). Backlog #18 replaces
+    its body with a real per-vehicle lookup — a one-file change by design — and
+    that lookup **must filter `WHERE energy_source = 'USER'`** when averaging
+    inferred capacities, or it averages this constant back into itself
+    (design.md D4/D7).
 
 ### `charge_sessions` (RM29 tier 6, RM29-charging-add-charge-sessions)
 
@@ -523,6 +624,20 @@ unit segment (design.md D1, charging-add-inferred-capacity).
   the real check is the owner's post-`migrate-up` query
   (`openspec/changes/charging-add-inferred-capacity/tasks.md` §"Owner
   verification").
+  Since MAG-18/RM33 (RM33-charging-add-entry-status), `entry_status_test.go`
+  (package `charging`, not `charging_test` — it needs the unexported
+  `derivedEnergyKWh`/`packCapacityKWh`) covers `RequiredFieldsFor`'s two sets,
+  its defensive-copy and fail-closed properties, the derivation table, and the
+  rounding rule, against design.md Test Contract Group A (A1-A5, A7-A9);
+  `db_entry_status_integration_test.go` covers the schema/`CHECK` behaviour and
+  the `Writer`/`Reader` write-path rules against Groups B and C (B1-B8, C1-C16).
+  As with MAG-25, the pre-existing-row **backfill is NOT covered by an
+  integration test** for the identical reason (design.md D10 of this change):
+  the package's test database is provisioned fresh with every migration
+  applied before any row exists, so B1 proves the `DEFAULT` *mechanism* rather
+  than the real backfill outcome — the owner confirms the outcome after
+  `make migrate-up` (`openspec/changes/RM33-charging-add-entry-status/tasks.md`
+  §"Owner verification").
   The test database is provisioned by `testdb_test.go`:
     - When `DATABASE_URL` is set, that managed Postgres is used (CI with a service container,
       or a local DB you've already provisioned).

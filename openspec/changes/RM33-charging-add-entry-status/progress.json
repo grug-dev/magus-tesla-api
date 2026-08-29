@@ -7,7 +7,7 @@
   "request": "Source ticket: MAG-18 \u2014 https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records. Tier 1 of roadmap RM33-manual-record-status, module charging, implementing roadmap decisions D1-D8: add status (IN_PROGRESS/DONE), energy_source (USER/ESTIMATED) and odometer_km columns to manual_charge_entries; drop NOT NULL on energy_added_kwh; add the declarative RequiredFieldsFor status-conditional validation; add the packCapacityKWh seam and derive energy on write when the user leaves it blank.",
   "status": "in-progress",
   "created_at": "2026-08-29T11:13:27Z",
-  "updated_at": "2026-08-29T14:28:02Z",
+  "updated_at": "2026-08-29T14:39:42Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -21,18 +21,18 @@
     "created_at": "2026-08-29T11:13:27Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       "3.1",
       "3.2",
       "3.3",
       "3.4",
       "4.1",
-      "4.2",
-      "5.1",
       "L1",
-      "L2",
       "L1b"
+    ],
+    "pending": [
+      "3.5",
+      "5.1"
     ],
     "blocked": [],
     "done": [
@@ -42,7 +42,9 @@
       "2.2",
       "2.1",
       "2.3",
-      "2.4"
+      "2.4",
+      "4.2",
+      "L2"
     ]
   },
   "tasks": [
@@ -235,14 +237,23 @@
         "2.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:29:25Z",
+      "completed_at": "2026-08-29T14:39:42Z",
+      "duration_seconds": 553,
+      "notes": "New entry_status_test.go covers A1-A5 and A7-A9; A3 written as a genuine set difference over two live RequiredFieldsFor calls, A8 uses capacity 62.35 so deleting the rounding would fail it.",
+      "budget": {
+        "five_hour_pct_start": 19,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 29,
+        "cost_usd_delta": 11.19,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "three workers ran concurrently in wave 3 (charging 3.1-3.4+4.1, analytics L1b, gateway L1); delta is the joint wave cost"
+      }
     },
     {
       "id": "3.2",
@@ -252,14 +263,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:29:25Z",
+      "completed_at": "2026-08-29T14:39:42Z",
+      "duration_seconds": 553,
+      "notes": "charging_test.go adapted to *float64 at lines 21/40; TestCostPerKWh_A6 covers nil, ptr(0) and ptr(15.5) at Price 1000.",
+      "budget": {
+        "five_hour_pct_start": 19,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 29,
+        "cost_usd_delta": 11.19,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "three workers ran concurrently in wave 3 (charging 3.1-3.4+4.1, analytics L1b, gateway L1); delta is the joint wave cost"
+      }
     },
     {
       "id": "3.3",
@@ -269,14 +289,23 @@
         "2.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:29:25Z",
+      "completed_at": "2026-08-29T14:39:42Z",
+      "duration_seconds": 553,
+      "notes": "New db_entry_status_integration_test.go: B1-B8 by direct SQL (SQLSTATE 23514 asserted, not message text) and C1-C16 through Writer/Reader. Every contract ID covered.",
+      "budget": {
+        "five_hour_pct_start": 19,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 29,
+        "cost_usd_delta": 11.19,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "three workers ran concurrently in wave 3 (charging 3.1-3.4+4.1, analytics L1b, gateway L1); delta is the joint wave cost"
+      }
     },
     {
       "id": "3.4",
@@ -286,14 +315,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:29:25Z",
+      "completed_at": "2026-08-29T14:39:42Z",
+      "duration_seconds": 553,
+      "notes": "Seven fixture sites across two files adapted to *float64. No expected value edited; the 0 / -5.0 CHECK-rejection cases still assert rejection.",
+      "budget": {
+        "five_hour_pct_start": 19,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 29,
+        "cost_usd_delta": 11.19,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "three workers ran concurrently in wave 3 (charging 3.1-3.4+4.1, analytics L1b, gateway L1); delta is the joint wave cost"
+      }
     },
     {
       "id": "4.1",
@@ -303,14 +341,23 @@
         "2.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:29:25Z",
+      "completed_at": "2026-08-29T14:39:42Z",
+      "duration_seconds": 553,
+      "notes": "AGENTS.md updated in all three sections: public interface, manual_charge_entries data ownership (3 columns, relaxed NOT NULL, no index and why, packCapacityKWh seam), and testing notes.",
+      "budget": {
+        "five_hour_pct_start": 19,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 29,
+        "cost_usd_delta": 11.19,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "three workers ran concurrently in wave 3 (charging 3.1-3.4+4.1, analytics L1b, gateway L1); delta is the joint wave cost"
+      }
     },
     {
       "id": "4.2",
@@ -320,13 +367,13 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-29T14:39:42Z",
+      "completed_at": "2026-08-29T14:39:42Z",
+      "duration_seconds": 0,
+      "notes": "KB workflow guide gains capacity.go/validation.go rows and three gotchas: optional+derived energy with ignored caller provenance, the 62 kWh placeholder and its USER-filter requirement, status-conditional required fields.",
       "budget": null
     },
     {
@@ -337,14 +384,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T14:34:18Z",
+      "completed_at": "2026-08-29T14:39:42Z",
+      "duration_seconds": 234,
+      "notes": "Nil-guards both formatters -- display renders the project placeholder, the form's Raw* field renders empty, each matching an existing convention. ~14 test sites adapted. Repo build and vet green.",
+      "budget": {
+        "five_hour_pct_start": 19,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 29,
+        "cost_usd_delta": 11.19,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "three workers ran concurrently in wave 3 (charging 3.1-3.4+4.1, analytics L1b, gateway L1); delta is the joint wave cost"
+      }
     },
     {
       "id": "L2",
@@ -354,13 +410,13 @@
         "4.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-29T14:39:42Z",
+      "completed_at": "2026-08-29T14:39:42Z",
+      "duration_seconds": 0,
+      "notes": "Project Structure tree and Architecture table verified correct, no edit needed. But the data-ownership table's manual_charge_entries row was stale and WAS updated: 3 new columns, optional+derived energy.",
       "budget": null
     },
     {
@@ -371,14 +427,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-haiku-4-5-20251001",
+      "started_at": "2026-08-29T14:29:25Z",
+      "completed_at": "2026-08-29T14:34:18Z",
+      "duration_seconds": 205,
+      "notes": "reader.go sumManualKWh nil-guards energy, mirroring the sumSuperchargerKWh guard; four fixture sites use the existing fp helper. build/vet/gofmt clean for the module.",
+      "budget": {
+        "five_hour_pct_start": 19,
+        "five_hour_pct_end": 48,
+        "five_hour_pct_delta": 29,
+        "cost_usd_delta": 11.19,
+        "context_pct_end": 19,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "three workers ran concurrently in wave 3 (charging 3.1-3.4+4.1, analytics L1b, gateway L1); delta is the joint wave cost"
+      }
     },
     {
       "id": "5.1",
@@ -391,9 +456,27 @@
         "3.4",
         "4.1",
         "L1",
-        "L1b"
+        "L1b",
+        "3.5"
       ],
       "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.5",
+      "title": "Update three stale location_kind error-message assertions broken by D5's missingFieldsError",
+      "module": "charging",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": true,
       "status": "pending",
       "agent": null,
       "model": null,
@@ -473,6 +556,33 @@
       "decision": "sumManualKWh skips nil energy rather than counting it as a known zero; no efficiency-semantics change in this tier",
       "why": "Mirrors the s.EnergyKWh nil-guard two lines above and keeps L1b mechanical. Whether unknown-energy entries should distort efficiency is a separate change.",
       "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-29T14:29:25Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Run wave 3 as two parallel workers \u2014 charging (3.1-3.4, 4.1) and analytics (L1b) \u2014 instead of one serial dispatch",
+      "why": "Disjoint modules, disjoint files, and the 5-hour bucket is at 19%. L1b also unblocks L1's dispatch sooner, since gateway cannot compile until analytics does.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-29T14:29:25Z",
+      "scope": "task:L1b",
+      "made_by": "leader",
+      "decision": "Dispatch L1b on Haiku rather than the Sonnet default",
+      "why": "One nil-guard plus four literal fixture sites, fully specified in the task text \u2014 the trivial-mechanical tier.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-29T14:39:42Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Append task 3.5 for three stale 'location_kind is required' assertions in db_integration_test.go, and fix the message rather than the assertion's intent",
+      "why": "Wave 2 replaced the ad-hoc error with missingFieldsError per D5. The rejection and no-row-inserted assertions stay; only the expected message text changes. Leader-verified, not just reported.",
+      "covered_by": "design.md D5"
     }
   ],
   "events": [
@@ -515,6 +625,31 @@
       "at": "2026-08-29T14:28:02Z",
       "agent": "leader",
       "event": "design.md D11 gap found and verified: the *float64 break also hits internal/analytics (reader.go:114, reader_test.go:258/313/314, db_integration_test.go:1678). Task L1b appended; 5.1 now also depends on it"
+    },
+    {
+      "at": "2026-08-29T14:29:25Z",
+      "agent": "leader",
+      "event": "dispatched wave 3 in parallel: charging worker (sonnet, 3.1-3.4+4.1) and analytics worker (haiku, L1b) \u2014 budget start 5h=19% ctx=14%"
+    },
+    {
+      "at": "2026-08-29T14:34:18Z",
+      "agent": "leader",
+      "event": "L1b complete and leader-verified (analytics builds/vets clean); dispatched gateway worker (sonnet) for L1 \u2014 the last compile break"
+    },
+    {
+      "at": "2026-08-29T14:34:18Z",
+      "agent": "leader",
+      "event": "leader-owned 4.2 (KB note in kkpa/context/workflows/manual-charge-crud.md) and L2 done; L2's verification found the README data-ownership row for manual_charge_entries stale, so it WAS edited \u2014 the Project Structure tree and Architecture table needed nothing"
+    },
+    {
+      "at": "2026-08-29T14:39:42Z",
+      "agent": "leader",
+      "event": "wave 3 complete: charging 3.1-3.4+4.1, analytics L1b, gateway L1. Repo-wide go build and go vet green (leader-verified). 5h 19%->48%, $11.19 for the three concurrent workers"
+    },
+    {
+      "at": "2026-08-29T14:39:42Z",
+      "agent": "leader",
+      "event": "charging worker reported a wave-2 regression it correctly refused to fix out of scope: db_integration_test.go:841/873/979 assert the retired 'location_kind is required' text. Leader confirmed by grep; task 3.5 appended"
     }
   ]
 }
