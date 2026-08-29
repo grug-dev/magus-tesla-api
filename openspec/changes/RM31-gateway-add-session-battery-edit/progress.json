@@ -5,8 +5,8 @@
   "module": "gateway",
   "roadmap": "RM31-supercharger-session-verification",
   "tier": 5,
-  "status": "in-progress",
-  "updated_at": "2026-08-29T01:57:58Z",
+  "status": "applied",
+  "updated_at": "2026-08-29T02:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -20,10 +20,7 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "7.1",
-      "7.2"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
@@ -44,9 +41,12 @@
       "5.4",
       "6.1",
       "6.2",
-      "6.3"
+      "6.3",
+      "7.1"
     ],
-    "awaiting_user_verification": []
+    "awaiting_user_verification": [
+      "7.2"
+    ]
   },
   "decisions": [
     {
@@ -93,6 +93,14 @@
       "decision": "leader closed the gateway.Deps -> handlers.Deps SuperchargerVerifier passthrough itself, under 4.3's acceptance criterion",
       "why": "Neither 4.1 (handlers.go) nor 4.2 (routes) named it, but cmd/web constructs gateway.Deps so the build cannot go green without it. 4.3 is already a leader task demanding a repo-wide green build.",
       "covered_by": null
+    },
+    {
+      "id": "D22",
+      "at": "2026-08-29T02:05:00Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "leader ran task 7.1 itself instead of dispatching the gateway worker",
+      "why": "7.1 is a mechanical audit of already-shipped code, and a worker auditing its own work is the weaker check. Saved a doc-pack re-read; the reviewer gate still follows."
     }
   ],
   "tasks": [
@@ -465,7 +473,7 @@
     },
     {
       "id": "7.1",
-      "status": "pending",
+      "status": "done",
       "depends_on": [
         "5.1",
         "5.2",
@@ -473,17 +481,22 @@
         "5.4",
         "6.3"
       ],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-29T01:58:00Z",
+      "completed_at": "2026-08-29T02:05:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "leader-run audit, no dispatch"
+      },
+      "notes": "All 6 acceptance criteria verified by the leader against the tier-5 diff. Only non-gateway file is cmd/web/main.go = task 4.3, an explicit leader task. build+vet clean."
     },
     {
       "id": "7.2",
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "depends_on": [
         "7.1"
       ],
@@ -737,6 +750,21 @@
       "at": "2026-08-29T01:57:58Z",
       "agent": "leader",
       "event": "BUDGET: five_hour bucket RESET mid-wave (32% -> 9%), so the wave-6 five_hour delta is unmeasurable and recorded null; cost delta $1.18 -> $6.45 = $5.26 across the stalled run plus its resume, booked on 6.1 with 6.2/6.3 pointing at that shared bracket. Budget CLEAR for wave 7: five_hour 9%, context 13%."
+    },
+    {
+      "at": "2026-08-29T02:05:00Z",
+      "agent": "leader",
+      "event": "WAVE 7.1 AUDIT PASSED, all six acceptance criteria verified against the tier-5 diff 7829c5b^..HEAD: 1) no delete route for this concept -- the DELETE at gateway.go:183 is /ui/charges/row/:id, pre-existing on main; 2) no pgx import added -- the only +pgx lines in the tier-5 diff are COMMENTS stating pgx is deliberately not imported, and supercharger.go references pgx only in prose, honouring D9; 3) no new charging port -- internal/charging/ absent from the tier-5 diff; 4) no database object -- no migration or query.sql in the tier-5 diff; 5) recalculateAfterChargeWrite byte-for-byte unchanged -- charges.go is IDENTICAL to main, and recalculateAfterSessionVerify is a separate func at supercharger.go:519 per D4; 6) no ordering validation -- only a comment mentions it."
+    },
+    {
+      "at": "2026-08-29T02:05:00Z",
+      "agent": "leader",
+      "event": "SCOPE NOTE for the reviewer: the only tier-5 file outside internal/gateway/ is cmd/web/main.go, which is task 4.3 -- an explicit LEADER task the tasks.md marks as outside internal/. Not a boundary violation. Additionally FOUR files in the tier-5 commit range are NOT pipeline work and must be excluded from review: nav.go, ui/icon.templ, ui/icon_templ.go, ui/nav_shell_test.go, all from the owner's own commit 76dd874 Updating, interleaved between waves 3 and 4."
+    },
+    {
+      "at": "2026-08-29T02:05:00Z",
+      "agent": "leader",
+      "event": "CHEAP SIGNALS, permitted by the Test-Execution-Policy: go build ./... OK, go vet ./... OK. gofmt -l shows internal/gateway/i18n/catalog.go unformatted at HEAD but NOT on main. Leader bisected it: catalog.go was gofmt-CLEAN through wave 3 at f463811 and cd469d6, and became unformatted at commit 76dd874 Updating -- the OWNER's commit, which added the longer KeyNavVehicleStats/KeyNavCommunityBenchmark nav keys and forced a realignment of the const block without re-running gofmt. NOT a tier-5 defect and deliberately NOT fixed by the leader: the owner has uncommitted edits to that same file right now, so a fix would collide with their working tree. The other 7 gofmt hits are pre-existing on main."
     }
   ]
 }

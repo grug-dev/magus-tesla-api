@@ -233,7 +233,7 @@ whether the task's files are disjoint from its concurrent siblings.
 
 ## Wave 7 — artifact re-check and owner verification handoff
 
-- [ ] **7.1** **[module: gateway worker]** Re-read the implemented diff against design.md D1-D11
+- [x] **7.1** **[module: gateway worker]** Re-read the implemented diff against design.md D1-D11
   and `specs/gateway/spec.md`, then update only the completed task checkboxes in this file.
   Acceptance: no code outside `internal/gateway/` (except the KB paths in wave 6) has entered the
   change; no delete route, no ordering validation, no new `charging` port, no database object,
