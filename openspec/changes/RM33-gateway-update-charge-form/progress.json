@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM33-manual-record-status.md",
   "request": "RM33 tier 2 of MAG-18 (Adding Status to Manual Records) — the charge FORM slice: status dropdown (IN PROGRESS / DONE, i18n, default IN PROGRESS, at the top of the section, persisted and loaded); energy_added_kwh and price optional (price empty => 0, no negatives); required validations apply only when status is DONE, driven by charging.RequiredFieldsFor; remove the Currency input and label price as COP via an input suffix; AC/DC helper option text; new optional odometer field in More details; date change syncs start/end preserving HH:MM; only clear the form on HTTP 200 (preserve typed values on 4xx/5xx). Both charge_create_form.templ and charge_row_edit.templ.",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
     "current": [],
     "pending": [
@@ -25,17 +25,16 @@
       "5.1",
       "4.3",
       "7.1",
-      "9.1"
-    ],
-    "awaiting-user-verification": [
+      "9.1",
       "8.1",
       "8.2",
       "8.3",
       "8.5"
-    ]
+    ],
+    "awaiting-user-verification": []
   },
   "created_at": "2026-08-29T15:40:00Z",
-  "updated_at": "2026-08-29T17:52:00Z",
+  "updated_at": "2026-08-29T17:55:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -333,7 +332,7 @@
         "3.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T17:26:10Z",
@@ -361,7 +360,7 @@
         "4.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T17:26:10Z",
@@ -389,7 +388,7 @@
         "5.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-29T17:26:10Z",
@@ -490,7 +489,7 @@
         "8.3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-08-29T17:38:30Z",
@@ -509,7 +508,7 @@
   "review": {
     "status": "pending",
     "agent": null,
-    "brief": null,
+    "brief": "Review RM33 tier 2 (charge FORM slice) on branch ft/RM33-MAG-18-manual-record-status, commits 4818d6c..9744a67. Validate: (1) module-boundary compliance - no HTML outside internal/gateway, no cross-module DB reads, charging.RequiredFieldsFor imported not re-derived (design.md D-Fields/D5); (2) every doc-pack convention, especially the i18n rule (both ES+EN for every user-facing key) and the no-client-side-JS rule with its now-FOUR recorded exceptions; (3) spec/tasks coverage - all 18 tasks, 8.4 owner-manual still open; (4) the integration tests assert design.md's AUTHORED Test Contract (A1-A8, B1-B4, C1-C7), not whatever the implementation happens to do - this is the highest-value check this round, see the two specific traps below; (5) read-heavy Performance-Profile compliance; (6) anti-gaming - no weakened criteria, no self-approved statuses. NO database objects were created or altered in this tier, so the database design gate does not apply. TRAP 1 (wave-2 history): a negative test asserting only 422 + writer-not-called passes off the spurious missing-status validation error and stays green even if the check it names is deleted. Every negative test must supply a valid status AND assert the specific i18n message. Verify this holds for all 8 Group A tests; two tests in wave 2 failed exactly this way. TRAP 2 (wave-4 history): C5's assertion was pinned to a literal class string and broke on Templ's generated trailing space. Check the remaining markup assertions are structural, not brittle on generated whitespace - and conversely that none was loosened so far it no longer tests C's claim. Also scrutinize task 8.5 specifically: a LEADER-authored fix (applyRawRequiredState) for a defect task 8.3's C3 test surfaced in ChargeCreate's 422/500 branches. It is leader-written code that no worker reviewed - verify it matches design.md D-Fields, that its fail-closed-to-DONE posture mirrors chargeEntryVMFromRawValues, and that its regression test genuinely fails without the fix.",
     "rounds": []
   },
   "decisions": [
@@ -735,6 +734,16 @@
       "at": "2026-08-29T17:52:00Z",
       "agent": "leader",
       "event": "OWNER VERIFICATION (wave 4): the owner ran the suite and reported ONE failure - TestChargeForms_C5_NoCurrencyField_PriceHasCOPSuffix (both subtests). Recorded as the owner's report. Diagnosis: TEST bug, not a markup bug. The rendered price input is exactly what C5 specifies (<label class=\"input w-full \"><input name=\"price\" ...> <span class=\"label\">COP</span></label>); the assertion demanded the literal `<label class=\"input w-full\">` while Templ leaves a trailing space when ui.InputProps.Class is empty - the norm everywhere in that output (class=\"fieldset \"). Replaced with a regex that tolerates the generated whitespace AND pins what the literal never checked: that the price input is INSIDE the wrapper. gofmt + go vet clean. Grepped the rest of the new tests for the same brittle pattern - no other instance. All tasks stay awaiting-user-verification pending a clean green run."
+    },
+    {
+      "at": "2026-08-29T17:55:00Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION (wave 4, 2nd run): the owner ran `make check` and reported it GREEN. Recorded as the owner's report, not the assistant's - the assistant never ran the suite. Tasks 8.1, 8.2, 8.3, 8.5 -> done. Change status -> verified. 17 of 18 tasks done; only 8.4 (owner-only manual JS verification) remains open, and it gates ARCHIVE, not the review gate."
+    },
+    {
+      "at": "2026-08-29T17:55:00Z",
+      "agent": "leader",
+      "event": "REVIEWER DISPATCH (round 1) to gateway-reviewer on claude-sonnet-5, per Step 7. Brief stored in review.brief. Dispatched while task 8.4 is still open: 8.4 is manual in-browser JS verification the owner performs, fully independent of the code/test/doc review, so serializing them would idle the pipeline on a human at a keyboard. Archive still requires BOTH. Budget at dispatch: five_hour_pct=60, context_pct=13, cost_usd=9.178764."
     }
   ]
 }
