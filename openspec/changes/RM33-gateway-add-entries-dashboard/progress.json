@@ -1,0 +1,591 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM33-gateway-add-entries-dashboard",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM33-manual-record-status.md",
+  "request": "Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Roadmap RM33 tier 3, decisions D9, D10, D11, D13, D14. Source ticket MAG-18.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.5",
+      "5.6",
+      "5.7",
+      "6.1",
+      "6.2",
+      "7.1",
+      "8.1",
+      "9.1",
+      "9.2",
+      "9.3",
+      "9.4",
+      "10.1"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-29T19:35:00Z",
+  "updated_at": "2026-08-29T19:35:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM33-MAG-18-manual-record-status",
+    "base": "5d01e81",
+    "ticket": "MAG-18",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records",
+    "created_at": "2026-08-29T10:49:07Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "ui/dot.templ — new ui.Dot/DotProps primitive (D-Dot)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "i18n/catalog.go — add the tier's ES+EN keys",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "fragments/charges_vm.go — ChargeTiles struct + VM fields",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "handlers/charges_range.go — parseChargesRange, endOfMonth, buildChargesPresets",
+      "module": "gateway",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "handlers/charges_tiles.go — entryComplete, buildChargeTiles",
+      "module": "gateway",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "charges_range_test.go — Test Contract Group A (A1-A8)",
+      "module": "gateway",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "charges_tiles_test.go — Test Contract Group B (B1-B5)",
+      "module": "gateway",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "charges_list.templ — presets, tiles, 3 empty states, window inputs",
+      "module": "gateway",
+      "depends_on": [
+        "1.2",
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "charge_row.templ — dot + badge, battery range, delete retarget, OOB",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.3",
+      "title": "charge_row_edit.templ — hidden window inputs + colspan 8->9",
+      "module": "gateway",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.4",
+      "title": "charge_create_form.templ — hx-include of the window inputs",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "charges.go — buildChargesPage 7-arg signature, windowed read, tiles, D-RM33-9",
+      "module": "gateway",
+      "depends_on": [
+        "4.1",
+        "4.2",
+        "4.3",
+        "4.4",
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "charges.go — chargeEntryVMFromEntry fields + bestEffortWindow/FromForm/FromQuery",
+      "module": "gateway",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.3",
+      "title": "charges.go — ChargePage default window, ChargesListFragment parseChargesRange + 400",
+      "module": "gateway",
+      "depends_on": [
+        "5.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.4",
+      "title": "charges.go — ChargeCreate success-path window threading",
+      "module": "gateway",
+      "depends_on": [
+        "5.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.5",
+      "title": "charges.go — ChargeRowUpdate + ChargeRowUpdateSuccessOOB",
+      "module": "gateway",
+      "depends_on": [
+        "5.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.6",
+      "title": "charges.go — ChargeRowDelete rewritten to the list-fragment shape",
+      "module": "gateway",
+      "depends_on": [
+        "5.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.7",
+      "title": "charges.go — window threaded through ChargeRowStatic/ChargeRowEditFragment",
+      "module": "gateway",
+      "depends_on": [
+        "5.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.1",
+      "title": "charge_row.templ — remove ChargeRowEmpty/ChargeRowError dead code",
+      "module": "gateway",
+      "depends_on": [
+        "4.2",
+        "5.6"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.2",
+      "title": "catalog.go — remove keys left unreferenced after the cleanup",
+      "module": "gateway",
+      "depends_on": [
+        "4.1",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "7.1",
+      "title": "internal/gateway/AGENTS.md — document the new ui.Dot primitive",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "8.1",
+      "title": "make templ — regenerate *_templ.go",
+      "module": "gateway",
+      "depends_on": [
+        "4.1",
+        "4.2",
+        "4.3",
+        "4.4",
+        "6.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.1",
+      "title": "charges_test.go — Test Contract Group C (C1-C3)",
+      "module": "gateway",
+      "depends_on": [
+        "8.1",
+        "5.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.2",
+      "title": "charges_test.go — Test Contract Group D (D1-D4)",
+      "module": "gateway",
+      "depends_on": [
+        "8.1",
+        "5.4",
+        "5.5",
+        "5.6"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.3",
+      "title": "charges_test.go — Test Contract Group E (E1-E4)",
+      "module": "gateway",
+      "depends_on": [
+        "8.1",
+        "5.1",
+        "5.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "9.4",
+      "title": "charges_test.go — the four existing-test REWRITE items",
+      "module": "gateway",
+      "depends_on": [
+        "8.1",
+        "5.6"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "10.1",
+      "title": "cheap deterministic signals: build, vet, gofmt, ui-guard, i18n-guard",
+      "module": "gateway",
+      "depends_on": [
+        "9.1",
+        "9.2",
+        "9.3",
+        "9.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-29T19:35:00Z",
+      "scope": "artifacts",
+      "made_by": "autopilot",
+      "decision": "buildChargesPage is frozen at 7 args (…, today, start, end); design.md's stray trailing `true` corrected",
+      "why": "today drives the create form's D1 date defaults, start/end the list window. Dropping today would pre-fill the form with the month's last day under 'This month'.",
+      "covered_by": "tasks.md §Leader resolutions L1"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-29T19:35:00Z",
+      "scope": "artifacts",
+      "made_by": "autopilot",
+      "decision": "windowFromQuery defined in design.md as a bestEffortWindow caller alongside windowFromForm, not extrapolated by a worker",
+      "why": "Writes the never-a-validation-gate rule once so the POST and GET sides cannot drift; parseChargesRange rejects, which is wrong for a post-write refresh.",
+      "covered_by": "tasks.md §Leader resolutions L2"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-29T19:35:00Z",
+      "scope": "task:5.7",
+      "made_by": "autopilot",
+      "decision": "Threading the window through ChargeRowStatic/ChargeRowEditFragment is in scope, not over-reach",
+      "why": "Compile-forced by ChargeRow's new mandatory window params; the only alternative is passing \"\", which silently resets the filter on Cancel — the failure D-RM33-11 exists to prevent.",
+      "covered_by": "tasks.md §Leader resolutions L3"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-29T18:56:00Z",
+      "agent": "leader",
+      "event": "tier 3 Step 2 interview completed; D-RM33-9..12 recorded in the roadmap progress.json"
+    },
+    {
+      "at": "2026-08-29T19:35:00Z",
+      "agent": "leader",
+      "event": "session resumed; artifacts were incomplete (tasks.md missing). gateway worker (claude-sonnet-5) authored tasks.md — 28 sub-tasks, 10 waves; openspec validate --strict passes"
+    },
+    {
+      "at": "2026-08-29T19:35:00Z",
+      "agent": "leader",
+      "event": "design gate NOT tripped: tier 3 touches no database object (gateway render change reusing ListEntriesByVehicleBetween; D13 forbids a new port)"
+    },
+    {
+      "at": "2026-08-29T19:35:00Z",
+      "agent": "leader",
+      "event": "leader resolved the worker's 3 flagged ambiguities before any implementation wave (decisions D1-D3); design.md corrected for the stray `true` and the missing windowFromQuery definition"
+    }
+  ]
+}

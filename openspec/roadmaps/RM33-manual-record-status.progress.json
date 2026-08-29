@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-18 — https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
   "autopilot": false,
   "status": "in-progress",
-  "updated_at": "2026-08-29T18:35:00Z",
+  "updated_at": "2026-08-29T19:35:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM33-MAG-18-manual-record-status",
@@ -16,10 +16,10 @@
     "created_at": "2026-08-29T10:49:07Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       3
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1,
@@ -98,6 +98,42 @@
       "decision": "The disabled Currency input is REMOVED from both forms; the COP suffix inside the price input replaces it",
       "why": "Resolves D7's ambiguity toward the ticket's literal request. Pure UI removal: parseChargeForm already hardcodes COP and the column keeps its NOT NULL DEFAULT.",
       "covered_by": "tier-2 interview 2026-08-29"
+    },
+    {
+      "id": "D-RM33-9",
+      "at": "2026-08-29T18:56:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "With no vehicle resolved (teslaID==0) the page renders the empty state — no tiles, no table, no filter; the ListEntriesByAccount fallback is dropped",
+      "why": "ListEntriesByVehicleBetween is vehicle-scoped and D13 forbids a new port. Only reachable for an account with zero vehicles, which cannot create entries either.",
+      "covered_by": "tier-3 interview 2026-08-29"
+    },
+    {
+      "id": "D-RM33-10",
+      "at": "2026-08-29T18:56:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "The date filter mirrors superchargerMonthsSelector: server-built absolute ?start=&end= hrefs on ui.Join'd preset buttons, hx-get /ui/charges/list, hx-target #charges-list. 'This month' is the full calendar month",
+      "why": "Reuses the gateway's existing date-filter vocabulary instead of adding a second idiom; accepts the same stale-window-past-midnight tradeoff superchargers already has.",
+      "covered_by": "tier-3 interview 2026-08-29"
+    },
+    {
+      "id": "D-RM33-11",
+      "at": "2026-08-29T18:56:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "The active start/end window is threaded through the create form and each edit row so post-write OOB refreshes stay on the user's window",
+      "why": "Otherwise a save silently resets 'this month' to 'last 7 days' and an out-of-window entry appears to vanish. Mirrors supercharger_row's windowStartStr/windowEndStr threading.",
+      "covered_by": "tier-3 interview 2026-08-29"
+    },
+    {
+      "id": "D-RM33-12",
+      "at": "2026-08-29T18:56:00Z",
+      "scope": "tier:3",
+      "made_by": "user",
+      "decision": "The completeness dot is two-state: green when complete, yellow otherwise",
+      "why": "What the ticket asked for; the adjacent status badge already distinguishes IN_PROGRESS from DONE, so a third colour would duplicate it.",
+      "covered_by": "tier-3 interview 2026-08-29"
     }
   ],
   "tiers": [
@@ -155,10 +191,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5 (workers) / claude-opus-5 (leader)",
+      "started_at": "2026-08-29T18:56:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -200,6 +236,16 @@
       "at": "2026-08-29T17:22:54Z",
       "agent": "leader",
       "event": "tier 2 wave 3 complete and owner-verified green (commit 4818d6c); session checkpoint at the owner's request. Tier 2 status corrected from 'proposed' to 'in-progress' — it has been in implementation since wave 1."
+    },
+    {
+      "at": "2026-08-29T18:56:00Z",
+      "agent": "leader",
+      "event": "tier 3 started; Step 2 interview resolved 4 gaps the roadmap decisions did not cover (D-RM33-9..12): no-vehicle fallback, filter wiring, post-write window preservation, dot colour states"
+    },
+    {
+      "at": "2026-08-29T19:35:00Z",
+      "agent": "leader",
+      "event": "tier 3 artifacts complete (tasks.md authored on resume, 27 sub-tasks / 10 waves) and validated; no design gate tripped; tier 3 -> [~] in-flight"
     }
   ]
 }
