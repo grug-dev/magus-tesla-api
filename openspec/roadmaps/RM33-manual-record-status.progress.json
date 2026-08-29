@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM33-manual-record-status",
   "intention": "A user can save a manual charge record as IN PROGRESS with partial data and complete it later, leave energy and price blank (energy derived from the battery delta, price defaulting to 0), record the odometer, and review entries through a date filter with aggregation tiles and an at-a-glance completeness indicator.",
-  "request": "Source ticket: MAG-18 — https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
+  "request": "Source ticket: MAG-18 \u2014 https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records | Adding Status to Manual Records. Required fields: make energy_added_kwh and price optional (price empty => 0, no negatives); add a status dropdown (IN PROGRESS / DONE, i18n, stored as IN_PROGRESS/DONE) at the top of the section, persisted and loaded; existing required validations apply only when status is DONE; IN PROGRESS is the default and skips required validation for Ended at and End battery %, with logic easy to maintain for adding more fields later; remove Currency from the required section and label price as COP; syncing start/end date with the selected day. Optional fields: AC/DC helper labels; new optional odometer field. Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Saving: derive energy as capacity * ((end_battery - start_battery)/100) when blank, capacity 62 kWh behind a function pending a future DB/module read, with a KB note; only clear the form on HTTP 200.",
   "autopilot": false,
   "status": "in-progress",
-  "updated_at": "2026-08-29T15:42:00Z",
+  "updated_at": "2026-08-29T15:57:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM33-MAG-18-manual-record-status",
@@ -139,7 +139,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Wave 1 (ui.Input suffix, i18n keys, view models, RD12/RD13 JS) shipped and owner-verified green. Waves 2-9 pending; task 4.3 appended for the deferred i18n key deletion."
     },
     {
       "id": 3,
@@ -173,7 +173,7 @@
     {
       "at": "2026-08-29T15:11:39Z",
       "agent": "leader",
-      "event": "tier 1 (RM33-charging-add-entry-status) archived; tiers 2 and 3 both unblocked — they depend only on tier 1 and touch disjoint template files"
+      "event": "tier 1 (RM33-charging-add-entry-status) archived; tiers 2 and 3 both unblocked \u2014 they depend only on tier 1 and touch disjoint template files"
     },
     {
       "at": "2026-08-29T15:25:00Z",
