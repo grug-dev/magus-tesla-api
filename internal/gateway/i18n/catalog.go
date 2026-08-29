@@ -27,11 +27,13 @@ const missingKeyMarker = "!!"
 // internal/gateway/AGENTS.md "i18n" section.
 const (
 	// --- sidebar nav (layouts/nav.go, templates/ui/nav_shell.templ) ---
-	KeyNavDashboard         Key = "nav.dashboard"
-	KeyNavManualRecords     Key = "nav.manual_records"
-	KeyNavSuperchargerStats Key = "nav.supercharger_stats"
+	KeyNavDashboard          Key = "nav.dashboard"
+	KeyNavManualRecords      Key = "nav.manual_records"
+	KeyNavSuperchargerStats  Key = "nav.supercharger_stats"
 	KeyNavVehicleStats       Key = "nav.vehicle_stats"
 	KeyNavCommunityBenchmark Key = "nav.community_benchmark"
+	KeyNavSectionCharging    Key = "nav.section.charging"
+	KeyNavSectionInsights    Key = "nav.section.insights"
 	KeyNavSettings           Key = "nav.settings"
 	KeyNavSoonBadge         Key = "nav.soon_badge"
 	KeyNavOpenSidebar       Key = "nav.open_sidebar"
@@ -305,11 +307,13 @@ const (
 // languages" — this map literal is the only place that rule can be violated,
 // and that test fails at `go test` time if it ever is.
 var catalog = map[Key]entry{
-	KeyNavDashboard:         {ES: "Panel", EN: "Dashboard"},
-	KeyNavManualRecords:     {ES: "Registros manuales", EN: "Manual Records"},
-	KeyNavSuperchargerStats: {ES: "Estadísticas Supercharger", EN: "Supercharger Stats"},
+	KeyNavDashboard:          {ES: "Panel", EN: "Dashboard"},
+	KeyNavManualRecords:      {ES: "Registros manuales", EN: "Manual Records"},
+	KeyNavSuperchargerStats:  {ES: "Estadísticas Supercharger", EN: "Supercharger Stats"},
 	KeyNavVehicleStats:       {ES: "Estadísticas", EN: "Vehicle Stats"},
 	KeyNavCommunityBenchmark: {ES: "Comparativa", EN: "Community Benchmark"},
+	KeyNavSectionCharging:    {ES: "Carga", EN: "Charging"},
+	KeyNavSectionInsights:    {ES: "Análisis", EN: "Insights"},
 	KeyNavSettings:           {ES: "Configuración", EN: "Settings"},
 	KeyNavSoonBadge:         {ES: "Pronto", EN: "Soon"},
 	KeyNavOpenSidebar:       {ES: "Abrir menú lateral", EN: "open sidebar"},
