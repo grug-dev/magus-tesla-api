@@ -1,0 +1,298 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "charging-add-inferred-capacity",
+  "module": "charging",
+  "roadmap": null,
+  "request": "Source ticket: MAG-25 — https://linear.app/magus-monitor/issue/MAG-25/inferred-capacity\n\nInferred Capacity. This data will be saved per vehicle. The idea is to calculate the value every time a record is inserted or updated into the charging module tables (charge_sessions and manual_charge_entries). The formula is inferred_capacity_calc = energy_added / ((end_soc - start_soc) / 100), calculated only when the record contains energy added, end battery % and start battery %; otherwise NULL. Acceptance criteria: the new column is created and calculated for existing rows in charge_sessions and manual_charge_entries. Picked up via /kkpa-pickup-linear-ticket with AUTOPILOT ON; pipeline scope HALT AFTER STEP 4 (artifacts only, no implementation).",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "1.2", "2.1", "2.2", "2.3", "3.1", "3.2", "3.3", "3.4", "V1", "V2", "V3"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-08-29T09:04:49Z",
+  "updated_at": "2026-08-29T09:04:49Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH32-MAG-25-charging-add-inferred-capacity",
+    "base": "main",
+    "ticket": "MAG-25",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-25/inferred-capacity",
+    "created_at": "2026-08-29T02:47:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Create migration 20260829000001_add_inferred_capacity.sql (both generated columns)",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Blocked on the owner's design-gate confirmation of design.md (result type D4).",
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "Run make sqlc and review the diff against design.md D8's probed expectations",
+      "module": "charging",
+      "depends_on": ["1.1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "charging.go — add InferredCapacityKWhCalc *float64 to Entry and Session",
+      "module": "charging",
+      "depends_on": ["1.2"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "service.go — add pgNumericToFloat64Ptr helper and wire into rowToEntry",
+      "module": "charging",
+      "depends_on": ["2.1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "session_reader.go — wire helper into rowToSession; build/vet/gofmt clean",
+      "module": "charging",
+      "depends_on": ["2.2"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "Integration test: entries (Test Contract Group A, T1-T12 + T24)",
+      "module": "charging",
+      "depends_on": ["2.3"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "Integration test: sessions (Test Contract Group B, T13-T23)",
+      "module": "charging",
+      "depends_on": ["2.3"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "internal/charging/AGENTS.md — units, public interface, data ownership, testing notes",
+      "module": "charging",
+      "depends_on": ["2.1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Durable half: write down the <what>_<unit>_calc derived-column rule.",
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "Root README.md — Database tables by module rows for both charging tables",
+      "module": null,
+      "depends_on": ["1.1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "LEADER task — README is outside every module sandbox.",
+      "budget": null
+    },
+    {
+      "id": "V1",
+      "title": "Owner: apply the migration (make migrate-up / make db-setup)",
+      "module": null,
+      "depends_on": ["1.1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Owner-only. Not automatable; never reported done by an assistant.",
+      "budget": null
+    },
+    {
+      "id": "V2",
+      "title": "Owner: confirm existing rows were backfilled (acceptance criterion, 2nd half)",
+      "module": null,
+      "depends_on": ["V1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Owner-only. Test suite provisions a fresh DB, so no test can cover this (D10).",
+      "budget": null
+    },
+    {
+      "id": "V3",
+      "title": "Owner: run the suite (make check)",
+      "module": null,
+      "depends_on": ["3.1", "3.2"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Owner-only per Test-Execution-Policy.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-29T02:47:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Pre-settled the Step 2 interview agenda instead of running a live grill-me",
+      "why": "User invoked pickup with AUTOPILOT ON. config.yaml's 'must use grill-me' satisfied by six decisions settled against the live schema before dispatch.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-29T02:52:00Z",
+      "scope": "task:artifacts",
+      "made_by": "autopilot",
+      "decision": "Dispatched the artifact worker on Opus, not the Sonnet default",
+      "why": "Gated database design requiring rejected-alternatives analysis and an up-front test contract — the SKILL.md Step 5.2 integration-heavy exception.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-29T03:30:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Renamed the column to inferred_capacity_kwh_calc, overriding the leader's own settled D1 (inferred_capacity_kwh)",
+      "why": "Worker found the vehicle_metrics <what>_<unit>_calc precedent, verified by leader. Dominates: satisfies the unit rule, matches convention, closer to the ticket.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-29T03:32:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's departure from the leader-proposed NUMERIC(8,3) to unconstrained NUMERIC with ROUND(...,3)",
+      "why": "Worker reproduced numeric field overflow on a row the current schema permits. charge_sessions.energy_kwh is vendor-controlled float with no CHECK, so no fixed precision is provably safe.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-29T09:04:49Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Left three items open for the owner rather than deciding them",
+      "why": "Result type confirmation, the minimum-delta quality floor (a product question), and the ticket's imprecise worked figures. All are the owner's call, not autopilot's.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-29T02:45:00Z",
+      "agent": "leader",
+      "event": "Step 0-1: discovered project config; resolved owning module 'charging' (both tables' migrations live in internal/charging/db/migrations). Runtime Claude Code, native subagent dispatch, budget available."
+    },
+    {
+      "at": "2026-08-29T02:47:00Z",
+      "agent": "leader",
+      "event": "Step 1a: took N=32 from openspec/.work-counter, wrote 33 back. No legacy .ch-counter/.rm-counter present (migration already complete). Ticket MAG-25 auto-detected from the Source ticket line — no prompt. Created branch ft/CH32-MAG-25-charging-add-inferred-capacity off main @ 3dd02d53."
+    },
+    {
+      "at": "2026-08-29T02:52:00Z",
+      "agent": "leader",
+      "event": "Step 3: dispatched the 'charging' worker (Opus) to author artifacts only, with six pre-settled decisions, the Performance-Profile and the Test-Execution-Policy verbatim."
+    },
+    {
+      "at": "2026-08-29T03:21:13Z",
+      "agent": "charging",
+      "event": "Worker returned artifacts; openspec validate passes. Doc-pack acknowledged. Pushed back on two leader decisions with reproduced evidence (column-name precedent; NUMERIC(8,3) overflow)."
+    },
+    {
+      "at": "2026-08-29T03:30:00Z",
+      "agent": "leader",
+      "event": "Step 5.6 triage: independently verified the _calc precedent at internal/analytics/db/migrations/20260821000001_add_vehicle_metrics.sql:67-71, and that ai/go-conventions.md never mentions _calc. Accepted both pushbacks; signalled the same worker to rename rather than re-dispatching."
+    },
+    {
+      "at": "2026-08-29T03:41:00Z",
+      "agent": "charging",
+      "event": "Rename to inferred_capacity_kwh_calc applied across all artifacts and re-validated; grep confirms the only surviving old-name occurrences are labelled references to the rejected alternative. Spec deltas correctly unchanged (they name no column, per config.yaml specs rule)."
+    },
+    {
+      "at": "2026-08-29T09:04:49Z",
+      "agent": "leader",
+      "event": "Step 4: progress.json created, status 'proposed'. HALTING per the pickup skill's declared scope — no implementation workers dispatched, no reviewer, no archive. DESIGN GATE OPEN: the owner must confirm design.md (result type) before task 1.1. Budget note: the 5-hour bucket reset mid-run (60% -> 4%), so no meaningful bucket delta; artifact phase cost ~13.75 USD, context 11% -> 14%."
+    }
+  ]
+}
