@@ -34,7 +34,7 @@
     "awaiting-user-verification": []
   },
   "created_at": "2026-08-29T15:40:00Z",
-  "updated_at": "2026-08-29T17:55:00Z",
+  "updated_at": "2026-08-29T18:25:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -506,10 +506,48 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
     "brief": "Review RM33 tier 2 (charge FORM slice) on branch ft/RM33-MAG-18-manual-record-status, commits 4818d6c..9744a67. Validate: (1) module-boundary compliance - no HTML outside internal/gateway, no cross-module DB reads, charging.RequiredFieldsFor imported not re-derived (design.md D-Fields/D5); (2) every doc-pack convention, especially the i18n rule (both ES+EN for every user-facing key) and the no-client-side-JS rule with its now-FOUR recorded exceptions; (3) spec/tasks coverage - all 18 tasks, 8.4 owner-manual still open; (4) the integration tests assert design.md's AUTHORED Test Contract (A1-A8, B1-B4, C1-C7), not whatever the implementation happens to do - this is the highest-value check this round, see the two specific traps below; (5) read-heavy Performance-Profile compliance; (6) anti-gaming - no weakened criteria, no self-approved statuses. NO database objects were created or altered in this tier, so the database design gate does not apply. TRAP 1 (wave-2 history): a negative test asserting only 422 + writer-not-called passes off the spurious missing-status validation error and stays green even if the check it names is deleted. Every negative test must supply a valid status AND assert the specific i18n message. Verify this holds for all 8 Group A tests; two tests in wave 2 failed exactly this way. TRAP 2 (wave-4 history): C5's assertion was pinned to a literal class string and broke on Templ's generated trailing space. Check the remaining markup assertions are structural, not brittle on generated whitespace - and conversely that none was loosened so far it no longer tests C's claim. Also scrutinize task 8.5 specifically: a LEADER-authored fix (applyRawRequiredState) for a defect task 8.3's C3 test surfaced in ChargeCreate's 422/500 branches. It is leader-written code that no worker reviewed - verify it matches design.md D-Fields, that its fail-closed-to-DONE posture mirrors chargeEntryVMFromRawValues, and that its regression test genuinely fails without the fix.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "at": "2026-08-29T18:20:00Z",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "internal/gateway/AGENTS.md",
+          "ai/agentic-workflow.md",
+          "openspec/changes/RM33-gateway-update-charge-form/proposal.md",
+          "openspec/changes/RM33-gateway-update-charge-form/design.md",
+          "openspec/changes/RM33-gateway-update-charge-form/tasks.md",
+          "openspec/changes/RM33-gateway-update-charge-form/specs/gateway/spec.md",
+          "openspec/changes/RM33-gateway-update-charge-form/progress.json"
+        ],
+        "scope_note": "Reviewed the full gateway tier-2 diff (c639ff6..9744a67), not only the literal 4818d6c..9744a67 range named in the brief, since that narrower range excludes charges_vm.go/.templ files/catalog.go/app.js/input.templ that the brief's own 'files touched' list names as in scope.",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "nit",
+            "note": "internal/gateway/handlers/charges.go: applyRawRequiredState and chargeEntryVMFromRawValues each re-implement a 'fail closed to DONE on unrecognized status' branch before calling charging.RequiredFieldsFor, which already returns the DONE set as its own default for any unrecognized status (internal/charging/validation.go RequiredFieldsFor's default case). Harmless duplication, explicitly documented as mirroring the module's own contract rather than relying on it implicitly; not a boundary or correctness issue.",
+            "status": "open"
+          }
+        ],
+        "trap_1_conclusion": "HOLDS. All 8 Group A tests (A1-A8, charges_test.go:1890-2185) use validCreateForm() which sets status=IN_PROGRESS explicitly, and every negative-path subtest asserts the specific i18n error-message substring for the field under test (e.g. A2 asserts both the ended_at-required and battery-required ES strings, A4 asserts 'Estado inválido', A5/A6/A7/A8 each assert their own field's message) in addition to 422 + writer-not-called. Deleting the validation branch a given test names would remove that message from the body and turn the test red — verified by inspection for each of A1-A8.",
+        "trap_2_conclusion": "HOLDS. C5 (charges_test.go:2486) now uses tagAttrsFor (a structural tag-boundary extractor) plus a regex tolerant of Templ's generated trailing space (`class=\"input[^\"]*\"`) that additionally pins the price input as a structural descendant of the compound label, strictly stronger than the substring check it replaced. C1-C4, C6, C7 all use tagAttrsFor or position-based (strings.Index) structural checks, none pinned to a full literal class string. No assertion was loosened past what its Test Contract letter requires.",
+        "task_8_5_conclusion": "Matches design.md §D-Fields ('correct required attribute for the status being rendered, no flash-of-wrong-state before JS'). Fail-closed-to-DONE posture is byte-for-byte the same pattern as chargeEntryVMFromRawValues (both: unrecognized/empty status -> treat as DONE -> RequiredFieldsFor(DONE)). The regression test TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes (charges_test.go:2586) submits status=DONE with a missing location_kind (unrelated field) causing the 422, then asserts ended_at/end_battery_pct still carry `required` in the re-rendered body — this would fail without applyRawRequiredState, since buildChargesPage's fresh-load Required* pair is computed from StatusInProgress and nothing else in the 422 branch would flip it to true. Genuine regression coverage.",
+        "notes": "No blockers or majors. Boundaries clean (no HTML/DB outside gateway, RequiredFieldsFor imported not re-derived). i18n: all new/changed keys carry ES+EN, removed keys verified dead via grep. RD12/RD13 documented in AGENTS.md matching RD9/RD10 shape; cross-references in AGENTS.md and htmx-conventions.md both say 'exactly four' consistently. gofmt/go vet independently re-run clean. All 17 non-owner tasks match tasks.md; 8.5 is a genuine append, not a rescoping of 3.3. No performance regression (no new reads/writes added).",
+        "triage": {
+          "at": "2026-08-29T18:25:00Z",
+          "by": "leader",
+          "F1": "REJECTED (nit, no change made). charging.RequiredFieldsFor does default to the DONE set for an unrecognized status, so the branch is behaviorally redundant. Keeping it: it normalizes the STATUS VALUE at the call site rather than re-deriving the required-field RULE, so design.md D-Fields is not violated; it makes the fail-closed posture legible where the raw form value enters; and removing it would edit owner-verified code for zero behavior change, costing another full suite run. chargeEntryVMFromRawValues has carried the same branch since wave 2."
+        }
+      }
+    ]
   },
   "decisions": [
     {
@@ -617,6 +655,13 @@
       "made_by": "autopilot",
       "decision": "Leader fixed the create-form Required* defect inline (new task 8.5) instead of re-dispatching a worker or accepting RD13's client-side mitigation.",
       "why": "design.md D-Fields requires correct required state in the served HTML, not after JS. Fix is ~6 lines mirroring an existing helper; a re-dispatch costs ~300k tokens for it."
+    },
+    {
+      "at": "2026-08-29T18:25:00Z",
+      "scope": "review:F1",
+      "made_by": "autopilot",
+      "decision": "Rejected the reviewer's F1 nit; left the redundant fail-closed branch in applyRawRequiredState and chargeEntryVMFromRawValues.",
+      "why": "It normalizes the status value, not the required-field rule, so D-Fields holds. Removing it edits owner-verified code for no behavior change and costs a suite run."
     }
   ],
   "events": [
@@ -744,6 +789,16 @@
       "at": "2026-08-29T17:55:00Z",
       "agent": "leader",
       "event": "REVIEWER DISPATCH (round 1) to gateway-reviewer on claude-sonnet-5, per Step 7. Brief stored in review.brief. Dispatched while task 8.4 is still open: 8.4 is manual in-browser JS verification the owner performs, fully independent of the code/test/doc review, so serializing them would idle the pipeline on a human at a keyboard. Archive still requires BOTH. Budget at dispatch: five_hour_pct=60, context_pct=13, cost_usd=9.178764."
+    },
+    {
+      "at": "2026-08-29T18:25:00Z",
+      "agent": "leader",
+      "event": "REVIEW ROUND 1: gateway-reviewer returned APPROVED (review.status=reviewer-approved). No blockers, no majors, one nit (F1) which the leader triaged and REJECTED with written justification. The reviewer also flagged an error in the leader's own brief: the commit range 4818d6c..9744a67 it named excludes charges_vm.go, both .templ files, catalog.go, app.js and input.templ, all of which the brief's own files-touched list named as in scope. The reviewer caught this and reviewed the full tier-2 diff c639ff6..9744a67 instead, so nothing was reviewed cold - but the brief was wrong and a less careful reviewer would have missed those files. Leader error, recorded."
+    },
+    {
+      "at": "2026-08-29T18:25:00Z",
+      "agent": "leader",
+      "event": "ARCHIVE BLOCKED on task 8.4 - the owner-only manual JS verification (date-sync preserving HH:MM, live required toggle with no network request, two concurrent inline edit rows). tasks.md marks it explicitly not skippable and httptest cannot reach it. The review gate has passed; 8.4 is the sole remaining gate. Top-level status deliberately left at `verified` rather than `reviewer-approved`: write-ownership rule 3 reserves that value to the reviewer, and review.status already carries the unforgeable verdict."
     }
   ]
 }
