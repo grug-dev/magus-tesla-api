@@ -295,6 +295,29 @@ const (
 	KeyChargesListHeaderBattery    Key = "charges_list.header_battery"
 	KeyChargesListHeaderDuration   Key = "charges_list.header_duration"
 	KeyChargesListHeaderActions    Key = "charges_list.header_actions"
+	// --- added by RM33-gateway-add-entries-dashboard (design.md §D9/§D11) ---
+	KeyChargesListHeaderStatus       Key = "charges_list.header_status"
+	KeyChargesListHeaderBatteryRange Key = "charges_list.header_battery_range"
+
+	// --- charges date-filter presets (fragments/charges_list.templ), design.md §D-Presets ---
+	KeyChargesRangeLast7Days Key = "charges_range.last_7_days"
+	KeyChargesRangeThisMonth Key = "charges_range.this_month"
+
+	// --- charges aggregation tiles (fragments/charges_list.templ), design.md §D-Tiles ---
+	KeyChargesTileSessions Key = "charges_tile.sessions"
+	KeyChargesTileEnergy   Key = "charges_tile.energy"
+	KeyChargesTileCost     Key = "charges_tile.cost"
+	KeyChargesTileAvgKWh   Key = "charges_tile.avg_kwh_session"
+
+	// --- charges status badge (fragments/charge_row.templ) — deliberately NOT
+	// reusing KeyChargesFormStatusInProgress/Done, same table/form
+	// semantic-role precedent as the header block above (design.md §D-Dot) ---
+	KeyChargesBadgeInProgress Key = "charges_badge.in_progress"
+	KeyChargesBadgeDone       Key = "charges_badge.done"
+
+	// --- completeness dot tooltips (fragments/charge_row.templ), design.md §D-Dot ---
+	KeyChargesDotCompleteTooltip   Key = "charges_dot.complete_tooltip"
+	KeyChargesDotIncompleteTooltip Key = "charges_dot.incomplete_tooltip"
 
 	// --- page <title> composition (layouts.Base/BaseAuth call sites in every
 	// templates/pages/*.templ) — gap #2 found by the wave-2A worker: the
@@ -540,9 +563,29 @@ var catalog = map[Key]entry{
 	KeyChargesListHeaderEnergy:     {ES: "Energía", EN: "Energy"},
 	KeyChargesListHeaderPrice:      {ES: "Precio", EN: "Price"},
 	KeyChargesListHeaderCostPerKWh: {ES: "Costo/kWh", EN: "Cost/kWh"},
-	KeyChargesListHeaderBattery:    {ES: "Carga de batería", EN: "Battery Charge"},
-	KeyChargesListHeaderDuration:   {ES: "Duración", EN: "Duration"},
-	KeyChargesListHeaderActions:    {ES: "Acciones", EN: "Actions"},
+	// CHANGED by RM33-gateway-add-entries-dashboard: this key now labels ONLY
+	// the delta column (a separate Battery Range header exists alongside it),
+	// so the generic "Carga de batería"/"Battery Charge" copy is replaced with
+	// a delta-specific label.
+	KeyChargesListHeaderBattery:      {ES: "Δ Batería", EN: "Battery Δ"},
+	KeyChargesListHeaderDuration:     {ES: "Duración", EN: "Duration"},
+	KeyChargesListHeaderActions:      {ES: "Acciones", EN: "Actions"},
+	KeyChargesListHeaderStatus:       {ES: "Estado", EN: "Status"},
+	KeyChargesListHeaderBatteryRange: {ES: "Rango de batería", EN: "Battery range"},
+
+	KeyChargesRangeLast7Days: {ES: "Últimos 7 días", EN: "Last 7 days"},
+	KeyChargesRangeThisMonth: {ES: "Este mes", EN: "This month"},
+
+	KeyChargesTileSessions: {ES: "Sesiones", EN: "Sessions"},
+	KeyChargesTileEnergy:   {ES: "Energía", EN: "Energy"},
+	KeyChargesTileCost:     {ES: "Costo", EN: "Cost"},
+	KeyChargesTileAvgKWh:   {ES: "kWh prom. / sesión", EN: "Avg kWh / session"},
+
+	KeyChargesBadgeInProgress: {ES: "En progreso", EN: "In progress"},
+	KeyChargesBadgeDone:       {ES: "Finalizada", EN: "Done"},
+
+	KeyChargesDotCompleteTooltip:   {ES: "Completo", EN: "Complete"},
+	KeyChargesDotIncompleteTooltip: {ES: "Incompleto", EN: "Incomplete"},
 
 	KeyBrandPageTitle: {ES: "%s — Magus", EN: "%s — Magus"},
 	KeyLoginSignIn:    {ES: "Iniciar sesión", EN: "Sign in"},

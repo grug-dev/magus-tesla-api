@@ -590,10 +590,14 @@ target — see the explicit list at the end of this section.
   `end = 2026-08-29`, `ok == true` (7-day inclusive default).
 - **A2.** `?start=2026-08-01&end=2026-08-31`, any `today` in August 2026 → `ok == true` (a
   valid, non-default window is always accepted, not just the two presets).
-- **A3.** `?end=2026-09-15`, `today = 2026-08-29` (an `end` AFTER today) → `ok == true` — the
-  explicit no-future-rejection assertion (D-Range point 1). Contrast with `parseHistoryRange`'s
-  own test suite, which asserts the OPPOSITE for its own endpoint; this test exists specifically
-  to pin the divergence.
+- **A3.** `?start=2026-08-25&end=2026-09-15`, `today = 2026-08-29` (an `end` AFTER today) →
+  `ok == true` — the explicit no-future-rejection assertion (D-Range point 1). Contrast with
+  `parseHistoryRange`'s own test suite, which asserts the OPPOSITE for its own endpoint; this
+  test exists specifically to pin the divergence.
+  *(Corrected by the leader at the wave-1-3 reconcile: this case was originally written with
+  `end` alone. `parseChargesRange` rejects a partial pair BEFORE it ever reaches the future-end
+  question, so the literal version was indistinguishable from A4 and pinned nothing. The
+  expected outcome `ok == true` is unchanged; only the omitted `start` input was supplied.)*
 - **A4.** `?start=2026-08-01` with no `end` (partial pair) → `ok == false`.
 - **A5.** `?start=2026-09-01&end=2026-08-01` (`end` before `start`) → `ok == false`.
 - **A6.** A window wider than 400 days → `ok == false`; the SAME window narrowed to exactly 400

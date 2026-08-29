@@ -62,7 +62,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
 
 ## Wave 1 — foundation (ui kit primitive + i18n additions + VM struct)
 
-- [ ] **1.1** **[module: gateway worker]** `internal/gateway/templates/ui/dot.templ` (new file) —
+- [x] **1.1** **[module: gateway worker]** `internal/gateway/templates/ui/dot.templ` (new file) —
   add `DotProps{Variant, Tooltip, Class string}` and `templ Dot(p DotProps)` **verbatim** from
   design.md §D-Dot:
   ```go
@@ -88,7 +88,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
   the required `AGENTS.md` documentation update.
   `depends_on`: none · `parallel_ok`: with 1.2, 1.3
 
-- [ ] **1.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — **ADD** keys only
+- [x] **1.2** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — **ADD** keys only
   (deletions are deferred to Wave 6, mirroring tier 2's task 1.2/4.3 pattern — do not delete
   `KeyChargesListRefresh`/`KeyChargesListHeaderVehicle` here, their call sites are still live
   until Wave 4 lands):
@@ -121,7 +121,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
   Every new/changed entry keeps `ES`/`EN` on the SAME catalogue-map line (D1 convention).
   `depends_on`: none · `parallel_ok`: with 1.1, 1.3
 
-- [ ] **1.3** **[module: gateway worker]** `internal/gateway/templates/fragments/charges_vm.go`:
+- [x] **1.3** **[module: gateway worker]** `internal/gateway/templates/fragments/charges_vm.go`:
   - Add `Complete bool` and `BatteryRange string` to `ChargeEntryVM`, each with a doc comment
     cross-referencing design.md §D-Dot / the battery-range requirement — `Complete` is
     handler-computed via `entryComplete(e)` (Wave 2), never computed in the template;
@@ -145,7 +145,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
 
 ## Wave 2 — pure handler functions (new files, offline, no gin/DB dependency beyond `*gin.Context`)
 
-- [ ] **2.1** **[module: gateway worker]** `internal/gateway/handlers/charges_range.go` (new
+- [x] **2.1** **[module: gateway worker]** `internal/gateway/handlers/charges_range.go` (new
   file) — add, **verbatim from design.md §D-Range/§D-Presets**:
   - `const chargesRangeDefaultDays = 7`, `const chargesRangeMaxDays = 400`.
   - `func parseChargesRange(c *gin.Context, today time.Time) (start, end time.Time, ok bool)` —
@@ -162,7 +162,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
   `depends_on`: 1.2 (i18n keys `KeyChargesRangeLast7Days`/`KeyChargesRangeThisMonth`) ·
   `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[module: gateway worker]** `internal/gateway/handlers/charges_tiles.go` (new
+- [x] **2.2** **[module: gateway worker]** `internal/gateway/handlers/charges_tiles.go` (new
   file) — add, **verbatim from design.md §D-Dot/§D-Tiles**:
   - `func entryComplete(e charging.Entry) bool` — `EndedAt != nil && EndBatteryPct != nil &&
     EnergyAddedKWh != nil && Price > 0`. Evaluated identically regardless of `e.Status`; do NOT
@@ -178,7 +178,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
 
 ## Wave 3 — offline tests for Wave 2 (Test Contract Groups A & B, TDD-style)
 
-- [ ] **3.1** **[module: gateway worker]** `internal/gateway/handlers/charges_range_test.go`
+- [x] **3.1** **[module: gateway worker]** `internal/gateway/handlers/charges_range_test.go`
   (new file) — Test Contract **A1–A8** verbatim (design.md §Test Contract Group A):
   - A1: both absent, `today = 2026-08-29` → `start = 2026-08-23`, `end = 2026-08-29`, `ok`.
   - A2: an explicit non-default valid window → `ok`.
@@ -194,7 +194,7 @@ resolutions" at the end of this file before touching `buildChargesPage` or the w
     true`, "this month" `Active == false`; called with a custom window → both `Active == false`.
   `depends_on`: 2.1 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[module: gateway worker]** `internal/gateway/handlers/charges_tiles_test.go`
+- [x] **3.2** **[module: gateway worker]** `internal/gateway/handlers/charges_tiles_test.go`
   (new file) — Test Contract **B1–B5** verbatim (design.md §Test Contract Group B):
   - B1: all four completeness inputs present, `Price > 0` → `entryComplete == true`.
   - B2: four variants, each missing exactly ONE of the four inputs → `entryComplete == false` in

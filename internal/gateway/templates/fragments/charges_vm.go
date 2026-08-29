@@ -13,9 +13,9 @@ type ChargeEntryVM struct {
 	EnergyKWh       string // formatted, e.g. "12.50 kWh"
 	PriceLabel      string // formatted with currency, e.g. "15000.00 COP"
 	Currency        string // ISO 4217 code, e.g. "COP"
-	CostPerKWhLabel string // formatted, e.g. "1200.00 COP/kWh"; empty string if nil
-	BatteryDelta    string // e.g. "+12%"; empty string if nil
-	DurationLabel   string // e.g. "1h 30m"; empty string if nil
+	CostPerKWhLabel string // formatted, e.g. "1200.00 COP/kWh"; "—" when not computable
+	BatteryDelta    string // e.g. "+12%"; "—" when not computable
+	DurationLabel   string // e.g. "1h 30m"; "—" when not computable
 	ChargingType    string // "AC", "DC", or "" if nil
 	LocationKind    string // "HOME", "WORK", "OTHER", or "" if nil
 	LocationLabel   string // free text or ""
@@ -46,6 +46,18 @@ type ChargeEntryVM struct {
 	// ended_at / end_battery_pct inputs of the inline edit row.
 	RequiredEndedAt       bool
 	RequiredEndBatteryPct bool
+
+	// Complete is the handler-computed completeness signal driving the
+	// completeness dot's colour (design.md §D-Dot) — computed via
+	// entryComplete(e) (handlers/charges_tiles.go, Wave 2), NEVER computed in
+	// the template. true renders the green (success) dot; false renders the
+	// yellow (warning) dot.
+	Complete bool
+
+	// BatteryRange is the pre-formatted "22% → 70%" string when both
+	// StartBatteryPct and EndBatteryPct are present, else "—" (D11/D14).
+	// Rendered ALONGSIDE BatteryDelta, not in place of it.
+	BatteryRange string
 }
 
 // ChargeFormValues carries the raw, unparsed POST values a user submitted, so a
@@ -77,6 +89,19 @@ type VehicleOptionVM struct {
 	Selected    bool   // pre-computed; true for exactly one option (the auto-selected vehicle)
 }
 
+// ChargeTiles holds the four pre-formatted aggregation-tile strings shown as
+// ui.StatTile values (design.md §D-Tiles). All arithmetic happens in the
+// handler (buildChargeTiles, handlers/charges_tiles.go) — the template does
+// no formatting or math. Mirrors SuperchargerTiles's doc-comment style
+// (supercharger_vm.go), single-currency (COP by construction, D13) so there
+// is no CostLines-style per-currency slice here.
+type ChargeTiles struct {
+	Sessions string // count in the window, e.g. "14"
+	Energy   string // e.g. "12.5 kWh"; sums only non-nil EnergyAddedKWh entries
+	Cost     string // e.g. "15000.00 COP"; sums Price unconditionally
+	AvgKWh   string // Energy / non-nil-energy-count, e.g. "7.5 kWh"; "—" on zero count
+}
+
 // ChargesPageData is the full-page data for the charge log page and its fragments.
 // All fields are presentation-ready; no domain types or pgtype values.
 type ChargesPageData struct {
@@ -84,6 +109,28 @@ type ChargesPageData struct {
 	CSRFToken  string // for form hidden inputs
 	EmptyState bool   // true when Entries is empty and no error occurred
 	Error      string // non-empty if a reader error degraded the page gracefully
+
+	// Presets is the ordered list of "last 7 days"/"this month" RangePreset
+	// entries the filter selector renders (design.md §D-Presets). Nil on a
+	// malformed window or no resolved vehicle — no selector is rendered
+	// (mirrors SuperchargerStatsView.Presets's exact doc-comment shape).
+	Presets []RangePreset
+
+	// Tiles holds the four aggregation-tile values (design.md §D-Tiles),
+	// computed over the SAME entries slice Entries is mapped from.
+	Tiles ChargeTiles
+
+	// WindowStartStr / WindowEndStr are the already-resolved filter window,
+	// pre-formatted "2006-01-02" (design.md §D-Include). Rendered into the
+	// stable-id hidden inputs #charges-window-start/#charges-window-end so
+	// the create form's hx-include always reads the current filter window.
+	WindowStartStr string
+	WindowEndStr   string
+
+	// NoFilterChrome is true when no vehicle is resolved OR the requested
+	// window is malformed (design.md §D-Empty state 1) — the presets, tiles,
+	// AND table are all hidden; only ChargesEmptyState() renders.
+	NoFilterChrome bool
 
 	// DefaultChargedOn is the today's-date default for the REQUIRED charged_on input
 	// on the create form, pre-formatted by the handler as a date value "YYYY-MM-DD".
