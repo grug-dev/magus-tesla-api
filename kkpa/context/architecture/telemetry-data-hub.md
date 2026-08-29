@@ -30,10 +30,10 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 | `internal/gateway/handlers/handlers.go` (`navHeaderFor`) | `LatestSnapshotsByAccount` | Nav-header battery %/status + dashboard vehicle cards. |
 | `internal/gateway/handlers/history.go` | `SnapshotsByVehicleBetween` | Dashboard history fragment — battery-level chart (odometer chart moved to analytics, RM29 D5). |
 | `internal/gateway/handlers/charges.go` (`buildChargesPage`) | `LatestSnapshotsByAccount` | Create-form `start_battery_pct` suggestion. |
-| ~~gateway supercharger page~~ (REMOVED by RM30/MAG-30) | — | `/supercharger-stats` now reads the charging mirror via `charging.SessionReader` (`charge_sessions`) — see `workflows/supercharger-stats-read.md`. Telemetry's `SuperchargerReader` no longer has a gateway consumer. |
-| `internal/analytics/analytics.go` + `reader.go` | `NewReader(pool, telemetryReader, supercharger, manual, acct, window)` | Derived metrics: `ConsumedByDay`, `OdometerDeltaByDay` over `vehicle_metrics`; telemetry is one of three source ports. |
-| `internal/analytics/recalculate.go` | `SnapshotPrecedingDay`, `SnapshotsByVehicleUpdatedSince`, supercharger reads | `Recalculator` re-derives `vehicle_metrics` rows (nightly + after manual-charge writes — see `entities/vehicle-metrics/guide.md`). |
-| `internal/app/processor.go` | `SuperchargerSessionsByVehicleUpdatedSince` | Step 2 of `ProcessVehicleData`: mirrors new Supercharger sessions into `charging.charge_sessions` via `charging.SessionWriter` — this mirror is what the Supercharger Stats page reads (RM30). |
+| ~~gateway supercharger page~~ (REMOVED by RM30/MAG-30) | — | `/supercharger-stats` now reads the charging mirror via `charging.SessionReader` (`charge_sessions`) — see `workflows/supercharger-stats-read.md`. |
+| `internal/analytics/analytics.go` + `reader.go` | `SnapshotsByVehicleSince` | Derived metrics: `ConsumedByDay`, `OdometerDeltaByDay` over `vehicle_metrics`. Telemetry supplies **snapshots only** — `NewReader`'s `supercharger` argument is `charging.SuperchargerSessionAnalyticsReader`, not a telemetry port (**changed by RM31**). |
+| `internal/analytics/recalculate.go` | `SnapshotPrecedingDay`, `SnapshotsByVehicleUpdatedSince`, `SnapshotsByVehicleBetween` | `Recalculator` re-derives `vehicle_metrics` rows (nightly + after manual-charge writes — see `entities/vehicle-metrics/guide.md`). **Snapshot reads only since RM31** — its Supercharger source moved to `charging.SuperchargerSessionAnalyticsReader` over `charge_sessions`. |
+| `internal/app/processor.go` | `SuperchargerSessionsByAccount` (limit 0 = every session) | Step 2 of `ProcessVehicleData`: mirrors Supercharger sessions into `charging.charge_sessions` via `charging.SessionWriter` — what the Supercharger Stats page reads (RM30) **and, since RM31, what `internal/analytics` derives from**. This is now the **only remaining caller of `telemetry.SuperchargerReader` repo-wide**. See `architecture/nightly-cycle.md`. |
 
 ### Driving adapters (the write side's callers)
 
@@ -48,7 +48,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Add a new telemetry read consumer:** construct `telemetry.NewReader(pool)` / `NewSuperchargerReader(pool)` in the consumer's composition root (`cmd/web/main.go` or the module's constructor), accept the PORT interface in `Deps`/constructor — never import `internal/telemetry/db`. Gateway handlers go through `resolveSelectedVehicle` for per-vehicle reads.
 - **Add a new read method:** `internal/telemetry/db/queries.sql` → `make sqlc` → implement on `Reader`/`SuperchargerReader` in `reader.go` + declare in `telemetry.go`. Bounded windows follow the platform `?start=&end=` convention (see `SuperchargerSessionsByVehicleBetween`).
 - **Add a new collected field:** capture path only — `telemetry.Collector`/`service.go` + `db/queries.sql` (+ migration). Units convert exactly once at capture time (display units, RM7 D1/D3); never add read-time conversion.
-- **Change the nightly cycle:** `internal/app/processor.go` (`ProcessVehicleData` 3-step flow) — never re-add orchestration to `cmd/poller`.
+- **Change the nightly cycle:** `internal/app/processor.go` (`ProcessVehicleData` 3-step flow) — never re-add orchestration to `cmd/poller`. Full step/port/table map: `architecture/nightly-cycle.md`.
 
 ## Conventions & gotchas
 
@@ -64,4 +64,4 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 - Features: (none yet)
 - Workflows: `workflows/manual-charge-crud.md` (analytics recalc after writes), `workflows/supercharger-stats-read.md` (read-only page over the `charge_sessions` mirror)
-- Architecture: (none yet)
+- Architecture: `architecture/nightly-cycle.md` (the 3-step `ProcessVehicleData` cycle that drives telemetry's write path)

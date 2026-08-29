@@ -9,7 +9,7 @@
 Target guide: `entities/vehicle-metrics/guide.md`
 Source spec:  `openspec/specs/analytics/spec.md`
 Generated:    2026-08-28
-Status: PENDING REVIEW
+Status: APPLIED 2026-08-28
 
 Scope of this proposal: the requirement **modified by RM31 tier 3**
 (`2026-08-28-RM31-analytics-read-sessions-from-charging`) — "No Cross-Module Database Access",

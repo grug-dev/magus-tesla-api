@@ -23,6 +23,7 @@
 | `calc fields` | the `_calc` columns of `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calculated fields` | synonym of `calc fields` | entity | `entities/vehicle-metrics/guide.md` |
 | `metrics reconciliation` | `Recalculator.Reconcile` / `vehicle_metric_watermarks` | entity | `entities/vehicle-metrics/guide.md` |
+| `watermark source` | `vehicle_metric_watermarks.source` (`vehicle_snapshots` / `charge_sessions` / `manual_charge_entries`) | entity | `entities/vehicle-metrics/guide.md` |
 
 ## Workflows
 
@@ -31,6 +32,8 @@
 | `manual charge CRUD` (create/edit/delete a manual charge, incl. analytics recalc hook) | `workflows/manual-charge-crud.md` |
 | `supercharger stats read` (page/fragment read flow, plus the narrow `session battery edit` write path over two fields — RM31) | `workflows/supercharger-stats-read.md` |
 | `supercharger stats date filter` (`?start=&end=`, 400-day cap) | `workflows/supercharger-stats-read.md` |
+| `supercharger stats chart axes` (`YYYY-MM` bar labels + reused kWh y-axis ticks) | `workflows/supercharger-stats-read.md` |
+| `supercharger session battery percentages` (the four `charging.Session` % columns; nil ⇒ `—`) | `workflows/supercharger-stats-read.md` |
 
 ## Architecture topics
 
@@ -39,7 +42,13 @@
 | `telemetry hub` (module purpose + consumer map: who reads telemetry data) | `architecture/telemetry-data-hub.md` |
 | `telemetry module` | synonym of `telemetry hub` → `architecture/telemetry-data-hub.md` |
 | `vehicle snapshots` | `telemetry.Snapshot` / `vehicle_snapshots` → `architecture/telemetry-data-hub.md` |
-| `nightly collection` | `telemetry.Collector` / `app.ProcessVehicleData` → `architecture/telemetry-data-hub.md` |
+| `nightly cycle` (the 3-step `ProcessVehicleData` orchestration: sync fleet data → mirror charging data → recalculate analytics) | `architecture/nightly-cycle.md` |
+| `nightly collection` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
+| `nightly poll` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
+| `nightly batch` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
+| `the poller run` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
+| `ProcessVehicleData` | `app.Processor.ProcessVehicleData` → `architecture/nightly-cycle.md` |
+| `session mirror` | step 2 of the cycle — `charging.SessionWriter.MirrorSessions` → `architecture/nightly-cycle.md` |
 
 <!--
 Notes for the curator:

@@ -6,8 +6,8 @@
 
 ## Glossary
 
-- **Known as:** `vehicle metrics`, `calc fields`, `calculated fields`, `metrics reconciliation`, `derived metrics`
-- **Internal name:** `analytics.Recalculator` (`Recalculate` / `Reconcile`) — table `vehicle_metrics` (analytics-owned), watermarks in `vehicle_metric_watermarks`
+- **Known as:** `vehicle metrics`, `calc fields`, `calculated fields`, `metrics reconciliation`, `derived metrics`, `watermark source`
+- **Internal name:** `analytics.Recalculator` (`Recalculate` / `Reconcile`) — table `vehicle_metrics` (analytics-owned), watermarks in `vehicle_metric_watermarks`. **Changed by RM31 tier 3:** the Supercharger input moved from `internal/telemetry`'s port over `supercharger_sessions` to `internal/charging`'s `SuperchargerSessionAnalyticsReader` over `charge_sessions`, and the watermark `source` vocabulary became `('vehicle_snapshots', 'charge_sessions', 'manual_charge_entries')`.
 
 The `_calc` columns: `distance_traveled_km_calc`, `battery_used_pct_calc`, `km_per_pct_calc`,
 `estimated_range_km_calc`, `days_spanned_calc` — plus charge-corrected `consumed_pct` derived
@@ -40,8 +40,8 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 | File | Role |
 |---|---|
-| `internal/telemetry` (`Reader`, `SuperchargerReader`) | `vehicle_snapshots` + `supercharger_sessions` reads — see `architecture/telemetry-data-hub.md`. |
-| `internal/charging` (`Reader`) | `manual_charge_entries` reads. |
+| `internal/telemetry` (`Reader`) | `vehicle_snapshots` reads — see `architecture/telemetry-data-hub.md`. |
+| `internal/charging` (`Reader`, `SuperchargerSessionAnalyticsReader`) | `manual_charge_entries` reads + the Supercharger session reads over `charge_sessions` (RM31 tier 3 moved the Supercharger input here from `internal/telemetry`). |
 
 ## How maintenance works
 
@@ -49,6 +49,8 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Change the math of an existing field:** edit `deriveConsumption` / `deriveVehicleMetrics` only — the UPSERT is a full-row replace, so the next `Recalculate`/`Reconcile` run self-heals history (idempotent on `(account_id, tesla_id, metric_date)`).
 - **Add a new source table:** new watermark source label + `Reconcile` read branch in `recalculate.go`; the source's owning module exposes a bounded read port (never import another module's `db/`).
 - **Read the metrics:** `analytics.Reader` (`ConsumedByDay`, `OdometerDeltaByDay`) — the gateway history fragment reads these, never `vehicle_metrics` directly.
+- **Change where the Supercharger input comes from:** it is `internal/charging`'s `SuperchargerSessionAnalyticsReader`, **not** `internal/telemetry` — RM31 tier 3 moved it so that a human battery-% correction written to `charge_sessions` reaches `vehicle_metrics`. `internal/telemetry` still supplies `vehicle_snapshots` and nothing else for this concept. Analytics must import only those modules' public interfaces.
+- **Change a watermark source label:** the closed vocabulary is `vehicle_snapshots`, `charge_sessions`, `manual_charge_entries`, enforced by a CHECK constraint on `vehicle_metric_watermarks.source` and mirrored in `recalculate.go`'s source labels. Renaming one means a migration that changes the CHECK **and** disposes of the existing rows — RM31 tier 3 DELETEd the retired `supercharger_sessions` rows rather than renaming them in place, because an absent cursor is defined as the epoch and the next nightly `Reconcile` rebuilds that source's history in one pass.
 
 ## Conventions & gotchas
 
@@ -59,6 +61,13 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **The `_calc` columns' ONLY home is `vehicle_metrics`** — the derived consumption columns were dropped from `vehicle_snapshots` (RM29 tier 4, migration `20260822000001`); never re-add read-time derivation to telemetry or the gateway. _Source: `internal/telemetry/db/migrations/20260822000001…`._
 - **`consumed_pct` is charge-corrected** — `battery_used_pct_calc` plus that day's matched supercharger + manual charge deltas; a predecessor-less day's `consumed_pct` has no raw delta to correct. _Source: `internal/analytics/consumed.go` `deriveVehicleMetrics`._
 - **"Yesterday" is resolved in the poller's own timezone, not UTC** — `recalculateAnalytics` computes its window with `time.Now().In(p.loc)`; `internal/analytics` itself stays location-free (each row's bucket day travels with it). _Source: `internal/app/processor.go` D-B12 comment._
+
+- **Analytics owns `vehicle_metrics` and `vehicle_metric_watermarks` and NOTHING else — every input arrives through another module's public read port.** It imports the public `Reader` of `internal/telemetry`, the public `Reader` **and `SuperchargerSessionAnalyticsReader`** of `internal/charging`, and the public `Service` of `internal/account`. Never `internal/telemetry/db`, `internal/charging/db`, or `internal/account/db`, and never a shared pool reaching into another module's tables. _Source: spec analytics — Requirement: No Cross-Module Database Access._
+- **The Supercharger input is `internal/charging` over `charge_sessions`, not `internal/telemetry` over `supercharger_sessions`.** This is load-bearing, not cosmetic: `charge_sessions` is the table a human battery-% verification writes to, so reading anywhere else would make the correction invisible to `vehicle_metrics`. _Source: spec analytics — Requirement: No Cross-Module Database Access._
+- **Three independent cursors, each advanced alone.** One cursor per (vehicle, source) over telemetry snapshots, Supercharger sessions, and manual charge entries; advancing one must never rewind or skip another. A source with no cursor is treated as never incorporated, so its first reconciliation backfills that source's whole history for the vehicle. _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark._
+- **An absent watermark row means epoch — which is why a source migration can safely DELETE cursors.** Dropping a retired source's rows costs one full re-read on the next nightly pass; carrying the old cursor value forward risks silently skipping any row in the new table older than the inherited cursor. _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark._
+- **A weeks-old revision is picked up because the cursor is `updated_at`-driven, not a trailing window.** A Supercharger session from three weeks ago whose `updated_at` refreshes today recomputes the day it affects. This is exactly the mechanism a human battery-% edit rides. _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark._
+- **Charge-to-day matching is source-specific and half-open for Supercharger sessions.** A session matches a day by its stop instant against `[predecessor capture, this day's capture)` — inclusive of the start, **exclusive** of the end; a manual entry matches by its logged calendar date, inclusive. Do not unify the two rules. _Source: spec analytics — Requirement: Charge-to-Day Matching Is Source-Specific._
 
 ## Related KB
 
