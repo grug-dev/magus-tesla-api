@@ -241,7 +241,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
     for the same reason MAG-25 recorded.
   `depends_on`: 2.4 · `parallel_ok`: with 4.2
 
-- [ ] **4.2** **[leader — outside the charging sandbox; grant the path or do it]**
+- [x] **4.2** **[leader — outside the charging sandbox; grant the path or do it]**
   `kkpa/context/workflows/manual-charge-crud.md` — add the roadmap **D8** KB note: the 62 kWh pack
   capacity lives in `internal/charging/capacity.go` (`packCapacityKWh`), it is a placeholder pending
   a real per-vehicle value (backlog #18), and any future averaging of inferred capacities must
@@ -254,7 +254,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
 
 ## Wave 5 — signals
 
-- [ ] **5.1** **[module: charging worker]** Run the cheap deterministic signals the
+- [x] **5.1** **[module: charging worker]** Run the cheap deterministic signals the
   `Test-Execution-Policy` allows: `gofmt -l ./internal/charging`, `go build ./...`,
   `go vet ./...`. **`go build`/`go vet` will fail in `internal/gateway` until L1 lands** (design.md
   **D11**) — that is expected and is not this module's defect. Confirm that **every remaining
@@ -277,7 +277,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
   green.
   `depends_on`: 2.1 · `parallel_ok`: with Wave 3 and Wave 4
 
-- [ ] **L2** **[leader]** Confirm the root `README.md` needs no edit. This change alters a module's
+- [x] **L2** **[leader]** Confirm the root `README.md` needs no edit. This change alters a module's
   *public surface* but adds, removes or renames no module and no runnable, so the "Project
   Structure" tree and the "Architecture" table should both already be correct. Verify rather than
   assume; `internal/charging` has no `README.md` of its own, so `AGENTS.md` (task 4.1) is the
@@ -288,7 +288,7 @@ conventions: fresh `uuid.New()` account ids per test; float compare with
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the assistant's
+- [x] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the assistant's
   say-so; work that is complete but unexecuted is **`awaiting-user-verification`**.
   ```bash
   make migrate-up

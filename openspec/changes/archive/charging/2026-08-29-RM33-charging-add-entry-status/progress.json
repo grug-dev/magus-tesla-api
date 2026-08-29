@@ -5,9 +5,9 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM33-manual-record-status.md",
   "request": "Source ticket: MAG-18 \u2014 https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records. Tier 1 of roadmap RM33-manual-record-status, module charging, implementing roadmap decisions D1-D8: add status (IN_PROGRESS/DONE), energy_source (USER/ESTIMATED) and odometer_km columns to manual_charge_entries; drop NOT NULL on energy_added_kwh; add the declarative RequiredFieldsFor status-conditional validation; add the packCapacityKWh seam and derive energy on write when the user leaves it blank.",
-  "status": "verified",
+  "status": "archived",
   "created_at": "2026-08-29T11:13:27Z",
-  "updated_at": "2026-08-29T15:05:29Z",
+  "updated_at": "2026-08-29T15:11:39Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -504,10 +504,26 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "charging-reviewer",
+    "brief": "Validate RM33 tier 1 across commits dfd99c9..HEAD. Check: module-boundary compliance (no pgtype outside service.go; gateway/analytics touched only for the mechanical *float64 fix); every DB object matches the user-confirmed design gate (3 columns, DROP NOT NULL, CHECK retained, no index, generated column untouched) -- a mismatch is a blocker; the integration tests assert design.md's Test Contract (A1-A9, B1-B8, C1-C16) rather than whatever the implementation does; RequiredFieldsFor is genuinely the single source of truth (no second location_kind check survives); energy_source is never read from a caller; spec/tasks coverage; docs-track-change; read-heavy Performance-Profile compliance; and the anti-gaming checks (no weakened criteria -- especially task 3.5's message-only edit and 3.4's fixture adaptation, where no expected value may have changed -- and no self-approved statuses). Assistant-run signals: gofmt, go build ./..., go vet ./... (all green repo-wide). User-reported: make check, make build, make test, make test-with-db, all passing. Judge test quality by READING the tests; do not run the suite.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-29T15:20:00Z",
+        "duration_seconds": 900,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "minor",
+            "note": "openspec/changes/RM33-charging-add-entry-status/tasks.md: leader-owned tasks 4.2 (KB note), 5.1 (build/vet signals), and L2 (README verification) are all recorded as done in progress.json (rollup.done and events log) and their work is independently confirmed in the repo (kkpa/context/workflows/manual-charge-crud.md D8 note present; go build ./... and go vet ./... green repo-wide; README.md data-ownership row updated), but their checkboxes in tasks.md remain [ ] while sibling leader task L1 was checked [x]. ai/agentic-workflow.md states progress.json wins on review state but tasks.md wins on implementation done-ness, so this is a bookkeeping gap the leader should close (check the three boxes) before archiving, not a correctness or gaming issue -- the underlying work is verified complete.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      }
+    ]
   },
   "decisions": [
     {
@@ -617,6 +633,15 @@
       "decision": "The leader ran task 5.1's signals itself instead of dispatching a charging worker for it",
       "why": "5.1 is three shell commands whose acceptance the leader observes directly; a worker dispatch would add a doc-pack read and no judgment.",
       "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-29T15:11:39Z",
+      "scope": "review:R1-1",
+      "made_by": "leader",
+      "decision": "Accepted the reviewer's only finding and ticked the three leader-owned checkboxes (4.2, 5.1, L2) plus O1 before archiving",
+      "why": "tasks.md is authoritative on implementation done-ness, so leaving leader tasks unticked would have misreported the change to the next reader.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -699,6 +724,21 @@
       "at": "2026-08-29T15:05:29Z",
       "agent": "leader",
       "event": "SUITE VERIFIED BY THE USER: they ran make check, make build, make test and make test-with-db and reported all passing. Every awaiting-user-verification task -> done on THEIR report, not the assistant's. Change status -> verified"
+    },
+    {
+      "at": "2026-08-29T15:05:44Z",
+      "agent": "leader",
+      "event": "dispatched charging-reviewer (sonnet) for review round 1 \u2014 budget start 5h=51% ctx=20%"
+    },
+    {
+      "at": "2026-08-29T15:11:39Z",
+      "agent": "leader",
+      "event": "review round 1: APPROVED by charging-reviewer with one minor finding (R1-1, unticked leader checkboxes) \u2014 accepted and fixed"
+    },
+    {
+      "at": "2026-08-29T15:11:39Z",
+      "agent": "leader",
+      "event": "archived: openspec archive synced the manual-charge-log delta (+3 added, ~2 modified) into the main spec; folder moved to the charging domain subfolder per openspec/config.yaml archive rules (the CLI places it flat)"
     }
   ]
 }
