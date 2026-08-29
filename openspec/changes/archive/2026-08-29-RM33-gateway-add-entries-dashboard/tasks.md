@@ -554,7 +554,7 @@ same real merge-risk caveat tier 2's Wave 8 accepted for its own same-file test 
 
 ## Owner verification (`Test-Execution-Policy`: the owner runs the suite)
 
-- [ ] **O1** **[owner]** Run the suite. Nothing above may be reported as `done` on the
+- [x] **O1** **[owner]** Run the suite. *(Owner reported the suite GREEN at 2026-08-29T20:34:50Z; no code has changed since — the only later commit ticked 10.1 and wrote progress.json. Recorded as the owner's verification, not the assistant's.)* Nothing above may be reported as `done` on the
   assistant's say-so; work that is complete but unexecuted is **`awaiting-user-verification`**.
   ```bash
   make check

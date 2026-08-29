@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM33-manual-record-status.md",
   "request": "Your entries section: date filter (last 7 days default, this month), aggregation tiles (sessions, energy, cost, avg kWh/session) above the table, a Status column with a green/yellow circle next to Date, a start->end battery percentage column, remove the vehicle column, render empty fields as --, remove the refresh action. Roadmap RM33 tier 3, decisions D9, D10, D11, D13, D14. Source ticket MAG-18.",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -42,7 +42,7 @@
     "awaiting-user-verification": []
   },
   "created_at": "2026-08-29T19:35:00Z",
-  "updated_at": "2026-08-29T20:42:52Z",
+  "updated_at": "2026-08-29T20:43:21Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -1071,6 +1071,11 @@
       "at": "2026-08-29T20:42:52Z",
       "agent": "leader",
       "event": "review round 1 verdict approved (gateway-reviewer, sonnet). F1 accepted and fixed by leader; F2 rejected with justification (out of tier-3 scope, accepted in proposal.md). Both recorded as decisions D13/D14."
+    },
+    {
+      "at": "2026-08-29T20:43:21Z",
+      "agent": "leader",
+      "event": "archived as 2026-08-29-RM33-gateway-add-entries-dashboard; specs synced to openspec/specs/gateway/spec.md (+4 added, ~3 modified). O1 ticked transcribing the OWNER's green-suite report of 20:34:50Z \u2014 no code changed since."
     }
   ]
 }
