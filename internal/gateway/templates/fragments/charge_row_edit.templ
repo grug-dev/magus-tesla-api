@@ -20,11 +20,23 @@ import (
 // the button, every `Required: true` below was inert and an empty required field
 // went straight to the server as a 422. Keep the request on the form.
 //
-// MAG-5 alignment with the create form (D4/D5/D6/D7): currency is a disabled,
-// read-only COP input (D5); start/end battery % are REQUIRED (D6); energy is
-// 3-decimal (step=0.001, D7). The hidden `vehicle` form input was removed (D4 —
-// parseChargeForm sources the vehicle from the session selection); the
-// read-only VehicleLabel span stays for display transparency.
+// MAG-5 alignment with the create form (D4/D6/D7): start_battery_pct is
+// unconditionally REQUIRED (D6; end_battery_pct's required-ness is conditional
+// as of RM33, see below); energy is 3-decimal (step=0.001, D7). The hidden
+// `vehicle` form input was removed (D4 — parseChargeForm sources the vehicle
+// from the session selection); the read-only VehicleLabel span stays for
+// display transparency.
+//
+// RM33 (MAG-18) additions, design.md §D-Fields/§D-Suffix/§D-Values: a status
+// <select> (IN_PROGRESS/DONE) is the first field, defaulting to vm.RawStatus
+// (the persisted value, or the submitted value on a 4xx re-render via
+// chargeEntryVMFromRawValues). ended_at / end_battery_pct's Required is bound
+// to vm.RequiredEndedAt / vm.RequiredEndBatteryPct (handler-computed from
+// charging.RequiredFieldsFor). energy_added_kwh and price are genuinely
+// optional; the disabled Currency input is REMOVED — price instead renders a
+// "COP" suffix via ui.InputProps.Suffix (design.md §D-Suffix).
+// odometer_km is a new optional field inside "More details" (D-RM33-7),
+// bound to vm.RawOdometerKm.
 templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[string]string) {
 	<tr id={ "charge-row-" + vm.ID }>
 		<td colspan="8">
@@ -42,17 +54,21 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 				<input type="hidden" name="csrf_token" value={ csrfToken }/>
 				<input type="hidden" name="id" value={ vm.ID }/>
 				<div class="grid gap-3 sm:grid-cols-2">
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStatus), Error: validationErrors["status"]}) {
+						@ui.Select(ui.SelectProps{Name: "status", Required: true}) {
+							<option value="IN_PROGRESS" selected?={ vm.RawStatus == "IN_PROGRESS" }>{ i18n.T(ctx, i18n.KeyChargesFormStatusInProgress) }</option>
+							<option value="DONE" selected?={ vm.RawStatus == "DONE" }>{ i18n.T(ctx, i18n.KeyChargesFormStatusDone) }</option>
+						}
+					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormDate), Error: validationErrors["charged_on"]}) {
 						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: vm.RawChargedOn, Required: true})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEnergyAdded), Error: validationErrors["energy_added_kwh"]}) {
-						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: vm.RawEnergyKWh, Required: true, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})
+						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: vm.RawEnergyKWh, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormPrice), Error: validationErrors["price"]}) {
-						@ui.Input(ui.InputProps{Type: "number", Name: "price", Value: vm.RawPrice, Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
-					}
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormCurrency)}) {
-						@ui.Input(ui.InputProps{Name: "currency", Value: vm.Currency, Disabled: true})
+						// i18n:allow: ISO currency code
+						@ui.Input(ui.InputProps{Type: "number", Name: "price", Value: vm.RawPrice, Suffix: "COP", Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormVehicle)}) {
 						<span class="text-base-content/80">{ vm.VehicleLabel }</span>
@@ -61,7 +77,7 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 						@ui.Input(ui.InputProps{Type: "number", Name: "start_battery_pct", Value: vm.RawStartBatteryPct, Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndBatteryPct), Error: validationErrors["end_battery_pct"]}) {
-						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: vm.RawEndBatteryPct, Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: vm.RawEndBatteryPct, Required: vm.RequiredEndBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 					}
 				</div>
 				<details>
@@ -71,7 +87,7 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at", Value: vm.RawStartedAt})
 						}
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndedAt), Error: validationErrors["ended_at"]}) {
-							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: vm.RawEndedAt})
+							@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: vm.RawEndedAt, Required: vm.RequiredEndedAt})
 						}
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormChargingType)}) {
 							@ui.Select(ui.SelectProps{Name: "charging_type"}) {
@@ -89,6 +105,9 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 						}
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocationLabel)}) {
 							@ui.Input(ui.InputProps{Name: "location_label", Value: vm.LocationLabel})
+						}
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormOdometer), Error: validationErrors["odometer_km"]}) {
+							@ui.Input(ui.InputProps{Type: "number", Name: "odometer_km", Value: vm.RawOdometerKm, Attrs: templ.Attributes{"min": "0", "step": "1"}})
 						}
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormNotes), Class: "sm:col-span-2"}) {
 							@ui.Textarea(ui.TextareaProps{Name: "notes"}) { { vm.Notes } }

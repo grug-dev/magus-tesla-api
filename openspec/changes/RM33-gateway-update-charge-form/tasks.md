@@ -167,7 +167,7 @@ the human. See design.md for the rationale behind each group.
 
 ## Wave 4 — templates
 
-- [ ] **4.1** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_create_form.templ`:
+- [x] **4.1** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_create_form.templ`:
   - Add the `status` `<select>` (`@ui.Select`) as the **first** field in the main grid, before
     `charged_on`, with options `IN_PROGRESS`/`DONE` using the new i18n keys, `selected?={
     d.FormValues.Status == "IN_PROGRESS" }` / `"DONE"`.
@@ -196,7 +196,7 @@ the human. See design.md for the rationale behind each group.
     `{ d.FormValues.Notes }` (today's create form has neither).
   `depends_on`: 1.1, 1.2, 2.1, 3.2, 3.3 · `parallel_ok`: with 4.2
 
-- [ ] **4.2** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_row_edit.templ`:
+- [x] **4.2** **[module: gateway worker]** `internal/gateway/templates/fragments/charge_row_edit.templ`:
   - Same `status` `<select>` as 4.1, as the first field, `selected?={ vm.RawStatus == "IN_PROGRESS"
     }` / `"DONE"` (the persisted value — "persisted and loaded" per the ticket).
   - Drop `Required: true` from `energy_added_kwh` and `price` (values stay bound to
@@ -215,7 +215,7 @@ the human. See design.md for the rationale behind each group.
   `depends_on`: 1.1, 1.2, 2.1, 3.2, 3.3 · `parallel_ok`: with 4.1
 
 
-- [ ] **4.3** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — **deferred deletion
+- [x] **4.3** **[module: gateway worker]** `internal/gateway/i18n/catalog.go` — **deferred deletion
   from task 1.2.** Wave 1 could not remove `KeyChargesFormCurrency`,
   `KeyChargesErrorEnergyRequired` and `KeyChargesErrorPriceRequired` because 1.2's mandated grep
   still found live references (`charge_create_form.templ:58`, `charge_row_edit.templ:54`,
@@ -229,7 +229,7 @@ the human. See design.md for the rationale behind each group.
 
 ## Wave 5 — codegen
 
-- [ ] **5.1** **[module: gateway worker]** Run `make templ` (regenerates `*_templ.go` for both
+- [x] **5.1** **[module: gateway worker]** Run `make templ` (regenerates `*_templ.go` for both
   edited fragments and `ui/input_templ.go`), then `make css` (the new DaisyUI `label`/`grow`
   classes must be present in the committed `static/app.css` — check
   `git diff --stat internal/gateway/static/app.css` shows a change; if it shows none, the classes

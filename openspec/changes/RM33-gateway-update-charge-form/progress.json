@@ -4,15 +4,11 @@
   "change": "RM33-gateway-update-charge-form",
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM33-manual-record-status.md",
-  "request": "RM33 tier 2 of MAG-18 (Adding Status to Manual Records) — the charge FORM slice: status dropdown (IN PROGRESS / DONE, i18n, default IN PROGRESS, at the top of the section, persisted and loaded); energy_added_kwh and price optional (price empty => 0, no negatives); required validations apply only when status is DONE, driven by charging.RequiredFieldsFor; remove the Currency input and label price as COP via an input suffix; AC/DC helper option text; new optional odometer field in More details; date change syncs start/end preserving HH:MM; only clear the form on HTTP 200 (preserve typed values on 4xx/5xx). Both charge_create_form.templ and charge_row_edit.templ.",
+  "request": "RM33 tier 2 of MAG-18 (Adding Status to Manual Records) \u2014 the charge FORM slice: status dropdown (IN PROGRESS / DONE, i18n, default IN PROGRESS, at the top of the section, persisted and loaded); energy_added_kwh and price optional (price empty => 0, no negatives); required validations apply only when status is DONE, driven by charging.RequiredFieldsFor; remove the Currency input and label price as COP via an input suffix; AC/DC helper option text; new optional odometer field in More details; date change syncs start/end preserving HH:MM; only clear the form on HTTP 200 (preserve typed values on 4xx/5xx). Both charge_create_form.templ and charge_row_edit.templ.",
   "status": "in-progress",
   "rollup": {
     "current": [],
     "pending": [
-      "4.1",
-      "4.2",
-      "4.3",
-      "5.1",
       "7.1",
       "8.1",
       "8.2",
@@ -29,10 +25,16 @@
       "3.1",
       "3.2",
       "3.3"
+    ],
+    "awaiting-user-verification": [
+      "4.1",
+      "4.2",
+      "5.1",
+      "4.3"
     ]
   },
   "created_at": "2026-08-29T15:40:00Z",
-  "updated_at": "2026-08-29T16:26:00Z",
+  "updated_at": "2026-08-29T16:48:47Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -79,7 +81,7 @@
       "started_at": "2026-08-29T15:26:00Z",
       "completed_at": "2026-08-29T15:35:00Z",
       "duration_seconds": null,
-      "notes": "Added 7 keys (ES+EN), changed AC/DC values to D16's strings. Did NOT delete the 3 Currency/Required keys — 1.2's grep found live refs in 3.x/4.x files. Deletion moved to new task 4.3.",
+      "notes": "Added 7 keys (ES+EN), changed AC/DC values to D16's strings. Did NOT delete the 3 Currency/Required keys \u2014 1.2's grep found live refs in 3.x/4.x files. Deletion moved to new task 4.3.",
       "budget": {
         "five_hour_pct_delta": 10,
         "cost_usd_delta": 3.23,
@@ -200,14 +202,23 @@
         "3.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T16:43:22Z",
+      "completed_at": "2026-08-29T16:48:47Z",
+      "duration_seconds": 325,
+      "notes": "Status select added as first field; energy/price Required dropped; price renders Suffix COP with i18n:allow marker; Currency block removed; odometer in More details; every submitted value echoed from d.FormValues (D15).",
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.343,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-3 delta copied onto the 4 batched serial tasks"
+      }
     },
     {
       "id": "4.2",
@@ -221,14 +232,23 @@
         "3.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T16:43:22Z",
+      "completed_at": "2026-08-29T16:48:47Z",
+      "duration_seconds": 325,
+      "notes": "Mirrors 4.1: status select bound to vm.RawStatus, COP suffix replaces Currency field, ended_at/end_battery_pct Required bound to vm.Required* pair, odometer bound to vm.RawOdometerKm. colspan=\"8\" untouched per D-Colspan.",
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.343,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-3 delta copied onto the 4 batched serial tasks"
+      }
     },
     {
       "id": "5.1",
@@ -239,14 +259,23 @@
         "4.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T16:43:22Z",
+      "completed_at": "2026-08-29T16:48:47Z",
+      "duration_seconds": 325,
+      "notes": "make templ regenerated charge_create_form_templ.go, charge_row_edit_templ.go and ui/input_templ.go (the last was pending from wave 1's Suffix change). make css produced a real 1-line diff in the minified app.css.",
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.343,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-3 delta copied onto the 4 batched serial tasks"
+      }
     },
     {
       "id": "6.1",
@@ -388,14 +417,23 @@
         "4.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T16:43:22Z",
+      "completed_at": "2026-08-29T16:48:47Z",
+      "duration_seconds": 325,
+      "notes": "Re-ran task 1.2's grep: zero live refs outside catalog.go/_templ.go once 4.1/4.2 removed the call sites. Deleted all three Key constants + catalogue map entries.",
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.343,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-3 delta copied onto the 4 batched serial tasks"
+      }
     }
   ],
   "review": {
@@ -485,6 +523,15 @@
       "decision": "Audited all 19 charge-form fixtures instead of patching only the reported failures; added status to the 10 that reach parseChargeForm, left the 4 pre-parse CSRF/session ones alone",
       "why": "Patching only reported names caused a second red run. Validation tests asserting just 422 were also passing off the spurious status error, so they no longer prove the check they name.",
       "covered_by": "design.md Test Contract A4"
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-29T16:43:22Z",
+      "scope": "wave:3",
+      "made_by": "leader",
+      "decision": "Batched 4.1, 4.2, 5.1 and 4.3 into ONE serial worker instead of running wave 4, 5 and the deferred deletion separately",
+      "why": "4.3's keys are still referenced by stale _templ.go files until 5.1 regenerates. Deleting before regen leaves go build red; one serial pass closes the window.",
+      "covered_by": "tasks.md 4.3 grep exclusion of _templ.go"
     }
   ],
   "events": [
@@ -516,22 +563,22 @@
     {
       "at": "2026-08-29T15:56:00Z",
       "agent": "leader",
-      "event": "BUDGET CHECKPOINT after wave 1: five_hour_pct=98 (threshold 90 — CROSSED), context_pct=11, five_hour_resets_at=2026-08-29T19:10:00Z. Wave 1 committed at 9387365; 1.1/1.2/2.1/6.1 done, 13 tasks pending, nothing in flight. Next wave is the sequential 3.1->3.2->3.3 single-file chain. Resume with: /kkpa-dev-harness-pipeline resume RM33-gateway-update-charge-form"
+      "event": "BUDGET CHECKPOINT after wave 1: five_hour_pct=98 (threshold 90 \u2014 CROSSED), context_pct=11, five_hour_resets_at=2026-08-29T19:10:00Z. Wave 1 committed at 9387365; 1.1/1.2/2.1/6.1 done, 13 tasks pending, nothing in flight. Next wave is the sequential 3.1->3.2->3.3 single-file chain. Resume with: /kkpa-dev-harness-pipeline resume RM33-gateway-update-charge-form"
     },
     {
       "at": "2026-08-29T15:56:00Z",
       "agent": "leader",
-      "event": "Wave 1 suite verification requested from the owner (make check) — not yet reported. Assistant-run signals only so far: gofmt, go build, go vet, make ui-guard, make i18n-guard, all clean."
+      "event": "Wave 1 suite verification requested from the owner (make check) \u2014 not yet reported. Assistant-run signals only so far: gofmt, go build, go vet, make ui-guard, make i18n-guard, all clean."
     },
     {
       "at": "2026-08-29T15:57:00Z",
       "agent": "leader",
-      "event": "OWNER VERIFICATION: the owner ran `make check` (build vet ui-guard i18n-guard money-guard test) and reported it GREEN against wave 1. Recorded as the owner's report, not the assistant's — the assistant never ran the suite."
+      "event": "OWNER VERIFICATION: the owner ran `make check` (build vet ui-guard i18n-guard money-guard test) and reported it GREEN against wave 1. Recorded as the owner's report, not the assistant's \u2014 the assistant never ran the suite."
     },
     {
       "at": "2026-08-29T15:59:00Z",
       "agent": "leader",
-      "event": "WAVE 2 DISPATCH (3.1, 3.2, 3.3 — handlers/charges.go, sequential single-file chain) to one serial gateway worker on claude-sonnet-5. Budget at dispatch: five_hour_pct=2 (bucket reset since the wave-1 checkpoint), context_pct=10, cost_usd=0.906804."
+      "event": "WAVE 2 DISPATCH (3.1, 3.2, 3.3 \u2014 handlers/charges.go, sequential single-file chain) to one serial gateway worker on claude-sonnet-5. Budget at dispatch: five_hour_pct=2 (bucket reset since the wave-1 checkpoint), context_pct=10, cost_usd=0.906804."
     },
     {
       "at": "2026-08-29T16:05:01Z",
@@ -541,17 +588,32 @@
     {
       "at": "2026-08-29T16:12:00Z",
       "agent": "leader",
-      "event": "OWNER VERIFICATION (wave 2): the owner ran `make check` and reported it RED — 5 pre-existing handler tests 422'd (TestChargeCreate_ValidInput, TestChargeRowUpdate_ValidInput, TestChargeCreate_ValidLocationKind, TestChargeCreate_ClearedDates_PersistedNil, TestChargeCreate_3DecimalEnergy_Accepted), all posting no status field. Not a code defect: design.md A4 specifies missing status must 422. Leader repaired the 5 fixtures in place (added status=IN_PROGRESS; no assertion weakened — D8). go vet clean. Tasks 3.1-3.3 remain awaiting-user-verification pending a re-run."
+      "event": "OWNER VERIFICATION (wave 2): the owner ran `make check` and reported it RED \u2014 5 pre-existing handler tests 422'd (TestChargeCreate_ValidInput, TestChargeRowUpdate_ValidInput, TestChargeCreate_ValidLocationKind, TestChargeCreate_ClearedDates_PersistedNil, TestChargeCreate_3DecimalEnergy_Accepted), all posting no status field. Not a code defect: design.md A4 specifies missing status must 422. Leader repaired the 5 fixtures in place (added status=IN_PROGRESS; no assertion weakened \u2014 D8). go vet clean. Tasks 3.1-3.3 remain awaiting-user-verification pending a re-run."
     },
     {
       "at": "2026-08-29T16:22:00Z",
       "agent": "leader",
-      "event": "OWNER VERIFICATION (wave 2, 2nd run): RED again — TestChargeCreate_RecalculatesAfterSuccessfulWrite and _RecalculateErrorDoesNotFailTheRequest, both via the shared postCharge helper (line 231) the first patch missed. Leader error: patched the 5 reported names rather than auditing the fixture set. Full audit done (D9): 19 charge-form fixtures, 15 now carry status, 4 pre-parse CSRF/session ones correctly omit it. go vet + gofmt clean. Tasks 3.1-3.3 still awaiting-user-verification."
+      "event": "OWNER VERIFICATION (wave 2, 2nd run): RED again \u2014 TestChargeCreate_RecalculatesAfterSuccessfulWrite and _RecalculateErrorDoesNotFailTheRequest, both via the shared postCharge helper (line 231) the first patch missed. Leader error: patched the 5 reported names rather than auditing the fixture set. Full audit done (D9): 19 charge-form fixtures, 15 now carry status, 4 pre-parse CSRF/session ones correctly omit it. go vet + gofmt clean. Tasks 3.1-3.3 still awaiting-user-verification."
     },
     {
       "at": "2026-08-29T16:26:00Z",
       "agent": "leader",
-      "event": "OWNER VERIFICATION (wave 2, 3rd run): the owner ran `make check` and reported it GREEN. Recorded as the owner's report, not the assistant's — the assistant never ran the suite. Tasks 3.1, 3.2, 3.3 -> done. Wave 2 complete; next is wave 3 (4.1 + 4.2, the two .templ files, parallel-ok on disjoint files)."
+      "event": "OWNER VERIFICATION (wave 2, 3rd run): the owner ran `make check` and reported it GREEN. Recorded as the owner's report, not the assistant's \u2014 the assistant never ran the suite. Tasks 3.1, 3.2, 3.3 -> done. Wave 2 complete; next is wave 3 (4.1 + 4.2, the two .templ files, parallel-ok on disjoint files)."
+    },
+    {
+      "at": "2026-08-29T16:43:22Z",
+      "agent": "leader",
+      "event": "WAVE 3 DISPATCH (4.1, 4.2, 5.1, 4.3) to one serial gateway worker on claude-sonnet-5. Batched per Step 5.1 default plus D10: 4.3 must follow 5.1's regen or the tree will not build. Budget at dispatch: five_hour_pct=22, context_pct=9, cost_usd=0.604449."
+    },
+    {
+      "at": "2026-08-29T16:48:47Z",
+      "agent": "leader",
+      "event": "WAVE 3 RECONCILED: 4.1, 4.2, 5.1, 4.3 complete, held at awaiting-user-verification. Leader-verified the diffs against tasks.md line by line: both templates match their bullet lists, colspan=\"8\" untouched, edit-row charging_type already carried selected? bindings (4.2's documented non-change), grep for the 3 deleted i18n keys returns zero live refs, ChargeEntryVM.Currency still live via formatMoney so no dead residue. Leader-run signals clean: go build ./..., go vet ./..., make ui-guard, make i18n-guard. gofmt -l flags 4 files (dashboard_vm.go, pages/dashboard.go, ui/nav_shell_test.go, vehicle_image_test.go) \u2014 all pre-existing, none touched by this wave. Budget: five_hour 22->32%, cost $0.60->$3.95."
+    },
+    {
+      "at": "2026-08-29T16:48:47Z",
+      "agent": "leader",
+      "event": "Leader corrected the worker's self-reported `done` on 5.1 and 4.3 down to awaiting-user-verification. Both are code changes covered by make check (4.3 in particular is asserted by TestCatalog_AllKeysHaveBothLanguages); write-ownership rule 4 reserves `done` for the owner's reported pass. The worker's timestamps were also wrong (00:00-00:42Z vs the real 16:43-16:48Z dispatch window); the leader recorded the real ones."
     }
   ]
 }

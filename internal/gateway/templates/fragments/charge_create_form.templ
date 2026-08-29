@@ -20,16 +20,30 @@ import (
 //     DefaultEndedAt — one day value in buildChargesPage feeds all three, so they
 //     cannot drift. charged_on is REQUIRED; started_at / ended_at stay OPTIONAL —
 //     clearing either still submits.
-//   - D2/D6: start_battery_pct + end_battery_pct are REQUIRED (UI + handler). The
+//   - D2/D6: start_battery_pct is unconditionally REQUIRED (UI + handler); the
 //     start input carries a telemetry-sourced suggestion via its placeholder
 //     (ChargesPageData.StartBatteryPctSuggestion); empty placeholder when no
-//     snapshot — no fabricated value (graceful empty).
+//     snapshot — no fabricated value (graceful empty). end_battery_pct's
+//     required-ness is conditional as of RM33 (see below).
 //   - D4: there is NO Vehicle picker — the vehicle is sourced from the sidebar
 //     switcher's session-selected vehicle (resolveSelectedVehicle in parseChargeForm).
-//   - D5: Currency is a disabled, read-only input pre-filled with "COP". A
-//     disabled input is not submitted; parseChargeForm hardcodes Currency:"COP".
 //   - D7: energy_added_kwh step is 0.001 (3-decimal precision preserved), keeping
 //     the browser's nearest-valid-range helper behavior (now after 3 decimals).
+//
+// RM33 (MAG-18) additions, design.md §D-Fields/§D-Suffix/§D-Values:
+//   - A status <select> (IN_PROGRESS/DONE) is the first field; its default
+//     selection comes from d.FormValues.Status (set to IN_PROGRESS by
+//     buildChargesPage on a fresh load, or the submitted value on a 4xx
+//     re-render).
+//   - ended_at / end_battery_pct's Required is bound to
+//     d.RequiredEndedAt / d.RequiredEndBatteryPct (handler-computed from
+//     charging.RequiredFieldsFor — never computed here).
+//   - energy_added_kwh and price are genuinely optional (D7 roadmap decision);
+//     the disabled Currency input is REMOVED — price instead renders a "COP"
+//     suffix via ui.InputProps.Suffix (design.md §D-Suffix).
+//   - Every submitted value survives a validation failure via
+//     d.FormValues (design.md §D-Values, roadmap D15).
+//   - odometer_km is a new optional field inside "More details" (D-RM33-7).
 templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 	<div id="charges-create-form">
 		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesFormTitle)}) {
@@ -46,23 +60,27 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 			>
 				<input type="hidden" name="csrf_token" value={ d.CSRFToken }/>
 				<div class="grid gap-3 sm:grid-cols-2">
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStatus), Error: validationErrors["status"]}) {
+						@ui.Select(ui.SelectProps{Name: "status", Required: true}) {
+							<option value="IN_PROGRESS" selected?={ d.FormValues.Status == "IN_PROGRESS" }>{ i18n.T(ctx, i18n.KeyChargesFormStatusInProgress) }</option>
+							<option value="DONE" selected?={ d.FormValues.Status == "DONE" }>{ i18n.T(ctx, i18n.KeyChargesFormStatusDone) }</option>
+						}
+					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormDate), Error: validationErrors["charged_on"]}) {
 						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEnergyAdded), Error: validationErrors["energy_added_kwh"]}) {
-						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Required: true, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})
+						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: d.FormValues.EnergyAddedKWh, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormPrice), Error: validationErrors["price"]}) {
-						@ui.Input(ui.InputProps{Type: "number", Name: "price", Required: true, Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
-					}
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormCurrency)}) {
-						@ui.Input(ui.InputProps{Name: "currency", Value: "COP", Disabled: true})
+						// i18n:allow: ISO currency code
+						@ui.Input(ui.InputProps{Type: "number", Name: "price", Value: d.FormValues.Price, Suffix: "COP", Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocation), Error: validationErrors["location_kind"]}) {
 						@ui.Select(ui.SelectProps{Name: "location_kind", Required: true}) {
-							<option value="HOME">{ i18n.T(ctx, i18n.KeyChargesFormHome) }</option>
-							<option value="WORK">{ i18n.T(ctx, i18n.KeyChargesFormWork) }</option>
-							<option value="OTHER">{ i18n.T(ctx, i18n.KeyChargesFormOther) }</option>
+							<option value="HOME" selected?={ d.FormValues.LocationKind == "HOME" }>{ i18n.T(ctx, i18n.KeyChargesFormHome) }</option>
+							<option value="WORK" selected?={ d.FormValues.LocationKind == "WORK" }>{ i18n.T(ctx, i18n.KeyChargesFormWork) }</option>
+							<option value="OTHER" selected?={ d.FormValues.LocationKind == "OTHER" }>{ i18n.T(ctx, i18n.KeyChargesFormOther) }</option>
 						}
 					}
 					// D1: optional date fields moved up from "More details"; default to today (pre-computed by the handler).
@@ -70,19 +88,20 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at", Value: d.DefaultStartedAt})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndedAt), Error: validationErrors["ended_at"]}) {
-						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: d.DefaultEndedAt})
+						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "ended_at", Value: d.DefaultEndedAt, Required: d.RequiredEndedAt})
 					}
 					// D6 + D2: required battery fields; start has a telemetry-sourced suggestion label (graceful empty when no snapshot).
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartBatteryPct), Error: validationErrors["start_battery_pct"]}) {
 						@ui.Input(ui.InputProps{
 							Type:     "number",
 							Name:     "start_battery_pct",
+							Value:    d.FormValues.StartBatteryPct,
 							Required: true,
 							Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1", "placeholder": d.StartBatteryPctSuggestion},
 						})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndBatteryPct), Error: validationErrors["end_battery_pct"]}) {
-						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Required: true, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
+						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: d.FormValues.EndBatteryPct, Required: d.RequiredEndBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 					}
 				</div>
 				<details>
@@ -91,15 +110,18 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormChargingType)}) {
 							@ui.Select(ui.SelectProps{Name: "charging_type"}) {
 								<option value="">-</option>
-								<option value="AC">{ i18n.T(ctx, i18n.KeyChargesFormAC) }</option>
-								<option value="DC">{ i18n.T(ctx, i18n.KeyChargesFormDC) }</option>
+								<option value="AC" selected?={ d.FormValues.ChargingType == "AC" }>{ i18n.T(ctx, i18n.KeyChargesFormAC) }</option>
+								<option value="DC" selected?={ d.FormValues.ChargingType == "DC" }>{ i18n.T(ctx, i18n.KeyChargesFormDC) }</option>
 							}
 						}
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocationLabel)}) {
-							@ui.Input(ui.InputProps{Name: "location_label"})
+							@ui.Input(ui.InputProps{Name: "location_label", Value: d.FormValues.LocationLabel})
+						}
+						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormOdometer), Error: validationErrors["odometer_km"]}) {
+							@ui.Input(ui.InputProps{Type: "number", Name: "odometer_km", Value: d.FormValues.OdometerKm, Attrs: templ.Attributes{"min": "0", "step": "1"}})
 						}
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormNotes), Class: "sm:col-span-2"}) {
-							@ui.Textarea(ui.TextareaProps{Name: "notes"})
+							@ui.Textarea(ui.TextareaProps{Name: "notes"}) { { d.FormValues.Notes } }
 						}
 					</div>
 				</details>

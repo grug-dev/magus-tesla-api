@@ -99,7 +99,6 @@ const (
 	KeyChargesFormDate            Key = "charges_form.date"
 	KeyChargesFormEnergyAdded     Key = "charges_form.energy_added"
 	KeyChargesFormPrice           Key = "charges_form.price"
-	KeyChargesFormCurrency        Key = "charges_form.currency"
 	KeyChargesFormLocation        Key = "charges_form.location"
 	KeyChargesFormHome            Key = "charges_form.home"
 	KeyChargesFormWork            Key = "charges_form.work"
@@ -253,9 +252,7 @@ const (
 	KeyChargesErrorSelectVehicle                    Key = "charges_error.select_vehicle"
 	KeyChargesErrorDateRequired                     Key = "charges_error.date_required"
 	KeyChargesErrorInvalidDateFormat                Key = "charges_error.invalid_date_format"
-	KeyChargesErrorEnergyRequired                   Key = "charges_error.energy_required"
 	KeyChargesErrorEnergyPositive                   Key = "charges_error.energy_positive"
-	KeyChargesErrorPriceRequired                    Key = "charges_error.price_required"
 	KeyChargesErrorPriceNonNegative                 Key = "charges_error.price_non_negative"
 	KeyChargesErrorLocationRequired                 Key = "charges_error.location_required"
 	KeyChargesErrorBatteryPctRequired               Key = "charges_error.battery_pct_required"
@@ -380,7 +377,6 @@ var catalog = map[Key]entry{
 	KeyChargesFormDate:             {ES: "Fecha", EN: "Date"},
 	KeyChargesFormEnergyAdded:      {ES: "Energía agregada (kWh)", EN: "Energy added (kWh)"},
 	KeyChargesFormPrice:            {ES: "Precio", EN: "Price"},
-	KeyChargesFormCurrency:         {ES: "Moneda", EN: "Currency"},
 	KeyChargesFormLocation:         {ES: "Ubicación", EN: "Location"},
 	KeyChargesFormHome:             {ES: "Casa", EN: "Home"},
 	KeyChargesFormWork:             {ES: "Trabajo", EN: "Work"},
@@ -512,9 +508,7 @@ var catalog = map[Key]entry{
 	KeyChargesErrorSelectVehicle:                    {ES: "Selecciona un vehículo.", EN: "Please select a vehicle."},
 	KeyChargesErrorDateRequired:                     {ES: "La fecha es obligatoria.", EN: "Date is required."},
 	KeyChargesErrorInvalidDateFormat:                {ES: "Formato de fecha inválido.", EN: "Invalid date format."},
-	KeyChargesErrorEnergyRequired:                   {ES: "La energía agregada es obligatoria.", EN: "Energy added is required."},
 	KeyChargesErrorEnergyPositive:                   {ES: "La energía debe ser un número positivo.", EN: "Energy must be a positive number."},
-	KeyChargesErrorPriceRequired:                    {ES: "El precio es obligatorio.", EN: "Price is required."},
 	KeyChargesErrorPriceNonNegative:                 {ES: "El precio debe ser un número no negativo.", EN: "Price must be a non-negative number."},
 	KeyChargesErrorLocationRequired:                 {ES: "La ubicación es obligatoria.", EN: "Location is required."},
 	KeyChargesErrorBatteryPctRequired:               {ES: "El porcentaje de batería es obligatorio.", EN: "Battery percentage is required."},
