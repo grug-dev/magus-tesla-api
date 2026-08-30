@@ -328,6 +328,14 @@ func superchargerTable(sessions []SuperchargerRowVM, csrfToken, windowStartStr, 
 // All values on SuperchargerStatsView are pre-computed by the handler —
 // this template does no arithmetic, unit conversion, or domain-type method
 // calls (ai/htmx-conventions.md §"No business logic in templates").
+//
+// TEMPORARILY HIDDEN: the kWh/month chart Card is wrapped in a
+// `class="hidden"` div (Tailwind display utility) rather than removed — the
+// owner may re-enable it later. Everything behind it is untouched and still
+// runs: the handler keeps building v.Chart (buildSuperchargerChart) and
+// superchargerChart/historyBarChart still render the SVG into the response,
+// it is just not displayed. To bring the chart back, delete the wrapping
+// <div class="hidden"> and re-run `make templ`.
 func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -375,7 +383,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 				var templ_7745c5c3_Var13 string
 				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeySuperchargerEmpty))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/supercharger_stats.templ`, Line: 131, Col: 75}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/supercharger_stats.templ`, Line: 139, Col: 75}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 				if templ_7745c5c3_Err != nil {
@@ -414,7 +422,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " <div class=\"hidden\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -440,7 +448,7 @@ func SuperchargerStatsContent(v SuperchargerStatsView) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

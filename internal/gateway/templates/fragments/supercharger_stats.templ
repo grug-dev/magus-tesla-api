@@ -122,6 +122,14 @@ templ superchargerTable(sessions []SuperchargerRowVM, csrfToken, windowStartStr,
 // All values on SuperchargerStatsView are pre-computed by the handler —
 // this template does no arithmetic, unit conversion, or domain-type method
 // calls (ai/htmx-conventions.md §"No business logic in templates").
+//
+// TEMPORARILY HIDDEN: the kWh/month chart Card is wrapped in a
+// `class="hidden"` div (Tailwind display utility) rather than removed — the
+// owner may re-enable it later. Everything behind it is untouched and still
+// runs: the handler keeps building v.Chart (buildSuperchargerChart) and
+// superchargerChart/historyBarChart still render the SVG into the response,
+// it is just not displayed. To bring the chart back, delete the wrapping
+// <div class="hidden"> and re-run `make templ`.
 templ SuperchargerStatsContent(v SuperchargerStatsView) {
 	if v.Presets != nil {
 		@superchargerMonthsSelector(v.Presets)
@@ -134,9 +142,11 @@ templ SuperchargerStatsContent(v SuperchargerStatsView) {
 		@ui.Card(ui.CardProps{}) {
 			@superchargerTiles(v.Tiles)
 		}
-		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerKWhPerMonth)}) {
-			@superchargerChart(v.Chart)
-		}
+		<div class="hidden">
+			@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerKWhPerMonth)}) {
+				@superchargerChart(v.Chart)
+			}
+		</div>
 		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeySuperchargerSessions)}) {
 			@superchargerTable(v.Sessions, v.CSRFToken, v.WindowStartStr, v.WindowEndStr)
 		}
