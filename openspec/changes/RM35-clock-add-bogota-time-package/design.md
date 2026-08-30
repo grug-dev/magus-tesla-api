@@ -76,8 +76,7 @@ One concern per package, named for the concern — never `internal/util` (the `s
 anti-pattern named in `ai/architecture.md:72`), never an extension of `internal/config` (which is
 a `cmd/`-level concern today; importing it from `telemetry`/`analytics`/`gateway`/`app` would
 invert the dependency direction). `internal/clock` imports **only** the stdlib `time` package
-(and, per D9 below, its companion `time/tzdata` — see that decision for why this is still
-compliant) — nothing else, ever. Its own `AGENTS.md` (a `tasks.md` deliverable) states this as
+— nothing else, ever, with **no exception** (D9 settled the one that was proposed). Its own `AGENTS.md` (a `tasks.md` deliverable) states this as
 the module's one-line defining constraint.
 
 ### D3 — Docs mirror the units rule (restated, binding)
@@ -158,13 +157,10 @@ Recorded here rather than only in "Context" because it affects how tier 5
 `history.go` (same package). Tier 5 therefore needs to change exactly one function definition
 (in `history.go`) to make every call site across both files pick up `clock.CalendarDay`, not two.
 
-### D9 — `Zone()`: computed once via `time.LoadLocation`, `time/tzdata` blank-imported, panics on failure (tier-1 decision)
+### D9 — `Zone()`: computed once via `time.LoadLocation`, NO `time/tzdata`, panics on failure (settled by the owner)
 
 ```go
-import (
-	"time"
-	_ "time/tzdata" // embeds the IANA database so LoadLocation never depends on the host OS
-)
+import "time" // the ONLY import in this package — see D2
 
 var platformZone = func() *time.Location {
 	loc, err := time.LoadLocation("America/Bogota")
@@ -177,25 +173,31 @@ var platformZone = func() *time.Location {
 func Zone() *time.Location { return platformZone }
 ```
 
-**Why blank-import `time/tzdata`.** `time.LoadLocation` normally reads the IANA database from
-the host OS (`$ZONEINFO`, a well-known system path, or a Go-toolchain-bundled copy) — which is
-not guaranteed present on every deployment base image (a minimal/distroless container, in
-particular). `time/tzdata` is itself part of the Go standard library — it embeds the database
-into the binary at build time — so this stays within the spirit of D2's "stdlib `time` only"
-even though it is a second import path: it is `time`'s own official companion for exactly this
-situation, not a third-party dependency. **Flagged explicitly for the user's review** (not
-settled by D1–D6): this trades a small binary-size increase (order of a few hundred KB) for
-never depending on the deployment environment's own tzdata. If the user prefers to rely on the
-host OS's tzdata instead (smaller binary, a real but so-far-never-observed risk on this
-project's deployment targets), dropping the blank import is a one-line change to make during
-implementation — called out again in `tasks.md` T1.
+**No `time/tzdata` blank import — settled by the owner, 2026-08-30.** An earlier draft of this
+design blank-imported `time/tzdata` so `LoadLocation` would never depend on the host's own IANA
+database. It is dropped, for two reasons the owner weighed:
 
-**Why panic instead of silently falling back to UTC.** `America/Bogota` is a canonical,
-permanently-stable IANA zone name; with `time/tzdata` embedded, `LoadLocation` cannot fail for it
-in practice. A silent UTC fallback would defeat the entire point of this roadmap without anyone
-noticing until day-attribution started drifting; a boot-time panic is loud, immediate, and
-trivially caught by any deploy or CI smoke check — the far safer failure mode for a value every
-other tier will treat as the platform's foundation.
+- **This project ships no containers.** `docs/0-set-up/deployment.md` is a runbook onto a real
+  machine (Homebrew/Linux, a local or managed Postgres, a Go toolchain) — there is no
+  `Dockerfile`, no distroless or scratch base image anywhere in the repo. Every deployment target
+  this project actually has already carries a system tzdata. The import would insure against a
+  risk that does not currently exist.
+- **D2's constraint earns its keep by being absolute.** `internal/clock` imports stdlib `time`
+  and nothing else — that single sentence is what its `AGENTS.md` states and what stops the
+  package drifting into the `util` dump `ai/architecture.md:72` warns about. A rule with one
+  standing exception is a much weaker rule than a rule with none, and the exception buys nothing
+  today.
+
+**If a containerized deploy ever lands**, adding `_ "time/tzdata"` is a one-line change, and the
+panic below guarantees it cannot be missed: the binary dies loudly at init on the first boot in
+an image without tzdata, rather than silently serving wrong days.
+
+**Why panic instead of silently falling back to UTC (confirmed by the owner).** `America/Bogota`
+is a canonical, permanently-stable IANA zone name, so on any host with a tzdata this cannot fail.
+A silent UTC fallback would defeat the entire point of this roadmap without anyone noticing until
+day-attribution had already drifted; a boot-time panic is loud, immediate, and caught by any
+deploy or CI smoke check. This is deliberately a crash-on-boot decision, taken by the owner with
+that consequence stated.
 
 ### D10 — `LoadOrDefault`: no special-casing beyond what `time.LoadLocation` already does (tier-1 decision)
 
@@ -313,15 +315,15 @@ guaranteed byte-identical output for every input its existing tests already exer
 
 ## Risks / Trade-offs
 
-- **[Trade-off]** `time/tzdata` blank import adds a few hundred KB to every binary that imports
-  `internal/clock` (which, after tiers 2–6, is effectively every binary in `cmd/`) →
-  **Flagged for the user's confirmation** (D9) — not a cost the roadmap's D1–D6 anticipated;
-  accepted here as the safer default, reversible with a one-line removal if the user prefers to
-  rely on host tzdata instead.
+- **[Risk]** With no `time/tzdata` embedded (D9), `Zone()` depends on the host providing an IANA
+  database, and a host without one panics the binary at init → **Accepted by the owner**: this
+  project deploys via a runbook onto machines that all carry a system tzdata, and it ships no
+  container images at all. If that ever changes, `_ "time/tzdata"` is a one-line fix and the
+  panic makes the need unmissable on the very first boot.
 - **[Trade-off]** `Zone()` panics at package-init time if `America/Bogota` ever fails to load →
-  **Accepted**: with `time/tzdata` embedded this cannot happen in practice for a canonical IANA
-  name; the alternative (silent UTC fallback) is a strictly worse failure mode for a value every
-  other module will treat as authoritative.
+  **Accepted by the owner**, with the crash-on-boot consequence stated. The alternative (a silent
+  UTC fallback) is a strictly worse failure mode for a value every other module will treat as
+  authoritative: it would defeat the roadmap without anyone noticing until days had drifted.
 - **[Risk]** `LoadOrDefault("")` and `LoadOrDefault("Local")` do not fall back to `Zone()` (D10),
   which could surprise a caller conflating "unset" with "empty string" → **Mitigation**:
   documented explicitly here and flagged for tier 2's own proposal, which is the one tier that
@@ -356,9 +358,13 @@ consequences (no adopting tier exists yet).
 
 ## Open Questions
 
-None blocking this tier's proposal. Two items above are explicitly flagged for the user's
-confirmation rather than silently decided: the `time/tzdata` blank import (D9's binary-size
-trade-off) and the `LoadOrDefault("")`/`("Local")` pass-through behavior (D10, relevant to tier
-2's design). Neither blocks this tier — both are implementation-detail decisions this tier's
-own artifacts settle, flagged for visibility, not left as an open question requiring an answer
-before Apply.
+None. Both items previously flagged here have been settled by the owner (2026-08-30):
+
+- **`time/tzdata`** — dropped. D9 records the reasoning and the one-line path back if a
+  containerized deploy ever lands.
+- **`Zone()` panics rather than falling back to UTC** — confirmed, crash-on-boot consequence
+  accepted.
+
+`LoadOrDefault("")` / `("Local")` pass-through (D10) remains documented for tier 2, which is the
+one tier that actually threads a config-sourced string through it. That is a note for tier 2's
+own proposal, not an open question here.

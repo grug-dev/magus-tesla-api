@@ -31,24 +31,26 @@
 
 ## T1. `internal/clock/clock.go` — `Zone`, `Now`, `LoadOrDefault` — no dependencies, parallel-ok with T2
 
-- [ ] T1.1 Create `internal/clock/clock.go` with a package doc comment stating the module's one
-      defining constraint: imports stdlib `time` only (plus `time/tzdata`, blank-imported — see
-      T1.2's rationale), never extended with an unrelated helper (design.md D2).
-- [ ] T1.2 Implement `Zone() *time.Location`, computed once via a package-level
-      `time.LoadLocation("America/Bogota")` with `_ "time/tzdata"` blank-imported (design.md D9)
-      so the load never depends on the deployment environment's own tzdata files. Panic if the
-      load ever errors (design.md D9's fail-fast rationale — a silent UTC fallback would defeat
-      the roadmap's point without anyone noticing).
-      Acceptance: `clock.Zone().String() == "America/Bogota"`.
-- [ ] T1.3 Implement `Now() time.Time` as `time.Now().In(Zone())`.
+- [x] T1.1 Create `internal/clock/clock.go` with a package doc comment stating the module's one
+      defining constraint: it imports stdlib `time` and **nothing else, with no exception**,
+      and is never extended with an unrelated helper (design.md D2).
+- [x] T1.2 Implement `Zone() *time.Location`, computed once via a package-level
+      `time.LoadLocation("America/Bogota")`. **Do NOT blank-import `time/tzdata`** — the owner
+      settled this on 2026-08-30 (design.md D9): the project ships no containers, every
+      deployment target already has a system tzdata, and D2's stdlib-`time`-only rule is worth
+      more absolute than with one standing exception. Panic if the load errors (design.md D9 —
+      a silent UTC fallback would defeat the roadmap without anyone noticing).
+      Acceptance: `clock.Zone().String() == "America/Bogota"`, and the file's import block
+      contains exactly one import, `"time"`.
+- [x] T1.3 Implement `Now() time.Time` as `time.Now().In(Zone())`.
       Acceptance: `clock.Now().Location().String() == "America/Bogota"` and the returned instant
       matches `time.Now()` within ordinary test-execution slack.
-- [ ] T1.4 Implement `LoadOrDefault(name string) *time.Location` — `time.LoadLocation(name)`,
+- [x] T1.4 Implement `LoadOrDefault(name string) *time.Location` — `time.LoadLocation(name)`,
       falling back to `Zone()` only on a non-nil error (design.md D10 — no special-casing beyond
       what `time.LoadLocation` itself already does for `""`/`"UTC"`/`"Local"`).
       Acceptance: matches every case in design.md's Test Contract `LoadOrDefault` table,
       including the two gotcha cases (`""` → `"UTC"`, `"Local"` → host-local, neither → Bogota).
-- [ ] T1.5 `internal/clock/clock_test.go` — transcribe design.md's Test Contract cases for
+- [x] T1.5 `internal/clock/clock_test.go` — transcribe design.md's Test Contract cases for
       `Zone()`, `Now()`, and `LoadOrDefault()` verbatim into table-driven or individual test
       functions.
       Acceptance: `go vet ./internal/clock/...` compiles the test file cleanly (this tier does
@@ -56,7 +58,7 @@
 
 ## T2. `internal/clock/calendar.go` — `CalendarDay` — no dependencies, parallel-ok with T1
 
-- [ ] T2.1 Implement `CalendarDay(t time.Time, loc *time.Location) time.Time` exactly per
+- [x] T2.1 Implement `CalendarDay(t time.Time, loc *time.Location) time.Time` exactly per
       design.md D7: `y, m, d := t.In(loc).Date(); return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)`.
       No nil-guard on `loc` — passing `nil` panics exactly as `t.In(nil)` would (design.md D7's
       explicit "no hidden default substitution" rationale). Doc comment states this is the
@@ -66,7 +68,7 @@
       Acceptance: matches every one of design.md's four `CalendarDay` Test Contract cases exactly
       (UTC self-truncation, Bogota cross-day, DST same-day either side of the transition, DST
       cross-day).
-- [ ] T2.2 `internal/clock/calendar_test.go` — transcribe design.md's four `CalendarDay` cases
+- [x] T2.2 `internal/clock/calendar_test.go` — transcribe design.md's four `CalendarDay` cases
       verbatim, including the DST cases against `America/New_York` and the Bogota
       always-UTC-5-no-DST case.
       Acceptance: `go vet ./internal/clock/...` compiles the test file cleanly (owner runs it —
@@ -110,7 +112,7 @@
 
 ## T6. Root `AGENTS.md` — new pointer to `ai/go-conventions.md` — no dependencies, parallel-ok with everything
 
-- [ ] T6.1 Add a pointer from the root `AGENTS.md` to `ai/go-conventions.md` — a gap the roadmap
+- [x] T6.1 Add a pointer from the root `AGENTS.md` to `ai/go-conventions.md` — a gap the roadmap
       identifies explicitly (`AGENTS.md` has no such pointer today, which is why the time-zone
       rule cannot live only in `CLAUDE.md` per D3). Keep it to a short paragraph or bullet
       consistent with `AGENTS.md`'s existing prose style (it is a mission/vision/principles
@@ -132,9 +134,9 @@
 
 - [ ] T8.1 `go build ./...` and `go vet ./...` pass repo-wide.
 - [ ] T8.2 `gofmt -l` reports no diffs for any file this tier touched.
-- [ ] T8.3 Boundary check: `internal/clock` imports only `time` and `time/tzdata` — confirm by
-      inspecting the file's import block, not by running `make tz-guard` (tier 7, does not exist
-      yet). No file outside `internal/clock` and the four doc files (`ai/go-conventions.md`,
+- [ ] T8.3 Boundary check: every file in `internal/clock` imports **only** `time` (no
+      `time/tzdata` — D9) — confirm by inspecting the import blocks, not by running
+      `make tz-guard` (tier 7, does not exist yet). No file outside `internal/clock` and the four doc files (`ai/go-conventions.md`,
       `CLAUDE.md`, `AGENTS.md`, `README.md`) was touched.
 - [ ] T8.4 Confirm zero adopting call sites exist yet — `grep -rl "internal/clock" --include=*.go
       internal/ cmd/` (outside `internal/clock` itself) returns nothing. This is the concrete
