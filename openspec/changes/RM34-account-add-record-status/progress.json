@@ -8,13 +8,34 @@
   "status": "proposed",
   "rollup": {
     "current": [],
-    "pending": ["T1.1", "T2.1", "T2.2", "T3.1", "T3.2", "T3.3", "T4.1", "T5.1", "T5.2", "T5.3", "T6.1", "T7.1", "T7.2", "T7.3", "T7.4", "T7.5", "T7.6"],
+    "pending": [
+      "T1.1",
+      "T2.1",
+      "T2.2",
+      "T3.1",
+      "T3.2",
+      "T3.3",
+      "T4.1",
+      "T5.1",
+      "T5.2",
+      "T5.3",
+      "T6.1",
+      "T7.1",
+      "T7.2",
+      "T7.3",
+      "T7.4",
+      "T7.5",
+      "T7.6"
+    ],
     "blocked": [],
     "done": []
   },
   "created_at": "2026-08-30T03:12:00Z",
-  "updated_at": "2026-08-30T03:12:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-08-30T03:13:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM34-MAG-33-account-vehicle-status",
@@ -24,31 +45,336 @@
     "created_at": "2026-08-30T03:00:13Z"
   },
   "tasks": [
-    { "id": "T1.1", "title": "Goose migration: status on accounts (DEFAULT Inactive) + vehicles (DEFAULT Active)", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T2.1", "title": "StatusActive/StatusInactive constants in account.go", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T2.2", "title": "Status field on the Account struct", "module": "account", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T3.1", "title": "Filter status=Active in the three account queries; leave the upsert unfiltered", "module": "account", "depends_on": ["T1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T3.2", "title": "Filter status=Active in ListVehiclesByAccount and ListAllVehicles", "module": "account", "depends_on": ["T1.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T3.3", "title": "make sqlc and verify regenerated models", "module": "account", "depends_on": ["T3.1", "T3.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T4.1", "title": "Map status in accountFromRow", "module": "account", "depends_on": ["T2.2", "T3.3"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T5.1", "title": "Repair TestLanguagePreference_RoundTrip for the Inactive default", "module": "account", "depends_on": ["T4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T5.2", "title": "Assert status on TestUpsertFromOAuth_Idempotent", "module": "account", "depends_on": ["T4.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T5.3", "title": "Confirm by inspection no other existing test breaks", "module": "account", "depends_on": ["T5.1", "T5.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T6.1", "title": "Update internal/account/AGENTS.md public-interface notes", "module": "account", "depends_on": ["T2.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.1", "title": "go build + go vet pass repo-wide", "module": "account", "depends_on": ["T4.1", "T5.3", "T6.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.2", "title": "gofmt -l clean on touched files", "module": "account", "depends_on": ["T7.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.3", "title": "Module boundary check", "module": "account", "depends_on": ["T7.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.4", "title": "Restate the post-deploy recovery SQL in the final report", "module": "account", "depends_on": ["T7.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.5", "title": "openspec validate --strict passes", "module": "account", "depends_on": ["T7.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
-    { "id": "T7.6", "title": "Report the exact suite commands for the owner", "module": "account", "depends_on": ["T7.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+    {
+      "id": "T1.1",
+      "title": "Goose migration: status on accounts (DEFAULT Inactive) + vehicles (DEFAULT Active)",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2.1",
+      "title": "StatusActive/StatusInactive constants in account.go",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2.2",
+      "title": "Status field on the Account struct",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3.1",
+      "title": "Filter status=Active in the three account queries; leave the upsert unfiltered",
+      "module": "account",
+      "depends_on": [
+        "T1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3.2",
+      "title": "Filter status=Active in ListVehiclesByAccount and ListAllVehicles",
+      "module": "account",
+      "depends_on": [
+        "T1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3.3",
+      "title": "make sqlc and verify regenerated models",
+      "module": "account",
+      "depends_on": [
+        "T3.1",
+        "T3.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4.1",
+      "title": "Map status in accountFromRow",
+      "module": "account",
+      "depends_on": [
+        "T2.2",
+        "T3.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5.1",
+      "title": "Repair TestLanguagePreference_RoundTrip for the Inactive default",
+      "module": "account",
+      "depends_on": [
+        "T4.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5.2",
+      "title": "Assert status on TestUpsertFromOAuth_Idempotent",
+      "module": "account",
+      "depends_on": [
+        "T4.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5.3",
+      "title": "Confirm by inspection no other existing test breaks",
+      "module": "account",
+      "depends_on": [
+        "T5.1",
+        "T5.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6.1",
+      "title": "Update internal/account/AGENTS.md public-interface notes",
+      "module": "account",
+      "depends_on": [
+        "T2.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7.1",
+      "title": "go build + go vet pass repo-wide",
+      "module": "account",
+      "depends_on": [
+        "T4.1",
+        "T5.3",
+        "T6.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7.2",
+      "title": "gofmt -l clean on touched files",
+      "module": "account",
+      "depends_on": [
+        "T7.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7.3",
+      "title": "Module boundary check",
+      "module": "account",
+      "depends_on": [
+        "T7.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7.4",
+      "title": "Restate the post-deploy recovery SQL in the final report",
+      "module": "account",
+      "depends_on": [
+        "T7.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7.5",
+      "title": "openspec validate --strict passes",
+      "module": "account",
+      "depends_on": [
+        "T7.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7.6",
+      "title": "Report the exact suite commands for the owner",
+      "module": "account",
+      "depends_on": [
+        "T7.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
   "decisions": [
-    { "id": "D8", "at": "2026-08-30T03:08:00Z", "scope": "change", "made_by": "leader", "decision": "ADD COLUMN ... DEFAULT realizes both defaults with no explicit backfill UPDATE", "why": "Since PG11 a non-volatile DEFAULT fills existing rows without a rewrite, so vehicles get Active from the clause alone. Verified against Postgres docs, not assumed.", "covered_by": "roadmap D2/D3" },
-    { "id": "D9", "at": "2026-08-30T03:08:00Z", "scope": "task:T3.1", "made_by": "autopilot", "decision": "UpdateAccountLanguage filters status=Active, so a language switch on an inactive account silently no-ops", "why": "Consistent with Step 2's blanket filter. Harmless: an inactive account cannot reach the language switch, since login is refused before a session exists.", "covered_by": "roadmap D4" }
+    {
+      "id": "D8",
+      "at": "2026-08-30T03:08:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "ADD COLUMN ... DEFAULT realizes both defaults with no explicit backfill UPDATE",
+      "why": "Since PG11 a non-volatile DEFAULT fills existing rows without a rewrite, so vehicles get Active from the clause alone. Verified against Postgres docs, not assumed.",
+      "covered_by": "roadmap D2/D3"
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-30T03:08:00Z",
+      "scope": "task:T3.1",
+      "made_by": "autopilot",
+      "decision": "UpdateAccountLanguage filters status=Active, so a language switch on an inactive account silently no-ops",
+      "why": "Consistent with Step 2's blanket filter. Harmless: an inactive account cannot reach the language switch, since login is refused before a session exists.",
+      "covered_by": "roadmap D4"
+    }
   ],
   "events": [
-    { "at": "2026-08-30T03:01:40Z", "agent": "leader", "event": "dispatched account worker (sonnet) to create artifacts" },
-    { "at": "2026-08-30T03:10:50Z", "agent": "leader", "event": "artifacts returned; openspec validate --strict passes; design gate pending user confirmation" }
+    {
+      "at": "2026-08-30T03:01:40Z",
+      "agent": "leader",
+      "event": "dispatched account worker (sonnet) to create artifacts"
+    },
+    {
+      "at": "2026-08-30T03:10:50Z",
+      "agent": "leader",
+      "event": "artifacts returned; openspec validate --strict passes; design gate pending user confirmation"
+    },
+    {
+      "at": "2026-08-30T03:13:00Z",
+      "agent": "leader",
+      "event": "budget checkpoint: five_hour_pct=91 (threshold 90), context_pct=17 (threshold 40), five_hour_resets_at=2026-08-30T03:20:00Z. Halted before implementation wave 1; design gate also awaiting user confirmation."
+    }
   ]
 }
