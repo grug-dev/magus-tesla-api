@@ -83,19 +83,20 @@ four write queries are deliberately NOT gated — they are unreachable once thes
 index: `accounts.id` is the PK, `vehicles` has `UNIQUE (account_id, tesla_id)`, `tesla_tokens` has
 `UNIQUE (account_id)`.
 
-**D16 — Deactivation must take effect on the next request, not at next login.** *(user)* Tier 2 adds
+**D16 — WITHDRAWN (superseded by D26).** Originally: deactivation must take effect on the next request, not at next login. *(user)* Tier 2 adds
 a per-request account-status check to the authenticated-route middleware. Without it, the signed
 cookie session (no server-side state, `gateway.go`) keeps a deactivated user signed in until the
 cookie expires; the D15 read filters would empty their pages but leave them nominally logged in.
+
+**D26 — D16 withdrawn; tier 3 dropped.** *(user)* The ticket gates NEW signups, and a new signup has never held a session — the login block alone covers it fully. D16 only mattered for revoking an already-logged-in user. Its cost was disproportionate: `StatusFor` on the `account.Service` port broke every fake implementing that interface, including `internal/telemetry`'s, which is unrelated to this feature. Reverted uncommitted; `go vet ./...` clean again.
 
 ## Tiers
 
 | Status | Change | Module | Scope | depends_on | Proposal prompt |
 |---|---|---|---|---|---|
 | `[x]` | `RM34-account-add-record-status` | `account` | Migration adding `status` to `accounts` (DEFAULT `Inactive`, no backfill) and `vehicles` (DEFAULT `Active`, backfill existing to `Active`), both `TEXT NOT NULL CHECK (status IN ('Active','Inactive'))`. Add `StatusActive`/`StatusInactive` constants and a `Status` field on `account.Account`. Filter `status='Active'` in `GetAccountByProviderID`, `GetAccountLanguage`, `UpdateAccountLanguage`, `ListVehiclesByAccount`, `ListAllVehicles`; leave `UpsertAccountFromOAuth` unfiltered and have it return `status`. Regenerate sqlc. Update existing account tests. | — | Implement tier 1 of RM34 per the Decisions above. Owning module `internal/account`. D1–D4 and D7 bind. The migration MUST NOT backfill `accounts`, and MUST backfill `vehicles` to `Active`. Surface the post-deploy recovery SQL from D2 in tasks.md and in your final report. |
-| `[~]` | `RM34-gateway-block-inactive-login` | `gateway` | In `GoogleCallback`, after `UpsertFromOAuth`, refuse an account whose `Status != Active`: render a 403 blocked page naming `cristiancamilopena@gmail.com`, and do NOT set `uid`/`email` on the session. New Templ page + ES/EN catalog keys. **Also add a per-request account-status check to the authenticated-route middleware** (D16): cookie sessions are stateless and survive deactivation, so without it an already-signed-in user stays signed in after being flipped to Inactive. Update existing gateway tests that assume every callback ends in a session. | 1 | Implement tier 2 of RM34 per the Decisions above. Owning module `internal/gateway`. D4, D5, D6, D7 bind. Depends on tier 1's `account.Account.Status`. Both catalogue languages must be non-empty (`make i18n-guard`). |
+| `[~]` | `RM34-gateway-block-inactive-login` | `gateway` | In `GoogleCallback`, after `UpsertFromOAuth`, refuse an account whose `Status != Active`: render a 403 blocked page naming `cristiancamilopena@gmail.com`, and do NOT set `uid`/`email` on the session. New Templ page + ES/EN catalog keys. Update existing gateway tests that assume every callback ends in a session. | 1 | Implement tier 2 of RM34 per the Decisions above. Owning module `internal/gateway`. D4, D5, D6, D7 bind. Depends on tier 1's `account.Account.Status`. Both catalogue languages must be non-empty (`make i18n-guard`). |
 
-| `[ ]` | `RM34-account-add-status-port` | `account` | Add `StatusFor(ctx, accountID) (string, error)` to the `account.Service` port plus an `ErrAccountNotFound` sentinel, backed by an UNFILTERED `SELECT status FROM accounts WHERE id = $1`. Unfiltered on purpose: it must be able to report `Inactive`, which a status-filtered read never could. Added as its own tier because tier 1 is archived and folding it into tier 2 would make that a two-module change, which `openspec/config.yaml` forbids. | — | Implement per D17 in tier 2's design.md, which specifies the signature and query exactly. Owning module `internal/account`. No schema change, no migration. |
 
 Legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, not archived) · `[x]` done (archived)
 
