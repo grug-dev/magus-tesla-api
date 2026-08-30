@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM34-account-vehicle-status.md",
   "request": "MAG-33 Step 3: after Google authentication, refuse an inactive account with a bilingual blocked page and establish no session.",
-  "status": "applied",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -23,7 +23,7 @@
     ]
   },
   "created_at": "2026-08-30T11:20:00Z",
-  "updated_at": "2026-08-30T11:25:00Z",
+  "updated_at": "2026-08-30T14:56:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -187,12 +187,12 @@
       "started_at": "2026-08-30T11:11:00Z",
       "completed_at": "2026-08-30T11:20:00Z",
       "duration_seconds": 540,
-      "notes": "Leader re-ran build, vet repo-wide, gofmt, i18n-guard, ui-guard, openspec validate \u2014 all clean.",
+      "notes": "Leader re-ran build, vet repo-wide, gofmt, i18n-guard, ui-guard, openspec validate — all clean.",
       "budget": null
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "gateway-reviewer",
     "brief": "RM34-gateway-block-inactive-login tier 2 review",
     "rounds": [
@@ -204,18 +204,48 @@
           {
             "id": "R1",
             "severity": "major",
-            "note": "internal/gateway/templates/pages/account_blocked.templ:28 \u2014 `<a href=\"/login\" class=\"link\">` inlines a raw DaisyUI component class (`link`) directly in a page template. ai/htmx-conventions.md \u00a7Styling and internal/gateway/AGENTS.md both bind: 'Compose the ui/ kit; never inline a DaisyUI component class in a page/fragment... If a repeated element has no wrapper yet, add one to ui/ rather than inlining the class' (the doc calls a raw inlined class 'a bug'). This is the only occurrence of class=\"link\" anywhere in templates/pages or templates/fragments in the whole repo \u2014 grep confirms no precedent. The page this task explicitly mirrors, login.templ, uses a plain unstyled `<a href={ templ.SafeURL(\"#\") }>` for its footer links (no DaisyUI class at all), so the compliant option (drop the class) was already the established pattern one file away. make ui-guard (Makefile:296) passed only because its regex list (btn|card|input|select|textarea|fieldset|alert|badge|stat|table|navbar|drawer|menu) omits 'link' \u2014 a guard blind spot, not proof of compliance. tasks.md T1.2's own acceptance note ('only ui.Card is composed, plus the same bare-utility/layout classes Login() already uses') is factually wrong: class=\"link\" is neither a bare-utility/layout class nor used anywhere in Login(). Fix: either drop the class (matching Login()'s footer-link precedent exactly) or add a ui.Link wrapper if a styled back-link is intentionally wanted.",
+            "note": "internal/gateway/templates/pages/account_blocked.templ:28 — `<a href=\"/login\" class=\"link\">` inlines a raw DaisyUI component class (`link`) directly in a page template. ai/htmx-conventions.md §Styling and internal/gateway/AGENTS.md both bind: 'Compose the ui/ kit; never inline a DaisyUI component class in a page/fragment... If a repeated element has no wrapper yet, add one to ui/ rather than inlining the class' (the doc calls a raw inlined class 'a bug'). This is the only occurrence of class=\"link\" anywhere in templates/pages or templates/fragments in the whole repo — grep confirms no precedent. The page this task explicitly mirrors, login.templ, uses a plain unstyled `<a href={ templ.SafeURL(\"#\") }>` for its footer links (no DaisyUI class at all), so the compliant option (drop the class) was already the established pattern one file away. make ui-guard (Makefile:296) passed only because its regex list (btn|card|input|select|textarea|fieldset|alert|badge|stat|table|navbar|drawer|menu) omits 'link' — a guard blind spot, not proof of compliance. tasks.md T1.2's own acceptance note ('only ui.Card is composed, plus the same bare-utility/layout classes Login() already uses') is factually wrong: class=\"link\" is neither a bare-utility/layout class nor used anywhere in Login(). Fix: either drop the class (matching Login()'s footer-link precedent exactly) or add a ui.Link wrapper if a styled back-link is intentionally wanted.",
             "status": "fixed",
             "triage": "accepted"
           },
           {
             "id": "R2",
             "severity": "minor",
-            "note": "openspec/changes/RM34-gateway-block-inactive-login/tasks.md \u2014 T6.1 and T7.6 checkboxes are left unchecked ([ ]) even though the corresponding work is actually done (internal/gateway/AGENTS.md carries the dated RM34 entry; T7.1's note confirms openspec validate --strict was run and passed) and progress.json's tasks[] records T6.1 as status:\"done\". Not gaming \u2014 the underlying work is real and rollup.done correctly lists T6.1 \u2014 but tasks.md should be brought into sync so its checkboxes are a reliable completion signal.",
+            "note": "openspec/changes/RM34-gateway-block-inactive-login/tasks.md — T6.1 and T7.6 checkboxes are left unchecked ([ ]) even though the corresponding work is actually done (internal/gateway/AGENTS.md carries the dated RM34 entry; T7.1's note confirms openspec validate --strict was run and passed) and progress.json's tasks[] records T6.1 as status:\"done\". Not gaming — the underlying work is real and rollup.done correctly lists T6.1 — but tasks.md should be brought into sync so its checkboxes are a reliable completion signal.",
             "status": "fixed",
             "triage": "accepted"
           }
         ]
+      },
+      {
+        "round": 2,
+        "at": "2026-08-30T12:30:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Re-verified fixed. internal/gateway/templates/pages/account_blocked.templ:28 now reads `<a href=\"/login\">{ i18n.T(ctx, i18n.KeyLoginSignIn) }</a>` with no DaisyUI component class, matching login.templ's bare footer-link precedent exactly (confirmed by reading login.templ:44-46, also plain `<a>` with no class). The regenerated account_blocked_templ.go was checked against the .templ: the literal HTML changed from `<a href=\"/login\" class=\"link\">` to `<a href=\"/login\">` and the templ.Error Col shifted from 67 to 54 -- a 13-character delta exactly matching the removed ` class=\"link\"` substring, which is strong evidence the file was genuinely regenerated via `make templ` rather than hand-edited. grep -rn 'class=\"link\"' internal/gateway/templates/ returns no hits repo-wide -- no other occurrence of this violation exists in the change's markup.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Re-verified fixed. openspec/changes/RM34-gateway-block-inactive-login/tasks.md now shows T6.1 and T7.6 both checked [x]. Diffed the fix commit (a4b9ef5) against tasks.md in the prior commit (9d8e2f9): only these two lines changed, no other checkbox, acceptance criterion, or spec line was touched, weakened, or deleted. T6.1 is honestly done -- internal/gateway/AGENTS.md carries the dated 'Inactive-account login block (RM34-gateway-block-inactive-login, 2026-08-30)' section documenting rejectIfInactive, where it runs relative to UpsertFromOAuth/sess.Set, and the one-render-site/no-route fact. T7.6 (openspec validate --strict) is supported by this round's Test-Execution-Policy signal provenance, which lists it as assistant-run and clean.",
+            "status": "fixed"
+          }
+        ],
+        "new_findings": [],
+        "notes": "No regression introduced by the fix commit (a4b9ef5): scope was exactly the two findings plus progress.json/tasks.md bookkeeping. Both languages (ES/EN) remain non-empty for account_blocked's catalogue keys (unchanged by this commit). No boundary violation -- the fix touched only gateway page templates and OpenSpec bookkeeping files. Out-of-scope uncommitted change to supercharger_stats.templ (unrelated owner work) was left untouched, as instructed.",
+        "duration_seconds": 62,
+        "budget": {
+          "five_hour_pct_delta": 8,
+          "cost_usd_delta": 1.27,
+          "spanned_sessions": 1,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": "round 2 re-verification only"
+        }
       }
     ]
   },
@@ -226,7 +256,7 @@
       "scope": "change",
       "made_by": "user",
       "decision": "withdrew D16 and dropped tier 3; tier 2 is the login block only",
-      "why": "The ticket gates new signups, which never held a session. StatusFor broke fakes in telemetry and gateway \u2014 disproportionate cost.",
+      "why": "The ticket gates new signups, which never held a session. StatusFor broke fakes in telemetry and gateway — disproportionate cost.",
       "covered_by": null
     },
     {
@@ -267,6 +297,11 @@
       "at": "2026-08-30T11:25:00Z",
       "agent": "leader",
       "event": "review round 1 changes-requested; both findings verified legitimate and fixed (R1 inlined DaisyUI class, R2 stale checkboxes). Awaiting reviewer re-verification."
+    },
+    {
+      "at": "2026-08-30T14:56:00Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session after the 5-hour bucket reset; dispatched a fresh gateway-reviewer for round 2 (no live subagent survives a session), which re-verified R1 and R2 as fixed and approved."
     }
   ]
 }

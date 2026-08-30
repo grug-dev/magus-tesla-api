@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM34-account-vehicle-status",
   "intention": "Accounts and vehicles carry an Active/Inactive status; inactive rows are invisible to normal reads and an inactive user is refused entry at Google login with a bilingual contact message, making the platform invite-gated.",
-  "request": "Source ticket: MAG-33 \u2014 https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles\nProject: Account   Priority: Urgent\n\n## Status to accounts and vehicles\n\n## Step 1\n\nAdd a new status column to save if a record is active or inactive. (ENUM type? ) I'd like to see the text `Active` or `Inactive` in the database table record. Add the new column to the next tables of the account module:\n\n* accounts\n* vehicles\n\nBy default, make the value as `Inactive`\n\n## Step 2\n\nFind all database queries done for those entities and modify the `GET`  queries to always include `status = Active` . Only active accounts and vehicles will return data. Otherwise, it does not exists.\n\n### Step 3\n\nVerify the login authentication. Only active users are able to sign in to the platform. IF after authenticating with google, the user is inactive, block the access to the site and show a message that user is inactive and must contact to `cristiancamilopena`@gmail.com  to validate their access. (i18N in spanish as well)",
-  "status": "in-progress",
+  "request": "Source ticket: MAG-33 — https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles\nProject: Account   Priority: Urgent\n\n## Status to accounts and vehicles\n\n## Step 1\n\nAdd a new status column to save if a record is active or inactive. (ENUM type? ) I'd like to see the text `Active` or `Inactive` in the database table record. Add the new column to the next tables of the account module:\n\n* accounts\n* vehicles\n\nBy default, make the value as `Inactive`\n\n## Step 2\n\nFind all database queries done for those entities and modify the `GET`  queries to always include `status = Active` . Only active accounts and vehicles will return data. Otherwise, it does not exists.\n\n### Step 3\n\nVerify the login authentication. Only active users are able to sign in to the platform. IF after authenticating with google, the user is inactive, block the access to the site and show a message that user is inactive and must contact to `cristiancamilopena`@gmail.com  to validate their access. (i18N in spanish as well)",
+  "status": "complete",
   "autopilot": true,
-  "updated_at": "2026-08-30T11:15:00Z",
+  "updated_at": "2026-08-30T14:57:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM34-MAG-33-account-vehicle-status",
@@ -16,13 +16,12 @@
     "created_at": "2026-08-30T03:00:13Z"
   },
   "rollup": {
-    "current": [
-      2
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -68,7 +67,7 @@
       "scope": "tier:2",
       "made_by": "autopilot",
       "decision": "contact address cristiancamilopena@gmail.com hardcoded in the i18n catalog, not config",
-      "why": "Ticket backticks are formatting noise. One support address does not earn config indirection \u2014 it would cost a lookup per read and buy nothing until a second address exists.",
+      "why": "Ticket backticks are formatting noise. One support address does not earn config indirection — it would cost a lookup per read and buy nothing until a second address exists.",
       "covered_by": null
     },
     {
@@ -131,7 +130,7 @@
       "scope": "change",
       "made_by": "user",
       "decision": "withdrew D16 and dropped tier 3; tier 2 is the login block only",
-      "why": "The ticket gates new signups, which never held a session, so the login block suffices. StatusFor broke fakes in telemetry and gateway \u2014 disproportionate cost. Reverted uncommitted.",
+      "why": "The ticket gates new signups, which never held a session, so the login block suffices. StatusFor broke fakes in telemetry and gateway — disproportionate cost. Reverted uncommitted.",
       "covered_by": null
     }
   ],
@@ -166,14 +165,21 @@
       "depends_on": [
         1
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T10:45:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "completed_at": "2026-08-30T14:57:00Z",
+      "duration_seconds": 15120,
+      "budget": {
+        "five_hour_pct_delta": 29,
+        "cost_usd_delta": 4.33,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "tier 2 artifacts + implementation + 2 review rounds; spans a rate-limit checkpoint"
+      },
+      "notes": "Login-time block only after the D26 rescope: rejectIfInactive in GoogleCallback, bilingual 403 AccountBlocked page, no session set. Reviewer-approved round 2; round 1's two findings (inlined DaisyUI class, stale checkboxes) fixed."
     }
   ]
 }
