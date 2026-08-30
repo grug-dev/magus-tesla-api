@@ -76,7 +76,7 @@
 
 ## T3. `internal/clock/AGENTS.md` — depends on T1 and T2
 
-- [ ] T3.1 Create `internal/clock/AGENTS.md` mirroring the shape of `internal/account/AGENTS.md`
+- [x] T3.1 Create `internal/clock/AGENTS.md` mirroring the shape of `internal/account/AGENTS.md`
       (the project's gold-standard module doc): an `Agent-Name: clock` header, a
       `## Doc-Pack (module)` section (empty — `internal/clock` needs nothing beyond the base
       pack), the module's responsibility (the platform's single default time zone and calendar-
@@ -90,7 +90,7 @@
 
 ## T4. `ai/go-conventions.md` §Coding Rules — depends on T1 and T2, parallel-ok with T3/T5/T6/T7
 
-- [ ] T4.1 Add the full time-zone convention to `ai/go-conventions.md` §Coding Rules,
+- [x] T4.1 Add the full time-zone convention to `ai/go-conventions.md` §Coding Rules,
       immediately next to the existing `_km`/`_c`/`_psi` display-units rule (design.md D3 — same
       shape of cross-cutting value convention, in the file every worker and reviewer already
       re-reads on every dispatch per the pipeline's base Doc-Pack). State: `internal/clock` owns
@@ -103,7 +103,7 @@
 
 ## T5. `CLAUDE.md` one-line non-negotiable — depends on T4, parallel-ok with T3/T6/T7
 
-- [ ] T5.1 Add one line to `CLAUDE.md`'s "Non-negotiables" list (next to the existing
+- [x] T5.1 Add one line to `CLAUDE.md`'s "Non-negotiables" list (next to the existing
       `_km`/`_c`/`_psi` bullet) pointing at the full rule T4 just wrote in
       `ai/go-conventions.md` (design.md D3).
       Acceptance: one bullet, consistent in length and style with the existing non-negotiables
@@ -122,9 +122,9 @@
 
 ## T7. Root `README.md` — Project Structure tree + Architecture table — depends on T1 and T2, parallel-ok with T3–T6
 
-- [ ] T7.1 Add `internal/clock/` to the "Project Structure" tree (`README.md` §Project
+- [x] T7.1 Add `internal/clock/` to the "Project Structure" tree (`README.md` §Project
       Structure), in whichever position matches the tree's existing ordering convention.
-- [ ] T7.2 Add a row for `internal/clock` to the "Architecture" table (`README.md` §Architecture),
+- [x] T7.2 Add a row for `internal/clock` to the "Architecture" table (`README.md` §Architecture),
       one line, describing it as the platform's default-time-zone-and-calendar-day-normalization
       package — mirroring the terse, one-line style every other row in that table already uses.
       Acceptance: both edits land in the same change per `CLAUDE.md`'s docs-track-structural-
@@ -132,18 +132,18 @@
 
 ## T8. Verification — depends on T1–T7
 
-- [ ] T8.1 `go build ./...` and `go vet ./...` pass repo-wide.
-- [ ] T8.2 `gofmt -l` reports no diffs for any file this tier touched.
-- [ ] T8.3 Boundary check: every file in `internal/clock` imports **only** `time` (no
+- [x] T8.1 `go build ./...` and `go vet ./...` pass repo-wide.
+- [x] T8.2 `gofmt -l` reports no diffs for any file this tier touched.
+- [x] T8.3 Boundary check: every file in `internal/clock` imports **only** `time` (no
       `time/tzdata` — D9) — confirm by inspecting the import blocks, not by running
       `make tz-guard` (tier 7, does not exist yet). No file outside `internal/clock` and the four doc files (`ai/go-conventions.md`,
       `CLAUDE.md`, `AGENTS.md`, `README.md`) was touched.
-- [ ] T8.4 Confirm zero adopting call sites exist yet — `grep -rl "internal/clock" --include=*.go
+- [x] T8.4 Confirm zero adopting call sites exist yet — `grep -rl "internal/clock" --include=*.go
       internal/ cmd/` (outside `internal/clock` itself) returns nothing. This is the concrete
       check that the "not breaking" claim in `proposal.md` holds.
-- [ ] T8.5 `openspec validate RM35-clock-add-bogota-time-package --strict` passes and every
+- [x] T8.5 `openspec validate RM35-clock-add-bogota-time-package --strict` passes and every
       tasks.md checkbox above reflects real completion.
-- [ ] T8.6 Report the exact test-suite commands the owner must run
+- [x] T8.6 Report the exact test-suite commands the owner must run
       (`go test ./internal/clock/...` and the full `go test ./...`) — this tier writes tests but
       does not execute them (`Test-Execution-Policy`); the owner's run is what turns T1.5/T2.2
       from `awaiting-user-verification` into `done`.

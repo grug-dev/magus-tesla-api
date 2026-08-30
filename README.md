@@ -118,6 +118,7 @@ magus-tesla-api/
 │   ├── googleauth/     # Google OAuth for user login
 │   ├── config/         # .env loading and token persistence
 │   ├── auth/           # Tesla OAuth URL, code exchange, token refresh
+│   ├── clock/          # Platform default time zone (America/Bogota) + calendar-day normalization. Stdlib time only.
 │   └── testdb/         # Test-only Postgres provisioning (DATABASE_URL → testcontainer fallback)
 │
 ├── magus-public-key-netlify/   # EC public key hosted on Netlify for Tesla verification
@@ -201,6 +202,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
+| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only; not yet adopted by any other module (`RM35-timezone-centralization` tier 1). |
 | `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
 ### Dependency graph

@@ -60,6 +60,18 @@ Standard Go project layout — modular monolith:
   the gateway, on an already-converted, plain unformatted stored number. Two exemptions: vendor
   adapter DTOs (above) and monetary amounts, which take no suffix and must instead be paired with
   a `currency` column. Full rule: `openspec/specs/unit-of-measure/spec.md`.
+- **The platform's default time zone is `America/Bogota`; obtain it, "now", and a calendar day
+  only through `internal/clock`.** Get the default zone via `clock.Zone()`, the current moment
+  via `clock.Now()`, and a moment's calendar day via `clock.CalendarDay(t, loc)` — never call raw
+  `time.Now()`, hardcode a zone name, or hand-roll a UTC-midnight truncation outside
+  `internal/clock`. `internal/clock` imports stdlib `time` and nothing else, so leaning on it
+  creates no import cycle. Two standing exemptions, neither of which this rule touches: the
+  `pgtype.Date` UTC-midnight **storage encoding** (a representation, not a zone) and the
+  gateway's per-user `browser_tz` cookie, which still wins over the default for a signed-in
+  user's own pages. `cmd/*` is exempt as the composition root — it calls `time.LoadLocation`
+  explicitly and on purpose. This becomes enforceable repo-wide once
+  `RM35-timezone-centralization` tiers 2–6 adopt `clock` at every current call site. Full rule:
+  `internal/clock/AGENTS.md`.
 
 ---
 

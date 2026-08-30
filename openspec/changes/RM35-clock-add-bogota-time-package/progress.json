@@ -5,8 +5,8 @@
   "module": "clock",
   "roadmap": "RM35-timezone-centralization",
   "roadmap_tier": 1,
-  "status": "in-progress",
-  "updated_at": "2026-08-30T20:00:39Z",
+  "status": "applied",
+  "updated_at": "2026-08-30T20:04:06Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -21,16 +21,15 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
+    "pending": [],
+    "blocked": [],
+    "done": [
       "T3",
       "T4",
       "T5",
+      "T6",
       "T7",
       "T8"
-    ],
-    "blocked": [],
-    "done": [
-      "T6"
     ],
     "awaiting-user-verification": [
       "T1",
@@ -130,14 +129,14 @@
         "T1",
         "T2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "clock",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T20:00:45Z",
+      "completed_at": "2026-08-30T20:04:06Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "internal/clock/AGENTS.md created, mirroring account/AGENTS.md. States the stdlib-time-only rule as the module's defining constraint and names the util-dump anti-pattern it prevents."
     },
     {
       "id": "T4",
@@ -146,14 +145,14 @@
         "T1",
         "T2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "clock",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T20:00:45Z",
+      "completed_at": "2026-08-30T20:04:06Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Timezone convention added to ai/go-conventions.md Coding Rules, beside the display-units rule. Names both exemptions (pgtype.Date encoding, browser_tz cookie) and the cmd/* composition-root carve-out."
     },
     {
       "id": "T5",
@@ -161,14 +160,14 @@
       "depends_on": [
         "T4"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "clock",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T20:00:45Z",
+      "completed_at": "2026-08-30T20:04:06Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "One-line non-negotiable in CLAUDE.md pointing at ai/go-conventions.md. Leader checked its length against the sibling units bullet \u2014 comparable."
     },
     {
       "id": "T6",
@@ -196,14 +195,14 @@
         "T1",
         "T2"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "clock",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T20:00:45Z",
+      "completed_at": "2026-08-30T20:04:06Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "README Project Structure tree + Architecture table row for internal/clock, marked not-yet-adopted so the docs do not overclaim tier 1's reach."
     },
     {
       "id": "T8",
@@ -217,14 +216,14 @@
         "T6",
         "T7"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-30T20:04:06Z",
+      "completed_at": "2026-08-30T20:04:06Z",
+      "duration_seconds": 0,
       "budget": null,
-      "notes": null
+      "notes": "Leader-run verification: build/vet clean, gofmt clean for internal/clock, imports are exactly \"time\", zero adopters outside the package, openspec validate --strict passes, all three standalone guards pass."
     }
   ],
   "review": {
@@ -257,6 +256,24 @@
       "kind": "wave-complete",
       "by": "leader",
       "note": "Wave 1 done. Leader independently verified: go build + go vet clean (vet compiles _test.go); gofmt -l lists only pre-existing files, none from this wave; internal/clock imports exactly \"time\" (D10 honored); zero adopters outside the package (proposal's not-breaking claim holds). T1/T2 await the owner's suite run."
+    },
+    {
+      "at": "2026-08-30T20:00:45Z",
+      "kind": "wave-dispatch",
+      "by": "leader",
+      "note": "Wave 2 (T3,T4,T5,T7) dispatched to the clock worker on sonnet. Docs only \u2014 no Go code, so no new test surface."
+    },
+    {
+      "at": "2026-08-30T20:04:06Z",
+      "kind": "wave-complete",
+      "by": "leader",
+      "note": "Waves 2-3 done. Leader verified T8 directly: go build/vet clean, gofmt clean for internal/clock, import block is exactly \"time\" (D10), zero adopters outside the package, openspec validate --strict passes, ui/i18n/money guards all pass."
+    },
+    {
+      "at": "2026-08-30T20:04:06Z",
+      "kind": "awaiting-user-verification",
+      "by": "leader",
+      "note": "Tier implementation complete. T1/T2 hold at awaiting-user-verification: the owner must run go test ./internal/clock/... and go test ./... . The reviewer gate does NOT open until the owner reports that pass (Test-Execution-Policy)."
     }
   ]
 }
