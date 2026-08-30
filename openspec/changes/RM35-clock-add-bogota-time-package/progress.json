@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM35-clock-add-bogota-time-package",
+  "module": "clock",
+  "roadmap": "RM35-timezone-centralization",
+  "roadmap_tier": 1,
+  "status": "proposed",
+  "updated_at": "2026-08-30T19:27:40Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5",
+    "session_id": "0809d538-f495-4dff-be14-ae6ff3e22250"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D8",
+      "at": "2026-08-30T19:27:40Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Roadmap D4 corrected from four truncators to three; supercharger.go:57 is startOfMonth, not a second startOfDay.",
+      "why": "Tier-1 worker read the source and was right; leader verified with a func-definition grep. startOfDay is defined once (history.go:61), so tier 6 changes one definition, not two.",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-30T19:27:40Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Worker deferred internal/clock/AGENTS.md and the four doc edits to tasks.md (T3-T7) instead of writing them in this artifacts-only run.",
+      "why": "Correct reading of the artifacts-only scope, and it mirrors RM34 tier 1 where account/AGENTS.md was a tasks.md item. Accepted as-is.",
+      "covered_by": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "internal/clock/clock.go \u2014 Zone, Now, LoadOrDefault + clock_test.go",
+      "depends_on": [],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T2",
+      "title": "internal/clock/calendar.go \u2014 CalendarDay + calendar_test.go",
+      "depends_on": [],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T3",
+      "title": "internal/clock/AGENTS.md \u2014 Agent-Name, module Doc-Pack, stdlib-time-only constraint",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T4",
+      "title": "ai/go-conventions.md \u00a7Coding Rules \u2014 the full timezone convention (D3)",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T5",
+      "title": "CLAUDE.md \u2014 one-line non-negotiable pointing at the D3 rule",
+      "depends_on": [
+        "T4"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T6",
+      "title": "Root AGENTS.md \u2014 new pointer to ai/go-conventions.md (opencode gap)",
+      "depends_on": [],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T7",
+      "title": "Root README.md \u2014 Project Structure tree + Architecture table row",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T8",
+      "title": "Verification \u2014 build, vet, gofmt, boundary + zero-adopter checks",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "review": {
+    "status": "not-started",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-08-30T19:27:40Z",
+      "kind": "artifacts-created",
+      "by": "leader",
+      "note": "Tier-1 artifacts written by the clock worker (sonnet) and validated with openspec validate --strict. No database change, so the database design gate does not apply."
+    },
+    {
+      "at": "2026-08-30T19:27:40Z",
+      "kind": "halt",
+      "by": "leader",
+      "note": "Run scoped by kkpa-pickup-linear-ticket to HALT AFTER STEP 4. No implementation workers dispatched, no reviewer, no archive. Awaiting the user's proposal review. OPEN: design.md D9 time/tzdata blank import is flagged for the user and not yet settled."
+    }
+  ]
+}

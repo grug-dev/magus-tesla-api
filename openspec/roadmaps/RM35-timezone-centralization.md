@@ -67,12 +67,24 @@ demonstrated the failure mode, `CLAUDE.md` is five weeks newer than `AGENTS.md`.
 
 **D4 — Sweep: defaults + dedupe, behavior-preserving.** Three things per adopting tier:
 the zone fallback becomes `clock.Zone()`, raw `time.Now()` becomes `clock.Now()`, and the
-**four copy-pasted UTC-midnight truncators** collapse into one `clock.CalendarDay`:
+**three copy-pasted UTC-midnight day-truncators** collapse into one `clock.CalendarDay`:
 
-- `internal/analytics/consumed.go:80` — `calendarDay`
-- `internal/gateway/handlers/history.go:62` — `startOfDay`
-- `internal/gateway/handlers/supercharger.go:58` — `startOfDay`
-- `internal/telemetry/service.go:561` — `dateOnly`
+- `internal/analytics/consumed.go:79` — `calendarDay(t)`
+- `internal/gateway/handlers/history.go:61` — `startOfDay(t)`
+- `internal/telemetry/service.go:559` — `dateOnly(t, loc)` — the odd one out: it is genuinely
+  zone-aware, converting into `loc` *before* extracting the date, so it can return a different
+  calendar day than the other two. Tier 1's `CalendarDay` reconciles all three (tier-1 design D7).
+
+> **Corrected 2026-08-30, after tier 1's worker read the source.** An earlier draft of this
+> roadmap counted *four* truncators and listed `gateway/handlers/supercharger.go:58` among them.
+> That line is `startOfMonth`, a **month**-level function that is not a duplicate of `startOfDay`
+> and does not collapse into `CalendarDay`. `startOfDay` is defined exactly once in the gateway
+> (`history.go:61`), so **tier 6 changes one definition, not two**.
+
+Two further UTC-midnight functions are deliberately **left alone**, and tier 7's `tz-guard` must
+carry a `// tz:allow:` for each: `gateway/handlers/supercharger.go:57` `startOfMonth` (month
+granularity, not a day truncator) and `gateway/handlers/tz.go:79` `startOfDayIn` (already
+zone-aware, and carries a documented DST limitation from MAG-7 that must survive).
 
 That duplication is what the ticket's AC #2 ("centralized in one place") is actually
 pointing at. Everything except the documented default change is behavior-preserving, so
@@ -113,8 +125,8 @@ archived) · `[x]` done (archived).
 | `[ ]` | `RM35-telemetry-adopt-clock` | `telemetry` | `service.go:107-112` `location()` fallback `time.Local` → `clock.Zone()`; `service.go:102` `now()` → `clock.Now()`; `service.go:561` `dateOnly` → `clock.CalendarDay`. Keep the `Config.Clock` / `Config.Location` test-injection seams. | 1 | Adopt `clock` per RM35 D4. Behavior-preserving except the fallback. Repair broken tests (D6). |
 | `[ ]` | `RM35-analytics-adopt-clock` | `analytics` | `consumed.go:80-82` `calendarDay` → `clock.CalendarDay`; `recalculate.go:268` `time.Now()` → `clock.Now()`. Module still owns no `*time.Location` (D-B12 holds). | 1 | Adopt `clock` per RM35 D4. Repair broken tests (D6). |
 | `[ ]` | `RM35-app-adopt-clock` | `app` | `scheduler.go:32` `nil loc` fallback `time.Local` → `clock.Zone()`; `processor.go:190` `time.Now().In(p.loc)` → `clock` equivalents. Preserve the D6/D18 "poller's own zone" semantics. | 1 | Adopt `clock` per RM35 D4. Repair broken tests (D6). |
-| `[ ]` | `RM35-gateway-adopt-clock` | `gateway` | `tz.go` — the four UTC fallbacks in `browserLocation` / `browserLocationFromHeader` become `clock.Zone()`; cookie still wins (D1). `history.go:62` + `supercharger.go:58` `startOfDay` → `clock.CalendarDay`. `handlers.go:391,461,729,924` `time.Now()` → `clock.Now()`. Keep `startOfDayIn` and its documented DST limitation. | 1 | Adopt `clock` per RM35 D4. The `browser_tz` cookie still wins — only the fallback changes. Repair broken tests (D6). |
-| `[ ]` | `RM35-platform-add-tz-guard` | `platform` | `make tz-guard` mirroring `money-guard`'s grep shape + `// tz:allow: <reason>` escape hatch; add to `.PHONY` and to `make check`. Document the target in `README.md` "Making a change" and in `CLAUDE.md`'s allowed-commands list (workflow-decisions rule). | 2,3,4,5,6 | Add the guard per RM35 D5 — LAST, once every module is migrated. |
+| `[ ]` | `RM35-gateway-adopt-clock` | `gateway` | `tz.go` — the four UTC fallbacks in `browserLocation` / `browserLocationFromHeader` become `clock.Zone()`; cookie still wins (D1). `history.go:61` `startOfDay` → `clock.CalendarDay` (ONE definition — `supercharger.go:57` is `startOfMonth`, a different function; leave it). `handlers.go:391,461,729,924` `time.Now()` → `clock.Now()`. Keep `startOfDayIn` and its documented DST limitation. | 1 | Adopt `clock` per RM35 D4. The `browser_tz` cookie still wins — only the fallback changes. Repair broken tests (D6). |
+| `[ ]` | `RM35-platform-add-tz-guard` | `platform` | `make tz-guard` mirroring `money-guard`'s grep shape + `// tz:allow: <reason>` escape hatch; add to `.PHONY` and to `make check`. Known legitimate escapes: the `pgtype.Date` UTC-midnight encoding (D1), `cmd/*` composition roots, `supercharger.go:57` `startOfMonth`, `tz.go:79` `startOfDayIn`. Document the target in `README.md` "Making a change" and in `CLAUDE.md`'s allowed-commands list (workflow-decisions rule). | 2,3,4,5,6 | Add the guard per RM35 D5 — LAST, once every module is migrated. |
 
 ## Future work
 
