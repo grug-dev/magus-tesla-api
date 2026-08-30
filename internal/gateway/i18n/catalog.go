@@ -346,6 +346,12 @@ const (
 	// KeyLoginSignIn below (home reuses bare KeyBrandMagus, no suffix).
 	KeyBrandPageTitle Key = "brand.page_title"
 	KeyLoginSignIn    Key = "login.sign_in"
+
+	// --- RM34-gateway-block-inactive-login (tier 2) ---
+	// pages.AccountBlocked() — the page GoogleCallback renders at HTTP 403 for
+	// an account whose status is not Active (design.md D6/D20).
+	KeyAccountBlockedTitle   Key = "account_blocked.title"
+	KeyAccountBlockedMessage Key = "account_blocked.message"
 )
 
 // catalog is the entire translation vocabulary. TestCatalog_AllKeysHaveBothLanguages
@@ -609,6 +615,9 @@ var catalog = map[Key]entry{
 
 	KeyBrandPageTitle: {ES: "%s — Magus", EN: "%s — Magus"},
 	KeyLoginSignIn:    {ES: "Iniciar sesión", EN: "Sign in"},
+
+	KeyAccountBlockedTitle:   {ES: "Cuenta desactivada", EN: "Account deactivated"},
+	KeyAccountBlockedMessage: {ES: "Tu cuenta está desactivada. Escribe a cristiancamilopena@gmail.com para solicitar acceso.", EN: "Your account is deactivated. Contact cristiancamilopena@gmail.com to request access."},
 }
 
 // translate resolves key in lang. Two distinct failure modes, two distinct

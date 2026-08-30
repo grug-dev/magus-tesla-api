@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM34-account-vehicle-status",
+  "intention": "Accounts and vehicles carry an Active/Inactive status; inactive rows are invisible to normal reads and an inactive user is refused entry at Google login with a bilingual contact message, making the platform invite-gated.",
+  "request": "Source ticket: MAG-33 — https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles\nProject: Account   Priority: Urgent\n\n## Status to accounts and vehicles\n\n## Step 1\n\nAdd a new status column to save if a record is active or inactive. (ENUM type? ) I'd like to see the text `Active` or `Inactive` in the database table record. Add the new column to the next tables of the account module:\n\n* accounts\n* vehicles\n\nBy default, make the value as `Inactive`\n\n## Step 2\n\nFind all database queries done for those entities and modify the `GET`  queries to always include `status = Active` . Only active accounts and vehicles will return data. Otherwise, it does not exists.\n\n### Step 3\n\nVerify the login authentication. Only active users are able to sign in to the platform. IF after authenticating with google, the user is inactive, block the access to the site and show a message that user is inactive and must contact to `cristiancamilopena`@gmail.com  to validate their access. (i18N in spanish as well)",
+  "status": "complete",
+  "autopilot": true,
+  "updated_at": "2026-08-30T14:57:00Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM34-MAG-33-account-vehicle-status",
+    "base": "main",
+    "ticket": "MAG-33",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles",
+    "created_at": "2026-08-30T03:00:13Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-30T02:58:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "status is TEXT NOT NULL CHECK (status IN ('Active','Inactive')), not a native enum",
+      "why": "Resolved from the codebase, not asked: zero CREATE TYPE AS ENUM exists; access_type on vehicles already uses TEXT+CHECK. Native enums cannot drop a value without recreating the type.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-30T02:58:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "accounts.status DEFAULT 'Inactive' with NO backfill; existing accounts including the owner's are locked out until activated by hand",
+      "why": "User chose this with the lockout consequence stated up front. It is the invite gate the ticket asks for. Recovery SQL is mandatory in tier 1's report.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-30T02:58:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "vehicles.status DEFAULT 'Active', existing rows backfilled to Active",
+      "why": "Correctness gate: Inactive-by-default plus a filtered RegisteredVehicles makes vehiclesFor re-seed forever, hitting the paid Tesla API and waking the car on every dashboard load.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-30T02:58:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "UpsertFromOAuth stays unfiltered and Account gains a Status field; the gateway decides. All other reads filter Active.",
+      "why": "A status predicate cannot suppress an INSERT..ON CONFLICT conflict target, so filtering the upsert would only make it lie. Keeps the authorization verdict in the gateway.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-30T03:00:00Z",
+      "scope": "tier:2",
+      "made_by": "autopilot",
+      "decision": "contact address cristiancamilopena@gmail.com hardcoded in the i18n catalog, not config",
+      "why": "Ticket backticks are formatting noise. One support address does not earn config indirection — it would cost a lookup per read and buy nothing until a second address exists.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-30T03:00:00Z",
+      "scope": "tier:2",
+      "made_by": "autopilot",
+      "decision": "blocked page is a dedicated Templ page at HTTP 403 reusing the login shell, no session set",
+      "why": "A real user lands on this state and must read and act on it, so a bare c.String is wrong. 403 is the accurate status for authenticated-but-refused.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-30T03:00:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "no new unit tests; existing tests are updated where this change breaks them",
+      "why": "User's standing default is no new tests. Adding Account.Status and changing GoogleCallback control flow breaks existing compilation and assertions, which must be repaired.",
+      "covered_by": null
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-30T10:33:00Z",
+      "scope": "tier:1",
+      "made_by": "leader",
+      "decision": "account-status gating uses an EXISTS semi-join, not a JOIN",
+      "why": "Two of the four queries are SELECT *; a JOIN would widen the projection, change the sqlc row struct and break service.go. EXISTS keeps every generated struct identical.",
+      "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-30T10:33:00Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "an Inactive account suppresses its vehicles and Tesla tokens across four reads",
+      "why": "Closes the poller gap: a deactivated user's car was still enumerated and polled on billed Fleet API calls. Writes stay ungated, unreachable once the reads are.",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-30T10:33:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "tier 2 adds a per-request account-status check to the authenticated-route middleware",
+      "why": "Cookie sessions are stateless and survive deactivation, so blocking only at login leaves an existing session working until the cookie expires.",
+      "covered_by": null
+    },
+    {
+      "id": "D25",
+      "at": "2026-08-30T11:00:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "added tier 3 (RM34-account-add-status-port) rather than folding StatusFor into tier 2",
+      "why": "Tier 2 cannot compile without it, tier 1 is archived, and a two-module change violates config.yaml's roadmap rule. Tier 2's T1/T2 stay unblocked meanwhile.",
+      "covered_by": "D16"
+    },
+    {
+      "id": "D26",
+      "at": "2026-08-30T11:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "withdrew D16 and dropped tier 3; tier 2 is the login block only",
+      "why": "The ticket gates new signups, which never held a session, so the login block suffices. StatusFor broke fakes in telemetry and gateway — disproportionate cost. Reverted uncommitted.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM34-account-add-record-status",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T03:01:40Z",
+      "completed_at": "2026-08-30T11:35:00Z",
+      "duration_seconds": 9235,
+      "budget": {
+        "five_hour_pct_delta": 21,
+        "cost_usd_delta": 6.01,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "interview + roadmap + tier-1 artifacts; leader and worker share the bucket"
+      },
+      "notes": "Status column on both tables with opposite defaults; five account reads plus four account-gated vehicle/token reads. Reviewer-approved round 1, one minor bookkeeping finding fixed."
+    },
+    {
+      "id": 2,
+      "change": "RM34-gateway-block-inactive-login",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:45:00Z",
+      "completed_at": "2026-08-30T14:57:00Z",
+      "duration_seconds": 15120,
+      "budget": {
+        "five_hour_pct_delta": 29,
+        "cost_usd_delta": 4.33,
+        "spanned_sessions": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "tier 2 artifacts + implementation + 2 review rounds; spans a rate-limit checkpoint"
+      },
+      "notes": "Login-time block only after the D26 rescope: rejectIfInactive in GoogleCallback, bilingual 403 AccountBlocked page, no session set. Reviewer-approved round 2; round 1's two findings (inlined DaisyUI class, stale checkboxes) fixed."
+    }
+  ]
+}

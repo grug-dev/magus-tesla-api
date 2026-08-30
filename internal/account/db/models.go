@@ -18,6 +18,7 @@ type Account struct {
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
 	Language    string
+	Status      string
 }
 
 type TeslaToken struct {
@@ -42,4 +43,5 @@ type Vehicle struct {
 	AccessType    pgtype.Text
 	ExteriorColor pgtype.Text
 	CarType       pgtype.Text
+	Status        string
 }

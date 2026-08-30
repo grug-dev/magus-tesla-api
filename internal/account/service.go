@@ -270,6 +270,7 @@ func accountFromRow(a accountdb.Account) Account {
 		Provider:    a.Provider,
 		ProviderID:  a.ProviderID,
 		DisplayName: a.DisplayName.String, // "" when NULL
+		Status:      a.Status,
 		CreatedAt:   a.CreatedAt.Time,
 		UpdatedAt:   a.UpdatedAt.Time,
 	}

@@ -13,8 +13,8 @@ import (
 )
 
 const getAccountByProviderID = `-- name: GetAccountByProviderID :one
-SELECT id, email, provider, provider_id, display_name, created_at, updated_at, language FROM accounts
-WHERE provider = $1 AND provider_id = $2
+SELECT id, email, provider, provider_id, display_name, created_at, updated_at, language, status FROM accounts
+WHERE provider = $1 AND provider_id = $2 AND status = 'Active'
 `
 
 type GetAccountByProviderIDParams struct {
@@ -22,6 +22,8 @@ type GetAccountByProviderIDParams struct {
 	ProviderID string
 }
 
+// Filtered by status = 'Active' (design.md D4, RM34): an Inactive account is
+// invisible to every account read except UpsertAccountFromOAuth.
 func (q *Queries) GetAccountByProviderID(ctx context.Context, arg GetAccountByProviderIDParams) (Account, error) {
 	row := q.db.QueryRow(ctx, getAccountByProviderID, arg.Provider, arg.ProviderID)
 	var i Account
@@ -34,17 +36,21 @@ func (q *Queries) GetAccountByProviderID(ctx context.Context, arg GetAccountByPr
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Language,
+		&i.Status,
 	)
 	return i, err
 }
 
 const getAccountLanguage = `-- name: GetAccountLanguage :one
 SELECT language FROM accounts
-WHERE id = $1
+WHERE id = $1 AND status = 'Active'
 `
 
 // The per-request read path: only the language column, not the whole account row,
 // so a caller that only needs the language does not pay for the rest of Account.
+// Filtered by status = 'Active' (design.md D4, RM34): an Inactive account's
+// language preference is not readable — the read behaves as though no such
+// account exists.
 func (q *Queries) GetAccountLanguage(ctx context.Context, id uuid.UUID) (string, error) {
 	row := q.db.QueryRow(ctx, getAccountLanguage, id)
 	var language string
@@ -55,10 +61,15 @@ func (q *Queries) GetAccountLanguage(ctx context.Context, id uuid.UUID) (string,
 const getLatestTeslaTokenByAccount = `-- name: GetLatestTeslaTokenByAccount :one
 SELECT id, account_id, tesla_email, access_token, refresh_token, access_expires_at, created_at, updated_at FROM tesla_tokens
 WHERE account_id = $1
+  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
 ORDER BY updated_at DESC
 LIMIT 1
 `
 
+// Gated by the owning account's status via EXISTS (design.md D14/D15, RM34): an
+// Inactive account's token is invisible here, same as its vehicles. EXISTS (not a
+// JOIN) keeps `SELECT *` scoped to tesla_tokens alone, so the sqlc-generated row
+// struct is unchanged (D14).
 func (q *Queries) GetLatestTeslaTokenByAccount(ctx context.Context, accountID uuid.UUID) (TeslaToken, error) {
 	row := q.db.QueryRow(ctx, getLatestTeslaTokenByAccount, accountID)
 	var i TeslaToken
@@ -78,6 +89,7 @@ func (q *Queries) GetLatestTeslaTokenByAccount(ctx context.Context, accountID uu
 const getLatestTeslaTokenByAccountForUpdate = `-- name: GetLatestTeslaTokenByAccountForUpdate :one
 SELECT id, account_id, tesla_email, access_token, refresh_token, access_expires_at, created_at, updated_at FROM tesla_tokens
 WHERE account_id = $1
+  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
 ORDER BY updated_at DESC
 LIMIT 1
 FOR UPDATE
@@ -85,6 +97,8 @@ FOR UPDATE
 
 // Same as above but row-locked; used inside the refresh transaction so concurrent
 // refreshes of the same connection serialize and can't strand a single-use token.
+// Gated by the owning account's status via EXISTS (design.md D14/D15, RM34): a
+// revoked (Inactive) account can no longer burn a single-use refresh token.
 func (q *Queries) GetLatestTeslaTokenByAccountForUpdate(ctx context.Context, accountID uuid.UUID) (TeslaToken, error) {
 	row := q.db.QueryRow(ctx, getLatestTeslaTokenByAccountForUpdate, accountID)
 	var i TeslaToken
@@ -135,6 +149,8 @@ func (q *Queries) InsertVehicleIfMissing(ctx context.Context, arg InsertVehicleI
 
 const listAllVehicles = `-- name: ListAllVehicles :many
 SELECT account_id, tesla_id, vin, display_name, access_type, exterior_color, car_type FROM vehicles
+WHERE status = 'Active'
+  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
 ORDER BY account_id, tesla_id
 `
 
@@ -152,6 +168,13 @@ type ListAllVehiclesRow struct {
 // for background collection jobs (nightly telemetry). Ordered (account_id, tesla_id)
 // for stable, testable output. No join to tesla_tokens: enumeration is decoupled
 // from connection liveness (that is the caller's job via AccessTokenFor).
+// Filtered by status = 'Active' (design.md D4, RM34): an Inactive vehicle is
+// excluded regardless of its owning account's status. Additionally gated by the
+// owning account's status via EXISTS (design.md D14/D15, RM34): this is the
+// primary fix for the nightly poller spending billed Fleet API calls (and waking
+// cars) on vehicles owned by a deactivated account. EXISTS (not a JOIN) keeps the
+// explicit column list scoped to vehicles alone, so the sqlc-generated row struct
+// is unchanged (D14).
 func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, error) {
 	rows, err := q.db.Query(ctx, listAllVehicles)
 	if err != nil {
@@ -181,12 +204,18 @@ func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, er
 }
 
 const listVehiclesByAccount = `-- name: ListVehiclesByAccount :many
-SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at, access_type, exterior_color, car_type FROM vehicles
-WHERE account_id = $1
+SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at, access_type, exterior_color, car_type, status FROM vehicles
+WHERE account_id = $1 AND status = 'Active'
+  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
 ORDER BY tesla_id
 `
 
 // All vehicles registered to an account, ordered by tesla_id for stable output.
+// Filtered by status = 'Active' (design.md D4, RM34): an Inactive vehicle is
+// excluded from this read. Also gated by the owning account's status via EXISTS
+// (design.md D14/D15, RM34): a deactivated user's stateless cookie session must
+// not keep rendering real vehicles. EXISTS (not a JOIN) keeps `SELECT *` scoped
+// to vehicles alone, so the sqlc-generated row struct is unchanged (D14).
 func (q *Queries) ListVehiclesByAccount(ctx context.Context, accountID uuid.UUID) ([]Vehicle, error) {
 	rows, err := q.db.Query(ctx, listVehiclesByAccount, accountID)
 	if err != nil {
@@ -207,6 +236,7 @@ func (q *Queries) ListVehiclesByAccount(ctx context.Context, accountID uuid.UUID
 			&i.AccessType,
 			&i.ExteriorColor,
 			&i.CarType,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -222,7 +252,7 @@ const updateAccountLanguage = `-- name: UpdateAccountLanguage :exec
 UPDATE accounts
 SET language   = $1,
     updated_at = now()
-WHERE id = $2
+WHERE id = $2 AND status = 'Active'
 `
 
 type UpdateAccountLanguageParams struct {
@@ -233,6 +263,10 @@ type UpdateAccountLanguageParams struct {
 // Persists an explicit language switch. Vocabulary validation happens in the Go
 // caller (Service.SetLanguage) before this query runs — see design.md D1 for why
 // there is no CHECK constraint doing this at the DB layer instead.
+// Filtered by status = 'Active' (design.md D4, RM34): against an Inactive
+// account this matches zero rows and is a silent no-op (Postgres does not error
+// on an UPDATE matching zero rows, and SetLanguage does not inspect affected-row
+// count) — documented consequence, not a bug (design.md D4).
 func (q *Queries) UpdateAccountLanguage(ctx context.Context, arg UpdateAccountLanguageParams) error {
 	_, err := q.db.Exec(ctx, updateAccountLanguage, arg.Language, arg.ID)
 	return err
@@ -317,7 +351,7 @@ ON CONFLICT (provider, provider_id) DO UPDATE
 SET email        = EXCLUDED.email,
     display_name = EXCLUDED.display_name,
     updated_at   = now()
-RETURNING id, email, provider, provider_id, display_name, created_at, updated_at, language
+RETURNING id, email, provider, provider_id, display_name, created_at, updated_at, language, status
 `
 
 type UpsertAccountFromOAuthParams struct {
@@ -348,6 +382,7 @@ func (q *Queries) UpsertAccountFromOAuth(ctx context.Context, arg UpsertAccountF
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Language,
+		&i.Status,
 	)
 	return i, err
 }

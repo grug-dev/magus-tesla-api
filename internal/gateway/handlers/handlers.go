@@ -992,6 +992,10 @@ func (h *Handler) GoogleCallback(c *gin.Context) {
 		return
 	}
 
+	if rejectIfInactive(c, acct) {
+		return
+	}
+
 	h.syncLoginLanguageCookie(c, acct.ID)
 
 	sess.Set("uid", acct.ID.String())
@@ -1015,6 +1019,25 @@ func (h *Handler) Healthz(c *gin.Context) {
 		return
 	}
 	c.String(http.StatusOK, "ok")
+}
+
+// rejectIfInactive renders the blocked page and returns true if acct is not
+// Active — the caller (GoogleCallback) must return immediately without
+// establishing a session. Returns false (and renders nothing) for an Active
+// account. Factored out of GoogleCallback, like syncLoginLanguageCookie, so it
+// is directly testable with a hand-built gin.Context and a plain
+// account.Account, without a live call to h.google.Exchange (design.md D24,
+// RM34-gateway-block-inactive-login). GoogleCallback is a full-page browser
+// navigation from Google's own redirect — never an htmx request — so the
+// blocked page is always rendered inline at HTTP 403, with no HX-Redirect
+// branch to consider (design.md D19 was withdrawn along with the per-request
+// gate it existed for; see roadmap D26).
+func rejectIfInactive(c *gin.Context, acct account.Account) bool {
+	if acct.Status == account.StatusActive {
+		return false
+	}
+	renderError(c, http.StatusForbidden, pages.AccountBlocked())
+	return true
 }
 
 // randomState returns a hex-encoded 256-bit CSRF state for the OAuth flow.

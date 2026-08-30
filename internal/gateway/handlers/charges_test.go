@@ -793,7 +793,19 @@ func TestChargeRowUpdate_ValidationError(t *testing.T) {
 	}
 }
 
-// TestChargeRowUpdate_ValidInput verifies a valid PUT renders the static row on success.
+// TestChargeRowUpdate_ValidInput verifies a valid PUT persists the posted values
+// and re-renders the whole #charges-list region.
+//
+// The response-shape assertion below was rewritten when MAG-18 wave 5 retargeted
+// the success path (charges.go, "A SUCCESSFUL edit re-renders the WHOLE
+// #charges-list region"): htmx parses the response inside a <template>, so a
+// leading <tr> switches the HTML parser into table-insertion mode and the
+// following <div hx-swap-oob> is foster-parented out of top level, silently
+// dropping the list refresh. The handler therefore emits no row markup at all,
+// and the old `charge-row-{id}` expectation could never match again. Sibling
+// TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow owns the full
+// contract (headers, no OOB, no leading <tr>); this test keeps its own focus on
+// the persisted write values.
 func TestChargeRowUpdate_ValidInput(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
@@ -824,8 +836,11 @@ func TestChargeRowUpdate_ValidInput(t *testing.T) {
 		t.Fatalf("want 200 on valid update, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, "charge-row-"+id.String()) {
-		t.Errorf("want static row with id in update response, body=%q", body[:min(500, len(body))])
+	if !strings.Contains(body, `id="charges-list"`) {
+		t.Errorf("want the whole #charges-list region in the update response, body=%q", body[:min(500, len(body))])
+	}
+	if got := w.Header().Get("HX-Retarget"); got != "#charges-list" {
+		t.Errorf("want HX-Retarget=#charges-list on a successful update, got %q", got)
 	}
 	// D5: Currency hardcoded COP even for the edit path.
 	if writer.updateEntry.Currency != "COP" {
@@ -2965,7 +2980,7 @@ func TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow(t *testing.
 	// buildChargesPresets marks Active by exact-match against its own recomputed
 	// window, so asserting the rendered active preset proves the reset landed on
 	// a real preset rather than merely on some 7-day range.
-	if !strings.Contains(body, `hx-get="/ui/charges/list?start=`+wantStart.Format("2006-01-02")+`&end=`+wantEnd.Format("2006-01-02")+`"`) {
+	if !strings.Contains(body, `hx-get="/ui/charges/list?start=`+wantStart.Format("2006-01-02")+`&amp;end=`+wantEnd.Format("2006-01-02")+`"`) {
 		t.Errorf("D3: want the last-7-days preset rendered for the reset window; body=%q", body[:min(2000, len(body))])
 	}
 }

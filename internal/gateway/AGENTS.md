@@ -534,6 +534,38 @@ complete tenant boundary, and re-deriving a `TeslaID`-based check the port's
 own `WHERE` clause does not use would test a predicate the write itself never
 applies.
 
+### Inactive-account login block (RM34-gateway-block-inactive-login, 2026-08-30)
+
+`GoogleCallback` (`handlers.go`) refuses to establish a session for an account whose
+`account.Account.Status` is not `account.StatusActive`. Immediately after
+`h.acct.UpsertFromOAuth` resolves the account and BEFORE `h.syncLoginLanguageCookie` or
+`sess.Set("uid", ...)` runs, it calls `rejectIfInactive(c, acct)`: for anything other than
+`StatusActive` it renders `pages.AccountBlocked()` at HTTP 403 via `renderError` and returns
+`true`, telling the caller to stop. `rejectIfInactive` is a free function (no `Handler`
+receiver), factored out the same way `syncLoginLanguageCookie` is, because `h.google` is a
+concrete `*googleauth.Client` with no fake-able seam — the extraction is what makes the check
+testable with a hand-built `gin.Context` and a plain `account.Account`, with no live network
+call.
+
+**One render site, no route.** `pages.AccountBlocked()` is rendered exactly once, inline inside
+`GoogleCallback`'s 403 response. There is **no `GET /account-blocked` route** and no
+`exemptFromStatusGate` allowlist — an earlier design considered a per-request middleware
+(`AccountActiveGate`) that would have needed both as its own redirect target, but that
+middleware was withdrawn before implementation (roadmap `RM34-account-vehicle-status` D26): a
+newly-gated signup has never held a session, so the login-time block alone satisfies the
+ticket. If a future change needs to revoke an *already-established* session mid-flight, it
+needs its own design — do not assume this entry's shape (one inline render, no route)
+generalizes to that different problem.
+
+**Why the blocked page always renders in the visitor's pre-login language, not the account's
+stored preference.** `LanguageMiddleware` runs before every handler and branches on
+`currentUID(c)`. For the `/auth/google/callback` request specifically, no session exists yet
+(this is the very request that would create one), so `currentUID` always returns `ok=false`
+here — `LanguageMiddleware` takes its anonymous branch (the pre-login `lang` cookie, or Spanish
+by default) regardless of the resolved account's status or stored language. `GetAccountLanguage`
+(tier 1's `status = 'Active'`-filtered query) is never consulted for this request at all, so
+there is no imprecision to reconcile.
+
 ## Vehicle-scoped reads — always send the selected TeslaID
 
 The gateway is multi-tenant **and** multi-vehicle: the user picks the active vehicle with

@@ -6,9 +6,9 @@
 > canonical KB until applied. This file is self-contained — it embeds the proposed content, so it
 > stays valid even after the OpenSpec change folder is archived/moved.
 
-Target guide: `workflows/manual-charge-crud.md`
+Target guide: `architecture/account-activation-gate.md`
 Source spec:  `openspec/specs/gateway/spec.md`
-Generated:    2026-08-29
+Generated:    2026-08-30
 Status: PENDING REVIEW
 
 ---
@@ -16,43 +16,59 @@ Status: PENDING REVIEW
 <!--
 Scope of this proposal — read before applying.
 
-Derived from the gateway capability spec after archiving RM33 tier 2
-(`RM33-gateway-update-charge-form`, Linear MAG-18). The spec delta that produced it modified
-`Requirement: Create Charge Entry` and `Requirement: Inline Row Editing`, and added three
-requirements: the odometer field, the AC/DC option text, and the date/time-of-day sync.
+Derived from the gateway capability spec after archiving RM34 tier 2
+(`RM34-gateway-block-inactive-login`, Linear MAG-33). The delta ADDED
+`Requirement: Inactive Account Is Blocked At Login` and MODIFIED `Requirement: Google Sign-In`
+so that a session is established only for an Active account.
 
-Two blocks are deliberately NOT emitted:
+WHY A NEW ARCHITECTURE TOPIC, and why not a use case:
 
-- `## Glossary` — the spec introduces no new synonym for the concept itself. `manual charge`,
-  `charges form`, `charge row` and `Manual Records` already resolve here. Status, odometer and
-  currency are ATTRIBUTES of the concept, not aliases, so per the curation rules they belong in
-  the guide body and never in the glossary or INDEX.
-- `## [index]` rows — for the same reason: every term a reader would arrive with already routes
-  to this guide. Adding attribute rows would force INDEX to be maintained per field.
+- Nothing in the KB covers login, sessions, or the account-status gate today — INDEX.md resolves
+  no term for `login`, `sign in`, `session`, or `inactive account`. So this is a brand-new entry,
+  not an update-in-place.
+- The invariant is CROSS-MODULE, which is what `architecture/` is for: the account module hides
+  Inactive rows from reads (RM34 tier 1) and the gateway refuses them entry at login (tier 2).
+  A reader arriving with "why can this user not log in" needs both halves in one place.
+- A `use-case/gateway/google-sign-in.md` was considered and rejected FOR NOW: `from-spec` may not
+  emit `## Flow`, `## Entry point`, or `## Database`, and those three sections are most of a
+  use-case file's value. Applying this proposal there would create a skeleton whose useful half is
+  permanently empty. If the login path is worth a proper use-case file, curate it with
+  `/kkpa-context-curate use-case GET /auth/google/callback`, which does the real trace behind the
+  human gate.
+- The account-side sync (tier 1's `account` and `account-vehicle-registry` capability specs) is
+  NOT staged yet. When it is, it should target this SAME file and append the read-filtering half.
 
-`## Component map` is untouched, as always for `from-spec` without `--with-filemap` — the spec
-carries behavior, not file paths.
-
-NOTE: the guide already documents the CHARGING-side half of RM33 (status-conditional required
-fields via `charging.RequiredFieldsFor`, optional/derived energy, the 62 kWh placeholder). The
-bullets below are the GATEWAY-side half that tier 2 added and the guide does not yet cover.
-Avoid re-stating the charging-side rules when applying.
+`## Component map` is not emitted, as always for `from-spec` without `--with-filemap` — the spec
+carries behavior, not file paths. The applied guide will therefore have an empty Component map
+until someone curates it; that is expected and intentional.
 -->
+
+## [guide] ## Glossary — REPLACE
+
+- **Known as:** `account activation gate`, `inactive account`, `account status`, `blocked login`, `deactivated account`
+- **Internal name:** `account.Account.Status` (`Active` / `Inactive`) — enforced at login by the gateway and at read time by the account module
 
 ## [guide] ## How maintenance works — APPEND
 
-- **Status is parsed FIRST on both write paths.** `parseChargeForm` resolves the submitted `status` to a `charging.Status` before any field-presence check, then drives the required set from `charging.RequiredFieldsFor(status)`. A missing or unrecognized status is itself a validation error, so it short-circuits before the per-field checks ever run — which is why every form fixture in a test must carry an explicit `status`.
-- **Error re-render (422/500) preserves the whole submission.** Both `ChargeCreate` and `ChargeRowUpdate` rebuild the fragment from the raw submitted values rather than from fresh-load defaults: create overwrites `ChargesPageData.FormValues` (plus the three date defaults) and calls `applyRawRequiredState`; the edit row goes through `chargeEntryVMFromRawValues`. Both recompute the `Required*` pair from the **submitted** status, so the served HTML's `required` attributes match the status being rendered. Keep both halves in step when touching either handler.
-- **Completing an in-progress entry is an inline-edit-row action.** Moving the edit row's status control `IN_PROGRESS` → `DONE` (supplying `ended_at` + `end_battery_pct`) is the ONLY UI that completes an entry, and `DONE` → `IN_PROGRESS` the only one that reopens it. There is no separate "complete" button or endpoint.
+- **The gate has two independent halves; changing one does not change the other.** The account module hides Inactive rows from its reads, and the gateway refuses an Inactive account a session at Google login. Neither half is a fallback for the other: an account deactivated mid-session keeps its cookie working until it expires, because the login check runs once at callback time and sessions are stateless.
+- **Adding a new place that must respect the gate:** decide which half it belongs to. A new READ of accounts, vehicles or Tesla tokens filters on Active inside the account module (never in the caller). A new ENTRY point that establishes identity performs the status check in the gateway, after the account is resolved and strictly before any session value is written.
+- **Changing the blocked page's wording or contact address:** both are catalogue keys in `internal/gateway/i18n/catalog.go`, ES and EN, and the address is deliberately hardcoded there. There is no config key to change and no route to the page — it is rendered directly from the OAuth callback.
 
 ## [guide] ## Conventions & gotchas — APPEND
 
-- **The gateway renders `required` from `charging.RequiredFieldsFor`, never from its own rule** — `ChargesPageData` (create) and `ChargeEntryVM` (edit row) each carry a `RequiredEndedAt` / `RequiredEndBatteryPct` pair the HANDLER computes; templates hold no business logic. On an error re-render the pair must be recomputed from the SUBMITTED status, or the form comes back with `required` attributes describing a status the user is no longer on. _Source: spec gateway — Requirement: Create Charge Entry._
-- **`start_battery_pct` is required at EVERY status; `ended_at` / `end_battery_pct` only at `DONE`** — the first has no `charging.Field` constant and is therefore outside `RequiredFieldsFor`'s domain, so it stays unconditionally required in the gateway. Do not "unify" it into the status-gated set. _Source: spec gateway — Requirement: Create Charge Entry._
-- **`energy_added_kwh` and `price` are optional at the gateway, and their empty cases differ** — empty energy is stored as ABSENT (never a fabricated zero, so the charging module's derivation can fire); empty price is stored as `0`. A supplied `energy_added_kwh` of `0` and a supplied `price` of `-1` are both still validation errors. _Source: spec gateway — Requirement: Create Charge Entry._
-- **There is no Currency field on either form — `COP` is a suffix on the price input** — rendered via `ui.InputProps.Suffix` (DaisyUI v5's compound-`label` idiom). `currency` remains fixed to `COP` server-side regardless of anything submitted. Do not reintroduce a Currency input, disabled or otherwise. _Source: spec gateway — Requirement: Create Charge Entry._
-- **The odometer field is optional and lives inside "More details"** — grouped with charging type, location label and notes, as a whole-kilometre integer; negative or non-integer values are field-level validation errors. _Source: spec gateway — Requirement: Charge form odometer field._
-- **AC/DC options carry descriptive text, but the submitted values stay `AC` / `DC`** — the labels explain slow home/destination vs fast Supercharger charging and exist in both ES and EN. Changing the label text must never change the option `value`. _Source: spec gateway — Requirement: Charging type option text explains AC and DC._
-- **Changing the charge date rewrites only the DATE half of the session timestamps** — the time-of-day portion of a non-empty `started_at` / `ended_at` is preserved, and an EMPTY one stays empty rather than being populated. This is client-side JS (recorded as RD12 in `internal/gateway/AGENTS.md`), one of the module's few sanctioned exceptions to the no-client-side-JS rule. _Source: spec gateway — Requirement: Charge date change keeps the time of day on start and end timestamps._
-- **A second sanctioned JS exception (RD13) toggles `required` live when the status control changes** — it fires with no network request, and the server-side `RequiredFieldsFor` gate remains authoritative. The JS is a UX affordance, never the validation. Both RD12 and RD13 live in the single shared `internal/gateway/static/app.js`. _Source: spec gateway — Requirement: Create Charge Entry; `internal/gateway/AGENTS.md` RD12/RD13._
-- **Writing a negative test for these forms: assert the specific field message, not just the 422** — because a missing `status` is itself a validation error, a fixture that omits it produces a 422 for the WRONG reason, and a test asserting only the status code stays green even if the check it names is deleted. Supply a valid `status` and assert the field's own i18n message. _Source: spec gateway — Requirement: Create Charge Entry (status parsed first); RM33 tier-2 test-contract fixture convention._
+- **A non-Active account must be refused BEFORE any session identity is written** — the status check runs after the account is provisioned/resolved and strictly before the first session set. Ordering is the whole security property: a check placed after a session write leaves a usable session behind on the refusal path. _Source: spec gateway — Requirement: Inactive Account Is Blocked At Login._
+- **The gate is fail-closed: anything that is not exactly `Active` is refused** — including an empty or unrecognised status, not just the literal `Inactive`. Never rewrite the check as "reject when Inactive"; a status value nobody anticipated would then grant access. _Source: spec gateway — Requirement: Inactive Account Is Blocked At Login._
+- **The refusal is HTTP 403 with a real rendered page, not a redirect or a bare string** — the visitor is authenticated but not authorized, and they must be able to read the contact address and act on it. _Source: spec gateway — Requirement: Inactive Account Is Blocked At Login._
+- **The contact address is hardcoded in the translation catalogue, never configuration** — one support address does not earn a config lookup. Both languages must carry it non-empty, like every other user-facing string. _Source: spec gateway — Requirement: Inactive Account Is Blocked At Login._
+- **The blocked page has exactly ONE render site and no route** — it is rendered inline from the OAuth callback. Do not add a `/account-blocked` route "for completeness": an unauthenticated visitor could then read it directly, and it would become a second place the refusal logic has to be kept correct. _Source: spec gateway — Requirement: Inactive Account Is Blocked At Login._
+- **An Inactive account never reaches the language-sync step either** — the pre-login `lang` cookie is persisted to the account only on the Active path. A refused login must leave the account row untouched, so nothing about the visitor's rejected attempt is written. _Source: spec gateway — Requirement: Google Sign-In, Scenario: A callback resolving an Inactive account never reaches the language sync or session steps._
+- **Account provisioning stays UNFILTERED while every other account read filters on Active** — the upsert that resolves a Google identity cannot filter by status, because a status predicate cannot suppress an `INSERT … ON CONFLICT` conflict target; filtering it would only make it lie about what it wrote. The authorization verdict therefore belongs to the gateway, not to the query. _Source: spec gateway — Requirement: Google Sign-In (provision or resolve, then check status)._
+- **New accounts default to Inactive, so a fresh Google sign-in is refused by design** — this is the platform's invite gate, not a bug report. Activating an account is a manual database operation. _Source: spec gateway — Requirement: Inactive Account Is Blocked At Login; RM34 roadmap decision D2._
+
+## [index] ## Architecture topics — ADD ROWS
+
+| `account activation gate` (the cross-module Active/Inactive rule: the account module hides Inactive rows from reads, the gateway refuses them a session at login) | `architecture/account-activation-gate.md` |
+| `inactive account` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
+| `account status` | `account.Account.Status` (`Active` / `Inactive`) → `architecture/account-activation-gate.md` |
+| `blocked login` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
+| `deactivated account` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |

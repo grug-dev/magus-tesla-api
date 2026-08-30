@@ -1,0 +1,312 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM34-gateway-block-inactive-login",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM34-account-vehicle-status.md",
+  "request": "MAG-33 Step 3: after Google authentication, refuse an inactive account with a bilingual blocked page and establish no session.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1.1",
+      "T1.2",
+      "T1.3",
+      "T2.1",
+      "T2.2",
+      "T2.3",
+      "T5.1",
+      "T6.1",
+      "T7.1"
+    ]
+  },
+  "created_at": "2026-08-30T11:20:00Z",
+  "updated_at": "2026-08-30T15:20:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM34-MAG-33-account-vehicle-status",
+    "base": "main",
+    "ticket": "MAG-33",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles",
+    "created_at": "2026-08-30T03:00:13Z"
+  },
+  "tasks": [
+    {
+      "id": "T1.1",
+      "title": "Bilingual account_blocked catalogue keys",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:40:00Z",
+      "completed_at": "2026-08-30T10:45:00Z",
+      "duration_seconds": 300,
+      "notes": "Both ES and EN non-empty; make i18n-guard passes.",
+      "budget": null
+    },
+    {
+      "id": "T1.2",
+      "title": "account_blocked.templ page mirroring the login shell",
+      "module": "gateway",
+      "depends_on": [
+        "T1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:45:00Z",
+      "completed_at": "2026-08-30T10:55:00Z",
+      "duration_seconds": 600,
+      "notes": "Regenerated via templ; make ui-guard passes.",
+      "budget": null
+    },
+    {
+      "id": "T1.3",
+      "title": "Stylesheet regeneration",
+      "module": "gateway",
+      "depends_on": [
+        "T1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:55:00Z",
+      "completed_at": "2026-08-30T10:56:00Z",
+      "duration_seconds": 60,
+      "notes": "Leader verified: exactly 29 bytes added, one .table-row utility. Worker misreported this as no-diff.",
+      "budget": null
+    },
+    {
+      "id": "T2.1",
+      "title": "rejectIfInactive free function",
+      "module": "gateway",
+      "depends_on": [
+        "T1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:56:00Z",
+      "completed_at": "2026-08-30T11:00:00Z",
+      "duration_seconds": 240,
+      "notes": "Factored out per D24 so it is testable without a live google Exchange call.",
+      "budget": null
+    },
+    {
+      "id": "T2.2",
+      "title": "Wire the check into GoogleCallback",
+      "module": "gateway",
+      "depends_on": [
+        "T2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T11:00:00Z",
+      "completed_at": "2026-08-30T11:01:00Z",
+      "duration_seconds": 60,
+      "notes": "Runs after UpsertFromOAuth and strictly before any sess.Set; leader verified by reading the call order.",
+      "budget": null
+    },
+    {
+      "id": "T2.3",
+      "title": "Three rejectIfInactive unit tests",
+      "module": "gateway",
+      "depends_on": [
+        "T2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T11:01:00Z",
+      "completed_at": "2026-08-30T11:08:00Z",
+      "duration_seconds": 420,
+      "notes": "Active passes, Inactive 403s, empty status 403s. Kept by the owner as a D7 exception (D27).",
+      "budget": null
+    },
+    {
+      "id": "T5.1",
+      "title": "Confirm no test double needed repair",
+      "module": "gateway",
+      "depends_on": [
+        "T2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T11:08:00Z",
+      "completed_at": "2026-08-30T11:09:00Z",
+      "duration_seconds": 60,
+      "notes": "No new port method exists, so fakeAccount is unchanged; no existing test reaches UpsertFromOAuth.",
+      "budget": null
+    },
+    {
+      "id": "T6.1",
+      "title": "Gateway AGENTS.md docs",
+      "module": "gateway",
+      "depends_on": [
+        "T2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T11:09:00Z",
+      "completed_at": "2026-08-30T11:11:00Z",
+      "duration_seconds": 120,
+      "notes": "Dated entry describing the login-time block.",
+      "budget": null
+    },
+    {
+      "id": "T7.1",
+      "title": "Verification signals",
+      "module": "gateway",
+      "depends_on": [
+        "T2.3",
+        "T5.1",
+        "T6.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-30T11:11:00Z",
+      "completed_at": "2026-08-30T11:20:00Z",
+      "duration_seconds": 540,
+      "notes": "Leader re-ran build, vet repo-wide, gofmt, i18n-guard, ui-guard, openspec validate — all clean.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "RM34-gateway-block-inactive-login tier 2 review",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-30T12:00:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "internal/gateway/templates/pages/account_blocked.templ:28 — `<a href=\"/login\" class=\"link\">` inlines a raw DaisyUI component class (`link`) directly in a page template. ai/htmx-conventions.md §Styling and internal/gateway/AGENTS.md both bind: 'Compose the ui/ kit; never inline a DaisyUI component class in a page/fragment... If a repeated element has no wrapper yet, add one to ui/ rather than inlining the class' (the doc calls a raw inlined class 'a bug'). This is the only occurrence of class=\"link\" anywhere in templates/pages or templates/fragments in the whole repo — grep confirms no precedent. The page this task explicitly mirrors, login.templ, uses a plain unstyled `<a href={ templ.SafeURL(\"#\") }>` for its footer links (no DaisyUI class at all), so the compliant option (drop the class) was already the established pattern one file away. make ui-guard (Makefile:296) passed only because its regex list (btn|card|input|select|textarea|fieldset|alert|badge|stat|table|navbar|drawer|menu) omits 'link' — a guard blind spot, not proof of compliance. tasks.md T1.2's own acceptance note ('only ui.Card is composed, plus the same bare-utility/layout classes Login() already uses') is factually wrong: class=\"link\" is neither a bare-utility/layout class nor used anywhere in Login(). Fix: either drop the class (matching Login()'s footer-link precedent exactly) or add a ui.Link wrapper if a styled back-link is intentionally wanted.",
+            "status": "fixed",
+            "triage": "accepted"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "openspec/changes/RM34-gateway-block-inactive-login/tasks.md — T6.1 and T7.6 checkboxes are left unchecked ([ ]) even though the corresponding work is actually done (internal/gateway/AGENTS.md carries the dated RM34 entry; T7.1's note confirms openspec validate --strict was run and passed) and progress.json's tasks[] records T6.1 as status:\"done\". Not gaming — the underlying work is real and rollup.done correctly lists T6.1 — but tasks.md should be brought into sync so its checkboxes are a reliable completion signal.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-08-30T12:30:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Re-verified fixed. internal/gateway/templates/pages/account_blocked.templ:28 now reads `<a href=\"/login\">{ i18n.T(ctx, i18n.KeyLoginSignIn) }</a>` with no DaisyUI component class, matching login.templ's bare footer-link precedent exactly (confirmed by reading login.templ:44-46, also plain `<a>` with no class). The regenerated account_blocked_templ.go was checked against the .templ: the literal HTML changed from `<a href=\"/login\" class=\"link\">` to `<a href=\"/login\">` and the templ.Error Col shifted from 67 to 54 -- a 13-character delta exactly matching the removed ` class=\"link\"` substring, which is strong evidence the file was genuinely regenerated via `make templ` rather than hand-edited. grep -rn 'class=\"link\"' internal/gateway/templates/ returns no hits repo-wide -- no other occurrence of this violation exists in the change's markup.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "minor",
+            "note": "Re-verified fixed. openspec/changes/RM34-gateway-block-inactive-login/tasks.md now shows T6.1 and T7.6 both checked [x]. Diffed the fix commit (a4b9ef5) against tasks.md in the prior commit (9d8e2f9): only these two lines changed, no other checkbox, acceptance criterion, or spec line was touched, weakened, or deleted. T6.1 is honestly done -- internal/gateway/AGENTS.md carries the dated 'Inactive-account login block (RM34-gateway-block-inactive-login, 2026-08-30)' section documenting rejectIfInactive, where it runs relative to UpsertFromOAuth/sess.Set, and the one-render-site/no-route fact. T7.6 (openspec validate --strict) is supported by this round's Test-Execution-Policy signal provenance, which lists it as assistant-run and clean.",
+            "status": "fixed"
+          }
+        ],
+        "new_findings": [],
+        "notes": "No regression introduced by the fix commit (a4b9ef5): scope was exactly the two findings plus progress.json/tasks.md bookkeeping. Both languages (ES/EN) remain non-empty for account_blocked's catalogue keys (unchanged by this commit). No boundary violation -- the fix touched only gateway page templates and OpenSpec bookkeeping files. Out-of-scope uncommitted change to supercharger_stats.templ (unrelated owner work) was left untouched, as instructed.",
+        "duration_seconds": 62,
+        "budget": {
+          "five_hour_pct_delta": 8,
+          "cost_usd_delta": 1.27,
+          "spanned_sessions": 1,
+          "source": "statusline-cache",
+          "approx": false,
+          "note": "round 2 re-verification only"
+        }
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D26",
+      "at": "2026-08-30T11:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "withdrew D16 and dropped tier 3; tier 2 is the login block only",
+      "why": "The ticket gates new signups, which never held a session. StatusFor broke fakes in telemetry and gateway — disproportionate cost.",
+      "covered_by": null
+    },
+    {
+      "id": "D27",
+      "at": "2026-08-30T11:20:00Z",
+      "scope": "task:T2.3",
+      "made_by": "user",
+      "decision": "kept the 3 new rejectIfInactive tests as an explicit exception to D7",
+      "why": "They pin the fail-closed property: anything not exactly Active blocks. 76 lines, no fixtures. A silent regression there means unauthorized access, not a visible bug.",
+      "covered_by": null
+    },
+    {
+      "id": "D28",
+      "at": "2026-08-30T11:20:00Z",
+      "scope": "task:T1.3",
+      "made_by": "leader",
+      "decision": "accepted the 29-byte app.css regeneration",
+      "why": "One .table-row utility. The worker twice reported it as pre-existing and no-diff; the tree was verifiably clean at 99a267a, so both claims were wrong. The change itself is harmless.",
+      "covered_by": null
+    },
+    {
+      "id": "D29",
+      "at": "2026-08-30T11:25:00Z",
+      "scope": "review:R1",
+      "made_by": "leader",
+      "decision": "accepted R1 and dropped class=\"link\" to mirror login.templ's bare anchor",
+      "why": "Verified: only occurrence in any page/fragment, and ui-guard's regex omits 'link', so the guard could not catch it. A real blind spot, not a false positive.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-30T11:20:00Z",
+      "agent": "leader",
+      "event": "tier 2 implemented after the D26 rescope; leader verified all signals; owner additionally confirmed the block works in the running app by flipping their own account status"
+    },
+    {
+      "at": "2026-08-30T11:25:00Z",
+      "agent": "leader",
+      "event": "review round 1 changes-requested; both findings verified legitimate and fixed (R1 inlined DaisyUI class, R2 stale checkboxes). Awaiting reviewer re-verification."
+    },
+    {
+      "at": "2026-08-30T14:56:00Z",
+      "agent": "leader",
+      "event": "resumed in a fresh session after the 5-hour bucket reset; dispatched a fresh gateway-reviewer for round 2 (no live subagent survives a session), which re-verified R1 and R2 as fixed and approved."
+    },
+    {
+      "at": "2026-08-30T15:20:00Z",
+      "agent": "user",
+      "event": "owner ran `make test` on the post-review tree (after a4b9ef5's templ regeneration) and reported the full suite green. This clears the last awaiting-user-verification item; the pass is the owner's report, not an assistant-run result."
+    }
+  ]
+}
