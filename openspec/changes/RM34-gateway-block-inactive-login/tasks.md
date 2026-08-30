@@ -92,7 +92,7 @@ Dropped with roadmap D16/D26. No new middleware, no new route.
 
 ## T6. Docs (`internal/gateway/AGENTS.md`) — depends on T2
 
-- [ ] T6.1 Add a dated entry (or extend an existing one) noting `rejectIfInactive`'s existence,
+- [x] T6.1 Add a dated entry (or extend an existing one) noting `rejectIfInactive`'s existence,
       where it runs in `GoogleCallback`, and that `pages.AccountBlocked()` has exactly one render
       site (no `/account-blocked` route exists — the withdrawn gate's route was never built).
 
@@ -106,7 +106,7 @@ Dropped with roadmap D16/D26. No new middleware, no new route.
 - [x] T7.5 Boundary check: no file under `internal/account` was created or edited by this worker;
       `internal/gateway` still calls `account.Service` only through the interface, never a
       database, and calls no method that does not exist on that interface.
-- [ ] T7.6 `openspec validate RM34-gateway-block-inactive-login --strict` passes and every
+- [x] T7.6 `openspec validate RM34-gateway-block-inactive-login --strict` passes and every
       checkbox above reflects real completion.
 - [x] T7.7 Report the exact test-suite commands the owner must run:
       `go test ./internal/gateway/...` (covers T2.3's new tests) and the full `go test ./...` /
