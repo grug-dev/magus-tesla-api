@@ -403,13 +403,22 @@ session-selected vehicle (the sidebar switcher), via the `vehicle-changed` event
 the dashboard's per-vehicle reads. The create form SHALL NOT render a vehicle picker of its
 own.
 
+**CHANGE from the prior revision:** when no vehicle can be resolved for the session (the
+account has zero registered vehicles, or the session's selection is stale), the page SHALL
+render ONLY the existing "no entries yet" empty-state message — no date-filter selector, no
+aggregation tiles, and no table. The prior fallback of listing entries across the whole
+account (`ListEntriesByAccount`) when no vehicle is selected is REMOVED: an account with no
+registered vehicle cannot create an entry either, so there is nothing meaningful to fall back
+to.
+
 #### Scenario: Signed-in user opens the Charge log page
 
 - **GIVEN** a signed-in user with at least one registered Tesla vehicle
 - **WHEN** they navigate to `GET /charges`
 - **THEN** the gateway renders the full Charge log page
 - **AND** the page shows a list of their manual charge entries (if any exist), ordered newest
-  first by charge date, scoped to the session-selected vehicle
+  first by charge date, scoped to the session-selected vehicle and the active date filter
+  window
 - **AND** the page shows a "Log a charge" create form with required fields visible
 - **AND** the create form has no vehicle picker — it operates on the session-selected vehicle
 - **AND** no entry or vehicle belonging to another user is present on the page
@@ -423,11 +432,26 @@ own.
 
 #### Scenario: Charge log page renders when the user has no entries yet
 
-- **GIVEN** a signed-in user who has never logged a manual charge entry
+- **GIVEN** a signed-in user with a registered vehicle who has never logged a manual charge
+  entry
 - **WHEN** they open the Charge log page
 - **THEN** the page renders successfully (no 500, no empty table with a header)
 - **AND** the page shows an empty-state message indicating no entries have been logged yet
+- **AND** the date-filter selector and the (all-zero) aggregation tiles are still shown
 - **AND** the create form is still visible so the user can add their first entry
+
+#### Scenario: No selected vehicle renders the bare empty state, with no account-wide fallback
+
+- **GIVEN** a signed-in user whose account has zero registered vehicles, or whose session
+  vehicle selection cannot be resolved
+- **WHEN** they open `GET /charges`
+- **THEN** the page renders the SAME "no entries yet" empty-state message used when a
+  selected vehicle simply has no entries
+- **AND** no date-filter selector is shown
+- **AND** no aggregation tiles are shown
+- **AND** no table (not even an empty one) is shown
+- **AND** the gateway does NOT call `charging.Reader.ListEntriesByAccount` or any other
+  account-wide read to populate this page
 
 #### Scenario: Charge log is linked from the dashboard navigation
 
@@ -447,7 +471,8 @@ own.
 - **AND** the create form re-renders with `V2` as the implicit vehicle (no vehicle field), the
   `start_battery_pct` suggestion reflecting `58%`, and today's date pre-filled in `started_at`
   / `ended_at`
-- **AND** the entries list re-renders filtered to `V2` (empty in this case)
+- **AND** the entries list re-renders filtered to `V2` and the default date-filter window
+  (empty in this case)
 
 ---
 
@@ -455,37 +480,77 @@ own.
 
 The gateway SHALL serve the charge entries list as an htmx-swappable fragment at
 `GET /ui/charges/list`, returning only the fragment HTML and not the surrounding page shell.
-The fragment SHALL include per-entry derived values (cost per kWh, battery delta, session
-duration) pre-computed by the handler from the `charging.Entry` value-receiver methods.
+The fragment SHALL include per-entry derived values (cost per kWh, battery delta, battery
+range, session duration) pre-computed by the handler from the `charging.Entry` value-receiver
+methods and the entry's own start/end battery percentages. Every value the handler cannot
+compute for a given entry (no cost per kWh, no battery delta, no battery range, no duration)
+SHALL render the em-dash `—` placeholder, never a blank cell.
 
-#### Scenario: htmx refreshes the charge list
+**CHANGE from the prior revision:** `GET /ui/charges/list` now accepts optional
+`?start=YYYY-MM-DD&end=YYYY-MM-DD` query parameters (both whole calendar days in the browser's
+local timezone, `end` inclusive), following the platform's `?start=&end=` date-filter
+convention. When both are absent, the endpoint defaults to the last 7 calendar days
+(inclusive, ending today). The vehicle-scoped read SHALL be
+`charging.Reader.ListEntriesByVehicleBetween(ctx, accountID, teslaID, start, end)` — no row
+limit; the requested window itself bounds the result. This REPLACES the prior revision's
+`ListEntriesByVehicle(ctx, accountID, teslaID, defaultChargeLimit)` call on this path. The
+fragment additionally carries a date-filter preset selector and four aggregation tiles (see
+their own requirements below), summed over the SAME result set the table renders.
+
+#### Scenario: htmx refreshes the charge list within the default window
 
 - **GIVEN** the Charge log page is open in the browser
-- **WHEN** htmx issues `GET /ui/charges/list`
-- **THEN** the gateway returns only the charges-list fragment HTML
+- **WHEN** htmx issues `GET /ui/charges/list` with no `start`/`end` parameters
+- **THEN** the gateway returns only the charges-list fragment HTML, filtered to the last 7
+  calendar days (inclusive, ending today in the browser's local timezone)
 - **AND** the surrounding page shell is not included in the response
 - **AND** the list is ordered newest-first by charge date
 
+#### Scenario: A valid explicit window is honored exactly as given
+
+- **GIVEN** the Charge log page is open in the browser
+- **WHEN** htmx issues `GET /ui/charges/list?start=2026-08-01&end=2026-08-31`
+- **THEN** the gateway returns the fragment filtered to exactly that window
+- **AND** entries whose `charged_on` falls outside `[2026-08-01, 2026-08-31]` are not shown
+- **AND** entries whose `charged_on` falls on either boundary date are shown (inclusive)
+
+#### Scenario: A malformed window is rejected with 400 and no filter chrome
+
+- **GIVEN** the Charge log page is open in the browser
+- **WHEN** htmx issues `GET /ui/charges/list` with a non-ISO `start` or `end`, only one of the
+  two present, an `end` before `start`, or a window wider than the endpoint's cap
+- **THEN** the endpoint responds with HTTP 400
+- **AND** the response body shows the empty-state placeholder with no preset selector and no
+  aggregation tiles
+- **AND** no read is performed against `charging.Reader`
+
 #### Scenario: Derived values are rendered on each entry row
 
-- **GIVEN** a signed-in user with at least one charge entry
+- **GIVEN** a signed-in user with at least one charge entry within the requested window
 - **WHEN** the charge list fragment is rendered
-- **THEN** each entry row displays at minimum: charge date, energy added (kWh), price with
-  currency, cost per kWh (when computable), vehicle label
-- **AND** battery delta (percentage change) is shown when both start and end battery levels
-  were recorded
-- **AND** session duration is shown when both start and end times were recorded
+- **THEN** each entry row displays at minimum: charge date, status, energy added (kWh), price
+  with currency, cost per kWh (when computable)
+- **AND** a battery-range cell (`"22% → 70%"` shape) is shown when both start and end battery
+  levels were recorded, and `—` when either is absent
+- **AND** a battery-delta cell is shown alongside the battery-range cell when both start and
+  end battery levels were recorded, and `—` when either is absent
+- **AND** session duration is shown when both start and end times were recorded, and `—`
+  otherwise
 - **AND** all computed values are formatted in the handler before reaching the template (the
   template uses only display strings, no arithmetic)
 
-#### Scenario: Reader failure degrades the list gracefully
+#### Scenario: Reader failure degrades the list gracefully, but keeps the filter chrome
 
-- **GIVEN** the charging Reader returns an error
+- **GIVEN** the charging Reader returns an error for a valid vehicle and a valid window
 - **WHEN** the Charge log page or list fragment is rendered
 - **THEN** the gateway renders the page (or fragment) without a 500 or raw error string
+- **AND** the date-filter preset selector is still shown
+- **AND** the aggregation tiles are still shown, each at their zero/empty value
 - **AND** a user-facing error message ("Could not load your entries") is shown in the list
   region
 - **AND** the create form remains accessible
+
+---
 
 ### Requirement: Create Charge Entry
 
@@ -495,14 +560,24 @@ SHALL derive the target vehicle from the session-selected vehicle (the sidebar s
 enforce tenant ownership of that resolved vehicle before writing. The handler SHALL require a
 valid CSRF token and call `charging.Writer.Create` on success. `location_kind` is a
 **required** field; the handler SHALL reject a missing or unrecognized value with a 422 and a
-field-level error message. `start_battery_pct` and `end_battery_pct` are also **required**
-fields, each validated as an integer in the 0–100 range; the `start_battery_pct` input SHALL
-carry a suggestion label built from the session-selected vehicle's latest telemetry snapshot
-battery percentage when one exists (graceful empty otherwise, no fabricated value).
-`currency` is fixed to `COP` and is not user-editable. `energy_added_kwh` SHALL accept up to
-three decimal places. The optional `started_at` / `ended_at` fields default to today's date
-but remain optional. On success, the fragment SHALL reflect the new entry; on failure, it
-SHALL show validation errors in place.
+field-level error message. `start_battery_pct` is a **required** field, validated as an integer
+in the 0–100 range, regardless of the entry's status. The `start_battery_pct` input SHALL carry
+a suggestion label built from the session-selected vehicle's latest telemetry snapshot battery
+percentage when one exists (graceful empty otherwise, no fabricated value). `currency` is fixed
+to `COP` and is not user-editable; it SHALL be presented as a suffix on the price input rather
+than as a separate field. `energy_added_kwh` and `price` are **optional**: an empty
+`energy_added_kwh` SHALL be stored as absent (no fabricated value), and an empty `price` SHALL be
+stored as `0`. `energy_added_kwh` SHALL accept up to three decimal places when supplied.
+
+The form SHALL include a status control (`IN_PROGRESS` / `DONE`), defaulting to `IN_PROGRESS`.
+`ended_at` and `end_battery_pct` are **required only when the submitted status is `DONE`**; when
+the status is `IN_PROGRESS`, both may be omitted. The gateway SHALL derive this required-field
+set from the `charging` module's own declarative rule rather than encode it separately. The
+optional `started_at` / `ended_at` fields default to today's date but remain optional whenever
+they are not required by the entry's status. On success, the fragment SHALL reflect the new
+entry; on failure, it SHALL show validation errors in place **and SHALL preserve every value the
+user submitted — valid or not — for every field on the form**, not only the fields that already
+had a today's-date default.
 
 #### Scenario: Create form rejects a missing location kind
 
@@ -558,28 +633,53 @@ SHALL show validation errors in place.
   sidebar vehicle selector (which reloads the form via the `vehicle-changed`
   subscription)
 
-#### Scenario: Currency is always COP and not user-editable
+#### Scenario: Currency is always COP, shown as a suffix, and not user-editable
 
 - **GIVEN** the rendered Charge log create form
 - **WHEN** it is inspected
-- **THEN** there is a Currency field rendered as a disabled, read-only input
-  pre-filled with `COP`
-- **AND** there is no editable Currency `<input>` or `<select>` the user can change
+- **THEN** the price field renders as an input with a `COP` suffix, not a separate
+  Currency field
+- **AND** there is no editable Currency `<input>` or `<select>` the user can change,
+  and no disabled Currency field either
 - **WHEN** the create form is submitted
 - **THEN** the persisted entry's `currency` field is `COP` regardless of any value
   that could be supplied for it
 
-#### Scenario: Start and end battery percentages are required on the create form
+#### Scenario: Start battery percentage is required regardless of status
 
 - **GIVEN** a signed-in user on the Charge log page
-- **WHEN** they submit the create form with `start_battery_pct` or `end_battery_pct`
-  empty, non-integer, or outside the 0–100 range
+- **WHEN** they submit the create form with `start_battery_pct` empty, non-integer, or
+  outside the 0–100 range, for either an `IN_PROGRESS` or a `DONE` status
 - **THEN** the server rejects the submission with a field-level validation error
   indicating the required/invalid battery field
 - **AND** the `charging.Writer.Create` port is not called
-- **WHEN** both battery percentages are supplied as integers in 0–100
-- **THEN** the entry is persisted with non-nil `start_battery_pct` and
-  `end_battery_pct` matching the submitted values
+- **WHEN** `start_battery_pct` is supplied as an integer in 0–100
+- **THEN** the entry is persisted with a non-nil `start_battery_pct` matching the
+  submitted value
+
+#### Scenario: Ending battery percentage and session end time are required only when the status is done
+
+- **GIVEN** a signed-in user on the Charge log page with the status control set to `IN_PROGRESS`
+- **WHEN** they submit the create form with no `ended_at` and no `end_battery_pct`, and every
+  other required field valid
+- **THEN** the entry is created successfully with a nil `ended_at` and a nil `end_battery_pct`
+- **GIVEN** the same user with the status control set to `DONE`
+- **WHEN** they submit the create form with no `ended_at` or no `end_battery_pct`
+- **THEN** the server rejects the submission with a field-level validation error naming the
+  missing field, and `charging.Writer.Create` is not called
+
+#### Scenario: Energy added and price are optional
+
+- **GIVEN** a signed-in user on the Charge log page
+- **WHEN** they submit the create form with `energy_added_kwh` and `price` both left empty, and
+  every required field valid
+- **THEN** the entry is created successfully
+- **AND** the persisted entry's energy added is absent (not a fabricated zero)
+- **AND** the persisted entry's price is `0`
+- **WHEN** they submit a non-empty `price` of `"-1"`
+- **THEN** the server rejects the submission with a field-level validation error on price
+- **WHEN** they submit a non-empty `energy_added_kwh` of `"0"`
+- **THEN** the server rejects the submission with a field-level validation error on energy added
 
 #### Scenario: Start battery field suggests the latest telemetry battery percentage
 
@@ -616,30 +716,46 @@ SHALL show validation errors in place.
   a charge" card (the same section as Date / Energy / Price), not behind a "More
   details" disclosure
 - **AND** both inputs are pre-filled with today's date in `YYYY-MM-DD` form as a
-  default value
-- **AND** both fields remain OPTIONAL — the form is accepted when either or both
-  are cleared, and the `charging.Entry.StartedAt` / `EndedAt` sent to the Writer
-  are nil for any cleared field
+  default value on a fresh page load
+- **AND** `started_at` remains OPTIONAL at every status — clearing it still submits
+- **AND** `ended_at` remains OPTIONAL when the status is `IN_PROGRESS` and becomes
+  REQUIRED when the status is `DONE`
 
-#### Scenario: Energy added accepts up to three decimal places
+#### Scenario: Energy added accepts up to three decimal places when supplied
 
 - **GIVEN** the rendered Charge log create form
 - **WHEN** it is inspected
 - **THEN** the `energy_added_kwh` input declares a 3-decimal step (permitting
-  values like `7.345`)
-- **AND** the browser's nearest-valid-range helper label still fires for any value
-  that exceeds the 3-decimal precision (e.g. a 4+-decimal input), nudging the user
-  toward the nearest 3-decimal value
+  values like `7.345`) and carries no `required` attribute
 - **WHEN** the user submits `energy_added_kwh = 7.345`
 - **THEN** the server accepts the value (parses as a positive float) and the entry
   is persisted with `energy_added_kwh = 7.345` (no server-side rounding to 2
   decimals)
 
+#### Scenario: A validation failure preserves every submitted value, not only the date defaults
+
+- **GIVEN** a signed-in user submitting the create form with a valid `location_kind` of `WORK`,
+  a status of `DONE`, valid battery percentages, non-empty `energy_added_kwh`, `price`,
+  `charging_type`, `location_label`, and `notes`, but an out-of-range `end_battery_pct`
+- **WHEN** the server re-renders the form at HTTP 422
+- **THEN** every one of those submitted values — including the ones with no day-based default —
+  is still present in the re-rendered form's inputs, not reset to blank or to a different default
+- **AND** the invalid `end_battery_pct` value itself is also echoed back so the user can see and
+  correct exactly what they typed
+
 ### Requirement: Inline Row Editing
 
 The gateway SHALL let a signed-in user edit an existing charge entry directly in the table
 row via htmx. `location_kind` is a **required** field on the edit form; the handler SHALL
-reject a missing or unrecognized value with a 422 and a field-level error.
+reject a missing or unrecognized value with a 422 and a field-level error. The edit form SHALL
+render a status control (`IN_PROGRESS` / `DONE`) pre-selected to the entry's persisted status,
+and moving that control between the two values SHALL be the mechanism by which a user completes
+an in-progress entry or reopens a done one — no other UI on this row does so. `ended_at` and
+`end_battery_pct` are required only when the submitted status is `DONE`, mirroring the create
+form's rule. `energy_added_kwh` and `price` are optional on the edit form, and `currency` renders
+as a `COP` suffix on the price input rather than a separate field, mirroring the create form. A
+validation failure on this form SHALL preserve every value the user submitted, exactly as the
+create form does.
 
 #### Scenario: Edit form rejects a missing location kind
 
@@ -658,26 +774,57 @@ reject a missing or unrecognized value with a 422 and a field-level error.
 - **AND** there is no blank (`value=""`) option in the `location_kind` picker
 - **AND** the stored location value is pre-selected (exactly one option carries `selected`)
 
+#### Scenario: Edit form's status control shows the entry's persisted status, not a default
+
+- **GIVEN** an existing entry stored with status `DONE`
+- **WHEN** the user opens its inline edit form
+- **THEN** the status control's `DONE` option is pre-selected
+- **GIVEN** an existing entry stored with status `IN_PROGRESS`
+- **WHEN** the user opens its inline edit form
+- **THEN** the status control's `IN_PROGRESS` option is pre-selected
+
+#### Scenario: Completing an in-progress entry from the inline edit row
+
+- **GIVEN** an existing entry stored with status `IN_PROGRESS` and no `ended_at` or
+  `end_battery_pct`
+- **WHEN** the user opens its inline edit form, changes the status control to `DONE`, and
+  supplies both `ended_at` and `end_battery_pct` before saving
+- **THEN** the entry is updated with status `DONE` and both previously-absent fields now
+  populated
+- **GIVEN** the same scenario but the user changes the status to `DONE` without supplying
+  `ended_at` or `end_battery_pct`
+- **THEN** the save is rejected with a field-level validation error naming the missing field(s)
+- **AND** the stored entry is unchanged
+
 ### Requirement: Delete Charge Entry
 
 The gateway SHALL let a signed-in user delete an existing charge entry from the table. The
 delete action SHALL require a CSRF token, enforce tenant ownership, and on success remove the
 row from the table without a full page reload and without a browser `alert()`. On failure (a
-CSRF mismatch, a cross-tenant id, or a `charging.Writer.Delete` error) the gateway SHALL
-NOT surface a plain browser `alert()`; a Writer error SHALL render a row-level error message
-in place of the row.
+CSRF mismatch, a cross-tenant id, or a `charging.Writer.Delete` error) the gateway SHALL NOT
+surface a plain browser `alert()`.
 
-#### Scenario: Deleting an entry removes the row without an alert
+**CHANGE from the prior revision:** because the entries table now sits alongside aggregation
+tiles computed over the same rows (see the aggregation-tiles requirement below), a delete SHALL
+refresh the WHOLE entries region (`#charges-list` — presets, tiles, and table together), not
+only the deleted row, on both success AND failure, within the SAME `?start=&end=` window the
+table was showing before the delete. This REPLACES the prior revision's row-scoped swap (an
+empty `<tr>` on success, a row-level error message on failure): a row-only swap would leave the
+tiles showing stale, pre-delete totals.
 
-- **GIVEN** a signed-in user viewing the charge list with at least one entry
-- **AND** the page carries a valid CSRF token in the form/button
-- **WHEN** the user confirms deletion (browser native confirm dialog)
-  and the browser issues `DELETE /ui/charges/row/{id}` with the CSRF token
+#### Scenario: Deleting an entry removes the row and refreshes the tiles, without an alert
+
+- **GIVEN** a signed-in user viewing the charge list with at least one entry within the active
+  window, and the page carries a valid CSRF token in the form/button
+- **WHEN** the user confirms deletion (browser native confirm dialog) and the browser issues
+  `DELETE /ui/charges/row/{id}` with the CSRF token and the active window's `?start=&end=`
 - **THEN** the gateway validates the CSRF token
 - **AND** validates that the entry belongs to the user's account
 - **AND** calls `charging.Writer.Delete(ctx, accountID, id)`
-- **AND** the row is removed from the table (swapped for an empty element via htmx
-  `hx-swap="outerHTML"`)
+- **AND** the whole `#charges-list` region is refreshed (via htmx `hx-swap="outerHTML"`) to
+  reflect the deletion, within the SAME window the table was showing before the delete
+- **AND** the aggregation tiles in the refreshed region no longer include the deleted entry's
+  values
 - **AND** no browser `alert()` is shown to the user
 - **AND** the entry is no longer present in a subsequent list render
 
@@ -703,16 +850,16 @@ in place of the row.
 - **THEN** the delete silently finds no row (the Writer's scoped DELETE affects 0 rows)
 - **AND** the gateway returns a 404 or empty response — no data is deleted
 
-#### Scenario: Delete shows a server-side error message, not a generic alert, on failure
+#### Scenario: Delete shows a region-level error message, not a generic alert, on failure
 
-- **GIVEN** a signed-in user clicking Delete on one of their entries
-- **WHEN** the `charging.Writer.Delete` call returns an error (e.g. a transient
-  store failure)
-- **THEN** the server returns a non-2xx response carrying an inline row-error
-  fragment rendered inside the row
-- **AND** the user sees the row-level error message (e.g. "Could not delete entry —
-  please try again."), not a raw HTTP status string or a browser `alert()`
+- **GIVEN** a signed-in user clicking Delete on one of their entries within the active window
+- **WHEN** the `charging.Writer.Delete` call returns an error (e.g. a transient store failure)
+- **THEN** the server returns a non-2xx response carrying the SAME `#charges-list` region,
+  unchanged data, with an inline error message shown above the table
+- **AND** the user sees the region-level error message (e.g. "Could not delete entry — please
+  try again."), not a raw HTTP status string or a browser `alert()`
 - **AND** the entry is not removed from the list
+- **AND** the aggregation tiles are unchanged (the delete did not commit)
 
 ### Requirement: Tenant Isolation
 
@@ -2465,4 +2612,192 @@ a `PATCH` whose underlying write also cannot be resolved.
 - **WHEN** the page renders each session row's Edit, Cancel, and Save action URLs
 - **THEN** each of those URLs carries the SAME `start` and `end` values the table itself was
   rendered with
+
+### Requirement: Charge form odometer field
+
+Both the create form and the inline edit form SHALL include an optional odometer reading field,
+presented as a whole-kilometre integer, grouped with the other optional fields inside the "More
+details" disclosure alongside charging type, location label, and notes.
+
+#### Scenario: Odometer is optional and validated as a non-negative integer
+
+- **GIVEN** a signed-in user submitting either the create form or an inline edit form
+- **WHEN** the odometer field is left empty
+- **THEN** the entry is stored with no odometer reading
+- **WHEN** the odometer field is supplied as a non-negative integer
+- **THEN** the entry is stored with that value
+- **WHEN** the odometer field is supplied as a negative number or a non-integer value
+- **THEN** the submission is rejected with a field-level validation error on the odometer field
+
+### Requirement: Charging type option text explains AC and DC
+
+Both the create form and the inline edit form SHALL present the charging type options with
+descriptive text distinguishing AC (slow, home/destination) charging from DC (fast, Supercharger)
+charging, in both supported languages. The underlying submitted and stored values remain `AC` and
+`DC`, unchanged by the descriptive text.
+
+#### Scenario: Charging type options are descriptive in both languages
+
+- **GIVEN** either charge form rendered in Spanish
+- **WHEN** the charging type options are inspected
+- **THEN** the AC option reads "AC — Carga lenta (casa/destino)" and the DC option reads
+  "DC — Carga rápida (Supercargador)"
+- **GIVEN** the same form rendered in English
+- **THEN** the AC option reads "AC — Slow charging (home/destination)" and the DC option reads
+  "DC — Fast charging (Supercharger)"
+- **AND** in both languages, submitting either option persists the unchanged value `AC` or `DC`
+
+### Requirement: Charge date change keeps the time of day on start and end timestamps
+
+When a user changes the charge date on either form, the browser SHALL update the calendar-day
+portion of any non-empty session start/end timestamp to match, while leaving the time-of-day
+portion of each unchanged. A session start/end timestamp that is empty SHALL remain empty — the
+date change SHALL NOT populate it.
+
+#### Scenario: Changing the charge date preserves an already-set time of day
+
+- **GIVEN** a charge form with the session start time set to `14:30` on some date
+- **WHEN** the user changes the charge date field to a different date
+- **THEN** the session start field's date portion updates to the new date
+- **AND** the session start field's time portion remains `14:30`
+
+#### Scenario: Changing the charge date does not populate an empty session time
+
+- **GIVEN** a charge form with the session end time field empty
+- **WHEN** the user changes the charge date field
+- **THEN** the session end time field remains empty
+
+### Requirement: Charge List Date Filter
+
+The Charge log page's entries list SHALL offer a date-filter preset selector with exactly two
+presets: "Last 7 days" (the default) and "This month" (the full calendar month containing
+today — the 1st through the last day of the month, not merely the days elapsed so far). Both
+presets SHALL be computed against the requesting browser's local calendar day, never UTC.
+Selecting a preset SHALL re-fetch and re-render only the `#charges-list` region (presets,
+tiles, and table together) without a full page reload or a change to the create form's
+displayed values.
+
+#### Scenario: The default window is the last 7 calendar days
+
+- **GIVEN** a signed-in user opening the Charge log page with no explicit date filter
+- **WHEN** the page renders
+- **THEN** the entries list is filtered to the 7 calendar days ending today (inclusive), in
+  the browser's local timezone
+- **AND** the "Last 7 days" preset button is shown in its active state
+
+#### Scenario: Selecting "This month" shows the full calendar month
+
+- **GIVEN** a signed-in user on the Charge log page on any day of a given month
+- **WHEN** they select the "This month" preset
+- **THEN** the entries list is filtered to the 1st through the LAST day of that calendar month
+  (inclusive of days later than today, when today is not the last day of the month)
+- **AND** the "This month" preset button is shown in its active state and "Last 7 days" is not
+
+#### Scenario: Selecting a preset refreshes only the entries region
+
+- **GIVEN** a signed-in user on the Charge log page with the create form partially filled in
+- **WHEN** they select a different date-filter preset
+- **THEN** only the `#charges-list` region (presets, tiles, table) is re-fetched and
+  re-rendered
+- **AND** the create form's own fields and any values the user had already typed into it are
+  left untouched
+
+---
+
+### Requirement: Charge List Aggregation Tiles
+
+The Charge log page's entries list SHALL show four aggregation tiles — Sessions (count of
+entries in the active window), Energy (sum of `energy_added_kwh` across entries where it is
+non-nil), Cost (sum of `price` across entries in the window — a single total, since manual
+entries are always recorded in COP), and Avg kWh per session (Energy divided by the count of
+entries with a non-nil energy value, guarded against division by zero) — computed by the
+handler from the SAME result set the table below them renders, so the tiles and the table can
+never diverge.
+
+#### Scenario: Tiles reflect the same entries the table shows
+
+- **GIVEN** a signed-in user with several charge entries inside the active window, some with
+  a nil energy value
+- **WHEN** the Charge log page is rendered
+- **THEN** the Sessions tile shows the count of entries in the window
+- **AND** the Energy tile shows the sum of energy added over entries where it is non-nil
+- **AND** the Avg kWh per session tile divides that energy sum by the count of entries with a
+  non-nil energy value
+- **AND** the Cost tile shows the sum of every entry's price in the window as a single COP
+  total
+- **AND** the number of rows in the entries table equals the Sessions tile's count
+
+#### Scenario: An empty window renders zero tiles, not hidden ones
+
+- **GIVEN** a signed-in user whose selected vehicle has no charge entries within the active
+  window
+- **WHEN** the Charge log page is rendered
+- **THEN** the Sessions, Energy, and Cost tiles are still shown, each at `0` (or its
+  zero-formatted equivalent)
+- **AND** the Avg kWh per session tile shows the em-dash `—` placeholder (division-guarded),
+  not a division error or a fabricated number
+- **AND** the entries table shows its empty-state message in place of rows
+
+---
+
+### Requirement: Charge List Status Column
+
+Each row in the entries table SHALL show a Status cell carrying two independent signals: a
+two-state (green or yellow — never red) completeness indicator, and a text badge naming the
+entry's lifecycle status (`IN_PROGRESS` or `DONE`). The completeness indicator SHALL be green
+when the entry has every field required for a `DONE` entry (`ended_at`, `end_battery_pct`)
+present, AND a non-nil energy value, AND a price greater than zero; yellow in every other case,
+including a normally-shaped `IN_PROGRESS` entry that has not yet acquired those values. Both
+signals SHALL be computed by the handler; the template SHALL perform no arithmetic and SHALL
+NOT call any `charging` module function itself.
+
+#### Scenario: A fully-complete DONE entry shows the green indicator
+
+- **GIVEN** an entry with status `DONE`, a non-nil `ended_at`, a non-nil `end_battery_pct`, a
+  non-nil energy value, and a price greater than zero
+- **WHEN** the entries table renders that entry's row
+- **THEN** the Status cell's completeness indicator renders in its green (complete) state
+- **AND** the Status cell's badge reads the DONE label
+
+#### Scenario: A DONE entry missing any one required value shows the yellow indicator
+
+- **GIVEN** an entry with status `DONE` that is missing exactly one of: `ended_at`,
+  `end_battery_pct`, a non-nil energy value, or a price greater than zero
+- **WHEN** the entries table renders that entry's row
+- **THEN** the Status cell's completeness indicator renders in its yellow (incomplete) state,
+  never a red or third state
+- **AND** the Status cell's badge still reads the DONE label (the badge reflects the stored
+  lifecycle status independently of the completeness indicator)
+
+#### Scenario: A normally-shaped IN_PROGRESS entry shows the yellow indicator
+
+- **GIVEN** an entry with status `IN_PROGRESS`, no `ended_at`, and no `end_battery_pct` (the
+  ordinary shape for an in-progress charge)
+- **WHEN** the entries table renders that entry's row
+- **THEN** the Status cell's completeness indicator renders in its yellow (incomplete) state
+- **AND** the Status cell's badge reads the IN PROGRESS label
+
+---
+
+### Requirement: Charge List Battery Range Column
+
+Each row in the entries table SHALL show a battery-range cell (e.g. `"22% → 70%"`) ALONGSIDE
+the existing battery-delta cell — both are shown, not one in place of the other. The
+battery-range cell SHALL render `—` when either the start or the end battery percentage is
+absent.
+
+#### Scenario: Both battery percentages present renders the range and the delta together
+
+- **GIVEN** an entry with `start_battery_pct = 22` and `end_battery_pct = 70`
+- **WHEN** the entries table renders that entry's row
+- **THEN** the battery-range cell reads `"22% → 70%"`
+- **AND** the battery-delta cell reads `"+48%"`, in a cell adjacent to the battery-range cell
+
+#### Scenario: A missing end battery percentage renders the em-dash range
+
+- **GIVEN** an entry with `start_battery_pct = 22` and a nil `end_battery_pct` (an
+  `IN_PROGRESS` entry not yet completed)
+- **WHEN** the entries table renders that entry's row
+- **THEN** the battery-range cell reads `—`
+- **AND** the battery-delta cell also reads `—`
 

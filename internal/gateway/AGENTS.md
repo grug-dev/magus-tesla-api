@@ -112,20 +112,44 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
 - **The `ui/` kit is an anti-corruption adapter around DaisyUI** — an external library that
   ships breaking changes across majors. Routing every DaisyUI **component class** through a
   `ui.*` wrapper makes a version bump a one-file edit per component, not an app-wide sweep.
-- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Table, PageHeader, NavShell,
-  ConfirmDialog, and the form set **Field / Input / Select / Textarea**) — **never inline a DaisyUI component
-  class** (`btn`, `input`, `card`, `fieldset`, …) in a page/fragment; that's a bug. If a
-  repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme tokens
-  (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable layers.
-  Pages/fragments pass VM-ready strings in.
+- **Compose the `ui/` kit** (Card, StatTile, Button, Alert, Badge, Dot, Table, PageHeader,
+  NavShell, ConfirmDialog, and the form set **Field / Input / Select / Textarea**) — **never inline
+  a DaisyUI component class** (`btn`, `input`, `card`, `fieldset`, …) in a page/fragment; that's a
+  bug. If a repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme
+  tokens (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable
+  layers. Pages/fragments pass VM-ready strings in.
+- **`ui.FieldProps.Optional`** (`templates/ui/field.templ`) — appends a muted `(optional)` /
+  `(opcional)` hint to a field's legend, resolved from `i18n.KeyFormOptional` inside the kit
+  (a deliberately generic, non-`charges_` key: it is the kit's own vocabulary, reusable by
+  every future form). Use it INSTEAD of a `placeholder` for this signal: browsers ignore
+  `placeholder` on `date`/`datetime-local` inputs and `<select>` has none at all, so a
+  placeholder-based hint silently skips exactly the controls whose requiredness is least
+  obvious. **Only for an UNCONDITIONALLY optional field** — never for a conditionally
+  required one (`ended_at` / `end_battery_pct`, whose `required` attribute RD13 toggles
+  client-side as the status select changes), because the server-rendered hint would go stale
+  the instant the user switches status.
+- **`ui.Dot`** (`templates/ui/dot.templ`, `DotProps{Variant, Tooltip, Class}`) — a small
+  colour-only completeness/status indicator with a native hover tooltip, for a spot where
+  `ui.Badge`'s mandatory text would be redundant with an adjacent label. `Variant` is one of
+  `"success"|"warning"|"error"|"neutral"` (DaisyUI semantic token, mapped by `dotClass` exactly
+  like `badgeClass` maps `Badge`'s `Kind`); `Tooltip` renders as the `title` attribute and is
+  omitted when empty. Gold standard: the charges table's Status column
+  (`fragments/charge_row.templ`), which pairs a `ui.Dot` (`success`/`warning`, completeness) with
+  an adjacent `ui.Badge` (`primary`/`ghost`, lifecycle status) — the two colour vocabularies are
+  **deliberately disjoint** so the badge's colour never reads as a second completeness signal
+  (design.md §D-Dot, `RM33-gateway-add-entries-dashboard`). Reuse this pairing shape for any
+  future dot+badge combination; never repurpose `success`/`warning` for a badge that sits next to
+  a dot.
 - **Semantic tokens only — never hex / raw palette** (`bg-base-100`, `primary`,
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
 - **No client-side JS init** — keeps htmx swaps safe. Prefer CSS-only DaisyUI patterns
-  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **two**
+  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **four**
   standing exceptions, each with its own recorded decision below: **RD9** (the `browser_tz`
-  cookie script in `layouts.BaseAuth`) and **RD10** (`ui.ConfirmDialog`, whose JS lives in
-  the shared `static/app.js`). Adding a third needs its own RD entry per RD8.
+  cookie script in `layouts.BaseAuth`), **RD10** (`ui.ConfirmDialog`, whose JS lives in
+  the shared `static/app.js`), **RD12** (date→time-preserving sync on the charge forms), and
+  **RD13** (status-driven required toggle on the charge forms) — the last two also live in
+  `static/app.js`. Adding a fifth needs its own RD entry per RD8.
 - **Confirmations: never write a modal, never call `window.confirm`.** Put `hx-confirm`
   (plus optional `data-confirm-title` / `data-confirm-label` / `data-confirm-variant="danger"`)
   on the triggering control and the shared `ui.ConfirmDialog` — mounted once in
@@ -280,6 +304,158 @@ gateway layer would force an external HTTP API that the browser would then need 
 call — an unnecessary layer when the gateway is already the only HTML surface.
 The write is intentional (form POST), narrow (one module's Writer port),
 CSRF-protected, and tenant-scoped.
+
+### Manual charge form layout (both forms, 2026-08-29)
+
+`ChargeCreateForm` and `ChargeRowEdit` render the SAME nine fields in the SAME
+order — `status`, `charged_on`, `energy_added_kwh`, `price`, `started_at`,
+`ended_at`, `start_battery_pct`, `end_battery_pct`, `location_kind` — in the main
+grid, followed by an always-visible **"Optional details"** `<section>`
+(`charging_type`, `location_label`, `odometer_km`, `notes`). The edit row appends
+one edit-only extra after the shared nine: the read-only Vehicle display.
+`TestChargeForms_FieldOrderIsSharedAndLocationLast`
+(`handlers/charges_form_layout_test.go`) checks both templates against ONE
+order list, so "the same order" is enforced rather than merely intended.
+
+- **No `<details>`/`<summary>` collapse on either form — do not reintroduce one.**
+  It previously hid `location_kind` (always required) and `ended_at` (required when
+  status is DONE) in the edit row, and a browser **cannot report an HTML5 validation
+  message on a control inside a closed `<details>`** — Chrome logs *"An invalid form
+  control with name='location_kind' is not focusable"* and the submit silently does
+  nothing: no message, no request. If a future field must be tucked away, it has to be
+  unconditionally optional, and the section stays open.
+- **`location_kind` is required and belongs in the main grid**, last — never in the
+  optional section. `TestChargeForms_LocationIsLastInTheMainGrid` pins this.
+- **The section heading carries the optional signal for its own four fields**; the
+  per-field `ui.FieldProps.Optional` hint marks only the optional fields that live in
+  the MAIN grid (`energy_added_kwh`, `price`, `started_at`), so the two signals never
+  duplicate each other.
+
+### Manual charge edit: a successful save returns the whole list, retargeted
+
+`ChargeRowUpdate`'s SUCCESS path answers with the **whole `#charges-list`
+fragment** plus `HX-Retarget: #charges-list` / `HX-Reswap: outerHTML`, rendered
+under `defaultChargesWindow(today)` so the user lands back on the **"last 7
+days"** preset. `defaultChargesWindow` returns exactly that preset's
+`(today-6, today)` range, so `buildChargesPresets` marks it `Active` by its own
+exact-match rule — nothing hardcodes a preset index or label.
+
+- **Never pair a top-level `<tr>` with a non-table `hx-swap-oob` sibling in one
+  response.** This path used to return a primary row swap plus an OOB
+  `#charges-list` div, and **the list never refreshed in the browser**: htmx
+  2.0.4 parses a response inside a `<template>` (`makeFragment`), a leading
+  `<tr>` start tag switches the HTML parser into table insertion mode, and the
+  non-table sibling that follows is foster-parented off the fragment's top
+  level — the only place htmx looks for `hx-swap-oob`. Server-side tests saw the
+  OOB div in the response body and passed; only the browser dropped it.
+  `ChargeCreateSuccessOOB` is unaffected because both of its elements are
+  `<div>`s, which is exactly why create refreshed the list and edit did not.
+- **Why `HX-Retarget` rather than changing the form's `hx-target`.** The form's
+  `hx-target` stays `#charge-row-{id}`, which is correct for the 4xx/5xx
+  branches: they re-render the edit row in place and preserve the user's typed
+  values (design.md §D-Values). Only the success path retargets, so one response
+  element covers it with no OOB and no mixed content.
+- **Only success resets the window.** The error branches still echo the POSTED
+  window (`windowFromForm` → the form's hidden `start`/`end` inputs, §D-Include);
+  a failed save must not move the user's filter. Test Contract **D3** covers the
+  retarget + reset, **D3b** the error-path echo — the pair is the contract.
+- **This amends the original §D-Refresh/§D-Include rule** for the update path
+  only; `ChargeCreate` and `ChargeRowDelete` still preserve the posted window.
+- **Known consequence:** an entry dated outside the last 7 days will not appear
+  in the refreshed list after being edited. That is inherent to resetting the
+  filter — the record is saved, it is just outside the window now shown.
+
+**Known latent issue, not yet fixed:** `ChargeCreateSuccessOOB` wraps
+`ChargesList` (whose own root is `<div id="charges-list">`) in a second
+`<div id="charges-list" hx-swap-oob=...>`, so after a create the live DOM holds
+two nested elements with that id. It works today — the OOB replaces the outer,
+lookups resolve to it — but it is a duplicate-id trap for anything that later
+targets `#charges-list`. The fix is to let `ChargesList`'s own root carry the
+OOB attribute instead of wrapping it; do that the next time this path is touched.
+
+### Manual charge list: only ONE row is editable at a time
+
+`GET /ui/charges/row/:id/edit` (`ChargeRowEditFragment`) renders the **whole
+`#charges-list` region** with that row — and only that row — in edit mode, driven
+by `ChargesPageData.EditingID`. The row's Edit button therefore carries
+`hx-target="#charges-list"`, not `hx-target="#charge-row-{id}"`.
+
+- **Why the list, not the row.** When the row was its own swap target, each Edit
+  click was independent, so a user could open every row at once and end up with N
+  competing forms. Making the LIST the swap unit means opening a second editor
+  necessarily re-renders the first one closed — the invariant holds on every
+  render instead of depending on client-side bookkeeping a stray swap could
+  desynchronize. It also needs **no new JS**, so no RD entry: the Delete button in
+  the same file already targets `#charges-list` this exact way, and this mirrors
+  that existing mechanism rather than inventing a second one.
+- **`EditingID` is set by `ChargeRowEditFragment` and by nothing else.** Every
+  other render leaves it empty, which is what closes an open editor after a
+  successful save (`ChargeRowUpdate`'s OOB `#charges-list` refresh), a delete, a
+  filter click or a vehicle switch. Do not set it from `buildChargesPage`.
+- **Cancel still swaps the single row** (`ChargeRowStatic` → `#charge-row-{id}`)
+  and stays correct precisely because only one row can be open.
+- A 404 for an id absent from the rendered window is deliberate: Edit is only
+  reachable from a row the user can see, and the presence check costs no extra
+  read (it scans the page just built).
+
+### Manual charge form helper copy
+
+Both forms carry one short line under the title, from the catalogue:
+`KeyChargesFormCreateHint` (create) and `KeyChargesFormEditHint` (edit row).
+**These strings state rules that live in Go**, so a change to either rule is
+incomplete until the copy follows:
+
+- the create hint states `charging.resolveEnergy`'s derivation (`service.go`) — an
+  omitted energy is estimated from the battery delta × pack capacity, and **only
+  when both `StartBatteryPct` and `EndBatteryPct` are present with end > start**,
+  so an IN_PROGRESS entry gets no estimate until it is completed — and the
+  IN_PROGRESS required set;
+- the edit hint states `charging.RequiredFieldsFor(StatusDone)`'s extra fields
+  (`ended_at`, `end_battery_pct`).
+
+### Manual charge rule: one IN_PROGRESS entry per (vehicle, charged_on)
+
+A vehicle may have at most **one** manual charge entry with status `IN_PROGRESS`
+on any given `charged_on` date. `DONE` entries are unconstrained — any number may
+share a date. Enforced in `handlers.inProgressConflictOn` (`handlers/charges.go`)
+on **both** write paths: `ChargeCreate` (`POST /ui/charges/create`, excluding
+nothing) and `ChargeRowUpdate` (`PUT /ui/charges/row/:id`, excluding the edited
+row's own id so an already-in-progress entry never conflicts with itself). A
+conflict is reported through the SAME 422 branch as every other validation
+failure — `validationErrors["_top"]`, so the user's submitted values survive the
+re-render — carrying `i18n.KeyChargesErrorInProgressExists` formatted with the
+conflicting date as `YYYY-MM-DD`.
+
+- **No new port.** The check reads
+  `charging.Reader.ListEntriesByVehicleBetween(chargedOn, chargedOn)` — the same
+  port every list render already uses, with both bounds on the single day in
+  question. Do NOT add a status-filtered method to `charging.Reader` for this;
+  the day's entry count is small and the read is already bounded. The helper
+  nonetheless **re-asserts the calendar day on every returned row** instead of
+  trusting the port's window — a write-blocking rule must not depend on a read
+  port's filtering being exact, and the two sides carry different time
+  components (form-parsed UTC midnight vs. the `DATE` column's round-trip).
+- **There is NO database constraint behind this rule** — it is an
+  application-level rule, so the check **fails open**: a reader error is logged
+  and the write proceeds, matching this module's log-and-continue posture for
+  non-essential follow-ups (`recalculateAfterChargeWrite`, the telemetry
+  suggestion lookup in `buildChargesPage`). Turning a transient read failure
+  into a refusal to save would trade a real data loss for a hypothetical
+  duplicate. If this ever needs to be airtight, the fix is a partial unique
+  index in the `charging` module, not a fail-closed gateway check.
+- **Only `IN_PROGRESS` submissions are checked** — a `DONE` submission returns
+  without reading anything.
+
+### Manual charge success notice
+
+`fragments.ChargesPageData.Notice` is the success counterpart of `.Error`: a
+non-empty value renders a `ui.Alert{Kind: "success"}` at the top of the
+create-form card (the same slot the `_top` validation alert uses). It is set in
+exactly ONE place — `ChargeCreate`'s success path, to
+`i18n.KeyChargesNoticeEntryCreated` — so it rides in on the response to the write
+that earned it via the primary `#charges-create-form` swap and is gone on the
+next render of any kind. `buildChargesPage` never sets it; do not set it from a
+read path, or the message will persist across refreshes.
 
 ### Exception: language switch (D-lang amendment — RM24-gateway-add-i18n-foundation)
 
@@ -479,8 +655,9 @@ to every future AI agent or human who reads this doc at the start of a session.
 
 The gateway's declared **zero-JS** DaisyUI foundation (`ai/htmx-conventions.md`
 §"Styling" — "Do not introduce a component that needs client-side JS init") has
-exactly **TWO** sanctioned exceptions: this one and **RD10** (the confirmation
-modal) below. This entry covers the first: a single inline `<script>` in
+exactly **FOUR** sanctioned exceptions: this one, **RD10** (the confirmation
+modal) below, and **RD12**/**RD13** (the charge-form date-sync and
+status-required toggle) further below. This entry covers the first: a single inline `<script>` in
 `layouts.BaseAuth` that sets the `browser_tz` cookie. Added by
 `gateway-browser-tz-cookie` (MAG-7, shipped 2026-08-11; documented here in the
 MAG-7 review fix round, 2026-08-12).
@@ -519,7 +696,8 @@ error surfaces to the user and no page render breaks.
 
 ## Client-side JS exception: confirmation modal (RD10)
 
-The **second** (and currently last) sanctioned exception to the zero-JS rule: the
+The **second** sanctioned exception to the zero-JS rule (see **RD12**/**RD13** below for
+the third and fourth): the
 `htmx:confirm` interception in `static/app.js` that drives `ui.ConfirmDialog`. Added by
 `gateway-add-confirm-dialog` (MAG-5, shipped 2026-08-12, PR #24; documented here
 2026-08-13).
@@ -618,6 +796,93 @@ only is shipped; add other subsets (cyrillic, etc.) only when a real page needs 
 do not front-load every subset. Fonts live under `static/fonts/` so the existing
 `//go:embed static` picks them up with no embed directive change; never put a font
 anywhere else.
+
+## Client-side JS exception: date→time-preserving sync (RD12)
+
+The **third** sanctioned exception to the zero-JS rule: a `change` listener on
+`input[name="charged_on"]` in `static/app.js` that keeps the manual-charge forms'
+`started_at`/`ended_at` time-of-day intact when the user edits the date. Added by
+`RM33-gateway-update-charge-form` (tier 2 of `RM33-manual-record-status`, ticket
+MAG-18, roadmap decision D12).
+
+**What:** One `change` listener, delegated on `document.body`, matching
+`input[name="charged_on"]`. On fire, it looks up `started_at`/`ended_at` within
+`evt.target.closest("form")` and, for each that is **non-empty**, rewrites only the
+date portion: `input.value = newDate + input.value.slice(10)`. A `datetime-local`
+input's value is always `YYYY-MM-DDTHH:MM`, so `.slice(10)` is exactly `"THH:MM"` —
+the time half is preserved verbatim. An empty `started_at`/`ended_at` is left empty;
+the listener never auto-fills one (roadmap D12's explicit rejection of "clobber to
+midnight"). Delegation on `document.body` (the same pattern RD9/RD10 use) means the
+create form and any number of simultaneously-open inline edit rows all get the
+behavior with no per-row re-binding when htmx swaps a row in.
+
+**Why:** Both charge forms let the user set `charged_on` (the calendar day) alongside
+`started_at`/`ended_at` (timestamps for the same day). Without this listener, editing
+the date leaves the time fields pointing at the *old* date while displaying only a
+time — an easy way to silently record a charge session on the wrong day. The
+**rejected alternative** was a CSS-only DaisyUI pattern: rejected because this is a
+value *transformation* (splicing one field's substring into another field's value),
+which no CSS mechanism (`dropdown`/`<dialog>`/`collapse`) can express — those patterns
+toggle presentational state, they cannot rewrite an input's value.
+
+**Boundary — this is NOT an opening for general client-side JS.** Like RD9/RD10, it is
+a narrow, sanctioned exception (one listener, one value-splice rule, two named target
+fields), not a precedent. Any further client-side JS needs its own RD entry per RD8,
+with its own rationale and rejected alternative.
+
+**Graceful degradation:** if `started_at`/`ended_at` are empty, or the changed input
+isn't inside a `<form>`, the listener no-ops — no error, no partial write. Without JS
+entirely, the fields simply keep whatever the user last typed; the browser still
+accepts a mismatched date/time pair (a minor UX regression, not a data-integrity
+issue — the server does not derive one field from the other).
+
+## Client-side JS exception: status-driven required toggle (RD13)
+
+The **fourth** sanctioned exception to the zero-JS rule: a `change` + `htmx:load`
+listener pair on `select[name="status"]` in `static/app.js` that toggles
+`ended_at`/`end_battery_pct`'s `required` attribute live, with no htmx round-trip.
+Added by `RM33-gateway-update-charge-form` (tier 2 of `RM33-manual-record-status`,
+ticket MAG-18, roadmap decision D-RM33-6).
+
+**What:** A `change` listener, delegated on `document.body`, matching
+`select[name="status"]`, plus an `htmx:load` listener that re-applies the same logic
+to every `select[name="status"]` present in the loaded/swapped content (covers the
+initial full-page load and every htmx-swapped fragment, e.g. a freshly-opened inline
+edit row, with no separate `DOMContentLoaded` handler). Both call one helper,
+`applyChargeStatusRequiredToggle(select)`, which resolves `select.closest("form")` and
+sets `ended_at.required` / `end_battery_pct.required` to `select.value === "DONE"`.
+Running on `htmx:load` as well as `change` means a freshly-rendered or
+freshly-swapped form is always correct immediately, not just after the user's first
+interaction with the dropdown — the literal ask in D-RM33-6 ("must run on page load as
+well as on change"). This deliberately duplicates the server-rendered initial
+`required` state computed from `charging.RequiredFieldsFor` (design.md §D-Fields,
+`RM33-gateway-update-charge-form`): if the two ever disagree, the JS state wins in the
+live DOM after it runs, and the disagreement is inert — never something that can only
+be fixed by special-casing the template.
+
+**Why:** D-RM33-6 explicitly asks for "no htmx round-trip" — the user must see the
+required asterisk change the instant they pick `DONE`, before they've filled in
+anything else. The **rejected alternative** was relying solely on the server-rendered
+initial `required` state and letting a status change take effect only after a full
+submit/re-render round-trip: rejected because that is exactly the round-trip
+D-RM33-6 asks to avoid.
+
+**Why it does not erode the `ui/` boundary:** the listener only ever reads
+`select.value` and writes a native DOM `.required` boolean — no DaisyUI class string,
+no markup, no styling decision is made in JavaScript. The `ui/` kit's ownership of
+component classes is untouched.
+
+**Boundary — this is NOT an opening for general client-side JS.** Like RD9/RD10/RD12,
+it is a narrow, sanctioned exception (one delegated listener pair, one boolean
+toggle, two named target fields), not a precedent. Any further client-side JS needs
+its own RD entry per RD8, with its own rationale and rejected alternative.
+
+**Graceful degradation:** if a matched `<select>` has no enclosing `<form>`, or the
+form has no `ended_at`/`end_battery_pct` input, the helper no-ops on the missing
+piece (`if (endedAt) endedAt.required = isDone`). Without JS entirely, the
+server-rendered initial `required` state from §D-Fields still governs at submit time —
+the fields simply stop updating live on a status change, falling back to correctness
+only on the next full page render rather than instantly.
 
 ---
 

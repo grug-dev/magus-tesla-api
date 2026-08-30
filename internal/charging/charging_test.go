@@ -18,7 +18,7 @@ import (
 func TestCostPerKWh_Normal(t *testing.T) {
 	e := charging.Entry{
 		Price:          8000,
-		EnergyAddedKWh: 15.5,
+		EnergyAddedKWh: ptrFloat64(15.5),
 	}
 	got := e.CostPerKWh()
 	if got == nil {
@@ -32,16 +32,54 @@ func TestCostPerKWh_Normal(t *testing.T) {
 }
 
 // TestCostPerKWh_ZeroEnergy verifies that CostPerKWh returns nil when
-// EnergyAddedKWh is zero — defensive nil-guard (the DB CHECK prevents zero, but
-// the method must not panic on zero input). Design D2j / tasks.md T5.1(b).
+// EnergyAddedKWh points at zero — defensive nil-guard (the DB CHECK prevents
+// zero, but the method must not panic on zero input). Design D2j / tasks.md
+// T5.1(b); adapted to *float64 for MAG-18/RM33 design.md D2.
 func TestCostPerKWh_ZeroEnergy(t *testing.T) {
 	e := charging.Entry{
 		Price:          8000,
-		EnergyAddedKWh: 0,
+		EnergyAddedKWh: ptrFloat64(0),
 	}
 	got := e.CostPerKWh()
 	if got != nil {
-		t.Errorf("CostPerKWh: expected nil when EnergyAddedKWh=0, got %v", *got)
+		t.Errorf("CostPerKWh: expected nil when EnergyAddedKWh points at 0, got %v", *got)
+	}
+}
+
+// TestCostPerKWh_A6 implements design.md Test Contract A6 verbatim
+// (MAG-18/RM33): with Price fixed at 1000, EnergyAddedKWh = nil / ptr(0) /
+// ptr(15.5) yields nil / nil / ≈64.516129 — the new nil case (D2: not
+// supplied and not derivable), and proof the existing zero-guard above
+// survives the *float64 change.
+func TestCostPerKWh_A6(t *testing.T) {
+	cases := []struct {
+		name   string
+		energy *float64
+		want   *float64
+	}{
+		{"nil energy", nil, nil},
+		{"zero energy", ptrFloat64(0), nil},
+		{"15.5 kWh", ptrFloat64(15.5), ptrFloat64(1000.0 / 15.5)},
+	}
+
+	const tolerance = 1e-9
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := charging.Entry{Price: 1000, EnergyAddedKWh: tc.energy}
+			got := e.CostPerKWh()
+			if tc.want == nil {
+				if got != nil {
+					t.Errorf("CostPerKWh: expected nil, got %v", *got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("CostPerKWh: expected %v, got nil", *tc.want)
+			}
+			if diff := *got - *tc.want; diff > tolerance || diff < -tolerance {
+				t.Errorf("CostPerKWh: got %v, want %v (diff %v)", *got, *tc.want, diff)
+			}
+		})
 	}
 }
 

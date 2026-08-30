@@ -1,56 +1,136 @@
 package fragments
 
 import (
+	"fmt"
+
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/ui"
 )
 
 // ChargesList is the htmx-swappable charge entries table region.
 // Its root <div id="charges-list"> matches the templ.Fragment("charges-list") name
-// and the hx-target="#charges-list" on the refresh button (required invariant).
-// It carries its own ui.Card surface + ui.Table so it stays styled when the handler
-// renders it standalone on an htmx swap.
+// and is the hx-target for every filter-preset button (design.md §D-Presets) and
+// the delete/update OOB refresh (design.md §D-Refresh). The Refresh button that
+// used to live here is REMOVED — subsumed by any filter click. It carries its own
+// ui.Card surfaces + ui.Table so it stays styled when the handler renders it
+// standalone on an htmx swap.
+//
+// Three-state empty branching (design.md §D-Empty):
+//  1. d.NoFilterChrome (no vehicle resolved OR malformed window) → render ONLY
+//     ChargesEmptyState(); no selector, no tiles, no table.
+//  2. Otherwise, the selector + tiles ALWAYS render; d.Error (reader failure)
+//     additionally shows the existing ui.Alert, tiles still show their zero/em-dash
+//     values.
+//  3. d.EmptyState (valid vehicle, valid window, zero rows) swaps the table body
+//     for ChargesEmptyState() while the selector + tiles stay visible (D13 — "Empty
+//     range renders 0 and —", not a full collapse).
 templ ChargesList(d ChargesPageData) {
 	<div id="charges-list">
-		@ui.Card(ui.CardProps{}) {
-			<div class="flex items-center justify-between">
-				<h2 class="text-lg font-semibold">{ i18n.T(ctx, i18n.KeyChargesListTitle) }</h2>
-				@ui.Button(ui.ButtonProps{
-					Variant: "ghost",
-					Size:    "sm",
-					Attrs: templ.Attributes{
-						"hx-get":    "/ui/charges/list",
-						"hx-target": "#charges-list",
-						"hx-swap":   "outerHTML",
-					},
-				}) {
-					{ i18n.T(ctx, i18n.KeyChargesListRefresh) }
-				}
-			</div>
-			if d.Error != "" {
-				@ui.Alert(ui.AlertProps{Kind: "error"}) {
-					{ d.Error }
-				}
-			}
-			if d.EmptyState {
+		if d.NoFilterChrome {
+			@ui.Card(ui.CardProps{}) {
 				@ChargesEmptyState()
-			} else if len(d.Entries) > 0 {
-				@ui.Table(ui.TableProps{Headers: []string{
-					i18n.T(ctx, i18n.KeyChargesListHeaderDate),
-					i18n.T(ctx, i18n.KeyChargesListHeaderVehicle),
-					i18n.T(ctx, i18n.KeyChargesListHeaderEnergy),
-					i18n.T(ctx, i18n.KeyChargesListHeaderPrice),
-					i18n.T(ctx, i18n.KeyChargesListHeaderCostPerKWh),
-					i18n.T(ctx, i18n.KeyChargesListHeaderBattery),
-					i18n.T(ctx, i18n.KeyChargesListHeaderDuration),
-					i18n.T(ctx, i18n.KeyChargesListHeaderActions),
-				}}) {
-					for _, vm := range d.Entries {
-						@ChargeRow(vm, d.CSRFToken)
+			}
+		} else {
+			if d.Presets != nil {
+				@chargesRangeSelector(d.Presets)
+			}
+			<input type="hidden" id="charges-window-start" value={ d.WindowStartStr }/>
+			<input type="hidden" id="charges-window-end" value={ d.WindowEndStr }/>
+			@ui.Card(ui.CardProps{}) {
+				@chargeTiles(d.Tiles)
+			}
+			@ui.Card(ui.CardProps{}) {
+				<h2 class="text-lg font-semibold">{ i18n.T(ctx, i18n.KeyChargesListTitle) }</h2>
+				if d.Error != "" {
+					@ui.Alert(ui.AlertProps{Kind: "error"}) {
+						{ d.Error }
+					}
+				}
+				if d.EmptyState {
+					@ChargesEmptyState()
+				} else {
+					@ui.Table(ui.TableProps{Headers: []string{
+						i18n.T(ctx, i18n.KeyChargesListHeaderDate),
+						i18n.T(ctx, i18n.KeyChargesListHeaderStatus),
+						i18n.T(ctx, i18n.KeyChargesListHeaderEnergy),
+						i18n.T(ctx, i18n.KeyChargesListHeaderPrice),
+						i18n.T(ctx, i18n.KeyChargesListHeaderCostPerKWh),
+						i18n.T(ctx, i18n.KeyChargesListHeaderBatteryRange),
+						i18n.T(ctx, i18n.KeyChargesListHeaderBattery),
+						i18n.T(ctx, i18n.KeyChargesListHeaderDuration),
+						i18n.T(ctx, i18n.KeyChargesListHeaderActions),
+					}}) {
+						for _, vm := range d.Entries {
+							if vm.ID != "" && vm.ID == d.EditingID {
+								@ChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr)
+							} else {
+								@ChargeRow(vm, d.CSRFToken, d.WindowStartStr, d.WindowEndStr)
+							}
+						}
 					}
 				}
 			}
 		}
+	</div>
+}
+
+// chargesRangeSelector renders the two-preset ("last 7 days" / "this month")
+// filter control — structurally identical to superchargerMonthsSelector
+// (supercharger_stats.templ, design.md §D-Presets/§D-RM33-10): ui.Join wraps one
+// ui.Button per preset, hx-get built from the preset's own pre-formatted
+// StartStr/EndStr against /ui/charges/list, hx-target="#charges-list",
+// hx-swap="outerHTML" — the WHOLE list region (unlike Supercharger Stats, which
+// innerHTML-swaps a wrapping content div, #charges-list IS the swappable region
+// itself, so outerHTML matches the filter's own target). The active preset
+// (RangePreset.Active) uses the "primary" Button variant; inactive presets use
+// "ghost". The button label is p.Label, already formatted by the handler.
+templ chargesRangeSelector(presets []RangePreset) {
+	<div class="flex justify-end mb-4">
+		@ui.Join() {
+			for _, p := range presets {
+				if p.Active {
+					@ui.Button(ui.ButtonProps{
+						Variant: "primary",
+						Size:    "sm",
+						Class:   "join-item",
+						Attrs: templ.Attributes{
+							"hx-get":    fmt.Sprintf("/ui/charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
+							"hx-target": "#charges-list",
+							"hx-swap":   "outerHTML",
+						},
+					}) {
+						{ p.Label }
+					}
+				} else {
+					@ui.Button(ui.ButtonProps{
+						Variant: "ghost",
+						Size:    "sm",
+						Class:   "join-item",
+						Attrs: templ.Attributes{
+							"hx-get":    fmt.Sprintf("/ui/charges/list?start=%s&end=%s", p.StartStr, p.EndStr),
+							"hx-target": "#charges-list",
+							"hx-swap":   "outerHTML",
+						},
+					}) {
+						{ p.Label }
+					}
+				}
+			}
+		}
+	</div>
+}
+
+// chargeTiles renders the four aggregation tiles — Sessions, Energy, Cost, Avg
+// kWh/session — structurally identical to superchargerTiles (supercharger_stats.templ,
+// design.md §D-Tiles), composing ui.StatTile in a Tailwind grid (layout utility
+// only). Single-currency (COP by construction, D13) — no per-currency CostLines
+// join here, unlike Supercharger's Cost tile.
+templ chargeTiles(t ChargeTiles) {
+	<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyChargesTileSessions), Value: t.Sessions})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyChargesTileEnergy), Value: t.Energy})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyChargesTileCost), Value: t.Cost})
+		@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyChargesTileAvgKWh), Value: t.AvgKWh})
 	</div>
 }
 

@@ -96,13 +96,15 @@ Rules:
 - **Do not introduce a component that needs client-side JS init.** If a genuinely interactive
   widget is unavoidable, prefer a CSS-only DaisyUI pattern (`dropdown`, `<dialog>` modal,
   `collapse`, `tabs`) before any JS — that is the whole reason DaisyUI was chosen over templUI.
-  This rule has exactly **two** sanctioned exceptions, recorded where every future decision must
+  This rule has exactly **four** sanctioned exceptions, recorded where every future decision must
   be recorded in `internal/gateway/AGENTS.md`: **RD9** (the `browser_tz` cookie script in
-  `layouts.BaseAuth`) and **RD10** — `ui.ConfirmDialog` (see below), because gating an in-flight
-  htmx request is impossible without JS: htmx only exposes the hook as a cancelable event. All
-  of the dialog's JS lives in the single shared `static/app.js`, not in per-page markup. Neither
-  exception opens the door to further client-side JS — any new instance needs its own recorded
-  decision per the module's RD8 convention.
+  `layouts.BaseAuth`); **RD10** — `ui.ConfirmDialog` (see below), because gating an in-flight
+  htmx request is impossible without JS: htmx only exposes the hook as a cancelable event;
+  **RD12** (the charge form's date→time-preserving sync); and **RD13** (the charge form's
+  status-driven `required` toggle, which must react to a `select` the server cannot re-render
+  without a round-trip). All of their JS lives in the single shared `static/app.js`, not in
+  per-page markup. No exception opens the door to further client-side JS — any new instance
+  needs its own recorded decision per the module's RD8 convention.
 - After editing `.templ` or adding new classes, run **`make css`** (regenerates `app.css` via
   the Node-less binary) alongside **`make templ`**. `make generate` runs both. `app.css` is a
   **committed** vendored artifact (like `htmx.min.js`), so `go build ./...` needs no pre-step.

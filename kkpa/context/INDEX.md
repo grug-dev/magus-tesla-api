@@ -16,14 +16,33 @@
 | `fast charging stats` | synonym of `supercharger stats` | entity | `workflows/supercharger-stats-read.md` |
 | `charge session log` | `charging.SessionReader` / `charging.SessionWriter` (`charge_sessions`) | entity | `workflows/supercharger-stats-read.md` |
 | `charge session record` | synonym of `charge session log` | entity | `workflows/supercharger-stats-read.md` |
-| `session battery edit` | `SuperchargerRowUpdate` / `charging.SessionVerifier.VerifySession` | entity | `workflows/supercharger-stats-read.md` |
-| `verify session battery` | synonym of `session battery edit` | entity | `workflows/supercharger-stats-read.md` |
-| `battery percentage correction` | synonym of `session battery edit` | entity | `workflows/supercharger-stats-read.md` |
+| `session battery edit` | `SuperchargerRowUpdate` / `charging.SessionVerifier.VerifySession` | entity | `use-case/charging/verify-session-battery.md` |
+| `verify session battery` | synonym of `session battery edit` | entity | `use-case/charging/verify-session-battery.md` |
+| `battery percentage correction` | synonym of `session battery edit` | entity | `use-case/charging/verify-session-battery.md` |
 | `vehicle metrics` | `analytics.Recalculator` / `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calc fields` | the `_calc` columns of `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calculated fields` | synonym of `calc fields` | entity | `entities/vehicle-metrics/guide.md` |
 | `metrics reconciliation` | `Recalculator.Reconcile` / `vehicle_metric_watermarks` | entity | `entities/vehicle-metrics/guide.md` |
 | `watermark source` | `vehicle_metric_watermarks.source` (`vehicle_snapshots` / `charge_sessions` / `manual_charge_entries`) | entity | `entities/vehicle-metrics/guide.md` |
+
+## Input ports — pages & endpoints
+
+| Page / endpoint | Route or URI | Module | KB path |
+|---|---|---|---|
+| `Manual Records page` | `/charges` | `charging` | `input-port/charging/charges.md` |
+| `Registros manuales` | `/charges` | `charging` | `input-port/charging/charges.md` |
+| `charges page` | `/charges` | `charging` | `input-port/charging/charges.md` |
+| `Supercharger Stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
+| `fast charging stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
+
+## Use cases
+
+| Use case | Entry point | Module | KB path |
+|---|---|---|---|
+| `edit a manual charge record` | `PUT /ui/charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
+| `update manual charge` | `PUT /ui/charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
+| `delete a manual charge record` | `DELETE /ui/charges/row/:id` | `charging` | `use-case/charging/delete-manual-charge.md` |
+| `edit a Supercharger session` | `PATCH /ui/supercharger-stats/row/:id` | `charging` | `use-case/charging/verify-session-battery.md` |
 
 ## Workflows
 
@@ -49,6 +68,12 @@
 | `the poller run` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `ProcessVehicleData` | `app.Processor.ProcessVehicleData` → `architecture/nightly-cycle.md` |
 | `session mirror` | step 2 of the cycle — `charging.SessionWriter.MirrorSessions` → `architecture/nightly-cycle.md` |
+| `charge record mutation` (the contract every charge write shares: source write → affected period → centralized recalc → persist → gaps, plus the documented divergences between the manual and Supercharger implementations) | `architecture/charge-record-mutation.md` |
+| `edit charging records` | synonym of `charge record mutation` → `architecture/charge-record-mutation.md` |
+| `charge record lifecycle` | synonym of `charge record mutation` → `architecture/charge-record-mutation.md` |
+| `charge recalculation` | synonym of `charge record mutation` → `architecture/charge-record-mutation.md` |
+| `charge write side effects` | synonym of `charge record mutation` → `architecture/charge-record-mutation.md` |
+| `charge gaps` (`analytics.GapWriter` / `charge_gaps` — written only by the nightly cycle, never by an edit) | `architecture/charge-record-mutation.md` |
 
 <!--
 Notes for the curator:

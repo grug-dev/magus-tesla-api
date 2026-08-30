@@ -35,10 +35,10 @@ const (
 	KeyNavSectionCharging    Key = "nav.section.charging"
 	KeyNavSectionInsights    Key = "nav.section.insights"
 	KeyNavSettings           Key = "nav.settings"
-	KeyNavSoonBadge         Key = "nav.soon_badge"
-	KeyNavOpenSidebar       Key = "nav.open_sidebar"
-	KeyNavCloseSidebar      Key = "nav.close_sidebar"
-	KeyNavLogout            Key = "nav.logout"
+	KeyNavSoonBadge          Key = "nav.soon_badge"
+	KeyNavOpenSidebar        Key = "nav.open_sidebar"
+	KeyNavCloseSidebar       Key = "nav.close_sidebar"
+	KeyNavLogout             Key = "nav.logout"
 
 	// --- nav-header fragment (templates/fragments/nav_header.templ) ---
 	KeyNavHeaderNoTesla           Key = "nav_header.no_tesla"
@@ -99,7 +99,6 @@ const (
 	KeyChargesFormDate            Key = "charges_form.date"
 	KeyChargesFormEnergyAdded     Key = "charges_form.energy_added"
 	KeyChargesFormPrice           Key = "charges_form.price"
-	KeyChargesFormCurrency        Key = "charges_form.currency"
 	KeyChargesFormLocation        Key = "charges_form.location"
 	KeyChargesFormHome            Key = "charges_form.home"
 	KeyChargesFormWork            Key = "charges_form.work"
@@ -108,7 +107,12 @@ const (
 	KeyChargesFormEndedAt         Key = "charges_form.ended_at"
 	KeyChargesFormStartBatteryPct Key = "charges_form.start_battery_pct"
 	KeyChargesFormEndBatteryPct   Key = "charges_form.end_battery_pct"
-	KeyChargesFormMoreDetails     Key = "charges_form.more_details"
+	KeyChargesFormOptionalDetails Key = "charges_form.optional_details"
+	// Short helper copy under each form's title. Both state RULES THAT LIVE IN GO
+	// (charging.resolveEnergy's derivation and charging.RequiredFieldsFor's sets) —
+	// if either rule changes, these strings are part of that change.
+	KeyChargesFormCreateHint Key = "charges_form.create_hint"
+	KeyChargesFormEditHint   Key = "charges_form.edit_hint"
 	KeyChargesFormChargingType    Key = "charges_form.charging_type"
 	KeyChargesFormAC              Key = "charges_form.ac"
 	KeyChargesFormDC              Key = "charges_form.dc"
@@ -116,9 +120,13 @@ const (
 	KeyChargesFormNotes           Key = "charges_form.notes"
 	KeyChargesFormLogCharge       Key = "charges_form.log_charge"
 	KeyChargesFormVehicle         Key = "charges_form.vehicle"
-	KeyChargesFormLocationKind    Key = "charges_form.location_kind"
 	KeyChargesFormSave            Key = "charges_form.save"
 	KeyChargesFormCancel          Key = "charges_form.cancel"
+	// --- status control + odometer, added by RM33-gateway-update-charge-form ---
+	KeyChargesFormStatus           Key = "charges_form.status"
+	KeyChargesFormStatusInProgress Key = "charges_form.status_in_progress"
+	KeyChargesFormStatusDone       Key = "charges_form.status_done"
+	KeyChargesFormOdometer         Key = "charges_form.odometer"
 
 	// --- charge row (templates/fragments/charge_row.templ) ---
 	KeyChargesRowEdit           Key = "charges_row.edit"
@@ -128,9 +136,8 @@ const (
 	KeyChargesRowConfirmLabel   Key = "charges_row.confirm_label"
 
 	// --- charges list (templates/fragments/charges_list.templ) ---
-	KeyChargesListTitle   Key = "charges_list.title"
-	KeyChargesListRefresh Key = "charges_list.refresh"
-	KeyChargesListEmpty   Key = "charges_list.empty"
+	KeyChargesListTitle Key = "charges_list.title"
+	KeyChargesListEmpty Key = "charges_list.empty"
 
 	// --- charges page (templates/pages/charges.templ) ---
 	KeyChargesPageTitle           Key = "charges_page.title"
@@ -244,13 +251,18 @@ const (
 	KeyOAuthErrorGoogleLoginFailed           Key = "oauth_error.google_login_failed"
 	KeyOAuthErrorCouldNotProvisionAccount    Key = "oauth_error.could_not_provision_account"
 
+	// --- shared form vocabulary (templates/ui/) ---
+	// Rendered by ui.Field when FieldProps.Optional is set. Deliberately generic
+	// (no charges_ prefix): it is the ui/ kit's own string, reusable by every
+	// future form, and belongs to the kit's closed vocabulary rather than to one
+	// page's namespace.
+	KeyFormOptional Key = "form.optional"
+
 	// --- charges validation + errors (handlers/charges.go) ---
 	KeyChargesErrorSelectVehicle                    Key = "charges_error.select_vehicle"
 	KeyChargesErrorDateRequired                     Key = "charges_error.date_required"
 	KeyChargesErrorInvalidDateFormat                Key = "charges_error.invalid_date_format"
-	KeyChargesErrorEnergyRequired                   Key = "charges_error.energy_required"
 	KeyChargesErrorEnergyPositive                   Key = "charges_error.energy_positive"
-	KeyChargesErrorPriceRequired                    Key = "charges_error.price_required"
 	KeyChargesErrorPriceNonNegative                 Key = "charges_error.price_non_negative"
 	KeyChargesErrorLocationRequired                 Key = "charges_error.location_required"
 	KeyChargesErrorBatteryPctRequired               Key = "charges_error.battery_pct_required"
@@ -269,6 +281,18 @@ const (
 	KeyChargesErrorCouldNotValidateVehicleOwnership Key = "charges_error.could_not_validate_vehicle_ownership"
 	KeyChargesErrorVehicleNotOwned                  Key = "charges_error.vehicle_not_owned"
 	KeyChargesErrorInvalidCSRFToken                 Key = "charges_error.invalid_csrf_token"
+	// --- status + odometer validation, added by RM33-gateway-update-charge-form ---
+	KeyChargesErrorEndedAtRequired Key = "charges_error.ended_at_required"
+	KeyChargesErrorStatusInvalid   Key = "charges_error.status_invalid"
+	KeyChargesErrorOdometerInvalid Key = "charges_error.odometer_invalid"
+
+	// --- one-IN_PROGRESS-per-day conflict (handlers/charges.go: inProgressConflictOn).
+	// Carries a single %s verb for the conflicting charged_on date, formatted
+	// YYYY-MM-DD by the handler — the template never formats a date.
+	KeyChargesErrorInProgressExists Key = "charges_error.in_progress_exists"
+
+	// --- charges success notices (handlers/charges.go: ChargeCreate success path) ---
+	KeyChargesNoticeEntryCreated Key = "charges_notice.entry_created"
 
 	// --- language switch errors (handlers/lang.go) ---
 	KeyLangSwitchErrorUnsupportedLanguage   Key = "lang_switch_error.unsupported_language"
@@ -282,13 +306,35 @@ const (
 	// mandate targets the same string in the same role, not merely the same word) —
 	// leader decision, gap found in wave 2 review of charges_list.templ.
 	KeyChargesListHeaderDate       Key = "charges_list.header_date"
-	KeyChargesListHeaderVehicle    Key = "charges_list.header_vehicle"
 	KeyChargesListHeaderEnergy     Key = "charges_list.header_energy"
 	KeyChargesListHeaderPrice      Key = "charges_list.header_price"
 	KeyChargesListHeaderCostPerKWh Key = "charges_list.header_cost_per_kwh"
 	KeyChargesListHeaderBattery    Key = "charges_list.header_battery"
 	KeyChargesListHeaderDuration   Key = "charges_list.header_duration"
 	KeyChargesListHeaderActions    Key = "charges_list.header_actions"
+	// --- added by RM33-gateway-add-entries-dashboard (design.md §D9/§D11) ---
+	KeyChargesListHeaderStatus       Key = "charges_list.header_status"
+	KeyChargesListHeaderBatteryRange Key = "charges_list.header_battery_range"
+
+	// --- charges date-filter presets (fragments/charges_list.templ), design.md §D-Presets ---
+	KeyChargesRangeLast7Days Key = "charges_range.last_7_days"
+	KeyChargesRangeThisMonth Key = "charges_range.this_month"
+
+	// --- charges aggregation tiles (fragments/charges_list.templ), design.md §D-Tiles ---
+	KeyChargesTileSessions Key = "charges_tile.sessions"
+	KeyChargesTileEnergy   Key = "charges_tile.energy"
+	KeyChargesTileCost     Key = "charges_tile.cost"
+	KeyChargesTileAvgKWh   Key = "charges_tile.avg_kwh_session"
+
+	// --- charges status badge (fragments/charge_row.templ) — deliberately NOT
+	// reusing KeyChargesFormStatusInProgress/Done, same table/form
+	// semantic-role precedent as the header block above (design.md §D-Dot) ---
+	KeyChargesBadgeInProgress Key = "charges_badge.in_progress"
+	KeyChargesBadgeDone       Key = "charges_badge.done"
+
+	// --- completeness dot tooltips (fragments/charge_row.templ), design.md §D-Dot ---
+	KeyChargesDotCompleteTooltip   Key = "charges_dot.complete_tooltip"
+	KeyChargesDotIncompleteTooltip Key = "charges_dot.incomplete_tooltip"
 
 	// --- page <title> composition (layouts.Base/BaseAuth call sites in every
 	// templates/pages/*.templ) — gap #2 found by the wave-2A worker: the
@@ -315,10 +361,10 @@ var catalog = map[Key]entry{
 	KeyNavSectionCharging:    {ES: "Carga", EN: "Charging"},
 	KeyNavSectionInsights:    {ES: "Análisis", EN: "Insights"},
 	KeyNavSettings:           {ES: "Configuración", EN: "Settings"},
-	KeyNavSoonBadge:         {ES: "Pronto", EN: "Soon"},
-	KeyNavOpenSidebar:       {ES: "Abrir menú lateral", EN: "open sidebar"},
-	KeyNavCloseSidebar:      {ES: "Cerrar menú lateral", EN: "close sidebar"},
-	KeyNavLogout:            {ES: "Cerrar sesión", EN: "Log out"},
+	KeyNavSoonBadge:          {ES: "Pronto", EN: "Soon"},
+	KeyNavOpenSidebar:        {ES: "Abrir menú lateral", EN: "open sidebar"},
+	KeyNavCloseSidebar:       {ES: "Cerrar menú lateral", EN: "close sidebar"},
+	KeyNavLogout:             {ES: "Cerrar sesión", EN: "Log out"},
 
 	KeyNavHeaderNoTesla:           {ES: "Ningún Tesla conectado.", EN: "No Tesla connected."},
 	KeyNavHeaderConnectLink:       {ES: "Conecta tu Tesla", EN: "Connect your Tesla"},
@@ -367,30 +413,34 @@ var catalog = map[Key]entry{
 	KeyDashboardStatusParked:          {ES: "Estacionado", EN: "Parked"},
 	KeyDashboardStatusSoftwareVersion: {ES: "Software v%s", EN: "Software v%s"},
 
-	KeyChargesFormTitle:           {ES: "Registrar una carga", EN: "Log a charge"},
-	KeyChargesFormDate:            {ES: "Fecha", EN: "Date"},
-	KeyChargesFormEnergyAdded:     {ES: "Energía agregada (kWh)", EN: "Energy added (kWh)"},
-	KeyChargesFormPrice:           {ES: "Precio", EN: "Price"},
-	KeyChargesFormCurrency:        {ES: "Moneda", EN: "Currency"},
-	KeyChargesFormLocation:        {ES: "Ubicación", EN: "Location"},
-	KeyChargesFormHome:            {ES: "Casa", EN: "Home"},
-	KeyChargesFormWork:            {ES: "Trabajo", EN: "Work"},
-	KeyChargesFormOther:           {ES: "Otro", EN: "Other"},
-	KeyChargesFormStartedAt:       {ES: "Hora de inicio", EN: "Started at"},
-	KeyChargesFormEndedAt:         {ES: "Hora de fin", EN: "Ended at"},
-	KeyChargesFormStartBatteryPct: {ES: "% de batería inicial", EN: "Start battery %"},
-	KeyChargesFormEndBatteryPct:   {ES: "% de batería final", EN: "End battery %"},
-	KeyChargesFormMoreDetails:     {ES: "Más detalles", EN: "More details"},
-	KeyChargesFormChargingType:    {ES: "Tipo de carga", EN: "Charging type"},
-	KeyChargesFormAC:              {ES: "AC", EN: "AC"},
-	KeyChargesFormDC:              {ES: "DC", EN: "DC"},
-	KeyChargesFormLocationLabel:   {ES: "Etiqueta de ubicación", EN: "Location label"},
-	KeyChargesFormNotes:           {ES: "Notas", EN: "Notes"},
-	KeyChargesFormLogCharge:       {ES: "Registrar carga", EN: "Log charge"},
-	KeyChargesFormVehicle:         {ES: "Vehículo", EN: "Vehicle"},
-	KeyChargesFormLocationKind:    {ES: "Tipo de ubicación", EN: "Location kind"},
-	KeyChargesFormSave:            {ES: "Guardar", EN: "Save"},
-	KeyChargesFormCancel:          {ES: "Cancelar", EN: "Cancel"},
+	KeyChargesFormTitle:            {ES: "Registrar una carga", EN: "Log a charge"},
+	KeyChargesFormDate:             {ES: "Fecha", EN: "Date"},
+	KeyChargesFormEnergyAdded:      {ES: "Energía agregada (kWh)", EN: "Energy added (kWh)"},
+	KeyChargesFormPrice:            {ES: "Precio", EN: "Price"},
+	KeyChargesFormLocation:         {ES: "Ubicación", EN: "Location"},
+	KeyChargesFormHome:             {ES: "Casa", EN: "Home"},
+	KeyChargesFormWork:             {ES: "Trabajo", EN: "Work"},
+	KeyChargesFormOther:            {ES: "Otro", EN: "Other"},
+	KeyChargesFormStartedAt:        {ES: "Hora de inicio", EN: "Started at"},
+	KeyChargesFormEndedAt:          {ES: "Hora de fin", EN: "Ended at"},
+	KeyChargesFormStartBatteryPct:  {ES: "% de batería inicial", EN: "Start battery %"},
+	KeyChargesFormEndBatteryPct:    {ES: "% de batería final", EN: "End battery %"},
+	KeyChargesFormOptionalDetails:  {ES: "Detalles opcionales", EN: "Optional details"},
+	KeyChargesFormCreateHint:       {ES: "Si dejas Energía vacía, se estimará a partir de la diferencia de batería, una vez que el porcentaje inicial y el final estén definidos. Una carga En progreso solo requiere Fecha, Ubicación y % de batería inicial.", EN: "Leave Energy empty and it will be estimated from the battery difference, once both the start and end percentages are set. An In progress charge only requires Date, Location and Start battery %."},
+	KeyChargesFormEditHint:         {ES: "Para cambiar el estado a Finalizada, Hora de fin y % de batería final son obligatorios.", EN: "To change the status to Done, Ended at and End battery % are required."},
+	KeyChargesFormChargingType:     {ES: "Tipo de carga", EN: "Charging type"},
+	KeyChargesFormAC:               {ES: "AC — Carga lenta (casa/destino)", EN: "AC — Slow charging (home/destination)"},
+	KeyChargesFormDC:               {ES: "DC — Carga rápida (Supercargador)", EN: "DC — Fast charging (Supercharger)"},
+	KeyChargesFormLocationLabel:    {ES: "Etiqueta de ubicación", EN: "Location label"},
+	KeyChargesFormNotes:            {ES: "Notas", EN: "Notes"},
+	KeyChargesFormLogCharge:        {ES: "Registrar carga", EN: "Log charge"},
+	KeyChargesFormVehicle:          {ES: "Vehículo", EN: "Vehicle"},
+	KeyChargesFormSave:             {ES: "Guardar", EN: "Save"},
+	KeyChargesFormCancel:           {ES: "Cancelar", EN: "Cancel"},
+	KeyChargesFormStatus:           {ES: "Estado", EN: "Status"},
+	KeyChargesFormStatusInProgress: {ES: "En progreso", EN: "In progress"},
+	KeyChargesFormStatusDone:       {ES: "Finalizada", EN: "Done"},
+	KeyChargesFormOdometer:         {ES: "Odómetro (km)", EN: "Odometer (km)"},
 
 	KeyChargesRowEdit:           {ES: "Editar", EN: "Edit"},
 	KeyChargesRowDelete:         {ES: "Eliminar", EN: "Delete"},
@@ -398,9 +448,8 @@ var catalog = map[Key]entry{
 	KeyChargesRowConfirmTitle:   {ES: "Eliminar entrada de carga", EN: "Delete charge entry"},
 	KeyChargesRowConfirmLabel:   {ES: "Eliminar entrada", EN: "Delete entry"},
 
-	KeyChargesListTitle:   {ES: "Tus registros", EN: "Your entries"},
-	KeyChargesListRefresh: {ES: "Actualizar", EN: "Refresh"},
-	KeyChargesListEmpty:   {ES: "Aún no hay cargas registradas. Usa el formulario de arriba para registrar tu primera carga.", EN: "No charge entries yet. Use the form above to log your first charge."},
+	KeyChargesListTitle: {ES: "Tus registros", EN: "Your entries"},
+	KeyChargesListEmpty: {ES: "Aún no hay cargas registradas. Usa el formulario de arriba para registrar tu primera carga.", EN: "No charge entries yet. Use the form above to log your first charge."},
 
 	KeyChargesPageTitle:           {ES: "Registro de cargas", EN: "Charge log"},
 	KeyChargesPageBackToDashboard: {ES: "Volver al panel", EN: "Back to dashboard"},
@@ -496,12 +545,12 @@ var catalog = map[Key]entry{
 	KeyOAuthErrorGoogleLoginFailed:           {ES: "falló el inicio de sesión con Google", EN: "google login failed"},
 	KeyOAuthErrorCouldNotProvisionAccount:    {ES: "no se pudo aprovisionar la cuenta", EN: "could not provision account"},
 
+	KeyFormOptional: {ES: "(opcional)", EN: "(optional)"},
+
 	KeyChargesErrorSelectVehicle:                    {ES: "Selecciona un vehículo.", EN: "Please select a vehicle."},
 	KeyChargesErrorDateRequired:                     {ES: "La fecha es obligatoria.", EN: "Date is required."},
 	KeyChargesErrorInvalidDateFormat:                {ES: "Formato de fecha inválido.", EN: "Invalid date format."},
-	KeyChargesErrorEnergyRequired:                   {ES: "La energía agregada es obligatoria.", EN: "Energy added is required."},
 	KeyChargesErrorEnergyPositive:                   {ES: "La energía debe ser un número positivo.", EN: "Energy must be a positive number."},
-	KeyChargesErrorPriceRequired:                    {ES: "El precio es obligatorio.", EN: "Price is required."},
 	KeyChargesErrorPriceNonNegative:                 {ES: "El precio debe ser un número no negativo.", EN: "Price must be a non-negative number."},
 	KeyChargesErrorLocationRequired:                 {ES: "La ubicación es obligatoria.", EN: "Location is required."},
 	KeyChargesErrorBatteryPctRequired:               {ES: "El porcentaje de batería es obligatorio.", EN: "Battery percentage is required."},
@@ -520,19 +569,43 @@ var catalog = map[Key]entry{
 	KeyChargesErrorCouldNotValidateVehicleOwnership: {ES: "no se pudo validar la propiedad del vehículo", EN: "could not validate vehicle ownership"},
 	KeyChargesErrorVehicleNotOwned:                  {ES: "el vehículo no pertenece a esta cuenta", EN: "vehicle not owned by this account"},
 	KeyChargesErrorInvalidCSRFToken:                 {ES: "token csrf inválido", EN: "invalid csrf token"},
+	KeyChargesErrorEndedAtRequired:                  {ES: "La hora de fin es obligatoria cuando el estado es Finalizada.", EN: "Ended at is required when status is Done."},
+	KeyChargesErrorStatusInvalid:                    {ES: "Estado inválido.", EN: "Invalid status."},
+	KeyChargesErrorOdometerInvalid:                  {ES: "El odómetro debe ser un número entero no negativo.", EN: "Odometer must be a non-negative whole number."},
+	KeyChargesErrorInProgressExists:                 {ES: "Ya existe una carga en progreso para el %s.", EN: "There is already a charge in progress for %s."},
+	KeyChargesNoticeEntryCreated:                    {ES: "Registro agregado correctamente.", EN: "Entry saved successfully."},
 
 	KeyLangSwitchErrorUnsupportedLanguage:   {ES: "idioma no soportado", EN: "unsupported language"},
 	KeyLangSwitchErrorCouldNotSaveLanguage:  {ES: "no se pudo guardar la preferencia de idioma", EN: "could not save language preference"},
 	KeyLangSwitchErrorCouldNotBuildRedirect: {ES: "no se pudo construir la redirección", EN: "could not build redirect"},
 
 	KeyChargesListHeaderDate:       {ES: "Fecha", EN: "Date"},
-	KeyChargesListHeaderVehicle:    {ES: "Vehículo", EN: "Vehicle"},
 	KeyChargesListHeaderEnergy:     {ES: "Energía", EN: "Energy"},
 	KeyChargesListHeaderPrice:      {ES: "Precio", EN: "Price"},
 	KeyChargesListHeaderCostPerKWh: {ES: "Costo/kWh", EN: "Cost/kWh"},
-	KeyChargesListHeaderBattery:    {ES: "Carga de batería", EN: "Battery Charge"},
-	KeyChargesListHeaderDuration:   {ES: "Duración", EN: "Duration"},
-	KeyChargesListHeaderActions:    {ES: "Acciones", EN: "Actions"},
+	// CHANGED by RM33-gateway-add-entries-dashboard: this key now labels ONLY
+	// the delta column (a separate Battery Range header exists alongside it),
+	// so the generic "Carga de batería"/"Battery Charge" copy is replaced with
+	// a delta-specific label.
+	KeyChargesListHeaderBattery:      {ES: "Δ Batería", EN: "Battery Δ"},
+	KeyChargesListHeaderDuration:     {ES: "Duración", EN: "Duration"},
+	KeyChargesListHeaderActions:      {ES: "Acciones", EN: "Actions"},
+	KeyChargesListHeaderStatus:       {ES: "Estado", EN: "Status"},
+	KeyChargesListHeaderBatteryRange: {ES: "Rango de batería", EN: "Battery range"},
+
+	KeyChargesRangeLast7Days: {ES: "Últimos 7 días", EN: "Last 7 days"},
+	KeyChargesRangeThisMonth: {ES: "Este mes", EN: "This month"},
+
+	KeyChargesTileSessions: {ES: "Sesiones", EN: "Sessions"},
+	KeyChargesTileEnergy:   {ES: "Energía", EN: "Energy"},
+	KeyChargesTileCost:     {ES: "Costo", EN: "Cost"},
+	KeyChargesTileAvgKWh:   {ES: "kWh prom. / sesión", EN: "Avg kWh / session"},
+
+	KeyChargesBadgeInProgress: {ES: "En progreso", EN: "In progress"},
+	KeyChargesBadgeDone:       {ES: "Finalizada", EN: "Done"},
+
+	KeyChargesDotCompleteTooltip:   {ES: "Completo", EN: "Complete"},
+	KeyChargesDotIncompleteTooltip: {ES: "Incompleto", EN: "Incomplete"},
 
 	KeyBrandPageTitle: {ES: "%s — Magus", EN: "%s — Magus"},
 	KeyLoginSignIn:    {ES: "Iniciar sesión", EN: "Sign in"},

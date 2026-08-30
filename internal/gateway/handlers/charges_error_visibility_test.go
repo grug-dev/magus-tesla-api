@@ -166,7 +166,7 @@ func TestConfirmDialogWiring(t *testing.T) {
 	id := uuid.New()
 	entry := charging.Entry{
 		ID: id, AccountID: uid, TeslaID: 1001, VIN: "VIN1001", Currency: "COP",
-		ChargedOn: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), EnergyAddedKWh: 0.79,
+		ChargedOn: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC), EnergyAddedKWh: ptrF64(0.79),
 	}
 	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{entry}})
 	r := engineWithSession(h, uid, "tok")

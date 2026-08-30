@@ -102,3 +102,72 @@ document.body.addEventListener("htmx:beforeSwap", function (evt) {
     p.dlg.showModal();
   });
 })();
+
+// --- Charge form: date-sync + status-required toggle (RD12/RD13) -------------
+//
+// Both listeners below use document.body-scoped event delegation, never
+// per-element addEventListener at render time — the manual-charge create form
+// and any number of simultaneously-open inline edit rows all need this
+// behavior with no re-binding step when htmx swaps a row in. See
+// internal/gateway/AGENTS.md RD12/RD13 for the full rationale and the
+// rejected alternatives (design.md §D-JS, RM33-gateway-update-charge-form).
+
+// RD12 — changing the "charged_on" date input rewrites only the DATE portion
+// of started_at/ended_at within the same <form>, preserving whatever time the
+// user already set. A datetime-local value is always "YYYY-MM-DDTHH:MM", so
+// slice(10) is exactly "THH:MM". An empty started_at/ended_at is left empty —
+// never auto-filled (roadmap D12 explicitly rejects "clobber to midnight").
+document.body.addEventListener("change", function (evt) {
+  var dateInput = evt.target;
+  if (!dateInput || !dateInput.matches || !dateInput.matches('input[name="charged_on"]')) return;
+  var form = dateInput.closest("form");
+  if (!form) return;
+  var newDate = dateInput.value;
+  if (!newDate) return;
+  ["started_at", "ended_at"].forEach(function (name) {
+    var input = form.querySelector('input[name="' + name + '"]');
+    if (input && input.value) {
+      input.value = newDate + input.value.slice(10);
+    }
+  });
+});
+
+// RD13 — the "status" select drives whether ended_at/end_battery_pct are
+// required, live, with no htmx round-trip (D-RM33-6). Applied on "change" AND
+// on "htmx:load" (fires on the initial full page load AND on every
+// htmx-swapped fragment — verified via Context7 against the htmx source,
+// 2026-08-29: htmx dispatches "htmx:load" on document.body once at initial
+// DOMContentLoaded-deferred init, and again on the swapped-in root element
+// after every settled swap; both bubble to document.body, which is exactly
+// what this delegated listener relies on). Running on load as well as change
+// means a freshly-rendered or freshly-swapped form is always correct
+// immediately, duplicating the server-rendered initial `required` state from
+// design.md §D-Fields on purpose — if the two ever disagree, the JS state
+// wins in the live DOM and the disagreement is inert.
+function applyChargeStatusRequiredToggle(select) {
+  var form = select.closest("form");
+  if (!form) return;
+  var isDone = select.value === "DONE";
+  var endedAt = form.querySelector('input[name="ended_at"]');
+  var endBatteryPct = form.querySelector('input[name="end_battery_pct"]');
+  if (endedAt) endedAt.required = isDone;
+  if (endBatteryPct) endBatteryPct.required = isDone;
+}
+
+document.body.addEventListener("change", function (evt) {
+  var select = evt.target;
+  if (!select || !select.matches || !select.matches('select[name="status"]')) return;
+  applyChargeStatusRequiredToggle(select);
+});
+
+document.body.addEventListener("htmx:load", function (evt) {
+  var root = evt.target;
+  if (!root || !root.querySelectorAll) return;
+  if (root.matches && root.matches('select[name="status"]')) {
+    applyChargeStatusRequiredToggle(root);
+  }
+  var selects = root.querySelectorAll('select[name="status"]');
+  for (var i = 0; i < selects.length; i++) {
+    applyChargeStatusRequiredToggle(selects[i]);
+  }
+});

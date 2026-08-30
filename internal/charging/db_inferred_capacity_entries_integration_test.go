@@ -125,7 +125,7 @@ func TestCreate_InferredCapacity_TableCases(t *testing.T) {
 			const teslaID = int64(250001)
 
 			e := minEntry(accountID, teslaID)
-			e.EnergyAddedKWh = tc.energyAddedKWh
+			e.EnergyAddedKWh = ptrFloat64(tc.energyAddedKWh)
 			e.StartBatteryPct = tc.startPct
 			e.EndBatteryPct = tc.endPct
 
@@ -167,7 +167,7 @@ func TestUpdate_InferredCapacity_RecomputesOnEndBatteryPctChange(t *testing.T) {
 	const teslaID = int64(250011)
 
 	e := minEntry(accountID, teslaID)
-	e.EnergyAddedKWh = 7.04
+	e.EnergyAddedKWh = ptrFloat64(7.04)
 	e.StartBatteryPct = ptrInt(64)
 	e.EndBatteryPct = ptrInt(74)
 
@@ -200,7 +200,7 @@ func TestInferredCapacity_Entries_ColumnUnwritable(t *testing.T) {
 	w := charging.NewWriter(pool)
 
 	e := minEntry(accountID, 250012)
-	e.EnergyAddedKWh = 7.04
+	e.EnergyAddedKWh = ptrFloat64(7.04)
 	e.StartBatteryPct = ptrInt(64)
 	e.EndBatteryPct = ptrInt(74)
 	created, err := w.Create(ctx, e)

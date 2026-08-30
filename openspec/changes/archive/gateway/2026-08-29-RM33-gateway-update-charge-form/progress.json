@@ -1,0 +1,813 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM33-gateway-update-charge-form",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM33-manual-record-status.md",
+  "request": "RM33 tier 2 of MAG-18 (Adding Status to Manual Records) — the charge FORM slice: status dropdown (IN PROGRESS / DONE, i18n, default IN PROGRESS, at the top of the section, persisted and loaded); energy_added_kwh and price optional (price empty => 0, no negatives); required validations apply only when status is DONE, driven by charging.RequiredFieldsFor; remove the Currency input and label price as COP via an input suffix; AC/DC helper option text; new optional odometer field in More details; date change syncs start/end preserving HH:MM; only clear the form on HTTP 200 (preserve typed values on 4xx/5xx). Both charge_create_form.templ and charge_row_edit.templ.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "6.1",
+      "3.1",
+      "3.2",
+      "3.3",
+      "4.1",
+      "4.2",
+      "5.1",
+      "4.3",
+      "7.1",
+      "9.1",
+      "8.1",
+      "8.2",
+      "8.3",
+      "8.5",
+      "8.4"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-08-29T15:40:00Z",
+  "updated_at": "2026-08-29T18:35:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM33-MAG-18-manual-record-status",
+    "base": "5d01e81",
+    "ticket": "MAG-18",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-18/adding-status-to-manual-records",
+    "created_at": "2026-08-29T10:49:07Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Add ui.InputProps.Suffix + DaisyUI label-compound render path",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T15:20:00Z",
+      "completed_at": "2026-08-29T15:26:00Z",
+      "duration_seconds": null,
+      "notes": "Added Suffix to InputProps + the design.md D-Suffix conditional render path; Suffix==\"\" branch byte-identical to prior markup. Regeneration deferred to task 5.1.",
+      "budget": {
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta (88->98%) copied onto each of the 4 batched tasks"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "i18n catalogue: add status/odometer/error keys, change AC/DC text, remove Currency+required keys",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T15:26:00Z",
+      "completed_at": "2026-08-29T15:35:00Z",
+      "duration_seconds": null,
+      "notes": "Added 7 keys (ES+EN), changed AC/DC values to D16's strings. Did NOT delete the 3 Currency/Required keys — 1.2's grep found live refs in 3.x/4.x files. Deletion moved to new task 4.3.",
+      "budget": {
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta (88->98%) copied onto each of the 4 batched tasks"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "charges_vm.go: ChargeFormValues, FormValues, Required* pair, Status/RawStatus/RawOdometerKm",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T15:35:00Z",
+      "completed_at": "2026-08-29T15:41:00Z",
+      "duration_seconds": null,
+      "notes": "Added ChargeFormValues (10 fields) verbatim from D-Values; FormValues + Required* pair on ChargesPageData; Required*, Status, RawStatus, RawOdometerKm on ChargeEntryVM, each doc-commented.",
+      "budget": {
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta (88->98%) copied onto each of the 4 batched tasks"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "parseChargeForm: new 4-return signature, status parse, RequiredFieldsFor gating, optional energy/price, odometer",
+      "module": "gateway",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T15:59:00Z",
+      "completed_at": "2026-08-29T16:05:01Z",
+      "duration_seconds": 361,
+      "notes": "New 4-return signature; raw built from PostForm before any parsing; status parsed first, RequiredFieldsFor gates ended_at/end_battery_pct; energy/price optional, odometer added; dead Required branches removed.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.446,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto the 3 batched same-file tasks"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "buildChargesPage + chargeEntryVMFromEntry: seed FormValues.Status, compute Required*, map Status/RawOdometerKm",
+      "module": "gateway",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T15:59:00Z",
+      "completed_at": "2026-08-29T16:05:01Z",
+      "duration_seconds": 361,
+      "notes": "Fresh-load FormValues.Status=IN_PROGRESS with matching Required* pair; chargeEntryVMFromEntry maps Status/RawStatus/RawOdometerKm and Required* via RequiredFieldsFor.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.446,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto the 3 batched same-file tasks"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "Wire the D15 fix into ChargeCreate and ChargeRowUpdate 422/500 paths",
+      "module": "gateway",
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T15:59:00Z",
+      "completed_at": "2026-08-29T16:05:01Z",
+      "duration_seconds": 361,
+      "notes": "Both ChargeCreate and ChargeRowUpdate 422/500 branches preserve submitted values; added chargeEntryVMFromRawValues (fail-closed to DONE) and vehicleLabelForSelected; all call sites updated.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 14,
+        "five_hour_pct_delta": 12,
+        "cost_usd_delta": 3.446,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-2 delta copied onto the 3 batched same-file tasks"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "charge_create_form.templ: status select, optional energy/price, COP suffix, drop Currency, odometer, value echo",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "2.1",
+        "3.2",
+        "3.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T16:43:22Z",
+      "completed_at": "2026-08-29T16:48:47Z",
+      "duration_seconds": 325,
+      "notes": "Status select added as first field; energy/price Required dropped; price renders Suffix COP with i18n:allow marker; Currency block removed; odometer in More details; every submitted value echoed from d.FormValues (D15).",
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.343,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-3 delta copied onto the 4 batched serial tasks"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "charge_row_edit.templ: same treatment, persisted status selected, colspan untouched",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "2.1",
+        "3.2",
+        "3.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T16:43:22Z",
+      "completed_at": "2026-08-29T16:48:47Z",
+      "duration_seconds": 325,
+      "notes": "Mirrors 4.1: status select bound to vm.RawStatus, COP suffix replaces Currency field, ended_at/end_battery_pct Required bound to vm.Required* pair, odometer bound to vm.RawOdometerKm. colspan=\"8\" untouched per D-Colspan.",
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.343,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-3 delta copied onto the 4 batched serial tasks"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "Codegen: make templ then make css",
+      "module": "gateway",
+      "depends_on": [
+        "4.1",
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T16:43:22Z",
+      "completed_at": "2026-08-29T16:48:47Z",
+      "duration_seconds": 325,
+      "notes": "make templ regenerated charge_create_form_templ.go, charge_row_edit_templ.go and ui/input_templ.go (the last was pending from wave 1's Suffix change). make css produced a real 1-line diff in the minified app.css.",
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.343,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-3 delta copied onto the 4 batched serial tasks"
+      }
+    },
+    {
+      "id": "6.1",
+      "title": "static/app.js: RD12 date-sync listener + RD13 status-required toggle (load + htmx swap)",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T15:41:00Z",
+      "completed_at": "2026-08-29T15:52:00Z",
+      "duration_seconds": null,
+      "notes": "Added RD12 date-sync and RD13 status-required listeners, both document.body-delegated. htmx:load semantics verified via Context7 against /bigskysoftware/htmx source, not from memory, as the task required.",
+      "budget": {
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-1 delta (88->98%) copied onto each of the 4 batched tasks"
+      }
+    },
+    {
+      "id": "7.1",
+      "title": "internal/gateway/AGENTS.md: document RD12 and RD13 in the RD9/RD10/RD11 shape",
+      "module": "gateway",
+      "depends_on": [
+        "6.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T17:26:10Z",
+      "completed_at": "2026-08-29T17:38:11Z",
+      "duration_seconds": 721,
+      "notes": "Added RD12/RD13 to internal/gateway/AGENTS.md in RD9-RD11's shape; corrected the file's 'exactly TWO sanctioned exceptions' cross-references to FOUR and RD10's 'currently last' text. Docs-only, no suite dependency.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 20,
+        "cost_usd_delta": 6.962,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-4 delta copied onto the 5 batched serial tasks"
+      }
+    },
+    {
+      "id": "8.1",
+      "title": "Tests Group A: status-conditional required validation, optional energy/price, odometer parsing",
+      "module": "gateway",
+      "depends_on": [
+        "3.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T17:26:10Z",
+      "completed_at": "2026-08-29T17:38:11Z",
+      "duration_seconds": 721,
+      "notes": "8 tests A1-A8 in charges_test.go: status-conditional required validation, optional energy/price, odometer parsing, unconditional start_battery_pct. Every negative asserts its specific i18n message per the fixture convention.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 20,
+        "cost_usd_delta": 6.962,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-4 delta copied onto the 5 batched serial tasks"
+      }
+    },
+    {
+      "id": "8.2",
+      "title": "Tests Group B: D15 value preservation on create + inline edit, plus fresh-render no-regression",
+      "module": "gateway",
+      "depends_on": [
+        "3.3",
+        "4.1",
+        "4.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T17:26:10Z",
+      "completed_at": "2026-08-29T17:38:11Z",
+      "duration_seconds": 721,
+      "notes": "4 tests B1-B4: D15 value preservation on create + inline edit, plus the B4 fresh-render no-regression check.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 20,
+        "cost_usd_delta": 6.962,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-4 delta copied onto the 5 batched serial tasks"
+      }
+    },
+    {
+      "id": "8.3",
+      "title": "Tests Group C: rendered-markup assertions (required attrs, status select, COP suffix, AC/DC, odometer placement)",
+      "module": "gateway",
+      "depends_on": [
+        "4.1",
+        "4.2",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T17:26:10Z",
+      "completed_at": "2026-08-29T17:38:11Z",
+      "duration_seconds": 721,
+      "notes": "7 tests C1-C7 via direct template render, mirroring supercharger_test.go. C3 surfaced a real handler defect in ChargeCreate's error path — see task 8.5.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 20,
+        "cost_usd_delta": 6.962,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-4 delta copied onto the 5 batched serial tasks"
+      }
+    },
+    {
+      "id": "8.4",
+      "title": "[owner] Manual JS verification: date-sync, live required toggle, two concurrent edit rows",
+      "module": "gateway",
+      "depends_on": [
+        "6.1",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "owner",
+      "model": null,
+      "started_at": null,
+      "completed_at": "2026-08-29T18:35:00Z",
+      "duration_seconds": null,
+      "notes": "Owner ran make dev and reported the JS behaviors working. Reported as a single blanket pass, not three separate per-behavior results.",
+      "budget": null
+    },
+    {
+      "id": "9.1",
+      "title": "Cheap signals: gofmt, go build, go vet, make ui-guard, make i18n-guard",
+      "module": "gateway",
+      "depends_on": [
+        "8.1",
+        "8.2",
+        "8.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T17:26:10Z",
+      "completed_at": "2026-08-29T17:38:11Z",
+      "duration_seconds": 721,
+      "notes": "All 5 signals clean: go build, go vet, make ui-guard, make i18n-guard pass; gofmt lists only 4 pre-existing files, none touched by this change.",
+      "budget": {
+        "five_hour_pct_start": 37,
+        "five_hour_pct_end": 57,
+        "five_hour_pct_delta": 20,
+        "cost_usd_delta": 6.962,
+        "context_pct_end": 12,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-4 delta copied onto the 5 batched serial tasks"
+      }
+    },
+    {
+      "id": "4.3",
+      "title": "Deferred deletion of the 3 Currency/Required i18n keys once 3.x/4.x remove their call sites",
+      "module": "gateway",
+      "depends_on": [
+        "3.3",
+        "4.1",
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-29T16:43:22Z",
+      "completed_at": "2026-08-29T16:48:47Z",
+      "duration_seconds": 325,
+      "notes": "Re-ran task 1.2's grep: zero live refs outside catalog.go/_templ.go once 4.1/4.2 removed the call sites. Deleted all three Key constants + catalogue map entries.",
+      "budget": {
+        "five_hour_pct_start": 22,
+        "five_hour_pct_end": 32,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 3.343,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave-3 delta copied onto the 4 batched serial tasks"
+      }
+    },
+    {
+      "id": "8.5",
+      "title": "[leader triage] applyRawRequiredState: recompute Required* from the submitted status on ChargeCreate's 422/500 branches, + handler-level regression test",
+      "module": "gateway",
+      "depends_on": [
+        "3.3",
+        "8.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-29T17:38:30Z",
+      "completed_at": "2026-08-29T17:40:00Z",
+      "duration_seconds": 90,
+      "notes": "Leader fix for 8.3's finding: create-form error re-render left Required* on the IN_PROGRESS default while FormValues carried DONE, breaking design.md D-Fields. Added applyRawRequiredState (fail-closed to DONE) + regression test.",
+      "budget": {
+        "five_hour_pct_delta": 0,
+        "cost_usd_delta": 0.0,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "leader-inline fix, folded into the wave-4 window"
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM33 tier 2 (charge FORM slice) on branch ft/RM33-MAG-18-manual-record-status, commits 4818d6c..9744a67. Validate: (1) module-boundary compliance - no HTML outside internal/gateway, no cross-module DB reads, charging.RequiredFieldsFor imported not re-derived (design.md D-Fields/D5); (2) every doc-pack convention, especially the i18n rule (both ES+EN for every user-facing key) and the no-client-side-JS rule with its now-FOUR recorded exceptions; (3) spec/tasks coverage - all 18 tasks, 8.4 owner-manual still open; (4) the integration tests assert design.md's AUTHORED Test Contract (A1-A8, B1-B4, C1-C7), not whatever the implementation happens to do - this is the highest-value check this round, see the two specific traps below; (5) read-heavy Performance-Profile compliance; (6) anti-gaming - no weakened criteria, no self-approved statuses. NO database objects were created or altered in this tier, so the database design gate does not apply. TRAP 1 (wave-2 history): a negative test asserting only 422 + writer-not-called passes off the spurious missing-status validation error and stays green even if the check it names is deleted. Every negative test must supply a valid status AND assert the specific i18n message. Verify this holds for all 8 Group A tests; two tests in wave 2 failed exactly this way. TRAP 2 (wave-4 history): C5's assertion was pinned to a literal class string and broke on Templ's generated trailing space. Check the remaining markup assertions are structural, not brittle on generated whitespace - and conversely that none was loosened so far it no longer tests C's claim. Also scrutinize task 8.5 specifically: a LEADER-authored fix (applyRawRequiredState) for a defect task 8.3's C3 test surfaced in ChargeCreate's 422/500 branches. It is leader-written code that no worker reviewed - verify it matches design.md D-Fields, that its fail-closed-to-DONE posture mirrors chargeEntryVMFromRawValues, and that its regression test genuinely fails without the fix.",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "at": "2026-08-29T18:20:00Z",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "internal/gateway/AGENTS.md",
+          "ai/agentic-workflow.md",
+          "openspec/changes/RM33-gateway-update-charge-form/proposal.md",
+          "openspec/changes/RM33-gateway-update-charge-form/design.md",
+          "openspec/changes/RM33-gateway-update-charge-form/tasks.md",
+          "openspec/changes/RM33-gateway-update-charge-form/specs/gateway/spec.md",
+          "openspec/changes/RM33-gateway-update-charge-form/progress.json"
+        ],
+        "scope_note": "Reviewed the full gateway tier-2 diff (c639ff6..9744a67), not only the literal 4818d6c..9744a67 range named in the brief, since that narrower range excludes charges_vm.go/.templ files/catalog.go/app.js/input.templ that the brief's own 'files touched' list names as in scope.",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "nit",
+            "note": "internal/gateway/handlers/charges.go: applyRawRequiredState and chargeEntryVMFromRawValues each re-implement a 'fail closed to DONE on unrecognized status' branch before calling charging.RequiredFieldsFor, which already returns the DONE set as its own default for any unrecognized status (internal/charging/validation.go RequiredFieldsFor's default case). Harmless duplication, explicitly documented as mirroring the module's own contract rather than relying on it implicitly; not a boundary or correctness issue.",
+            "status": "open"
+          }
+        ],
+        "trap_1_conclusion": "HOLDS. All 8 Group A tests (A1-A8, charges_test.go:1890-2185) use validCreateForm() which sets status=IN_PROGRESS explicitly, and every negative-path subtest asserts the specific i18n error-message substring for the field under test (e.g. A2 asserts both the ended_at-required and battery-required ES strings, A4 asserts 'Estado inválido', A5/A6/A7/A8 each assert their own field's message) in addition to 422 + writer-not-called. Deleting the validation branch a given test names would remove that message from the body and turn the test red — verified by inspection for each of A1-A8.",
+        "trap_2_conclusion": "HOLDS. C5 (charges_test.go:2486) now uses tagAttrsFor (a structural tag-boundary extractor) plus a regex tolerant of Templ's generated trailing space (`class=\"input[^\"]*\"`) that additionally pins the price input as a structural descendant of the compound label, strictly stronger than the substring check it replaced. C1-C4, C6, C7 all use tagAttrsFor or position-based (strings.Index) structural checks, none pinned to a full literal class string. No assertion was loosened past what its Test Contract letter requires.",
+        "task_8_5_conclusion": "Matches design.md §D-Fields ('correct required attribute for the status being rendered, no flash-of-wrong-state before JS'). Fail-closed-to-DONE posture is byte-for-byte the same pattern as chargeEntryVMFromRawValues (both: unrecognized/empty status -> treat as DONE -> RequiredFieldsFor(DONE)). The regression test TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes (charges_test.go:2586) submits status=DONE with a missing location_kind (unrelated field) causing the 422, then asserts ended_at/end_battery_pct still carry `required` in the re-rendered body — this would fail without applyRawRequiredState, since buildChargesPage's fresh-load Required* pair is computed from StatusInProgress and nothing else in the 422 branch would flip it to true. Genuine regression coverage.",
+        "notes": "No blockers or majors. Boundaries clean (no HTML/DB outside gateway, RequiredFieldsFor imported not re-derived). i18n: all new/changed keys carry ES+EN, removed keys verified dead via grep. RD12/RD13 documented in AGENTS.md matching RD9/RD10 shape; cross-references in AGENTS.md and htmx-conventions.md both say 'exactly four' consistently. gofmt/go vet independently re-run clean. All 17 non-owner tasks match tasks.md; 8.5 is a genuine append, not a rescoping of 3.3. No performance regression (no new reads/writes added).",
+        "triage": {
+          "at": "2026-08-29T18:25:00Z",
+          "by": "leader",
+          "F1": "REJECTED (nit, no change made). charging.RequiredFieldsFor does default to the DONE set for an unrecognized status, so the branch is behaviorally redundant. Keeping it: it normalizes the STATUS VALUE at the call site rather than re-deriving the required-field RULE, so design.md D-Fields is not violated; it makes the fail-closed posture legible where the raw form value enters; and removing it would edit owner-verified code for zero behavior change, costing another full suite run. chargeEntryVMFromRawValues has carried the same branch since wave 2."
+        }
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-29T15:40:00Z",
+      "scope": "task:2.1",
+      "made_by": "leader",
+      "decision": "Added RawOdometerKm to ChargeEntryVM in task 2.1 and de-conditionalized task 4.2",
+      "why": "design.md covered the create form's odometer value but omitted the edit row's VM field; 4.2 flagged it as a conditional. Closing it at artifact stage costs pennies vs a review round.",
+      "covered_by": "leader triage of the artifact worker's report"
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-29T15:48:00Z",
+      "scope": "wave:1",
+      "made_by": "user",
+      "decision": "Resume wave 1 now despite the unreset 5-hour bucket (88%, resets 19:10Z)",
+      "why": "Leader reported the gate had not cleared and recommended waiting; the owner chose to spend the remaining headroom now.",
+      "covered_by": "resume prompt 2026-08-29"
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-29T15:48:00Z",
+      "scope": "wave:1",
+      "made_by": "leader",
+      "decision": "Batch all four wave-1 tasks into ONE serial Sonnet worker rather than parallel dispatches",
+      "why": "Four small disjoint tasks; one dispatch reads the doc pack once. Parallel workers drain the same near-exhausted bucket faster.",
+      "covered_by": "Step 5.1 default"
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-29T15:55:00Z",
+      "scope": "task:1.2",
+      "made_by": "leader",
+      "decision": "Append task 4.3 to own the deferred deletion of the 3 i18n keys, rather than leaving it to a later worker's judgement",
+      "why": "1.2 correctly refused to delete keys with live call sites, but no existing task reclaimed the deletion. Unowned residue reaches the reviewer as dead work.",
+      "covered_by": "leader triage of the wave-1 worker report, flag 1"
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-29T15:57:00Z",
+      "scope": "wave:1",
+      "made_by": "user",
+      "decision": "Wave 1 accepted as verified on the owner's reported green `make check`",
+      "why": "Test-Execution-Policy: the suite is the owner's to run. Wave 1's tasks move from done to owner-verified on their report.",
+      "covered_by": "owner message 2026-08-29"
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-29T16:05:01Z",
+      "scope": "wave:2",
+      "made_by": "leader",
+      "decision": "Accepted the worker's edit-row extrapolation: chargeEntryVMFromRawValues keeps tasks.md's signature and the handler overwrites RawChargedOn/RawStartedAt/RawEndedAt from PostForm at both call sites",
+      "why": "ChargeFormValues genuinely has no date fields (design.md D-Values scopes them to Default*). Mirrors the create form exactly; 6 duplicated lines beat widening a spec'd signature.",
+      "covered_by": "leader triage of the wave-2 worker report, flag 2"
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-29T16:05:01Z",
+      "scope": "wave:2",
+      "made_by": "leader",
+      "decision": "Left a present-but-malformed ended_at on a DONE entry to the charging module's own write validator rather than adding a gateway parse-error branch",
+      "why": "charging/validation.go already rejects a nil EndedAt for DONE and names the field; a second gateway check would duplicate module-owned rules. Flagged to the reviewer.",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-08-29T16:12:00Z",
+      "scope": "wave:2",
+      "made_by": "leader",
+      "decision": "Added status=IN_PROGRESS to 5 pre-existing test fixtures the new required field broke, rather than relaxing the gateway's empty-status rejection",
+      "why": "design.md Test Contract A4 specifies a MISSING status must 422. The five tests assert nothing about status; adding the now-always-submitted field restores their original intent.",
+      "covered_by": "design.md Test Contract A4"
+    },
+    {
+      "id": "D9",
+      "at": "2026-08-29T16:22:00Z",
+      "scope": "wave:2",
+      "made_by": "leader",
+      "decision": "Audited all 19 charge-form fixtures instead of patching only the reported failures; added status to the 10 that reach parseChargeForm, left the 4 pre-parse CSRF/session ones alone",
+      "why": "Patching only reported names caused a second red run. Validation tests asserting just 422 were also passing off the spurious status error, so they no longer prove the check they name.",
+      "covered_by": "design.md Test Contract A4"
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-29T16:43:22Z",
+      "scope": "wave:3",
+      "made_by": "leader",
+      "decision": "Batched 4.1, 4.2, 5.1 and 4.3 into ONE serial worker instead of running wave 4, 5 and the deferred deletion separately",
+      "why": "4.3's keys are still referenced by stale _templ.go files until 5.1 regenerates. Deleting before regen leaves go build red; one serial pass closes the window.",
+      "covered_by": "tasks.md 4.3 grep exclusion of _templ.go"
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-29T17:22:54Z",
+      "scope": "wave:3",
+      "made_by": "user",
+      "decision": "Wave 3 accepted as verified on the owner's reported green `make check`",
+      "why": "Test-Execution-Policy: the suite is the owner's to run. Tasks 4.1, 4.2, 5.1, 4.3 move from awaiting-user-verification to done on their report.",
+      "covered_by": "owner message 2026-08-29"
+    },
+    {
+      "at": "2026-08-29T17:40:00Z",
+      "scope": "wave-4/C3-finding",
+      "made_by": "autopilot",
+      "decision": "Leader fixed the create-form Required* defect inline (new task 8.5) instead of re-dispatching a worker or accepting RD13's client-side mitigation.",
+      "why": "design.md D-Fields requires correct required state in the served HTML, not after JS. Fix is ~6 lines mirroring an existing helper; a re-dispatch costs ~300k tokens for it."
+    },
+    {
+      "at": "2026-08-29T18:25:00Z",
+      "scope": "review:F1",
+      "made_by": "autopilot",
+      "decision": "Rejected the reviewer's F1 nit; left the redundant fail-closed branch in applyRawRequiredState and chargeEntryVMFromRawValues.",
+      "why": "It normalizes the status value, not the required-field rule, so D-Fields holds. Removing it edits owner-verified code for no behavior change and costs a suite run."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-29T15:40:00Z",
+      "agent": "leader",
+      "event": "artifacts created by the gateway worker (claude-sonnet-5) and validated: openspec validate --strict passed; design gate NOT tripped (no database object touched)"
+    },
+    {
+      "at": "2026-08-29T15:40:00Z",
+      "agent": "leader",
+      "event": "leader fix folded into tasks.md before commit: RawOdometerKm added to task 2.1, tasks 3.2 and 4.2 updated to populate/bind it"
+    },
+    {
+      "at": "2026-08-29T15:42:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT before wave 1: five_hour_pct=86 (threshold 90, projected to cross mid-wave), context_pct=14 (threshold 40), five_hour_resets_at=2026-08-29T19:10:00Z. Artifacts committed at c639ff6; all 16 tasks pending; no work in flight. Resume with: /kkpa-dev-harness-pipeline resume RM33-gateway-update-charge-form"
+    },
+    {
+      "at": "2026-08-29T15:48:00Z",
+      "agent": "leader",
+      "event": "WAVE 1 DISPATCH (1.1, 1.2, 2.1, 6.1) to one serial gateway worker on claude-sonnet-5. Budget at dispatch: five_hour_pct=88, context_pct=9, cost_usd=0.630418. Owner overrode the unreset checkpoint gate (D2)."
+    },
+    {
+      "at": "2026-08-29T15:55:00Z",
+      "agent": "leader",
+      "event": "WAVE 1 RECONCILED: 1.1, 1.2, 2.1, 6.1 all done. Guards pass (ui-guard, i18n-guard); gofmt clean on touched files; go build + go vet clean (worker-run). All 7 new i18n keys carry ES+EN. Leader appended task 4.3 (D4). Budget: five_hour 88->98%, cost $0.63->$3.86."
+    },
+    {
+      "at": "2026-08-29T15:56:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT after wave 1: five_hour_pct=98 (threshold 90 — CROSSED), context_pct=11, five_hour_resets_at=2026-08-29T19:10:00Z. Wave 1 committed at 9387365; 1.1/1.2/2.1/6.1 done, 13 tasks pending, nothing in flight. Next wave is the sequential 3.1->3.2->3.3 single-file chain. Resume with: /kkpa-dev-harness-pipeline resume RM33-gateway-update-charge-form"
+    },
+    {
+      "at": "2026-08-29T15:56:00Z",
+      "agent": "leader",
+      "event": "Wave 1 suite verification requested from the owner (make check) — not yet reported. Assistant-run signals only so far: gofmt, go build, go vet, make ui-guard, make i18n-guard, all clean."
+    },
+    {
+      "at": "2026-08-29T15:57:00Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION: the owner ran `make check` (build vet ui-guard i18n-guard money-guard test) and reported it GREEN against wave 1. Recorded as the owner's report, not the assistant's — the assistant never ran the suite."
+    },
+    {
+      "at": "2026-08-29T15:59:00Z",
+      "agent": "leader",
+      "event": "WAVE 2 DISPATCH (3.1, 3.2, 3.3 — handlers/charges.go, sequential single-file chain) to one serial gateway worker on claude-sonnet-5. Budget at dispatch: five_hour_pct=2 (bucket reset since the wave-1 checkpoint), context_pct=10, cost_usd=0.906804."
+    },
+    {
+      "at": "2026-08-29T16:05:01Z",
+      "agent": "leader",
+      "event": "WAVE 2 RECONCILED: 3.1, 3.2, 3.3 complete, all in handlers/charges.go. Leader-run signals all clean: gofmt (charges.go), go build ./..., go vet ./..., make ui-guard, make i18n-guard. Worker caught and fixed a real ordering bug (ended_at required-check moved into the same len(errs)>0 gate so Test Contract A2 reports both errors together). Tasks held at awaiting-user-verification pending the owner's suite run. Budget: five_hour 2->14%, cost $0.91->$4.35."
+    },
+    {
+      "at": "2026-08-29T16:12:00Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION (wave 2): the owner ran `make check` and reported it RED — 5 pre-existing handler tests 422'd (TestChargeCreate_ValidInput, TestChargeRowUpdate_ValidInput, TestChargeCreate_ValidLocationKind, TestChargeCreate_ClearedDates_PersistedNil, TestChargeCreate_3DecimalEnergy_Accepted), all posting no status field. Not a code defect: design.md A4 specifies missing status must 422. Leader repaired the 5 fixtures in place (added status=IN_PROGRESS; no assertion weakened — D8). go vet clean. Tasks 3.1-3.3 remain awaiting-user-verification pending a re-run."
+    },
+    {
+      "at": "2026-08-29T16:22:00Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION (wave 2, 2nd run): RED again — TestChargeCreate_RecalculatesAfterSuccessfulWrite and _RecalculateErrorDoesNotFailTheRequest, both via the shared postCharge helper (line 231) the first patch missed. Leader error: patched the 5 reported names rather than auditing the fixture set. Full audit done (D9): 19 charge-form fixtures, 15 now carry status, 4 pre-parse CSRF/session ones correctly omit it. go vet + gofmt clean. Tasks 3.1-3.3 still awaiting-user-verification."
+    },
+    {
+      "at": "2026-08-29T16:26:00Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION (wave 2, 3rd run): the owner ran `make check` and reported it GREEN. Recorded as the owner's report, not the assistant's — the assistant never ran the suite. Tasks 3.1, 3.2, 3.3 -> done. Wave 2 complete; next is wave 3 (4.1 + 4.2, the two .templ files, parallel-ok on disjoint files)."
+    },
+    {
+      "at": "2026-08-29T16:43:22Z",
+      "agent": "leader",
+      "event": "WAVE 3 DISPATCH (4.1, 4.2, 5.1, 4.3) to one serial gateway worker on claude-sonnet-5. Batched per Step 5.1 default plus D10: 4.3 must follow 5.1's regen or the tree will not build. Budget at dispatch: five_hour_pct=22, context_pct=9, cost_usd=0.604449."
+    },
+    {
+      "at": "2026-08-29T16:48:47Z",
+      "agent": "leader",
+      "event": "WAVE 3 RECONCILED: 4.1, 4.2, 5.1, 4.3 complete, held at awaiting-user-verification. Leader-verified the diffs against tasks.md line by line: both templates match their bullet lists, colspan=\"8\" untouched, edit-row charging_type already carried selected? bindings (4.2's documented non-change), grep for the 3 deleted i18n keys returns zero live refs, ChargeEntryVM.Currency still live via formatMoney so no dead residue. Leader-run signals clean: go build ./..., go vet ./..., make ui-guard, make i18n-guard. gofmt -l flags 4 files (dashboard_vm.go, pages/dashboard.go, ui/nav_shell_test.go, vehicle_image_test.go) — all pre-existing, none touched by this wave. Budget: five_hour 22->32%, cost $0.60->$3.95."
+    },
+    {
+      "at": "2026-08-29T16:48:47Z",
+      "agent": "leader",
+      "event": "Leader corrected the worker's self-reported `done` on 5.1 and 4.3 down to awaiting-user-verification. Both are code changes covered by make check (4.3 in particular is asserted by TestCatalog_AllKeysHaveBothLanguages); write-ownership rule 4 reserves `done` for the owner's reported pass. The worker's timestamps were also wrong (00:00-00:42Z vs the real 16:43-16:48Z dispatch window); the leader recorded the real ones."
+    },
+    {
+      "at": "2026-08-29T17:22:54Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION (wave 3): the owner ran `make check` (build vet ui-guard i18n-guard money-guard test) and reported it GREEN. Recorded as the owner's report, not the assistant's — the assistant never ran the suite. Tasks 4.1, 4.2, 5.1, 4.3 -> done. No fixture fallout this wave, unlike wave 2."
+    },
+    {
+      "at": "2026-08-29T17:22:54Z",
+      "agent": "leader",
+      "event": "SESSION CHECKPOINT at the wave-3 boundary, requested by the owner (not threshold-tripped): five_hour_pct=34 (threshold 90), context_pct=14 (threshold 40), five_hour_resets_at=2026-08-29T19:10:00Z. Wave 3 committed at 4818d6c and owner-verified green; 11 of 17 tasks done, nothing in flight, tree clean. Next wave is 7.1 (AGENTS.md RD12/RD13) + the 8.1/8.2/8.3 test group, then 8.4 (owner manual JS) and 9.1 (signals). Resume with: /kkpa-dev-harness-pipeline resume RM33-gateway-update-charge-form"
+    },
+    {
+      "at": "2026-08-29T17:26:10Z",
+      "agent": "leader",
+      "event": "WAVE 4 DISPATCH (7.1, 8.1, 8.2, 8.3, 9.1) to ONE serial gateway worker on claude-sonnet-5. Batched, not parallel: 8.1/8.2/8.3 all write internal/gateway/handlers/charges_test.go, so concurrent workers would collide on one file; 9.1 rides last so the worker fixes its own compile errors in-session instead of a leader round-trip. 8.4 stays pending (owner-only manual JS). Budget at dispatch: five_hour_pct=37, context_pct=8, cost_usd=0.726595."
+    },
+    {
+      "at": "2026-08-29T17:40:00Z",
+      "agent": "leader",
+      "event": "WAVE 4 RECONCILED (7.1, 8.1, 8.2, 8.3, 9.1). Worker read the full doc pack and enumerated its design-decision compliance. Leader CORRECTED the worker's timestamps (it reported 17:05-17:37; the real dispatch bracket was 17:26:10-17:38:11) - leader owns those fields. 19 new tests written to the authored Test Contract. Budget: five_hour_pct 37->57, context_pct 12, cost_usd_delta 6.962."
+    },
+    {
+      "at": "2026-08-29T17:40:00Z",
+      "agent": "leader",
+      "event": "WAVE 4 FINDING TRIAGED AND ACCEPTED: task 8.3's C3 test surfaced that ChargeCreate's 422/500 branches set FormValues=raw but left RequiredEndedAt/RequiredEndBatteryPct computed from buildChargesPage's fresh-load IN_PROGRESS default, so a DONE submission failing an unrelated validation re-rendered ended_at/end_battery_pct without `required`. Leader verified it against design.md D-Fields ('correct required attribute for the status being rendered, no flash-of-wrong-state before JS runs') - the finding is real and RD13's htmx:load listener is NOT a sufficient mitigation. Fixed inline as new append-only task 8.5. ChargeRowUpdate was already correct via chargeEntryVMFromRawValues; the asymmetry is now gone."
+    },
+    {
+      "at": "2026-08-29T17:40:00Z",
+      "agent": "leader",
+      "event": "ENVIRONMENT ISSUE (not a code defect): `go build ./...` failed at the LINK step with 'no space left on device' - the machine is at 100% disk capacity (195Mi free of 460Gi). gofmt and `go vet ./internal/gateway/...` both pass, and vet compiles _test.go, so the change typechecks. The owner must free disk before `make check` can link cmd/web. Nothing was deleted by the assistant."
+    },
+    {
+      "at": "2026-08-29T17:52:00Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION (wave 4): the owner ran the suite and reported ONE failure - TestChargeForms_C5_NoCurrencyField_PriceHasCOPSuffix (both subtests). Recorded as the owner's report. Diagnosis: TEST bug, not a markup bug. The rendered price input is exactly what C5 specifies (<label class=\"input w-full \"><input name=\"price\" ...> <span class=\"label\">COP</span></label>); the assertion demanded the literal `<label class=\"input w-full\">` while Templ leaves a trailing space when ui.InputProps.Class is empty - the norm everywhere in that output (class=\"fieldset \"). Replaced with a regex that tolerates the generated whitespace AND pins what the literal never checked: that the price input is INSIDE the wrapper. gofmt + go vet clean. Grepped the rest of the new tests for the same brittle pattern - no other instance. All tasks stay awaiting-user-verification pending a clean green run."
+    },
+    {
+      "at": "2026-08-29T17:55:00Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION (wave 4, 2nd run): the owner ran `make check` and reported it GREEN. Recorded as the owner's report, not the assistant's - the assistant never ran the suite. Tasks 8.1, 8.2, 8.3, 8.5 -> done. Change status -> verified. 17 of 18 tasks done; only 8.4 (owner-only manual JS verification) remains open, and it gates ARCHIVE, not the review gate."
+    },
+    {
+      "at": "2026-08-29T17:55:00Z",
+      "agent": "leader",
+      "event": "REVIEWER DISPATCH (round 1) to gateway-reviewer on claude-sonnet-5, per Step 7. Brief stored in review.brief. Dispatched while task 8.4 is still open: 8.4 is manual in-browser JS verification the owner performs, fully independent of the code/test/doc review, so serializing them would idle the pipeline on a human at a keyboard. Archive still requires BOTH. Budget at dispatch: five_hour_pct=60, context_pct=13, cost_usd=9.178764."
+    },
+    {
+      "at": "2026-08-29T18:25:00Z",
+      "agent": "leader",
+      "event": "REVIEW ROUND 1: gateway-reviewer returned APPROVED (review.status=reviewer-approved). No blockers, no majors, one nit (F1) which the leader triaged and REJECTED with written justification. The reviewer also flagged an error in the leader's own brief: the commit range 4818d6c..9744a67 it named excludes charges_vm.go, both .templ files, catalog.go, app.js and input.templ, all of which the brief's own files-touched list named as in scope. The reviewer caught this and reviewed the full tier-2 diff c639ff6..9744a67 instead, so nothing was reviewed cold - but the brief was wrong and a less careful reviewer would have missed those files. Leader error, recorded."
+    },
+    {
+      "at": "2026-08-29T18:25:00Z",
+      "agent": "leader",
+      "event": "ARCHIVE BLOCKED on task 8.4 - the owner-only manual JS verification (date-sync preserving HH:MM, live required toggle with no network request, two concurrent inline edit rows). tasks.md marks it explicitly not skippable and httptest cannot reach it. The review gate has passed; 8.4 is the sole remaining gate. Top-level status deliberately left at `verified` rather than `reviewer-approved`: write-ownership rule 3 reserves that value to the reviewer, and review.status already carries the unforgeable verdict."
+    },
+    {
+      "at": "2026-08-29T18:35:00Z",
+      "agent": "leader",
+      "event": "OWNER VERIFICATION (task 8.4): the owner ran `make dev` and reported it working ('make dev is green! Working good!!'). Recorded as the owner's report. NOTE: tasks.md asked for pass/fail against each of the three behaviors separately; the owner gave one blanket pass, recorded as given rather than split into three results the owner did not state."
+    },
+    {
+      "at": "2026-08-29T18:35:00Z",
+      "agent": "leader",
+      "event": "ARCHIVED. `openspec archive` synced the gateway delta spec into openspec/specs/gateway/spec.md (+3 added, ~2 modified). The CLI (v1.3.1) placed the folder FLAT at archive/2026-08-29-...; the leader git-mv'd it to archive/gateway/ to match this project's module-grouped convention (tier 1 went to archive/charging/ earlier today). All 20 tasks.md checkboxes ticked, including O1/O2."
+    }
+  ]
+}

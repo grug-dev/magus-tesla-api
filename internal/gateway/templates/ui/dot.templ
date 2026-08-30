@@ -1,0 +1,20 @@
+package ui
+
+// DotProps configures a Dot — a small colored circle with a native hover
+// tooltip, used where a Badge's mandatory text would be redundant with an
+// adjacent label (e.g. the charges table's completeness signal, which sits
+// next to its own text badge).
+type DotProps struct {
+	Variant string // "success"|"warning"|"error"|"neutral" (DaisyUI semantic token)
+	Tooltip string // native title attribute; empty renders no tooltip
+	Class   string
+}
+
+templ Dot(p DotProps) {
+	<span
+		class={ "inline-block w-2.5 h-2.5 rounded-full", dotClass(p.Variant), p.Class }
+		if p.Tooltip != "" {
+			title={ p.Tooltip }
+		}
+	></span>
+}

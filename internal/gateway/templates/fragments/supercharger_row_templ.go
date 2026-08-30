@@ -225,7 +225,7 @@ func SuperchargerRow(vm SuperchargerRowVM, csrfToken, windowStartStr, windowEndS
 }
 
 // SuperchargerRowError renders an error <tr> when a row-level write fails on
-// an existing session — mirrors ChargeRowError. colspan="9" matches the
+// an existing session. colspan="9" matches the
 // static row's full column count (8 data cells + Actions, design.md D10 —
 // the header count after 3.2 adds the "Actions" header).
 func SuperchargerRowError(id string, msg string) templ.Component {

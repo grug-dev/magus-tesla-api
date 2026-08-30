@@ -9,14 +9,45 @@ import (
 
 // ChargeRow renders the static view of one charge entry as a table row.
 // Its id="charge-row-{vm.ID}" matches the templ.Fragment id pattern and
-// is the target for inline-edit and delete swaps (required invariant).
-templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
+// is the target for the inline-edit swap (required invariant).
+//
+// windowStartStr/windowEndStr are the SAME ?start=&end= window the table was
+// rendered under (design.md §D-Refresh, mirrors SuperchargerRow's identical
+// window-threading, supercharger_row.templ) — threaded into the Edit action's
+// hx-get so a Cancel or a re-render of the static row never silently resets the
+// user's active filter window.
+//
+// The Status column (2nd, right after the date) carries BOTH completeness
+// signals D9 asks for: a ui.Dot colour indicator (vm.Complete, design.md
+// §D-Dot) and a lifecycle ui.Badge keyed off vm.RawStatus — deliberately using
+// "primary"/"ghost" Badge Kinds, never "success"/"warning", so the badge's
+// colour vocabulary never collides with the adjacent dot's completeness colours.
+//
+// Delete's hx-target is "#charges-list" (the WHOLE list region), not
+// "#charge-row-{id}" (design.md §D-Refresh) — after a successful delete the row
+// no longer exists to swap into, so the delete button re-renders the whole
+// filtered list/tiles instead, matching the filter buttons' own target.
+templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string) {
 	<tr id={ "charge-row-" + vm.ID }>
 		<td>{ vm.ChargedOnLabel }</td>
-		<td>{ vm.VehicleLabel }</td>
+		<td>
+			<div class="flex items-center gap-2">
+				if vm.Complete {
+					@ui.Dot(ui.DotProps{Variant: "success", Tooltip: i18n.T(ctx, i18n.KeyChargesDotCompleteTooltip)})
+				} else {
+					@ui.Dot(ui.DotProps{Variant: "warning", Tooltip: i18n.T(ctx, i18n.KeyChargesDotIncompleteTooltip)})
+				}
+				if vm.RawStatus == "DONE" {
+					@ui.Badge(ui.BadgeProps{Kind: "primary", Text: i18n.T(ctx, i18n.KeyChargesBadgeDone)})
+				} else {
+					@ui.Badge(ui.BadgeProps{Kind: "ghost", Text: i18n.T(ctx, i18n.KeyChargesBadgeInProgress)})
+				}
+			</div>
+		</td>
 		<td>{ vm.EnergyKWh }</td>
 		<td>{ vm.PriceLabel }</td>
 		<td>{ vm.CostPerKWhLabel }</td>
+		<td>{ vm.BatteryRange }</td>
 		<td>{ vm.BatteryDelta }</td>
 		<td>{ vm.DurationLabel }</td>
 		<td>
@@ -25,8 +56,8 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 					Variant: "ghost",
 					Size:    "sm",
 					Attrs: templ.Attributes{
-						"hx-get":    "/ui/charges/row/" + vm.ID + "/edit",
-						"hx-target": "#charge-row-" + vm.ID,
+						"hx-get":    "/ui/charges/row/" + vm.ID + "/edit?start=" + windowStartStr + "&end=" + windowEndStr,
+						"hx-target": "#charges-list",
 						"hx-swap":   "outerHTML",
 					},
 				}) {
@@ -37,8 +68,8 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 					Size:    "sm",
 					Outline: true,
 					Attrs: templ.Attributes{
-						"hx-delete": "/ui/charges/row/" + vm.ID,
-						"hx-target": "#charge-row-" + vm.ID,
+						"hx-delete": "/ui/charges/row/" + vm.ID + "?start=" + windowStartStr + "&end=" + windowEndStr,
+						"hx-target": "#charges-list",
 						"hx-swap":   "outerHTML",
 						// hx-confirm is the message shown in the shared ui.ConfirmDialog
 						// (static/app.js intercepts htmx's htmx:confirm event); the three
@@ -57,7 +88,7 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 						// htmx alert(). checkCSRFKey already supports the header
 						// fallback (X-CSRF-Token), so switching the wire path fixes the
 						// delete-row alert (MAG-5 / D3, root-caused by static analysis).
-						"hx-headers":  `{"X-CSRF-Token": "` + csrfToken + `"}`,
+						"hx-headers": `{"X-CSRF-Token": "` + csrfToken + `"}`,
 						// csrfToken is the page-level ChargesPageData.CSRFToken carried
 						// down here from buildChargesPage; it matches the live session
 						// value (the issuing handler writes it to the session and the
@@ -71,18 +102,16 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken string) {
 	</tr>
 }
 
-// ChargeRowEmpty renders an empty <tr> used as the delete-success swap target.
-// htmx hx-swap="outerHTML" replaces the static row with this empty element,
-// which effectively removes the row from the table.
-templ ChargeRowEmpty(id string) {
-	<tr id={ "charge-row-" + id }></tr>
-}
-
-// ChargeRowError renders an error <tr> when a write operation fails on an existing row.
-templ ChargeRowError(id string, msg string) {
-	<tr id={ "charge-row-" + id }>
-		<td colspan="8">
-			<span class="text-error">{ msg }</span>
-		</td>
-	</tr>
-}
+// ChargeRowUpdateSuccessOOB was REMOVED (2026-08-29). It returned a primary
+// table-row swap plus a sibling div carrying hx-swap-oob for the charges-list
+// region, and that OOB refresh never reached the browser: htmx 2.0.4 parses a
+// response inside a template element, a leading table row puts the HTML parser
+// in table insertion mode, and the non-table sibling that follows is
+// foster-parented off the fragment's top level — where hx-swap-oob is the only
+// place htmx looks. ChargeRowUpdate now answers a successful save with the
+// whole charges-list fragment plus HX-Retarget, so there is exactly one
+// response element and no table-row/div mix.
+//
+// Do NOT reintroduce a response that pairs a top-level table row with a
+// non-table OOB sibling. ChargeCreateSuccessOOB (charge_create_form.templ) is
+// safe only because both of its elements are divs.
