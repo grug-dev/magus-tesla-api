@@ -5,9 +5,12 @@
   "module": "account",
   "roadmap": "openspec/roadmaps/RM34-account-vehicle-status.md",
   "request": "MAG-33 Step 1+2: add an Active/Inactive status column to accounts and vehicles, and filter reads on it. Step 3 (blocking inactive users at Google login) is tier 2, gateway.",
-  "status": "applied",
+  "status": "verified",
   "rollup": {
-    "current": [
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
       "T1.1",
       "T2.1",
       "T2.2",
@@ -18,27 +21,23 @@
       "T5.1",
       "T5.2",
       "T5.3",
-      "T8.1",
-      "T8.2",
-      "T8.3",
-      "T8.4",
-      "T8.5",
-      "T8.6"
-    ],
-    "pending": [],
-    "blocked": [],
-    "done": [
       "T6.1",
       "T7.1",
       "T7.2",
       "T7.3",
       "T7.4",
       "T7.5",
-      "T7.6"
+      "T7.6",
+      "T8.1",
+      "T8.2",
+      "T8.3",
+      "T8.4",
+      "T8.5",
+      "T8.6"
     ]
   },
   "created_at": "2026-08-30T03:12:00Z",
-  "updated_at": "2026-08-30T10:40:00Z",
+  "updated_at": "2026-08-30T10:45:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -58,7 +57,7 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -73,7 +72,7 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -88,7 +87,7 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -105,7 +104,7 @@
         "T1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -122,7 +121,7 @@
         "T1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -140,7 +139,7 @@
         "T3.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -158,7 +157,7 @@
         "T3.3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -175,7 +174,7 @@
         "T4.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -192,7 +191,7 @@
         "T4.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -210,7 +209,7 @@
         "T5.2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T09:51:00Z",
@@ -346,7 +345,7 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T10:34:00Z",
@@ -363,7 +362,7 @@
         "T8.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T10:34:00Z",
@@ -380,7 +379,7 @@
         "T8.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T10:34:00Z",
@@ -397,7 +396,7 @@
         "T8.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T10:34:00Z",
@@ -414,7 +413,7 @@
         "T8.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T10:34:00Z",
@@ -431,7 +430,7 @@
         "T8.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "account",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T10:34:00Z",
@@ -442,9 +441,9 @@
     }
   ],
   "review": {
-    "status": "pending",
+    "status": "in-review",
     "agent": null,
-    "brief": null,
+    "brief": "Review RM34-account-add-record-status (module: account, tier 1 of roadmap RM34, ticket MAG-33). Read the DIFF against main, not the whole module. Validate: (1) MODULE BOUNDARIES \u2014 internal/account imports no sibling module's internals; no HTML; no cross-module DB access. (2) DB-vs-DESIGN \u2014 the migration must match the design the USER confirmed at the design gate exactly: accounts.status TEXT NOT NULL DEFAULT 'Inactive' CHECK (status IN ('Active','Inactive')) with NO backfill, and vehicles.status same type but DEFAULT 'Active'. The opposite defaults are DELIBERATE (D2/D3) \u2014 flagging them as an inconsistency is wrong; verify instead that they are what design.md says. Any divergence from the confirmed design is a BLOCKER finding. (3) D14 \u2014 the four account-status predicates must use EXISTS, not JOIN, and sqlc-generated struct shapes must be unchanged. (4) D4 \u2014 UpsertAccountFromOAuth must remain UNFILTERED; it is the auth path's deliberate exemption. Verify no status predicate crept in. (5) PERFORMANCE \u2014 per the declared read-heavy profile, confirm no new index was added and that the index plan in design.md is justified. (6) SPEC/TASK COVERAGE \u2014 every tasks.md item is ticked and backed by real code; specs match behaviour. (7) ANTI-GAMING \u2014 no acceptance criterion was weakened or deleted; no status was self-approved. (8) TEST QUALITY \u2014 judge by READING, never by running. Per D7 no new coverage was added; 9 existing tests were repaired via a shared activateAccount helper because they seeded under a never-activated account. Confirm that repair is legitimate (the gate genuinely hides those rows) and not a weakening of assertions. SIGNALS: go build, go vet, gofmt, make sqlc and openspec validate --strict were ASSISTANT-run and clean. The TEST SUITE was run and reported passing by the OWNER, not the assistant. Do not run the suite yourself.",
     "rounds": []
   },
   "decisions": [
@@ -547,6 +546,11 @@
       "at": "2026-08-30T10:40:00Z",
       "agent": "leader",
       "event": "T8 reconciled: 4 reads gated via EXISTS; leader verified models.go zero-diff, no Go type change, build+vet clean; 9 existing tests repaired"
+    },
+    {
+      "at": "2026-08-30T10:45:00Z",
+      "agent": "leader",
+      "event": "OWNER reported the test suite passing; 16 tasks moved awaiting-user-verification -> done on the user's report, not the assistant's. Change -> verified."
     }
   ]
 }
