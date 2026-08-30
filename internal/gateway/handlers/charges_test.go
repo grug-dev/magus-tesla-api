@@ -2612,27 +2612,38 @@ func TestChargeForms_C6_ACDCOptionText_BothLanguages(t *testing.T) {
 	}
 }
 
-// TestChargeForms_C7_OdometerInsideMoreDetails verifies Test Contract C7:
-// both forms render an odometer_km number input inside the <details>/"More
-// details" block — after <summary> and before </details>.
-func TestChargeForms_C7_OdometerInsideMoreDetails(t *testing.T) {
+// TestChargeForms_C7_OdometerInsideOptionalDetails verifies Test Contract C7,
+// restated for the 2026-08-29 layout change: the <details>/<summary> collapse
+// is gone, so odometer_km must now render inside the always-visible "Optional
+// details" <section> instead — after its opening tag and before its close.
+func TestChargeForms_C7_OdometerInsideOptionalDetails(t *testing.T) {
 	createBody := renderCreateForm(t, fragments.ChargesPageData{}, "")
 	editBody := renderEditRow(t, fragments.ChargeEntryVM{}, "")
 
 	for _, form := range []struct {
-		name string
-		body string
-	}{{"create", createBody}, {"edit", editBody}} {
+		name       string
+		body       string
+		sectionTag string
+	}{
+		{"create", createBody, `<section id="charges-create-optional"`},
+		{"edit", editBody, `<section id="charge-row-optional-`},
+	} {
 		t.Run(form.name, func(t *testing.T) {
-			summaryIdx := strings.Index(form.body, "<summary")
-			detailsCloseIdx := strings.Index(form.body, "</details>")
-			odometerIdx := strings.Index(form.body, `name="odometer_km"`)
-			if summaryIdx == -1 || detailsCloseIdx == -1 || odometerIdx == -1 {
-				t.Fatalf("%s form: missing <summary>/</details>/odometer_km markers, body=%q", form.name, form.body[:min(1500, len(form.body))])
+			// The collapse must be GONE: a required control inside a closed
+			// <details> cannot be focused for an HTML5 validation message, so
+			// Save silently does nothing. That is what this layout fixed.
+			if strings.Contains(form.body, "<details") || strings.Contains(form.body, "<summary") {
+				t.Errorf("%s form: <details>/<summary> must not return — a required field inside a closed collapse breaks form validation", form.name)
 			}
-			if !(odometerIdx > summaryIdx && odometerIdx < detailsCloseIdx) {
-				t.Errorf("%s form: odometer_km must render between <summary> and </details>, summary=%d odometer=%d detailsClose=%d",
-					form.name, summaryIdx, odometerIdx, detailsCloseIdx)
+			sectionIdx := strings.Index(form.body, form.sectionTag)
+			sectionCloseIdx := strings.Index(form.body, "</section>")
+			odometerIdx := strings.Index(form.body, `name="odometer_km"`)
+			if sectionIdx == -1 || sectionCloseIdx == -1 || odometerIdx == -1 {
+				t.Fatalf("%s form: missing optional-details section/odometer_km markers, body=%q", form.name, form.body[:min(1500, len(form.body))])
+			}
+			if !(odometerIdx > sectionIdx && odometerIdx < sectionCloseIdx) {
+				t.Errorf("%s form: odometer_km must render inside the optional-details section, section=%d odometer=%d sectionClose=%d",
+					form.name, sectionIdx, odometerIdx, sectionCloseIdx)
 			}
 		})
 	}
@@ -2881,11 +2892,16 @@ func TestChargeCreate_D2_StartEndAbsent_FallsBackToDefaultWindow(t *testing.T) {
 	}
 }
 
-// TestChargeRowUpdate_D3_WindowFromFormThreadsIntoOOBRefresh verifies Test
-// Contract D3: PUT /ui/charges/row/{id} with a valid submission and hidden
-// start/end inputs set to a non-default window -> the response's OOB
-// #charges-list div reflects that window (mirrors D1 for the edit-row path).
-func TestChargeRowUpdate_D3_WindowFromFormThreadsIntoOOBRefresh(t *testing.T) {
+// TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow restates Test
+// Contract D3 for the 2026-08-29 amendment. D3 previously required a successful
+// PUT to re-render the OOB #charges-list under whatever window the hidden
+// start/end inputs posted. It now requires the opposite: a successful edit
+// RESETS the list to the default 7-day window, so the user lands back on the
+// "last 7 days" preset with that preset active.
+//
+// The posted window here (2026-08-01..2026-08-31) is deliberately NOT the
+// default, so a handler that still threaded it through would fail this test.
+func TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow(t *testing.T) {
 	uid := uuid.New()
 	id := uuid.New()
 	writer := &fakeChargeWriter{}
@@ -2908,14 +2924,78 @@ func TestChargeRowUpdate_D3_WindowFromFormThreadsIntoOOBRefresh(t *testing.T) {
 		t.Fatalf("D3: want 200 on valid update, got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
 	body := w.Body.String()
-	if !strings.Contains(body, `hx-swap-oob="outerHTML:#charges-list"`) {
-		t.Fatalf("D3: want an OOB #charges-list refresh in the update response (design.md §D-Refresh), body=%q", body[:min(1500, len(body))])
+
+	// The response must be the #charges-list region itself, retargeted away from
+	// the form's #charge-row-{id}. The previous shape — a primary <tr> plus a
+	// sibling <div hx-swap-oob> — never refreshed the list in the browser: htmx
+	// 2.0.4 parses responses inside a <template>, a leading <tr> puts the HTML
+	// parser in table insertion mode, and the non-table OOB sibling is
+	// foster-parented off the fragment's top level, which is the only place htmx
+	// looks for hx-swap-oob. These three assertions together are what stop that
+	// shape from coming back.
+	if got := w.Header().Get("HX-Retarget"); got != "#charges-list" {
+		t.Fatalf("D3: want HX-Retarget=#charges-list on a successful edit, got %q", got)
 	}
-	if !strings.Contains(body, `id="charges-window-start" value="2026-08-01"`) {
-		t.Errorf("D3: want the OOB #charges-list to reflect the posted start=2026-08-01, body=%q", body[:min(1500, len(body))])
+	if got := w.Header().Get("HX-Reswap"); got != "outerHTML" {
+		t.Errorf("D3: want HX-Reswap=outerHTML, got %q", got)
 	}
-	if !strings.Contains(body, `id="charges-window-end" value="2026-08-31"`) {
-		t.Errorf("D3: want the OOB #charges-list to reflect the posted end=2026-08-31, body=%q", body[:min(1500, len(body))])
+	if strings.Contains(body, "hx-swap-oob") {
+		t.Errorf("D3: the update response must NOT use an OOB swap — a <tr>+<div> response drops it; body=%q", body[:min(1500, len(body))])
+	}
+	if strings.HasPrefix(strings.TrimSpace(body), "<tr") {
+		t.Errorf("D3: the update response must not lead with a <tr> (puts htmx's parser in table mode); body=%q", body[:min(500, len(body))])
+	}
+	if !strings.Contains(body, `id="charges-list"`) {
+		t.Fatalf("D3: want the whole #charges-list region in the update response, body=%q", body[:min(1500, len(body))])
+	}
+
+	// The default window is derived the same way the handler derives it, via the
+	// same todayUTCMidnight() helper its sibling D2 test uses, so this test does
+	// not go stale on a date change or on chargesRangeDefaultDays.
+	wantStart, wantEnd := defaultChargesWindow(todayUTCMidnight())
+	if !strings.Contains(body, `id="charges-window-start" value="`+wantStart.Format("2006-01-02")+`"`) {
+		t.Errorf("D3: a successful edit must reset the list to the default window start %s, not the posted 2026-08-01; body=%q",
+			wantStart.Format("2006-01-02"), body[:min(1500, len(body))])
+	}
+	if !strings.Contains(body, `id="charges-window-end" value="`+wantEnd.Format("2006-01-02")+`"`) {
+		t.Errorf("D3: a successful edit must reset the list to the default window end %s, not the posted 2026-08-31; body=%q",
+			wantEnd.Format("2006-01-02"), body[:min(1500, len(body))])
+	}
+	// The point of the reset: the "last 7 days" preset comes back selected.
+	// buildChargesPresets marks Active by exact-match against its own recomputed
+	// window, so asserting the rendered active preset proves the reset landed on
+	// a real preset rather than merely on some 7-day range.
+	if !strings.Contains(body, `hx-get="/ui/charges/list?start=`+wantStart.Format("2006-01-02")+`&end=`+wantEnd.Format("2006-01-02")+`"`) {
+		t.Errorf("D3: want the last-7-days preset rendered for the reset window; body=%q", body[:min(2000, len(body))])
+	}
+}
+
+// TestChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow is the other
+// half of the amendment: only SUCCESS resets. A failed save must not move the
+// user's filter, so the re-rendered edit form still echoes the posted window
+// back through its hidden start/end inputs — which is the whole reason those
+// inputs exist (design.md §D-Include).
+func TestChargeRowUpdate_D3b_ValidationFailureKeepsThePostedWindow(t *testing.T) {
+	uid := uuid.New()
+	id := uuid.New()
+	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{entries: []charging.Entry{}})
+
+	form := url.Values{
+		"csrf_token":    {"tok"},
+		"status":        {"IN_PROGRESS"},
+		"charged_on":    {"2026-07-16"},
+		"location_kind": {"WORK"},
+		// start_battery_pct omitted -> validation failure
+		"start": {"2026-08-01"},
+		"end":   {"2026-08-31"},
+	}
+	w := submitForm(t, h, uid, http.MethodPut, "/ui/charges/row/"+id.String(), form)
+	if w.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("D3b: want 422 on the invalid update, got %d", w.Code)
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, `name="start" value="2026-08-01"`) || !strings.Contains(body, `name="end" value="2026-08-31"`) {
+		t.Errorf("D3b: a FAILED save must echo the posted window back into the edit form, not reset it; body=%q", body[:min(1500, len(body))])
 	}
 }
 

@@ -224,9 +224,16 @@ func ChargesList(d ChargesPageData) templ.Component {
 						}
 						ctx = templ.InitializeContext(ctx)
 						for _, vm := range d.Entries {
-							templ_7745c5c3_Err = ChargeRow(vm, d.CSRFToken, d.WindowStartStr, d.WindowEndStr).Render(ctx, templ_7745c5c3_Buffer)
-							if templ_7745c5c3_Err != nil {
-								return templ_7745c5c3_Err
+							if vm.ID != "" && vm.ID == d.EditingID {
+								templ_7745c5c3_Err = ChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr).Render(ctx, templ_7745c5c3_Buffer)
+								if templ_7745c5c3_Err != nil {
+									return templ_7745c5c3_Err
+								}
+							} else {
+								templ_7745c5c3_Err = ChargeRow(vm, d.CSRFToken, d.WindowStartStr, d.WindowEndStr).Render(ctx, templ_7745c5c3_Buffer)
+								if templ_7745c5c3_Err != nil {
+									return templ_7745c5c3_Err
+								}
 							}
 						}
 						return nil
@@ -325,7 +332,7 @@ func chargesRangeSelector(presets []RangePreset) templ.Component {
 						var templ_7745c5c3_Var14 string
 						templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 98, Col: 15}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 102, Col: 15}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 						if templ_7745c5c3_Err != nil {
@@ -362,7 +369,7 @@ func chargesRangeSelector(presets []RangePreset) templ.Component {
 						var templ_7745c5c3_Var16 string
 						templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 111, Col: 15}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 115, Col: 15}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 						if templ_7745c5c3_Err != nil {
@@ -482,7 +489,7 @@ func ChargesEmptyState() templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyChargesListEmpty))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 135, Col: 72}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/fragments/charges_list.templ`, Line: 139, Col: 72}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {

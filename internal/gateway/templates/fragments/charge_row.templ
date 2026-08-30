@@ -57,7 +57,7 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string
 					Size:    "sm",
 					Attrs: templ.Attributes{
 						"hx-get":    "/ui/charges/row/" + vm.ID + "/edit?start=" + windowStartStr + "&end=" + windowEndStr,
-						"hx-target": "#charge-row-" + vm.ID,
+						"hx-target": "#charges-list",
 						"hx-swap":   "outerHTML",
 					},
 				}) {
@@ -102,19 +102,16 @@ templ ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string
 	</tr>
 }
 
-// ChargeRowUpdateSuccessOOB renders a successful inline-edit save: the
-// primary swap (the freshly-updated static row, unchanged shape/target
-// "#charge-row-{id}") plus an OOB refresh of "#charges-list" so the
-// aggregation tiles stay in sync with the just-edited entry (design.md
-// §D-Refresh — mirrors ChargeCreateSuccessOOB's proven OOB pattern rather
-// than inventing a second mechanism). htmx applies hx-swap-oob elements
-// first; because the OOB-refreshed #charges-list itself contains a
-// freshly-rendered #charge-row-{id} for the SAME entry, the primary swap
-// still finds a live target afterward and replaces it with byte-identical
-// content — a harmless redundant re-paint, not a DOM error.
-templ ChargeRowUpdateSuccessOOB(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string, list ChargesPageData) {
-	@ChargeRow(vm, csrfToken, windowStartStr, windowEndStr)
-	<div id="charges-list" hx-swap-oob="outerHTML:#charges-list">
-		@ChargesList(list)
-	</div>
-}
+// ChargeRowUpdateSuccessOOB was REMOVED (2026-08-29). It returned a primary
+// table-row swap plus a sibling div carrying hx-swap-oob for the charges-list
+// region, and that OOB refresh never reached the browser: htmx 2.0.4 parses a
+// response inside a template element, a leading table row puts the HTML parser
+// in table insertion mode, and the non-table sibling that follows is
+// foster-parented off the fragment's top level — where hx-swap-oob is the only
+// place htmx looks. ChargeRowUpdate now answers a successful save with the
+// whole charges-list fragment plus HX-Retarget, so there is exactly one
+// response element and no table-row/div mix.
+//
+// Do NOT reintroduce a response that pairs a top-level table row with a
+// non-table OOB sibling. ChargeCreateSuccessOOB (charge_create_form.templ) is
+// safe only because both of its elements are divs.

@@ -61,6 +61,7 @@ import (
 templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 	<div id="charges-create-form">
 		@ui.Card(ui.CardProps{Title: i18n.T(ctx, i18n.KeyChargesFormTitle)}) {
+			<p id="charges-create-hint" class="text-sm text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormCreateHint) }</p>
 			if d.Notice != "" {
 				@ui.Alert(ui.AlertProps{Kind: "success"}) {
 					{ d.Notice }
@@ -89,22 +90,15 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormDate), Error: validationErrors["charged_on"]}) {
 						@ui.Input(ui.InputProps{Type: "date", Name: "charged_on", Value: d.DefaultChargedOn, Required: true})
 					}
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEnergyAdded), Error: validationErrors["energy_added_kwh"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEnergyAdded), Error: validationErrors["energy_added_kwh"], Optional: true}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "energy_added_kwh", Value: d.FormValues.EnergyAddedKWh, Attrs: templ.Attributes{"step": "0.001", "min": "0.001"}})
 					}
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormPrice), Error: validationErrors["price"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormPrice), Error: validationErrors["price"], Optional: true}) {
 						// i18n:allow: ISO currency code
 						@ui.Input(ui.InputProps{Type: "number", Name: "price", Value: d.FormValues.Price, Suffix: "COP", Attrs: templ.Attributes{"step": "0.01", "min": "0"}})
 					}
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocation), Error: validationErrors["location_kind"]}) {
-						@ui.Select(ui.SelectProps{Name: "location_kind", Required: true}) {
-							<option value="HOME" selected?={ d.FormValues.LocationKind == "HOME" }>{ i18n.T(ctx, i18n.KeyChargesFormHome) }</option>
-							<option value="WORK" selected?={ d.FormValues.LocationKind == "WORK" }>{ i18n.T(ctx, i18n.KeyChargesFormWork) }</option>
-							<option value="OTHER" selected?={ d.FormValues.LocationKind == "OTHER" }>{ i18n.T(ctx, i18n.KeyChargesFormOther) }</option>
-						}
-					}
 					// D1: optional date fields moved up from "More details"; default to today (pre-computed by the handler).
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartedAt), Error: validationErrors["started_at"]}) {
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormStartedAt), Error: validationErrors["started_at"], Optional: true}) {
 						@ui.Input(ui.InputProps{Type: "datetime-local", Name: "started_at", Value: d.DefaultStartedAt})
 					}
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndedAt), Error: validationErrors["ended_at"]}) {
@@ -123,9 +117,16 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormEndBatteryPct), Error: validationErrors["end_battery_pct"]}) {
 						@ui.Input(ui.InputProps{Type: "number", Name: "end_battery_pct", Value: d.FormValues.EndBatteryPct, Required: d.RequiredEndBatteryPct, Attrs: templ.Attributes{"min": "0", "max": "100", "step": "1"}})
 					}
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocation), Error: validationErrors["location_kind"]}) {
+						@ui.Select(ui.SelectProps{Name: "location_kind", Required: true}) {
+							<option value="HOME" selected?={ d.FormValues.LocationKind == "HOME" }>{ i18n.T(ctx, i18n.KeyChargesFormHome) }</option>
+							<option value="WORK" selected?={ d.FormValues.LocationKind == "WORK" }>{ i18n.T(ctx, i18n.KeyChargesFormWork) }</option>
+							<option value="OTHER" selected?={ d.FormValues.LocationKind == "OTHER" }>{ i18n.T(ctx, i18n.KeyChargesFormOther) }</option>
+						}
+					}
 				</div>
-				<details>
-					<summary class="cursor-pointer font-medium">{ i18n.T(ctx, i18n.KeyChargesFormMoreDetails) }</summary>
+				<section id="charges-create-optional">
+					<h3 class="font-medium text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormOptionalDetails) }</h3>
 					<div class="grid gap-3 sm:grid-cols-2 mt-2">
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormChargingType)}) {
 							@ui.Select(ui.SelectProps{Name: "charging_type"}) {
@@ -144,7 +145,7 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 							@ui.Textarea(ui.TextareaProps{Name: "notes"}) { { d.FormValues.Notes } }
 						}
 					</div>
-				</details>
+				</section>
 				<div>
 					@ui.Button(ui.ButtonProps{Type: "submit", Variant: "primary"}) {
 						{ i18n.T(ctx, i18n.KeyChargesFormLogCharge) }

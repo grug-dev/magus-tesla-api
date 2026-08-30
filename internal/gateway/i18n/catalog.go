@@ -107,7 +107,12 @@ const (
 	KeyChargesFormEndedAt         Key = "charges_form.ended_at"
 	KeyChargesFormStartBatteryPct Key = "charges_form.start_battery_pct"
 	KeyChargesFormEndBatteryPct   Key = "charges_form.end_battery_pct"
-	KeyChargesFormMoreDetails     Key = "charges_form.more_details"
+	KeyChargesFormOptionalDetails Key = "charges_form.optional_details"
+	// Short helper copy under each form's title. Both state RULES THAT LIVE IN GO
+	// (charging.resolveEnergy's derivation and charging.RequiredFieldsFor's sets) —
+	// if either rule changes, these strings are part of that change.
+	KeyChargesFormCreateHint Key = "charges_form.create_hint"
+	KeyChargesFormEditHint   Key = "charges_form.edit_hint"
 	KeyChargesFormChargingType    Key = "charges_form.charging_type"
 	KeyChargesFormAC              Key = "charges_form.ac"
 	KeyChargesFormDC              Key = "charges_form.dc"
@@ -115,7 +120,6 @@ const (
 	KeyChargesFormNotes           Key = "charges_form.notes"
 	KeyChargesFormLogCharge       Key = "charges_form.log_charge"
 	KeyChargesFormVehicle         Key = "charges_form.vehicle"
-	KeyChargesFormLocationKind    Key = "charges_form.location_kind"
 	KeyChargesFormSave            Key = "charges_form.save"
 	KeyChargesFormCancel          Key = "charges_form.cancel"
 	// --- status control + odometer, added by RM33-gateway-update-charge-form ---
@@ -246,6 +250,13 @@ const (
 	KeyOAuthErrorCouldNotStartLogin          Key = "oauth_error.could_not_start_login"
 	KeyOAuthErrorGoogleLoginFailed           Key = "oauth_error.google_login_failed"
 	KeyOAuthErrorCouldNotProvisionAccount    Key = "oauth_error.could_not_provision_account"
+
+	// --- shared form vocabulary (templates/ui/) ---
+	// Rendered by ui.Field when FieldProps.Optional is set. Deliberately generic
+	// (no charges_ prefix): it is the ui/ kit's own string, reusable by every
+	// future form, and belongs to the kit's closed vocabulary rather than to one
+	// page's namespace.
+	KeyFormOptional Key = "form.optional"
 
 	// --- charges validation + errors (handlers/charges.go) ---
 	KeyChargesErrorSelectVehicle                    Key = "charges_error.select_vehicle"
@@ -414,7 +425,9 @@ var catalog = map[Key]entry{
 	KeyChargesFormEndedAt:          {ES: "Hora de fin", EN: "Ended at"},
 	KeyChargesFormStartBatteryPct:  {ES: "% de batería inicial", EN: "Start battery %"},
 	KeyChargesFormEndBatteryPct:    {ES: "% de batería final", EN: "End battery %"},
-	KeyChargesFormMoreDetails:      {ES: "Más detalles", EN: "More details"},
+	KeyChargesFormOptionalDetails:  {ES: "Detalles opcionales", EN: "Optional details"},
+	KeyChargesFormCreateHint:       {ES: "Si dejas Energía vacía, se estimará a partir de la diferencia de batería, una vez que el porcentaje inicial y el final estén definidos. Una carga En progreso solo requiere Fecha, Ubicación y % de batería inicial.", EN: "Leave Energy empty and it will be estimated from the battery difference, once both the start and end percentages are set. An In progress charge only requires Date, Location and Start battery %."},
+	KeyChargesFormEditHint:         {ES: "Para cambiar el estado a Finalizada, Hora de fin y % de batería final son obligatorios.", EN: "To change the status to Done, Ended at and End battery % are required."},
 	KeyChargesFormChargingType:     {ES: "Tipo de carga", EN: "Charging type"},
 	KeyChargesFormAC:               {ES: "AC — Carga lenta (casa/destino)", EN: "AC — Slow charging (home/destination)"},
 	KeyChargesFormDC:               {ES: "DC — Carga rápida (Supercargador)", EN: "DC — Fast charging (Supercharger)"},
@@ -422,7 +435,6 @@ var catalog = map[Key]entry{
 	KeyChargesFormNotes:            {ES: "Notas", EN: "Notes"},
 	KeyChargesFormLogCharge:        {ES: "Registrar carga", EN: "Log charge"},
 	KeyChargesFormVehicle:          {ES: "Vehículo", EN: "Vehicle"},
-	KeyChargesFormLocationKind:     {ES: "Tipo de ubicación", EN: "Location kind"},
 	KeyChargesFormSave:             {ES: "Guardar", EN: "Save"},
 	KeyChargesFormCancel:           {ES: "Cancelar", EN: "Cancel"},
 	KeyChargesFormStatus:           {ES: "Estado", EN: "Status"},
@@ -532,6 +544,8 @@ var catalog = map[Key]entry{
 	KeyOAuthErrorCouldNotStartLogin:          {ES: "no se pudo iniciar sesión", EN: "could not start login"},
 	KeyOAuthErrorGoogleLoginFailed:           {ES: "falló el inicio de sesión con Google", EN: "google login failed"},
 	KeyOAuthErrorCouldNotProvisionAccount:    {ES: "no se pudo aprovisionar la cuenta", EN: "could not provision account"},
+
+	KeyFormOptional: {ES: "(opcional)", EN: "(optional)"},
 
 	KeyChargesErrorSelectVehicle:                    {ES: "Selecciona un vehículo.", EN: "Please select a vehicle."},
 	KeyChargesErrorDateRequired:                     {ES: "La fecha es obligatoria.", EN: "Date is required."},

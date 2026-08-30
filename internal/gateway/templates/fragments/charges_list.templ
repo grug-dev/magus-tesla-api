@@ -61,7 +61,11 @@ templ ChargesList(d ChargesPageData) {
 						i18n.T(ctx, i18n.KeyChargesListHeaderActions),
 					}}) {
 						for _, vm := range d.Entries {
-							@ChargeRow(vm, d.CSRFToken, d.WindowStartStr, d.WindowEndStr)
+							if vm.ID != "" && vm.ID == d.EditingID {
+								@ChargeRowEdit(vm, d.CSRFToken, nil, d.WindowStartStr, d.WindowEndStr)
+							} else {
+								@ChargeRow(vm, d.CSRFToken, d.WindowStartStr, d.WindowEndStr)
+							}
 						}
 					}
 				}

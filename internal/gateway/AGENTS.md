@@ -118,6 +118,16 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   bug. If a repeated element has no wrapper, **add one to `ui/`** instead of inlining. Theme
   tokens (`text-error`, `bg-base-100`) and Tailwind layout utilities stay inline — the stable
   layers. Pages/fragments pass VM-ready strings in.
+- **`ui.FieldProps.Optional`** (`templates/ui/field.templ`) — appends a muted `(optional)` /
+  `(opcional)` hint to a field's legend, resolved from `i18n.KeyFormOptional` inside the kit
+  (a deliberately generic, non-`charges_` key: it is the kit's own vocabulary, reusable by
+  every future form). Use it INSTEAD of a `placeholder` for this signal: browsers ignore
+  `placeholder` on `date`/`datetime-local` inputs and `<select>` has none at all, so a
+  placeholder-based hint silently skips exactly the controls whose requiredness is least
+  obvious. **Only for an UNCONDITIONALLY optional field** — never for a conditionally
+  required one (`ended_at` / `end_battery_pct`, whose `required` attribute RD13 toggles
+  client-side as the status select changes), because the server-rendered hint would go stale
+  the instant the user switches status.
 - **`ui.Dot`** (`templates/ui/dot.templ`, `DotProps{Variant, Tooltip, Class}`) — a small
   colour-only completeness/status indicator with a native hover tooltip, for a spot where
   `ui.Badge`'s mandatory text would be redundant with an adjacent label. `Variant` is one of
@@ -294,6 +304,114 @@ gateway layer would force an external HTTP API that the browser would then need 
 call — an unnecessary layer when the gateway is already the only HTML surface.
 The write is intentional (form POST), narrow (one module's Writer port),
 CSRF-protected, and tenant-scoped.
+
+### Manual charge form layout (both forms, 2026-08-29)
+
+`ChargeCreateForm` and `ChargeRowEdit` render the SAME nine fields in the SAME
+order — `status`, `charged_on`, `energy_added_kwh`, `price`, `started_at`,
+`ended_at`, `start_battery_pct`, `end_battery_pct`, `location_kind` — in the main
+grid, followed by an always-visible **"Optional details"** `<section>`
+(`charging_type`, `location_label`, `odometer_km`, `notes`). The edit row appends
+one edit-only extra after the shared nine: the read-only Vehicle display.
+`TestChargeForms_FieldOrderIsSharedAndLocationLast`
+(`handlers/charges_form_layout_test.go`) checks both templates against ONE
+order list, so "the same order" is enforced rather than merely intended.
+
+- **No `<details>`/`<summary>` collapse on either form — do not reintroduce one.**
+  It previously hid `location_kind` (always required) and `ended_at` (required when
+  status is DONE) in the edit row, and a browser **cannot report an HTML5 validation
+  message on a control inside a closed `<details>`** — Chrome logs *"An invalid form
+  control with name='location_kind' is not focusable"* and the submit silently does
+  nothing: no message, no request. If a future field must be tucked away, it has to be
+  unconditionally optional, and the section stays open.
+- **`location_kind` is required and belongs in the main grid**, last — never in the
+  optional section. `TestChargeForms_LocationIsLastInTheMainGrid` pins this.
+- **The section heading carries the optional signal for its own four fields**; the
+  per-field `ui.FieldProps.Optional` hint marks only the optional fields that live in
+  the MAIN grid (`energy_added_kwh`, `price`, `started_at`), so the two signals never
+  duplicate each other.
+
+### Manual charge edit: a successful save returns the whole list, retargeted
+
+`ChargeRowUpdate`'s SUCCESS path answers with the **whole `#charges-list`
+fragment** plus `HX-Retarget: #charges-list` / `HX-Reswap: outerHTML`, rendered
+under `defaultChargesWindow(today)` so the user lands back on the **"last 7
+days"** preset. `defaultChargesWindow` returns exactly that preset's
+`(today-6, today)` range, so `buildChargesPresets` marks it `Active` by its own
+exact-match rule — nothing hardcodes a preset index or label.
+
+- **Never pair a top-level `<tr>` with a non-table `hx-swap-oob` sibling in one
+  response.** This path used to return a primary row swap plus an OOB
+  `#charges-list` div, and **the list never refreshed in the browser**: htmx
+  2.0.4 parses a response inside a `<template>` (`makeFragment`), a leading
+  `<tr>` start tag switches the HTML parser into table insertion mode, and the
+  non-table sibling that follows is foster-parented off the fragment's top
+  level — the only place htmx looks for `hx-swap-oob`. Server-side tests saw the
+  OOB div in the response body and passed; only the browser dropped it.
+  `ChargeCreateSuccessOOB` is unaffected because both of its elements are
+  `<div>`s, which is exactly why create refreshed the list and edit did not.
+- **Why `HX-Retarget` rather than changing the form's `hx-target`.** The form's
+  `hx-target` stays `#charge-row-{id}`, which is correct for the 4xx/5xx
+  branches: they re-render the edit row in place and preserve the user's typed
+  values (design.md §D-Values). Only the success path retargets, so one response
+  element covers it with no OOB and no mixed content.
+- **Only success resets the window.** The error branches still echo the POSTED
+  window (`windowFromForm` → the form's hidden `start`/`end` inputs, §D-Include);
+  a failed save must not move the user's filter. Test Contract **D3** covers the
+  retarget + reset, **D3b** the error-path echo — the pair is the contract.
+- **This amends the original §D-Refresh/§D-Include rule** for the update path
+  only; `ChargeCreate` and `ChargeRowDelete` still preserve the posted window.
+- **Known consequence:** an entry dated outside the last 7 days will not appear
+  in the refreshed list after being edited. That is inherent to resetting the
+  filter — the record is saved, it is just outside the window now shown.
+
+**Known latent issue, not yet fixed:** `ChargeCreateSuccessOOB` wraps
+`ChargesList` (whose own root is `<div id="charges-list">`) in a second
+`<div id="charges-list" hx-swap-oob=...>`, so after a create the live DOM holds
+two nested elements with that id. It works today — the OOB replaces the outer,
+lookups resolve to it — but it is a duplicate-id trap for anything that later
+targets `#charges-list`. The fix is to let `ChargesList`'s own root carry the
+OOB attribute instead of wrapping it; do that the next time this path is touched.
+
+### Manual charge list: only ONE row is editable at a time
+
+`GET /ui/charges/row/:id/edit` (`ChargeRowEditFragment`) renders the **whole
+`#charges-list` region** with that row — and only that row — in edit mode, driven
+by `ChargesPageData.EditingID`. The row's Edit button therefore carries
+`hx-target="#charges-list"`, not `hx-target="#charge-row-{id}"`.
+
+- **Why the list, not the row.** When the row was its own swap target, each Edit
+  click was independent, so a user could open every row at once and end up with N
+  competing forms. Making the LIST the swap unit means opening a second editor
+  necessarily re-renders the first one closed — the invariant holds on every
+  render instead of depending on client-side bookkeeping a stray swap could
+  desynchronize. It also needs **no new JS**, so no RD entry: the Delete button in
+  the same file already targets `#charges-list` this exact way, and this mirrors
+  that existing mechanism rather than inventing a second one.
+- **`EditingID` is set by `ChargeRowEditFragment` and by nothing else.** Every
+  other render leaves it empty, which is what closes an open editor after a
+  successful save (`ChargeRowUpdate`'s OOB `#charges-list` refresh), a delete, a
+  filter click or a vehicle switch. Do not set it from `buildChargesPage`.
+- **Cancel still swaps the single row** (`ChargeRowStatic` → `#charge-row-{id}`)
+  and stays correct precisely because only one row can be open.
+- A 404 for an id absent from the rendered window is deliberate: Edit is only
+  reachable from a row the user can see, and the presence check costs no extra
+  read (it scans the page just built).
+
+### Manual charge form helper copy
+
+Both forms carry one short line under the title, from the catalogue:
+`KeyChargesFormCreateHint` (create) and `KeyChargesFormEditHint` (edit row).
+**These strings state rules that live in Go**, so a change to either rule is
+incomplete until the copy follows:
+
+- the create hint states `charging.resolveEnergy`'s derivation (`service.go`) — an
+  omitted energy is estimated from the battery delta × pack capacity, and **only
+  when both `StartBatteryPct` and `EndBatteryPct` are present with end > start**,
+  so an IN_PROGRESS entry gets no estimate until it is completed — and the
+  IN_PROGRESS required set;
+- the edit hint states `charging.RequiredFieldsFor(StatusDone)`'s extra fields
+  (`ended_at`, `end_battery_pct`).
 
 ### Manual charge rule: one IN_PROGRESS entry per (vehicle, charged_on)
 

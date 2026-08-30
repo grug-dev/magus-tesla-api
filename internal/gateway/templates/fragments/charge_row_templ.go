@@ -218,7 +218,7 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 			Size:    "sm",
 			Attrs: templ.Attributes{
 				"hx-get":    "/ui/charges/row/" + vm.ID + "/edit?start=" + windowStartStr + "&end=" + windowEndStr,
-				"hx-target": "#charge-row-" + vm.ID,
+				"hx-target": "#charges-list",
 				"hx-swap":   "outerHTML",
 			},
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var10), templ_7745c5c3_Buffer)
@@ -291,55 +291,17 @@ func ChargeRow(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string)
 	})
 }
 
-// ChargeRowUpdateSuccessOOB renders a successful inline-edit save: the
-// primary swap (the freshly-updated static row, unchanged shape/target
-// "#charge-row-{id}") plus an OOB refresh of "#charges-list" so the
-// aggregation tiles stay in sync with the just-edited entry (design.md
-// §D-Refresh — mirrors ChargeCreateSuccessOOB's proven OOB pattern rather
-// than inventing a second mechanism). htmx applies hx-swap-oob elements
-// first; because the OOB-refreshed #charges-list itself contains a
-// freshly-rendered #charge-row-{id} for the SAME entry, the primary swap
-// still finds a live target afterward and replaces it with byte-identical
-// content — a harmless redundant re-paint, not a DOM error.
-func ChargeRowUpdateSuccessOOB(vm ChargeEntryVM, csrfToken, windowStartStr, windowEndStr string, list ChargesPageData) templ.Component {
-	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
-			return templ_7745c5c3_CtxErr
-		}
-		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-		if !templ_7745c5c3_IsBuffer {
-			defer func() {
-				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-				if templ_7745c5c3_Err == nil {
-					templ_7745c5c3_Err = templ_7745c5c3_BufErr
-				}
-			}()
-		}
-		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var14 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var14 == nil {
-			templ_7745c5c3_Var14 = templ.NopComponent
-		}
-		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = ChargeRow(vm, csrfToken, windowStartStr, windowEndStr).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div id=\"charges-list\" hx-swap-oob=\"outerHTML:#charges-list\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = ChargesList(list).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</div>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		return nil
-	})
-}
-
+// ChargeRowUpdateSuccessOOB was REMOVED (2026-08-29). It returned a primary
+// table-row swap plus a sibling div carrying hx-swap-oob for the charges-list
+// region, and that OOB refresh never reached the browser: htmx 2.0.4 parses a
+// response inside a template element, a leading table row puts the HTML parser
+// in table insertion mode, and the non-table sibling that follows is
+// foster-parented off the fragment's top level — where hx-swap-oob is the only
+// place htmx looks. ChargeRowUpdate now answers a successful save with the
+// whole charges-list fragment plus HX-Retarget, so there is exactly one
+// response element and no table-row/div mix.
+//
+// Do NOT reintroduce a response that pairs a top-level table row with a
+// non-table OOB sibling. ChargeCreateSuccessOOB (charge_create_form.templ) is
+// safe only because both of its elements are divs.
 var _ = templruntime.GeneratedTemplate

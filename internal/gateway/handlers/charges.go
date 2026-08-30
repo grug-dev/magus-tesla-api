@@ -182,10 +182,22 @@ func (h *Handler) ChargeRowStatic(c *gin.Context) {
 	render(c, http.StatusOK, fragments.ChargeRow(vm, csrfToken, windowStartStr, windowEndStr))
 }
 
-// ChargeRowEditFragment swaps the static row for an inline edit form. Threads
-// the active filter window the same way ChargeRowStatic does (design.md
-// §D-Refresh, leader resolution L3) into fragments.ChargeRowEdit's new hidden
-// start/end inputs.
+// ChargeRowEditFragment opens the inline edit form for ONE row. It renders the
+// WHOLE #charges-list region with that row — and only that row — in edit mode,
+// rather than returning a bare <tr> swapped into #charge-row-{id}.
+//
+// That is the fix for "N rows, N open edit forms": when the row was the swap
+// target, each Edit click was independent, so a user could open every row at
+// once and have several competing forms on screen. Making the LIST the unit of
+// truth means opening a second row necessarily re-renders the first one closed —
+// the invariant is enforced by the server on every render, not by client-side
+// bookkeeping that a stray swap could desynchronize. It also needs no new JS:
+// the row's Delete button already targets #charges-list this exact way, so this
+// mirrors an existing mechanism in the same file instead of inventing one.
+//
+// Threads the active filter window (?start=&end=, windowFromQuery — best-effort,
+// never a gate, design.md §D-Refresh/leader resolution L3) so opening an editor
+// never silently resets the user's filter.
 func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
 	uid, ok := currentUID(c)
 	if !ok {
@@ -201,15 +213,31 @@ func (h *Handler) ChargeRowEditFragment(c *gin.Context) {
 	sess := sessions.Default(c)
 	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
 
-	vm, ok2 := h.fetchEntryVM(c.Request.Context(), uid, id)
-	if !ok2 {
+	filterTeslaID := int64(0)
+	if sel, ok := h.resolveSelectedVehicle(c.Request.Context(), c, uid); ok {
+		filterTeslaID = sel.TeslaID
+	}
+	today := browserToday(c)
+	start, end := windowFromQuery(c, today)
+	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+
+	// The row must be present in the window just rendered — Edit is only
+	// reachable from a row the user can see. Checking the built page costs no
+	// extra read (the old bare-row path spent one on fetchEntryVM) and keeps
+	// the 404 contract for an id that is not the caller's or no longer exists.
+	found := false
+	for _, vm := range d.Entries {
+		if vm.ID == id.String() {
+			found = true
+			break
+		}
+	}
+	if !found {
 		c.String(http.StatusNotFound, i18n.T(c.Request.Context(), i18n.KeyChargesErrorEntryNotFound))
 		return
 	}
-	start, end := windowFromQuery(c, browserToday(c))
-	windowStartStr := start.Format("2006-01-02")
-	windowEndStr := end.Format("2006-01-02")
-	render(c, http.StatusOK, fragments.ChargeRowEdit(vm, csrfToken, nil, windowStartStr, windowEndStr))
+	d.EditingID = id.String()
+	renderFragment(c, http.StatusOK, pages.ChargePage(d), "charges-list")
 }
 
 // ChargeCreate handles POST /ui/charges/create. It auth-guards, CSRF-checks,
@@ -434,13 +462,38 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	if hadOld && !oldChargedOn.Equal(updated.ChargedOn) {
 		h.recalculateAfterChargeWrite(c.Request.Context(), uid, updated.TeslaID, oldChargedOn)
 	}
-	vm := chargeEntryVMFromEntry(updated, vehicles)
-	// design.md §D-Refresh: success mirrors ChargeCreateSuccessOOB rather than
-	// inventing a second mechanism — the primary #charge-row-{id} swap plus an
-	// OOB #charges-list refresh, built from the SAME buildChargesPage path
-	// every other list render uses (no new render function).
-	list := h.buildChargesPage(c.Request.Context(), uid, csrfToken, updated.TeslaID, today, start, end)
-	render(c, http.StatusOK, fragments.ChargeRowUpdateSuccessOOB(vm, csrfToken, windowStartStr, windowEndStr, list))
+	// A SUCCESSFUL edit re-renders the WHOLE #charges-list region, retargeted
+	// away from the form's own #charge-row-{id}. This replaced an earlier
+	// "primary <tr> swap + OOB #charges-list refresh" response, which did not
+	// refresh the list in the browser at all:
+	//
+	// htmx 2.0.4 parses a response inside <template class="internal-htmx-wrapper">.
+	// Per the HTML parsing spec a <tr> start tag switches the parser into table
+	// insertion mode, so a NON-table sibling that follows it — here the
+	// <div id="charges-list" hx-swap-oob=...> — goes down the foster-parenting
+	// path instead of staying a top-level child of the fragment. htmx only
+	// applies hx-swap-oob to top-level children, so the refresh was silently
+	// dropped. ChargeCreateSuccessOOB is unaffected because its response is
+	// <div>+<div>, with no <tr> to put the parser in table mode — which is
+	// exactly why create refreshed the list and edit did not.
+	//
+	// HX-Retarget/HX-Reswap keep the form's markup honest: hx-target stays
+	// #charge-row-{id}, which is right for the 4xx/5xx branches above (they
+	// re-render the edit row in place, preserving the user's typed values per
+	// design.md §D-Values). Only the success path retargets, so there is one
+	// response element, no OOB, and no <tr>/<div> mixing.
+	//
+	// The window resets to the default 7-day one so the user lands back on the
+	// "last 7 days" preset: defaultChargesWindow returns exactly that preset's
+	// (today-6, today) range and buildChargesPresets marks it Active by its own
+	// exact-match rule — nothing here hardcodes a preset index or label. The
+	// posted window still governs the ERROR branches' echo; a failed save must
+	// not move the user's filter.
+	c.Header("HX-Retarget", "#charges-list")
+	c.Header("HX-Reswap", "outerHTML")
+	listStart, listEnd := defaultChargesWindow(today)
+	list := h.buildChargesPage(c.Request.Context(), uid, csrfToken, updated.TeslaID, today, listStart, listEnd)
+	renderFragment(c, http.StatusOK, pages.ChargePage(list), "charges-list")
 }
 
 // ChargeRowDelete handles DELETE /ui/charges/row/:id. Deletes the entry and

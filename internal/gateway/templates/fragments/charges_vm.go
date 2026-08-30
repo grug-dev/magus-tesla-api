@@ -110,6 +110,15 @@ type ChargesPageData struct {
 	EmptyState bool   // true when Entries is empty and no error occurred
 	Error      string // non-empty if a reader error degraded the page gracefully
 
+	// EditingID is the id of the ONE entry rendered as an inline edit form by
+	// ChargesList; every other row renders static. Empty means no row is being
+	// edited (every ordinary render). This is what makes "only one row open at a
+	// time" a server-side invariant rather than a client-side convention: the
+	// list is the unit of truth, so a second Edit click re-renders the whole
+	// region with a different single row open and the previous one necessarily
+	// closed. Set by ChargeRowEditFragment, by nothing else.
+	EditingID string
+
 	// Notice is the success counterpart of Error: a non-empty string renders a
 	// success ui.Alert at the top of the create-form card. Set ONLY by
 	// ChargeCreate's success path (i18n.KeyChargesNoticeEntryCreated), so it is

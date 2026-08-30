@@ -8,14 +8,30 @@ package ui
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+
 // FieldProps configures a Field — the labeled form-control wrapper (DaisyUI
 // fieldset + legend). Error renders a themed inline message below the control;
 // empty means no error. Class is for extra LAYOUT utilities only (e.g. grid
 // column span). The control (Input/Select/Textarea) is supplied as the slot.
+//
+// Optional appends a muted "(optional)" hint to the legend. It exists because
+// `placeholder` cannot carry that signal uniformly: browsers ignore it on
+// date/datetime-local inputs and it does not exist on <select> at all, so a
+// placeholder-based hint would silently skip exactly the controls whose
+// requiredness is least obvious. The hint lives on the LABEL, which every
+// control type has.
+//
+// Use it only for a field that is UNCONDITIONALLY optional. A conditionally
+// required field (charges' ended_at / end_battery_pct, whose `required`
+// attribute is toggled client-side by RD13 as the status select changes) must
+// NOT set it — the server-rendered hint would go stale the moment the user
+// switches status, which is worse than no hint at all.
 type FieldProps struct {
-	Label string
-	Error string
-	Class string
+	Label    string
+	Error    string
+	Class    string
+	Optional bool
 }
 
 // Field wraps a single form control with its legend label and optional error.
@@ -72,13 +88,36 @@ func Field(p FieldProps) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(p.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/field.templ`, Line: 19, Col: 44}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/field.templ`, Line: 36, Col: 13}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</legend>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if p.Optional {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<span class=\"font-normal text-base-content/60\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var5 string
+				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(i18n.T(ctx, i18n.KeyFormOptional))
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/field.templ`, Line: 38, Col: 87}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</span>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</legend>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -88,25 +127,25 @@ func Field(p FieldProps) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if p.Error != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<p class=\"text-error text-sm\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<p class=\"text-error text-sm\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var5 string
-			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(p.Error)
+			var templ_7745c5c3_Var6 string
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(p.Error)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/field.templ`, Line: 23, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/ui/field.templ`, Line: 44, Col: 42}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</fieldset>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</fieldset>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

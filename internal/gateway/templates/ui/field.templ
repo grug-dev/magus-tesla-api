@@ -1,13 +1,29 @@
 package ui
 
+import "github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+
 // FieldProps configures a Field — the labeled form-control wrapper (DaisyUI
 // fieldset + legend). Error renders a themed inline message below the control;
 // empty means no error. Class is for extra LAYOUT utilities only (e.g. grid
 // column span). The control (Input/Select/Textarea) is supplied as the slot.
+//
+// Optional appends a muted "(optional)" hint to the legend. It exists because
+// `placeholder` cannot carry that signal uniformly: browsers ignore it on
+// date/datetime-local inputs and it does not exist on <select> at all, so a
+// placeholder-based hint would silently skip exactly the controls whose
+// requiredness is least obvious. The hint lives on the LABEL, which every
+// control type has.
+//
+// Use it only for a field that is UNCONDITIONALLY optional. A conditionally
+// required field (charges' ended_at / end_battery_pct, whose `required`
+// attribute is toggled client-side by RD13 as the status select changes) must
+// NOT set it — the server-rendered hint would go stale the moment the user
+// switches status, which is worse than no hint at all.
 type FieldProps struct {
-	Label string
-	Error string
-	Class string
+	Label    string
+	Error    string
+	Class    string
+	Optional bool
 }
 
 // Field wraps a single form control with its legend label and optional error.
@@ -16,7 +32,12 @@ type FieldProps struct {
 templ Field(p FieldProps) {
 	<fieldset class={ "fieldset", p.Class }>
 		if p.Label != "" {
-			<legend class="fieldset-legend">{ p.Label }</legend>
+			<legend class="fieldset-legend">
+				{ p.Label }
+				if p.Optional {
+					<span class="font-normal text-base-content/60">{ i18n.T(ctx, i18n.KeyFormOptional) }</span>
+				}
+			</legend>
 		}
 		{ children... }
 		if p.Error != "" {
