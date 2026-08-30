@@ -33,6 +33,13 @@ Consumers (e.g. the gateway) call these — never this module's tables
 - `RegisteredVehicles` — the user's persisted vehicle registry
 - `LanguageFor`/`SetLanguage` — read/persist a user's `{es, en}` language preference
 
+`Account` also carries a `Status` field (`StatusActive`/`StatusInactive` — roadmap RM34).
+`UpsertFromOAuth` is the one operation NOT filtered by it; every other read in this
+module's `Service` treats an `Inactive` account or vehicle as though it does not exist.
+A new account defaults `Inactive` (invite-gated); a new vehicle defaults `Active`. No
+port method flips a status — that is a manual, out-of-band DB update (see design.md of
+`RM34-account-add-record-status`).
+
 ## Units convention
 
 Platform-wide unit rule: `openspec/specs/unit-of-measure/spec.md` / `ai/go-conventions.md`

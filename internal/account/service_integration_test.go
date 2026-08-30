@@ -67,6 +67,9 @@ func TestUpsertFromOAuth_Idempotent(t *testing.T) {
 		t.Fatalf("first upsert: %v", err)
 	}
 	deleteAccount(t, pool, first.ID)
+	if first.Status != StatusInactive {
+		t.Errorf("expected first upsert Status == StatusInactive (RM34 D2 default), got %q", first.Status)
+	}
 
 	// Same identity, changed profile fields → same account, updated fields.
 	id.Email = "changed@example.com"
@@ -80,6 +83,9 @@ func TestUpsertFromOAuth_Idempotent(t *testing.T) {
 	}
 	if second.Email != "changed@example.com" {
 		t.Errorf("expected email updated to changed@example.com, got %q", second.Email)
+	}
+	if second.Status != StatusInactive {
+		t.Errorf("expected second upsert Status == StatusInactive (RM34 D2 default, unaffected by re-upsert), got %q", second.Status)
 	}
 }
 
@@ -683,6 +689,17 @@ func TestLanguagePreference_RoundTrip(t *testing.T) {
 		t.Fatalf("provisioning account: %v", err)
 	}
 	deleteAccount(t, pool, acct.ID)
+
+	// RM34: a freshly-provisioned account defaults to StatusInactive, and every
+	// language read/write below is now filtered by status = 'Active' (design.md
+	// D4). Activate it directly, mirroring this test's existing out-of-band-write
+	// technique used later for the "fr" normalization step, before exercising any
+	// language read/write.
+	if _, err := pool.Exec(ctx,
+		"UPDATE accounts SET status = 'Active' WHERE id = $1", acct.ID,
+	); err != nil {
+		t.Fatalf("activating test account: %v", err)
+	}
 
 	// --- Default on a fresh account: no explicit SetLanguage call yet ---
 	got, err := s.LanguageFor(ctx, acct.ID)

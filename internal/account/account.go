@@ -33,6 +33,15 @@ const (
 // two supported codes. Detect it with errors.Is.
 var ErrUnsupportedLanguage = errors.New("account: unsupported language code")
 
+// StatusActive and StatusInactive are the two supported record-status values —
+// the entire closed vocabulary this module accepts for both accounts and
+// vehicles (roadmap RM34 decision D1). Consumers should reference these
+// constants rather than the string literals.
+const (
+	StatusActive   = "Active"
+	StatusInactive = "Inactive"
+)
+
 // Account is an app user. It is provisioned from a social OAuth identity and holds
 // no password — authentication is delegated to the provider.
 type Account struct {
@@ -41,8 +50,15 @@ type Account struct {
 	Provider    string // e.g. "google"
 	ProviderID  string // the provider's subject id
 	DisplayName string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	// Status is the account's activation status: always exactly StatusActive or
+	// StatusInactive. A newly provisioned account defaults to StatusInactive
+	// (roadmap RM34 decision D2) and stays that way until changed by hand — there
+	// is no automatic activation path. UpsertFromOAuth is the one account
+	// operation NOT filtered by Status; every other account read in this module's
+	// Service treats an Inactive account as though it does not exist.
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // OAuthIdentity is the verified identity a social provider returns after login.

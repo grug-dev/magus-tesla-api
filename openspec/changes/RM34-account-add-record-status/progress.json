@@ -5,10 +5,9 @@
   "module": "account",
   "roadmap": "openspec/roadmaps/RM34-account-vehicle-status.md",
   "request": "MAG-33 Step 1+2: add an Active/Inactive status column to accounts and vehicles, and filter reads on it. Step 3 (blocking inactive users at Google login) is tier 2, gateway.",
-  "status": "proposed",
+  "status": "applied",
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       "T1.1",
       "T2.1",
       "T2.2",
@@ -18,7 +17,11 @@
       "T4.1",
       "T5.1",
       "T5.2",
-      "T5.3",
+      "T5.3"
+    ],
+    "pending": [],
+    "blocked": [],
+    "done": [
       "T6.1",
       "T7.1",
       "T7.2",
@@ -26,12 +29,10 @@
       "T7.4",
       "T7.5",
       "T7.6"
-    ],
-    "blocked": [],
-    "done": []
+    ]
   },
   "created_at": "2026-08-30T03:12:00Z",
-  "updated_at": "2026-08-30T03:13:00Z",
+  "updated_at": "2026-08-30T09:55:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -51,13 +52,13 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Created 20260830000001_accounts_vehicles_add_status.sql with the approved DDL; header cites D1/D2/D3/D8.",
       "budget": null
     },
     {
@@ -66,13 +67,13 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "StatusActive/StatusInactive consts added, mirroring the LanguageES/EN pattern.",
       "budget": null
     },
     {
@@ -81,13 +82,13 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Status field added to Account after DisplayName with a D2/D4 doc comment.",
       "budget": null
     },
     {
@@ -98,13 +99,13 @@
         "T1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "status='Active' added to GetAccountByProviderID, GetAccountLanguage, UpdateAccountLanguage.",
       "budget": null
     },
     {
@@ -115,13 +116,13 @@
         "T1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "status='Active' added to ListVehiclesByAccount and ListAllVehicles; upsert and InsertVehicleIfMissing untouched.",
       "budget": null
     },
     {
@@ -133,13 +134,13 @@
         "T3.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "make sqlc regenerated models.go and query.sql.go; Status generated as plain string (NOT NULL).",
       "budget": null
     },
     {
@@ -151,13 +152,13 @@
         "T3.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "accountFromRow maps Status directly; no conversion helper needed.",
       "budget": null
     },
     {
@@ -168,13 +169,13 @@
         "T4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Direct-SQL activation UPDATE inserted into TestLanguagePreference_RoundTrip after provisioning.",
       "budget": null
     },
     {
@@ -185,13 +186,13 @@
         "T4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Status==StatusInactive assertions added to both accounts in TestUpsertFromOAuth_Idempotent.",
       "budget": null
     },
     {
@@ -203,13 +204,13 @@
         "T5.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Inspected remaining tests; vehicles route through SeedVehicles so they inherit DEFAULT 'Active'.",
       "budget": null
     },
     {
@@ -220,13 +221,13 @@
         "T2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T09:51:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Status paragraph added to the AGENTS.md public-interface section.",
       "budget": null
     },
     {
@@ -239,13 +240,13 @@
         "T6.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-30T09:54:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Leader ran go build ./... and go vet ./... \u2014 both clean.",
       "budget": null
     },
     {
@@ -256,13 +257,13 @@
         "T7.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-30T09:54:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "gofmt clean on every touched file; two pre-existing hits confirmed unformatted at HEAD, left alone.",
       "budget": null
     },
     {
@@ -273,13 +274,13 @@
         "T7.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-30T09:54:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "No cross-module imports in internal/account.",
       "budget": null
     },
     {
@@ -290,13 +291,13 @@
         "T7.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-30T09:54:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Recovery SQL restated in the tier report.",
       "budget": null
     },
     {
@@ -307,13 +308,13 @@
         "T7.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-30T09:54:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "openspec validate --strict passes.",
       "budget": null
     },
     {
@@ -324,13 +325,13 @@
         "T7.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-30T09:54:00Z",
+      "completed_at": "2026-08-30T09:55:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Suite commands handed to the owner.",
       "budget": null
     }
   ],
@@ -358,6 +359,33 @@
       "decision": "UpdateAccountLanguage filters status=Active, so a language switch on an inactive account silently no-ops",
       "why": "Consistent with Step 2's blanket filter. Harmless: an inactive account cannot reach the language switch, since login is refused before a session exists.",
       "covered_by": "roadmap D4"
+    },
+    {
+      "id": "D10",
+      "at": "2026-08-30T09:51:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "database design gate confirmed: DDL, defaults and the no-new-index plan approved as proposed",
+      "why": "User replied 'continue' to the presented DDL, index plan and D9 consequence without requesting changes.",
+      "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-08-30T09:51:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "one serial worker for T1-T6 instead of six per-wave dispatches",
+      "why": "The tasks form a linear chain in one module over overlapping files (query.sql, sqlc regen, service.go). Six dispatches would re-read the doc pack six times.",
+      "covered_by": null
+    },
+    {
+      "id": "D12",
+      "at": "2026-08-30T09:55:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "overrode the worker's self-reported 'done' to awaiting-user-verification on the 10 suite-dependent tasks",
+      "why": "Contract: done requires the owner's reported suite pass. Build/vet/sqlc are not test execution. Only docs and leader-run signals are genuinely done.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -375,6 +403,16 @@
       "at": "2026-08-30T03:13:00Z",
       "agent": "leader",
       "event": "budget checkpoint: five_hour_pct=91 (threshold 90), context_pct=17 (threshold 40), five_hour_resets_at=2026-08-30T03:20:00Z. Halted before implementation wave 1; design gate also awaiting user confirmation."
+    },
+    {
+      "at": "2026-08-30T09:51:00Z",
+      "agent": "leader",
+      "event": "5-hour bucket reset; design gate confirmed by user; dispatched account worker (sonnet) for T1-T6"
+    },
+    {
+      "at": "2026-08-30T09:55:00Z",
+      "agent": "leader",
+      "event": "wave reconciled: T1-T6 implemented, T7 signals leader-run and clean; 10 tasks awaiting owner's suite run"
     }
   ]
 }

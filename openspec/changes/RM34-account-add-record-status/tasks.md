@@ -37,7 +37,7 @@
 
 ## T1. Goose migration (`internal/account/db/migrations/`) — no dependencies
 
-- [ ] T1.1 Create `internal/account/db/migrations/<timestamp>_accounts_vehicles_add_status.sql`
+- [x] T1.1 Create `internal/account/db/migrations/<timestamp>_accounts_vehicles_add_status.sql`
       (use the next chronological timestamp after `20260813000001_accounts_add_language.sql`,
       following the module's `<YYYYMMDDHHMMSS>_<name>.sql` convention) with the exact DDL from
       `design.md` D1:
@@ -70,7 +70,7 @@
 
 ## T2. Domain constants + `Account.Status` field (`internal/account/account.go`) — no dependencies, parallel-ok with T1
 
-- [ ] T2.1 Add the closed status vocabulary to `account.go`, near the existing
+- [x] T2.1 Add the closed status vocabulary to `account.go`, near the existing
       `LanguageES`/`LanguageEN` constants (mirror their doc-comment style):
       ```go
       // StatusActive and StatusInactive are the two supported record-status values —
@@ -82,7 +82,7 @@
           StatusInactive = "Inactive"
       )
       ```
-- [ ] T2.2 Add a `Status string` field to the `Account` struct, with a doc comment explaining the
+- [x] T2.2 Add a `Status string` field to the `Account` struct, with a doc comment explaining the
       default and the exemption (design.md D2/D4):
       ```go
       // Status is the account's activation status: always exactly StatusActive or
@@ -102,7 +102,7 @@
 
 ## T3. sqlc query edits + regeneration (`internal/account/db/query.sql`) — depends on T1, parallel-ok with T2
 
-- [ ] T3.1 Add `AND status = 'Active'` to `GetAccountByProviderID`, `GetAccountLanguage`, and
+- [x] T3.1 Add `AND status = 'Active'` to `GetAccountByProviderID`, `GetAccountLanguage`, and
       `UpdateAccountLanguage`:
       ```sql
       -- name: GetAccountByProviderID :one
@@ -122,7 +122,7 @@
       Add a comment above each referencing design.md D4, and above `UpdateAccountLanguage`
       specifically note the documented no-op-on-inactive-account consequence (design.md D4's
       "Behavioral consequence" note).
-- [ ] T3.2 Add `AND status = 'Active'` to `ListVehiclesByAccount` and add a `WHERE status =
+- [x] T3.2 Add `AND status = 'Active'` to `ListVehiclesByAccount` and add a `WHERE status =
       'Active'` to `ListAllVehicles`:
       ```sql
       -- name: ListVehiclesByAccount :many
@@ -138,7 +138,7 @@
       Do **not** modify `UpsertAccountFromOAuth` or `InsertVehicleIfMissing` — both stay unfiltered
       per D4/D3, and both already pick up the new column automatically (`RETURNING *` / the column
       takes its `DEFAULT` on insert since neither query specifies `status`).
-- [ ] T3.3 Run `make sqlc`. Inspect the regenerated `internal/account/db/models.go` and confirm
+- [x] T3.3 Run `make sqlc`. Inspect the regenerated `internal/account/db/models.go` and confirm
       `accountdb.Account.Status` is plain `string` (expected, since the column is `NOT NULL` —
       matching every other `NOT NULL TEXT` column in this module's generated code, e.g. `Email`,
       `Provider`). Report the actual generated type; do not assume it (`ai/go-conventions.md`
@@ -149,7 +149,7 @@
 
 ## T4. `service.go` mapping (`internal/account/service.go`) — depends on T2 and T3
 
-- [ ] T4.1 Update `accountFromRow` to map the new field:
+- [x] T4.1 Update `accountFromRow` to map the new field:
       ```go
       func accountFromRow(a accountdb.Account) Account {
           return Account{
@@ -173,7 +173,7 @@
 
 ## T5. Existing-test repair (`internal/account/service_integration_test.go`) — depends on T4
 
-- [ ] T5.1 Repair `TestLanguagePreference_RoundTrip` per `design.md`'s "Test Contract" section:
+- [x] T5.1 Repair `TestLanguagePreference_RoundTrip` per `design.md`'s "Test Contract" section:
       immediately after provisioning the test account (`UpsertFromOAuth`) and registering its
       cleanup (`deleteAccount`), activate it with a direct SQL statement before exercising any
       language read/write:
@@ -191,11 +191,11 @@
       Acceptance: the test, read statically, exercises `LanguageFor`/`SetLanguage` only after the
       activation `UPDATE` — confirm by inspection since the owner runs the suite
       (`Test-Execution-Policy`).
-- [ ] T5.2 Add the one new assertion design.md's "Test Contract" recommends locking in: after
+- [x] T5.2 Add the one new assertion design.md's "Test Contract" recommends locking in: after
       `UpsertFromOAuth` in `TestUpsertFromOAuth_Idempotent`, assert both the first and second
       returned `Account.Status == account.StatusInactive`.
       Acceptance: same as T5.1 — inspection-verified, `go vet ./...` compiles it.
-- [ ] T5.3 Confirm by inspection (not execution) that no other existing test in
+- [x] T5.3 Confirm by inspection (not execution) that no other existing test in
       `service_integration_test.go` or `service_test.go` needs a behavioral change: every vehicle
       each test creates takes the new column's `DEFAULT 'Active'`, and every vehicles-scoped query
       those tests exercise (`ListVehiclesByAccount` via `RegisteredVehicles`, `ListAllVehicles` via
@@ -205,7 +205,7 @@
 
 ## T6. Docs (`internal/account/AGENTS.md`) — depends on T2, parallel-ok with T3/T4/T5
 
-- [ ] T6.1 Update `internal/account/AGENTS.md`'s "Public interface" section to note that
+- [x] T6.1 Update `internal/account/AGENTS.md`'s "Public interface" section to note that
       `Account` now carries a `Status` field (`StatusActive`/`StatusInactive`), that
       `UpsertFromOAuth` is the one operation not filtered by it, and that every other read in this
       module's `Service` treats an `Inactive` account or vehicle as though it does not exist. Keep
