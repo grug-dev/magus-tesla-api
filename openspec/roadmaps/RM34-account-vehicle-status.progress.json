@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM34-account-vehicle-status",
   "intention": "Accounts and vehicles carry an Active/Inactive status; inactive rows are invisible to normal reads and an inactive user is refused entry at Google login with a bilingual contact message, making the platform invite-gated.",
-  "request": "Source ticket: MAG-33 — https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles\nProject: Account   Priority: Urgent\n\n## Status to accounts and vehicles\n\n## Step 1\n\nAdd a new status column to save if a record is active or inactive. (ENUM type? ) I'd like to see the text `Active` or `Inactive` in the database table record. Add the new column to the next tables of the account module:\n\n* accounts\n* vehicles\n\nBy default, make the value as `Inactive`\n\n## Step 2\n\nFind all database queries done for those entities and modify the `GET`  queries to always include `status = Active` . Only active accounts and vehicles will return data. Otherwise, it does not exists.\n\n### Step 3\n\nVerify the login authentication. Only active users are able to sign in to the platform. IF after authenticating with google, the user is inactive, block the access to the site and show a message that user is inactive and must contact to `cristiancamilopena`@gmail.com  to validate their access. (i18N in spanish as well)",
+  "request": "Source ticket: MAG-33 \u2014 https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles\nProject: Account   Priority: Urgent\n\n## Status to accounts and vehicles\n\n## Step 1\n\nAdd a new status column to save if a record is active or inactive. (ENUM type? ) I'd like to see the text `Active` or `Inactive` in the database table record. Add the new column to the next tables of the account module:\n\n* accounts\n* vehicles\n\nBy default, make the value as `Inactive`\n\n## Step 2\n\nFind all database queries done for those entities and modify the `GET`  queries to always include `status = Active` . Only active accounts and vehicles will return data. Otherwise, it does not exists.\n\n### Step 3\n\nVerify the login authentication. Only active users are able to sign in to the platform. IF after authenticating with google, the user is inactive, block the access to the site and show a message that user is inactive and must contact to `cristiancamilopena`@gmail.com  to validate their access. (i18N in spanish as well)",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-30T03:00:13Z",
+  "updated_at": "2026-08-30T03:11:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM34-MAG-33-account-vehicle-status",
@@ -16,8 +16,12 @@
     "created_at": "2026-08-30T03:00:13Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2],
+    "current": [
+      1
+    ],
+    "pending": [
+      2
+    ],
     "blocked": [],
     "done": []
   },
@@ -64,7 +68,7 @@
       "scope": "tier:2",
       "made_by": "autopilot",
       "decision": "contact address cristiancamilopena@gmail.com hardcoded in the i18n catalog, not config",
-      "why": "Ticket backticks are formatting noise. One support address does not earn config indirection — it would cost a lookup per read and buy nothing until a second address exists.",
+      "why": "Ticket backticks are formatting noise. One support address does not earn config indirection \u2014 it would cost a lookup per read and buy nothing until a second address exists.",
       "covered_by": null
     },
     {
@@ -93,10 +97,10 @@
       "module": "account",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T03:01:40Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -107,7 +111,9 @@
       "change": "RM34-gateway-block-inactive-login",
       "module": "gateway",
       "optional": false,
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "status": "not-started",
       "assistant": "Claude Code",
       "model": null,
