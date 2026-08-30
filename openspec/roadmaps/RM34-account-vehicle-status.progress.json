@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-33 \u2014 https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles\nProject: Account   Priority: Urgent\n\n## Status to accounts and vehicles\n\n## Step 1\n\nAdd a new status column to save if a record is active or inactive. (ENUM type? ) I'd like to see the text `Active` or `Inactive` in the database table record. Add the new column to the next tables of the account module:\n\n* accounts\n* vehicles\n\nBy default, make the value as `Inactive`\n\n## Step 2\n\nFind all database queries done for those entities and modify the `GET`  queries to always include `status = Active` . Only active accounts and vehicles will return data. Otherwise, it does not exists.\n\n### Step 3\n\nVerify the login authentication. Only active users are able to sign in to the platform. IF after authenticating with google, the user is inactive, block the access to the site and show a message that user is inactive and must contact to `cristiancamilopena`@gmail.com  to validate their access. (i18N in spanish as well)",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-30T11:35:00Z",
+  "updated_at": "2026-08-30T11:00:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM34-MAG-33-account-vehicle-status",
@@ -19,7 +19,9 @@
     "current": [
       2
     ],
-    "pending": [],
+    "pending": [
+      3
+    ],
     "blocked": [],
     "done": [
       1
@@ -115,6 +117,15 @@
       "decision": "tier 2 adds a per-request account-status check to the authenticated-route middleware",
       "why": "Cookie sessions are stateless and survive deactivation, so blocking only at login leaves an existing session working until the cookie expires.",
       "covered_by": null
+    },
+    {
+      "id": "D25",
+      "at": "2026-08-30T11:00:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "added tier 3 (RM34-account-add-status-port) rather than folding StatusFor into tier 2",
+      "why": "Tier 2 cannot compile without it, tier 1 is archived, and a two-module change violates config.yaml's roadmap rule. Tier 2's T1/T2 stay unblocked meanwhile.",
+      "covered_by": "D16"
     }
   ],
   "tiers": [
@@ -146,8 +157,24 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [
-        1
+        1,
+        3
       ],
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:45:00Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 3,
+      "change": "RM34-account-add-status-port",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
       "status": "not-started",
       "assistant": "Claude Code",
       "model": null,
