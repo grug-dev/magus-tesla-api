@@ -215,24 +215,24 @@
 
 ## T7. Verification — depends on T1–T6
 
-- [ ] T7.1 `go build ./...` and `go vet ./...` pass repo-wide. If the widened `Account` struct or
+- [x] T7.1 `go build ./...` and `go vet ./...` pass repo-wide. If the widened `Account` struct or
       the new `Service` behavior breaks compilation of a fake/double in a sibling module's test
       file (`internal/gateway`'s tests are the likely candidate, since tier 2 depends on this
       field), that is a leader-owned cross-module concern to flag — do not edit outside
       `internal/account`.
-- [ ] T7.2 `gofmt -l` reports no diffs for any file this tier touched.
-- [ ] T7.3 Boundary check: `internal/account` still does not import `internal/tesla` or
+- [x] T7.2 `gofmt -l` reports no diffs for any file this tier touched.
+- [x] T7.3 Boundary check: `internal/account` still does not import `internal/tesla` or
       `internal/gateway`; `pgtype` does not appear in any public type or interface signature; no
       file outside `internal/account` (other than a leader-owned cross-module fix per T7.1) was
       touched.
-- [ ] T7.4 State in the final report, verbatim, the post-deploy recovery SQL from D2 (also at the
+- [x] T7.4 State in the final report, verbatim, the post-deploy recovery SQL from D2 (also at the
       top of this file) so it is not lost between this tier's completion and deployment:
       ```sql
       UPDATE accounts SET status = 'Active' WHERE email = 'rasputin999@gmail.com';
       ```
-- [ ] T7.5 `openspec validate RM34-account-add-record-status --strict` passes and every tasks.md
+- [x] T7.5 `openspec validate RM34-account-add-record-status --strict` passes and every tasks.md
       checkbox above reflects real completion.
-- [ ] T7.6 Report the exact test-suite commands the owner must run
+- [x] T7.6 Report the exact test-suite commands the owner must run
       (`go test ./internal/account/... -run TestLanguagePreference_RoundTrip` and the full
       `go test ./...` / `make test-with-db`) — this tier writes/repairs tests but does not execute
       them (`Test-Execution-Policy`); the owner's run is what turns T5 from
@@ -276,7 +276,7 @@ resulting behavioral contract).
       noting that account status now also gates vehicle and token reads (not just the account row
       itself).
       Acceptance: the addition is one sentence, consistent with the file's existing terse style.
-- [ ] T8.6 `go build ./...`, `go vet ./...`, `gofmt -l` pass repo-wide (Claude-run, per
+- [x] T8.6 `go build ./...`, `go vet ./...`, `gofmt -l` pass repo-wide (Claude-run, per
       `Test-Execution-Policy`). No new unit tests added (D7 binding); if an existing test breaks
       under the new `EXISTS` predicates, repair it and report which one and why — inspection found
       none, since every existing test's fixture accounts are activated (`status = 'Active'`) before

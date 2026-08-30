@@ -5,7 +5,7 @@
   "module": "account",
   "roadmap": "openspec/roadmaps/RM34-account-vehicle-status.md",
   "request": "MAG-33 Step 1+2: add an Active/Inactive status column to accounts and vehicles, and filter reads on it. Step 3 (blocking inactive users at Google login) is tier 2, gateway.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "rollup": {
     "current": [],
     "pending": [],
@@ -37,7 +37,7 @@
     ]
   },
   "created_at": "2026-08-30T03:12:00Z",
-  "updated_at": "2026-08-30T10:45:00Z",
+  "updated_at": "2026-08-30T11:35:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -441,10 +441,27 @@
     }
   ],
   "review": {
-    "status": "in-review",
-    "agent": null,
+    "status": "reviewer-approved",
+    "agent": "account-reviewer",
     "brief": "Review RM34-account-add-record-status (module: account, tier 1 of roadmap RM34, ticket MAG-33). Read the DIFF against main, not the whole module. Validate: (1) MODULE BOUNDARIES \u2014 internal/account imports no sibling module's internals; no HTML; no cross-module DB access. (2) DB-vs-DESIGN \u2014 the migration must match the design the USER confirmed at the design gate exactly: accounts.status TEXT NOT NULL DEFAULT 'Inactive' CHECK (status IN ('Active','Inactive')) with NO backfill, and vehicles.status same type but DEFAULT 'Active'. The opposite defaults are DELIBERATE (D2/D3) \u2014 flagging them as an inconsistency is wrong; verify instead that they are what design.md says. Any divergence from the confirmed design is a BLOCKER finding. (3) D14 \u2014 the four account-status predicates must use EXISTS, not JOIN, and sqlc-generated struct shapes must be unchanged. (4) D4 \u2014 UpsertAccountFromOAuth must remain UNFILTERED; it is the auth path's deliberate exemption. Verify no status predicate crept in. (5) PERFORMANCE \u2014 per the declared read-heavy profile, confirm no new index was added and that the index plan in design.md is justified. (6) SPEC/TASK COVERAGE \u2014 every tasks.md item is ticked and backed by real code; specs match behaviour. (7) ANTI-GAMING \u2014 no acceptance criterion was weakened or deleted; no status was self-approved. (8) TEST QUALITY \u2014 judge by READING, never by running. Per D7 no new coverage was added; 9 existing tests were repaired via a shared activateAccount helper because they seeded under a never-activated account. Confirm that repair is legitimate (the gate genuinely hides those rows) and not a weakening of assertions. SIGNALS: go build, go vet, gofmt, make sqlc and openspec validate --strict were ASSISTANT-run and clean. The TEST SUITE was run and reported passing by the OWNER, not the assistant. Do not run the suite yourself.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-30T11:30:00Z",
+        "agent": "account-reviewer",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "openspec/changes/RM34-account-add-record-status/tasks.md lines 218-235 (T7.1-T7.6) and line 279 (T8.6) remain unchecked ('- [ ]') while progress.json's rollup.done and tasks[] both record every one of these ids as status 'done'. Independently re-verified the underlying substance myself (go build ./..., go vet ./..., gofmt -l, openspec validate RM34-account-add-record-status --strict all ran clean; internal/account imports no sibling module) so this is a bookkeeping gap, not fabricated work \u2014 but tasks.md and progress.json disagree on completion state for 7 items, which is exactly the kind of mismatch the anti-gaming checklist asks a reviewer to catch. Leader should tick these boxes in tasks.md to match progress.json before archive.",
+            "status": "fixed",
+            "triage": "accepted"
+          }
+        ],
+        "summary": "Read the full doc pack (CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/account/AGENTS.md, openspec/roadmaps/RM34-account-vehicle-status.md, this change's design.md/proposal.md/tasks.md/specs) plus `git diff main...HEAD -- internal/account` in full, including the generated sqlc files. Findings: (1) Boundaries clean \u2014 no import of internal/tesla, internal/gateway, or internal/googleauth from internal/account; no HTML; no cross-module DB access; the one out-of-module file in the branch (internal/gateway/handlers/charges_test.go) is the owner-directed D13 MAG-18 fix, correctly out of scope. (2) DB matches the confirmed design byte-for-byte: the new migration's DDL is character-identical to design.md D1 (accounts DEFAULT 'Inactive', vehicles DEFAULT 'Active', both TEXT NOT NULL CHECK, no backfill statement for either table). (3) D14 confirmed: all four gated queries (ListVehiclesByAccount, ListAllVehicles, GetLatestTeslaTokenByAccount, GetLatestTeslaTokenByAccountForUpdate) use an EXISTS subquery, never a JOIN; diffed db/models.go myself \u2014 Account and Vehicle each gained only the expected Status field from the new column (T3), and ListAllVehiclesRow (explicit column list) gained no field at all, proving the EXISTS predicate never widened any projection. (4) D4 confirmed: UpsertAccountFromOAuth's WHERE/ON CONFLICT clause is untouched; only its RETURNING * list picked up the new status column automatically, exactly as design.md predicts \u2014 no predicate crept in. (5) Performance: no new migration/index added; design.md D10 and D14's index-plan sections correctly show every predicate rides an existing PK or unique-constraint lookup, consistent with the read-heavy profile. (6) Spec/task coverage: every T1-T8 code task's ticked checkbox is backed by real code in the diff; the account and account-vehicle-registry spec deltas match the implemented filtering exactly (verified GetAccountByProviderID/GetAccountLanguage/UpdateAccountLanguage/ListVehiclesByAccount/ListAllVehicles content against query.sql.go). (7) Anti-gaming: no acceptance criterion or spec scenario was edited/weakened; see F1 for the one bookkeeping gap found. (8) Test quality: read service_integration_test.go in full (15 test functions). The shared activateAccount helper is purely additive \u2014 it inserts one UPDATE call before a test exercises a vehicle/token/language read, changes no expected value, and is required precisely because D14/D15's EXISTS gate correctly hides rows owned by a never-activated (StatusInactive-by-default) test account. Confirmed the count: 9 tests gained activateAccount under T8.6 beyond the one (TestLanguagePreference_RoundTrip) already repaired under T5 for D4, plus TestUpsertFromOAuth_Idempotent gained only new Status assertions, and the remaining 4 tests (TestAccessTokenFor_ReturnsSentinelWhenNoConnection, TestRegisteredVehicles_EmptyForNewAccount, TestAllRegisteredVehicles_EmptyWhenNoneRegistered, TestAccessType_InvalidValueRejectedByCheckConstraint) are legitimately untouched because their expected outcome is invariant to account status or they exercise the deliberately-ungated write path. 15 accounted for, no test's assertions were weakened. Independently re-ran go build ./..., go vet ./..., gofmt -l (matches the two pre-existing, already-triaged unformatted files and no others), and openspec validate --strict \u2014 all clean, matching the assistant-run signals claimed. Did not run the test suite (owner-reported pass accepted as-is per Test-Execution-Policy)."
+      }
+    ]
   },
   "decisions": [
     {
@@ -551,6 +568,11 @@
       "at": "2026-08-30T10:45:00Z",
       "agent": "leader",
       "event": "OWNER reported the test suite passing; 16 tasks moved awaiting-user-verification -> done on the user's report, not the assistant's. Change -> verified."
+    },
+    {
+      "at": "2026-08-30T11:35:00Z",
+      "agent": "leader",
+      "event": "reviewer approved (round 1). F1 accepted and fixed: ticked T7.1-T7.6 and T8.6 in tasks.md, which the leader had completed but never checked off."
     }
   ]
 }
