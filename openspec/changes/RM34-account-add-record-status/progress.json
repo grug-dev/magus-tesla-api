@@ -32,7 +32,7 @@
     ]
   },
   "created_at": "2026-08-30T03:12:00Z",
-  "updated_at": "2026-08-30T09:55:00Z",
+  "updated_at": "2026-08-30T10:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -386,6 +386,15 @@
       "decision": "overrode the worker's self-reported 'done' to awaiting-user-verification on the 10 suite-dependent tasks",
       "why": "Contract: done requires the owner's reported suite pass. Build/vet/sqlc are not test execution. Only docs and leader-run signals are genuinely done.",
       "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-30T10:05:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "repaired two failing MAG-18 gateway charge tests on this branch instead of a separate one",
+      "why": "Owner directed it after being told the mixing-of-concerns tradeoff. Both predate RM34 and fail on main; RM34 itself touches no gateway file.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -413,6 +422,11 @@
       "at": "2026-08-30T09:55:00Z",
       "agent": "leader",
       "event": "wave reconciled: T1-T6 implemented, T7 signals leader-run and clean; 10 tasks awaiting owner's suite run"
+    },
+    {
+      "at": "2026-08-30T10:05:00Z",
+      "agent": "leader",
+      "event": "owner reported gateway/handlers suite failing; diagnosed as two stale MAG-18 assertions (Templ &amp; escaping; pre-wave-5 row contract), fixed in 1f27ba6, unexecuted"
     }
   ]
 }
