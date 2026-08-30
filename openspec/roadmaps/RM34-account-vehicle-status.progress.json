@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM34-account-vehicle-status",
+  "intention": "Accounts and vehicles carry an Active/Inactive status; inactive rows are invisible to normal reads and an inactive user is refused entry at Google login with a bilingual contact message, making the platform invite-gated.",
+  "request": "Source ticket: MAG-33 — https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles\nProject: Account   Priority: Urgent\n\n## Status to accounts and vehicles\n\n## Step 1\n\nAdd a new status column to save if a record is active or inactive. (ENUM type? ) I'd like to see the text `Active` or `Inactive` in the database table record. Add the new column to the next tables of the account module:\n\n* accounts\n* vehicles\n\nBy default, make the value as `Inactive`\n\n## Step 2\n\nFind all database queries done for those entities and modify the `GET`  queries to always include `status = Active` . Only active accounts and vehicles will return data. Otherwise, it does not exists.\n\n### Step 3\n\nVerify the login authentication. Only active users are able to sign in to the platform. IF after authenticating with google, the user is inactive, block the access to the site and show a message that user is inactive and must contact to `cristiancamilopena`@gmail.com  to validate their access. (i18N in spanish as well)",
+  "status": "in-progress",
+  "autopilot": true,
+  "updated_at": "2026-08-30T03:00:13Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM34-MAG-33-account-vehicle-status",
+    "base": "main",
+    "ticket": "MAG-33",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles",
+    "created_at": "2026-08-30T03:00:13Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [1, 2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-30T02:58:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "status is TEXT NOT NULL CHECK (status IN ('Active','Inactive')), not a native enum",
+      "why": "Resolved from the codebase, not asked: zero CREATE TYPE AS ENUM exists; access_type on vehicles already uses TEXT+CHECK. Native enums cannot drop a value without recreating the type.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-30T02:58:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "accounts.status DEFAULT 'Inactive' with NO backfill; existing accounts including the owner's are locked out until activated by hand",
+      "why": "User chose this with the lockout consequence stated up front. It is the invite gate the ticket asks for. Recovery SQL is mandatory in tier 1's report.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-30T02:58:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "vehicles.status DEFAULT 'Active', existing rows backfilled to Active",
+      "why": "Correctness gate: Inactive-by-default plus a filtered RegisteredVehicles makes vehiclesFor re-seed forever, hitting the paid Tesla API and waking the car on every dashboard load.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-30T02:58:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "UpsertFromOAuth stays unfiltered and Account gains a Status field; the gateway decides. All other reads filter Active.",
+      "why": "A status predicate cannot suppress an INSERT..ON CONFLICT conflict target, so filtering the upsert would only make it lie. Keeps the authorization verdict in the gateway.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-30T03:00:00Z",
+      "scope": "tier:2",
+      "made_by": "autopilot",
+      "decision": "contact address cristiancamilopena@gmail.com hardcoded in the i18n catalog, not config",
+      "why": "Ticket backticks are formatting noise. One support address does not earn config indirection — it would cost a lookup per read and buy nothing until a second address exists.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-30T03:00:00Z",
+      "scope": "tier:2",
+      "made_by": "autopilot",
+      "decision": "blocked page is a dedicated Templ page at HTTP 403 reusing the login shell, no session set",
+      "why": "A real user lands on this state and must read and act on it, so a bare c.String is wrong. 403 is the accurate status for authenticated-but-refused.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-30T03:00:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "no new unit tests; existing tests are updated where this change breaks them",
+      "why": "User's standing default is no new tests. Adding Account.Status and changing GoogleCallback control flow breaks existing compilation and assertions, which must be repaired.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM34-account-add-record-status",
+      "module": "account",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 2,
+      "change": "RM34-gateway-block-inactive-login",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": "Claude Code",
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ]
+}
