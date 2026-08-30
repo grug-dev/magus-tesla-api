@@ -86,4 +86,6 @@ Order of operations for the common changes. Reference the files above by path.
 
 - Features: (none yet)
 - Workflows: `workflows/supercharger-stats-read.md` (a sibling user-write path — a single narrow correction of two battery-percentage fields over an existing `charge_sessions` row via `charging.SessionVerifier.VerifySession`, with no Create and no Delete, vs. this concept's full Create/Update/Delete over `manual_charge_entries`)
-- Architecture: (none yet)
+- Architecture: `architecture/charge-record-mutation.md` — the contract this concept's Update/Delete share with the Supercharger write path (affected period → centralized recalculation → persist → gaps), and the documented divergences between the two implementations
+- Use cases: `use-case/charging/update-manual-charge.md`, `use-case/charging/delete-manual-charge.md`
+- Input ports: `input-port/charging/charges.md`

@@ -110,6 +110,14 @@ type ChargesPageData struct {
 	EmptyState bool   // true when Entries is empty and no error occurred
 	Error      string // non-empty if a reader error degraded the page gracefully
 
+	// Notice is the success counterpart of Error: a non-empty string renders a
+	// success ui.Alert at the top of the create-form card. Set ONLY by
+	// ChargeCreate's success path (i18n.KeyChargesNoticeEntryCreated), so it is
+	// empty on every fresh load, list refresh and error re-render — the message
+	// appears once, on the response to the write that earned it, and disappears
+	// on the next swap.
+	Notice string
+
 	// Presets is the ordered list of "last 7 days"/"this month" RangePreset
 	// entries the filter selector renders (design.md §D-Presets). Nil on a
 	// malformed window or no resolved vehicle — no selector is rendered

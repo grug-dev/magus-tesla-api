@@ -295,6 +295,50 @@ call — an unnecessary layer when the gateway is already the only HTML surface.
 The write is intentional (form POST), narrow (one module's Writer port),
 CSRF-protected, and tenant-scoped.
 
+### Manual charge rule: one IN_PROGRESS entry per (vehicle, charged_on)
+
+A vehicle may have at most **one** manual charge entry with status `IN_PROGRESS`
+on any given `charged_on` date. `DONE` entries are unconstrained — any number may
+share a date. Enforced in `handlers.inProgressConflictOn` (`handlers/charges.go`)
+on **both** write paths: `ChargeCreate` (`POST /ui/charges/create`, excluding
+nothing) and `ChargeRowUpdate` (`PUT /ui/charges/row/:id`, excluding the edited
+row's own id so an already-in-progress entry never conflicts with itself). A
+conflict is reported through the SAME 422 branch as every other validation
+failure — `validationErrors["_top"]`, so the user's submitted values survive the
+re-render — carrying `i18n.KeyChargesErrorInProgressExists` formatted with the
+conflicting date as `YYYY-MM-DD`.
+
+- **No new port.** The check reads
+  `charging.Reader.ListEntriesByVehicleBetween(chargedOn, chargedOn)` — the same
+  port every list render already uses, with both bounds on the single day in
+  question. Do NOT add a status-filtered method to `charging.Reader` for this;
+  the day's entry count is small and the read is already bounded. The helper
+  nonetheless **re-asserts the calendar day on every returned row** instead of
+  trusting the port's window — a write-blocking rule must not depend on a read
+  port's filtering being exact, and the two sides carry different time
+  components (form-parsed UTC midnight vs. the `DATE` column's round-trip).
+- **There is NO database constraint behind this rule** — it is an
+  application-level rule, so the check **fails open**: a reader error is logged
+  and the write proceeds, matching this module's log-and-continue posture for
+  non-essential follow-ups (`recalculateAfterChargeWrite`, the telemetry
+  suggestion lookup in `buildChargesPage`). Turning a transient read failure
+  into a refusal to save would trade a real data loss for a hypothetical
+  duplicate. If this ever needs to be airtight, the fix is a partial unique
+  index in the `charging` module, not a fail-closed gateway check.
+- **Only `IN_PROGRESS` submissions are checked** — a `DONE` submission returns
+  without reading anything.
+
+### Manual charge success notice
+
+`fragments.ChargesPageData.Notice` is the success counterpart of `.Error`: a
+non-empty value renders a `ui.Alert{Kind: "success"}` at the top of the
+create-form card (the same slot the `_top` validation alert uses). It is set in
+exactly ONE place — `ChargeCreate`'s success path, to
+`i18n.KeyChargesNoticeEntryCreated` — so it rides in on the response to the write
+that earned it via the primary `#charges-create-form` swap and is gone on the
+next render of any kind. `buildChargesPage` never sets it; do not set it from a
+read path, or the message will persist across refreshes.
+
 ### Exception: language switch (D-lang amendment — RM24-gateway-add-i18n-foundation)
 
 The gateway MAY call `account.Service.SetLanguage` from `handlers.LangSwitch`

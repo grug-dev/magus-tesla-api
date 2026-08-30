@@ -275,6 +275,14 @@ const (
 	KeyChargesErrorStatusInvalid   Key = "charges_error.status_invalid"
 	KeyChargesErrorOdometerInvalid Key = "charges_error.odometer_invalid"
 
+	// --- one-IN_PROGRESS-per-day conflict (handlers/charges.go: inProgressConflictOn).
+	// Carries a single %s verb for the conflicting charged_on date, formatted
+	// YYYY-MM-DD by the handler — the template never formats a date.
+	KeyChargesErrorInProgressExists Key = "charges_error.in_progress_exists"
+
+	// --- charges success notices (handlers/charges.go: ChargeCreate success path) ---
+	KeyChargesNoticeEntryCreated Key = "charges_notice.entry_created"
+
 	// --- language switch errors (handlers/lang.go) ---
 	KeyLangSwitchErrorUnsupportedLanguage   Key = "lang_switch_error.unsupported_language"
 	KeyLangSwitchErrorCouldNotSaveLanguage  Key = "lang_switch_error.could_not_save_language"
@@ -550,6 +558,8 @@ var catalog = map[Key]entry{
 	KeyChargesErrorEndedAtRequired:                  {ES: "La hora de fin es obligatoria cuando el estado es Finalizada.", EN: "Ended at is required when status is Done."},
 	KeyChargesErrorStatusInvalid:                    {ES: "Estado inválido.", EN: "Invalid status."},
 	KeyChargesErrorOdometerInvalid:                  {ES: "El odómetro debe ser un número entero no negativo.", EN: "Odometer must be a non-negative whole number."},
+	KeyChargesErrorInProgressExists:                 {ES: "Ya existe una carga en progreso para el %s.", EN: "There is already a charge in progress for %s."},
+	KeyChargesNoticeEntryCreated:                    {ES: "Registro agregado correctamente.", EN: "Entry saved successfully."},
 
 	KeyLangSwitchErrorUnsupportedLanguage:   {ES: "idioma no soportado", EN: "unsupported language"},
 	KeyLangSwitchErrorCouldNotSaveLanguage:  {ES: "no se pudo guardar la preferencia de idioma", EN: "could not save language preference"},

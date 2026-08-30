@@ -112,8 +112,11 @@ func (f *fakeChargeReader) ListEntriesByAccount(_ context.Context, _ uuid.UUID, 
 }
 
 // ListEntriesByVehicleBetween satisfies the charging.Reader port (added by RM28
-// tier 2). No charge handler calls it — the date-range read serves internal/analytics's
-// per-day consumed derivation — so this stub exists only to keep the fake a valid Reader.
+// tier 2) and IS called by gateway handlers: buildChargesPage reads the filter
+// window through it, and inProgressConflictOn reads a single day through it.
+// The fake IGNORES the requested window and always returns f.entries — a
+// conflict test that seeds an entry on another date therefore exercises the
+// handler's own same-day comparison, not the fake's filtering.
 func (f *fakeChargeReader) ListEntriesByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]charging.Entry, error) {
 	return f.entries, f.err
 }

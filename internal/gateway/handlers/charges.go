@@ -234,6 +234,19 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 	csrfToken, _ := sess.Get(csrfManualChargeKey).(string)
 
 	entry, raw, validationErrors, ok2 := h.parseChargeForm(c, uid, vehicles)
+	// One IN_PROGRESS entry per (vehicle, charged_on): a second in-progress
+	// charge for a day that already has one is rejected BEFORE Writer.Create,
+	// and reported through the SAME 422 branch as every other validation
+	// failure below, so the user's submitted values survive the re-render.
+	// excludeID is uuid.Nil here — a create has no row of its own to exempt.
+	if ok2 {
+		if conflictDate, found := h.inProgressConflictOn(c.Request.Context(), uid, entry, uuid.Nil); found {
+			validationErrors = map[string]string{
+				"_top": fmt.Sprintf(i18n.T(c.Request.Context(), i18n.KeyChargesErrorInProgressExists), conflictDate),
+			}
+			ok2 = false
+		}
+	}
 	if !ok2 {
 		if validationErrors == nil {
 			return
@@ -315,6 +328,10 @@ func (h *Handler) ChargeCreate(c *gin.Context) {
 	today := browserToday(c)
 	start, end := windowFromForm(c, today)
 	d := h.buildChargesPage(c.Request.Context(), uid, csrfToken, filterTeslaID, today, start, end)
+	// The one place ChargesPageData.Notice is ever set: the response to the
+	// write that earned it. It rides in on the primary #charges-create-form
+	// swap and is gone on the next render of any kind.
+	d.Notice = i18n.T(c.Request.Context(), i18n.KeyChargesNoticeEntryCreated)
 	render(c, http.StatusOK, fragments.ChargeCreateSuccessOOB(d))
 }
 
@@ -355,6 +372,18 @@ func (h *Handler) ChargeRowUpdate(c *gin.Context) {
 	windowEndStr := end.Format("2006-01-02")
 
 	entry, raw, validationErrors, ok2 := h.parseChargeForm(c, uid, vehicles)
+	// Same one-IN_PROGRESS-per-(vehicle, charged_on) rule the create path
+	// enforces, so flipping a DONE row back to IN_PROGRESS cannot bypass it.
+	// The row being edited is excluded from the scan — an entry that is
+	// already IN_PROGRESS must not conflict with itself.
+	if ok2 {
+		if conflictDate, found := h.inProgressConflictOn(c.Request.Context(), uid, entry, id); found {
+			validationErrors = map[string]string{
+				"_top": fmt.Sprintf(i18n.T(c.Request.Context(), i18n.KeyChargesErrorInProgressExists), conflictDate),
+			}
+			ok2 = false
+		}
+	}
 	if !ok2 {
 		if validationErrors == nil {
 			return
@@ -700,6 +729,57 @@ func (h *Handler) fetchEntryTeslaIDAndChargedOn(ctx context.Context, uid uuid.UU
 		}
 	}
 	return 0, time.Time{}, false
+}
+
+// inProgressConflictOn reports whether the account already has an IN_PROGRESS
+// manual charge entry for entry's vehicle on entry's ChargedOn day — the
+// "one charge in progress per vehicle per date" rule — returning that entry's
+// charged_on formatted "2006-01-02" for the user-facing message.
+//
+// excludeID exempts one entry from the scan: uuid.Nil on the create path
+// (nothing to exempt), and the edited row's own id on ChargeRowUpdate, so an
+// entry that is already IN_PROGRESS never conflicts with itself.
+//
+// Scope gate: only an IN_PROGRESS submission can conflict. A DONE entry is
+// unconstrained — any number may share a date — so a DONE submission returns
+// false without reading anything.
+//
+// The read is ListEntriesByVehicleBetween(chargedOn, chargedOn) — the same
+// port every list render already uses, with both bounds on the single day in
+// question, so the check costs one narrowly-bounded read and adds no method to
+// charging.Reader. The day comparison is nonetheless re-asserted on each
+// returned row rather than trusted to the port's window: correctness of a
+// write-blocking rule must not depend on a read port's filtering being exact,
+// and the two sides also carry different time components (a form-parsed UTC
+// midnight vs. whatever the DATE column round-trips as), so the compare is on
+// the calendar day, not the instant.
+//
+// A reader error FAILS OPEN (logged, returns false, the write proceeds). The
+// rule is an application-level convenience with no DB constraint behind it;
+// turning a transient read failure into a refusal to save the user's data
+// would trade a real loss for a hypothetical duplicate. This mirrors the
+// log-and-continue posture buildChargesPage's telemetry suggestion lookup and
+// recalculateAfterChargeWrite already take for non-essential follow-ups.
+func (h *Handler) inProgressConflictOn(ctx context.Context, uid uuid.UUID, entry charging.Entry, excludeID uuid.UUID) (string, bool) {
+	if entry.Status != charging.StatusInProgress || entry.TeslaID == 0 {
+		return "", false
+	}
+	existing, err := h.chargingReader.ListEntriesByVehicleBetween(ctx, uid, entry.TeslaID, entry.ChargedOn, entry.ChargedOn)
+	if err != nil {
+		log.Printf("gateway: in-progress conflict check reader error for account %s, vehicle %d, date %s: %v",
+			uid, entry.TeslaID, entry.ChargedOn.Format("2006-01-02"), err)
+		return "", false
+	}
+	want := entry.ChargedOn.Format("2006-01-02")
+	for _, e := range existing {
+		if e.Status != charging.StatusInProgress || e.ID == excludeID {
+			continue
+		}
+		if e.ChargedOn.Format("2006-01-02") == want {
+			return want, true
+		}
+	}
+	return "", false
 }
 
 // recalculateAfterChargeWrite calls the analytics module's recalculation
