@@ -51,6 +51,24 @@ func deleteAccount(t *testing.T, pool *pgxpool.Pool, id uuid.UUID) {
 	})
 }
 
+// activateAccount flips a test account to StatusActive via direct SQL — a
+// test-only concession (ai/go-conventions.md §Persistence "Seeding another
+// module's tables"). Every UpsertFromOAuth-provisioned account defaults to
+// StatusInactive (RM34 D2), and design.md D14/D15 (RM34-account-add-record-status)
+// gate ListVehiclesByAccount, ListAllVehicles, GetLatestTeslaTokenByAccount, and
+// GetLatestTeslaTokenByAccountForUpdate on the owning account's status via an
+// EXISTS check — so any test that seeds a vehicle or token and reads it back
+// through one of those paths must activate its account first, or the read
+// returns nothing despite the row existing.
+func activateAccount(t *testing.T, pool *pgxpool.Pool, id uuid.UUID) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		"UPDATE accounts SET status = 'Active' WHERE id = $1", id,
+	); err != nil {
+		t.Fatalf("activating test account: %v", err)
+	}
+}
+
 func TestUpsertFromOAuth_Idempotent(t *testing.T) {
 	s, pool := newTestService(t)
 	ctx := context.Background()
@@ -102,6 +120,7 @@ func TestSaveTeslaTokens_ReplacesExistingConnection(t *testing.T) {
 		t.Fatalf("provisioning account: %v", err)
 	}
 	deleteAccount(t, pool, acct.ID)
+	activateAccount(t, pool, acct.ID) // RM34 D14/D15: token reads are gated on account status
 
 	if err := s.SaveTeslaTokens(ctx, acct.ID, TeslaTokens{
 		AccessToken:     "first-access",
@@ -151,6 +170,7 @@ func TestAccessTokenFor_RefreshesAndPersistsOnExpiry(t *testing.T) {
 		t.Fatalf("provisioning account: %v", err)
 	}
 	deleteAccount(t, pool, acct.ID)
+	activateAccount(t, pool, acct.ID) // RM34 D14/D15: token reads are gated on account status
 
 	// Store an already-expired connection.
 	if err := s.SaveTeslaTokens(ctx, acct.ID, TeslaTokens{
@@ -281,6 +301,7 @@ func TestAllRegisteredVehicles_SingleAccountTaggedWithItsID(t *testing.T) {
 		t.Fatalf("provisioning account: %v", err)
 	}
 	deleteAccount(t, pool, acct.ID)
+	activateAccount(t, pool, acct.ID) // RM34 D14/D15: vehicle reads are gated on account status
 
 	// One vehicle with a display name, one with a NULL display name (empty string
 	// seeds as NULL via textFromString), to assert the NULL→"" mapping.
@@ -321,6 +342,7 @@ func TestAllRegisteredVehicles_MultipleAccountsEachTaggedCorrectly(t *testing.T)
 		t.Fatalf("provisioning account A: %v", err)
 	}
 	deleteAccount(t, pool, acctA.ID)
+	activateAccount(t, pool, acctA.ID) // RM34 D14/D15: vehicle reads are gated on account status
 
 	acctB, err := s.UpsertFromOAuth(ctx, OAuthIdentity{
 		Provider:   "google",
@@ -331,6 +353,7 @@ func TestAllRegisteredVehicles_MultipleAccountsEachTaggedCorrectly(t *testing.T)
 		t.Fatalf("provisioning account B: %v", err)
 	}
 	deleteAccount(t, pool, acctB.ID)
+	activateAccount(t, pool, acctB.ID) // RM34 D14/D15: vehicle reads are gated on account status
 
 	// A has one vehicle; B has two.
 	if _, err := s.SeedVehicles(ctx, acctA.ID, []SeedVehicle{
@@ -391,6 +414,7 @@ func TestSeedVehicles_InsertsWhenMissing(t *testing.T) {
 		t.Fatalf("provisioning account: %v", err)
 	}
 	deleteAccount(t, pool, acct.ID)
+	activateAccount(t, pool, acct.ID) // RM34 D14/D15: vehicle reads are gated on account status
 
 	got, err := s.SeedVehicles(ctx, acct.ID, []SeedVehicle{
 		{TeslaID: 100, VIN: "VIN100", DisplayName: "Car One"},
@@ -436,6 +460,7 @@ func TestAccessType_RoundTrip(t *testing.T) {
 		t.Fatalf("provisioning account: %v", err)
 	}
 	deleteAccount(t, pool, acct.ID)
+	activateAccount(t, pool, acct.ID) // RM34 D14/D15: vehicle reads are gated on account status
 
 	vehicles, err := s.SeedVehicles(ctx, acct.ID, []SeedVehicle{
 		{TeslaID: 7001, VIN: "VIN7001", DisplayName: "Owner Car", AccessType: ptr("OWNER")},
@@ -504,6 +529,7 @@ func TestAccessType_IdempotencyPreservesStoredValue(t *testing.T) {
 		t.Fatalf("provisioning account: %v", err)
 	}
 	deleteAccount(t, pool, acct.ID)
+	activateAccount(t, pool, acct.ID) // RM34 D14/D15: vehicle reads are gated on account status
 
 	// First seed: OWNER.
 	if _, err := s.SeedVehicles(ctx, acct.ID, []SeedVehicle{
@@ -575,6 +601,7 @@ func TestSetVehicleConfigIfEmpty_RoundTrip(t *testing.T) {
 		t.Fatalf("provisioning account: %v", err)
 	}
 	deleteAccount(t, pool, acct.ID)
+	activateAccount(t, pool, acct.ID) // RM34 D14/D15: vehicle reads are gated on account status
 
 	const (
 		freshCaptureID  int64 = 10001 // fresh capture, then a no-op re-call
@@ -692,14 +719,8 @@ func TestLanguagePreference_RoundTrip(t *testing.T) {
 
 	// RM34: a freshly-provisioned account defaults to StatusInactive, and every
 	// language read/write below is now filtered by status = 'Active' (design.md
-	// D4). Activate it directly, mirroring this test's existing out-of-band-write
-	// technique used later for the "fr" normalization step, before exercising any
-	// language read/write.
-	if _, err := pool.Exec(ctx,
-		"UPDATE accounts SET status = 'Active' WHERE id = $1", acct.ID,
-	); err != nil {
-		t.Fatalf("activating test account: %v", err)
-	}
+	// D4). Activate it before exercising any language read/write.
+	activateAccount(t, pool, acct.ID)
 
 	// --- Default on a fresh account: no explicit SetLanguage call yet ---
 	got, err := s.LanguageFor(ctx, acct.ID)
@@ -776,6 +797,7 @@ func TestSeedVehicles_IdempotentAndDoesNotOverwrite(t *testing.T) {
 		t.Fatalf("provisioning account: %v", err)
 	}
 	deleteAccount(t, pool, acct.ID)
+	activateAccount(t, pool, acct.ID) // RM34 D14/D15: vehicle reads are gated on account status
 
 	seed := []SeedVehicle{
 		{TeslaID: 11, VIN: "VIN11", DisplayName: "Original"},

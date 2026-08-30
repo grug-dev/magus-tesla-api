@@ -69,12 +69,31 @@ breaks them.** The user's standing default is no new tests; adding a field to
 `account.Account` and changing `GoogleCallback`'s control flow will break compilation and
 assertions in existing suites, and those must be repaired as part of the work.
 
+**D14 — Account-status gating uses an `EXISTS` semi-join, not a `JOIN`.** *(leader)*
+`GetLatestTeslaTokenByAccount` and `ListVehiclesByAccount` are `SELECT * FROM <table>`; a real JOIN
+would make `*` span both tables, changing the sqlc-generated row struct and breaking `service.go`.
+`EXISTS` leaves the projection — and every generated struct — byte-identical, and Postgres plans it
+as a semi-join regardless.
+
+**D15 — An Inactive account suppresses its vehicles and its Tesla tokens.** *(user)* Four reads gain
+the account-status predicate: `ListAllVehicles` (the nightly poller — the original gap, where a
+deactivated user's car was still polled on billed API calls), `ListVehiclesByAccount`,
+`GetLatestTeslaTokenByAccount` and `...ForUpdate`. `UpsertAccountFromOAuth` stays exempt per D4. The
+four write queries are deliberately NOT gated — they are unreachable once these reads are. No new
+index: `accounts.id` is the PK, `vehicles` has `UNIQUE (account_id, tesla_id)`, `tesla_tokens` has
+`UNIQUE (account_id)`.
+
+**D16 — Deactivation must take effect on the next request, not at next login.** *(user)* Tier 2 adds
+a per-request account-status check to the authenticated-route middleware. Without it, the signed
+cookie session (no server-side state, `gateway.go`) keeps a deactivated user signed in until the
+cookie expires; the D15 read filters would empty their pages but leave them nominally logged in.
+
 ## Tiers
 
 | Status | Change | Module | Scope | depends_on | Proposal prompt |
 |---|---|---|---|---|---|
 | `[~]` | `RM34-account-add-record-status` | `account` | Migration adding `status` to `accounts` (DEFAULT `Inactive`, no backfill) and `vehicles` (DEFAULT `Active`, backfill existing to `Active`), both `TEXT NOT NULL CHECK (status IN ('Active','Inactive'))`. Add `StatusActive`/`StatusInactive` constants and a `Status` field on `account.Account`. Filter `status='Active'` in `GetAccountByProviderID`, `GetAccountLanguage`, `UpdateAccountLanguage`, `ListVehiclesByAccount`, `ListAllVehicles`; leave `UpsertAccountFromOAuth` unfiltered and have it return `status`. Regenerate sqlc. Update existing account tests. | — | Implement tier 1 of RM34 per the Decisions above. Owning module `internal/account`. D1–D4 and D7 bind. The migration MUST NOT backfill `accounts`, and MUST backfill `vehicles` to `Active`. Surface the post-deploy recovery SQL from D2 in tasks.md and in your final report. |
-| `[ ]` | `RM34-gateway-block-inactive-login` | `gateway` | In `GoogleCallback`, after `UpsertFromOAuth`, refuse an account whose `Status != Active`: render a 403 blocked page naming `cristiancamilopena@gmail.com`, and do NOT set `uid`/`email` on the session. New Templ page + ES/EN catalog keys. Update existing gateway tests that assume every callback ends in a session. | 1 | Implement tier 2 of RM34 per the Decisions above. Owning module `internal/gateway`. D4, D5, D6, D7 bind. Depends on tier 1's `account.Account.Status`. Both catalogue languages must be non-empty (`make i18n-guard`). |
+| `[ ]` | `RM34-gateway-block-inactive-login` | `gateway` | In `GoogleCallback`, after `UpsertFromOAuth`, refuse an account whose `Status != Active`: render a 403 blocked page naming `cristiancamilopena@gmail.com`, and do NOT set `uid`/`email` on the session. New Templ page + ES/EN catalog keys. **Also add a per-request account-status check to the authenticated-route middleware** (D16): cookie sessions are stateless and survive deactivation, so without it an already-signed-in user stays signed in after being flipped to Inactive. Update existing gateway tests that assume every callback ends in a session. | 1 | Implement tier 2 of RM34 per the Decisions above. Owning module `internal/gateway`. D4, D5, D6, D7 bind. Depends on tier 1's `account.Account.Status`. Both catalogue languages must be non-empty (`make i18n-guard`). |
 
 Legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, not archived) · `[x]` done (archived)
 

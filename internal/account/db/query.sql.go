@@ -61,10 +61,15 @@ func (q *Queries) GetAccountLanguage(ctx context.Context, id uuid.UUID) (string,
 const getLatestTeslaTokenByAccount = `-- name: GetLatestTeslaTokenByAccount :one
 SELECT id, account_id, tesla_email, access_token, refresh_token, access_expires_at, created_at, updated_at FROM tesla_tokens
 WHERE account_id = $1
+  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
 ORDER BY updated_at DESC
 LIMIT 1
 `
 
+// Gated by the owning account's status via EXISTS (design.md D14/D15, RM34): an
+// Inactive account's token is invisible here, same as its vehicles. EXISTS (not a
+// JOIN) keeps `SELECT *` scoped to tesla_tokens alone, so the sqlc-generated row
+// struct is unchanged (D14).
 func (q *Queries) GetLatestTeslaTokenByAccount(ctx context.Context, accountID uuid.UUID) (TeslaToken, error) {
 	row := q.db.QueryRow(ctx, getLatestTeslaTokenByAccount, accountID)
 	var i TeslaToken
@@ -84,6 +89,7 @@ func (q *Queries) GetLatestTeslaTokenByAccount(ctx context.Context, accountID uu
 const getLatestTeslaTokenByAccountForUpdate = `-- name: GetLatestTeslaTokenByAccountForUpdate :one
 SELECT id, account_id, tesla_email, access_token, refresh_token, access_expires_at, created_at, updated_at FROM tesla_tokens
 WHERE account_id = $1
+  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
 ORDER BY updated_at DESC
 LIMIT 1
 FOR UPDATE
@@ -91,6 +97,8 @@ FOR UPDATE
 
 // Same as above but row-locked; used inside the refresh transaction so concurrent
 // refreshes of the same connection serialize and can't strand a single-use token.
+// Gated by the owning account's status via EXISTS (design.md D14/D15, RM34): a
+// revoked (Inactive) account can no longer burn a single-use refresh token.
 func (q *Queries) GetLatestTeslaTokenByAccountForUpdate(ctx context.Context, accountID uuid.UUID) (TeslaToken, error) {
 	row := q.db.QueryRow(ctx, getLatestTeslaTokenByAccountForUpdate, accountID)
 	var i TeslaToken
@@ -142,6 +150,7 @@ func (q *Queries) InsertVehicleIfMissing(ctx context.Context, arg InsertVehicleI
 const listAllVehicles = `-- name: ListAllVehicles :many
 SELECT account_id, tesla_id, vin, display_name, access_type, exterior_color, car_type FROM vehicles
 WHERE status = 'Active'
+  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
 ORDER BY account_id, tesla_id
 `
 
@@ -160,7 +169,12 @@ type ListAllVehiclesRow struct {
 // for stable, testable output. No join to tesla_tokens: enumeration is decoupled
 // from connection liveness (that is the caller's job via AccessTokenFor).
 // Filtered by status = 'Active' (design.md D4, RM34): an Inactive vehicle is
-// excluded regardless of its owning account's status.
+// excluded regardless of its owning account's status. Additionally gated by the
+// owning account's status via EXISTS (design.md D14/D15, RM34): this is the
+// primary fix for the nightly poller spending billed Fleet API calls (and waking
+// cars) on vehicles owned by a deactivated account. EXISTS (not a JOIN) keeps the
+// explicit column list scoped to vehicles alone, so the sqlc-generated row struct
+// is unchanged (D14).
 func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, error) {
 	rows, err := q.db.Query(ctx, listAllVehicles)
 	if err != nil {
@@ -192,12 +206,16 @@ func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, er
 const listVehiclesByAccount = `-- name: ListVehiclesByAccount :many
 SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at, access_type, exterior_color, car_type, status FROM vehicles
 WHERE account_id = $1 AND status = 'Active'
+  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
 ORDER BY tesla_id
 `
 
 // All vehicles registered to an account, ordered by tesla_id for stable output.
 // Filtered by status = 'Active' (design.md D4, RM34): an Inactive vehicle is
-// excluded from this read.
+// excluded from this read. Also gated by the owning account's status via EXISTS
+// (design.md D14/D15, RM34): a deactivated user's stateless cookie session must
+// not keep rendering real vehicles. EXISTS (not a JOIN) keeps `SELECT *` scoped
+// to vehicles alone, so the sqlc-generated row struct is unchanged (D14).
 func (q *Queries) ListVehiclesByAccount(ctx context.Context, accountID uuid.UUID) ([]Vehicle, error) {
 	rows, err := q.db.Query(ctx, listVehiclesByAccount, accountID)
 	if err != nil {

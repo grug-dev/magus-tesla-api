@@ -17,7 +17,13 @@
       "T4.1",
       "T5.1",
       "T5.2",
-      "T5.3"
+      "T5.3",
+      "T8.1",
+      "T8.2",
+      "T8.3",
+      "T8.4",
+      "T8.5",
+      "T8.6"
     ],
     "pending": [],
     "blocked": [],
@@ -32,7 +38,7 @@
     ]
   },
   "created_at": "2026-08-30T03:12:00Z",
-  "updated_at": "2026-08-30T10:05:00Z",
+  "updated_at": "2026-08-30T10:40:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -333,6 +339,106 @@
       "duration_seconds": null,
       "notes": "Suite commands handed to the owner.",
       "budget": null
+    },
+    {
+      "id": "T8.1",
+      "title": "EXISTS account-status predicate added to the four reads",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:34:00Z",
+      "completed_at": "2026-08-30T10:40:00Z",
+      "duration_seconds": 360,
+      "notes": "EXISTS account-status predicate added to the four reads; no other query touched.",
+      "budget": null
+    },
+    {
+      "id": "T8.2",
+      "title": "make sqlc run",
+      "module": "account",
+      "depends_on": [
+        "T8.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:34:00Z",
+      "completed_at": "2026-08-30T10:40:00Z",
+      "duration_seconds": 360,
+      "notes": "make sqlc run; models.go zero diff, query.sql.go diff confined to SQL text \u2014 struct shapes unchanged.",
+      "budget": null
+    },
+    {
+      "id": "T8.3",
+      "title": "No migration and no index",
+      "module": "account",
+      "depends_on": [
+        "T8.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:34:00Z",
+      "completed_at": "2026-08-30T10:40:00Z",
+      "duration_seconds": 360,
+      "notes": "No migration and no index; all lookups already PK- or unique-backed.",
+      "budget": null
+    },
+    {
+      "id": "T8.4",
+      "title": "design.md gains D14 (EXISTS not JOIN) and D15 (account gates vehicle/token reads).",
+      "module": "account",
+      "depends_on": [
+        "T8.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:34:00Z",
+      "completed_at": "2026-08-30T10:40:00Z",
+      "duration_seconds": 360,
+      "notes": "design.md gains D14 (EXISTS not JOIN) and D15 (account gates vehicle/token reads).",
+      "budget": null
+    },
+    {
+      "id": "T8.5",
+      "title": "AGENTS.md notes account status gates vehicle and token reads.",
+      "module": "account",
+      "depends_on": [
+        "T8.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:34:00Z",
+      "completed_at": "2026-08-30T10:40:00Z",
+      "duration_seconds": 360,
+      "notes": "AGENTS.md notes account status gates vehicle and token reads.",
+      "budget": null
+    },
+    {
+      "id": "T8.6",
+      "title": "Repaired 9 existing tests that seeded under a never-activated account",
+      "module": "account",
+      "depends_on": [
+        "T8.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T10:34:00Z",
+      "completed_at": "2026-08-30T10:40:00Z",
+      "duration_seconds": 360,
+      "notes": "Repaired 9 existing tests that seeded under a never-activated account; added shared activateAccount helper.",
+      "budget": null
     }
   ],
   "review": {
@@ -395,6 +501,15 @@
       "decision": "repaired two failing MAG-18 gateway charge tests on this branch instead of a separate one",
       "why": "Owner directed it after being told the mixing-of-concerns tradeoff. Both predate RM34 and fail on main; RM34 itself touches no gateway file.",
       "covered_by": null
+    },
+    {
+      "id": "D17",
+      "at": "2026-08-30T10:40:00Z",
+      "scope": "task:T8.6",
+      "made_by": "leader",
+      "decision": "accepted the worker's repair of 9 tests beyond the dispatch's stated four-file scope",
+      "why": "They seed vehicles/tokens under a never-activated account, so the D15 gate correctly hides them. Repair is required by D7, not new coverage.",
+      "covered_by": "D7"
     }
   ],
   "events": [
@@ -427,6 +542,11 @@
       "at": "2026-08-30T10:05:00Z",
       "agent": "leader",
       "event": "owner reported gateway/handlers suite failing; diagnosed as two stale MAG-18 assertions (Templ &amp; escaping; pre-wave-5 row contract), fixed in 1f27ba6, unexecuted"
+    },
+    {
+      "at": "2026-08-30T10:40:00Z",
+      "agent": "leader",
+      "event": "T8 reconciled: 4 reads gated via EXISTS; leader verified models.go zero-diff, no Go type change, build+vet clean; 9 existing tests repaired"
     }
   ]
 }

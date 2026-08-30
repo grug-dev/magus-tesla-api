@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-33 \u2014 https://linear.app/magus-monitor/issue/MAG-33/status-to-accounts-and-vehicles\nProject: Account   Priority: Urgent\n\n## Status to accounts and vehicles\n\n## Step 1\n\nAdd a new status column to save if a record is active or inactive. (ENUM type? ) I'd like to see the text `Active` or `Inactive` in the database table record. Add the new column to the next tables of the account module:\n\n* accounts\n* vehicles\n\nBy default, make the value as `Inactive`\n\n## Step 2\n\nFind all database queries done for those entities and modify the `GET`  queries to always include `status = Active` . Only active accounts and vehicles will return data. Otherwise, it does not exists.\n\n### Step 3\n\nVerify the login authentication. Only active users are able to sign in to the platform. IF after authenticating with google, the user is inactive, block the access to the site and show a message that user is inactive and must contact to `cristiancamilopena`@gmail.com  to validate their access. (i18N in spanish as well)",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-30T03:13:00Z",
+  "updated_at": "2026-08-30T10:33:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM34-MAG-33-account-vehicle-status",
@@ -87,6 +87,33 @@
       "made_by": "user",
       "decision": "no new unit tests; existing tests are updated where this change breaks them",
       "why": "User's standing default is no new tests. Adding Account.Status and changing GoogleCallback control flow breaks existing compilation and assertions, which must be repaired.",
+      "covered_by": null
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-30T10:33:00Z",
+      "scope": "tier:1",
+      "made_by": "leader",
+      "decision": "account-status gating uses an EXISTS semi-join, not a JOIN",
+      "why": "Two of the four queries are SELECT *; a JOIN would widen the projection, change the sqlc row struct and break service.go. EXISTS keeps every generated struct identical.",
+      "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-30T10:33:00Z",
+      "scope": "tier:1",
+      "made_by": "user",
+      "decision": "an Inactive account suppresses its vehicles and Tesla tokens across four reads",
+      "why": "Closes the poller gap: a deactivated user's car was still enumerated and polled on billed Fleet API calls. Writes stay ungated, unreachable once the reads are.",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-30T10:33:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "tier 2 adds a per-request account-status check to the authenticated-route middleware",
+      "why": "Cookie sessions are stateless and survive deactivation, so blocking only at login leaves an existing session working until the cookie expires.",
       "covered_by": null
     }
   ],

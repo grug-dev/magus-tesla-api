@@ -237,3 +237,50 @@
       `go test ./...` / `make test-with-db`) — this tier writes/repairs tests but does not execute
       them (`Test-Execution-Policy`); the owner's run is what turns T5 from
       `awaiting-user-verification` into `done`.
+
+## T8. Gate vehicle/token reads on owning-account status (`internal/account/db/query.sql`) — owner-approved scope addition, depends on T3 (touches the same file)
+
+Closes a gap left after T1–T7: an `Active` vehicle or Tesla token row owned by a since-deactivated
+(`Inactive`) account was still enumerable — the nightly poller kept spending billed Fleet API calls
+and waking that user's car, and a deactivated user's existing stateless cookie session kept
+rendering real vehicles. See `design.md` D14 (mechanism: `EXISTS`, not `JOIN`) and D15 (the
+resulting behavioral contract).
+
+- [x] T8.1 Add `AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = vehicles.account_id AND
+      a.status = 'Active')` to `ListAllVehicles` and to `ListVehiclesByAccount`, and the
+      `tesla_tokens.account_id`-keyed equivalent to `GetLatestTeslaTokenByAccount` and
+      `GetLatestTeslaTokenByAccountForUpdate`. Each query keeps its pre-existing predicate(s)
+      unchanged. Do NOT modify `UpsertAccountFromOAuth`, `UpsertTeslaToken`, `UpdateTeslaToken`,
+      `InsertVehicleIfMissing`, or `UpdateVehicleConfigIfEmpty` — D14 explicitly excludes them.
+      Acceptance: exactly four `-- name:` blocks in `query.sql` gained the `EXISTS` predicate; no
+      other query changed.
+- [x] T8.2 Run `make sqlc`. Diff the regenerated `internal/account/db/models.go` and
+      `internal/account/db/query.sql.go` against their pre-change versions. Confirm `models.go` has
+      **zero** diff and `query.sql.go` differs only in embedded SQL-string constants and comments —
+      no field/type/struct-shape change in any generated Go type. If any struct shape changed, the
+      wrong construct (a real `JOIN`) was used — revert and use `EXISTS` per D14.
+      Acceptance: diff output captured in the final report as the confirmation evidence.
+- [x] T8.3 Add no new index — confirmed by `design.md` D14's index-plan section (every `EXISTS`
+      lookup rides an existing primary key or unique-constraint index; `ListAllVehicles`'s nightly
+      cadence tolerates the added per-row PK lookup on its already-full-table scan).
+      Acceptance: no migration file added by this task group.
+- [x] T8.4 Add `design.md` D14 (the `EXISTS`-vs-`JOIN` decision + verification) and D15 (the
+      resulting behavioral contract: account status gates vehicle/token reads; `UpsertAccountFromOAuth`
+      stays exempt per D4; the four write queries stay deliberately ungated). Add the "New behaviour
+      introduced by D14/D15" note to the Test Contract section (D7: documented expected behavior,
+      no new test coverage).
+      Acceptance: `design.md` states, verbatim, that `AllRegisteredVehicles`/`RegisteredVehicles`
+      return zero rows and `AccessTokenFor` takes the no-connection sentinel path for an `Inactive`
+      account.
+- [x] T8.5 Update `internal/account/AGENTS.md`'s "Public interface" section with one sentence
+      noting that account status now also gates vehicle and token reads (not just the account row
+      itself).
+      Acceptance: the addition is one sentence, consistent with the file's existing terse style.
+- [ ] T8.6 `go build ./...`, `go vet ./...`, `gofmt -l` pass repo-wide (Claude-run, per
+      `Test-Execution-Policy`). No new unit tests added (D7 binding); if an existing test breaks
+      under the new `EXISTS` predicates, repair it and report which one and why — inspection found
+      none, since every existing test's fixture accounts are activated (`status = 'Active'`) before
+      the vehicle/token reads under test run (see T5/T9's activation pattern), so the new
+      account-status `EXISTS` check matches by construction for all of them.
+      Acceptance: exact command output reported; the owner's `go test ./...` / `make test-with-db`
+      run is what turns this from `awaiting-user-verification` into `done`.

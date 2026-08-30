@@ -312,6 +312,85 @@ add a targeted `(status)` or composite index then, justified by that query — n
 consistent with `ai/architecture.md` §7's "add a summary/index only when a real read pattern needs
 it."
 
+### D14 — Gate vehicle/token reads on the owning account's status via `EXISTS`, not a `JOIN` (owner-approved scope addition, binding)
+
+**Problem.** T1–T10 above filter `vehicles.status` and `accounts.status` independently, but nothing
+stops a vehicle owned by a deactivated (`Inactive`) account from still being enumerated: an
+`Active` vehicle row under an `Inactive` account still passes `ListAllVehicles`'s `WHERE status =
+'Active'` and `ListVehiclesByAccount`'s equivalent, because neither query looks at the *owning
+account's* status at all. Concretely this means the nightly poller keeps enumerating and polling a
+deactivated user's vehicles — spending billed Fleet API calls and waking their car — and a
+deactivated user's existing (stateless, cookie-based) session keeps rendering real vehicles, since
+cookie sessions have no server-side revocation hook and survive the account flipping to `Inactive`.
+Token reuse has the same hole: `AccessTokenFor` (via `GetLatestTeslaTokenByAccount` /
+`GetLatestTeslaTokenByAccountForUpdate`) would still hand out — and refresh — a token for a
+revoked account, burning a single-use refresh token for no purpose.
+
+**Decision.** Add an account-status predicate to exactly four queries in `query.sql`:
+`ListAllVehicles`, `ListVehiclesByAccount`, `GetLatestTeslaTokenByAccount`, and
+`GetLatestTeslaTokenByAccountForUpdate`. Each keeps its existing predicate(s) and adds:
+
+```sql
+AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = <account id column> AND a.status = 'Active')
+```
+
+— `vehicles.account_id` for the first two, `tesla_tokens.account_id` for the token pair.
+
+**Why `EXISTS` (a semi-join) and not a real `JOIN`.** `GetLatestTeslaTokenByAccount` and
+`ListVehiclesByAccount` are `SELECT * FROM <table>`. A real `JOIN accounts a ON a.id =
+<table>.account_id` would make `*` span both tables' columns, changing the sqlc-generated row
+struct shape (`accountdb.TeslaTokens`/`accountdb.Vehicle` would gain `accounts`' columns, or sqlc
+would need an explicit projection everywhere) and breaking `service.go`'s row-mapping helpers
+(`vehicleFromRow`, and the token-row field access in `AccessTokenFor`). `EXISTS` is a semi-join: it
+tests row *existence* without projecting the joined table's columns, so `SELECT *`'s meaning is
+unchanged and every generated struct stays byte-identical. PostgreSQL's planner produces a
+semi-join execution plan for `EXISTS` the same as it would for an equivalent `IN`/`JOIN` form
+here — there is no performance cost to choosing `EXISTS`, only a projection-safety benefit.
+`EXISTS` is used uniformly across all four queries (including `ListAllVehicles`, whose explicit
+column list would have tolerated a `JOIN` without a struct change) so the pattern reads identically
+everywhere a reader encounters it in this file, rather than varying by query shape.
+
+**Verification performed:** ran `make sqlc` after adding the predicate to all four queries and
+diffed the regenerated `internal/account/db/models.go` and `internal/account/db/query.sql.go`
+against their pre-change versions. `models.go` has **zero** diff. `query.sql.go` differs only in
+the embedded SQL query-string constants and their doc comments — no field, type, or struct-shape
+change in any generated Go type. This confirms the EXISTS construct, not a JOIN, was used.
+
+**Index plan: no new index.** Every lookup the `EXISTS` subquery performs is already index-backed —
+`accounts.id` is the primary key (unique index by construction); the four affected queries were
+already locating their own rows by an indexed path (`vehicles`' `UNIQUE (account_id, tesla_id)`,
+`tesla_tokens`' `UNIQUE (account_id)`). The `EXISTS` correlated subquery is therefore a single
+primary-key point lookup per outer row, not a scan. For `ListAllVehicles` specifically — the one
+query with no `WHERE account_id` and therefore a full-table scan already — this adds one indexed
+PK lookup per scanned row; the query runs once nightly (`ai/architecture.md` §7's read-heavy
+profile explicitly gives write/batch paths latitude to be slower), so even a full-table scan
+plus one PK lookup per row is negligible. No index is added.
+
+**What stays unfiltered, deliberately.** `UpsertAccountFromOAuth` remains completely unfiltered —
+D4's exemption for the auth path is untouched by this addition; gating the account-status check
+belongs to tier 2's login block (`RM34-gateway-block-inactive-login`), not to this provisioning
+call. The four write queries — `UpsertTeslaToken`, `UpdateTeslaToken`, `InsertVehicleIfMissing`,
+`UpdateVehicleConfigIfEmpty` — are deliberately **not** gated by this decision: each is only
+reachable from an authenticated request path that itself depends on a read this change already
+gates (a token write follows a successful `AccessTokenFor`/connect flow; a vehicle write follows
+`RegisteredVehicles` returning empty and the gateway calling `SeedVehicles`/`SetVehicleConfigIfEmpty`
+for a vehicle the caller already resolved through a gated read). Gating the writes too would be
+redundant defense with no reachable code path left to defend against, once the reads are gated —
+the same reasoning the roadmap already applied to excluding token refresh from D4's original five.
+
+### D15 — Account status gates vehicle and token reads; the auth path stays exempt (owner-approved scope addition, binding)
+
+Restating the resulting invariant precisely, since D14 is mechanism and this is the behavioral
+contract it establishes: an `Inactive` account's vehicles and Tesla token connection become
+invisible to every read in this module except `UpsertAccountFromOAuth`, exactly the same exemption
+D4 already established for the account row itself. This closes the gap left after T1–T10: a vehicle
+or token row can be individually `Active` and still be invisible, if its *owning account* is
+`Inactive`. The two status checks (the row's own `status` and its owning account's `status`)
+compose with `AND` — both queries retain their pre-existing `status = 'Active'` predicate on the
+row they're reading (`vehicles.status`, unchanged) alongside the new `EXISTS` check on the owning
+account. `UpsertAccountFromOAuth` is unaffected — D4's rationale (the conflict target is
+`(provider, provider_id)`, not a filterable read) applies unchanged here.
+
 ## Test Contract
 
 D7 adds no new tests, but the one existing test this tier repairs (`TestLanguagePreference_RoundTrip`)
@@ -357,6 +436,29 @@ verifies against:**
   assertion's expected value is unchanged, because every vehicle row these tests create takes the
   new column's `DEFAULT 'Active'` and every query they exercise now includes a `status = 'Active'`
   predicate that matches by construction.
+
+**New behaviour introduced by D14/D15 (owner-approved scope addition) — documented for the record,
+per D7's "no new test coverage" default; these are the expected outcomes any future test or manual
+verification should observe, not assertions added in this change:**
+
+Given an account flipped to `Inactive` by hand (out-of-band `UPDATE accounts SET status =
+'Inactive' WHERE id = $1`) that owns at least one `Active` vehicle and an active Tesla token
+connection:
+- `AllRegisteredVehicles(ctx)` returns **zero** `OwnedVehicle` rows for that account (the
+  `ListAllVehicles` `EXISTS` check excludes it), even though the vehicle row itself is still
+  `status = 'Active'`. Other accounts' `Active` vehicles are unaffected.
+- `RegisteredVehicles(ctx, accountID)` for that account returns **zero** `Vehicle` rows (the
+  `ListVehiclesByAccount` `EXISTS` check excludes it) — this is what closes the stateless-cookie-
+  session hole: an existing session for the now-`Inactive` account renders an empty vehicle list
+  instead of the real one.
+- `AccessTokenFor(ctx, accountID)` takes the no-connection sentinel path: both
+  `GetLatestTeslaTokenByAccountForUpdate` and (were it called directly)
+  `GetLatestTeslaTokenByAccount` now match zero rows for that account regardless of whether a token
+  row physically exists, so `AccessTokenFor` returns `ErrNoTeslaConnection` (via the existing
+  `errors.Is(err, pgx.ErrNoRows)` branch) — no refresh is attempted, no single-use refresh token is
+  spent.
+- Every other account's reads are unaffected — the `EXISTS` predicate is correlated per-row on
+  `account_id`, not a global condition.
 
 ## Risks / Trade-offs
 

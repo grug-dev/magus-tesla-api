@@ -38,7 +38,10 @@ Consumers (e.g. the gateway) call these — never this module's tables
 module's `Service` treats an `Inactive` account or vehicle as though it does not exist.
 A new account defaults `Inactive` (invite-gated); a new vehicle defaults `Active`. No
 port method flips a status — that is a manual, out-of-band DB update (see design.md of
-`RM34-account-add-record-status`).
+`RM34-account-add-record-status`). An `Inactive` account also suppresses its own vehicles
+and Tesla token reads (`RegisteredVehicles`, `AllRegisteredVehicles`, `AccessTokenFor`) via
+an `EXISTS`-gated join on the owning account's status, even when the vehicle/token row
+itself is `Active` (design.md D14/D15).
 
 ## Units convention
 
