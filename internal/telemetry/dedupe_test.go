@@ -80,8 +80,18 @@ func TestService_Location_FallsBackToClockZone(t *testing.T) {
 
 // TestService_Location_UsesConfiguredLocation covers tasks.md T8.2:
 // Config{Location: someLoc} returns someLoc unchanged.
+//
+// The fixture zone is deliberately NOT America/Bogota. Since
+// RM35-telemetry-adopt-clock the nil fallback is clock.Zone(), which IS
+// America/Bogota — so a Bogota fixture would leave this test discriminating
+// "returned the configured zone" from "fell back to the default" only by
+// pointer identity, relying on the unstated detail that time.LoadLocation
+// returns a fresh *Location per call rather than a cached one. It still
+// passed, but a reader could not see why. A zone that differs from the
+// fallback makes the discrimination obvious in the assertion itself
+// (review round 1, finding R1).
 func TestService_Location_UsesConfiguredLocation(t *testing.T) {
-	loc, err := time.LoadLocation("America/Bogota")
+	loc, err := time.LoadLocation("America/New_York")
 	if err != nil {
 		t.Fatalf("LoadLocation: %v", err)
 	}
