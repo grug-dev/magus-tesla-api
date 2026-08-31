@@ -1261,9 +1261,12 @@ with no history data served.
 
 **"Today" for this endpoint's validation and defaulting is the browser's local calendar day, not
 the server's UTC day** (unchanged from the prior revision of this requirement) — derived from the
-`browser_tz` cookie, falling back to `time.UTC` on any failure (absent cookie, empty value,
-unparseable IANA zone). See the "Browser-Local Calendar Day" scenarios below (unchanged
-behavior, restated here for completeness).
+`browser_tz` cookie, falling back to the platform's default time zone, `clock.Zone()`
+(`America/Bogota`), on any failure (absent cookie, empty value, unparseable IANA zone) — **this
+fallback default is a CHANGE from the prior revision of this requirement, which fell back to
+`time.UTC` (RM35-gateway-adopt-clock, roadmap D1/D4); the browser_tz cookie itself still wins
+unconditionally whenever present, unaffected by this change.** See the "Browser-Local Calendar
+Day" scenarios below.
 
 **The `start`/`end` params' default window AND the `end <= X` validation cap now both target
 `browser-yesterday`, not `browser-today` — this is a BEHAVIOR CHANGE from the prior revision of
@@ -1426,10 +1429,14 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **WHEN** the history fragment is requested (`GET /ui/dashboard/history`) directly, with no
   `start` and no `end` parameter and no `browser_tz` cookie (a direct API call)
 - **THEN** the response renders an "Odometer history" chart, a "Battery history" chart, and a
-  "Battery consumed" chart for the selected vehicle using a 6-day window (`end = UTC-yesterday`,
-  `start = UTC-yesterday-6`, `end` inclusive) — NOT `end = UTC-today` (the prior behavior)
+  "Battery consumed" chart for the selected vehicle using a 6-day window (`end =
+  platform-default-yesterday`, `start = platform-default-yesterday-6`, `end` inclusive) — NOT
+  `end = platform-default-today` (the prior D11 behavior). `platform-default` is `clock.Zone()`,
+  the platform's default time zone `America/Bogota` — this is a CHANGE from the prior revision
+  of this requirement, which used `time.UTC` here with no `browser_tz` cookie present
+  (RM35-gateway-adopt-clock, roadmap D1/D4)
 - **AND** all three charts render exactly 6 bars, one per calendar day in
-  `[UTC-yesterday-6 .. UTC-yesterday]`
+  `[platform-default-yesterday-6 .. platform-default-yesterday]`
 - **AND** the odometer and battery charts display identical `MM-DD` labels under corresponding
   bars; the consumed chart's labels cover the same calendar range (see the bucketing-mismatch
   scenario below for why an individual label can differ by one day)
@@ -1586,15 +1593,18 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
   chart to its empty state; the battery chart, sourced from the separate `telemetry.Reader`
   call, is unaffected
 
-#### Scenario: Browser-Local Calendar Day (unchanged from the prior revision)
+#### Scenario: Browser-Local Calendar Day, with a platform-default fallback
 
 - **GIVEN** a signed-in user whose browser sent a `browser_tz` cookie with a valid IANA zone —
   for any zone, negative or positive UTC offset
 - **WHEN** the history fragment is requested with no `start`/`end` parameter
-- **THEN** the default window's `end` is midnight of browser-yesterday IN THAT ZONE, not UTC
-  midnight
-- **AND** on a missing, empty, or unparseable `browser_tz` cookie, the gateway falls back to
-  `time.UTC` silently — no error surfaced, no caller special-casing required
+- **THEN** the default window's `end` is midnight of browser-yesterday IN THAT ZONE, not the
+  platform default zone's midnight — the cookie always wins whenever present, unchanged by this
+  revision (RM35-gateway-adopt-clock, roadmap D1)
+- **AND** on a missing, empty, or unparseable `browser_tz` cookie, the gateway falls back to the
+  platform's default time zone, `clock.Zone()` (`America/Bogota`) — silently, no error surfaced,
+  no caller special-casing required. **This fallback default is a CHANGE from the prior revision
+  of this requirement, which fell back to `time.UTC`** (RM35-gateway-adopt-clock, roadmap D1/D4)
 
 #### Scenario: Charts contain no business logic in templates
 

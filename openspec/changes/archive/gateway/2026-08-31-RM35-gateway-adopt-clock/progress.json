@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
   "request": "Tier 6 of RM35: adopt internal/clock in internal/gateway. The four UTC fallbacks in browserLocation / browserLocationFromHeader become clock.Zone() — the browser_tz cookie still wins (D1). history.go's startOfDay delegates to clock.CalendarDay. Four raw time.Now() calls in handlers.go become clock.Now(). startOfMonth and startOfDayIn are deliberately left alone. Repair broken tests (D6); add none.",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -25,7 +25,7 @@
     ]
   },
   "created_at": "2026-08-31T09:50:00Z",
-  "updated_at": "2026-08-31T14:05:00Z",
+  "updated_at": "2026-08-31T14:15:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -222,7 +222,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "gateway-reviewer",
     "brief": "Review RM35-gateway-adopt-clock (roadmap RM35 tier 6, module internal/gateway) against the DIFF, not the whole module. This tier had TWO failed suite runs before going green — scrutinise the fixes, not just the original adoption.\n\n(1) Module-boundary compliance per ai/architecture.md — gateway is the ONLY module allowed to produce HTML; it adds internal/clock and reads other modules through public interfaces only.\n(2) Roadmap D1, the tier's central claim: the browser_tz cookie STILL WINS for a signed-in user. Only the FALLBACK moved from time.UTC to clock.Zone(). Verify in tz.go that every cookie-present path is untouched. A cookie path that now ignores the cookie is a BLOCKER.\n(3) startOfDay delegates to clock.CalendarDay(t, time.UTC) — verify byte-identical by reading internal/clock/calendar.go yourself. Confirm supercharger.go's startOfMonth and tz.go's startOfDayIn are deliberately untouched (D-gw-2), and that startOfDayIn's documented DST limitation still stands.\n(4) The four handlers.go time.Now() -> clock.Now() swaps: design.md D-gw-4 claims each is byte-identical because the result is consumed by .Sub() or round-tripped through pgtype.Timestamptz. VERIFY that claim at each of the four sites. Any site where the zone label survives into a stored or rendered value is a finding.\n(5) THE FIXES — scrutinise hardest here. (a) D-gw-5/D-gw-6: browserTodayNoCookie() was added to history_test.go and 3 anchors repointed. Confirm ONLY the 3 sites that compare against a HANDLER-computed window moved, and that the ~21 sites passing their own today into buildHistoryView/dashboardFor correctly still use startOfDay. A test repointed that did NOT need it is a finding — it would mask a real frame bug. (b) D-gw-7: buildHistoryPresets' Active now compares formatted dates instead of instants. Verify the pre-existing claim independently with `git show main:internal/gateway/handlers/history.go`. Confirm the date comparison is correct for BOTH negative-offset (America/Bogota) and positive-offset (Europe/Madrid) zones — reason about it; do not run tests.\n(6) Roadmap D6 — no NEW tests added. browserTodayNoCookie() is a helper, not a test; confirm no new Test* function appeared. Confirm no existing expected value was weakened or deleted to reach green — this is the key anti-gaming check given two red runs.\n(7) Doc-pack conventions: ai/go-conventions.md's timezone rule, ai/htmx-conventions.md and ai/htmx-go-integration.md if any markup or fragment wiring changed, and the i18n rule (every user-facing string bilingual through i18n.T). CLAUDE.md's docs-track-structural-change: internal/gateway/AGENTS.md must name internal/clock, and no comment may still claim the fallback is UTC.\n(8) Performance-Profile (read-heavy) — buildHistoryPresets now formats dates in a loop on the render path. Judge whether that is acceptable; say so either way.\n(9) No database object created or changed. Any schema/migration touch is a BLOCKER — it never passed the owner's design gate.\n(10) Scope honesty: D-gw-7 is a bug fix BEYOND MAG-20's literal scope, taken with the owner's explicit approval (roadmap D32) and recorded with the missing regression test in backlog entry 19. Confirm that record is accurate and complete.\n\nTest provenance: go build ./..., go vet ./internal/gateway/..., gofmt, make i18n-guard, make ui-guard and openspec validate --strict were ASSISTANT-run and pass. The suite was run and reported passing by the OWNER, on the third attempt, after the two fixes above. Judge test QUALITY by reading them; do NOT run the suite.",
     "rounds": [
@@ -325,6 +325,50 @@
         },
         "findings": [],
         "notes": "R2-1 is correctly and completely fixed; the leader's own third-test judgement (TestBuildHistoryView_PresetsCarryAbsoluteHrefs left unchanged) is independently verified correct by reading buildHistoryView's full body -- it never touches browserLocation/parseHistoryRange, so it cannot suffer this bug class. design.md D-gw-9 and the T9/T10 task entries accurately and honestly record the leader's overturned round-1 reasoning rather than silently correcting it. Re-ran go build ./..., go vet ./internal/gateway/..., gofmt -l internal/gateway/handlers/history_test.go, and openspec validate RM35-gateway-adopt-clock --strict -- all pass. Did not run go test, per Test-Execution-Policy; the owner has not yet re-run the suite against 300b381/4beb7b0, so every repaired test remains awaiting-user-verification, not done. Across three rounds this reviewer found and the leader fixed 3 of 6 total frame-mismatch sites (R1-1, and the pair in R2-1); the leader's own tier-1 pass found the other 3, and its third-test exclusion in round 2 is confirmed sound rather than a fourth miss. No new finding this round. APPROVED, conditional on the standing, already-acknowledged requirement that the owner re-run go test ./internal/gateway/... and go test ./... before archive -- this verdict covers code and test correctness as read, not suite execution, which this role is not permitted to perform."
+      },
+      {
+        "round": 4,
+        "at": "2026-08-31T17:00:00Z",
+        "agent": "gateway-reviewer",
+        "verdict": "approved",
+        "reverified_files": [
+          "internal/gateway/handlers/history_test.go",
+          "openspec/changes/RM35-gateway-adopt-clock/design.md",
+          "openspec/changes/RM35-gateway-adopt-clock/tasks.md",
+          "openspec/changes/RM35-gateway-adopt-clock/progress.json",
+          "openspec/roadmaps/RM35-timezone-centralization.progress.json"
+        ],
+        "context": "Round 3's approval was withdrawn by the leader after the owner's suite (5e7ea57) found the round-2 fix (browserTodayNoCookie() used as an explicit-path bound) regressed TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat -- it had been passing. Root cause: browserTodayNoCookie() carries Location=clock.Zone() (Bogota); buildHistoryView's axis loop (`for d := start; !d.After(end); d = d.AddDate(0,0,1)`) preserves that Location, but byDay's write side is keyed via effectiveDayUTC / clock.CalendarDay(t, time.UTC), whose output Location is always time.UTC (Go normalizes UTC's loc field to nil internally). Go's map-key equality for time.Time compares the Location field, so a Bogota-Location axis bound can never match a UTC-keyed map entry -- the chart always renders Empty:true regardless of time of day. Commit 5e7ea57 fixes this with a new helper, browserYesterdayUTC(), and design.md D-gw-10 records the two-anchor rule.",
+        "checks_requested": [
+          {
+            "item": "1. browserYesterdayUTC() yields UTC midnight of browser-yesterday, for either offset sign",
+            "result": "confirmed",
+            "note": "browserYesterdayUTC() = clock.CalendarDay(browserTodayNoCookie().AddDate(0,0,-1), clock.Zone()). clock.CalendarDay(t, loc) always constructs its return value via time.Date(y,m,d,0,0,0,0,time.UTC) regardless of loc -- loc only selects WHICH calendar day (y,m,d) to read off t. Since browserTodayNoCookie().AddDate(0,0,-1) already carries Location=clock.Zone(), passing clock.Zone() as loc is a no-op re-observation that extracts the correct (Bogota) Y/M/D, then the function unconditionally re-expresses that Y/M/D at UTC midnight. Worked example at real time 2026-08-16T02:00:00Z: Bogota's current day is 2026-08-15, so Bogota-yesterday is 2026-08-14; browserYesterdayUTC() = 2026-08-14T00:00:00Z, exactly what a request for ?end=2026-08-14 parses to server-side via time.Parse. The mechanism (Y/M/D extraction then UTC reconstruction) is offset-sign-agnostic -- it would produce the same correct result if the platform default were a positive-offset zone; there is no code path here that special-cases the sign."
+          },
+          {
+            "item": "2. The 2 explicit-param sites use browserYesterdayUTC(); the 3 default-path sites still use browserTodayNoCookie()",
+            "result": "confirmed",
+            "note": "grep confirms TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows and ..._LabelsMatchViewModelVerbatim_NoLongDateFormat (the two R2-1 sites) now call browserYesterdayUTC(); TestDashboardHistoryFragment_DefaultWindowPassedToReader, _DaysParamIsIgnored, and _DefaultWindowActivatesSixDayPreset still call browserTodayNoCookie(). Read all three default-path tests in full: DefaultWindowPassedToReader and DaysParamIsIgnored both use historySnaps: []telemetry.Snapshot{} (so buildBatteryChart's len(snaps)==0 check returns Empty:true before ever touching the byDay map) and assert only via reader.gotStart.Equal(wantStart) -- time.Time.Equal compares absolute instants, not Location, so it is insensitive to which Location browserTodayNoCookie() carries. DefaultWindowActivatesSixDayPreset also uses empty snapshots and asserts only string-contains checks against .Format()-rendered hrefs, which are likewise Location-insensitive. None of the three exercises the byDay map-matching logic with real data, so browserTodayNoCookie() is safe for all three regardless of the Location distinction that broke the R2-1 sites."
+          },
+          {
+            "item": "3. R1-1's site (TestDashboard_HistoryRegionInsideDashboardContent) correctly stays on browserTodayNoCookie()",
+            "result": "confirmed",
+            "note": "This test hits GET /ui/dashboard (not /ui/dashboard/history) and asserts only strings.Contains(body, \"end=\"+yesterday) against defaultHistoryHref's rendered anchor -- a pure .Format(\"2006-01-02\") string comparison. It never calls buildHistoryView and never crosses effectiveDayUTC/byDay. Both sides of the comparison derive the calendar date from the same zone (Bogota, via browserTodayNoCookie() locally and browserToday(c) in the handler), so the Location metadata is irrelevant here -- only the formatted digits matter, and they agree. Correctly left unchanged."
+          },
+          {
+            "item": "4. TestBuildHistoryView_PresetsCarryAbsoluteHrefs remains unchanged",
+            "result": "confirmed",
+            "note": "Re-confirmed (already checked in round 3): calls h.buildHistoryView directly with start/end/today all derived from the same startOfDay(time.Now()) computation -- no *gin.Context, no browserLocation, no parseHistoryRange in its path -- so it is internally self-consistent regardless of frame and cannot suffer this bug class. No change needed."
+          },
+          {
+            "item": "5. Nothing weakened to reach green",
+            "result": "confirmed",
+            "note": "git show 5e7ea57 -- internal/gateway/handlers/history_test.go: the only removed lines are the two flagged comments and the two `end := browserTodayNoCookie().AddDate(0, 0, -1)` lines, replaced by `end := browserYesterdayUTC()` plus updated comments. No t.Errorf/t.Fatalf assertion touched, added, or removed."
+          }
+        ],
+        "additional_verification": "Independently investigated whether the underlying mechanism (a non-UTC-Location axis bound never matching effectiveDayUTC's UTC-keyed byDay map) is reachable in PRODUCTION for a real, non-empty browser_tz cookie on the both-params-absent default path (not just the no-cookie fallback R1-1/R2-1/R2 cover) -- since parseHistoryRange's default branch derives start/end from browserToday(c) the same way regardless of whether a cookie is present. Confirmed this exact mechanism, blast radius, and mitigating factor are ALREADY fully documented as a pre-existing, previously-triaged item: openspec/roadmaps/backlog.md entry 13 ('gateway — history charts key a map[time.Time] without normalizing the lookup side'), originated from RM28-gateway-add-consumed-graph tier 4 review finding R1 (predates this session and this roadmap entirely). That entry correctly notes the path is 'currently unreachable through the UI' because defaultHistoryHref and every preset button always send explicit, UTC-parsed params -- only a hand-crafted API call with both params absent and a cookie set can trigger it. RM35-gateway-adopt-clock does not touch, worsen, or newly expose this path (the cookie-present branch is byte-for-byte unchanged per D1), so this is correctly out of scope for this tier and does not affect this verdict -- noted here only as confirmation that my own independent derivation matches the project's existing, already-deferred triage exactly.",
+        "findings": [],
+        "notes": "All 5 requested checks confirmed correct. design.md D-gw-10 accurately documents the two-anchor rule and correctly attributes the underlying fragility to pre-existing backlog entry 13 rather than either hiding it or improperly expanding this tier's scope to fix it. tasks.md T10 and progress.json T11 honestly record that the regression was the leader's own, not the tier's original bug, and that T9/T10/T11 were only marked done after the owner's fourth (green) suite run against 5e7ea57 -- review.status was correctly reset to changes-requested rather than carrying the stale round-3 approval forward, exactly per the anti-gaming rule. Re-ran go build ./..., go vet ./internal/gateway/..., gofmt -l internal/gateway/handlers/history_test.go, and openspec validate RM35-gateway-adopt-clock --strict -- all pass. Did not run go test; the owner's fourth run against 5e7ea57 is recorded as the owner's own verification. APPROVED. This is the fourth round and the second time this reviewer independently modelled and confirmed the leader's frame-mismatch reasoning (R2-1's diagnosis, and now D-gw-10's) rather than taking it on trust, per Test-Execution-Policy's 'judge test quality by reading, do not run the suite' instruction."
       }
     ]
   },
@@ -495,6 +539,11 @@
       "at": "2026-08-31T14:05:00Z",
       "agent": "leader",
       "event": "OWNER reported make test PASSING against 5e7ea57 — the fourth run, and the first that covers every repaired site including the leader's regression fix. The owner's verification, not the assistant's. All tasks -> done, change -> verified. Sent back to gateway-reviewer for round 4; the round-3 approval is NOT reinstated automatically."
+    },
+    {
+      "at": "2026-08-31T14:15:00Z",
+      "agent": "leader",
+      "event": "Review round 4 APPROVED, no open findings. Reviewer sharpened the regression's mechanism: it is map-key equality, not instant equality — a time.Time map key compares its Location field, so a Bogota-Location bound can never match a UTC-keyed entry even for the same calendar day. That is why it failed at EVERY hour, not only inside the 00:00-05:00 UTC window that governs the cap bugs. design.md D-gw-10 corrected to say so. Archived to openspec/changes/archive/gateway/."
     }
   ]
 }

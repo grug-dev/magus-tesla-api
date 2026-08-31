@@ -271,11 +271,17 @@ request between 00:00 and 05:00 UTC (D-gw-9). They differ only in the frame the 
 expressed in — and that frame matters because these tests reuse the bound directly.
 
 Using a browser-zone midnight on the explicit path clears the cap (the formatted date is
-correct) but silently breaks the fixtures: `buildHistoryView`'s axis iterates the raw bound
-(`for d := start; !d.After(end); d = d.AddDate(0,0,1)`) while `byDay` is keyed at UTC
-midnight via `effectiveDayUTC` (`history.go:472`). A Bogota-midnight axis matches no key, so
-`distances` comes back empty and the chart short-circuits to `Empty: true` with **zero bars**
-— which is exactly the assertion that failed.
+correct) but silently breaks the fixtures. `buildHistoryView`'s axis iterates the raw bound
+(`for d := start; !d.After(end); d = d.AddDate(0,0,1)`), preserving its `Location`, while
+`byDay`'s write side keys every entry through `effectiveDayUTC` → `clock.CalendarDay(t,
+time.UTC)`, which always reconstructs at `time.UTC` (`history.go:472`).
+
+The precise mechanism is **map-key equality, not instant equality**: a `time.Time` used as a
+map key compares its `Location` field too, so a Bogota-`Location` bound can never match a
+UTC-keyed entry — even when the two denote the same calendar day. That is why this failed at
+**every hour**, not only inside the 00:00–05:00 UTC window that governs the cap bugs (D-gw-9).
+`distances` came back empty and the chart short-circuited to `Empty: true` with **zero bars**
+— exactly the assertion that failed.
 
 Note this is only reachable because the axis is never normalized to the key frame. That
 underlying fragility is already recorded as **backlog entry 13** ("history charts key a
