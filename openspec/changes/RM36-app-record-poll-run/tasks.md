@@ -31,7 +31,7 @@ tier calls already exists (tier 1, archived).
 
 ## Wave 1 — Constructor signature + struct field
 
-- [ ] **1.1** `internal/app/app.go` — add `runWriter telemetry.RunWriter` to
+- [x] **1.1** `internal/app/app.go` — add `runWriter telemetry.RunWriter` to
   `NewProcessor`'s parameter list, placed immediately after `superchargerReader`
   (design D1 — grouped with this module's other `telemetry`-owned ports), and pass
   it through to the returned `&processor{...}` struct literal. Update the function's
@@ -39,7 +39,7 @@ tier calls already exists (tier 1, archived).
   it is now eight.
   `depends_on`: — · `parallel_ok`: no
 
-- [ ] **1.2** `internal/app/processor.go` — add `runWriter telemetry.RunWriter` as a
+- [x] **1.2** `internal/app/processor.go` — add `runWriter telemetry.RunWriter` as a
   field on the unexported `processor` struct, in the same position as its
   constructor parameter (immediately after `superchargerReader`).
   `depends_on`: — · `parallel_ok`: with 1.1 (same file region is small; sequence if
@@ -49,11 +49,11 @@ tier calls already exists (tier 1, archived).
 
 ## Wave 2 — `ProcessVehicleData` control-flow refactor + `buildPollRun`/`recordRun`
 
-- [ ] **2.1** `internal/app/processor.go` — add the import
+- [x] **2.1** `internal/app/processor.go` — add the import
   `"github.com/cristianpena/magus-tesla-api/internal/clock"`.
   `depends_on`: — · `parallel_ok`: with Wave 1
 
-- [ ] **2.2** `internal/app/processor.go` — refactor `ProcessVehicleData` exactly per
+- [x] **2.2** `internal/app/processor.go` — refactor `ProcessVehicleData` exactly per
   design.md D4/D6: `start := clock.Now()` before step 1; the early
   `if err != nil { return report, err }` becomes `if err == nil { step2; step3 }`;
   after that guard, `finish := clock.Now()`, `report.Duration = finish.Sub(start)`,
@@ -63,7 +63,7 @@ tier calls already exists (tier 1, archived).
   design.md D4 for why the short-circuit's own behavior is unchanged.
   `depends_on`: 1.2, 2.1 · `parallel_ok`: no
 
-- [ ] **2.3** `internal/app/processor.go` — add the unexported `buildPollRun` free
+- [x] **2.3** `internal/app/processor.go` — add the unexported `buildPollRun` free
   function exactly as specified in design.md D7 (pure, no receiver, maps
   `telemetry.RunContext` + `telemetry.CycleReport` + `start`/`finish` onto
   `telemetry.PollRun`, reading `report.Attempted`/`.Succeeded` by field per tier 1's
@@ -71,7 +71,7 @@ tier calls already exists (tier 1, archived).
   `nil` on the whole-cycle-failure path).
   `depends_on`: 1.2 · `parallel_ok`: with 2.2
 
-- [ ] **2.4** `internal/app/processor.go` — add the unexported `recordRun` method
+- [x] **2.4** `internal/app/processor.go` — add the unexported `recordRun` method
   exactly as specified in design.md D5: calls `p.runWriter.RecordRun(ctx,
   buildPollRun(...))`, logs (`log.Printf("poll run: recording run %s: %v", ...)`) and
   swallows any returned error — never returns anything itself, never influences
@@ -123,7 +123,7 @@ tier calls already exists (tier 1, archived).
 
 ## Wave 4 — `cmd/poller` wiring (granted path)
 
-- [ ] **4.1** `cmd/poller/main.go` — construct `telemetry.NewRunWriter(pool)` and
+- [x] **4.1** `cmd/poller/main.go` — construct `telemetry.NewRunWriter(pool)` and
   pass it as the new argument to `app.NewProcessor(...)`, in the position Wave 1.1
   established (immediately after `superchargerReader`). No other line in this file
   changes — it remains wiring-only, per its own header comment.

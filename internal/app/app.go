@@ -61,7 +61,12 @@ type Processor interface {
 // NewProcessor builds a Processor from its collaborators' PUBLIC PORTS only — every
 // argument is an interface, not a *pgxpool.Pool or a concrete DB-backed type.
 // internal/app owns no table and no pool (design.md D1/D2): every read and write
-// this use case performs happens through one of these seven arguments.
+// this use case performs happens through one of these eight arguments.
+//
+// runWriter is telemetry's third port here (grouped with collector and
+// superchargerReader — RM36-app-record-poll-run design D1): ProcessVehicleData
+// calls it exactly once per invocation, after measuring the run's start-to-finish
+// span, to record a poll_runs summary row (RM36 tier 2).
 //
 // loc is required for the same reason it was required by cmd/poller's
 // newNightlyReconciler before this module existed: the gap-reconciliation window's
@@ -72,6 +77,7 @@ type Processor interface {
 func NewProcessor(
 	collector telemetry.Collector,
 	superchargerReader telemetry.SuperchargerReader,
+	runWriter telemetry.RunWriter,
 	sessionWriter charging.SessionWriter,
 	acct account.Service,
 	recalculator analytics.Recalculator,
@@ -82,6 +88,7 @@ func NewProcessor(
 	return &processor{
 		collector:          collector,
 		superchargerReader: superchargerReader,
+		runWriter:          runWriter,
 		sessionWriter:      sessionWriter,
 		acct:               acct,
 		recalculator:       recalculator,

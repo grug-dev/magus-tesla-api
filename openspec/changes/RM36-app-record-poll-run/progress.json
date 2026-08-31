@@ -5,9 +5,9 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM36-poll-run-tracking.md",
   "request": "Source ticket: MAG-35 - https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\n\nTier 2 (final) of RM36-poll-run-tracking. internal/app's ProcessVehicleData measures the run and calls telemetry.RunWriter.RecordRun on every exit path, including the step-1 whole-cycle-failure path. NewProcessor gains a RunWriter parameter; cmd/poller wiring updated. app still owns no data - it calls a port.",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-08-31T20:40:00Z",
-  "updated_at": "2026-08-31T20:40:00Z",
+  "updated_at": "2026-08-31T20:44:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -24,25 +24,26 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "1.2",
-      "2.1",
-      "2.2",
-      "2.3",
-      "2.4",
       "3.1",
       "3.2",
       "3.3",
       "3.4",
       "3.5",
-      "4.1",
       "5.1",
       "5.2",
       "5.3",
       "5.4"
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "4.1"
+    ]
   },
   "tasks": [
     {
@@ -51,14 +52,23 @@
       "module": "app",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added runWriter telemetry.RunWriter to NewProcessor after superchargerReader (D1); doc comment updated. Only two call sites exist repo-wide and both are consistent.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "1.2",
@@ -66,14 +76,23 @@
       "module": "app",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added the runWriter field to the processor struct in the same position as the constructor parameter.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "2.1",
@@ -81,14 +100,23 @@
       "module": "app",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added the internal/clock import to processor.go.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "2.2",
@@ -99,14 +127,23 @@
         "2.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "ProcessVehicleData refactored exactly to design D4's target shape: start:=clock.Now(), guarded fall-through, one finish/Duration/recordRun/return tail. Leader read the diff: short-circuit semantics identical.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "2.3",
@@ -116,14 +153,23 @@
         "1.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "buildPollRun added as a pure free function; maps Attempted/Succeeded by field per tier 1 D8, and reads FailuresByReason defensively against a nil map.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "2.4",
@@ -133,14 +179,23 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "recordRun added: returns nothing, logs a RecordRun error instead of propagating it, so it cannot alter ProcessVehicleData's (report, err).",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "3.1",
@@ -235,14 +290,23 @@
         "1.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "cmd/poller/main.go constructs telemetry.NewRunWriter(pool) and passes it to NewProcessor. Granted path; one line changed.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "5.1",
@@ -337,6 +401,15 @@
       "decision": "No design gate run for this tier: it creates and alters no database object, calling only tier 1's already-gated poll_runs schema through the RunWriter port.",
       "why": "The database gate fires on schema/object changes. Leader confirmed the artifacts add no migration, column, or index; the worker was told to block if it needed one.",
       "covered_by": null
+    },
+    {
+      "id": "D-LEADER-8",
+      "at": "2026-08-31T20:41:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Batched tasks.md's 5 declared waves into 2 serial worker dispatches (A: 1.1-2.4 plus 4.1; B: 3.1-3.5 plus 5.1-5.4) along the real dependency cuts.",
+      "why": "All 16 tasks share one module and one worker identity. Five dispatches would re-read the full doc pack five times. Every depends_on is still honoured inside each batch.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -349,6 +422,16 @@
       "at": "2026-08-31T20:40:00Z",
       "agent": "leader",
       "event": "Step 4 complete. progress.json seeded with 16 sub-tasks across 5 declared waves, all pending."
+    },
+    {
+      "at": "2026-08-31T20:41:00Z",
+      "agent": "leader",
+      "event": "Step 5 dispatch A: app worker (Sonnet) for tasks 1.1, 1.2, 2.1, 2.2, 2.3, 2.4, 4.1 - the processor wiring, the guarded fall-through refactor, buildPollRun/recordRun, and the cmd/poller composition-root change. Budget at dispatch: five_hour_pct=52, context_pct=21."
+    },
+    {
+      "at": "2026-08-31T20:44:00Z",
+      "agent": "leader",
+      "event": "Wave A reconciled: all 7 tasks done. Leader independently re-ran go build ./... (clean), go vet ./... (clean - it compiles scheduler_test.go, so the NewProcessor signature change did not drift), gofmt -l internal/app/ cmd/poller/ (empty), and read the full processor.go diff: D4's guarded fall-through preserves the short-circuit exactly (steps 2/3 run iff step 1 succeeded), D5's recordRun returns nothing so it cannot alter the returned error, D7's buildPollRun is pure and nil-map-safe. Grepped for raw time.Now(): the two hits in processor.go are PRE-EXISTING daily-bucket code grandfathered until RM35-app-adopt-clock; this wave added none, using clock.Now() throughout (D2). Budget 52%->57% five-hour, context 23%."
     }
   ]
 }
