@@ -129,6 +129,12 @@ func (s *service) location() *time.Location {
 func (s *service) CollectAll(ctx context.Context, run RunContext) (CycleReport, error) {
 	report := CycleReport{FailuresByReason: map[Reason]int{}}
 
+	// counted wraps s.tsla to count every Tesla Fleet API request this cycle makes
+	// (design D9/D10). Constructed fresh on this call's stack, never stored on
+	// *service, and threaded down as an explicit parameter — mirrors the same
+	// per-call-not-per-field pattern RunContext already established.
+	counted := newCallCounter(s.tsla)
+
 	vehicles, err := s.acct.AllRegisteredVehicles(ctx)
 	if err != nil {
 		// Whole-cycle failure: we could not even list what to collect. This is the
@@ -139,10 +145,14 @@ func (s *service) CollectAll(ctx context.Context, run RunContext) (CycleReport, 
 	// Group by owning account so we resolve each account's access token exactly once
 	// and make a single ListVehicles call per account (per-account batching, D3).
 	byAccount := groupByAccount(vehicles)
+	report.AccountsAttempted = len(byAccount)
 
 	for accountID, owned := range byAccount {
-		s.collectAccount(ctx, run, accountID, owned, &report)
+		s.collectAccount(ctx, run, counted, accountID, owned, &report)
 	}
+
+	report.AccountsSucceeded = report.AccountsAttempted - report.AccountsFailed
+	report.TeslaAPICalls = counted.calls
 
 	return report, nil
 }
@@ -175,7 +185,11 @@ func groupByAccount(vehicles []account.OwnedVehicle) map[uuid.UUID][]account.Own
 // only increments ChargingFetchFailures — it never aborts or affects the snapshot
 // collection. No poll_attempts row is written for charging (poll_attempts is
 // per-vehicle; charging is per-account — outcomes live in CycleReport).
-func (s *service) collectAccount(ctx context.Context, run RunContext, accountID uuid.UUID, owned []account.OwnedVehicle, report *CycleReport) {
+//
+// tsla is the tesla.VehicleService to use for this cycle's calls — CollectAll
+// passes its freshly-constructed callCounter (design D10), never s.tsla directly,
+// so every Tesla request this account's collection makes is counted.
+func (s *service) collectAccount(ctx context.Context, run RunContext, tsla tesla.VehicleService, accountID uuid.UUID, owned []account.OwnedVehicle, report *CycleReport) {
 	token, err := s.acct.AccessTokenFor(ctx, accountID)
 	if err != nil {
 		// No connection (or a refresh failure) applies to the WHOLE account: record
@@ -185,6 +199,7 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, accountID 
 		// No captureVehicleConfig call here (design.md D2): no VehicleData was fetched
 		// for any vehicle in this branch, so a config write-back would always be a
 		// guaranteed no-op — this omission is deliberate, not a gap.
+		report.AccountsFailed++
 		for _, v := range owned {
 			s.record(ctx, run, accountID, v.TeslaID, ReasonUnauthorized, report)
 		}
@@ -194,7 +209,7 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, accountID 
 	creds := tesla.Credentials{AccessToken: token}
 
 	// One ListVehicles per account (D3): read every vehicle's current State once.
-	states, err := s.listStates(ctx, creds)
+	states, err := s.listStates(ctx, tsla, creds)
 	if err != nil {
 		if errors.Is(err, tesla.ErrUnauthorized) {
 			// The account's token is rejected fleet-wide: record every vehicle as
@@ -202,6 +217,7 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, accountID 
 			// No captureVehicleConfig call here (design.md D2): no VehicleData was
 			// fetched for any vehicle in this branch, so a config write-back would
 			// always be a guaranteed no-op — this omission is deliberate, not a gap.
+			report.AccountsFailed++
 			for _, v := range owned {
 				s.record(ctx, run, accountID, v.TeslaID, ReasonUnauthorized, report)
 			}
@@ -213,7 +229,9 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, accountID 
 		// account's fetch as an api-error for this cycle and record each vehicle
 		// accordingly — per-vehicle isolation is preserved (the cycle continues).
 		// No captureVehicleConfig call here (design.md D2): same reasoning as above —
-		// no VehicleData was fetched for any vehicle in this branch.
+		// no VehicleData was fetched for any vehicle in this branch. This branch does
+		// NOT increment AccountsFailed (roadmap D4: only the two auth-shaped
+		// short-circuits count as a whole-account failure).
 		for _, v := range owned {
 			s.record(ctx, run, accountID, v.TeslaID, ReasonAPIError, report)
 		}
@@ -221,7 +239,7 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, accountID 
 	}
 
 	for _, v := range owned {
-		reason, cfg := s.collectVehicle(ctx, creds, v, states[v.TeslaID])
+		reason, cfg := s.collectVehicle(ctx, tsla, creds, v, states[v.TeslaID])
 		s.record(ctx, run, v.AccountID, v.TeslaID, reason, report)
 		s.captureVehicleConfig(ctx, v, cfg, report)
 	}
@@ -229,7 +247,7 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, accountID 
 	// Source B: fetch Supercharger session history for this account (design DBS7).
 	// Zero params = full fetch, no vehicle wake. This call is per-account (not per
 	// vehicle): one HTTP call returns all sessions for all vehicles in the account.
-	s.collectChargingHistory(ctx, accountID, owned, creds, report)
+	s.collectChargingHistory(ctx, tsla, accountID, owned, creds, report)
 }
 
 // collectChargingHistory fetches the account's Supercharger session history and
@@ -238,8 +256,11 @@ func (s *service) collectAccount(ctx context.Context, run RunContext, accountID 
 // it only increments ChargingFetchFailures (design DBS7). Per-session isolation:
 // a single upsert failure is logged but does not abort the remaining sessions.
 // No poll_attempts rows are written — outcomes live in CycleReport (design DBS7).
-func (s *service) collectChargingHistory(ctx context.Context, accountID uuid.UUID, owned []account.OwnedVehicle, creds tesla.Credentials, report *CycleReport) {
-	history, err := s.tsla.ChargingHistory(ctx, creds, tesla.ChargingHistoryParams{})
+//
+// tsla is the tesla.VehicleService to use — passed down from CollectAll's
+// callCounter (design D10) so this call is counted too.
+func (s *service) collectChargingHistory(ctx context.Context, tsla tesla.VehicleService, accountID uuid.UUID, owned []account.OwnedVehicle, creds tesla.Credentials, report *CycleReport) {
+	history, err := tsla.ChargingHistory(ctx, creds, tesla.ChargingHistoryParams{})
 	if err != nil {
 		// Charging-history fetch failure is isolated: never aborts the cycle and
 		// never affects the snapshot loop. Count it for observability.
@@ -306,8 +327,11 @@ func (s *service) collectChargingHistory(ctx context.Context, accountID uuid.UUI
 // live result (removed on Tesla's side) simply has no entry — collectVehicle then treats
 // it as not-online and runs the bounded wake flow, whose own ListVehicles poll surfaces
 // it as errVehicleNotListed → api-error (D3's "absent from ListVehicles" handling).
-func (s *service) listStates(ctx context.Context, creds tesla.Credentials) (map[int64]string, error) {
-	vehicles, err := s.tsla.ListVehicles(ctx, creds)
+//
+// tsla is the tesla.VehicleService to use — passed down from CollectAll's
+// callCounter (design D10) so this call is counted too.
+func (s *service) listStates(ctx context.Context, tsla tesla.VehicleService, creds tesla.Credentials) (map[int64]string, error) {
+	vehicles, err := tsla.ListVehicles(ctx, creds)
 	if err != nil {
 		return nil, err
 	}
@@ -337,8 +361,12 @@ type vehicleConfig struct {
 // does, exactly once per vehicle per cycle). The retry's result — not the first
 // attempt's — is what reaches the caller for both return values: this is what gives
 // RD6's "at most one write-back per vehicle per cycle" for free.
-func (s *service) collectVehicle(ctx context.Context, creds tesla.Credentials, v account.OwnedVehicle, state string) (Reason, vehicleConfig) {
-	reason, cfg := s.attemptVehicle(ctx, creds, v, state)
+//
+// tsla is the tesla.VehicleService to use — passed down from CollectAll's
+// callCounter (design D10) through to attemptVehicle, unchanged, on both the
+// first attempt and the retry.
+func (s *service) collectVehicle(ctx context.Context, tsla tesla.VehicleService, creds tesla.Credentials, v account.OwnedVehicle, state string) (Reason, vehicleConfig) {
+	reason, cfg := s.attemptVehicle(ctx, tsla, creds, v, state)
 	if reason == ReasonAPIError {
 		// Exactly one retry after a short backoff, and only for transient errors.
 		select {
@@ -346,7 +374,7 @@ func (s *service) collectVehicle(ctx context.Context, creds tesla.Credentials, v
 			return reason, cfg
 		case <-time.After(s.retryBackoff):
 		}
-		reason, cfg = s.attemptVehicle(ctx, creds, v, state)
+		reason, cfg = s.attemptVehicle(ctx, tsla, creds, v, state)
 	}
 	return reason, cfg
 }
@@ -364,11 +392,16 @@ func (s *service) collectVehicle(ctx context.Context, creds tesla.Credentials, v
 //   - on ReasonOK, the returned vehicleConfig carries the observed exterior_color/car_type
 //     from this pass's VehicleData response; every other return path yields the zero
 //     vehicleConfig{}.
-func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, v account.OwnedVehicle, state string) (Reason, vehicleConfig) {
+//
+// tsla is the tesla.VehicleService to use — passed down from CollectAll's
+// callCounter (design D10). waitUntilOnline/isOnline need no change: both
+// already take svc tesla.VehicleService explicitly, so tsla passes through
+// unchanged.
+func (s *service) attemptVehicle(ctx context.Context, tsla tesla.VehicleService, creds tesla.Credentials, v account.OwnedVehicle, state string) (Reason, vehicleConfig) {
 	if state != "online" {
 		// Asleep/offline/absent-from-the-list → run the bounded wake flow (D4). An
 		// already-online vehicle bypasses this entirely, saving a paid WakeUp.
-		online, err := waitUntilOnline(ctx, s.tsla, creds, v.TeslaID, s.cfg.WakeTimeout)
+		online, err := waitUntilOnline(ctx, tsla, creds, v.TeslaID, s.cfg.WakeTimeout)
 		if err != nil {
 			return s.logAPIError(v.TeslaID, "wake", err, reasonFor(err)), vehicleConfig{}
 		}
@@ -378,7 +411,7 @@ func (s *service) attemptVehicle(ctx context.Context, creds tesla.Credentials, v
 		}
 	}
 
-	data, raw, err := s.tsla.VehicleData(ctx, creds, v.TeslaID)
+	data, raw, err := tsla.VehicleData(ctx, creds, v.TeslaID)
 	if err != nil {
 		return s.logAPIError(v.TeslaID, "VehicleData", err, reasonFor(err)), vehicleConfig{}
 	}

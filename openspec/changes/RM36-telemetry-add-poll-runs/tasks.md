@@ -104,7 +104,7 @@ design was shaped specifically to avoid needing to.
 
 ## Wave 4 — Wire `service.go`: threading the counter, account counters, whole-cycle plumbing
 
-- [ ] **4.1** `internal/telemetry/service.go` — thread `tsla tesla.VehicleService` as
+- [x] **4.1** `internal/telemetry/service.go` — thread `tsla tesla.VehicleService` as
   an explicit parameter through `collectAccount`, `listStates`, `collectVehicle`,
   `attemptVehicle`, and `collectChargingHistory` (design D10), replacing every
   internal read of `s.tsla` in those five methods with the parameter. `CollectAll`
@@ -114,7 +114,7 @@ design was shaped specifically to avoid needing to.
   `counted` through unchanged).
   `depends_on`: 2.2, 3.1 · `parallel_ok`: no
 
-- [ ] **4.2** `internal/telemetry/service.go` — in `CollectAll`, set
+- [x] **4.2** `internal/telemetry/service.go` — in `CollectAll`, set
   `report.AccountsAttempted = len(byAccount)` immediately after building
   `byAccount`; after the account loop, set
   `report.AccountsSucceeded = report.AccountsAttempted - report.AccountsFailed`;
@@ -125,7 +125,7 @@ design was shaped specifically to avoid needing to.
   branch touches this counter (roadmap D4).
   `depends_on`: 4.1 · `parallel_ok`: no
 
-- [ ] **4.3** `internal/telemetry/report.go` — change `LogCycle`'s printed line per
+- [x] **4.3** `internal/telemetry/report.go` — change `LogCycle`'s printed line per
   roadmap D7 / design.md **D8**: the vehicle-grain labels become
   `vehicles_attempted=%d vehicles_succeeded=%d`, and the line additionally prints
   `accounts_attempted`, `accounts_succeeded`, `accounts_failed`, `tesla_api_calls`
