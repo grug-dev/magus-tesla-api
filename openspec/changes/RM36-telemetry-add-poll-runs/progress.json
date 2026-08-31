@@ -7,7 +7,7 @@
   "request": "Source ticket: MAG-35 — https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\nProject: architecture   Priority: High\n\nTier 1 of RM36-poll-run-tracking. Add the poll_runs table (one row per run_id) owned by internal/telemetry, the telemetry.RunWriter port internal/app will call, the Tesla Fleet API call counting (a decorator around tesla.VehicleService, internal to telemetry — internal/tesla is NOT modified), the new CycleReport fields, and the disambiguated LogCycle line. Tier 2 (internal/app measures the run and calls the port) is a separate change.",
   "status": "in-progress",
   "created_at": "2026-08-31T07:25:00Z",
-  "updated_at": "2026-08-31T15:16:37Z",
+  "updated_at": "2026-08-31T15:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -487,7 +487,12 @@
     {
       "at": "2026-08-31T15:16:37Z",
       "agent": "leader",
-      "event": "Wave B reconciled: 4.1, 4.2, 4.3 all done. Leader independently re-ran go build ./... (clean), go vet ./... (clean), gofmt -l internal/telemetry/ (empty), and read the full diff: D10 satisfied (only s.tsla read left is newCallCounter's construction), D4 satisfied (AccountsFailed++ in exactly the two auth short-circuits), D8 satisfied (printed labels changed, CycleReport.Attempted/.Succeeded field names untouched). budget null — statusline cache stale, not a live session. Worker self-reported timestamps 15:05-15:35 predate its own 15:14 dispatch; leader recorded the real bracket instead."
+      "event": "Wave B reconciled: 4.1, 4.2, 4.3 all done. Leader independently re-ran go build ./... (clean), go vet ./... (clean), gofmt -l internal/telemetry/ (empty), and read the full diff: D10 satisfied (only s.tsla read left is newCallCounter's construction), D4 satisfied (AccountsFailed++ in exactly the two auth short-circuits), D8 satisfied (printed labels changed, CycleReport.Attempted/.Succeeded field names untouched). budget null — statusline cache stale, not a live session. Worker self-reported timestamps 15:05-15:35 predate its own 15:14 dispatch; leader recorded the real bracket instead. Wave B committed as f05b97a."
+    },
+    {
+      "at": "2026-08-31T15:20:00Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at the wave-B/C boundary, taken by the user's choice, not by a threshold (budget cache stale so no live reading; context_pct was ~12; the 3-or-more-waves rule applies). Wave B committed as f05b97a. NEXT: wave C = 5.1, 5.2, 5.3 (tests) + 6.1, 6.2 (docs) — every depends_on is now satisfied, so all five can go in one dispatch. Task 3.2 is still awaiting-user-verification: the owner has been asked to run go test ./internal/telemetry/... and has not yet reported. Resume with: /kkpa-dev-harness-pipeline resume RM36-telemetry-add-poll-runs"
     }
   ]
 }
