@@ -1,7 +1,14 @@
 # clock Specification
 
 ## Purpose
-TBD - created by archiving change RM35-clock-add-bogota-time-package. Update Purpose after archive.
+Own the platform's single default time zone (`America/Bogota`) and the primitives every other
+module uses to obtain the current time or normalize a moment to its calendar day, so that no
+module hard-codes a zone name or hand-rolls a day truncation of its own.
+
+Scope note: this capability defines the **default** zone. It does not change the platform's
+calendar-day *storage* representation (UTC midnight), and it does not override an explicitly
+supplied zone — notably the gateway's per-user browser time zone, which still wins for a
+signed-in user's own pages.
 ## Requirements
 ### Requirement: Platform Default Time Zone
 The platform SHALL define a single default time zone, `America/Bogota`, used wherever a time

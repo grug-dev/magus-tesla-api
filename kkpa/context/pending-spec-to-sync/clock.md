@@ -1,0 +1,79 @@
+# Sync proposal — clock
+
+> Staged by `kkpa-context-curate from-spec`. This is a **draft** of KB edits derived from one
+> approved OpenSpec capability spec. Review/edit the blocks below, then run
+> `/kkpa-context-curate apply-sync` to write them into the real KB. Nothing here touches the
+> canonical KB until applied. This file is self-contained — it embeds the proposed content, so it
+> stays valid even after the OpenSpec change folder is archived/moved.
+
+Target guide: `architecture/platform-time-zone.md`
+Source spec:  `openspec/specs/clock/spec.md`
+Generated:    2026-08-31
+Status: PENDING REVIEW
+
+> **Routing note (for your review).** `clock` has no single external trigger — it is a
+> cross-cutting primitive every module calls — so it is filed as an **architecture topic**, not a
+> use case or workflow. The target guide does not exist yet; `apply-sync` will create it from
+> `references/guide-template.md`.
+>
+> **Scope note.** This spec was archived from `RM35-clock-add-bogota-time-package`, **tier 1 of 7**.
+> Tiers 2–7 adopt the capability across `config`, `telemetry`, `analytics`, `app` and `gateway` and
+> add a `make tz-guard`. At the time of writing, **nothing adopts it yet** — the guide says so, and
+> that line must be revisited as those tiers land.
+
+---
+
+## [guide] ## Glossary — REPLACE
+
+- **Known as:** `platform time zone`, `default time zone`, `America/Bogota`, `clock`, `calendar day`
+- **Internal name:** `clock` capability — `internal/clock` (`Zone`, `Now`, `LoadOrDefault`, `CalendarDay`)
+
+## [guide] ## How maintenance works — APPEND
+
+The capability guarantees four behaviors. Change any of them here, never by hand-rolling an
+equivalent in a consuming module.
+
+1. **A single default zone.** The platform defines exactly one default time zone,
+   `America/Bogota`, used wherever a zone is needed and none was configured or supplied. One
+   capability owns it; everything else obtains it from there rather than naming the zone itself.
+2. **Current time in that zone.** "Now" is available already expressed in the default zone, so no
+   consumer calls the system clock and converts the result itself.
+3. **Zone-name resolution with fallback.** An IANA name resolves to its zone; an unresolvable name
+   falls back to the default zone **without surfacing an error** to the caller.
+4. **Calendar-day normalization.** Any moment normalizes to the calendar day it falls on *in a
+   caller-supplied zone*, expressed in the platform's calendar-day storage representation (UTC
+   midnight, which this capability leaves unchanged). The day comes from the moment's wall-clock
+   date in that zone — not its UTC date — so a moment near a boundary is attributed to the correct
+   local day.
+
+## [guide] ## Conventions & gotchas — APPEND
+
+- **Never hard-code a zone name, and never hand-roll a UTC-midnight truncation.** Obtain the
+  default zone, "now", and a calendar day from the `clock` capability. It is the single owner of
+  the default, which is the whole point of the capability.
+  _Source: spec clock — Requirement: Platform Default Time Zone._
+- **An unresolvable zone name falls back silently to the default — no error reaches the caller.**
+  Callers that must distinguish "bad input" from "used the default" cannot do it through this
+  path and need their own validation first.
+  _Source: spec clock — Requirement: Time Zone Name Resolution With Fallback._
+- **The zone for a calendar day is the caller's, not the capability's.** Normalization takes the
+  zone as an explicit input; passing the wrong one silently attributes a moment to the wrong day.
+  Day attribution is what the poller, analytics, and charging all bucket on, so an error here is
+  invisible until the numbers are already wrong.
+  _Source: spec clock — Requirement: Calendar Day Normalization._
+- **UTC is still the storage representation for a calendar day, and that is deliberate.** The
+  capability expresses a normalized day at UTC midnight and explicitly does not change that
+  encoding — it is what the DB layer expects. "Do not use UTC" applies to the *default zone*, never
+  to this representation.
+  _Source: spec clock — Requirement: Calendar Day Normalization._
+- **A daylight-saving transition must not move a moment's calendar day.** Two moments either side
+  of a DST change on the same local date normalize to the same day.
+  _Source: spec clock — Requirement: Calendar Day Normalization._
+
+## [index] ## Architecture topics — ADD ROWS
+
+| `platform time zone` (the single default zone `America/Bogota` + calendar-day normalization) | `architecture/platform-time-zone.md` |
+| `default time zone` | synonym of `platform time zone` → `architecture/platform-time-zone.md` |
+| `America/Bogota` | synonym of `platform time zone` → `architecture/platform-time-zone.md` |
+| `clock` | `internal/clock` (`Zone` / `Now` / `LoadOrDefault` / `CalendarDay`) → `architecture/platform-time-zone.md` |
+| `calendar day` | `clock.CalendarDay` — normalize a moment to its day in a given zone → `architecture/platform-time-zone.md` |
