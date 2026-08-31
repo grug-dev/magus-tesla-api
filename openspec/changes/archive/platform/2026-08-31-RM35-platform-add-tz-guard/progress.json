@@ -5,11 +5,9 @@
   "module": "platform",
   "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
   "request": "Tier 7 of 7 (FINAL) of RM35: add make tz-guard mirroring money-guard's grep shape with a // tz:allow: <reason> escape hatch, wire it into .PHONY and make check, mark the legitimate escapes so it passes on the current tree, and document it in README.md and CLAUDE.md's allowed-commands list. Shipped LAST because wired in earlier it would fail on every unmigrated module (roadmap D5).",
-  "status": "reviewer-approved",
+  "status": "archived",
   "rollup": {
-    "current": [
-      "T6"
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
@@ -17,11 +15,12 @@
       "T2",
       "T3",
       "T4",
-      "T5"
+      "T5",
+      "T6"
     ]
   },
   "created_at": "2026-08-31T14:30:00Z",
-  "updated_at": "2026-08-31T15:05:00Z",
+  "updated_at": "2026-08-31T15:15:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -128,7 +127,7 @@
         "T5"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-08-31T15:00:00Z",
@@ -303,6 +302,16 @@
       "at": "2026-08-31T15:05:00Z",
       "agent": "leader",
       "event": "Review round 2 APPROVED. R1 verified fixed by the reviewer's own re-run; R2-R5 verified documented; R3's 'partly intended' judgement checked against scheduler.go rather than taken on trust. Two new minors: R7 (cosmetic echo) fixed here, R6 (scheduler nowFn default) sent to backlog 21. The reviewer also corrected the leader's count of existing sub-day truncations — 33, not 10; immaterial to correctness, corrected in design.md and tasks.md rather than left standing."
+    },
+    {
+      "at": "2026-08-31T15:15:00Z",
+      "agent": "leader",
+      "event": "OWNER ran make check after leg 4 and the echo fix and reported it PASSING. The owner's verification. All tasks -> done."
+    },
+    {
+      "at": "2026-08-31T15:15:00Z",
+      "agent": "leader",
+      "event": "Reviewer-approved round 2, owner verified via make check. Archived to openspec/changes/archive/platform/. This closes RM35's final tier."
     }
   ]
 }
