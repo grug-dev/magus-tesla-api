@@ -123,7 +123,7 @@ signature drift and API mistakes in tests that were never executed. Skipping suc
 saves nothing — it converts it into a round-trip costing more than the output it replaced.
 
 `make check` is `build vet ui-guard i18n-guard money-guard migration-guard test`; it is owner-only purely
-because of the trailing `test`. Claude runs the other five individually, so excluding
+because of the trailing `test`. Claude runs the other six individually, so excluding
 `check` costs no guard coverage.
 
 **Reporting rules — these are the point of the split:**

@@ -22,7 +22,7 @@ compiles `_test.go` files, so it catches signature drift and API mistakes in tes
 executed. Skipping a signal like that doesn't save anything; it converts it into a
 round-trip that costs more than the output it replaced.
 
-`make check` is owner-only *only* because it ends in `test` — its other five phases
+`make check` is owner-only *only* because it ends in `test` — its other six phases
 (`build vet ui-guard i18n-guard money-guard migration-guard`) are all on the allowed list and Claude runs
 them individually. So excluding `check` costs no guard coverage.
 
