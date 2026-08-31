@@ -5,8 +5,8 @@
   "module": "clock",
   "roadmap": "RM35-timezone-centralization",
   "roadmap_tier": 1,
-  "status": "applied",
-  "updated_at": "2026-08-31T01:23:02Z",
+  "status": "verified",
+  "updated_at": "2026-08-31T01:23:19Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -24,6 +24,8 @@
     "pending": [],
     "blocked": [],
     "done": [
+      "T1",
+      "T2",
       "T3",
       "T4",
       "T5",
@@ -31,10 +33,7 @@
       "T7",
       "T8"
     ],
-    "awaiting-user-verification": [
-      "T1",
-      "T2"
-    ]
+    "awaiting-user-verification": []
   },
   "decisions": [
     {
@@ -97,11 +96,11 @@
       "id": "T1",
       "title": "internal/clock/clock.go \u2014 Zone, Now, LoadOrDefault + clock_test.go",
       "depends_on": [],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "clock",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T19:58:16Z",
-      "completed_at": "2026-08-30T19:59:00Z",
+      "completed_at": "2026-08-31T01:23:19Z",
       "duration_seconds": 44,
       "budget": {
         "five_hour_pct_delta": null,
@@ -110,17 +109,17 @@
         "approx": true,
         "note": "5h bucket reset mid-wave; delta not computable"
       },
-      "notes": "Zone/Now/LoadOrDefault per D9/D10. Import block is exactly \"time\" \u2014 no tzdata. Tests transcribed verbatim from the design Test Contract. Build and vet clean; suite not run."
+      "notes": "Zone/Now/LoadOrDefault per D9/D10. Import block is exactly \"time\" \u2014 no tzdata. Tests transcribed verbatim from the design Test Contract. Build and vet clean; suite not run. Suite reported passing by the OWNER."
     },
     {
       "id": "T2",
       "title": "internal/clock/calendar.go \u2014 CalendarDay + calendar_test.go",
       "depends_on": [],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "clock",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-30T19:58:16Z",
-      "completed_at": "2026-08-30T19:59:00Z",
+      "completed_at": "2026-08-31T01:23:19Z",
       "duration_seconds": 44,
       "budget": {
         "five_hour_pct_delta": null,
@@ -129,7 +128,7 @@
         "approx": true,
         "note": "5h bucket reset mid-wave; delta not computable"
       },
-      "notes": "CalendarDay per D7. Leader re-derived it against all three truncators: identical to startOfDay/calendarDay at loc=UTC and to dateOnly for any loc. Build and vet clean; suite not run."
+      "notes": "CalendarDay per D7. Leader re-derived it against all three truncators: identical to startOfDay/calendarDay at loc=UTC and to dateOnly for any loc. Build and vet clean; suite not run. Suite reported passing by the OWNER."
     },
     {
       "id": "T3",
@@ -295,6 +294,12 @@
       "kind": "parked",
       "by": "leader",
       "note": "Parked awaiting the owner's suite run. Owner declined to authorize an assistant-run suite (D13). Nothing further can advance: Step 7 requires the reported pass. Resume with /kkpa-dev-harness-pipeline resume RM35-clock-add-bogota-time-package once results are in."
+    },
+    {
+      "at": "2026-08-31T01:23:19Z",
+      "kind": "user-verified",
+      "by": "user",
+      "note": "THE OWNER reported the test suite passing (go test ./internal/clock/... and go test ./...). Recorded as the owner's verification, not the assistant's \u2014 the assistant ran no suite at any point. T1/T2 move from awaiting-user-verification to done."
     }
   ]
 }
