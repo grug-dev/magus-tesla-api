@@ -6,7 +6,7 @@
   "roadmap": "RM35-timezone-centralization",
   "roadmap_tier": 1,
   "status": "applied",
-  "updated_at": "2026-08-31T01:19:25Z",
+  "updated_at": "2026-08-31T01:23:02Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -80,6 +80,15 @@
       "made_by": "leader",
       "decision": "Three waves, one serial worker each: W1=T1,T2,T6; W2=T3,T4,T5,T7; W3=T8 run by the leader.",
       "why": "Tasks are small; one dispatch amortizes the doc-pack read across them. Parallel workers would re-read the pack and drain the same bucket faster. T8 is build/vet/gofmt/grep \u2014 leader-allowed signals.",
+      "covered_by": null
+    },
+    {
+      "id": "D13",
+      "at": "2026-08-31T01:23:02Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "The owner-runs-the-suite rule stands unchanged. The assistant does not run go test for this tier, and the CLAUDE.md policy is not amended.",
+      "why": "Asked because 'make test green' was ambiguous against a rule CLAUDE.md states twice. Owner confirmed the rule as written; the reviewer gate stays parked until they report the run.",
       "covered_by": null
     }
   ],
@@ -280,6 +289,12 @@
       "kind": "review-brief-written",
       "by": "leader",
       "note": "Review brief stored. Reviewer NOT dispatched: Step 7.2 requires the owner's reported suite pass first, and it has not been given. T1/T2 remain awaiting-user-verification."
+    },
+    {
+      "at": "2026-08-31T01:23:02Z",
+      "kind": "parked",
+      "by": "leader",
+      "note": "Parked awaiting the owner's suite run. Owner declined to authorize an assistant-run suite (D13). Nothing further can advance: Step 7 requires the reported pass. Resume with /kkpa-dev-harness-pipeline resume RM35-clock-add-bogota-time-package once results are in."
     }
   ]
 }
