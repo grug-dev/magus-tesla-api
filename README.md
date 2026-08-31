@@ -202,7 +202,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
-| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config`, `telemetry`, `analytics` and `app` (`RM35` tiers 2–5); `gateway` adopts it in tier 6. |
+| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config`, `telemetry`, `analytics`, `app` and `gateway` (`RM35` tiers 2–6). |
 | `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
 ### Dependency graph
@@ -220,9 +220,9 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 │  cmd/explore-tesla-api ► tesla, auth, config                             │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
 │  gateway ────────────► account, telemetry, charging, analytics,          │
-│    │                   tesla, googleauth                                 │
+│    │                   tesla, googleauth, clock                          │
 │    ├─ handlers ──────► account, auth, telemetry, charging,               │
-│    │                   analytics, tesla, googleauth, i18n,               │
+│    │                   analytics, tesla, googleauth, i18n, clock,        │
 │    │                   templates/*                                       │
 │    ├─ templates/* ───► i18n, templates/ui                                │
 │    └─ i18n ──────────► account            (the Language type only)       │

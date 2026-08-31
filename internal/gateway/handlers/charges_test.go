@@ -20,6 +20,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
@@ -1685,8 +1686,11 @@ func TestChargeCreate_OutOfRangeBatteryPct_Rejected(t *testing.T) {
 // --- MAG-5 D1: optional date fields default to today + cleared persists nil (T5.4) ---
 
 // TestChargePage_DateDefaultsToToday verifies D1: the create form's started_at
-// and ended_at inputs are pre-filled with today's date at UTC midnight
-// ("YYYY-MM-DDT00:00") via ChargesPageData.DefaultStartedAt / DefaultEndedAt.
+// and ended_at inputs are pre-filled with today's date at the platform-default
+// zone's midnight ("YYYY-MM-DDT00:00") via ChargesPageData.DefaultStartedAt /
+// DefaultEndedAt. No browser_tz cookie is set here, so "today" resolves via
+// browserToday's clock.Zone() fallback (America/Bogota) — was UTC before
+// RM35-gateway-adopt-clock; repaired per roadmap D6.
 func TestChargePage_DateDefaultsToToday(t *testing.T) {
 	uid := uuid.New()
 	h := newHandlerForCharges(&fakeChargeWriter{}, &fakeChargeReader{})
@@ -1704,7 +1708,7 @@ func TestChargePage_DateDefaultsToToday(t *testing.T) {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
 	body := w.Body.String()
-	todayDefault := time.Now().UTC().Format("2006-01-02") + "T00:00"
+	todayDefault := time.Now().In(clock.Zone()).Format("2006-01-02") + "T00:00"
 	// Both date inputs must be pre-filled with the today's-date default — D1.
 	// The create form renders them with value={ d.DefaultStartedAt } /
 	// value={ d.DefaultEndedAt }. We assert the default appears at least twice
@@ -2841,14 +2845,16 @@ func TestChargeRow_C3_InProgress_RendersWarningDotAndInProgressBadge(t *testing.
 
 // --- Group D — window preservation (design.md Test Contract D1-D4, offline httptest) ---
 
-// todayUTCMidnight replicates what browserToday(c) resolves to when the
-// request carries no browser_tz cookie (the fallback every test in this file
-// exercises, since none set the cookie) — UTC midnight for the wall-clock day
-// the test suite runs on. Used by D2 to compute the expected fallback window
-// without hardcoding a date that would eventually go stale.
-func todayUTCMidnight() time.Time {
-	now := time.Now().UTC()
-	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+// todayDefaultZoneMidnight replicates what browserToday(c) resolves to when
+// the request carries no browser_tz cookie (the fallback every test in this
+// file exercises, since none set the cookie) — the platform default zone's
+// (clock.Zone(), America/Bogota) midnight for the wall-clock day the test
+// suite runs on. Used by D2 to compute the expected fallback window without
+// hardcoding a date that would eventually go stale. Renamed from
+// todayUTCMidnight and repointed at clock.Zone() (was time.UTC) —
+// RM35-gateway-adopt-clock, roadmap D1/D6.
+func todayDefaultZoneMidnight() time.Time {
+	return startOfDayIn(time.Now(), clock.Zone())
 }
 
 // TestChargeCreate_D1_WindowFromFormThreadsIntoOOBRefresh verifies Test
@@ -2895,7 +2901,7 @@ func TestChargeCreate_D2_StartEndAbsent_FallsBackToDefaultWindow(t *testing.T) {
 		t.Fatalf("D2: want 200 (absent window must never gate the write), got %d body=%q", w.Code, w.Body.String()[:min(500, w.Body.Len())])
 	}
 
-	today := todayUTCMidnight()
+	today := todayDefaultZoneMidnight()
 	wantStart := today.AddDate(0, 0, -(chargesRangeDefaultDays - 1)).Format("2006-01-02")
 	wantEnd := today.Format("2006-01-02")
 	body := w.Body.String()
@@ -2965,9 +2971,9 @@ func TestChargeRowUpdate_D3_SuccessRetargetsAndResetsToDefaultWindow(t *testing.
 	}
 
 	// The default window is derived the same way the handler derives it, via the
-	// same todayUTCMidnight() helper its sibling D2 test uses, so this test does
-	// not go stale on a date change or on chargesRangeDefaultDays.
-	wantStart, wantEnd := defaultChargesWindow(todayUTCMidnight())
+	// same todayDefaultZoneMidnight() helper its sibling D2 test uses, so this
+	// test does not go stale on a date change or on chargesRangeDefaultDays.
+	wantStart, wantEnd := defaultChargesWindow(todayDefaultZoneMidnight())
 	if !strings.Contains(body, `id="charges-window-start" value="`+wantStart.Format("2006-01-02")+`"`) {
 		t.Errorf("D3: a successful edit must reset the list to the default window start %s, not the posted 2026-08-01; body=%q",
 			wantStart.Format("2006-01-02"), body[:min(1500, len(body))])

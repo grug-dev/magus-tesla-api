@@ -17,6 +17,7 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
@@ -340,12 +341,17 @@ func parseRangeWithTZ(start, end, tz string) (time.Time, time.Time, bool) {
 // — the nightly batch captures today's data tomorrow, so an end=today window
 // always had an empty last bar (roadmap D11, design.md D-G9, Test Contract
 // (j)). Was: end == today.
+//
+// parseRange("", "") carries no browser_tz cookie, so "today" resolves via
+// browserToday's clock.Zone() fallback (America/Bogota) — was UTC before
+// RM35-gateway-adopt-clock; wantEnd is recomputed the same way the handler
+// derives it (RM35-gateway-adopt-clock, design.md D-gw-2/D-gw-4).
 func TestParseHistoryRange_BothAbsent_DefaultSixDayWindow(t *testing.T) {
 	start, end, ok := parseRange("", "")
 	if !ok {
 		t.Fatal("want ok=true for both absent")
 	}
-	wantEnd := startOfDay(time.Now()).AddDate(0, 0, -1)
+	wantEnd := startOfDayIn(time.Now(), clock.Zone()).AddDate(0, 0, -1)
 	wantStart := wantEnd.AddDate(0, 0, -historyRangeWindowDays)
 	if !end.Equal(wantEnd) {
 		t.Errorf("want end=%v, got %v", wantEnd, end)
@@ -406,11 +412,15 @@ func TestParseHistoryRange_WindowOverNinetyDays(t *testing.T) {
 
 // --- browser-TZ tests (gateway-browser-tz-cookie) ---
 
+// TestBrowserLocation_Fallbacks asserts browserLocationFromHeader's fallback
+// (missing / malformed / empty cookie) is the platform default, clock.Zone()
+// (America/Bogota) — was time.UTC before RM35-gateway-adopt-clock (roadmap
+// D1/D4). A valid cookie still wins unconditionally, unaffected by this tier.
 func TestBrowserLocation_Fallbacks(t *testing.T) {
-	// No cookie -> UTC.
+	// No cookie -> platform default (clock.Zone()).
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	if loc := browserLocationFromHeader(r); loc != time.UTC {
-		t.Errorf("missing cookie: want UTC, got %v", loc)
+	if loc := browserLocationFromHeader(r); loc != clock.Zone() {
+		t.Errorf("missing cookie: want clock.Zone(), got %v", loc)
 	}
 	// Valid IANA name -> that location.
 	r = httptest.NewRequest(http.MethodGet, "/", nil)
@@ -418,17 +428,17 @@ func TestBrowserLocation_Fallbacks(t *testing.T) {
 	if loc := browserLocationFromHeader(r); loc.String() != "America/Bogota" {
 		t.Errorf("valid cookie: want America/Bogota, got %v", loc)
 	}
-	// Malformed / not-in-IANA name -> UTC.
+	// Malformed / not-in-IANA name -> platform default (clock.Zone()).
 	r = httptest.NewRequest(http.MethodGet, "/", nil)
 	r.AddCookie(&http.Cookie{Name: "browser_tz", Value: "Not/A/Zone"})
-	if loc := browserLocationFromHeader(r); loc != time.UTC {
-		t.Errorf("malformed cookie: want UTC, got %v", loc)
+	if loc := browserLocationFromHeader(r); loc != clock.Zone() {
+		t.Errorf("malformed cookie: want clock.Zone(), got %v", loc)
 	}
-	// Empty value -> UTC.
+	// Empty value -> platform default (clock.Zone()).
 	r = httptest.NewRequest(http.MethodGet, "/", nil)
 	r.AddCookie(&http.Cookie{Name: "browser_tz", Value: ""})
-	if loc := browserLocationFromHeader(r); loc != time.UTC {
-		t.Errorf("empty cookie: want UTC, got %v", loc)
+	if loc := browserLocationFromHeader(r); loc != clock.Zone() {
+		t.Errorf("empty cookie: want clock.Zone(), got %v", loc)
 	}
 }
 
@@ -547,20 +557,22 @@ func TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets(t *testing.T) {
 	}
 }
 
-// TestParseHistoryRange_NoCookieFallsBackToUTC asserts the UTC fallback: with
-// no browser_tz cookie, the default end == UTC-yesterday (the pre-browser-TZ
-// behavior, shifted by D11 from UTC-today — design.md D-G9).
-func TestParseHistoryRange_NoCookieFallsBackToUTC(t *testing.T) {
+// TestParseHistoryRange_NoCookieFallsBackToPlatformDefault asserts the
+// platform-default fallback: with no browser_tz cookie, the default end ==
+// platform-default-zone-yesterday (America/Bogota, via clock.Zone()) — was
+// UTC-yesterday before RM35-gateway-adopt-clock (roadmap D1/D4). Renamed from
+// TestParseHistoryRange_NoCookieFallsBackToUTC, repaired per roadmap D6.
+func TestParseHistoryRange_NoCookieFallsBackToPlatformDefault(t *testing.T) {
 	_, end, ok := parseRangeWithTZ("", "", "")
 	if !ok {
 		t.Fatal("want ok=true for both absent, no TZ cookie")
 	}
-	wantEnd := startOfDay(time.Now()).AddDate(0, 0, -1)
+	wantEnd := startOfDayIn(time.Now(), clock.Zone()).AddDate(0, 0, -1)
 	if !end.Equal(wantEnd) {
-		t.Errorf("no cookie: want UTC end %v, got %v", wantEnd, end)
+		t.Errorf("no cookie: want platform-default end %v, got %v", wantEnd, end)
 	}
-	if end.Location() != time.UTC {
-		t.Errorf("no cookie: want UTC location, got %v", end.Location())
+	if end.Location() != clock.Zone() {
+		t.Errorf("no cookie: want clock.Zone() location, got %v", end.Location())
 	}
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
@@ -57,10 +58,16 @@ func labelVerticalFor(numBars int) bool {
 	return numBars >= 14
 }
 
-// startOfDay returns midnight UTC for the given time t (truncates to the day).
+// startOfDay returns midnight UTC for the given time t (truncates to the
+// day). Delegates to clock.CalendarDay(t, time.UTC) — this is the ONE
+// definition of startOfDay in the gateway (RM35-gateway-adopt-clock, roadmap
+// D4); supercharger.go:57's startOfMonth is month granularity, a different
+// function, and is deliberately left alone. Pure delete-and-delegate: the
+// formula is byte-identical to what this function computed before
+// (t.In(time.UTC).Date() re-expressed at UTC midnight), so every caller's
+// output is unchanged (design.md D-gw-1).
 func startOfDay(t time.Time) time.Time {
-	t = t.UTC()
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+	return clock.CalendarDay(t, time.UTC)
 }
 
 // effectiveDayUTC returns the UTC-midnight calendar day of a snapshot's
