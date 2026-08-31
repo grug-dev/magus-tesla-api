@@ -60,6 +60,21 @@ Standard Go project layout — modular monolith:
   the gateway, on an already-converted, plain unformatted stored number. Two exemptions: vendor
   adapter DTOs (above) and monetary amounts, which take no suffix and must instead be paired with
   a `currency` column. Full rule: `openspec/specs/unit-of-measure/spec.md`.
+- **The platform's default time zone is `America/Bogota`; obtain it, "now", and a calendar day
+  only through `internal/clock`.** Get the default zone via `clock.Zone()`, the current moment
+  via `clock.Now()`, and a moment's calendar day via `clock.CalendarDay(t, loc)` — never call raw
+  `time.Now()`, hardcode a zone name, or hand-roll a UTC-midnight truncation outside
+  `internal/clock`. `internal/clock` imports stdlib `time` and nothing else, so leaning on it
+  creates no import cycle. Two standing exemptions, neither of which this rule touches: the
+  `pgtype.Date` UTC-midnight **storage encoding** (a representation, not a zone) and the
+  gateway's per-user `browser_tz` cookie, which still wins over the default for a signed-in
+  user's own pages. `cmd/*` is exempt as the composition root — it calls `time.LoadLocation`
+  explicitly and on purpose. `make tz-guard` (`RM35-timezone-centralization` tier 7) enforces
+  this repo-wide with a grep guard mirroring `money-guard`'s shape — a raw `time.Now()`, a
+  hand-rolled midnight-of-a-day `time.Date(...)` construction, or a hardcoded IANA zone string
+  outside `internal/clock` fails `make check`, unless marked with a trailing
+  `// tz:allow: <reason>` comment for a genuinely deliberate exception. Full rule:
+  `internal/clock/AGENTS.md`.
 
 ---
 
@@ -102,7 +117,7 @@ pipeline or not, and `CLAUDE.md` §"Builds & local checks" states the same rule.
 |---|---|
 | `go build ./...`, `go vet ./...`, `gofmt -l` | **Claude may run these**, unprompted |
 | `make build`, `make vet`, `make bins` | **Claude** |
-| `make ui-guard`, `make i18n-guard`, `make money-guard` | **Claude** — standalone grep guards, no tests |
+| `make ui-guard`, `make i18n-guard`, `make money-guard`, `make tz-guard` | **Claude** — standalone grep guards, no tests |
 | `go test ./...`, `make test`, `make test-with-db`, `make check` | **Owner only** — Claude never runs them |
 
 Everything on Claude's side is a **cheap deterministic signal**: fails fast, prints a few
@@ -110,8 +125,8 @@ lines, needs no human. `go vet` in particular compiles `_test.go` files, so it c
 signature drift and API mistakes in tests that were never executed. Skipping such a signal
 saves nothing — it converts it into a round-trip costing more than the output it replaced.
 
-`make check` is `build vet ui-guard i18n-guard money-guard test`; it is owner-only purely
-because of the trailing `test`. Claude runs the other five individually, so excluding
+`make check` is `build vet ui-guard i18n-guard money-guard tz-guard test`; it is owner-only
+purely because of the trailing `test`. Claude runs the other six individually, so excluding
 `check` costs no guard coverage.
 
 **Reporting rules — these are the point of the split:**

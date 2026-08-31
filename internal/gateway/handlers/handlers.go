@@ -26,6 +26,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/auth"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
@@ -388,7 +389,7 @@ func mapVehicles(vs []account.Vehicle, snapMap map[int64]telemetry.Snapshot) []f
 			fv.Locked = snap.Locked
 			fv.SentryMode = snap.SentryMode
 			fv.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02 15:04 UTC")
-			fv.IsStale = isStale(snap.CapturedAt, time.Now())
+			fv.IsStale = isStale(snap.CapturedAt, clock.Now())
 		}
 		out = append(out, fv)
 	}
@@ -458,7 +459,7 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		// the hero subtitle "Awaiting first snapshot" + "—" tiles convey it.
 		return vm
 	}
-	mapDashboardSnapshot(ctx, &vm, snap, time.Now())
+	mapDashboardSnapshot(ctx, &vm, snap, clock.Now())
 	return vm
 }
 
@@ -726,7 +727,7 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		return vm
 	}
 
-	now := time.Now()
+	now := clock.Now()
 	if connectedAt(snap.CapturedAt, now) {
 		// Fresh snapshot → Connected + battery %.
 		vm.VehicleName = primary.DisplayName
@@ -921,7 +922,7 @@ func (h *Handler) TeslaCallback(c *gin.Context) {
 	if err := h.acct.SaveTeslaTokens(c.Request.Context(), uid, account.TeslaTokens{
 		AccessToken:     tokens.AccessToken,
 		RefreshToken:    tokens.RefreshToken,
-		AccessExpiresAt: time.Now().Add(time.Duration(tokens.ExpiresIn) * time.Second),
+		AccessExpiresAt: clock.Now().Add(time.Duration(tokens.ExpiresIn) * time.Second),
 	}); err != nil {
 		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyOAuthErrorCouldNotSaveTeslaConnection))
 		return

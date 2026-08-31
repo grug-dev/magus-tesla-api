@@ -1,0 +1,228 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM35-app-adopt-clock",
+  "module": "app",
+  "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
+  "request": "Tier 5 of RM35: adopt internal/clock in internal/app. NewScheduler's nil-loc fallback moves from time.Local to clock.Zone(); recalculateAnalytics' hand-rolled UTC-midnight truncation delegates to clock.CalendarDay(clock.Now(), p.loc), preserving p.loc unchanged. Repair broken tests (roadmap D6). No migration, no schema, no cmd/ edit.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7"
+    ]
+  },
+  "created_at": "2026-08-31T09:30:00Z",
+  "updated_at": "2026-08-31T09:56:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone",
+    "created_at": "2026-08-30T19:17:41Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "scheduler.go — nil-loc fallback swap to clock.Zone()",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T07:19:06Z",
+      "duration_seconds": 19517,
+      "notes": "loc = time.Local -> clock.Zone(). Doc comment corrected — no comment names time.Local as the fallback any more. This is the tier's only behaviour change.",
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "processor.go — recalculateAnalytics day-math delegation",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T07:19:06Z",
+      "duration_seconds": 19517,
+      "notes": "Hand-rolled truncation -> clock.CalendarDay(clock.Now(), p.loc). p.loc preserved; algebraically identical for every input.",
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "internal/app/AGENTS.md — doc corrections",
+      "module": "app",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T07:19:06Z",
+      "duration_seconds": 19517,
+      "notes": "Fallback description repointed to clock.Zone(); internal/clock added to May-import; stale test-name reference renamed.",
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "repair scheduler_test.go",
+      "module": "app",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T07:19:06Z",
+      "duration_seconds": 19517,
+      "notes": "TestScheduler_NilLocationDefaultsToLocal renamed to ...DefaultsToClockZone, assertion repointed. The other three tests pass an explicit loc and are untouched.",
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "root README.md dependency-graph edit (leader-owned)",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T07:19:06Z",
+      "completed_at": "2026-08-31T07:19:32Z",
+      "duration_seconds": 26,
+      "notes": "app row gains clock. Landed in 45ed424 after 528a37f falsely claimed it (roadmap D28).",
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "OpenSpec artifacts — proposal, design, specs, tasks",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T09:23:49Z",
+      "duration_seconds": null,
+      "notes": "proposal/design/specs written before the rate limit; tasks.md completed afterwards. openspec validate --strict passes.",
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "verification — build, vet, gofmt, validate",
+      "module": "app",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T09:26:00Z",
+      "completed_at": "2026-08-31T09:28:00Z",
+      "duration_seconds": 120,
+      "notes": "go build ./... and go vet ./... exit 0; every branch-touched .go file is gofmt-clean; openspec validate --strict valid.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "app-reviewer",
+    "brief": "Review RM35-app-adopt-clock (roadmap RM35 tier 5, module internal/app) against the DIFF, not the whole module. Validate:\n(1) Module-boundary compliance per ai/architecture.md — app composes modules through public interfaces; internal/clock added to its May-import list.\n(2) The one real behaviour change: NewScheduler's nil-loc fallback moves time.Local -> clock.Zone(). Confirm no doc comment, AGENTS.md line or test name still describes the old time.Local behaviour as current.\n(3) The critical non-change: recalculateAnalytics must still pass p.loc — the poller's own configured zone — to clock.CalendarDay, NOT clock.Zone(). Substituting the platform default would change day attribution and contradicts RM29 design D-B12. Verify the delegation is algebraically identical for every input.\n(4) Roadmap D6 — no NEW tests added; exactly one existing test repaired (the nil-loc fallback assertion), every other expected value UNCHANGED. A moved expected value elsewhere is a blocker.\n(5) design.md's Test Contract was authored up front — check the repaired test asserts what design.md specifies.\n(6) Doc-pack conventions: ai/go-conventions.md timezone rule (no raw time.Now(), no hardcoded zone name outside clock); CLAUDE.md's docs-track-structural-change.\n(7) Performance-Profile compliance (read-heavy).\n(8) No database object created or changed. Any schema touch is a blocker.\n(9) Anti-gaming: no task title, criterion or expected value weakened.\nTest provenance: go build ./... , go vet ./... and gofmt were ASSISTANT-run. The suite (go test ./internal/app/... and go test ./...) was run and reported passing by the OWNER. Judge test QUALITY by reading them; do not run the suite yourself.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-31T09:35:10Z",
+        "duration_seconds": null,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "tasks.md T7.6 and T7.7 remain unchecked ([ ]) even though progress.json's task T7 is status=done, the change status is 'verified', and events[] records both `openspec validate --strict` passing (T6 notes, 2026-08-31T09:23:49Z) and the owner's suite pass (2026-08-31T09:45:00Z). tasks.md is the implementation-done-ness source of truth (ai/agentic-workflow.md) and openspec/config.yaml requires it kept live. Not a correctness or gaming issue — the underlying work happened — but the two checkboxes should be ticked to match recorded reality before archive.",
+            "status": "open",
+            "triage": null
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-app-1",
+      "at": "2026-08-31T02:30:00Z",
+      "scope": "task:T2",
+      "made_by": "autopilot",
+      "decision": "recalculateAnalytics keeps passing p.loc — the poller's configured zone — to clock.CalendarDay, rather than clock.Zone().",
+      "why": "RM29 design D-B12 makes this composition, not internal/analytics, the owner of which day is being asked about. Substituting the platform default would change day attribution.",
+      "covered_by": "roadmap D4"
+    },
+    {
+      "id": "D-app-2",
+      "at": "2026-08-31T09:23:49Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Fixed a stale cross-module comment in internal/telemetry that described app's old fallback (52d3f63), outside this tier's sandbox.",
+      "why": "The comment became false the moment T1 landed. It sits in an archived tier's module, so no worker owned it; the leader owns cross-module integration.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-31T02:03:49Z",
+      "agent": "leader",
+      "event": "worker dispatched in parallel with tiers 4 and 6 (roadmap D24)"
+    },
+    {
+      "at": "2026-08-31T07:19:06Z",
+      "agent": "leader",
+      "event": "worker killed by the HTTP 429 session limit mid-run; code and AGENTS.md complete, tasks.md missing. Leader verified build/vet green independently."
+    },
+    {
+      "at": "2026-08-31T09:23:49Z",
+      "agent": "leader",
+      "event": "tasks.md completed and the stale telemetry comment reconciled (52d3f63). openspec validate --strict passes."
+    },
+    {
+      "at": "2026-08-31T09:30:00Z",
+      "agent": "leader",
+      "event": "progress.json created retroactively on resume — the first dispatch died before Step 4 ran for this tier. Task state reconstructed from tasks.md, the diff, and the roadmap events."
+    },
+    {
+      "at": "2026-08-31T09:45:00Z",
+      "agent": "leader",
+      "event": "OWNER reported the suite passing — go test ./internal/analytics/... ./internal/app/... and go test ./... both green. This is the owner's verification, not the assistant's. All tasks promoted awaiting-user-verification -> done; change status -> verified. Reviewer gate opens."
+    },
+    {
+      "at": "2026-08-31T09:56:00Z",
+      "agent": "leader",
+      "event": "app-reviewer approved round 1 with one minor finding (R1: two tasks.md verification boxes unticked despite the work being done). Leader ticked them with the evidence inline before archiving. Archived to openspec/changes/archive/app/. openspec/specs/app/spec.md gained 1 requirement."
+    }
+  ]
+}

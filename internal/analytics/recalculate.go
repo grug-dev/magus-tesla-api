@@ -20,6 +20,7 @@ import (
 
 	analyticsdb "github.com/cristianpena/magus-tesla-api/internal/analytics/db"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -132,14 +133,14 @@ func (r *recalculator) Recalculate(ctx context.Context, accountID uuid.UUID, tes
 	// negative, the D5/D5a rule then fires a FALSE "missing charge record"
 	// alarm on a day that was correctly charged.
 	//
-	// effectiveDay(*preceding) rather than calendarDay(preceding.CapturedAt) --
+	// effectiveDay(*preceding) rather than clock.CalendarDay(preceding.CapturedAt, time.UTC) --
 	// one day more generous than strictly required, matching tier 3 D8's
 	// "coarse and generous, not pixel-exact" precedent. Over-fetching only
 	// costs rows read; it can never change a result, because both sum*Between
 	// helpers (consumed.go) re-filter to the exact interval in Go.
 	//
 	// Note what this actually does, because design.md D8b's prose first got it
-	// wrong: effectiveDay is calendarDay(CapturedDate) - 1, so even the ordinary
+	// wrong: effectiveDay is clock.CalendarDay(CapturedDate, time.UTC) - 1, so even the ordinary
 	// one-day lookback row at start-1d yields start-2d, which is Before
 	// lookbackStart. chargeStart therefore drops to start-2d on EVERY call, not
 	// only across a gap -- the charge fetches are permanently one day wider than
@@ -265,7 +266,15 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 		return nil // nothing changed since the last reconciliation -- no-op
 	}
 
-	yesterday := calendarDay(time.Now()).AddDate(0, 0, -1)
+	// clock.Now() supplies the instant (RM35-analytics-adopt-clock design.md
+	// "recalculate.go:268" decision); the bucketing zone stays time.UTC, not
+	// clock.Zone() -- this module owns no *time.Location of its own (D-B12),
+	// and the effective-day values being widened against below (widen(...),
+	// derived via effectiveDay/clock.CalendarDay(_, time.UTC)) are themselves
+	// UTC-bucketed, so mixing in a different zone here would desynchronize
+	// the clamp from the range it clamps. See design.md for the full
+	// reasoning on why this is the behavior-preserving choice.
+	yesterday := clock.CalendarDay(clock.Now(), time.UTC).AddDate(0, 0, -1)
 
 	var minDay, maxDay time.Time
 	widen := func(day time.Time) {
@@ -279,21 +288,21 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 
 	var maxSnapUpdated time.Time
 	for _, s := range snapshots {
-		widen(calendarDay(s.EffectiveDate))
+		widen(clock.CalendarDay(s.EffectiveDate, time.UTC))
 		if s.UpdatedAt.After(maxSnapUpdated) {
 			maxSnapUpdated = s.UpdatedAt
 		}
 	}
 	var maxSessionUpdated time.Time
 	for _, s := range sessions {
-		widen(calendarDay(s.ChargeStopDateTime))
+		widen(clock.CalendarDay(s.ChargeStopDateTime, time.UTC))
 		if s.UpdatedAt.After(maxSessionUpdated) {
 			maxSessionUpdated = s.UpdatedAt
 		}
 	}
 	var maxEntryUpdated time.Time
 	for _, e := range entries {
-		widen(calendarDay(e.ChargedOn))
+		widen(clock.CalendarDay(e.ChargedOn, time.UTC))
 		if e.UpdatedAt.After(maxEntryUpdated) {
 			maxEntryUpdated = e.UpdatedAt
 		}

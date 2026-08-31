@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM35-config-adopt-clock",
+  "module": "config",
+  "roadmap": "RM35-timezone-centralization",
+  "roadmap_tier": 2,
+  "status": "verified",
+  "updated_at": "2026-08-31T01:38:16Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5",
+    "session_id": "0809d538-f495-4dff-be14-ae6ff3e22250"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5"
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D18",
+      "at": "2026-08-31T01:35:13Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Deviated from the roadmap tier table's literal 'via clock.LoadOrDefault': config substitutes the default BEFORE resolution instead of passing the env value through LoadOrDefault.",
+      "why": "LoadOrDefault(\"\") returns UTC, not Bogota \u2014 time.LoadLocation special-cases \"\" with no error, so the fallback never fires. The literal shorthand would have produced a silent UTC poller.",
+      "covered_by": null
+    },
+    {
+      "id": "D19",
+      "at": "2026-08-31T01:35:13Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "No zone-name constant added to internal/clock; config calls clock.Zone().String().",
+      "why": "Zone().String() reads the same computed value Zone() uses. A parallel constant would be a second source of truth for the same string \u2014 over-abstraction, which CLAUDE.md's AI-efficiency rule warns against.",
+      "covered_by": null
+    },
+    {
+      "id": "D20",
+      "at": "2026-08-31T01:38:16Z",
+      "scope": "review:R1",
+      "made_by": "leader",
+      "decision": "R1 ACCEPTED and fixed: README's clock row said 'not yet adopted by any other module' and its LAYER 0 line listed config as dependency-free. Both false after tier 2.",
+      "why": "Leader verified both against README:205 and the graph block. This is the docs-track-structural-change rule, which ai/agentic-workflow.md names as changes-requested, not a nit. Leader missed it in its own T5 pass.",
+      "covered_by": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "config.go \u2014 swap the POLLER_TIMEZONE fallback to the clock default",
+      "depends_on": [],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "pollerTimezoneOrDefault substitutes the default BEFORE any resolution call, so an unset value never reaches LoadLocation(\"\") and cannot silently become UTC. Name comes from clock.Zone().String(), never hardcoded."
+    },
+    {
+      "id": "T2",
+      "title": "internal/config/timezone_test.go \u2014 cover the unset default",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The one test D6 permits for tiers 2-6. Asserts the unset case resolves to America/Bogota. Leader ran it: PASS."
+    },
+    {
+      "id": "T3",
+      "title": "internal/config/AGENTS.md \u2014 create it",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Created, mirroring account/AGENTS.md. config owns no data and is read by cmd/*."
+    },
+    {
+      "id": "T4",
+      "title": "Doc sweep for a stale \"Local\" default",
+      "depends_on": [],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "No doc stated the old default \u2014 .env, .env.example, README and docs/ never mention POLLER_TIMEZONE's default. Nothing to fix; recorded rather than assumed."
+    },
+    {
+      "id": "T5",
+      "title": "Verification",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Leader-run: build, vet, gofmt clean; openspec validate --strict passes; go test ./... green (16 pkgs, exit 0)."
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "config-reviewer",
+    "brief": "Tier-2 diff d351289~1..d351289 vs roadmap RM35 D1/D2/D4/D6, proposal/design/specs/tasks, tier-1 D10.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-31T12:00:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "README.md:205 and README.md:238 (dependency graph LAYER 0 line) are now stale. Line 205 states internal/clock is 'not yet adopted by any other module' \u2014 false as of this tier, config adopts it. Line 238's LAYER 0 leaf list ('tesla googleauth auth config testdb <module>/db') still shows config with no internal dependencies, but config now imports internal/clock. CLAUDE.md's docs-track-structural-change rule (restated in ai/agentic-workflow.md's reviewer-role section as 'not a nit') requires the README architecture/dependency-graph docs to be updated in the SAME change when a module's public surface/dependency set changes. Fix: move config off the LAYER 0 depends-on-nothing line into a line showing config \u2192 clock, and update clock's row to drop 'not yet adopted by any other module' (or state it is now adopted by config).",
+            "status": "open"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-08-31T13:00:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Re-verified against 0386b5a (README.md only, zero Go/code change; progress.json D20 records the fix). clock's row (README.md:205) no longer claims non-adoption \u2014 now states config adopted it in tier 2 and names tiers 3-6. Graph's LAYER 0 line no longer lists config as dependency-free; config now sits under a relabeled 'LAYER 1 \u2014 domain modules & config' header with an explicit `config \u2192 clock` arrow, and clock was added to the LAYER 0 leaves line. Confirmed independently: (a) clock imports stdlib time only (re-read clock.go), so LAYER 0's own definition ('no internal dependencies') genuinely holds for it \u2014 correct placement, consistent with how tesla/auth/testdb (also imported by higher layers) already sit on that same line; the graph's layer number reflects each package's own dependency depth, not who imports it. (b) config's placement under 'domain modules & config' is topologically accurate (config's only internal dependency, clock, is a LAYER-0 leaf \u2014 same depth as telemetry/charging/account, which depend only on LAYER-0 adapters + their own db packages) and the header's explicit '& config' phrasing does not claim config IS a domain module \u2014 it flags them as two distinct categories sharing a depth tier. This is a legitimate stylistic choice, not a factual misrepresentation; no restructure required. Confirmed no other file touched (`git diff 0386b5a~1 0386b5a --stat`: README.md + this change's own progress.json only), `git status --porcelain` clean, `go build ./...` and `go vet ./...` both pass. R1 fixed.",
+            "status": "fixed"
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "at": "2026-08-31T01:35:13Z",
+      "kind": "wave-complete",
+      "by": "leader",
+      "note": "Tier 2 artifacts + implementation in one dispatch (D15). Worker disclosed running a read-only `git status` against its never-run-git rule \u2014 no mutation, noted not penalized; the honest disclosure is the behavior we want."
+    },
+    {
+      "at": "2026-08-31T01:35:13Z",
+      "kind": "tests-run",
+      "by": "assistant-authorized",
+      "note": "ASSISTANT-RUN under the owner's session-scoped authorization (D17), NOT the owner's own report: go test ./internal/config/... ok, go test ./internal/clock/... ok, go test ./... green across 16 packages, exit 0. Also build/vet/gofmt clean and openspec validate --strict passing."
+    },
+    {
+      "at": "2026-08-31T01:38:16Z",
+      "kind": "review-fix",
+      "by": "leader",
+      "note": "Round-1 finding R1 fixed by the leader (docs only, no code): clock's README row now records adoption by config with tiers 3-6 pending; config moved out of the no-dependencies LAYER 0 line into LAYER 1 showing config -> clock; clock added to LAYER 0, where it genuinely belongs. Reviewer to re-verify."
+    }
+  ]
+}

@@ -1,0 +1,548 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM35-timezone-centralization",
+  "intention": "Every date and datetime the app creates resolves through one package, internal/clock, defaulting to America/Bogota, with a make tz-guard keeping it that way. Defaults only — the pgtype.Date UTC-midnight storage encoding and the per-user browser_tz cookie are untouched.",
+  "request": "Source ticket: MAG-20 — https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone\nProject: architecture   Priority: Urgent\n\n## Date/Date time Time Zone\n\n* Analyze all date and date time created by the app (With golang code). The should be saved with Zone America/Bogota. Centralize a new logic that creates a date or date/time in that time zone.\n* Update the CLAUDE/AGENTS instructtion or the best MD instructions per module to use that timezone convention. Find the best place that works for claude and opencode\n* Find the best module to this kind of things that are cross-module. A new shared  util module sound like a good idea? I think it might work.. in the future we might have shared utilities for all modules\n\nAcceptance Criteria\n\nThe app does not use UTC.\n\ndate and datetimes are centralized in one place and shared to all modules needed it",
+  "status": "complete",
+  "autopilot": true,
+  "updated_at": "2026-08-31T15:15:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5",
+    "session_id": "fc7a8a25-b503-408a-b5b2-d4469a0960b0"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone",
+    "created_at": "2026-08-30T19:17:41Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-08-30T19:17:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Scope is defaults only: America/Bogota replaces every missing/fallback zone. The pgtype.Date UTC-midnight storage encoding and the per-user browser_tz cookie are both UNCHANGED. Zero migrations, zero backfill.",
+      "why": "'No UTC' means the default zone is never UTC, not that time.UTC vanishes. Rewriting the DATE encoding breaks the pgtype.Date contract and shifts day attribution; dropping the cookie undoes MAG-7.",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-08-30T19:17:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "The package is internal/clock (stdlib time import only), not internal/util or an extension of internal/config.",
+      "why": "One concern per package, named for it. ai/architecture.md:72 names the shared/common dump an anti-pattern. config is a cmd/-level concern; importing it from domain modules inverts the dependency direction.",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-08-30T19:17:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Full rule in ai/go-conventions.md next to the units rule; one-line non-negotiable in CLAUDE.md; NEW pointer to ai/go-conventions.md added to AGENTS.md for opencode.",
+      "why": "go-conventions.md is in the base Doc-Pack, re-read by every worker and reviewer. AGENTS.md has no pointer to it today. Duplicating the rule drifts — CLAUDE.md is already 5 weeks newer than AGENTS.md.",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-08-30T19:17:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Sweep = 5 zone defaults + route ~8 raw time.Now() through clock.Now() + collapse the 4 duplicated UTC-midnight truncators into clock.CalendarDay. cmd/* is out of scope.",
+      "why": "The 4 copy-pasted truncators are what AC#2 'centralized in one place' actually points at. Everything but the default change is behavior-preserving, so existing suites are the regression net. cmd/ is the composition root and loads the zone on purpose.",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-08-30T19:17:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Add make tz-guard (grep guard mirroring money-guard, // tz:allow: escape hatch) wired into make check, shipped in tier 7 LAST.",
+      "why": "Wired in at tier 1 it fails on every unmigrated module; the alternatives are planting markers across all 5 modules (the one-big-change config.yaml forbids) or a red make check for six tiers.",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-08-30T19:17:41Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Unit tests: NEW coverage for internal/clock only. Tiers 2-6 add no new tests but MUST repair existing tests they break.",
+      "why": "Narrows the owner's standing no-tests default by explicit choice. clock is pure, zero-dependency and depended on by all 5 other tiers; an off-by-one in CalendarDay shifts day attribution in telemetry, analytics and charging at once.",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-08-30T19:17:41Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "This is a roadmap (RM35, 7 tiers), not one standalone change.",
+      "why": "It spans 5 existing modules plus a new one. openspec/config.yaml's proposal rule forbids one big cross-module change and mandates a roadmap with one module-prefixed change per tier.",
+      "covered_by": null
+    },
+    {
+      "id": "D14",
+      "at": "2026-08-31T01:23:19Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Autopilot ON for RM35 — drive tiers 2-7 to completion without asking between tiers.",
+      "why": "Owner said to continue with the rest of the roadmap. Real gates still pause: design gates, review changes-requested, destructive/outward actions, budget checkpoints, and the owner's own test runs.",
+      "covered_by": null
+    },
+    {
+      "id": "D15",
+      "at": "2026-08-31T01:29:28Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "Tier 2 runs artifacts and implementation in ONE worker dispatch instead of the usual separate Step 3 / Step 5 waves.",
+      "why": "The tier is a one-line default change with no DB object, so no design gate applies and every decision is already bound by roadmap D1-D6. Two dispatches would re-read the doc pack for no added safety.",
+      "covered_by": null
+    },
+    {
+      "id": "D16",
+      "at": "2026-08-31T01:29:28Z",
+      "scope": "roadmap",
+      "made_by": "autopilot",
+      "decision": "No fresh Step 2 interview for tier 2; roadmap D1-D6 cover it.",
+      "why": "The only choice is where the default zone string comes from, and D2 already forbids hardcoding a zone name outside clock. No genuinely new decision.",
+      "covered_by": null
+    },
+    {
+      "id": "D17",
+      "at": "2026-08-31T01:33:26Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "THIS SESSION ONLY: the assistant runs the test suite itself. Supersedes D13 for the remainder of this session; CLAUDE.md is NOT amended and the owner-runs-tests default returns next session.",
+      "why": "Owner granted it explicitly and scoped it to the session. Provenance stays honest: runs are recorded as assistant-run under owner authorization, never as the owner's own report.",
+      "covered_by": null
+    },
+    {
+      "id": "D24",
+      "at": "2026-08-31T02:03:49Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tiers 4, 5 and 6 run in PARALLEL rather than sequentially.",
+      "why": "Owner asked for it. They touch disjoint modules (analytics, app, gateway) and all depend only on tier 1. Cost: three workers drain the same 5-hour bucket at once and each re-reads the doc pack.",
+      "covered_by": null
+    },
+    {
+      "id": "D25",
+      "at": "2026-08-31T02:03:49Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "The LEADER owns the README dependency-graph edit for tiers 4-6; no parallel worker may touch README.md.",
+      "why": "All three tiers add a clock edge to the same graph block. Three concurrent workers editing one file would clobber each other. Leader applies all three edges once, after they land.",
+      "covered_by": null
+    },
+    {
+      "id": "D27",
+      "at": "2026-08-31T07:19:06Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Tiers 4, 5, 6 marked BLOCKED, not done. Their partial work is committed as explicitly-labelled WIP rather than discarded or dressed up as complete.",
+      "why": "All three workers died on the session rate limit mid-run. Code for 4 and 5 is green, but artifacts are incomplete and neither has been reviewed. Marking them done would be false.",
+      "covered_by": null
+    },
+    {
+      "id": "D28",
+      "at": "2026-08-31T07:19:32Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Correcting the record: commit 528a37f's message claims the README dependency graph gained the analytics and app clock edges. It did not — the edit script asserted and died before writing.",
+      "why": "The prose row had already been reworded by tier 3, so the leader's match failed. The commit message was written before the result was checked. The edit is applied for real in the following commit; the false claim is recorded here rather than rewritten away.",
+      "covered_by": null
+    },
+    {
+      "id": "D29",
+      "at": "2026-08-31T09:30:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Tiers 4 and 5 move from blocked to applied; their progress.json files are written retroactively rather than re-running the tiers.",
+      "why": "Both tiers' code, tests and artifacts are on disk and validate clean. The block was a dead worker, not unfinished work. Re-running would redo verified work.",
+      "covered_by": null
+    },
+    {
+      "id": "D30",
+      "at": "2026-08-31T09:32:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "D17's assistant-run-tests grant is treated as EXPIRED. The owner runs the suite again from this session on.",
+      "why": "D17 scoped itself to that session only and said CLAUDE.md is not amended. This is a new session, so the owner-runs-tests default is back in force.",
+      "covered_by": null
+    },
+    {
+      "id": "D31",
+      "at": "2026-08-31T09:52:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Tier 7 (make tz-guard) does NOT start this session.",
+      "why": "The 5-hour bucket hit 95%, past the 90% threshold. Tier 7 is a fresh spend that also edits the Makefile and CLAUDE.md. Starting it now risks dying mid-edit.",
+      "covered_by": null
+    },
+    {
+      "id": "D32",
+      "at": "2026-08-31T12:45:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tier 6 also fixes the pre-existing buildHistoryPresets frame-mismatch bug, beyond MAG-20's literal scope.",
+      "why": "Owner picked it over a separate change or reverting the tier. Without it the suite cannot go green except by weakening a test.",
+      "covered_by": null
+    },
+    {
+      "id": "D33",
+      "at": "2026-08-31T14:25:00Z",
+      "scope": "tier:7",
+      "made_by": "leader",
+      "decision": "Leader measured the guard's real target set before dispatching, and passed the numbers into the brief.",
+      "why": "Four real time.Now() calls remain, all deliberate; zero UTC-midnight truncations. A worker guessing the escape list would either over-exclude or ship a guard that fails on the current tree.",
+      "covered_by": "roadmap D5"
+    },
+    {
+      "id": "D34",
+      "at": "2026-08-31T14:25:00Z",
+      "scope": "tier:7",
+      "made_by": "leader",
+      "decision": "The worker must prove the guard fails on a real violation, not only that it passes.",
+      "why": "A grep guard whose pattern matches nothing passes silently and guards nothing. Tier 6 showed this class of bug survives green runs.",
+      "covered_by": null
+    },
+    {
+      "id": "D35",
+      "at": "2026-08-31T14:30:00Z",
+      "scope": "tier:7",
+      "made_by": "leader",
+      "decision": "Accepted the worker's D-plat-3 (exclude _test.go) over the leader's own stated recommendation to include them.",
+      "why": "357 test occurrences would each need a marker, landing on correct and incorrect anchors alike. Leader verified the counts: no discriminating power, so including tests adds noise and zero detection.",
+      "covered_by": null
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM35-clock-add-bogota-time-package",
+      "module": "clock",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-30T19:17:41Z",
+      "completed_at": "2026-08-31T01:25:53Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "internal/clock (Zone/Now/CalendarDay/LoadOrDefault, stdlib time only) + the timezone convention in ai/go-conventions.md, CLAUDE.md, both AGENTS.md and README. Reviewer-approved round 1, zero findings. Owner reported the suite passing."
+    },
+    {
+      "id": 2,
+      "change": "RM35-config-adopt-clock",
+      "module": "config",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:29:28Z",
+      "completed_at": "2026-08-31T01:40:26Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "POLLER_TIMEZONE default Local -> America/Bogota via clock.Zone().String(). Deviated from the roadmap's 'via LoadOrDefault' shorthand, which would have yielded UTC for an unset value. Reviewer-approved round 2; round 1's README dependency-graph finding fixed."
+    },
+    {
+      "id": 3,
+      "change": "RM35-telemetry-adopt-clock",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:40:26Z",
+      "completed_at": "2026-08-31T02:08:11Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "dateOnly deleted for clock.CalendarDay (byte-identical); now()/location() nil fallbacks moved to clock. 46 test call sites repointed with unchanged expectations. Reviewer-approved round 1; minor finding R1 fixed anyway."
+    },
+    {
+      "id": 4,
+      "change": "RM35-analytics-adopt-clock",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T09:52:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "calendarDay deleted for clock.CalendarDay(t, time.UTC) at both call sites; Reconcile's time.Now() -> clock.Now(), bucketing zone still UTC. Owner reported the suite green. Reviewer-approved round 1, ZERO findings."
+    },
+    {
+      "id": 5,
+      "change": "RM35-app-adopt-clock",
+      "module": "app",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T09:56:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "NewScheduler's nil-loc fallback time.Local -> clock.Zone(); recalculateAnalytics delegates to clock.CalendarDay, p.loc preserved. Owner reported the suite green. Reviewer-approved round 1; minor finding R1 fixed."
+    },
+    {
+      "id": 6,
+      "change": "RM35-gateway-adopt-clock",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:32:00Z",
+      "completed_at": "2026-08-31T14:15:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Fallback -> clock.Zone() (cookie still wins); startOfDay -> clock.CalendarDay; four time.Now() -> clock.Now(); pre-existing preset bug fixed. 4 review rounds, 4 findings, plus one leader regression. Owner verified on the 4th suite run."
+    },
+    {
+      "id": 7,
+      "change": "RM35-platform-add-tz-guard",
+      "module": "platform",
+      "optional": false,
+      "depends_on": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T14:25:00Z",
+      "completed_at": "2026-08-31T15:15:00Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Four-leg tz-guard wired into make check, six tz:allow markers, documented. 2 review rounds; 5 evasions found, R1 fixed with a 4th leg, rest recorded as a blind-spot table. Owner verified via make check."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-30T19:17:41Z",
+      "kind": "roadmap-created",
+      "by": "leader",
+      "note": "RM35 created from MAG-20 via kkpa-pickup-linear-ticket. Step 2 interview settled D1-D6 with the user. autopilot=false — the pickup skill scoped this run to HALT AFTER STEP 4."
+    },
+    {
+      "at": "2026-08-31T01:23:19Z",
+      "kind": "autopilot-enabled",
+      "by": "leader",
+      "note": "Owner authorized continuing the whole roadmap. Note each tier still parks for the owner's suite run per D13 — autopilot does not override the owner-runs-tests rule."
+    },
+    {
+      "at": "2026-08-31T01:25:53Z",
+      "kind": "tier-archived",
+      "by": "leader",
+      "note": "Tier 1 archived to openspec/changes/archive/clock/2026-08-31-RM35-clock-add-bogota-time-package. openspec archive placed it flat; leader git mv'd it into the clock/ domain folder per config.yaml, and added clock to that file's canonical-domains list."
+    },
+    {
+      "at": "2026-08-31T01:29:28Z",
+      "kind": "tier-started",
+      "by": "leader",
+      "note": "Tier 2 (config) started under autopilot."
+    },
+    {
+      "at": "2026-08-31T01:33:26Z",
+      "kind": "policy-scoped-override",
+      "by": "user",
+      "note": "Owner authorized assistant-run test suites for this session only (D17). CLAUDE.md untouched. Every result is recorded as assistant-run-under-authorization; a failure is reported as a failure and fixed in the code, never by weakening a test."
+    },
+    {
+      "at": "2026-08-31T01:40:26Z",
+      "kind": "tier-archived",
+      "by": "leader",
+      "note": "Tier 2 archived to openspec/changes/archive/config/. Tier 3 (telemetry) started. Budget at the gate: 5h 35%, context 28% — both under the 90/40 thresholds."
+    },
+    {
+      "at": "2026-08-31T02:03:49Z",
+      "kind": "parallel-dispatch",
+      "by": "leader",
+      "note": "Tiers 4,5,6 dispatched in parallel at the owner's request (D24). README.md withheld from all three and reserved to the leader (D25). Tier 3's reviewer runs concurrently."
+    },
+    {
+      "at": "2026-08-31T02:08:11Z",
+      "kind": "tier-archived",
+      "by": "leader",
+      "note": "Tier 3 archived. Tiers 4-6 still running in parallel; tier 7's tz-guard remains blocked on all of them."
+    },
+    {
+      "at": "2026-08-31T02:08:29Z",
+      "kind": "budget-checkpoint",
+      "by": "leader",
+      "note": "CHECKPOINT: five_hour_pct=98 (threshold 90), context_pct=34 (threshold 40), five_hour_resets_at=1788156600. Tiers 4,5,6 were dispatched in parallel BEFORE this trip and are still in flight — they finish on work already paid for. No NEW work starts until the bucket resets. Tier 7 (tz-guard) must not begin before then. Resume with: /kkpa-dev-harness-pipeline resume RM35-timezone-centralization"
+    },
+    {
+      "at": "2026-08-31T07:19:06Z",
+      "kind": "workers-killed",
+      "by": "leader",
+      "note": "All three parallel workers terminated by HTTP 429 session limit. Leader verified the surviving tree independently: go build OK, go vet OK, go test ./internal/analytics/... and ./internal/app/... both pass. README graph updated for the analytics and app clock edges that are now real; gateway's edge deliberately NOT added, since gateway was never touched."
+    },
+    {
+      "at": "2026-08-31T07:19:32Z",
+      "kind": "correction",
+      "by": "leader",
+      "note": "528a37f's message asserted a README change that never happened. Applied for real now: app and analytics gain their clock edges, and clock's prose row lists its four real adopters with gateway still pending. Gateway's edge remains absent, correctly — that module was never touched."
+    },
+    {
+      "at": "2026-08-31T09:32:00Z",
+      "kind": "resumed",
+      "by": "leader",
+      "note": "Resumed in a fresh session. Budget clear (5h 50%, context 9%). Independent verification: go build ./... and go vet ./... exit 0, every branch-touched .go file gofmt-clean, both tier 4 and tier 5 openspec validate --strict valid. Tier 6 (gateway) dispatched; tiers 4/5 parked for the owner's suite run before their reviewer gate."
+    },
+    {
+      "at": "2026-08-31T09:45:00Z",
+      "kind": "user-verification",
+      "by": "user",
+      "note": "Owner ran the suite for tiers 4 and 5 and reported GOOD. Recorded as the OWNER's verification per the Test-Execution-Policy — the assistant ran only build, vet and gofmt. Both tiers -> verified; reviewers dispatched."
+    },
+    {
+      "at": "2026-08-31T09:52:00Z",
+      "kind": "tier-archived",
+      "by": "leader",
+      "note": "Tier 4 (analytics) archived to openspec/changes/archive/analytics/2026-08-31-RM35-analytics-adopt-clock. Reviewer verified the algebraic-identity claim independently against internal/clock/calendar.go rather than trusting design.md. Tier 5's reviewer and tier 6's worker still running."
+    },
+    {
+      "at": "2026-08-31T09:56:00Z",
+      "kind": "tier-archived",
+      "by": "leader",
+      "note": "Tier 5 (app) archived to openspec/changes/archive/app/2026-08-31-RM35-app-adopt-clock. Reviewer independently confirmed the critical non-change: recalculateAnalytics still passes p.loc, never clock.Zone(), so day attribution is unmoved. Only tier 6 (gateway, still running) blocks tier 7."
+    },
+    {
+      "at": "2026-08-31T09:52:00Z",
+      "kind": "budget-checkpoint",
+      "by": "leader",
+      "note": "CHECKPOINT: five_hour_pct=95 (threshold 90), context_pct=15 (threshold 40), five_hour_resets_at=1788178200. Tier 6's code, artifacts and the leader's README edit are committed and truthful; its tasks sit at awaiting-user-verification pending the owner's suite run. Tier 7 must NOT begin before the bucket resets. Resume with: /kkpa-dev-harness-pipeline resume RM35-timezone-centralization"
+    },
+    {
+      "at": "2026-08-31T10:10:00Z",
+      "kind": "tests-failed",
+      "by": "user",
+      "note": "Owner ran go test ./internal/gateway/... and reported 3 failures. Recorded as a failure, not worked around. Tier 6 -> blocked. Tier 7 stays blocked behind it. Budget at the gate: five_hour_pct=98, over the 90 threshold."
+    },
+    {
+      "at": "2026-08-31T10:20:00Z",
+      "kind": "failure-fixed",
+      "by": "leader",
+      "note": "Owner chose fix-now. Root cause was test expectations, not the clock adoption — the Bogota fallback stands (D-gw-5). Awaiting the owner's re-run before the reviewer gate. Budget still over threshold: tier 7 does not start this session regardless (D31)."
+    },
+    {
+      "at": "2026-08-31T12:45:00Z",
+      "kind": "prexisting-bug-fixed",
+      "by": "leader",
+      "note": "Tier 6 exposed a dead history preset selector for every non-UTC browser_tz user — pre-existing on main, hidden only because the no-cookie fallback used to be time.UTC. Owner approved fixing it inside tier 6 (D32). Backlog entry 19 records the regression test roadmap D6 forbids this tier from adding."
+    },
+    {
+      "at": "2026-08-31T12:55:00Z",
+      "kind": "user-verification",
+      "by": "user",
+      "note": "Owner ran make test and make build for tier 6 and reported both passing — the third run, after two rounds of fixes. Recorded as the OWNER's verification. Tier 6 -> verified; gateway-reviewer dispatched."
+    },
+    {
+      "at": "2026-08-31T13:30:00Z",
+      "kind": "review-round-2",
+      "by": "leader",
+      "note": "Reviewer overturned a leader judgement (R2-1) and was correct. Recorded as such in design.md D-gw-9 rather than smoothed over — the misread cap is the reusable lesson. Owner must re-run the suite before archive: the last reported pass predates three rounds of fixes."
+    },
+    {
+      "at": "2026-08-31T13:40:00Z",
+      "kind": "review-approved",
+      "by": "gateway-reviewer",
+      "note": "Tier 6 reviewer-approved after 3 rounds. Approval explicitly conditioned on the owner's suite re-run, which the leader had already committed to. Tier 7 (tz-guard) stays blocked until tier 6 archives."
+    },
+    {
+      "at": "2026-08-31T13:55:00Z",
+      "kind": "self-inflicted-regression",
+      "by": "leader",
+      "note": "The leader's round-2 fix broke a previously-passing test. Recorded as the leader's error, not the reviewer's miss — the reviewer flagged the right sites; the leader chose the wrong value frame. Round-3 approval deliberately reset to changes-requested rather than carried forward over a materially changed tree."
+    },
+    {
+      "at": "2026-08-31T14:05:00Z",
+      "kind": "user-verification",
+      "by": "user",
+      "note": "Owner ran make test against 5e7ea57 and reported it passing — the fourth run of this tier, first covering the regression fix. Reviewer round 4 dispatched for fresh approval."
+    },
+    {
+      "at": "2026-08-31T14:15:00Z",
+      "kind": "tier-archived",
+      "by": "leader",
+      "note": "Tier 6 (gateway) archived after 4 review rounds and 4 owner suite runs — by far the most contested tier. Review found 3 of the 6 frame-mismatch sites and rejected one leader judgement; the leader introduced and fixed one regression of its own. Tiers 2-6 are now all archived, which unblocks tier 7 (make tz-guard), the roadmap's last tier."
+    },
+    {
+      "at": "2026-08-31T14:25:00Z",
+      "kind": "tier-started",
+      "by": "leader",
+      "note": "Tier 7 (platform, FINAL) dispatched with a cross-cutting sandbox grant — Makefile, README.md, CLAUDE.md, ai/go-conventions.md, its own artifacts, plus comment-only tz:allow markers at 4 named sites. Leader pre-measured the target set: exactly 4 real time.Now() calls outside internal/clock (tz.go:108 per D-gw-3; supercharger.go:134/169/201 per that module's D9a), and ZERO UTC-midnight truncations. An earlier raw count of 13 was wrong — it counted comment lines; corrected before dispatch."
+    },
+    {
+      "at": "2026-08-31T14:30:00Z",
+      "kind": "leader-recommendation-overruled",
+      "by": "leader",
+      "note": "The worker rejected the leader's recommendation to include _test.go in the guard, with data. The leader verified the counts (107 time.Now + 250 time.Date in tests) and accepted: a marker on every anchor cannot distinguish a right anchor from a wrong one, so the recommendation was wrong. Recorded rather than quietly dropped."
+    },
+    {
+      "at": "2026-08-31T14:30:00Z",
+      "kind": "leader-measurements-corrected",
+      "by": "leader",
+      "note": "The worker corrected the leader's dispatch brief twice: six escape sites not four, and one UTC-midnight truncation where the leader claimed zero. Root cause of the leader's error: its regex used [^)]*, which cannot span the ) inside t.Year(). Same class as the earlier miscount that read comment lines as calls."
+    },
+    {
+      "at": "2026-08-31T14:40:00Z",
+      "kind": "user-verification",
+      "by": "user",
+      "note": "Owner ran make check (build vet ui-guard i18n-guard money-guard tz-guard test) and reported it passing — the first green full gate that includes the new tz-guard. Final reviewer dispatched."
+    },
+    {
+      "at": "2026-08-31T14:55:00Z",
+      "kind": "review-round-1",
+      "by": "leader",
+      "note": "Tier 7 reviewer found no fault in the implementation but five ways to evade the guard. That is the right failure mode to hunt for a guard tier: it passes emptily rather than fails loudly. R1 (24h Truncate) fixed with a fourth leg; the rest documented as a blind-spot table declared part of the guard's contract. Also recorded plainly: this guard would NOT have caught tier 6's six bugs."
+    },
+    {
+      "at": "2026-08-31T15:15:00Z",
+      "kind": "roadmap-complete",
+      "by": "leader",
+      "note": "RM35 COMPLETE, 7 of 7 tiers archived. MAG-20's acceptance criteria are met: the app's default zone is America/Bogota everywhere, every date/datetime resolves through internal/clock, and make tz-guard keeps it that way. The two documented exemptions stand untouched as designed — the pgtype.Date UTC-midnight storage encoding (D1) and the per-user browser_tz cookie, which still wins for a signed-in user."
+    }
+  ]
+}

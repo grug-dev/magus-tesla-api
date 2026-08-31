@@ -17,10 +17,51 @@ import (
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/layouts"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
+
+// browserTodayNoCookie mirrors exactly what browserToday(c) computes for a
+// request that carries NO browser_tz cookie: midnight in the platform's
+// default zone. Since RM35-gateway-adopt-clock (roadmap D1) that fallback is
+// clock.Zone() (America/Bogota), not time.UTC.
+//
+// Tests that compare against a window the HANDLER built must anchor here.
+// startOfDay(time.Now()) is UTC midnight, a DIFFERENT INSTANT — five hours
+// apart from Bogota midnight — and time.Time.Equal compares instants, not
+// calendar dates. Anchoring on startOfDay is what made three tests in this
+// file fail the moment the fallback moved.
+//
+// Tests that PASS their own "today" straight into buildHistoryView or
+// dashboardFor are self-consistent and correctly keep using startOfDay: they
+// never cross the browserLocation fallback at all.
+func browserTodayNoCookie() time.Time {
+	return startOfDayIn(time.Now(), clock.Zone())
+}
+
+// browserYesterdayUTC returns browser-yesterday's calendar date expressed at
+// UTC midnight — exactly the value the handler ends up holding after
+// parseHistoryRange runs time.Parse("2006-01-02") on an explicit ?end= param.
+//
+// The two anchors are NOT interchangeable, and picking the wrong one is how
+// review round 2's fix broke this test:
+//
+//   - Both ?start= and ?end= ABSENT — parseHistoryRange returns the default
+//     window built from browserToday, so its bounds are BROWSER-zone midnight.
+//     Use browserTodayNoCookie().
+//   - ?start=&end= PRESENT — the bounds come from time.Parse of a bare date,
+//     so they are UTC midnight whatever the browser's zone. Use this.
+//
+// A browser-zone midnight used as an explicit-path bound clears the cap (the
+// formatted date is right) but silently shifts every fixture: calendarDays
+// applies startOfDay, and Bogota midnight of D lands on D-1 in UTC, so the
+// snapshots stop lining up with the handler's axis and every chart renders
+// empty.
+func browserYesterdayUTC() time.Time {
+	return clock.CalendarDay(browserTodayNoCookie().AddDate(0, 0, -1), clock.Zone())
+}
 
 // historyTestCtx is the language context used by every buildOdometerChart /
 // buildBatteryChart call in this file (both now take an explicit ctx —
@@ -340,12 +381,17 @@ func parseRangeWithTZ(start, end, tz string) (time.Time, time.Time, bool) {
 // — the nightly batch captures today's data tomorrow, so an end=today window
 // always had an empty last bar (roadmap D11, design.md D-G9, Test Contract
 // (j)). Was: end == today.
+//
+// parseRange("", "") carries no browser_tz cookie, so "today" resolves via
+// browserToday's clock.Zone() fallback (America/Bogota) — was UTC before
+// RM35-gateway-adopt-clock; wantEnd is recomputed the same way the handler
+// derives it (RM35-gateway-adopt-clock, design.md D-gw-2/D-gw-4).
 func TestParseHistoryRange_BothAbsent_DefaultSixDayWindow(t *testing.T) {
 	start, end, ok := parseRange("", "")
 	if !ok {
 		t.Fatal("want ok=true for both absent")
 	}
-	wantEnd := startOfDay(time.Now()).AddDate(0, 0, -1)
+	wantEnd := startOfDayIn(time.Now(), clock.Zone()).AddDate(0, 0, -1)
 	wantStart := wantEnd.AddDate(0, 0, -historyRangeWindowDays)
 	if !end.Equal(wantEnd) {
 		t.Errorf("want end=%v, got %v", wantEnd, end)
@@ -406,11 +452,15 @@ func TestParseHistoryRange_WindowOverNinetyDays(t *testing.T) {
 
 // --- browser-TZ tests (gateway-browser-tz-cookie) ---
 
+// TestBrowserLocation_Fallbacks asserts browserLocationFromHeader's fallback
+// (missing / malformed / empty cookie) is the platform default, clock.Zone()
+// (America/Bogota) — was time.UTC before RM35-gateway-adopt-clock (roadmap
+// D1/D4). A valid cookie still wins unconditionally, unaffected by this tier.
 func TestBrowserLocation_Fallbacks(t *testing.T) {
-	// No cookie -> UTC.
+	// No cookie -> platform default (clock.Zone()).
 	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	if loc := browserLocationFromHeader(r); loc != time.UTC {
-		t.Errorf("missing cookie: want UTC, got %v", loc)
+	if loc := browserLocationFromHeader(r); loc != clock.Zone() {
+		t.Errorf("missing cookie: want clock.Zone(), got %v", loc)
 	}
 	// Valid IANA name -> that location.
 	r = httptest.NewRequest(http.MethodGet, "/", nil)
@@ -418,17 +468,17 @@ func TestBrowserLocation_Fallbacks(t *testing.T) {
 	if loc := browserLocationFromHeader(r); loc.String() != "America/Bogota" {
 		t.Errorf("valid cookie: want America/Bogota, got %v", loc)
 	}
-	// Malformed / not-in-IANA name -> UTC.
+	// Malformed / not-in-IANA name -> platform default (clock.Zone()).
 	r = httptest.NewRequest(http.MethodGet, "/", nil)
 	r.AddCookie(&http.Cookie{Name: "browser_tz", Value: "Not/A/Zone"})
-	if loc := browserLocationFromHeader(r); loc != time.UTC {
-		t.Errorf("malformed cookie: want UTC, got %v", loc)
+	if loc := browserLocationFromHeader(r); loc != clock.Zone() {
+		t.Errorf("malformed cookie: want clock.Zone(), got %v", loc)
 	}
-	// Empty value -> UTC.
+	// Empty value -> platform default (clock.Zone()).
 	r = httptest.NewRequest(http.MethodGet, "/", nil)
 	r.AddCookie(&http.Cookie{Name: "browser_tz", Value: ""})
-	if loc := browserLocationFromHeader(r); loc != time.UTC {
-		t.Errorf("empty cookie: want UTC, got %v", loc)
+	if loc := browserLocationFromHeader(r); loc != clock.Zone() {
+		t.Errorf("empty cookie: want clock.Zone(), got %v", loc)
 	}
 }
 
@@ -547,20 +597,22 @@ func TestParseHistoryRange_EndCapUsesBrowserToday_AcrossOffsets(t *testing.T) {
 	}
 }
 
-// TestParseHistoryRange_NoCookieFallsBackToUTC asserts the UTC fallback: with
-// no browser_tz cookie, the default end == UTC-yesterday (the pre-browser-TZ
-// behavior, shifted by D11 from UTC-today — design.md D-G9).
-func TestParseHistoryRange_NoCookieFallsBackToUTC(t *testing.T) {
+// TestParseHistoryRange_NoCookieFallsBackToPlatformDefault asserts the
+// platform-default fallback: with no browser_tz cookie, the default end ==
+// platform-default-zone-yesterday (America/Bogota, via clock.Zone()) — was
+// UTC-yesterday before RM35-gateway-adopt-clock (roadmap D1/D4). Renamed from
+// TestParseHistoryRange_NoCookieFallsBackToUTC, repaired per roadmap D6.
+func TestParseHistoryRange_NoCookieFallsBackToPlatformDefault(t *testing.T) {
 	_, end, ok := parseRangeWithTZ("", "", "")
 	if !ok {
 		t.Fatal("want ok=true for both absent, no TZ cookie")
 	}
-	wantEnd := startOfDay(time.Now()).AddDate(0, 0, -1)
+	wantEnd := startOfDayIn(time.Now(), clock.Zone()).AddDate(0, 0, -1)
 	if !end.Equal(wantEnd) {
-		t.Errorf("no cookie: want UTC end %v, got %v", wantEnd, end)
+		t.Errorf("no cookie: want platform-default end %v, got %v", wantEnd, end)
 	}
-	if end.Location() != time.UTC {
-		t.Errorf("no cookie: want UTC location, got %v", end.Location())
+	if end.Location() != clock.Zone() {
+		t.Errorf("no cookie: want clock.Zone() location, got %v", end.Location())
 	}
 }
 
@@ -1495,7 +1547,7 @@ func TestDashboardHistoryFragment_DefaultWindowPassedToReader(t *testing.T) {
 	}
 	// D11: default end = yesterday (design.md D-G9), not today. readStart =
 	// yesterday - 7 (lookback 1 + default 6); end = yesterday.
-	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)
+	yesterday := browserTodayNoCookie().AddDate(0, 0, -1)
 	wantStart := yesterday.AddDate(0, 0, -7)
 	wantEnd := yesterday
 	if !reader.gotStart.Equal(wantStart) {
@@ -1573,7 +1625,7 @@ func TestDashboardHistoryFragment_DaysParamIsIgnored(t *testing.T) {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
 	// Default window readStart (lookback 1 + default 6 = yesterday-7, D11).
-	wantStart := startOfDay(time.Now()).AddDate(0, 0, -1).AddDate(0, 0, -7)
+	wantStart := browserTodayNoCookie().AddDate(0, 0, -1).AddDate(0, 0, -7)
 	if !reader.gotStart.Equal(wantStart) {
 		t.Errorf("days param must be ignored; want gotStart=%v, got %v", wantStart, reader.gotStart)
 	}
@@ -1651,7 +1703,7 @@ func TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset(t *testing.
 	// default NOW MATCHES this preset window (both end at yesterday) — this
 	// test still exercises the dashboard's explicit self-load href, not the
 	// both-absent path (that's TestDashboardHistoryFragment_DefaultWindowPassedToReader).
-	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)
+	yesterday := browserTodayNoCookie().AddDate(0, 0, -1)
 	start6 := yesterday.AddDate(0, 0, -historyRangeWindowDays)
 	href := fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s",
 		start6.Format("2006-01-02"), yesterday.Format("2006-01-02"))
@@ -1724,7 +1776,14 @@ func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows(
 	// end must be yesterday, not today: D11's cap now REJECTS an explicit
 	// end=today request (design.md D-G9) — this test submits an explicit
 	// ?end= via the URL, so it must respect the same cap the handler enforces.
-	end := startOfDay(time.Now()).AddDate(0, 0, -1)
+	// browserYesterdayUTC: browser-yesterday's DATE, expressed at UTC midnight.
+	// The date must follow the browser zone to clear parseHistoryRange's cap
+	// (history.go step 4), which rejects an end after BROWSER-yesterday — a
+	// UTC-derived date 400s between 00:00 and 05:00 UTC (review R2-1). The
+	// VALUE must be UTC midnight because this test sends an explicit ?end= and
+	// then reuses end as a window bound, and the handler's own bound comes from
+	// time.Parse, which is always UTC midnight. See browserYesterdayUTC's doc.
+	end := browserYesterdayUTC()
 	for _, numBars := range []int{6, 14, 30} {
 		start := end.AddDate(0, 0, -(numBars - 1)) // inclusive end → numBars days
 		// Full coverage incl. lookback.
@@ -1775,7 +1834,14 @@ func TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat(
 	// end must be yesterday, not today: D11's cap now REJECTS an explicit
 	// end=today request (design.md D-G9) — this test submits an explicit
 	// ?end= via the URL, so it must respect the same cap the handler enforces.
-	end := startOfDay(time.Now()).AddDate(0, 0, -1)
+	// browserYesterdayUTC: browser-yesterday's DATE, expressed at UTC midnight.
+	// The date must follow the browser zone to clear parseHistoryRange's cap
+	// (history.go step 4), which rejects an end after BROWSER-yesterday — a
+	// UTC-derived date 400s between 00:00 and 05:00 UTC (review R2-1). The
+	// VALUE must be UTC midnight because this test sends an explicit ?end= and
+	// then reuses end as a window bound, and the handler's own bound comes from
+	// time.Parse, which is always UTC midnight. See browserYesterdayUTC's doc.
+	end := browserYesterdayUTC()
 	start := end.AddDate(0, 0, -13) // 14-day inclusive window ending yesterday
 	snaps := snapsForDays(append([]time.Time{start.AddDate(0, 0, -1)}, calendarDays(start, end)...), 1000, 10, 60)
 	reader := &fakeHistoryReader{historySnaps: snaps}
@@ -1858,7 +1924,12 @@ func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
 	if strings.Contains(body, "days=6") {
 		t.Errorf("dashboard history self-load must NOT use ?days=6; got: %s", body)
 	}
-	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1).Format("2006-01-02")
+	// Anchored on browserTodayNoCookie, not startOfDay: this test drives the real
+	// GET /ui/dashboard handler with NO browser_tz cookie, so defaultHistoryHref
+	// renders "yesterday" from clock.Zone() (America/Bogota). A UTC-derived
+	// expectation only matches outside 00:00-05:00 UTC, where the two calendar
+	// dates still coincide - a latent flake, not a stable pass (review R1-1).
+	yesterday := browserTodayNoCookie().AddDate(0, 0, -1).Format("2006-01-02")
 	if !strings.Contains(body, "end="+yesterday) {
 		t.Errorf("dashboard history self-load end= must be yesterday (%s); got: %s", yesterday, body)
 	}

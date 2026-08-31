@@ -20,6 +20,13 @@ The platform serves **multiple users**. Every user connects their own Tesla acco
 
 > The multi-tenant design **is live** — `internal/account`, `internal/gateway`, `internal/tesla`, and `internal/googleauth` back `cmd/web`, the running server, which already scopes data per user and their vehicles. The `vehicle` package has been replaced by the `tesla` adapter. What remain are **setup/config helpers**, not a single-user system: `internal/config` is shared configuration reading (AWS region, Tesla endpoints) used by both `cmd/web` and `cmd/setup`; `internal/auth` is a **shared** Tesla OAuth helper — used by `cmd/setup` (one-shot token capture), `cmd/explore-tesla-api` (on-demand token refresh), and the **running server** (`internal/account` for per-user token refresh; `internal/gateway/handlers` for the live per-user Tesla connect flow). The one-shot callback server that catches Tesla's OAuth redirect during setup lives in `cmd/setup/callback.go`, alongside its only consumer.
 
+## Coding Conventions
+
+This document covers mission, vision, and principles — not day-to-day coding rules. Those
+live in `ai/go-conventions.md`, the authoritative Go conventions file every assistant reads
+before writing or editing Go code (module structure, persistence patterns, unit-conversion
+and time-zone rules, testing policy). Read it alongside this file, not instead of it.
+
 ---
 
 # Guiding Principles

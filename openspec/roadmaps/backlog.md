@@ -594,6 +594,98 @@ RM33 `manual-record-status` decision D8 (and D4), settled in the 2026-08-29 gril
 Linear MAG-18.
 
 
+## 19. gateway — Regression test: the history preset selector highlights for a non-UTC user
+
+### PROPOSAL
+
+`RM35-gateway-adopt-clock` fixed a pre-existing bug in `buildHistoryPresets`
+(`internal/gateway/handlers/history.go`): `Active` compared `start.Equal(pStart)` —
+UTC-midnight-of-D from `time.Parse` against browser-zone-midnight-of-D from
+`browserToday(c)`. `time.Time.Equal` compares instants, so the preset button could only ever
+highlight when the browser's UTC offset was exactly zero. Every signed-in user whose
+`browser_tz` cookie named a non-UTC zone saw a dead selector. The fix compares the formatted
+`"2006-01-02"` date on both sides.
+
+No NEW test was written asserting the fixed behaviour, because roadmap RM35 decision D6
+limited tiers 2–6 to *repairing* existing tests, not adding any. The existing coverage
+(`TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset`) exercises only the
+no-cookie path, which is exactly the case that accidentally worked before.
+
+Work: add a test that sets a `browser_tz` cookie to a non-UTC zone (e.g. `America/Bogota`),
+requests the default 6-day preset href, and asserts `btn-primary` is present. Consider a
+second case for a POSITIVE-offset zone (e.g. `Europe/Madrid`), since the sign of the offset
+decides which side of the frame mismatch is later.
+
+**Trigger:** next change that touches `internal/gateway/handlers/history.go`, or any time
+the no-tests default is relaxed for the gateway module.
+
+### ORIGIN
+
+`openspec/changes/RM35-gateway-adopt-clock/design.md` D-gw-7, "Follow-up not taken". Found
+when the owner's suite run failed after the tier moved the no-cookie fallback off `time.UTC`.
+
+
+
+## 20. clock / all modules — A compiler-checkable calendar-day type
+
+### PROPOSAL
+
+`RM35`'s `make tz-guard` catches the CARELESS reintroduction of a raw `now`, a hand-rolled
+midnight, a 24h `Truncate`, or a hardcoded zone. It cannot catch the bug class that actually
+cost RM35 four suite runs and four review rounds: **two `time.Time` values in different
+frames** being compared, or used as map keys.
+
+Six such sites were found in `RM35-gateway-adopt-clock` alone. Each fails ONLY between 00:00
+and 05:00 UTC, so a green test run proves nothing about them; every one was found by reading
+code. Two of the six were found only after the leader had explicitly cleared them as safe.
+The root mechanism is that `time.Time` map-key equality compares the `Location` field, so a
+Bogota-midnight value never matches a UTC-midnight key even for the same calendar day.
+
+Work: give `internal/clock` a distinct calendar-day type instead of returning a bare
+`time.Time` — e.g. `type Day struct { t time.Time }`, always UTC-midnight, with explicit
+constructors (`clock.DayIn(t, loc)`) and an explicit `.Time()` escape. The compiler then
+rejects mixing a wall-clock instant with a calendar day, which is the deterministic-signal
+approach `CLAUDE.md` asks for: a type replaces a review round.
+
+Scope is real — every `clock.CalendarDay` caller across `telemetry`, `analytics`, `app`,
+`gateway` and `charging`. This is its own roadmap, not a follow-up commit.
+
+**Trigger:** the next time a time-zone or calendar-day bug reaches review, or any change that
+already touches `clock.CalendarDay`'s callers broadly.
+
+### ORIGIN
+
+`RM35-platform-add-tz-guard` design.md "Known blind spots" table, which states plainly that
+the guard would not have caught any of tier 6's six bugs. Reinforced by review rounds 1-2 of
+that tier (findings R1-R5) and by backlog entry 13, the unnormalized `map[time.Time]` lookup
+that is the same mechanism seen from the other side.
+
+
+## 21. app — `scheduler.go`'s `nowFn` default should be `clock.Now`
+
+### PROPOSAL
+
+`internal/app/scheduler.go:36` declares `nowFn := time.Now` as a testability seam. It carries
+a `// tz:allow:` justification, and the seam itself is a pattern worth keeping — but the
+DEFAULT it holds is the raw stdlib `time.Now`, not `clock.Now`.
+
+`nextRun` immediately calls `.In(loc)`, so today this is behaviour-neutral. It is nonetheless
+inconsistent with the archived `RM35-app-adopt-clock` tier's own D-app-2 reasoning, which
+argued that migrating a now-source is strictly safer than leaving it to be rediscovered
+later.
+
+Work: change the default to `clock.Now`, keeping the seam. One line plus a comment.
+
+**Trigger:** the next change touching `internal/app/scheduler.go`.
+
+### ORIGIN
+
+`RM35-platform-add-tz-guard` review round 2, finding R6. Raised by the reviewer as a
+candidate follow-up while verifying R3; explicitly out of tier 7's sandbox because
+`internal/app` is an archived tier's module.
+
+
+
 # BRAINSTORMING
 
 

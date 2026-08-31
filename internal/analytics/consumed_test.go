@@ -52,7 +52,7 @@ import (
 // is lost.
 
 // day returns a bare calendar date at UTC midnight -- this platform's date representation
-// (the pgtype.Date convention; see consumed.go's calendarDay doc comment).
+// (the pgtype.Date convention; see consumed.go's effectiveDay doc comment).
 func day(y int, m time.Month, d int) time.Time {
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }

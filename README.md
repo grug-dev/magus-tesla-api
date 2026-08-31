@@ -60,7 +60,7 @@ make sqlc      # sqlc generate → internal/{account,telemetry,charging,analytic
 make build     # go build ./...   — all internal/ packages + every cmd/
 
 # 3. Full local gate
-make check     # build + vet + ui-guard + i18n-guard + money-guard + test
+make check     # build + vet + ui-guard + i18n-guard + money-guard + tz-guard + test
 ```
 
 Raw Go equivalents (no Make):
@@ -118,6 +118,7 @@ magus-tesla-api/
 │   ├── googleauth/     # Google OAuth for user login
 │   ├── config/         # .env loading and token persistence
 │   ├── auth/           # Tesla OAuth URL, code exchange, token refresh
+│   ├── clock/          # Platform default time zone (America/Bogota) + calendar-day normalization. Stdlib time only.
 │   └── testdb/         # Test-only Postgres provisioning (DATABASE_URL → testcontainer fallback)
 │
 ├── magus-public-key-netlify/   # EC public key hosted on Netlify for Tesla verification
@@ -201,6 +202,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
+| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config`, `telemetry`, `analytics`, `app` and `gateway` (`RM35` tiers 2–6). |
 | `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
 ### Dependency graph
@@ -218,22 +220,23 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 │  cmd/explore-tesla-api ► tesla, auth, config                             │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
 │  gateway ────────────► account, telemetry, charging, analytics,          │
-│    │                   tesla, googleauth                                 │
+│    │                   tesla, googleauth, clock                          │
 │    ├─ handlers ──────► account, auth, telemetry, charging,               │
-│    │                   analytics, tesla, googleauth, i18n,               │
+│    │                   analytics, tesla, googleauth, i18n, clock,        │
 │    │                   templates/*                                       │
 │    ├─ templates/* ───► i18n, templates/ui                                │
 │    └─ i18n ──────────► account            (the Language type only)       │
 ├─ LAYER 2.5 ── application layer ─────────────────────────────────────────┤
-│  app ────────────────► telemetry, charging, analytics, account           │
+│  app ────────────────► telemetry, charging, analytics, account, clock    │
 ├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
-│  analytics ──────────► account, charging, telemetry                      │
-├─ LAYER 1 ── domain modules ──────────────────────────────────────────────┤
-│  telemetry ──────────► account, tesla, telemetry/db                      │
+│  analytics ──────────► account, charging, telemetry, clock               │
+├─ LAYER 1 ── domain modules & config ─────────────────────────────────────┤
+│  telemetry ──────────► account, tesla, clock, telemetry/db               │
 │  charging ───────────► charging/db                                       │
 │  account ────────────► auth, account/db                                  │
+│  config ─────────────► clock                                             │
 ├─ LAYER 0 ── adapters & leaves (no internal dependencies) ────────────────┤
-│  tesla    googleauth    auth    config    testdb    <module>/db          │
+│  tesla    googleauth    auth    clock    testdb    <module>/db           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 

@@ -65,5 +65,5 @@ rules:
     - Target path: openspec/changes/archive/<domain>/YYYY-MM-DD-<change-name>.
     - Determine <domain> from the change's primary affected module before archiving. If a change spans modules, choose the one whose capability it most advances; for cross-cutting changes use "platform".
     - Create the <domain> subfolder if it does not exist.
-    - Canonical domains for this project (mirror internal/ modules): account, gateway, tesla, googleauth, config, platform (for cross-cutting/setup tasks not owned by one module).
+    - Canonical domains for this project (mirror internal/ modules): account, analytics, app, charging, clock, config, gateway, googleauth, telemetry, tesla, platform (for cross-cutting/setup tasks not owned by one module). Historical folders battery/ and manualcharge/ are pre-rename names (RM29) — never target them for new archives.
     - Never archive a change whose progress.json exists but review.status is not reviewer-approved — the reviewer role sets that, nobody else (see ai/agentic-workflow.md §pipeline).

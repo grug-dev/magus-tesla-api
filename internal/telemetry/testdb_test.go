@@ -53,7 +53,7 @@ func runTests(m *testing.M) int {
 	case errors.Is(err, testdb.ErrUnavailable):
 		// No reachable Postgres and no Docker daemon to provision one. Skip the
 		// DB-backed tests rather than killing the whole binary: the package's
-		// offline tests (dateOnly, snapshotFrom, scheduler) need no database and
+		// offline tests (clock.CalendarDay, snapshotFrom, scheduler) need no database and
 		// must still run. deriveConsumption and dayStart moved to
 		// internal/analytics and were deleted here (RM29-telemetry-drop-derived-
 		// columns tier 4, design D8). newTestStore turns the empty testDSN into a

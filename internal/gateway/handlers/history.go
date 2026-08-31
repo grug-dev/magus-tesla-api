@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
@@ -57,10 +58,16 @@ func labelVerticalFor(numBars int) bool {
 	return numBars >= 14
 }
 
-// startOfDay returns midnight UTC for the given time t (truncates to the day).
+// startOfDay returns midnight UTC for the given time t (truncates to the
+// day). Delegates to clock.CalendarDay(t, time.UTC) — this is the ONE
+// definition of startOfDay in the gateway (RM35-gateway-adopt-clock, roadmap
+// D4); supercharger.go:57's startOfMonth is month granularity, a different
+// function, and is deliberately left alone. Pure delete-and-delegate: the
+// formula is byte-identical to what this function computed before
+// (t.In(time.UTC).Date() re-expressed at UTC midnight), so every caller's
+// output is unchanged (design.md D-gw-1).
 func startOfDay(t time.Time) time.Time {
-	t = t.UTC()
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+	return clock.CalendarDay(t, time.UTC)
 }
 
 // effectiveDayUTC returns the UTC-midnight calendar day of a snapshot's
@@ -109,8 +116,9 @@ func calendarDateAfter(a, b time.Time) bool {
 //
 // "Today" is the browser's today, so a user in PST at 10pm local can still
 // request end=their-local-today without a spurious 400 from the UTC cap.
-// Direct API callers without a browser_tz cookie get UTC today (browserToday's
-// fallback).
+// Direct API callers without a browser_tz cookie get the platform default's
+// today — midnight in clock.Zone() (America/Bogota), browserToday's fallback
+// since RM35-gateway-adopt-clock (roadmap D1). It was UTC before that tier.
 //
 // yesterday (today.AddDate(0,0,-1)) — not today — is what the default window
 // and the cap actually compare against (D11): the nightly batch captures
@@ -234,18 +242,33 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 // the requested (start, end) window. A custom (non-preset) window marks no
 // preset active — the selector renders all-ghost. today is the caller's
 // "browser today" (browserToday(c)) so "yesterday" is the user's local
-// yesterday, not UTC's — direct API callers without a cookie pass UTC today.
+// yesterday, not UTC's.
+//
+// Active compares CALENDAR DATES, never instants. start/end arrive from
+// parseHistoryRange as UTC-midnight-of-D (time.Parse of a bare "2006-01-02"),
+// while pStart/pEnd derive from today, which is midnight-of-D in the BROWSER's
+// zone. Those are two different frames — the same warning this file already
+// gives at the end<=today cap above — so start.Equal(pStart) is only ever true
+// when the browser's UTC offset happens to be zero. Comparing instants here
+// meant the selector never highlighted for any user whose browser_tz cookie
+// named a non-UTC zone; it merely looked correct while the no-cookie fallback
+// was still time.UTC, which RM35-gateway-adopt-clock changed (roadmap D1).
+// Both sides are date-valued by construction, so comparing the formatted date
+// is the comparison this has always meant (design.md D-gw-7).
 func buildHistoryPresets(ctx context.Context, start, end, today time.Time) []fragments.RangePreset {
 	yesterday := today.AddDate(0, 0, -1)
+	const dateOnly = "2006-01-02"
+	startStr, endStr := start.Format(dateOnly), end.Format(dateOnly)
 	out := make([]fragments.RangePreset, 0, len(historyPresetDayCounts))
 	for _, n := range historyPresetDayCounts {
 		pEnd := yesterday
 		pStart := yesterday.AddDate(0, 0, -n)
+		pStartStr, pEndStr := pStart.Format(dateOnly), pEnd.Format(dateOnly)
 		out = append(out, fragments.RangePreset{
 			Label:    fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryDaysPreset), n),
-			StartStr: pStart.Format("2006-01-02"),
-			EndStr:   pEnd.Format("2006-01-02"),
-			Active:   start.Equal(pStart) && end.Equal(pEnd),
+			StartStr: pStartStr,
+			EndStr:   pEndStr,
+			Active:   startStr == pStartStr && endStr == pEndStr,
 		})
 	}
 	return out

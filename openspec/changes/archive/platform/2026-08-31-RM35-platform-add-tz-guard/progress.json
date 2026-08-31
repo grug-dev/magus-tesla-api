@@ -1,0 +1,317 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM35-platform-add-tz-guard",
+  "module": "platform",
+  "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
+  "request": "Tier 7 of 7 (FINAL) of RM35: add make tz-guard mirroring money-guard's grep shape with a // tz:allow: <reason> escape hatch, wire it into .PHONY and make check, mark the legitimate escapes so it passes on the current tree, and document it in README.md and CLAUDE.md's allowed-commands list. Shipped LAST because wired in earlier it would fail on every unmigrated module (roadmap D5).",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6"
+    ]
+  },
+  "created_at": "2026-08-31T14:30:00Z",
+  "updated_at": "2026-08-31T15:15:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone",
+    "created_at": "2026-08-30T19:17:41Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Makefile — tz-guard target, .PHONY, check wiring",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T14:00:00Z",
+      "completed_at": "2026-08-31T14:25:00Z",
+      "duration_seconds": 1500,
+      "notes": "Three-leg grep guard mirroring money-guard: raw time.Now(), hand-rolled UTC/day-midnight construction, hardcoded IANA zone. Wired into .PHONY and check, placed before test.",
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "six // tz:allow: markers on the legitimate escapes",
+      "module": "platform",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T14:00:00Z",
+      "completed_at": "2026-08-31T14:25:00Z",
+      "duration_seconds": 1500,
+      "notes": "Six, not the four the leader's brief predicted. Comment-only edits; git diff confirms no logic changed. supercharger.go:201 gained the explanation it never had.",
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "docs — README, CLAUDE.md allowed-commands, ai/go-conventions.md",
+      "module": "platform",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T14:00:00Z",
+      "completed_at": "2026-08-31T14:25:00Z",
+      "duration_seconds": 1500,
+      "notes": "Additive prose only; no existing rule duplicated or weakened. Satisfies the workflow-decisions rule that a new make target is documented in the same change.",
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "verification incl. the both-directions guard proof",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T14:26:00Z",
+      "completed_at": "2026-08-31T14:30:00Z",
+      "duration_seconds": 240,
+      "notes": "Leader re-proved it independently: guard passes clean, then flags all three legs on a scratch violation, then a tz:allow marker silences exactly one line. go build/vet/gofmt clean; validate --strict passes.",
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "address review round 1 findings R1-R5",
+      "module": "platform",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T14:45:00Z",
+      "completed_at": "2026-08-31T14:55:00Z",
+      "duration_seconds": 600,
+      "notes": "R1 FIXED with a 4th leg (day-scale Truncate), not just documented. R2-R5 recorded as known blind spots with FIXED/Open status. Guard's non-coverage of tier 6's bug class stated plainly.",
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "address review round 2 minors R6 and R7",
+      "module": "platform",
+      "depends_on": [
+        "T5"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T15:00:00Z",
+      "completed_at": "2026-08-31T15:05:00Z",
+      "duration_seconds": 300,
+      "notes": "R7 fixed (success echo now names all four legs). R6 -> backlog 21, out of this tier's sandbox. Reviewer's count correction (33 not 10) applied to design.md and tasks.md.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "platform-reviewer",
+    "brief": "Review RM35-platform-add-tz-guard (roadmap RM35 tier 7 of 7, FINAL, cross-cutting `platform` domain) against the DIFF.\n\nThis tier's deliverable IS a guard, so the review's central question is different from a normal tier: does the guard actually detect, or does it merely pass? A grep guard whose pattern matches nothing passes silently and protects nothing.\n\n(1) PROVE THE GUARD YOURSELF — do not trust the worker's transcript or the leader's. Run `make tz-guard` (it is a standalone guard, explicitly permitted; `make check` is NOT — it ends in `test`). Then write your own scratch .go file under internal/ violating each of the three legs, confirm the guard FAILS and names each line, add a `// tz:allow:` marker to one, confirm exactly that line goes quiet, delete the scratch file, confirm clean again. Report the actual output.\n(2) FALSE NEGATIVES are the real risk. For each of the three legs, try to construct a REAL violation the pattern misses — e.g. `time.Now().UTC()`, a zone name built by concatenation or held in a const, `time.Date` with the midnight args spread across lines, a helper that wraps time.Now() one level down. Report every miss you find. This is the highest-value part of the review.\n(3) EXCLUSIONS — the leader's own regex was broken twice this tier ([^)]* could not span the ) inside t.Year(); an earlier count read comment lines as calls). Check each exclusion is narrow enough to still guard real code: internal/clock/ itself, cmd/, _test.go, and the comment-line filter `^[^:]+:[^:]+:[[:space:]]*//`. Does the comment filter accidentally skip a line with code before a trailing comment? Does it skip block comments or indented continuations?\n(4) D-plat-3 — excluding _test.go wholesale — REJECTED the leader's explicit recommendation to include them, on the grounds that 357 test occurrences would each need a marker with no discriminating power. The leader verified the counts and accepted. Judge that trade independently: is there a narrower inclusion (e.g. only tests that call ServeHTTP, or only the history/dashboard handlers' tests) that WOULD have caught tier 6's six frame-mismatch bugs at acceptable cost? If yes, that is a finding worth raising even though the owner has already run make check green.\n(5) The six `// tz:allow:` markers — verify each reason is TRUE, not just present, against the archived gateway design (D-gw-2, D-gw-3) and supercharger's own D9a. A marker with a false or vague reason is worse than no marker: it launders a real violation. Confirm all six edits are comment-only and moved no logic.\n(6) Wiring — `tz-guard` in .PHONY and in `check`, positioned before `test`. Verify by READING the target, not by running check.\n(7) Docs — the project's workflow-decisions rule requires the same change that adds a make target to document it. Confirm README.md, CLAUDE.md's allowed-commands list, and ai/go-conventions.md are accurate and add no duplicated rule that could drift.\n(8) No database object. Any schema/migration touch is a BLOCKER.\n(9) Anti-gaming, specific to this tier: confirm the pattern was never weakened to reach green. Compare what the guard catches now against the roadmap's D5 intent. A leg narrowed until it stopped flagging something real is the failure mode here.\n\nTest provenance: the OWNER ran `make check` — the full gate including this new tz-guard plus the suite — and reported it PASSING. That is their verification. The assistant ran build, vet, gofmt, `make tz-guard` and `openspec validate --strict`. Do NOT run the suite.",
+    "rounds": [
+      {
+        "at": "2026-08-31T15:30:00Z",
+        "agent": "platform-reviewer",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "False negative, leg 2 (midnight-construction regex). `func f(t time.Time) time.Time { return t.Truncate(24 * time.Hour) }` in a fresh internal/scratchreview3 file is NOT flagged by `make tz-guard` (verified: guard exits 0 on this content). `Truncate(24*time.Hour)` is a well-known Go idiom for 'start of day' that is also a well-known footgun (it truncates relative to absolute zero time, not to zone-local midnight) -- exactly the class of hand-rolled day-truncation bug this guard exists to keep out, and arguably MORE likely to be organically written by a future contributor than the literal `time.Date(y,m,d,0,0,0,0,zone)` shape leg 2 actually matches. design.md's Risks/Trade-offs section documents the _test.go exclusion risk (D-plat-3) in detail but says nothing about this blind spot. Ask: either document this as an accepted risk in design.md's Risks/Trade-offs (cheapest fix, no regex change), or add a fourth pattern for `\\.Truncate\\(\\s*24\\s*\\*\\s*time\\.Hour\\)` outside internal/clock.",
+            "status": "open"
+          },
+          {
+            "id": "R2",
+            "severity": "major",
+            "note": "False negative, leg 2 (midnight-construction regex), explicitly named in my own dispatch brief as a shape to test. A `time.Date(...)` call with its midnight arguments spread across multiple lines evades the guard entirely, because leg 2's regex (`,[[:space:]]*0,[[:space:]]*0,[[:space:]]*0,[[:space:]]*0,[[:space:]]*[A-Za-z_][A-Za-z0-9_.]*\\)`) is a single-line `grep -E` pattern with no multi-line mode. Verified: `time.Date(\\n\\tt.Year(), t.Month(), t.Day(),\\n\\t0, 0, 0, 0,\\n\\ttime.UTC,\\n)` written across 5 lines in a scratch file produces zero guard output. gofmt would plausibly wrap a `time.Date` call across lines once the zone argument is a longer identifier than `time.UTC`/`loc`, so this is not a purely adversarial case. Not documented anywhere in design.md's Risks/Trade-offs. Same ask as R1: document as an accepted limitation of a line-oriented grep guard, or invest in a multi-line-aware check if that can be done without repeating this tier's own BSD/GNU grep portability problems (D-plat-4's [^:]+ vs [^:]* lesson).",
+            "status": "open"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "False negative, leg 1 (raw time.Now()). `var nowFn = time.Now` (function value, no call parens) followed by `nowFn()` at the use site evades the literal `time\\.Now\\(\\)` substring match, because the parenthesized call never appears together with `time.Now`. Verified in a scratch file: guard exits 0. Less likely to occur organically than R1/R2 (requires a deliberate two-step indirection), but it is exactly the 'a local helper that wraps time.Now() one level down' shape my own dispatch brief named as a thing to try. Recommend documenting as an accepted limitation alongside R1/R2 -- not blocking on its own, but should not go unrecorded now that it's been demonstrated.",
+            "status": "open"
+          },
+          {
+            "id": "R4",
+            "severity": "minor",
+            "note": "False positive risk (not negative), leg-agnostic: the comment-only exclusion filter `grep -vE '^[^:]+:[^:]+:[[:space:]]*//'` only recognizes `//` line comments. A `/* ... */` block-comment continuation line that mentions `time.Now()`, an IANA zone string, or a midnight-shaped `time.Date(...)` in prose (not code) is NOT excluded and would be wrongly flagged. Verified with a scratch block comment ('This package intentionally never calls time.Now() directly.' inside /* */) -- guard incorrectly fails on it. Currently a non-issue: grep -rn '/\\*' across internal/**/*.go (excluding _test.go) found zero block comments in the whole tree today, so nothing live is affected. Worth a one-line note in design.md so a future doc-comment written in block-comment style doesn't produce a confusing guard failure that looks like a real violation.",
+            "status": "open"
+          },
+          {
+            "id": "R5",
+            "severity": "minor",
+            "note": "False negative, leg 3 (IANA zone literal), inherent to any string-literal grep and shared by money-guard's own class of limitation: a zone built by concatenation (`\"America\" + \"/\" + \"Bogota\"`) or split across two consts on one line each evades the single-literal pattern. Verified in a scratch file. Not asking for a fix -- design.md's own Non-Goals section already signals this guard reasons about syntax, not values -- but recording it so it is not silently assumed to be closed.",
+            "status": "open"
+          }
+        ]
+      },
+      {
+        "at": "2026-08-31T16:00:00Z",
+        "agent": "platform-reviewer",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Verified FIXED. Re-ran leg 4 myself in a scratch file: `t.Truncate(24 * time.Hour)` and `t.Truncate(time.Hour * 24)` both flagged and named; `t.Truncate(time.Microsecond)` and `t.Truncate(5 * time.Second)` both correctly left clean. Confirmed the 33 existing `.Truncate(time.Microsecond)` test-fixture occurrences (leader's commit message said ten; actual count is 33 -- immaterial, all are in _test.go so excluded either way) and zero non-test `.Truncate(` anywhere in internal/, so leg 4 changes nothing on the current tree. Marker silences exactly the marked line; guard clean after scratch file removed.",
+            "status": "fixed"
+          },
+          {
+            "id": "R2",
+            "severity": "major",
+            "note": "Verified documented in design.md's new 'Known blind spots' table, marked Open/accepted with an honest reason (inherent to a line-oriented grep). No regex change attempted, consistent with the ask (document-or-fix, either was acceptable).",
+            "status": "fixed"
+          },
+          {
+            "id": "R3",
+            "severity": "minor",
+            "note": "Verified documented as 'Open, and partly intended.' Checked the underlying claim: internal/app/scheduler.go:36 does contain `nowFn := time.Now` as a pre-existing, deliberate clock-injection seam (confirmed by reading the file and its own comment at line 22). The seam PATTERN is genuinely intentional and pre-dates this tier, so declining to guard the shape is reasonable. One nuance for the record, not blocking: `nextRun` (scheduler.go:87) immediately does `now.In(loc)`, so per this same roadmap's own D-app-2 reasoning (RM35-app-adopt-clock design.md) this specific default is a provable no-op and, by that tier's own stated logic ('migrating now... is strictly safer than leaving it for tier 7 to discover'), arguably should have been clock.Now rather than raw time.Now -- it reads more like an unmigrated leftover of tier 5 that evaded that tier's own measurement (no literal time.Now() substring at the reference site) than a reviewed exception with its own design citation the way D-gw-3/D9a have. This is about ALREADY-ARCHIVED tier 5, outside this tier's sandbox (no internal/app edits are in scope here) and does not affect tz-guard's own correctness -- recording it as a candidate backlog item, not a blocker for this tier.",
+            "status": "fixed"
+          },
+          {
+            "id": "R4",
+            "severity": "minor",
+            "note": "Verified documented in design.md's table as Open, with the accurate caveat that it is unreachable today (zero block comments in internal/). Matches what I verified in round 1.",
+            "status": "fixed"
+          },
+          {
+            "id": "R5",
+            "severity": "minor",
+            "note": "Verified documented in design.md's table as Open/accepted, correctly framed as beyond what any grep can do. No fix requested or needed.",
+            "status": "fixed"
+          },
+          {
+            "id": "R6",
+            "severity": "minor",
+            "note": "New, informational, not blocking: recommend a follow-up backlog item to migrate internal/app/scheduler.go:36's `nowFn := time.Now` default to clock.Now for consistency with every other tier-5/6 site (see R3 note above for the reasoning) -- out of this tier's sandbox to fix directly.",
+            "status": "open"
+          },
+          {
+            "id": "R7",
+            "severity": "minor",
+            "note": "Trivial, informational, not blocking: the tz-guard target's success-branch echo ('tz-guard: no raw time.Now(), hand-rolled UTC/day-midnight construction, or hardcoded IANA zone name found outside internal/clock') was not updated to mention the new Truncate leg, unlike the ## help comment and the ERROR-branch text, both of which were updated. Cosmetic only -- verified functionally correct via my own scratch-file proof.",
+            "status": "open"
+          }
+        ]
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-plat-3",
+      "at": "2026-08-31T14:20:00Z",
+      "scope": "task:T1",
+      "made_by": "autopilot",
+      "decision": "_test.go files are excluded from the guard wholesale — REJECTING the leader's explicit recommendation to include them.",
+      "why": "357 test occurrences would each need a marker, and the marker would sit on correct and incorrect anchors alike. Zero discriminating power, high noise. Leader verified the counts and accepted.",
+      "covered_by": null
+    },
+    {
+      "id": "D-plat-6",
+      "at": "2026-08-31T14:20:00Z",
+      "scope": "task:T2",
+      "made_by": "leader",
+      "decision": "Six sites need markers, not the four the leader's dispatch brief asserted.",
+      "why": "The leader's truncation regex used [^)]*, which cannot span the ) inside t.Year(), so it missed supercharger.go's startOfMonth. The worker re-measured instead of trusting the brief.",
+      "covered_by": null
+    },
+    {
+      "id": "D-plat-9",
+      "at": "2026-08-31T14:55:00Z",
+      "scope": "review:R1",
+      "made_by": "leader",
+      "decision": "R1 is FIXED with a fourth guard leg rather than merely documented, which is more than the reviewer asked for.",
+      "why": "Truncate(24*time.Hour) is the single most common Go day-rounding footgun and it cost nothing to catch: no non-test Truncate exists in internal/ today.",
+      "covered_by": null
+    },
+    {
+      "id": "D-plat-10",
+      "at": "2026-08-31T14:55:00Z",
+      "scope": "review:R3",
+      "made_by": "leader",
+      "decision": "R3 (nowFn := time.Now seam) is left unguarded on purpose and documented as partly INTENDED.",
+      "why": "scheduler.go uses that seam deliberately for testability. Guarding it would fight a pattern the project wants, and recommendation 3 argues for MORE of it, not less.",
+      "covered_by": null
+    },
+    {
+      "id": "D-plat-11",
+      "at": "2026-08-31T15:05:00Z",
+      "scope": "review:R6",
+      "made_by": "leader",
+      "decision": "R6 (scheduler.go's nowFn default) goes to backlog 21 rather than being fixed here.",
+      "why": "internal/app is an archived tier's module, outside this tier's sandbox. Behaviour-neutral today since nextRun immediately calls .In(loc).",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-31T14:25:00Z",
+      "agent": "leader",
+      "event": "Worker returned. It CORRECTED the leader's own dispatch measurements twice: six escape sites rather than four, and one UTC-midnight truncation where the leader had claimed zero. Both corrections verified — the leader's regex was genuinely broken. This is the worker doing exactly what the brief asked: verify, do not trust blind."
+    },
+    {
+      "at": "2026-08-31T14:30:00Z",
+      "agent": "leader",
+      "event": "Leader independently re-proved the guard in BOTH directions rather than accepting the worker's transcript: clean on the current tree; flags all three legs on a scratch file violating each; a // tz:allow: marker silences exactly the one marked line; clean again after removal. This is the tier's whole value — a grep guard that matches nothing passes silently."
+    },
+    {
+      "at": "2026-08-31T14:40:00Z",
+      "agent": "leader",
+      "event": "OWNER ran make check — the full gate, first run including tz-guard — and reported it PASSING. The owner's verification. Reviewer dispatched with a brief centred on false NEGATIVES: the risk in a guard tier is not that it fails wrongly but that it passes emptily."
+    },
+    {
+      "at": "2026-08-31T14:55:00Z",
+      "agent": "leader",
+      "event": "Review round 1: changes-requested with 5 false negatives (R1/R2 major, R3-R5 minor) and zero findings against the implementation itself — wiring, all six marker reasons, docs and the no-DB claim all verified true. The reviewer independently re-ran the both-directions proof and independently concurred with D-plat-3. R1 fixed with a new leg; R2-R5 documented per its ask. All five accepted, none disputed."
+    },
+    {
+      "at": "2026-08-31T15:05:00Z",
+      "agent": "leader",
+      "event": "Review round 2 APPROVED. R1 verified fixed by the reviewer's own re-run; R2-R5 verified documented; R3's 'partly intended' judgement checked against scheduler.go rather than taken on trust. Two new minors: R7 (cosmetic echo) fixed here, R6 (scheduler nowFn default) sent to backlog 21. The reviewer also corrected the leader's count of existing sub-day truncations — 33, not 10; immaterial to correctness, corrected in design.md and tasks.md rather than left standing."
+    },
+    {
+      "at": "2026-08-31T15:15:00Z",
+      "agent": "leader",
+      "event": "OWNER ran make check after leg 4 and the echo fix and reported it PASSING. The owner's verification. All tasks -> done."
+    },
+    {
+      "at": "2026-08-31T15:15:00Z",
+      "agent": "leader",
+      "event": "Reviewer-approved round 2, owner verified via make check. Archived to openspec/changes/archive/platform/. This closes RM35's final tier."
+    }
+  ]
+}
