@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM35-analytics-adopt-clock",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
+  "request": "Tier 4 of RM35: adopt internal/clock in internal/analytics. Delete the module's own calendarDay in favour of clock.CalendarDay(t, time.UTC) at its two call sites; route Reconcile's bare time.Now() through clock.Now(); keep the bucketing zone at time.UTC. Repair broken tests (roadmap D6). No migration, no schema, no cmd/ edit.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7"
+    ]
+  },
+  "created_at": "2026-08-31T09:30:00Z",
+  "updated_at": "2026-08-31T09:52:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone",
+    "created_at": "2026-08-30T19:17:41Z"
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "consumed.go — two calendarDay call-site swaps + deletion",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T07:19:06Z",
+      "duration_seconds": 19517,
+      "notes": "calendarDay deleted; both call sites now clock.CalendarDay(t, time.UTC). Algebraically identical. Doc comments corrected.",
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "recalculate.go — Reconcile's instant-source swap, loc unchanged",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T07:19:06Z",
+      "duration_seconds": 19517,
+      "notes": "time.Now() -> clock.Now(); three widen(calendarDay(...)) -> clock.CalendarDay(..., time.UTC). Bucketing zone deliberately still UTC (D-ana-1).",
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "repair tests broken by calendarDay's deletion",
+      "module": "analytics",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
+      "completed_at": "2026-08-31T07:19:06Z",
+      "duration_seconds": 19517,
+      "notes": "Three db_integration_test.go fixture call sites repointed; two stale comments corrected. No expected value changed.",
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "internal/analytics/AGENTS.md — add internal/clock to May-import list",
+      "module": "analytics",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T09:20:00Z",
+      "completed_at": "2026-08-31T09:25:46Z",
+      "duration_seconds": 346,
+      "notes": "Gap the worker flagged but could not fix (artifact-only dispatch). Leader applied it: clock added to May-import, D-B12 no-*time.Location invariant noted as still holding.",
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "root README.md dependency-graph edit (leader-owned)",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T07:19:06Z",
+      "completed_at": "2026-08-31T07:19:32Z",
+      "duration_seconds": 26,
+      "notes": "analytics row gains clock; clock's prose row lists its adopters. Landed in 45ed424 after 528a37f falsely claimed it (roadmap D28).",
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "OpenSpec artifacts — proposal, design, specs, tasks",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:00:00Z",
+      "completed_at": "2026-08-31T09:25:46Z",
+      "duration_seconds": 1546,
+      "notes": "Completed in a second dispatch after the rate limit killed the first. openspec validate --strict passes.",
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "verification — build, vet, gofmt, validate",
+      "module": "analytics",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T09:26:00Z",
+      "completed_at": "2026-08-31T09:28:00Z",
+      "duration_seconds": 120,
+      "notes": "go build ./... and go vet ./... exit 0; every branch-touched .go file is gofmt-clean; openspec validate --strict valid.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "analytics-reviewer",
+    "brief": "Review RM35-analytics-adopt-clock (roadmap RM35 tier 4, module internal/analytics) against the DIFF, not the whole module. Validate:\n(1) Module-boundary compliance per ai/architecture.md — analytics imports internal/clock only; no HTML, no other module's DB.\n(2) The central claim: deleting calendarDay for clock.CalendarDay(t, time.UTC) is algebraically identical at every call site, and Reconcile's time.Now()->clock.Now() swap is a provable no-op because loc is unchanged. Verify by reading internal/clock/calendar.go, not by trusting design.md.\n(3) Roadmap D1 — the pgtype.Date UTC-midnight storage encoding is UNCHANGED. Any bucketing-zone drift from time.UTC is a blocker finding.\n(4) Roadmap D6 — no NEW tests added; existing tests repaired with expected values UNCHANGED. A moved expected value is a blocker.\n(5) design.md's Test Contract was authored up front — check the repaired tests assert what design.md specifies, not what the implementation happens to do.\n(6) Doc-pack conventions: ai/go-conventions.md unit suffixes and the timezone rule; CLAUDE.md's docs-track-structural-change (internal/analytics/AGENTS.md May-import list must name internal/clock).\n(7) Performance-Profile compliance (read-heavy) — no added per-read work.\n(8) No database object created or changed. Any schema touch is a blocker (it never passed the owner's design gate).\n(9) Anti-gaming: no task title, criterion or expected value weakened to look complete.\nTest provenance: go build ./... , go vet ./... and gofmt were ASSISTANT-run. The suite (go test ./internal/analytics/... and go test ./...) was run and reported passing by the OWNER. Judge test QUALITY by reading them; do not run the suite yourself.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-31T10:15:00Z",
+        "agent": "analytics-reviewer",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Read the doc-pack, the change artifacts, and the DIFF (git diff main -- internal/analytics/ README.md AGENTS.md). Independently read internal/clock/calendar.go and internal/clock/clock.go rather than trusting design.md's algebra claim. calendarDay(t)'s body (t.UTC() then Date(...)) and clock.CalendarDay(t, time.UTC)'s body (t.In(time.UTC).Date() then Date(...)) are the same conversion (t.UTC() is defined as t.In(time.UTC) in stdlib) -- the delete-and-delegate at consumed.go's two call sites is exactly algebraically identical, confirmed by reading the source, not the design doc's assertion. Reconcile's yesterday clamp: clock.Now() = time.Now().In(clock.Zone()) -- same absolute instant, different Location label -- and CalendarDay's loc parameter re-converts via t.In(loc) unconditionally regardless of t's own Location, so the instant-source swap cannot change the output; loc stays time.UTC (D-ana-1), so the swap is a provable no-op, confirmed independently. Ran go build ./..., go vet ./internal/analytics/..., and gofmt -l internal/analytics/*.go myself (permitted under Test-Execution-Policy) -- all clean, matching T7's claims. grep -rn calendarDay internal/analytics/ returns no match -- fully deleted. grep confirms internal/clock imported only at consumed.go:19, recalculate.go:23, db_integration_test.go:66, and named in AGENTS.md's May-import list -- no other new import, no internal/gateway, no html/template, no other module's db package. git diff main --stat confirms no internal/analytics file outside the ones named in tasks.md/proposal.md Impact was touched, and no migration/schema file anywhere in the branch's diff touches internal/analytics/db/migrations. Test diffs (consumed_test.go, recalculate_test.go, db_integration_test.go) are call-site renames and comment fixes only -- day0/-20, day0/-22, oldDay/-25, and wantChargeStart=day(2026,7,31) are byte-identical to pre-change values; no new test function added (matches roadmap D6). design.md's Test Contract section names these exact three anchors and the wantChargeStart fixture before restating them as already-implemented (repair-only tier), and the values it names match what's on disk -- no back-fit detected. Effectiveness of the tier is entirely documentation/consolidation, as claimed: no Reader method touched, only Recalculate/Reconcile (write path), consistent with Performance-Profile. tasks.md's T4.1 double-entry (flagged NOT DONE by the worker, then completed by the leader, documented in decisions[] D-ana-2 and events[]) is transparent, not gamed. Doc-pack read: CLAUDE.md, ai/architecture.md, ai/go-conventions.md, ai/agentic-workflow.md, internal/analytics/AGENTS.md, openspec/config.yaml, openspec/roadmaps/RM35-timezone-centralization.md, plus the change's design.md/proposal.md/tasks.md/specs/analytics/spec.md."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-ana-1",
+      "at": "2026-08-31T02:30:00Z",
+      "scope": "task:T2",
+      "made_by": "autopilot",
+      "decision": "Reconcile's bucketing zone stays time.UTC; only the instant source moves to clock.Now().",
+      "why": "Analytics buckets by the pgtype.Date UTC-midnight storage encoding, which roadmap D1 puts explicitly out of scope. Changing loc would shift day attribution.",
+      "covered_by": "roadmap D1"
+    },
+    {
+      "id": "D-ana-2",
+      "at": "2026-08-31T09:25:00Z",
+      "scope": "task:T4",
+      "made_by": "leader",
+      "decision": "The leader applied the AGENTS.md May-import entry directly instead of re-dispatching the worker.",
+      "why": "One line inside the module the tier already owns, flagged by the worker itself as out of its artifact-only sandbox. A dispatch would re-read the whole doc pack for it.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-31T02:03:49Z",
+      "agent": "leader",
+      "event": "worker dispatched in parallel with tiers 5 and 6 (roadmap D24)"
+    },
+    {
+      "at": "2026-08-31T07:19:06Z",
+      "agent": "leader",
+      "event": "worker killed by the HTTP 429 session limit mid-run; code complete, artifacts partial. Leader verified build/vet green independently."
+    },
+    {
+      "at": "2026-08-31T09:25:46Z",
+      "agent": "leader",
+      "event": "second dispatch completed the artifacts and the AGENTS.md entry (c5f86e7). openspec validate --strict passes."
+    },
+    {
+      "at": "2026-08-31T09:30:00Z",
+      "agent": "leader",
+      "event": "progress.json created retroactively on resume — the first dispatch died before Step 4 ran for this tier. Task state reconstructed from tasks.md, the diff, and the roadmap events."
+    },
+    {
+      "at": "2026-08-31T09:45:00Z",
+      "agent": "leader",
+      "event": "OWNER reported the suite passing — go test ./internal/analytics/... ./internal/app/... and go test ./... both green. This is the owner's verification, not the assistant's. All tasks promoted awaiting-user-verification -> done; change status -> verified. Reviewer gate opens."
+    },
+    {
+      "at": "2026-08-31T09:52:00Z",
+      "agent": "leader",
+      "event": "analytics-reviewer approved round 1 with ZERO findings. Archived to openspec/changes/archive/analytics/ per config.yaml's group-by-domain rule (openspec archive placed it flat; leader moved it). openspec/specs/analytics/spec.md gained 2 requirements."
+    }
+  ]
+}
