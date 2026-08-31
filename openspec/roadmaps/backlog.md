@@ -594,6 +594,38 @@ RM33 `manual-record-status` decision D8 (and D4), settled in the 2026-08-29 gril
 Linear MAG-18.
 
 
+## 19. gateway — Regression test: the history preset selector highlights for a non-UTC user
+
+### PROPOSAL
+
+`RM35-gateway-adopt-clock` fixed a pre-existing bug in `buildHistoryPresets`
+(`internal/gateway/handlers/history.go`): `Active` compared `start.Equal(pStart)` —
+UTC-midnight-of-D from `time.Parse` against browser-zone-midnight-of-D from
+`browserToday(c)`. `time.Time.Equal` compares instants, so the preset button could only ever
+highlight when the browser's UTC offset was exactly zero. Every signed-in user whose
+`browser_tz` cookie named a non-UTC zone saw a dead selector. The fix compares the formatted
+`"2006-01-02"` date on both sides.
+
+No NEW test was written asserting the fixed behaviour, because roadmap RM35 decision D6
+limited tiers 2–6 to *repairing* existing tests, not adding any. The existing coverage
+(`TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset`) exercises only the
+no-cookie path, which is exactly the case that accidentally worked before.
+
+Work: add a test that sets a `browser_tz` cookie to a non-UTC zone (e.g. `America/Bogota`),
+requests the default 6-day preset href, and asserts `btn-primary` is present. Consider a
+second case for a POSITIVE-offset zone (e.g. `Europe/Madrid`), since the sign of the offset
+decides which side of the frame mismatch is later.
+
+**Trigger:** next change that touches `internal/gateway/handlers/history.go`, or any time
+the no-tests default is relaxed for the gateway module.
+
+### ORIGIN
+
+`openspec/changes/RM35-gateway-adopt-clock/design.md` D-gw-7, "Follow-up not taken". Found
+when the owner's suite run failed after the tier moved the no-cookie fallback off `time.UTC`.
+
+
+
 # BRAINSTORMING
 
 

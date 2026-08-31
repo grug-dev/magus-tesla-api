@@ -189,6 +189,52 @@ call sites consumes that value in a way that discards or is invariant to `Locati
 matter, but because the one field that changes (`Location`) is provably never read by any
 consumer these four call sites have.
 
+### D-gw-5 — The three broken tests are repaired to the new fallback; the fallback itself is NOT reverted
+
+The owner's first suite run failed three history tests. All three anchored their expected
+window on `startOfDay(time.Now())` — UTC midnight — while the handler anchors on
+`browserToday`, whose no-cookie fallback this tier moved to `clock.Zone()` (−05).
+`time.Time.Equal` compares instants, so the two midnights sit five hours apart.
+
+The fallback stands. A signed-in user carrying a `browser_tz` cookie already received a −05
+window **before** this tier; T1 changed only the no-cookie default, which is exactly what
+roadmap D1 asked for. The tests asserted the old default, so the tests are what moved.
+
+### D-gw-6 — A named `browserTodayNoCookie()` test helper, not three inlined expressions
+
+21 other call sites in `history_test.go` correctly keep `startOfDay`: they pass their own
+"today" straight into `buildHistoryView` / `dashboardFor` and never cross the
+`browserLocation` fallback. Only the 3 sites that compare against a **handler-computed**
+window need the browser anchor. A named helper carries a doc comment recording which anchor
+belongs where, so the next edit cannot silently pick the wrong one.
+
+### D-gw-7 — `buildHistoryPresets` compares calendar dates, not instants (pre-existing bug, fixed here)
+
+`Active: start.Equal(pStart) && end.Equal(pEnd)` compared two different time frames:
+`start`/`end` are UTC-midnight-of-D (`time.Parse` of a bare `"2006-01-02"` in
+`parseHistoryRange`), while `pStart`/`pEnd` derive from `today` = `browserToday(c)`,
+midnight-of-D in the **browser's** zone. `Equal` compares instants, so `Active` could only
+ever be true when the browser's UTC offset was exactly zero.
+
+**This is a pre-existing bug, not one this tier introduced** — the line is byte-identical on
+`main`. Every signed-in user whose `browser_tz` names a non-UTC zone has had a dead preset
+selector: no button ever highlighted. It merely *looked* correct because the no-cookie
+fallback was `time.UTC`, the one case where the frames coincided. Removing that coincidence
+is what exposed it.
+
+Fixed by comparing the formatted `"2006-01-02"` date on both sides. Both are date-valued by
+construction — the preset hrefs are already built from the same formatted strings — so this
+is the comparison the code always meant. The same frame-mismatch warning already appears in
+this file at the `end <= today` cap; `buildHistoryPresets` never got the same treatment.
+
+**Scope note:** fixing this goes beyond MAG-20's literal text. The owner was shown the
+alternatives (separate change / revert the tier) and chose to fix it here, because the test
+cannot go green without either this fix or a weakened assertion.
+
+**Follow-up not taken:** roadmap D6 limits tiers 2–6 to repairing tests, not adding them, so
+no NEW regression test asserting "a cookie-carrying user sees an active preset" was written.
+That gap is recorded for the backlog.
+
 ## Test Contract
 
 Per `ai/go-conventions.md` §Testing, expected values are authored here before the implementation

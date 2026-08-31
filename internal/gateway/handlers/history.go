@@ -242,18 +242,33 @@ func (h *Handler) DashboardHistoryFragment(c *gin.Context) {
 // the requested (start, end) window. A custom (non-preset) window marks no
 // preset active — the selector renders all-ghost. today is the caller's
 // "browser today" (browserToday(c)) so "yesterday" is the user's local
-// yesterday, not UTC's — direct API callers without a cookie pass UTC today.
+// yesterday, not UTC's.
+//
+// Active compares CALENDAR DATES, never instants. start/end arrive from
+// parseHistoryRange as UTC-midnight-of-D (time.Parse of a bare "2006-01-02"),
+// while pStart/pEnd derive from today, which is midnight-of-D in the BROWSER's
+// zone. Those are two different frames — the same warning this file already
+// gives at the end<=today cap above — so start.Equal(pStart) is only ever true
+// when the browser's UTC offset happens to be zero. Comparing instants here
+// meant the selector never highlighted for any user whose browser_tz cookie
+// named a non-UTC zone; it merely looked correct while the no-cookie fallback
+// was still time.UTC, which RM35-gateway-adopt-clock changed (roadmap D1).
+// Both sides are date-valued by construction, so comparing the formatted date
+// is the comparison this has always meant (design.md D-gw-7).
 func buildHistoryPresets(ctx context.Context, start, end, today time.Time) []fragments.RangePreset {
 	yesterday := today.AddDate(0, 0, -1)
+	const dateOnly = "2006-01-02"
+	startStr, endStr := start.Format(dateOnly), end.Format(dateOnly)
 	out := make([]fragments.RangePreset, 0, len(historyPresetDayCounts))
 	for _, n := range historyPresetDayCounts {
 		pEnd := yesterday
 		pStart := yesterday.AddDate(0, 0, -n)
+		pStartStr, pEndStr := pStart.Format(dateOnly), pEnd.Format(dateOnly)
 		out = append(out, fragments.RangePreset{
 			Label:    fmt.Sprintf(i18n.T(ctx, i18n.KeyHistoryDaysPreset), n),
-			StartStr: pStart.Format("2006-01-02"),
-			EndStr:   pEnd.Format("2006-01-02"),
-			Active:   start.Equal(pStart) && end.Equal(pEnd),
+			StartStr: pStartStr,
+			EndStr:   pEndStr,
+			Active:   startStr == pStartStr && endStr == pEndStr,
 		})
 	}
 	return out
