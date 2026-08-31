@@ -202,7 +202,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
-| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config` (`RM35` tier 2) and `telemetry` (`RM35` tier 3); `analytics`, `app` and `gateway` adopt it in tiers 4–6. |
+| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config`, `telemetry`, `analytics` and `app` (`RM35` tiers 2–5); `gateway` adopts it in tier 6. |
 | `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
 ### Dependency graph
@@ -227,9 +227,9 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 │    ├─ templates/* ───► i18n, templates/ui                                │
 │    └─ i18n ──────────► account            (the Language type only)       │
 ├─ LAYER 2.5 ── application layer ─────────────────────────────────────────┤
-│  app ────────────────► telemetry, charging, analytics, account           │
+│  app ────────────────► telemetry, charging, analytics, account, clock    │
 ├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
-│  analytics ──────────► account, charging, telemetry                      │
+│  analytics ──────────► account, charging, telemetry, clock               │
 ├─ LAYER 1 ── domain modules & config ─────────────────────────────────────┤
 │  telemetry ──────────► account, tesla, clock, telemetry/db               │
 │  charging ───────────► charging/db                                       │
