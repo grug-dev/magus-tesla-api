@@ -295,6 +295,30 @@ as an explicit negative contract):
   more — confirmed by running all three legs against the full tree before finalizing (Test
   Contract (a) above).
 
+### Known blind spots — what this guard does NOT catch (review round 1, R1–R5)
+
+A grep guard is a cheap net, not a proof. These were found by the reviewer deliberately
+attacking the patterns, and are recorded so a future maintainer does not over-trust a green
+`make tz-guard`. **This list is part of the guard's contract: extend it whenever a new
+evasion is found.**
+
+| # | Evasion | Status |
+|---|---|---|
+| R1 | `t.Truncate(24 * time.Hour)` — the classic Go day-rounding footgun (it rounds against the zero time in UTC, not local midnight). No `time.Date` shape, so leg 2 never saw it. | **FIXED** — leg 4 added, catching both `24 * time.Hour` and `time.Hour * 24`, while leaving sub-day truncations (`time.Microsecond`) alone. |
+| R2 | A `time.Date(...)` call with its midnight arguments spread across several lines. | **Open** — inherent to a line-oriented grep. Accepted. |
+| R3 | `var nowFn = time.Now` then `nowFn()`. The literal `time.Now()` never appears at the call site. | **Open, and partly intended** — this is the clock-seam pattern `scheduler.go` already uses deliberately for testability. Guarding it would fight a pattern the project wants. |
+| R4 | A `/* … */` block comment discussing the guarded shapes is flagged as code (false POSITIVE, not negative) — the comment filter only understands `//`. | **Open** — not reachable today: `internal/` currently contains no block comments. A future one gets a `tz:allow`. |
+| R5 | A zone name assembled by concatenating constants. | **Open** — beyond what any grep can do. Accepted. |
+
+The honest summary: this guard reliably stops the **careless** reintroduction of a raw `now`,
+a hand-rolled midnight, a day-scale `Truncate`, or a hardcoded zone. It does not stop a
+determined or unusual construction, and — see D-plat-3 — it does not look at tests at all.
+
+**It also would not have caught any of tier 6's six bugs**, which were frame *mismatches*
+between two legitimately-obtained values, not illegitimate calls. That class needs a type the
+compiler can check, not a grep; it is recorded as a backlog item rather than pretended away
+here.
+
 ## Migration Plan
 
 None — no database object, no code-behavior change. Rollback is a plain revert of the

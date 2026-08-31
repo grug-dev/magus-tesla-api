@@ -106,3 +106,21 @@
       to turn this tier's status from `awaiting-user-verification` (if any test-adjacent doubt
       remains) to `done` — though this tier adds no new `_test.go` coverage, per its own
       Non-Goals.
+
+## T5. Review round 1 findings (R1-R5) — depends on T4
+
+- [x] T5.1 R1 (major) FIXED, not just documented: added leg 4 to `tz-guard` catching
+      day-scale `Truncate` — `.Truncate(24 * time.Hour)` and `.Truncate(time.Hour * 24)`.
+      Acceptance: proved both orderings are flagged and that a sub-day `Truncate`
+      (`time.Microsecond`) is NOT, so the 10 existing test-file truncations stay clean.
+      Verified no `.Truncate(` exists in non-test `internal/` code today, so the new leg
+      breaks nothing.
+- [x] T5.2 R2-R5 documented as known blind spots in design.md's Risks / Trade-offs, with
+      each marked FIXED or Open and a reason. R3 is noted as partly INTENDED — the
+      `nowFn := time.Now` seam is a testability pattern the project uses on purpose.
+      Acceptance: the table is declared part of the guard's contract, to be extended
+      whenever a new evasion is found.
+- [x] T5.3 Recorded plainly that the guard would NOT have caught tier 6's six bugs: those
+      were frame mismatches between two legitimately-obtained values, not illegitimate
+      calls. That class needs a compiler-checkable type, not a grep.
+

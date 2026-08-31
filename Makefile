@@ -413,7 +413,7 @@ money-guard: ## Fail if a handler hand-rolls a money label with fmt.Sprintf("%.N
 # guarded, e.g. "time.Now()" or "America/Bogota" as example text). Escape hatch: a trailing
 # `// tz:allow: <reason>` comment on the same line (all scanned files are .go, real comment
 # syntax — no separate above-the-line placement needed, unlike i18n-guard's .templ pass).
-tz-guard: ## Fail if code outside internal/clock hand-rolls "now", a UTC/day-midnight construction, or a hardcoded IANA zone name (escape hatch: // tz:allow: <reason>)
+tz-guard: ## Fail if code outside internal/clock hand-rolls "now", a UTC/day-midnight construction, a 24h Truncate day-rounding, or a hardcoded IANA zone name (escape hatch: // tz:allow: <reason>)
 	@fail=0; \
 	now_matches=$$(grep -rnE 'time\.Now\(\)' internal --include='*.go' \
 		| grep -v '_test\.go:' \
@@ -429,6 +429,13 @@ tz-guard: ## Fail if code outside internal/clock hand-rolls "now", a UTC/day-mid
 		| grep -vE '^[^:]+:[^:]+:[[:space:]]*//' \
 		|| true); \
 	if [ -n "$$trunc_matches" ]; then echo "$$trunc_matches"; fail=1; fi; \
+	daytrunc_matches=$$(grep -rnE '\.Truncate\(.*(24[[:space:]]*\*[[:space:]]*time\.Hour|time\.Hour[[:space:]]*\*[[:space:]]*24)' internal --include='*.go' \
+		| grep -v '_test\.go:' \
+		| grep -v '^internal/clock/' \
+		| grep -v 'tz:allow' \
+		| grep -vE '^[^:]+:[^:]+:[[:space:]]*//' \
+		|| true); \
+	if [ -n "$$daytrunc_matches" ]; then echo "$$daytrunc_matches"; fail=1; fi; \
 	zone_matches=$$(grep -rnE '"[A-Z][a-zA-Z_]+/[A-Z][a-zA-Z_]+"' internal --include='*.go' \
 		| grep -v '_test\.go:' \
 		| grep -v '^internal/clock/' \
@@ -438,7 +445,8 @@ tz-guard: ## Fail if code outside internal/clock hand-rolls "now", a UTC/day-mid
 	if [ -n "$$zone_matches" ]; then echo "$$zone_matches"; fail=1; fi; \
 	if [ "$$fail" = "1" ]; then \
 		echo ""; \
-		echo "ERROR: raw time.Now(), a hand-rolled UTC/day-midnight construction, or a hardcoded"; \
+		echo "ERROR: raw time.Now(), a hand-rolled UTC/day-midnight construction, a 24h Truncate"; \
+		echo "day-rounding, or a hardcoded"; \
 		echo "IANA zone name found above, outside internal/clock. internal/clock is the platform's"; \
 		echo "sole owner of the default time zone, \"now\", and calendar-day normalization"; \
 		echo "(ai/go-conventions.md, RM35-timezone-centralization D2). Call clock.Now() /"; \
