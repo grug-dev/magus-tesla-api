@@ -5,9 +5,9 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM36-poll-run-tracking.md",
   "request": "Source ticket: MAG-35 \u2014 https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\nProject: architecture   Priority: High\n\nTier 1 of RM36-poll-run-tracking. Add the poll_runs table (one row per run_id) owned by internal/telemetry, the telemetry.RunWriter port internal/app will call, the Tesla Fleet API call counting (a decorator around tesla.VehicleService, internal to telemetry \u2014 internal/tesla is NOT modified), the new CycleReport fields, and the disambiguated LogCycle line. Tier 2 (internal/app measures the run and calls the port) is a separate change.",
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-08-31T07:25:00Z",
-  "updated_at": "2026-08-31T15:53:00Z",
+  "updated_at": "2026-08-31T18:50:10Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -23,13 +23,7 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "5.1",
-      "5.2",
-      "5.3",
-      "6.1",
-      "6.2"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
@@ -42,7 +36,14 @@
       "4.1",
       "4.2",
       "4.3",
-      "3.2"
+      "3.2",
+      "6.1",
+      "6.2"
+    ],
+    "awaiting-user-verification": [
+      "5.1",
+      "5.2",
+      "5.3"
     ]
   },
   "tasks": [
@@ -290,14 +291,23 @@
         "4.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T18:44:00Z",
+      "completed_at": "2026-08-31T18:50:10Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Fixtures 1-4 in service_test.go, values verbatim from design.md's Test Contract (TeslaAPICalls 6/3/1/0) plus the independent fakeTesla counter cross-checks. Leader diffed against design.md: exact match.",
+      "budget": {
+        "five_hour_pct_start": 2.0,
+        "five_hour_pct_end": 17.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 4.56,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-C delta copied onto each of the five tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "5.2",
@@ -307,14 +317,23 @@
         "4.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T18:44:00Z",
+      "completed_at": "2026-08-31T18:50:10Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "TestLogCycle_RelabeledLine captures log output via log.SetOutput; asserts vehicles_/accounts_ labels, tesla_api_calls, duration=42s, and that no bare attempted=/succeeded= remains (D8).",
+      "budget": {
+        "five_hour_pct_start": 2.0,
+        "five_hour_pct_end": 17.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 4.56,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-C delta copied onto each of the five tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "5.3",
@@ -325,14 +344,23 @@
         "2.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T18:44:00Z",
+      "completed_at": "2026-08-31T18:50:10Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "New db_poll_run_integration_test.go, DATABASE_URL-gated via newTestStore. Fixtures 5a (17-field round-trip), 5b (all-zero trace), 5c (duplicate run_id -> SQLSTATE 23505, first row unmodified).",
+      "budget": {
+        "five_hour_pct_start": 2.0,
+        "five_hour_pct_end": 17.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 4.56,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-C delta copied onto each of the five tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "6.1",
@@ -343,14 +371,23 @@
         "2.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T18:44:00Z",
+      "completed_at": "2026-08-31T18:50:10Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "AGENTS.md Data ownership: four tables -> five, poll_runs documented with grain, D1/D2/D3/D5/D9/D10/D11 pointers, the no-read-port note and the no-index-beyond-PK rationale.",
+      "budget": {
+        "five_hour_pct_start": 2.0,
+        "five_hour_pct_end": 17.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 4.56,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-C delta copied onto each of the five tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "6.2",
@@ -360,14 +397,23 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T18:44:00Z",
+      "completed_at": "2026-08-31T18:50:10Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "README.md 'Database tables by module': poll_runs row added to the internal/telemetry block after supercharger_sessions, stating it has no reader yet.",
+      "budget": {
+        "five_hour_pct_start": 2.0,
+        "five_hour_pct_end": 17.0,
+        "five_hour_pct_delta": 15.0,
+        "cost_usd_delta": 4.56,
+        "context_pct_end": 13,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-C delta copied onto each of the five tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "4.3",
@@ -502,6 +548,16 @@
       "at": "2026-08-31T15:53:30Z",
       "agent": "leader",
       "event": "BUDGET GATE TRIPPED at the wave-B/C boundary: live reading five_hour_pct=95 >= Budget-Checkpoint-At(90), measured_at=2026-08-31T15:52:06Z, bucket resets 2026-08-31T17:20:00Z (12:20 -05). context_pct=9 is fine. No worker dispatched. NEXT: wave C = 5.1, 5.2, 5.3 (tests) + 6.1, 6.2 (docs); all depends_on satisfied, one dispatch. Resume after the reset with: /kkpa-dev-harness-pipeline resume RM36-telemetry-add-poll-runs"
+    },
+    {
+      "at": "2026-08-31T18:44:00Z",
+      "agent": "leader",
+      "event": "Resumed at the wave-B/C boundary; budget gate CLEARED (five_hour_pct=2 after the 17:20Z reset, context_pct=9). Step 5 dispatch C: telemetry worker (Sonnet) for tasks 5.1, 5.2, 5.3, 6.1, 6.2 - the three test files from design.md's Test Contract plus the two doc updates. Budget at dispatch: five_hour_pct=2, context_pct=9, cost_usd=0.607."
+    },
+    {
+      "at": "2026-08-31T18:50:10Z",
+      "agent": "leader",
+      "event": "Wave C reconciled: 6.1 and 6.2 done; 5.1, 5.2, 5.3 awaiting-user-verification (tests written, never executed by the assistant). Leader independently re-ran go build ./... (clean), go vet ./... (clean, compiles all new _test.go), gofmt -l internal/telemetry/ (empty), and read the full diff against design.md's Test Contract: Fixture 1 asserts TeslaAPICalls=6 with the independent listCalls/wakeCalls/dataCalls cross-check, Fixture 2 =3, Fixture 3 =1 (D9: the failed ListVehicles still counts), Fixture 4 all-zero with a non-nil empty FailuresByReason; 5.2 asserts the D8 printed-label change AND the absence of bare attempted=/succeeded=; 5a/5b/5c match design.md byte-for-byte including SQLSTATE 23505. No test was bent to match the implementation. Worker self-reported timestamps (00:00-01:30Z) predate its own 18:44Z dispatch; leader recorded the real bracket instead. Budget 2%->17% five-hour, context 13%."
     }
   ]
 }

@@ -188,7 +188,7 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 
 ## Data ownership
 
-Owns four tables in the module-scoped `internal/telemetry/db` (goose migrations are the
+Owns five tables in the module-scoped `internal/telemetry/db` (goose migrations are the
 single schema source; sqlc generates `telemetrydb`, which **no other module imports**):
 
 - `vehicle_snapshots` — **no longer append-only** (superseded by
@@ -241,6 +241,27 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
   `RM29-analytics-own-charge-gaps` (MAG-26 tier 5), table, migration, and `GapWriter` port
   together — this module never read it back after writing it, and its only consumer was
   another module.
+- `poll_runs` — one row per `run_id` (PRIMARY KEY, no surrogate `id` — `RunContext.RunID`
+  is already the row's natural, immutable identity, design D1), written **exactly once**
+  per `app.ProcessVehicleData` invocation by `RunWriter.RecordRun`, including on the
+  step-1 whole-cycle-failure short-circuit (a failed run still leaves an all-zero-counts
+  trace, design D3). A plain single `INSERT`, never an upsert: a duplicate `run_id` is a
+  caller bug and fails loudly on the PRIMARY KEY (design D11). No FK to/from
+  `poll_attempts` — the two tables correlate only through the application-known `run_id`
+  value, since a `poll_runs` row is written after every `poll_attempts` row for that run
+  already exists (design D2). Columns reproduce the poller's per-cycle log line without a
+  join: `triggered_by`, `started_at`/`finished_at`/`duration_seconds` (all `NOT NULL` —
+  design D3), the account-grain counts (`accounts_attempted`/`_succeeded`/`_failed`), the
+  vehicle-grain counts and per-reason failure counts, `tesla_api_calls` (every Tesla Fleet
+  API request this run made, counted regardless of success/failure by the module's
+  internal `callCounter` decorator, design D9/D10), and the three
+  charging/config-capture counts already on `CycleReport`. **No read port yet** — no
+  `Reader`-style method, no gateway page (design D5/backlog); the only way to observe a
+  row today is direct SQL or a future gateway read surface. No index beyond the PK's
+  automatic B-tree (design D5: nothing reads this table in this tier, and the future
+  "list recent runs" read stays a cheap sequential scan at this table's write volume for
+  years). Schema/rationale: `openspec/changes/RM36-telemetry-add-poll-runs/design.md`
+  (MAG-35) — moves under `openspec/changes/archive/` once this change is archived.
 
 `account_id`/`tesla_id` are plain columns (no cross-module FK, D2 of the change design). `pgtype`
 never leaves the module — convert to/from plain domain types at the DB→domain mapping boundary

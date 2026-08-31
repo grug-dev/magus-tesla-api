@@ -145,7 +145,7 @@ design was shaped specifically to avoid needing to.
 
 ## Wave 5 — Tests (offline first, DB-backed last — cannot compile before Waves 1–4)
 
-- [ ] **5.1** `internal/telemetry/service_test.go` — add the four offline fixtures
+- [x] **5.1** `internal/telemetry/service_test.go` — add the four offline fixtures
   from design.md's Test Contract (Fixtures 1–4): the mixed online/asleep-vehicle
   call-count fixture, the `AccessTokenFor`-failure account fixture, the
   `ListVehicles`-unauthorized account fixture, and the whole-cycle
@@ -154,7 +154,7 @@ design was shaped specifically to avoid needing to.
   `fakeTesla`'s own independent `listCalls`/`wakeCalls`/`dataCalls` counters.
   `depends_on`: 4.2 · `parallel_ok`: no
 
-- [ ] **5.2** `internal/telemetry/report_test.go` — extend (or add alongside
+- [x] **5.2** `internal/telemetry/report_test.go` — extend (or add alongside
   `TestFormatFailures`) an assertion that `LogCycle`'s relabeled line prints
   `vehicles_attempted`/`vehicles_succeeded` (not bare `attempted`/`succeeded`) plus
   the new account/API-call/duration fields — capture `log.Printf` output via
@@ -162,7 +162,7 @@ design was shaped specifically to avoid needing to.
   existing style.
   `depends_on`: 4.2 · `parallel_ok`: with 5.1
 
-- [ ] **5.3** `internal/telemetry/db_poll_run_integration_test.go` (new file,
+- [x] **5.3** `internal/telemetry/db_poll_run_integration_test.go` (new file,
   `DATABASE_URL`-gated via the existing `testdb`/`TestMain` pattern in this
   package) — the three `RunWriter.RecordRun` fixtures from design.md (5a: a normal
   successful run's full 17-field round-trip via direct SQL `SELECT`; 5b: the
@@ -174,13 +174,13 @@ design was shaped specifically to avoid needing to.
 
 ## Wave 6 — Docs (post-change state; content-dependent on Waves 1–5, not a compile dependency)
 
-- [ ] **6.1** `internal/telemetry/AGENTS.md` — add `poll_runs` to the "Data
+- [x] **6.1** `internal/telemetry/AGENTS.md` — add `poll_runs` to the "Data
   ownership" section as a fifth owned table: one row per `run_id`, written once by
   `RunWriter.RecordRun`, no read port yet (backlog), schema/rationale pointer to
   this archived change once archived.
   `depends_on`: 1.1, 2.4 · `parallel_ok`: with 6.2
 
-- [ ] **6.2** Root `README.md` — add a `poll_runs` row to the "Database tables by
+- [x] **6.2** Root `README.md` — add a `poll_runs` row to the "Database tables by
   module" table, in the existing `internal/telemetry` block (after
   `supercharger_sessions`), one sentence describing what it stores and that it has
   no reader yet.

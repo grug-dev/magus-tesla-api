@@ -1270,3 +1270,191 @@ func TestDeriveIsPaid(t *testing.T) {
 		}
 	})
 }
+
+// --- RM36-telemetry-add-poll-runs: offline fixtures 1-4 (design.md Test Contract) ---
+//
+// These fixtures extend the existing fakeAccount/fakeTesla/fakeStore infrastructure
+// above (no new fake framework, design.md preamble). Every fixture cross-checks
+// report.TeslaAPICalls against fakeTesla's own independently-tracked
+// listCalls/wakeCalls/dataCalls counters, so a bug in the callCounter decorator that
+// under- or over-counts would fail two different ways, not one.
+
+// TestCollectAll_Fixture1_MixedOnlineAsleep_CountsEveryTeslaCall implements design.md
+// Test Contract Fixture 1: one account, two vehicles (one already online, one needing
+// a wake), charging history succeeding with 0 sessions.
+func TestCollectAll_Fixture1_MixedOnlineAsleep_CountsEveryTeslaCall(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	// Vehicle 1: already online -> no WakeUp, straight to VehicleData.
+	ft.set(1, &vehicleScript{state: "online", data: onlineData(1, nil)})
+	// Vehicle 2: asleep -> WakeUp runs; wakesOnline flips it online synchronously so
+	// the wake poll's ListVehicles reports it online with no extra iteration.
+	ft.set(2, &vehicleScript{state: "asleep", wakesOnline: true, data: onlineData(2, nil)})
+	// ChargingHistory default: empty history, no error (0 sessions).
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{
+			{AccountID: acctID, TeslaID: 1},
+			{AccountID: acctID, TeslaID: 2},
+		},
+		tokens: map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectAll(context.Background(), testRun())
+	if err != nil {
+		t.Fatalf("CollectAll returned whole-cycle error: %v", err)
+	}
+	if report.Attempted != 2 || report.Succeeded != 2 || len(report.FailuresByReason) != 0 {
+		t.Fatalf("want 2 attempted/2 succeeded/no failures, got %+v", report)
+	}
+	if report.AccountsAttempted != 1 || report.AccountsFailed != 0 || report.AccountsSucceeded != 1 {
+		t.Fatalf("want 1 account attempted/0 failed/1 succeeded, got %+v", report)
+	}
+	if report.TeslaAPICalls != 6 {
+		t.Fatalf("want TeslaAPICalls=6, got %d", report.TeslaAPICalls)
+	}
+	if report.ChargingSessionsUpserted != 0 || report.ChargingFetchFailures != 0 {
+		t.Fatalf("want ChargingSessionsUpserted=0/ChargingFetchFailures=0, got %+v", report)
+	}
+	// Cross-check against fakeTesla's own independently-tracked counters: listStates
+	// (1) + the wake poll's own ListVehicles (1) = 2 list calls; 1 wake for vehicle 2;
+	// 1 VehicleData each for vehicles 1 and 2; +1 for collectChargingHistory's single
+	// per-account ChargingHistory call.
+	if ft.listCalls != 2 {
+		t.Errorf("want fakeTesla.listCalls=2, got %d", ft.listCalls)
+	}
+	if ft.wakeCalls[2] != 1 {
+		t.Errorf("want fakeTesla.wakeCalls[2]=1, got %d", ft.wakeCalls[2])
+	}
+	if ft.dataCalls[1] != 1 || ft.dataCalls[2] != 1 {
+		t.Errorf("want fakeTesla.dataCalls[1]=1 dataCalls[2]=1, got %d/%d", ft.dataCalls[1], ft.dataCalls[2])
+	}
+	independentTotal := ft.listCalls + ft.wakeCalls[2] + ft.dataCalls[1] + ft.dataCalls[2] + 1 // +1 ChargingHistory
+	if independentTotal != 6 || independentTotal != report.TeslaAPICalls {
+		t.Errorf("cross-check mismatch: independently-tracked total=%d, report.TeslaAPICalls=%d", independentTotal, report.TeslaAPICalls)
+	}
+}
+
+// TestCollectAll_Fixture2_AccountLevelCounts_AccessTokenFailure implements design.md
+// Test Contract Fixture 2: two accounts, one fails at AccessTokenFor.
+func TestCollectAll_Fixture2_AccountLevelCounts_AccessTokenFailure(t *testing.T) {
+	acctX, acctY := uuid.New(), uuid.New()
+	ft := newFakeTesla()
+	// Only account Y ever reaches a Tesla call: its one vehicle, already online.
+	ft.set(20, &vehicleScript{state: "online", data: onlineData(20, nil)})
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{
+			{AccountID: acctX, TeslaID: 10},
+			{AccountID: acctX, TeslaID: 11},
+			{AccountID: acctY, TeslaID: 20},
+		},
+		// acctX absent from tokens -> AccessTokenFor returns account.ErrNoTeslaConnection.
+		tokens: map[uuid.UUID]string{acctY: "tokY"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectAll(context.Background(), testRun())
+	if err != nil {
+		t.Fatalf("CollectAll returned whole-cycle error: %v", err)
+	}
+	if report.Attempted != 3 || report.Succeeded != 1 {
+		t.Fatalf("want 3 attempted/1 succeeded, got %+v", report)
+	}
+	if report.FailuresByReason[ReasonUnauthorized] != 2 {
+		t.Fatalf("want acctX's 2 vehicles unauthorized, got %+v", report)
+	}
+	if report.AccountsAttempted != 2 || report.AccountsFailed != 1 || report.AccountsSucceeded != 1 {
+		t.Fatalf("want 2 accounts attempted/1 failed(X)/1 succeeded(2-1), got %+v", report)
+	}
+	// Zero Tesla calls for X (the AccessTokenFor short-circuit fires before any tesla
+	// call — it is an account port call, not a tesla one) + Y's listStates (1) + Y's
+	// VehicleData (1) + Y's ChargingHistory (1) = 3.
+	if report.TeslaAPICalls != 3 {
+		t.Fatalf("want TeslaAPICalls=3, got %d", report.TeslaAPICalls)
+	}
+	if ft.wakeCalls[10] != 0 || ft.wakeCalls[11] != 0 || ft.dataCalls[10] != 0 || ft.dataCalls[11] != 0 {
+		t.Errorf("acctX must make zero Tesla calls, got wakes=%d/%d data=%d/%d", ft.wakeCalls[10], ft.wakeCalls[11], ft.dataCalls[10], ft.dataCalls[11])
+	}
+	independentTotal := ft.listCalls + ft.dataCalls[20] + 1 // +1 ChargingHistory
+	if independentTotal != 3 || independentTotal != report.TeslaAPICalls {
+		t.Errorf("cross-check mismatch: independently-tracked total=%d, report.TeslaAPICalls=%d", independentTotal, report.TeslaAPICalls)
+	}
+}
+
+// TestCollectAll_Fixture3_AccountLevelCounts_ListVehiclesUnauthorized implements
+// design.md Test Contract Fixture 3: one account, ListVehicles itself returns
+// tesla.ErrUnauthorized.
+func TestCollectAll_Fixture3_AccountLevelCounts_ListVehiclesUnauthorized(t *testing.T) {
+	acctID := uuid.New()
+	ft := newFakeTesla()
+	ft.set(1, &vehicleScript{state: "online", data: onlineData(1, nil)})
+	ft.set(2, &vehicleScript{state: "online", data: onlineData(2, nil)})
+	ft.listErr = tesla.ErrUnauthorized
+
+	fa := &fakeAccount{
+		vehicles: []account.OwnedVehicle{
+			{AccountID: acctID, TeslaID: 1},
+			{AccountID: acctID, TeslaID: 2},
+		},
+		tokens: map[uuid.UUID]string{acctID: "tok"},
+	}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, ft, fs)
+
+	report, err := svc.CollectAll(context.Background(), testRun())
+	if err != nil {
+		t.Fatalf("CollectAll returned whole-cycle error: %v", err)
+	}
+	if report.Attempted != 2 || report.Succeeded != 0 || report.FailuresByReason[ReasonUnauthorized] != 2 {
+		t.Fatalf("want 2 attempted/0 succeeded/2 unauthorized, got %+v", report)
+	}
+	if report.AccountsAttempted != 1 || report.AccountsFailed != 1 || report.AccountsSucceeded != 0 {
+		t.Fatalf("want 1 account attempted/1 failed/0 succeeded, got %+v", report)
+	}
+	// The single failed ListVehicles call counts (design D9: the counter increments
+	// before checking the error) even though it failed; collectAccount returns
+	// immediately on this branch, so ChargingHistory is never reached.
+	if report.TeslaAPICalls != 1 {
+		t.Fatalf("want TeslaAPICalls=1, got %d", report.TeslaAPICalls)
+	}
+	if ft.listCalls != 1 {
+		t.Errorf("want fakeTesla.listCalls=1, got %d", ft.listCalls)
+	}
+	if ft.dataCalls[1] != 0 || ft.dataCalls[2] != 0 {
+		t.Errorf("no per-vehicle Tesla call must fire after an account-wide 401, got dataCalls=%d/%d", ft.dataCalls[1], ft.dataCalls[2])
+	}
+}
+
+// TestCollectAll_Fixture4_WholeCycleFailure_ReportAllZero implements design.md Test
+// Contract Fixture 4: CollectAll returns (report, err) with err != nil and report
+// all-zero, including the new account/Tesla-API-call fields this change adds — this
+// pins the exact zero-valued shape a PollRun built from this report would carry
+// (design.md Fixture 5b). Complements the pre-existing
+// TestCollectAll_WholeCycleEnumerationError, which covers the same branch's
+// pre-existing (non-RM36) assertions.
+func TestCollectAll_Fixture4_WholeCycleFailure_ReportAllZero(t *testing.T) {
+	fa := &fakeAccount{allErr: errors.New("db: connection refused")}
+	fs := &fakeStore{}
+	svc := newFakeService(fa, newFakeTesla(), fs)
+
+	report, err := svc.CollectAll(context.Background(), testRun())
+	if err == nil {
+		t.Fatal("want a whole-cycle error when AllRegisteredVehicles fails, got nil")
+	}
+	if report.Attempted != 0 || report.Succeeded != 0 {
+		t.Fatalf("want an all-zero vehicle-grain report, got %+v", report)
+	}
+	if report.AccountsAttempted != 0 || report.AccountsSucceeded != 0 || report.AccountsFailed != 0 {
+		t.Fatalf("want an all-zero account-grain report, got %+v", report)
+	}
+	if report.TeslaAPICalls != 0 {
+		t.Fatalf("want TeslaAPICalls=0 (no Tesla call is ever reached), got %d", report.TeslaAPICalls)
+	}
+	if report.FailuresByReason == nil || len(report.FailuresByReason) != 0 {
+		t.Fatalf("want a non-nil, empty FailuresByReason map, got %#v", report.FailuresByReason)
+	}
+}
