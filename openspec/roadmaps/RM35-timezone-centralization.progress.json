@@ -2,15 +2,15 @@
   "schema_version": 1,
   "kind": "roadmap",
   "roadmap": "RM35-timezone-centralization",
-  "intention": "Every date and datetime the app creates resolves through one package, internal/clock, defaulting to America/Bogota, with a make tz-guard keeping it that way. Defaults only \u2014 the pgtype.Date UTC-midnight storage encoding and the per-user browser_tz cookie are untouched.",
-  "request": "Source ticket: MAG-20 \u2014 https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone\nProject: architecture   Priority: Urgent\n\n## Date/Date time Time Zone\n\n* Analyze all date and date time created by the app (With golang code). The should be saved with Zone America/Bogota. Centralize a new logic that creates a date or date/time in that time zone.\n* Update the CLAUDE/AGENTS instructtion or the best MD instructions per module to use that timezone convention. Find the best place that works for claude and opencode\n* Find the best module to this kind of things that are cross-module. A new shared  util module sound like a good idea? I think it might work.. in the future we might have shared utilities for all modules\n\nAcceptance Criteria\n\nThe app does not use UTC.\n\ndate and datetimes are centralized in one place and shared to all modules needed it",
+  "intention": "Every date and datetime the app creates resolves through one package, internal/clock, defaulting to America/Bogota, with a make tz-guard keeping it that way. Defaults only — the pgtype.Date UTC-midnight storage encoding and the per-user browser_tz cookie are untouched.",
+  "request": "Source ticket: MAG-20 — https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone\nProject: architecture   Priority: Urgent\n\n## Date/Date time Time Zone\n\n* Analyze all date and date time created by the app (With golang code). The should be saved with Zone America/Bogota. Centralize a new logic that creates a date or date/time in that time zone.\n* Update the CLAUDE/AGENTS instructtion or the best MD instructions per module to use that timezone convention. Find the best place that works for claude and opencode\n* Find the best module to this kind of things that are cross-module. A new shared  util module sound like a good idea? I think it might work.. in the future we might have shared utilities for all modules\n\nAcceptance Criteria\n\nThe app does not use UTC.\n\ndate and datetimes are centralized in one place and shared to all modules needed it",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-31T07:19:32Z",
+  "updated_at": "2026-08-31T09:32:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
-    "session_id": "0809d538-f495-4dff-be14-ae6ff3e22250"
+    "session_id": "fc7a8a25-b503-408a-b5b2-d4469a0960b0"
   },
   "git": {
     "strategy": "auto",
@@ -21,15 +21,15 @@
     "created_at": "2026-08-30T19:17:41Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
-      7
-    ],
-    "blocked": [
+    "current": [
       4,
       5,
       6
     ],
+    "pending": [
+      7
+    ],
+    "blocked": [],
     "done": [
       1,
       2,
@@ -61,7 +61,7 @@
       "scope": "roadmap",
       "made_by": "user",
       "decision": "Full rule in ai/go-conventions.md next to the units rule; one-line non-negotiable in CLAUDE.md; NEW pointer to ai/go-conventions.md added to AGENTS.md for opencode.",
-      "why": "go-conventions.md is in the base Doc-Pack, re-read by every worker and reviewer. AGENTS.md has no pointer to it today. Duplicating the rule drifts \u2014 CLAUDE.md is already 5 weeks newer than AGENTS.md.",
+      "why": "go-conventions.md is in the base Doc-Pack, re-read by every worker and reviewer. AGENTS.md has no pointer to it today. Duplicating the rule drifts — CLAUDE.md is already 5 weeks newer than AGENTS.md.",
       "covered_by": null
     },
     {
@@ -105,7 +105,7 @@
       "at": "2026-08-31T01:23:19Z",
       "scope": "roadmap",
       "made_by": "user",
-      "decision": "Autopilot ON for RM35 \u2014 drive tiers 2-7 to completion without asking between tiers.",
+      "decision": "Autopilot ON for RM35 — drive tiers 2-7 to completion without asking between tiers.",
       "why": "Owner said to continue with the rest of the roadmap. Real gates still pause: design gates, review changes-requested, destructive/outward actions, budget checkpoints, and the owner's own test runs.",
       "covered_by": null
     },
@@ -168,8 +168,26 @@
       "at": "2026-08-31T07:19:32Z",
       "scope": "roadmap",
       "made_by": "leader",
-      "decision": "Correcting the record: commit 528a37f's message claims the README dependency graph gained the analytics and app clock edges. It did not \u2014 the edit script asserted and died before writing.",
+      "decision": "Correcting the record: commit 528a37f's message claims the README dependency graph gained the analytics and app clock edges. It did not — the edit script asserted and died before writing.",
       "why": "The prose row had already been reworded by tier 3, so the leader's match failed. The commit message was written before the result was checked. The edit is applied for real in the following commit; the false claim is recorded here rather than rewritten away.",
+      "covered_by": null
+    },
+    {
+      "id": "D29",
+      "at": "2026-08-31T09:30:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Tiers 4 and 5 move from blocked to applied; their progress.json files are written retroactively rather than re-running the tiers.",
+      "why": "Both tiers' code, tests and artifacts are on disk and validate clean. The block was a dead worker, not unfinished work. Re-running would redo verified work.",
+      "covered_by": null
+    },
+    {
+      "id": "D30",
+      "at": "2026-08-31T09:32:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "D17's assistant-run-tests grant is treated as EXPIRED. The owner runs the suite again from this session on.",
+      "why": "D17 scoped itself to that session only and said CLAUDE.md is not amended. This is a new session, so the owner-runs-tests default is back in force.",
       "covered_by": null
     }
   ],
@@ -231,14 +249,14 @@
       "depends_on": [
         1
       ],
-      "status": "blocked",
+      "status": "applied",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T02:03:49Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "INCOMPLETE \u2014 worker killed by the rate limit mid-run. Code and tests ARE done and green (analytics tests pass). Artifacts partial: proposal.md + specs/ written, design.md and tasks.md MISSING. No progress.json, no review."
+      "notes": "Code, tests, AGENTS.md and artifacts all complete; openspec validate --strict passes. progress.json written retroactively on resume. Awaiting the owner's suite run, then review."
     },
     {
       "id": 5,
@@ -248,14 +266,14 @@
       "depends_on": [
         1
       ],
-      "status": "blocked",
+      "status": "applied",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T02:03:49Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "INCOMPLETE \u2014 worker killed by the rate limit mid-run. Code, tests and AGENTS.md ARE done and green (app tests pass). Artifacts partial: proposal.md, design.md, specs/ written, tasks.md MISSING. No progress.json, no review."
+      "notes": "Code, tests, AGENTS.md and artifacts all complete; openspec validate --strict passes. progress.json written retroactively on resume. Awaiting the owner's suite run, then review."
     },
     {
       "id": 6,
@@ -265,14 +283,14 @@
       "depends_on": [
         1
       ],
-      "status": "blocked",
+      "status": "in-progress",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
-      "started_at": "2026-08-31T02:03:49Z",
+      "started_at": "2026-08-31T09:32:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "NOT STARTED \u2014 worker killed by the rate limit before editing anything. internal/gateway is completely untouched; git status confirms zero modified files there."
+      "notes": "Dispatched on resume. tz.go UTC fallbacks -> clock.Zone() (cookie still wins, D1); history.go startOfDay -> clock.CalendarDay; four time.Now() -> clock.Now()."
     },
     {
       "id": 7,
@@ -301,13 +319,13 @@
       "at": "2026-08-30T19:17:41Z",
       "kind": "roadmap-created",
       "by": "leader",
-      "note": "RM35 created from MAG-20 via kkpa-pickup-linear-ticket. Step 2 interview settled D1-D6 with the user. autopilot=false \u2014 the pickup skill scoped this run to HALT AFTER STEP 4."
+      "note": "RM35 created from MAG-20 via kkpa-pickup-linear-ticket. Step 2 interview settled D1-D6 with the user. autopilot=false — the pickup skill scoped this run to HALT AFTER STEP 4."
     },
     {
       "at": "2026-08-31T01:23:19Z",
       "kind": "autopilot-enabled",
       "by": "leader",
-      "note": "Owner authorized continuing the whole roadmap. Note each tier still parks for the owner's suite run per D13 \u2014 autopilot does not override the owner-runs-tests rule."
+      "note": "Owner authorized continuing the whole roadmap. Note each tier still parks for the owner's suite run per D13 — autopilot does not override the owner-runs-tests rule."
     },
     {
       "at": "2026-08-31T01:25:53Z",
@@ -331,7 +349,7 @@
       "at": "2026-08-31T01:40:26Z",
       "kind": "tier-archived",
       "by": "leader",
-      "note": "Tier 2 archived to openspec/changes/archive/config/. Tier 3 (telemetry) started. Budget at the gate: 5h 35%, context 28% \u2014 both under the 90/40 thresholds."
+      "note": "Tier 2 archived to openspec/changes/archive/config/. Tier 3 (telemetry) started. Budget at the gate: 5h 35%, context 28% — both under the 90/40 thresholds."
     },
     {
       "at": "2026-08-31T02:03:49Z",
@@ -349,7 +367,7 @@
       "at": "2026-08-31T02:08:29Z",
       "kind": "budget-checkpoint",
       "by": "leader",
-      "note": "CHECKPOINT: five_hour_pct=98 (threshold 90), context_pct=34 (threshold 40), five_hour_resets_at=1788156600. Tiers 4,5,6 were dispatched in parallel BEFORE this trip and are still in flight \u2014 they finish on work already paid for. No NEW work starts until the bucket resets. Tier 7 (tz-guard) must not begin before then. Resume with: /kkpa-dev-harness-pipeline resume RM35-timezone-centralization"
+      "note": "CHECKPOINT: five_hour_pct=98 (threshold 90), context_pct=34 (threshold 40), five_hour_resets_at=1788156600. Tiers 4,5,6 were dispatched in parallel BEFORE this trip and are still in flight — they finish on work already paid for. No NEW work starts until the bucket resets. Tier 7 (tz-guard) must not begin before then. Resume with: /kkpa-dev-harness-pipeline resume RM35-timezone-centralization"
     },
     {
       "at": "2026-08-31T07:19:06Z",
@@ -361,7 +379,13 @@
       "at": "2026-08-31T07:19:32Z",
       "kind": "correction",
       "by": "leader",
-      "note": "528a37f's message asserted a README change that never happened. Applied for real now: app and analytics gain their clock edges, and clock's prose row lists its four real adopters with gateway still pending. Gateway's edge remains absent, correctly \u2014 that module was never touched."
+      "note": "528a37f's message asserted a README change that never happened. Applied for real now: app and analytics gain their clock edges, and clock's prose row lists its four real adopters with gateway still pending. Gateway's edge remains absent, correctly — that module was never touched."
+    },
+    {
+      "at": "2026-08-31T09:32:00Z",
+      "kind": "resumed",
+      "by": "leader",
+      "note": "Resumed in a fresh session. Budget clear (5h 50%, context 9%). Independent verification: go build ./... and go vet ./... exit 0, every branch-touched .go file gofmt-clean, both tier 4 and tier 5 openspec validate --strict valid. Tier 6 (gateway) dispatched; tiers 4/5 parked for the owner's suite run before their reviewer gate."
     }
   ]
 }

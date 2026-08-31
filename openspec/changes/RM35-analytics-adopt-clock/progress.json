@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM35-analytics-adopt-clock",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
+  "request": "Tier 4 of RM35: adopt internal/clock in internal/analytics. Delete the module's own calendarDay in favour of clock.CalendarDay(t, time.UTC) at its two call sites; route Reconcile's bare time.Now() through clock.Now(); keep the bucketing zone at time.UTC. Repair broken tests (roadmap D6). No migration, no schema, no cmd/ edit.",
+  "status": "applied",
+  "rollup": {
+    "current": ["T1", "T2", "T3", "T4"],
+    "pending": [],
+    "blocked": [],
+    "done": ["T5", "T6", "T7"]
+  },
+  "created_at": "2026-08-31T09:30:00Z",
+  "updated_at": "2026-08-31T09:30:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone",
+    "created_at": "2026-08-30T19:17:41Z"
+  },
+  "tasks": [
+    { "id": "T1", "title": "consumed.go — two calendarDay call-site swaps + deletion", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "awaiting-user-verification", "agent": "analytics", "model": "claude-sonnet-5", "started_at": "2026-08-31T02:03:49Z", "completed_at": "2026-08-31T07:19:06Z", "duration_seconds": 19517, "notes": "calendarDay deleted; both call sites now clock.CalendarDay(t, time.UTC). Algebraically identical. Doc comments corrected.", "budget": null },
+    { "id": "T2", "title": "recalculate.go — Reconcile's instant-source swap, loc unchanged", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "awaiting-user-verification", "agent": "analytics", "model": "claude-sonnet-5", "started_at": "2026-08-31T02:03:49Z", "completed_at": "2026-08-31T07:19:06Z", "duration_seconds": 19517, "notes": "time.Now() -> clock.Now(); three widen(calendarDay(...)) -> clock.CalendarDay(..., time.UTC). Bucketing zone deliberately still UTC (D-ana-1).", "budget": null },
+    { "id": "T3", "title": "repair tests broken by calendarDay's deletion", "module": "analytics", "depends_on": ["T1", "T2"], "parallel_ok": false, "status": "awaiting-user-verification", "agent": "analytics", "model": "claude-sonnet-5", "started_at": "2026-08-31T02:03:49Z", "completed_at": "2026-08-31T07:19:06Z", "duration_seconds": 19517, "notes": "Three db_integration_test.go fixture call sites repointed; two stale comments corrected. No expected value changed.", "budget": null },
+    { "id": "T4", "title": "internal/analytics/AGENTS.md — add internal/clock to May-import list", "module": "analytics", "depends_on": ["T1", "T2"], "parallel_ok": false, "status": "awaiting-user-verification", "agent": "leader", "model": "claude-opus-5", "started_at": "2026-08-31T09:20:00Z", "completed_at": "2026-08-31T09:25:46Z", "duration_seconds": 346, "notes": "Gap the worker flagged but could not fix (artifact-only dispatch). Leader applied it: clock added to May-import, D-B12 no-*time.Location invariant noted as still holding.", "budget": null },
+    { "id": "T5", "title": "root README.md dependency-graph edit (leader-owned)", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "leader", "model": "claude-opus-5", "started_at": "2026-08-31T07:19:06Z", "completed_at": "2026-08-31T07:19:32Z", "duration_seconds": 26, "notes": "analytics row gains clock; clock's prose row lists its adopters. Landed in 45ed424 after 528a37f falsely claimed it (roadmap D28).", "budget": null },
+    { "id": "T6", "title": "OpenSpec artifacts — proposal, design, specs, tasks", "module": "analytics", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "analytics", "model": "claude-sonnet-5", "started_at": "2026-08-31T09:00:00Z", "completed_at": "2026-08-31T09:25:46Z", "duration_seconds": 1546, "notes": "Completed in a second dispatch after the rate limit killed the first. openspec validate --strict passes.", "budget": null },
+    { "id": "T7", "title": "verification — build, vet, gofmt, validate", "module": "analytics", "depends_on": ["T1", "T2", "T3", "T4"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "claude-opus-5", "started_at": "2026-08-31T09:26:00Z", "completed_at": "2026-08-31T09:28:00Z", "duration_seconds": 120, "notes": "go build ./... and go vet ./... exit 0; every branch-touched .go file is gofmt-clean; openspec validate --strict valid.", "budget": null }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [
+    { "id": "D-ana-1", "at": "2026-08-31T02:30:00Z", "scope": "task:T2", "made_by": "autopilot", "decision": "Reconcile's bucketing zone stays time.UTC; only the instant source moves to clock.Now().", "why": "Analytics buckets by the pgtype.Date UTC-midnight storage encoding, which roadmap D1 puts explicitly out of scope. Changing loc would shift day attribution.", "covered_by": "roadmap D1" },
+    { "id": "D-ana-2", "at": "2026-08-31T09:25:00Z", "scope": "task:T4", "made_by": "leader", "decision": "The leader applied the AGENTS.md May-import entry directly instead of re-dispatching the worker.", "why": "One line inside the module the tier already owns, flagged by the worker itself as out of its artifact-only sandbox. A dispatch would re-read the whole doc pack for it.", "covered_by": null }
+  ],
+  "events": [
+    { "at": "2026-08-31T02:03:49Z", "agent": "leader", "event": "worker dispatched in parallel with tiers 5 and 6 (roadmap D24)" },
+    { "at": "2026-08-31T07:19:06Z", "agent": "leader", "event": "worker killed by the HTTP 429 session limit mid-run; code complete, artifacts partial. Leader verified build/vet green independently." },
+    { "at": "2026-08-31T09:25:46Z", "agent": "leader", "event": "second dispatch completed the artifacts and the AGENTS.md entry (c5f86e7). openspec validate --strict passes." },
+    { "at": "2026-08-31T09:30:00Z", "agent": "leader", "event": "progress.json created retroactively on resume — the first dispatch died before Step 4 ran for this tier. Task state reconstructed from tasks.md, the diff, and the roadmap events." }
+  ]
+}
