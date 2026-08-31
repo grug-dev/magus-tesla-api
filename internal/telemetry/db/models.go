@@ -22,6 +22,31 @@ type PollAttempt struct {
 	TriggeredBy string
 }
 
+// One row per app.ProcessVehicleData invocation (nightly scheduler or cmd/poller --once), written once by telemetry.RunWriter.RecordRun after the whole run completes -- success or the step-1 whole-cycle-failure path alike (RM36-telemetry-add-poll-runs design D1/D3/D6). Reproduces the poller's per-cycle log line (telemetry.LogCycle) as a queryable row (design D5/D7).
+type PollRun struct {
+	// The invocation's identity, generated once by internal/app (uuid.New()) and shared with every poll_attempts row that invocation wrote via RunContext.RunID. No FK to poll_attempts -- see this file's header (design D2).
+	RunID uuid.UUID
+	// scheduler (the nightly poller, including cmd/poller --once) or api (the parked manual-rerun API, RM29 tier 8) -- same domain and same no-CHECK reasoning as poll_attempts.triggered_by (design D4).
+	TriggeredBy       string
+	StartedAt         pgtype.Timestamptz
+	FinishedAt        pgtype.Timestamptz
+	DurationSeconds   float64
+	AccountsAttempted int32
+	AccountsSucceeded int32
+	// Accounts that hit one of the two whole-account short-circuits in collectAccount: AccessTokenFor failure, or the up-front ListVehicles call returning tesla.ErrUnauthorized (roadmap D4). No other failure mode counts here; accounts_succeeded = accounts_attempted - accounts_failed.
+	AccountsFailed        int32
+	VehiclesAttempted     int32
+	VehiclesSucceeded     int32
+	FailuresAsleepTimeout int32
+	FailuresUnauthorized  int32
+	FailuresApiError      int32
+	// Every call telemetry made to tesla.VehicleService during this run (ListVehicles, WakeUp, VehicleData, ChargingHistory), counted by an internal counting decorator regardless of whether the call succeeded or failed (roadmap D2, design D9/D10) -- a rejected request still spends a request against Tesla's API.
+	TeslaApiCalls            int32
+	ChargingSessionsUpserted int32
+	ChargingFetchFailures    int32
+	ConfigCaptureFailures    int32
+}
+
 // Tesla-billed Supercharger and DC fast-charging sessions per account. Covers sessions returned by GET /api/1/dx/charging/history only (no home/AC charging). The Tesla API itself carries no battery-percentage field; start_battery_pct/end_battery_pct/battery_pct_source are a human-owned verification/override channel, and start_battery_pct_est/end_battery_pct_est are a frozen write-once snapshot of the estimate at verification time (both added by RM27 tier 1, MAG-14) -- all five excluded from the nightly UPSERT so a verified value or its snapshot is never silently overwritten (R3). Owned by internal/telemetry; no other module reads this table directly. UPSERT on session_id (not append-only): billing state is mutable post-session.
 type SuperchargerSession struct {
 	ID                  uuid.UUID

@@ -28,7 +28,7 @@ design was shaped specifically to avoid needing to.
 
 ## Wave 1 — Migration + sqlc
 
-- [ ] **1.1** `internal/telemetry/db/migrations/20260830000001_add_poll_runs.sql` —
+- [x] **1.1** `internal/telemetry/db/migrations/20260830000001_add_poll_runs.sql` —
   create `poll_runs` exactly as specified in design.md "Database Changes" (full DDL,
   every column, every `COMMENT ON`, the `+goose Down` dropping the table). Add this
   migration's directory entry is already covered by the existing
@@ -36,7 +36,7 @@ design was shaped specifically to avoid needing to.
   change needed.
   `depends_on`: — · `parallel_ok`: no
 
-- [ ] **1.2** `internal/telemetry/db/query.sql` — add the `InsertPollRun :exec` query
+- [x] **1.2** `internal/telemetry/db/query.sql` — add the `InsertPollRun :exec` query
   exactly as specified in design.md "New sqlc query", including its doc comment. Run
   `make sqlc` to regenerate `telemetrydb` (`InsertPollRun`,
   `InsertPollRunParams`).
@@ -50,7 +50,7 @@ design was shaped specifically to avoid needing to.
 > *declarations* do not need the sqlc types; only `runWriter`'s *implementation*
 > (2.3) does.
 
-- [ ] **2.1** `internal/telemetry/telemetry.go` — add the `PollRun` struct exactly as
+- [x] **2.1** `internal/telemetry/telemetry.go` — add the `PollRun` struct exactly as
   specified in design.md's "Go-Level Seam Summary" (17 fields: `RunID`,
   `TriggeredBy`, `StartedAt`, `FinishedAt`, `DurationSeconds`, `AccountsAttempted`,
   `AccountsSucceeded`, `AccountsFailed`, `VehiclesAttempted`, `VehiclesSucceeded`,
@@ -60,13 +60,13 @@ design was shaped specifically to avoid needing to.
   and "written exactly once" contracts (design D3/D5).
   `depends_on`: — · `parallel_ok`: with 2.2, 2.4
 
-- [ ] **2.2** `internal/telemetry/telemetry.go` — add `CycleReport.TeslaAPICalls`,
+- [x] **2.2** `internal/telemetry/telemetry.go` — add `CycleReport.TeslaAPICalls`,
   `.AccountsAttempted`, `.AccountsSucceeded`, `.AccountsFailed` (all `int`) and
   `.Duration time.Duration` (design D6 — doc comment MUST state it is left zero by
   `CollectAll` and populated only by the caller after the full run is measured).
   `depends_on`: — · `parallel_ok`: with 2.1, 2.4
 
-- [ ] **2.3** `internal/telemetry/run_writer.go` (new file) — the `runWriter`
+- [x] **2.3** `internal/telemetry/run_writer.go` (new file) — the `runWriter`
   concrete type + `RecordRun` implementation (design D12), mapping `PollRun` fields
   to `telemetrydb.InsertPollRunParams` at the DB boundary (reuse the existing
   `runIDToPgUUID` helper from `service.go` for `run_id`; every other field binds as
@@ -75,7 +75,7 @@ design was shaped specifically to avoid needing to.
   assertion `var _ RunWriter = (*runWriter)(nil)`.
   `depends_on`: 1.2, 2.4 · `parallel_ok`: no
 
-- [ ] **2.4** `internal/telemetry/telemetry.go` — add the `RunWriter` interface
+- [x] **2.4** `internal/telemetry/telemetry.go` — add the `RunWriter` interface
   (`RecordRun(ctx context.Context, run PollRun) error`, doc comment per design.md's
   "Go-Level Seam Summary" quoting D3/D1/D11) and `NewRunWriter(pool *pgxpool.Pool)
   RunWriter` (forward-declared, calling into 2.3's constructor — mirrors
@@ -86,7 +86,7 @@ design was shaped specifically to avoid needing to.
 
 ## Wave 3 — Tesla API call-counting decorator
 
-- [ ] **3.1** `internal/telemetry/call_counter.go` (new file) — the `callCounter`
+- [x] **3.1** `internal/telemetry/call_counter.go` (new file) — the `callCounter`
   type (design D9): explicit, non-embedding implementations of all four
   `tesla.VehicleService` methods (`ListVehicles`, `WakeUp`, `VehicleData`,
   `ChargingHistory`), each incrementing `calls` unconditionally before delegating to
@@ -94,7 +94,7 @@ design was shaped specifically to avoid needing to.
   assertion `var _ tesla.VehicleService = (*callCounter)(nil)`.
   `depends_on`: — · `parallel_ok`: with Wave 2
 
-- [ ] **3.2** `internal/telemetry/call_counter_test.go` (new file) — offline unit
+- [x] **3.2** `internal/telemetry/call_counter_test.go` (new file) — offline unit
   test: wrap a minimal fake `tesla.VehicleService` in `callCounter`, call each of
   the four methods a distinct number of times (including at least one call that
   returns an error), assert `calls` equals the total regardless of success/failure.
@@ -124,6 +124,22 @@ design was shaped specifically to avoid needing to.
   `errors.Is(err, tesla.ErrUnauthorized)` branch from `listStates`) — no other
   branch touches this counter (roadmap D4).
   `depends_on`: 4.1 · `parallel_ok`: no
+
+- [ ] **4.3** `internal/telemetry/report.go` — change `LogCycle`'s printed line per
+  roadmap D7 / design.md **D8**: the vehicle-grain labels become
+  `vehicles_attempted=%d vehicles_succeeded=%d`, and the line additionally prints
+  `accounts_attempted`, `accounts_succeeded`, `accounts_failed`, `tesla_api_calls`
+  and the run `duration`. Per D8 this changes only the **printed text** — the
+  `CycleReport.Attempted`/`.Succeeded` Go field names are NOT renamed (renaming them
+  would break `internal/app/scheduler_test.go`, a file this tier may not edit).
+  `depends_on`: 2.2 · `parallel_ok`: with 4.1
+
+  > **Appended by the leader after wave A (2026-08-31), not present in the original
+  > tasks.md.** design.md D8 and `specs/telemetry/spec.md`'s MODIFIED requirement
+  > "Nightly Cycle Log Summary" both require this change, and task 5.2 writes a test
+  > asserting the new labels — but no task actually edited `report.go`, so 5.2 would
+  > have failed against unchanged code. Tasks are append-only; this is an addition,
+  > nothing was weakened or removed.
 
 ---
 

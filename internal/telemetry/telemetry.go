@@ -237,6 +237,34 @@ type CycleReport struct {
 	// never changes the vehicle's Reason and never writes a poll_attempts row — it is retried
 	// for free on the next cycle since the registry row is still missing at least one column.
 	ConfigCaptureFailures int
+	// TeslaAPICalls is the total number of requests this cycle made to
+	// tesla.VehicleService (ListVehicles, WakeUp, VehicleData, ChargingHistory),
+	// counted regardless of success or failure by an internal counting decorator
+	// (RM36-telemetry-add-poll-runs design D9/D10) — a rejected or failed request
+	// still spends a request against Tesla's API and its rate limit.
+	TeslaAPICalls int
+	// AccountsAttempted is the number of accounts this cycle enumerated vehicles
+	// for, set once after the account map is built (RM36 design D10/Go-Level Seam
+	// Summary).
+	AccountsAttempted int
+	// AccountsSucceeded is AccountsAttempted minus AccountsFailed, set once after
+	// the account loop completes (roadmap D4's own formula — no per-account
+	// "success" increment).
+	AccountsSucceeded int
+	// AccountsFailed counts accounts that hit one of the two whole-account
+	// short-circuits in collectAccount: an AccessTokenFor failure, or the
+	// up-front ListVehicles call returning tesla.ErrUnauthorized (roadmap D4). No
+	// other failure mode increments this counter.
+	AccountsFailed int
+	// Duration is the whole run's wall-clock duration, spanning steps 1–3 of
+	// app.ProcessVehicleData (start before step 1, end after step 3). CollectAll
+	// itself only ever runs step 1, so it cannot measure this — it leaves this
+	// field at its zero value on every call, documented here as an intentional
+	// "not measured by this call" state (RM36-telemetry-add-poll-runs design D6).
+	// Only the caller (internal/app's ProcessVehicleData, tier 2) sets this field
+	// on the CycleReport value it already holds, after measuring the full run,
+	// before calling the unchanged LogCycle — no signature change to LogCycle.
+	Duration time.Duration
 }
 
 // Collector runs one collection cycle over every registered vehicle across all
@@ -578,4 +606,68 @@ type SuperchargerReader interface {
 // SuperchargerReader interface, never on the concrete type or on telemetrydb directly.
 func NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader {
 	return newSuperchargerReaderImpl(pool)
+}
+
+// --- poll_runs: run-level summary (RM36-telemetry-add-poll-runs) ---
+
+// PollRun is one run-level summary of an app.ProcessVehicleData invocation — our
+// own domain model (no vendor suffix, ai/architecture.md §6). Unlike Attempt (one
+// row per vehicle per run), a PollRun is written exactly once per run, by the
+// caller (internal/app, tier 2), after the whole run has completed — success or
+// the step-1 whole-cycle-failure short-circuit alike (design D1/D3/D6). There is
+// no read port for this type yet (no Reader-style method — design D5/backlog):
+// the only way to observe a PollRun today is the direct SQL a DB-integration test
+// runs, or a future gateway read surface.
+type PollRun struct {
+	RunID       uuid.UUID
+	TriggeredBy TriggeredBy
+	StartedAt   time.Time
+	FinishedAt  time.Time
+	// DurationSeconds is FinishedAt.Sub(StartedAt) in seconds, computed and
+	// supplied by the caller — this type does not derive it itself.
+	DurationSeconds float64
+
+	AccountsAttempted int
+	AccountsSucceeded int
+	AccountsFailed    int
+
+	VehiclesAttempted     int
+	VehiclesSucceeded     int
+	FailuresAsleepTimeout int
+	FailuresUnauthorized  int
+	FailuresAPIError      int
+
+	// TeslaAPICalls is the total number of Tesla Fleet API requests this run
+	// spent, counted regardless of success or failure (design D9/D10).
+	TeslaAPICalls int
+
+	ChargingSessionsUpserted int
+	ChargingFetchFailures    int
+	ConfigCaptureFailures    int
+}
+
+// RunWriter persists one poll_runs row per app.ProcessVehicleData invocation. It
+// is a separate port from Collector/Reader (RM36-telemetry-add-poll-runs design
+// D12): its correctness is proven by a DATABASE_URL-gated integration test, not
+// by an offline fake, so its implementation talks to telemetrydb.Queries directly
+// rather than being routed through the store interface service.go/reader.go
+// share (mirroring this module's own SuperchargerReader and internal/analytics'
+// gapWriter — adding this to store would force every existing fake store test
+// double to grow a stub method it never calls).
+type RunWriter interface {
+	// RecordRun persists one poll_runs row. Called exactly once per
+	// app.ProcessVehicleData invocation (roadmap D6), after the run's end is
+	// measured — on every path, including the step-1 whole-cycle-failure
+	// short-circuit, so a failed run still leaves a row (roadmap D1). A second
+	// call for the same run.RunID is a caller bug and fails on the PRIMARY
+	// KEY (design D11) rather than silently upserting.
+	RecordRun(ctx context.Context, run PollRun) error
+}
+
+// NewRunWriter constructs a RunWriter backed by a real Postgres pool. Callers
+// (internal/app) depend on the RunWriter interface, never on the concrete type
+// or on telemetrydb directly. Implementation is in run_writer.go — the forward
+// declaration here mirrors NewSuperchargerReader's own pattern (design D12).
+func NewRunWriter(pool *pgxpool.Pool) RunWriter {
+	return newRunWriter(pool)
 }

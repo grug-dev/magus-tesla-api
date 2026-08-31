@@ -505,10 +505,17 @@ No `:many`/`:one` read query is added — nothing reads `poll_runs` in this road
   `.AccountsSucceeded`, `.AccountsFailed`, `.Duration` (D6/D7 above).
 - `internal/telemetry/run_writer.go` (new file) — `runWriter` concrete type +
   `RecordRun` implementation (D12), mapping `PollRun` ↔
-  `telemetrydb.InsertPollRunParams` at the DB boundary (`pgtype.UUID` for `run_id`
-  reusing the existing `runIDToPgUUID` helper in `service.go`; plain non-nullable
-  binds for every other column since every `PollRun` field is always populated by
-  contract, D3).
+  `telemetrydb.InsertPollRunParams` at the DB boundary (plain non-nullable binds for
+  every column, since every `PollRun` field is always populated by contract, D3).
+
+  **Correction, recorded during implementation (wave A).** An earlier draft of this
+  bullet said `run_id` binds as `pgtype.UUID` "reusing the existing `runIDToPgUUID`
+  helper in `service.go`". That is wrong, and the difference is caused by this
+  design's own D3: because `poll_runs.run_id` is `NOT NULL`, sqlc's `uuid` override
+  generates `InsertPollRunParams.RunID` as a plain `uuid.UUID`. `runIDToPgUUID`
+  exists for `poll_attempts.run_id`, which is **nullable** and therefore generates
+  `pgtype.UUID`. `RecordRun` passes `run.RunID` directly and does not call the
+  helper. The gated DDL is unaffected — this is a generated-Go-type detail only.
 - `internal/telemetry/call_counter.go` (new file) — `callCounter` (D9), `newCallCounter`.
 - `internal/telemetry/service.go` — `CollectAll` constructs `counted` and threads it
   (D10); `collectAccount`/`listStates`/`collectVehicle`/`attemptVehicle`/

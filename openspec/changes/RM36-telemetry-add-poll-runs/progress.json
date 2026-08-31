@@ -5,9 +5,9 @@
   "module": "telemetry",
   "roadmap": "openspec/roadmaps/RM36-poll-run-tracking.md",
   "request": "Source ticket: MAG-35 — https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\nProject: architecture   Priority: High\n\nTier 1 of RM36-poll-run-tracking. Add the poll_runs table (one row per run_id) owned by internal/telemetry, the telemetry.RunWriter port internal/app will call, the Tesla Fleet API call counting (a decorator around tesla.VehicleService, internal to telemetry — internal/tesla is NOT modified), the new CycleReport fields, and the disambiguated LogCycle line. Tier 2 (internal/app measures the run and calls the port) is a separate change.",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-08-31T07:25:00Z",
-  "updated_at": "2026-08-31T07:25:00Z",
+  "updated_at": "2026-08-31T09:33:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -22,10 +22,29 @@
     "created_at": "2026-08-31T01:52:41Z"
   },
   "rollup": {
-    "current": [],
-    "pending": ["1.1", "1.2", "2.1", "2.2", "2.3", "2.4", "3.1", "3.2", "4.1", "4.2", "5.1", "5.2", "5.3", "6.1", "6.2"],
+    "current": [
+      "3.2"
+    ],
+    "pending": [
+      "4.1",
+      "4.2",
+      "5.1",
+      "5.2",
+      "5.3",
+      "6.1",
+      "6.2",
+      "4.3"
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "2.4",
+      "2.3",
+      "3.1"
+    ]
   },
   "tasks": [
     {
@@ -34,29 +53,49 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:27:00Z",
+      "completed_at": "2026-08-31T09:28:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Wrote the poll_runs migration verbatim from design.md's gated DDL — every column, every COMMENT ON, +goose Down. Leader diffed it against design.md: exact match.",
+      "budget": {
+        "five_hour_pct_start": 44.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 4.01,
+        "context_pct_end": 26,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the eight tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "1.2",
       "title": "db/query.sql — add InsertPollRun :exec; regenerate telemetrydb with make sqlc",
       "module": "telemetry",
-      "depends_on": ["1.1"],
+      "depends_on": [
+        "1.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:28:00Z",
+      "completed_at": "2026-08-31T09:29:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added InsertPollRun :exec to query.sql verbatim; ran make sqlc. InsertPollRun/InsertPollRunParams generated in telemetrydb.",
+      "budget": {
+        "five_hour_pct_start": 44.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 4.01,
+        "context_pct_end": 26,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the eight tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "2.1",
@@ -64,14 +103,23 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:29:00Z",
+      "completed_at": "2026-08-31T09:30:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added PollRun (17 fields) to telemetry.go with the 'no read port yet' and 'written once' contracts in its doc comment.",
+      "budget": {
+        "five_hour_pct_start": 44.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 4.01,
+        "context_pct_end": 26,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the eight tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "2.2",
@@ -79,44 +127,76 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:29:00Z",
+      "completed_at": "2026-08-31T09:30:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added CycleReport.TeslaAPICalls/AccountsAttempted/AccountsSucceeded/AccountsFailed/Duration. Duration's doc states CollectAll leaves it zero.",
+      "budget": {
+        "five_hour_pct_start": 44.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 4.01,
+        "context_pct_end": 26,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the eight tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "2.3",
       "title": "run_writer.go (new) — runWriter concrete type + RecordRun implementation",
       "module": "telemetry",
-      "depends_on": ["1.2", "2.4"],
+      "depends_on": [
+        "1.2",
+        "2.4"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:31:00Z",
+      "completed_at": "2026-08-31T09:32:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "New run_writer.go: runWriter/newRunWriter/RecordRun + compile-time assertion. run_id binds as plain uuid.UUID, not via runIDToPgUUID — see D-LEADER-4.",
+      "budget": {
+        "five_hour_pct_start": 44.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 4.01,
+        "context_pct_end": 26,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the eight tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "2.4",
       "title": "telemetry.go — add the RunWriter interface + NewRunWriter constructor",
       "module": "telemetry",
-      "depends_on": ["2.1"],
+      "depends_on": [
+        "2.1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:30:00Z",
+      "completed_at": "2026-08-31T09:31:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Added the RunWriter interface + NewRunWriter forward declaration, mirroring NewSuperchargerReader's existing pattern.",
+      "budget": {
+        "five_hour_pct_start": 44.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 4.01,
+        "context_pct_end": 26,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the eight tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "3.1",
@@ -124,35 +204,58 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:32:00Z",
+      "completed_at": "2026-08-31T09:32:30Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "New call_counter.go: explicit non-embedding callCounter over all four tesla.VehicleService methods, incrementing unconditionally before delegating (D9).",
+      "budget": {
+        "five_hour_pct_start": 44.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 4.01,
+        "context_pct_end": 26,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the eight tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "3.2",
       "title": "call_counter_test.go (new) — offline unit test; counts failed calls too",
       "module": "telemetry",
-      "depends_on": ["3.1"],
+      "depends_on": [
+        "3.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:32:30Z",
+      "completed_at": "2026-08-31T09:33:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "New call_counter_test.go, offline, with its own minimal fake to stay independent of wave 4. Written but NOT run — go vet compiled it cleanly.",
+      "budget": {
+        "five_hour_pct_start": 44.0,
+        "five_hour_pct_end": 68.0,
+        "five_hour_pct_delta": 24.0,
+        "cost_usd_delta": 4.01,
+        "context_pct_end": 26,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the eight tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "4.1",
       "title": "service.go — thread tesla.VehicleService as an explicit parameter; CollectAll builds the counter once per call",
       "module": "telemetry",
-      "depends_on": ["2.2", "3.1"],
+      "depends_on": [
+        "2.2",
+        "3.1"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -167,7 +270,9 @@
       "id": "4.2",
       "title": "service.go — account counters at the two whole-account short-circuits; set TeslaAPICalls before returning",
       "module": "telemetry",
-      "depends_on": ["4.1"],
+      "depends_on": [
+        "4.1"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -182,7 +287,9 @@
       "id": "5.1",
       "title": "service_test.go — offline Fixtures 1-4 from design.md's Test Contract",
       "module": "telemetry",
-      "depends_on": ["4.2"],
+      "depends_on": [
+        "4.2"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -197,7 +304,9 @@
       "id": "5.2",
       "title": "report_test.go — assert LogCycle prints vehicles_attempted/vehicles_succeeded + the new fields",
       "module": "telemetry",
-      "depends_on": ["4.2"],
+      "depends_on": [
+        "4.2"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -212,7 +321,10 @@
       "id": "5.3",
       "title": "db_poll_run_integration_test.go (new, DATABASE_URL-gated) — Fixtures 5a/5b/5c for RecordRun",
       "module": "telemetry",
-      "depends_on": ["1.2", "2.3"],
+      "depends_on": [
+        "1.2",
+        "2.3"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -227,7 +339,10 @@
       "id": "6.1",
       "title": "internal/telemetry/AGENTS.md — add poll_runs to Data ownership",
       "module": "telemetry",
-      "depends_on": ["1.1", "2.4"],
+      "depends_on": [
+        "1.1",
+        "2.4"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -242,7 +357,26 @@
       "id": "6.2",
       "title": "Root README.md — add poll_runs to the database-tables-by-module table",
       "module": "telemetry",
-      "depends_on": ["1.1"],
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.3",
+      "title": "report.go — LogCycle prints vehicles_attempted/vehicles_succeeded + account, API-call and duration figures (design D8)",
+      "module": "telemetry",
+      "depends_on": [
+        "2.2"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -278,6 +412,31 @@
       "decision": "Leader fixed the spec.md ordering itself (moved the SHALL paragraph above the **Reason** block) instead of re-dispatching the rate-limited worker.",
       "why": "A one-paragraph reordering with no semantic change. Re-dispatching a worker to move two paragraphs costs a full doc-pack re-read for nothing.",
       "covered_by": null
+    },
+    {
+      "id": "D-LEADER-2",
+      "at": "2026-08-31T09:27:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Batched tasks.md's 6 declared waves into 3 serial worker dispatches (A: 1.1-3.2, B: 4.1-4.2, C: 5.x+6.x) along the real dependency cuts.",
+      "why": "All 15 tasks share one module and one worker identity. Six dispatches would re-read the full doc pack six times. Every depends_on is still honoured inside each batch.",
+      "covered_by": null
+    },
+    {
+      "id": "D-LEADER-3",
+      "at": "2026-08-31T09:33:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Appended task 4.3 (change LogCycle's printed line) to tasks.md and to this file. No original task edited report.go.",
+      "why": "design.md D8 and spec.md's MODIFIED 'Nightly Cycle Log Summary' both require it, and task 5.2 asserts the new labels — so 5.2 would have failed against unchanged code. Append-only respected."
+    },
+    {
+      "id": "D-LEADER-4",
+      "at": "2026-08-31T09:33:00Z",
+      "scope": "task:2.3",
+      "made_by": "autopilot",
+      "decision": "Accepted the worker's deviation from design.md's runIDToPgUUID note, and corrected that note in design.md.",
+      "why": "poll_runs.run_id is NOT NULL (D3), so sqlc generates uuid.UUID; the helper exists for poll_attempts' nullable pgtype.UUID. Leader verified both generated types. Gated DDL unaffected."
     }
   ],
   "events": [
@@ -290,6 +449,16 @@
       "at": "2026-08-31T07:25:00Z",
       "agent": "leader",
       "event": "Step 4 complete. progress.json seeded with 15 sub-tasks across 6 waves, all pending. HALTING HERE per the kkpa-pickup-linear-ticket scope: no implementation worker dispatched, no reviewer, no archive. Resume with: /kkpa-dev-harness-pipeline resume RM36-telemetry-add-poll-runs"
+    },
+    {
+      "at": "2026-08-31T09:27:00Z",
+      "agent": "leader",
+      "event": "Step 5 dispatch A: telemetry worker (Sonnet) for tasks 1.1, 1.2, 2.1, 2.2, 2.4, 2.3, 3.1, 3.2 — migration + sqlc + domain types + RunWriter port + call-counting decorator. Budget at dispatch: five_hour_pct=44, context_pct=24."
+    },
+    {
+      "at": "2026-08-31T09:33:00Z",
+      "agent": "leader",
+      "event": "Wave A reconciled: 7 done, 1 awaiting-user-verification (3.2, a test written but not run). Leader independently re-ran go build/go vet/gofmt — all clean — and diffed the migration's CREATE TABLE against design.md: exact match, gated schema intact. Budget 44%->68% five-hour, context 26%."
     }
   ]
 }
