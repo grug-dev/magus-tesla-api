@@ -5,24 +5,24 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
   "request": "Tier 6 of RM35: adopt internal/clock in internal/gateway. The four UTC fallbacks in browserLocation / browserLocationFromHeader become clock.Zone() — the browser_tz cookie still wins (D1). history.go's startOfDay delegates to clock.CalendarDay. Four raw time.Now() calls in handlers.go become clock.Now(). startOfMonth and startOfDayIn are deliberately left alone. Repair broken tests (D6); add none.",
-  "status": "blocked",
+  "status": "applied",
   "rollup": {
     "current": [
+      "T1",
       "T2",
-      "T3"
+      "T3",
+      "T4",
+      "T7"
     ],
     "pending": [],
-    "blocked": [
-      "T1",
-      "T4"
-    ],
+    "blocked": [],
     "done": [
       "T5",
       "T6"
     ]
   },
   "created_at": "2026-08-31T09:50:00Z",
-  "updated_at": "2026-08-31T10:10:00Z",
+  "updated_at": "2026-08-31T10:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -42,7 +42,7 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "blocked",
+      "status": "awaiting-user-verification",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T09:32:00Z",
@@ -91,7 +91,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "blocked",
+      "status": "awaiting-user-verification",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T09:32:00Z",
@@ -130,6 +130,23 @@
       "completed_at": "2026-08-31T09:48:42Z",
       "duration_seconds": 1002,
       "notes": "Four decisions recorded (D-gw-1..4) with the Test Contract authored up front. openspec validate --strict passes.",
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "repair the 3 tests the fallback change broke + the stale history.go comment",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T10:12:00Z",
+      "completed_at": "2026-08-31T10:20:00Z",
+      "duration_seconds": 480,
+      "notes": "Added browserTodayNoCookie() mirroring browserToday's no-cookie path; repointed the 3 handler-comparing anchors off startOfDay. Corrected history.go:119. Build/vet/gofmt clean.",
       "budget": null
     }
   ],
@@ -175,6 +192,24 @@
       "decision": "All four handlers.go swaps are asserted byte-identical rather than behaviour-changing.",
       "why": "Each result is either consumed by .Sub() or round-tripped through pgtype.Timestamptz, both of which discard the zone label.",
       "covered_by": "roadmap D4"
+    },
+    {
+      "id": "D-gw-5",
+      "at": "2026-08-31T10:20:00Z",
+      "scope": "task:T7",
+      "made_by": "leader",
+      "decision": "The 3 tests are repaired to anchor on the handler's own fallback; the Bogota fallback itself is NOT reverted.",
+      "why": "A cookie-carrying user already got a -05 window before this tier. T1 only changed the no-cookie default, which is exactly what roadmap D1 asked for. The tests asserted the old default.",
+      "covered_by": "roadmap D1"
+    },
+    {
+      "id": "D-gw-6",
+      "at": "2026-08-31T10:20:00Z",
+      "scope": "task:T7",
+      "made_by": "leader",
+      "decision": "A named helper browserTodayNoCookie() is added rather than inlining startOfDayIn(time.Now(), clock.Zone()) at each of the 3 sites.",
+      "why": "21 other sites correctly keep startOfDay. The helper's doc comment records which anchor belongs where, so the next edit cannot silently pick the wrong one.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -207,6 +242,11 @@
       "at": "2026-08-31T10:10:00Z",
       "agent": "leader",
       "event": "ALSO STALE, worker missed: internal/gateway/handlers/history.go:119 still reads 'Direct API callers without a browser_tz cookie get UTC today' — false since T1. CLAUDE.md's docs-track-structural-change rule makes this part of the same fix, not a follow-up."
+    },
+    {
+      "at": "2026-08-31T10:20:00Z",
+      "agent": "leader",
+      "event": "FIX APPLIED by the leader (owner chose fix-now over waiting for the budget reset). Only the 3 tests that compare against a HANDLER-computed window were repointed; the 21 sites that pass their own today into buildHistoryView/dashboardFor are self-consistent and deliberately still use startOfDay. Assistant-run signals green: go build ./..., go vet ./internal/gateway/..., gofmt. Suite is the owner's — tasks stay awaiting-user-verification."
     }
   ]
 }

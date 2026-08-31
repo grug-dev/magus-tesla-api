@@ -116,8 +116,9 @@ func calendarDateAfter(a, b time.Time) bool {
 //
 // "Today" is the browser's today, so a user in PST at 10pm local can still
 // request end=their-local-today without a spurious 400 from the UTC cap.
-// Direct API callers without a browser_tz cookie get UTC today (browserToday's
-// fallback).
+// Direct API callers without a browser_tz cookie get the platform default's
+// today — midnight in clock.Zone() (America/Bogota), browserToday's fallback
+// since RM35-gateway-adopt-clock (roadmap D1). It was UTC before that tier.
 //
 // yesterday (today.AddDate(0,0,-1)) — not today — is what the default window
 // and the cap actually compare against (D11): the nightly batch captures

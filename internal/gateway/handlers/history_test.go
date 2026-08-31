@@ -23,6 +23,24 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
+// browserTodayNoCookie mirrors exactly what browserToday(c) computes for a
+// request that carries NO browser_tz cookie: midnight in the platform's
+// default zone. Since RM35-gateway-adopt-clock (roadmap D1) that fallback is
+// clock.Zone() (America/Bogota), not time.UTC.
+//
+// Tests that compare against a window the HANDLER built must anchor here.
+// startOfDay(time.Now()) is UTC midnight, a DIFFERENT INSTANT — five hours
+// apart from Bogota midnight — and time.Time.Equal compares instants, not
+// calendar dates. Anchoring on startOfDay is what made three tests in this
+// file fail the moment the fallback moved.
+//
+// Tests that PASS their own "today" straight into buildHistoryView or
+// dashboardFor are self-consistent and correctly keep using startOfDay: they
+// never cross the browserLocation fallback at all.
+func browserTodayNoCookie() time.Time {
+	return startOfDayIn(time.Now(), clock.Zone())
+}
+
 // historyTestCtx is the language context used by every buildOdometerChart /
 // buildBatteryChart call in this file (both now take an explicit ctx —
 // design.md D3, RM24-gateway-translate-all-pages). Pinned to English so the
@@ -1507,7 +1525,7 @@ func TestDashboardHistoryFragment_DefaultWindowPassedToReader(t *testing.T) {
 	}
 	// D11: default end = yesterday (design.md D-G9), not today. readStart =
 	// yesterday - 7 (lookback 1 + default 6); end = yesterday.
-	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)
+	yesterday := browserTodayNoCookie().AddDate(0, 0, -1)
 	wantStart := yesterday.AddDate(0, 0, -7)
 	wantEnd := yesterday
 	if !reader.gotStart.Equal(wantStart) {
@@ -1585,7 +1603,7 @@ func TestDashboardHistoryFragment_DaysParamIsIgnored(t *testing.T) {
 		t.Fatalf("want 200, got %d", w.Code)
 	}
 	// Default window readStart (lookback 1 + default 6 = yesterday-7, D11).
-	wantStart := startOfDay(time.Now()).AddDate(0, 0, -1).AddDate(0, 0, -7)
+	wantStart := browserTodayNoCookie().AddDate(0, 0, -1).AddDate(0, 0, -7)
 	if !reader.gotStart.Equal(wantStart) {
 		t.Errorf("days param must be ignored; want gotStart=%v, got %v", wantStart, reader.gotStart)
 	}
@@ -1663,7 +1681,7 @@ func TestDashboardHistoryFragment_DefaultWindowActivatesSixDayPreset(t *testing.
 	// default NOW MATCHES this preset window (both end at yesterday) — this
 	// test still exercises the dashboard's explicit self-load href, not the
 	// both-absent path (that's TestDashboardHistoryFragment_DefaultWindowPassedToReader).
-	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)
+	yesterday := browserTodayNoCookie().AddDate(0, 0, -1)
 	start6 := yesterday.AddDate(0, 0, -historyRangeWindowDays)
 	href := fmt.Sprintf("/ui/dashboard/history?start=%s&end=%s",
 		start6.Format("2006-01-02"), yesterday.Format("2006-01-02"))
