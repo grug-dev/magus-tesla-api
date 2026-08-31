@@ -256,6 +256,32 @@ shares the identical line and is deliberately untouched for exactly that reason.
 Every one of these fails ONLY between 00:00 and 05:00 UTC. No suite run outside that window
 can find them, which is why three green runs did not.
 
+### D-gw-10 — Two anchors, not one: the default path is browser-zone midnight, the explicit-param path is UTC midnight
+
+Review round 2's fix was right in direction and wrong in the value's frame, and it broke a
+test that had been passing. The correction is the rule this tier should have started from:
+
+| Path | What `parseHistoryRange` returns | Test anchor |
+|---|---|---|
+| `?start=` and `?end=` both ABSENT | default window built from `browserToday` → **browser-zone midnight** | `browserTodayNoCookie()` |
+| `?start=&end=` PRESENT | `time.Parse("2006-01-02")` → **UTC midnight**, whatever the browser zone | `browserYesterdayUTC()` |
+
+Both anchors must take their DATE from the browser zone, or the cap at step 4 rejects the
+request between 00:00 and 05:00 UTC (D-gw-9). They differ only in the frame the *value* is
+expressed in — and that frame matters because these tests reuse the bound directly.
+
+Using a browser-zone midnight on the explicit path clears the cap (the formatted date is
+correct) but silently breaks the fixtures: `buildHistoryView`'s axis iterates the raw bound
+(`for d := start; !d.After(end); d = d.AddDate(0,0,1)`) while `byDay` is keyed at UTC
+midnight via `effectiveDayUTC` (`history.go:472`). A Bogota-midnight axis matches no key, so
+`distances` comes back empty and the chart short-circuits to `Empty: true` with **zero bars**
+— which is exactly the assertion that failed.
+
+Note this is only reachable because the axis is never normalized to the key frame. That
+underlying fragility is already recorded as **backlog entry 13** ("history charts key a
+`map[time.Time]` without normalizing the lookup side"); this tier works within it rather than
+fixing it, since normalizing the axis is a behaviour change outside MAG-20's scope.
+
 ## Test Contract
 
 Per `ai/go-conventions.md` §Testing, expected values are authored here before the implementation

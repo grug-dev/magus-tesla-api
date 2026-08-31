@@ -177,3 +177,19 @@
       is deliberately NOT changed — it calls `buildHistoryView` directly with its own
       `today` and never reaches `parseHistoryRange`.
 
+## T10. Regression from the round-2 fix — depends on T9
+
+- [x] T10.1 The round-2 fix used `browserTodayNoCookie()` (browser-zone midnight) as an
+      explicit-path bound. That cleared the cap but broke
+      `TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat`, which
+      had been passing: `buildHistoryView`'s axis iterates the raw bound while `byDay` is
+      keyed at UTC midnight (`history.go:472`), so a Bogota-midnight axis matched no key,
+      `distances` came back empty, and the chart short-circuited to `Empty: true` with zero
+      bars.
+      Added `browserYesterdayUTC()` — browser-yesterday's DATE expressed at UTC midnight,
+      exactly what `time.Parse` hands the handler — and used it at both explicit-param
+      sites. Acceptance: modelled both `now` values (inside and outside the 00:00-05:00 UTC
+      window) against the real cap and axis logic; the old anchor 400s inside the window,
+      the round-2 anchor empties the bars at BOTH times, the new anchor is correct at both.
+      See design.md D-gw-10 for the two-anchor rule.
+

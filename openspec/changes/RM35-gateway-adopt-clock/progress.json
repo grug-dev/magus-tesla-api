@@ -5,10 +5,10 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
   "request": "Tier 6 of RM35: adopt internal/clock in internal/gateway. The four UTC fallbacks in browserLocation / browserLocationFromHeader become clock.Zone() — the browser_tz cookie still wins (D1). history.go's startOfDay delegates to clock.CalendarDay. Four raw time.Now() calls in handlers.go become clock.Now(). startOfMonth and startOfDayIn are deliberately left alone. Repair broken tests (D6); add none.",
-  "status": "reviewer-approved",
+  "status": "in-progress",
   "rollup": {
     "current": [
-      "T10"
+      "T11"
     ],
     "pending": [],
     "blocked": [],
@@ -21,11 +21,12 @@
       "T6",
       "T7",
       "T8",
-      "T9"
+      "T9",
+      "T10"
     ]
   },
   "created_at": "2026-08-31T09:50:00Z",
-  "updated_at": "2026-08-31T13:40:00Z",
+  "updated_at": "2026-08-31T13:55:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -202,10 +203,27 @@
       "duration_seconds": 600,
       "notes": "Reviewer was right, leader was wrong. 2 more sites repointed. Leader had misread the cap as end<=today; it is end<=yesterday, compared per-Location. A 3rd site sharing the line is correctly left alone.",
       "budget": null
+    },
+    {
+      "id": "T11",
+      "title": "fix the regression the round-2 fix introduced (browserYesterdayUTC)",
+      "module": "gateway",
+      "depends_on": [
+        "T10"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T13:42:00Z",
+      "completed_at": "2026-08-31T13:55:00Z",
+      "duration_seconds": 780,
+      "notes": "Round-2 fix used a browser-zone bound on the explicit-param path, emptying the charts. Added browserYesterdayUTC (browser DATE at UTC midnight). Two-anchor rule in design.md D-gw-10.",
+      "budget": null
     }
   ],
   "review": {
-    "status": "reviewer-approved",
+    "status": "changes-requested",
     "agent": "gateway-reviewer",
     "brief": "Review RM35-gateway-adopt-clock (roadmap RM35 tier 6, module internal/gateway) against the DIFF, not the whole module. This tier had TWO failed suite runs before going green — scrutinise the fixes, not just the original adoption.\n\n(1) Module-boundary compliance per ai/architecture.md — gateway is the ONLY module allowed to produce HTML; it adds internal/clock and reads other modules through public interfaces only.\n(2) Roadmap D1, the tier's central claim: the browser_tz cookie STILL WINS for a signed-in user. Only the FALLBACK moved from time.UTC to clock.Zone(). Verify in tz.go that every cookie-present path is untouched. A cookie path that now ignores the cookie is a BLOCKER.\n(3) startOfDay delegates to clock.CalendarDay(t, time.UTC) — verify byte-identical by reading internal/clock/calendar.go yourself. Confirm supercharger.go's startOfMonth and tz.go's startOfDayIn are deliberately untouched (D-gw-2), and that startOfDayIn's documented DST limitation still stands.\n(4) The four handlers.go time.Now() -> clock.Now() swaps: design.md D-gw-4 claims each is byte-identical because the result is consumed by .Sub() or round-tripped through pgtype.Timestamptz. VERIFY that claim at each of the four sites. Any site where the zone label survives into a stored or rendered value is a finding.\n(5) THE FIXES — scrutinise hardest here. (a) D-gw-5/D-gw-6: browserTodayNoCookie() was added to history_test.go and 3 anchors repointed. Confirm ONLY the 3 sites that compare against a HANDLER-computed window moved, and that the ~21 sites passing their own today into buildHistoryView/dashboardFor correctly still use startOfDay. A test repointed that did NOT need it is a finding — it would mask a real frame bug. (b) D-gw-7: buildHistoryPresets' Active now compares formatted dates instead of instants. Verify the pre-existing claim independently with `git show main:internal/gateway/handlers/history.go`. Confirm the date comparison is correct for BOTH negative-offset (America/Bogota) and positive-offset (Europe/Madrid) zones — reason about it; do not run tests.\n(6) Roadmap D6 — no NEW tests added. browserTodayNoCookie() is a helper, not a test; confirm no new Test* function appeared. Confirm no existing expected value was weakened or deleted to reach green — this is the key anti-gaming check given two red runs.\n(7) Doc-pack conventions: ai/go-conventions.md's timezone rule, ai/htmx-conventions.md and ai/htmx-go-integration.md if any markup or fragment wiring changed, and the i18n rule (every user-facing string bilingual through i18n.T). CLAUDE.md's docs-track-structural-change: internal/gateway/AGENTS.md must name internal/clock, and no comment may still claim the fallback is UTC.\n(8) Performance-Profile (read-heavy) — buildHistoryPresets now formats dates in a loop on the render path. Judge whether that is acceptable; say so either way.\n(9) No database object created or changed. Any schema/migration touch is a BLOCKER — it never passed the owner's design gate.\n(10) Scope honesty: D-gw-7 is a bug fix BEYOND MAG-20's literal scope, taken with the owner's explicit approval (roadmap D32) and recorded with the missing regression test in backlog entry 19. Confirm that record is accurate and complete.\n\nTest provenance: go build ./..., go vet ./internal/gateway/..., gofmt, make i18n-guard, make ui-guard and openspec validate --strict were ASSISTANT-run and pass. The suite was run and reported passing by the OWNER, on the third attempt, after the two fixes above. Judge test QUALITY by reading them; do NOT run the suite.",
     "rounds": [
@@ -392,6 +410,15 @@
       "decision": "R2-1 accepted in full; the leader's round-1 'both safe' judgement is recorded as WRONG rather than quietly dropped.",
       "why": "Leader misread parseHistoryRange's cap as end<=today. It is end<=yesterday, and calendarDateAfter compares each time in its own Location. The reviewer's worked example is correct.",
       "covered_by": null
+    },
+    {
+      "id": "D-gw-10",
+      "at": "2026-08-31T13:55:00Z",
+      "scope": "task:T11",
+      "made_by": "leader",
+      "decision": "Two distinct test anchors: browserTodayNoCookie for the both-params-absent path, browserYesterdayUTC for the explicit ?start=&end= path.",
+      "why": "parseHistoryRange returns browser-zone midnight for the default window but UTC midnight from time.Parse for explicit params. One anchor cannot serve both.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -454,6 +481,16 @@
       "at": "2026-08-31T13:40:00Z",
       "agent": "leader",
       "event": "Review round 3: APPROVED, no open findings. Reviewer verified R2-1 fixed and independently confirmed the leader's third-test judgement was correct this time (TestBuildHistoryView_PresetsCarryAbsoluteHrefs never reaches parseHistoryRange). It attached a condition to its approval: the verdict covers code correctness as read, NOT the owner's suite. Tasks stay awaiting-user-verification and the change does NOT archive until the owner re-runs against 300b381/4beb7b0."
+    },
+    {
+      "at": "2026-08-31T13:55:00Z",
+      "agent": "leader",
+      "event": "OWNER's suite run RED again — but a DIFFERENT failure, caused by the leader's own round-2 fix, not by the original tier. Using a browser-zone midnight as an explicit-path bound cleared the cap yet broke buildHistoryView: its axis iterates the raw bound while byDay is keyed at UTC midnight (history.go:472), so distances came back empty and the chart returned Empty with zero bars. Diagnosed by reading the source, then confirmed by modelling the real cap and axis arithmetic at a time inside AND outside the 00:00-05:00 UTC window: the model reproduces both observed failures and shows the new anchor clean at both."
+    },
+    {
+      "at": "2026-08-31T13:55:00Z",
+      "agent": "leader",
+      "event": "review.status reset to changes-requested: the round-3 approval was given against a tree that has since changed materially (a new helper plus two repointed bounds). Re-approval is required before archive — the leader does not carry a stale approval forward."
     }
   ]
 }
