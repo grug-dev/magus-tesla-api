@@ -345,7 +345,18 @@ func NewRunWriter(pool *pgxpool.Pool) RunWriter {
 
 ## Database Changes (design gate — full schema, rationale, index plan)
 
-### Migration — `internal/telemetry/db/migrations/20260830000001_add_poll_runs.sql`
+### Migration — `internal/telemetry/db/migrations/20260830000002_add_poll_runs.sql`
+
+> **Post-archive correction (MAG-35, tier 2).** This file shipped as
+> `20260830000001_add_poll_runs.sql` and was renumbered to `…0002` after archiving.
+> `20260830000001` was already taken by
+> `internal/account/db/migrations/20260830000001_accounts_vehicles_add_status.sql`, and
+> because every module shares one `goose_db_version` table, goose treated the number as
+> already applied and silently skipped this migration — reporting it "applied" while
+> `poll_runs` did not exist. Found when `cmd/poller --once` failed with
+> `relation "poll_runs" does not exist`. The DDL below is unchanged; only the file's
+> version number differs. The uniqueness rule is now documented in the `Makefile`'s
+> `MIGRATIONS_DIRS` note.
 
 ```sql
 -- +goose Up

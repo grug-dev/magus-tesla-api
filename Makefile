@@ -35,6 +35,17 @@ endif
 # modules never share tables or FKs (ai/architecture.md boundary rules), so cross-module
 # version order carries no meaning; within a dir, goose still applies in version order.
 # Add a module's dir here when it gains a DB — position no longer matters.
+#
+# HARD RULE — a migration's version number must be unique across ALL dirs above, not
+# just within its own. The shared goose_db_version table is keyed by version, so two
+# modules using the same number is not an ordering problem that -allow-missing can
+# absorb: goose sees the number already recorded and silently SKIPS the second file,
+# reporting it as "applied" (with the other migration's timestamp) while its table is
+# never created. That is exactly what happened to telemetry's poll_runs migration,
+# which collided with account's 20260830000001 and had to be renumbered to
+# 20260830000002 (MAG-35). Before adding a migration, check the number is free:
+#   ls internal/*/db/migrations/ | grep <YYYYMMDD>
+# Same-day migrations in different modules must differ in the trailing counter.
 MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migrations internal/charging/db/migrations internal/analytics/db/migrations
 
 # goose binary: prefer one on PATH, else the `go install` location (GOPATH/bin).
