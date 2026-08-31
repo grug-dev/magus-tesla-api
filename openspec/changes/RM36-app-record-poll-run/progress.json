@@ -5,9 +5,9 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM36-poll-run-tracking.md",
   "request": "Source ticket: MAG-35 - https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\n\nTier 2 (final) of RM36-poll-run-tracking. internal/app's ProcessVehicleData measures the run and calls telemetry.RunWriter.RecordRun on every exit path, including the step-1 whole-cycle-failure path. NewProcessor gains a RunWriter parameter; cmd/poller wiring updated. app still owns no data - it calls a port.",
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-08-31T20:40:00Z",
-  "updated_at": "2026-08-31T20:44:00Z",
+  "updated_at": "2026-08-31T20:50:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -23,17 +23,7 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "3.1",
-      "3.2",
-      "3.3",
-      "3.4",
-      "3.5",
-      "5.1",
-      "5.2",
-      "5.3",
-      "5.4"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
@@ -42,7 +32,18 @@
       "2.2",
       "2.3",
       "2.4",
-      "4.1"
+      "4.1",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4"
+    ],
+    "awaiting-user-verification": [
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5"
     ]
   },
   "tasks": [
@@ -205,14 +206,23 @@
         "2.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Fake roster for all 8 collaborators in processor_test.go, each with a compile-time interface assertion. Only fakeCollector/fakeRunWriter/fakeAccountEmpty carry behaviour.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "3.2",
@@ -222,14 +232,23 @@
         "2.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Fixtures P1/P2 assert buildPollRun via reflect.DeepEqual against design.md's literal expected PollRun structs, including P2's nil-map defensive reads.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "3.3",
@@ -239,14 +258,23 @@
         "3.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Fixture P3: wall-clock bracket, RunID identity across CollectAll and RecordRun, by-field mapping, and proof steps 2/3 ran.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "3.4",
@@ -256,14 +284,23 @@
         "3.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Fixture P4: errors.Is sentinel match, all-zero counts, non-zero timestamps, and AllRegisteredVehicles NOT called. Leader diffed it against design.md's P4 block: exact match.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "3.5",
@@ -273,14 +310,23 @@
         "3.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Fixture P5: a RecordRun error is swallowed, ProcessVehicleData still returns step 1's own (report, err), and RecordRun was still called once.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "4.1",
@@ -316,14 +362,23 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "AGENTS.md Public interface: NewProcessor's signature updated with runWriter telemetry.RunWriter and one sentence on its role.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "5.2",
@@ -333,14 +388,23 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "AGENTS.md Allowed imports: internal/clock added with its cycle-risk rationale (design D3).",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "5.3",
@@ -350,14 +414,23 @@
         "3.5"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "AGENTS.md Testing notes: new 'Covered - processor_test.go' section; 'Deliberately uncovered' narrowed to steps 2/3 internals; the stale 'flagged for future' paragraph corrected.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
     },
     {
       "id": "5.4",
@@ -367,14 +440,23 @@
         "2.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "AGENTS.md Responsibility: one sentence after the 3-step diagram cross-referencing design D4/D5/D6.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
     }
   ],
   "review": {
@@ -432,6 +514,16 @@
       "at": "2026-08-31T20:44:00Z",
       "agent": "leader",
       "event": "Wave A reconciled: all 7 tasks done. Leader independently re-ran go build ./... (clean), go vet ./... (clean - it compiles scheduler_test.go, so the NewProcessor signature change did not drift), gofmt -l internal/app/ cmd/poller/ (empty), and read the full processor.go diff: D4's guarded fall-through preserves the short-circuit exactly (steps 2/3 run iff step 1 succeeded), D5's recordRun returns nothing so it cannot alter the returned error, D7's buildPollRun is pure and nil-map-safe. Grepped for raw time.Now(): the two hits in processor.go are PRE-EXISTING daily-bucket code grandfathered until RM35-app-adopt-clock; this wave added none, using clock.Now() throughout (D2). Budget 52%->57% five-hour, context 23%."
+    },
+    {
+      "at": "2026-08-31T20:45:00Z",
+      "agent": "leader",
+      "event": "Step 5 dispatch B: app worker (Sonnet) for tasks 3.1-3.5 (the fake roster and design.md Test Contract fixtures P1-P5) and 5.1-5.4 (internal/app/AGENTS.md updates). Budget at dispatch: five_hour_pct=57, context_pct=23."
+    },
+    {
+      "at": "2026-08-31T20:50:00Z",
+      "agent": "leader",
+      "event": "Wave B reconciled: docs 5.1-5.4 done; tests 3.1-3.5 awaiting-user-verification (written, never executed by the assistant). Leader independently re-ran go build ./... (clean), go vet ./... (clean, compiles the new processor_test.go and its 8 compile-time interface assertions), gofmt -l internal/app/ (empty), confirmed git diff --stat shows ZERO changes to processor.go/app.go/main.go (no production drift to make a test pass), and diffed Fixture P4 line-by-line against design.md's P4 block: errors.Is on the sentinel, every count field asserted 0, non-zero StartedAt/FinishedAt, DurationSeconds consistent with report.Duration, and AllRegisteredVehicles asserted NOT called - the short-circuit survives the D4 reshape. Exact contract match. Budget 57%->63% five-hour, context 25%."
     }
   ]
 }

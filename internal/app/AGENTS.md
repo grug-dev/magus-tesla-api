@@ -26,6 +26,11 @@ API ────────┘                         ├── Process Chargi
                                       └── Recalculate Analytics (analytics)
 ```
 
+Since `RM36-app-record-poll-run` tier 2, every invocation also measures its own
+start-to-finish span and records exactly one `poll_runs` summary row via
+`telemetry.RunWriter` — on every exit path, including the step-1 whole-cycle-failure
+short-circuit below (`openspec/changes/RM36-app-record-poll-run/design.md` D4/D5/D6).
+
 **Cross-module map of one cycle:** `kkpa/context/architecture/nightly-cycle.md` — every port
 call, every table effect per step, and the failure blast-radius table. Read it before changing
 the steps or their order; it is where the facts that span `telemetry`/`charging`/`analytics`
@@ -80,11 +85,14 @@ interface-first):
   (`RM29-app-add-process-vehicle-data` design D7: reuse over a wrapper, since nothing new
   needs structured surfacing beyond what `CollectAll` already reports).
 - `NewProcessor(collector telemetry.Collector, superchargerReader
-  telemetry.SuperchargerReader, sessionWriter charging.SessionWriter, acct
-  account.Service, recalculator analytics.Recalculator, analyticsReader analytics.Reader,
-  gapWriter analytics.GapWriter, loc *time.Location) Processor` is the constructor.
-  Every argument is another module's **public port** — there is no `*pgxpool.Pool`
-  parameter, and there must never be one added (see Data Ownership below).
+  telemetry.SuperchargerReader, runWriter telemetry.RunWriter, sessionWriter
+  charging.SessionWriter, acct account.Service, recalculator analytics.Recalculator,
+  analyticsReader analytics.Reader, gapWriter analytics.GapWriter, loc *time.Location)
+  Processor` is the constructor. Every argument is another module's **public port** —
+  there is no `*pgxpool.Pool` parameter, and there must never be one added (see Data
+  Ownership below). `runWriter` is the port `ProcessVehicleData` calls, exactly once
+  per invocation after measuring the run's start-to-finish span, to record a
+  `poll_runs` summary row (`RM36-app-record-poll-run` tier 2).
 
 - `Scheduler` + `NewScheduler(processor Processor, hour, minute int, loc *time.Location,
   cfg telemetry.Config) *Scheduler` + `(*Scheduler) Run(ctx context.Context) error` —
@@ -132,6 +140,10 @@ sub-package or internals:
 - `github.com/google/uuid`, stdlib (`context`, `time`, `log`). `time` is load-bearing
   twice over: the reconcile step's "yesterday in `loc`" math and `Scheduler`'s
   timer/`nextRun` logic.
+- `internal/clock` — `ProcessVehicleData` reads `clock.Now()` for its `start`/`finish`
+  measurement points (`RM36-app-record-poll-run` design D2/D3). Imports stdlib `time`
+  and nothing else, so it creates no cycle risk, same reasoning as every other allowed
+  import above.
 
 **Must NOT import:**
 
@@ -163,8 +175,9 @@ question this tier's own interview asked and answered about `poll_attempts`.
 
 ## Testing notes
 
-**This module is not test-free, and the two halves of it are covered differently. Keep
-them distinct — an accepted gap and a violation look identical in a coverage delta.**
+**This module is not test-free, and its three covered/uncovered surfaces are covered
+differently. Keep them distinct — an accepted gap and a violation look identical in a
+coverage delta.**
 
 **Covered — `scheduler_test.go` (four tests).** `internal/app/scheduler_test.go` holds
 `TestNextRun`, `TestScheduler_ShutsDownWithoutRunningWhenCancelled`,
@@ -183,31 +196,55 @@ moved**, not coverage invented for that tier, so they sit outside roadmap D10's
 - They must not import `internal/tesla`. The three `TestWaitUntilOnline_*` tests that
   needed it stayed behind in `internal/telemetry`, with `wake.go`.
 
-**Deliberately uncovered — the three orchestration steps.** The top-level
-`ProcessVehicleData` control flow, the charging-mirror step and the
-analytics-recalculation step ship with **no offline/unit test**, and that is a recorded
-choice (design.md **D12**), not an oversight: all three are pure relocations of code that
-lived in `cmd/poller` and was never tested there (this project has never had a
-`cmd/poller` test). Roadmap D10 does not ask a tier to invent coverage for code that
-predates it and was never covered — there is no prior output to characterize.
+**Covered — `processor_test.go` (`RM36-app-record-poll-run` tier 2, five tests).**
+`internal/app/processor_test.go` holds `TestBuildPollRun_SuccessfulRun` and
+`TestBuildPollRun_WholeCycleFailureShape` (direct unit tests of the pure `buildPollRun`
+mapping, no fakes — Test Contract fixtures P1/P2), plus
+`TestProcessVehicleData_SuccessfulRunRecordsOneRow`,
+`TestProcessVehicleData_WholeCycleFailureStillRecordsRow` and
+`TestProcessVehicleData_RecordRunFailureDoesNotMaskCycleOutcome` (fixtures P3–P5),
+which drive `ProcessVehicleData` through `NewProcessor` and the fake roster design D9
+specifies (`fakeCollector`, `fakeRunWriter`, `fakeAccountEmpty`, plus a
+zero-value stub per remaining collaborator). This is a **narrowly-scoped third covered
+surface**, alongside `scheduler_test.go`'s four tests above: it tests the
+`buildPollRun`/`recordRun` seam this tier added — the run measurement and the
+`poll_runs` recording, on the success path, the step-1 whole-cycle-failure path, and the
+`RecordRun`-fails-without-masking-the-cycle path — **not** `processChargingData`'s or
+`recalculateAnalytics`'s own internal logic, which remains deliberately uncovered below,
+unchanged by this tier. Same package (`package app`) for the same reason
+`scheduler_test.go` uses it: `buildPollRun` and `recordRun` are unexported.
 
-The verification signal for those three remains what it already was before they had a
-name: the owner's own `go run ./cmd/poller --once`, whose expected log output and
-`poll_attempts` spot-check are documented in design.md's Test Contract group C.
-`go build ./...` and `go vet ./...` are the only automated signals that logic gets today.
+**Deliberately uncovered — the three orchestration steps' own internals.** The
+`processChargingData` and `recalculateAnalytics` steps' own logic (the per-account/
+per-vehicle loops, the session-mirroring and gap-reconciliation calls inside them) still
+ship with **no offline/unit test**, and that remains a recorded choice (design.md
+**D12** of tier 1, unchanged by `RM36-app-record-poll-run` tier 2's own design D9): both
+are pure relocations of code that lived in `cmd/poller` and was never tested there (this
+project has never had a `cmd/poller` test). Roadmap D10 does not ask a tier to invent
+coverage for code that predates it and was never covered — there is no prior output to
+characterize. `processor_test.go`'s fake roster makes their loops execute zero
+iterations (an empty `AllRegisteredVehicles`) precisely so it can test the code wrapped
+*around* calling them without also being on the hook for their own internals.
 
-**Flagged for a future change, not required by this one:** giving the three steps offline
-coverage with fakes for `telemetry.Collector` / `telemetry.SuperchargerReader` /
-`charging.SessionWriter` / `account.Service` / `analytics.Recalculator` /
-`analytics.Reader` / `analytics.GapWriter` — mirroring the fake-store pattern
-`internal/telemetry/service_test.go` already uses. That is cheaper now than it looks:
-the module already has a `_test.go` file and a same-package test convention to extend.
-It is a strict improvement available later, not a requirement of the tier that created
-this module.
+The verification signal for those two steps' own internals remains what it already was
+before they had a name: the owner's own `go run ./cmd/poller --once`, whose expected log
+output and `poll_attempts` spot-check are documented in design.md's Test Contract group
+C. `go build ./...` and `go vet ./...` are the only automated signals that logic gets
+today.
+
+**No longer flagged as future work — the fake roster.** `internal/app/AGENTS.md`
+previously flagged "offline coverage with fakes for `telemetry.Collector` /
+`telemetry.SuperchargerReader` / `charging.SessionWriter` / `account.Service` /
+`analytics.Recalculator` / `analytics.Reader` / `analytics.GapWriter`" as a strict
+improvement available later. `RM36-app-record-poll-run` tier 2 built exactly that
+roster — but only to the minimum needed for the run-recording seam (design D9), not to
+exercise the two orchestration steps' own internals, which remain the uncovered surface
+described just above and a candidate for a still-later change.
 
 **Never run the suite here.** Per `CLAUDE.md` §"Builds & local checks", you write tests
 and the owner runs them: `go build ./...`, `go vet ./...` and `gofmt -l` are yours (vet
-compiles `_test.go`, so it catches signature drift in the relocated scheduler tests);
+compiles `_test.go`, so it catches signature drift in the relocated scheduler tests and
+in `processor_test.go`'s fake roster);
 `go test ./...` / `make test` / `make check` are the owner's. Tests written but not run
 are **awaiting-user-verification**, never "done".
 

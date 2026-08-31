@@ -82,7 +82,7 @@ tier calls already exists (tier 1, archived).
 
 ## Wave 3 — Tests (offline; all fixtures authored in design.md before this wave)
 
-- [ ] **3.1** `internal/app/processor_test.go` (new file, `package app` — design D8)
+- [x] **3.1** `internal/app/processor_test.go` (new file, `package app` — design D8)
   — the fake roster from design D9: `fakeCollector`, `fakeRunWriter`,
   `fakeAccountEmpty`, `fakeSuperchargerReader`, `fakeSessionWriter`,
   `fakeRecalculator`, `fakeAnalyticsReader`, `fakeGapWriter`. Each is a minimal
@@ -90,13 +90,13 @@ tier calls already exists (tier 1, archived).
   `fakeAccountEmpty` need configurable behavior beyond a zero-value stub (design D9).
   `depends_on`: 2.4 · `parallel_ok`: no
 
-- [ ] **3.2** `internal/app/processor_test.go` — Fixtures P1 and P2 (design.md Test
+- [x] **3.2** `internal/app/processor_test.go` — Fixtures P1 and P2 (design.md Test
   Contract): direct unit tests of `buildPollRun`, no fakes needed. P1 the
   representative successful-run mapping; P2 the all-zero-counts whole-cycle-failure
   shape, including the nil-map-read case for the three `FailuresByReason` lookups.
   `depends_on`: 2.3 · `parallel_ok`: with 3.1
 
-- [ ] **3.3** `internal/app/processor_test.go` — Fixture P3: a successful 3-step run
+- [x] **3.3** `internal/app/processor_test.go` — Fixture P3: a successful 3-step run
   via `NewProcessor` + the Wave 3.1 fakes, asserting `RecordRun` is called exactly
   once with a `PollRun` whose `RunID` matches the `RunContext` given to `CollectAll`,
   whose counts match Fixture P1's mapping, and whose `StartedAt`/`FinishedAt` fall
@@ -104,7 +104,7 @@ tier calls already exists (tier 1, archived).
   `fakeAccountEmpty.AllRegisteredVehicles` **was** called (steps 2/3 ran).
   `depends_on`: 3.1 · `parallel_ok`: no
 
-- [ ] **3.4** `internal/app/processor_test.go` — Fixture P4: the step-1
+- [x] **3.4** `internal/app/processor_test.go` — Fixture P4: the step-1
   whole-cycle-failure path. `fakeCollector` returns a distinct sentinel error;
   assert `ProcessVehicleData` returns that exact error, `RecordRun` is still called
   exactly once with the all-zero-counts shape (Fixture P2's shape), and
@@ -112,7 +112,7 @@ tier calls already exists (tier 1, archived).
   preserved).
   `depends_on`: 3.1 · `parallel_ok`: with 3.3
 
-- [ ] **3.5** `internal/app/processor_test.go` — Fixture P5: `fakeRunWriter`
+- [x] **3.5** `internal/app/processor_test.go` — Fixture P5: `fakeRunWriter`
   configured to return a distinct sentinel error on `RecordRun`; assert
   `ProcessVehicleData`'s own returned `(report, err)` is exactly the collector's
   successful outcome, unaffected by the `RecordRun` failure, and that `RecordRun`
@@ -133,7 +133,7 @@ tier calls already exists (tier 1, archived).
 
 ## Wave 5 — Docs (post-change state; content-dependent on Waves 1–4, not a compile dependency)
 
-- [ ] **5.1** `internal/app/AGENTS.md` — "Public interface (the port)" section:
+- [x] **5.1** `internal/app/AGENTS.md` — "Public interface (the port)" section:
   update `NewProcessor`'s documented signature to include `runWriter
   telemetry.RunWriter`, and add one sentence stating it is the port the module now
   calls to record a `poll_runs` row per invocation (mirroring how
@@ -141,12 +141,12 @@ tier calls already exists (tier 1, archived).
   module's public port").
   `depends_on`: 1.1 · `parallel_ok`: with 5.2
 
-- [ ] **5.2** `internal/app/AGENTS.md` — "Allowed / forbidden imports" section: add
+- [x] **5.2** `internal/app/AGENTS.md` — "Allowed / forbidden imports" section: add
   `internal/clock` to the "May import" list (design D3 — stdlib-only, zero cycle
   risk, same reasoning already given for every other allowed import in this list).
   `depends_on`: 2.1 · `parallel_ok`: with 5.1
 
-- [ ] **5.3** `internal/app/AGENTS.md` — "Testing notes" section: add a new
+- [x] **5.3** `internal/app/AGENTS.md` — "Testing notes" section: add a new
   paragraph documenting `processor_test.go`'s coverage (the `buildPollRun`/
   `recordRun` seam, Fixtures P1–P5) as a **third**, narrowly-scoped covered surface
   alongside `scheduler_test.go`'s existing four tests — explicitly note that the
@@ -156,7 +156,7 @@ tier calls already exists (tier 1, archived).
   not their own logic.
   `depends_on`: 3.5 · `parallel_ok`: no
 
-- [ ] **5.4** `internal/app/AGENTS.md` — "Responsibility" section's three-step
+- [x] **5.4** `internal/app/AGENTS.md` — "Responsibility" section's three-step
   diagram / prose: add one sentence noting that every invocation now also records a
   poll-run summary via `telemetry.RunWriter`, cross-referencing this change once
   archived.
