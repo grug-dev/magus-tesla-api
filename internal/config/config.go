@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 )
 
 type Config struct {
@@ -38,6 +40,12 @@ type Config struct {
 	// this local time (default 03:30). PollerWakeTimeout bounds how long the
 	// collector waits for a sleeping vehicle to come online before recording a
 	// timeout. These are read only by cmd/poller; cmd/web ignores them.
+	//
+	// PollerTimezone: an unset POLLER_TIMEZONE defaults to the platform's default
+	// zone, internal/clock's "America/Bogota" — not the host's "Local" zone
+	// (changed by RM35-config-adopt-clock; see pollerTimezoneOrDefault). A set
+	// value, valid or not, passes through untouched; cmd/poller still validates it
+	// via time.LoadLocation and fails fast on an invalid IANA name.
 	PollerScheduleHour   int
 	PollerScheduleMinute int
 	PollerTimezone       string
@@ -84,10 +92,7 @@ func Load() (*Config, error) {
 
 	cfg.PollerScheduleHour = envInt("POLLER_SCHEDULE_HOUR", 3)
 	cfg.PollerScheduleMinute = envInt("POLLER_SCHEDULE_MINUTE", 30)
-	cfg.PollerTimezone = envStripped("POLLER_TIMEZONE")
-	if cfg.PollerTimezone == "" {
-		cfg.PollerTimezone = "Local"
-	}
+	cfg.PollerTimezone = pollerTimezoneOrDefault(envStripped("POLLER_TIMEZONE"))
 	cfg.PollerWakeTimeout = envDuration("POLLER_WAKE_TIMEOUT", 90*time.Second)
 
 	if cfg.ClientID == "" || cfg.ClientSecret == "" {
@@ -95,6 +100,26 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+// pollerTimezoneOrDefault returns v unchanged when it is non-empty (a set
+// POLLER_TIMEZONE, valid or not — validation stays cmd/poller's job via
+// time.LoadLocation, unchanged by RM35). When v is empty (POLLER_TIMEZONE unset),
+// it returns the platform's default zone name, obtained from internal/clock rather
+// than hard-coded here (RM35 D1/D2 — internal/clock is the sole owner of the
+// default zone name, "America/Bogota").
+//
+// Deliberately NOT implemented as clock.LoadOrDefault(v): that stdlib-inherited
+// helper treats "" as a request to resolve, and time.LoadLocation("") resolves to
+// UTC with no error — so routing an unset POLLER_TIMEZONE through LoadOrDefault
+// would silently produce UTC, exactly the outcome RM35 exists to prevent (tier 1
+// design D10). Substituting the default before any resolution keeps that trap
+// closed.
+func pollerTimezoneOrDefault(v string) string {
+	if v != "" {
+		return v
+	}
+	return clock.Zone().String()
 }
 
 // envStripped reads an env var and removes a single pair of surrounding matching

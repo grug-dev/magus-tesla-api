@@ -1,0 +1,150 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM35-config-adopt-clock",
+  "module": "config",
+  "roadmap": "RM35-timezone-centralization",
+  "roadmap_tier": 2,
+  "status": "verified",
+  "updated_at": "2026-08-31T01:35:13Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5",
+    "session_id": "0809d538-f495-4dff-be14-ae6ff3e22250"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5"
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D18",
+      "at": "2026-08-31T01:35:13Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Deviated from the roadmap tier table's literal 'via clock.LoadOrDefault': config substitutes the default BEFORE resolution instead of passing the env value through LoadOrDefault.",
+      "why": "LoadOrDefault(\"\") returns UTC, not Bogota \u2014 time.LoadLocation special-cases \"\" with no error, so the fallback never fires. The literal shorthand would have produced a silent UTC poller.",
+      "covered_by": null
+    },
+    {
+      "id": "D19",
+      "at": "2026-08-31T01:35:13Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "No zone-name constant added to internal/clock; config calls clock.Zone().String().",
+      "why": "Zone().String() reads the same computed value Zone() uses. A parallel constant would be a second source of truth for the same string \u2014 over-abstraction, which CLAUDE.md's AI-efficiency rule warns against.",
+      "covered_by": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "config.go \u2014 swap the POLLER_TIMEZONE fallback to the clock default",
+      "depends_on": [],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "pollerTimezoneOrDefault substitutes the default BEFORE any resolution call, so an unset value never reaches LoadLocation(\"\") and cannot silently become UTC. Name comes from clock.Zone().String(), never hardcoded."
+    },
+    {
+      "id": "T2",
+      "title": "internal/config/timezone_test.go \u2014 cover the unset default",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "The one test D6 permits for tiers 2-6. Asserts the unset case resolves to America/Bogota. Leader ran it: PASS."
+    },
+    {
+      "id": "T3",
+      "title": "internal/config/AGENTS.md \u2014 create it",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Created, mirroring account/AGENTS.md. config owns no data and is read by cmd/*."
+    },
+    {
+      "id": "T4",
+      "title": "Doc sweep for a stale \"Local\" default",
+      "depends_on": [],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "No doc stated the old default \u2014 .env, .env.example, README and docs/ never mention POLLER_TIMEZONE's default. Nothing to fix; recorded rather than assumed."
+    },
+    {
+      "id": "T5",
+      "title": "Verification",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "status": "done",
+      "agent": "config",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:35:13Z",
+      "completed_at": "2026-08-31T01:35:13Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Leader-run: build, vet, gofmt clean; openspec validate --strict passes; go test ./... green (16 pkgs, exit 0)."
+    }
+  ],
+  "review": {
+    "status": "not-started",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-08-31T01:35:13Z",
+      "kind": "wave-complete",
+      "by": "leader",
+      "note": "Tier 2 artifacts + implementation in one dispatch (D15). Worker disclosed running a read-only `git status` against its never-run-git rule \u2014 no mutation, noted not penalized; the honest disclosure is the behavior we want."
+    },
+    {
+      "at": "2026-08-31T01:35:13Z",
+      "kind": "tests-run",
+      "by": "assistant-authorized",
+      "note": "ASSISTANT-RUN under the owner's session-scoped authorization (D17), NOT the owner's own report: go test ./internal/config/... ok, go test ./internal/clock/... ok, go test ./... green across 16 packages, exit 0. Also build/vet/gofmt clean and openspec validate --strict passing."
+    }
+  ]
+}
