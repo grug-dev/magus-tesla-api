@@ -5,9 +5,9 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM36-poll-run-tracking.md",
   "request": "Source ticket: MAG-35 - https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\n\nTier 2 (final) of RM36-poll-run-tracking. internal/app's ProcessVehicleData measures the run and calls telemetry.RunWriter.RecordRun on every exit path, including the step-1 whole-cycle-failure path. NewProcessor gains a RunWriter parameter; cmd/poller wiring updated. app still owns no data - it calls a port.",
-  "status": "verified",
+  "status": "reviewer-approved",
   "created_at": "2026-08-31T20:40:00Z",
-  "updated_at": "2026-08-31T22:47:00Z",
+  "updated_at": "2026-08-31T23:25:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -459,7 +459,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "app-reviewer",
     "brief": "Review RM36-app-record-poll-run (tier 2, final, of RM36; ticket MAG-35) against its artifacts. Scope: commits 8a56d41, 9757579, 2b70310, 5b8b56c on ft/RM36-MAG-35-poll-run-tracking - read the DIFF, not the whole module. Validate: (1) internal/app still owns NO data - no pgxpool, no query, no internal/telemetry/db import; it calls the RunWriter port only; (2) the internal/clock rule - no NEW raw time.Now(); the two in processor.go are pre-existing and grandfathered until RM35-app-adopt-clock; (3) design D4 - the guarded fall-through must preserve the short-circuit exactly (steps 2/3 iff step 1 succeeded) AND guarantee recordRun on every exit path; (4) design D5 - a RecordRun failure must not alter ProcessVehicleData return values; (5) design D7 - buildPollRun pure, by-field mapping per tier 1 D8, nil-map safe; (6) spec/tasks coverage and the ADDED requirement; (7) the test-contract rule - fixtures P1-P5 must assert design.md Test Contract values, not back-fitted ones; (8) anti-gaming - no weakened criteria, no production code bent to make a test pass; (9) SPECIAL: audit the migration renumber in 2b70310 for correctness and completeness, and check whether any OTHER migration version number collides across internal/*/db/migrations - the shared goose_db_version table makes a duplicate silently unappliable.",
     "rounds": [
@@ -473,10 +473,39 @@
             "id": "F1",
             "severity": "blocker",
             "note": "internal/account/db/migrations/20260720000001_vehicles_add_access_type.sql and internal/charging/db/migrations/20260720000001_require_location_kind.sql share version 20260720000001. Makefile MIGRATIONS_DIRS orders account before charging and goose keeps one shared goose_db_version table (Makefile lines 26-28, 39-48), so applying account 20260720000001 first records that version and goose silently skips charging 20260720000001_require_location_kind.sql on a fresh apply -- the exact failure mode 2b70310 just fixed for poll_runs, but for the manual_charge_entries.location_kind NOT NULL constraint. ai/go-conventions.md already names this pair (\"internal/account and internal/charging both ship a 20260720000001\") in the ProvisionDirs discussion but frames it only as a test-provisioning fact, not as a live production/migrate-up risk -- it is the same shared-table mechanism the Makefile itself documents two paragraphs later. Not introduced by this tier and outside internal/app, but the review brief explicitly asked for a full collision sweep and states any duplicate found is a blocker. No DATABASE_URL is configured in this worktree so I could not run make migrate-status to confirm the live database state; recommend the leader run it and, if confirmed, renumber charging 20260720000001 (mirroring 2b70310) before archiving this change or as an immediate follow-up.",
-            "status": "open"
+            "status": "fixed"
           }
         ],
         "notes": "app code itself is correct and matches design D1-D9 exactly (verified against the diff, not the whole module); zero production drift between wave A and wave B; go build/vet/gofmt clean. Sole blocker is a second, pre-existing cross-module migration-version collision (account/charging, both 20260720000001) found during the mandated collision sweep -- unrelated to internal/app but explicitly in scope per the brief."
+      },
+      {
+        "round": 2,
+        "at": "2026-08-31T23:15:00Z",
+        "agent": "app-reviewer",
+        "model": "claude-sonnet-5",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "blocker",
+            "note": "RESOLVED in c89a629. Live-confirmed (is_nullable=YES, single goose_db_version row for account file), backlogged as item 21 with evidence/fix/trigger, and make migration-guard added: warns exit 0 on the known KNOWN_DUPLICATE_MIGRATIONS pair, hard-fails on any new duplicate -- verified both paths myself (ran migration-guard clean; injected a fresh duplicate migration file and confirmed exit 1 naming both files, then removed it). Wired into make check and the Claude-allowed standalone-guard lists in CLAUDE.md/ai/go-conventions.md/README.md.",
+            "status": "fixed"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "Makefile .PHONY list (lines 72-74) was not updated to include migration-guard, unlike its sibling guards ui-guard/i18n-guard/money-guard which are all listed. Harmless today (no migration-guard file exists at repo root to shadow the target) but inconsistent with the pattern; a one-line fix whenever the file is next touched.",
+            "status": "open"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "CLAUDE.md (\"its other five phases\") and ai/go-conventions.md (\"Claude runs the other five individually\") were not updated to \"six\" after migration-guard was added to the build+vet+ui-guard+i18n-guard+money-guard+migration-guard list quoted immediately alongside each phrase. Cosmetic; does not change which commands are allowed.",
+            "status": "open"
+          }
+        ],
+        "duration_seconds": 900,
+        "notes": "F1 verified fixed: live DB evidence checks out, backlog item 21 is well-formed, migration-guard verified both directions (warns known pair, hard-fails a fresh injected duplicate). Exception mechanism is sound -- allowlist requires an explicit, reviewable Makefile edit to grow. Two new minor nits (F2 .PHONY, F3 stale phase-count prose), non-blocking. Approved."
       }
     ]
   },
@@ -524,6 +553,15 @@
       "made_by": "autopilot",
       "decision": "Leader renumbered tier 1's shipped migration 20260830000001_add_poll_runs.sql to 20260830000002 and applied it, then documented the global-uniqueness rule in the Makefile.",
       "why": "It collided with account's 20260830000001 in the shared goose_db_version table, so goose skipped it and poll_runs never existed. Renumbering was the only fix; the migration had never run.",
+      "covered_by": null
+    },
+    {
+      "id": "D-LEADER-10",
+      "at": "2026-08-31T23:25:00Z",
+      "scope": "review:F1",
+      "made_by": "autopilot",
+      "decision": "Guard carries KNOWN_DUPLICATE_MIGRATIONS with the one deferred pair, so make check warns rather than failing on debt the owner chose to backlog.",
+      "why": "Wiring it in bare would make make check fail permanently, blocking every unrelated change. Known pairs warn; anything new fails. Reviewer round 2 examined and endorsed this.",
       "covered_by": null
     }
   ],
@@ -577,6 +615,11 @@
       "at": "2026-08-31T22:47:00Z",
       "agent": "leader",
       "event": "Step 7 review brief written; dispatching app-reviewer (Sonnet, escalate on doubt). Brief includes a special item: audit the migration renumber and sweep for any other cross-module version collision. Budget at dispatch: five_hour_pct=71, context_pct=27."
+    },
+    {
+      "at": "2026-08-31T23:25:00Z",
+      "agent": "leader",
+      "event": "Review round 2: app-reviewer returned APPROVED. It independently re-tested make migration-guard both ways (clean today with the warning; hard-fails naming both files when it injected a duplicate) rather than reading it, and endorsed the KNOWN_DUPLICATE_MIGRATIONS mechanism as the right asymmetry. F1 marked fixed. Two new minors, F2 (.PHONY) and F3 (stale five/six wording), fixed by the leader in 717b648 rather than carried open. Leader set the top-level status to reviewer-approved mirroring the reviewer verdict (same rationale as tier 1 D-LEADER-5)."
     }
   ]
 }
