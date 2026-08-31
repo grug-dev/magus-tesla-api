@@ -457,8 +457,8 @@ tz-guard: ## Fail if code outside internal/clock hand-rolls "now", a UTC/day-mid
 		echo "positive."; \
 		exit 1; \
 	else \
-		echo "tz-guard: no raw time.Now(), hand-rolled UTC/day-midnight construction, or"; \
-		echo "hardcoded IANA zone name found outside internal/clock"; \
+		echo "tz-guard: no raw time.Now(), hand-rolled UTC/day-midnight construction,"; \
+		echo "24h Truncate day-rounding, or hardcoded IANA zone name found outside internal/clock"; \
 	fi
 
 tidy: ## Sync go.mod / go.sum (go mod tidy)

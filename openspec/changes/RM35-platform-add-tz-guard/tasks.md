@@ -112,7 +112,7 @@
 - [x] T5.1 R1 (major) FIXED, not just documented: added leg 4 to `tz-guard` catching
       day-scale `Truncate` — `.Truncate(24 * time.Hour)` and `.Truncate(time.Hour * 24)`.
       Acceptance: proved both orderings are flagged and that a sub-day `Truncate`
-      (`time.Microsecond`) is NOT, so the 10 existing test-file truncations stay clean.
+      (`time.Microsecond`) is NOT, so the 33 existing test-file truncations stay clean.
       Verified no `.Truncate(` exists in non-test `internal/` code today, so the new leg
       breaks nothing.
 - [x] T5.2 R2-R5 documented as known blind spots in design.md's Risks / Trade-offs, with

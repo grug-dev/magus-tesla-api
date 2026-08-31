@@ -304,7 +304,7 @@ evasion is found.**
 
 | # | Evasion | Status |
 |---|---|---|
-| R1 | `t.Truncate(24 * time.Hour)` — the classic Go day-rounding footgun (it rounds against the zero time in UTC, not local midnight). No `time.Date` shape, so leg 2 never saw it. | **FIXED** — leg 4 added, catching both `24 * time.Hour` and `time.Hour * 24`, while leaving sub-day truncations (`time.Microsecond`) alone. |
+| R1 | `t.Truncate(24 * time.Hour)` — the classic Go day-rounding footgun (it rounds against the zero time in UTC, not local midnight). No `time.Date` shape, so leg 2 never saw it. | **FIXED** — leg 4 added, catching both `24 * time.Hour` and `time.Hour * 24`, while leaving sub-day truncations (`time.Microsecond`) alone.  (Correction, review round 2: an earlier note said ten existing sub-day truncations; the real figure is 33, all in `_test.go`, all excluded either way.) |
 | R2 | A `time.Date(...)` call with its midnight arguments spread across several lines. | **Open** — inherent to a line-oriented grep. Accepted. |
 | R3 | `var nowFn = time.Now` then `nowFn()`. The literal `time.Now()` never appears at the call site. | **Open, and partly intended** — this is the clock-seam pattern `scheduler.go` already uses deliberately for testability. Guarding it would fight a pattern the project wants. |
 | R4 | A `/* … */` block comment discussing the guarded shapes is flagged as code (false POSITIVE, not negative) — the comment filter only understands `//`. | **Open** — not reachable today: `internal/` currently contains no block comments. A future one gets a `tz:allow`. |
