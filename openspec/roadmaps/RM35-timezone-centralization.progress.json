@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-20 — https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone\nProject: architecture   Priority: Urgent\n\n## Date/Date time Time Zone\n\n* Analyze all date and date time created by the app (With golang code). The should be saved with Zone America/Bogota. Centralize a new logic that creates a date or date/time in that time zone.\n* Update the CLAUDE/AGENTS instructtion or the best MD instructions per module to use that timezone convention. Find the best place that works for claude and opencode\n* Find the best module to this kind of things that are cross-module. A new shared  util module sound like a good idea? I think it might work.. in the future we might have shared utilities for all modules\n\nAcceptance Criteria\n\nThe app does not use UTC.\n\ndate and datetimes are centralized in one place and shared to all modules needed it",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-31T09:52:00Z",
+  "updated_at": "2026-08-31T10:10:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -21,13 +21,13 @@
     "created_at": "2026-08-30T19:17:41Z"
   },
   "rollup": {
-    "current": [
-      6
-    ],
+    "current": [],
     "pending": [
       7
     ],
-    "blocked": [],
+    "blocked": [
+      6
+    ],
     "done": [
       1,
       2,
@@ -292,14 +292,14 @@
       "depends_on": [
         1
       ],
-      "status": "applied",
+      "status": "blocked",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T09:32:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "tz.go fallbacks -> clock.Zone() (cookie still wins); startOfDay delegates to clock.CalendarDay; four handlers.go time.Now() -> clock.Now(). startOfMonth and startOfDayIn deliberately kept. Awaiting the owner's suite run, then review."
+      "notes": "BLOCKED — owner's suite run RED. 3 gateway history tests assert the OLD time.UTC fallback that T1 deliberately changed to clock.Zone(). Root cause diagnosed; startOfDay itself is correct. Needs a test repair + one stale comment, then re-run and review."
     },
     {
       "id": 7,
@@ -419,6 +419,12 @@
       "kind": "budget-checkpoint",
       "by": "leader",
       "note": "CHECKPOINT: five_hour_pct=95 (threshold 90), context_pct=15 (threshold 40), five_hour_resets_at=1788178200. Tier 6's code, artifacts and the leader's README edit are committed and truthful; its tasks sit at awaiting-user-verification pending the owner's suite run. Tier 7 must NOT begin before the bucket resets. Resume with: /kkpa-dev-harness-pipeline resume RM35-timezone-centralization"
+    },
+    {
+      "at": "2026-08-31T10:10:00Z",
+      "kind": "tests-failed",
+      "by": "user",
+      "note": "Owner ran go test ./internal/gateway/... and reported 3 failures. Recorded as a failure, not worked around. Tier 6 -> blocked. Tier 7 stays blocked behind it. Budget at the gate: five_hour_pct=98, over the 90 threshold."
     }
   ]
 }

@@ -5,16 +5,28 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
   "request": "Tier 6 of RM35: adopt internal/clock in internal/gateway. The four UTC fallbacks in browserLocation / browserLocationFromHeader become clock.Zone() — the browser_tz cookie still wins (D1). history.go's startOfDay delegates to clock.CalendarDay. Four raw time.Now() calls in handlers.go become clock.Now(). startOfMonth and startOfDayIn are deliberately left alone. Repair broken tests (D6); add none.",
-  "status": "applied",
+  "status": "blocked",
   "rollup": {
-    "current": ["T1", "T2", "T3", "T4"],
+    "current": [
+      "T2",
+      "T3"
+    ],
     "pending": [],
-    "blocked": [],
-    "done": ["T5", "T6"]
+    "blocked": [
+      "T1",
+      "T4"
+    ],
+    "done": [
+      "T5",
+      "T6"
+    ]
   },
   "created_at": "2026-08-31T09:50:00Z",
-  "updated_at": "2026-08-31T09:50:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-08-31T10:10:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM35-MAG-20-timezone-centralization",
@@ -24,23 +36,177 @@
     "created_at": "2026-08-30T19:17:41Z"
   },
   "tasks": [
-    { "id": "T1", "title": "tz.go — the four UTC fallbacks become clock.Zone(); cookie still wins", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "awaiting-user-verification", "agent": "gateway", "model": "claude-sonnet-5", "started_at": "2026-08-31T09:32:00Z", "completed_at": "2026-08-31T09:48:42Z", "duration_seconds": 1002, "notes": "browserLocation / browserLocationFromHeader fall back to clock.Zone(). startOfDayIn left byte-identical per D-gw-2; only a cross-reference comment added.", "budget": null },
-    { "id": "T2", "title": "history.go — startOfDay delegates to clock.CalendarDay", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "awaiting-user-verification", "agent": "gateway", "model": "claude-sonnet-5", "started_at": "2026-08-31T09:32:00Z", "completed_at": "2026-08-31T09:48:42Z", "duration_seconds": 1002, "notes": "Kept as a one-line named wrapper rather than deleted (D-gw-1), unlike telemetry's dateOnly. supercharger.go's startOfMonth untouched — month granularity, a different function.", "budget": null },
-    { "id": "T3", "title": "handlers.go — four time.Now() calls become clock.Now()", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "awaiting-user-verification", "agent": "gateway", "model": "claude-sonnet-5", "started_at": "2026-08-31T09:32:00Z", "completed_at": "2026-08-31T09:48:42Z", "duration_seconds": 1002, "notes": "All four verified byte-identical — each is .Sub()-only or round-tripped through pgtype.Timestamptz (D-gw-4). browserToday's own time.Now() deliberately left (D-gw-3).", "budget": null },
-    { "id": "T4", "title": "AGENTS.md + repair the two broken test files", "module": "gateway", "depends_on": ["T1", "T2", "T3"], "parallel_ok": false, "status": "awaiting-user-verification", "agent": "gateway", "model": "claude-sonnet-5", "started_at": "2026-08-31T09:32:00Z", "completed_at": "2026-08-31T09:48:42Z", "duration_seconds": 1002, "notes": "internal/clock added to the May-import list; history_test.go and charges_test.go repaired. No new tests added (D6).", "budget": null },
-    { "id": "T5", "title": "root README.md dependency-graph edit (leader-owned, D25)", "module": "gateway", "depends_on": ["T1"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "claude-opus-5", "started_at": "2026-08-31T09:50:00Z", "completed_at": "2026-08-31T09:51:00Z", "duration_seconds": 60, "notes": "gateway and gateway/handlers rows gain clock; clock's prose row now reads 'config, telemetry, analytics, app and gateway (RM35 tiers 2-6)'. Worker correctly refused to touch it.", "budget": null },
-    { "id": "T6", "title": "OpenSpec artifacts — proposal, design, specs, tasks", "module": "gateway", "depends_on": [], "parallel_ok": true, "status": "done", "agent": "gateway", "model": "claude-sonnet-5", "started_at": "2026-08-31T09:32:00Z", "completed_at": "2026-08-31T09:48:42Z", "duration_seconds": 1002, "notes": "Four decisions recorded (D-gw-1..4) with the Test Contract authored up front. openspec validate --strict passes.", "budget": null }
+    {
+      "id": "T1",
+      "title": "tz.go — the four UTC fallbacks become clock.Zone(); cookie still wins",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "blocked",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:32:00Z",
+      "completed_at": "2026-08-31T09:48:42Z",
+      "duration_seconds": 1002,
+      "notes": "browserLocation / browserLocationFromHeader fall back to clock.Zone(). startOfDayIn left byte-identical per D-gw-2; only a cross-reference comment added.",
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "history.go — startOfDay delegates to clock.CalendarDay",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:32:00Z",
+      "completed_at": "2026-08-31T09:48:42Z",
+      "duration_seconds": 1002,
+      "notes": "Kept as a one-line named wrapper rather than deleted (D-gw-1), unlike telemetry's dateOnly. supercharger.go's startOfMonth untouched — month granularity, a different function.",
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "handlers.go — four time.Now() calls become clock.Now()",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:32:00Z",
+      "completed_at": "2026-08-31T09:48:42Z",
+      "duration_seconds": 1002,
+      "notes": "All four verified byte-identical — each is .Sub()-only or round-tripped through pgtype.Timestamptz (D-gw-4). browserToday's own time.Now() deliberately left (D-gw-3).",
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "AGENTS.md + repair the two broken test files",
+      "module": "gateway",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "blocked",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:32:00Z",
+      "completed_at": "2026-08-31T09:48:42Z",
+      "duration_seconds": 1002,
+      "notes": "internal/clock added to the May-import list; history_test.go and charges_test.go repaired. No new tests added (D6).",
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "root README.md dependency-graph edit (leader-owned, D25)",
+      "module": "gateway",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T09:50:00Z",
+      "completed_at": "2026-08-31T09:51:00Z",
+      "duration_seconds": 60,
+      "notes": "gateway and gateway/handlers rows gain clock; clock's prose row now reads 'config, telemetry, analytics, app and gateway (RM35 tiers 2-6)'. Worker correctly refused to touch it.",
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "OpenSpec artifacts — proposal, design, specs, tasks",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T09:32:00Z",
+      "completed_at": "2026-08-31T09:48:42Z",
+      "duration_seconds": 1002,
+      "notes": "Four decisions recorded (D-gw-1..4) with the Test Contract authored up front. openspec validate --strict passes.",
+      "budget": null
+    }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
   "decisions": [
-    { "id": "D-gw-1", "at": "2026-08-31T09:40:00Z", "scope": "task:T2", "made_by": "autopilot", "decision": "startOfDay is kept as a one-line named wrapper over clock.CalendarDay rather than deleted at its call sites.", "why": "Unlike telemetry's dateOnly, the name carries meaning at gateway call sites. Deleting it would churn more lines than it saves.", "covered_by": "roadmap D4" },
-    { "id": "D-gw-2", "at": "2026-08-31T09:40:00Z", "scope": "task:T1", "made_by": "autopilot", "decision": "startOfDayIn is left byte-identical; only a cross-reference comment is added.", "why": "It is a zone-parameterised helper with a documented DST limitation, not a duplicated UTC truncator. The roadmap row lists it as a deliberate keep.", "covered_by": "roadmap D4" },
-    { "id": "D-gw-3", "at": "2026-08-31T09:40:00Z", "scope": "task:T3", "made_by": "autopilot", "decision": "browserToday's own time.Now() is NOT swapped for clock.Now().", "why": "The roadmap row does not list it, and the swap would be a no-op — the value is immediately re-converted into the browser's own zone.", "covered_by": "roadmap D4" },
-    { "id": "D-gw-4", "at": "2026-08-31T09:40:00Z", "scope": "task:T3", "made_by": "autopilot", "decision": "All four handlers.go swaps are asserted byte-identical rather than behaviour-changing.", "why": "Each result is either consumed by .Sub() or round-tripped through pgtype.Timestamptz, both of which discard the zone label.", "covered_by": "roadmap D4" }
+    {
+      "id": "D-gw-1",
+      "at": "2026-08-31T09:40:00Z",
+      "scope": "task:T2",
+      "made_by": "autopilot",
+      "decision": "startOfDay is kept as a one-line named wrapper over clock.CalendarDay rather than deleted at its call sites.",
+      "why": "Unlike telemetry's dateOnly, the name carries meaning at gateway call sites. Deleting it would churn more lines than it saves.",
+      "covered_by": "roadmap D4"
+    },
+    {
+      "id": "D-gw-2",
+      "at": "2026-08-31T09:40:00Z",
+      "scope": "task:T1",
+      "made_by": "autopilot",
+      "decision": "startOfDayIn is left byte-identical; only a cross-reference comment is added.",
+      "why": "It is a zone-parameterised helper with a documented DST limitation, not a duplicated UTC truncator. The roadmap row lists it as a deliberate keep.",
+      "covered_by": "roadmap D4"
+    },
+    {
+      "id": "D-gw-3",
+      "at": "2026-08-31T09:40:00Z",
+      "scope": "task:T3",
+      "made_by": "autopilot",
+      "decision": "browserToday's own time.Now() is NOT swapped for clock.Now().",
+      "why": "The roadmap row does not list it, and the swap would be a no-op — the value is immediately re-converted into the browser's own zone.",
+      "covered_by": "roadmap D4"
+    },
+    {
+      "id": "D-gw-4",
+      "at": "2026-08-31T09:40:00Z",
+      "scope": "task:T3",
+      "made_by": "autopilot",
+      "decision": "All four handlers.go swaps are asserted byte-identical rather than behaviour-changing.",
+      "why": "Each result is either consumed by .Sub() or round-tripped through pgtype.Timestamptz, both of which discard the zone label.",
+      "covered_by": "roadmap D4"
+    }
   ],
   "events": [
-    { "at": "2026-08-31T09:32:00Z", "agent": "leader", "event": "worker dispatched on resume (artifacts + implementation in one dispatch, the pattern tiers 2-5 used)" },
-    { "at": "2026-08-31T09:48:42Z", "agent": "leader", "event": "worker returned. Doc-pack acknowledgment present. Assistant-run signals: go build ./..., go vet ./..., gofmt, make i18n-guard, make ui-guard, openspec validate --strict — all pass. Leader re-verified build and vet independently." },
-    { "at": "2026-08-31T09:51:00Z", "agent": "leader", "event": "Leader applied the README dependency-graph edit the worker was forbidden to touch (roadmap D25). Every design decision D-gw-1..4 cross-checked against design.md before the reviewer gate." }
+    {
+      "at": "2026-08-31T09:32:00Z",
+      "agent": "leader",
+      "event": "worker dispatched on resume (artifacts + implementation in one dispatch, the pattern tiers 2-5 used)"
+    },
+    {
+      "at": "2026-08-31T09:48:42Z",
+      "agent": "leader",
+      "event": "worker returned. Doc-pack acknowledgment present. Assistant-run signals: go build ./..., go vet ./..., gofmt, make i18n-guard, make ui-guard, openspec validate --strict — all pass. Leader re-verified build and vet independently."
+    },
+    {
+      "at": "2026-08-31T09:51:00Z",
+      "agent": "leader",
+      "event": "Leader applied the README dependency-graph edit the worker was forbidden to touch (roadmap D25). Every design decision D-gw-1..4 cross-checked against design.md before the reviewer gate."
+    },
+    {
+      "at": "2026-08-31T10:10:00Z",
+      "agent": "leader",
+      "event": "OWNER reported the suite RED: 3 failures in internal/gateway/handlers — TestDashboardHistoryFragment_DefaultWindowPassedToReader, _DaysParamIsIgnored, _DefaultWindowActivatesSixDayPreset. Not a build error; a real expectation mismatch. Tasks T1 and T4 marked blocked. Change status -> blocked. NOT archived, NOT reviewed."
+    },
+    {
+      "at": "2026-08-31T10:10:00Z",
+      "agent": "leader",
+      "event": "DIAGNOSIS: single root cause. All three tests anchor their expected window to startOfDay(time.Now()) — UTC midnight — while the handler now anchors to browserToday's fallback, which T1 moved from time.UTC to clock.Zone() (America/Bogota, -05). time.Time.Equal compares instants, so UTC-midnight and -05-midnight differ by 5h and the assertions fail. startOfDay itself is unchanged and correct. The worker repaired two test files but missed these three cases (roadmap D6 requires repairing every test the tier breaks)."
+    },
+    {
+      "at": "2026-08-31T10:10:00Z",
+      "agent": "leader",
+      "event": "ALSO STALE, worker missed: internal/gateway/handlers/history.go:119 still reads 'Direct API callers without a browser_tz cookie get UTC today' — false since T1. CLAUDE.md's docs-track-structural-change rule makes this part of the same fix, not a follow-up."
+    }
   ]
 }
