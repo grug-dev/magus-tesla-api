@@ -60,7 +60,7 @@
       "scope": "change",
       "made_by": "user",
       "decision": "Drop the time/tzdata blank import. internal/clock imports stdlib time and nothing else, no exception.",
-      "why": "Project ships no containers \u2014 deployment is a runbook onto hosts that all carry system tzdata. D2's constraint is worth more absolute than with one standing exception.",
+      "why": "Project ships no containers — deployment is a runbook onto hosts that all carry system tzdata. D2's constraint is worth more absolute than with one standing exception.",
       "covered_by": null
     },
     {
@@ -78,7 +78,7 @@
       "scope": "change",
       "made_by": "leader",
       "decision": "Three waves, one serial worker each: W1=T1,T2,T6; W2=T3,T4,T5,T7; W3=T8 run by the leader.",
-      "why": "Tasks are small; one dispatch amortizes the doc-pack read across them. Parallel workers would re-read the pack and drain the same bucket faster. T8 is build/vet/gofmt/grep \u2014 leader-allowed signals.",
+      "why": "Tasks are small; one dispatch amortizes the doc-pack read across them. Parallel workers would re-read the pack and drain the same bucket faster. T8 is build/vet/gofmt/grep — leader-allowed signals.",
       "covered_by": null
     },
     {
@@ -94,7 +94,7 @@
   "tasks": [
     {
       "id": "T1",
-      "title": "internal/clock/clock.go \u2014 Zone, Now, LoadOrDefault + clock_test.go",
+      "title": "internal/clock/clock.go — Zone, Now, LoadOrDefault + clock_test.go",
       "depends_on": [],
       "status": "done",
       "agent": "clock",
@@ -109,11 +109,11 @@
         "approx": true,
         "note": "5h bucket reset mid-wave; delta not computable"
       },
-      "notes": "Zone/Now/LoadOrDefault per D9/D10. Import block is exactly \"time\" \u2014 no tzdata. Tests transcribed verbatim from the design Test Contract. Build and vet clean; suite not run. Suite reported passing by the OWNER."
+      "notes": "Zone/Now/LoadOrDefault per D9/D10. Import block is exactly \"time\" — no tzdata. Tests transcribed verbatim from the design Test Contract. Build and vet clean; suite not run. Suite reported passing by the OWNER."
     },
     {
       "id": "T2",
-      "title": "internal/clock/calendar.go \u2014 CalendarDay + calendar_test.go",
+      "title": "internal/clock/calendar.go — CalendarDay + calendar_test.go",
       "depends_on": [],
       "status": "done",
       "agent": "clock",
@@ -132,7 +132,7 @@
     },
     {
       "id": "T3",
-      "title": "internal/clock/AGENTS.md \u2014 Agent-Name, module Doc-Pack, stdlib-time-only constraint",
+      "title": "internal/clock/AGENTS.md — Agent-Name, module Doc-Pack, stdlib-time-only constraint",
       "depends_on": [
         "T1",
         "T2"
@@ -148,7 +148,7 @@
     },
     {
       "id": "T4",
-      "title": "ai/go-conventions.md \u00a7Coding Rules \u2014 the full timezone convention (D3)",
+      "title": "ai/go-conventions.md §Coding Rules — the full timezone convention (D3)",
       "depends_on": [
         "T1",
         "T2"
@@ -164,7 +164,7 @@
     },
     {
       "id": "T5",
-      "title": "CLAUDE.md \u2014 one-line non-negotiable pointing at the D3 rule",
+      "title": "CLAUDE.md — one-line non-negotiable pointing at the D3 rule",
       "depends_on": [
         "T4"
       ],
@@ -175,11 +175,11 @@
       "completed_at": "2026-08-30T20:04:06Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": "One-line non-negotiable in CLAUDE.md pointing at ai/go-conventions.md. Leader checked its length against the sibling units bullet \u2014 comparable."
+      "notes": "One-line non-negotiable in CLAUDE.md pointing at ai/go-conventions.md. Leader checked its length against the sibling units bullet — comparable."
     },
     {
       "id": "T6",
-      "title": "Root AGENTS.md \u2014 new pointer to ai/go-conventions.md (opencode gap)",
+      "title": "Root AGENTS.md — new pointer to ai/go-conventions.md (opencode gap)",
       "depends_on": [],
       "status": "done",
       "agent": "clock",
@@ -194,11 +194,11 @@
         "approx": true,
         "note": "5h bucket reset mid-wave; delta not computable"
       },
-      "notes": "Root AGENTS.md gained a Coding Conventions section pointing at ai/go-conventions.md \u2014 the opencode gap D3 identified. Docs only, no code."
+      "notes": "Root AGENTS.md gained a Coding Conventions section pointing at ai/go-conventions.md — the opencode gap D3 identified. Docs only, no code."
     },
     {
       "id": "T7",
-      "title": "Root README.md \u2014 Project Structure tree + Architecture table row",
+      "title": "Root README.md — Project Structure tree + Architecture table row",
       "depends_on": [
         "T1",
         "T2"
@@ -214,7 +214,7 @@
     },
     {
       "id": "T8",
-      "title": "Verification \u2014 build, vet, gofmt, boundary + zero-adopter checks",
+      "title": "Verification — build, vet, gofmt, boundary + zero-adopter checks",
       "depends_on": [
         "T1",
         "T2",
@@ -235,10 +235,18 @@
     }
   ],
   "review": {
-    "status": "not-started",
-    "agent": null,
-    "brief": "Review RM35-clock-add-bogota-time-package (tier 1 of RM35), module `clock`. Read the DIFF (main...HEAD), not the whole repo.\n\nWHAT TO VALIDATE\n1. Boundary: internal/clock imports stdlib `time` and NOTHING else, in every file including tests' non-test siblings. This is the module's defining constraint (D2) and owner decision D10 removed the one proposed exception (time/tzdata). An extra import is a blocker finding.\n2. CalendarDay correctness (design D7) \u2014 the highest-risk item in the tier. It must reproduce all THREE existing truncators exactly: analytics.calendarDay (internal/analytics/consumed.go:79) and gateway.startOfDay (internal/gateway/handlers/history.go:61) when passed time.UTC, and telemetry.dateOnly (internal/telemetry/service.go:559) for any loc. Read those three and check the equivalence yourself. An off-by-one shifts day attribution across telemetry, analytics and charging once tiers 3/4/6 adopt it.\n3. Zone() panics at init and does NOT fall back to UTC (owner decision D11). A silent fallback is a blocker.\n4. Test QUALITY by reading (never by running): do the tests assert the expected values design.md's Test Contract authored BEFORE the implementation, or do they merely restate what the code does? The contract cases are the UTC self-truncation, the Bogota cross-day, the two America/New_York DST cases, and the LoadOrDefault table including the \"\" -> UTC and \"Local\" -> host-local gotchas.\n5. Scope: this tier adopts clock NOWHERE (D4). Any edit to telemetry/analytics/app/gateway/config is out of scope and a blocker. Confirm zero adopters outside internal/clock.\n6. Docs (D3): the full rule is in ai/go-conventions.md beside the units rule; CLAUDE.md holds a ONE-LINE pointer, not a restatement; root AGENTS.md has the new ai/go-conventions.md pointer; internal/clock/AGENTS.md states the stdlib-time-only rule and forbids non-time helpers; README's structure tree and architecture table include internal/clock and do not overclaim adoption. CLAUDE.md's docs-track-structural-change rule makes stale structure docs incomplete work.\n7. Anti-gaming: no acceptance criterion weakened or deleted; no task marked done that is not; T1/T2 must be awaiting-user-verification, NOT done, until the owner reports the suite.\n8. No database object exists in this tier \u2014 confirm none was introduced.\n\nTEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite \u2014 never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / i18n-guard / money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.\n\nSIGNAL PROVENANCE \u2014 assistant-run vs owner-reported:\n- ASSISTANT-RUN (leader, T8): go build ./..., go vet ./..., gofmt -l internal/clock/, make ui-guard, make i18n-guard, make money-guard, openspec validate --strict, the import-block check and the zero-adopter grep. All passed.\n- OWNER-REPORTED: go test ./internal/clock/... and go test ./... \u2014 PENDING at the time this brief was written. Judge test quality by reading the test files, not by running them.\n\nPERFORMANCE-PROFILE (verbatim): read-heavy \u2014 read performance is mandatory over write performance; writes are mostly done by pollers at midnight, so denormalizing, indexing aggressively, and precomputing for reads is acceptable \u2014 never at the cost of the modular-monolith boundaries or module data ownership. (This tier is pure in-memory functions on no hot path; note if you disagree.)",
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "clock-reviewer",
+    "brief": "Review RM35-clock-add-bogota-time-package (tier 1 of RM35), module `clock`. Read the DIFF (main...HEAD), not the whole repo.\n\nWHAT TO VALIDATE\n1. Boundary: internal/clock imports stdlib `time` and NOTHING else, in every file including tests' non-test siblings. This is the module's defining constraint (D2) and owner decision D10 removed the one proposed exception (time/tzdata). An extra import is a blocker finding.\n2. CalendarDay correctness (design D7) — the highest-risk item in the tier. It must reproduce all THREE existing truncators exactly: analytics.calendarDay (internal/analytics/consumed.go:79) and gateway.startOfDay (internal/gateway/handlers/history.go:61) when passed time.UTC, and telemetry.dateOnly (internal/telemetry/service.go:559) for any loc. Read those three and check the equivalence yourself. An off-by-one shifts day attribution across telemetry, analytics and charging once tiers 3/4/6 adopt it.\n3. Zone() panics at init and does NOT fall back to UTC (owner decision D11). A silent fallback is a blocker.\n4. Test QUALITY by reading (never by running): do the tests assert the expected values design.md's Test Contract authored BEFORE the implementation, or do they merely restate what the code does? The contract cases are the UTC self-truncation, the Bogota cross-day, the two America/New_York DST cases, and the LoadOrDefault table including the \"\" -> UTC and \"Local\" -> host-local gotchas.\n5. Scope: this tier adopts clock NOWHERE (D4). Any edit to telemetry/analytics/app/gateway/config is out of scope and a blocker. Confirm zero adopters outside internal/clock.\n6. Docs (D3): the full rule is in ai/go-conventions.md beside the units rule; CLAUDE.md holds a ONE-LINE pointer, not a restatement; root AGENTS.md has the new ai/go-conventions.md pointer; internal/clock/AGENTS.md states the stdlib-time-only rule and forbids non-time helpers; README's structure tree and architecture table include internal/clock and do not overclaim adoption. CLAUDE.md's docs-track-structural-change rule makes stale structure docs incomplete work.\n7. Anti-gaming: no acceptance criterion weakened or deleted; no task marked done that is not; T1/T2 must be awaiting-user-verification, NOT done, until the owner reports the suite.\n8. No database object exists in this tier — confirm none was introduced.\n\nTEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite — never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / i18n-guard / money-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.\n\nSIGNAL PROVENANCE — assistant-run vs owner-reported:\n- ASSISTANT-RUN (leader, T8): go build ./..., go vet ./..., gofmt -l internal/clock/, make ui-guard, make i18n-guard, make money-guard, openspec validate --strict, the import-block check and the zero-adopter grep. All passed.\n- OWNER-REPORTED: go test ./internal/clock/... and go test ./... — PENDING at the time this brief was written. Judge test quality by reading the test files, not by running them.\n\nPERFORMANCE-PROFILE (verbatim): read-heavy — read performance is mandatory over write performance; writes are mostly done by pollers at midnight, so denormalizing, indexing aggressively, and precomputing for reads is acceptable — never at the cost of the modular-monolith boundaries or module data ownership. (This tier is pure in-memory functions on no hot path; note if you disagree.)",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-31T02:00:00Z",
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Independent re-derivation of CalendarDay against all three existing truncators confirms byte-identical formulas (see final report). Boundary, zero-fallback panic, doc-pack, scope, and anti-gaming checks all pass. Assistant-run signals (go build, go vet, gofmt -l, ui/i18n/money guards, openspec validate --strict) re-run independently and confirmed green. No test suite executed by the reviewer; owner-reported pass taken as evidence per Test-Execution-Policy."
+      }
+    ]
   },
   "events": [
     {
@@ -269,7 +277,7 @@
       "at": "2026-08-30T20:00:45Z",
       "kind": "wave-dispatch",
       "by": "leader",
-      "note": "Wave 2 (T3,T4,T5,T7) dispatched to the clock worker on sonnet. Docs only \u2014 no Go code, so no new test surface."
+      "note": "Wave 2 (T3,T4,T5,T7) dispatched to the clock worker on sonnet. Docs only — no Go code, so no new test surface."
     },
     {
       "at": "2026-08-30T20:04:06Z",
@@ -299,7 +307,7 @@
       "at": "2026-08-31T01:23:19Z",
       "kind": "user-verified",
       "by": "user",
-      "note": "THE OWNER reported the test suite passing (go test ./internal/clock/... and go test ./...). Recorded as the owner's verification, not the assistant's \u2014 the assistant ran no suite at any point. T1/T2 move from awaiting-user-verification to done."
+      "note": "THE OWNER reported the test suite passing (go test ./internal/clock/... and go test ./...). Recorded as the owner's verification, not the assistant's — the assistant ran no suite at any point. T1/T2 move from awaiting-user-verification to done."
     }
   ]
 }
