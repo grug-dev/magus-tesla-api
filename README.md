@@ -202,7 +202,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
-| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only; not yet adopted by any other module (`RM35-timezone-centralization` tier 1). |
+| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config` (`RM35` tier 2); `telemetry`, `analytics`, `app` and `gateway` adopt it in tiers 3–6. |
 | `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
 ### Dependency graph
@@ -230,12 +230,13 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 │  app ────────────────► telemetry, charging, analytics, account           │
 ├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
 │  analytics ──────────► account, charging, telemetry                      │
-├─ LAYER 1 ── domain modules ──────────────────────────────────────────────┤
+├─ LAYER 1 ── domain modules & config ─────────────────────────────────────┤
 │  telemetry ──────────► account, tesla, telemetry/db                      │
 │  charging ───────────► charging/db                                       │
 │  account ────────────► auth, account/db                                  │
+│  config ─────────────► clock                                             │
 ├─ LAYER 0 ── adapters & leaves (no internal dependencies) ────────────────┤
-│  tesla    googleauth    auth    config    testdb    <module>/db          │
+│  tesla    googleauth    auth    clock    testdb    <module>/db           │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 

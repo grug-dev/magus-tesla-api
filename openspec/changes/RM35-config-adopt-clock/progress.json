@@ -6,7 +6,7 @@
   "roadmap": "RM35-timezone-centralization",
   "roadmap_tier": 2,
   "status": "verified",
-  "updated_at": "2026-08-31T01:35:13Z",
+  "updated_at": "2026-08-31T01:38:16Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -48,6 +48,15 @@
       "made_by": "leader",
       "decision": "No zone-name constant added to internal/clock; config calls clock.Zone().String().",
       "why": "Zone().String() reads the same computed value Zone() uses. A parallel constant would be a second source of truth for the same string \u2014 over-abstraction, which CLAUDE.md's AI-efficiency rule warns against.",
+      "covered_by": null
+    },
+    {
+      "id": "D20",
+      "at": "2026-08-31T01:38:16Z",
+      "scope": "review:R1",
+      "made_by": "leader",
+      "decision": "R1 ACCEPTED and fixed: README's clock row said 'not yet adopted by any other module' and its LAYER 0 line listed config as dependency-free. Both false after tier 2.",
+      "why": "Leader verified both against README:205 and the graph block. This is the docs-track-structural-change rule, which ai/agentic-workflow.md names as changes-requested, not a nit. Leader missed it in its own T5 pass.",
       "covered_by": null
     }
   ],
@@ -128,10 +137,24 @@
     }
   ],
   "review": {
-    "status": "not-started",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "changes-requested",
+    "agent": "config-reviewer",
+    "brief": "Tier-2 diff d351289~1..d351289 vs roadmap RM35 D1/D2/D4/D6, proposal/design/specs/tasks, tier-1 D10.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-31T12:00:00Z",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "README.md:205 and README.md:238 (dependency graph LAYER 0 line) are now stale. Line 205 states internal/clock is 'not yet adopted by any other module' \u2014 false as of this tier, config adopts it. Line 238's LAYER 0 leaf list ('tesla googleauth auth config testdb <module>/db') still shows config with no internal dependencies, but config now imports internal/clock. CLAUDE.md's docs-track-structural-change rule (restated in ai/agentic-workflow.md's reviewer-role section as 'not a nit') requires the README architecture/dependency-graph docs to be updated in the SAME change when a module's public surface/dependency set changes. Fix: move config off the LAYER 0 depends-on-nothing line into a line showing config \u2192 clock, and update clock's row to drop 'not yet adopted by any other module' (or state it is now adopted by config).",
+            "status": "open"
+          }
+        ]
+      }
+    ]
   },
   "events": [
     {
@@ -145,6 +168,12 @@
       "kind": "tests-run",
       "by": "assistant-authorized",
       "note": "ASSISTANT-RUN under the owner's session-scoped authorization (D17), NOT the owner's own report: go test ./internal/config/... ok, go test ./internal/clock/... ok, go test ./... green across 16 packages, exit 0. Also build/vet/gofmt clean and openspec validate --strict passing."
+    },
+    {
+      "at": "2026-08-31T01:38:16Z",
+      "kind": "review-fix",
+      "by": "leader",
+      "note": "Round-1 finding R1 fixed by the leader (docs only, no code): clock's README row now records adoption by config with tiers 3-6 pending; config moved out of the no-dependencies LAYER 0 line into LAYER 1 showing config -> clock; clock added to LAYER 0, where it genuinely belongs. Reviewer to re-verify."
     }
   ]
 }
