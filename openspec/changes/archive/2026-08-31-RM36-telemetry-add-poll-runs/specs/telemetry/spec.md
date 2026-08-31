@@ -89,8 +89,6 @@ as failed.
 - **THEN** the reported succeeded-account count equals the attempted-account count
   minus the failed-account count
 
-## MODIFIED Requirements
-
 ### Requirement: Nightly Cycle Log Summary
 
 The telemetry capability's per-cycle operational log line SHALL label its

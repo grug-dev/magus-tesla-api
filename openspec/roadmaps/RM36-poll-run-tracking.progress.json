@@ -2,11 +2,11 @@
   "schema_version": 1,
   "kind": "roadmap",
   "roadmap": "RM36-poll-run-tracking",
-  "intention": "Every poller invocation (nightly and --once) persists one poll_runs row: duration, account and vehicle outcome counts, charging counters, and the number of Tesla Fleet API requests it spent — the input to the cost figure the ticket asks for. poll_attempts keeps its per-vehicle grain untouched.",
-  "request": "Source ticket: MAG-35 — https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\nProject: architecture   Priority: High\n\n## Poll attemps tracking\n\n```\ngo build -o bin/poller ./cmd/poller\n./bin/poller --once\n2026/08/30 05:14:53 session mirror: account eb18ade2-244c-4956-9de2-a3f1521ac32f: 5 session(s)\n2026/08/30 05:14:53 gap reconciliation: 2026-07-31 00:00:00 +0000 UTC → 2026-08-29 00:00:00 +0000 UTC\n2026/08/30 05:14:53 telemetry cycle: attempted=2 succeeded=2 failures={} charging_upserted=5 charging_failures=0 config_capture_failures=0k\n```\n\nThat's the current response when running the poller --once.  I'm wondering if those counts are per account or in total for the runner.\n\nI'd like to ask you if it's possible to track the poll attempts\n\nI'd like to save this into the poll_attempts table or new table whatever you think it's best\n\n* The time duration in seconds that took running (What might be the best  way to track it, per run_id or per teslaId ) ?\n* How many tesla accounts were taken by the poller to call the tesla's fleets apis, how many were succeeded, failteres, basiccaly the current output  of the poller `attempted=2 succeeded=2 failures={} charging_upserted=5 charging_failures=0`\n* How many times the tesla's fleets API were called (To then figure out the costs), the total count of every single API request done to tesla fleets APIs\n* Be sure to apply this change for both `poller-once` and the actual poller that runs nightly",
+  "intention": "Every poller invocation (nightly and --once) persists one poll_runs row: duration, account and vehicle outcome counts, charging counters, and the number of Tesla Fleet API requests it spent \u2014 the input to the cost figure the ticket asks for. poll_attempts keeps its per-vehicle grain untouched.",
+  "request": "Source ticket: MAG-35 \u2014 https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\nProject: architecture   Priority: High\n\n## Poll attemps tracking\n\n```\ngo build -o bin/poller ./cmd/poller\n./bin/poller --once\n2026/08/30 05:14:53 session mirror: account eb18ade2-244c-4956-9de2-a3f1521ac32f: 5 session(s)\n2026/08/30 05:14:53 gap reconciliation: 2026-07-31 00:00:00 +0000 UTC \u2192 2026-08-29 00:00:00 +0000 UTC\n2026/08/30 05:14:53 telemetry cycle: attempted=2 succeeded=2 failures={} charging_upserted=5 charging_failures=0 config_capture_failures=0k\n```\n\nThat's the current response when running the poller --once.  I'm wondering if those counts are per account or in total for the runner.\n\nI'd like to ask you if it's possible to track the poll attempts\n\nI'd like to save this into the poll_attempts table or new table whatever you think it's best\n\n* The time duration in seconds that took running (What might be the best  way to track it, per run_id or per teslaId ) ?\n* How many tesla accounts were taken by the poller to call the tesla's fleets apis, how many were succeeded, failteres, basiccaly the current output  of the poller `attempted=2 succeeded=2 failures={} charging_upserted=5 charging_failures=0`\n* How many times the tesla's fleets API were called (To then figure out the costs), the total count of every single API request done to tesla fleets APIs\n* Be sure to apply this change for both `poller-once` and the actual poller that runs nightly",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-08-31T07:25:00Z",
+  "updated_at": "2026-08-31T19:08:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -21,10 +21,14 @@
     "created_at": "2026-08-31T01:52:41Z"
   },
   "rollup": {
-    "current": [1],
-    "pending": [2],
+    "current": [],
+    "pending": [
+      2
+    ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -78,7 +82,7 @@
       "scope": "roadmap",
       "made_by": "autopilot",
       "decision": "The row is written inside app.ProcessVehicleData, which both cmd/poller paths already call, rather than at each entry point.",
-      "why": "Covers nightly and --once by construction and makes divergence impossible — the same argument RM29 tier 7 used to move the cycle out of cmd/. The ticket requires both paths.",
+      "why": "Covers nightly and --once by construction and makes divergence impossible \u2014 the same argument RM29 tier 7 used to move the cycle out of cmd/. The ticket requires both paths.",
       "covered_by": "roadmap D1"
     },
     {
@@ -98,21 +102,29 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T07:25:00Z",
-      "completed_at": null,
+      "completed_at": "2026-08-31T19:08:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts written and openspec-validated. poll_runs schema confirmed by the user at the design gate. Implementation NOT started — the pickup scope halts after Step 4."
+      "budget": {
+        "five_hour_pct_delta": 39.0,
+        "cost_usd_delta": 8.57,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "Sum of wave A (24%/$4.01) and wave C (15%/$4.56); wave B and the review round ran with a stale or unbracketed cache and were recorded null."
+      },
+      "notes": "Archived as 2026-08-31-RM36-telemetry-add-poll-runs. 15 tasks across 3 dispatches; reviewer approved round 1 with zero findings. Task 5.3's DB fixtures still awaiting the owner's make test-with-db run."
     },
     {
       "id": 2,
       "change": "RM36-app-record-poll-run",
       "module": "app",
       "optional": false,
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "status": "not-started",
       "assistant": null,
       "model": null,
@@ -132,12 +144,17 @@
     {
       "at": "2026-08-31T01:52:41Z",
       "agent": "leader",
-      "event": "Step 2 interview run by the leader with the user (grill-me, one question at a time). Five decisions settled: D1-D5. D6/D7 derived by the leader from them. autopilot=false — the pickup scope halts after Step 4 so the user reviews the proposal before implementation."
+      "event": "Step 2 interview run by the leader with the user (grill-me, one question at a time). Five decisions settled: D1-D5. D6/D7 derived by the leader from them. autopilot=false \u2014 the pickup scope halts after Step 4 so the user reviews the proposal before implementation."
     },
     {
       "at": "2026-08-31T07:25:00Z",
       "agent": "leader",
-      "event": "Tier 1 artifacts created by the telemetry worker (Sonnet). The worker was rate-limited (session limit) after writing all four artifacts; the leader verified none were truncated. Leader fixed one `openspec validate --strict` error: the MODIFIED requirement's SHALL paragraph sat after a **Reason** block, so the parser did not see it. Design gate PASSED — the user confirmed the poll_runs schema, run_id PK, no FK, NOT NULL duration, and no index beyond the PK, as designed."
+      "event": "Tier 1 artifacts created by the telemetry worker (Sonnet). The worker was rate-limited (session limit) after writing all four artifacts; the leader verified none were truncated. Leader fixed one `openspec validate --strict` error: the MODIFIED requirement's SHALL paragraph sat after a **Reason** block, so the parser did not see it. Design gate PASSED \u2014 the user confirmed the poll_runs schema, run_id PK, no FK, NOT NULL duration, and no index beyond the PK, as designed."
+    },
+    {
+      "at": "2026-08-31T19:08:00Z",
+      "agent": "leader",
+      "event": "Tier 1 (RM36-telemetry-add-poll-runs) archived. Roadmap Status flipped [~] -> [x]. Tier 2 (RM36-app-record-poll-run) is now unblocked but NOT started: autopilot is false for this roadmap, and the user's instruction bounded this run at archiving tier 1."
     }
   ]
 }
