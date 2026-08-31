@@ -5,9 +5,9 @@
   "module": "app",
   "roadmap": "openspec/roadmaps/RM36-poll-run-tracking.md",
   "request": "Source ticket: MAG-35 - https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\n\nTier 2 (final) of RM36-poll-run-tracking. internal/app's ProcessVehicleData measures the run and calls telemetry.RunWriter.RecordRun on every exit path, including the step-1 whole-cycle-failure path. NewProcessor gains a RunWriter parameter; cmd/poller wiring updated. app still owns no data - it calls a port.",
-  "status": "applied",
+  "status": "verified",
   "created_at": "2026-08-31T20:40:00Z",
-  "updated_at": "2026-08-31T20:50:00Z",
+  "updated_at": "2026-08-31T21:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -36,15 +36,14 @@
       "5.1",
       "5.2",
       "5.3",
-      "5.4"
-    ],
-    "awaiting-user-verification": [
+      "5.4",
       "3.1",
       "3.2",
       "3.3",
       "3.4",
       "3.5"
-    ]
+    ],
+    "awaiting-user-verification": []
   },
   "tasks": [
     {
@@ -206,7 +205,7 @@
         "2.4"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T20:45:00Z",
@@ -232,7 +231,7 @@
         "2.3"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T20:45:00Z",
@@ -258,7 +257,7 @@
         "3.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T20:45:00Z",
@@ -284,7 +283,7 @@
         "3.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T20:45:00Z",
@@ -310,7 +309,7 @@
         "3.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "app",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T20:45:00Z",
@@ -492,6 +491,24 @@
       "decision": "Batched tasks.md's 5 declared waves into 2 serial worker dispatches (A: 1.1-2.4 plus 4.1; B: 3.1-3.5 plus 5.1-5.4) along the real dependency cuts.",
       "why": "All 16 tasks share one module and one worker identity. Five dispatches would re-read the full doc pack five times. Every depends_on is still honoured inside each batch.",
       "covered_by": null
+    },
+    {
+      "id": "D-USER-2",
+      "at": "2026-08-31T21:12:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "User explicitly instructed the assistant to run the test suite and cmd/poller --once itself, overriding the project's standing Test-Execution-Policy for this session.",
+      "why": "Direct owner instruction outranks the owner's own standing written rule. Results are recorded as assistant-run under that instruction, never as the owner's verification.",
+      "covered_by": null
+    },
+    {
+      "id": "D-LEADER-9",
+      "at": "2026-08-31T21:12:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Leader renumbered tier 1's shipped migration 20260830000001_add_poll_runs.sql to 20260830000002 and applied it, then documented the global-uniqueness rule in the Makefile.",
+      "why": "It collided with account's 20260830000001 in the shared goose_db_version table, so goose skipped it and poll_runs never existed. Renumbering was the only fix; the migration had never run.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -524,6 +541,21 @@
       "at": "2026-08-31T20:50:00Z",
       "agent": "leader",
       "event": "Wave B reconciled: docs 5.1-5.4 done; tests 3.1-3.5 awaiting-user-verification (written, never executed by the assistant). Leader independently re-ran go build ./... (clean), go vet ./... (clean, compiles the new processor_test.go and its 8 compile-time interface assertions), gofmt -l internal/app/ (empty), confirmed git diff --stat shows ZERO changes to processor.go/app.go/main.go (no production drift to make a test pass), and diffed Fixture P4 line-by-line against design.md's P4 block: errors.Is on the sentinel, every count field asserted 0, non-zero StartedAt/FinishedAt, DurationSeconds consistent with report.Duration, and AllRegisteredVehicles asserted NOT called - the short-circuit survives the D4 reshape. Exact contract match. Budget 57%->63% five-hour, context 25%."
+    },
+    {
+      "at": "2026-08-31T21:12:00Z",
+      "agent": "leader",
+      "event": "ASSISTANT-RUN TEST PASS, at the user's explicit instruction (D-USER-2), NOT the owner's own verification. `go test ./internal/app/...` passed, and a -v run confirmed all five fixtures (P1-P5) actually executed rather than skipping. Tasks 3.1-3.5 move awaiting-user-verification -> done."
+    },
+    {
+      "at": "2026-08-31T21:12:00Z",
+      "agent": "leader",
+      "event": "DEFECT FOUND BY THE SMOKE RUN - tier 1's migration was never applied. `go run ./cmd/poller --once` logged 'poll run: recording run ...: ERROR: relation \"poll_runs\" does not exist (SQLSTATE 42P01)'. Root cause: telemetry's 20260830000001_add_poll_runs.sql collided with account's 20260830000001_accounts_vehicles_add_status.sql, and all modules share one goose_db_version table keyed by version - goose saw the number recorded, SKIPPED the file, and make migrate-status listed it as 'applied' with the account migration's timestamp. The Makefile's -allow-missing cannot absorb a duplicate number; it only handles out-of-order versions. This passed tier 1's reviewer, its byte-for-byte DDL diff, and every build/vet signal, because all of them check file CONTENTS and the contents were always correct. Only executing the binary against a real database could surface it. Fixed in 2b70310: renumbered to 20260830000002, applied, uniqueness rule documented in the Makefile's MIGRATIONS_DIRS note, correction note added to the archived tier-1 design.md."
+    },
+    {
+      "at": "2026-08-31T21:12:00Z",
+      "agent": "leader",
+      "event": "END-TO-END PROOF. Second `cmd/poller --once` ran clean with no RecordRun error, and a direct SELECT returned the row: duration_seconds=4.904613, tesla_api_calls=4, accounts 1/1/0, vehicles 2/2, charging_sessions_upserted=6, config_capture_failures=0 - every value matching the printed log line exactly (duration=4.904613s). MAG-35's ask is delivered end to end. Note: the FIRST run also proved design D5 under a real fault - RecordRun failed and the cycle still completed and reported success rather than dying."
     }
   ]
 }
