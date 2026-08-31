@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-20 \u2014 https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone\nProject: architecture   Priority: Urgent\n\n## Date/Date time Time Zone\n\n* Analyze all date and date time created by the app (With golang code). The should be saved with Zone America/Bogota. Centralize a new logic that creates a date or date/time in that time zone.\n* Update the CLAUDE/AGENTS instructtion or the best MD instructions per module to use that timezone convention. Find the best place that works for claude and opencode\n* Find the best module to this kind of things that are cross-module. A new shared  util module sound like a good idea? I think it might work.. in the future we might have shared utilities for all modules\n\nAcceptance Criteria\n\nThe app does not use UTC.\n\ndate and datetimes are centralized in one place and shared to all modules needed it",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-31T01:40:26Z",
+  "updated_at": "2026-08-31T02:03:49Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -22,12 +22,12 @@
   },
   "rollup": {
     "current": [
-      3
-    ],
-    "pending": [
+      3,
       4,
       5,
-      6,
+      6
+    ],
+    "pending": [
       7
     ],
     "blocked": [],
@@ -135,6 +135,24 @@
       "decision": "THIS SESSION ONLY: the assistant runs the test suite itself. Supersedes D13 for the remainder of this session; CLAUDE.md is NOT amended and the owner-runs-tests default returns next session.",
       "why": "Owner granted it explicitly and scoped it to the session. Provenance stays honest: runs are recorded as assistant-run under owner authorization, never as the owner's own report.",
       "covered_by": null
+    },
+    {
+      "id": "D24",
+      "at": "2026-08-31T02:03:49Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Tiers 4, 5 and 6 run in PARALLEL rather than sequentially.",
+      "why": "Owner asked for it. They touch disjoint modules (analytics, app, gateway) and all depend only on tier 1. Cost: three workers drain the same 5-hour bucket at once and each re-reads the doc pack.",
+      "covered_by": null
+    },
+    {
+      "id": "D25",
+      "at": "2026-08-31T02:03:49Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "The LEADER owns the README dependency-graph edit for tiers 4-6; no parallel worker may touch README.md.",
+      "why": "All three tiers add a clock edge to the same graph block. Three concurrent workers editing one file would clobber each other. Leader applies all three edges once, after they land.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -195,10 +213,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -212,10 +230,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -229,10 +247,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T02:03:49Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -296,6 +314,12 @@
       "kind": "tier-archived",
       "by": "leader",
       "note": "Tier 2 archived to openspec/changes/archive/config/. Tier 3 (telemetry) started. Budget at the gate: 5h 35%, context 28% \u2014 both under the 90/40 thresholds."
+    },
+    {
+      "at": "2026-08-31T02:03:49Z",
+      "kind": "parallel-dispatch",
+      "by": "leader",
+      "note": "Tiers 4,5,6 dispatched in parallel at the owner's request (D24). README.md withheld from all three and reserved to the leader (D25). Tier 3's reviewer runs concurrently."
     }
   ]
 }
