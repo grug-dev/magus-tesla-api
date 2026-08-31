@@ -5,9 +5,11 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
   "request": "Tier 6 of RM35: adopt internal/clock in internal/gateway. The four UTC fallbacks in browserLocation / browserLocationFromHeader become clock.Zone() — the browser_tz cookie still wins (D1). history.go's startOfDay delegates to clock.CalendarDay. Four raw time.Now() calls in handlers.go become clock.Now(). startOfMonth and startOfDayIn are deliberately left alone. Repair broken tests (D6); add none.",
-  "status": "verified",
+  "status": "in-review",
   "rollup": {
-    "current": [],
+    "current": [
+      "T9"
+    ],
     "pending": [],
     "blocked": [],
     "done": [
@@ -22,7 +24,7 @@
     ]
   },
   "created_at": "2026-08-31T09:50:00Z",
-  "updated_at": "2026-08-31T12:55:00Z",
+  "updated_at": "2026-08-31T13:10:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -165,13 +167,71 @@
       "duration_seconds": 600,
       "notes": "Active now compares formatted dates, not instants. Pre-existing (byte-identical on main): the selector never highlighted for any non-UTC browser_tz. Owner approved fixing it here. Backlog 19 records the missing regression test.",
       "budget": null
+    },
+    {
+      "id": "T9",
+      "title": "address review round 1 findings R1-1 and R1-2",
+      "module": "gateway",
+      "depends_on": [
+        "T8"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T13:02:00Z",
+      "completed_at": "2026-08-31T13:10:00Z",
+      "duration_seconds": 480,
+      "notes": "R1-1 accepted: a 4th frame-mismatch site repointed at browserTodayNoCookie(). It failed only 00:00-05:00 UTC, so three suite runs missed it. R1-2 accepted: T7.7 ticked.",
+      "budget": null
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
+    "status": "changes-requested",
+    "agent": "gateway-reviewer",
     "brief": "Review RM35-gateway-adopt-clock (roadmap RM35 tier 6, module internal/gateway) against the DIFF, not the whole module. This tier had TWO failed suite runs before going green — scrutinise the fixes, not just the original adoption.\n\n(1) Module-boundary compliance per ai/architecture.md — gateway is the ONLY module allowed to produce HTML; it adds internal/clock and reads other modules through public interfaces only.\n(2) Roadmap D1, the tier's central claim: the browser_tz cookie STILL WINS for a signed-in user. Only the FALLBACK moved from time.UTC to clock.Zone(). Verify in tz.go that every cookie-present path is untouched. A cookie path that now ignores the cookie is a BLOCKER.\n(3) startOfDay delegates to clock.CalendarDay(t, time.UTC) — verify byte-identical by reading internal/clock/calendar.go yourself. Confirm supercharger.go's startOfMonth and tz.go's startOfDayIn are deliberately untouched (D-gw-2), and that startOfDayIn's documented DST limitation still stands.\n(4) The four handlers.go time.Now() -> clock.Now() swaps: design.md D-gw-4 claims each is byte-identical because the result is consumed by .Sub() or round-tripped through pgtype.Timestamptz. VERIFY that claim at each of the four sites. Any site where the zone label survives into a stored or rendered value is a finding.\n(5) THE FIXES — scrutinise hardest here. (a) D-gw-5/D-gw-6: browserTodayNoCookie() was added to history_test.go and 3 anchors repointed. Confirm ONLY the 3 sites that compare against a HANDLER-computed window moved, and that the ~21 sites passing their own today into buildHistoryView/dashboardFor correctly still use startOfDay. A test repointed that did NOT need it is a finding — it would mask a real frame bug. (b) D-gw-7: buildHistoryPresets' Active now compares formatted dates instead of instants. Verify the pre-existing claim independently with `git show main:internal/gateway/handlers/history.go`. Confirm the date comparison is correct for BOTH negative-offset (America/Bogota) and positive-offset (Europe/Madrid) zones — reason about it; do not run tests.\n(6) Roadmap D6 — no NEW tests added. browserTodayNoCookie() is a helper, not a test; confirm no new Test* function appeared. Confirm no existing expected value was weakened or deleted to reach green — this is the key anti-gaming check given two red runs.\n(7) Doc-pack conventions: ai/go-conventions.md's timezone rule, ai/htmx-conventions.md and ai/htmx-go-integration.md if any markup or fragment wiring changed, and the i18n rule (every user-facing string bilingual through i18n.T). CLAUDE.md's docs-track-structural-change: internal/gateway/AGENTS.md must name internal/clock, and no comment may still claim the fallback is UTC.\n(8) Performance-Profile (read-heavy) — buildHistoryPresets now formats dates in a loop on the render path. Judge whether that is acceptable; say so either way.\n(9) No database object created or changed. Any schema/migration touch is a BLOCKER — it never passed the owner's design gate.\n(10) Scope honesty: D-gw-7 is a bug fix BEYOND MAG-20's literal scope, taken with the owner's explicit approval (roadmap D32) and recorded with the missing regression test in backlog entry 19. Confirm that record is accurate and complete.\n\nTest provenance: go build ./..., go vet ./internal/gateway/..., gofmt, make i18n-guard, make ui-guard and openspec validate --strict were ASSISTANT-run and pass. The suite was run and reported passing by the OWNER, on the third attempt, after the two fixes above. Judge test QUALITY by reading them; do NOT run the suite.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-08-31T14:00:00Z",
+        "agent": "gateway-reviewer",
+        "verdict": "changes-requested",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "internal/gateway/AGENTS.md",
+          "openspec/config.yaml",
+          "openspec/roadmaps/RM35-timezone-centralization.md",
+          "openspec/changes/RM35-gateway-adopt-clock/proposal.md",
+          "openspec/changes/RM35-gateway-adopt-clock/design.md",
+          "openspec/changes/RM35-gateway-adopt-clock/tasks.md",
+          "openspec/changes/RM35-gateway-adopt-clock/specs/gateway/spec.md",
+          "openspec/changes/RM35-gateway-adopt-clock/progress.json",
+          "internal/clock/calendar.go",
+          "internal/clock/clock.go",
+          "openspec/roadmaps/backlog.md"
+        ],
+        "findings": [
+          {
+            "id": "R1-1",
+            "severity": "major",
+            "note": "internal/gateway/handlers/history_test.go:1891 (TestDashboard_HistoryRegionInsideDashboardContent) exercises the real GET /ui/dashboard handler with NO browser_tz cookie (only a session cookie is set; dashboardEngine never adds browser_tz), so it hits browserToday(c)'s no-cookie fallback exactly like the 3 tests D-gw-5/D-gw-6 already fixed. But its expected value is still computed the OLD way: `yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)` — UTC-midnight-based — while the handler's actual defaultHistoryHref(today) now derives `today` from clock.Zone() (America/Bogota, UTC-05) via the same fallback. UTC-calendar-day and Bogota-calendar-day coincide except during the 5-hour window 00:00-05:00 UTC (19:00-00:00 Bogota); this test will intermittently fail during that window, purely by CI-run-time luck, and did not fail in either of the owner's two red runs by chance of timing. This falsifies design.md D-gw-6's framing that exactly 3 handler-computed-window sites needed repointing to browserTodayNoCookie() — there is a 4th, and it was missed. Roadmap D6 requires repairing every test this tier's fallback change breaks; this one is not yet repaired. Fix: replace `startOfDay(time.Now()).AddDate(0, 0, -1)` at line 1891 with `browserTodayNoCookie().AddDate(0, 0, -1)`, matching the 3 already-fixed sites.",
+            "status": "open"
+          },
+          {
+            "id": "R1-2",
+            "severity": "minor",
+            "note": "openspec/changes/RM35-gateway-adopt-clock/tasks.md:147 — T7.7 ('Owner runs the exact suite commands...') is still unchecked ([ ]) even though progress.json's events log records the owner's third suite run passing at 2026-08-31T12:55:00Z ('OWNER reported make test and make build PASSING on the third run'). openspec/config.yaml requires tasks.md be kept updated live so status reflects real progress. Check T7.7 off before archive.",
+            "status": "open"
+          }
+        ],
+        "notes": "Everything else in the brief verified clean: (1) boundaries — only internal/gateway/{AGENTS.md,handlers/tz.go,history.go,handlers.go,history_test.go,charges_test.go} + README.md (leader-owned) touched; internal/clock is the only new dependency and imports nothing project-local, no cycle. (2) tz.go diff shows the cookie parse/win path (c.Cookie, time.LoadLocation(cookie), return loc) byte-for-byte unchanged; only the 6 fallback returns became clock.Zone(). (3) startOfDay's new body 'return clock.CalendarDay(t, time.UTC)' verified algebraically identical against internal/clock/calendar.go's t.In(loc).Date() + time.Date(y,m,d,0,0,0,0,time.UTC) — same formula startOfDay hand-rolled before. supercharger.go has ZERO diff (git diff main -- internal/gateway/handlers/supercharger.go is empty), confirming startOfMonth and its startOfDay(time.Now().UTC()) call sites are untouched; startOfDayIn's body and DST-limitation doc comment are unchanged except one added cross-reference note. (4) All four handlers.go swaps verified byte-identical by reading the consumers directly: isStale/connectedAt/relativeLastSeen consume now only via .Sub(); TeslaCallback's value flows through account.timestamp() into pgtype.Timestamptz, which discards Location. (5a) Exactly 3 sites repointed to the new browserTodayNoCookie() helper (grep-verified); found a 4th that needed it and wasn't (R1-1). The other 21+ startOfDay(time.Now()) sites in history_test.go and handlers_test.go all pass their own today as an explicit argument into buildHistoryView/dashboardFor — self-consistent, correctly untouched. (5b) D-gw-7's fix (startStr == pStartStr && endStr == pEndStr) is correct for both offset signs by construction: each side's Format(\"2006-01-02\") is evaluated in that time.Time's own Location, so the comparison never depends on the offset's sign — verified by reasoning, not by running tests. git show main confirms the old start.Equal(pStart) && end.Equal(pEnd) line is byte-identical on main, supporting the pre-existing-bug claim. (6) Only one Test* name change in the diff, a rename (TestParseHistoryRange_NoCookieFallsBackToUTC -> ...ToPlatformDefault); no new test function; every removed assertion line has a like-for-like replacement with an updated expected value/message, none weakened or deleted. (7) AGENTS.md's new Allowed/forbidden-imports section and corrected RD9 paragraph both read cleanly; grep confirms no remaining doc comment claims a time.UTC fallback; make i18n-guard and make ui-guard both pass; no new user-facing string in this diff. (8) buildHistoryPresets' per-preset Format() calls run 3 times per fragment render (historyPresetDayCounts has 3 entries) — negligible in-memory formatting cost, not a read-path performance concern despite the read-heavy profile. (9) No migration/schema/db file in the diff — confirmed via git diff --stat. (10) backlog.md entry 19 accurately restates D-gw-7's finding, the fix, and the deliberately-not-written regression test, matching design.md verbatim. Independently re-ran go build ./..., go vet ./internal/gateway/..., gofmt -l on every touched .go file, make i18n-guard, make ui-guard, and openspec validate RM35-gateway-adopt-clock --strict — all pass, confirming the assistant-run signals reported in progress.json. Did not run go test per Test-Execution-Policy. Verdict is changes-requested solely for R1-1 (a real, reproducible test gap in the exact area this brief asked to scrutinise hardest) plus the minor R1-2 bookkeeping gap."
+      }
+    ]
   },
   "decisions": [
     {
@@ -236,6 +296,15 @@
       "decision": "Fix the pre-existing buildHistoryPresets instant-vs-date comparison inside tier 6 rather than as a separate change or by reverting the tier.",
       "why": "Owner chose it from three options. The test cannot go green without either this fix or a weakened assertion, and weakening is forbidden.",
       "covered_by": null
+    },
+    {
+      "id": "D-gw-8",
+      "at": "2026-08-31T13:10:00Z",
+      "scope": "review:R1-1",
+      "made_by": "leader",
+      "decision": "R1-1 accepted in full — no triage pushback.",
+      "why": "Verified independently: the test drives the real handler with no cookie and formats a UTC-derived date. It fails only 00:00-05:00 UTC, which is why three suite runs passed it.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -283,6 +352,11 @@
       "at": "2026-08-31T12:55:00Z",
       "agent": "leader",
       "event": "OWNER reported make test and make build PASSING on the third run, after the D-gw-5/6 test repair and the D-gw-7 preset fix. This is the owner's verification, not the assistant's. All tasks -> done; change -> verified. Reviewer gate opens."
+    },
+    {
+      "at": "2026-08-31T13:10:00Z",
+      "agent": "leader",
+      "event": "gateway-reviewer returned changes-requested, round 1: R1-1 (major) a FOURTH frame-mismatch site the leader missed, R1-2 (minor) an unticked task box. Both accepted, neither disputed. R1-1 is the review's real value — a latent flake no suite run could have caught outside a 5-hour daily window. Assistant-run signals green after the fix; same reviewer signalled to re-verify."
     }
   ]
 }

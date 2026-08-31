@@ -144,8 +144,19 @@
 - [x] T7.5 Confirm no file outside `internal/gateway/`, this change's own OpenSpec artifacts, and
       no `README.md` edit — no `cmd/`, no other module, no migration.
 - [x] T7.6 `openspec validate RM35-gateway-adopt-clock --strict` passes.
-- [ ] T7.7 Owner runs the exact suite commands and reports the result, turning every repaired
+- [x] T7.7 Owner runs the exact suite commands and reports the result, turning every repaired
       test from `awaiting-user-verification` into `done`:
       - `go test ./internal/gateway/...`
       - `go test ./...` (full repo regression net — roadmap D4's "behavior-preserving except the
         documented default" claim for this tier)
+
+## T8. Review round 1 findings — depends on T7
+
+- [x] T8.1 R1-1 (major): `TestDashboard_HistoryRegionInsideDashboardContent` was a FOURTH
+      site of the same frame-mismatch bug class — it drives the real `GET /ui/dashboard`
+      handler with no `browser_tz` cookie but computed its expected `end=` from
+      `startOfDay(time.Now())`. Repointed at `browserTodayNoCookie()`.
+      Acceptance: it compares only the formatted date, so it failed ONLY between 00:00 and
+      05:00 UTC — a latent flake that both of the owner's runs missed by falling outside
+      that window. The reviewer caught what three suite runs could not.
+- [x] T8.2 R1-2 (minor): T7.7 ticked — the owner reported the third suite run passing.

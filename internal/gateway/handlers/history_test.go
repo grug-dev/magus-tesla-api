@@ -1888,7 +1888,12 @@ func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
 	if strings.Contains(body, "days=6") {
 		t.Errorf("dashboard history self-load must NOT use ?days=6; got: %s", body)
 	}
-	yesterday := startOfDay(time.Now()).AddDate(0, 0, -1).Format("2006-01-02")
+	// Anchored on browserTodayNoCookie, not startOfDay: this test drives the real
+	// GET /ui/dashboard handler with NO browser_tz cookie, so defaultHistoryHref
+	// renders "yesterday" from clock.Zone() (America/Bogota). A UTC-derived
+	// expectation only matches outside 00:00-05:00 UTC, where the two calendar
+	// dates still coincide - a latent flake, not a stable pass (review R1-1).
+	yesterday := browserTodayNoCookie().AddDate(0, 0, -1).Format("2006-01-02")
 	if !strings.Contains(body, "end="+yesterday) {
 		t.Errorf("dashboard history self-load end= must be yesterday (%s); got: %s", yesterday, body)
 	}
