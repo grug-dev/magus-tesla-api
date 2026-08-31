@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-20 \u2014 https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone\nProject: architecture   Priority: Urgent\n\n## Date/Date time Time Zone\n\n* Analyze all date and date time created by the app (With golang code). The should be saved with Zone America/Bogota. Centralize a new logic that creates a date or date/time in that time zone.\n* Update the CLAUDE/AGENTS instructtion or the best MD instructions per module to use that timezone convention. Find the best place that works for claude and opencode\n* Find the best module to this kind of things that are cross-module. A new shared  util module sound like a good idea? I think it might work.. in the future we might have shared utilities for all modules\n\nAcceptance Criteria\n\nThe app does not use UTC.\n\ndate and datetimes are centralized in one place and shared to all modules needed it",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-31T02:08:29Z",
+  "updated_at": "2026-08-31T07:19:06Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -21,15 +21,15 @@
     "created_at": "2026-08-30T19:17:41Z"
   },
   "rollup": {
-    "current": [
+    "current": [],
+    "pending": [
+      7
+    ],
+    "blocked": [
       4,
       5,
       6
     ],
-    "pending": [
-      7
-    ],
-    "blocked": [],
     "done": [
       1,
       2,
@@ -153,6 +153,15 @@
       "decision": "The LEADER owns the README dependency-graph edit for tiers 4-6; no parallel worker may touch README.md.",
       "why": "All three tiers add a clock edge to the same graph block. Three concurrent workers editing one file would clobber each other. Leader applies all three edges once, after they land.",
       "covered_by": null
+    },
+    {
+      "id": "D27",
+      "at": "2026-08-31T07:19:06Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Tiers 4, 5, 6 marked BLOCKED, not done. Their partial work is committed as explicitly-labelled WIP rather than discarded or dressed up as complete.",
+      "why": "All three workers died on the session rate limit mid-run. Code for 4 and 5 is green, but artifacts are incomplete and neither has been reviewed. Marking them done would be false.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -213,14 +222,14 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "blocked",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T02:03:49Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "consumed.go calendarDay -> clock.CalendarDay; recalculate.go time.Now -> clock.Now. Module still owns no *time.Location (D-B12)."
+      "notes": "INCOMPLETE \u2014 worker killed by the rate limit mid-run. Code and tests ARE done and green (analytics tests pass). Artifacts partial: proposal.md + specs/ written, design.md and tasks.md MISSING. No progress.json, no review."
     },
     {
       "id": 5,
@@ -230,14 +239,14 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "blocked",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T02:03:49Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "scheduler.go nil-loc fallback and processor.go now/day math -> clock. Preserve the D6/D18 poller's-own-zone semantics."
+      "notes": "INCOMPLETE \u2014 worker killed by the rate limit mid-run. Code, tests and AGENTS.md ARE done and green (app tests pass). Artifacts partial: proposal.md, design.md, specs/ written, tasks.md MISSING. No progress.json, no review."
     },
     {
       "id": 6,
@@ -247,14 +256,14 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "blocked",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T02:03:49Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "tz.go UTC fallbacks -> clock.Zone(); history/supercharger startOfDay -> clock.CalendarDay; handlers.go time.Now -> clock.Now. Cookie still wins; keep startOfDayIn + its DST note."
+      "notes": "NOT STARTED \u2014 worker killed by the rate limit before editing anything. internal/gateway is completely untouched; git status confirms zero modified files there."
     },
     {
       "id": 7,
@@ -332,6 +341,12 @@
       "kind": "budget-checkpoint",
       "by": "leader",
       "note": "CHECKPOINT: five_hour_pct=98 (threshold 90), context_pct=34 (threshold 40), five_hour_resets_at=1788156600. Tiers 4,5,6 were dispatched in parallel BEFORE this trip and are still in flight \u2014 they finish on work already paid for. No NEW work starts until the bucket resets. Tier 7 (tz-guard) must not begin before then. Resume with: /kkpa-dev-harness-pipeline resume RM35-timezone-centralization"
+    },
+    {
+      "at": "2026-08-31T07:19:06Z",
+      "kind": "workers-killed",
+      "by": "leader",
+      "note": "All three parallel workers terminated by HTTP 429 session limit. Leader verified the surviving tree independently: go build OK, go vet OK, go test ./internal/analytics/... and ./internal/app/... both pass. README graph updated for the analytics and app clock edges that are now real; gateway's edge deliberately NOT added, since gateway was never touched."
     }
   ]
 }

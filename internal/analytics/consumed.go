@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -65,22 +66,6 @@ type vehicleMetricRow struct {
 	MissingChargingType MissingChargingType // "" maps to SQL NULL (mapping.go)
 }
 
-// calendarDay normalizes an already-bare calendar date to this platform's
-// date representation: UTC midnight, no time-of-day component (the
-// pgtype.Date convention that telemetry.Snapshot.CapturedDate and
-// charging.Entry.ChargedOn already arrive in, and the shape of
-// ConsumedByDay's own start/end parameters).
-//
-// This is NOT a timezone conversion and NOT a bucketing decision: it never
-// moves a value across a day boundary, it only strips a stray time-of-day
-// component. The zone that decides day boundaries is the poller's
-// Config.Location -- see effectiveDay below and design.md D-B7
-// ("Representation vs. zone").
-func calendarDay(t time.Time) time.Time {
-	t = t.UTC()
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
-}
-
 // effectiveDay returns the calendar day snapshot s DESCRIBES: its own
 // CapturedDate minus one calendar day. The nightly poller runs at ~03:30 and
 // captures the state accumulated over the PRIOR day, so the row's day is one
@@ -88,10 +73,19 @@ func calendarDay(t time.Time) time.Time {
 //
 // The zone is the poller's configured Config.Location (roadmap D6, owner
 // ruling D18), and it arrives here already applied: telemetry stamps
-// CapturedDate on the write path via dateOnly(capturedAt, loc)
-// (internal/telemetry/service.go), which is the single place that zone
-// decides a snapshot's calendar day. This module therefore needs no
-// *time.Location of its own (design.md D-B12).
+// CapturedDate on the write path via clock.CalendarDay(capturedAt, loc)
+// (internal/telemetry/service.go, RM35-telemetry-adopt-clock), which is the
+// single place that zone decides a snapshot's calendar day. This module
+// therefore needs no *time.Location of its own (design.md D-B12).
+//
+// clock.CalendarDay is called here with time.UTC, not clock.Zone() --
+// CapturedDate already arrives as a bare pgtype.Date-shaped value (UTC
+// midnight, no time-of-day component), so this call is NOT a timezone
+// conversion and NOT a bucketing decision: it never moves the value across a
+// day boundary, it only strips a stray time-of-day component that could not
+// exist for a well-formed CapturedDate but is normalized defensively anyway
+// (RM35-analytics-adopt-clock design.md). Passing clock.Zone() here would
+// silently re-bucket an already-normalized day -- do not "improve" this.
 //
 // Deliberately does NOT read s.EffectiveDate: that field is derived as
 // CapturedAt.AddDate(0,0,-1) with CapturedAt in UTC (telemetry/mapping.go), so
@@ -104,7 +98,7 @@ func calendarDay(t time.Time) time.Time {
 // deriveConsumption (consumption.go) derives DaysSpannedCalc from the same
 // two CapturedDate values.
 func effectiveDay(s telemetry.Snapshot) time.Time {
-	return calendarDay(s.CapturedDate).AddDate(0, 0, -1)
+	return clock.CalendarDay(s.CapturedDate, time.UTC).AddDate(0, 0, -1)
 }
 
 // sumSuperchargerPctBetween sums (EndBatteryPct - StartBatteryPct) across
@@ -143,16 +137,18 @@ func inferMissingChargingType(sessions []charging.Session, from, to time.Time) M
 }
 
 // sumManualPctBetween sums BatteryDelta() across every manual entry whose
-// calendarDay(ChargedOn) falls in (fromDay, toDay] -- design.md D-B6's
-// exclusive-start/inclusive-end range, generalized from the single-day D12
-// rule to cover multi-day spans without a second code path. fromDay/toDay
-// are the caller's zoned effectiveDay values, not raw snapshot timestamps.
-// Entries with either battery percentage NULL contribute 0 (BatteryDelta()
-// returns nil in that case).
+// clock.CalendarDay(ChargedOn, time.UTC) falls in (fromDay, toDay] --
+// design.md D-B6's exclusive-start/inclusive-end range, generalized from the
+// single-day D12 rule to cover multi-day spans without a second code path.
+// fromDay/toDay are the caller's zoned effectiveDay values, not raw snapshot
+// timestamps. time.UTC, not clock.Zone(), for the same reason effectiveDay
+// above uses it: ChargedOn already arrives as a bare, UTC-midnight-normalized
+// date (RM35-analytics-adopt-clock design.md). Entries with either battery
+// percentage NULL contribute 0 (BatteryDelta() returns nil in that case).
 func sumManualPctBetween(entries []charging.Entry, fromDay, toDay time.Time) float64 {
 	var total float64
 	for _, e := range entries {
-		day := calendarDay(e.ChargedOn)
+		day := clock.CalendarDay(e.ChargedOn, time.UTC)
 		if !day.After(fromDay) || day.After(toDay) {
 			continue
 		}

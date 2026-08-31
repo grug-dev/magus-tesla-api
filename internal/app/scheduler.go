@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -24,12 +25,13 @@ type Scheduler struct {
 }
 
 // NewScheduler builds a daily scheduler that runs processor at hour:minute in loc. A
-// nil loc falls back to time.Local, and an out-of-range clock defaults to the wall
+// nil loc falls back to the platform's default zone, clock.Zone() (America/Bogota) —
+// RM35-app-adopt-clock, roadmap D4 — and an out-of-range clock defaults to the wall
 // clock. cfg.Clock (when set) is used as the scheduler's clock so tests stay
 // deterministic; otherwise time.Now is used.
 func NewScheduler(processor Processor, hour, minute int, loc *time.Location, cfg telemetry.Config) *Scheduler {
 	if loc == nil {
-		loc = time.Local
+		loc = clock.Zone()
 	}
 	nowFn := time.Now
 	if cfg.Clock != nil {

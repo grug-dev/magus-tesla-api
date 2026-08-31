@@ -63,6 +63,7 @@ import (
 
 	analyticsdb "github.com/cristianpena/magus-tesla-api/internal/analytics/db"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -934,7 +935,7 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 	const teslaID = int64(930001)
 	cleanupVehicleMetrics(t, pool, accountID, teslaID)
 
-	day0 := calendarDay(time.Now()).AddDate(0, 0, -20)
+	day0 := clock.CalendarDay(time.Now(), time.UTC).AddDate(0, 0, -20)
 	day1 := day0.AddDate(0, 0, 1)
 
 	prev := telemetry.Snapshot{
@@ -995,7 +996,7 @@ func TestReconcile_Idempotent(t *testing.T) {
 	const teslaID = int64(930002)
 	cleanupVehicleMetrics(t, pool, accountID, teslaID)
 
-	day0 := calendarDay(time.Now()).AddDate(0, 0, -22)
+	day0 := clock.CalendarDay(time.Now(), time.UTC).AddDate(0, 0, -22)
 	day1 := day0.AddDate(0, 0, 1)
 
 	prev := telemetry.Snapshot{
@@ -1085,7 +1086,7 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 	cleanupVehicleMetrics(t, pool, accountID, teslaID)
 
 	refNow := time.Now().UTC()
-	oldDay := calendarDay(refNow).AddDate(0, 0, -25) // "three weeks ago" and then some -- safely before yesterday
+	oldDay := clock.CalendarDay(refNow, time.UTC).AddDate(0, 0, -25) // "three weeks ago" and then some -- safely before yesterday
 
 	prev := telemetry.Snapshot{
 		AccountID: accountID, TeslaID: teslaID,
@@ -1244,7 +1245,7 @@ func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
 
 	// prev/cur CapturedDate are one day past each fixture's own EFFECTIVE day
 	// (day(2026,8,13)/day(2026,8,14) respectively) -- effectiveDay(s) =
-	// calendarDay(s.CapturedDate) - 1 day (consumed.go), and design.md's own
+	// clock.CalendarDay(s.CapturedDate, time.UTC) - 1 day (consumed.go), and design.md's own
 	// "Then" bullet pins the resulting row's metric_date at day(2026,8,14).
 	prev := telemetry.Snapshot{
 		AccountID: accountID, TeslaID: teslaID,

@@ -10,6 +10,7 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/account"
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -187,8 +188,17 @@ func (p *processor) recalculateAnalytics(ctx context.Context) {
 	// own because each row's bucket day travels with it. time.Now().UTC() here
 	// would ask for the wrong day for 5 hours out of every 24. The window ends
 	// yesterday because today's data is not captured until tomorrow's poll.
-	y, m, d := time.Now().In(p.loc).Date()
-	end := time.Date(y, m, d, 0, 0, 0, 0, time.UTC).AddDate(0, 0, -1)
+	//
+	// clock.CalendarDay(clock.Now(), p.loc) replaces the hand-rolled
+	// "y, m, d := time.Now().In(p.loc).Date(); time.Date(y, m, d, 0, 0, 0, 0,
+	// time.UTC)" truncation — algebraically identical (RM35-app-adopt-clock design.md
+	// D-app-1) — while p.loc, the poller's own configured zone, is preserved
+	// unchanged: it is still what decides which calendar day "yesterday" is, exactly
+	// as roadmap D6/D18 and tier-3 design D-B12 require. clock.Now() is used for the
+	// instant rather than a bare time.Now() per ai/go-conventions.md's "never call
+	// raw time.Now() outside internal/clock"; the two are the same instant, so this
+	// is not a behavior change (design.md D-app-2).
+	end := clock.CalendarDay(clock.Now(), p.loc).AddDate(0, 0, -1)
 	start := end.AddDate(0, 0, -int(analytics.GapReconciliationWindow.Hours()/24)+1)
 
 	log.Printf("gap reconciliation: %s → %s", start, end)
