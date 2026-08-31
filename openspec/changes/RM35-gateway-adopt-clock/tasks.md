@@ -160,3 +160,20 @@
       05:00 UTC — a latent flake that both of the owner's runs missed by falling outside
       that window. The reviewer caught what three suite runs could not.
 - [x] T8.2 R1-2 (minor): T7.7 ticked — the owner reported the third suite run passing.
+
+## T9. Review round 2 finding — depends on T8
+
+- [x] T9.1 R2-1 (major): the leader's round-1 claim that
+      `TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows` and
+      `..._LabelsMatchViewModelVerbatim_NoLongDateFormat` were safe was **WRONG**, and the
+      reviewer was right to reject it. The leader read `parseHistoryRange`'s cap as
+      `end <= today`; it is actually `end <= yesterday` (`history.go` step 4), and
+      `calendarDateAfter` compares each `time.Time`'s date **in its own Location**.
+      Both tests send a UTC-derived `end=` with no `browser_tz` cookie, so between 00:00
+      and 05:00 UTC that date is one day past browser-yesterday and the request 400s.
+      Repointed both at `browserTodayNoCookie()`.
+      Acceptance: same mechanism as R1-1, tripping the validation cap rather than a string
+      comparison. `TestBuildHistoryView_PresetsCarryAbsoluteHrefs` shares the same line but
+      is deliberately NOT changed — it calls `buildHistoryView` directly with its own
+      `today` and never reaches `parseHistoryRange`.
+

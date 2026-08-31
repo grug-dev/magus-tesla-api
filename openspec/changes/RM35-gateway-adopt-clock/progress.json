@@ -8,7 +8,7 @@
   "status": "in-review",
   "rollup": {
     "current": [
-      "T9"
+      "T10"
     ],
     "pending": [],
     "blocked": [],
@@ -20,11 +20,12 @@
       "T5",
       "T6",
       "T7",
-      "T8"
+      "T8",
+      "T9"
     ]
   },
   "created_at": "2026-08-31T09:50:00Z",
-  "updated_at": "2026-08-31T13:10:00Z",
+  "updated_at": "2026-08-31T13:30:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -184,6 +185,23 @@
       "duration_seconds": 480,
       "notes": "R1-1 accepted: a 4th frame-mismatch site repointed at browserTodayNoCookie(). It failed only 00:00-05:00 UTC, so three suite runs missed it. R1-2 accepted: T7.7 ticked.",
       "budget": null
+    },
+    {
+      "id": "T10",
+      "title": "address review round 2 finding R2-1",
+      "module": "gateway",
+      "depends_on": [
+        "T9"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T13:20:00Z",
+      "completed_at": "2026-08-31T13:30:00Z",
+      "duration_seconds": 600,
+      "notes": "Reviewer was right, leader was wrong. 2 more sites repointed. Leader had misread the cap as end<=today; it is end<=yesterday, compared per-Location. A 3rd site sharing the line is correctly left alone.",
+      "budget": null
     }
   ],
   "review": {
@@ -220,16 +238,48 @@
             "id": "R1-1",
             "severity": "major",
             "note": "internal/gateway/handlers/history_test.go:1891 (TestDashboard_HistoryRegionInsideDashboardContent) exercises the real GET /ui/dashboard handler with NO browser_tz cookie (only a session cookie is set; dashboardEngine never adds browser_tz), so it hits browserToday(c)'s no-cookie fallback exactly like the 3 tests D-gw-5/D-gw-6 already fixed. But its expected value is still computed the OLD way: `yesterday := startOfDay(time.Now()).AddDate(0, 0, -1)` — UTC-midnight-based — while the handler's actual defaultHistoryHref(today) now derives `today` from clock.Zone() (America/Bogota, UTC-05) via the same fallback. UTC-calendar-day and Bogota-calendar-day coincide except during the 5-hour window 00:00-05:00 UTC (19:00-00:00 Bogota); this test will intermittently fail during that window, purely by CI-run-time luck, and did not fail in either of the owner's two red runs by chance of timing. This falsifies design.md D-gw-6's framing that exactly 3 handler-computed-window sites needed repointing to browserTodayNoCookie() — there is a 4th, and it was missed. Roadmap D6 requires repairing every test this tier's fallback change breaks; this one is not yet repaired. Fix: replace `startOfDay(time.Now()).AddDate(0, 0, -1)` at line 1891 with `browserTodayNoCookie().AddDate(0, 0, -1)`, matching the 3 already-fixed sites.",
-            "status": "open"
+            "status": "fixed"
           },
           {
             "id": "R1-2",
             "severity": "minor",
             "note": "openspec/changes/RM35-gateway-adopt-clock/tasks.md:147 — T7.7 ('Owner runs the exact suite commands...') is still unchecked ([ ]) even though progress.json's events log records the owner's third suite run passing at 2026-08-31T12:55:00Z ('OWNER reported make test and make build PASSING on the third run'). openspec/config.yaml requires tasks.md be kept updated live so status reflects real progress. Check T7.7 off before archive.",
-            "status": "open"
+            "status": "fixed"
           }
         ],
         "notes": "Everything else in the brief verified clean: (1) boundaries — only internal/gateway/{AGENTS.md,handlers/tz.go,history.go,handlers.go,history_test.go,charges_test.go} + README.md (leader-owned) touched; internal/clock is the only new dependency and imports nothing project-local, no cycle. (2) tz.go diff shows the cookie parse/win path (c.Cookie, time.LoadLocation(cookie), return loc) byte-for-byte unchanged; only the 6 fallback returns became clock.Zone(). (3) startOfDay's new body 'return clock.CalendarDay(t, time.UTC)' verified algebraically identical against internal/clock/calendar.go's t.In(loc).Date() + time.Date(y,m,d,0,0,0,0,time.UTC) — same formula startOfDay hand-rolled before. supercharger.go has ZERO diff (git diff main -- internal/gateway/handlers/supercharger.go is empty), confirming startOfMonth and its startOfDay(time.Now().UTC()) call sites are untouched; startOfDayIn's body and DST-limitation doc comment are unchanged except one added cross-reference note. (4) All four handlers.go swaps verified byte-identical by reading the consumers directly: isStale/connectedAt/relativeLastSeen consume now only via .Sub(); TeslaCallback's value flows through account.timestamp() into pgtype.Timestamptz, which discards Location. (5a) Exactly 3 sites repointed to the new browserTodayNoCookie() helper (grep-verified); found a 4th that needed it and wasn't (R1-1). The other 21+ startOfDay(time.Now()) sites in history_test.go and handlers_test.go all pass their own today as an explicit argument into buildHistoryView/dashboardFor — self-consistent, correctly untouched. (5b) D-gw-7's fix (startStr == pStartStr && endStr == pEndStr) is correct for both offset signs by construction: each side's Format(\"2006-01-02\") is evaluated in that time.Time's own Location, so the comparison never depends on the offset's sign — verified by reasoning, not by running tests. git show main confirms the old start.Equal(pStart) && end.Equal(pEnd) line is byte-identical on main, supporting the pre-existing-bug claim. (6) Only one Test* name change in the diff, a rename (TestParseHistoryRange_NoCookieFallsBackToUTC -> ...ToPlatformDefault); no new test function; every removed assertion line has a like-for-like replacement with an updated expected value/message, none weakened or deleted. (7) AGENTS.md's new Allowed/forbidden-imports section and corrected RD9 paragraph both read cleanly; grep confirms no remaining doc comment claims a time.UTC fallback; make i18n-guard and make ui-guard both pass; no new user-facing string in this diff. (8) buildHistoryPresets' per-preset Format() calls run 3 times per fragment render (historyPresetDayCounts has 3 entries) — negligible in-memory formatting cost, not a read-path performance concern despite the read-heavy profile. (9) No migration/schema/db file in the diff — confirmed via git diff --stat. (10) backlog.md entry 19 accurately restates D-gw-7's finding, the fix, and the deliberately-not-written regression test, matching design.md verbatim. Independently re-ran go build ./..., go vet ./internal/gateway/..., gofmt -l on every touched .go file, make i18n-guard, make ui-guard, and openspec validate RM35-gateway-adopt-clock --strict — all pass, confirming the assistant-run signals reported in progress.json. Did not run go test per Test-Execution-Policy. Verdict is changes-requested solely for R1-1 (a real, reproducible test gap in the exact area this brief asked to scrutinise hardest) plus the minor R1-2 bookkeeping gap."
+      },
+      {
+        "round": 2,
+        "at": "2026-08-31T15:30:00Z",
+        "agent": "gateway-reviewer",
+        "verdict": "changes-requested",
+        "reverified_files": [
+          "internal/gateway/handlers/history_test.go",
+          "openspec/changes/RM35-gateway-adopt-clock/tasks.md",
+          "openspec/changes/RM35-gateway-adopt-clock/progress.json"
+        ],
+        "prior_findings_recheck": [
+          {
+            "id": "R1-1",
+            "status": "fixed",
+            "note": "history_test.go:1891 now anchors on browserTodayNoCookie().AddDate(0,0,-1), matching the 3 already-fixed sites. Verified via git show 300b381 -- internal/gateway/handlers/history_test.go: the diff replaces exactly the flagged line, adds an explanatory comment, and touches nothing else in the function. No new flakiness introduced by the fix."
+          },
+          {
+            "id": "R1-2",
+            "status": "fixed",
+            "note": "tasks.md:147 T7.7 is now checked; a new '## T8. Review round 1 findings' section (T8.1, T8.2) records both fixes with the review's own language. Verified via git show 300b381 -- openspec/changes/RM35-gateway-adopt-clock/tasks.md."
+          }
+        ],
+        "findings": [
+          {
+            "id": "R2-1",
+            "severity": "major",
+            "note": "The leader's own follow-up scan flagged TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows (history_test.go:1752) and TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat (history_test.go:1803) as safe. That judgement is WRONG for both — they are a 5th and 6th site of the same bug class, just manifesting as a spurious 400 instead of a wrong string. Both build end := startOfDay(time.Now()).AddDate(0, 0, -1) (UTC-yesterday, Location=UTC) and pass it as an explicit ?end= query param with NO browser_tz cookie (historyEngine's /_session route sets only uid, never browser_tz). Server-side, DashboardHistoryFragment resolves today := browserToday(c) via the same no-cookie fallback, now clock.Zone() (Bogota) — so parseHistoryRange's cap computes yesterday := today.AddDate(0,0,-1) with Location=Bogota. calendarDateAfter(e, yesterday) compares e.Date() and yesterday.Date() using EACH time.Time's OWN Location (Go's Time.Date() semantics), not a common frame. Concrete counterexample at real time 2026-08-16T02:00:00Z: UTC-yesterday's calendar date is 2026-08-15 (UTC), but Bogota-yesterday's calendar date is 2026-08-14 (Bogota is still on the 15th as 'today' at that instant). calendarDateAfter(2026-08-15, 2026-08-14) = true, so parseHistoryRange rejects the request as 'end after browser-yesterday' -> ok=false -> the handler returns HTTP 400. Both tests assert 200 (`t.Fatalf(\"want 200, got %d\", w.Code)`) and will fail with a 400 during the same 00:00-05:00 UTC / 19:00-00:00 Bogota window R1-1 already identified. This is not a hypothetical: it is the identical frame-mismatch mechanism, just tripping the validation cap instead of a string comparison. The leader's stated reasoning ('end is UTC-yesterday and today is Bogota-today, so it clears the cap in either frame') does not hold once the two Locations are compared through calendarDateAfter's own-Location semantics. Fix: in both tests, replace `end := startOfDay(time.Now()).AddDate(0, 0, -1)` with `end := browserTodayNoCookie().AddDate(0, 0, -1)`, mirroring R1-1's fix -- this makes the calendar-date STRING placed in the URL agree with the handler's own Bogota-frame yesterday, so calendarDateAfter always compares equal calendar dates regardless of which 5-hour window the suite runs in.",
+            "status": "open"
+          }
+        ],
+        "notes": "Re-checked only the two round-1 findings and the files touched by commit 300b381, per the thrift rule -- did not re-review the rest of the tier's diff (already clean per round 1). R1-1 and R1-2 are both correctly and completely fixed; no new violation introduced by the fix itself. Independently verified go build ./..., go vet ./internal/gateway/..., gofmt -l internal/gateway/handlers/history_test.go, and openspec validate RM35-gateway-adopt-clock --strict -- all pass, confirming the leader's reported signals. Did NOT run go test, per Test-Execution-Policy. However, the leader's own additional due-diligence scan (which I was asked to check) reached the wrong conclusion on 2 of the 21 remaining startOfDay(time.Now()) sites: TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows and TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat both build their explicit end= query param from startOfDay(time.Now()) with no browser_tz cookie, which crosses the SAME browserToday/clock.Zone() fallback R1-1 fixed -- just through parseHistoryRange's calendarDateAfter cap rather than a string-equality assertion. Traced the concrete mechanism with a worked example (real time 2026-08-16T02:00:00Z) showing the request is rejected 400 during the 00:00-05:00 UTC window, which both tests would report as a t.Fatalf failure. Verdict remains changes-requested for round 2, this time solely for R2-1 -- the same bug class, in the same file, that R1-1 was meant to close out. The owner has not yet re-run the suite since commit 300b381 (per the coordinator's message), so no suite-execution evidence is being overridden here; this is a reasoning-only finding, exactly as the reviewer role requires when a claim can be checked without running tests."
       }
     ]
   },
@@ -305,6 +355,15 @@
       "decision": "R1-1 accepted in full — no triage pushback.",
       "why": "Verified independently: the test drives the real handler with no cookie and formats a UTC-derived date. It fails only 00:00-05:00 UTC, which is why three suite runs passed it.",
       "covered_by": null
+    },
+    {
+      "id": "D-gw-9",
+      "at": "2026-08-31T13:30:00Z",
+      "scope": "review:R2-1",
+      "made_by": "leader",
+      "decision": "R2-1 accepted in full; the leader's round-1 'both safe' judgement is recorded as WRONG rather than quietly dropped.",
+      "why": "Leader misread parseHistoryRange's cap as end<=today. It is end<=yesterday, and calendarDateAfter compares each time in its own Location. The reviewer's worked example is correct.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -357,6 +416,11 @@
       "at": "2026-08-31T13:10:00Z",
       "agent": "leader",
       "event": "gateway-reviewer returned changes-requested, round 1: R1-1 (major) a FOURTH frame-mismatch site the leader missed, R1-2 (minor) an unticked task box. Both accepted, neither disputed. R1-1 is the review's real value — a latent flake no suite run could have caught outside a 5-hour daily window. Assistant-run signals green after the fix; same reviewer signalled to re-verify."
+    },
+    {
+      "at": "2026-08-31T13:30:00Z",
+      "agent": "leader",
+      "event": "Review round 2: R1-1 and R1-2 verified fixed; NEW finding R2-1 (major) rejects the leader's claim that two further tests were safe. Verified against history.go and calendarDateAfter — the reviewer is right and the leader was wrong. Both repointed. A third test sharing the identical line (TestBuildHistoryView_PresetsCarryAbsoluteHrefs) is deliberately NOT changed: it calls buildHistoryView directly and never reaches parseHistoryRange. Total frame-mismatch sites found across the tier: 6, of which review found 3."
     }
   ]
 }

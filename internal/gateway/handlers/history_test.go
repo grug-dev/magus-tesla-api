@@ -1754,7 +1754,13 @@ func TestDashboardHistoryFragment_LabelsRenderedAndVerticalOnlyForNarrowWindows(
 	// end must be yesterday, not today: D11's cap now REJECTS an explicit
 	// end=today request (design.md D-G9) — this test submits an explicit
 	// ?end= via the URL, so it must respect the same cap the handler enforces.
-	end := startOfDay(time.Now()).AddDate(0, 0, -1)
+	// browserTodayNoCookie, not startOfDay: this end= is sent as an explicit query
+	// param and must clear parseHistoryRange's cap, which rejects when end's
+	// calendar date is after BROWSER-yesterday (history.go step 4). With no
+	// browser_tz cookie that yesterday comes from clock.Zone(), so a UTC-derived
+	// end sits one day ahead of it between 00:00 and 05:00 UTC and the request
+	// 400s instead of 200 (review R2-1).
+	end := browserTodayNoCookie().AddDate(0, 0, -1)
 	for _, numBars := range []int{6, 14, 30} {
 		start := end.AddDate(0, 0, -(numBars - 1)) // inclusive end → numBars days
 		// Full coverage incl. lookback.
@@ -1805,7 +1811,13 @@ func TestDashboardHistoryFragment_LabelsMatchViewModelVerbatim_NoLongDateFormat(
 	// end must be yesterday, not today: D11's cap now REJECTS an explicit
 	// end=today request (design.md D-G9) — this test submits an explicit
 	// ?end= via the URL, so it must respect the same cap the handler enforces.
-	end := startOfDay(time.Now()).AddDate(0, 0, -1)
+	// browserTodayNoCookie, not startOfDay: this end= is sent as an explicit query
+	// param and must clear parseHistoryRange's cap, which rejects when end's
+	// calendar date is after BROWSER-yesterday (history.go step 4). With no
+	// browser_tz cookie that yesterday comes from clock.Zone(), so a UTC-derived
+	// end sits one day ahead of it between 00:00 and 05:00 UTC and the request
+	// 400s instead of 200 (review R2-1).
+	end := browserTodayNoCookie().AddDate(0, 0, -1)
 	start := end.AddDate(0, 0, -13) // 14-day inclusive window ending yesterday
 	snaps := snapsForDays(append([]time.Time{start.AddDate(0, 0, -1)}, calendarDays(start, end)...), 1000, 10, 60)
 	reader := &fakeHistoryReader{historySnaps: snaps}

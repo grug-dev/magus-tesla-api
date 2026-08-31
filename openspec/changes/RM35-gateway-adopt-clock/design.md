@@ -235,6 +235,27 @@ cannot go green without either this fix or a weakened assertion.
 no NEW regression test asserting "a cookie-carrying user sees an active preset" was written.
 That gap is recorded for the backlog.
 
+### D-gw-9 — The frame-mismatch class had SIX test sites, not three (corrected twice by review)
+
+The tier's first pass found 3. Review round 1 found a 4th (R1-1). Review round 2 found the
+5th and 6th (R2-1), after the leader had explicitly judged them safe.
+
+The leader's wrong reasoning is recorded because it is the useful part: it read
+`parseHistoryRange`'s cap as `end <= today` and concluded a UTC-derived `end` clears it.
+The cap is `end <= yesterday` (`history.go` step 4), and `calendarDateAfter` compares each
+`time.Time`'s date **in its own Location** — so a UTC-yesterday `end` is one calendar day
+past browser-yesterday whenever UTC and Bogota disagree on the date.
+
+The class is therefore: **any test that lets a value cross the `browserLocation` fallback —
+whether by comparing against a handler-computed window (R1-1) or by sending a param the
+handler validates against one (R2-1) — must anchor on `browserTodayNoCookie()`.** Sites that
+pass their own `today` straight into `buildHistoryView` / `dashboardFor` never reach the
+fallback and correctly keep `startOfDay`; `TestBuildHistoryView_PresetsCarryAbsoluteHrefs`
+shares the identical line and is deliberately untouched for exactly that reason.
+
+Every one of these fails ONLY between 00:00 and 05:00 UTC. No suite run outside that window
+can find them, which is why three green runs did not.
+
 ## Test Contract
 
 Per `ai/go-conventions.md` §Testing, expected values are authored here before the implementation
