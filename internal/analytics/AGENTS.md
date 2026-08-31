@@ -184,6 +184,12 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
   telemetry-backed port/type this section named before that tier.
 - `internal/account` — the narrow `RegisteredVehicles` method (satisfied by
   `account.Service`) and the domain type `account.Vehicle`.
+- `internal/clock` — the platform's time primitives (`RM35-analytics-adopt-clock`).
+  This module calls `clock.CalendarDay(t, time.UTC)` and `clock.Now()`. Note it still
+  owns **no `*time.Location` of its own** (D-B12): every bucketing call passes
+  `time.UTC` explicitly, because the values being bucketed are already-normalized
+  days and the zone that decides day boundaries is applied upstream, in `telemetry`.
+  Importing `clock` does not change that invariant.
 - `github.com/google/uuid`, stdlib (`context`, `time`).
 
 **Must NOT import:**
