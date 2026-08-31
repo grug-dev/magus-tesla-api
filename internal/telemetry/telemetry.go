@@ -207,9 +207,9 @@ type Config struct {
 	// snapshot belongs to — from CapturedAt at write time (D2 of
 	// telemetry-dedupe-daily-snapshots). Nil means the platform's default zone,
 	// clock.Zone() (America/Bogota) — RM35-telemetry-adopt-clock, roadmap D4.
-	// internal/app's Scheduler is a separate, not-yet-migrated fallback: as of
-	// this tier it still falls back to time.Local on a nil loc, pending
-	// RM35-app-adopt-clock (tier 5). cmd/poller sets this Location from
+	// internal/app's Scheduler has the same nil-loc fallback and now resolves it
+	// the same way, to clock.Zone() (RM35-app-adopt-clock, tier 5) — so the two
+	// agree again on a nil input. cmd/poller sets this Location from
 	// config.PollerTimezone via time.LoadLocation — the SAME *time.Location
 	// passed to NewScheduler — so the day a snapshot is dated always agrees with
 	// the day the scheduler considers "today" for that run.
