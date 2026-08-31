@@ -202,7 +202,7 @@ This is a **modular monolith** — one Go module, multiple internal packages, ea
 | `internal/googleauth` | Google OAuth for user login |
 | `internal/config` | Load `.env`, typed config, token persistence |
 | `internal/auth` | Tesla OAuth URL, code exchange, token refresh |
-| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config` (`RM35` tier 2); `telemetry`, `analytics`, `app` and `gateway` adopt it in tiers 3–6. |
+| `internal/clock` | Platform default time zone (`America/Bogota`) and calendar-day normalization — `Zone()`, `Now()`, `LoadOrDefault()`, `CalendarDay()`. Stdlib `time` only, so nothing can cycle through it. Adopted by `config` (`RM35` tier 2) and `telemetry` (`RM35` tier 3); `analytics`, `app` and `gateway` adopt it in tiers 4–6. |
 | `internal/testdb` | Test-only Postgres provisioning helper (uses `DATABASE_URL` when reachable, else a disposable `postgres:16-alpine` testcontainer). Import from `_test.go` files **only**. |
 
 ### Dependency graph
@@ -231,7 +231,7 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 ├─ LAYER 2 ── derived read-side ───────────────────────────────────────────┤
 │  analytics ──────────► account, charging, telemetry                      │
 ├─ LAYER 1 ── domain modules & config ─────────────────────────────────────┤
-│  telemetry ──────────► account, tesla, telemetry/db                      │
+│  telemetry ──────────► account, tesla, clock, telemetry/db               │
 │  charging ───────────► charging/db                                       │
 │  account ────────────► auth, account/db                                  │
 │  config ─────────────► clock                                             │

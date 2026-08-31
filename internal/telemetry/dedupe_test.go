@@ -3,16 +3,21 @@ package telemetry
 import (
 	"testing"
 	"time"
+
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 )
 
-// The tests below exercise dateOnly and (*service).location() fully OFFLINE:
-// pure functions/methods with no DB and no network dependency (design.md D2/D2a,
-// tasks.md T8.1/T8.2 of telemetry-dedupe-daily-snapshots).
+// The tests below exercise clock.CalendarDay (via its telemetry call site) and
+// (*service).location() fully OFFLINE: pure functions/methods with no DB and no
+// network dependency (design.md D2/D2a, tasks.md T8.1/T8.2 of
+// telemetry-dedupe-daily-snapshots; repaired by RM35-telemetry-adopt-clock, which
+// deleted the module's own dateOnly in favor of clock.CalendarDay — same formula,
+// same expected values, per roadmap D6/D7).
 
-// TestDateOnly_ComfortablyInsideLocalDay covers tasks.md T8.1(a): a capture
+// TestCalendarDay_ComfortablyInsideLocalDay covers tasks.md T8.1(a): a capture
 // comfortably inside a calendar day in a non-UTC zone returns that same local
 // calendar date.
-func TestDateOnly_ComfortablyInsideLocalDay(t *testing.T) {
+func TestCalendarDay_ComfortablyInsideLocalDay(t *testing.T) {
 	loc, err := time.LoadLocation("America/Bogota")
 	if err != nil {
 		t.Fatalf("LoadLocation: %v", err)
@@ -21,19 +26,19 @@ func TestDateOnly_ComfortablyInsideLocalDay(t *testing.T) {
 	// same calendar day (Jan 15) in both UTC and local.
 	capturedAt := time.Date(2026, 1, 15, 20, 0, 0, 0, time.UTC)
 
-	got := dateOnly(capturedAt, loc)
+	got := clock.CalendarDay(capturedAt, loc)
 	want := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
 	if !got.Equal(want) {
-		t.Errorf("dateOnly(%v, %v) = %v, want %v", capturedAt, loc, got, want)
+		t.Errorf("CalendarDay(%v, %v) = %v, want %v", capturedAt, loc, got, want)
 	}
 }
 
-// TestDateOnly_UTCDayAheadOfLocalDay covers tasks.md T8.1(b): a capture whose
+// TestCalendarDay_UTCDayAheadOfLocalDay covers tasks.md T8.1(b): a capture whose
 // UTC instant is on one calendar day but whose local instant (in a
-// negative-offset zone) is the PREVIOUS calendar day — asserting dateOnly
+// negative-offset zone) is the PREVIOUS calendar day — asserting CalendarDay
 // follows the local day, not the UTC day. This is the exact scenario design
 // D2's rejected UTC-expression alternative would get wrong.
-func TestDateOnly_UTCDayAheadOfLocalDay(t *testing.T) {
+func TestCalendarDay_UTCDayAheadOfLocalDay(t *testing.T) {
 	loc, err := time.LoadLocation("America/Bogota")
 	if err != nil {
 		t.Fatalf("LoadLocation: %v", err)
@@ -42,33 +47,34 @@ func TestDateOnly_UTCDayAheadOfLocalDay(t *testing.T) {
 	// UTC day is Jan 2, but the local day is still Jan 1.
 	capturedAt := time.Date(2026, 1, 2, 2, 0, 0, 0, time.UTC)
 
-	got := dateOnly(capturedAt, loc)
+	got := clock.CalendarDay(capturedAt, loc)
 	want := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	if !got.Equal(want) {
-		t.Errorf("dateOnly(%v, %v) = %v, want %v (local day, not UTC day)", capturedAt, loc, got, want)
+		t.Errorf("CalendarDay(%v, %v) = %v, want %v (local day, not UTC day)", capturedAt, loc, got, want)
 	}
 }
 
-// TestDateOnly_UTCLocationIsNoOp covers tasks.md T8.1(c): time.UTC as loc is a
+// TestCalendarDay_UTCLocationIsNoOp covers tasks.md T8.1(c): time.UTC as loc is a
 // no-op, returning the same UTC calendar date as the input.
-func TestDateOnly_UTCLocationIsNoOp(t *testing.T) {
+func TestCalendarDay_UTCLocationIsNoOp(t *testing.T) {
 	capturedAt := time.Date(2026, 3, 10, 5, 30, 0, 0, time.UTC)
 
-	got := dateOnly(capturedAt, time.UTC)
+	got := clock.CalendarDay(capturedAt, time.UTC)
 	want := time.Date(2026, 3, 10, 0, 0, 0, 0, time.UTC)
 	if !got.Equal(want) {
-		t.Errorf("dateOnly(%v, time.UTC) = %v, want %v", capturedAt, got, want)
+		t.Errorf("CalendarDay(%v, time.UTC) = %v, want %v", capturedAt, got, want)
 	}
 }
 
-// TestService_Location_FallsBackToTimeLocal covers tasks.md T8.2: Config{}
-// (zero value, Location nil) returns time.Local.
-func TestService_Location_FallsBackToTimeLocal(t *testing.T) {
+// TestService_Location_FallsBackToClockZone covers tasks.md T8.2, repaired by
+// RM35-telemetry-adopt-clock (roadmap D4): Config{} (zero value, Location nil)
+// now returns clock.Zone() (America/Bogota), not time.Local.
+func TestService_Location_FallsBackToClockZone(t *testing.T) {
 	s := &service{cfg: Config{}}
 
 	got := s.location()
-	if got != time.Local {
-		t.Errorf("location() = %v, want time.Local (fallback)", got)
+	if got != clock.Zone() {
+		t.Errorf("location() = %v, want clock.Zone() (fallback)", got)
 	}
 }
 

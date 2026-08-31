@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
 
@@ -59,7 +60,7 @@ func TestTPMS_NonNilRoundTrip(t *testing.T) {
 		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
-		CapturedDate:      dateOnly(captured, time.UTC),
+		CapturedDate:      clock.CalendarDay(captured, time.UTC),
 		ChargingState:     "Disconnected",
 		CarVersion:        "2026.20.1",
 		RawData:           []byte(`{"vehicle_state":{"tpms_pressure_fl":2.5,"tpms_pressure_fr":2.6,"tpms_pressure_rl":2.4,"tpms_pressure_rr":2.5}}`),
@@ -121,7 +122,7 @@ func TestTPMS_NilRoundTrip(t *testing.T) {
 		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
-		CapturedDate:      dateOnly(captured, time.UTC),
+		CapturedDate:      clock.CalendarDay(captured, time.UTC),
 		ChargingState:     "Disconnected",
 		CarVersion:        "2026.20.1",
 		RawData:           []byte(`{}`),
@@ -200,7 +201,7 @@ func TestTPMS_ZeroNonNilRoundTrip(t *testing.T) {
 		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
-		CapturedDate:      dateOnly(captured, time.UTC),
+		CapturedDate:      clock.CalendarDay(captured, time.UTC),
 		ChargingState:     "Disconnected",
 		CarVersion:        "2026.20.1",
 		RawData:           []byte(`{}`),
@@ -294,7 +295,7 @@ func TestTPMS_PSIValueRoundTripPrecision(t *testing.T) {
 		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
-		CapturedDate:      dateOnly(captured, time.UTC),
+		CapturedDate:      clock.CalendarDay(captured, time.UTC),
 		ChargingState:     "Disconnected",
 		CarVersion:        "2026.20.1",
 		RawData:           []byte(`{"vehicle_state":{"tpms_pressure_fl":2.9}}`),

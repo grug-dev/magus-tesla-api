@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -95,21 +96,24 @@ func NewService(pool *pgxpool.Pool, acct account.Service, tsla tesla.VehicleServ
 
 // now returns the current time, honoring the injected test clock when present so
 // captured_at / attempted_at and any timeout math are deterministic in tests.
+// Production falls back to clock.Now() — the platform's default-zone "now"
+// (RM35-telemetry-adopt-clock, roadmap D4) — never a raw time.Now().
 func (s *service) now() time.Time {
 	if s.cfg.Clock != nil {
 		return s.cfg.Clock()
 	}
-	return time.Now()
+	return clock.Now()
 }
 
 // location returns the configured timezone for calendar-day derivation, honoring
 // the injected Config.Location when present so CapturedDate is deterministic in
-// tests; production falls back to time.Local (D2a).
+// tests; production falls back to clock.Zone() — the platform's default zone,
+// America/Bogota (RM35-telemetry-adopt-clock, roadmap D4) — never time.Local.
 func (s *service) location() *time.Location {
 	if s.cfg.Location != nil {
 		return s.cfg.Location
 	}
-	return time.Local
+	return clock.Zone()
 }
 
 // CollectAll runs one collection cycle over every registered vehicle across all
@@ -515,7 +519,7 @@ func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, loc 
 		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        capturedAt,
-		CapturedDate:      dateOnly(capturedAt, loc),
+		CapturedDate:      clock.CalendarDay(capturedAt, loc),
 		BatteryLevelPct:   data.ChargeState.BatteryLevel,
 		BatteryRangeKm:    data.ChargeState.BatteryRangeKm(),
 		ChargingState:     data.ChargeState.ChargingState,
@@ -552,14 +556,6 @@ func snapshotFrom(accountID uuid.UUID, teslaID int64, capturedAt time.Time, loc 
 // store the actual DTO value (including a truthful 0/"") into a *T field without
 // a zero-is-absent heuristic (design DSA3/D12 of RM2-telemetry-add-charging-stats).
 func ptr[T any](v T) *T { return &v }
-
-// dateOnly returns the calendar date of t in loc, normalized to UTC midnight — the
-// representation pgtype.Date expects. This is the single place the poller's
-// configured timezone determines which calendar day a snapshot belongs to (D2).
-func dateOnly(t time.Time, loc *time.Location) time.Time {
-	y, m, d := t.In(loc).Date()
-	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
-}
 
 // --- telemetrydb-backed store (the ONLY place pgtype is touched) ---
 
@@ -803,7 +799,7 @@ func timestamptzFrom(t time.Time) pgtype.Timestamptz {
 }
 
 // dateFrom converts a plain time.Time (already normalized to a calendar date
-// by dateOnly) into a valid pgtype.Date at the DB boundary, mirroring
+// by clock.CalendarDay) into a valid pgtype.Date at the DB boundary, mirroring
 // timestamptzFrom. Lives here so pgtype stays confined to service.go/mapping.go.
 func dateFrom(t time.Time) pgtype.Date {
 	return pgtype.Date{Time: t, Valid: true}

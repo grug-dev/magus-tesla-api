@@ -205,12 +205,14 @@ type Config struct {
 	Clock func() time.Time
 	// Location is the timezone used to derive CapturedDate — the calendar day a
 	// snapshot belongs to — from CapturedAt at write time (D2 of
-	// telemetry-dedupe-daily-snapshots). Nil means the poller's local timezone
-	// (time.Local), mirroring NewScheduler's own "nil loc falls back to
-	// time.Local" convention. cmd/poller sets this from config.PollerTimezone via
-	// time.LoadLocation — the SAME *time.Location passed to NewScheduler — so the
-	// day a snapshot is dated always agrees with the day the scheduler considers
-	// "today" for that run.
+	// telemetry-dedupe-daily-snapshots). Nil means the platform's default zone,
+	// clock.Zone() (America/Bogota) — RM35-telemetry-adopt-clock, roadmap D4.
+	// internal/app's Scheduler is a separate, not-yet-migrated fallback: as of
+	// this tier it still falls back to time.Local on a nil loc, pending
+	// RM35-app-adopt-clock (tier 5). cmd/poller sets this Location from
+	// config.PollerTimezone via time.LoadLocation — the SAME *time.Location
+	// passed to NewScheduler — so the day a snapshot is dated always agrees with
+	// the day the scheduler considers "today" for that run.
 	Location *time.Location
 }
 
@@ -355,7 +357,7 @@ type Reader interface {
 	// calendar day, so bounding on captured_at against a UTC-midnight `day` would
 	// wrongly select a row as its own predecessor. Because `captured_date` is
 	// already the poller-zone calendar day (stamped once on the write path by
-	// `dateOnly`), the predicate is zone-free at query time, and a same-day
+	// `clock.CalendarDay`), the predicate is zone-free at query time, and a same-day
 	// re-capture (the "latest capture for a calendar day wins" replace rule) can
 	// never select its own about-to-be-replaced row as its own predecessor — the
 	// exact guarantee the module's former `dayStart`-bounded `previousSnapshot`

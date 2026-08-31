@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
 
@@ -59,7 +60,7 @@ func TestStore_SnapshotRoundTrip_SentryNilIsNull(t *testing.T) {
 		AccountID:         accountID,
 		TeslaID:           teslaID,
 		CapturedAt:        captured,
-		CapturedDate:      dateOnly(captured, time.UTC),
+		CapturedDate:      clock.CalendarDay(captured, time.UTC),
 		BatteryLevelPct:   64,
 		BatteryRangeKm:    338.766912, // 210.5 mi * 1.609344 (was miles pre-display-units)
 		ChargingState:     "Disconnected",
@@ -135,7 +136,7 @@ func TestStore_SentryTrueAndFalseRoundTripFaithfully(t *testing.T) {
 				AccountID:     accountID,
 				TeslaID:       tc.teslaID,
 				CapturedAt:    captured,
-				CapturedDate:  dateOnly(captured, time.UTC),
+				CapturedDate:  clock.CalendarDay(captured, time.UTC),
 				ChargingState: "Charging",
 				CarVersion:    "v",
 				SentryMode:    tc.sentry,
@@ -193,7 +194,7 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 	}
 	first := base
 	first.CapturedAt = day
-	first.CapturedDate = dateOnly(first.CapturedAt, time.UTC)
+	first.CapturedDate = clock.CalendarDay(first.CapturedAt, time.UTC)
 	first.BatteryLevelPct = 50
 	if err := st.insertSnapshot(ctx, first); err != nil {
 		t.Fatalf("first insertSnapshot: %v", err)
@@ -201,7 +202,7 @@ func TestStore_SnapshotUpsert_SameDayReplaces(t *testing.T) {
 
 	second := base
 	second.CapturedAt = day.Add(time.Hour) // same calendar day, later instant
-	second.CapturedDate = dateOnly(second.CapturedAt, time.UTC)
+	second.CapturedDate = clock.CalendarDay(second.CapturedAt, time.UTC)
 	second.BatteryLevelPct = 55
 	second.CarVersion = "v2"
 	second.RawData = []byte(`{"pass":2}`)
@@ -258,7 +259,7 @@ func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 	}
 	first := base
 	first.CapturedAt = day1
-	first.CapturedDate = dateOnly(first.CapturedAt, time.UTC)
+	first.CapturedDate = clock.CalendarDay(first.CapturedAt, time.UTC)
 	first.BatteryLevelPct = 50
 	if err := st.insertSnapshot(ctx, first); err != nil {
 		t.Fatalf("day-1 insertSnapshot: %v", err)
@@ -266,7 +267,7 @@ func TestStore_SnapshotInsert_DifferentDayCreatesNewRow(t *testing.T) {
 
 	second := base
 	second.CapturedAt = day2
-	second.CapturedDate = dateOnly(second.CapturedAt, time.UTC)
+	second.CapturedDate = clock.CalendarDay(second.CapturedAt, time.UTC)
 	second.BatteryLevelPct = 55
 	if err := st.insertSnapshot(ctx, second); err != nil {
 		t.Fatalf("day-2 insertSnapshot: %v", err)

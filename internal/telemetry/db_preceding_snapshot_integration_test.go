@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 )
 
 // These tests exercise Reader.SnapshotPrecedingDay (RM29-telemetry-drop-derived-
@@ -46,7 +48,7 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      day0,
-		CapturedDate:    dateOnly(day0, time.UTC),
+		CapturedDate:    clock.CalendarDay(day0, time.UTC),
 		ChargingState:   "Disconnected",
 		CarVersion:      "v1",
 		OdometerKm:      1000,
@@ -59,7 +61,7 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 
 	second := first
 	second.CapturedAt = day1
-	second.CapturedDate = dateOnly(day1, time.UTC)
+	second.CapturedDate = clock.CalendarDay(day1, time.UTC)
 	second.OdometerKm = 1040
 	second.BatteryLevelPct = 68
 	second.RawData = []byte(`{"pass":2}`)
@@ -92,7 +94,7 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 		AccountID:       accountIDSingle,
 		TeslaID:         teslaIDSingle,
 		CapturedAt:      day0,
-		CapturedDate:    dateOnly(day0, time.UTC),
+		CapturedDate:    clock.CalendarDay(day0, time.UTC),
 		ChargingState:   "Disconnected",
 		CarVersion:      "v1",
 		OdometerKm:      500,
@@ -102,7 +104,7 @@ func TestReader_SnapshotPrecedingDay_RoundTrips(t *testing.T) {
 	if err := st.insertSnapshot(ctx, only); err != nil {
 		t.Fatalf("insert single snapshot: %v", err)
 	}
-	dayAfter := dateOnly(day0.AddDate(0, 0, 2), time.UTC) // well after the sole snapshot's own captured_date
+	dayAfter := clock.CalendarDay(day0.AddDate(0, 0, 2), time.UTC) // well after the sole snapshot's own captured_date
 	got, err := reader.SnapshotPrecedingDay(ctx, accountIDSingle, teslaIDSingle, dayAfter)
 	if err != nil {
 		t.Fatalf("SnapshotPrecedingDay (single-row vehicle): %v", err)
@@ -156,7 +158,7 @@ func TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan(t *testing.T) {
 		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      day0,
-		CapturedDate:    dateOnly(day0, time.UTC),
+		CapturedDate:    clock.CalendarDay(day0, time.UTC),
 		ChargingState:   "Disconnected",
 		CarVersion:      "v1",
 		OdometerKm:      1500,
@@ -168,7 +170,7 @@ func TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan(t *testing.T) {
 	}
 	newer := older
 	newer.CapturedAt = day1
-	newer.CapturedDate = dateOnly(day1, time.UTC)
+	newer.CapturedDate = clock.CalendarDay(day1, time.UTC)
 	newer.OdometerKm = 1560
 	newer.BatteryLevelPct = 70
 	newer.RawData = []byte(`{"explain":"day1"}`)
@@ -178,7 +180,7 @@ func TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan(t *testing.T) {
 
 	// The query dateFrom(day) binds against — same shape reader.go's
 	// SnapshotPrecedingDay implementation uses (design D2).
-	explainDay := dateOnly(day1.AddDate(0, 0, 1), time.UTC)
+	explainDay := clock.CalendarDay(day1.AddDate(0, 0, 1), time.UTC)
 
 	rows, err := pool.Query(ctx, `EXPLAIN (FORMAT TEXT)
 SELECT
@@ -252,7 +254,7 @@ func TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor(t *tes
 		AccountID:       accountID,
 		TeslaID:         teslaID,
 		CapturedAt:      dayNMinus1,
-		CapturedDate:    dateOnly(dayNMinus1, time.UTC),
+		CapturedDate:    clock.CalendarDay(dayNMinus1, time.UTC),
 		ChargingState:   "Disconnected",
 		CarVersion:      "v1",
 		OdometerKm:      2000,
@@ -266,7 +268,7 @@ func TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor(t *tes
 	firstCaptureOnDayN := dayN.Add(1 * time.Hour)
 	first := predecessor
 	first.CapturedAt = firstCaptureOnDayN
-	first.CapturedDate = dateOnly(firstCaptureOnDayN, time.UTC)
+	first.CapturedDate = clock.CalendarDay(firstCaptureOnDayN, time.UTC)
 	first.OdometerKm = 2050
 	first.BatteryLevelPct = 60
 	first.RawData = []byte(`{"day":"n","pass":1}`)
@@ -280,7 +282,7 @@ func TestReader_SnapshotPrecedingDay_SameDayRecaptureNotItsOwnPredecessor(t *tes
 	secondCaptureOnDayN := firstCaptureOnDayN.Add(2 * time.Hour)
 	second := first
 	second.CapturedAt = secondCaptureOnDayN
-	second.CapturedDate = dateOnly(secondCaptureOnDayN, time.UTC)
+	second.CapturedDate = clock.CalendarDay(secondCaptureOnDayN, time.UTC)
 	second.OdometerKm = 2055
 	second.BatteryLevelPct = 59
 	second.RawData = []byte(`{"day":"n","pass":2}`)

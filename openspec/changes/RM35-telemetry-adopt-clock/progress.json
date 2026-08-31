@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM35-telemetry-adopt-clock",
+  "module": "telemetry",
+  "roadmap": "RM35-timezone-centralization",
+  "roadmap_tier": 3,
+  "status": "verified",
+  "updated_at": "2026-08-31T01:50:40Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5",
+    "session_id": "0809d538-f495-4dff-be14-ae6ff3e22250"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7"
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D21",
+      "at": "2026-08-31T01:50:40Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Accepted the one changed test expectation: location()'s fallback assertion moves from time.Local to clock.Zone().",
+      "why": "The fallback genuinely changed under D4, so the old assertion would now be false against intended behavior. The test still asserts something equally strong \u2014 not weakened, not deleted. Leader read the diff to confirm.",
+      "covered_by": null
+    },
+    {
+      "id": "D22",
+      "at": "2026-08-31T01:50:40Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Swapped the nil-Config.Location fallback even though that branch is unreachable in production.",
+      "why": "cmd/poller always sets Location or exits fatally, so only the offline test hits it. Migrating it while inert is safer than leaving a stale time.Local for tier 7's tz-guard to trip over later.",
+      "covered_by": null
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "service.go \u2014 now()/location() fallbacks to clock; delete dateOnly, call clock.CalendarDay",
+      "depends_on": [],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:50:40Z",
+      "completed_at": "2026-08-31T01:50:40Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "dateOnly's body was byte-identical to clock.CalendarDay, so the swap is a pure delegate. Leader re-derived that before accepting."
+    },
+    {
+      "id": "T2",
+      "title": "Repair the 6 test files dateOnly's deletion broke",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:50:40Z",
+      "completed_at": "2026-08-31T01:50:40Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "46 fixture call sites repointed with identical arguments and expected values. One expectation changed: location()'s fallback test now asserts clock.Zone(), tracking the intended D4 change."
+    },
+    {
+      "id": "T3",
+      "title": "Doc-comment sweep across service.go, telemetry.go, AGENTS.md, query.sql",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:50:40Z",
+      "completed_at": "2026-08-31T01:50:40Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Config.Location's comment rewritten WITHOUT claiming internal/app changed \u2014 the scheduler still falls back to time.Local until tier 5."
+    },
+    {
+      "id": "T4",
+      "title": "sqlc generate after the query.sql comment fix",
+      "depends_on": [
+        "T3"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:50:40Z",
+      "completed_at": "2026-08-31T01:50:40Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Leader verified via git status that only telemetry's query.sql.go changed; the other three modules' generated files are untouched."
+    },
+    {
+      "id": "T5",
+      "title": "README dependency graph + clock prose row",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:50:40Z",
+      "completed_at": "2026-08-31T01:50:40Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "telemetry's edge now includes clock. Done in-tier rather than left for the reviewer, per tier 2's R1."
+    },
+    {
+      "id": "T6",
+      "title": "OpenSpec artifacts",
+      "depends_on": [],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:50:40Z",
+      "completed_at": "2026-08-31T01:50:40Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "proposal, design, specs/telemetry delta, tasks."
+    },
+    {
+      "id": "T7",
+      "title": "Verification",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6"
+      ],
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:50:40Z",
+      "completed_at": "2026-08-31T01:50:40Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Leader-run: build/vet/gofmt clean, openspec validate --strict passes, go test ./... green."
+    }
+  ],
+  "review": {
+    "status": "not-started",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-08-31T01:50:40Z",
+      "kind": "wave-complete",
+      "by": "leader",
+      "note": "Tier 3 artifacts + implementation in one dispatch. Leader independently verified two worker claims before accepting: that sqlc generate left the other three modules' query.sql.go unchanged (git status confirms only telemetry's), and that the single changed test expectation tracks the intended fallback change rather than weakening an assertion."
+    },
+    {
+      "at": "2026-08-31T01:50:40Z",
+      "kind": "tests-run",
+      "by": "assistant-authorized",
+      "note": "ASSISTANT-RUN under the owner's session-scoped authorization (D17), not the owner's report: go test ./internal/telemetry/... ok (3.5s, real run not cached), go test ./... green, exit 0. build/vet/gofmt clean; openspec validate --strict passes."
+    }
+  ]
+}
