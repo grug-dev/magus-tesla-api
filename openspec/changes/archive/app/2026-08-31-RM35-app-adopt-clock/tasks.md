@@ -119,9 +119,13 @@
       flagged in `proposal.md` for the leader).
 - [x] T7.5 `go test ./internal/app/...` — run by the leader (outside this tier's own
       Test-Execution-Policy authority): reported green.
-- [ ] T7.6 `openspec validate RM35-app-adopt-clock --strict` passes (owner/leader step).
-- [ ] T7.7 Owner runs the exact suite commands and reports the result, turning this tier's
+- [x] T7.6 `openspec validate RM35-app-adopt-clock --strict` passes (owner/leader step).
+      Verified by the leader on 2026-08-31: "Change 'RM35-app-adopt-clock' is valid".
+- [x] T7.7 Owner runs the exact suite commands and reports the result, turning this tier's
       work from `awaiting-user-verification` into `done`:
       - `go test ./internal/app/...`
       - `go test ./...` (full repo regression net — roadmap D4's "behavior-preserving except
         the documented default" claim for this tier)
+        Owner ran both and reported GOOD on 2026-08-31. Recorded as the OWNER's
+        verification, not the assistant's; every T1-T4 task moved
+        awaiting-user-verification -> done on the strength of that report.
