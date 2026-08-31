@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-20 \u2014 https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone\nProject: architecture   Priority: Urgent\n\n## Date/Date time Time Zone\n\n* Analyze all date and date time created by the app (With golang code). The should be saved with Zone America/Bogota. Centralize a new logic that creates a date or date/time in that time zone.\n* Update the CLAUDE/AGENTS instructtion or the best MD instructions per module to use that timezone convention. Find the best place that works for claude and opencode\n* Find the best module to this kind of things that are cross-module. A new shared  util module sound like a good idea? I think it might work.. in the future we might have shared utilities for all modules\n\nAcceptance Criteria\n\nThe app does not use UTC.\n\ndate and datetimes are centralized in one place and shared to all modules needed it",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-31T01:33:26Z",
+  "updated_at": "2026-08-31T01:40:26Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -22,10 +22,9 @@
   },
   "rollup": {
     "current": [
-      2
+      3
     ],
     "pending": [
-      3,
       4,
       5,
       6,
@@ -33,7 +32,8 @@
     ],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -161,14 +161,14 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T01:29:28Z",
-      "completed_at": null,
+      "completed_at": "2026-08-31T01:40:26Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": "PollerTimezone fallback 'Local' -> clock default via clock.LoadOrDefault. internal/config/config.go:87-89."
+      "notes": "POLLER_TIMEZONE default Local -> America/Bogota via clock.Zone().String(). Deviated from the roadmap's 'via LoadOrDefault' shorthand, which would have yielded UTC for an unset value. Reviewer-approved round 2; round 1's README dependency-graph finding fixed."
     },
     {
       "id": 3,
@@ -178,10 +178,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T01:40:26Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -290,6 +290,12 @@
       "kind": "policy-scoped-override",
       "by": "user",
       "note": "Owner authorized assistant-run test suites for this session only (D17). CLAUDE.md untouched. Every result is recorded as assistant-run-under-authorization; a failure is reported as a failure and fixed in the code, never by weakening a test."
+    },
+    {
+      "at": "2026-08-31T01:40:26Z",
+      "kind": "tier-archived",
+      "by": "leader",
+      "note": "Tier 2 archived to openspec/changes/archive/config/. Tier 3 (telemetry) started. Budget at the gate: 5h 35%, context 28% \u2014 both under the 90/40 thresholds."
     }
   ]
 }

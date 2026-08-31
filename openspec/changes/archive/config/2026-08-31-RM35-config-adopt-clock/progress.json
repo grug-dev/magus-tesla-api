@@ -137,7 +137,7 @@
     }
   ],
   "review": {
-    "status": "changes-requested",
+    "status": "reviewer-approved",
     "agent": "config-reviewer",
     "brief": "Tier-2 diff d351289~1..d351289 vs roadmap RM35 D1/D2/D4/D6, proposal/design/specs/tasks, tier-1 D10.",
     "rounds": [
@@ -151,6 +151,19 @@
             "severity": "major",
             "note": "README.md:205 and README.md:238 (dependency graph LAYER 0 line) are now stale. Line 205 states internal/clock is 'not yet adopted by any other module' \u2014 false as of this tier, config adopts it. Line 238's LAYER 0 leaf list ('tesla googleauth auth config testdb <module>/db') still shows config with no internal dependencies, but config now imports internal/clock. CLAUDE.md's docs-track-structural-change rule (restated in ai/agentic-workflow.md's reviewer-role section as 'not a nit') requires the README architecture/dependency-graph docs to be updated in the SAME change when a module's public surface/dependency set changes. Fix: move config off the LAYER 0 depends-on-nothing line into a line showing config \u2192 clock, and update clock's row to drop 'not yet adopted by any other module' (or state it is now adopted by config).",
             "status": "open"
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "at": "2026-08-31T13:00:00Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "major",
+            "note": "Re-verified against 0386b5a (README.md only, zero Go/code change; progress.json D20 records the fix). clock's row (README.md:205) no longer claims non-adoption \u2014 now states config adopted it in tier 2 and names tiers 3-6. Graph's LAYER 0 line no longer lists config as dependency-free; config now sits under a relabeled 'LAYER 1 \u2014 domain modules & config' header with an explicit `config \u2192 clock` arrow, and clock was added to the LAYER 0 leaves line. Confirmed independently: (a) clock imports stdlib time only (re-read clock.go), so LAYER 0's own definition ('no internal dependencies') genuinely holds for it \u2014 correct placement, consistent with how tesla/auth/testdb (also imported by higher layers) already sit on that same line; the graph's layer number reflects each package's own dependency depth, not who imports it. (b) config's placement under 'domain modules & config' is topologically accurate (config's only internal dependency, clock, is a LAYER-0 leaf \u2014 same depth as telemetry/charging/account, which depend only on LAYER-0 adapters + their own db packages) and the header's explicit '& config' phrasing does not claim config IS a domain module \u2014 it flags them as two distinct categories sharing a depth tier. This is a legitimate stylistic choice, not a factual misrepresentation; no restructure required. Confirmed no other file touched (`git diff 0386b5a~1 0386b5a --stat`: README.md + this change's own progress.json only), `git status --porcelain` clean, `go build ./...` and `go vet ./...` both pass. R1 fixed.",
+            "status": "fixed"
           }
         ]
       }
