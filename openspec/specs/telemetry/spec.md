@@ -1,7 +1,8 @@
 # telemetry Specification
 
 ## Purpose
-TBD - created by archiving change telemetry-add-nightly-snapshots. Update Purpose after archive.
+Collect vehicle state from the Tesla fleet on a schedule and persist it as dated snapshots,
+attributing each snapshot to the calendar day it belongs to in the collection time zone.
 ## Requirements
 ### Requirement: Nightly Vehicle Snapshot Capture
 The telemetry capability SHALL capture one snapshot of every registered vehicle across all
@@ -800,4 +801,26 @@ the predecessor is reported absent.
 - **GIVEN** a vehicle for which no snapshot has ever been stored
 - **WHEN** a caller requests the snapshot preceding any calendar day
 - **THEN** an absent result and no error are returned
+
+### Requirement: Snapshot Calendar Day Default Time Zone
+The telemetry capability SHALL determine the calendar day a snapshot belongs to using the
+platform's default time zone, `America/Bogota`, whenever nightly collection is configured with
+no explicit collection time zone — never the host process's own local zone. When collection IS
+configured with an explicit collection time zone, that configured zone SHALL continue to
+determine the calendar day, unaffected by the platform default.
+
+#### Scenario: An explicitly configured collection time zone determines the calendar day
+- **GIVEN** nightly collection is configured with an explicit collection time zone
+- **WHEN** a collection cycle captures a snapshot
+- **THEN** the snapshot's calendar day is computed by observing the capture instant in that
+  configured time zone
+- **AND** the platform default time zone plays no part in the computation
+
+#### Scenario: No explicitly configured collection time zone falls back to the platform default
+- **GIVEN** nightly collection is configured with no explicit collection time zone
+- **WHEN** a collection cycle captures a snapshot
+- **THEN** the snapshot's calendar day is computed by observing the capture instant in the
+  platform's default time zone, `America/Bogota`
+- **AND** the snapshot's calendar day is NOT computed by observing the capture instant in the
+  host process's own local time zone
 

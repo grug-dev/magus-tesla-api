@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-20 \u2014 https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone\nProject: architecture   Priority: Urgent\n\n## Date/Date time Time Zone\n\n* Analyze all date and date time created by the app (With golang code). The should be saved with Zone America/Bogota. Centralize a new logic that creates a date or date/time in that time zone.\n* Update the CLAUDE/AGENTS instructtion or the best MD instructions per module to use that timezone convention. Find the best place that works for claude and opencode\n* Find the best module to this kind of things that are cross-module. A new shared  util module sound like a good idea? I think it might work.. in the future we might have shared utilities for all modules\n\nAcceptance Criteria\n\nThe app does not use UTC.\n\ndate and datetimes are centralized in one place and shared to all modules needed it",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-31T02:03:49Z",
+  "updated_at": "2026-08-31T02:08:11Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -22,7 +22,6 @@
   },
   "rollup": {
     "current": [
-      3,
       4,
       5,
       6
@@ -33,7 +32,8 @@
     "blocked": [],
     "done": [
       1,
-      2
+      2,
+      3
     ]
   },
   "decisions": [
@@ -196,14 +196,14 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T01:40:26Z",
-      "completed_at": null,
+      "completed_at": "2026-08-31T02:08:11Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": "location() fallback, now(), and dateOnly -> clock. Keep Config.Clock / Config.Location test seams."
+      "notes": "dateOnly deleted for clock.CalendarDay (byte-identical); now()/location() nil fallbacks moved to clock. 46 test call sites repointed with unchanged expectations. Reviewer-approved round 1; minor finding R1 fixed anyway."
     },
     {
       "id": 4,
@@ -320,6 +320,12 @@
       "kind": "parallel-dispatch",
       "by": "leader",
       "note": "Tiers 4,5,6 dispatched in parallel at the owner's request (D24). README.md withheld from all three and reserved to the leader (D25). Tier 3's reviewer runs concurrently."
+    },
+    {
+      "at": "2026-08-31T02:08:11Z",
+      "kind": "tier-archived",
+      "by": "leader",
+      "note": "Tier 3 archived. Tiers 4-6 still running in parallel; tier 7's tz-guard remains blocked on all of them."
     }
   ]
 }
