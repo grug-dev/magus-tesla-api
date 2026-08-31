@@ -6,10 +6,23 @@
   "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
   "request": "Tier 7 of 7 (FINAL) of RM35: add make tz-guard mirroring money-guard's grep shape with a // tz:allow: <reason> escape hatch, wire it into .PHONY and make check, mark the legitimate escapes so it passes on the current tree, and document it in README.md and CLAUDE.md's allowed-commands list. Shipped LAST because wired in earlier it would fail on every unmigrated module (roadmap D5).",
   "status": "verified",
-  "rollup": { "current": [], "pending": [], "blocked": [], "done": ["T1", "T2", "T3", "T4"] },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4"
+    ]
+  },
   "created_at": "2026-08-31T14:30:00Z",
-  "updated_at": "2026-08-31T14:30:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-08-31T14:40:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM35-MAG-20-timezone-centralization",
@@ -19,18 +32,116 @@
     "created_at": "2026-08-30T19:17:41Z"
   },
   "tasks": [
-    { "id": "T1", "title": "Makefile — tz-guard target, .PHONY, check wiring", "module": "platform", "depends_on": [], "parallel_ok": false, "status": "done", "agent": "platform", "model": "claude-sonnet-5", "started_at": "2026-08-31T14:00:00Z", "completed_at": "2026-08-31T14:25:00Z", "duration_seconds": 1500, "notes": "Three-leg grep guard mirroring money-guard: raw time.Now(), hand-rolled UTC/day-midnight construction, hardcoded IANA zone. Wired into .PHONY and check, placed before test.", "budget": null },
-    { "id": "T2", "title": "six // tz:allow: markers on the legitimate escapes", "module": "platform", "depends_on": ["T1"], "parallel_ok": false, "status": "done", "agent": "platform", "model": "claude-sonnet-5", "started_at": "2026-08-31T14:00:00Z", "completed_at": "2026-08-31T14:25:00Z", "duration_seconds": 1500, "notes": "Six, not the four the leader's brief predicted. Comment-only edits; git diff confirms no logic changed. supercharger.go:201 gained the explanation it never had.", "budget": null },
-    { "id": "T3", "title": "docs — README, CLAUDE.md allowed-commands, ai/go-conventions.md", "module": "platform", "depends_on": ["T1"], "parallel_ok": false, "status": "done", "agent": "platform", "model": "claude-sonnet-5", "started_at": "2026-08-31T14:00:00Z", "completed_at": "2026-08-31T14:25:00Z", "duration_seconds": 1500, "notes": "Additive prose only; no existing rule duplicated or weakened. Satisfies the workflow-decisions rule that a new make target is documented in the same change.", "budget": null },
-    { "id": "T4", "title": "verification incl. the both-directions guard proof", "module": "platform", "depends_on": ["T1", "T2", "T3"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "claude-opus-5", "started_at": "2026-08-31T14:26:00Z", "completed_at": "2026-08-31T14:30:00Z", "duration_seconds": 240, "notes": "Leader re-proved it independently: guard passes clean, then flags all three legs on a scratch violation, then a tz:allow marker silences exactly one line. go build/vet/gofmt clean; validate --strict passes.", "budget": null }
+    {
+      "id": "T1",
+      "title": "Makefile — tz-guard target, .PHONY, check wiring",
+      "module": "platform",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T14:00:00Z",
+      "completed_at": "2026-08-31T14:25:00Z",
+      "duration_seconds": 1500,
+      "notes": "Three-leg grep guard mirroring money-guard: raw time.Now(), hand-rolled UTC/day-midnight construction, hardcoded IANA zone. Wired into .PHONY and check, placed before test.",
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "six // tz:allow: markers on the legitimate escapes",
+      "module": "platform",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T14:00:00Z",
+      "completed_at": "2026-08-31T14:25:00Z",
+      "duration_seconds": 1500,
+      "notes": "Six, not the four the leader's brief predicted. Comment-only edits; git diff confirms no logic changed. supercharger.go:201 gained the explanation it never had.",
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "docs — README, CLAUDE.md allowed-commands, ai/go-conventions.md",
+      "module": "platform",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "platform",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T14:00:00Z",
+      "completed_at": "2026-08-31T14:25:00Z",
+      "duration_seconds": 1500,
+      "notes": "Additive prose only; no existing rule duplicated or weakened. Satisfies the workflow-decisions rule that a new make target is documented in the same change.",
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "verification incl. the both-directions guard proof",
+      "module": "platform",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-08-31T14:26:00Z",
+      "completed_at": "2026-08-31T14:30:00Z",
+      "duration_seconds": 240,
+      "notes": "Leader re-proved it independently: guard passes clean, then flags all three legs on a scratch violation, then a tz:allow marker silences exactly one line. go build/vet/gofmt clean; validate --strict passes.",
+      "budget": null
+    }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": "Review RM35-platform-add-tz-guard (roadmap RM35 tier 7 of 7, FINAL, cross-cutting `platform` domain) against the DIFF.\n\nThis tier's deliverable IS a guard, so the review's central question is different from a normal tier: does the guard actually detect, or does it merely pass? A grep guard whose pattern matches nothing passes silently and protects nothing.\n\n(1) PROVE THE GUARD YOURSELF — do not trust the worker's transcript or the leader's. Run `make tz-guard` (it is a standalone guard, explicitly permitted; `make check` is NOT — it ends in `test`). Then write your own scratch .go file under internal/ violating each of the three legs, confirm the guard FAILS and names each line, add a `// tz:allow:` marker to one, confirm exactly that line goes quiet, delete the scratch file, confirm clean again. Report the actual output.\n(2) FALSE NEGATIVES are the real risk. For each of the three legs, try to construct a REAL violation the pattern misses — e.g. `time.Now().UTC()`, a zone name built by concatenation or held in a const, `time.Date` with the midnight args spread across lines, a helper that wraps time.Now() one level down. Report every miss you find. This is the highest-value part of the review.\n(3) EXCLUSIONS — the leader's own regex was broken twice this tier ([^)]* could not span the ) inside t.Year(); an earlier count read comment lines as calls). Check each exclusion is narrow enough to still guard real code: internal/clock/ itself, cmd/, _test.go, and the comment-line filter `^[^:]+:[^:]+:[[:space:]]*//`. Does the comment filter accidentally skip a line with code before a trailing comment? Does it skip block comments or indented continuations?\n(4) D-plat-3 — excluding _test.go wholesale — REJECTED the leader's explicit recommendation to include them, on the grounds that 357 test occurrences would each need a marker with no discriminating power. The leader verified the counts and accepted. Judge that trade independently: is there a narrower inclusion (e.g. only tests that call ServeHTTP, or only the history/dashboard handlers' tests) that WOULD have caught tier 6's six frame-mismatch bugs at acceptable cost? If yes, that is a finding worth raising even though the owner has already run make check green.\n(5) The six `// tz:allow:` markers — verify each reason is TRUE, not just present, against the archived gateway design (D-gw-2, D-gw-3) and supercharger's own D9a. A marker with a false or vague reason is worse than no marker: it launders a real violation. Confirm all six edits are comment-only and moved no logic.\n(6) Wiring — `tz-guard` in .PHONY and in `check`, positioned before `test`. Verify by READING the target, not by running check.\n(7) Docs — the project's workflow-decisions rule requires the same change that adds a make target to document it. Confirm README.md, CLAUDE.md's allowed-commands list, and ai/go-conventions.md are accurate and add no duplicated rule that could drift.\n(8) No database object. Any schema/migration touch is a BLOCKER.\n(9) Anti-gaming, specific to this tier: confirm the pattern was never weakened to reach green. Compare what the guard catches now against the roadmap's D5 intent. A leg narrowed until it stopped flagging something real is the failure mode here.\n\nTest provenance: the OWNER ran `make check` — the full gate including this new tz-guard plus the suite — and reported it PASSING. That is their verification. The assistant ran build, vet, gofmt, `make tz-guard` and `openspec validate --strict`. Do NOT run the suite.",
+    "rounds": []
+  },
   "decisions": [
-    { "id": "D-plat-3", "at": "2026-08-31T14:20:00Z", "scope": "task:T1", "made_by": "autopilot", "decision": "_test.go files are excluded from the guard wholesale — REJECTING the leader's explicit recommendation to include them.", "why": "357 test occurrences would each need a marker, and the marker would sit on correct and incorrect anchors alike. Zero discriminating power, high noise. Leader verified the counts and accepted.", "covered_by": null },
-    { "id": "D-plat-6", "at": "2026-08-31T14:20:00Z", "scope": "task:T2", "made_by": "leader", "decision": "Six sites need markers, not the four the leader's dispatch brief asserted.", "why": "The leader's truncation regex used [^)]*, which cannot span the ) inside t.Year(), so it missed supercharger.go's startOfMonth. The worker re-measured instead of trusting the brief.", "covered_by": null }
+    {
+      "id": "D-plat-3",
+      "at": "2026-08-31T14:20:00Z",
+      "scope": "task:T1",
+      "made_by": "autopilot",
+      "decision": "_test.go files are excluded from the guard wholesale — REJECTING the leader's explicit recommendation to include them.",
+      "why": "357 test occurrences would each need a marker, and the marker would sit on correct and incorrect anchors alike. Zero discriminating power, high noise. Leader verified the counts and accepted.",
+      "covered_by": null
+    },
+    {
+      "id": "D-plat-6",
+      "at": "2026-08-31T14:20:00Z",
+      "scope": "task:T2",
+      "made_by": "leader",
+      "decision": "Six sites need markers, not the four the leader's dispatch brief asserted.",
+      "why": "The leader's truncation regex used [^)]*, which cannot span the ) inside t.Year(), so it missed supercharger.go's startOfMonth. The worker re-measured instead of trusting the brief.",
+      "covered_by": null
+    }
   ],
   "events": [
-    { "at": "2026-08-31T14:25:00Z", "agent": "leader", "event": "Worker returned. It CORRECTED the leader's own dispatch measurements twice: six escape sites rather than four, and one UTC-midnight truncation where the leader had claimed zero. Both corrections verified — the leader's regex was genuinely broken. This is the worker doing exactly what the brief asked: verify, do not trust blind." },
-    { "at": "2026-08-31T14:30:00Z", "agent": "leader", "event": "Leader independently re-proved the guard in BOTH directions rather than accepting the worker's transcript: clean on the current tree; flags all three legs on a scratch file violating each; a // tz:allow: marker silences exactly the one marked line; clean again after removal. This is the tier's whole value — a grep guard that matches nothing passes silently." }
+    {
+      "at": "2026-08-31T14:25:00Z",
+      "agent": "leader",
+      "event": "Worker returned. It CORRECTED the leader's own dispatch measurements twice: six escape sites rather than four, and one UTC-midnight truncation where the leader had claimed zero. Both corrections verified — the leader's regex was genuinely broken. This is the worker doing exactly what the brief asked: verify, do not trust blind."
+    },
+    {
+      "at": "2026-08-31T14:30:00Z",
+      "agent": "leader",
+      "event": "Leader independently re-proved the guard in BOTH directions rather than accepting the worker's transcript: clean on the current tree; flags all three legs on a scratch file violating each; a // tz:allow: marker silences exactly the one marked line; clean again after removal. This is the tier's whole value — a grep guard that matches nothing passes silently."
+    },
+    {
+      "at": "2026-08-31T14:40:00Z",
+      "agent": "leader",
+      "event": "OWNER ran make check — the full gate, first run including tz-guard — and reported it PASSING. The owner's verification. Reviewer dispatched with a brief centred on false NEGATIVES: the risk in a guard tier is not that it fails wrongly but that it passes emptily."
+    }
   ]
 }
