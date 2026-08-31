@@ -1,0 +1,354 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM36-app-record-poll-run",
+  "module": "app",
+  "roadmap": "openspec/roadmaps/RM36-poll-run-tracking.md",
+  "request": "Source ticket: MAG-35 - https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\n\nTier 2 (final) of RM36-poll-run-tracking. internal/app's ProcessVehicleData measures the run and calls telemetry.RunWriter.RecordRun on every exit path, including the step-1 whole-cycle-failure path. NewProcessor gains a RunWriter parameter; cmd/poller wiring updated. app still owns no data - it calls a port.",
+  "status": "proposed",
+  "created_at": "2026-08-31T20:40:00Z",
+  "updated_at": "2026-08-31T20:40:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5",
+    "session_id": "7579232b-ad63-4a99-ab01-dcdf915d8cdf"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM36-MAG-35-poll-run-tracking",
+    "base": "ft/RM35-MAG-20-timezone-centralization@c5247c3",
+    "ticket": "MAG-35",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking",
+    "created_at": "2026-08-31T01:52:41Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "4.1",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "app.go - add runWriter telemetry.RunWriter to NewProcessor's signature",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "processor.go - add the runWriter field to the processor struct",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "processor.go - add the internal/clock import",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "processor.go - refactor ProcessVehicleData to the guarded fall-through (design D4)",
+      "module": "app",
+      "depends_on": [
+        "1.2",
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "processor.go - add the unexported buildPollRun free function (design D7)",
+      "module": "app",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "processor.go - add the unexported recordRun method (design D5)",
+      "module": "app",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "processor_test.go (new) - the fake roster for the Processor's 7 collaborators (design D9)",
+      "module": "app",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "processor_test.go - Fixtures P1 and P2 from design.md's Test Contract",
+      "module": "app",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "processor_test.go - Fixture P3: a successful 3-step run records a full row",
+      "module": "app",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "processor_test.go - Fixture P4: the step-1 failure path still records an all-zero row",
+      "module": "app",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.5",
+      "title": "processor_test.go - Fixture P5: a RecordRun failure is logged, never propagated",
+      "module": "app",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "cmd/poller/main.go - construct telemetry.NewRunWriter(pool) and pass it to NewProcessor",
+      "module": "app",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "internal/app/AGENTS.md - Public interface section",
+      "module": "app",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "internal/app/AGENTS.md - Allowed/forbidden imports: add internal/clock",
+      "module": "app",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.3",
+      "title": "internal/app/AGENTS.md - Testing notes",
+      "module": "app",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.4",
+      "title": "internal/app/AGENTS.md - Responsibility section's three-step description",
+      "module": "app",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-USER-1",
+      "at": "2026-08-31T20:40:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "User instructed the pipeline to implement tier 2 and then close MAG-35, rather than closing the ticket on tier 1 alone.",
+      "why": "Tier 1 built the table and the counting but nothing writes a row; the ticket's asks are only observable once app records the run.",
+      "covered_by": "roadmap D1/D6"
+    },
+    {
+      "id": "D-LEADER-7",
+      "at": "2026-08-31T20:40:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "No design gate run for this tier: it creates and alters no database object, calling only tier 1's already-gated poll_runs schema through the RunWriter port.",
+      "why": "The database gate fires on schema/object changes. Leader confirmed the artifacts add no migration, column, or index; the worker was told to block if it needed one.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-31T20:40:00Z",
+      "agent": "leader",
+      "event": "Step 3 complete. Worker 'app' (Sonnet) wrote proposal.md, design.md, specs/process-vehicle-data/spec.md and tasks.md; openspec validate --strict reports valid. Leader independently verified the three risk points named in the dispatch: (1) the delta uses ADDED only and its header 'Every Cycle Records A Poll Run Summary' does not collide with the main spec's three existing requirements - the failure that aborted tier 1's archive cannot repeat; (2) design D4 places the record on a guarded fall-through so RecordRun fires on every exit path by construction, and its rejection of a defer closure is technically correct (defer evaluates arguments at defer-time, capturing the zero-value report); (3) design D2 uses internal/clock.Now(), never a raw time.Now(). No database object is added or changed, so no design gate applies (D-LEADER-7)."
+    },
+    {
+      "at": "2026-08-31T20:40:00Z",
+      "agent": "leader",
+      "event": "Step 4 complete. progress.json seeded with 16 sub-tasks across 5 declared waves, all pending."
+    }
+  ]
+}
