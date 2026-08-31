@@ -646,6 +646,50 @@ schema change.
 2026-08-31 from Linear MAG-35.
 
 
+## 21. charging — Renumber `20260720000001_require_location_kind.sql`; its `NOT NULL` was never applied
+
+### PROPOSAL
+
+`internal/charging/db/migrations/20260720000001_require_location_kind.sql` shares its
+version number with
+`internal/account/db/migrations/20260720000001_vehicles_add_access_type.sql`. Every module's
+migrations share **one** `goose_db_version` table keyed by version, so goose recorded
+`20260720000001` when it applied account's file and then **silently skipped** charging's,
+reporting it as applied. `-allow-missing` does not help: a duplicate number is not an
+ordering problem.
+
+**Confirmed live on 2026-08-31**, not theoretical:
+
+- `manual_charge_entries.location_kind` is still `is_nullable = YES` — the `NOT NULL` the
+  migration exists to add was never applied.
+- `goose_db_version` holds exactly one row for `20260720000001`, timestamped
+  `2026-07-20 06:50:59`, which is account's application of its own file.
+- The migration's defensive backfill (`NULL` → `'OTHER'`) also never ran.
+
+**Currently harmless:** a `SELECT count(*) ... WHERE location_kind IS NULL` returns **0**, so
+no row violates the intended constraint today — Go-side validation
+(`charging.RequiredFieldsFor`) has been holding the line. The risk is that nothing in the
+database enforces it, so any future write path that bypasses that validation can insert a
+NULL silently.
+
+**The fix** mirrors what MAG-35 did for `poll_runs`: renumber the charging file to a free
+number (e.g. `20260720000002_require_location_kind.sql`), run `make migrate-up`, confirm
+`is_nullable = NO`, then **delete `20260720000001` from `KNOWN_DUPLICATE_MIGRATIONS` in the
+`Makefile`** so `make migration-guard` stops warning and starts failing on it. Check for
+NULL rows before applying — the backfill will handle them, but you want to know.
+
+**TRIGGER — pick this up** the next time `internal/charging` is touched for any reason, or
+immediately if a NULL `location_kind` ever appears.
+
+### ORIGIN
+
+Found by the `app-reviewer`'s collision sweep during `RM36-app-record-poll-run` (tier 2,
+Linear MAG-35) as review finding **F1**, after the identical failure mode was discovered in
+`poll_runs`. Deferred to the backlog by the owner rather than widening RM36 into a third
+module; the `make migration-guard` target added in the same change warns on this pair and
+fails on any new one. Recorded 2026-08-31.
+
+
 
 # BRAINSTORMING
 
