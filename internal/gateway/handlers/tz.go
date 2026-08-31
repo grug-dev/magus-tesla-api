@@ -91,7 +91,7 @@ func browserLocationFromHeader(r *http.Request) *time.Location {
 // disproportionate to a risk with no known current impact.
 func startOfDayIn(t time.Time, loc *time.Location) time.Time {
 	t = t.In(loc)
-	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc) // tz:allow: zone-parameterized truncation, not clock.CalendarDay's fixed UTC-midnight representation (design D-gw-2, RM35-gateway-adopt-clock)
 }
 
 // browserToday returns midnight in the browser's timezone for the request's
@@ -105,5 +105,5 @@ func startOfDayIn(t time.Time, loc *time.Location) time.Time {
 // only the browserLocation/browserLocationFromHeader fallbacks, history.go's
 // startOfDay, and four handlers.go time.Now() call sites, not this one).
 func browserToday(c *gin.Context) time.Time {
-	return startOfDayIn(time.Now(), browserLocation(c))
+	return startOfDayIn(time.Now(), browserLocation(c)) // tz:allow: no-op swap already covered by browserLocation's clock.Zone() fallback (design D-gw-3, RM35-gateway-adopt-clock)
 }

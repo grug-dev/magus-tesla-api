@@ -60,7 +60,7 @@ make sqlc      # sqlc generate → internal/{account,telemetry,charging,analytic
 make build     # go build ./...   — all internal/ packages + every cmd/
 
 # 3. Full local gate
-make check     # build + vet + ui-guard + i18n-guard + money-guard + test
+make check     # build + vet + ui-guard + i18n-guard + money-guard + tz-guard + test
 ```
 
 Raw Go equivalents (no Make):

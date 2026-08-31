@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM35-platform-add-tz-guard",
+  "module": "platform",
+  "roadmap": "openspec/roadmaps/RM35-timezone-centralization.md",
+  "request": "Tier 7 of 7 (FINAL) of RM35: add make tz-guard mirroring money-guard's grep shape with a // tz:allow: <reason> escape hatch, wire it into .PHONY and make check, mark the legitimate escapes so it passes on the current tree, and document it in README.md and CLAUDE.md's allowed-commands list. Shipped LAST because wired in earlier it would fail on every unmigrated module (roadmap D5).",
+  "status": "verified",
+  "rollup": { "current": [], "pending": [], "blocked": [], "done": ["T1", "T2", "T3", "T4"] },
+  "created_at": "2026-08-31T14:30:00Z",
+  "updated_at": "2026-08-31T14:30:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM35-MAG-20-timezone-centralization",
+    "base": "main",
+    "ticket": "MAG-20",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone",
+    "created_at": "2026-08-30T19:17:41Z"
+  },
+  "tasks": [
+    { "id": "T1", "title": "Makefile — tz-guard target, .PHONY, check wiring", "module": "platform", "depends_on": [], "parallel_ok": false, "status": "done", "agent": "platform", "model": "claude-sonnet-5", "started_at": "2026-08-31T14:00:00Z", "completed_at": "2026-08-31T14:25:00Z", "duration_seconds": 1500, "notes": "Three-leg grep guard mirroring money-guard: raw time.Now(), hand-rolled UTC/day-midnight construction, hardcoded IANA zone. Wired into .PHONY and check, placed before test.", "budget": null },
+    { "id": "T2", "title": "six // tz:allow: markers on the legitimate escapes", "module": "platform", "depends_on": ["T1"], "parallel_ok": false, "status": "done", "agent": "platform", "model": "claude-sonnet-5", "started_at": "2026-08-31T14:00:00Z", "completed_at": "2026-08-31T14:25:00Z", "duration_seconds": 1500, "notes": "Six, not the four the leader's brief predicted. Comment-only edits; git diff confirms no logic changed. supercharger.go:201 gained the explanation it never had.", "budget": null },
+    { "id": "T3", "title": "docs — README, CLAUDE.md allowed-commands, ai/go-conventions.md", "module": "platform", "depends_on": ["T1"], "parallel_ok": false, "status": "done", "agent": "platform", "model": "claude-sonnet-5", "started_at": "2026-08-31T14:00:00Z", "completed_at": "2026-08-31T14:25:00Z", "duration_seconds": 1500, "notes": "Additive prose only; no existing rule duplicated or weakened. Satisfies the workflow-decisions rule that a new make target is documented in the same change.", "budget": null },
+    { "id": "T4", "title": "verification incl. the both-directions guard proof", "module": "platform", "depends_on": ["T1", "T2", "T3"], "parallel_ok": false, "status": "done", "agent": "leader", "model": "claude-opus-5", "started_at": "2026-08-31T14:26:00Z", "completed_at": "2026-08-31T14:30:00Z", "duration_seconds": 240, "notes": "Leader re-proved it independently: guard passes clean, then flags all three legs on a scratch violation, then a tz:allow marker silences exactly one line. go build/vet/gofmt clean; validate --strict passes.", "budget": null }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [
+    { "id": "D-plat-3", "at": "2026-08-31T14:20:00Z", "scope": "task:T1", "made_by": "autopilot", "decision": "_test.go files are excluded from the guard wholesale — REJECTING the leader's explicit recommendation to include them.", "why": "357 test occurrences would each need a marker, and the marker would sit on correct and incorrect anchors alike. Zero discriminating power, high noise. Leader verified the counts and accepted.", "covered_by": null },
+    { "id": "D-plat-6", "at": "2026-08-31T14:20:00Z", "scope": "task:T2", "made_by": "leader", "decision": "Six sites need markers, not the four the leader's dispatch brief asserted.", "why": "The leader's truncation regex used [^)]*, which cannot span the ) inside t.Year(), so it missed supercharger.go's startOfMonth. The worker re-measured instead of trusting the brief.", "covered_by": null }
+  ],
+  "events": [
+    { "at": "2026-08-31T14:25:00Z", "agent": "leader", "event": "Worker returned. It CORRECTED the leader's own dispatch measurements twice: six escape sites rather than four, and one UTC-midnight truncation where the leader had claimed zero. Both corrections verified — the leader's regex was genuinely broken. This is the worker doing exactly what the brief asked: verify, do not trust blind." },
+    { "at": "2026-08-31T14:30:00Z", "agent": "leader", "event": "Leader independently re-proved the guard in BOTH directions rather than accepting the worker's transcript: clean on the current tree; flags all three legs on a scratch file violating each; a // tz:allow: marker silences exactly the one marked line; clean again after removal. This is the tier's whole value — a grep guard that matches nothing passes silently." }
+  ]
+}

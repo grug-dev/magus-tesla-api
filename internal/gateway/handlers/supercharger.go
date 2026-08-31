@@ -56,7 +56,7 @@ const superchargerRangeMaxDays = 400
 // calendar month). Mirrors history.go's startOfDay, one level coarser.
 func startOfMonth(t time.Time) time.Time {
 	t = t.UTC()
-	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC) // tz:allow: month granularity, not a day truncator — deliberately distinct from clock.CalendarDay (RM35 roadmap correction 2026-08-30)
 }
 
 // monthsBackFrom returns the whole-day, month-aligned start of the
@@ -131,7 +131,7 @@ func parseSuperchargerRange(c *gin.Context, today time.Time) (start, end time.Ti
 // window, in which case Presets is left nil so the template renders no
 // selector (design.md D1).
 func (h *Handler) superchargerStatsViewFor(c *gin.Context, uid uuid.UUID, csrfToken string) (fragments.SuperchargerStatsView, int) {
-	today := startOfDay(time.Now().UTC()) // design.md D9a — plain UTC, NOT browserToday(c)
+	today := startOfDay(time.Now().UTC()) // design.md D9a — plain UTC, NOT browserToday(c); tz:allow: RM30 D9a, deliberately UTC not the browser cookie's zone
 
 	start, end, ok := parseSuperchargerRange(c, today)
 	if !ok {
@@ -166,7 +166,7 @@ func (h *Handler) superchargerStatsViewFor(c *gin.Context, uid uuid.UUID, csrfTo
 // "no session in the window matches id" — collapses to (zero, false); none is
 // distinguished from another (design.md D1's documented non-distinction).
 func (h *Handler) fetchSuperchargerRowVM(c *gin.Context, uid uuid.UUID, id uuid.UUID) (fragments.SuperchargerRowVM, bool) {
-	today := startOfDay(time.Now().UTC()) // design.md D9a — plain UTC, NOT browserToday(c)
+	today := startOfDay(time.Now().UTC()) // design.md D9a — plain UTC, NOT browserToday(c); tz:allow: RM30 D9a, deliberately UTC not the browser cookie's zone
 	start, end, ok := parseSuperchargerRange(c, today)
 	if !ok {
 		return fragments.SuperchargerRowVM{}, false
@@ -198,7 +198,7 @@ func (h *Handler) fetchSuperchargerRowVM(c *gin.Context, uid uuid.UUID, id uuid.
 // keeps fetchSuperchargerRowVM's return shape (VM, bool) unchanged rather than
 // widening it to also hand back the window strings.
 func superchargerWindowStrs(c *gin.Context) (startStr, endStr string) {
-	today := startOfDay(time.Now().UTC())
+	today := startOfDay(time.Now().UTC()) // design.md D9a — plain UTC, NOT browserToday(c); tz:allow: RM30 D9a, deliberately UTC not the browser cookie's zone
 	start, end, ok := parseSuperchargerRange(c, today)
 	if !ok {
 		return "", ""

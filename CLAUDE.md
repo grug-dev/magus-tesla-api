@@ -8,7 +8,8 @@
 
 - `go build ./...`, `go vet ./...`, `gofmt -l`
 - `make build`, `make vet`, `make bins`
-- `make ui-guard`, `make i18n-guard`, `make money-guard` — the standalone grep-based guards
+- `make ui-guard`, `make i18n-guard`, `make money-guard`, `make tz-guard` — the standalone
+  grep-based guards
 - `sqlc generate` / `make sqlc`, `go mod tidy` / `make tidy`
 
 **Claude does NOT run the test suite — the owner does.** Never run `go test ./...`,
@@ -22,9 +23,9 @@ compiles `_test.go` files, so it catches signature drift and API mistakes in tes
 executed. Skipping a signal like that doesn't save anything; it converts it into a
 round-trip that costs more than the output it replaced.
 
-`make check` is owner-only *only* because it ends in `test` — its other five phases
-(`build vet ui-guard i18n-guard money-guard`) are all on the allowed list and Claude runs
-them individually. So excluding `check` costs no guard coverage.
+`make check` is owner-only *only* because it ends in `test` — its other six phases
+(`build vet ui-guard i18n-guard money-guard tz-guard`) are all on the allowed list and Claude
+runs them individually. So excluding `check` costs no guard coverage.
 
 Consequence: when Claude has written tests but not run them, the honest state is **awaiting
 your verification** — not "done". No task, commit message, or summary may claim tests pass
@@ -76,10 +77,10 @@ OAuth-capture tool, not the running server. Treat `ai/architecture.md` as the ta
 These are always in effect. Do not violate them even if you haven't opened the conventions file:
 
 - **AI-efficiency is a first-class design criterion** — when proposing, designing, or reviewing code, weigh how cheaply an AI assistant can *understand* the codebase and *implement* a change (token cost + round-trips) alongside correctness and performance, and state that rationale for non-trivial choices. Favor: **closed, small vocabularies** an agent looks up instead of re-inventing (the `ui/` kit, semantic theme tokens, one gold-standard slice to mirror); **change-locality** — structure so a change touches few files (module boundaries, single-source mappings/adapters); **discoverability** in the docs an agent already loads (`CLAUDE.md`, `AGENTS.md`, `ai/*.md`) over facts it must grep to rediscover; and **deterministic signals over human round-trips** — typed Props, `make` guards/gates, and codegen that fail fast and cheap. **But do not over-abstract**: indirection costs tokens to resolve, so add a wrapper/layer only where it buys change-locality on a *volatile or repeated* surface — never hide stable, self-describing things (theme tokens, Tailwind utilities, trivial one-offs) behind a lookup. Over-abstraction is *anti*-AI-efficiency; keep the code, the layers, and the docs themselves lean. Several rules below (modular packages, mirror-the-gold-standard, docs-track-change) are instances of this principle.
-- **You write the tests; the owner runs them** — never `go test ./...`, `make test`, `make test-with-db`, or `make check`, in any session, pipeline or not. `go build ./...`, `go vet ./...`, `gofmt -l` and the standalone guards (`make ui-guard` / `i18n-guard` / `money-guard`) are yours to run (vet compiles `_test.go`, so it catches signature drift in tests nobody executed). Tests you wrote but did not run are **awaiting the owner's verification**, never "done", and a passing suite is reported by the owner and recorded as theirs — never claimed as your own. Full rule: §"Builds & local checks" above; testing detail in `ai/go-conventions.md` §Testing.
+- **You write the tests; the owner runs them** — never `go test ./...`, `make test`, `make test-with-db`, or `make check`, in any session, pipeline or not. `go build ./...`, `go vet ./...`, `gofmt -l` and the standalone guards (`make ui-guard` / `i18n-guard` / `money-guard` / `tz-guard`) are yours to run (vet compiles `_test.go`, so it catches signature drift in tests nobody executed). Tests you wrote but did not run are **awaiting the owner's verification**, never "done", and a passing suite is reported by the owner and recorded as theirs — never claimed as your own. Full rule: §"Builds & local checks" above; testing detail in `ai/go-conventions.md` §Testing.
 - **Modular packages are a hard requirement** — every Tesla API concern gets its own package under `internal/`; one concern per package; `cmd/` stays thin (zero business logic).
 - **Display units are kilometres, °C and PSI; conversion happens once, on write, never on read** — every persisted unit-bearing column and domain field is stored in the platform display unit under a matching suffix (`_km`, `_kmh`, `_c`, `_psi`, `_kwh`, `_kw`, `_v`, `_a`, `_pct`). Two exemptions only: `internal/tesla`'s vendor DTOs (stay in the Fleet API's native units — miles, bar) and monetary amounts (no suffix; paired with a `currency` column instead). Full rule: `ai/go-conventions.md`.
-- **The default time zone is `America/Bogota`, obtained only through `internal/clock`** — never a raw `time.Now()`, a hardcoded zone name, or a hand-rolled UTC-midnight truncation. Two exemptions only: the `pgtype.Date` UTC-midnight storage encoding (unchanged) and the gateway's per-user `browser_tz` cookie, which still wins for a signed-in user. Full rule: `ai/go-conventions.md`.
+- **The default time zone is `America/Bogota`, obtained only through `internal/clock`** — never a raw `time.Now()`, a hardcoded zone name, or a hand-rolled UTC-midnight truncation. Two exemptions only: the `pgtype.Date` UTC-midnight storage encoding (unchanged) and the gateway's per-user `browser_tz` cookie, which still wins for a signed-in user. `make tz-guard` enforces this repo-wide (escape hatch: `// tz:allow: <reason>`). Full rule: `ai/go-conventions.md`.
 - **Boundaries are sacred** (detail in `ai/architecture.md`): no HTML outside `internal/gateway/`; no module reads another module's DB/internals; cross-module data flows only through public Go interfaces; the gateway calls interfaces, never a database.
 - **Every user-facing label is bilingual — both `ES` and `EN`, always** (full rule + the how-to in `internal/gateway/AGENTS.md` §i18n). The app is ES-default/EN bilingual: any user-visible string added or edited in `internal/gateway/` resolves through `i18n.T(ctx, key)` against the single catalogue `internal/gateway/i18n/catalog.go`, with both languages non-empty. A hardcoded English (or Spanish-only) string is **incomplete work**, exactly like an undocumented structural change. Two guards enforce it — `TestCatalog_AllKeysHaveBothLanguages` (every known key has both languages) and `make i18n-guard` (no string bypasses `i18n.T` at all), both wired into `make check` — but the rule binds whether or not a guard happens to catch you first.
 - **Docs track structural change** — any change that adds, removes, renames, or re-scopes a module (or otherwise alters the project's structure or a module's public surface) MUST update the affected docs **in the same change**, never as a follow-up: the root `README.md` "Project Structure" tree and "Architecture" table, `cmd/README.md` when a runnable changes, and the module's own `README.md` where one exists. A change that leaves structure docs stale is **incomplete**.
@@ -116,9 +117,9 @@ layer is each module's own `AGENTS.md`, added to the pack by the leader per disp
 - **Test-Execution-Policy:** `Claude writes tests but never runs the suite — never go test
   ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet
   ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make
-  ui-guard / make i18n-guard / make money-guard. The owner runs the suite and reports
-  results; work that is complete but unexecuted is awaiting-user-verification, never done,
-  and a passing suite is recorded as the owner's report, never claimed by the assistant.`
+  ui-guard / make i18n-guard / make money-guard / make tz-guard. The owner runs the suite and
+  reports results; work that is complete but unexecuted is awaiting-user-verification, never
+  done, and a passing suite is recorded as the owner's report, never claimed by the assistant.`
   — injected verbatim into every worker and reviewer dispatch. Matches §"Builds & local
   checks" above, which governs sessions outside the pipeline.
 - **Design-Gates:** `database` — design areas whose artifacts require the user's explicit

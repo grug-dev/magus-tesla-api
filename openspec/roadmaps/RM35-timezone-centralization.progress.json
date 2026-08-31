@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-20 — https://linear.app/magus-monitor/issue/MAG-20/datedate-time-time-zone\nProject: architecture   Priority: Urgent\n\n## Date/Date time Time Zone\n\n* Analyze all date and date time created by the app (With golang code). The should be saved with Zone America/Bogota. Centralize a new logic that creates a date or date/time in that time zone.\n* Update the CLAUDE/AGENTS instructtion or the best MD instructions per module to use that timezone convention. Find the best place that works for claude and opencode\n* Find the best module to this kind of things that are cross-module. A new shared  util module sound like a good idea? I think it might work.. in the future we might have shared utilities for all modules\n\nAcceptance Criteria\n\nThe app does not use UTC.\n\ndate and datetimes are centralized in one place and shared to all modules needed it",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-08-31T14:25:00Z",
+  "updated_at": "2026-08-31T14:30:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -224,6 +224,15 @@
       "decision": "The worker must prove the guard fails on a real violation, not only that it passes.",
       "why": "A grep guard whose pattern matches nothing passes silently and guards nothing. Tier 6 showed this class of bug survives green runs.",
       "covered_by": null
+    },
+    {
+      "id": "D35",
+      "at": "2026-08-31T14:30:00Z",
+      "scope": "tier:7",
+      "made_by": "leader",
+      "decision": "Accepted the worker's D-plat-3 (exclude _test.go) over the leader's own stated recommendation to include them.",
+      "why": "357 test occurrences would each need a marker, landing on correct and incorrect anchors alike. Leader verified the counts: no discriminating power, so including tests adds noise and zero detection.",
+      "covered_by": null
     }
   ],
   "tiers": [
@@ -339,14 +348,14 @@
         5,
         6
       ],
-      "status": "in-progress",
+      "status": "applied",
       "assistant": "Claude Code",
       "model": "claude-sonnet-5",
       "started_at": "2026-08-31T14:25:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Final tier. make tz-guard mirroring money-guard + .PHONY + check wiring, // tz:allow: markers on the 4 real remaining time.Now() sites, documented in README/CLAUDE.md."
+      "notes": "Three-leg tz-guard wired into make check; six tz:allow markers; documented in README/CLAUDE.md/go-conventions. Guard proved in both directions by the leader independently. Awaiting the owner's make check."
     }
   ],
   "events": [
@@ -505,6 +514,18 @@
       "kind": "tier-started",
       "by": "leader",
       "note": "Tier 7 (platform, FINAL) dispatched with a cross-cutting sandbox grant — Makefile, README.md, CLAUDE.md, ai/go-conventions.md, its own artifacts, plus comment-only tz:allow markers at 4 named sites. Leader pre-measured the target set: exactly 4 real time.Now() calls outside internal/clock (tz.go:108 per D-gw-3; supercharger.go:134/169/201 per that module's D9a), and ZERO UTC-midnight truncations. An earlier raw count of 13 was wrong — it counted comment lines; corrected before dispatch."
+    },
+    {
+      "at": "2026-08-31T14:30:00Z",
+      "kind": "leader-recommendation-overruled",
+      "by": "leader",
+      "note": "The worker rejected the leader's recommendation to include _test.go in the guard, with data. The leader verified the counts (107 time.Now + 250 time.Date in tests) and accepted: a marker on every anchor cannot distinguish a right anchor from a wrong one, so the recommendation was wrong. Recorded rather than quietly dropped."
+    },
+    {
+      "at": "2026-08-31T14:30:00Z",
+      "kind": "leader-measurements-corrected",
+      "by": "leader",
+      "note": "The worker corrected the leader's dispatch brief twice: six escape sites not four, and one UTC-midnight truncation where the leader claimed zero. Root cause of the leader's error: its regex used [^)]*, which cannot span the ) inside t.Year(). Same class as the earlier miscount that read comment lines as calls."
     }
   ]
 }
