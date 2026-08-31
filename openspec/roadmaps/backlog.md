@@ -594,6 +594,59 @@ RM33 `manual-record-status` decision D8 (and D4), settled in the 2026-08-29 gril
 Linear MAG-18.
 
 
+## 19. telemetry — Per-vehicle poll duration
+
+### PROPOSAL
+
+`poll_attempts` (grain: one row per vehicle per run) records the outcome of each vehicle's
+poll but not **how long that vehicle took**. RM36 adds `duration_seconds` at the run level
+only (`poll_runs`), which answers *"the poller took 40s"* but not *"which car ate 35 of
+them"*.
+
+The wake-up wait is the dominant and most variable cost of a cycle — an asleep vehicle is
+polled for online up to `WakeTimeout` while an already-online one goes straight to
+`VehicleData`. That difference is per vehicle, so run-level duration cannot expose it.
+
+Add `duration_seconds` to `poll_attempts`, timed around the per-vehicle work in
+`internal/telemetry`'s `record()` path. One migration, one module, no new table.
+
+**TRIGGER — pick this up when** a run's duration is actually observed to be a problem
+(RM36's `poll_runs` is what will show that), or when the wake timeout is next tuned.
+
+### ORIGIN
+
+`RM36-poll-run-tracking` decision **D3**, settled in the 2026-08-31 grill-me interview for
+Linear MAG-35. The user chose run-level duration only, to keep the change to the ticket's
+literal scope; per-vehicle was judged useful but deferred rather than discarded.
+
+
+## 20. gateway — A read surface for `poll_runs`
+
+### PROPOSAL
+
+RM36 creates `poll_runs` (one row per poller invocation: duration, account and vehicle
+outcome counts, charging counters, Tesla Fleet API call count) but **nothing reads it** —
+the roadmap is write-only by design, so the data starts accumulating before anyone commits
+to how it should be displayed.
+
+Once rows exist, add a gateway surface: a poller-health page or a section on an existing
+admin/settings page showing recent runs, their durations, failures by reason, and the API
+call count per run — the last being the input to the Tesla API cost figure MAG-35 wanted.
+
+Note `poll_runs` was designed for exactly this (RM36 D5 denormalizes the vehicle counts into
+the row precisely so a run summary reads without a join), so the read side should need no
+schema change.
+
+**TRIGGER — pick this up when** enough nightly runs have accumulated to be worth looking at
+(a few weeks), or as part of the Settings page (backlog item 5).
+
+### ORIGIN
+
+`RM36-poll-run-tracking` "Future work" — the roadmap ships persistence only. Recorded
+2026-08-31 from Linear MAG-35.
+
+
+
 # BRAINSTORMING
 
 
