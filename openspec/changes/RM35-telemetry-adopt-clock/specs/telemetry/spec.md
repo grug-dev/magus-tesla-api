@@ -1,11 +1,11 @@
 ## ADDED Requirements
 
 ### Requirement: Snapshot Calendar Day Default Time Zone
-When nightly collection is configured with no explicit collection time zone, the telemetry
-capability SHALL determine the calendar day a snapshot belongs to using the platform's default
-time zone, `America/Bogota`, rather than the host process's own local time zone. When
-collection IS configured with an explicit collection time zone, that configured zone SHALL
-continue to determine the calendar day, unaffected by the platform default.
+The telemetry capability SHALL determine the calendar day a snapshot belongs to using the
+platform's default time zone, `America/Bogota`, whenever nightly collection is configured with
+no explicit collection time zone — never the host process's own local zone. When collection IS
+configured with an explicit collection time zone, that configured zone SHALL continue to
+determine the calendar day, unaffected by the platform default.
 
 #### Scenario: An explicitly configured collection time zone determines the calendar day
 - **GIVEN** nightly collection is configured with an explicit collection time zone
