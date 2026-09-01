@@ -319,8 +319,10 @@ Before committing any change, run **`make generate`** (sqlc + templ + css) then 
 The web UI lives **only** in `internal/gateway/` — the single module allowed to produce HTML.
 It's built on the **GOTH stack**: Go + [Templ](https://templ.guide) + htmx, styled with a
 **Node-less** standalone Tailwind CLI + **DaisyUI** (responsive drawer nav, a typed
-`templates/ui/` component kit, semantic theme tokens — never hex). Default theme: `lemonade`
-(`dark` auto-applies via `prefers-color-scheme`).
+`templates/ui/` component kit, semantic theme tokens — never hex). Two dark themes ship,
+both compiled into `app.css`: **`apex`** (the default — Tesla-red primary, charcoal
+surfaces) and **`graphite`** (blue primary, every colour pair WCAG-AA). The daisyUI
+builtin `halloween` stays registered as a fallback. See *Switching the theme* below.
 
 **Only the gateway uses the UI stack.** Every domain module (`account`, `tesla`, `telemetry`,
 `charging`, `googleauth`) is UI-agnostic: it owns data and exposes Go interfaces, and the
@@ -334,6 +336,43 @@ theme exists — so restyling or re-theming never ripples past the gateway bound
 > kit. Add new pages with `kkpa-goth-scaffold-ui scaffold <concept> [module]`; edit styling in
 > the committed files. Full rules: [`ai/htmx-conventions.md`](ai/htmx-conventions.md) and
 > [`internal/gateway/AGENTS.md`](internal/gateway/AGENTS.md).
+
+### Switching the theme
+
+Every registered theme is compiled into `app.css`, so switching does **not** mean editing
+`input.css` — it is one attribute plus a regenerate:
+
+1. Edit [`internal/gateway/templates/layouts/base.templ`](internal/gateway/templates/layouts/base.templ)
+   line 17 and change the theme name:
+
+   ```html
+   <html lang={ i18n.FromContext(ctx) } data-theme="apex">
+   <!--                                            ^^^^ -> "graphite" -->
+   ```
+
+2. Regenerate:
+
+   ```sh
+   make templ && make css
+   ```
+
+3. Restart with `make up`. If `make dev` is already running, just refresh the browser —
+   the templ and tailwind watchers pick both files up.
+
+4. To undo, set the name back and run the same two commands.
+
+**Where the palettes live:** `internal/gateway/static/themes/`. Each theme file
+(`apex.css`, `graphite.css`) holds **only** its palette — one `@plugin` block of
+`--color-*` / radius / size tokens. Everything shared sits in `_shared.css`: the
+self-hosted Inter + JetBrains Mono `@font-face` blocks, the font tokens, the
+battery-level colour scale (`--color-battery-*` + the `.text-battery-*` utilities), and
+the `.divider` reset. A theme must never redefine those — the battery scale is a *state*
+vocabulary, so "critically low" looks the same whichever palette is active. That is also
+why both palettes keep their primary out of the red/orange/yellow/green band.
+
+**Adding a third theme:** one new `themes/<name>.css` with a single `@plugin` block (mirror
+`graphite.css`), plus one `@import` line in `static/input.css`. Exactly one theme may carry
+`default: true`; `apex` holds it.
 
 **CSS toolchain & deploy:** the generated `internal/gateway/static/app.css` is **committed**
 and embedded via `//go:embed static`, so a production build (`go build ./cmd/web`) is

@@ -1,0 +1,75 @@
+/* Graphite — accessible dark alternative to the Apex palette: cool graphite
+ * surfaces, Electric-Blue primary, cyan accent. Dark-mode-first, same geometry
+ * and same typography as apex (fonts live in _shared.css).
+ *
+ * This file is the single source of truth for the GRAPHITE PALETTE only. It is NOT
+ * the default — apex holds `default: true`, and only one theme may. Both are always
+ * compiled into app.css; see README.md §"Switching the theme".
+ *
+ * WHY BLUE AND NOT RED: the shared battery scale in _shared.css already spends four
+ * hues on STATE — red (0-10%), orange (11-20%), yellow (21-40%), green (41%+). A
+ * primary in any of those hues means the same color says two different things: in
+ * apex, "critically low battery" and "primary action" are both red, and the no-data
+ * fallback (pages.dashBatteryColorClass -> text-primary) is red too. That leaves
+ * blue, violet or a neutral. Blue is the conventional "action" hue and was already
+ * present in apex as its accent (#3d5afe), so the app's visual language barely moves.
+ *
+ * CONTRAST: every text pair below was measured against base-100 (#0e1013) and clears
+ * WCAG AA (4.5:1); all but the primary clear AAA (7:1). Worst pair is primary at
+ * 6.06:1. Apex, by comparison, fails AA in three places. If you change a value here,
+ * re-measure — the point of this palette is that it passes.
+ *
+ * Tailwind v4 inlines @import before processing, so the @plugin directive below resolves
+ * as if it were written in input.css itself.
+ */
+@plugin "../daisyui-theme.mjs" {
+  name: "graphite";
+  color-scheme: dark;
+  --color-base-100: #0e1013;
+  --color-base-200: #161a1f;
+  --color-base-300: #252b33;
+  --color-base-content: #e6e9ee;
+  /* 15.65:1 on base-100 */
+  --color-surface-card: #14181d;
+  /* base-content on card: 14.65:1 */
+  --color-line-card: #252b33;
+  --color-primary: #6b8afd;
+  /*  6.06:1 on base-100 */
+  --color-primary-content: #0b0f17;
+  /*  6.10:1 on primary  */
+  --color-secondary: #a8b2c0;
+  /*  8.89:1 on base-100 */
+  --color-secondary-content: #12161b;
+  /*  8.47:1 on secondary */
+  --color-accent: #22d3ee;
+  /* 10.54:1 on base-100 */
+  --color-accent-content: #06202a;
+  /*  9.31:1 on accent   */
+  --color-neutral: #2b323b;
+  --color-neutral-content: #e6e9ee;
+  /* 10.64:1 on neutral  */
+  --color-info: #38bdf8;
+  /*  8.89:1 on base-100 */
+  --color-info-content: #04222f;
+  /*  7.69:1 on info     */
+  --color-success: #34d399;
+  /*  9.91:1 on base-100 */
+  --color-success-content: #04231a;
+  /*  8.67:1 on success  */
+  --color-warning: #fbbf24;
+  /* 11.41:1 on base-100 */
+  --color-warning-content: #221701;
+  /* 10.56:1 on warning  */
+  --color-error: #ff6b6b;
+  /*  6.87:1 on base-100 */
+  --color-error-content: #2a0606;
+  /*  6.71:1 on error    */
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}

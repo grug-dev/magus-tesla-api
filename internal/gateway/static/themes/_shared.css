@@ -1,0 +1,131 @@
+/* Shared, theme-agnostic gateway styling — the parts every DaisyUI theme in this
+ * folder inherits: the self-hosted web fonts, the font tokens, the battery-level
+ * metric scale, and the divider reset.
+ *
+ * Why this file exists: each theme file (apex.css, graphite.css, …) owns ONLY its
+ * palette — its `@plugin` block of --color-* / radius / size tokens. Everything
+ * below is identical whichever palette is active, so it lives here once instead of
+ * being copy-pasted into every theme. Adding a third theme = one new file with one
+ * `@plugin` block; nothing here changes.
+ *
+ * Imported by input.css BEFORE the theme files. See README.md §"Switching the theme".
+ *
+ * Tailwind v4 inlines @import before processing, so directives below resolve as if
+ * they were written in input.css itself.
+ */
+
+/* Self-hosted web fonts. font-display: swap avoids FOIT; the Latin subset covers the
+ * app's UI strings (es/en). Add other subsets (cyrillic, etc.) only if a real page
+ * needs them — do not front-load every subset.
+ *
+ * Typography follows themes/design.md: Inter for all primary communication (body +
+ * headlines, weights 400/700/800), JetBrains Mono for technical labels, status
+ * values, and input text (weight 500). The woff2 files live under
+ * internal/gateway/static/fonts/ (OFL-licensed via Fontsource) and are //go:embed-ed
+ * into the binary — NO external CDN, per the gateway's no-CDN rule. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('/static/fonts/inter-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('/static/fonts/inter-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url('/static/fonts/inter-latin-800-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('/static/fonts/jetbrains-mono-latin-500-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Font tokens + the battery-level metric scale, for EVERY theme.
+ *
+ * Why the selector is [data-theme] and not [data-theme="<one theme>"]: these values
+ * are shared, so keying them to a single theme name would silently drop the fonts
+ * and the battery colors the moment someone switches base.templ to another theme.
+ * Same specificity (0,1,0) as the old per-theme rule, still unlayered.
+ *
+ * Why this is a plain rule and NOT entries in a theme's @plugin block: DaisyUI v5
+ * owns --default-font-family / --default-mono-font-family internally — values set
+ * for them inside a @plugin block are silently dropped and replaced with
+ * `sans-serif` / `monospace`. A plain unlayered rule here wins over DaisyUI's
+ * @layer base output, so the tokens actually resolve to the real fonts. The body
+ * rule DaisyUI ships reads var(--default-font-family, <system stack>), so setting
+ * the token here cascades to every component with no per-template edit.
+ *
+ * Why the battery colors are shared and not per-theme: they are a STATE vocabulary
+ * (how full is the battery), not a brand one. A theme changes what "action" looks
+ * like; it must not change what "critically low" looks like. Every palette in this
+ * folder therefore keeps its primary OUT of the red/orange/yellow/green band these
+ * four tokens own. */
+[data-theme] {
+  --default-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --default-mono-font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --color-battery-low: oklch(70.39% 0.19 22.06);
+  /* red    — 0–10%   */
+  --color-battery-mid: oklch(74.96% 0.18 55.04);
+  /* orange — 11–20%  */
+  --color-battery-warn: oklch(90.77% 0.18 84.79);
+  /* yellow — 21–40%  */
+  --color-battery-full: oklch(78.36% 0.18 156.76);
+  /* green  — 41–100% */
+}
+
+/* Battery-level metric colors (dashboard battery card). Token-backed semantic
+ * utilities — not a DaisyUI component class, so they live here in the theme folder
+ * rather than routed through templates/ui/. DaisyUI's <progress> fill and the
+ * big % number both read `color` (currentColor), so one class colors both.
+ * Bands (end inclusive at the lower bound — 10=low, 20=mid, 40=warn):
+ *   0–10 → low (red)   11–20 → mid (orange)   21–40 → warn (yellow)   41+ → full (green)
+ * See pages.dashBatteryColorClass for the band switch. */
+.text-battery-low {
+  color: var(--color-battery-low);
+}
+
+.text-battery-mid {
+  color: var(--color-battery-mid);
+}
+
+.text-battery-warn {
+  color: var(--color-battery-warn);
+}
+
+.text-battery-full {
+  color: var(--color-battery-full);
+}
+
+/* Divider: remove the default line color (pseudo-elements + border carry the color).
+ * DaisyUI puts divider styles in @layer daisyui.l1.l2.l3; @layer utilities
+ * comes after component layers in Tailwind's cascade, so this override wins. */
+@layer utilities {
+
+  .divider,
+  .divider::before,
+  .divider::after {
+    border-color: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    height: 0 !important;
+  }
+}

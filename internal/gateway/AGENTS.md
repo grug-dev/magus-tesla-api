@@ -833,9 +833,10 @@ the Stitch `design.md` port (2026-08-19) so the Apex theme's typography spec is
 live, not just documented.
 
 **What:** four woff2 files (~94 KB total, OFL-licensed, fetched from the Fontsource
-`font-files` repo), four `@font-face` blocks, and a `[data-theme="apex"]` override of
+`font-files` repo), four `@font-face` blocks, and a `[data-theme]` override of
 `--default-font-family` / `--default-mono-font-family` — all in
-`internal/gateway/static/themes/apex.css`, the single source of truth for the theme.
+`internal/gateway/static/themes/_shared.css`, the single source of truth for
+everything every theme shares (see *Theme file layout* below).
 DaisyUI v5's body rule reads `var(--default-font-family, <system stack>)`, so setting
 the token cascades to every component with **no per-template edit** for the body font.
 The `font-mono` utility (Tailwind's `var(--font-mono)`, which resolves to JetBrains
@@ -844,12 +845,17 @@ as "technical labels / values / status labels": `input`, `select`, `textarea`,
 `badge`, and `stat_tile`'s `stat-value` — the anti-corruption-adapter boundary keeps
 the class owned in `ui/`, not inlined in pages.
 
-**Why a plain `[data-theme="apex"]` rule and not entries in the `@plugin` block:**
+**Why a plain `[data-theme]` rule and not entries in the `@plugin` block:**
 DaisyUI v5 owns `--default-font-family` / `--default-mono-font-family` internally —
-values set for those keys inside the theme's `@plugin` block are silently dropped and
-replaced with `sans-serif` / `monospace`. A plain unlayered CSS rule in `apex.css`
-wins over DaisyUI's `@layer base` output, so the tokens actually resolve to the Apex
+values set for those keys inside a theme's `@plugin` block are silently dropped and
+replaced with `sans-serif` / `monospace`. A plain unlayered CSS rule in `_shared.css`
+wins over DaisyUI's `@layer base` output, so the tokens actually resolve to the real
 fonts. This is a documented DaisyUI v5 quirk, not a Tailwind v4 bug.
+
+The selector is the **attribute-only** `[data-theme]`, not `[data-theme="apex"]`: the
+fonts are shared by every palette, so keying them to one theme name would silently
+drop them the moment `base.templ` switches to another. Same specificity (0,1,0), still
+unlayered, so the reason above holds unchanged.
 
 **Rejected alternative — Google Fonts `<link>`:** would add a runtime CDN dependency
 to a stack that explicitly bans CDNs (`base.templ` comment) and ships every other
@@ -866,6 +872,33 @@ Roboto) are visually close to Inter but are not Inter, and there is no system
 equivalent of JetBrains Mono's character for the "technical label" role. The cost
 (~94 KB, loaded once with `font-display: swap` so text paints immediately in the
 fallback and reflows minimally on swap) is acceptable for a dashboard app.
+
+### Theme file layout & switching (2026-09-01)
+
+`internal/gateway/static/themes/` holds one shared file plus one file per palette:
+
+| File | Owns |
+|---|---|
+| `_shared.css` | The four `@font-face` blocks, the `[data-theme]` font tokens, the battery-level scale (`--color-battery-*` + the `.text-battery-*` utilities), the `.divider` reset. Imported **first** by `input.css`. |
+| `apex.css` | The apex palette only — one `@plugin` block. Carries `default: true`. |
+| `graphite.css` | The graphite palette only — one `@plugin` block. No `default`. |
+
+A theme file contributes **only** `--color-*` / radius / size tokens. Anything shared
+belongs in `_shared.css`, so adding a palette never duplicates the fonts or the battery
+colours. Exactly one theme may carry `default: true`.
+
+**The battery scale is deliberately NOT per-theme.** It is a *state* vocabulary — red
+(0–10%), orange (11–20%), yellow (21–40%), green (41%+), consumed by
+`pages.dashBatteryColorClass`. A palette changes what "action" looks like; it must not
+change what "critically low" looks like. The corollary binds every new theme: **keep the
+primary out of the red/orange/yellow/green band**, or one colour will mean two things.
+Apex violates this (red primary collides with battery-low, and `error` #ffb4ab reads
+calmer than a primary button); `graphite.css` exists as the accessible alternative and
+documents the measured contrast per token.
+
+**Switching:** all themes compile into `app.css`, so it is one `data-theme` attribute in
+`templates/layouts/base.templ` (line 17) plus `make templ && make css` — never an
+`@import` swap. Full steps live in the root `README.md` §"Switching the theme".
 
 **Boundary — this is NOT an opening for arbitrary self-hosted fonts.** Like RD9/RD10,
 it is a narrow, sanctioned decision (two families, four weights, pinned to the Apex

@@ -14,7 +14,7 @@ import (
 // their own chrome around { children... }.
 templ baseShell(title string) {
 	<!DOCTYPE html>
-	<html lang={ i18n.FromContext(ctx) } data-theme="apex">
+	<html lang={ i18n.FromContext(ctx) } data-theme="graphite">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -35,8 +35,12 @@ templ baseShell(title string) {
 }
 
 // Base is the full-page HTML shell for unauthenticated pages (home, login). It sets
-// the DaisyUI theme via <html data-theme> (name must match a registered theme in
-// input.css), loads the vendored, minified Tailwind+DaisyUI
+// the DaisyUI theme via <html data-theme> on baseShell above (the name must match a
+// theme registered in static/input.css — today "apex" (default, Tesla-red) and
+// "graphite" (blue, WCAG-AA), plus the "halloween" builtin fallback). Both custom
+// palettes are always compiled into app.css, so re-skinning the app is that one
+// attribute plus `make templ && make css` — steps in README.md "Switching the theme".
+// Loads the vendored, minified Tailwind+DaisyUI
 // stylesheet (/static/app.css) and the pinned htmx (/static/htmx.min.js) — both embedded
 // in the binary, never an external CDN. DaisyUI is pure CSS with zero component
 // JavaScript, so htmx fragment swaps stay styled with nothing to re-initialize.

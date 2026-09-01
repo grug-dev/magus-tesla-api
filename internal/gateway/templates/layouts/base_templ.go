@@ -54,7 +54,7 @@ func baseShell(title string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" data-theme=\"apex\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" data-theme=\"graphite\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -88,8 +88,12 @@ func baseShell(title string) templ.Component {
 }
 
 // Base is the full-page HTML shell for unauthenticated pages (home, login). It sets
-// the DaisyUI theme via <html data-theme> (name must match a registered theme in
-// input.css), loads the vendored, minified Tailwind+DaisyUI
+// the DaisyUI theme via <html data-theme> on baseShell above (the name must match a
+// theme registered in static/input.css — today "apex" (default, Tesla-red) and
+// "graphite" (blue, WCAG-AA), plus the "halloween" builtin fallback). Both custom
+// palettes are always compiled into app.css, so re-skinning the app is that one
+// attribute plus `make templ && make css` — steps in README.md "Switching the theme".
+// Loads the vendored, minified Tailwind+DaisyUI
 // stylesheet (/static/app.css) and the pinned htmx (/static/htmx.min.js) — both embedded
 // in the binary, never an external CDN. DaisyUI is pure CSS with zero component
 // JavaScript, so htmx fragment swaps stay styled with nothing to re-initialize.
@@ -210,7 +214,7 @@ func BaseAuth(title, path string) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.T(ctx, i18n.KeyNavOpenSidebar))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 82, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 86, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var8)
 			if templ_7745c5c3_Err != nil {
@@ -247,7 +251,7 @@ func BaseAuth(title, path string) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.T(ctx, i18n.KeyNavCloseSidebar))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 99, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 103, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 			if templ_7745c5c3_Err != nil {

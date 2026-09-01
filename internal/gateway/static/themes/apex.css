@@ -2,63 +2,28 @@
  * "Apex Performance" (assets/449bb4578ef34426a2e7fa5e239f33a7): dark-mode-first,
  * Tesla-red primary, charcoal surfaces, Electric-Blue accent.
  *
- * This file is the SINGLE source of truth for the apex palette AND typography. To
- * re-skin the app to a different theme, see input.css (swap the @import) AND
- * templates/layouts/base.templ (data-theme attribute) — both names must match.
+ * This file is the single source of truth for the APEX PALETTE only. The fonts,
+ * the font tokens, the battery-level scale and the divider reset are shared by
+ * every theme and live in _shared.css.
  *
- * Typography follows design.md: Inter for all primary communication (body +
- * headlines, weights 400/700/800), JetBrains Mono for technical labels, status
- * values, and input text (weight 500). Fonts are self-hosted under
- * internal/gateway/static/fonts/ (woff2, OFL-licensed via Fontsource) and
- * //go:embed-ed into the binary — NO external CDN, per the gateway's no-CDN rule.
+ * This is the DEFAULT theme (`default: true` below) and the one base.templ sets.
+ * To switch the app to another palette, see README.md §"Switching the theme" —
+ * both themes are always compiled into app.css, so switching is one attribute in
+ * templates/layouts/base.templ plus `make templ && make css`.
  *
  * info/success/warning are borrowed from the daisyUI "halloween" builtin because the
  * Apex spec defines them in prose only (emerald/amber) with no exact hex. Replace them
  * with exact Apex values if/when they are pinned.
  *
+ * KNOWN ISSUES (why graphite.css exists): with a red primary, `error` (#ffb4ab, pale
+ * pink) reads calmer than a primary button, and the red collides with the shared
+ * battery-low red. Contrast against base-100 also falls short of WCAG AA — primary
+ * text 4.12:1, white-on-primary 4.49:1, accent 3.60:1 (AA wants 4.5:1). Apex is kept
+ * as-is for brand fidelity; graphite is the accessible alternative.
+ *
  * Tailwind v4 inlines @import before processing, so the @plugin directive below resolves
  * as if it were written in input.css itself.
  */
-
-/* Self-hosted web fonts. font-display: swap avoids FOIT; the Latin subset covers the
- * app's UI strings (es/en). Add other subsets (cyrillic, etc.) only if a real page
- * needs them — do not front-load every subset. */
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 400;
-  src: url('/static/fonts/inter-latin-400-normal.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 700;
-  src: url('/static/fonts/inter-latin-700-normal.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 800;
-  src: url('/static/fonts/inter-latin-800-normal.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 500;
-  src: url('/static/fonts/jetbrains-mono-latin-500-normal.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
 @plugin "../daisyui-theme.mjs" {
   name: "apex";
   default: true;
@@ -70,14 +35,6 @@
   --color-surface-card: #121212;
   --color-line-card: #2A2A2A;
   --color-primary: #e82127;
-  --color-battery-low: oklch(70.39% 0.19 22.06);
-  /* red    — 0–10%   */
-  --color-battery-mid: oklch(74.96% 0.18 55.04);
-  /* orange — 11–20%  */
-  --color-battery-warn: oklch(90.77% 0.18 84.79);
-  /* yellow — 21–40%  */
-  --color-battery-full: oklch(78.36% 0.18 156.76);
-  /* green  — 41–100% */
   --color-primary-content: #ffffff;
   --color-secondary: #c8c6c5;
   --color-secondary-content: #313030;
@@ -101,56 +58,4 @@
   --border: 1px;
   --depth: 1;
   --noise: 0;
-}
-
-/* Typography (design.md): Inter site-wide, JetBrains Mono for technical labels.
- *
- * Why this is a plain rule and NOT entries in the @plugin block above: DaisyUI v5
- * owns --default-font-family / --default-mono-font-family internally — values set
- * for them inside the @plugin block are silently dropped and replaced with
- * `sans-serif` / `monospace`. A plain unlayered rule here wins over DaisyUI's
- * @layer base output, so the tokens actually resolve to the Apex fonts. The body
- * rule DaisyUI ships reads var(--default-font-family, <system stack>), so setting
- * the token here cascades to every component with no per-template edit. */
-[data-theme="apex"] {
-  --default-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --default-mono-font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
-/* Battery-level metric colors (dashboard battery card). Token-backed semantic
- * utilities — not a DaisyUI component class, so they live here in the theme
- * rather than routed through templates/ui/. DaisyUI's <progress> fill and the
- * big % number both read `color` (currentColor), so one class colors both.
- * Bands (end inclusive at the lower bound — 10=low, 20=mid, 40=warn):
- *   0–10 → low (red)   11–20 → mid (orange)   21–40 → warn (yellow)   41+ → full (green)
- * See pages.dashBatteryColorClass for the band switch. */
-.text-battery-low {
-  color: var(--color-battery-low);
-}
-
-.text-battery-mid {
-  color: var(--color-battery-mid);
-}
-
-.text-battery-warn {
-  color: var(--color-battery-warn);
-}
-
-.text-battery-full {
-  color: var(--color-battery-full);
-}
-
-/* Divider: remove the default line color (pseudo-elements + border carry the color).
- * DaisyUI puts divider styles in @layer daisyui.l1.l2.l3; @layer utilities
- * comes after component layers in Tailwind's cascade, so this override wins. */
-@layer utilities {
-
-  .divider,
-  .divider::before,
-  .divider::after {
-    border-color: transparent !important;
-    background-color: transparent !important;
-    background-image: none !important;
-    height: 0 !important;
-  }
 }

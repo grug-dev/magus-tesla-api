@@ -10,13 +10,24 @@
 /* Node-less DaisyUI: load the committed bundles by LOCAL path — never the bare
    `@plugin "daisyui"` (that resolves to the npm package we deliberately do not use).
    `halloween` (a daisyUI builtin) is registered without --default so it stays
-   available as a one-line switch fallback. The active default is the custom Apex
-   palette imported below — Tesla-red primary, charcoal surfaces, dark-mode-first.
-   To re-skin: swap the @import line AND the data-theme attribute in
-   templates/layouts/base.templ (regen via `make templ && make css`). Both names
-   must match. */
+   available as a one-line switch fallback. */
 @plugin "./daisyui.mjs" {
   themes: halloween;
 }
 @plugin "./daisyui-theme.mjs";
+
+/* Custom themes. _shared.css FIRST — it carries the self-hosted fonts, the font
+   tokens, the battery-level scale and the divider reset that every theme inherits.
+   Each theme file after it contributes ONLY its own palette (@plugin block).
+
+   ALL themes listed here are compiled into app.css, so switching between them does
+   NOT mean swapping an @import — it is one `data-theme` attribute in
+   templates/layouts/base.templ, then `make templ && make css`. Full steps:
+   README.md §"Switching the theme".
+
+   Adding a third palette: one new ./themes/<name>.css with a single @plugin block
+   (mirror graphite.css), plus one @import line below. Nothing else changes. Exactly
+   one theme may carry `default: true` — apex holds it. */
+@import "./themes/_shared.css";
 @import "./themes/apex.css";
+@import "./themes/graphite.css";
