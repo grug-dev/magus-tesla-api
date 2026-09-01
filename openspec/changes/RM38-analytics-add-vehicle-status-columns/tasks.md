@@ -27,7 +27,7 @@ design.md D1–D8 for the rationale behind each task.
 
 ## Wave 1 — migration (module: analytics worker)
 
-- [ ] **1.1** `internal/analytics/db/migrations/<timestamp>_add_vehicle_status_columns.sql`
+- [x] **1.1** `internal/analytics/db/migrations/<timestamp>_add_vehicle_status_columns.sql`
   — goose migration: `ALTER TABLE vehicle_metrics ADD COLUMN` for all eight columns
   (`locked BOOLEAN`, `sentry_mode BOOLEAN`, `car_version TEXT`, `inside_temp_c DOUBLE
   PRECISION`, `outside_temp_c DOUBLE PRECISION`, `charging_state TEXT`,
@@ -49,7 +49,7 @@ design.md D1–D8 for the rationale behind each task.
 
 ## Wave 2 — sqlc queries + regeneration (module: analytics worker)
 
-- [ ] **2.1** `internal/analytics/db/query.sql` — add `LatestVehicleMetricsByAccount`
+- [x] **2.1** `internal/analytics/db/query.sql` — add `LatestVehicleMetricsByAccount`
   exactly per design.md D6 (`SELECT DISTINCT ON (tesla_id) tesla_id,
   battery_level_pct, battery_range_km, odometer_km, inside_temp_c, outside_temp_c,
   locked, sentry_mode, car_version, charging_state, charge_limit_soc_pct, captured_at
@@ -59,7 +59,7 @@ design.md D1–D8 for the rationale behind each task.
   index, mirroring `telemetry`'s `LatestSnapshotsByAccount`).
   `depends_on`: 1.1 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** `internal/analytics/db/query.sql` — extend `UpsertVehicleMetric`'s
+- [x] **2.2** `internal/analytics/db/query.sql` — extend `UpsertVehicleMetric`'s
   column list, `VALUES`, and `ON CONFLICT ... DO UPDATE SET` clause with all eight
   new columns (design D1/D3 — every one of the eight is part of the SET clause,
   refreshed on every re-derivation exactly like every other non-`created_at` column
@@ -68,7 +68,7 @@ design.md D1–D8 for the rationale behind each task.
   — they are ordinary refreshed columns, not first-write-only ones.
   `depends_on`: 1.1 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** Run `make sqlc` (Claude may run — allowed codegen command,
+- [x] **2.3** Run `make sqlc` (Claude may run — allowed codegen command,
   `CLAUDE.md` "Builds & local checks") to regenerate
   `internal/analytics/db/*.go` from 2.1/2.2's queries against 1.1's migration.
   Confirm `UpsertVehicleMetricParams` gained the eight new fields and

@@ -157,6 +157,75 @@ func (q *Queries) GetVehicleMetricWatermark(ctx context.Context, arg GetVehicleM
 	return source_updated_at, err
 }
 
+const latestVehicleMetricsByAccount = `-- name: LatestVehicleMetricsByAccount :many
+SELECT DISTINCT ON (tesla_id)
+    tesla_id, battery_level_pct, battery_range_km, odometer_km,
+    inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
+    charging_state, charge_limit_soc_pct, captured_at
+FROM vehicle_metrics
+WHERE account_id = $1
+ORDER BY tesla_id, metric_date DESC
+`
+
+type LatestVehicleMetricsByAccountRow struct {
+	TeslaID           int64
+	BatteryLevelPct   int32
+	BatteryRangeKm    float64
+	OdometerKm        float64
+	InsideTempC       pgtype.Float8
+	OutsideTempC      pgtype.Float8
+	Locked            pgtype.Bool
+	SentryMode        pgtype.Bool
+	CarVersion        pgtype.Text
+	ChargingState     pgtype.Text
+	ChargeLimitSocPct pgtype.Int4
+	CapturedAt        pgtype.Timestamptz
+}
+
+// Backs analytics.Reader.LatestMetricsByAccount (design D5/D6 of
+// RM38-analytics-add-vehicle-status-columns) -- the analytics-owned
+// equivalent of telemetry.Reader.LatestSnapshotsByAccount, mirroring its
+// exact DISTINCT ON shape: account_id equality narrows to one tenant's
+// rows, then (tesla_id, metric_date) lets Postgres pick the highest
+// metric_date row per tesla_id in one ordered index scan.
+// Served by idx_vehicle_metrics_latest (account_id, tesla_id,
+// metric_date DESC) -- added at the database design gate specifically to
+// match this query's ORDER BY exactly, eliminating the incremental sort
+// the existing all-ascending vehicle_metrics_account_tesla_date_unique
+// index would otherwise force (design.md "Index Plan", revised).
+func (q *Queries) LatestVehicleMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]LatestVehicleMetricsByAccountRow, error) {
+	rows, err := q.db.Query(ctx, latestVehicleMetricsByAccount, accountID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LatestVehicleMetricsByAccountRow
+	for rows.Next() {
+		var i LatestVehicleMetricsByAccountRow
+		if err := rows.Scan(
+			&i.TeslaID,
+			&i.BatteryLevelPct,
+			&i.BatteryRangeKm,
+			&i.OdometerKm,
+			&i.InsideTempC,
+			&i.OutsideTempC,
+			&i.Locked,
+			&i.SentryMode,
+			&i.CarVersion,
+			&i.ChargingState,
+			&i.ChargeLimitSocPct,
+			&i.CapturedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertChargeGap = `-- name: UpsertChargeGap :exec
 INSERT INTO charge_gaps (
     account_id, tesla_id, vin, gap_date, missing_charging_type
@@ -205,13 +274,17 @@ INSERT INTO vehicle_metrics (
     battery_level_pct, odometer_km, battery_range_km,
     distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
     estimated_range_km_calc, days_spanned_calc,
-    consumed_pct, flagged, missing_charging_type
+    consumed_pct, flagged, missing_charging_type,
+    locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
+    charging_state, charge_limit_soc_pct, captured_at
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6,
     $7, $8, $9,
     $10, $11,
-    $12, $13, $14
+    $12, $13, $14,
+    $15, $16, $17, $18, $19,
+    $20, $21, $22
 )
 ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     battery_level_pct         = EXCLUDED.battery_level_pct,
@@ -225,6 +298,14 @@ ON CONFLICT (account_id, tesla_id, metric_date) DO UPDATE SET
     consumed_pct               = EXCLUDED.consumed_pct,
     flagged                    = EXCLUDED.flagged,
     missing_charging_type      = EXCLUDED.missing_charging_type,
+    locked                     = EXCLUDED.locked,
+    sentry_mode                = EXCLUDED.sentry_mode,
+    car_version                = EXCLUDED.car_version,
+    inside_temp_c               = EXCLUDED.inside_temp_c,
+    outside_temp_c              = EXCLUDED.outside_temp_c,
+    charging_state              = EXCLUDED.charging_state,
+    charge_limit_soc_pct        = EXCLUDED.charge_limit_soc_pct,
+    captured_at                 = EXCLUDED.captured_at,
     updated_at                 = now()
 `
 
@@ -243,6 +324,14 @@ type UpsertVehicleMetricParams struct {
 	ConsumedPct            pgtype.Float8
 	Flagged                bool
 	MissingChargingType    pgtype.Text
+	Locked                 pgtype.Bool
+	SentryMode             pgtype.Bool
+	CarVersion             pgtype.Text
+	InsideTempC            pgtype.Float8
+	OutsideTempC           pgtype.Float8
+	ChargingState          pgtype.Text
+	ChargeLimitSocPct      pgtype.Int4
+	CapturedAt             pgtype.Timestamptz
 }
 
 // Queries for the analytics module. sqlc generates package `analyticsdb` from
@@ -264,6 +353,12 @@ type UpsertVehicleMetricParams struct {
 // it must record when this (account_id, tesla_id, metric_date) was FIRST
 // written, not the most recent recompute, mirroring UpsertChargeGap's
 // identical convention (internal/telemetry/db/query.sql).
+// The eight RM38 status columns (locked, sentry_mode, car_version,
+// inside_temp_c, outside_temp_c, charging_state, charge_limit_soc_pct,
+// captured_at) are ordinary refreshed columns like every other non-
+// created_at column above -- copied verbatim from the day's own
+// telemetry.Snapshot on EVERY re-derivation, regardless of predecessor
+// existence (design D1/D3 of RM38-analytics-add-vehicle-status-columns).
 func (q *Queries) UpsertVehicleMetric(ctx context.Context, arg UpsertVehicleMetricParams) error {
 	_, err := q.db.Exec(ctx, upsertVehicleMetric,
 		arg.AccountID,
@@ -280,6 +375,14 @@ func (q *Queries) UpsertVehicleMetric(ctx context.Context, arg UpsertVehicleMetr
 		arg.ConsumedPct,
 		arg.Flagged,
 		arg.MissingChargingType,
+		arg.Locked,
+		arg.SentryMode,
+		arg.CarVersion,
+		arg.InsideTempC,
+		arg.OutsideTempC,
+		arg.ChargingState,
+		arg.ChargeLimitSocPct,
+		arg.CapturedAt,
 	)
 	return err
 }
