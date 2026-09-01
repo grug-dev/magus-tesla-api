@@ -179,7 +179,7 @@ design.md D1–D12 for the rationale behind each group.
 
 ## Wave 5 — module docs (module: charging worker)
 
-- [ ] **5.1** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
+- [x] **5.1** **[module: charging worker]** `internal/charging/AGENTS.md` — update for the
   module's changed write behavior (docs-track-structural-change, `CLAUDE.md`
   §Non-negotiables):
   - **§Public Interface** — under the existing `SessionVerifier` block, add the derivation

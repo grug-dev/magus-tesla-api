@@ -404,6 +404,26 @@ any other future caller never import `chargingdb` directly, exactly as for
 in this tier — `cmd/web`/`internal/gateway` wiring is deferred to
 `RM31-gateway-add-session-battery-edit` (tier 4).
 
+### Derived start battery percentage (MAG-36, charging-add-derived-start-battery-pct)
+
+`SessionVerifier.VerifySession` can now derive `start_battery_pct` instead of leaving it
+absent. The trigger is exactly four conditions, all required: the caller's
+`startBatteryPct` is `nil`, the caller's `endBatteryPct` is non-`nil`, the session row's
+`energy_kwh` is non-`NULL`, and the algebraic result — `start = end -
+energy_kwh/packCapacityKWh*100`, rounded `math.Round` (half away from zero) — lands in
+`[0, 100]` (design.md D2/D4). A caller-supplied `startBatteryPct` is **never** recomputed
+or overridden, under any condition — clearing the start field is the caller's way of
+asking for it to be calculated. When `energy_kwh` is `SQL NULL` (design.md D5) or the
+derived result falls outside `[0, 100]` (design.md D3), `start_battery_pct` is left
+`NULL`, silently — no error, no clamp to `0`/`100`. `battery_pct_source` computation is
+otherwise unaffected: still `batteryPctSourceUserVerified` when either the (possibly
+derived) start or the end percentage is non-nil, still the only value this port ever
+writes (design.md D1 — no new source value). The derivation runs inside a transaction
+(`pool.Begin`/`WithTx`/`SELECT ... FOR UPDATE` via the new `LockSessionForVerification`
+query/`Commit`) only when the trigger fires, mirroring `internal/account`'s
+`AccessTokenFor` and this module's own `SessionWriter.MirrorSessions` (design.md D7/D9);
+every other call keeps the prior single-statement, non-transactional path unchanged.
+
 ---
 
 ## Allowed Imports
@@ -553,7 +573,16 @@ unit segment (design.md D1, charging-add-inferred-capacity).
     RM31-charging-add-session-verification-port, these three (and only these three) are
     writable through `SessionVerifier.VerifySession` — a human-triggered write, never
     the nightly sync. `battery_pct_source` is always computed by that port, never
-    supplied by a caller (design.md D2/D7 of that change).
+    supplied by a caller (design.md D2/D7 of that change). Since MAG-36
+    (`charging-add-derived-start-battery-pct`), a `VerifySession` call that leaves
+    `start_battery_pct` unsupplied MAY derive it from `energy_kwh` and the supplied end
+    percentage — still writable only through this same port, no new writer, no schema
+    change (see §Public Interface above). **Accepted trade-off (design.md D1):** a
+    derived value is stored under the same `battery_pct_source = 'user_verified'` value
+    a human-typed one gets, so the two are indistinguishable in this column — a future
+    MAG-18 capacity-averaging implementer over `charge_sessions` cannot filter derived
+    rows out by provenance alone; read design.md D1 before building that feature rather
+    than rediscovering this limitation.
   - `start_battery_pct_est`, `end_battery_pct_est` — **charging-owned**, never mirrored,
     and still unwritable by any code path in this repository. Roadmap Decision 3
     (RM31): no estimator exists yet, so these stay permanently `NULL` until one is
@@ -638,6 +667,21 @@ unit segment (design.md D1, charging-add-inferred-capacity).
   than the real backfill outcome — the owner confirms the outcome after
   `make migrate-up` (`openspec/changes/RM33-charging-add-entry-status/tasks.md`
   §"Owner verification").
+  Since MAG-36 (`charging-add-derived-start-battery-pct`),
+  `session_verifier_derivation_test.go` (package `charging`, not `charging_test` —
+  both `derivedStartBatteryPct` and `needsDerivedStartBatteryPct` are deliberately
+  unexported, mirroring `derivedEnergyKWh`/`packCapacityKWh`'s own privacy invariant,
+  the same reason `entry_status_test.go` already lives in package `charging`; design.md
+  D11) covers the derivation's two pure functions offline against design.md Test
+  Contract Groups A (A1-A7) and B (B1-B5) — no database, no `pool`. This change also
+  **corrected two pre-existing `DATABASE_URL`-gated integration tests** whose expected
+  values its own new behavior made false (design.md D12): a `TestVerifySession_PartialEndOnlyStillSetsSource`
+  expected value in `db_session_verifier_integration_test.go` (now asserts a derived
+  `41`, not `nil`), and one table-case's `energyKWh` fixture (`"T15"`, `52.273` →
+  `124.0`) in `db_inferred_capacity_sessions_integration_test.go`, keeping that case's
+  `want: nil` reached through the out-of-range guard instead of "never touched." Both
+  edits are DB-gated and, per `Test-Execution-Policy`, unrun by the assistant that made
+  them.
   The test database is provisioned by `testdb_test.go`:
     - When `DATABASE_URL` is set, that managed Postgres is used (CI with a service container,
       or a local DB you've already provisioned).
