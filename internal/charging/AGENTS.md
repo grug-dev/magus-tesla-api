@@ -438,9 +438,17 @@ This module may import:
   file. `session_writer.go` gained this allowance in RM29 tier 6 for the same reason
   `service.go` has it: it is the one file translating `charging.SessionMirror`'s plain Go
   `*T` fields into `chargingdb.MirrorChargeSessionParams`' nullable pgtype fields.
-- `internal/charging/db` (package `chargingdb`) — ONLY inside `service.go` and
-  `session_writer.go`. The generated package is module-private by convention; no other
-  module imports it.
+- `internal/charging/db` (package `chargingdb`) — ONLY inside the four files that talk to
+  the database directly: `service.go`, `session_writer.go`, `session_reader.go`, and
+  `session_verifier.go`. The generated package is module-private by convention; no other
+  module imports it, and no `_test.go` file does either.
+
+  This list said `service.go` and `session_writer.go` alone until MAG-36
+  (`charging-add-derived-start-battery-pct`) corrected it. `session_reader.go` and
+  `session_verifier.go` have imported `chargingdb` since RM31
+  (`RM31-charging-add-session-verification-port`) — the doc simply went stale and was never
+  updated. Nothing about their access was ever irregular: the rule is "only the files that
+  own a query", not "only these two names".
 
 This module MUST NOT import:
 
