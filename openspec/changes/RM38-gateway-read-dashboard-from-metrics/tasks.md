@@ -24,20 +24,20 @@ is authoritative for every test's expected values.
 
 ## Wave 1 — pure Go helpers (module: gateway worker)
 
-- [ ] **1.1** `internal/gateway/templates/pages/dashboard.go` — add `dashLockedBadge(ctx
+- [x] **1.1** `internal/gateway/templates/pages/dashboard.go` — add `dashLockedBadge(ctx
   context.Context, locked *bool) (text, kind string, show bool)` and `dashSentryBadge(ctx
   context.Context, sentry *bool) (text, kind string, show bool)` exactly per design.md D4 (badge
   matrix D7). Both are pure functions of `(ctx, *bool)` — no gin, no domain-module import beyond
   `i18n`.
   `depends_on`: — · `parallel_ok`: with 1.2, 1.3
 
-- [ ] **1.2** `internal/gateway/handlers/handlers.go` — rewrite `dashStatus`'s signature from
+- [x] **1.2** `internal/gateway/handlers/handlers.go` — rewrite `dashStatus`'s signature from
   `(ctx, telemetry.Snapshot) string` to `(ctx, chargingState *string) string` per design.md D2
   ("dashStatus's new signature"): nil or any value other than `"Charging"` collapses to
   `KeyDashboardStatusParked`. Do not touch its two i18n keys.
   `depends_on`: — · `parallel_ok`: with 1.1, 1.3
 
-- [ ] **1.3** `internal/gateway/handlers/handlers.go` — rename `mergeSnapshots` to
+- [x] **1.3** `internal/gateway/handlers/handlers.go` — rename `mergeSnapshots` to
   `mergeVehicleStatuses`, retype its parameter/return from `[]telemetry.Snapshot`/
   `map[int64]telemetry.Snapshot` to `[]analytics.VehicleStatus`/`map[int64]analytics.
   VehicleStatus` (design.md D6). Body is otherwise byte-identical (same loop, same doc-comment
@@ -46,20 +46,20 @@ is authoritative for every test's expected values.
 
 ## Wave 2 — offline unit tests for Wave 1 (module: gateway worker)
 
-- [ ] **2.1** `internal/gateway/templates/pages/dashboard_test.go` (new file, or add to an
+- [x] **2.1** `internal/gateway/templates/pages/dashboard_test.go` (new file, or add to an
   existing pages-package test file if one exists) — table-driven test covering all **nine**
   combinations of the badge matrix in design.md's Test Contract for `dashLockedBadge` and
   `dashSentryBadge` (three `Locked` states × three `SentryMode` states, asserting `text`, `kind`,
   and `show` for each). Pure function tests — no gin, no fakes.
   `depends_on`: 1.1 · `parallel_ok`: with 2.2, 2.3
 
-- [ ] **2.2** `internal/gateway/handlers/handlers_test.go` — extend (or add) a table-driven test
+- [x] **2.2** `internal/gateway/handlers/handlers_test.go` — extend (or add) a table-driven test
   for `dashStatus`'s new signature: `nil` → Parked, `ptrString("Charging")` → Charging,
   `ptrString("Disconnected")` → Parked, `ptrString("")` → Parked (parity with the old
   empty-string case).
   `depends_on`: 1.2 · `parallel_ok`: with 2.1, 2.3
 
-- [ ] **2.3** `internal/gateway/handlers/handlers_test.go` — rename/retype the existing
+- [x] **2.3** `internal/gateway/handlers/handlers_test.go` — rename/retype the existing
   `mergeSnapshots` unit test(s) to `mergeVehicleStatuses`/`analytics.VehicleStatus` fixtures;
   assert the empty/nil-slice → empty-map case and the by-`TeslaID` lookup case both still hold
   under the new type.

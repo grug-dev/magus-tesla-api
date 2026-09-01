@@ -355,11 +355,18 @@ func relativeLastSeen(capturedAt, now time.Time, ctx context.Context) string {
 	}
 }
 
-// mergeSnapshots builds a map from TeslaID to Snapshot for O(1) lookup per vehicle.
-// A nil or empty slice produces an empty map (no panic on range).
-func mergeSnapshots(snaps []telemetry.Snapshot) map[int64]telemetry.Snapshot {
-	m := make(map[int64]telemetry.Snapshot, len(snaps))
-	for _, s := range snaps {
+// mergeVehicleStatuses builds a map from TeslaID to VehicleStatus for O(1) lookup
+// per vehicle. A nil or empty slice produces an empty map (no panic on range).
+// Renamed from mergeSnapshots (RM38-gateway-read-dashboard-from-metrics): same
+// shape, new source type -- LatestMetricsByAccount already returns at most one
+// row per TeslaID (design.md D6, tier 1), so, exactly as before with
+// LatestSnapshotsByAccount, this function does no de-duplication of its own; it
+// only indexes an already-unique slice for lookup by an arbitrary caller-supplied
+// TeslaID (the selected/primary vehicle), which the slice's own uniqueness does
+// not provide by itself.
+func mergeVehicleStatuses(statuses []analytics.VehicleStatus) map[int64]analytics.VehicleStatus {
+	m := make(map[int64]analytics.VehicleStatus, len(statuses))
+	for _, s := range statuses {
 		m[s.TeslaID] = s
 	}
 	return m
@@ -493,8 +500,13 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, snap
 // only distinguishes actively charging from not. Presentation-only mapping; no
 // business logic. ctx is an explicit first parameter (mirrors navItems(ctx, active)
 // — D5) so the two-branch function can resolve its translated word via i18n.T.
-func dashStatus(ctx context.Context, s telemetry.Snapshot) string {
-	if s.ChargingState == "Charging" {
+// dashStatus maps a snapshot's ChargingState to the dashboard's two-state status
+// vocabulary. nil (not yet recomputed since the RM38 migration) collapses to
+// "Parked", identical to the pre-migration behavior for an empty string — there is
+// no third visual state for "unknown charging state" on the dashboard subtitle
+// (design.md D2, RM38-gateway-read-dashboard-from-metrics).
+func dashStatus(ctx context.Context, chargingState *string) string {
+	if chargingState != nil && *chargingState == "Charging" {
 		return i18n.T(ctx, i18n.KeyDashboardStatusCharging)
 	}
 	return i18n.T(ctx, i18n.KeyDashboardStatusParked)

@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
@@ -757,25 +758,69 @@ func TestFormatKm(t *testing.T) {
 	}
 }
 
+// ptrString returns a pointer to s -- a small test-local helper mirroring the
+// existing ptrInt/ptrTime helpers in this package (supercharger_test.go,
+// charges_tiles_test.go), added by RM38-gateway-read-dashboard-from-metrics for
+// the new *string fields on analytics.VehicleStatus.
+func ptrString(s string) *string { return &s }
+
 func TestDashStatus(t *testing.T) {
-	// dashStatus now takes an explicit ctx and resolves through the i18n catalogue
-	// (design.md D5, RM24-gateway-translate-all-pages) instead of returning a
-	// hardcoded literal, mirroring tier 2's T6.4 precedent (nav_test.go,
-	// nav_header_test.go): assert against i18n.T(ctx, key), not a literal string.
+	// dashStatus now takes a chargingState *string (design.md D2,
+	// RM38-gateway-read-dashboard-from-metrics), replacing the telemetry.Snapshot
+	// parameter -- nil collapses to Parked, identical to the pre-migration
+	// empty-string case (tasks.md 2.2). Still resolves through the i18n catalogue
+	// (design.md D5, RM24-gateway-translate-all-pages): assert against
+	// i18n.T(ctx, key), not a literal string.
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	for _, tc := range []struct {
-		charge string
+		name   string
+		charge *string
 		want   i18n.Key
 	}{
-		{"Charging", i18n.KeyDashboardStatusCharging},
-		{"Stopped", i18n.KeyDashboardStatusParked}, {"Disconnected", i18n.KeyDashboardStatusParked},
-		{"Complete", i18n.KeyDashboardStatusParked}, {"", i18n.KeyDashboardStatusParked},
+		{"nil", nil, i18n.KeyDashboardStatusParked},
+		{"Charging", ptrString("Charging"), i18n.KeyDashboardStatusCharging},
+		{"Stopped", ptrString("Stopped"), i18n.KeyDashboardStatusParked},
+		{"Disconnected", ptrString("Disconnected"), i18n.KeyDashboardStatusParked},
+		{"Complete", ptrString("Complete"), i18n.KeyDashboardStatusParked},
+		{"empty string", ptrString(""), i18n.KeyDashboardStatusParked},
 	} {
-		s := telemetry.Snapshot{ChargingState: tc.charge}
 		want := i18n.T(ctx, tc.want)
-		if got := dashStatus(ctx, s); got != want {
-			t.Errorf("dashStatus(ChargingState=%q) = %q, want %q", tc.charge, got, want)
+		if got := dashStatus(ctx, tc.charge); got != want {
+			t.Errorf("dashStatus(%s) = %q, want %q", tc.name, got, want)
 		}
+	}
+}
+
+// TestMergeVehicleStatuses covers mergeVehicleStatuses, the RM38 rename+retype of
+// mergeSnapshots (design.md D6, tasks.md 2.3). No prior unit test exercised
+// mergeSnapshots directly (confirmed by search before writing this test), so this
+// is a new test rather than a literal rename -- it asserts the same two
+// properties the Test Contract calls for: a nil/empty slice produces an empty
+// map, and a populated slice is indexed for O(1) lookup by TeslaID.
+func TestMergeVehicleStatuses(t *testing.T) {
+	if got := mergeVehicleStatuses(nil); len(got) != 0 {
+		t.Fatalf("mergeVehicleStatuses(nil) = %v, want empty map", got)
+	}
+	if got := mergeVehicleStatuses([]analytics.VehicleStatus{}); len(got) != 0 {
+		t.Fatalf("mergeVehicleStatuses(empty slice) = %v, want empty map", got)
+	}
+
+	statuses := []analytics.VehicleStatus{
+		{TeslaID: 1001, BatteryLevelPct: 72},
+		{TeslaID: 2002, BatteryLevelPct: 40},
+	}
+	got := mergeVehicleStatuses(statuses)
+	if len(got) != 2 {
+		t.Fatalf("mergeVehicleStatuses(len=2 slice) = %d entries, want 2", len(got))
+	}
+	if got[1001].BatteryLevelPct != 72 {
+		t.Errorf("mergeVehicleStatuses[1001].BatteryLevelPct = %d, want 72", got[1001].BatteryLevelPct)
+	}
+	if got[2002].BatteryLevelPct != 40 {
+		t.Errorf("mergeVehicleStatuses[2002].BatteryLevelPct = %d, want 40", got[2002].BatteryLevelPct)
+	}
+	if _, ok := got[9999]; ok {
+		t.Errorf("mergeVehicleStatuses lookup for an absent TeslaID unexpectedly found an entry")
 	}
 }
 
