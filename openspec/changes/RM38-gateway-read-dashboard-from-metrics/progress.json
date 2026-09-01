@@ -13,13 +13,6 @@
       "2.3"
     ],
     "pending": [
-      "3.1",
-      "3.2",
-      "3.3",
-      "3.4",
-      "4.1",
-      "4.2",
-      "4.3",
       "5.1",
       "5.2",
       "5.3",
@@ -35,11 +28,18 @@
     "done": [
       "1.1",
       "1.2",
-      "1.3"
+      "1.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "4.3"
     ]
   },
   "created_at": "2026-09-01T17:42:00Z",
-  "updated_at": "2026-09-01T20:48:00Z",
+  "updated_at": "2026-09-01T20:57:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -213,14 +213,23 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "dashboardFor/mapDashboardSnapshot moved to LatestMetricsByAccount + mergeVehicleStatuses; per-field nil handling per the D2 table; new local dashTempOrDash helper.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
     },
     {
       "id": "3.2",
@@ -230,14 +239,23 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "vehiclesFor/mapVehicles retyped to analytics.VehicleStatus; new local vehiclesTempOrDash (%.1f), deliberately not shared with site 1's helper.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
     },
     {
       "id": "3.3",
@@ -247,14 +265,23 @@
         "3.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "fragments.Vehicle.Locked bool -> *bool with a three-way nil/true/false render branch mirroring SentryMode.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
     },
     {
       "id": "3.4",
@@ -264,14 +291,23 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "navHeaderFor on the analytics port with D9's nil-CapturedAt forced-Asleep branch before connectedAt; charges.go battery block retyped.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
     },
     {
       "id": "4.1",
@@ -279,14 +315,23 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "Added Locked *bool and SentryMode *bool to fragments.DashboardData, doc-commented per the D2 nil table.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
     },
     {
       "id": "4.2",
@@ -297,14 +342,23 @@
         "4.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "Header row gained the Locked/Sentry ui.Badge pills; stat grid grid-cols-2 -> grid-cols-3, Status tile deleted; KeyDashboardStatus left unused in the catalogue.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
     },
     {
       "id": "4.3",
@@ -315,14 +369,23 @@
         "4.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "make templ regenerated both _templ.go files; make css added one rule because grid-cols-3 was genuinely new, contradicting design.md's note that it already existed.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
     },
     {
       "id": "5.1",
@@ -547,6 +610,22 @@
       "made_by": "leader",
       "decision": "The owner's suite run is NOT requested at this wave boundary; deferred to the end of wave 3+4",
       "why": "Wave 1 deliberately breaks the four wave-3 call sites, so internal/gateway does not compile. Asking now costs a round-trip that can only report a compile error"
+    },
+    {
+      "id": "D12",
+      "at": "2026-09-01T20:50:00Z",
+      "scope": "wave:3-4",
+      "made_by": "leader",
+      "decision": "Waves 3 and 4 dispatched together to one serial worker, ordered 4.1, 3.1, 3.2, 3.3, 3.4, 4.2, 4.3",
+      "why": "Only their combination makes the repo compile again. Splitting them leaves a second red boundary with no signal the owner could act on"
+    },
+    {
+      "id": "D13",
+      "at": "2026-09-01T20:57:00Z",
+      "scope": "wave:3-4",
+      "made_by": "leader",
+      "decision": "The owner's suite run is deferred one more wave, to the end of wave 5",
+      "why": "go build is green but go vet is red at handlers_test.go:334 (v.Locked now *bool). The test package still cannot compile, so a suite run could only report that"
     }
   ],
   "events": [
@@ -564,6 +643,16 @@
       "at": "2026-09-01T20:48:00Z",
       "agent": "leader",
       "event": "waves 1+2 reconciled: 1.1-1.3 done, 2.1-2.3 awaiting-user-verification. go build ./... is RED by design at handlers.go:245,463,480,733 (the four wave-3 call sites). Test ask deferred per D11."
+    },
+    {
+      "at": "2026-09-01T20:50:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (sonnet) for waves 3+4 (3.1-3.4, 4.1-4.3). Budget at dispatch: 5h=11% ctx=14%"
+    },
+    {
+      "at": "2026-09-01T20:57:00Z",
+      "agent": "leader",
+      "event": "waves 3+4 reconciled, all 7 tasks done. Leader verified go build ./... green. go vet red only at handlers_test.go:334, which wave 5 fixes. make i18n-guard / ui-guard / tz-guard / money-guard clean; boundary-guard still red as designed (telemetry import kept for SnapshotsByVehicleBetween). Test ask deferred per D13."
     }
   ]
 }

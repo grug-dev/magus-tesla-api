@@ -67,7 +67,7 @@ is authoritative for every test's expected values.
 
 ## Wave 3 — four call-site rewrites (module: gateway worker)
 
-- [ ] **3.1** `internal/gateway/handlers/handlers.go` — `dashboardFor`: replace
+- [x] **3.1** `internal/gateway/handlers/handlers.go` — `dashboardFor`: replace
   `h.telemetryReader.LatestSnapshotsByAccount` with `h.analyticsReader.LatestMetricsByAccount`;
   replace `mergeSnapshots(snaps)` with `mergeVehicleStatuses(statuses)` (1.3). Update the
   telemetry-unavailable log line's wording ("analytics reader error", matching design.md D9's
@@ -82,7 +82,7 @@ is authoritative for every test's expected values.
   `vs.Locked`/`vs.SentryMode`.
   `depends_on`: 1.1, 1.2, 1.3 · `parallel_ok`: with 3.2, 3.3, 3.4
 
-- [ ] **3.2** `internal/gateway/handlers/handlers.go` — `vehiclesFor`/`mapVehicles`: replace
+- [x] **3.2** `internal/gateway/handlers/handlers.go` — `vehiclesFor`/`mapVehicles`: replace
   `h.telemetryReader.LatestSnapshotsByAccount` with `h.analyticsReader.LatestMetricsByAccount`;
   `mapVehicles`'s signature changes to `(vs []account.Vehicle, statusMap map[int64]analytics.
   VehicleStatus) []fragments.Vehicle` (design.md D3). Nil-safe mapping per D3's table: `"—"` for
@@ -90,7 +90,7 @@ is authoritative for every test's expected values.
   `ChargingState`, zero-value `LastUpdated`/`IsStale` for nil `CapturedAt`.
   `depends_on`: 1.3 · `parallel_ok`: with 3.1, 3.3, 3.4
 
-- [ ] **3.3** `internal/gateway/templates/fragments/vehicles.templ` — `Vehicle.Locked` field
+- [x] **3.3** `internal/gateway/templates/fragments/vehicles.templ` — `Vehicle.Locked` field
   type changes from `bool` to `*bool` (design.md D3); rewrite its render branch to the three-way
   shape shown in design.md D3 (nil → `KeyVehiclesNotReported`, else Locked/Unlocked), mirroring
   the existing `SentryMode` branch one block below it. Run `make templ` after editing (pinned
@@ -98,7 +98,7 @@ is authoritative for every test's expected values.
   `depends_on`: 3.2 · `parallel_ok`: no (must follow 3.2's `fragments.Vehicle` field-type change
   landing first so the two stay in sync)
 
-- [ ] **3.4** `internal/gateway/handlers/handlers.go` (`navHeaderFor`) and
+- [x] **3.4** `internal/gateway/handlers/handlers.go` (`navHeaderFor`) and
   `internal/gateway/handlers/charges.go` (`buildChargesPage`'s battery-suggestion block) —
   replace their `h.telemetryReader.LatestSnapshotsByAccount` calls with
   `h.analyticsReader.LatestMetricsByAccount`. `navHeaderFor` uses `mergeVehicleStatuses` (1.3)
@@ -111,13 +111,13 @@ is authoritative for every test's expected values.
 
 ## Wave 4 — template changes (module: gateway worker)
 
-- [ ] **4.1** `internal/gateway/templates/fragments/dashboard_vm.go` — add `Locked *bool` and
+- [x] **4.1** `internal/gateway/templates/fragments/dashboard_vm.go` — add `Locked *bool` and
   `SentryMode *bool` fields to `fragments.DashboardData`, doc-commented per design.md D2's table
   (mirrors the existing field-doc style in this file).
   `depends_on`: — · `parallel_ok`: with 4.2 (this is a struct-only edit Wave 3.1 already assumes
   exists — land it first or together; no compile-order risk either way since it's additive)
 
-- [ ] **4.2** `internal/gateway/templates/pages/dashboard.templ` — header row: add the Locked
+- [x] **4.2** `internal/gateway/templates/pages/dashboard.templ` — header row: add the Locked
   and Sentry `ui.Badge` pills next to the existing `[Stale]` badge, calling `dashLockedBadge`/
   `dashSentryBadge` (1.1) exactly per design.md D4's markup block. Verify the templ
   init-statement form (`if a, b, c := f(); c { ... }`) compiles against the pinned templ version
@@ -128,7 +128,7 @@ is authoritative for every test's expected values.
   `KeyDashboardStatus` catalogue entry (D5 — left in place, unused, deliberately).
   `depends_on`: 1.1, 4.1 · `parallel_ok`: no (single file)
 
-- [ ] **4.3** Run `make templ` (regenerates `dashboard_templ.go`, `vehicles_templ.go` from 3.3 +
+- [x] **4.3** Run `make templ` (regenerates `dashboard_templ.go`, `vehicles_templ.go` from 3.3 +
   4.2) and `make css` (only if 4.2 introduces a class not already in `app.css` — `grid-cols-3`
   and the badge markup use only classes already present elsewhere in this file, so this is a
   verification step, not expected to change `app.css`; run it anyway and check

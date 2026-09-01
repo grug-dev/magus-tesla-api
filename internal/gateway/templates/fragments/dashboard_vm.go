@@ -56,4 +56,13 @@ type DashboardData struct {
 	// in the template (RM8 design D4, logic-free-template invariant). E.g.
 	// "/ui/dashboard/history?start=2026-08-03&end=2026-08-09".
 	DefaultHistoryHref string
+
+	// Locked and SentryMode drive the header's Locked/Sentry ui.Badge pills
+	// (RM38-gateway-read-dashboard-from-metrics, design.md D2/D4). Both are
+	// three-state pointers sourced verbatim from analytics.VehicleStatus: nil
+	// means the vehicle_metrics row predates the RM38 migration (or has not been
+	// recomputed since) — no badge renders for that field. Never fabricate a
+	// false from a nil.
+	Locked     *bool
+	SentryMode *bool
 }

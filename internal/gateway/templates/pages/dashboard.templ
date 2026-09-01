@@ -45,18 +45,25 @@ templ Dashboard(d fragments.DashboardData) {
 									<p class="text-sm text-base-content/60 uppercase tracking-wider">
 										{ dashSubtitle(ctx, d) }
 									</p>
-									if d.HasSnapshot && d.IsStale {
-										@ui.Badge(ui.BadgeProps{Kind: "warning", Text: i18n.T(ctx, i18n.KeyDashboardStaleBadge)})
-									}
+									<div class="flex items-center gap-2">
+										if d.HasSnapshot && d.IsStale {
+											@ui.Badge(ui.BadgeProps{Kind: "warning", Text: i18n.T(ctx, i18n.KeyDashboardStaleBadge)})
+										}
+										if lockedText, lockedKind, showLocked := dashLockedBadge(ctx, d.Locked); showLocked {
+											@ui.Badge(ui.BadgeProps{Kind: lockedKind, Text: lockedText})
+										}
+										if sentryText, sentryKind, showSentry := dashSentryBadge(ctx, d.SentryMode); showSentry {
+											@ui.Badge(ui.BadgeProps{Kind: sentryKind, Text: sentryText})
+										}
+									</div>
 								</div>
 							<div class="flex-1 flex items-center justify-center py-10">
 								<img src={ d.VehicleImage } alt={ d.VehicleName } class="object-contain"/>
 							</div>
-								<div class="grid grid-cols-2 gap-3">
+								<div class="grid grid-cols-3 gap-3">
 									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardOdometer), Value: dashStat(d.HasSnapshot, d.Odometer)})
 									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardInterior), Value: dashStat(d.HasSnapshot, d.InsideTemp)})
 									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardExterior), Value: dashStat(d.HasSnapshot, d.OutsideTemp)})
-									@ui.StatTile(ui.StatTileProps{Label: i18n.T(ctx, i18n.KeyDashboardStatus), Value: dashStat(d.HasSnapshot, d.StatusLabel)})
 								</div>
 								if d.HasSnapshot && d.LastUpdated != "" {
 									<p class="text-xs text-base-content/50 mt-4">{ i18n.T(ctx, i18n.KeyDashboardLastUpdated) } { d.LastUpdated }</p>

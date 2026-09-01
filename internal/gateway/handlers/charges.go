@@ -661,18 +661,21 @@ func (h *Handler) buildChargesPage(ctx context.Context, uid uuid.UUID, csrfToken
 	todayDate := day + "T00:00"
 
 	// D2: build the start_battery_pct suggestion label from the active vehicle's
-	// latest telemetry snapshot BatteryLevelPct. Reuses the SAME telemetry.Reader
+	// latest per-vehicle status BatteryLevelPct. Reuses the SAME analytics.Reader
 	// port the dashboard already calls once per render — one batched read, pick the
-	// snapshot matching the resolved teslaIDFilter. Graceful empty: a read error or
-	// no matching snapshot leaves the suggestion "" and the page still renders (no
+	// status matching the resolved teslaIDFilter. Graceful empty: a read error or
+	// no matching status leaves the suggestion "" and the page still renders (no
 	// fabricated value). Log read errors at most; never degrade the page.
+	// Retyped from telemetry.Reader.LatestSnapshotsByAccount by
+	// RM38-gateway-read-dashboard-from-metrics, design.md D9 — BatteryLevelPct is a
+	// plain int on both source types, so no nil handling is introduced here.
 	suggestion := ""
-	if teslaIDFilter != 0 && h.telemetryReader != nil {
-		snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
+	if teslaIDFilter != 0 && h.analyticsReader != nil {
+		statuses, snapErr := h.analyticsReader.LatestMetricsByAccount(ctx, uid)
 		if snapErr != nil {
-			log.Printf("gateway: charges suggestion telemetry reader error for account %s: %v", uid, snapErr)
+			log.Printf("gateway: charges suggestion analytics reader error for account %s: %v", uid, snapErr)
 		} else {
-			for _, s := range snaps {
+			for _, s := range statuses {
 				if s.TeslaID == teslaIDFilter {
 					suggestion = fmt.Sprintf(i18n.T(ctx, i18n.KeyChargesErrorBatterySuggestion), s.BatteryLevelPct)
 					break
