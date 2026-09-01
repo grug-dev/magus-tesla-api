@@ -1,0 +1,402 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM38-analytics-add-vehicle-status-columns",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM38-dashboard-vehicle-status-from-metrics.md",
+  "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. Tier 1 of RM38: mirror eight vehicle-status fields from telemetry.vehicle_snapshots into analytics.vehicle_metrics via UpsertVehicleMetric on the nightly job, and expose a latest-row-per-vehicle read port so the gateway can stop reading telemetry.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "4.1",
+      "5.1",
+      "5.2",
+      "5.3",
+      "6.1",
+      "6.2",
+      "7.1",
+      "7.2"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-01T15:44:54Z",
+  "updated_at": "2026-09-01T15:44:54Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
+    "base": "main",
+    "ticket": "MAG-12",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-12/show-fields-on-vehicle-status-section",
+    "created_at": "2026-09-01T15:00:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Migration: ALTER TABLE vehicle_metrics ADD 8 nullable columns + CREATE INDEX idx_vehicle_metrics_latest",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "query.sql: add LatestVehicleMetricsByAccount",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "query.sql: extend UpsertVehicleMetric with the 8 columns",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "Run make sqlc (regenerate analyticsdb)",
+      "module": "analytics",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "analytics.go: add VehicleStatus domain type + Reader port method",
+      "module": "analytics",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "consumed.go: vehicleMetricRow gains the 8 fields",
+      "module": "analytics",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "mapping.go: pg-conversion helpers for the 8 fields",
+      "module": "analytics",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "recalculate.go: upsertVehicleMetricParamsFrom copies the 8 verbatim (design D3, both branches)",
+      "module": "analytics",
+      "depends_on": [
+        "3.2",
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.5",
+      "title": "reader.go: vehicleMetricsStore + LatestMetricsByAccount implementation",
+      "module": "analytics",
+      "depends_on": [
+        "3.1",
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "consumed_test.go: offline derivation tests for the 8 fields",
+      "module": "analytics",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "db_integration_test.go: LatestMetricsByAccount integration test",
+      "module": "analytics",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "db_integration_test.go: Recalculate populates the 8 columns",
+      "module": "analytics",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.3",
+      "title": "db_integration_test.go: predecessor-less row still populates the 8 (design D3)",
+      "module": "analytics",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.1",
+      "title": "internal/analytics/AGENTS.md: document the new public port surface",
+      "module": "analytics",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.2",
+      "title": "[leader] Root README.md: check the internal/analytics Architecture row",
+      "module": "analytics",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "7.1",
+      "title": "Assistant-run signals: go build, go vet, gofmt -l, guards",
+      "module": "analytics",
+      "depends_on": [
+        "4.1",
+        "5.1",
+        "5.2",
+        "5.3",
+        "6.1",
+        "6.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "7.2",
+      "title": "Hand the suite to the owner and record their reported result",
+      "module": "analytics",
+      "depends_on": [
+        "7.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D-gate-1",
+      "at": "2026-09-01T15:44:54Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate CONFIRMED: 8 nullable columns on vehicle_metrics, no DEFAULT, no backfill",
+      "why": "Owner reviewed schema, rationale, rejected alternatives and index plan at the gate",
+      "covered_by": "roadmap D1/D2"
+    },
+    {
+      "id": "D-gate-2",
+      "at": "2026-09-01T15:44:54Z",
+      "scope": "task:1.1",
+      "made_by": "user",
+      "decision": "Add idx_vehicle_metrics_latest (account_id, tesla_id, metric_date DESC), revising design.md's original no-new-index conclusion",
+      "why": "Removes the incremental sort the all-ascending unique index forces on the mixed-direction ORDER BY; owner accepted the extra write per upsert"
+    },
+    {
+      "id": "D-gate-3",
+      "at": "2026-09-01T15:44:54Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Applied the index revision as a leader edit to design/tasks/proposal instead of re-dispatching the worker",
+      "why": "Bounded single-item edit; a re-dispatch re-reads the full doc pack, costing far more than the change"
+    },
+    {
+      "id": "D-w3",
+      "at": "2026-09-01T15:44:54Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Worker's design D3 accepted: all 8 columns populated in BOTH Recalculate branches, unlike the five _calc columns",
+      "why": "They are raw per-day observations, not deltas; gating them would blank the badges on a vehicle's first tracked day"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-01T15:44:54Z",
+      "agent": "leader",
+      "event": "artifacts created by the analytics worker; openspec validate --strict passed"
+    },
+    {
+      "at": "2026-09-01T15:44:54Z",
+      "agent": "leader",
+      "event": "database design gate run with the owner: CONFIRMED with one revision (idx_vehicle_metrics_latest added); design.md/tasks.md/proposal.md updated by the leader and revalidated"
+    },
+    {
+      "at": "2026-09-01T15:44:54Z",
+      "agent": "leader",
+      "event": "HALT AFTER STEP 4 per the /kkpa-pickup-linear-ticket scope: no implementation workers dispatched, no reviewer, no archive"
+    }
+  ]
+}

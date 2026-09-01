@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. (1) Mirror locked, sentry_mode, car_version, inside_temp_c, outsite_temp_c from vehicle_snapshots into vehicle_metrics via UpsertVehicleMetric on the nightly job. (2) GET /dashboard -> handlers.dashboardFor and mapDashboardSnapshot read from vehicle_metrics instead of telemetryReader.LatestSnapshotsByAccount, via a new API using the same logic. (3) Vehicle Status section: remove the Status field, show locked/unlocked in a different colour (locked in green), add a sentry_mode label. (4) Update the KB for dashboard pages to record analytics.vehicle_metrics as the data source.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-01T15:02:00Z",
+  "updated_at": "2026-09-01T15:45:09Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
@@ -16,8 +16,12 @@
     "created_at": "2026-09-01T15:00:00Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [1, 2],
+    "current": [
+      1
+    ],
+    "pending": [
+      2
+    ],
     "blocked": [],
     "done": []
   },
@@ -86,21 +90,23 @@
       "module": "analytics",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
+      "status": "proposed",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T15:00:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Artifacts created and validated; database design gate confirmed by the owner with one revision (idx_vehicle_metrics_latest added). Implementation not started."
     },
     {
       "id": 2,
       "change": "RM38-gateway-read-dashboard-from-metrics",
       "module": "gateway",
       "optional": false,
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "status": "not-started",
       "assistant": "Claude Code",
       "model": null,
@@ -112,7 +118,20 @@
     }
   ],
   "events": [
-    { "at": "2026-09-01T15:00:00Z", "agent": "leader", "event": "roadmap RM38 created from MAG-12; branch ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics off main; .work-counter 38 -> 39" },
-    { "at": "2026-09-01T15:02:00Z", "agent": "leader", "event": "Step 2 interview complete (grill-me, 5 questions); D1-D6 settled by the user, D7 by the leader" }
+    {
+      "at": "2026-09-01T15:00:00Z",
+      "agent": "leader",
+      "event": "roadmap RM38 created from MAG-12; branch ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics off main; .work-counter 38 -> 39"
+    },
+    {
+      "at": "2026-09-01T15:02:00Z",
+      "agent": "leader",
+      "event": "Step 2 interview complete (grill-me, 5 questions); D1-D6 settled by the user, D7 by the leader"
+    },
+    {
+      "at": "2026-09-01T15:45:09Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created and design gate confirmed; tier 1 -> proposed. Run halted per pickup-ticket scope before implementation."
+    }
   ]
 }
