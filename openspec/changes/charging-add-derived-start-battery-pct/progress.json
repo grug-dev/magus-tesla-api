@@ -1,0 +1,275 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "charging-add-derived-start-battery-pct",
+  "module": "charging",
+  "roadmap": null,
+  "request": "MAG-36 — Battery start calculated. When editing a supercharger record on /supercharger-stats, calculate the start battery percentage (when the user does not input it and the end battery is not empty). Inputs: energy added, end battery (user-edited, may be null — skip when null), and the same 62 kWh capacity from packCapacityKWh. The inverse of the formula already in capacity.go for manual charging.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "2.1", "2.2", "2.3", "2.4", "3.1", "4.1", "4.2", "5.1"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-01T10:02:00Z",
+  "updated_at": "2026-09-01T10:02:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH37-MAG-36-charging-add-derived-start-battery-pct",
+    "base": "main",
+    "ticket": "MAG-36",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-36/battery-start-calculated",
+    "created_at": "2026-09-01T09:38:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Append LockSessionForVerification sqlc query to db/query.sql; run make sqlc",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "Add derivedStartBatteryPct to capacity.go, after derivedEnergyKWh",
+      "module": "charging",
+      "depends_on": ["1.1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "Add needsDerivedStartBatteryPct gate to session_verifier.go",
+      "module": "charging",
+      "depends_on": ["1.1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "Rewrite VerifySession body: conditional transaction + FOR UPDATE read + derivation",
+      "module": "charging",
+      "depends_on": ["2.1", "2.2"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "Update SessionVerifier.VerifySession interface doc comment in charging.go",
+      "module": "charging",
+      "depends_on": ["2.3"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "New offline test file session_verifier_derivation_test.go (Test Contract A + B)",
+      "module": "charging",
+      "depends_on": ["2.1", "2.2"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "Correct RM31 T3 TestVerifySession_PartialEndOnlyStillSetsSource expected value to 41",
+      "module": "charging",
+      "depends_on": ["2.3"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "Correct MAG-25 T15 fixture energyKWh 52.273 -> 124.0 (keeps want: nil meaningful)",
+      "module": "charging",
+      "depends_on": ["2.3"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "Update internal/charging/AGENTS.md (Public Interface, Data Ownership, Testing Notes)",
+      "module": "charging",
+      "depends_on": ["2.4", "3.1", "4.1", "4.2"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-01T09:33:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Store the derived start pct in start_battery_pct and reuse battery_pct_source = 'user_verified'; no migration, no new CHECK value",
+      "why": "User chose this over adding 'estimated', shown the cost and the MAG-18 risk that derived rows become indistinguishable from typed ones",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-01T09:35:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Derive whenever the submitted start is nil and end is non-nil; a submitted start is never overwritten",
+      "why": "User chose this over first-time-only and over recalculating when end changes, which could destroy a hand-typed reading",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-01T09:37:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "An out-of-range result stores NULL; the save still succeeds, with no error and no clamping",
+      "why": "Mirrors derivedEnergyKWh's return-nil precedent and avoids i18n keys in gateway, keeping this a single-module change",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-01T09:38:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Offline unit tests only; no new DATABASE_URL-gated integration test for the derivation",
+      "why": "User chose this over no tests at all; the two new functions are pure, so go vet compiles them as a free signal",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-01T09:36:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Rounding uses math.Round (half away from zero); a NULL energy_kwh skips derivation silently",
+      "why": "Precedent was unambiguous in derivedEnergyKWh, so asking would have spent a round trip on a settled convention",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-01T09:40:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Dispatched the artifact worker on Sonnet rather than Opus",
+      "why": "Single module, all design decisions settled in the interview; no cross-cutting ambiguity justifying the Opus exception",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-01T10:00:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted design.md D9's conditional transaction + SELECT FOR UPDATE instead of a plain unlocked read",
+      "why": "MirrorSessions really does refresh energy_kwh concurrently; the lock is paid only on the derivation path, matching account.AccessTokenFor",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-01T10:01:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted correcting two pre-existing archived integration tests (RM31 T3, MAG-25 T15) inside this change",
+      "why": "Verified both against the real files; the ticket's requested behavior genuinely falsifies their expected values, so deferring would ship a red suite",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-01T09:38:00Z",
+      "agent": "leader",
+      "event": "created branch ft/CH37-MAG-36-charging-add-derived-start-battery-pct off main at 94992ed; work counter 37 -> 38"
+    },
+    {
+      "at": "2026-09-01T09:40:00Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (sonnet) for OpenSpec artifacts; budget start five_hour_pct=8 context_pct=11"
+    },
+    {
+      "at": "2026-09-01T09:57:00Z",
+      "agent": "leader",
+      "event": "worker returned 4 artifacts; openspec validate --strict passed; budget end five_hour_pct=25 context_pct=12 (delta 17pp, cost_usd_delta 4.47)"
+    },
+    {
+      "at": "2026-09-01T10:00:00Z",
+      "agent": "leader",
+      "event": "design gate (database) evaluated: NOT tripped — one new sqlc query against existing columns, no schema object created or altered. Verified independently against the charge_sessions migration."
+    },
+    {
+      "at": "2026-09-01T10:01:00Z",
+      "agent": "leader",
+      "event": "leader verified worker's D12 claim against the real test files: T15 fixture is {52.273, nil, 100, want nil} and T3 calls VerifySession(nil, ptr(90)) — both genuinely break under the new behavior. Claim confirmed, not taken on trust."
+    },
+    {
+      "at": "2026-09-01T10:02:00Z",
+      "agent": "leader",
+      "event": "progress.json created; 9 tasks seeded pending across 5 waves. HALTING after Step 4 per kkpa-pickup-linear-ticket scope — no implementation dispatched, no reviewer, no archive."
+    }
+  ]
+}
