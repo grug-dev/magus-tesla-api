@@ -494,6 +494,23 @@ type SessionVerifier interface {
 	// deliberately, matching the table's own deliberate absence of such a CHECK
 	// (design.md D8).
 	//
+	// Derivation of a missing start percentage (MAG-36, charging-add-derived-
+	// start-battery-pct design.md D2/D3/D5/D7/D9): when the caller submits
+	// startBatteryPct == nil and endBatteryPct != nil, and the session row's
+	// energy_kwh is non-NULL, and the algebraic result — start = end -
+	// energy_kwh/packCapacityKWh*100, rounded half away from zero (design.md D4) —
+	// lands in [0, 100], this method now stores the DERIVED value instead of NULL. A
+	// caller-supplied startBatteryPct is NEVER recomputed or overridden, under any
+	// condition — this is unconditional, not merely the common case (design.md D2).
+	// When energy_kwh is SQL NULL (design.md D5) or the derived result falls outside
+	// [0, 100] (design.md D3), start_battery_pct is left NULL, silently — no error,
+	// no clamp. Every other call shape (both percentages supplied, only start
+	// supplied, both nil, an out-of-range caller-supplied value) is unaffected. The
+	// battery_pct_source computation above is otherwise unaffected by this
+	// derivation: still batteryPctSourceUserVerified when either the (possibly
+	// derived) start or the end percentage is non-nil, still no new source value
+	// (design.md D1).
+	//
 	// id/accountID scope the update exactly like Writer.Update: WHERE id = @id AND
 	// account_id = @account_id. Zero rows matched — whether id does not exist at all or
 	// exists under a different account — surfaces as an error wrapping pgx.ErrNoRows,

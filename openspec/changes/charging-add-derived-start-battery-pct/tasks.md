@@ -30,7 +30,7 @@ design.md D1–D12 for the rationale behind each group.
 
 ## Wave 1 — query (module: charging worker)
 
-- [ ] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
+- [x] **1.1** **[module: charging worker]** `internal/charging/db/query.sql` — append
   `-- name: LockSessionForVerification :one` exactly as specified in design.md §D9, including
   its full doc comment, immediately before `VerifyChargeSession`. `SELECT vin, energy_kwh FROM
   charge_sessions WHERE id = @id AND account_id = @account_id FOR UPDATE;` — no other column,
@@ -48,7 +48,7 @@ design.md D1–D12 for the rationale behind each group.
 
 ## Wave 2 — the Go derivation (module: charging worker)
 
-- [ ] **2.1** **[module: charging worker]** `internal/charging/capacity.go` — add
+- [x] **2.1** **[module: charging worker]** `internal/charging/capacity.go` — add
   `derivedStartBatteryPct(capacityKWh float64, energyKWh *float64, endPct *int) *int`
   immediately after `derivedEnergyKWh`, matching design.md D8's body exactly. Doc comment
   states in full: that it is the algebraic inverse of `derivedEnergyKWh`; that it returns
@@ -64,7 +64,7 @@ design.md D1–D12 for the rationale behind each group.
   function's caller).
   `depends_on`: 1.1 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** **[module: charging worker]** `internal/charging/session_verifier.go` — add
+- [x] **2.2** **[module: charging worker]** `internal/charging/session_verifier.go` — add
   `needsDerivedStartBatteryPct(startPct, endPct *int) bool { return startPct == nil && endPct
   != nil }` near the top of the file, above `VerifySession`. Doc comment states design.md
   **D2**'s trigger condition in full (conditions 1+2 of the four — the row-energy and
@@ -74,7 +74,7 @@ design.md D1–D12 for the rationale behind each group.
   must be assertable without reading any row.
   `depends_on`: 1.1 · `parallel_ok`: with 2.1
 
-- [ ] **2.3** **[module: charging worker]** `internal/charging/session_verifier.go` — rewrite
+- [x] **2.3** **[module: charging worker]** `internal/charging/session_verifier.go` — rewrite
   `VerifySession`'s body per design.md §D8/D9's composition and query text:
   - Keep the existing range-validation-then-source-computation shape for the two supplied
     parameters, unchanged, before any database call.
@@ -104,7 +104,7 @@ design.md D1–D12 for the rationale behind each group.
   declaration in `charging.go`, task 2.4) to state the full derivation contract.
   `depends_on`: 2.1, 2.2 · `parallel_ok`: no
 
-- [ ] **2.4** **[module: charging worker]** `internal/charging/charging.go` — update the
+- [x] **2.4** **[module: charging worker]** `internal/charging/charging.go` — update the
   `SessionVerifier.VerifySession` interface doc comment to state, in full, alongside its
   existing content (the three-column `SET` clause, the `battery_pct_source` computation, the
   partial-call legality, the range validation, the not-found shape): the new derivation

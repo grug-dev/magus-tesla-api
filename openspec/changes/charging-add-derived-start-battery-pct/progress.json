@@ -4,17 +4,32 @@
   "change": "charging-add-derived-start-battery-pct",
   "module": "charging",
   "roadmap": null,
-  "request": "MAG-36 — Battery start calculated. When editing a supercharger record on /supercharger-stats, calculate the start battery percentage (when the user does not input it and the end battery is not empty). Inputs: energy added, end battery (user-edited, may be null — skip when null), and the same 62 kWh capacity from packCapacityKWh. The inverse of the formula already in capacity.go for manual charging.",
-  "status": "proposed",
+  "request": "MAG-36 \u2014 Battery start calculated. When editing a supercharger record on /supercharger-stats, calculate the start battery percentage (when the user does not input it and the end battery is not empty). Inputs: energy added, end battery (user-edited, may be null \u2014 skip when null), and the same 62 kWh capacity from packCapacityKWh. The inverse of the formula already in capacity.go for manual charging.",
+  "status": "in-progress",
   "rollup": {
     "current": [],
-    "pending": ["1.1", "2.1", "2.2", "2.3", "2.4", "3.1", "4.1", "4.2", "5.1"],
+    "pending": [
+      "3.1",
+      "4.1",
+      "4.2",
+      "5.1"
+    ],
     "blocked": [],
-    "done": []
+    "done": [],
+    "awaiting-user-verification": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4"
+    ]
   },
   "created_at": "2026-09-01T10:02:00Z",
-  "updated_at": "2026-09-01T10:02:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-01T10:14:15Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/CH37-MAG-36-charging-add-derived-start-battery-pct",
@@ -30,80 +45,122 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Appended LockSessionForVerification :one to query.sql before VerifyChargeSession. make sqlc clean; only query.sql/query.sql.go changed, VerifyChargeSessionParams/ChargeSession untouched.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
     },
     {
       "id": "2.1",
       "title": "Add derivedStartBatteryPct to capacity.go, after derivedEnergyKWh",
       "module": "charging",
-      "depends_on": ["1.1"],
+      "depends_on": [
+        "1.1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Added derivedStartBatteryPct to capacity.go after derivedEnergyKWh, body byte-identical to design.md D8. Updated packCapacityKWh doc comment for the two call directions.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
     },
     {
       "id": "2.2",
       "title": "Add needsDerivedStartBatteryPct gate to session_verifier.go",
       "module": "charging",
-      "depends_on": ["1.1"],
+      "depends_on": [
+        "1.1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Added needsDerivedStartBatteryPct to session_verifier.go above VerifySession, with full D2/D8 rationale in the doc comment.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
     },
     {
       "id": "2.3",
       "title": "Rewrite VerifySession body: conditional transaction + FOR UPDATE read + derivation",
       "module": "charging",
-      "depends_on": ["2.1", "2.2"],
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Rewrote VerifySession: conditional tx (Begin/WithTx/defer Rollback/Commit), locked read, derivation via packCapacityKWh+derivedStartBatteryPct; unchanged path when not deriving.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
     },
     {
       "id": "2.4",
       "title": "Update SessionVerifier.VerifySession interface doc comment in charging.go",
       "module": "charging",
-      "depends_on": ["2.3"],
+      "depends_on": [
+        "2.3"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Updated SessionVerifier.VerifySession interface doc comment in charging.go with the derivation contract. go build, go vet, gofmt -l internal/charging all clean.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
     },
     {
       "id": "3.1",
       "title": "New offline test file session_verifier_derivation_test.go (Test Contract A + B)",
       "module": "charging",
-      "depends_on": ["2.1", "2.2"],
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -118,7 +175,9 @@
       "id": "4.1",
       "title": "Correct RM31 T3 TestVerifySession_PartialEndOnlyStillSetsSource expected value to 41",
       "module": "charging",
-      "depends_on": ["2.3"],
+      "depends_on": [
+        "2.3"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -133,7 +192,9 @@
       "id": "4.2",
       "title": "Correct MAG-25 T15 fixture energyKWh 52.273 -> 124.0 (keeps want: nil meaningful)",
       "module": "charging",
-      "depends_on": ["2.3"],
+      "depends_on": [
+        "2.3"
+      ],
       "parallel_ok": true,
       "status": "pending",
       "agent": null,
@@ -148,7 +209,12 @@
       "id": "5.1",
       "title": "Update internal/charging/AGENTS.md (Public Interface, Data Ownership, Testing Notes)",
       "module": "charging",
-      "depends_on": ["2.4", "3.1", "4.1", "4.2"],
+      "depends_on": [
+        "2.4",
+        "3.1",
+        "4.1",
+        "4.2"
+      ],
       "parallel_ok": false,
       "status": "pending",
       "agent": null,
@@ -238,6 +304,24 @@
       "decision": "Accepted correcting two pre-existing archived integration tests (RM31 T3, MAG-25 T15) inside this change",
       "why": "Verified both against the real files; the ticket's requested behavior genuinely falsifies their expected values, so deferring would ship a red suite",
       "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-01T10:10:19Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Batched the 9 tasks into 3 serial worker dispatches (1.1-2.4 / 3.1+4.1+4.2 / 5.1) instead of 5 dependency waves",
+      "why": "One module, one file set; each extra dispatch re-reads the full doc pack. Dependencies are still honoured in order inside each dispatch.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-09-01T10:14:15Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Deferred the Step 5.7 test ask to the end of wave 2 instead of asking now",
+      "why": "design.md D12 says two archived tests are red until tasks 4.1/4.2 land in wave 2; asking now guarantees two expected failures and a wasted round trip.",
+      "covered_by": null
     }
   ],
   "events": [
@@ -259,17 +343,27 @@
     {
       "at": "2026-09-01T10:00:00Z",
       "agent": "leader",
-      "event": "design gate (database) evaluated: NOT tripped — one new sqlc query against existing columns, no schema object created or altered. Verified independently against the charge_sessions migration."
+      "event": "design gate (database) evaluated: NOT tripped \u2014 one new sqlc query against existing columns, no schema object created or altered. Verified independently against the charge_sessions migration."
     },
     {
       "at": "2026-09-01T10:01:00Z",
       "agent": "leader",
-      "event": "leader verified worker's D12 claim against the real test files: T15 fixture is {52.273, nil, 100, want nil} and T3 calls VerifySession(nil, ptr(90)) — both genuinely break under the new behavior. Claim confirmed, not taken on trust."
+      "event": "leader verified worker's D12 claim against the real test files: T15 fixture is {52.273, nil, 100, want nil} and T3 calls VerifySession(nil, ptr(90)) \u2014 both genuinely break under the new behavior. Claim confirmed, not taken on trust."
     },
     {
       "at": "2026-09-01T10:02:00Z",
       "agent": "leader",
-      "event": "progress.json created; 9 tasks seeded pending across 5 waves. HALTING after Step 4 per kkpa-pickup-linear-ticket scope — no implementation dispatched, no reviewer, no archive."
+      "event": "progress.json created; 9 tasks seeded pending across 5 waves. HALTING after Step 4 per kkpa-pickup-linear-ticket scope \u2014 no implementation dispatched, no reviewer, no archive."
+    },
+    {
+      "at": "2026-09-01T10:10:19Z",
+      "agent": "leader",
+      "event": "resumed at Step 5; dispatched charging worker (sonnet) for wave 1 tasks 1.1,2.1,2.2,2.3,2.4; budget start five_hour_pct=29 context_pct=8 cost_usd=0.57"
+    },
+    {
+      "at": "2026-09-01T10:14:15Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled: 1.1,2.1,2.2,2.3,2.4 -> awaiting-user-verification. Leader verified the diff independently: derivedStartBatteryPct byte-identical to design.md D8, query matches D9, composition matches, D10 error wrap identical. Worker's D1-D10 enumeration cross-checked against design.md, no gap. Worker-reported timestamps were estimates predating dispatch; leader substituted the real bracket times. budget end five_hour_pct=38 context_pct=11 (delta 9pp, cost_usd_delta 2.39)"
     }
   ]
 }

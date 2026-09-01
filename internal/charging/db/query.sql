@@ -239,6 +239,28 @@ WHERE account_id = @account_id
   AND charge_stop_date_time <  @end_bound
 ORDER BY charge_stop_date_time ASC;
 
+-- name: LockSessionForVerification :one
+-- Read vin and energy_kwh for one account-scoped charge session, LOCKING the row (FOR
+-- UPDATE) for the remainder of the caller's transaction. Called ONLY by VerifySession, and
+-- ONLY when it must derive start_battery_pct from energy and the end percentage (design.md
+-- D2/D7/D9, MAG-36) -- every other VerifySession call skips this query entirely and runs its
+-- single UPDATE outside a transaction, exactly as before this change.
+--
+-- FOR UPDATE mirrors internal/account's AccessTokenFor and this module's own
+-- SessionWriter.MirrorSessions: the read and the later write (VerifyChargeSession, called
+-- against the SAME transaction) must observe one consistent row, so a concurrent
+-- SessionWriter.MirrorSessions refresh of energy_kwh cannot land between this read and that
+-- write and leave the derived percentage computed from a value the row no longer holds
+-- (design.md D9).
+--
+-- WHERE id = @id AND account_id = @account_id mirrors VerifyChargeSession's own scoping
+-- exactly; zero rows matched surfaces as pgx.ErrNoRows, wrapped by the caller identically to
+-- VerifyChargeSession's own not-found case (design.md D10).
+SELECT vin, energy_kwh FROM charge_sessions
+WHERE id = @id
+  AND account_id = @account_id
+FOR UPDATE;
+
 -- name: VerifyChargeSession :one
 -- Update the human-owned verification channel on one account-scoped charge session:
 -- start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No other
