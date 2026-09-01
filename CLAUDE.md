@@ -8,8 +8,7 @@
 
 - `go build ./...`, `go vet ./...`, `gofmt -l`
 - `make build`, `make vet`, `make bins`
-- `make ui-guard`, `make i18n-guard`, `make money-guard`, `make tz-guard` — the standalone
-  grep-based guards
+- `make ui-guard`, `make i18n-guard`, `make money-guard`, `make tz-guard`, `make migration-guard` — the standalone guards
 - `sqlc generate` / `make sqlc`, `go mod tidy` / `make tidy`
 
 **Claude does NOT run the test suite — the owner does.** Never run `go test ./...`,
@@ -24,8 +23,8 @@ executed. Skipping a signal like that doesn't save anything; it converts it into
 round-trip that costs more than the output it replaced.
 
 `make check` is owner-only *only* because it ends in `test` — its other six phases
-(`build vet ui-guard i18n-guard money-guard tz-guard`) are all on the allowed list and Claude
-runs them individually. So excluding `check` costs no guard coverage.
+(`build vet ui-guard i18n-guard money-guard tz-guard migration-guard`) are all on the allowed list and Claude runs
+them individually. So excluding `check` costs no guard coverage.
 
 Consequence: when Claude has written tests but not run them, the honest state is **awaiting
 your verification** — not "done". No task, commit message, or summary may claim tests pass
@@ -117,11 +116,9 @@ layer is each module's own `AGENTS.md`, added to the pack by the leader per disp
 - **Test-Execution-Policy:** `Claude writes tests but never runs the suite — never go test
   ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet
   ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make
-  ui-guard / make i18n-guard / make money-guard / make tz-guard. The owner runs the suite and
-  reports results; work that is complete but unexecuted is awaiting-user-verification, never
-  done, and a passing suite is recorded as the owner's report, never claimed by the assistant.`
-  — injected verbatim into every worker and reviewer dispatch. Matches §"Builds & local
-  checks" above, which governs sessions outside the pipeline.
+  ui-guard / make i18n-guard / make money-guard /  make tz-guard / make migration-guard. The owner runs the suite and reports
+  results; work that is complete but unexecuted is awaiting-user-verification, never done,
+  and a passing suite is recorded as the owner's report, never claimed by the assistant.`
 - **Design-Gates:** `database` — design areas whose artifacts require the user's explicit
   confirmation before Apply (design + rationale + index plan shown to the user, iterated
   until confirmed). `database` is built-in and always on; listing it here is for

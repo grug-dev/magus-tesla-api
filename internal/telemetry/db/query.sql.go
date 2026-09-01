@@ -48,6 +48,71 @@ func (q *Queries) InsertPollAttempt(ctx context.Context, arg InsertPollAttemptPa
 	return err
 }
 
+const insertPollRun = `-- name: InsertPollRun :exec
+INSERT INTO poll_runs (
+    run_id, triggered_by, started_at, finished_at, duration_seconds,
+    accounts_attempted, accounts_succeeded, accounts_failed,
+    vehicles_attempted, vehicles_succeeded,
+    failures_asleep_timeout, failures_unauthorized, failures_api_error,
+    tesla_api_calls,
+    charging_sessions_upserted, charging_fetch_failures, config_capture_failures
+) VALUES (
+    $1, $2, $3, $4, $5,
+    $6, $7, $8,
+    $9, $10,
+    $11, $12, $13,
+    $14,
+    $15, $16, $17
+)
+`
+
+type InsertPollRunParams struct {
+	RunID                    uuid.UUID
+	TriggeredBy              string
+	StartedAt                pgtype.Timestamptz
+	FinishedAt               pgtype.Timestamptz
+	DurationSeconds          float64
+	AccountsAttempted        int32
+	AccountsSucceeded        int32
+	AccountsFailed           int32
+	VehiclesAttempted        int32
+	VehiclesSucceeded        int32
+	FailuresAsleepTimeout    int32
+	FailuresUnauthorized     int32
+	FailuresApiError         int32
+	TeslaApiCalls            int32
+	ChargingSessionsUpserted int32
+	ChargingFetchFailures    int32
+	ConfigCaptureFailures    int32
+}
+
+// Inserts one poll_runs row. Called exactly once per app.ProcessVehicleData
+// invocation via telemetry.RunWriter.RecordRun (design D3/D11/D12). Never an
+// upsert: a duplicate run_id is a caller bug and must fail loudly on the
+// PRIMARY KEY, not be silently absorbed.
+func (q *Queries) InsertPollRun(ctx context.Context, arg InsertPollRunParams) error {
+	_, err := q.db.Exec(ctx, insertPollRun,
+		arg.RunID,
+		arg.TriggeredBy,
+		arg.StartedAt,
+		arg.FinishedAt,
+		arg.DurationSeconds,
+		arg.AccountsAttempted,
+		arg.AccountsSucceeded,
+		arg.AccountsFailed,
+		arg.VehiclesAttempted,
+		arg.VehiclesSucceeded,
+		arg.FailuresAsleepTimeout,
+		arg.FailuresUnauthorized,
+		arg.FailuresApiError,
+		arg.TeslaApiCalls,
+		arg.ChargingSessionsUpserted,
+		arg.ChargingFetchFailures,
+		arg.ConfigCaptureFailures,
+	)
+	return err
+}
+
 const insertVehicleSnapshot = `-- name: InsertVehicleSnapshot :exec
 
 INSERT INTO vehicle_snapshots (

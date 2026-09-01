@@ -130,6 +130,7 @@ func main() {
 	processor := app.NewProcessor(
 		telemetry.NewService(pool, acct, tesla.NewClient(), tcfg),
 		superchargerReader,
+		telemetry.NewRunWriter(pool),
 		charging.NewSessionWriter(pool),
 		acct,
 		recalculator,

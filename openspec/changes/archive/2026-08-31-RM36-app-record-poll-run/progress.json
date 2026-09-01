@@ -1,0 +1,625 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM36-app-record-poll-run",
+  "module": "app",
+  "roadmap": "openspec/roadmaps/RM36-poll-run-tracking.md",
+  "request": "Source ticket: MAG-35 - https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking\n\nTier 2 (final) of RM36-poll-run-tracking. internal/app's ProcessVehicleData measures the run and calls telemetry.RunWriter.RecordRun on every exit path, including the step-1 whole-cycle-failure path. NewProcessor gains a RunWriter parameter; cmd/poller wiring updated. app still owns no data - it calls a port.",
+  "status": "reviewer-approved",
+  "created_at": "2026-08-31T20:40:00Z",
+  "updated_at": "2026-08-31T23:25:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5",
+    "session_id": "7579232b-ad63-4a99-ab01-dcdf915d8cdf"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM36-MAG-35-poll-run-tracking",
+    "base": "ft/RM35-MAG-20-timezone-centralization@c5247c3",
+    "ticket": "MAG-35",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-35/poll-attemps-tracking",
+    "created_at": "2026-08-31T01:52:41Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "4.1",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5"
+    ],
+    "awaiting-user-verification": []
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "app.go - add runWriter telemetry.RunWriter to NewProcessor's signature",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
+      "duration_seconds": null,
+      "notes": "Added runWriter telemetry.RunWriter to NewProcessor after superchargerReader (D1); doc comment updated. Only two call sites exist repo-wide and both are consistent.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "processor.go - add the runWriter field to the processor struct",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
+      "duration_seconds": null,
+      "notes": "Added the runWriter field to the processor struct in the same position as the constructor parameter.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "processor.go - add the internal/clock import",
+      "module": "app",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
+      "duration_seconds": null,
+      "notes": "Added the internal/clock import to processor.go.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "processor.go - refactor ProcessVehicleData to the guarded fall-through (design D4)",
+      "module": "app",
+      "depends_on": [
+        "1.2",
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
+      "duration_seconds": null,
+      "notes": "ProcessVehicleData refactored exactly to design D4's target shape: start:=clock.Now(), guarded fall-through, one finish/Duration/recordRun/return tail. Leader read the diff: short-circuit semantics identical.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "processor.go - add the unexported buildPollRun free function (design D7)",
+      "module": "app",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
+      "duration_seconds": null,
+      "notes": "buildPollRun added as a pure free function; maps Attempted/Succeeded by field per tier 1 D8, and reads FailuresByReason defensively against a nil map.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "2.4",
+      "title": "processor.go - add the unexported recordRun method (design D5)",
+      "module": "app",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
+      "duration_seconds": null,
+      "notes": "recordRun added: returns nothing, logs a RecordRun error instead of propagating it, so it cannot alter ProcessVehicleData's (report, err).",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "processor_test.go (new) - the fake roster for the Processor's 7 collaborators (design D9)",
+      "module": "app",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
+      "duration_seconds": null,
+      "notes": "Fake roster for all 8 collaborators in processor_test.go, each with a compile-time interface assertion. Only fakeCollector/fakeRunWriter/fakeAccountEmpty carry behaviour.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "processor_test.go - Fixtures P1 and P2 from design.md's Test Contract",
+      "module": "app",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
+      "duration_seconds": null,
+      "notes": "Fixtures P1/P2 assert buildPollRun via reflect.DeepEqual against design.md's literal expected PollRun structs, including P2's nil-map defensive reads.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "processor_test.go - Fixture P3: a successful 3-step run records a full row",
+      "module": "app",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
+      "duration_seconds": null,
+      "notes": "Fixture P3: wall-clock bracket, RunID identity across CollectAll and RecordRun, by-field mapping, and proof steps 2/3 ran.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "3.4",
+      "title": "processor_test.go - Fixture P4: the step-1 failure path still records an all-zero row",
+      "module": "app",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
+      "duration_seconds": null,
+      "notes": "Fixture P4: errors.Is sentinel match, all-zero counts, non-zero timestamps, and AllRegisteredVehicles NOT called. Leader diffed it against design.md's P4 block: exact match.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "3.5",
+      "title": "processor_test.go - Fixture P5: a RecordRun failure is logged, never propagated",
+      "module": "app",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
+      "duration_seconds": null,
+      "notes": "Fixture P5: a RecordRun error is swallowed, ProcessVehicleData still returns step 1's own (report, err), and RecordRun was still called once.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "cmd/poller/main.go - construct telemetry.NewRunWriter(pool) and pass it to NewProcessor",
+      "module": "app",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:41:00Z",
+      "completed_at": "2026-08-31T20:44:00Z",
+      "duration_seconds": null,
+      "notes": "cmd/poller/main.go constructs telemetry.NewRunWriter(pool) and passes it to NewProcessor. Granted path; one line changed.",
+      "budget": {
+        "five_hour_pct_start": 52.0,
+        "five_hour_pct_end": 57.0,
+        "five_hour_pct_delta": 5.0,
+        "cost_usd_delta": 1.91,
+        "context_pct_end": 23,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-A delta copied onto each of the seven tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "internal/app/AGENTS.md - Public interface section",
+      "module": "app",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md Public interface: NewProcessor's signature updated with runWriter telemetry.RunWriter and one sentence on its role.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "internal/app/AGENTS.md - Allowed/forbidden imports: add internal/clock",
+      "module": "app",
+      "depends_on": [
+        "2.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md Allowed imports: internal/clock added with its cycle-risk rationale (design D3).",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "5.3",
+      "title": "internal/app/AGENTS.md - Testing notes",
+      "module": "app",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md Testing notes: new 'Covered - processor_test.go' section; 'Deliberately uncovered' narrowed to steps 2/3 internals; the stale 'flagged for future' paragraph corrected.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
+    },
+    {
+      "id": "5.4",
+      "title": "internal/app/AGENTS.md - Responsibility section's three-step description",
+      "module": "app",
+      "depends_on": [
+        "2.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "app",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-08-31T20:45:00Z",
+      "completed_at": "2026-08-31T20:50:00Z",
+      "duration_seconds": null,
+      "notes": "AGENTS.md Responsibility: one sentence after the 3-step diagram cross-referencing design D4/D5/D6.",
+      "budget": {
+        "five_hour_pct_start": 57.0,
+        "five_hour_pct_end": 63.0,
+        "five_hour_pct_delta": 6.0,
+        "cost_usd_delta": 2.4,
+        "context_pct_end": 25,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "One shared wave-B delta copied onto each of the nine tasks; they ran inside one serial worker dispatch."
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "app-reviewer",
+    "brief": "Review RM36-app-record-poll-run (tier 2, final, of RM36; ticket MAG-35) against its artifacts. Scope: commits 8a56d41, 9757579, 2b70310, 5b8b56c on ft/RM36-MAG-35-poll-run-tracking - read the DIFF, not the whole module. Validate: (1) internal/app still owns NO data - no pgxpool, no query, no internal/telemetry/db import; it calls the RunWriter port only; (2) the internal/clock rule - no NEW raw time.Now(); the two in processor.go are pre-existing and grandfathered until RM35-app-adopt-clock; (3) design D4 - the guarded fall-through must preserve the short-circuit exactly (steps 2/3 iff step 1 succeeded) AND guarantee recordRun on every exit path; (4) design D5 - a RecordRun failure must not alter ProcessVehicleData return values; (5) design D7 - buildPollRun pure, by-field mapping per tier 1 D8, nil-map safe; (6) spec/tasks coverage and the ADDED requirement; (7) the test-contract rule - fixtures P1-P5 must assert design.md Test Contract values, not back-fitted ones; (8) anti-gaming - no weakened criteria, no production code bent to make a test pass; (9) SPECIAL: audit the migration renumber in 2b70310 for correctness and completeness, and check whether any OTHER migration version number collides across internal/*/db/migrations - the shared goose_db_version table makes a duplicate silently unappliable.",
+    "rounds": [
+      {
+        "round": 1,
+        "agent": "app-reviewer",
+        "model": "claude-sonnet-5",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "blocker",
+            "note": "internal/account/db/migrations/20260720000001_vehicles_add_access_type.sql and internal/charging/db/migrations/20260720000001_require_location_kind.sql share version 20260720000001. Makefile MIGRATIONS_DIRS orders account before charging and goose keeps one shared goose_db_version table (Makefile lines 26-28, 39-48), so applying account 20260720000001 first records that version and goose silently skips charging 20260720000001_require_location_kind.sql on a fresh apply -- the exact failure mode 2b70310 just fixed for poll_runs, but for the manual_charge_entries.location_kind NOT NULL constraint. ai/go-conventions.md already names this pair (\"internal/account and internal/charging both ship a 20260720000001\") in the ProvisionDirs discussion but frames it only as a test-provisioning fact, not as a live production/migrate-up risk -- it is the same shared-table mechanism the Makefile itself documents two paragraphs later. Not introduced by this tier and outside internal/app, but the review brief explicitly asked for a full collision sweep and states any duplicate found is a blocker. No DATABASE_URL is configured in this worktree so I could not run make migrate-status to confirm the live database state; recommend the leader run it and, if confirmed, renumber charging 20260720000001 (mirroring 2b70310) before archiving this change or as an immediate follow-up.",
+            "status": "fixed"
+          }
+        ],
+        "notes": "app code itself is correct and matches design D1-D9 exactly (verified against the diff, not the whole module); zero production drift between wave A and wave B; go build/vet/gofmt clean. Sole blocker is a second, pre-existing cross-module migration-version collision (account/charging, both 20260720000001) found during the mandated collision sweep -- unrelated to internal/app but explicitly in scope per the brief."
+      },
+      {
+        "round": 2,
+        "at": "2026-08-31T23:15:00Z",
+        "agent": "app-reviewer",
+        "model": "claude-sonnet-5",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "blocker",
+            "note": "RESOLVED in c89a629. Live-confirmed (is_nullable=YES, single goose_db_version row for account file), backlogged as item 21 with evidence/fix/trigger, and make migration-guard added: warns exit 0 on the known KNOWN_DUPLICATE_MIGRATIONS pair, hard-fails on any new duplicate -- verified both paths myself (ran migration-guard clean; injected a fresh duplicate migration file and confirmed exit 1 naming both files, then removed it). Wired into make check and the Claude-allowed standalone-guard lists in CLAUDE.md/ai/go-conventions.md/README.md.",
+            "status": "fixed"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "Makefile .PHONY list (lines 72-74) was not updated to include migration-guard, unlike its sibling guards ui-guard/i18n-guard/money-guard which are all listed. Harmless today (no migration-guard file exists at repo root to shadow the target) but inconsistent with the pattern; a one-line fix whenever the file is next touched.",
+            "status": "open"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "CLAUDE.md (\"its other five phases\") and ai/go-conventions.md (\"Claude runs the other five individually\") were not updated to \"six\" after migration-guard was added to the build+vet+ui-guard+i18n-guard+money-guard+migration-guard list quoted immediately alongside each phrase. Cosmetic; does not change which commands are allowed.",
+            "status": "open"
+          }
+        ],
+        "duration_seconds": 900,
+        "notes": "F1 verified fixed: live DB evidence checks out, backlog item 21 is well-formed, migration-guard verified both directions (warns known pair, hard-fails a fresh injected duplicate). Exception mechanism is sound -- allowlist requires an explicit, reviewable Makefile edit to grow. Two new minor nits (F2 .PHONY, F3 stale phase-count prose), non-blocking. Approved."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-USER-1",
+      "at": "2026-08-31T20:40:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "User instructed the pipeline to implement tier 2 and then close MAG-35, rather than closing the ticket on tier 1 alone.",
+      "why": "Tier 1 built the table and the counting but nothing writes a row; the ticket's asks are only observable once app records the run.",
+      "covered_by": "roadmap D1/D6"
+    },
+    {
+      "id": "D-LEADER-7",
+      "at": "2026-08-31T20:40:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "No design gate run for this tier: it creates and alters no database object, calling only tier 1's already-gated poll_runs schema through the RunWriter port.",
+      "why": "The database gate fires on schema/object changes. Leader confirmed the artifacts add no migration, column, or index; the worker was told to block if it needed one.",
+      "covered_by": null
+    },
+    {
+      "id": "D-LEADER-8",
+      "at": "2026-08-31T20:41:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Batched tasks.md's 5 declared waves into 2 serial worker dispatches (A: 1.1-2.4 plus 4.1; B: 3.1-3.5 plus 5.1-5.4) along the real dependency cuts.",
+      "why": "All 16 tasks share one module and one worker identity. Five dispatches would re-read the full doc pack five times. Every depends_on is still honoured inside each batch.",
+      "covered_by": null
+    },
+    {
+      "id": "D-USER-2",
+      "at": "2026-08-31T21:12:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "User explicitly instructed the assistant to run the test suite and cmd/poller --once itself, overriding the project's standing Test-Execution-Policy for this session.",
+      "why": "Direct owner instruction outranks the owner's own standing written rule. Results are recorded as assistant-run under that instruction, never as the owner's verification.",
+      "covered_by": null
+    },
+    {
+      "id": "D-LEADER-9",
+      "at": "2026-08-31T21:12:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Leader renumbered tier 1's shipped migration 20260830000001_add_poll_runs.sql to 20260830000002 and applied it, then documented the global-uniqueness rule in the Makefile.",
+      "why": "It collided with account's 20260830000001 in the shared goose_db_version table, so goose skipped it and poll_runs never existed. Renumbering was the only fix; the migration had never run.",
+      "covered_by": null
+    },
+    {
+      "id": "D-LEADER-10",
+      "at": "2026-08-31T23:25:00Z",
+      "scope": "review:F1",
+      "made_by": "autopilot",
+      "decision": "Guard carries KNOWN_DUPLICATE_MIGRATIONS with the one deferred pair, so make check warns rather than failing on debt the owner chose to backlog.",
+      "why": "Wiring it in bare would make make check fail permanently, blocking every unrelated change. Known pairs warn; anything new fails. Reviewer round 2 examined and endorsed this.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-31T20:40:00Z",
+      "agent": "leader",
+      "event": "Step 3 complete. Worker 'app' (Sonnet) wrote proposal.md, design.md, specs/process-vehicle-data/spec.md and tasks.md; openspec validate --strict reports valid. Leader independently verified the three risk points named in the dispatch: (1) the delta uses ADDED only and its header 'Every Cycle Records A Poll Run Summary' does not collide with the main spec's three existing requirements - the failure that aborted tier 1's archive cannot repeat; (2) design D4 places the record on a guarded fall-through so RecordRun fires on every exit path by construction, and its rejection of a defer closure is technically correct (defer evaluates arguments at defer-time, capturing the zero-value report); (3) design D2 uses internal/clock.Now(), never a raw time.Now(). No database object is added or changed, so no design gate applies (D-LEADER-7)."
+    },
+    {
+      "at": "2026-08-31T20:40:00Z",
+      "agent": "leader",
+      "event": "Step 4 complete. progress.json seeded with 16 sub-tasks across 5 declared waves, all pending."
+    },
+    {
+      "at": "2026-08-31T20:41:00Z",
+      "agent": "leader",
+      "event": "Step 5 dispatch A: app worker (Sonnet) for tasks 1.1, 1.2, 2.1, 2.2, 2.3, 2.4, 4.1 - the processor wiring, the guarded fall-through refactor, buildPollRun/recordRun, and the cmd/poller composition-root change. Budget at dispatch: five_hour_pct=52, context_pct=21."
+    },
+    {
+      "at": "2026-08-31T20:44:00Z",
+      "agent": "leader",
+      "event": "Wave A reconciled: all 7 tasks done. Leader independently re-ran go build ./... (clean), go vet ./... (clean - it compiles scheduler_test.go, so the NewProcessor signature change did not drift), gofmt -l internal/app/ cmd/poller/ (empty), and read the full processor.go diff: D4's guarded fall-through preserves the short-circuit exactly (steps 2/3 run iff step 1 succeeded), D5's recordRun returns nothing so it cannot alter the returned error, D7's buildPollRun is pure and nil-map-safe. Grepped for raw time.Now(): the two hits in processor.go are PRE-EXISTING daily-bucket code grandfathered until RM35-app-adopt-clock; this wave added none, using clock.Now() throughout (D2). Budget 52%->57% five-hour, context 23%."
+    },
+    {
+      "at": "2026-08-31T20:45:00Z",
+      "agent": "leader",
+      "event": "Step 5 dispatch B: app worker (Sonnet) for tasks 3.1-3.5 (the fake roster and design.md Test Contract fixtures P1-P5) and 5.1-5.4 (internal/app/AGENTS.md updates). Budget at dispatch: five_hour_pct=57, context_pct=23."
+    },
+    {
+      "at": "2026-08-31T20:50:00Z",
+      "agent": "leader",
+      "event": "Wave B reconciled: docs 5.1-5.4 done; tests 3.1-3.5 awaiting-user-verification (written, never executed by the assistant). Leader independently re-ran go build ./... (clean), go vet ./... (clean, compiles the new processor_test.go and its 8 compile-time interface assertions), gofmt -l internal/app/ (empty), confirmed git diff --stat shows ZERO changes to processor.go/app.go/main.go (no production drift to make a test pass), and diffed Fixture P4 line-by-line against design.md's P4 block: errors.Is on the sentinel, every count field asserted 0, non-zero StartedAt/FinishedAt, DurationSeconds consistent with report.Duration, and AllRegisteredVehicles asserted NOT called - the short-circuit survives the D4 reshape. Exact contract match. Budget 57%->63% five-hour, context 25%."
+    },
+    {
+      "at": "2026-08-31T21:12:00Z",
+      "agent": "leader",
+      "event": "ASSISTANT-RUN TEST PASS, at the user's explicit instruction (D-USER-2), NOT the owner's own verification. `go test ./internal/app/...` passed, and a -v run confirmed all five fixtures (P1-P5) actually executed rather than skipping. Tasks 3.1-3.5 move awaiting-user-verification -> done."
+    },
+    {
+      "at": "2026-08-31T21:12:00Z",
+      "agent": "leader",
+      "event": "DEFECT FOUND BY THE SMOKE RUN - tier 1's migration was never applied. `go run ./cmd/poller --once` logged 'poll run: recording run ...: ERROR: relation \"poll_runs\" does not exist (SQLSTATE 42P01)'. Root cause: telemetry's 20260830000001_add_poll_runs.sql collided with account's 20260830000001_accounts_vehicles_add_status.sql, and all modules share one goose_db_version table keyed by version - goose saw the number recorded, SKIPPED the file, and make migrate-status listed it as 'applied' with the account migration's timestamp. The Makefile's -allow-missing cannot absorb a duplicate number; it only handles out-of-order versions. This passed tier 1's reviewer, its byte-for-byte DDL diff, and every build/vet signal, because all of them check file CONTENTS and the contents were always correct. Only executing the binary against a real database could surface it. Fixed in 2b70310: renumbered to 20260830000002, applied, uniqueness rule documented in the Makefile's MIGRATIONS_DIRS note, correction note added to the archived tier-1 design.md."
+    },
+    {
+      "at": "2026-08-31T21:12:00Z",
+      "agent": "leader",
+      "event": "END-TO-END PROOF. Second `cmd/poller --once` ran clean with no RecordRun error, and a direct SELECT returned the row: duration_seconds=4.904613, tesla_api_calls=4, accounts 1/1/0, vehicles 2/2, charging_sessions_upserted=6, config_capture_failures=0 - every value matching the printed log line exactly (duration=4.904613s). MAG-35's ask is delivered end to end. Note: the FIRST run also proved design D5 under a real fault - RecordRun failed and the cycle still completed and reported success rather than dying."
+    },
+    {
+      "at": "2026-08-31T22:47:00Z",
+      "agent": "leader",
+      "event": "Step 7 review brief written; dispatching app-reviewer (Sonnet, escalate on doubt). Brief includes a special item: audit the migration renumber and sweep for any other cross-module version collision. Budget at dispatch: five_hour_pct=71, context_pct=27."
+    },
+    {
+      "at": "2026-08-31T23:25:00Z",
+      "agent": "leader",
+      "event": "Review round 2: app-reviewer returned APPROVED. It independently re-tested make migration-guard both ways (clean today with the warning; hard-fails naming both files when it injected a duplicate) rather than reading it, and endorsed the KNOWN_DUPLICATE_MIGRATIONS mechanism as the right asymmetry. F1 marked fixed. Two new minors, F2 (.PHONY) and F3 (stale five/six wording), fixed by the leader in 717b648 rather than carried open. Leader set the top-level status to reviewer-approved mirroring the reviewer verdict (same rationale as tier 1 D-LEADER-5)."
+    }
+  ]
+}

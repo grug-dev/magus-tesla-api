@@ -594,6 +594,100 @@ RM33 `manual-record-status` decision D8 (and D4), settled in the 2026-08-29 gril
 Linear MAG-18.
 
 
+## 19. telemetry — Per-vehicle poll duration
+
+### PROPOSAL
+
+`poll_attempts` (grain: one row per vehicle per run) records the outcome of each vehicle's
+poll but not **how long that vehicle took**. RM36 adds `duration_seconds` at the run level
+only (`poll_runs`), which answers *"the poller took 40s"* but not *"which car ate 35 of
+them"*.
+
+The wake-up wait is the dominant and most variable cost of a cycle — an asleep vehicle is
+polled for online up to `WakeTimeout` while an already-online one goes straight to
+`VehicleData`. That difference is per vehicle, so run-level duration cannot expose it.
+
+Add `duration_seconds` to `poll_attempts`, timed around the per-vehicle work in
+`internal/telemetry`'s `record()` path. One migration, one module, no new table.
+
+**TRIGGER — pick this up when** a run's duration is actually observed to be a problem
+(RM36's `poll_runs` is what will show that), or when the wake timeout is next tuned.
+
+### ORIGIN
+
+`RM36-poll-run-tracking` decision **D3**, settled in the 2026-08-31 grill-me interview for
+Linear MAG-35. The user chose run-level duration only, to keep the change to the ticket's
+literal scope; per-vehicle was judged useful but deferred rather than discarded.
+
+
+## 20. gateway — A read surface for `poll_runs`
+
+### PROPOSAL
+
+RM36 creates `poll_runs` (one row per poller invocation: duration, account and vehicle
+outcome counts, charging counters, Tesla Fleet API call count) but **nothing reads it** —
+the roadmap is write-only by design, so the data starts accumulating before anyone commits
+to how it should be displayed.
+
+Once rows exist, add a gateway surface: a poller-health page or a section on an existing
+admin/settings page showing recent runs, their durations, failures by reason, and the API
+call count per run — the last being the input to the Tesla API cost figure MAG-35 wanted.
+
+Note `poll_runs` was designed for exactly this (RM36 D5 denormalizes the vehicle counts into
+the row precisely so a run summary reads without a join), so the read side should need no
+schema change.
+
+**TRIGGER — pick this up when** enough nightly runs have accumulated to be worth looking at
+(a few weeks), or as part of the Settings page (backlog item 5).
+
+### ORIGIN
+
+`RM36-poll-run-tracking` "Future work" — the roadmap ships persistence only. Recorded
+2026-08-31 from Linear MAG-35.
+
+
+## 21. charging — Renumber `20260720000001_require_location_kind.sql`; its `NOT NULL` was never applied
+
+### PROPOSAL
+
+`internal/charging/db/migrations/20260720000001_require_location_kind.sql` shares its
+version number with
+`internal/account/db/migrations/20260720000001_vehicles_add_access_type.sql`. Every module's
+migrations share **one** `goose_db_version` table keyed by version, so goose recorded
+`20260720000001` when it applied account's file and then **silently skipped** charging's,
+reporting it as applied. `-allow-missing` does not help: a duplicate number is not an
+ordering problem.
+
+**Confirmed live on 2026-08-31**, not theoretical:
+
+- `manual_charge_entries.location_kind` is still `is_nullable = YES` — the `NOT NULL` the
+  migration exists to add was never applied.
+- `goose_db_version` holds exactly one row for `20260720000001`, timestamped
+  `2026-07-20 06:50:59`, which is account's application of its own file.
+- The migration's defensive backfill (`NULL` → `'OTHER'`) also never ran.
+
+**Currently harmless:** a `SELECT count(*) ... WHERE location_kind IS NULL` returns **0**, so
+no row violates the intended constraint today — Go-side validation
+(`charging.RequiredFieldsFor`) has been holding the line. The risk is that nothing in the
+database enforces it, so any future write path that bypasses that validation can insert a
+NULL silently.
+
+**The fix** mirrors what MAG-35 did for `poll_runs`: renumber the charging file to a free
+number (e.g. `20260720000002_require_location_kind.sql`), run `make migrate-up`, confirm
+`is_nullable = NO`, then **delete `20260720000001` from `KNOWN_DUPLICATE_MIGRATIONS` in the
+`Makefile`** so `make migration-guard` stops warning and starts failing on it. Check for
+NULL rows before applying — the backfill will handle them, but you want to know.
+
+**TRIGGER — pick this up** the next time `internal/charging` is touched for any reason, or
+immediately if a NULL `location_kind` ever appears.
+
+### ORIGIN
+
+Found by the `app-reviewer`'s collision sweep during `RM36-app-record-poll-run` (tier 2,
+Linear MAG-35) as review finding **F1**, after the identical failure mode was discovered in
+`poll_runs`. Deferred to the backlog by the owner rather than widening RM36 into a third
+module; the `make migration-guard` target added in the same change warns on this pair and
+fails on any new one. Recorded 2026-08-31.
 ## 19. gateway — Regression test: the history preset selector highlights for a non-UTC user
 
 ### PROPOSAL

@@ -35,6 +35,17 @@ endif
 # modules never share tables or FKs (ai/architecture.md boundary rules), so cross-module
 # version order carries no meaning; within a dir, goose still applies in version order.
 # Add a module's dir here when it gains a DB — position no longer matters.
+#
+# HARD RULE — a migration's version number must be unique across ALL dirs above, not
+# just within its own. The shared goose_db_version table is keyed by version, so two
+# modules using the same number is not an ordering problem that -allow-missing can
+# absorb: goose sees the number already recorded and silently SKIPS the second file,
+# reporting it as "applied" (with the other migration's timestamp) while its table is
+# never created. That is exactly what happened to telemetry's poll_runs migration,
+# which collided with account's 20260830000001 and had to be renumbered to
+# 20260830000002 (MAG-35). Before adding a migration, check the number is free:
+#   ls internal/*/db/migrations/ | grep <YYYYMMDD>
+# Same-day migrations in different modules must differ in the trailing counter.
 MIGRATIONS_DIRS ?= internal/account/db/migrations internal/telemetry/db/migrations internal/charging/db/migrations internal/analytics/db/migrations
 
 # goose binary: prefer one on PATH, else the `go install` location (GOPATH/bin).
@@ -59,7 +70,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard tidy build vet test check bins \
+        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
@@ -478,7 +489,58 @@ test: ## Run all tests against disposable testcontainer Postgres (never the real
 test-with-db: ## Run all tests against the configured DATABASE_URL (opt-in; CI with a managed Postgres)
 	go test ./...
 
-check: build vet ui-guard i18n-guard money-guard tz-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + test
+# Every module's migrations share ONE goose_db_version table, keyed by version number
+# (see the MIGRATIONS_DIRS note near the top of this file). A number used by two modules
+# is therefore not an ordering problem -allow-missing can absorb: goose records the number
+# once, then SILENTLY SKIPS the second file while reporting it as applied. The table or
+# constraint it should have created never exists, and nothing fails loudly.
+#
+# This has already bitten twice: telemetry's poll_runs vs account's 20260830000001 (MAG-35,
+# caught only by running the poller against a real DB), and charging's require_location_kind
+# vs account's 20260720000001 (found by the MAG-35 reviewer's sweep; that NOT NULL
+# constraint was never applied). Both cost a live database, not a test run — which is
+# exactly why this is a cheap deterministic guard rather than a comment.
+#
+# KNOWN_DUPLICATE_MIGRATIONS is a deliberately short, shrinking list of collisions that
+# already exist in the applied history. They are NOT tolerated — each has a backlog entry
+# and must be renumbered — but failing `make check` on them would block every unrelated
+# change until they are fixed. The guard therefore warns on these and fails on anything
+# NEW, which is the point: stop the next one from ever being introduced. Delete a number
+# from this list the moment its migration is renumbered; never add to it to silence a
+# collision you just created.
+KNOWN_DUPLICATE_MIGRATIONS := 20260720000001
+
+migration-guard: ## Fail if two modules' migrations share a version number (they share one goose_db_version table, so the duplicate is silently skipped)
+	@all=$$(ls $(MIGRATIONS_DIRS:%=%/*.sql) 2>/dev/null \
+		| xargs -n1 basename \
+		| grep -oE '^[0-9]{14}' \
+		| sort | uniq -d); \
+	known="$(KNOWN_DUPLICATE_MIGRATIONS)"; \
+	dupes=""; \
+	for v in $$all; do \
+		case " $$known " in *" $$v "*) \
+			echo "WARNING: known un-renumbered migration collision $$v (see openspec/roadmaps/backlog.md) — its migration is NOT applied in any database";; \
+		*) dupes="$$dupes $$v";; esac; \
+	done; \
+	dupes=$$(echo $$dupes); \
+	if [ -n "$$dupes" ]; then \
+		echo "ERROR: duplicate migration version number(s) across modules:"; \
+		echo ""; \
+		for v in $$dupes; do \
+			echo "  $$v:"; \
+			ls $(MIGRATIONS_DIRS:%=%/$$v*.sql) 2>/dev/null | sed 's/^/    /'; \
+		done; \
+		echo ""; \
+		echo "All modules share ONE goose_db_version table, keyed by version. goose records"; \
+		echo "the number once and SILENTLY SKIPS the second file, reporting it as applied —"; \
+		echo "so its table or constraint is never created and nothing fails loudly."; \
+		echo "Fix: renumber the newer file (bump the trailing counter, e.g. ...0001 -> ...0002),"; \
+		echo "then run 'make migrate-up'. Never silence this by weakening the check."; \
+		exit 1; \
+	fi
+	@echo "migration-guard: no duplicate version numbers across $(words $(MIGRATIONS_DIRS)) module dirs"
+
+check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + migration-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

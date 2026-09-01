@@ -18,6 +18,7 @@ import (
 type processor struct {
 	collector          telemetry.Collector
 	superchargerReader telemetry.SuperchargerReader
+	runWriter          telemetry.RunWriter
 	sessionWriter      charging.SessionWriter
 	acct               account.Service
 	recalculator       analytics.Recalculator
@@ -31,7 +32,10 @@ var _ Processor = (*processor)(nil)
 // ProcessVehicleData reproduces reconcilingCollector.CollectAll's exact control flow
 // from cmd/poller (design.md D8): generate a fresh RunContext, sync fleet data
 // (step 1), and — only if that succeeds — process charging data (step 2) then
-// recalculate analytics (step 3).
+// recalculate analytics (step 3). Since RM36-app-record-poll-run tier 2, every
+// invocation also measures its own start-to-finish span with internal/clock and
+// records exactly one poll_runs summary row via recordRun — on every exit path,
+// including the step-1 whole-cycle-failure short-circuit below (design.md D4/D6).
 //
 // Both preserved properties are load-bearing, not incidental:
 //
@@ -40,22 +44,79 @@ var _ Processor = (*processor)(nil)
 //     entirely — exactly reconcilingCollector.CollectAll's existing behavior, and
 //     for the same reason: both later steps read data step 1 was supposed to have
 //     just written; running them against a cycle that never happened would
-//     reconcile against stale or absent input.
+//     reconcile against stale or absent input. RM36 tier 2 reshapes the early
+//     return into a guarded fall-through (`if err == nil { step2; step3 }`) so both
+//     paths share one measurement/record tail, but the short-circuit's own
+//     behavior — steps 2/3 run if and only if step 1 succeeded — is unchanged
+//     (design.md D4).
 //   - The order. Charging-data processing (step 2) runs BEFORE analytics
 //     recalculation (step 3) — the same order T6's own design.md D7 established
 //     ("propagate data, then derive from it").
 func (p *processor) ProcessVehicleData(ctx context.Context, triggeredBy telemetry.TriggeredBy) (telemetry.CycleReport, error) {
 	run := telemetry.RunContext{RunID: uuid.New(), TriggeredBy: triggeredBy}
+	start := clock.Now()
 
 	report, err := p.collector.CollectAll(ctx, run) // step 1 — sync fleet data
-	if err != nil {
-		return report, err // whole-cycle failure: steps 2 and 3 never run
+	if err == nil {
+		p.processChargingData(ctx)  // step 2 — was newSessionMirrorer
+		p.recalculateAnalytics(ctx) // step 3 — was newNightlyReconciler
 	}
 
-	p.processChargingData(ctx)  // step 2 — was newSessionMirrorer
-	p.recalculateAnalytics(ctx) // step 3 — was newNightlyReconciler
+	finish := clock.Now()
+	report.Duration = finish.Sub(start)
+	p.recordRun(ctx, run, report, start, finish)
 
-	return report, nil
+	return report, err
+}
+
+// buildPollRun maps one measured ProcessVehicleData invocation onto the
+// telemetry.PollRun tier 1's RunWriter.RecordRun persists (RM36-app-record-poll-run
+// design D7). Pure: no I/O, no clock read of its own — start/finish are supplied
+// by the caller so this function is directly unit-testable without any of
+// Processor's collaborator ports (design D9, Test Contract fixtures P1/P2).
+//
+// VehiclesAttempted/VehiclesSucceeded read report.Attempted/.Succeeded BY FIELD,
+// not by name — tier 1's own design D8 deliberately kept those Go field names
+// while renaming only the printed labels, to avoid breaking
+// internal/app/scheduler_test.go, a file tier 1 could not touch.
+// report.FailuresByReason is read defensively: on the step-1 whole-cycle-failure
+// path report is the zero value, so FailuresByReason is a nil map — a Go map read
+// on a nil map returns the zero value for a missing key rather than panicking, so
+// every FailuresX field below is simply 0 in that case.
+func buildPollRun(run telemetry.RunContext, report telemetry.CycleReport, start, finish time.Time) telemetry.PollRun {
+	return telemetry.PollRun{
+		RunID:                    run.RunID,
+		TriggeredBy:              run.TriggeredBy,
+		StartedAt:                start,
+		FinishedAt:               finish,
+		DurationSeconds:          finish.Sub(start).Seconds(),
+		AccountsAttempted:        report.AccountsAttempted,
+		AccountsSucceeded:        report.AccountsSucceeded,
+		AccountsFailed:           report.AccountsFailed,
+		VehiclesAttempted:        report.Attempted,
+		VehiclesSucceeded:        report.Succeeded,
+		FailuresAsleepTimeout:    report.FailuresByReason[telemetry.ReasonAsleepTimeout],
+		FailuresUnauthorized:     report.FailuresByReason[telemetry.ReasonUnauthorized],
+		FailuresAPIError:         report.FailuresByReason[telemetry.ReasonAPIError],
+		TeslaAPICalls:            report.TeslaAPICalls,
+		ChargingSessionsUpserted: report.ChargingSessionsUpserted,
+		ChargingFetchFailures:    report.ChargingFetchFailures,
+		ConfigCaptureFailures:    report.ConfigCaptureFailures,
+	}
+}
+
+// recordRun persists one poll_runs row for this invocation via p.runWriter
+// (RM36-app-record-poll-run design D5). It returns nothing and cannot influence
+// ProcessVehicleData's own return values — the compiler enforces this, not just
+// convention. A RecordRun failure is logged, never fatal: it mirrors the exact
+// "errors are logged, never fatal" pattern this file already uses for
+// processChargingData/recalculateAnalytics, extended here because a RecordRun
+// hiccup is an observability-write failure, not a cycle failure — it must never
+// change a cycle's own reported outcome (design.md D5, roadmap-driven).
+func (p *processor) recordRun(ctx context.Context, run telemetry.RunContext, report telemetry.CycleReport, start, finish time.Time) {
+	if err := p.runWriter.RecordRun(ctx, buildPollRun(run, report, start, finish)); err != nil {
+		log.Printf("poll run: recording run %s: %v", run.RunID, err)
+	}
 }
 
 // processChargingData is the "process charging data" step (design.md D6), relocated

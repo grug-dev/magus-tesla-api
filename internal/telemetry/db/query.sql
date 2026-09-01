@@ -487,3 +487,24 @@ WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND updated_at >= @since
 ORDER BY updated_at ASC;
+
+-- name: InsertPollRun :exec
+-- Inserts one poll_runs row. Called exactly once per app.ProcessVehicleData
+-- invocation via telemetry.RunWriter.RecordRun (design D3/D11/D12). Never an
+-- upsert: a duplicate run_id is a caller bug and must fail loudly on the
+-- PRIMARY KEY, not be silently absorbed.
+INSERT INTO poll_runs (
+    run_id, triggered_by, started_at, finished_at, duration_seconds,
+    accounts_attempted, accounts_succeeded, accounts_failed,
+    vehicles_attempted, vehicles_succeeded,
+    failures_asleep_timeout, failures_unauthorized, failures_api_error,
+    tesla_api_calls,
+    charging_sessions_upserted, charging_fetch_failures, config_capture_failures
+) VALUES (
+    @run_id, @triggered_by, @started_at, @finished_at, @duration_seconds,
+    @accounts_attempted, @accounts_succeeded, @accounts_failed,
+    @vehicles_attempted, @vehicles_succeeded,
+    @failures_asleep_timeout, @failures_unauthorized, @failures_api_error,
+    @tesla_api_calls,
+    @charging_sessions_upserted, @charging_fetch_failures, @config_capture_failures
+);
