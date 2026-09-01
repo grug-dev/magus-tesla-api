@@ -23,7 +23,6 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
-	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
 // fakeRecalculator is a test double for analytics.Recalculator
@@ -1464,24 +1463,26 @@ func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
 // --- MAG-5 D2/D6: start-battery suggestion + required battery fields (T4.5) ---
 
 // TestChargePage_BatterySuggestionFromTelemetry verifies D2: when the selected
-// vehicle's latest telemetry snapshot reports BatteryLevelPct=73, the create
-// form's start_battery_pct input carries a placeholder helper label "Latest: 73%"
-// built via the existing telemetry.Reader.LatestSnapshotsByAccount port (the same
-// port the dashboard uses). The fakeReader seeds the snapshot; the buildChargesPage
-// helper picks the snapshot for the session-selected TeslaID.
+// vehicle's latest status reports BatteryLevelPct=73, the create form's
+// start_battery_pct input carries a placeholder helper label "Latest: 73%"
+// built via analytics.Reader.LatestMetricsByAccount (the same port the
+// dashboard uses — retyped from telemetry.Reader.LatestSnapshotsByAccount by
+// RM38-gateway-read-dashboard-from-metrics design.md D9). The
+// fakeAnalyticsReader seeds the status; the buildChargesPage helper picks the
+// status for the session-selected TeslaID.
 func TestChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 	uid := uuid.New()
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
 		{TeslaID: 1001, BatteryLevelPct: 73},
 	}}
 	h := New(Deps{
 		AnalyticsRecalculator: &fakeRecalculator{},
 		Account:               acct,
 		Tesla:                 &fakeTesla{},
-		TelemetryReader:       reader,
+		AnalyticsReader:       reader,
 		ChargingWriter:        &fakeChargeWriter{},
 		ChargingReader:        &fakeChargeReader{},
 	})
@@ -1522,12 +1523,12 @@ func TestChargePage_NoBatterySuggestionWhenNoSnapshot(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
 	}}
-	reader := &fakeReader{snapshots: nil} // no telemetry snapshots
+	reader := &fakeAnalyticsReader{statuses: nil} // no statuses
 	h := New(Deps{
 		AnalyticsRecalculator: &fakeRecalculator{},
 		Account:               acct,
 		Tesla:                 &fakeTesla{},
-		TelemetryReader:       reader,
+		AnalyticsReader:       reader,
 		ChargingWriter:        &fakeChargeWriter{},
 		ChargingReader:        &fakeChargeReader{},
 	})
@@ -1559,12 +1560,12 @@ func TestChargePage_NoBatterySuggestionOnTelemetryError(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
 	}}
-	reader := &fakeReader{err: errFake} // simulate a telemetry store failure
+	reader := &fakeAnalyticsReader{statusesErr: errFake} // simulate an analytics store failure
 	h := New(Deps{
 		AnalyticsRecalculator: &fakeRecalculator{},
 		Account:               acct,
 		Tesla:                 &fakeTesla{},
-		TelemetryReader:       reader,
+		AnalyticsReader:       reader,
 		ChargingWriter:        &fakeChargeWriter{},
 		ChargingReader:        &fakeChargeReader{},
 	})

@@ -54,7 +54,9 @@ type Deps struct {
 	Google  *googleauth.Client
 	Tesla   tesla.VehicleService
 	// TelemetryReader is the telemetry read port; injected at construction.
-	// The gateway calls LatestSnapshotsByAccount once per dashboard render.
+	// Since RM38-gateway-read-dashboard-from-metrics its ONLY remaining caller is
+	// history.go's SnapshotsByVehicleBetween — the four latest-state reads moved to
+	// AnalyticsReader.LatestMetricsByAccount.
 	// NEVER import internal/telemetry/db — all access through this interface only.
 	TelemetryReader telemetry.Reader
 	// SuperchargerReader is the charging module's SessionReader port over
@@ -229,27 +231,29 @@ func (h *Handler) DashboardFragment(c *gin.Context) {
 // dashboard never calls Tesla again (openspec/changes/persist-tesla-vehicles).
 //
 // When vehicles are already registered, it additionally calls
-// h.telemetryReader.LatestSnapshotsByAccount to enrich each vehicle card with its
-// latest stored nightly snapshot. If the Reader fails, it degrades gracefully —
-// all vehicles render in placeholder state with a non-fatal notice.
+// h.analyticsReader.LatestMetricsByAccount to enrich each vehicle card with its
+// latest per-vehicle status (RM38-gateway-read-dashboard-from-metrics, design.md
+// D3 — replaces the earlier telemetry.Reader.LatestSnapshotsByAccount call). If
+// the Reader fails, it degrades gracefully — all vehicles render in placeholder
+// state with a non-fatal notice.
 func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.VehiclesData {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {
 		return fragments.VehiclesData{Notice: i18n.T(ctx, i18n.KeyVehiclesNoticeCouldNotLoadVehicles)}
 	}
 	if len(registered) > 0 {
-		// Fetch the latest snapshot per vehicle from the telemetry read port.
-		// On error: log and degrade gracefully — use an empty snapshot map so all
+		// Fetch the latest status per vehicle from the analytics read port.
+		// On error: log and degrade gracefully — use an empty status map so all
 		// vehicles render with HasSnapshot: false (placeholder). Never return early.
-		snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
-		snapMap := mergeSnapshots(snaps)
+		statuses, statusErr := h.analyticsReader.LatestMetricsByAccount(ctx, uid)
+		statusMap := mergeVehicleStatuses(statuses)
 		var notice string
-		if snapErr != nil {
-			log.Printf("gateway: telemetry reader error for account %s: %v", uid, snapErr)
+		if statusErr != nil {
+			log.Printf("gateway: analytics reader error for account %s: %v", uid, statusErr)
 			notice = i18n.T(ctx, i18n.KeyVehiclesNoticeTelemetryUnavailable)
 		}
 		return fragments.VehiclesData{
-			Vehicles: mapVehicles(registered, snapMap),
+			Vehicles: mapVehicles(registered, statusMap),
 			Notice:   notice,
 		}
 	}
@@ -355,41 +359,69 @@ func relativeLastSeen(capturedAt, now time.Time, ctx context.Context) string {
 	}
 }
 
-// mergeSnapshots builds a map from TeslaID to Snapshot for O(1) lookup per vehicle.
-// A nil or empty slice produces an empty map (no panic on range).
-func mergeSnapshots(snaps []telemetry.Snapshot) map[int64]telemetry.Snapshot {
-	m := make(map[int64]telemetry.Snapshot, len(snaps))
-	for _, s := range snaps {
+// mergeVehicleStatuses builds a map from TeslaID to VehicleStatus for O(1) lookup
+// per vehicle. A nil or empty slice produces an empty map (no panic on range).
+// Renamed from mergeSnapshots (RM38-gateway-read-dashboard-from-metrics): same
+// shape, new source type -- LatestMetricsByAccount already returns at most one
+// row per TeslaID (design.md D6, tier 1), so, exactly as before with
+// LatestSnapshotsByAccount, this function does no de-duplication of its own; it
+// only indexes an already-unique slice for lookup by an arbitrary caller-supplied
+// TeslaID (the selected/primary vehicle), which the slice's own uniqueness does
+// not provide by itself.
+func mergeVehicleStatuses(statuses []analytics.VehicleStatus) map[int64]analytics.VehicleStatus {
+	m := make(map[int64]analytics.VehicleStatus, len(statuses))
+	for _, s := range statuses {
 		m[s.TeslaID] = s
 	}
 	return m
 }
 
+// vehiclesTempOrDash formats a nilable temperature at this region's existing
+// precision (one decimal). nil -> "—". Deliberately NOT shared with
+// dashTempOrDash (dashboard hero's own %.0f precision) — see design.md D2
+// "Rejected" note (RM38-gateway-read-dashboard-from-metrics).
+func vehiclesTempOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%.1f °C", *v)
+}
+
 // mapVehicles converts the account module's clean Vehicle domain structs to the
-// presentation model, enriching each with the matching snapshot from snapMap when
-// available. Passing a nil snapMap produces placeholder cards for all vehicles.
+// presentation model, enriching each with the matching status from statusMap when
+// available. Passing a nil statusMap produces placeholder cards for all vehicles.
 //
-// All derivation (km conversion, staleness, timestamp formatting, sentry-nil
-// passthrough) happens here — the template receives fully-computed display fields.
-func mapVehicles(vs []account.Vehicle, snapMap map[int64]telemetry.Snapshot) []fragments.Vehicle {
+// All derivation (km conversion, staleness, timestamp formatting, nil-safe
+// formatting) happens here — the template receives fully-computed display fields.
+//
+// Retyped from map[int64]telemetry.Snapshot to map[int64]analytics.VehicleStatus
+// (RM38-gateway-read-dashboard-from-metrics, design.md D3): ChargingState/
+// InsideTempC/OutsideTempC/CapturedAt are now pointers; nil never fabricates a
+// value. Locked is now *bool on fragments.Vehicle too (design.md D3) since the
+// source is now nilable.
+func mapVehicles(vs []account.Vehicle, statusMap map[int64]analytics.VehicleStatus) []fragments.Vehicle {
 	out := make([]fragments.Vehicle, 0, len(vs))
 	for _, v := range vs {
 		fv := fragments.Vehicle{
 			DisplayName: v.DisplayName,
 			VIN:         v.VIN,
 		}
-		if snap, ok := snapMap[v.TeslaID]; ok {
+		if s, ok := statusMap[v.TeslaID]; ok {
 			fv.HasSnapshot = true
-			fv.Battery = fmt.Sprintf("%d%%", snap.BatteryLevelPct)
-			fv.BatteryRange = fmt.Sprintf("%.1f km", snap.BatteryRangeKm)
-			fv.ChargingState = snap.ChargingState
-			fv.Odometer = fmt.Sprintf("%.1f km", snap.OdometerKm)
-			fv.InsideTemp = fmt.Sprintf("%.1f °C", snap.InsideTempC)
-			fv.OutsideTemp = fmt.Sprintf("%.1f °C", snap.OutsideTempC)
-			fv.Locked = snap.Locked
-			fv.SentryMode = snap.SentryMode
-			fv.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02 15:04 UTC")
-			fv.IsStale = isStale(snap.CapturedAt, clock.Now())
+			fv.Battery = fmt.Sprintf("%d%%", s.BatteryLevelPct)
+			fv.BatteryRange = fmt.Sprintf("%.1f km", s.BatteryRangeKm)
+			if s.ChargingState != nil {
+				fv.ChargingState = *s.ChargingState
+			}
+			fv.Odometer = fmt.Sprintf("%.1f km", s.OdometerKm)
+			fv.InsideTemp = vehiclesTempOrDash(s.InsideTempC)
+			fv.OutsideTemp = vehiclesTempOrDash(s.OutsideTempC)
+			fv.Locked = s.Locked
+			fv.SentryMode = s.SentryMode
+			if s.CapturedAt != nil {
+				fv.LastUpdated = s.CapturedAt.UTC().Format("2006-01-02 15:04 UTC")
+				fv.IsStale = isStale(*s.CapturedAt, clock.Now())
+			}
 		}
 		out = append(out, fv)
 	}
@@ -407,17 +439,18 @@ func mapTeslasToVehicles(vs []tesla.VehicleTesla) []fragments.Vehicle {
 }
 
 // dashboardFor is the single-vehicle dashboard's core logic, decoupled from
-// gin/session so it is unit-testable with fake account/telemetry implementations
+// gin/session so it is unit-testable with fake account/analytics implementations
 // (mirrors vehiclesFor). It reads the account's registered vehicles through the
 // account port, selects the user's chosen vehicle (or auto-selects the first), then
-// reads the latest per-vehicle snapshots through telemetry.Reader and maps the
-// selected vehicle's snapshot onto a logic-free view model.
+// reads the latest per-vehicle status through analytics.Reader.LatestMetricsByAccount
+// (RM38 tier 2 — it was telemetry.Reader.LatestSnapshotsByAccount before) and maps the
+// selected vehicle's status onto a logic-free view model.
 //
 // Degradation rules (same resilient shape as vehiclesFor / navHeaderFor): a read
 // error NEVER returns a 500 — it degrades to a flagged view model:
 //   - account error              → Notice-only shell (no vehicle).
 //   - no registered vehicles      → NeedsConnect (connect prompt).
-//   - telemetry Reader error     → TelemetryUnavailable + vehicle identity only.
+//   - analytics Reader error     → TelemetryUnavailable + vehicle identity only.
 //   - selected vehicle, no snapshot → HasSnapshot=false placeholder ("—").
 //
 // selectedTeslaID is 0 when no selection persisted; the caller (Dashboard) has
@@ -443,9 +476,9 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		VehicleImage:       h.vehicleImage(primary.CarType, primary.ExteriorColor),
 		DefaultHistoryHref: defaultHistoryHref(today),
 	}
-	snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
-	if snapErr != nil {
-		log.Printf("gateway: dashboard telemetry reader error for account %s: %v", uid, snapErr)
+	statuses, statusErr := h.analyticsReader.LatestMetricsByAccount(ctx, uid)
+	if statusErr != nil {
+		log.Printf("gateway: dashboard analytics reader error for account %s: %v", uid, statusErr)
 		vm.TelemetryUnavailable = true
 		// Reuses the vehicles_notice key (leader amendment): byte-identical copy to
 		// vehiclesFor's telemetry-unavailable notice — no separate dashboard_notice
@@ -453,48 +486,72 @@ func (h *Handler) dashboardFor(ctx context.Context, uid uuid.UUID, selectedTesla
 		vm.Notice = i18n.T(ctx, i18n.KeyVehiclesNoticeTelemetryUnavailable)
 		return vm
 	}
-	snap, ok := mergeSnapshots(snaps)[primary.TeslaID]
+	vs, ok := mergeVehicleStatuses(statuses)[primary.TeslaID]
 	if !ok {
-		// Registered vehicle, no stored snapshot yet → placeholder. No notice —
+		// Registered vehicle, no stored status yet → placeholder. No notice —
 		// the hero subtitle "Awaiting first snapshot" + "—" tiles convey it.
 		return vm
 	}
-	mapDashboardSnapshot(ctx, &vm, snap, clock.Now())
+	mapDashboardSnapshot(ctx, &vm, vs, clock.Now())
 	return vm
 }
 
-// mapDashboardSnapshot fills the dashboard view model's display fields from a
-// latest snapshot. All derivation/rounding/unit-formatting happens here so the
-// template receives fully-computed strings (gateway spec invariant). now is passed
-// in (not read from a clock) so staleness is deterministic in tests, mirroring isStale.
-// ctx threads through to dashStatus and the software-version i18n.T lookup (D5).
-func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, snap telemetry.Snapshot, now time.Time) {
+// dashTempOrDash formats a nilable temperature at the dashboard hero's existing
+// precision (whole degrees). nil -> "—", the existing HasSnapshot placeholder
+// (design.md D2) — a vehicle_metrics row can exist (HasSnapshot true) while its
+// inside/outside temp columns are still NULL (pre-migration row). Deliberately
+// NOT shared with vehiclesFor's own nil-temp formatter (%.1f precision, a
+// different display region) — see design.md D2 "Rejected" note.
+func dashTempOrDash(v *float64) string {
+	if v == nil {
+		return "—"
+	}
+	return fmt.Sprintf("%.0f °C", *v)
+}
+
+// mapDashboardSnapshot fills the dashboard view model's display fields from the
+// account's latest per-vehicle status row. All derivation/rounding/unit-formatting
+// happens here so the template receives fully-computed strings (gateway spec
+// invariant). now is passed in (not read from a clock) so staleness is
+// deterministic in tests, mirroring isStale. ctx threads through to dashStatus and
+// the software-version i18n.T lookup (D5).
+//
+// Retyped from telemetry.Snapshot to analytics.VehicleStatus
+// (RM38-gateway-read-dashboard-from-metrics, design.md D2): eight fields are now
+// pointers (InsideTempC, OutsideTempC, CarVersion, ChargeLimitSocPct,
+// ChargingState, CapturedAt, Locked, SentryMode) tracking whether that column has
+// been computed since the RM38 migration. nil never fabricates a value — it omits
+// the corresponding display field per the per-field table in design.md D2.
+func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, vs analytics.VehicleStatus, now time.Time) {
 	vm.HasSnapshot = true
-	vm.StatusLabel = dashStatus(ctx, snap)
-	if snap.CarVersion != "" {
-		vm.SoftwareVer = fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardStatusSoftwareVersion), snap.CarVersion)
+	vm.StatusLabel = dashStatus(ctx, vs.ChargingState)
+	if vs.CarVersion != nil && *vs.CarVersion != "" {
+		vm.SoftwareVer = fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardStatusSoftwareVersion), *vs.CarVersion)
 	}
-	vm.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02")
-	vm.IsStale = isStale(snap.CapturedAt, now)
-	vm.Odometer = formatKm(snap.OdometerKm)
-	vm.InsideTemp = fmt.Sprintf("%.0f °C", snap.InsideTempC)
-	vm.OutsideTemp = fmt.Sprintf("%.0f °C", snap.OutsideTempC)
-	vm.Battery = fmt.Sprintf("%d%%", snap.BatteryLevelPct)
-	vm.BatteryPct = strconv.Itoa(snap.BatteryLevelPct)
-	vm.RangeNow = fmt.Sprintf("%.0f km", snap.BatteryRangeKm)
-	if snap.ChargeLimitSocPct > 0 {
-		vm.ChargeLimit = fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardChargeLimit), snap.ChargeLimitSocPct)
+	if vs.CapturedAt != nil {
+		vm.LastUpdated = vs.CapturedAt.UTC().Format("2006-01-02")
+		vm.IsStale = isStale(*vs.CapturedAt, now)
 	}
+	vm.Odometer = formatKm(vs.OdometerKm)
+	vm.InsideTemp = dashTempOrDash(vs.InsideTempC)
+	vm.OutsideTemp = dashTempOrDash(vs.OutsideTempC)
+	vm.Battery = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
+	vm.BatteryPct = strconv.Itoa(vs.BatteryLevelPct)
+	vm.RangeNow = fmt.Sprintf("%.0f km", vs.BatteryRangeKm)
+	if vs.ChargeLimitSocPct != nil && *vs.ChargeLimitSocPct > 0 {
+		vm.ChargeLimit = fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardChargeLimit), *vs.ChargeLimitSocPct)
+	}
+	vm.Locked = vs.Locked
+	vm.SentryMode = vs.SentryMode
 }
 
 // dashStatus maps a snapshot's ChargingState to the dashboard's two-state status
-// vocabulary. "Charging" stays "Charging"; every other Tesla state (Stopped,
-// Disconnected, Complete, NoPower, or empty) collapses to "Parked" — the dashboard
-// only distinguishes actively charging from not. Presentation-only mapping; no
-// business logic. ctx is an explicit first parameter (mirrors navItems(ctx, active)
-// — D5) so the two-branch function can resolve its translated word via i18n.T.
-func dashStatus(ctx context.Context, s telemetry.Snapshot) string {
-	if s.ChargingState == "Charging" {
+// vocabulary. nil (not yet recomputed since the RM38 migration) collapses to
+// "Parked", identical to the pre-migration behavior for an empty string — there is
+// no third visual state for "unknown charging state" on the dashboard subtitle
+// (design.md D2, RM38-gateway-read-dashboard-from-metrics).
+func dashStatus(ctx context.Context, chargingState *string) string {
+	if chargingState != nil && *chargingState == "Charging" {
 		return i18n.T(ctx, i18n.KeyDashboardStatusCharging)
 	}
 	return i18n.T(ctx, i18n.KeyDashboardStatusParked)
@@ -661,9 +718,11 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 }
 
 // navHeaderFor is the nav-header's core logic, decoupled from gin/session so it
-// is unit-testable with fake account/telemetry implementations. It calls ONLY
-// Reader ports — account.RegisteredVehicles + telemetry.Reader.LatestSnapshotsBy
-// Account (never a Writer/Collector, never Tesla). It never imports a DB package.
+// is unit-testable with fake account/analytics implementations. It calls ONLY
+// Reader ports — account.RegisteredVehicles + analytics.Reader.
+// LatestMetricsByAccount (never a Writer/Collector, never Tesla). It never
+// imports a DB package. Retyped from telemetry.Reader.LatestSnapshotsByAccount by
+// RM38-gateway-read-dashboard-from-metrics, design.md D8.
 //
 // Degradation rules (DD2 resilience): a read error never returns a 500 — the
 // fragment degrades to a name-only "unavailable" state (telemetry error) or a
@@ -707,38 +766,48 @@ func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTesla
 
 	vm := fragments.NavHeaderVM{}
 
-	// Read the latest snapshot per vehicle for this account. On error: degrade —
+	// Read the latest status per vehicle for this account. On error: degrade —
 	// keep the vehicle name, show "Unavailable", no analytics. Never return early.
-	snaps, snapErr := h.telemetryReader.LatestSnapshotsByAccount(ctx, uid)
-	if snapErr != nil {
-		log.Printf("gateway: nav-header telemetry reader error for account %s: %v", uid, snapErr)
+	statuses, statusErr := h.analyticsReader.LatestMetricsByAccount(ctx, uid)
+	if statusErr != nil {
+		log.Printf("gateway: nav-header analytics reader error for account %s: %v", uid, statusErr)
 		vm.VehicleName = primary.DisplayName
 		vm.Status = fragments.NavStatusUnavailable
 		return vm
 	}
 
-	// Merge by TeslaID to find the primary vehicle's latest snapshot.
-	snapMap := mergeSnapshots(snaps)
-	snap, ok := snapMap[primary.TeslaID]
+	// Merge by TeslaID to find the primary vehicle's latest status.
+	statusMap := mergeVehicleStatuses(statuses)
+	vs, ok := statusMap[primary.TeslaID]
 	if !ok {
-		// Registered vehicle, but no stored snapshot yet → awaiting.
+		// Registered vehicle, but no stored status yet → awaiting.
 		vm.VehicleName = primary.DisplayName
 		vm.Status = fragments.NavStatusAwaiting
 		return vm
 	}
 
-	now := clock.Now()
-	if connectedAt(snap.CapturedAt, now) {
-		// Fresh snapshot → Connected + battery %.
+	if vs.CapturedAt == nil {
+		// design.md D8 (roadmap D9): a NULL CapturedAt can only mean this row
+		// predates the RM38 migration -- there is no fresher timestamp to prove
+		// connectivity with, so this is Asleep, never Connected, and there is
+		// nothing to compute a relative "Last seen" label from.
 		vm.VehicleName = primary.DisplayName
-		vm.Status = fragments.NavStatusConnected
-		vm.BatteryPct = fmt.Sprintf("%d%%", snap.BatteryLevelPct)
+		vm.Status = fragments.NavStatusAsleep
 		return vm
 	}
-	// Stale snapshot → Asleep + relative "Last seen" label.
+
+	now := clock.Now()
+	if connectedAt(*vs.CapturedAt, now) {
+		// Fresh status → Connected + battery %.
+		vm.VehicleName = primary.DisplayName
+		vm.Status = fragments.NavStatusConnected
+		vm.BatteryPct = fmt.Sprintf("%d%%", vs.BatteryLevelPct)
+		return vm
+	}
+	// Stale status → Asleep + relative "Last seen" label.
 	vm.VehicleName = primary.DisplayName
 	vm.Status = fragments.NavStatusAsleep
-	vm.LastSeenLabel = relativeLastSeen(snap.CapturedAt, now, ctx)
+	vm.LastSeenLabel = relativeLastSeen(*vs.CapturedAt, now, ctx)
 	return vm
 }
 

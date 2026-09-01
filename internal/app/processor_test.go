@@ -239,6 +239,10 @@ func (fakeAnalyticsReader) OdometerDeltaByDay(_ context.Context, _ uuid.UUID, _ 
 	return nil, nil
 }
 
+func (fakeAnalyticsReader) LatestMetricsByAccount(_ context.Context, _ uuid.UUID) ([]analytics.VehicleStatus, error) {
+	return nil, nil
+}
+
 var _ analytics.Reader = fakeAnalyticsReader{}
 
 // fakeGapWriter satisfies analytics.GapWriter. Unreachable in Fixtures P3-P5

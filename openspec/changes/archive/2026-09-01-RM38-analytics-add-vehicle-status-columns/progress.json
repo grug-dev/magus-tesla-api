@@ -1,0 +1,654 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM38-analytics-add-vehicle-status-columns",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM38-dashboard-vehicle-status-from-metrics.md",
+  "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. Tier 1 of RM38: mirror eight vehicle-status fields from telemetry.vehicle_snapshots into analytics.vehicle_metrics via UpsertVehicleMetric on the nightly job, and expose a latest-row-per-vehicle read port so the gateway can stop reading telemetry.",
+  "status": "reviewer-approved",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "4.1",
+      "5.1",
+      "5.2",
+      "5.3",
+      "6.1",
+      "6.2",
+      "7.1",
+      "7.2"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-09-01T15:44:54Z",
+  "updated_at": "2026-09-01T16:43:12Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
+    "base": "main",
+    "ticket": "MAG-12",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-12/show-fields-on-vehicle-status-section",
+    "created_at": "2026-09-01T15:00:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Migration: ALTER TABLE vehicle_metrics ADD 8 nullable columns + CREATE INDEX idx_vehicle_metrics_latest",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T15:40:00Z",
+      "completed_at": "2026-09-01T15:48:00Z",
+      "duration_seconds": 480,
+      "notes": "Created 20260901000001_add_vehicle_status_columns.sql: 8 nullable ADD COLUMNs (no DEFAULT), verbatim COMMENT ON COLUMN bodies (sentry_mode ambiguity copied exactly), plus idx_vehicle_metrics_latest; Down drops both.",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 38,
+        "context_pct_start": 8,
+        "context_pct_end": 11,
+        "cost_usd_delta": 1.75,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "query.sql: add LatestVehicleMetricsByAccount",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T15:48:00Z",
+      "completed_at": "2026-09-01T15:55:00Z",
+      "duration_seconds": 420,
+      "notes": "Added LatestVehicleMetricsByAccount :many query to query.sql, exact D6 SQL shape, doc comment citing revised Index Plan.",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 38,
+        "context_pct_start": 8,
+        "context_pct_end": 11,
+        "cost_usd_delta": 1.75,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "query.sql: extend UpsertVehicleMetric with the 8 columns",
+      "module": "analytics",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T15:48:00Z",
+      "completed_at": "2026-09-01T15:55:00Z",
+      "duration_seconds": 420,
+      "notes": "Extended UpsertVehicleMetric column list/VALUES/SET with all 8 new columns as ordinary refreshed columns (not in created_at's exclusion set).",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 38,
+        "context_pct_start": 8,
+        "context_pct_end": 11,
+        "cost_usd_delta": 1.75,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "Run make sqlc (regenerate analyticsdb)",
+      "module": "analytics",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T15:55:00Z",
+      "completed_at": "2026-09-01T16:02:16Z",
+      "duration_seconds": 436,
+      "notes": "Ran make sqlc; confirmed UpsertVehicleMetricParams gained all 8 fields and LatestVehicleMetricsByAccountRow has all 12 columns. go build/go vet/gofmt/migration-guard all clean.",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 38,
+        "context_pct_start": 8,
+        "context_pct_end": 11,
+        "cost_usd_delta": 1.75,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "analytics.go: add VehicleStatus domain type + Reader port method",
+      "module": "analytics",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:03:00Z",
+      "completed_at": "2026-09-01T16:04:30Z",
+      "duration_seconds": 90,
+      "notes": "Added VehicleStatus domain type (verbatim field list/doc from D4) and LatestMetricsByAccount to Reader (doc comment verbatim from D5, incl. 'never telemetry.Snapshot' / 'unspecified order').",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 47,
+        "context_pct_start": 11,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.17,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "consumed.go: vehicleMetricRow gains the 8 fields",
+      "module": "analytics",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:04:30Z",
+      "completed_at": "2026-09-01T16:06:00Z",
+      "duration_seconds": 90,
+      "notes": "vehicleMetricRow gained the eight pointer fields; both deriveVehicleMetrics branches populate all eight from cur - implements D3. Leader independently verified both branches carry an identical field block.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 47,
+        "context_pct_start": 11,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.17,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "mapping.go: pg-conversion helpers for the 8 fields",
+      "module": "analytics",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:06:00Z",
+      "completed_at": "2026-09-01T16:07:30Z",
+      "duration_seconds": 90,
+      "notes": "Added pgBoolFromPtr/pgTextFromPtr/pgTimestamptzFromPtr (write) and ptrBoolFromPg/ptrStringFromPg/ptrFloat64FromPg/ptrIntFromPg/ptrTimeFromPg (read). Removed a duplicate test-local pgBoolFromPtr in db_integration_test.go.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 47,
+        "context_pct_start": 11,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.17,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "3.4",
+      "title": "recalculate.go: upsertVehicleMetricParamsFrom copies the 8 verbatim (design D3, both branches)",
+      "module": "analytics",
+      "depends_on": [
+        "3.2",
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:07:30Z",
+      "completed_at": "2026-09-01T16:08:15Z",
+      "duration_seconds": 45,
+      "notes": "upsertVehicleMetricParamsFrom maps all eight fields through 3.3's pg*FromPtr helpers.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 47,
+        "context_pct_start": 11,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.17,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "3.5",
+      "title": "reader.go: vehicleMetricsStore + LatestMetricsByAccount implementation",
+      "module": "analytics",
+      "depends_on": [
+        "3.1",
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:08:15Z",
+      "completed_at": "2026-09-01T16:09:30Z",
+      "duration_seconds": 75,
+      "notes": "vehicleMetricsStore gained LatestVehicleMetricsByAccount; reader.LatestMetricsByAccount is pure SELECT+map via ptr*FromPg, no derivation. Fixed the in-module fakeVehicleMetricsStore in reader_test.go.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 47,
+        "context_pct_start": 11,
+        "context_pct_end": 13,
+        "cost_usd_delta": 3.17,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "consumed_test.go: offline derivation tests for the 8 fields",
+      "module": "analytics",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:11:00Z",
+      "completed_at": "2026-09-01T16:36:54Z",
+      "duration_seconds": 180,
+      "notes": "Two offline tests (Fixture RM38-A/B) assert all 8 fields from cur in both branches; the RM38-B case asserts them non-nil on the same row where the 5 _calc fields are nil, so a D3 regression fails it. | Verified by the OWNER's reported 'make test' pass (2026-09-01).",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "db_integration_test.go: LatestMetricsByAccount integration test",
+      "module": "analytics",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:14:00Z",
+      "completed_at": "2026-09-01T16:36:54Z",
+      "duration_seconds": 180,
+      "notes": "TestRecalculate_FixtureRM38A_StatusColumnsPersisted; extended fetchVehicleMetric and seedSnapshot (the latter previously discarded status fields - see events). | Verified by the OWNER's reported 'make test' pass (2026-09-01).",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "db_integration_test.go: Recalculate populates the 8 columns",
+      "module": "analytics",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:17:00Z",
+      "completed_at": "2026-09-01T16:36:54Z",
+      "duration_seconds": 120,
+      "notes": "TestRecalculate_FixtureRM38B_StatusColumnsPersistedWithoutPredecessor: 8 new columns populated, 5 _calc and consumed_pct NULL, flagged false. | Verified by the OWNER's reported 'make test' pass (2026-09-01).",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "5.3",
+      "title": "db_integration_test.go: predecessor-less row still populates the 8 (design D3)",
+      "module": "analytics",
+      "depends_on": [
+        "3.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:19:00Z",
+      "completed_at": "2026-09-01T16:36:54Z",
+      "duration_seconds": 120,
+      "notes": "Four TestReader_LatestMetricsByAccount_* cases (a)-(d) incl. Fixture RM38-C via seedPreMigrationVehicleMetric and the empty-non-nil-slice case. | Verified by the OWNER's reported 'make test' pass (2026-09-01).",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "6.1",
+      "title": "internal/analytics/AGENTS.md: document the new public port surface",
+      "module": "analytics",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:21:00Z",
+      "completed_at": "2026-09-01T16:22:00Z",
+      "duration_seconds": 60,
+      "notes": "AGENTS.md: LatestMetricsByAccount/VehicleStatus port bullet, vehicle_metrics 8-column ownership note citing design.md, Testing note. Pure doc edit.",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
+    },
+    {
+      "id": "6.2",
+      "title": "[leader] Root README.md: check the internal/analytics Architecture row",
+      "module": "analytics",
+      "depends_on": [
+        "3.5"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-01T16:12:00Z",
+      "completed_at": "2026-09-01T16:13:00Z",
+      "duration_seconds": 60,
+      "notes": "[leader] Root README.md: the vehicle_metrics data-ownership row said 'raw observations plus five _calc columns' - now records the 8 mirrored fields, verbatim-copy rule and nullable/no-backfill; architecture row names the new port.",
+      "budget": null
+    },
+    {
+      "id": "7.1",
+      "title": "Assistant-run signals: go build, go vet, gofmt -l, guards",
+      "module": "analytics",
+      "depends_on": [
+        "4.1",
+        "5.1",
+        "5.2",
+        "5.3",
+        "6.1",
+        "6.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-01T16:22:00Z",
+      "completed_at": "2026-09-01T16:23:00Z",
+      "duration_seconds": 60,
+      "notes": "[leader] go build, go vet, make build/vet/bins, migration-guard all clean. gofmt and boundary-guard flag only pre-existing items - boundary-guard exits 2 on main too (gateway->telemetry prod imports, which tier 2 removes).",
+      "budget": null
+    },
+    {
+      "id": "7.2",
+      "title": "Hand the suite to the owner and record their reported result",
+      "module": "analytics",
+      "depends_on": [
+        "7.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-01T16:22:51Z",
+      "completed_at": "2026-09-01T16:36:54Z",
+      "duration_seconds": null,
+      "notes": "Suite handed to the owner: go test ./internal/analytics/... . Not run by the assistant per Test-Execution-Policy. | Verified by the OWNER's reported 'make test' pass (2026-09-01).",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "analytics-reviewer",
+    "brief": "Review tier 1 of RM38 (ticket MAG-12) in internal/analytics, diff main...HEAD, four commits e263711/33d3ea6/b178acd/e3cd565. Validate: (1) module-boundary compliance - VehicleStatus is analytics-owned and never is/embeds telemetry.Snapshot; the only out-of-module edits are two test-fake stubs the leader added (internal/app/processor_test.go, internal/gateway/handlers/history_test.go). (2) Every DB object matches the design the OWNER confirmed at the gate: eight nullable columns, no DEFAULT, no backfill, plus idx_vehicle_metrics_latest (account_id, tesla_id, metric_date DESC) - any mismatch is a blocker finding. (3) design D3 - all eight fields populated in BOTH deriveVehicleMetrics branches, never gated behind prev == nil. (4) The integration tests assert the expectations design.md's Test Contract authored up front (Fixtures RM38-A/B/C), not whatever the implementation happens to produce. Scrutinise the seedSnapshot helper change here. (5) Performance-Profile (read-heavy) compliance. (6) spec/tasks coverage and doc-pack conventions, incl. AGENTS.md and root README.md. (7) Anti-gaming: no weakened acceptance criteria, no self-approved statuses, tasks append-only. SIGNAL PROVENANCE: assistant-run and clean - go build ./..., go vet ./..., make build, make vet, make bins, make migration-guard. USER-REPORTED - the OWNER ran 'make test' and reported it passed; the assistant never ran the suite. make boundary-guard fails, but it fails on main too (gateway's production telemetry imports, which RM38 tier 2 removes) - pre-existing, not this tier's defect. Judge test quality by READING the tests; do not run the suite.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-01T17:15:00Z",
+        "verdict": "approved",
+        "findings": []
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D-gate-1",
+      "at": "2026-09-01T15:44:54Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate CONFIRMED: 8 nullable columns on vehicle_metrics, no DEFAULT, no backfill",
+      "why": "Owner reviewed schema, rationale, rejected alternatives and index plan at the gate",
+      "covered_by": "roadmap D1/D2"
+    },
+    {
+      "id": "D-gate-2",
+      "at": "2026-09-01T15:44:54Z",
+      "scope": "task:1.1",
+      "made_by": "user",
+      "decision": "Add idx_vehicle_metrics_latest (account_id, tesla_id, metric_date DESC), revising design.md's original no-new-index conclusion",
+      "why": "Removes the incremental sort the all-ascending unique index forces on the mixed-direction ORDER BY; owner accepted the extra write per upsert"
+    },
+    {
+      "id": "D-gate-3",
+      "at": "2026-09-01T15:44:54Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Applied the index revision as a leader edit to design/tasks/proposal instead of re-dispatching the worker",
+      "why": "Bounded single-item edit; a re-dispatch re-reads the full doc pack, costing far more than the change"
+    },
+    {
+      "id": "D-w3",
+      "at": "2026-09-01T15:44:54Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Worker's design D3 accepted: all 8 columns populated in BOTH Recalculate branches, unlike the five _calc columns",
+      "why": "They are raw per-day observations, not deltas; gating them would blank the badges on a vehicle's first tracked day"
+    },
+    {
+      "id": "D-batch",
+      "at": "2026-09-01T15:59:41Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Batch the 7 dependency waves into 3 worker dispatches (W1+W2, W3, W4+W5+6.1); 6.2 and W7 stay with the leader",
+      "why": "W1->W2->W3 is a strict serial chain in one module; each extra dispatch re-reads the whole doc pack for no isolation gain"
+    },
+    {
+      "id": "D-testask-A",
+      "at": "2026-09-01T16:03:21Z",
+      "scope": "wave:A",
+      "made_by": "leader",
+      "decision": "No owner test-run ask after wave A; the suite ask is held for task 7.2 as tasks.md specifies",
+      "why": "Wave A added a migration, SQL and generated code but no test file, so a suite run would exercise nothing new"
+    },
+    {
+      "id": "D-fakes",
+      "at": "2026-09-01T16:10:28Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader fixed the two out-of-module analytics.Reader fakes itself (internal/app/processor_test.go, internal/gateway/handlers/history_test.go) instead of dispatching workers to those modules",
+      "why": "Cross-module integration fallout is leader-owned; two one-method stubs do not justify two dispatches that each re-read the full doc pack"
+    },
+    {
+      "id": "D-gwfake",
+      "at": "2026-09-01T16:10:28Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "The gateway fake's LatestMetricsByAccount stub panics rather than returning nil",
+      "why": "Matches that file's documented guard convention for ports the history fragment never calls; RM38 tier 2 replaces it with a recording impl"
+    },
+    {
+      "id": "D-seedsnap",
+      "at": "2026-09-01T16:22:51Z",
+      "scope": "task:5.1",
+      "made_by": "leader",
+      "decision": "Accepted the worker's fix to the seedSnapshot test helper, which bound real Snapshot fields instead of hardcoded literals",
+      "why": "The literals made Fixtures RM38-A/B unseedable. Leader verified no derivation reads ChargingState, so no pre-existing assertion can move"
+    },
+    {
+      "id": "D-boundary",
+      "at": "2026-09-01T16:22:51Z",
+      "scope": "task:7.1",
+      "made_by": "leader",
+      "decision": "make boundary-guard's failure is pre-existing and not a blocker for this tier",
+      "why": "It exits 2 on main too; it flags the gateway's production telemetry imports, which RM38 tier 2 is the change that removes them"
+    },
+    {
+      "id": "D-defer-suite",
+      "at": "2026-09-01T16:36:24Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Owner will run the suite in a later session; the pipeline stops before the reviewer gate",
+      "why": "Owner's explicit choice at the Step 6 verification gate"
+    },
+    {
+      "id": "D-verified",
+      "at": "2026-09-01T16:36:54Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Owner reported 'make test' passed; tier 1 advances to verified and the reviewer gate opens",
+      "why": "Test-Execution-Policy: the suite is the owner's to run and the pass is recorded as theirs"
+    },
+    {
+      "id": "D-boundary-user",
+      "at": "2026-09-01T16:43:12Z",
+      "scope": "task:7.1",
+      "made_by": "user",
+      "decision": "Owner confirmed make boundary-guard's failure is pre-existing, caused by a pending telemetry migration",
+      "why": "Independently corroborates the leader's and reviewer's finding that it fails on main and is not this tier's defect"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-01T15:44:54Z",
+      "agent": "leader",
+      "event": "artifacts created by the analytics worker; openspec validate --strict passed"
+    },
+    {
+      "at": "2026-09-01T15:44:54Z",
+      "agent": "leader",
+      "event": "database design gate run with the owner: CONFIRMED with one revision (idx_vehicle_metrics_latest added); design.md/tasks.md/proposal.md updated by the leader and revalidated"
+    },
+    {
+      "at": "2026-09-01T15:44:54Z",
+      "agent": "leader",
+      "event": "HALT AFTER STEP 4 per the /kkpa-pickup-linear-ticket scope: no implementation workers dispatched, no reviewer, no archive"
+    },
+    {
+      "at": "2026-09-01T15:59:41Z",
+      "agent": "leader",
+      "event": "resume: dispatch 1 (wave A = tasks 1.1, 2.1, 2.2, 2.3) to the analytics worker on Sonnet; budget_start 5h=31% ctx=8%"
+    },
+    {
+      "at": "2026-09-01T16:03:03Z",
+      "agent": "leader",
+      "event": "wave A complete (1.1, 2.1, 2.2, 2.3 done); leader verified migration DDL, COMMENT bodies and both queries against design.md D1/D2/D6/D7/D8 - all match. budget 5h 31->38%, ctx 8->11%"
+    },
+    {
+      "at": "2026-09-01T16:03:21Z",
+      "agent": "leader",
+      "event": "dispatch 2 (wave B = 3.1-3.5) to the analytics worker on Sonnet; budget_start 5h=38% ctx=11%"
+    },
+    {
+      "at": "2026-09-01T16:10:28Z",
+      "agent": "leader",
+      "event": "wave B complete (3.1-3.5 done). Worker reported cross-module vet failure: analytics.Reader's new method broke fakes in internal/app and internal/gateway/handlers. Leader stubbed both; go build ./... and go vet ./... now clean repo-wide. budget 5h 38->47%, ctx 11->13%"
+    },
+    {
+      "at": "2026-09-01T16:10:35Z",
+      "agent": "leader",
+      "event": "dispatch 3 (wave C = 4.1, 5.1, 5.2, 5.3, 6.1) to the analytics worker on Sonnet; budget_start 5h=47% ctx=13%"
+    },
+    {
+      "at": "2026-09-01T16:22:51Z",
+      "agent": "leader",
+      "event": "wave C complete (4.1, 5.1, 5.2, 5.3 awaiting-user-verification; 6.1 done). Leader did 6.2 and 7.1. Worker reported no design-contract/implementation disagreement on Fixtures RM38-A/B/C. budget 5h 47->64%, ctx 13->15%"
+    },
+    {
+      "at": "2026-09-01T16:36:24Z",
+      "agent": "leader",
+      "event": "CHECKPOINT at Step 6: all 17 tasks implemented and committed (e263711, 33d3ea6, b178acd). 4.1/5.1/5.2/5.3/7.2 awaiting-user-verification - owner chose to run 'go test ./internal/analytics/...' later. Reviewer NOT dispatched: the gate requires the owner's reported pass. Resume with /kkpa-dev-harness-pipeline resume RM38-analytics-add-vehicle-status-columns. budget 5h=64% ctx=15%"
+    },
+    {
+      "at": "2026-09-01T16:36:54Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE OWNER: the owner ran 'make test' (full suite, testcontainer-backed) and reported it passed. Superset of the requested 'go test ./internal/analytics/...'. Five awaiting-user-verification tasks -> done. The assistant did not run the suite."
+    },
+    {
+      "at": "2026-09-01T16:37:09Z",
+      "agent": "leader",
+      "event": "review brief written; dispatching analytics-reviewer on Sonnet; budget_start 5h=66% ctx=16%"
+    },
+    {
+      "at": "2026-09-01T16:43:12Z",
+      "agent": "leader",
+      "event": "top-level status set to reviewer-approved, transcribing analytics-reviewer's round-1 verdict (review.status it set itself). Not a leader approval."
+    },
+    {
+      "at": "2026-09-01T16:43:12Z",
+      "agent": "analytics-reviewer",
+      "event": "INCIDENT self-reported by the reviewer: it ran 'git checkout main -- .' mid-review, reverting tracked working-tree files to main, then restored them with 'git checkout HEAD -- <files>'. Leader independently verified afterwards: index clean vs HEAD, all four commits intact, migration/port/tests/docs all present, only progress.json uncommitted as expected. No lasting effect."
+    },
+    {
+      "at": "2026-09-01T16:43:12Z",
+      "agent": "leader",
+      "event": "owner confirmed the boundary-guard failure traces to a pending telemetry migration; matches the reviewer's independent check that it fails on main"
+    }
+  ]
+}

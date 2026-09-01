@@ -87,3 +87,34 @@ func dashBatteryColorClass(d fragments.DashboardData) string {
 		return "text-battery-full"
 	}
 }
+
+// dashLockedBadge returns the ui.Badge text/kind for the locked/unlocked pill and
+// whether it should render at all. nil -> show=false, no badge (roadmap D5) --
+// the vehicle_metrics row predates the RM38 migration or has not been
+// recomputed since (design.md D4/D7, RM38-gateway-read-dashboard-from-metrics).
+func dashLockedBadge(ctx context.Context, locked *bool) (text, kind string, show bool) {
+	if locked == nil {
+		return "", "", false
+	}
+	if *locked {
+		return i18n.T(ctx, i18n.KeyVehiclesLocked), "success", true
+	}
+	return i18n.T(ctx, i18n.KeyVehiclesUnlocked), "error", true
+}
+
+// dashSentryBadge mirrors dashLockedBadge for the sentry-mode pill (roadmap D5).
+// The rendered text pairs the existing "Sentry:" label with On/Off, reusing three
+// catalogue keys with no new key (KeyVehiclesSentryLabel + KeyVehiclesOn/Off)
+// (design.md D4/D7, RM38-gateway-read-dashboard-from-metrics).
+func dashSentryBadge(ctx context.Context, sentry *bool) (text, kind string, show bool) {
+	if sentry == nil {
+		return "", "", false
+	}
+	state := i18n.T(ctx, i18n.KeyVehiclesOff)
+	kind = "ghost"
+	if *sentry {
+		state = i18n.T(ctx, i18n.KeyVehiclesOn)
+		kind = "warning"
+	}
+	return i18n.T(ctx, i18n.KeyVehiclesSentryLabel) + " " + state, kind, true
+}

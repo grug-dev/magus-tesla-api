@@ -99,6 +99,19 @@ type Reader interface {
 	// like ConsumedByDay excludes it, design.md D13). This port performs no
 	// window-size validation or capping of its own, mirroring ConsumedByDay.
 	OdometerDeltaByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayDistance, error)
+
+	// LatestMetricsByAccount returns the latest precomputed vehicle_metrics row for
+	// each vehicle belonging to the given account, as VehicleStatus — the
+	// analytics-owned equivalent of telemetry.Reader.LatestSnapshotsByAccount (never
+	// telemetry.Snapshot itself, ai/architecture.md §6). "Latest" means the row with
+	// the greatest metric_date for that (account_id, tesla_id) — vehicle_metrics'
+	// grain is a calendar day, not a capture instant, so this describes the vehicle's
+	// most recently RECALCULATED day, which is typically yesterday (metric_date is
+	// the snapshot's effective day, recalculate.go). If the account has no stored
+	// vehicle_metrics rows it returns an empty (non-nil) slice and a nil error, same
+	// contract as LatestSnapshotsByAccount. Order of the returned slice is
+	// unspecified.
+	LatestMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]VehicleStatus, error)
 }
 
 // Recalculator is the analytics module's write-path port
@@ -198,6 +211,35 @@ type DayDistance struct {
 	// odometer_km), unclamped — there is nothing to clamp about an absolute
 	// reading.
 	OdometerKm float64
+}
+
+// VehicleStatus is the latest precomputed vehicle_metrics row for one vehicle
+// — our own domain model, no vendor or sibling-module suffix
+// (ai/architecture.md §6). Backs LatestMetricsByAccount
+// (RM38-analytics-add-vehicle-status-columns design.md D4). Never
+// telemetry.Snapshot and never an alias of it: this module maps
+// telemetry-sourced values into vehicle_metrics once, at Recalculate-time,
+// and VehicleStatus is built from that stored row, not a live pass-through.
+type VehicleStatus struct {
+	TeslaID         int64
+	BatteryLevelPct int
+	BatteryRangeKm  float64
+	OdometerKm      float64
+	// InsideTempC, OutsideTempC, Locked, SentryMode, CarVersion,
+	// ChargingState, ChargeLimitSocPct, CapturedAt are all pointer-typed
+	// because the underlying vehicle_metrics columns are nullable (design D2)
+	// — nil means either "predates the RM38 migration" or, for SentryMode
+	// only, possibly "not reported this capture" (the column's own
+	// ambiguous-NULL caveat, design D2/D8). No fabricated default is ever
+	// substituted for a nil value.
+	InsideTempC       *float64
+	OutsideTempC      *float64
+	Locked            *bool
+	SentryMode        *bool
+	CarVersion        *string
+	ChargingState     *string
+	ChargeLimitSocPct *int
+	CapturedAt        *time.Time
 }
 
 // Efficiency is one computed rolling-efficiency result — our own domain model,

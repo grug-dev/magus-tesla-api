@@ -312,7 +312,7 @@ func TestRecalculate_ManualError_Propagates(t *testing.T) {
 // RM29-telemetry-drop-derived-columns (tier 4), vehicle_snapshots no longer
 // carries the five _calc columns at all (telemetry's migration
 // 20260822000001 dropped them, and telemetry.Snapshot lost the matching
-// fields) — this helper seeds ONLY the surviving raw columns
+// fields) — this helper seeds the surviving raw columns
 // (odometer_km, battery_level_pct, battery_range_km, captured_at,
 // captured_date). The five derived figures are no longer something a caller
 // supplies: Recalculate's real read path derives them itself, from these raw
@@ -320,6 +320,18 @@ func TestRecalculate_ManualError_Propagates(t *testing.T) {
 // point of this tier (design.md D1/D10). updatedAt defaults to CapturedAt
 // when the caller leaves Snapshot.UpdatedAt at its zero value — callers that
 // need precise watermark control (the Reconcile tests) set it explicitly.
+//
+// RM38-analytics-add-vehicle-status-columns: this helper now also binds
+// s.ChargingState/s.ChargeLimitSocPct/s.InsideTempC/s.OutsideTempC/
+// s.Locked/s.SentryMode/s.CarVersion as REAL parameters instead of the
+// hardcoded placeholder literals ('Complete', 0, false, ”) this function
+// used before this tier — those literals silently discarded whatever a
+// caller set on those fields, which made it impossible to seed the Fixture
+// RM38-A/RM38-B status values this tier's tests need. Existing callers that
+// never set these fields get the Go zero values (false, nil, "", 0.0, 0),
+// which is a behavior-preserving change for every pre-existing fixture:
+// no test in this file asserts vehicle_snapshots.charging_state/locked/etc.
+// directly, only the vehicle_metrics values Recalculate derives from them.
 func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 	t.Helper()
 	updatedAt := s.UpdatedAt
@@ -330,19 +342,19 @@ func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 		INSERT INTO vehicle_snapshots (
 			account_id, tesla_id, captured_at, captured_date, raw_data,
 			battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
-			odometer_km, inside_temp_c, outside_temp_c, locked, car_version,
+			odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
 			updated_at
 		) VALUES (
 			$1, $2, $3, $4, '{}'::jsonb,
-			$5, $6, 'Complete', 0,
-			$7, 0, 0, false, '',
-			$8
+			$5, $6, $7, $8,
+			$9, $10, $11, $12, $13, $14,
+			$15
 		)`,
 		s.AccountID, s.TeslaID,
 		pgtype.Timestamptz{Time: s.CapturedAt, Valid: true},
 		dateFrom(s.CapturedDate),
-		int32(s.BatteryLevelPct), s.BatteryRangeKm,
-		s.OdometerKm,
+		int32(s.BatteryLevelPct), s.BatteryRangeKm, s.ChargingState, int32(s.ChargeLimitSocPct),
+		s.OdometerKm, s.InsideTempC, s.OutsideTempC, s.Locked, pgBoolFromPtr(s.SentryMode), s.CarVersion,
 		pgtype.Timestamptz{Time: updatedAt, Valid: true},
 	)
 	if err != nil {
@@ -457,15 +469,11 @@ func pgTextFromStringPtr(v *string) pgtype.Text {
 	return pgtype.Text{String: *v, Valid: true}
 }
 
-// pgBoolFromPtr maps a *bool to a nullable pgtype.Bool — the
-// charge_sessions.is_paid shape (nullable BOOLEAN). Test-local for the same
-// reason as pgTextFromStringPtr above.
-func pgBoolFromPtr(v *bool) pgtype.Bool {
-	if v == nil {
-		return pgtype.Bool{Valid: false}
-	}
-	return pgtype.Bool{Bool: *v, Valid: true}
-}
+// pgBoolFromPtr (charge_sessions.is_paid's shape, nullable BOOLEAN) is no
+// longer test-local: RM38-analytics-add-vehicle-status-columns added a
+// production helper of the identical name and behavior to mapping.go for
+// vehicle_metrics' own nullable BOOLEAN columns (design D3/task 3.3). Reused
+// here rather than redeclared to avoid a duplicate symbol in this package.
 
 // seedChargeSession inserts one charging.Session directly into
 // charge_sessions (D19: no public writer can construct an arbitrary row with
@@ -572,7 +580,12 @@ func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, 
 // by its (account_id, tesla_id, metric_date) — the table's own UNIQUE index
 // (Index Plan #1) — for the "assert every column" requirement in task 6.1.
 // Returns ok=false when no row exists (never a zero-value row masquerading
-// as "found").
+// as "found"). Extended by RM38-analytics-add-vehicle-status-columns (task
+// 5.1/5.2) to also select/scan the eight new columns
+// (locked/sentry_mode/car_version/inside_temp_c/outside_temp_c/
+// charging_state/charge_limit_soc_pct/captured_at) — analyticsdb.VehicleMetric
+// (models.go) already carries these fields as of Wave A/B, so only this
+// helper's SQL and Scan list needed widening.
 func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, metricDate time.Time) (analyticsdb.VehicleMetric, bool) {
 	t.Helper()
 	var m analyticsdb.VehicleMetric
@@ -580,14 +593,18 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, t
 		SELECT id, account_id, tesla_id, metric_date, battery_level_pct, odometer_km,
 		       battery_range_km, distance_traveled_km_calc, battery_used_pct_calc,
 		       km_per_pct_calc, estimated_range_km_calc, days_spanned_calc,
-		       consumed_pct, flagged, missing_charging_type, created_at, updated_at
+		       consumed_pct, flagged, missing_charging_type, created_at, updated_at,
+		       locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
+		       charging_state, charge_limit_soc_pct, captured_at
 		FROM vehicle_metrics
 		WHERE account_id = $1 AND tesla_id = $2 AND metric_date = $3`,
 		accountID, teslaID, dateFrom(metricDate),
 	).Scan(&m.ID, &m.AccountID, &m.TeslaID, &m.MetricDate, &m.BatteryLevelPct,
 		&m.OdometerKm, &m.BatteryRangeKm, &m.DistanceTraveledKmCalc, &m.BatteryUsedPctCalc,
 		&m.KmPerPctCalc, &m.EstimatedRangeKmCalc, &m.DaysSpannedCalc, &m.ConsumedPct,
-		&m.Flagged, &m.MissingChargingType, &m.CreatedAt, &m.UpdatedAt)
+		&m.Flagged, &m.MissingChargingType, &m.CreatedAt, &m.UpdatedAt,
+		&m.Locked, &m.SentryMode, &m.CarVersion, &m.InsideTempC, &m.OutsideTempC,
+		&m.ChargingState, &m.ChargeLimitSocPct, &m.CapturedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return analyticsdb.VehicleMetric{}, false
 	}
@@ -702,6 +719,67 @@ func metricsFixtureC(accountID uuid.UUID, teslaID int64) telemetry.Snapshot {
 		OdometerKm:      500.0,
 		BatteryLevelPct: 90,
 		BatteryRangeKm:  320.0,
+	}
+}
+
+// metricsFixtureRM38A returns design.md's Test Contract Fixture RM38-A: the
+// same predecessor/current day pair as metricsFixtureA above, with the eight
+// new status columns added on cur ONLY (design D3 -- the eight new columns
+// copy from cur, never from prev, so prev is left exactly as
+// metricsFixtureA already builds it).
+func metricsFixtureRM38A(accountID uuid.UUID, teslaID int64) (prev, cur telemetry.Snapshot) {
+	prev, cur = metricsFixtureA(accountID, teslaID)
+	cur.Locked = true
+	cur.SentryMode = boolPtr(false)
+	cur.CarVersion = "2026.28.4"
+	cur.InsideTempC = 21.5
+	cur.OutsideTempC = 18.0
+	cur.ChargingState = "Disconnected"
+	cur.ChargeLimitSocPct = 80
+	cur.CapturedAt = time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC)
+	return prev, cur
+}
+
+// metricsFixtureRM38B returns design.md's Test Contract Fixture RM38-B: the
+// same predecessor-less snapshot as metricsFixtureC above, with the eight
+// new status columns added -- proving design D3 populates them even without
+// a predecessor. SentryMode stays nil (the vehicle genuinely did not report
+// sentry this capture -- design D2/D8's "not reported" reading, distinct
+// from Fixture RM38-C's "predates the migration" reading below).
+func metricsFixtureRM38B(accountID uuid.UUID, teslaID int64) telemetry.Snapshot {
+	cur := metricsFixtureC(accountID, teslaID)
+	cur.Locked = false
+	cur.SentryMode = nil
+	cur.CarVersion = "2026.28.4"
+	cur.InsideTempC = 19.0
+	cur.OutsideTempC = 14.0
+	cur.ChargingState = "Charging"
+	cur.ChargeLimitSocPct = 90
+	cur.CapturedAt = time.Date(2026, 8, 5, 3, 30, 15, 0, time.UTC)
+	return cur
+}
+
+// seedPreMigrationVehicleMetric inserts a vehicle_metrics row directly via
+// SQL carrying only the columns that existed BEFORE this migration
+// (battery_level_pct, odometer_km, battery_range_km, flagged) -- design.md's
+// Test Contract Fixture RM38-C: "a vehicle_metrics row written before this
+// migration exists". No writer in this codebase can produce this shape any
+// more (Recalculate always populates the eight new columns from cur,
+// design D3), so a direct INSERT is the only way to construct it -- mirrors
+// this file's existing D19 precedent for seeding a shape no public writer
+// can build. Every column this INSERT omits (the five _calc columns,
+// consumed_pct, missing_charging_type, and all eight RM38 columns) stays
+// SQL NULL, exactly matching a genuine pre-migration row.
+func seedPreMigrationVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, metricDate time.Time, batteryLevelPct int, odometerKm, batteryRangeKm float64) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `
+		INSERT INTO vehicle_metrics (
+			account_id, tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km, flagged
+		) VALUES ($1, $2, $3, $4, $5, $6, false)`,
+		accountID, teslaID, dateFrom(metricDate), int32(batteryLevelPct), odometerKm, batteryRangeKm,
+	)
+	if err != nil {
+		t.Fatalf("seeding pre-migration vehicle_metrics row: %v", err)
 	}
 }
 
@@ -2046,5 +2124,401 @@ func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 	}
 	if approxEqual(after.DistanceTraveledKmCalc.Float64, before.DistanceTraveledKmCalc.Float64) {
 		t.Error("day N+1's row did not change after the recapture -- the stale-successor bug is still present")
+	}
+}
+
+// ===========================================================================
+// RM38-analytics-add-vehicle-status-columns -- Wave 5 DB-integration tests
+// (tasks 5.1-5.3). Fixtures RM38-A/RM38-B extend Fixture A/C's shape
+// (metricsFixtureRM38A/metricsFixtureRM38B above) and Fixture RM38-C is a
+// pre-migration row (seedPreMigrationVehicleMetric above), all per
+// design.md's Test Contract. Expected values are copied verbatim from that
+// contract, never derived by reading recalculate.go/reader.go.
+// ===========================================================================
+
+// TestRecalculate_FixtureRM38A_StatusColumnsPersisted covers task 5.1:
+// Recalculate persists all eight new columns for Fixture RM38-A
+// (predecessor exists), read back via fetchVehicleMetric's direct SELECT.
+func TestRecalculate_FixtureRM38A_StatusColumnsPersisted(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(990001)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	prev, cur := metricsFixtureRM38A(accountID, teslaID)
+	seedSnapshot(t, pool, prev)
+	seedSnapshot(t, pool, cur)
+
+	rec := newRealRecalculator(pool)
+	start := day(2026, 8, 10)
+	end := start
+	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+		t.Fatalf("Recalculate: %v", err)
+	}
+
+	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	if !ok {
+		t.Fatal("expected a vehicle_metrics row for Fixture RM38-A, found none")
+	}
+
+	if !row.Locked.Valid || row.Locked.Bool != true {
+		t.Errorf("locked: want true, got %+v", row.Locked)
+	}
+	if !row.SentryMode.Valid || row.SentryMode.Bool != false {
+		t.Errorf("sentry_mode: want false (not NULL -- a real reported value), got %+v", row.SentryMode)
+	}
+	if !row.CarVersion.Valid || row.CarVersion.String != "2026.28.4" {
+		t.Errorf("car_version: want 2026.28.4, got %+v", row.CarVersion)
+	}
+	if !row.InsideTempC.Valid || !approxEqual(row.InsideTempC.Float64, 21.5) {
+		t.Errorf("inside_temp_c: want 21.5, got %+v", row.InsideTempC)
+	}
+	if !row.OutsideTempC.Valid || !approxEqual(row.OutsideTempC.Float64, 18.0) {
+		t.Errorf("outside_temp_c: want 18.0, got %+v", row.OutsideTempC)
+	}
+	if !row.ChargingState.Valid || row.ChargingState.String != "Disconnected" {
+		t.Errorf("charging_state: want Disconnected, got %+v", row.ChargingState)
+	}
+	if !row.ChargeLimitSocPct.Valid || row.ChargeLimitSocPct.Int32 != 80 {
+		t.Errorf("charge_limit_soc_pct: want 80, got %+v", row.ChargeLimitSocPct)
+	}
+	wantCapturedAt := time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC)
+	if !row.CapturedAt.Valid || !row.CapturedAt.Time.Equal(wantCapturedAt) {
+		t.Errorf("captured_at: want %v, got %+v", wantCapturedAt, row.CapturedAt)
+	}
+
+	// Every RM29 column value is unchanged from the archived Fixture A
+	// (design.md: "every RM29 column value is unchanged from the archived
+	// fixture") -- re-asserted here so this test also guards the eight new
+	// columns' write path against disturbing the pre-existing ones.
+	if row.BatteryLevelPct != 65 {
+		t.Errorf("BatteryLevelPct: want 65, got %d", row.BatteryLevelPct)
+	}
+	if !row.ConsumedPct.Valid || !approxEqual(row.ConsumedPct.Float64, 15.0) {
+		t.Errorf("ConsumedPct: want 15.0, got %+v", row.ConsumedPct)
+	}
+	if row.Flagged != false {
+		t.Errorf("Flagged: want false, got %v", row.Flagged)
+	}
+}
+
+// TestRecalculate_FixtureRM38B_StatusColumnsPersistedWithoutPredecessor
+// covers task 5.2: Recalculate for Fixture RM38-B (no predecessor) persists
+// the eight new columns (not NULL) while the five _calc columns/consumed_pct
+// stay NULL and flagged is false -- the DB-level proof of design D3,
+// complementing consumed_test.go's offline proof (task 4.1).
+func TestRecalculate_FixtureRM38B_StatusColumnsPersistedWithoutPredecessor(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(990002)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	cur := metricsFixtureRM38B(accountID, teslaID)
+	seedSnapshot(t, pool, cur)
+
+	rec := newRealRecalculator(pool)
+	start := day(2026, 8, 4)
+	end := start
+	if err := rec.Recalculate(ctx, accountID, teslaID, start, end); err != nil {
+		t.Fatalf("Recalculate: %v", err)
+	}
+
+	row, ok := fetchVehicleMetric(t, pool, accountID, teslaID, start)
+	if !ok {
+		t.Fatal("expected a DENSE vehicle_metrics row for Fixture RM38-B's predecessor-less day, found none (design.md D9)")
+	}
+
+	// The eight new columns: populated (NOT NULL) even without a
+	// predecessor -- design D3, the core proof this test exists for.
+	if !row.Locked.Valid || row.Locked.Bool != false {
+		t.Errorf("locked: want false (NOT NULL, design D3), got %+v", row.Locked)
+	}
+	if row.SentryMode.Valid {
+		t.Errorf("sentry_mode: want NULL (the vehicle genuinely did not report sentry -- design D2/D8's 'not reported' reading), got %v", row.SentryMode.Bool)
+	}
+	if !row.CarVersion.Valid || row.CarVersion.String != "2026.28.4" {
+		t.Errorf("car_version: want 2026.28.4, got %+v", row.CarVersion)
+	}
+	if !row.InsideTempC.Valid || !approxEqual(row.InsideTempC.Float64, 19.0) {
+		t.Errorf("inside_temp_c: want 19.0, got %+v", row.InsideTempC)
+	}
+	if !row.OutsideTempC.Valid || !approxEqual(row.OutsideTempC.Float64, 14.0) {
+		t.Errorf("outside_temp_c: want 14.0, got %+v", row.OutsideTempC)
+	}
+	if !row.ChargingState.Valid || row.ChargingState.String != "Charging" {
+		t.Errorf("charging_state: want Charging, got %+v", row.ChargingState)
+	}
+	if !row.ChargeLimitSocPct.Valid || row.ChargeLimitSocPct.Int32 != 90 {
+		t.Errorf("charge_limit_soc_pct: want 90, got %+v", row.ChargeLimitSocPct)
+	}
+	wantCapturedAt := time.Date(2026, 8, 5, 3, 30, 15, 0, time.UTC)
+	if !row.CapturedAt.Valid || !row.CapturedAt.Time.Equal(wantCapturedAt) {
+		t.Errorf("captured_at: want %v, got %+v", wantCapturedAt, row.CapturedAt)
+	}
+
+	// The five _calc columns / consumed_pct / flagged: UNCHANGED D9
+	// behavior -- the DB-level half of design D3's regression guard
+	// (consumed_test.go's task 4.1 tests pin the offline half).
+	if row.DistanceTraveledKmCalc.Valid {
+		t.Errorf("DistanceTraveledKmCalc: want NULL, got %v", row.DistanceTraveledKmCalc.Float64)
+	}
+	if row.BatteryUsedPctCalc.Valid {
+		t.Errorf("BatteryUsedPctCalc: want NULL, got %v", row.BatteryUsedPctCalc.Int32)
+	}
+	if row.KmPerPctCalc.Valid {
+		t.Errorf("KmPerPctCalc: want NULL, got %v", row.KmPerPctCalc.Float64)
+	}
+	if row.EstimatedRangeKmCalc.Valid {
+		t.Errorf("EstimatedRangeKmCalc: want NULL, got %v", row.EstimatedRangeKmCalc.Float64)
+	}
+	if row.DaysSpannedCalc.Valid {
+		t.Errorf("DaysSpannedCalc: want NULL, got %v", row.DaysSpannedCalc.Int32)
+	}
+	if row.ConsumedPct.Valid {
+		t.Errorf("ConsumedPct: want NULL, got %v", row.ConsumedPct.Float64)
+	}
+	if row.Flagged != false {
+		t.Errorf("Flagged: want false (NOT NULL, design.md D9), got %v", row.Flagged)
+	}
+	if row.MissingChargingType.Valid {
+		t.Errorf("MissingChargingType: want NULL, got %v", row.MissingChargingType.String)
+	}
+}
+
+// ===========================================================================
+// Task 5.3 -- TestReader_LatestMetricsByAccount_*: the four cases from
+// design.md's Test Contract ("Multi-vehicle DISTINCT ON case", Fixture
+// RM38-A/RM38-C, and the empty-account contract mirroring
+// LatestSnapshotsByAccount's own).
+// ===========================================================================
+
+// TestReader_LatestMetricsByAccount_SingleVehicleFullyPopulated covers
+// design.md's Test Contract "A single vehicle's latest status is returned":
+// one vehicle, one recalculated day, LatestMetricsByAccount returns exactly
+// one VehicleStatus with every pointer field non-nil.
+func TestReader_LatestMetricsByAccount_SingleVehicleFullyPopulated(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(990101)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	prev, cur := metricsFixtureRM38A(accountID, teslaID)
+	seedSnapshot(t, pool, prev)
+	seedSnapshot(t, pool, cur)
+
+	rec := newRealRecalculator(pool)
+	start := day(2026, 8, 10)
+	if err := rec.Recalculate(ctx, accountID, teslaID, start, start); err != nil {
+		t.Fatalf("Recalculate: %v", err)
+	}
+
+	rdr := newRealReader(pool)
+	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("LatestMetricsByAccount: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	vs := got[0]
+
+	if vs.TeslaID != teslaID {
+		t.Errorf("TeslaID: want %d, got %d", teslaID, vs.TeslaID)
+	}
+	if vs.BatteryLevelPct != 65 {
+		t.Errorf("BatteryLevelPct: want 65, got %d", vs.BatteryLevelPct)
+	}
+	if vs.BatteryRangeKm != 280.0 {
+		t.Errorf("BatteryRangeKm: want 280.0, got %v", vs.BatteryRangeKm)
+	}
+	if vs.OdometerKm != 1050.0 {
+		t.Errorf("OdometerKm: want 1050.0, got %v", vs.OdometerKm)
+	}
+	if vs.InsideTempC == nil || !approxEqual(*vs.InsideTempC, 21.5) {
+		t.Errorf("InsideTempC: want 21.5, got %v", vs.InsideTempC)
+	}
+	if vs.OutsideTempC == nil || !approxEqual(*vs.OutsideTempC, 18.0) {
+		t.Errorf("OutsideTempC: want 18.0, got %v", vs.OutsideTempC)
+	}
+	if vs.Locked == nil || *vs.Locked != true {
+		t.Errorf("Locked: want true, got %v", vs.Locked)
+	}
+	if vs.SentryMode == nil || *vs.SentryMode != false {
+		t.Errorf("SentryMode: want false (non-nil), got %v", vs.SentryMode)
+	}
+	if vs.CarVersion == nil || *vs.CarVersion != "2026.28.4" {
+		t.Errorf("CarVersion: want 2026.28.4, got %v", vs.CarVersion)
+	}
+	if vs.ChargingState == nil || *vs.ChargingState != "Disconnected" {
+		t.Errorf("ChargingState: want Disconnected, got %v", vs.ChargingState)
+	}
+	if vs.ChargeLimitSocPct == nil || *vs.ChargeLimitSocPct != 80 {
+		t.Errorf("ChargeLimitSocPct: want 80, got %v", vs.ChargeLimitSocPct)
+	}
+	wantCapturedAt := time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC)
+	if vs.CapturedAt == nil || !vs.CapturedAt.Equal(wantCapturedAt) {
+		t.Errorf("CapturedAt: want %v, got %v", wantCapturedAt, vs.CapturedAt)
+	}
+}
+
+// TestReader_LatestMetricsByAccount_TwoVehiclesEachOwnLatestDay covers
+// design.md's Test Contract "Multi-vehicle DISTINCT ON case": two vehicles
+// on one account, each with its own most-recent metric_date, must each
+// return their OWN latest row -- never one vehicle's entry describing the
+// other's day.
+func TestReader_LatestMetricsByAccount_TwoVehiclesEachOwnLatestDay(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID1 = int64(990102)
+	const teslaID2 = int64(990103)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID1)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID2)
+
+	// Vehicle 1: Fixture RM38-A's predecessor/current pair, latest day 2026-08-11.
+	prev1, cur1 := metricsFixtureRM38A(accountID, teslaID1)
+	seedSnapshot(t, pool, prev1)
+	seedSnapshot(t, pool, cur1)
+
+	// Vehicle 2: Fixture RM38-B's single predecessor-less snapshot, latest
+	// (and only) day 2026-08-04 -- a different calendar date than vehicle
+	// 1's, and deliberately its own row so a cross-vehicle mixup is
+	// observable in either direction.
+	cur2 := metricsFixtureRM38B(accountID, teslaID2)
+	seedSnapshot(t, pool, cur2)
+
+	rec := newRealRecalculator(pool)
+	if err := rec.Recalculate(ctx, accountID, teslaID1, day(2026, 8, 10), day(2026, 8, 10)); err != nil {
+		t.Fatalf("Recalculate vehicle 1: %v", err)
+	}
+	if err := rec.Recalculate(ctx, accountID, teslaID2, day(2026, 8, 4), day(2026, 8, 4)); err != nil {
+		t.Fatalf("Recalculate vehicle 2: %v", err)
+	}
+
+	rdr := newRealReader(pool)
+	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("LatestMetricsByAccount: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("want exactly 2 entries (one per vehicle), got %d: %+v", len(got), got)
+	}
+
+	byVehicle := map[int64]VehicleStatus{}
+	for _, vs := range got {
+		byVehicle[vs.TeslaID] = vs
+	}
+	v1, ok := byVehicle[teslaID1]
+	if !ok {
+		t.Fatalf("missing entry for teslaID %d", teslaID1)
+	}
+	if v1.BatteryLevelPct != 65 {
+		t.Errorf("vehicle 1 BatteryLevelPct: want 65 (its own latest day), got %d", v1.BatteryLevelPct)
+	}
+	if v1.Locked == nil || *v1.Locked != true {
+		t.Errorf("vehicle 1 Locked: want true, got %v", v1.Locked)
+	}
+
+	v2, ok := byVehicle[teslaID2]
+	if !ok {
+		t.Fatalf("missing entry for teslaID %d", teslaID2)
+	}
+	if v2.BatteryLevelPct != 90 {
+		t.Errorf("vehicle 2 BatteryLevelPct: want 90 (its own latest -- and only -- day, never vehicle 1's), got %d", v2.BatteryLevelPct)
+	}
+	if v2.Locked == nil || *v2.Locked != false {
+		t.Errorf("vehicle 2 Locked: want false (its own value, never vehicle 1's true), got %v", v2.Locked)
+	}
+	if v2.SentryMode != nil {
+		t.Errorf("vehicle 2 SentryMode: want nil, got %v", *v2.SentryMode)
+	}
+}
+
+// TestReader_LatestMetricsByAccount_PreMigrationRowReportsAbsentStatus
+// covers design.md's Test Contract Fixture RM38-C: a vehicle_metrics row
+// written before this migration exists. Its existing battery/range/odometer
+// values come back unchanged; all eight new fields come back nil -- never a
+// fabricated default such as "unlocked" or "sentry off".
+func TestReader_LatestMetricsByAccount_PreMigrationRowReportsAbsentStatus(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New()
+	const teslaID = int64(990104)
+	cleanupVehicleMetrics(t, pool, accountID, teslaID)
+
+	metricDate := day(2026, 8, 1)
+	seedPreMigrationVehicleMetric(t, pool, accountID, teslaID, metricDate, 55, 900.0, 310.0)
+
+	rdr := newRealReader(pool)
+	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("LatestMetricsByAccount: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	vs := got[0]
+
+	if vs.TeslaID != teslaID {
+		t.Errorf("TeslaID: want %d, got %d", teslaID, vs.TeslaID)
+	}
+	if vs.BatteryLevelPct != 55 {
+		t.Errorf("BatteryLevelPct: want 55 (the existing pre-migration value), got %d", vs.BatteryLevelPct)
+	}
+	if vs.OdometerKm != 900.0 {
+		t.Errorf("OdometerKm: want 900.0, got %v", vs.OdometerKm)
+	}
+	if vs.BatteryRangeKm != 310.0 {
+		t.Errorf("BatteryRangeKm: want 310.0, got %v", vs.BatteryRangeKm)
+	}
+	if vs.InsideTempC != nil {
+		t.Errorf("InsideTempC: want nil, got %v", *vs.InsideTempC)
+	}
+	if vs.OutsideTempC != nil {
+		t.Errorf("OutsideTempC: want nil, got %v", *vs.OutsideTempC)
+	}
+	if vs.Locked != nil {
+		t.Errorf("Locked: want nil, not a fabricated default, got %v", *vs.Locked)
+	}
+	if vs.SentryMode != nil {
+		t.Errorf("SentryMode: want nil, got %v", *vs.SentryMode)
+	}
+	if vs.CarVersion != nil {
+		t.Errorf("CarVersion: want nil, got %v", *vs.CarVersion)
+	}
+	if vs.ChargingState != nil {
+		t.Errorf("ChargingState: want nil, got %v", *vs.ChargingState)
+	}
+	if vs.ChargeLimitSocPct != nil {
+		t.Errorf("ChargeLimitSocPct: want nil, got %v", *vs.ChargeLimitSocPct)
+	}
+	if vs.CapturedAt != nil {
+		t.Errorf("CapturedAt: want nil, got %v", *vs.CapturedAt)
+	}
+}
+
+// TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice
+// covers design.md's Test Contract "An account with no computed vehicles yet
+// returns no results, not an error" -- mirroring
+// telemetry.Reader.LatestSnapshotsByAccount's identical empty-account
+// contract (design D5).
+func TestReader_LatestMetricsByAccount_EmptyAccountReturnsEmptyNonNilSlice(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+	accountID := uuid.New() // never seeded
+
+	rdr := newRealReader(pool)
+	got, err := rdr.LatestMetricsByAccount(ctx, accountID)
+	if err != nil {
+		t.Fatalf("LatestMetricsByAccount: want nil error, got %v", err)
+	}
+	if got == nil {
+		t.Fatal("want a non-nil empty slice, got nil")
+	}
+	if len(got) != 0 {
+		t.Fatalf("want 0 entries, got %d: %+v", len(got), got)
 	}
 }

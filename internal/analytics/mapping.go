@@ -65,3 +65,91 @@ func missingChargingTypeFromPg(v pgtype.Text) MissingChargingType {
 	}
 	return MissingChargingType(v.String)
 }
+
+// --- RM38-analytics-add-vehicle-status-columns pg-conversion helpers (design
+// D3) -- write-side (domain *T -> pgtype) and read-side (pgtype -> domain
+// *T) for the eight new nullable vehicle_metrics columns. Generic by pg
+// type, not by column, mirroring pgFloat8FromPtr/pgInt4FromPtr above --
+// pgTextFromPtr is intentionally separate from pgTextFromMissingType, which
+// encodes a different zero-value rule (empty string -> NULL) that does not
+// apply here (nil pointer -> NULL; a non-nil pointer to "" is a real,
+// distinct value).
+
+// pgBoolFromPtr maps a *bool to a nullable pgtype.Bool -- nil becomes SQL
+// NULL.
+func pgBoolFromPtr(v *bool) pgtype.Bool {
+	if v == nil {
+		return pgtype.Bool{Valid: false}
+	}
+	return pgtype.Bool{Bool: *v, Valid: true}
+}
+
+// pgTextFromPtr maps a *string to a nullable pgtype.Text -- nil becomes SQL
+// NULL. Unlike pgTextFromMissingType, a non-nil pointer to "" is stored as a
+// real empty string, not NULL.
+func pgTextFromPtr(v *string) pgtype.Text {
+	if v == nil {
+		return pgtype.Text{Valid: false}
+	}
+	return pgtype.Text{String: *v, Valid: true}
+}
+
+// pgTimestamptzFromPtr maps a *time.Time to a nullable pgtype.Timestamptz --
+// nil becomes SQL NULL.
+func pgTimestamptzFromPtr(v *time.Time) pgtype.Timestamptz {
+	if v == nil {
+		return pgtype.Timestamptz{Valid: false}
+	}
+	return pgtype.Timestamptz{Time: *v, Valid: true}
+}
+
+// ptrBoolFromPg maps a nullable pgtype.Bool back to *bool -- SQL NULL
+// becomes nil, never a fabricated false.
+func ptrBoolFromPg(v pgtype.Bool) *bool {
+	if !v.Valid {
+		return nil
+	}
+	b := v.Bool
+	return &b
+}
+
+// ptrStringFromPg maps a nullable pgtype.Text back to *string -- SQL NULL
+// becomes nil, never a fabricated "".
+func ptrStringFromPg(v pgtype.Text) *string {
+	if !v.Valid {
+		return nil
+	}
+	s := v.String
+	return &s
+}
+
+// ptrFloat64FromPg maps a nullable pgtype.Float8 back to *float64 -- SQL
+// NULL becomes nil. Mirrors pgFloat8FromPtr's nil-check idiom for the
+// reverse direction.
+func ptrFloat64FromPg(v pgtype.Float8) *float64 {
+	if !v.Valid {
+		return nil
+	}
+	f := v.Float64
+	return &f
+}
+
+// ptrIntFromPg maps a nullable pgtype.Int4 back to *int -- SQL NULL becomes
+// nil.
+func ptrIntFromPg(v pgtype.Int4) *int {
+	if !v.Valid {
+		return nil
+	}
+	i := int(v.Int32)
+	return &i
+}
+
+// ptrTimeFromPg maps a nullable pgtype.Timestamptz back to *time.Time -- SQL
+// NULL becomes nil.
+func ptrTimeFromPg(v pgtype.Timestamptz) *time.Time {
+	if !v.Valid {
+		return nil
+	}
+	t := v.Time
+	return &t
+}

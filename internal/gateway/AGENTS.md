@@ -26,12 +26,20 @@ It renders what other modules expose; it owns no business data.
 - `Deps` struct — every collaborator arrives as a public Go interface (account, tesla,
   googleauth). New dependencies extend `Deps`; never construct another module's
   internals here.
-- `Deps.TelemetryReader telemetry.Reader` — the telemetry read port; injected at
-  construction via `gateway.Deps` and `handlers.Deps`. The gateway calls
-  `LatestSnapshotsByAccount(ctx, accountID)` once per dashboard render to populate
-  vehicle card telemetry. Added by `gateway-read-stored-vehicles` (tier 5).
-  NEVER import `internal/telemetry/db` (`telemetrydb`) — all access through this
-  interface only.
+- `Deps.TelemetryReader telemetry.Reader` — **DEPRECATED, being removed.** The gateway
+  must not depend on `internal/telemetry` at all — not the `db` package (never did) and,
+  since `make boundary-guard`, not the `telemetry.Reader` port either. Do **not** add a
+  new call to this field, a new `telemetry.*` type, or a new `internal/telemetry` import
+  anywhere under `internal/gateway/`. `make boundary-guard` fails the build on a
+  non-test file and warns on a `_test.go` file (escape hatch:
+  `// boundary:allow: <reason>`). The guard is **red today on purpose**.
+  `SnapshotsByVehicleBetween` (`history.go`, `/ui/dashboard/history`) is this field's
+  **sole remaining caller** as of `RM38-gateway-read-dashboard-from-metrics` — the four
+  `LatestSnapshotsByAccount` call sites that used to read this port (dashboard, vehicle
+  cards, nav header, charges battery suggestion) were repointed onto
+  `Deps.AnalyticsReader.LatestMetricsByAccount` below by that tier. Rule and migration
+  status: `ai/architecture.md` §"Exception: the gateway may not depend on `telemetry` at
+  all".
 - `Deps.ChargingWriter charging.Writer` — the manual charge write port; injected
   at construction. Called ONLY by the write handlers (ChargeCreate, ChargeRowUpdate,
   ChargeRowDelete) on explicit user-initiated form submissions. See "Exception:
@@ -81,6 +89,19 @@ It renders what other modules expose; it owns no business data.
   all access through this interface only. Added by
   `RM28-gateway-add-consumed-graph` (tier 4), renamed from `battery` by
   `RM29-analytics-rename-from-battery`.
+  Since `RM38-gateway-read-dashboard-from-metrics`, also **`LatestMetricsByAccount`** —
+  the account's latest per-vehicle status, replacing the equivalent
+  `telemetry.Reader.LatestSnapshotsByAccount` calls. Four callers: `dashboardFor` (single-
+  vehicle bento, via `mapDashboardSnapshot`), `vehiclesFor`/`mapVehicles` (the unrouted
+  `/ui/vehicles` card list — see `mapVehicles`'s own doc comment for why it is kept
+  working despite having no route), `navHeaderFor` (status dot/battery — a nil
+  `CapturedAt` forces `NavStatusAsleep`, never `NavStatusConnected`), and
+  `buildChargesPage`'s battery-suggestion lookup (`charges.go`). Eight of
+  `analytics.VehicleStatus`'s fields are pointers (`InsideTempC`, `OutsideTempC`,
+  `CarVersion`, `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`,
+  `SentryMode`) — nil means "not yet computed since the migration," never a fabricated
+  zero value; see `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md`
+  D2/D3/D8 for the exact per-field nil-handling table.
 - `Deps.AnalyticsRecalculator analytics.Recalculator` — the analytics module's
   **write** port, injected the same way (wired from `cmd/web` via
   `analytics.NewRecalculator(...)`). Called by `ChargeCreate` after a manual
@@ -280,8 +301,9 @@ tenancy safety rule and a read-optimization principle (see
 HTML) stays cheap and predictable.
 
 - Handlers only call **`Reader` ports** (e.g. `account.RegisteredVehicles`,
-  `telemetry.Reader.LatestSnapshotsByAccount`). Never call `Collector` or
-  `Writer` ports from a handler, **except as documented below**.
+  `charging.SessionReader.ListSessionsByVehicleBetween`). Never call `Collector` or
+  `Writer` ports from a handler, **except as documented below**. The `telemetry`
+  module is off-limits entirely — see the `Deps.TelemetryReader` note above.
 - No writes, no Tesla API calls, no side effects on user requests. The only
   user-initiated Tesla API call is listing vehicles on first Tesla connect
   (one-time seed), and even that happens through the account module's interface —
@@ -601,7 +623,7 @@ a read that ignores the selection silently shows a *different* car's data.
 1. **Resolve once, pass the TeslaID down.** Call `h.resolveSelectedVehicle(ctx, c, uid)` (it
    auto-selects the first OWNER when the session has none) and hand its `.TeslaID` to the
    module port — e.g. filter `charging.Reader.ListEntriesByVehicle(ctx, uid, teslaID, …)`,
-   pick the snapshot for that TeslaID out of `telemetry.Reader.LatestSnapshotsByAccount`, or
+   pick the status for that TeslaID out of `analytics.Reader.LatestMetricsByAccount`, or
    pass it to a `tesla` adapter per-vehicle call. **Never** default a per-vehicle read to
    `registered[0]` or to "all vehicles" when a selection exists.
 2. **Identity is the numeric `TeslaID`, not the VIN and not the list index.** The VIN travels

@@ -218,6 +218,14 @@ func upsertVehicleMetricParamsFrom(row vehicleMetricRow) analyticsdb.UpsertVehic
 		ConsumedPct:            pgFloat8FromPtr(row.ConsumedPct),
 		Flagged:                row.Flagged,
 		MissingChargingType:    pgTextFromMissingType(row.MissingChargingType),
+		Locked:                 pgBoolFromPtr(row.Locked),
+		SentryMode:             pgBoolFromPtr(row.SentryMode),
+		CarVersion:             pgTextFromPtr(row.CarVersion),
+		InsideTempC:            pgFloat8FromPtr(row.InsideTempC),
+		OutsideTempC:           pgFloat8FromPtr(row.OutsideTempC),
+		ChargingState:          pgTextFromPtr(row.ChargingState),
+		ChargeLimitSocPct:      pgInt4FromPtr(row.ChargeLimitSocPct),
+		CapturedAt:             pgTimestamptzFromPtr(row.CapturedAt),
 	}
 }
 

@@ -1,0 +1,813 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM38-gateway-read-dashboard-from-metrics",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM38-dashboard-vehicle-status-from-metrics.md",
+  "request": "Tier 2 of RM38 (MAG-12). Switch all four gateway LatestSnapshotsByAccount call sites to analytics.Reader.LatestMetricsByAccount; rewrite mapDashboardSnapshot/mapVehicles/nav-header/charges against analytics.VehicleStatus; DashboardData gains locked + sentry fields; dashboard.templ removes the Status stat tile, adds the two header badges and goes to a 3-column stat grid (D4/D5); update kkpa/context/ (D6).",
+  "status": "verified",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "4.3",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.5",
+      "5.6",
+      "6.1",
+      "6.2",
+      "7.1",
+      "7.2"
+    ]
+  },
+  "created_at": "2026-09-01T17:42:00Z",
+  "updated_at": "2026-09-01T22:10:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
+    "base": "main",
+    "ticket": "MAG-12",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-12/show-fields-on-vehicle-status-section",
+    "created_at": "2026-09-01T15:00:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "internal/gateway/templates/pages/dashboard.go \u2014 add dashLockedBadge(ctx",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:45:00Z",
+      "completed_at": "2026-09-01T20:47:40Z",
+      "duration_seconds": 160,
+      "notes": "Added dashLockedBadge/dashSentryBadge as pure (ctx,*bool)->(text,kind,show) helpers per D4/D7. Only pre-existing i18n keys. pages package builds and vets clean.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.48,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 1+2 dispatch"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "internal/gateway/handlers/handlers.go \u2014 rewrite dashStatus's signature from",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:45:00Z",
+      "completed_at": "2026-09-01T20:47:40Z",
+      "duration_seconds": 160,
+      "notes": "dashStatus retyped to (ctx, chargingState *string). nil or non-Charging collapses to Parked. Wave-3 call sites now fail to compile, as designed.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.48,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 1+2 dispatch"
+      }
+    },
+    {
+      "id": "1.3",
+      "title": "internal/gateway/handlers/handlers.go \u2014 rename mergeSnapshots to",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:45:00Z",
+      "completed_at": "2026-09-01T20:47:40Z",
+      "duration_seconds": 160,
+      "notes": "mergeSnapshots renamed to mergeVehicleStatuses and retyped to analytics.VehicleStatus. Loop body unchanged. Also removed a stray duplicate doc-comment fragment.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.48,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 1+2 dispatch"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "internal/gateway/templates/pages/dashboard_test.go (new file, or add to an",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:45:00Z",
+      "completed_at": "2026-09-01T20:47:40Z",
+      "duration_seconds": 160,
+      "notes": "New dashboard_test.go covering all 9 badge-matrix combinations. Asserts against i18n.T, not literals. Builds and vets clean; not run.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.48,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 1+2 dispatch"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "internal/gateway/handlers/handlers_test.go \u2014 extend (or add) a table-driven test",
+      "module": "gateway",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:45:00Z",
+      "completed_at": "2026-09-01T20:47:40Z",
+      "duration_seconds": 160,
+      "notes": "TestDashStatus updated for the *string signature (nil, Charging, Disconnected, empty, other). Cannot compile until wave 3 lands.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.48,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 1+2 dispatch"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "internal/gateway/handlers/handlers_test.go \u2014 rename/retype the existing",
+      "module": "gateway",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:45:00Z",
+      "completed_at": "2026-09-01T20:47:40Z",
+      "duration_seconds": 160,
+      "notes": "Wrote a NEW TestMergeVehicleStatuses: tasks.md said rename the existing test, but no mergeSnapshots test ever existed. Discrepancy documented inline.",
+      "budget": {
+        "five_hour_pct_start": 0,
+        "five_hour_pct_end": 11,
+        "five_hour_pct_delta": 11,
+        "cost_usd_delta": 2.48,
+        "context_pct_end": 14,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 1+2 dispatch"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "internal/gateway/handlers/handlers.go \u2014 dashboardFor: replace",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "dashboardFor/mapDashboardSnapshot moved to LatestMetricsByAccount + mergeVehicleStatuses; per-field nil handling per the D2 table; new local dashTempOrDash helper.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "internal/gateway/handlers/handlers.go \u2014 vehiclesFor/mapVehicles: replace",
+      "module": "gateway",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "vehiclesFor/mapVehicles retyped to analytics.VehicleStatus; new local vehiclesTempOrDash (%.1f), deliberately not shared with site 1's helper.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "internal/gateway/templates/fragments/vehicles.templ \u2014 Vehicle.Locked field",
+      "module": "gateway",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "fragments.Vehicle.Locked bool -> *bool with a three-way nil/true/false render branch mirroring SentryMode.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
+    },
+    {
+      "id": "3.4",
+      "title": "internal/gateway/handlers/handlers.go (navHeaderFor) and",
+      "module": "gateway",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "navHeaderFor on the analytics port with D9's nil-CapturedAt forced-Asleep branch before connectedAt; charges.go battery block retyped.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "internal/gateway/templates/fragments/dashboard_vm.go \u2014 add Locked *bool and",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "Added Locked *bool and SentryMode *bool to fragments.DashboardData, doc-commented per the D2 nil table.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "internal/gateway/templates/pages/dashboard.templ \u2014 header row: add the Locked",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "Header row gained the Locked/Sentry ui.Badge pills; stat grid grid-cols-2 -> grid-cols-3, Status tile deleted; KeyDashboardStatus left unused in the catalogue.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
+    },
+    {
+      "id": "4.3",
+      "title": "Run make templ (regenerates dashboard_templ.go, vehicles_templ.go from 3.3 +",
+      "module": "gateway",
+      "depends_on": [
+        "3.3",
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:50:00Z",
+      "completed_at": "2026-09-01T20:56:30Z",
+      "duration_seconds": 390,
+      "notes": "make templ regenerated both _templ.go files; make css added one rule because grid-cols-3 was genuinely new, contradicting design.md's note that it already existed.",
+      "budget": {
+        "five_hour_pct_start": 11,
+        "five_hour_pct_end": 21,
+        "five_hour_pct_delta": 10,
+        "cost_usd_delta": 4.55,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 3+4 dispatch"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "internal/gateway/handlers/history_test.go \u2014 extend fakeAnalyticsReader with",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:59:00Z",
+      "completed_at": "2026-09-01T21:15:11Z",
+      "duration_seconds": 971,
+      "notes": "Extended fakeAnalyticsReader with statuses/statusesErr; LatestMetricsByAccount now returns them instead of panicking.",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 38,
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 10.63,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 5+6 dispatch"
+      }
+    },
+    {
+      "id": "5.2",
+      "title": "internal/gateway/handlers/handlers_test.go \u2014 dashboardFor/mapDashboardSnapshot",
+      "module": "gateway",
+      "depends_on": [
+        "3.1",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:59:00Z",
+      "completed_at": "2026-09-01T21:15:11Z",
+      "duration_seconds": 971,
+      "notes": "Retyped the dashboardFor/mapDashboardSnapshot tests; added FixtureFull and FixtureNil asserting design.md's Test Contract values verbatim.",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 38,
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 10.63,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 5+6 dispatch"
+      }
+    },
+    {
+      "id": "5.3",
+      "title": "internal/gateway/handlers/handlers_test.go (or a new dashboard_test.go in the",
+      "module": "gateway",
+      "depends_on": [
+        "4.3",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:59:00Z",
+      "completed_at": "2026-09-01T21:15:11Z",
+      "duration_seconds": 971,
+      "notes": "Three httptest assertions proving the badge helpers are wired into the template (full, nil, locked-only-sentry-nil).",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 38,
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 10.63,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 5+6 dispatch"
+      }
+    },
+    {
+      "id": "5.4",
+      "title": "internal/gateway/handlers/handlers_test.go \u2014 navHeaderFor tests: add a case",
+      "module": "gateway",
+      "depends_on": [
+        "3.4",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:59:00Z",
+      "completed_at": "2026-09-01T21:15:11Z",
+      "duration_seconds": 971,
+      "notes": "navHeaderFor tests retyped to the analytics port; added TestNavHeaderFor_NilCapturedAtForcesAsleep as the D9 regression.",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 38,
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 10.63,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 5+6 dispatch"
+      }
+    },
+    {
+      "id": "5.5",
+      "title": "internal/gateway/handlers/charges_test.go \u2014 retype the battery-suggestion test",
+      "module": "gateway",
+      "depends_on": [
+        "3.4",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:59:00Z",
+      "completed_at": "2026-09-01T21:15:11Z",
+      "duration_seconds": 971,
+      "notes": "Three battery-suggestion tests in charges_test.go retyped to analytics.VehicleStatus; unused telemetry import removed.",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 38,
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 10.63,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 5+6 dispatch"
+      }
+    },
+    {
+      "id": "5.6",
+      "title": "internal/gateway/templates/fragments/vehicles_templ.go-adjacent test file (if one",
+      "module": "gateway",
+      "depends_on": [
+        "3.2",
+        "3.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:59:00Z",
+      "completed_at": "2026-09-01T21:15:11Z",
+      "duration_seconds": 971,
+      "notes": "Added TestVehiclesFor_LockedThreeStates mirroring the sentry test; fixed the vet-breaking !v.Locked.",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 38,
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 10.63,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 5+6 dispatch"
+      }
+    },
+    {
+      "id": "6.1",
+      "title": "internal/gateway/AGENTS.md \u2014 update the Deps.AnalyticsReader bullet to add",
+      "module": "gateway",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "3.4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:59:00Z",
+      "completed_at": "2026-09-01T21:15:11Z",
+      "duration_seconds": 971,
+      "notes": "AGENTS.md: AnalyticsReader bullet documents LatestMetricsByAccount and its 4 callers; TelemetryReader bullet now states SnapshotsByVehicleBetween is its only remaining caller.",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 38,
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 10.63,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 5+6 dispatch"
+      }
+    },
+    {
+      "id": "6.2",
+      "title": "kkpa/context/use-case/gateway/read-dashboard-bento.md \u2014 rewrite step 5 of \"Flow\"",
+      "module": "gateway",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T20:59:00Z",
+      "completed_at": "2026-09-01T21:15:11Z",
+      "duration_seconds": 971,
+      "notes": "KB read-dashboard-bento.md rewritten to analytics.vehicle_metrics; added the one-day-behind metric_date grain and the nil-field gotchas. INDEX.md needed no change.",
+      "budget": {
+        "five_hour_pct_start": 21,
+        "five_hour_pct_end": 38,
+        "five_hour_pct_delta": 17,
+        "cost_usd_delta": 10.63,
+        "context_pct_end": 17,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared bracket for the batched waves 5+6 dispatch"
+      }
+    },
+    {
+      "id": "7.1",
+      "title": "Run and report: go build ./..., go vet ./..., gofmt -l, make build,",
+      "module": "gateway",
+      "depends_on": [
+        "6.1",
+        "6.2",
+        "5.2",
+        "5.3",
+        "5.4",
+        "5.5",
+        "5.6",
+        "4.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T21:16:00Z",
+      "completed_at": "2026-09-01T21:20:00Z",
+      "duration_seconds": 240,
+      "notes": "Leader ran the assistant-side signals: go build, go vet, gofmt, i18n/ui/tz/money guards all clean. boundary-guard red by design.",
+      "budget": null
+    },
+    {
+      "id": "7.2",
+      "title": "Hand off to the owner the exact command to run and report:",
+      "module": "gateway",
+      "depends_on": [
+        "7.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T21:16:00Z",
+      "completed_at": "2026-09-01T21:20:00Z",
+      "duration_seconds": 240,
+      "notes": "Owner ran go test ./internal/gateway/... and reported it passing. Recorded as the owner's verification, not the assistant's.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM38-gateway-read-dashboard-from-metrics (tier 2 of RM38, MAG-12) against its own design.md and the roadmap decisions D1-D9. Read the DIFF (commits 497f21b, 2e15c60, 1201133), not the whole module.\nValidate: (1) module-boundary compliance - internal/gateway touches internal/analytics and internal/telemetry only through their public ports, no db package import, no cross-module DB read; (2) all four LatestSnapshotsByAccount call sites really moved to analytics.Reader.LatestMetricsByAccount, and h.telemetryReader is correctly RETAINED for history.go's SnapshotsByVehicleBetween; (3) every VehicleStatus pointer field is nil-checked per design.md's table, with no fabricated default and no unchecked dereference anywhere; (4) D5's badge matrix is implemented exactly - locked=success, unlocked=error, nil hidden; sentry on=warning, off=ghost, nil hidden - and D9's nil-CapturedAt rule holds (no date, no Stale badge, nav forced to Asleep with no last-seen label, never Connected); (5) dashSubtitle still keeps StatusLabel per D4 - only the Status stat tile was removed; (6) i18n - every user-facing string resolves through i18n.T with both ES and EN non-empty, and NO new catalogue keys were added (the six vehicles.* keys are reused); (7) htmx/Templ conventions per ai/htmx-conventions.md, semantic theme tokens not raw hex, and NO HTML comments in markup; (8) the docs actually track the change - internal/gateway/AGENTS.md and kkpa/context/use-case/gateway/read-dashboard-bento.md; (9) TEST-CONTRACT CHECK, the important one: design.md authored the expected test values BEFORE implementation, so verify the wave-5 tests assert THOSE values rather than confirming whatever the code happens to do - a test reverse-engineered from the implementation is a finding; (10) Performance-Profile compliance (read-heavy) - one port call per render, no N+1, no per-row query introduced; (11) anti-gaming - no acceptance criterion was weakened or deleted, no status self-approved.\nKnown and ACCEPTED, do not report as findings: make boundary-guard is still red because history.go legitimately keeps the telemetry import; gofmt -l flags dashboard_vm.go, which was already dirty on main before this change; fragments.Vehicle / vehiclesFor is effectively dead code (/ui/vehicles is unmounted) and was adapted rather than deleted, deliberately, because deleting it is out of this ticket's scope.\nSignal provenance: go build, go vet, gofmt and the i18n/ui/tz/money guards were ASSISTANT-run and are green. 'go test ./internal/gateway/...' was USER-run and the user reported it passing. You must NOT run the test suite yourself - judge test quality by reading the tests.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-01T22:10:00Z",
+        "agent": "gateway-reviewer",
+        "verdict": "approved",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "ai/agentic-workflow.md",
+          "internal/gateway/AGENTS.md",
+          "openspec/changes/RM38-gateway-read-dashboard-from-metrics/proposal.md",
+          "openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md",
+          "openspec/changes/RM38-gateway-read-dashboard-from-metrics/tasks.md",
+          "openspec/changes/RM38-gateway-read-dashboard-from-metrics/specs/gateway/spec.md",
+          "openspec/roadmaps/RM38-dashboard-vehicle-status-from-metrics.md"
+        ],
+        "verified": [
+          "All four LatestSnapshotsByAccount call sites (dashboardFor/mapDashboardSnapshot, vehiclesFor/mapVehicles, navHeaderFor, buildChargesPage) repointed to analytics.Reader.LatestMetricsByAccount, matching design.md D2/D3/D8/D9 verbatim.",
+          "h.telemetryReader / Deps.TelemetryReader correctly retained; grep confirms history.go/gateway.go/handlers.go are the only production files still importing internal/telemetry, and no production LatestSnapshotsByAccount call remains (only fakeReader/fakeHistoryReader interface implementations and comments).",
+          "Every one of the 8 newly-pointer VehicleStatus fields is nil-checked before dereference at every call site (mapDashboardSnapshot, mapVehicles, navHeaderFor, vehicles.templ); no unchecked dereference found by direct grep of every '*vs.'/'*s.'/'*v.' occurrence in the diff.",
+          "D5/D7 badge matrix implemented exactly: dashLockedBadge/dashSentryBadge in dashboard.go match design.md's pseudocode byte-for-byte (success/error/hidden, warning/ghost/hidden).",
+          "D9 nil-CapturedAt rule verified: mapDashboardSnapshot leaves LastUpdated/IsStale at zero value on nil CapturedAt (no template change needed, confirmed against dashboard.templ's existing guards); navHeaderFor has an explicit nil-CapturedAt branch forcing NavStatusAsleep with no LastSeenLabel, before the connectedAt call - never Connected.",
+          "D4 confirmed: dashSubtitle (dashboard.go) is unchanged and still reads d.StatusLabel; only the fourth ui.StatTile (KeyDashboardStatus) was deleted from dashboard.templ; grid is grid-cols-3.",
+          "i18n: make i18n-guard run clean ('no hardcoded user-facing text found'); grepped the diff for new catalog.go entries - none; all badge/label text resolves via i18n.T against pre-existing vehicles.* keys per D7.",
+          "No raw hex colors or HTML comments introduced in the changed .templ files (dashboard.templ, vehicles.templ) - checked via diff grep.",
+          "Docs: internal/gateway/AGENTS.md's AnalyticsReader/TelemetryReader bullets and kkpa/context/use-case/gateway/read-dashboard-bento.md were updated exactly per design.md D11, including the metric_date-grain and nil-field gotchas added beyond the minimum ask.",
+          "TEST CONTRACT CHECK: TestMapDashboardSnapshot_FixtureFull/FixtureNil, the 9-cell badge matrix table test, and the 3 httptest badge-render cases all assert the exact literal/derived values design.md authored up front (Fixture RM38-G-Full/Nil, badge matrix table) - not values back-fitted from the implementation. Badge text assertions resolve through i18n.T(ctx, key) using the same keys design.md's D4 pseudocode names, which is legitimate (the catalogue, not the implementation under test, is the source of the literal).",
+          "Performance-Profile: confirmed via internal/analytics/db/query.sql that LatestMetricsByAccount is a single DISTINCT ON batched read per render at every one of the four sites; no N+1 introduced.",
+          "Anti-gaming: no spec/task criterion weakened; tasks.md 1.1-6.2 checkboxes match the actual diff; go build/go vet/gofmt -l/make i18n-guard/make boundary-guard independently re-run and match the leader's reported signals exactly (boundary-guard red only at gateway.go/handlers.go/history.go + warn at handlers_test.go/history_test.go, exactly the accepted state).",
+          "Boundaries: diff touches only internal/gateway/**, kkpa/context/use-case/gateway/read-dashboard-bento.md, and this change's own openspec/ artifacts - no other module or file touched."
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/handlers.go:439-450 (dashboardFor's doc comment) still says 'unit-testable with fake account/telemetry implementations' and 'reads the latest per-vehicle snapshots through telemetry.Reader' and 'telemetry Reader error -> TelemetryUnavailable', but the function body (same commit, 2e15c60) was correctly rewritten to call h.analyticsReader.LatestMetricsByAccount. vehiclesFor's and navHeaderFor's equivalent doc comments were correctly updated in the same diff, so this is an isolated miss, not systematic. Purely a stale Go doc-comment (no functional, boundary, or test impact) but misleads a future reader/agent about dashboardFor's actual data source.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "minor",
+            "note": "internal/gateway/handlers/handlers.go:56-57, the Deps.TelemetryReader field's doc comment still reads 'The gateway calls LatestSnapshotsByAccount once per dashboard render' - no longer true after this tier; the dashboard no longer calls telemetryReader at all, and its sole remaining caller is history.go's SnapshotsByVehicleBetween (once per /ui/dashboard/history render). internal/gateway/AGENTS.md's sibling Deps.TelemetryReader bullet WAS correctly updated per design.md D11 item 2, making this inline struct-field comment inconsistent with the module's own AGENTS.md.",
+            "status": "open"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "tasks.md wave 7 (7.1, 7.2) remain unchecked '[ ]' while progress.json records both as status:done with a completed_at timestamp and leader/owner verification notes. Not an anti-gaming concern (progress.json under-claims relative to tasks.md, the opposite direction from gaming, and the underlying go build/go vet/gofmt/guard signals were independently re-verified as accurate by this review), but the two files are inconsistent and worth a one-line tasks.md fix for hygiene.",
+            "status": "open"
+          }
+        ],
+        "summary": "Clean, precise implementation. All four call sites repointed exactly per design.md, nil-handling is exhaustive and correctly guarded everywhere (no unchecked pointer dereference found), the D5 badge matrix and D9 nil-CapturedAt rule are implemented byte-for-byte against design.md's pseudocode, no new i18n keys, no boundary violation beyond the accepted/pre-existing telemetry-for-history exception, and the wave-5 tests assert the Test Contract's pre-authored fixture values rather than values back-fitted from the implementation. Three minor findings (two stale Go doc-comments in handlers.go, one tasks.md/progress.json checkbox mismatch) are cosmetic/documentation-only, carry no functional, boundary, or test-integrity risk, and do not block archiving. Approved."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D8",
+      "at": "2026-09-01T17:20:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Gateway keeps VehicleStatus.CapturedAt as the time source; metric_date is NOT added to the analytics port; the 36h/48h thresholds are unchanged",
+      "why": "The metric_date option needs a new analytics tier plus a +24h retune of both thresholds. The owner accepts a NULL captured_at instead",
+      "covered_by": "roadmap D8"
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-01T17:20:30Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "NULL CapturedAt renders no date and no [Stale] badge on the dashboard, and Asleep with no last-seen label in the nav header",
+      "why": "Connected needs a timestamp to prove freshness. Affects at most one nightly cycle after deploy, then self-heals",
+      "covered_by": "roadmap D9"
+    },
+    {
+      "id": "D10",
+      "at": "2026-09-01T20:45:00Z",
+      "scope": "wave:1-2",
+      "made_by": "leader",
+      "decision": "Waves 1 and 2 dispatched together to one serial worker",
+      "why": "Wave 2 is only the offline unit tests for wave 1's three helpers. One dispatch reads the doc pack once and writes each helper beside its test"
+    },
+    {
+      "id": "D11",
+      "at": "2026-09-01T20:48:00Z",
+      "scope": "wave:1-2",
+      "made_by": "leader",
+      "decision": "The owner's suite run is NOT requested at this wave boundary; deferred to the end of wave 3+4",
+      "why": "Wave 1 deliberately breaks the four wave-3 call sites, so internal/gateway does not compile. Asking now costs a round-trip that can only report a compile error"
+    },
+    {
+      "id": "D12",
+      "at": "2026-09-01T20:50:00Z",
+      "scope": "wave:3-4",
+      "made_by": "leader",
+      "decision": "Waves 3 and 4 dispatched together to one serial worker, ordered 4.1, 3.1, 3.2, 3.3, 3.4, 4.2, 4.3",
+      "why": "Only their combination makes the repo compile again. Splitting them leaves a second red boundary with no signal the owner could act on"
+    },
+    {
+      "id": "D13",
+      "at": "2026-09-01T20:57:00Z",
+      "scope": "wave:3-4",
+      "made_by": "leader",
+      "decision": "The owner's suite run is deferred one more wave, to the end of wave 5",
+      "why": "go build is green but go vet is red at handlers_test.go:334 (v.Locked now *bool). The test package still cannot compile, so a suite run could only report that"
+    },
+    {
+      "id": "D14",
+      "at": "2026-09-01T20:59:00Z",
+      "scope": "wave:5-6",
+      "made_by": "leader",
+      "decision": "Waves 5 and 6 dispatched together to one serial worker",
+      "why": "Wave 6 is documentation depending only on wave 3, already done. Batching reaches a green vet and a suite the owner can actually run in one dispatch"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-01T17:42:00Z",
+      "agent": "leader",
+      "event": "artifacts created by the gateway worker (sonnet) and validated with openspec validate --strict. No database object changes, so the database design gate does not apply. 21 sub-tasks across 7 waves."
+    },
+    {
+      "at": "2026-09-01T20:45:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (sonnet) for waves 1+2 (tasks 1.1-1.3, 2.1-2.3). Budget at dispatch: 5h=0% (bucket reset) ctx=14%"
+    },
+    {
+      "at": "2026-09-01T20:48:00Z",
+      "agent": "leader",
+      "event": "waves 1+2 reconciled: 1.1-1.3 done, 2.1-2.3 awaiting-user-verification. go build ./... is RED by design at handlers.go:245,463,480,733 (the four wave-3 call sites). Test ask deferred per D11."
+    },
+    {
+      "at": "2026-09-01T20:50:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (sonnet) for waves 3+4 (3.1-3.4, 4.1-4.3). Budget at dispatch: 5h=11% ctx=14%"
+    },
+    {
+      "at": "2026-09-01T20:57:00Z",
+      "agent": "leader",
+      "event": "waves 3+4 reconciled, all 7 tasks done. Leader verified go build ./... green. go vet red only at handlers_test.go:334, which wave 5 fixes. make i18n-guard / ui-guard / tz-guard / money-guard clean; boundary-guard still red as designed (telemetry import kept for SnapshotsByVehicleBetween). Test ask deferred per D13."
+    },
+    {
+      "at": "2026-09-01T20:59:00Z",
+      "agent": "leader",
+      "event": "dispatched gateway worker (sonnet) for waves 5+6 (5.1-5.6, 6.1-6.2). Budget at dispatch: 5h=21% ctx=16%"
+    },
+    {
+      "at": "2026-09-01T21:16:00Z",
+      "agent": "leader",
+      "event": "waves 5+6 reconciled. Leader verified: go build green, go vet GREEN, i18n-guard/ui-guard/tz-guard/money-guard clean. gofmt flags dashboard_vm.go but it was already dirty on main (pre-existing, not this change). boundary-guard still red by design. Worker also repaired two pre-existing tests that would have panicked on a nil analyticsReader. All code tasks now awaiting the owner's suite run."
+    },
+    {
+      "at": "2026-09-01T21:20:00Z",
+      "agent": "leader",
+      "event": "THE OWNER ran 'go test ./internal/gateway/...' and reported it PASSING. Verification is the owner's, not the assistant's. All 23 tasks done; change -> verified. Proceeding to the reviewer gate."
+    },
+    {
+      "at": "2026-09-01T22:10:00Z",
+      "agent": "leader",
+      "event": "reviewer approved round 1 with 3 minor findings. Leader triaged all 3 as valid and fixed them: F1 dashboardFor doc comment, F2 Deps.TelemetryReader doc comment, F3 tasks.md 7.1/7.2 checkboxes. go build and go vet re-verified green after the fix. No finding rejected."
+    }
+  ]
+}

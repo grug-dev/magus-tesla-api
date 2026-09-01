@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM38-dashboard-vehicle-status-from-metrics",
+  "intention": "The gateway reads the latest vehicle state from analytics.vehicle_metrics instead of telemetry.vehicle_snapshots, and the dashboard's Vehicle Status card shows locked and sentry-mode badges.",
+  "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. (1) Mirror locked, sentry_mode, car_version, inside_temp_c, outsite_temp_c from vehicle_snapshots into vehicle_metrics via UpsertVehicleMetric on the nightly job. (2) GET /dashboard -> handlers.dashboardFor and mapDashboardSnapshot read from vehicle_metrics instead of telemetryReader.LatestSnapshotsByAccount, via a new API using the same logic. (3) Vehicle Status section: remove the Status field, show locked/unlocked in a different colour (locked in green), add a sentry_mode label. (4) Update the KB for dashboard pages to record analytics.vehicle_metrics as the data source.",
+  "status": "complete",
+  "autopilot": false,
+  "updated_at": "2026-09-01T22:12:00Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
+    "base": "main",
+    "ticket": "MAG-12",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-12/show-fields-on-vehicle-status-section",
+    "created_at": "2026-09-01T15:00:00Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      1,
+      2
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-01T14:58:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Add 8 columns to vehicle_metrics, not the ticket's 5: plus charging_state, charge_limit_soc_pct, captured_at",
+      "why": "mapDashboardSnapshot reads 9 Snapshot fields; without these 3 the dashboard would have to query telemetry too, defeating the ticket's purpose"
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-01T14:59:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "No backfill. All 8 columns nullable; existing rows stay NULL forever",
+      "why": "Minimal migration. Cost: up to one nightly cycle of blank tiles after deploy, and NULL on sentry_mode becomes ambiguous"
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-01T15:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "All 4 gateway LatestSnapshotsByAccount call sites move to the analytics port, not only dashboardFor",
+      "why": "Owner's explicit call, wider than the ticket. Verified all 4 sites' field needs are covered by the 8 new + 3 existing columns"
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-01T15:01:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Locked/sentry as ui.Badge in the card header; Status stat tile removed; stat grid becomes 3 columns; dashSubtitle keeps StatusLabel",
+      "why": "ui.StatTile has no colour prop and adding one would change the shared ui/ kit for one page; ui.Badge already has Kind"
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-01T15:01:30Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Locked=success, Unlocked=error, NULL hidden; Sentry On=warning, Off=ghost, nil hidden; reuse the six existing vehicles.* i18n keys",
+      "why": "Distinguishes off from unknown without a noisy pill; no new catalogue keys, so both languages are already complete"
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-01T15:01:45Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "The kkpa/context/ KB update is in scope, done in tier 2 alongside the change it documents",
+      "why": "Ticket section 4 states it explicitly; CLAUDE.md forbids leaving docs stale as a follow-up"
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-01T15:02:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Tier order not put to the user",
+      "why": "Forced by dependency: tier 2 consumes the port and columns tier 1 creates. No alternative existed"
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-01T17:20:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Gateway keeps reading VehicleStatus.CapturedAt for the date/stale/nav-freshness logic; metric_date is NOT added to the analytics port; the 36h/48h thresholds are unchanged",
+      "why": "Owner's call after the metric_date option was costed: it needs a new analytics tier and a +24h retune of both thresholds. A NULL captured_at is acceptable"
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-01T17:20:30Z",
+      "scope": "tier:2",
+      "made_by": "leader",
+      "decision": "NULL CapturedAt renders no date and no [Stale] badge on the dashboard, and Asleep with no last-seen label in the nav header",
+      "why": "Connected needs a timestamp to prove freshness. Affects at most one nightly cycle after deploy, then self-heals"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM38-analytics-add-vehicle-status-columns",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T15:00:00Z",
+      "completed_at": "2026-09-01T16:43:43Z",
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Archived as 2026-09-01-RM38-analytics-add-vehicle-status-columns. All 17 tasks done; owner reported 'make test' passed; analytics-reviewer approved round 1 with no findings."
+    },
+    {
+      "id": 2,
+      "change": "RM38-gateway-read-dashboard-from-metrics",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        1
+      ],
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T17:20:45Z",
+      "completed_at": "2026-09-01T22:12:00Z",
+      "duration_seconds": null,
+      "budget": {
+        "five_hour_pct_delta": 39,
+        "cost_usd_delta": 26.1,
+        "source": "statusline-cache",
+        "approx": true
+      },
+      "notes": "Archived as 2026-09-01-RM38-gateway-read-dashboard-from-metrics. All 23 tasks done across 4 dispatches; owner reported go test ./internal/gateway/... passing; gateway-reviewer approved round 1 with 3 minor doc-comment findings, all fixed."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-01T15:00:00Z",
+      "agent": "leader",
+      "event": "roadmap RM38 created from MAG-12; branch ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics off main; .work-counter 38 -> 39"
+    },
+    {
+      "at": "2026-09-01T15:02:00Z",
+      "agent": "leader",
+      "event": "Step 2 interview complete (grill-me, 5 questions); D1-D6 settled by the user, D7 by the leader"
+    },
+    {
+      "at": "2026-09-01T15:45:09Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created and design gate confirmed; tier 1 -> proposed. Run halted per pickup-ticket scope before implementation."
+    },
+    {
+      "at": "2026-09-01T16:36:24Z",
+      "agent": "leader",
+      "event": "tier 1 implementation complete (waves A/B/C); halted at the Step 6 verification gate pending the owner's suite run"
+    },
+    {
+      "at": "2026-09-01T16:43:43Z",
+      "agent": "leader",
+      "event": "tier 1 archived (openspec archive synced 2 analytics spec requirements). Tier 2 (RM38-gateway-read-dashboard-from-metrics) is now unblocked; autopilot is false so the leader asks before starting it."
+    },
+    {
+      "at": "2026-09-01T17:08:52Z",
+      "agent": "leader",
+      "event": "PAUSED at the tier boundary by the owner's choice after tier 1 archived. Tier 2 (RM38-gateway-read-dashboard-from-metrics) is unblocked and not started; roadmap decisions D3-D6 already bind it. Budget at pause: 5h=77% ctx=21%. Resume with /kkpa-dev-harness-pipeline resume RM38-dashboard-vehicle-status-from-metrics"
+    },
+    {
+      "at": "2026-09-01T17:20:45Z",
+      "agent": "leader",
+      "event": "resumed at the tier boundary; tier 2 starting. Step 2 interview: one new decision surfaced (NULL captured_at), settled as D8/D9. No database gate in tier 2 (gateway-only, no schema change). Budget at resume: 5h=80% ctx=8%"
+    },
+    {
+      "at": "2026-09-01T17:42:30Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created and validated; tier 2 -> in-progress. change progress.json seeded with 23 tasks across 7 waves."
+    },
+    {
+      "at": "2026-09-01T22:12:00Z",
+      "agent": "leader",
+      "event": "tier 2 archived (openspec archive synced the gateway spec: 1 added, 2 modified). Every tier archived, so roadmap RM38 is complete and auto-archives into openspec/roadmaps/archive/RM38-dashboard-vehicle-status-from-metrics/."
+    }
+  ]
+}

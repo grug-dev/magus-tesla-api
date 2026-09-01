@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -17,7 +18,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/cristianpena/magus-tesla-api/internal/account"
+	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
+	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
@@ -185,10 +188,23 @@ func newHandler(acct account.Service, tsvc tesla.VehicleService) *Handler {
 	return New(Deps{Account: acct, Tesla: tsvc})
 }
 
-// newHandlerWithReader builds a Handler with a fake telemetry.Reader for tests that
-// exercise the enriched-vehicle path.
+// newHandlerWithReader builds a Handler with a fake telemetry.Reader. Kept for
+// the paths that still call telemetryReader (history.go's
+// SnapshotsByVehicleBetween — see history_test.go's newHandlerForHistory) and
+// for pre-existing tests that pass an unused reader through routes which never
+// reach it (e.g. VehicleSelect).
 func newHandlerWithReader(acct account.Service, tsvc tesla.VehicleService, reader telemetry.Reader) *Handler {
 	return New(Deps{Account: acct, Tesla: tsvc, TelemetryReader: reader})
+}
+
+// newHandlerWithAnalytics builds a Handler with a fake analytics.Reader for
+// tests that exercise vehiclesFor/dashboardFor/navHeaderFor's enriched-vehicle
+// path (RM38-gateway-read-dashboard-from-metrics: these three call sites now
+// read h.analyticsReader.LatestMetricsByAccount instead of
+// h.telemetryReader.LatestSnapshotsByAccount). Mirrors newHandlerWithReader's
+// shape for the new port.
+func newHandlerWithAnalytics(acct account.Service, tsvc tesla.VehicleService, reader analytics.Reader) *Handler {
+	return New(Deps{Account: acct, Tesla: tsvc, AnalyticsReader: reader})
 }
 
 // --- pre-existing tests (unchanged behavior) ---
@@ -201,8 +217,10 @@ func TestVehiclesFor_RegisteredRendersWithoutTeslaCall(t *testing.T) {
 	tsvc := &fakeTesla{vehicles: []tesla.VehicleTesla{
 		{DisplayName: "SHOULD NOT BE CALLED", VIN: "NEVER"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
-	h := newHandlerWithReader(acct, tsvc, reader)
+	// RM38: vehiclesFor now reads h.analyticsReader.LatestMetricsByAccount
+	// instead of h.telemetryReader.LatestSnapshotsByAccount.
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
+	h := newHandlerWithAnalytics(acct, tsvc, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
 	if len(d.Vehicles) != 2 {
 		t.Fatalf("want 2 vehicles from the registry, got %d (%+v)", len(d.Vehicles), d)
@@ -239,8 +257,8 @@ func TestVehiclesFor_NoStateRendered(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "Magus"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
 	if len(d.Vehicles) != 1 {
 		t.Fatalf("want 1 vehicle, got %d", len(d.Vehicles))
@@ -286,21 +304,21 @@ func TestVehiclesFor_EnrichedCard(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
 		{
 			TeslaID:         42,
-			CapturedAt:      capturedAt,
+			CapturedAt:      &capturedAt,
 			BatteryLevelPct: 80,
 			BatteryRangeKm:  321.8688, // already km — 200 mi * 1.609344, converted at capture time (tier 2)
-			ChargingState:   "Disconnected",
+			ChargingState:   ptrString("Disconnected"),
 			OdometerKm:      19312.128, // already km — 12000 mi * 1.609344, converted at capture time (tier 2)
-			InsideTempC:     22.5,
-			OutsideTempC:    15.0,
-			Locked:          true,
+			InsideTempC:     ptrF64(22.5),
+			OutsideTempC:    ptrF64(15.0),
+			Locked:          boolPtr(true),
 			SentryMode:      boolPtr(true),
 		},
 	}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
 
 	if len(d.Vehicles) != 1 {
@@ -330,8 +348,8 @@ func TestVehiclesFor_EnrichedCard(t *testing.T) {
 	if v.OutsideTemp != "15.0 °C" {
 		t.Errorf("want OutsideTemp %q, got %q", "15.0 °C", v.OutsideTemp)
 	}
-	if !v.Locked {
-		t.Errorf("want Locked true, got false")
+	if v.Locked == nil || !*v.Locked {
+		t.Errorf("want Locked *true, got %v", v.Locked)
 	}
 	if v.SentryMode == nil || !*v.SentryMode {
 		t.Errorf("want SentryMode *true, got %v", v.SentryMode)
@@ -348,9 +366,9 @@ func TestVehiclesFor_PlaceholderCard(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 7, VIN: "VIN7", DisplayName: "Ghost"},
 	}}
-	// Reader returns an empty slice — no snapshot for this vehicle.
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	// Reader returns an empty slice — no status for this vehicle.
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
 
 	if len(d.Vehicles) != 1 {
@@ -376,8 +394,8 @@ func TestVehiclesFor_GracefulDegradation(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 9, VIN: "VIN9", DisplayName: "Bricked"},
 	}}
-	reader := &fakeReader{err: errors.New("db unavailable")}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	reader := &fakeAnalyticsReader{statusesErr: errors.New("db unavailable")}
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
 
 	if d.Notice == "" {
@@ -398,10 +416,10 @@ func TestVehiclesFor_StaleBoundary(t *testing.T) {
 
 	// Clearly within the threshold (10 s of headroom) — should NOT be stale.
 	withinThreshold := time.Now().Add(-stalenessThreshold + 10*time.Second)
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 1, CapturedAt: withinThreshold},
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 1, CapturedAt: &withinThreshold},
 	}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
 	if len(d.Vehicles) != 1 {
 		t.Fatalf("want 1 vehicle, got %d", len(d.Vehicles))
@@ -412,10 +430,10 @@ func TestVehiclesFor_StaleBoundary(t *testing.T) {
 
 	// One second past the threshold — should be stale.
 	pastThreshold := time.Now().Add(-stalenessThreshold - time.Second)
-	reader2 := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 1, CapturedAt: pastThreshold},
+	reader2 := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 1, CapturedAt: &pastThreshold},
 	}}
-	h2 := newHandlerWithReader(acct, fakeTesla{}, reader2)
+	h2 := newHandlerWithAnalytics(acct, fakeTesla{}, reader2)
 	d2 := h2.vehiclesFor(context.Background(), uuid.New())
 	if len(d2.Vehicles) != 1 {
 		t.Fatalf("want 1 vehicle, got %d", len(d2.Vehicles))
@@ -476,12 +494,12 @@ func TestVehiclesFor_SentryModeThreeStates(t *testing.T) {
 		{TeslaID: 3, VIN: "VIN3", DisplayName: "On"},
 	}}
 	now := time.Now()
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 1, CapturedAt: now, SentryMode: nil},
-		{TeslaID: 2, CapturedAt: now, SentryMode: boolPtr(false)},
-		{TeslaID: 3, CapturedAt: now, SentryMode: boolPtr(true)},
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 1, CapturedAt: &now, SentryMode: nil},
+		{TeslaID: 2, CapturedAt: &now, SentryMode: boolPtr(false)},
+		{TeslaID: 3, CapturedAt: &now, SentryMode: boolPtr(true)},
 	}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
 
 	if len(d.Vehicles) != 3 {
@@ -501,6 +519,46 @@ func TestVehiclesFor_SentryModeThreeStates(t *testing.T) {
 	}
 	if byName["On"] == nil || *byName["On"] != true {
 		t.Errorf("want SentryMode *true for 'On' vehicle, got %v", byName["On"])
+	}
+}
+
+// TestVehiclesFor_LockedThreeStates mirrors
+// TestVehiclesFor_SentryModeThreeStates immediately above, for the Locked
+// field's three-way nil/false/true state (tasks.md 5.6,
+// RM38-gateway-read-dashboard-from-metrics design.md D3): fragments.
+// Vehicle.Locked is now *bool, sourced verbatim from analytics.VehicleStatus.
+// Locked with no fabricated value on nil.
+func TestVehiclesFor_LockedThreeStates(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1, VIN: "VIN1", DisplayName: "Nil"},
+		{TeslaID: 2, VIN: "VIN2", DisplayName: "Unlocked"},
+		{TeslaID: 3, VIN: "VIN3", DisplayName: "Locked"},
+	}}
+	now := time.Now()
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 1, CapturedAt: &now, Locked: nil},
+		{TeslaID: 2, CapturedAt: &now, Locked: boolPtr(false)},
+		{TeslaID: 3, CapturedAt: &now, Locked: boolPtr(true)},
+	}}
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
+	d := h.vehiclesFor(context.Background(), uuid.New())
+
+	if len(d.Vehicles) != 3 {
+		t.Fatalf("want 3 vehicles, got %d", len(d.Vehicles))
+	}
+	byName := make(map[string]*bool)
+	for _, v := range d.Vehicles {
+		byName[v.DisplayName] = v.Locked
+	}
+
+	if byName["Nil"] != nil {
+		t.Errorf("want Locked nil for 'Nil' vehicle, got %v", byName["Nil"])
+	}
+	if byName["Unlocked"] == nil || *byName["Unlocked"] != false {
+		t.Errorf("want Locked *false for 'Unlocked' vehicle, got %v", byName["Unlocked"])
+	}
+	if byName["Locked"] == nil || *byName["Locked"] != true {
+		t.Errorf("want Locked *true for 'Locked' vehicle, got %v", byName["Locked"])
 	}
 }
 
@@ -554,8 +612,8 @@ func TestDashboardFor_TelemetryErrorIsUnavailable(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "Magus"},
 	}}
-	reader := &fakeReader{err: errors.New("db unavailable")}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	reader := &fakeAnalyticsReader{statusesErr: errors.New("db unavailable")}
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 
 	if !d.TelemetryUnavailable {
@@ -576,8 +634,8 @@ func TestDashboardFor_PlaceholderWhenNoSnapshot(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 7, VIN: "VIN7", DisplayName: "Ghost"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 
 	if d.HasSnapshot {
@@ -616,21 +674,23 @@ func TestDashboardFor_EnrichedBento(t *testing.T) {
 		// A second vehicle confirms selectedTeslaID selection, not just [0].
 		{TeslaID: 99, VIN: "VIN99", DisplayName: "Other"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
 		{
 			TeslaID:           42,
-			CapturedAt:        capturedAt,
+			CapturedAt:        &capturedAt,
 			BatteryLevelPct:   80,
-			BatteryRangeKm:    321.8688,       // already km — %.0f rounds → "322 km"
-			ChargingState:     "Disconnected", // → "Parked"
-			ChargeLimitSocPct: 80,
+			BatteryRangeKm:    321.8688,                  // already km — %.0f rounds → "322 km"
+			ChargingState:     ptrString("Disconnected"), // → "Parked"
+			ChargeLimitSocPct: ptrInt(80),
 			OdometerKm:        19312.128, // already km — formatKm rounds → "19,312 km"
-			InsideTempC:       22.0,
-			OutsideTempC:      15.0,
-			CarVersion:        "2024.32.5",
+			InsideTempC:       ptrF64(22.0),
+			OutsideTempC:      ptrF64(15.0),
+			CarVersion:        ptrString("2024.32.5"),
+			Locked:            boolPtr(true),
+			SentryMode:        boolPtr(false),
 		},
 	}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	// English ctx so the StatusLabel assertion below (a real per-language
 	// string, unlike SoftwareVer/ChargeLimit which are identical or not yet
 	// translated) keeps comparing against the pre-existing literal — mirrors
@@ -684,14 +744,21 @@ func TestDashboardFor_EnrichedBento(t *testing.T) {
 	if d.IsStale {
 		t.Errorf("want IsStale false for a 1h-old snapshot, got true")
 	}
+	if d.Locked == nil || !*d.Locked {
+		t.Errorf("want Locked *true, got %v", d.Locked)
+	}
+	if d.SentryMode == nil || *d.SentryMode {
+		t.Errorf("want SentryMode *false, got %v", d.SentryMode)
+	}
 }
 
 func TestDashboardFor_ChargingStatus(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{{TeslaID: 1, VIN: "V1", DisplayName: "ChargingCar"}}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 1, CapturedAt: time.Now(), ChargingState: "Charging"},
+	now := time.Now()
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 1, CapturedAt: &now, ChargingState: ptrString("Charging")},
 	}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	d := h.dashboardFor(ctx, uuid.New(), 0, startOfDay(time.Now()))
 	if d.StatusLabel != "Charging" {
@@ -702,10 +769,10 @@ func TestDashboardFor_ChargingStatus(t *testing.T) {
 func TestDashboardFor_StaleSnapshot(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{{TeslaID: 1, VIN: "V1", DisplayName: "StaleCar"}}}
 	past := time.Now().Add(-stalenessThreshold - time.Second)
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 1, CapturedAt: past, BatteryLevelPct: 50, OdometerKm: 1000.0, InsideTempC: 20},
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 1, CapturedAt: &past, BatteryLevelPct: 50, OdometerKm: 1000.0, InsideTempC: ptrF64(20)},
 	}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if !d.HasSnapshot || !d.IsStale {
 		t.Fatalf("want HasSnapshot + IsStale, got HasSnapshot=%v IsStale=%v", d.HasSnapshot, d.IsStale)
@@ -719,13 +786,144 @@ func TestDashboardFor_SelectsDefaultsToFirst(t *testing.T) {
 		{TeslaID: 5, VIN: "V5", DisplayName: "First"},
 		{TeslaID: 6, VIN: "V6", DisplayName: "Second"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 5, CapturedAt: time.Now(), BatteryLevelPct: 30, OdometerKm: 1, InsideTempC: 21},
+	now := time.Now()
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 5, CapturedAt: &now, BatteryLevelPct: 30, OdometerKm: 1, InsideTempC: ptrF64(21)},
 	}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if d.VehicleName != "First" {
 		t.Fatalf("want default to first vehicle, got %q", d.VehicleName)
+	}
+}
+
+// --- mapDashboardSnapshot Test Contract fixtures (tasks.md 5.2, design.md
+// "Test Contract") ---
+//
+// These two tests drive mapDashboardSnapshot DIRECTLY with the exact fixture
+// values design.md authored before this tier's implementation existed
+// (Fixture RM38-G-Full / RM38-G-Nil), asserting the exact expected-value
+// tables rather than whatever the code happens to produce.
+
+// fixtureRM38Now is the fixed "now" the Full/Nil fixtures' CapturedAt values
+// are computed relative to, so LastUpdated/IsStale are deterministic.
+var fixtureRM38Now = time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
+
+func TestMapDashboardSnapshot_FixtureFull(t *testing.T) {
+	capturedAt := fixtureRM38Now.Add(-2 * time.Hour) // well within both windows
+	fixture := analytics.VehicleStatus{
+		TeslaID:           1001,
+		BatteryLevelPct:   72,
+		BatteryRangeKm:    310.4,
+		OdometerKm:        18452.0,
+		InsideTempC:       ptrF64(21.5),
+		OutsideTempC:      ptrF64(9.0),
+		Locked:            boolPtr(true),
+		SentryMode:        boolPtr(true),
+		CarVersion:        ptrString("2026.20.4"),
+		ChargingState:     ptrString("Charging"),
+		ChargeLimitSocPct: ptrInt(80),
+		CapturedAt:        &capturedAt,
+	}
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	var vm fragments.DashboardData
+	mapDashboardSnapshot(ctx, &vm, fixture, fixtureRM38Now)
+
+	if !vm.HasSnapshot {
+		t.Errorf("want HasSnapshot true, got false")
+	}
+	if want := i18n.T(ctx, i18n.KeyDashboardStatusCharging); vm.StatusLabel != want {
+		t.Errorf("want StatusLabel %q, got %q", want, vm.StatusLabel)
+	}
+	if want := fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardStatusSoftwareVersion), "2026.20.4"); vm.SoftwareVer != want {
+		t.Errorf("want SoftwareVer %q, got %q", want, vm.SoftwareVer)
+	}
+	if want := capturedAt.UTC().Format("2006-01-02"); vm.LastUpdated != want {
+		t.Errorf("want LastUpdated %q, got %q", want, vm.LastUpdated)
+	}
+	if vm.IsStale {
+		t.Errorf("want IsStale false, got true")
+	}
+	if vm.Odometer != "18,452 km" {
+		t.Errorf("want Odometer %q, got %q", "18,452 km", vm.Odometer)
+	}
+	if vm.InsideTemp != "22 °C" {
+		t.Errorf("want InsideTemp %q, got %q", "22 °C", vm.InsideTemp)
+	}
+	if vm.OutsideTemp != "9 °C" {
+		t.Errorf("want OutsideTemp %q, got %q", "9 °C", vm.OutsideTemp)
+	}
+	if vm.Battery != "72%" {
+		t.Errorf("want Battery %q, got %q", "72%", vm.Battery)
+	}
+	if vm.BatteryPct != "72" {
+		t.Errorf("want BatteryPct %q, got %q", "72", vm.BatteryPct)
+	}
+	if vm.RangeNow != "310 km" {
+		t.Errorf("want RangeNow %q, got %q", "310 km", vm.RangeNow)
+	}
+	if want := fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardChargeLimit), 80); vm.ChargeLimit != want {
+		t.Errorf("want ChargeLimit %q, got %q", want, vm.ChargeLimit)
+	}
+	if vm.Locked == nil || !*vm.Locked {
+		t.Errorf("want Locked *true, got %v", vm.Locked)
+	}
+	if vm.SentryMode == nil || !*vm.SentryMode {
+		t.Errorf("want SentryMode *true, got %v", vm.SentryMode)
+	}
+}
+
+func TestMapDashboardSnapshot_FixtureNil(t *testing.T) {
+	fixture := analytics.VehicleStatus{
+		TeslaID:         1001,
+		BatteryLevelPct: 72,
+		BatteryRangeKm:  310.4,
+		OdometerKm:      18452.0,
+		// every pointer field left nil — a pre-migration vehicle_metrics row.
+	}
+	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
+	var vm fragments.DashboardData
+	mapDashboardSnapshot(ctx, &vm, fixture, fixtureRM38Now)
+
+	if !vm.HasSnapshot {
+		t.Errorf("want HasSnapshot true (the row exists), got false")
+	}
+	if want := i18n.T(ctx, i18n.KeyDashboardStatusParked); vm.StatusLabel != want {
+		t.Errorf("want StatusLabel %q (nil ChargingState collapses to Parked), got %q", want, vm.StatusLabel)
+	}
+	if vm.SoftwareVer != "" {
+		t.Errorf("want SoftwareVer empty (nil CarVersion), got %q", vm.SoftwareVer)
+	}
+	if vm.LastUpdated != "" {
+		t.Errorf("want LastUpdated empty (nil CapturedAt), got %q", vm.LastUpdated)
+	}
+	if vm.IsStale {
+		t.Errorf("want IsStale false (zero value, nil CapturedAt), got true")
+	}
+	if vm.InsideTemp != "—" {
+		t.Errorf("want InsideTemp %q, got %q", "—", vm.InsideTemp)
+	}
+	if vm.OutsideTemp != "—" {
+		t.Errorf("want OutsideTemp %q, got %q", "—", vm.OutsideTemp)
+	}
+	// Odometer/Battery/RangeNow are always non-pointer — unaffected by the nil fixture.
+	if vm.Odometer != "18,452 km" {
+		t.Errorf("want Odometer %q, got %q", "18,452 km", vm.Odometer)
+	}
+	if vm.Battery != "72%" {
+		t.Errorf("want Battery %q, got %q", "72%", vm.Battery)
+	}
+	if vm.RangeNow != "310 km" {
+		t.Errorf("want RangeNow %q, got %q", "310 km", vm.RangeNow)
+	}
+	if vm.ChargeLimit != "" {
+		t.Errorf("want ChargeLimit empty (nil ChargeLimitSocPct), got %q", vm.ChargeLimit)
+	}
+	if vm.Locked != nil {
+		t.Errorf("want Locked nil, got %v", vm.Locked)
+	}
+	if vm.SentryMode != nil {
+		t.Errorf("want SentryMode nil, got %v", vm.SentryMode)
 	}
 }
 
@@ -757,25 +955,69 @@ func TestFormatKm(t *testing.T) {
 	}
 }
 
+// ptrString returns a pointer to s -- a small test-local helper mirroring the
+// existing ptrInt/ptrTime helpers in this package (supercharger_test.go,
+// charges_tiles_test.go), added by RM38-gateway-read-dashboard-from-metrics for
+// the new *string fields on analytics.VehicleStatus.
+func ptrString(s string) *string { return &s }
+
 func TestDashStatus(t *testing.T) {
-	// dashStatus now takes an explicit ctx and resolves through the i18n catalogue
-	// (design.md D5, RM24-gateway-translate-all-pages) instead of returning a
-	// hardcoded literal, mirroring tier 2's T6.4 precedent (nav_test.go,
-	// nav_header_test.go): assert against i18n.T(ctx, key), not a literal string.
+	// dashStatus now takes a chargingState *string (design.md D2,
+	// RM38-gateway-read-dashboard-from-metrics), replacing the telemetry.Snapshot
+	// parameter -- nil collapses to Parked, identical to the pre-migration
+	// empty-string case (tasks.md 2.2). Still resolves through the i18n catalogue
+	// (design.md D5, RM24-gateway-translate-all-pages): assert against
+	// i18n.T(ctx, key), not a literal string.
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	for _, tc := range []struct {
-		charge string
+		name   string
+		charge *string
 		want   i18n.Key
 	}{
-		{"Charging", i18n.KeyDashboardStatusCharging},
-		{"Stopped", i18n.KeyDashboardStatusParked}, {"Disconnected", i18n.KeyDashboardStatusParked},
-		{"Complete", i18n.KeyDashboardStatusParked}, {"", i18n.KeyDashboardStatusParked},
+		{"nil", nil, i18n.KeyDashboardStatusParked},
+		{"Charging", ptrString("Charging"), i18n.KeyDashboardStatusCharging},
+		{"Stopped", ptrString("Stopped"), i18n.KeyDashboardStatusParked},
+		{"Disconnected", ptrString("Disconnected"), i18n.KeyDashboardStatusParked},
+		{"Complete", ptrString("Complete"), i18n.KeyDashboardStatusParked},
+		{"empty string", ptrString(""), i18n.KeyDashboardStatusParked},
 	} {
-		s := telemetry.Snapshot{ChargingState: tc.charge}
 		want := i18n.T(ctx, tc.want)
-		if got := dashStatus(ctx, s); got != want {
-			t.Errorf("dashStatus(ChargingState=%q) = %q, want %q", tc.charge, got, want)
+		if got := dashStatus(ctx, tc.charge); got != want {
+			t.Errorf("dashStatus(%s) = %q, want %q", tc.name, got, want)
 		}
+	}
+}
+
+// TestMergeVehicleStatuses covers mergeVehicleStatuses, the RM38 rename+retype of
+// mergeSnapshots (design.md D6, tasks.md 2.3). No prior unit test exercised
+// mergeSnapshots directly (confirmed by search before writing this test), so this
+// is a new test rather than a literal rename -- it asserts the same two
+// properties the Test Contract calls for: a nil/empty slice produces an empty
+// map, and a populated slice is indexed for O(1) lookup by TeslaID.
+func TestMergeVehicleStatuses(t *testing.T) {
+	if got := mergeVehicleStatuses(nil); len(got) != 0 {
+		t.Fatalf("mergeVehicleStatuses(nil) = %v, want empty map", got)
+	}
+	if got := mergeVehicleStatuses([]analytics.VehicleStatus{}); len(got) != 0 {
+		t.Fatalf("mergeVehicleStatuses(empty slice) = %v, want empty map", got)
+	}
+
+	statuses := []analytics.VehicleStatus{
+		{TeslaID: 1001, BatteryLevelPct: 72},
+		{TeslaID: 2002, BatteryLevelPct: 40},
+	}
+	got := mergeVehicleStatuses(statuses)
+	if len(got) != 2 {
+		t.Fatalf("mergeVehicleStatuses(len=2 slice) = %d entries, want 2", len(got))
+	}
+	if got[1001].BatteryLevelPct != 72 {
+		t.Errorf("mergeVehicleStatuses[1001].BatteryLevelPct = %d, want 72", got[1001].BatteryLevelPct)
+	}
+	if got[2002].BatteryLevelPct != 40 {
+		t.Errorf("mergeVehicleStatuses[2002].BatteryLevelPct = %d, want 40", got[2002].BatteryLevelPct)
+	}
+	if _, ok := got[9999]; ok {
+		t.Errorf("mergeVehicleStatuses lookup for an absent TeslaID unexpectedly found an entry")
 	}
 }
 
@@ -834,10 +1076,13 @@ func TestSeedAccessTypeMapping_Empty(t *testing.T) {
 // cases purely (no HTTP, no session), mirroring the vehiclesFor tests above. The
 // fragment route's anonymous -> /login redirect is covered in gateway_test.go.
 
-// newNavHeaderHandler builds a Handler wired with account + telemetry fakes for
+// newNavHeaderHandler builds a Handler wired with account + analytics fakes for
 // the nav-header helper tests (Tesla is never reached by navHeaderFor).
-func newNavHeaderHandler(acct account.Service, reader telemetry.Reader) *Handler {
-	return newHandlerWithReader(acct, fakeTesla{}, reader)
+// Retyped from telemetry.Reader to analytics.Reader
+// (RM38-gateway-read-dashboard-from-metrics, design.md D8): navHeaderFor now
+// reads h.analyticsReader.LatestMetricsByAccount.
+func newNavHeaderHandler(acct account.Service, reader analytics.Reader) *Handler {
+	return newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 }
 
 func TestNavHeaderFor_Connected(t *testing.T) {
@@ -845,8 +1090,9 @@ func TestNavHeaderFor_Connected(t *testing.T) {
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
 	// 1 h old — well within the 48 h window.
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevelPct: 94},
+	capturedAt := time.Now().Add(-1 * time.Hour)
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 42, CapturedAt: &capturedAt, BatteryLevelPct: 94},
 	}}
 	h := newNavHeaderHandler(acct, reader)
 	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
@@ -873,8 +1119,9 @@ func TestNavHeaderFor_Asleep(t *testing.T) {
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
 	// 3 days old — past the 48 h window -> asleep.
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 42, CapturedAt: time.Now().Add(-72 * time.Hour), BatteryLevelPct: 50},
+	capturedAt := time.Now().Add(-72 * time.Hour)
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 42, CapturedAt: &capturedAt, BatteryLevelPct: 50},
 	}}
 	h := newNavHeaderHandler(acct, reader)
 	// English ctx so the "days ago" substring assertion below keeps comparing
@@ -906,8 +1153,8 @@ func TestNavHeaderFor_Awaiting(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
-	// Reader returns an empty slice — no snapshot for the primary vehicle.
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	// Reader returns an empty slice — no status for the primary vehicle.
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newNavHeaderHandler(acct, reader)
 	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
 
@@ -928,7 +1175,7 @@ func TestNavHeaderFor_Awaiting(t *testing.T) {
 func TestNavHeaderFor_NeedsConnect(t *testing.T) {
 	// No registered vehicles -> NeedsConnect state (connect link, no dot/name).
 	acct := &fakeAccount{registered: nil}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newNavHeaderHandler(acct, reader)
 	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
 
@@ -949,7 +1196,7 @@ func TestNavHeaderFor_NeedsConnect(t *testing.T) {
 func TestNavHeaderFor_AccountError(t *testing.T) {
 	// RegisteredVehicles errors -> degraded Unavailable, no name.
 	acct := &fakeAccount{regErr: errFake}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newNavHeaderHandler(acct, reader)
 	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
 
@@ -964,23 +1211,57 @@ func TestNavHeaderFor_AccountError(t *testing.T) {
 	}
 }
 
-func TestNavHeaderFor_TelemetryReaderError(t *testing.T) {
+// TestNavHeaderFor_AnalyticsReaderError retypes the pre-existing telemetry-error
+// test (formerly TestNavHeaderFor_TelemetryReaderError) to
+// analytics.Reader/fakeAnalyticsReader (RM38-gateway-read-dashboard-from-metrics
+// design.md D8) — same scenario, new source.
+func TestNavHeaderFor_AnalyticsReaderError(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
-	reader := &fakeReader{err: errFake}
+	reader := &fakeAnalyticsReader{statusesErr: errFake}
 	h := newNavHeaderHandler(acct, reader)
 	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
 
 	// Name preserved (account read ok), status degraded, no battery.
 	if vm.VehicleName != "Magus" {
-		t.Errorf("want VehicleName preserved on telemetry error, got %q", vm.VehicleName)
+		t.Errorf("want VehicleName preserved on analytics reader error, got %q", vm.VehicleName)
 	}
 	if vm.Status != "unavailable" {
-		t.Errorf("want Status unavailable on telemetry error, got %q", vm.Status)
+		t.Errorf("want Status unavailable on analytics reader error, got %q", vm.Status)
 	}
 	if vm.BatteryPct != "" {
-		t.Errorf("want no BatteryPct on telemetry error, got %q", vm.BatteryPct)
+		t.Errorf("want no BatteryPct on analytics reader error, got %q", vm.BatteryPct)
+	}
+}
+
+// TestNavHeaderFor_NilCapturedAtForcesAsleep is the regression test for
+// roadmap D9 / design.md D8 ("never Connected on a nil CapturedAt"): a
+// vehicle_metrics row that predates the RM38 migration has no CapturedAt to
+// prove connectivity with, so navHeaderFor must report Asleep with no
+// last-seen label — never Connected, and never a battery percentage (tasks.md
+// 5.4, design.md Fixture RM38-G-Nil).
+func TestNavHeaderFor_NilCapturedAtForcesAsleep(t *testing.T) {
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+	}}
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 1001, BatteryLevelPct: 72, CapturedAt: nil},
+	}}
+	h := newNavHeaderHandler(acct, reader)
+	vm := h.navHeaderFor(context.Background(), uuid.New(), 0)
+
+	if vm.Status != fragments.NavStatusAsleep {
+		t.Errorf("want Status %q for nil CapturedAt, got %q", fragments.NavStatusAsleep, vm.Status)
+	}
+	if vm.LastSeenLabel != "" {
+		t.Errorf("want empty LastSeenLabel for nil CapturedAt, got %q", vm.LastSeenLabel)
+	}
+	if vm.BatteryPct != "" {
+		t.Errorf("want empty BatteryPct for the Asleep branch, got %q", vm.BatteryPct)
+	}
+	if vm.VehicleName != "Magus" {
+		t.Errorf("want VehicleName preserved, got %q", vm.VehicleName)
 	}
 }
 
@@ -1011,8 +1292,9 @@ func TestNavHeaderFragment_ConnectedHTTP(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 42, CapturedAt: time.Now().Add(-1 * time.Hour), BatteryLevelPct: 94},
+	navCapturedAt := time.Now().Add(-1 * time.Hour)
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 42, CapturedAt: &navCapturedAt, BatteryLevelPct: 94},
 	}}
 	h := newNavHeaderHandler(acct, reader)
 	eng := navHeaderEngine(h, uid)
@@ -1072,7 +1354,7 @@ func TestVehicleSelectFragment_MultiVehicleRendersSelect(t *testing.T) {
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
 		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newNavHeaderHandler(acct, reader)
 	eng := vehicleSelectEngine(h, uid)
 	cookie := sessionCookie(eng, uid, "")
@@ -1117,7 +1399,7 @@ func TestVehicleSelectFragment_SingleVehicleRendersEmptyPlaceholder(t *testing.T
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 42, VIN: "VIN42", DisplayName: "Magus"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newNavHeaderHandler(acct, reader)
 	eng := vehicleSelectEngine(h, uid)
 	cookie := sessionCookie(eng, uid, "")
@@ -1187,10 +1469,11 @@ func TestDashboardFragment_RendersSelectedVehicle(t *testing.T) {
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
 		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 2, CapturedAt: time.Now().Add(-time.Hour), BatteryLevelPct: 77, OdometerKm: 1000, InsideTempC: 20},
+	dashCapturedAt := time.Now().Add(-time.Hour)
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 2, CapturedAt: &dashCapturedAt, BatteryLevelPct: 77, OdometerKm: 1000, InsideTempC: ptrF64(20)},
 	}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	eng := dashboardEngine(h, uid, 2, "VIN2", "")
 	c := sessionCookie(eng, uid, "")
 
@@ -1219,6 +1502,103 @@ func TestDashboardFragment_RendersSelectedVehicle(t *testing.T) {
 	}
 	if strings.Contains(body, `id="dashboard-content"`) {
 		t.Errorf("dashboard fragment is the innerHTML of #dashboard-content; it must not re-emit the wrapper")
+	}
+}
+
+// --- dashboard header badges (Locked/Sentry/Stale) httptest (tasks.md 5.3) ---
+//
+// These confirm dashLockedBadge/dashSentryBadge (1.1, unit-tested in isolation
+// by templates/pages/dashboard_test.go's badge-matrix test) are actually wired
+// into dashboard.templ's header row. No LanguageMiddleware runs in
+// dashboardEngine, so i18n.T resolves to its Spanish default
+// (i18n.FromContext) — assertions use the catalogue's ES strings.
+func dashboardBadgeEngine(t *testing.T, statuses []analytics.VehicleStatus) string {
+	t.Helper()
+	uid := uuid.New()
+	acct := &fakeAccount{registered: []account.Vehicle{
+		{TeslaID: 1001, VIN: "VIN1001", DisplayName: "Magus"},
+	}}
+	reader := &fakeAnalyticsReader{statuses: statuses}
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
+	eng := dashboardEngine(h, uid, 1001, "VIN1001", "")
+	c := sessionCookie(eng, uid, "")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/ui/dashboard", nil)
+	if c != nil {
+		req.AddCookie(c)
+	}
+	eng.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 for dashboard fragment, got %d", w.Code)
+	}
+	return w.Body.String()
+}
+
+// TestDashboardFragment_BadgesFixtureFull asserts Fixture RM38-G-Full's Locked
+// and Sentry badges both render with the correct text and DaisyUI kind class,
+// and that the unrelated [Stale] badge does not (the fixture's CapturedAt is
+// fresh).
+func TestDashboardFragment_BadgesFixtureFull(t *testing.T) {
+	capturedAt := time.Now().Add(-2 * time.Hour)
+	body := dashboardBadgeEngine(t, []analytics.VehicleStatus{
+		{
+			TeslaID:         1001,
+			BatteryLevelPct: 72,
+			BatteryRangeKm:  310.4,
+			OdometerKm:      18452.0,
+			CapturedAt:      &capturedAt,
+			Locked:          boolPtr(true),
+			SentryMode:      boolPtr(true),
+		},
+	})
+	if !strings.Contains(body, "badge-success") || !strings.Contains(body, "Bloqueado") {
+		t.Errorf("want the Locked badge (badge-success / \"Bloqueado\") in body:\n%s", body)
+	}
+	if !strings.Contains(body, "badge-warning") || !strings.Contains(body, "Centinela: Encendido") {
+		t.Errorf("want the Sentry badge (badge-warning / \"Centinela: Encendido\") in body:\n%s", body)
+	}
+	if strings.Contains(body, "Desactualizado") {
+		t.Errorf("want no [Stale] badge for a fresh CapturedAt, got:\n%s", body)
+	}
+}
+
+// TestDashboardFragment_BadgesFixtureNil asserts Fixture RM38-G-Nil's header
+// shows NEITHER badge and no [Stale] badge (IsStale is false, not merely
+// unset — a nil CapturedAt must never render [Stale]).
+func TestDashboardFragment_BadgesFixtureNil(t *testing.T) {
+	body := dashboardBadgeEngine(t, []analytics.VehicleStatus{
+		{TeslaID: 1001, BatteryLevelPct: 72, BatteryRangeKm: 310.4, OdometerKm: 18452.0},
+	})
+	for _, absent := range []string{"Bloqueado", "Desbloqueado", "Centinela:", "Desactualizado", "Última actualización"} {
+		if strings.Contains(body, absent) {
+			t.Errorf("want no %q in the header for Fixture Nil, got:\n%s", absent, body)
+		}
+	}
+}
+
+// TestDashboardFragment_BadgesMixedLockedOnlySentryNil confirms one Locked
+// badge renders alone when SentryMode is nil (badge matrix row Locked=*true/
+// SentryMode=nil) — proving the two helpers are independently wired, not
+// coupled.
+func TestDashboardFragment_BadgesMixedLockedOnlySentryNil(t *testing.T) {
+	capturedAt := time.Now().Add(-2 * time.Hour)
+	body := dashboardBadgeEngine(t, []analytics.VehicleStatus{
+		{
+			TeslaID:         1001,
+			BatteryLevelPct: 72,
+			BatteryRangeKm:  310.4,
+			OdometerKm:      18452.0,
+			CapturedAt:      &capturedAt,
+			Locked:          boolPtr(true),
+			SentryMode:      nil,
+		},
+	})
+	if !strings.Contains(body, "badge-success") || !strings.Contains(body, "Bloqueado") {
+		t.Errorf("want the Locked badge in body:\n%s", body)
+	}
+	if strings.Contains(body, "Centinela:") {
+		t.Errorf("want no Sentry badge when SentryMode is nil, got:\n%s", body)
 	}
 }
 

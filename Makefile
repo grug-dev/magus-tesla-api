@@ -70,7 +70,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard tidy build vet test check bins \
+        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
@@ -540,7 +540,54 @@ migration-guard: ## Fail if two modules' migrations share a version number (they
 	fi
 	@echo "migration-guard: no duplicate version numbers across $(words $(MIGRATIONS_DIRS)) module dirs"
 
-check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + migration-guard + test
+# boundary-guard mirrors money-guard's grep-based shape and escape-hatch convention.
+# It enforces ONE rule: internal/gateway/ must not depend on internal/telemetry at
+# all — not even through the telemetry.Reader port. The gateway reaches vehicle
+# telemetry through another module's interface instead; it never names the telemetry
+# package itself.
+#
+# This is STRICTER than the older "cross-module data flows through public interfaces"
+# rule, which permitted gateway -> telemetry.Reader. See ai/architecture.md
+# §"The Reader/Collector port split" for the current rule and the migration status.
+#
+# The guard fails on non-test files (a real compile-time dependency of the gateway
+# package on telemetry) and separately WARNS on _test.go files, mirroring
+# migration-guard's warn/fail split: a fake in a test is the same dependency, but it
+# is mechanical to remove and should not block the production fix.
+#
+# Escape hatch: a trailing `// boundary:allow: <reason>` comment on the same line as
+# the import. Never widen the pattern to silence a true positive.
+boundary-guard: ## Fail if internal/gateway/ imports internal/telemetry (escape hatch: // boundary:allow: <reason>)
+	@testhits=$$(grep -rn '"github.com/cristianpena/magus-tesla-api/internal/telemetry"' \
+		internal/gateway --include='*_test.go' \
+		| grep -v 'boundary:allow' || true); \
+	if [ -n "$$testhits" ]; then \
+		echo "$$testhits"; \
+		echo ""; \
+		echo "WARNING: the gateway test files above still import internal/telemetry."; \
+		echo "Not fatal yet — replace the telemetry-typed fakes when the production"; \
+		echo "imports are removed. Tracked with the production migration."; \
+		echo ""; \
+	fi
+	@if grep -rn '"github.com/cristianpena/magus-tesla-api/internal/telemetry"' \
+		internal/gateway --include='*.go' \
+		| grep -v '_test\.go:' \
+		| grep -v 'boundary:allow'; then \
+		echo ""; \
+		echo "ERROR: internal/gateway/ imports internal/telemetry above."; \
+		echo "The gateway must not depend on the telemetry module — not even on its"; \
+		echo "Reader port. Obtain vehicle telemetry through the interface the gateway"; \
+		echo "is allowed to call, and keep telemetry.* types out of gateway code."; \
+		echo "See ai/architecture.md \"The Reader/Collector port split\"."; \
+		echo "Genuinely unavoidable (false positive)? Mark it with // boundary:allow: <reason>"; \
+		echo "as a trailing comment on the same line. Never weaken this pattern to silence"; \
+		echo "a true positive."; \
+		exit 1; \
+	else \
+		echo "boundary-guard: internal/gateway/ does not import internal/telemetry"; \
+	fi
+
+check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard boundary-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + tz-guard + migration-guard + boundary-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin

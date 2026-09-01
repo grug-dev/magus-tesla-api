@@ -27,7 +27,9 @@ type Vehicle struct {
 	Odometer     string // e.g. "19312.1 km"
 	InsideTemp   string // e.g. "22.5 °C"
 	OutsideTemp  string // e.g. "15.0 °C"
-	Locked       bool
+	// Locked is a three-state pointer: nil = not reported, *false = unlocked, *true = locked
+	// (RM38-gateway-read-dashboard-from-metrics, design.md D3 — was bool).
+	Locked *bool
 	// SentryMode is a three-state pointer: nil = not reported, *false = off, *true = on.
 	SentryMode  *bool
 	LastUpdated string // pre-formatted by the handler, e.g. "2006-01-02 15:04 UTC"
@@ -61,7 +63,9 @@ templ VehiclesList(d VehiclesData) {
 								<li>{ i18n.T(ctx, i18n.KeyVehiclesOdometerLabel) } { v.Odometer }</li>
 								<li>{ i18n.T(ctx, i18n.KeyVehiclesInsideLabel) } { v.InsideTemp } / { i18n.T(ctx, i18n.KeyVehiclesOutsideLabel) } { v.OutsideTemp }</li>
 								<li>
-									if v.Locked {
+									if v.Locked == nil {
+										{ i18n.T(ctx, i18n.KeyVehiclesNotReported) }
+									} else if *v.Locked {
 										{ i18n.T(ctx, i18n.KeyVehiclesLocked) }
 									} else {
 										{ i18n.T(ctx, i18n.KeyVehiclesUnlocked) }

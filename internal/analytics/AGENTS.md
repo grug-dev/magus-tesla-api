@@ -83,6 +83,25 @@ interface-first):
   an `IS NOT NULL` filter in the SQL rather than a zero comparison. Added by
   `RM29-analytics-add-vehicle-metrics` so the gateway stops deriving distance from
   snapshots itself (roadmap D5).
+- `Reader` — `LatestMetricsByAccount(ctx, accountID) ([]VehicleStatus, error)`: the latest
+  precomputed `vehicle_metrics` row per vehicle for an account — the analytics-owned
+  equivalent of `telemetry.Reader.LatestSnapshotsByAccount`, never `telemetry.Snapshot`
+  itself (`ai/architecture.md` §6). "Latest" means the row with the greatest
+  `metric_date` for that `(account_id, tesla_id)`, via a
+  `DISTINCT ON (tesla_id) ... ORDER BY tesla_id, metric_date DESC` query
+  (`LatestVehicleMetricsByAccount`). Empty account → an empty (non-nil) slice, nil error,
+  same contract as `LatestSnapshotsByAccount`; order of the returned slice is
+  unspecified. Added by `RM38-analytics-add-vehicle-status-columns` (MAG-12 tier 1) so
+  a future gateway call site (tier 2) can read a vehicle's full dashboard status from
+  this module instead of `internal/telemetry`. `VehicleStatus` is the returned domain
+  type: `TeslaID`, `BatteryLevelPct`, `BatteryRangeKm`, `OdometerKm` (never nil — the
+  three pre-existing raw observations) plus `InsideTempC`, `OutsideTempC`, `Locked`,
+  `SentryMode`, `CarVersion`, `ChargingState`, `ChargeLimitSocPct`, `CapturedAt` (all
+  pointer-typed — nil means "no value", never a fabricated default; see "Data ownership"
+  below for what nil means on each). Full rationale, the coverage check against every
+  field a future gateway call site needs, and the rejected "return `telemetry.Snapshot`
+  directly" alternative: `openspec/changes/RM38-analytics-add-vehicle-status-columns/design.md`
+  D4/D5/D6.
 - `Recalculator` — `Recalculate(ctx, accountID, teslaID, start, end) error`: recomputes
   and UPSERTs the `vehicle_metrics` rows for `[start, end]` from the three source ports.
   Idempotent by design — re-running over the same unchanged sources produces the same
@@ -225,6 +244,20 @@ here was "None"; it is no longer.
   with its `_calc` columns and `consumed_pct` NULL and `flagged` an explicit `false`
   (`design.md` D9/D10). That is why both `Reader` queries filter `IS NOT NULL` rather
   than trusting a zero.
+  - **Eight more columns** (`locked`, `sentry_mode`, `car_version`, `inside_temp_c`,
+    `outside_temp_c`, `charging_state`, `charge_limit_soc_pct`, `captured_at`), added by
+    `RM38-analytics-add-vehicle-status-columns` (MAG-12 tier 1). All eight are copied
+    verbatim from the day's own `telemetry.Snapshot` and — unlike the five `_calc`
+    columns above — are always populated regardless of whether that day has a
+    computable predecessor. **All eight are nullable, and no backfill was run**
+    (roadmap D2): every row that existed before this migration keeps all eight NULL
+    forever, self-healing only on that vehicle's next `Reconcile`. `sentry_mode`'s NULL
+    is **ambiguous** — it can mean either "the vehicle did not report sentry" or
+    "this row predates the migration" — where every other column's NULL means only the
+    latter; do not attempt to disambiguate it here without first reading
+    `openspec/changes/RM38-analytics-add-vehicle-status-columns/design.md` D2/D3/D8,
+    which also documents the `captured_at`-as-proxy disambiguation a future consumer
+    can use.
 - `vehicle_metric_watermarks` — one recompute cursor per `(account_id, tesla_id,
   source)`, three sources. Drives `Reconcile`'s incremental pass; no row means "epoch",
   i.e. backfill the vehicle's full history (`design.md` D7).
@@ -323,6 +356,10 @@ DB-backed (`testdb_test.go` + `db_integration_test.go`):
   does exist and is the right tool.
 - These tests **self-skip** when no Postgres is reachable and no Docker daemon can
   provision one; the offline tests above must still run and pass in that state.
+- `RM38-analytics-add-vehicle-status-columns` (MAG-12 tier 1) added `consumed_test.go`'s
+  offline Fixture RM38-A/RM38-B cases and `db_integration_test.go`'s DB-backed
+  Fixture RM38-A/RM38-B `Recalculate` cases plus four `LatestMetricsByAccount` cases
+  (single vehicle, two vehicles' own latest days, a pre-migration row, an empty account).
 - `db_gap_writer_integration_test.go`'s 7 tests (`GapWriter.ReconcileWindow` —
   idempotent upsert, delete-on-resolve, empty-flagged-set clear, tenant isolation,
   mis-scoped-entry rejection, outside-window non-interference, per-vehicle

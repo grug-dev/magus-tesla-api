@@ -24,6 +24,8 @@
 | `calculated fields` | synonym of `calc fields` | entity | `entities/vehicle-metrics/guide.md` |
 | `metrics reconciliation` | `Recalculator.Reconcile` / `vehicle_metric_watermarks` | entity | `entities/vehicle-metrics/guide.md` |
 | `watermark source` | `vehicle_metric_watermarks.source` (`vehicle_snapshots` / `charge_sessions` / `manual_charge_entries`) | entity | `entities/vehicle-metrics/guide.md` |
+| `vehicle status` | the eight raw status observations on `vehicle_metrics`, read via `analytics.Reader.LatestMetricsByAccount` → `analytics.VehicleStatus` (RM38) | entity | `entities/vehicle-metrics/guide.md` |
+| `latest vehicle status` | `analytics.Reader.LatestMetricsByAccount` / `LatestVehicleMetricsByAccount` (`DISTINCT ON (tesla_id)` over `vehicle_metrics`) | entity | `entities/vehicle-metrics/guide.md` |
 | `session inferred capacity` | `charging.Session.InferredCapacityKWhCalc` / `charge_sessions.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/supercharger-stats-read.md` |
 | `derived start battery` | `charging.SessionVerifier.VerifySession` derivation (`start_battery_pct` computed from `energy_kwh` + end %) | entity | `use-case/charging/verify-session-battery.md` |
 | `calculated start battery` | synonym of `derived start battery` | entity | `use-case/charging/verify-session-battery.md` |
@@ -43,6 +45,12 @@
 | `charges page` | `/charges` | `charging` | `input-port/charging/charges.md` |
 | `Supercharger Stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
 | `fast charging stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
+| `Dashboard page` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `dashboard` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Tablero` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Vehicle Status panel` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Estado del vehículo` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `dashboard history charts` | `/ui/dashboard/history` | `gateway` | `input-port/gateway/dashboard.md` |
 
 ## Use cases
 
@@ -52,6 +60,11 @@
 | `update manual charge` | `PUT /ui/charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
 | `delete a manual charge record` | `DELETE /ui/charges/row/:id` | `charging` | `use-case/charging/delete-manual-charge.md` |
 | `edit a Supercharger session` | `PATCH /ui/supercharger-stats/row/:id` | `charging` | `use-case/charging/verify-session-battery.md` |
+| `read dashboard bento` | `GET /dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |
+| `render the dashboard` | `GET /dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |
+| `dashboard vehicle status` | `GET /ui/dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |
+| `read dashboard history charts` | `GET /ui/dashboard/history` | `gateway` | `use-case/gateway/read-dashboard-history.md` |
+| `dashboard charts` | `GET /ui/dashboard/history` | `gateway` | `use-case/gateway/read-dashboard-history.md` |
 
 ## Workflows
 

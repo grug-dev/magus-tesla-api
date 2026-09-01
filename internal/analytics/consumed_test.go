@@ -69,6 +69,11 @@ func mustFloat(t *testing.T, v *float64) float64 {
 	return *v
 }
 
+// boolPtr returns a pointer to v -- this package's *bool fixture builder,
+// mirroring intPtr (derive_test.go) for the RM38-analytics-add-vehicle-status-columns
+// tests below, which need to set telemetry.Snapshot.SentryMode (*bool).
+func boolPtr(v bool) *bool { return &v }
+
 // TestDeriveVehicleMetrics_SingleSessionSingleDay_MatchesRoadmapExample covers
 // design.md Test Contract (a) -- the roadmap's own verified worked example: one
 // Supercharger session inside a single day's window, expect ConsumedPct = 11.
@@ -870,5 +875,200 @@ func TestDeriveVehicleMetrics_FixtureD2_ChargeInsideTheGap(t *testing.T) {
 	}
 	if entry.DaysSpannedCalc == nil || *entry.DaysSpannedCalc != 7 {
 		t.Errorf("DaysSpannedCalc: want 7, got %v", entry.DaysSpannedCalc)
+	}
+}
+
+// --- RM38-analytics-add-vehicle-status-columns (task 4.1) -- Fixtures RM38-A
+// and RM38-B, design.md's Test Contract. Both extend Fixture A/C's shape
+// exactly (same accountID/teslaID convention, same predecessor/current day
+// pair, teslaID 42) per design.md's own instruction, rather than inventing
+// new fixtures. Expected values are copied verbatim from design.md's Test
+// Contract tables, never derived by reading consumed.go.
+
+// TestDeriveVehicleMetrics_FixtureRM38A_StatusColumnsPopulated covers
+// design.md's Test Contract Fixture RM38-A -- a normal day, predecessor
+// exists, all eight new status columns populated from cur's own snapshot.
+// prev is deliberately given the OPPOSITE value on every one of the eight
+// fields so a leak from prev instead of cur would be caught by the dedicated
+// negative assertion at the end (design D3: "copy from cur, never prev").
+func TestDeriveVehicleMetrics_FixtureRM38A_StatusColumnsPopulated(t *testing.T) {
+	accountID := uuid.New()
+	const teslaID = int64(42)
+
+	prevDay := day(2026, 8, 10)
+	curDay := day(2026, 8, 11)
+
+	prev := telemetry.Snapshot{
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        time.Date(2026, 8, 10, 3, 30, 0, 0, time.UTC),
+		CapturedDate:      prevDay,
+		OdometerKm:        1000.0,
+		BatteryLevelPct:   80,
+		BatteryRangeKm:    300.0,
+		Locked:            false,
+		SentryMode:        boolPtr(true),
+		CarVersion:        "2026.20.1",
+		InsideTempC:       10.0,
+		OutsideTempC:      5.0,
+		ChargingState:     "Charging",
+		ChargeLimitSocPct: 100,
+	}
+	cur := telemetry.Snapshot{
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC),
+		CapturedDate:      curDay,
+		OdometerKm:        1050.0,
+		BatteryLevelPct:   65,
+		BatteryRangeKm:    280.0,
+		Locked:            true,
+		SentryMode:        boolPtr(false),
+		CarVersion:        "2026.28.4",
+		InsideTempC:       21.5,
+		OutsideTempC:      18.0,
+		ChargingState:     "Disconnected",
+		ChargeLimitSocPct: 80,
+	}
+
+	start := day(2026, 8, 10)
+	end := day(2026, 8, 10)
+
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{prev, cur}, nil, nil, start, end)
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry, got %d: %+v", len(got), got)
+	}
+	entry := got[0]
+
+	if entry.Locked == nil || *entry.Locked != true {
+		t.Errorf("Locked: want true, got %v", entry.Locked)
+	}
+	if entry.SentryMode == nil || *entry.SentryMode != false {
+		t.Errorf("SentryMode: want false (not NULL -- a real reported value), got %v", entry.SentryMode)
+	}
+	if entry.CarVersion == nil || *entry.CarVersion != "2026.28.4" {
+		t.Errorf("CarVersion: want 2026.28.4, got %v", entry.CarVersion)
+	}
+	if entry.InsideTempC == nil || !approxEqual(*entry.InsideTempC, 21.5) {
+		t.Errorf("InsideTempC: want 21.5, got %v", entry.InsideTempC)
+	}
+	if entry.OutsideTempC == nil || !approxEqual(*entry.OutsideTempC, 18.0) {
+		t.Errorf("OutsideTempC: want 18.0, got %v", entry.OutsideTempC)
+	}
+	if entry.ChargingState == nil || *entry.ChargingState != "Disconnected" {
+		t.Errorf("ChargingState: want Disconnected, got %v", entry.ChargingState)
+	}
+	if entry.ChargeLimitSocPct == nil || *entry.ChargeLimitSocPct != 80 {
+		t.Errorf("ChargeLimitSocPct: want 80, got %v", entry.ChargeLimitSocPct)
+	}
+	wantCapturedAt := time.Date(2026, 8, 11, 3, 31, 0, 0, time.UTC)
+	if entry.CapturedAt == nil || !entry.CapturedAt.Equal(wantCapturedAt) {
+		t.Errorf("CapturedAt: want %v, got %v", wantCapturedAt, entry.CapturedAt)
+	}
+
+	// Regression guard for design D3: the eight new columns must come from
+	// cur, never prev -- prev is deliberately the opposite of cur on every
+	// field above, so any leak surfaces here.
+	if entry.Locked != nil && *entry.Locked == prev.Locked {
+		t.Error("Locked equals prev's value -- the eight new columns must copy from cur only (design D3)")
+	}
+	if entry.CarVersion != nil && *entry.CarVersion == prev.CarVersion {
+		t.Error("CarVersion equals prev's value -- the eight new columns must copy from cur only (design D3)")
+	}
+}
+
+// TestDeriveVehicleMetrics_FixtureRM38B_StatusColumnsPopulatedWithoutPredecessor
+// covers design.md's Test Contract Fixture RM38-B -- a vehicle's first-ever
+// snapshot (no predecessor at all, extending Fixture C's shape). This is the
+// test that would FAIL if a future edit folded the eight new fields into the
+// five _calc columns' nil-on-no-predecessor branch (design D3's own stated
+// regression risk): it asserts the eight new fields are non-nil on the SAME
+// row where the five _calc columns/ConsumedPct are nil and Flagged is false.
+func TestDeriveVehicleMetrics_FixtureRM38B_StatusColumnsPopulatedWithoutPredecessor(t *testing.T) {
+	accountID := uuid.New()
+	const teslaID = int64(42)
+
+	cur := telemetry.Snapshot{
+		AccountID:         accountID,
+		TeslaID:           teslaID,
+		CapturedAt:        time.Date(2026, 8, 5, 3, 30, 15, 0, time.UTC),
+		CapturedDate:      day(2026, 8, 5),
+		OdometerKm:        500.0,
+		BatteryLevelPct:   90,
+		BatteryRangeKm:    320.0,
+		Locked:            false,
+		SentryMode:        nil, // the vehicle genuinely did not report sentry this capture (design D2/D8)
+		CarVersion:        "2026.28.4",
+		InsideTempC:       19.0,
+		OutsideTempC:      14.0,
+		ChargingState:     "Charging",
+		ChargeLimitSocPct: 90,
+	}
+
+	start := day(2026, 8, 4)
+	end := day(2026, 8, 4)
+
+	got := deriveVehicleMetrics(nil, []telemetry.Snapshot{cur}, nil, nil, start, end)
+	if len(got) != 1 {
+		t.Fatalf("want exactly 1 entry (dense table -- a row is written even with no predecessor, design.md D9), got %d: %+v", len(got), got)
+	}
+	entry := got[0]
+
+	// The eight new columns: populated even though this row has no predecessor.
+	if entry.Locked == nil || *entry.Locked != false {
+		t.Errorf("Locked: want false (NOT NULL -- populated even on a predecessor-less row, design D3), got %v", entry.Locked)
+	}
+	if entry.SentryMode != nil {
+		t.Errorf("SentryMode: want nil (the vehicle genuinely did not report sentry -- design D2/D8's 'not reported' reading), got %v", *entry.SentryMode)
+	}
+	if entry.CarVersion == nil || *entry.CarVersion != "2026.28.4" {
+		t.Errorf("CarVersion: want 2026.28.4, got %v", entry.CarVersion)
+	}
+	if entry.InsideTempC == nil || !approxEqual(*entry.InsideTempC, 19.0) {
+		t.Errorf("InsideTempC: want 19.0, got %v", entry.InsideTempC)
+	}
+	if entry.OutsideTempC == nil || !approxEqual(*entry.OutsideTempC, 14.0) {
+		t.Errorf("OutsideTempC: want 14.0, got %v", entry.OutsideTempC)
+	}
+	if entry.ChargingState == nil || *entry.ChargingState != "Charging" {
+		t.Errorf("ChargingState: want Charging, got %v", entry.ChargingState)
+	}
+	if entry.ChargeLimitSocPct == nil || *entry.ChargeLimitSocPct != 90 {
+		t.Errorf("ChargeLimitSocPct: want 90, got %v", entry.ChargeLimitSocPct)
+	}
+	wantCapturedAt := time.Date(2026, 8, 5, 3, 30, 15, 0, time.UTC)
+	if entry.CapturedAt == nil || !entry.CapturedAt.Equal(wantCapturedAt) {
+		t.Errorf("CapturedAt: want %v, got %v", wantCapturedAt, entry.CapturedAt)
+	}
+
+	// The five _calc columns / consumed_pct / flagged: UNCHANGED D9 behavior
+	// -- this IS the regression guard design D3 exists for (see doc comment
+	// above). A future edit that mistakenly gated the eight new fields on
+	// prev == nil the same way these five are gated would fail the block
+	// above, not this one; this block guards the opposite mistake (someone
+	// "fixing" these five to also populate from cur unconditionally).
+	if entry.DistanceTraveledKmCalc != nil {
+		t.Errorf("DistanceTraveledKmCalc: want nil, got %v", *entry.DistanceTraveledKmCalc)
+	}
+	if entry.BatteryUsedPctCalc != nil {
+		t.Errorf("BatteryUsedPctCalc: want nil, got %v", *entry.BatteryUsedPctCalc)
+	}
+	if entry.KmPerPctCalc != nil {
+		t.Errorf("KmPerPctCalc: want nil, got %v", *entry.KmPerPctCalc)
+	}
+	if entry.EstimatedRangeKmCalc != nil {
+		t.Errorf("EstimatedRangeKmCalc: want nil, got %v", *entry.EstimatedRangeKmCalc)
+	}
+	if entry.DaysSpannedCalc != nil {
+		t.Errorf("DaysSpannedCalc: want nil, got %v", *entry.DaysSpannedCalc)
+	}
+	if entry.ConsumedPct != nil {
+		t.Errorf("ConsumedPct: want nil, got %v", *entry.ConsumedPct)
+	}
+	if entry.Flagged {
+		t.Error("want Flagged=false (D9, unchanged by this tier)")
+	}
+	if entry.MissingChargingType != "" {
+		t.Errorf("MissingChargingType: want \"\" (NULL), got %v", entry.MissingChargingType)
 	}
 }

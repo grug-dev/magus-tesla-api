@@ -44,6 +44,24 @@ type vehicleMetricRow struct {
 	OdometerKm      float64
 	BatteryRangeKm  float64
 
+	// The eight RM38 status observations (design.md D1/D3 of
+	// RM38-analytics-add-vehicle-status-columns) -- copied verbatim from
+	// cur, populated in BOTH the predecessor-exists and no-predecessor
+	// branches, exactly like the three raw observations above and UNLIKE
+	// the five _calc columns below. Pointer-typed on this struct even
+	// though several source fields on telemetry.Snapshot are non-pointer,
+	// because the destination DB columns are nullable and this struct is
+	// the pre-mapping shape (mapping.go's pg*FromPtr helpers expect a
+	// pointer).
+	Locked            *bool
+	SentryMode        *bool
+	CarVersion        *string
+	InsideTempC       *float64
+	OutsideTempC      *float64
+	ChargingState     *string
+	ChargeLimitSocPct *int
+	CapturedAt        *time.Time
+
 	// The five _calc columns (D9) -- computed by consumption.go's
 	// deriveConsumption from this row's snapshot pair. They used to be copied
 	// verbatim off telemetry.Snapshot's own _calc fields; RM29 tier 4 moved
@@ -230,13 +248,21 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			// nil (-> SQL NULL). flagged is forced false here, never left to a
 			// stray zero-value comparison against distance.
 			out = append(out, vehicleMetricRow{
-				AccountID:       cur.AccountID,
-				TeslaID:         cur.TeslaID,
-				MetricDate:      day,
-				BatteryLevelPct: cur.BatteryLevelPct,
-				OdometerKm:      cur.OdometerKm,
-				BatteryRangeKm:  cur.BatteryRangeKm,
-				Flagged:         false,
+				AccountID:         cur.AccountID,
+				TeslaID:           cur.TeslaID,
+				MetricDate:        day,
+				BatteryLevelPct:   cur.BatteryLevelPct,
+				OdometerKm:        cur.OdometerKm,
+				BatteryRangeKm:    cur.BatteryRangeKm,
+				Locked:            &cur.Locked,
+				SentryMode:        cur.SentryMode,
+				CarVersion:        &cur.CarVersion,
+				InsideTempC:       &cur.InsideTempC,
+				OutsideTempC:      &cur.OutsideTempC,
+				ChargingState:     &cur.ChargingState,
+				ChargeLimitSocPct: &cur.ChargeLimitSocPct,
+				CapturedAt:        &cur.CapturedAt,
+				Flagged:           false,
 			})
 			continue
 		}
@@ -267,6 +293,14 @@ func deriveVehicleMetrics(preceding *telemetry.Snapshot, snapshots []telemetry.S
 			BatteryLevelPct:        cur.BatteryLevelPct,
 			OdometerKm:             cur.OdometerKm,
 			BatteryRangeKm:         cur.BatteryRangeKm,
+			Locked:                 &cur.Locked,
+			SentryMode:             cur.SentryMode,
+			CarVersion:             &cur.CarVersion,
+			InsideTempC:            &cur.InsideTempC,
+			OutsideTempC:           &cur.OutsideTempC,
+			ChargingState:          &cur.ChargingState,
+			ChargeLimitSocPct:      &cur.ChargeLimitSocPct,
+			CapturedAt:             &cur.CapturedAt,
 			DistanceTraveledKmCalc: calc.DistanceTraveledKmCalc,
 			BatteryUsedPctCalc:     calc.BatteryUsedPctCalc,
 			KmPerPctCalc:           calc.KmPerPctCalc,

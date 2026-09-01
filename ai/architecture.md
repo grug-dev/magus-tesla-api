@@ -188,8 +188,8 @@ Data-owning modules (e.g. `internal/telemetry/`) expose **two distinct ports**:
 
 - **`Collector`** — called by the nightly batch (`cmd/scheduler` or equivalent) to
   write data. The gateway never calls this.
-- **`Reader`** — called by the gateway and other read consumers to read data. This
-  is the only port the gateway depends on at request time.
+- **`Reader`** — called by read consumers to read data. For every module except
+  `telemetry` this is the only port the gateway depends on at request time.
 
 The split is a **read-optimization design**, not just a separation of concerns: it
 makes it impossible for a user-facing request to trigger a write path, and it lets
@@ -198,6 +198,33 @@ aggregated) without being polluted by collection concerns.
 
 Reference implementation: `internal/telemetry/` — `Collector.CollectAll` (write,
 nightly) vs `Reader.LatestSnapshotsByAccount` (read, per dashboard load).
+
+#### Exception: the gateway may not depend on `telemetry` at all
+
+**`internal/gateway/` must not import `internal/telemetry` — not even `telemetry.Reader`.**
+This is stricter than the rule above, and it overrides it for this one module: the
+telemetry port is *not* part of the gateway's allowed vocabulary, and `telemetry.*`
+types (`telemetry.Snapshot`) must not appear in gateway code.
+
+Enforced by **`make boundary-guard`** (wired into `make check`). The guard greps
+`internal/gateway/**/*.go` for the `internal/telemetry` import path: it **fails** on a
+non-test file and **warns** on a `_test.go` file. Escape hatch — a trailing
+`// boundary:allow: <reason>` comment on the same line as the import.
+
+**Status: the guard fails today, on purpose.** It was added ahead of the migration so
+the boundary is visible and cannot be widened silently. Three production files still
+violate it — `internal/gateway/gateway.go`, `internal/gateway/handlers/handlers.go`,
+`internal/gateway/handlers/history.go` — plus three test files (`handlers_test.go`,
+`history_test.go`, `charges_test.go`). Six call sites read the port:
+`LatestSnapshotsByAccount` (×4: dashboard, vehicle cards, charges) and
+`SnapshotsByVehicleBetween` (×1: history), see `make boundary-guard` output for the
+current list.
+
+To resolve it, the gateway must reach vehicle telemetry through a different module's
+interface instead of naming `telemetry` itself, and the snapshot data must cross that
+boundary as that module's own type. Until that lands, `make check` is red at the
+`boundary-guard` step — run the earlier phases individually (`make build`, `make vet`,
+`make ui-guard`, …) to get a clean signal on everything else.
 
 ### Pre-computed summaries
 
