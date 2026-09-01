@@ -27,6 +27,11 @@
   `"dashboard"` fragment. Always `200`. **A read error never produces a 500**; it degrades to a
   flagged view model instead (see gotchas).
 
+- The rendered Vehicle Status card's status-bearing outputs are: locked badge (present /
+  absent), sentry badge (present / absent), staleness badge (present / absent), the subtitle's
+  charging-derived status word, and a three-tile stat row. Each badge is independently
+  driven by its own `*bool`; absence of a value means absence of the badge.
+
 ## Flow
 
 1. `Handler.Dashboard` / `Handler.DashboardFragment` — `internal/gateway/handlers/handlers.go` —
@@ -80,6 +85,11 @@ Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outsid
 - `use-case/gateway/read-dashboard-history.md` — the `#dashboard-history` region on the same
   page; a separate request with its own window parameters
 
+- `GET /ui/nav-header` — the navigation vehicle header reads the **same**
+  `analytics.Reader.LatestMetricsByAccount` port and shares this use case's nil-`CapturedAt`
+  rule (absent capture instant ⇒ Asleep, never Connected, and no relative "last seen" label).
+  Not yet curated as its own use-case file.
+
 ## Conventions & gotchas
 
 - **This use case's `internal/telemetry` dependency is resolved** (`make boundary-guard`'s
@@ -131,3 +141,46 @@ Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outsid
   page may need to seed a first-time user's vehicles from Tesla; by fragment time that seed has
   already happened. Do not "simplify" this asymmetry away.
   _Source: `Handler.Dashboard` doc comment._
+
+- **The Vehicle Status card shows locked/sentry as header badges, and has no "Status" stat
+  tile.** The card header row carries the locked badge, the sentry badge and the staleness
+  badge together; none suppresses the others, and each appears purely on its own value. The
+  mini-stat grid is a single row of exactly three tiles — odometer, interior temp, exterior
+  temp. The card **subtitle keeps** the charging-derived status word ("Parked • Software
+  v11.1.2"); only the tile was removed. Do not "restore" a Status tile, and do not drop the
+  subtitle's status word.
+  _Source: spec gateway — Requirement: Dashboard Vehicle Status Card Shows Locked and Sentry-Mode Badges, Not a Status Tile._
+- **Badge styles are fixed and three-state.** Locked → success (green); unlocked → error
+  (red); sentry on → warning; sentry off → ghost; **absent → no badge at all**. Absence is
+  never rendered as "Unlocked" or "Sentry: Off" — the two are different facts and must stay
+  visually distinct.
+  _Source: spec gateway — Requirement: Dashboard Vehicle Status Card Shows Locked and Sentry-Mode Badges, Not a Status Tile._
+- **Badge text, colour and show/hide are computed in Go, never in the template.** A helper
+  returns the triple before the template runs; the template only conditionally renders a
+  pre-built `ui.Badge`. No nil-check-driven text or colour selection inside the template.
+  This is the same "templates contain no business logic" rule the card's number formatting,
+  staleness computation and timestamp formatting already follow.
+  _Source: spec gateway — Requirement: Dashboard Vehicle Status Card … / Scenario: Templates contain no business logic for badge selection._
+- **The badges introduced no new catalogue keys, and must not.** Their text resolves through
+  keys that already existed for the vehicle-list card (locked / unlocked / sentry-on /
+  sentry-off / not-reported), with `ES` and `EN` both already complete. If you extend the
+  badges, reuse before you add.
+  _Source: spec gateway — Requirement: Dashboard Vehicle Status Card … / Scenario: No new translation keys are introduced._
+- **Both freshness limits are named constants, not magic numbers.** Staleness is 36 h (one
+  missed nightly cycle: 24 h + 12 h buffer) and the nav header's connected-freshness window
+  is 48 h. The spec requires them to stay named constants in handler code.
+  _Source: spec gateway — Requirements: Dashboard renders enriched vehicle cards… / Navigation Vehicle Header._
+- **"Row predates status tracking" is NOT the same state as "no row yet".** A row that exists
+  but whose status observations are all absent still renders a **normal** card — battery,
+  range and odometer show as usual, and only the absent fields degrade individually. It must
+  not fall back to the `HasSnapshot=false` placeholder card. Conflating the two hides data the
+  row actually has.
+  _Source: spec gateway — Requirement: Dashboard renders enriched vehicle cards… / Scenario: A precomputed row that predates status-observation tracking degrades per field, not per card._
+- **The gateway performs no unit conversion, in the handler or the template.** Every value
+  arrives from the analytics read port already in its display unit (km, °C), because the
+  conversion happened once on write. Adding a conversion here is a bug, not a fix.
+  _Source: spec gateway — Requirement: Dashboard renders enriched vehicle cards from stored telemetry._
+- **No `pgtype` type may appear in any gateway file, and no `db` package may be imported.**
+  Neither `internal/telemetry/db` nor `internal/analytics/db`. All access is through the
+  `analytics.Reader` and `account.Service` public interfaces.
+  _Source: spec gateway — Scenario: Gateway never imports telemetrydb or analyticsdb for this read._

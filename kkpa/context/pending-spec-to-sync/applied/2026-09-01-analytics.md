@@ -9,7 +9,7 @@
 Target guide: `entities/vehicle-metrics/guide.md`
 Source spec:  `openspec/specs/analytics/spec.md`
 Generated:    2026-09-01
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-01
 
 Derived from the two requirements RM38 tier 1 added to the analytics capability:
 **Precomputed Vehicle Status Observations** and **Latest Vehicle Status Per Account**.

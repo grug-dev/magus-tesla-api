@@ -9,7 +9,7 @@
 Target guide: `use-case/gateway/read-dashboard-bento.md`
 Source spec:  `openspec/specs/gateway/spec.md` (delta archived at `openspec/changes/archive/2026-09-01-RM38-gateway-read-dashboard-from-metrics/specs/gateway/spec.md` — 1 ADDED, 2 MODIFIED requirements)
 Generated:    2026-09-01
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-01
 
 ---
 
