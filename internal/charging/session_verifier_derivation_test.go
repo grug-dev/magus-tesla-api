@@ -64,6 +64,14 @@ func TestDerivedStartBatteryPct_Table(t *testing.T) {
 		// change (design.md): if this ever asserts 48, the rounding was
 		// silently switched to round-half-to-even.
 		{"A7", 62.35, ptrF64(0.93525), intPtr(50), intPtr(49)},
+		// A8: a real-world reading the owner asked to pin (MAG-36 follow-up, NOT
+		// part of design.md's original Test Contract Group A — every case above
+		// is). A near-empty-to-29% session: 29 - 17.14/62.0*100 = 29 - 27.645161
+		// = 1.354838..., which math.Round takes to 1. It guards the low end of
+		// the range the way A5/A6 guard the exact boundaries: the result is
+		// small and positive, so an off-by-one in the rounding or a stray
+		// truncation to int would show up here as 0 or 2 rather than 1.
+		{"A8", 62.0, ptrF64(17.14), intPtr(29), intPtr(1)},
 	}
 
 	for _, tc := range cases {
