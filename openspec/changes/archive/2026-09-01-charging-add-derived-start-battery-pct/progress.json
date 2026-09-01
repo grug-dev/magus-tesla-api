@@ -1,0 +1,452 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "charging-add-derived-start-battery-pct",
+  "module": "charging",
+  "roadmap": null,
+  "request": "MAG-36 \u2014 Battery start calculated. When editing a supercharger record on /supercharger-stats, calculate the start battery percentage (when the user does not input it and the end battery is not empty). Inputs: energy added, end battery (user-edited, may be null \u2014 skip when null), and the same 62 kWh capacity from packCapacityKWh. The inverse of the formula already in capacity.go for manual charging.",
+  "status": "archived",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "3.1",
+      "4.1",
+      "4.2",
+      "5.1"
+    ],
+    "awaiting-user-verification": []
+  },
+  "created_at": "2026-09-01T10:02:00Z",
+  "updated_at": "2026-09-01T10:34:29Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/CH37-MAG-36-charging-add-derived-start-battery-pct",
+    "base": "main",
+    "ticket": "MAG-36",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-36/battery-start-calculated",
+    "created_at": "2026-09-01T09:38:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Append LockSessionForVerification sqlc query to db/query.sql; run make sqlc",
+      "module": "charging",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Appended LockSessionForVerification :one to query.sql before VerifyChargeSession. make sqlc clean; only query.sql/query.sql.go changed, VerifyChargeSessionParams/ChargeSession untouched.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "Add derivedStartBatteryPct to capacity.go, after derivedEnergyKWh",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Added derivedStartBatteryPct to capacity.go after derivedEnergyKWh, body byte-identical to design.md D8. Updated packCapacityKWh doc comment for the two call directions.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "Add needsDerivedStartBatteryPct gate to session_verifier.go",
+      "module": "charging",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Added needsDerivedStartBatteryPct to session_verifier.go above VerifySession, with full D2/D8 rationale in the doc comment.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
+    },
+    {
+      "id": "2.3",
+      "title": "Rewrite VerifySession body: conditional transaction + FOR UPDATE read + derivation",
+      "module": "charging",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Rewrote VerifySession: conditional tx (Begin/WithTx/defer Rollback/Commit), locked read, derivation via packCapacityKWh+derivedStartBatteryPct; unchanged path when not deriving.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
+    },
+    {
+      "id": "2.4",
+      "title": "Update SessionVerifier.VerifySession interface doc comment in charging.go",
+      "module": "charging",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:10:19Z",
+      "completed_at": "2026-09-01T10:14:15Z",
+      "duration_seconds": 236,
+      "notes": "Updated SessionVerifier.VerifySession interface doc comment in charging.go with the derivation contract. go build, go vet, gofmt -l internal/charging all clean.",
+      "budget": {
+        "five_hour_pct_start": 29,
+        "five_hour_pct_end": 38,
+        "cost_usd_delta": 2.39,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 5 batched tasks"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "New offline test file session_verifier_derivation_test.go (Test Contract A + B)",
+      "module": "charging",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:15:10Z",
+      "completed_at": "2026-09-01T10:17:54Z",
+      "duration_seconds": 164,
+      "notes": "New offline test file session_verifier_derivation_test.go, package charging (header states why, per D11). Group A (A1-A7) + Group B (B1-B5) implemented verbatim against design.md. go vet compiles it; not run.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 45,
+        "cost_usd_delta": 2.21,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 3 batched tasks"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "Correct RM31 T3 TestVerifySession_PartialEndOnlyStillSetsSource expected value to 41",
+      "module": "charging",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:15:10Z",
+      "completed_at": "2026-09-01T10:17:54Z",
+      "duration_seconds": 164,
+      "notes": "Changed only the expected value (*StartBatteryPct == 41) plus doc comment and TOC line. Fixture EnergyKWh 30.5 untouched. DATABASE_URL-gated, not run.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 45,
+        "cost_usd_delta": 2.21,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 3 batched tasks"
+      }
+    },
+    {
+      "id": "4.2",
+      "title": "Correct MAG-25 T15 fixture energyKWh 52.273 -> 124.0 (keeps want: nil meaningful)",
+      "module": "charging",
+      "depends_on": [
+        "2.3"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:15:10Z",
+      "completed_at": "2026-09-01T10:17:54Z",
+      "duration_seconds": 164,
+      "notes": "T15 energyKWh 52.273 -> 124.0; want: nil unchanged. Comment explains the out-of-range route. No other case touched. DATABASE_URL-gated, not run.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 45,
+        "cost_usd_delta": 2.21,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 3 batched tasks"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "Update internal/charging/AGENTS.md (Public Interface, Data Ownership, Testing Notes)",
+      "module": "charging",
+      "depends_on": [
+        "2.4",
+        "3.1",
+        "4.1",
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:18:30Z",
+      "completed_at": "2026-09-01T10:20:37Z",
+      "duration_seconds": 127,
+      "notes": "Updated AGENTS.md Public Interface, Data Ownership->charge_sessions, Testing Notes. Allowed Imports unchanged (pgx already covered - leader verified). No root README edit; no module or column re-scoped.",
+      "budget": {
+        "five_hour_pct_start": 45,
+        "five_hour_pct_end": 50,
+        "cost_usd_delta": 1.58,
+        "approx": false
+      }
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "charging-reviewer",
+    "brief": "Review scope: the full diff of commits 5ed1cf6, 83a1353, c4e80a7, 56ce35d on branch ft/CH37-MAG-36-charging-add-derived-start-battery-pct. Read the DIFF, not the whole module.\nValidate: (1) module-boundary compliance - every edit inside internal/charging/, no HTML, no cross-module reach; (2) every doc-pack convention, especially ai/go-conventions.md units/tz rules and CLAUDE.md non-negotiables; (3) spec/tasks coverage - all 9 tasks in tasks.md actually done, nothing from tasks.md 'Not in this change' shipped; (4) test quality BY READING - the 12 offline cases must assert design.md Test Contract Groups A/B verbatim, not whatever the implementation produces (Step 3 test-contract rule); (5) Performance-Profile compliance - the transaction and FOR UPDATE lock must be paid ONLY on the derivation path, never on the pre-existing single-statement path; (6) every DB object matches its user-confirmed design - this change creates NO schema object, so ANY migration or new column/index in the diff is a blocker finding; (7) anti-gaming - no acceptance criterion weakened, no test expectation bent to match code, no status self-approved.\nSpecifically re-derive by hand: A7 (62.35, 0.93525, 50) must be 49 not 48 (half-away-from-zero, design.md D4 'What must NOT change'); C1 must be 41 from EnergyKWh 30.5 / endPct 90 / capacity 62.0; C2's want stays nil via the out-of-range guard at energyKWh 124.0. Confirm C1's fixture EnergyKWh is still 30.5 and C2's want is still nil - neutralizing either would defeat design.md D12.\nKnown and accepted, do not re-litigate: design.md D1's provenance blur (owner-confirmed); commit 56ce35d's AGENTS.md Allowed Imports correction (owner chose it explicitly, decision D11).\nTest-Execution-Policy (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards. The owner runs the suite and reports results.\nSignal provenance: ASSISTANT-RUN - go build ./..., go vet ./..., gofmt -l internal/charging/ (all clean). USER-REPORTED - the test suite passed, reported by the owner on 2026-09-01. You must judge test quality by reading the tests, never by running them.",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "at": "2026-09-01T10:34:29Z",
+        "findings": []
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-01T09:33:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Store the derived start pct in start_battery_pct and reuse battery_pct_source = 'user_verified'; no migration, no new CHECK value",
+      "why": "User chose this over adding 'estimated', shown the cost and the MAG-18 risk that derived rows become indistinguishable from typed ones",
+      "covered_by": null
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-01T09:35:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Derive whenever the submitted start is nil and end is non-nil; a submitted start is never overwritten",
+      "why": "User chose this over first-time-only and over recalculating when end changes, which could destroy a hand-typed reading",
+      "covered_by": null
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-01T09:37:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "An out-of-range result stores NULL; the save still succeeds, with no error and no clamping",
+      "why": "Mirrors derivedEnergyKWh's return-nil precedent and avoids i18n keys in gateway, keeping this a single-module change",
+      "covered_by": null
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-01T09:38:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Offline unit tests only; no new DATABASE_URL-gated integration test for the derivation",
+      "why": "User chose this over no tests at all; the two new functions are pure, so go vet compiles them as a free signal",
+      "covered_by": null
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-01T09:36:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Rounding uses math.Round (half away from zero); a NULL energy_kwh skips derivation silently",
+      "why": "Precedent was unambiguous in derivedEnergyKWh, so asking would have spent a round trip on a settled convention",
+      "covered_by": null
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-01T09:40:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Dispatched the artifact worker on Sonnet rather than Opus",
+      "why": "Single module, all design decisions settled in the interview; no cross-cutting ambiguity justifying the Opus exception",
+      "covered_by": null
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-01T10:00:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted design.md D9's conditional transaction + SELECT FOR UPDATE instead of a plain unlocked read",
+      "why": "MirrorSessions really does refresh energy_kwh concurrently; the lock is paid only on the derivation path, matching account.AccessTokenFor",
+      "covered_by": null
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-01T10:01:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Accepted correcting two pre-existing archived integration tests (RM31 T3, MAG-25 T15) inside this change",
+      "why": "Verified both against the real files; the ticket's requested behavior genuinely falsifies their expected values, so deferring would ship a red suite",
+      "covered_by": null
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-01T10:10:19Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Batched the 9 tasks into 3 serial worker dispatches (1.1-2.4 / 3.1+4.1+4.2 / 5.1) instead of 5 dependency waves",
+      "why": "One module, one file set; each extra dispatch re-reads the full doc pack. Dependencies are still honoured in order inside each dispatch.",
+      "covered_by": null
+    },
+    {
+      "id": "D10",
+      "at": "2026-09-01T10:14:15Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Deferred the Step 5.7 test ask to the end of wave 2 instead of asking now",
+      "why": "design.md D12 says two archived tests are red until tasks 4.1/4.2 land in wave 2; asking now guarantees two expected failures and a wasted round trip.",
+      "covered_by": null
+    },
+    {
+      "id": "D11",
+      "at": "2026-09-01T10:20:37Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Corrected the stale AGENTS.md Allowed Imports line: chargingdb is importable by service.go, session_writer.go, session_reader.go and session_verifier.go",
+      "why": "Owner chose to fix it in this change (option 2) over leaving it. A false rule in the doc every agent loads costs more than the small scope it adds.",
+      "covered_by": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-01T09:38:00Z",
+      "agent": "leader",
+      "event": "created branch ft/CH37-MAG-36-charging-add-derived-start-battery-pct off main at 94992ed; work counter 37 -> 38"
+    },
+    {
+      "at": "2026-09-01T09:40:00Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (sonnet) for OpenSpec artifacts; budget start five_hour_pct=8 context_pct=11"
+    },
+    {
+      "at": "2026-09-01T09:57:00Z",
+      "agent": "leader",
+      "event": "worker returned 4 artifacts; openspec validate --strict passed; budget end five_hour_pct=25 context_pct=12 (delta 17pp, cost_usd_delta 4.47)"
+    },
+    {
+      "at": "2026-09-01T10:00:00Z",
+      "agent": "leader",
+      "event": "design gate (database) evaluated: NOT tripped \u2014 one new sqlc query against existing columns, no schema object created or altered. Verified independently against the charge_sessions migration."
+    },
+    {
+      "at": "2026-09-01T10:01:00Z",
+      "agent": "leader",
+      "event": "leader verified worker's D12 claim against the real test files: T15 fixture is {52.273, nil, 100, want nil} and T3 calls VerifySession(nil, ptr(90)) \u2014 both genuinely break under the new behavior. Claim confirmed, not taken on trust."
+    },
+    {
+      "at": "2026-09-01T10:02:00Z",
+      "agent": "leader",
+      "event": "progress.json created; 9 tasks seeded pending across 5 waves. HALTING after Step 4 per kkpa-pickup-linear-ticket scope \u2014 no implementation dispatched, no reviewer, no archive."
+    },
+    {
+      "at": "2026-09-01T10:10:19Z",
+      "agent": "leader",
+      "event": "resumed at Step 5; dispatched charging worker (sonnet) for wave 1 tasks 1.1,2.1,2.2,2.3,2.4; budget start five_hour_pct=29 context_pct=8 cost_usd=0.57"
+    },
+    {
+      "at": "2026-09-01T10:14:15Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled: 1.1,2.1,2.2,2.3,2.4 -> awaiting-user-verification. Leader verified the diff independently: derivedStartBatteryPct byte-identical to design.md D8, query matches D9, composition matches, D10 error wrap identical. Worker's D1-D10 enumeration cross-checked against design.md, no gap. Worker-reported timestamps were estimates predating dispatch; leader substituted the real bracket times. budget end five_hour_pct=38 context_pct=11 (delta 9pp, cost_usd_delta 2.39) | wave-1 commit 5ed1cf6"
+    },
+    {
+      "at": "2026-09-01T10:15:10Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (sonnet) for wave 2 tasks 3.1,4.1,4.2; budget start five_hour_pct=38 context_pct=11"
+    },
+    {
+      "at": "2026-09-01T10:17:54Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled: 3.1,4.1,4.2 -> awaiting-user-verification. Leader cross-checked all 12 test cases against design.md Test Contract Groups A/B: A1=64 A2=nil A3=nil A4=nil A5=0 A6=100 A7=49, B1=true B2-B5=false -- all verbatim. Group C guards held: fixture EnergyKWh 30.5 preserved, T15 want:nil preserved. budget end five_hour_pct=45 context_pct=13 (delta 7pp, cost_usd_delta 2.21) | wave-2 commit 83a1353"
+    },
+    {
+      "at": "2026-09-01T10:18:30Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (sonnet) for wave 3 task 5.1 (AGENTS.md docs); budget start five_hour_pct=45 context_pct=13. Step 5.7 test ask issued to the owner in parallel."
+    },
+    {
+      "at": "2026-09-01T10:20:37Z",
+      "agent": "leader",
+      "event": "wave 3 reconciled: 5.1 done. Leader verified the worker's pgx claim (Allowed Imports already covers pgx/v5 + pgxpool - correct, no edit needed). Leader ALSO found what the worker missed: the same section restricts chargingdb to service.go/session_writer.go, but session_reader.go and session_verifier.go import it too - pre-existing RM31 drift, not introduced here. Not fixed (D11); flagged to owner and to the reviewer. budget end five_hour_pct=50 context_pct=14 (delta 5pp, cost_usd_delta 1.58)"
+    },
+    {
+      "at": "2026-09-01T10:20:37Z",
+      "agent": "leader",
+      "event": "STEP 6 GATE: all 9 tasks implemented; 8 awaiting-user-verification. Blocked on the owner's test run before the reviewer is dispatched. Assistant-run signals only: go build, go vet, gofmt -l internal/charging - all clean."
+    },
+    {
+      "at": "2026-09-01T10:24:00Z",
+      "agent": "leader",
+      "event": "owner chose option 2: leader corrected the AGENTS.md Allowed Imports chargingdb bullet in place (4 importers, not 2) and noted the RM31 provenance of the drift. Verified importers by grep: service.go, session_writer.go, session_reader.go, session_verifier.go; the db_backfill_integration_test.go match was a comment, not an import. Leader-owned one-line doc fix - no worker dispatch, which would have cost a full doc-pack re-read."
+    },
+    {
+      "at": "2026-09-01T10:31:12Z",
+      "agent": "leader",
+      "event": "OWNER REPORTED THE SUITE PASSING (user's verification, not the assistant's). 8 tasks awaiting-user-verification -> done; change status -> verified. Reviewer gate opens."
+    },
+    {
+      "at": "2026-09-01T10:34:29Z",
+      "agent": "charging-reviewer",
+      "event": "round 1 verdict: approved, zero findings. Reviewer independently re-derived A7=49, C1=41, C2=nil and walked the 12-item 'Not in this change' list. Leader corrected the round's date-only timestamp to full ISO-8601 per the guardrail; the verdict itself was not touched."
+    },
+    {
+      "at": "2026-09-01T10:34:29Z",
+      "agent": "leader",
+      "event": "archived via openspec archive; charge-session-log spec synced (1 requirement modified). Archive commit staged openspec/ ONLY: 9 internal/gateway files were found modified in the working tree during this session, unrelated to MAG-36 and not written by any pipeline agent (workers sandboxed to internal/charging, reviewer read-only). Left uncommitted and raised to the owner rather than swept into this change."
+    }
+  ]
+}

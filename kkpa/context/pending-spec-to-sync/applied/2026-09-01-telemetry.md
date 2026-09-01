@@ -9,7 +9,7 @@
 Target guide: `architecture/telemetry-data-hub.md`
 Source spec:  `openspec/specs/telemetry/spec.md`
 Generated:    `2026-08-31`
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-01
 
 Derived from the four requirements merged by change `RM36-telemetry-add-poll-runs`
 (ticket MAG-35, archived `2026-08-31-RM36-telemetry-add-poll-runs`): Run-Level Poll

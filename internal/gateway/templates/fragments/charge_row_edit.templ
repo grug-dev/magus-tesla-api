@@ -35,9 +35,9 @@ import (
 // charging.RequiredFieldsFor). energy_added_kwh and price are genuinely
 // optional; the disabled Currency input is REMOVED — price instead renders a
 // "COP" suffix via ui.InputProps.Suffix (design.md §D-Suffix).
-// Field ORDER is kept identical to ChargeCreateForm's (2026-08-29) — the nine
-// shared fields in the same sequence, ending with location_kind, then the
-// edit-only read-only Vehicle display. Two required fields (location_kind
+// Field ORDER is kept identical to ChargeCreateForm's — the ten shared fields
+// in the same sequence, ending with location_kind and the optional
+// location_label, then the edit-only read-only Vehicle display. Two required fields (location_kind
 // always, ended_at when status is DONE) USED TO live inside the collapsed
 // <details> block: a browser cannot report an HTML5 validation message on a
 // control inside a closed <details>, so Save silently did nothing ("An invalid
@@ -106,12 +106,9 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 							<option value="OTHER" selected?={ vm.LocationKind == "OTHER" }>{ i18n.T(ctx, i18n.KeyChargesFormOther) }</option>
 						}
 					}
-					// Edit-only extra, appended AFTER the nine fields the create form
-					// shares, so the shared order stays identical between the two forms.
-					// Read-only display, not an input — the vehicle comes from the sidebar
-					// switcher (D4), never from this form.
-					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormVehicle)}) {
-						<span class="text-base-content/80">{ vm.VehicleLabel }</span>
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocationLabel), Optional: true}) {
+						// RD14: disabled unless the kind is OTHER; the app.js toggle keeps it live.
+						@ui.Input(ui.InputProps{Name: "location_label", Value: vm.LocationLabel, Disabled: vm.LocationKind != "OTHER"})
 					}
 				</div>
 				<section id={ "charge-row-optional-" + vm.ID }>
@@ -124,9 +121,7 @@ templ ChargeRowEdit(vm ChargeEntryVM, csrfToken string, validationErrors map[str
 								<option value="DC" selected?={ vm.ChargingType == "DC" }>{ i18n.T(ctx, i18n.KeyChargesFormDC) }</option>
 							}
 						}
-						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocationLabel)}) {
-							@ui.Input(ui.InputProps{Name: "location_label", Value: vm.LocationLabel})
-						}
+						
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormOdometer), Error: validationErrors["odometer_km"]}) {
 							@ui.Input(ui.InputProps{Type: "number", Name: "odometer_km", Value: vm.RawOdometerKm, Attrs: templ.Attributes{"min": "0", "step": "1"}})
 						}

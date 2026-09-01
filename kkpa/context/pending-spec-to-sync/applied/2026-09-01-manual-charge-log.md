@@ -9,7 +9,7 @@
 Target guide: `workflows/manual-charge-crud.md`
 Source spec:  `openspec/specs/manual-charge-log/spec.md`
 Generated:    2026-08-29
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-01
 
 > **Routing note (for the reviewer).** `manual charge` already resolves to a `workflows/` file
 > that predates the use-case/workflow boundary rule, so per the skill's "existing `workflows/`

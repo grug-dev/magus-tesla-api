@@ -5,8 +5,8 @@
 
 ## Glossary
 
-- **Known as:** `manual charge`, `charges form`, `charge row`, `editing a manual charge`, `Manual Records page`, `/charges`, `/ui/charges`
-- **Internal name:** `ChargeCreate` / `ChargeRowUpdate` / `ChargeRowDelete` (gateway handlers) → `charging.Writer` port → `analytics.Recalculator.Recalculate` hook — table `manual_charge_entries`, downstream table `vehicle_metrics`
+- **Known as:** `manual charge`, `charges form`, `charge row`, `editing a manual charge`, `Manual Records page`, `/charges`, `/ui/charges`, `inferred capacity`, `inferred pack capacity`, `entry status`, `charge status`, `in progress charge`, `energy source`, `energy provenance`, `odometer reading`
+- **Internal name:** `ChargeCreate` / `ChargeRowUpdate` / `ChargeRowDelete` (gateway handlers) → `charging.Writer` port → `analytics.Recalculator.Recalculate` hook — table `manual_charge_entries`, downstream table `vehicle_metrics`. The inferred pack capacity is `charging.Entry.InferredCapacityKWhCalc` (`*float64`), backed by the database column `manual_charge_entries.inferred_capacity_kwh_calc`. The lifecycle status is `charging.Status` (`StatusInProgress` / `StatusDone`) on `charging.Entry.Status`, its required-field rule is `charging.RequiredFieldsFor`, and the energy provenance is `charging.EnergySource` (`EnergySourceUser` / `EnergySourceEstimated`) on `charging.Entry.EnergySource`.
 
 ## Component map
 
@@ -93,6 +93,98 @@ Order of operations for the common changes. Reference the files above by path.
 - **Changing the charge date rewrites only the DATE half of the session timestamps** — the time-of-day portion of a non-empty `started_at` / `ended_at` is preserved, and an EMPTY one stays empty rather than being populated. This is client-side JS (recorded as RD12 in `internal/gateway/AGENTS.md`), one of the module's few sanctioned exceptions to the no-client-side-JS rule. _Source: spec gateway — Requirement: Charge date change keeps the time of day on start and end timestamps._
 - **A second sanctioned JS exception (RD13) toggles `required` live when the status control changes** — it fires with no network request, and the server-side `RequiredFieldsFor` gate remains authoritative. The JS is a UX affordance, never the validation. Both RD12 and RD13 live in the single shared `internal/gateway/static/app.js`. _Source: spec gateway — Requirement: Create Charge Entry; `internal/gateway/AGENTS.md` RD12/RD13._
 - **Writing a negative test for these forms: assert the specific field message, not just the 422** — because a missing `status` is itself a validation error, a fixture that omits it produces a 422 for the WRONG reason, and a test asserting only the status code stays green even if the check it names is deleted. Supply a valid `status` and assert the field's own i18n message. _Source: spec gateway — Requirement: Create Charge Entry (status parsed first); RM33 tier-2 test-contract fixture convention._
+
+- **The inferred pack capacity is derived by the database, never by Go.** It is a
+  `GENERATED ALWAYS AS (…) STORED` column, so it is correct on every write path — including
+  write paths added in future — with no caller action. Do not add a Go-side computation, and do
+  not name the column in any `INSERT`/`UPDATE` column list.
+  _Source: spec manual-charge-log — Requirement: Inferred pack capacity is recorded on every entry._
+- **The column is unwritable, and that is enforced by the engine.** A caller cannot set, override,
+  or corrupt it; a direct write fails with `column "inferred_capacity_kwh_calc" can only be
+  updated to DEFAULT` (SQLSTATE `428C9`). Setting the field on the struct passed to
+  `Writer.Create` / `Writer.Update` is silently ignored, exactly as `ID` / `CreatedAt` /
+  `UpdatedAt` already are.
+  _Source: spec manual-charge-log — Requirement: Inferred pack capacity is recorded on every entry._
+- **A recorded absence is normal, not an error.** The value exists only when the entry has all
+  three inputs (energy added, start %, end %) **and** the end percentage is strictly greater than
+  the start. Otherwise it is `NULL` / `nil`, and the entry still creates and edits successfully.
+  The strict `>` matters: an equal delta would be a division by zero that would otherwise *reject*
+  an ordinary row, and a negative delta would store a negative "capacity", which is not a physical
+  quantity.
+  _Source: spec manual-charge-log — Requirement: Inferred pack capacity is recorded on every entry._
+- **Editing a battery percentage silently changes the recorded capacity.** Changing the end
+  percentage from 74 to 84 on a 7.04 kWh entry moves the recorded value from `70.400` to `35.200`
+  with no caller involvement. Any read model or cache keyed on this value must be refreshed by the
+  same hook that already handles the entry edit.
+  _Source: spec manual-charge-log — Requirement: Inferred pack capacity is recorded on every entry._
+- **This value is stored, unlike the capability's other derived values.** Cost per kWh, battery
+  delta and session duration remain computed on read as value-receiver methods on `charging.Entry`
+  and are not persisted. Do not follow their pattern when touching the inferred capacity, or the
+  reverse.
+  _Source: spec manual-charge-log — Requirement: Inferred pack capacity is recorded on every entry._
+- **Small battery deltas produce mathematically valid but practically worthless figures.** A
+  1-point delta divides by `0.01`, so a ±0.5% reading error becomes a ±50% capacity error. This is
+  accepted deliberately: no minimum-delta floor exists in the column, because filtering is a
+  presentation decision. Any consumer that aggregates this value should apply its own floor, or
+  prefer a median over a mean.
+  _Source: spec manual-charge-log — Requirement: Inferred pack capacity is recorded on every entry._
+- **Naming rule for any future stored derived column: `<what>_<unit>_calc`.** That is the shape
+  `internal/analytics`' `vehicle_metrics` established and this column follows; it satisfies the
+  project's mandatory unit suffix while marking the column as engine-derived.
+  _Source: spec manual-charge-log — Requirement: Inferred pack capacity is recorded on every entry._
+- **Which fields an entry must carry is a function of its status, and that rule lives in exactly
+  one place.** `RequiredFieldsFor` is the sole source of truth: the capability enforces exactly it
+  on every create and every edit, for every caller, and any presentation layer deciding which
+  inputs to mark required must READ it rather than restate it. Adding a field to the rule must
+  stay a one-place change — if you find yourself writing a second check, you have just given the
+  single source of truth a second source.
+  _Source: spec manual-charge-log — Requirement: A charge entry has a recorded status that governs its required fields._
+- **The rule is deliberately NOT a database CHECK.** Enforcing it in the schema would turn every
+  future change to the required-field set into a migration, which is precisely what the rule is
+  shaped to avoid. Do not "harden" it by adding a constraint.
+  _Source: spec manual-charge-log — Requirement: A charge entry has a recorded status that governs its required fields._
+- **An absent status means in progress; an unrecognized one is rejected before any write.** These
+  are different outcomes for different inputs, and the distinction is what lets a caller that does
+  not yet send a status keep working while a typo still fails loudly.
+  _Source: spec manual-charge-log — Requirement: A charge entry has a recorded status that governs its required fields._
+- **There is no transition rule — done may be reopened.** The capability does not restrict which
+  status an entry moves to. Do not add a guard against done → in progress; it is explicitly
+  permitted.
+  _Source: spec manual-charge-log — Requirement: A charge entry has a recorded status that governs its required fields._
+- **Entries that pre-date the status are recorded as in progress, on purpose.** Historical entries
+  surface as unreviewed rather than being silently asserted complete. This was chosen over the
+  more flattering default; it is not an oversight to "correct".
+  _Source: spec manual-charge-log — Requirement: A charge entry has a recorded status that governs its required fields._
+- **Energy added is optional, but zero and negative are still rejected.** Only the *absence* of a
+  value became permissible. Never substitute a fabricated `0` for an unknown energy — it is both a
+  lie about the charge and a constraint violation.
+  _Source: spec manual-charge-log — Requirement: Energy added is optional, may be derived on write, and records its provenance._
+- **Energy is derived ON WRITE and never recomputed on read.** When the caller supplies none and
+  the entry has both percentages with a strictly positive difference, the capability derives the
+  value from the pack capacity and stores it. In every other case it stores exactly what the
+  caller gave, including nothing. Do not add a read-time fallback — that would make the same entry
+  report different energy as the capacity constant changes.
+  _Source: spec manual-charge-log — Requirement: Energy added is optional, may be derived on write, and records its provenance._
+- **Provenance is the capability's to assert, never the caller's.** A caller-supplied energy
+  source is ignored, and provenance is re-determined on every write — so replacing a derived value
+  with a typed one flips it back to "from the person". Read it on the way out; never trust it on
+  the way in.
+  _Source: spec manual-charge-log — Requirement: Energy added is optional, may be derived on write, and records its provenance._
+- **The pack capacity comes from ONE named place, and that is the point.** Replacing today's fixed
+  figure with a real per-vehicle value must stay a one-place change. **Any future averaging of
+  inferred capacities MUST exclude derived rows** — on a derived entry the recorded inferred
+  capacity is arithmetically equal to the capacity the derivation used, so including those rows
+  averages the seed value back into itself and never converges. That is the entire reason
+  provenance is stored.
+  _Source: spec manual-charge-log — Requirement: Energy added is optional, may be derived on write, and records its provenance._
+- **An entry with no energy records no inferred capacity, and that is not an error.** The
+  pre-existing inferred-capacity behaviour is unchanged by energy becoming optional; a missing
+  energy simply lands in the same "no recorded capacity" case a missing percentage already did.
+  _Source: spec manual-charge-log — Requirement: Energy added is optional, may be derived on write, and records its provenance._
+- **The odometer reading belongs to the charge EVENT, not to the vehicle.** Two entries for the
+  same vehicle carry two independent readings, which is why it lives on the entry and not on a
+  vehicle record. It is optional, in whole kilometres, and negative is rejected.
+  _Source: spec manual-charge-log — Requirement: An entry records the odometer reading taken at the charge event._
 
 ## Related KB
 

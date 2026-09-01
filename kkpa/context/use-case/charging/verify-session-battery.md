@@ -30,6 +30,13 @@ write channel is correcting the two human-owned battery percentages.
   `404` when the session cannot be re-resolved; `500` with a top-of-form error; `403` on CSRF
   failure; `400` on an unparseable id or a malformed body.
 
+- **A cleared start percentage is now an input, not just an omission.** When the submitted
+  `start_battery_pct` is empty and `end_battery_pct` carries a value, the capability derives the
+  start percentage instead of storing an absence. Clearing the start field is therefore the
+  user's way of asking for it to be calculated — the response's `SuperchargerRow` comes back
+  carrying the derived value, with no second request.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+
 ## Flow
 
 1. `Handler.SuperchargerRowUpdate` — `internal/gateway/handlers/supercharger.go` — auth guard,
@@ -101,3 +108,25 @@ On the error branches, `fetchSuperchargerRowVM` additionally READs `charge_sessi
   or tile refresh. Fine while the tiles aggregate only energy and cost; revisit the moment the
   page surfaces anything derived from the percentages.
   _Source: `SuperchargerRowUpdate`; `architecture/charge-record-mutation.md`._
+
+- **A start percentage the caller supplies is never derived, overridden, or altered.** Only an
+  unsupplied one is a candidate. This is a hard rule, not a heuristic — do not add a
+  "recalculate when the end changes" branch, which would silently destroy a hand-typed reading.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **A derivation that cannot produce a valid percentage records an absence, silently.** No
+  energy figure on the record, or a result outside 0–100, both store `NULL` — the correction is
+  never rejected and never clamped to `0`/`100`. Range validation rejects only a percentage the
+  *caller* supplied out of range; a derived out-of-range value is simply not recorded.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **Provenance cannot tell a derived percentage from a typed one.** `battery_pct_source` is
+  computed from whether a percentage is *present*, never from how it came to be present, so a
+  derived value is stored as `user_verified` exactly like a human's. Accepted trade-off — any
+  future feature that needs to filter derived rows out must add its own signal, not read this
+  column.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **A correction supplying neither percentage clears both and derives nothing.** The
+  clear-both path is explicitly not a derivation trigger.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **The derivation is one-directional.** An end percentage is never derived from a start
+  percentage, under any circumstance.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._

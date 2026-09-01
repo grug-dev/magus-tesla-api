@@ -159,12 +159,13 @@ by `kkpa-goth-scaffold-ui init` (2026-07-24, one-time — do not re-run); full r
   `success`; not `#fff` / `bg-red-500`). The app re-skins from one `<html data-theme>`
   (default `lemonade`; `dark` auto-applies via `prefers-color-scheme`).
 - **No client-side JS init** — keeps htmx swaps safe. Prefer CSS-only DaisyUI patterns
-  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **four**
+  (`<dialog>` modal, `dropdown`, `collapse`, `tabs`) over any JS. There are exactly **five**
   standing exceptions, each with its own recorded decision below: **RD9** (the `browser_tz`
   cookie script in `layouts.BaseAuth`), **RD10** (`ui.ConfirmDialog`, whose JS lives in
   the shared `static/app.js`), **RD12** (date→time-preserving sync on the charge forms), and
-  **RD13** (status-driven required toggle on the charge forms) — the last two also live in
-  `static/app.js`. Adding a fifth needs its own RD entry per RD8.
+  **RD13** (status-driven required toggle on the charge forms) plus **RD14** (location-kind
+  driven label toggle) — the last three also live in `static/app.js`. Adding a sixth needs
+  its own RD entry per RD8.
 - **Confirmations: never write a modal, never call `window.confirm`.** Put `hx-confirm`
   (plus optional `data-confirm-title` / `data-confirm-label` / `data-confirm-variant="danger"`)
   on the triggering control and the shared `ui.ConfirmDialog` — mounted once in
@@ -322,15 +323,17 @@ CSRF-protected, and tenant-scoped.
 
 ### Manual charge form layout (both forms, 2026-08-29)
 
-`ChargeCreateForm` and `ChargeRowEdit` render the SAME nine fields in the SAME
+`ChargeCreateForm` and `ChargeRowEdit` render the SAME ten fields in the SAME
 order — `status`, `charged_on`, `energy_added_kwh`, `price`, `started_at`,
-`ended_at`, `start_battery_pct`, `end_battery_pct`, `location_kind` — in the main
-grid, followed by an always-visible **"Optional details"** `<section>`
-(`charging_type`, `location_label`, `odometer_km`, `notes`). The edit row appends
-one edit-only extra after the shared nine: the read-only Vehicle display.
-`TestChargeForms_FieldOrderIsSharedAndLocationLast`
+`ended_at`, `start_battery_pct`, `end_battery_pct`, `location_kind`,
+`location_label` — in the main grid, followed by an always-visible
+**"Optional details"** `<section>` (`charging_type`, `odometer_km`, `notes`).
+The edit row appends one edit-only extra after the shared ten: the read-only
+Vehicle display. `TestChargeForms_FieldOrderIsSharedAndLocationLast`
 (`handlers/charges_form_layout_test.go`) checks both templates against ONE
 order list, so "the same order" is enforced rather than merely intended.
+(`location_label` moved from the optional section into the main grid on
+2026-09-01, closing the grid behind `location_kind`.)
 
 - **No `<details>`/`<summary>` collapse on either form — do not reintroduce one.**
   It previously hid `location_kind` (always required) and `ended_at` (required when
@@ -339,12 +342,17 @@ order list, so "the same order" is enforced rather than merely intended.
   control with name='location_kind' is not focusable"* and the submit silently does
   nothing: no message, no request. If a future field must be tucked away, it has to be
   unconditionally optional, and the section stays open.
-- **`location_kind` is required and belongs in the main grid**, last — never in the
-  optional section. `TestChargeForms_LocationIsLastInTheMainGrid` pins this.
-- **The section heading carries the optional signal for its own four fields**; the
-  per-field `ui.FieldProps.Optional` hint marks only the optional fields that live in
-  the MAIN grid (`energy_added_kwh`, `price`, `started_at`), so the two signals never
-  duplicate each other.
+- **`location_kind` is required and belongs in the main grid** — never in the
+  optional section; the optional `location_label` follows it as the grid's final
+  field. `TestChargeForms_LocationIsLastInTheMainGrid` pins this.
+- **The section heading carries the optional signal for its own three fields**; the
+  per-field `ui.FieldProps.Optional` hint marks the optional fields that live in
+  the MAIN grid (`energy_added_kwh`, `price`, `started_at`, `location_label`), so
+  the two signals never duplicate each other.
+- **`location_label` is disabled unless `location_kind` is `OTHER`** (RD14) — the
+  server renders the initial `disabled` state and the `static/app.js` listener
+  keeps it live on select change; a disabled input is not submitted, so a label
+  typed under HOME/WORK is dropped at save (deliberate).
 
 ### Manual charge edit: a successful save returns the whole list, retargeted
 
@@ -702,9 +710,9 @@ to every future AI agent or human who reads this doc at the start of a session.
 
 The gateway's declared **zero-JS** DaisyUI foundation (`ai/htmx-conventions.md`
 §"Styling" — "Do not introduce a component that needs client-side JS init") has
-exactly **FOUR** sanctioned exceptions: this one, **RD10** (the confirmation
-modal) below, and **RD12**/**RD13** (the charge-form date-sync and
-status-required toggle) further below. This entry covers the first: a single inline `<script>` in
+exactly **FIVE** sanctioned exceptions: this one, **RD10** (the confirmation
+modal) below, and **RD12**/**RD13**/**RD14** (the charge-form date-sync,
+status-required toggle, and location-label toggle) further below. This entry covers the first: a single inline `<script>` in
 `layouts.BaseAuth` that sets the `browser_tz` cookie. Added by
 `gateway-browser-tz-cookie` (MAG-7, shipped 2026-08-11; documented here in the
 MAG-7 review fix round, 2026-08-12).
@@ -929,9 +937,66 @@ its own RD entry per RD8, with its own rationale and rejected alternative.
 **Graceful degradation:** if a matched `<select>` has no enclosing `<form>`, or the
 form has no `ended_at`/`end_battery_pct` input, the helper no-ops on the missing
 piece (`if (endedAt) endedAt.required = isDone`). Without JS entirely, the
-server-rendered initial `required` state from §D-Fields still governs at submit time —
-the fields simply stop updating live on a status change, falling back to correctness
+server-rendered initial `required` state from §D-Fields still governs at submit time — the
+fields simply stop updating live on a status change, falling back to correctness
 only on the next full page render rather than instantly.
+
+## Client-side JS exception: location-kind-driven label toggle (RD14)
+
+The **fifth** sanctioned exception to the zero-JS rule: a `change` + `htmx:load`
+listener pair on `select[name="location_kind"]` in `static/app.js` that toggles
+`input[name="location_label"]`'s `disabled` attribute live, with no htmx
+round-trip. Added 2026-09-01, alongside `location_label`'s move from the
+optional-details section into the main grid (same date).
+
+**What:** A `change` listener, delegated on `document.body`, matching
+`select[name="location_kind"]`, plus an `htmx:load` listener that re-applies the
+same logic to every `select[name="location_kind"]` present in the loaded/swapped
+content — the exact shape RD13 uses one section up. Both call one helper,
+`applyChargeLocationLabelToggle(select)`, which resolves `select.closest("form")`
+and sets `location_label.disabled = select.value !== "OTHER"`. The server
+renders the same initial state (`Disabled: LocationKind != "OTHER"` on
+`ui.InputProps` in both `charge_create_form.templ` and `charge_row_edit.templ`),
+pinned by `TestChargeForms_LocationLabelDisabledUnlessOther`
+(`handlers/charges_form_layout_test.go`); if the two ever disagree, the JS state
+wins in the live DOM, and the disagreement is inert — the same deliberate
+duplication RD13 makes. The `change` path additionally **focuses** the input
+the moment it is enabled (picking OTHER is the only path that enables it, and
+the user's next action is typing into it); the `htmx:load` path deliberately
+does **not** focus — a page load or row swap must never steal focus from where
+the user already is.
+
+**Why:** the free-text label is only meaningful when the kind is `OTHER`; a
+live text field next to HOME/WORK invites noise data. The **rejected
+alternative** was the server-only `disabled` attribute with no round-trip: on
+the create form the select change never re-renders, so the input could never be
+enabled at all. The second rejected alternative was an htmx round-trip on
+select change (re-render the form so the server recomputes `disabled`): rejected
+for the same reason RD13 rejected it — a full form re-render on every select
+change, plus new wiring to preserve the user's typed values.
+
+**Consequence (deliberate):** a `disabled` input is **not submitted**. If a user
+types a label and then switches the kind to HOME/WORK, the save silently drops
+the label — correct by definition, since the label carries no meaning for those
+kinds. Do not "fix" this by hiding the value without disabling; the drop is the
+feature.
+
+**Why it does not erode the `ui/` boundary:** the listener only ever reads
+`select.value` and writes a native DOM `.disabled` boolean — no DaisyUI class
+string, no markup, no styling decision is made in JavaScript.
+
+**Boundary — this is NOT an opening for general client-side JS.** Like
+RD9–RD13, it is a narrow, sanctioned exception (one delegated listener pair, one
+boolean toggle, one named target field), not a precedent. Any further
+client-side JS needs its own RD entry per RD8.
+
+**Graceful degradation:** if a matched `<select>` has no enclosing `<form>`, or
+the form has no `location_label` input, the helper no-ops on the missing piece
+(`if (label) label.disabled = ...`). Without JS entirely, the server-rendered
+initial `disabled` state still governs — the input simply stops toggling live on
+a kind change, so a user on the create form must rely on the next full render
+(a degradation RD13 shares, not a data-integrity issue: a label typed for
+HOME/WORK is dropped at save either way).
 
 ---
 

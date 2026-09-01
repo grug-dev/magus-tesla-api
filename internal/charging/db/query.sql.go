@@ -681,6 +681,46 @@ func (q *Queries) ListSessionsByVehicleUpdatedSince(ctx context.Context, arg Lis
 	return items, nil
 }
 
+const lockSessionForVerification = `-- name: LockSessionForVerification :one
+SELECT vin, energy_kwh FROM charge_sessions
+WHERE id = $1
+  AND account_id = $2
+FOR UPDATE
+`
+
+type LockSessionForVerificationParams struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+}
+
+type LockSessionForVerificationRow struct {
+	Vin       string
+	EnergyKwh pgtype.Float8
+}
+
+// Read vin and energy_kwh for one account-scoped charge session, LOCKING the row (FOR
+// UPDATE) for the remainder of the caller's transaction. Called ONLY by VerifySession, and
+// ONLY when it must derive start_battery_pct from energy and the end percentage (design.md
+// D2/D7/D9, MAG-36) -- every other VerifySession call skips this query entirely and runs its
+// single UPDATE outside a transaction, exactly as before this change.
+//
+// FOR UPDATE mirrors internal/account's AccessTokenFor and this module's own
+// SessionWriter.MirrorSessions: the read and the later write (VerifyChargeSession, called
+// against the SAME transaction) must observe one consistent row, so a concurrent
+// SessionWriter.MirrorSessions refresh of energy_kwh cannot land between this read and that
+// write and leave the derived percentage computed from a value the row no longer holds
+// (design.md D9).
+//
+// WHERE id = @id AND account_id = @account_id mirrors VerifyChargeSession's own scoping
+// exactly; zero rows matched surfaces as pgx.ErrNoRows, wrapped by the caller identically to
+// VerifyChargeSession's own not-found case (design.md D10).
+func (q *Queries) LockSessionForVerification(ctx context.Context, arg LockSessionForVerificationParams) (LockSessionForVerificationRow, error) {
+	row := q.db.QueryRow(ctx, lockSessionForVerification, arg.ID, arg.AccountID)
+	var i LockSessionForVerificationRow
+	err := row.Scan(&i.Vin, &i.EnergyKwh)
+	return i, err
+}
+
 const mirrorChargeSession = `-- name: MirrorChargeSession :exec
 INSERT INTO charge_sessions (
     account_id, vin, tesla_id, session_id,

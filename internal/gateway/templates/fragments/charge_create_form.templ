@@ -124,6 +124,10 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 							<option value="OTHER" selected?={ d.FormValues.LocationKind == "OTHER" }>{ i18n.T(ctx, i18n.KeyChargesFormOther) }</option>
 						}
 					}
+					@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocationLabel), Optional: true}) {
+						// RD14: disabled unless the kind is OTHER; the app.js toggle keeps it live.
+						@ui.Input(ui.InputProps{Name: "location_label", Value: d.FormValues.LocationLabel, Disabled: d.FormValues.LocationKind != "OTHER"})
+					}
 				</div>
 				<section id="charges-create-optional">
 					<h3 class="font-medium text-base-content/70">{ i18n.T(ctx, i18n.KeyChargesFormOptionalDetails) }</h3>
@@ -135,9 +139,7 @@ templ ChargeCreateForm(d ChargesPageData, validationErrors map[string]string) {
 								<option value="DC" selected?={ d.FormValues.ChargingType == "DC" }>{ i18n.T(ctx, i18n.KeyChargesFormDC) }</option>
 							}
 						}
-						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormLocationLabel)}) {
-							@ui.Input(ui.InputProps{Name: "location_label", Value: d.FormValues.LocationLabel})
-						}
+						
 						@ui.Field(ui.FieldProps{Label: i18n.T(ctx, i18n.KeyChargesFormOdometer), Error: validationErrors["odometer_km"]}) {
 							@ui.Input(ui.InputProps{Type: "number", Name: "odometer_km", Value: d.FormValues.OdometerKm, Attrs: templ.Attributes{"min": "0", "step": "1"}})
 						}

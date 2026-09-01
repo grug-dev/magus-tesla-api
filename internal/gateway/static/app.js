@@ -103,13 +103,13 @@ document.body.addEventListener("htmx:beforeSwap", function (evt) {
   });
 })();
 
-// --- Charge form: date-sync + status-required toggle (RD12/RD13) -------------
+// --- Charge form: date-sync + status-required + location-label toggles (RD12/RD13/RD14) ---
 //
-// Both listeners below use document.body-scoped event delegation, never
+// All listeners below use document.body-scoped event delegation, never
 // per-element addEventListener at render time — the manual-charge create form
 // and any number of simultaneously-open inline edit rows all need this
 // behavior with no re-binding step when htmx swaps a row in. See
-// internal/gateway/AGENTS.md RD12/RD13 for the full rationale and the
+// internal/gateway/AGENTS.md RD12/RD13/RD14 for the full rationale and the
 // rejected alternatives (design.md §D-JS, RM33-gateway-update-charge-form).
 
 // RD12 — changing the "charged_on" date input rewrites only the DATE portion
@@ -169,5 +169,46 @@ document.body.addEventListener("htmx:load", function (evt) {
   var selects = root.querySelectorAll('select[name="status"]');
   for (var i = 0; i < selects.length; i++) {
     applyChargeStatusRequiredToggle(selects[i]);
+  }
+});
+
+// RD14 — the "location_kind" select drives whether location_label is enabled:
+// the free-text label is only meaningful when the kind is OTHER, so the input
+// is disabled otherwise. A disabled input is NOT submitted, so switching away
+// from OTHER drops the label from the save — deliberate (the label has no
+// meaning for HOME/WORK). Same change + htmx:load shape as RD13 above,
+// duplicating the server-rendered initial `disabled` state on purpose.
+function applyChargeLocationLabelToggle(select) {
+  var form = select.closest("form");
+  if (!form) return;
+  var label = form.querySelector('input[name="location_label"]');
+  if (label) label.disabled = select.value !== "OTHER";
+}
+
+document.body.addEventListener("change", function (evt) {
+  var select = evt.target;
+  if (!select || !select.matches || !select.matches('select[name="location_kind"]')) return;
+  applyChargeLocationLabelToggle(select);
+  // Focus the freshly-enabled label: picking OTHER is the only path that
+  // enables it (a change event implies the value actually moved, so the input
+  // was disabled a moment ago), and the user's next action is typing into it.
+  // The htmx:load path below deliberately does NOT focus — a page load or row
+  // swap must never steal focus from where the user already is.
+  var form = select.closest("form");
+  if (form && select.value === "OTHER") {
+    var label = form.querySelector('input[name="location_label"]');
+    if (label) label.focus();
+  }
+});
+
+document.body.addEventListener("htmx:load", function (evt) {
+  var root = evt.target;
+  if (!root || !root.querySelectorAll) return;
+  if (root.matches && root.matches('select[name="location_kind"]')) {
+    applyChargeLocationLabelToggle(root);
+  }
+  var selects = root.querySelectorAll('select[name="location_kind"]');
+  for (var i = 0; i < selects.length; i++) {
+    applyChargeLocationLabelToggle(selects[i]);
   }
 });

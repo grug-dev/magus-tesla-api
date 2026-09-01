@@ -14,6 +14,8 @@
 - **Known as:** `supercharger stats`, `Supercharger session`, `charge session log`, `Supercharger Stats page`, `/supercharger-stats`, `fast charging stats`, `session battery edit`, `verify session battery`, `battery percentage correction`, `session battery percentages`, `supercharger chart axes`
 - **Internal name:** `SuperchargerStatsPage` / `SuperchargerStatsFragment` / `SuperchargerRowStatic` / `SuperchargerRowEditFragment` / `SuperchargerRowUpdate` (gateway handlers) → `charging.SessionReader` (`ListSessionsByVehicleBetween`) / `charging.SessionVerifier` (`VerifySession`) / `charging.SessionWriter` — table `charge_sessions`, owned by the `charging` module. **Changed by RM30** (was `telemetry.SuperchargerReader` over `supercharger_sessions`, the raw ingestion buffer). **Extended by RM31 tier 4**: the chart carries `YYYY-MM` bar labels + reused kWh y-axis ticks, and the session table carries the four `charging.Session` battery-percentage columns. **Write path added by RM31 tier 5** (`RM31-gateway-add-session-battery-edit`): a signed-in user can now correct a session's `start_battery_pct`/`end_battery_pct` inline through `charging.SessionVerifier.VerifySession` — still NO Create and NO Delete (see "Write path" below).
 
+- **Inferred pack capacity:** `charging.Session.InferredCapacityKWhCalc` (`*float64`), backed by the DB-generated column `charge_sessions.inferred_capacity_kwh_calc`. Also known as `inferred capacity`.
+
 ## Component map
 
 Files involved, grouped by layer. Each row: the file's role in this concept.
@@ -127,6 +129,36 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Country stays gone — do not restore the column, the cell, or a Country i18n key.** The table retains Date, Site, Energy and Cost only; `charging.Session` carries no `CountryCode` (RM29 D1) and RM30 removed the column deliberately. _Source: spec gateway — Requirement: Supercharger Stats session table displays battery percentages._
 - **Every new header resolves through the i18n catalogue with non-empty ES *and* EN.** A hardcoded or Spanish-only header is incomplete work here exactly as everywhere else in the gateway. _Source: spec gateway — Requirement: Supercharger Stats session table displays battery percentages._
 - **A saved battery-percentage edit must NOT refresh the KPI tiles or the chart.** The swap replaces the row and nothing else: session count, energy, cost and average kWh/session, and every chart bar, are derived from energy and cost — never from a battery percentage — so re-rendering the region on save would be pure churn presented to the user as a change. _Source: spec gateway — Requirement: Supercharger session battery percentages are correctable inline._
+
+- **The inferred pack capacity is derived by the database, never by Go.** It is a
+  `GENERATED ALWAYS AS (…) STORED` column, so it is correct on every write path with no caller
+  action. Do not add a Go-side computation and do not name the column in any write.
+  _Source: spec charge-session-log — Requirement: Inferred Pack Capacity Is Recorded On Every Charge Session._
+- **Two independent paths keep it fresh, and neither one names it.** The nightly mirror's
+  `ON CONFLICT DO UPDATE SET` refresh of `energy_kwh` as Tesla's fees settle, and a human
+  correcting the percentages through `charging.SessionVerifier.VerifySession`. The value
+  recomputes from opposite directions without either path knowing it exists — including on the
+  `charging.Session` that `VerifySession` itself returns, because the query is `RETURNING *`.
+  _Source: spec charge-session-log — Requirement: Inferred Pack Capacity Is Recorded On Every Charge Session._
+- **`SessionMirror` deliberately has no field for it, exactly as it has none for the verified
+  percentages.** That is not an omission to "fix" — the mirror must not be able to write either.
+  _Source: spec charge-session-log — Requirement: Inferred Pack Capacity Is Recorded On Every Charge Session._
+- **Expect mostly `nil` on this table.** The value needs the verified percentages, which only
+  exist for sessions a human has verified, plus a non-`NULL` `energy_kwh` (a session with no kWh
+  fee has none). An unverified session legitimately records no capacity.
+  _Source: spec charge-session-log — Requirement: Inferred Pack Capacity Is Recorded On Every Charge Session._
+- **A recorded absence must never fail a synchronization pass.** The guard (all three inputs
+  present **and** end % strictly greater than start %) exists partly to protect the nightly
+  mirror: an equal delta would be a division by zero, and because one bad row rejects the whole
+  `MirrorSessions` call, that error would abort the entire night's sync for the account. The
+  column's type is unconstrained `NUMERIC` for the same reason — `energy_kwh` is vendor-controlled
+  `DOUBLE PRECISION` with no `CHECK`, so any fixed precision could overflow on data the project
+  does not own and take down the sync.
+  _Source: spec charge-session-log — Requirement: Inferred Pack Capacity Is Recorded On Every Charge Session._
+- **Do not narrow the column's type.** If a test asserting a very large capacity (energy `1e9`
+  over a 1-point delta) ever starts failing, someone added a precision constraint and reintroduced
+  the abort-the-nightly-mirror risk.
+  _Source: spec charge-session-log — Requirement: Inferred Pack Capacity Is Recorded On Every Charge Session._
 
 ## Related KB
 

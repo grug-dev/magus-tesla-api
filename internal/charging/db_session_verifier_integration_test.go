@@ -16,7 +16,9 @@
 //
 //	T1, T4, T9  TestVerifySession_T1_T4_T9_SetThenClearAdvancesUpdatedAt
 //	T2          TestVerifySession_PartialStartOnlyStillSetsSource
-//	T3          TestVerifySession_PartialEndOnlyStillSetsSource
+//	T3          TestVerifySession_PartialEndOnlyStillSetsSource (updated by MAG-36,
+//	            charging-add-derived-start-battery-pct: the expected StartBatteryPct
+//	            is now the derived 41, not nil -- see the test's own doc comment)
 //	T5          TestVerifySession_OutOfRangeRejectedBeforeQuery
 //	T6          TestVerifySession_WrongAccountIsNoOp
 //	T7          TestVerifySession_UnknownIDSameErrorShapeAsWrongAccount
@@ -242,9 +244,18 @@ func TestVerifySession_PartialStartOnlyStillSetsSource(t *testing.T) {
 // --- T3 ---
 
 // TestVerifySession_PartialEndOnlyStillSetsSource is T2's symmetric case: setting
-// only endBatteryPct leaves startBatteryPct NULL and still writes the source,
-// proving the source computation is not conditioned specifically on
-// startBatteryPct being the one that is non-nil.
+// only endBatteryPct still writes the source correctly, proving the source
+// computation is not conditioned specifically on startBatteryPct being the one
+// that is non-nil (RM31's original point, unchanged by this change).
+//
+// Since MAG-36 (charging-add-derived-start-battery-pct design.md D12/C1), this is
+// also the natural end-to-end regression proof that VerifySession's new derivation
+// fires: seedVerifierSession's fixture carries EnergyKWh = 30.5 (unchanged), so
+// leaving startBatteryPct nil while supplying endBatteryPct = 90 now derives
+// StartBatteryPct instead of leaving it absent. At the 62.0 kWh capacity constant,
+// derivedStartBatteryPct(62.0, 30.5, 90) computes 90 - 30.5/62.0*100 = 40.806...,
+// which math.Round (half away from zero) rounds to 41 -- in [0, 100], so it is
+// stored rather than discarded.
 func TestVerifySession_PartialEndOnlyStillSetsSource(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
@@ -258,8 +269,8 @@ func TestVerifySession_PartialEndOnlyStillSetsSource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
 	}
-	if s3.StartBatteryPct != nil {
-		t.Errorf("StartBatteryPct = %v, want nil", s3.StartBatteryPct)
+	if s3.StartBatteryPct == nil || *s3.StartBatteryPct != 41 {
+		t.Errorf("StartBatteryPct = %v, want 41 (derived)", s3.StartBatteryPct)
 	}
 	if s3.EndBatteryPct == nil || *s3.EndBatteryPct != 90 {
 		t.Errorf("EndBatteryPct = %v, want 90", s3.EndBatteryPct)

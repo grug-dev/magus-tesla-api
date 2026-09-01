@@ -24,6 +24,15 @@
 | `calculated fields` | synonym of `calc fields` | entity | `entities/vehicle-metrics/guide.md` |
 | `metrics reconciliation` | `Recalculator.Reconcile` / `vehicle_metric_watermarks` | entity | `entities/vehicle-metrics/guide.md` |
 | `watermark source` | `vehicle_metric_watermarks.source` (`vehicle_snapshots` / `charge_sessions` / `manual_charge_entries`) | entity | `entities/vehicle-metrics/guide.md` |
+| `session inferred capacity` | `charging.Session.InferredCapacityKWhCalc` / `charge_sessions.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/supercharger-stats-read.md` |
+| `derived start battery` | `charging.SessionVerifier.VerifySession` derivation (`start_battery_pct` computed from `energy_kwh` + end %) | entity | `use-case/charging/verify-session-battery.md` |
+| `calculated start battery` | synonym of `derived start battery` | entity | `use-case/charging/verify-session-battery.md` |
+| `inferred capacity` | `charging.Entry.InferredCapacityKWhCalc` / `manual_charge_entries.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/manual-charge-crud.md` |
+| `inferred pack capacity` | synonym of `inferred capacity` | entity | `workflows/manual-charge-crud.md` |
+| `entry status` | `charging.Status` (`IN_PROGRESS` / `DONE`) / `charging.RequiredFieldsFor` — the status-to-required-fields rule | entity | `workflows/manual-charge-crud.md` |
+| `charge status` | synonym of `entry status` | entity | `workflows/manual-charge-crud.md` |
+| `energy source` | `charging.EnergySource` (`USER` / `ESTIMATED`) / `manual_charge_entries.energy_source` — module-computed, never caller-supplied | entity | `workflows/manual-charge-crud.md` |
+| `energy provenance` | synonym of `energy source` | entity | `workflows/manual-charge-crud.md` |
 
 ## Input ports — pages & endpoints
 
@@ -74,6 +83,22 @@
 | `charge recalculation` | synonym of `charge record mutation` → `architecture/charge-record-mutation.md` |
 | `charge write side effects` | synonym of `charge record mutation` → `architecture/charge-record-mutation.md` |
 | `charge gaps` (`analytics.GapWriter` / `charge_gaps` — written only by the nightly cycle, never by an edit) | `architecture/charge-record-mutation.md` |
+| `platform time zone` (the single default zone `America/Bogota` + calendar-day normalization) | `architecture/platform-time-zone.md` |
+| `default time zone` | synonym of `platform time zone` → `architecture/platform-time-zone.md` |
+| `America/Bogota` | synonym of `platform time zone` → `architecture/platform-time-zone.md` |
+| `clock` | `internal/clock` (`Zone` / `Now` / `LoadOrDefault` / `CalendarDay`) → `architecture/platform-time-zone.md` |
+| `calendar day` | `clock.CalendarDay` — normalize a moment to its day in a given zone → `architecture/platform-time-zone.md` |
+| `account activation gate` (the cross-module Active/Inactive rule: the account module hides Inactive rows from reads, the gateway refuses them a session at login) | `architecture/account-activation-gate.md` |
+| `inactive account` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
+| `account status` | `account.Account.Status` (`Active` / `Inactive`) → `architecture/account-activation-gate.md` |
+| `blocked login` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
+| `deactivated account` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
+| `poll run summary` (one row per `ProcessVehicleData` invocation, recorded on every exit path incl. whole-cycle failure) | `architecture/nightly-cycle.md` |
+| `run duration` | `ProcessVehicleData`'s clock-measured start-to-finish span → `architecture/nightly-cycle.md` |
+| `poll run` (one `poll_runs` row per collection-cycle invocation: trigger, timing, account/vehicle outcome counts, Tesla API call count) | `architecture/telemetry-data-hub.md` |
+| `run summary` | synonym of `poll run` → `architecture/telemetry-data-hub.md` |
+| `poll_runs` | `telemetry.PollRun` / `telemetry.RunWriter.RecordRun` → `architecture/telemetry-data-hub.md` |
+| `Tesla API call count` | `CycleReport.TeslaAPICalls` (counting decorator inside `internal/telemetry`) → `architecture/telemetry-data-hub.md` |
 
 <!--
 Notes for the curator:
