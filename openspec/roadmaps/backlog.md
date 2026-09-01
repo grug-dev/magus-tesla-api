@@ -780,6 +780,47 @@ candidate follow-up while verifying R3; explicitly out of tier 7's sandbox becau
 
 
 
+## 22. analytics — Backfill the eight RM38 vehicle-status columns for historical rows
+
+### PROPOSAL
+
+`RM38-analytics-add-vehicle-status-columns` added eight nullable columns to
+`vehicle_metrics` (`locked`, `sentry_mode`, `car_version`, `inside_temp_c`,
+`outside_temp_c`, `charging_state`, `charge_limit_soc_pct`, `captured_at`) but
+**deliberately did not backfill them** (RM38 D2, the owner's explicit choice for the
+minimal migration). Every row written before that migration therefore holds NULL in all
+eight, permanently.
+
+Two consequences are live in production:
+
+1. History-shaped consumers cannot read these fields for any pre-migration day. Only the
+   dashboard's "latest row" read is unaffected, and only because the nightly job refreshes
+   the latest row within one cycle.
+2. **NULL on `sentry_mode` is ambiguous.** On `vehicle_snapshots` NULL means "the vehicle
+   did not report sentry"; on `vehicle_metrics` it now means that *or* "row written before
+   RM38". Nothing can distinguish the two, so any future feature that reasons about sentry
+   history must treat all pre-migration rows as unknown.
+
+Work: a data-only migration deleting the `vehicle_snapshots` watermark, exactly as
+`20260822000002_reset_vehicle_metric_watermarks.sql` already does — `Recalculator.Reconcile`
+treats an absent watermark as the epoch, so the next nightly run re-derives every vehicle's
+whole history through the analytics module's own Go path. No cross-module SQL, no one-off
+binary, no new Go code. This mechanism was proposed and declined during the RM38 interview;
+it is recorded here because the decision was about scope, not about the mechanism, which is
+proven.
+
+**Trigger:** the first feature that reads any of the eight columns for a day other than the
+latest one — a history chart, a sentry-history view, a lock-state report — or any change
+that needs NULL on `sentry_mode` to be unambiguous.
+
+### ORIGIN
+
+`RM38-dashboard-vehicle-status-from-metrics` roadmap, decision **D2** (settled with the
+owner before any artifact was written). Recorded per the roadmap's own "Future work"
+section.
+
+
+
 # BRAINSTORMING
 
 
