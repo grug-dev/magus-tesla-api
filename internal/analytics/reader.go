@@ -37,6 +37,7 @@ type vehicleLookup interface {
 type vehicleMetricsStore interface {
 	VehicleMetricsConsumedByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsConsumedByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsConsumedByVehicleBetweenRow, error)
 	VehicleMetricsOdometerByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsOdometerByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsOdometerByVehicleBetweenRow, error)
+	LatestVehicleMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]analyticsdb.LatestVehicleMetricsByAccountRow, error)
 }
 
 type reader struct {
@@ -212,6 +213,37 @@ func (r *reader) OdometerDeltaByDay(ctx context.Context, accountID uuid.UUID, te
 			Date:       dateFromPg(row.MetricDate),
 			KmDriven:   math.Max(0, row.DistanceTraveledKmCalc.Float64),
 			OdometerKm: row.OdometerKm,
+		})
+	}
+	return out, nil
+}
+
+// LatestMetricsByAccount implements Reader (RM38-analytics-add-vehicle-status-columns
+// design.md D5/D6). It SELECTs the latest vehicle_metrics row per vehicle via
+// LatestVehicleMetricsByAccount and maps row-by-row into VehicleStatus — no
+// derivation logic here, pure row-to-domain mapping, mirroring ConsumedByDay's
+// own "no derivation logic here" convention.
+func (r *reader) LatestMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]VehicleStatus, error) {
+	rows, err := r.metrics.LatestVehicleMetricsByAccount(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]VehicleStatus, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, VehicleStatus{
+			TeslaID:           row.TeslaID,
+			BatteryLevelPct:   int(row.BatteryLevelPct),
+			BatteryRangeKm:    row.BatteryRangeKm,
+			OdometerKm:        row.OdometerKm,
+			InsideTempC:       ptrFloat64FromPg(row.InsideTempC),
+			OutsideTempC:      ptrFloat64FromPg(row.OutsideTempC),
+			Locked:            ptrBoolFromPg(row.Locked),
+			SentryMode:        ptrBoolFromPg(row.SentryMode),
+			CarVersion:        ptrStringFromPg(row.CarVersion),
+			ChargingState:     ptrStringFromPg(row.ChargingState),
+			ChargeLimitSocPct: ptrIntFromPg(row.ChargeLimitSocPct),
+			CapturedAt:        ptrTimeFromPg(row.CapturedAt),
 		})
 	}
 	return out, nil

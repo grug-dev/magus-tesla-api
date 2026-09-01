@@ -77,7 +77,7 @@ design.md D1–D8 for the rationale behind each task.
 
 ## Wave 3 — analytics domain code (module: analytics worker)
 
-- [ ] **3.1** `internal/analytics/analytics.go` — add the `VehicleStatus` domain type
+- [x] **3.1** `internal/analytics/analytics.go` — add the `VehicleStatus` domain type
   (design D4, exact field list and doc comments as specified there) and
   `LatestMetricsByAccount(ctx context.Context, accountID uuid.UUID)
   ([]VehicleStatus, error)` to the `Reader` interface (design D5, doc comment
@@ -85,7 +85,7 @@ design.md D1–D8 for the rationale behind each task.
   "unspecified order" contract statements).
   `depends_on`: 2.3 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** `internal/analytics/consumed.go` — `vehicleMetricRow` gains the eight
+- [x] **3.2** `internal/analytics/consumed.go` — `vehicleMetricRow` gains the eight
   new fields (`Locked *bool`, `SentryMode *bool`, `CarVersion *string`,
   `InsideTempC *float64`, `OutsideTempC *float64`, `ChargingState *string`,
   `ChargeLimitSocPct *int`, `CapturedAt *time.Time` — pointer-typed on the Go struct
@@ -97,7 +97,7 @@ design.md D1–D8 for the rationale behind each task.
   check the five `_calc` columns are gated behind).
   `depends_on`: 2.3 · `parallel_ok`: with 3.1
 
-- [ ] **3.3** `internal/analytics/mapping.go` — add the pg-conversion helpers the
+- [x] **3.3** `internal/analytics/mapping.go` — add the pg-conversion helpers the
   eight new columns need: `pgBoolFromPtr(*bool) pgtype.Bool`, `pgTextFromPtr(*string)
   pgtype.Text` (generic — do not conflate with the existing `pgTextFromMissingType`,
   which encodes a different zero-value rule), `pgTimestamptzFromPtr(*time.Time)
@@ -108,12 +108,12 @@ design.md D1–D8 for the rationale behind each task.
   `ptrIntFromPg(pgtype.Int4) *int`, `ptrTimeFromPg(pgtype.Timestamptz) *time.Time`.
   `depends_on`: 2.3 · `parallel_ok`: with 3.1, 3.2
 
-- [ ] **3.4** `internal/analytics/recalculate.go` — `upsertVehicleMetricParamsFrom`
+- [x] **3.4** `internal/analytics/recalculate.go` — `upsertVehicleMetricParamsFrom`
   extends its returned `analyticsdb.UpsertVehicleMetricParams` with the eight new
   fields, each mapped through 3.3's `pg*FromPtr` helpers (design D1/D3).
   `depends_on`: 3.2, 3.3 · `parallel_ok`: no
 
-- [ ] **3.5** `internal/analytics/reader.go` — `vehicleMetricsStore` interface gains
+- [x] **3.5** `internal/analytics/reader.go` — `vehicleMetricsStore` interface gains
   `LatestVehicleMetricsByAccount(ctx context.Context, accountID uuid.UUID)
   ([]analyticsdb.LatestVehicleMetricsByAccountRow, error)` (design D6 — `*analyticsdb.
   Queries` satisfies it automatically, no adapter needed, mirroring this interface's

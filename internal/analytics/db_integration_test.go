@@ -457,15 +457,11 @@ func pgTextFromStringPtr(v *string) pgtype.Text {
 	return pgtype.Text{String: *v, Valid: true}
 }
 
-// pgBoolFromPtr maps a *bool to a nullable pgtype.Bool — the
-// charge_sessions.is_paid shape (nullable BOOLEAN). Test-local for the same
-// reason as pgTextFromStringPtr above.
-func pgBoolFromPtr(v *bool) pgtype.Bool {
-	if v == nil {
-		return pgtype.Bool{Valid: false}
-	}
-	return pgtype.Bool{Bool: *v, Valid: true}
-}
+// pgBoolFromPtr (charge_sessions.is_paid's shape, nullable BOOLEAN) is no
+// longer test-local: RM38-analytics-add-vehicle-status-columns added a
+// production helper of the identical name and behavior to mapping.go for
+// vehicle_metrics' own nullable BOOLEAN columns (design D3/task 3.3). Reused
+// here rather than redeclared to avoid a duplicate symbol in this package.
 
 // seedChargeSession inserts one charging.Session directly into
 // charge_sessions (D19: no public writer can construct an arbitrary row with

@@ -179,6 +179,14 @@ func (f *fakeAnalyticsReader) RecentEfficiency(context.Context, uuid.UUID, int64
 	panic("fakeAnalyticsReader: RecentEfficiency is never called by the gateway's history fragment")
 }
 
+// LatestMetricsByAccount PANICS for the same reason RecentEfficiency does: the
+// history fragment never reads the latest-status port. RM38 tier 2 repoints the
+// dashboard's four LatestSnapshotsByAccount call sites at it, and will give this
+// fake a real recording implementation then.
+func (f *fakeAnalyticsReader) LatestMetricsByAccount(context.Context, uuid.UUID) ([]analytics.VehicleStatus, error) {
+	panic("fakeAnalyticsReader: LatestMetricsByAccount is never called by the gateway's history fragment")
+}
+
 func (f *fakeAnalyticsReader) ConsumedByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]analytics.DayConsumption, error) {
 	f.gotAccount = accountID
 	f.gotTeslaID = teslaID

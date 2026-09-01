@@ -554,6 +554,14 @@ type fakeVehicleMetricsStore struct {
 
 	gotConsumedParams analyticsdb.VehicleMetricsConsumedByVehicleBetweenParams
 	gotOdometerParams analyticsdb.VehicleMetricsOdometerByVehicleBetweenParams
+
+	// latestRows/gotLatestAccountID back LatestVehicleMetricsByAccount
+	// (RM38-analytics-add-vehicle-status-columns task 3.5) -- added here only
+	// to keep this fake satisfying vehicleMetricsStore after the interface
+	// gained the method; no assertions on it are added by this dispatch
+	// (Wave 5, a later dispatch's own DB-integration test wave, owns those).
+	latestRows         []analyticsdb.LatestVehicleMetricsByAccountRow
+	gotLatestAccountID uuid.UUID
 }
 
 func (f *fakeVehicleMetricsStore) VehicleMetricsConsumedByVehicleBetween(_ context.Context, arg analyticsdb.VehicleMetricsConsumedByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsConsumedByVehicleBetweenRow, error) {
@@ -570,6 +578,14 @@ func (f *fakeVehicleMetricsStore) VehicleMetricsOdometerByVehicleBetween(_ conte
 		return nil, f.err
 	}
 	return f.odometerRows, nil
+}
+
+func (f *fakeVehicleMetricsStore) LatestVehicleMetricsByAccount(_ context.Context, accountID uuid.UUID) ([]analyticsdb.LatestVehicleMetricsByAccountRow, error) {
+	f.gotLatestAccountID = accountID
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.latestRows, nil
 }
 
 // TestReader_ConsumedByDay_ReadsPrecomputedRows covers design.md D13/D-precompute: a
