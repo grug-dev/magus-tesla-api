@@ -4,9 +4,9 @@
   "roadmap": "RM38-dashboard-vehicle-status-from-metrics",
   "intention": "The gateway reads the latest vehicle state from analytics.vehicle_metrics instead of telemetry.vehicle_snapshots, and the dashboard's Vehicle Status card shows locked and sentry-mode badges.",
   "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. (1) Mirror locked, sentry_mode, car_version, inside_temp_c, outsite_temp_c from vehicle_snapshots into vehicle_metrics via UpsertVehicleMetric on the nightly job. (2) GET /dashboard -> handlers.dashboardFor and mapDashboardSnapshot read from vehicle_metrics instead of telemetryReader.LatestSnapshotsByAccount, via a new API using the same logic. (3) Vehicle Status section: remove the Status field, show locked/unlocked in a different colour (locked in green), add a sentry_mode label. (4) Update the KB for dashboard pages to record analytics.vehicle_metrics as the data source.",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": false,
-  "updated_at": "2026-09-01T17:42:30Z",
+  "updated_at": "2026-09-01T22:12:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
@@ -16,13 +16,12 @@
     "created_at": "2026-09-01T15:00:00Z"
   },
   "rollup": {
-    "current": [
-      2
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -123,14 +122,19 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-01T17:20:45Z",
-      "completed_at": null,
+      "completed_at": "2026-09-01T22:12:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts created and validated (openspec validate --strict). 23 sub-tasks / 7 waves. No DB change, so no design gate. Implementation not started."
+      "budget": {
+        "five_hour_pct_delta": 39,
+        "cost_usd_delta": 26.1,
+        "source": "statusline-cache",
+        "approx": true
+      },
+      "notes": "Archived as 2026-09-01-RM38-gateway-read-dashboard-from-metrics. All 23 tasks done across 4 dispatches; owner reported go test ./internal/gateway/... passing; gateway-reviewer approved round 1 with 3 minor doc-comment findings, all fixed."
     }
   ],
   "events": [
@@ -173,6 +177,11 @@
       "at": "2026-09-01T17:42:30Z",
       "agent": "leader",
       "event": "tier 2 artifacts created and validated; tier 2 -> in-progress. change progress.json seeded with 23 tasks across 7 waves."
+    },
+    {
+      "at": "2026-09-01T22:12:00Z",
+      "agent": "leader",
+      "event": "tier 2 archived (openspec archive synced the gateway spec: 1 added, 2 modified). Every tier archived, so roadmap RM38 is complete and auto-archives into openspec/roadmaps/archive/RM38-dashboard-vehicle-status-from-metrics/."
     }
   ]
 }
