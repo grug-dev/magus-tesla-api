@@ -35,7 +35,7 @@ type DashboardData struct {
 	// --- Hero "Vehicle Status" panel ---
 	StatusLabel string // "Charging" | "Parked"; "" when no snapshot
 	SoftwareVer string // "Software v11.1.2"; "" when not reported
-	LastUpdated string // "2006-01-02 15:04 UTC"; "" when no snapshot
+	LastUpdated string // "2006-01-02" (UTC calendar date); "" when no snapshot
 	IsStale     bool   // true when CapturedAt is older than stalenessThreshold
 
 	// --- Hero mini-stat grid ---

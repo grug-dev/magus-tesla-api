@@ -474,7 +474,7 @@ func mapDashboardSnapshot(ctx context.Context, vm *fragments.DashboardData, snap
 	if snap.CarVersion != "" {
 		vm.SoftwareVer = fmt.Sprintf(i18n.T(ctx, i18n.KeyDashboardStatusSoftwareVersion), snap.CarVersion)
 	}
-	vm.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02 15:04 UTC")
+	vm.LastUpdated = snap.CapturedAt.UTC().Format("2006-01-02")
 	vm.IsStale = isStale(snap.CapturedAt, now)
 	vm.Odometer = formatKm(snap.OdometerKm)
 	vm.InsideTemp = fmt.Sprintf("%.0f °C", snap.InsideTempC)

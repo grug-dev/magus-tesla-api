@@ -9,8 +9,9 @@ import (
 
 // This file pins the 2026-08-29 manual-charge form layout:
 //
-//   - location_kind is the LAST field of the main grid,
-//   - the create and edit forms render the nine shared fields in the SAME order,
+//   - location_kind is the last REQUIRED field of the main grid, followed only
+//     by the optional location_label,
+//   - the create and edit forms render the shared fields in the SAME order,
 //   - the "(optional)" hint marks the unconditionally-optional main-grid fields
 //     and stays OFF the conditionally-required ones.
 //
@@ -27,9 +28,9 @@ var sharedFieldOrder = []string{
 	"start_battery_pct",
 	"end_battery_pct",
 	"location_kind", // moved to the END of the main grid
+	"location_label", // optional; closes the main grid (2026-09-01)
 	// the optional-details section follows, in this order:
 	"charging_type",
-	"location_label",
 	"odometer_km",
 	"notes",
 }
@@ -102,6 +103,68 @@ func TestChargeForms_LocationIsLastInTheMainGrid(t *testing.T) {
 	}
 }
 
+// TestChargeForms_LocationLabelDisabledUnlessOther pins RD14's server-rendered
+// initial state: the location_label input carries the HTML `disabled`
+// attribute unless location_kind is OTHER — the free-text label is only
+// meaningful for OTHER. The live toggle on select change lives in
+// static/app.js (RD14) and duplicates this state client-side on purpose,
+// exactly as RD13 duplicates its server-rendered `required` state.
+func TestChargeForms_LocationLabelDisabledUnlessOther(t *testing.T) {
+	// inputTagFor returns the raw "<input ...>" tag containing the named
+	// control, failing the test when the control is missing.
+	inputTagFor := func(t *testing.T, formName, body, name string) string {
+		t.Helper()
+		idx := strings.Index(body, `name="`+name+`"`)
+		if idx == -1 {
+			t.Fatalf("%s form: control %q is missing from the rendered markup", formName, name)
+		}
+		open := strings.LastIndex(body[:idx], "<input")
+		close := strings.Index(body[idx:], ">")
+		if open == -1 || close == -1 {
+			t.Fatalf("%s form: could not isolate the %q input tag", formName, name)
+		}
+		return body[open : idx+close+1]
+	}
+
+	for _, form := range []struct {
+		name     string
+		kind     string
+		disabled bool
+	}{
+		{"create-empty", "", true},
+		{"create-home", "HOME", true},
+		{"create-other", "OTHER", false},
+	} {
+		t.Run(form.name, func(t *testing.T) {
+			d := fragments.ChargesPageData{}
+			d.FormValues.LocationKind = form.kind
+			tag := inputTagFor(t, form.name, renderCreateForm(t, d, ""), "location_label")
+			if got := strings.Contains(tag, "disabled"); got != form.disabled {
+				t.Errorf("%s form: location_label disabled=%v, want %v (tag %q)",
+					form.name, got, form.disabled, tag)
+			}
+		})
+	}
+	for _, form := range []struct {
+		name     string
+		kind     string
+		disabled bool
+	}{
+		{"edit-home", "HOME", true},
+		{"edit-work", "WORK", true},
+		{"edit-other", "OTHER", false},
+	} {
+		t.Run(form.name, func(t *testing.T) {
+			vm := fragments.ChargeEntryVM{LocationKind: form.kind}
+			tag := inputTagFor(t, form.name, renderEditRow(t, vm, ""), "location_label")
+			if got := strings.Contains(tag, "disabled"); got != form.disabled {
+				t.Errorf("%s form: location_label disabled=%v, want %v (tag %q)",
+					form.name, got, form.disabled, tag)
+			}
+		})
+	}
+}
+
 // TestChargeForms_OptionalHintMarksOnlyUnconditionalOptionals pins requirement 4
 // and the deliberate limit on it. The hint is a LABEL marker (ui.FieldProps
 // .Optional) rather than a placeholder because browsers ignore `placeholder` on
@@ -137,7 +200,7 @@ func TestChargeForms_OptionalHintMarksOnlyUnconditionalOptionals(t *testing.T) {
 		t.Run(form.name, func(t *testing.T) {
 			// ES is the fallback language when no lang is set on the context.
 			const hint = "(opcional)"
-			for _, name := range []string{"energy_added_kwh", "price", "started_at"} {
+			for _, name := range []string{"energy_added_kwh", "price", "started_at", "location_label"} {
 				if !strings.Contains(legendFor(form.body, name), hint) {
 					t.Errorf("%s form: %q is unconditionally optional and must carry the %q hint; legend was %q",
 						form.name, name, hint, legendFor(form.body, name))
