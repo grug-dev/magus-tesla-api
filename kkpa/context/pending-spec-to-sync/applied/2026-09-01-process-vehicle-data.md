@@ -9,7 +9,7 @@
 Target guide: `architecture/nightly-cycle.md`
 Source spec:  `openspec/specs/process-vehicle-data/spec.md`
 Generated:    `2026-08-31`
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-01
 
 Derived from the one requirement merged by change `RM36-app-record-poll-run` (ticket
 MAG-35, archived `2026-08-31-RM36-app-record-poll-run`, the final tier of roadmap

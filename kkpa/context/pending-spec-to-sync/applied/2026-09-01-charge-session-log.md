@@ -9,7 +9,7 @@
 Target guide: `workflows/supercharger-stats-read.md`
 Source spec:  `openspec/specs/charge-session-log/spec.md`
 Generated:    2026-08-29
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-01
 
 > **Routing note (for the reviewer).** `charge session log` already resolves to a `workflows/`
 > file that predates the use-case/workflow boundary rule, so per the skill's "existing

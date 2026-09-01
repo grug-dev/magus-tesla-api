@@ -6,16 +6,8 @@
 
 ## Glossary
 
-- **Known as:** `nightly cycle`, `nightly poll`, `nightly batch`, `nightly collection`, `the poller run` (UI/business)
-- **Internal name:** `app.Processor.ProcessVehicleData` — **owns no table**. Three ordered steps over four owning modules; `internal/app` is pure orchestration over public ports.
-
-The cycle in one line:
-
-```
-Scheduler ──> ProcessVehicleData ──┬── 1. Sync fleet data       (telemetry.Collector)
-                                   ├── 2. Mirror charging data  (charging.SessionWriter)
-                                   └── 3. Recalculate analytics (analytics.Recalculator + GapWriter)
-```
+- **Known as:** `nightly cycle`, `nightly collection`, `nightly poll`, `nightly batch`, `the poller run`, `poll run summary`
+- **Internal name:** `app.Processor.ProcessVehicleData` — the 3-step orchestration; since RM36 it also measures its own span and records one `telemetry.PollRun` per invocation through the `telemetry.RunWriter` port
 
 ## Component map
 
@@ -97,6 +89,9 @@ Scheduler ──> ProcessVehicleData ──┬── 1. Sync fleet data       (t
 - **Change the schedule:** `internal/app/scheduler.go` + the `PollerScheduleHour`/`PollerScheduleMinute` config read in `cmd/poller/main.go`. Keep `nextRun` unexported and pure.
 - **Change failure containment:** the isolation shape is per-account in step 2 and per-vehicle in step 3; see the gotchas below before loosening either.
 
+- **Add a fact to the recorded run summary:** the value must first exist on `telemetry.CycleReport` (populated inside `telemetry.CollectAll`). Then extend `telemetry.PollRun` and the `poll_runs` schema on the telemetry side, and map the new field in `internal/app`'s `buildPollRun`. `internal/app` gains no pool and no table — it only maps and calls the port.
+- **Change what the cycle measures:** `start`/`finish` are read in `ProcessVehicleData` via `internal/clock`, bracketing all three steps. Anything that needs its own timing is a separate measurement, not a widening of these two.
+
 ## Conventions & gotchas
 
 - **Exactly one failure stops the cycle: step 1's.** A non-nil error from `Collector.CollectAll` returns immediately and steps 2 and 3 never run — both later steps read data step 1 was supposed to have just written. Every other failure is logged and isolated, never fatal. _Source: `internal/app/processor.go` `ProcessVehicleData` doc; `internal/app/AGENTS.md` §Responsibility._
@@ -111,6 +106,11 @@ Scheduler ──> ProcessVehicleData ──┬── 1. Sync fleet data       (t
 - **The gap window's "yesterday" resolves in the POLLER'S zone, not UTC.** `time.Now().UTC()` here asks for the wrong day for 5 hours out of every 24. `internal/analytics` stays zone-free; the zone lives in this composition. _Source: `internal/app/processor.go` `recalculateAnalytics`; roadmap D6/D18._
 - **`internal/app` owns no data and takes no pool.** `poll_attempts` (incl. `run_id`/`triggered_by`) stays telemetry's. Every `NewProcessor` argument is a public port. _Source: `internal/app/AGENTS.md` §Data ownership._
 - **A `poll_attempts` insert failure is swallowed on purpose** — it must never abort the cycle, and `CycleReport` still reflects the true outcome. _Source: `internal/telemetry/service.go`._
+
+- **Every cycle records exactly one summary — including a cycle that fails outright.** A whole-cycle synchronization failure short-circuits steps 2 and 3 but still records a row, with all counts zero and timings reflecting how fast the failure was. Before this, a failed cycle wrote zero `poll_attempts` rows and so left no trace of having run at all. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
+- **Recording the summary can never change the cycle's reported outcome.** A failed summary write is logged and swallowed; `ProcessVehicleData` returns exactly what its three steps produced. In `internal/app` this is enforced structurally — `recordRun` returns nothing, so the compiler prevents it, not a convention. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
+- **The record point is a fall-through, not a second call site.** Both the success path and the failure short-circuit fall through to one measurement/record tail. Adding an early `return` anywhere in `ProcessVehicleData` silently reintroduces the untraced-run bug this design exists to prevent. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
+- **Both poller entry points are covered by construction.** The nightly schedule and `cmd/poller --once` both call `ProcessVehicleData`, so neither can diverge from the other. Never record a run from `cmd/`. _Source: spec process-vehicle-data — Requirement: Every Cycle Records A Poll Run Summary._
 
 ## Rendered view (visual map)
 
