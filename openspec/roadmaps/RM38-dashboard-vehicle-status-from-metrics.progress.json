@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. (1) Mirror locked, sentry_mode, car_version, inside_temp_c, outsite_temp_c from vehicle_snapshots into vehicle_metrics via UpsertVehicleMetric on the nightly job. (2) GET /dashboard -> handlers.dashboardFor and mapDashboardSnapshot read from vehicle_metrics instead of telemetryReader.LatestSnapshotsByAccount, via a new API using the same logic. (3) Vehicle Status section: remove the Status field, show locked/unlocked in a different colour (locked in green), add a sentry_mode label. (4) Update the KB for dashboard pages to record analytics.vehicle_metrics as the data source.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-01T16:43:43Z",
+  "updated_at": "2026-09-01T17:08:52Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
@@ -142,6 +142,11 @@
       "at": "2026-09-01T16:43:43Z",
       "agent": "leader",
       "event": "tier 1 archived (openspec archive synced 2 analytics spec requirements). Tier 2 (RM38-gateway-read-dashboard-from-metrics) is now unblocked; autopilot is false so the leader asks before starting it."
+    },
+    {
+      "at": "2026-09-01T17:08:52Z",
+      "agent": "leader",
+      "event": "PAUSED at the tier boundary by the owner's choice after tier 1 archived. Tier 2 (RM38-gateway-read-dashboard-from-metrics) is unblocked and not started; roadmap decisions D3-D6 already bind it. Budget at pause: 5h=77% ctx=21%. Resume with /kkpa-dev-harness-pipeline resume RM38-dashboard-vehicle-status-from-metrics"
     }
   ]
 }
