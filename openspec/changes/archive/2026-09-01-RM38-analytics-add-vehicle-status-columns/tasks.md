@@ -176,7 +176,7 @@ design.md D1–D8 for the rationale behind each task.
   Add a one-line "Testing" section note for the two new DB-integration cases (5.1–5.3).
   `depends_on`: 3.1, 3.5 · `parallel_ok`: yes
 
-- [ ] **6.2** **[leader]** Root `README.md` — check the `internal/analytics` row of
+- [x] **6.2** **[leader]** Root `README.md` — check the `internal/analytics` row of
   the "Architecture" table (§189 area, "Derived vehicle metrics computed over stored
   telemetry..."). This tier does not change what analytics computes (no new
   derivation, D3 is a copy-verbatim rule) — update the row's wording only if leaving
@@ -189,7 +189,7 @@ design.md D1–D8 for the rationale behind each task.
 
 ## Wave 7 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **7.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l`, `make
+- [x] **7.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l`, `make
   build`, `make vet`, `make bins`, `make migration-guard` (the one guard this tier's
   new migration file must pass — `make ui-guard`/`i18n-guard`/`money-guard`/
   `tz-guard`/`boundary-guard` are no-ops: no gateway code, no user-facing string, no
@@ -198,7 +198,7 @@ design.md D1–D8 for the rationale behind each task.
   `make test-with-db`, or `make check`.
   `depends_on`: 1.1–6.2 (every prior wave) · `parallel_ok`: no
 
-- [ ] **7.2** Hand off to the owner the exact command to run and report:
+- [x] **7.2** Hand off to the owner the exact command to run and report:
   `go test ./internal/analytics/...` (covers both the offline Wave 4 tests, which
   run with `DATABASE_URL` unset, and the `DATABASE_URL`-gated Wave 5 tests). Until
   the owner reports a pass, this tier's implementation status is

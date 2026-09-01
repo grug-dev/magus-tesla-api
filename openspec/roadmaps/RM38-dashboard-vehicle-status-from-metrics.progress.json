@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. (1) Mirror locked, sentry_mode, car_version, inside_temp_c, outsite_temp_c from vehicle_snapshots into vehicle_metrics via UpsertVehicleMetric on the nightly job. (2) GET /dashboard -> handlers.dashboardFor and mapDashboardSnapshot read from vehicle_metrics instead of telemetryReader.LatestSnapshotsByAccount, via a new API using the same logic. (3) Vehicle Status section: remove the Status field, show locked/unlocked in a different colour (locked in green), add a sentry_mode label. (4) Update the KB for dashboard pages to record analytics.vehicle_metrics as the data source.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-01T16:36:24Z",
+  "updated_at": "2026-09-01T16:43:43Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
@@ -16,14 +16,14 @@
     "created_at": "2026-09-01T15:00:00Z"
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
       2
     ],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -90,14 +90,14 @@
       "module": "analytics",
       "optional": false,
       "depends_on": [],
-      "status": "applied",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-01T15:00:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-01T16:43:43Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": "All 17 tasks implemented and committed on ft/RM38-MAG-12. Assistant-run signals clean. Five tasks awaiting the owner's suite run (go test ./internal/analytics/...); reviewer gate not yet opened."
+      "notes": "Archived as 2026-09-01-RM38-analytics-add-vehicle-status-columns. All 17 tasks done; owner reported 'make test' passed; analytics-reviewer approved round 1 with no findings."
     },
     {
       "id": 2,
@@ -137,6 +137,11 @@
       "at": "2026-09-01T16:36:24Z",
       "agent": "leader",
       "event": "tier 1 implementation complete (waves A/B/C); halted at the Step 6 verification gate pending the owner's suite run"
+    },
+    {
+      "at": "2026-09-01T16:43:43Z",
+      "agent": "leader",
+      "event": "tier 1 archived (openspec archive synced 2 analytics spec requirements). Tier 2 (RM38-gateway-read-dashboard-from-metrics) is now unblocked; autopilot is false so the leader asks before starting it."
     }
   ]
 }
