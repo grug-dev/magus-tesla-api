@@ -199,7 +199,7 @@ is authoritative for every test's expected values.
 
 ## Wave 7 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **7.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l`, `make build`,
+- [x] **7.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l`, `make build`,
   `make vet`, `make bins`, `make templ`, `make css` (already run in 4.3; re-run here to confirm
   a clean tree after Wave 5/6 edits), `make boundary-guard` (expected to still fail — unchanged
   from before this tier, since `handlers.go`/`gateway.go`/`history.go` still import
@@ -209,7 +209,7 @@ is authoritative for every test's expected values.
   Test-Execution-Policy, never `go test ./...`, `make test`, `make test-with-db`, or `make check`.
   `depends_on`: 1.1–6.2 (every prior wave) · `parallel_ok`: no
 
-- [ ] **7.2** Hand off to the owner the exact command to run and report:
+- [x] **7.2** Hand off to the owner the exact command to run and report:
   `go test ./internal/gateway/...` (covers Wave 2's offline helper tests and Wave 5's handler
   tests — none of this tier's tests are `DATABASE_URL`-gated, since no database object changed).
   Until the owner reports a pass, this tier's implementation status is

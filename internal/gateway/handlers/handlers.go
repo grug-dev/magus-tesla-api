@@ -54,7 +54,9 @@ type Deps struct {
 	Google  *googleauth.Client
 	Tesla   tesla.VehicleService
 	// TelemetryReader is the telemetry read port; injected at construction.
-	// The gateway calls LatestSnapshotsByAccount once per dashboard render.
+	// Since RM38-gateway-read-dashboard-from-metrics its ONLY remaining caller is
+	// history.go's SnapshotsByVehicleBetween — the four latest-state reads moved to
+	// AnalyticsReader.LatestMetricsByAccount.
 	// NEVER import internal/telemetry/db — all access through this interface only.
 	TelemetryReader telemetry.Reader
 	// SuperchargerReader is the charging module's SessionReader port over
@@ -437,17 +439,18 @@ func mapTeslasToVehicles(vs []tesla.VehicleTesla) []fragments.Vehicle {
 }
 
 // dashboardFor is the single-vehicle dashboard's core logic, decoupled from
-// gin/session so it is unit-testable with fake account/telemetry implementations
+// gin/session so it is unit-testable with fake account/analytics implementations
 // (mirrors vehiclesFor). It reads the account's registered vehicles through the
 // account port, selects the user's chosen vehicle (or auto-selects the first), then
-// reads the latest per-vehicle snapshots through telemetry.Reader and maps the
-// selected vehicle's snapshot onto a logic-free view model.
+// reads the latest per-vehicle status through analytics.Reader.LatestMetricsByAccount
+// (RM38 tier 2 — it was telemetry.Reader.LatestSnapshotsByAccount before) and maps the
+// selected vehicle's status onto a logic-free view model.
 //
 // Degradation rules (same resilient shape as vehiclesFor / navHeaderFor): a read
 // error NEVER returns a 500 — it degrades to a flagged view model:
 //   - account error              → Notice-only shell (no vehicle).
 //   - no registered vehicles      → NeedsConnect (connect prompt).
-//   - telemetry Reader error     → TelemetryUnavailable + vehicle identity only.
+//   - analytics Reader error     → TelemetryUnavailable + vehicle identity only.
 //   - selected vehicle, no snapshot → HasSnapshot=false placeholder ("—").
 //
 // selectedTeslaID is 0 when no selection persisted; the caller (Dashboard) has
