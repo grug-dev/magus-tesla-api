@@ -125,7 +125,7 @@ design.md D1–D8 for the rationale behind each task.
 
 ## Wave 4 — offline derivation tests (module: analytics worker)
 
-- [ ] **4.1** `internal/analytics/consumed_test.go` — extend (or add alongside the
+- [x] **4.1** `internal/analytics/consumed_test.go` — extend (or add alongside the
   existing Fixture A/C-equivalent cases) assertions proving `deriveVehicleMetrics`
   populates all eight new `vehicleMetricRow` fields from `cur` in **both** branches:
   a predecessor-exists case (design.md Test Contract Fixture RM38-A's field values)
@@ -138,21 +138,21 @@ design.md D1–D8 for the rationale behind each task.
 
 ## Wave 5 — DB-integration tests (module: analytics worker — final wave, DB-gated)
 
-- [ ] **5.1** `internal/analytics/db_integration_test.go` — extend (or add) a
+- [x] **5.1** `internal/analytics/db_integration_test.go` — extend (or add) a
   `Recalculate` integration test asserting the persisted `vehicle_metrics` row for
   Fixture RM38-A (predecessor exists) carries all eight new column values exactly as
   design.md's Test Contract specifies, read back via a direct `SELECT` (mirroring
   this file's existing fixture-assertion pattern, e.g. its Fixture A/B/C tests).
   `depends_on`: 2.3, 3.4 · `parallel_ok`: with 5.2
 
-- [ ] **5.2** `internal/analytics/db_integration_test.go` — add a `Recalculate`
+- [x] **5.2** `internal/analytics/db_integration_test.go` — add a `Recalculate`
   integration test for Fixture RM38-B (no predecessor) asserting the eight new
   columns are populated (not NULL) on that row while the five `_calc` columns and
   `consumed_pct` remain NULL and `flagged` is `false` — the DB-level proof of design
   D3, complementing Wave 4's offline proof.
   `depends_on`: 2.3, 3.4 · `parallel_ok`: with 5.1
 
-- [ ] **5.3** `internal/analytics/db_integration_test.go` — add a
+- [x] **5.3** `internal/analytics/db_integration_test.go` — add a
   `LatestMetricsByAccount` integration test covering: (a) a single vehicle's latest
   row returned as one fully-populated `VehicleStatus`; (b) two vehicles on one
   account, each returning its own latest day, never the other's (the multi-vehicle
@@ -165,7 +165,7 @@ design.md D1–D8 for the rationale behind each task.
 
 ## Wave 6 — documentation (module: analytics worker, except 6.2)
 
-- [ ] **6.1** `internal/analytics/AGENTS.md` — under "Public interface (the port)",
+- [x] **6.1** `internal/analytics/AGENTS.md` — under "Public interface (the port)",
   add the `LatestMetricsByAccount`/`VehicleStatus` entry (mirroring this file's
   existing per-method bullet style, e.g. the `OdometerDeltaByDay` bullet added by
   `RM29-analytics-add-vehicle-metrics`); under "Data ownership" → `vehicle_metrics`,

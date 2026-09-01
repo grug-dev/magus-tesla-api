@@ -5,19 +5,10 @@
   "module": "analytics",
   "roadmap": "openspec/roadmaps/RM38-dashboard-vehicle-status-from-metrics.md",
   "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. Tier 1 of RM38: mirror eight vehicle-status fields from telemetry.vehicle_snapshots into analytics.vehicle_metrics via UpsertVehicleMetric on the nightly job, and expose a latest-row-per-vehicle read port so the gateway can stop reading telemetry.",
-  "status": "in-progress",
+  "status": "applied",
   "rollup": {
     "current": [],
-    "pending": [
-      "4.1",
-      "5.1",
-      "5.2",
-      "5.3",
-      "6.1",
-      "6.2",
-      "7.1",
-      "7.2"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
       "1.1",
@@ -28,11 +19,21 @@
       "3.2",
       "3.3",
       "3.4",
-      "3.5"
+      "3.5",
+      "6.1",
+      "6.2",
+      "7.1"
+    ],
+    "awaiting-user-verification": [
+      "4.1",
+      "5.1",
+      "5.2",
+      "5.3",
+      "7.2"
     ]
   },
   "created_at": "2026-09-01T15:44:54Z",
-  "updated_at": "2026-09-01T16:10:28Z",
+  "updated_at": "2026-09-01T16:22:51Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -280,14 +281,22 @@
         "3.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:11:00Z",
+      "completed_at": "2026-09-01T16:14:00Z",
+      "duration_seconds": 180,
+      "notes": "Two offline tests (Fixture RM38-A/B) assert all 8 fields from cur in both branches; the RM38-B case asserts them non-nil on the same row where the 5 _calc fields are nil, so a D3 regression fails it.",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
     },
     {
       "id": "5.1",
@@ -297,14 +306,22 @@
         "3.5"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:14:00Z",
+      "completed_at": "2026-09-01T16:17:00Z",
+      "duration_seconds": 180,
+      "notes": "TestRecalculate_FixtureRM38A_StatusColumnsPersisted; extended fetchVehicleMetric and seedSnapshot (the latter previously discarded status fields - see events).",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
     },
     {
       "id": "5.2",
@@ -314,14 +331,22 @@
         "3.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:17:00Z",
+      "completed_at": "2026-09-01T16:19:00Z",
+      "duration_seconds": 120,
+      "notes": "TestRecalculate_FixtureRM38B_StatusColumnsPersistedWithoutPredecessor: 8 new columns populated, 5 _calc and consumed_pct NULL, flagged false.",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
     },
     {
       "id": "5.3",
@@ -331,14 +356,22 @@
         "3.4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:19:00Z",
+      "completed_at": "2026-09-01T16:21:00Z",
+      "duration_seconds": 120,
+      "notes": "Four TestReader_LatestMetricsByAccount_* cases (a)-(d) incl. Fixture RM38-C via seedPreMigrationVehicleMetric and the empty-non-nil-slice case.",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
     },
     {
       "id": "6.1",
@@ -348,14 +381,22 @@
         "3.5"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T16:21:00Z",
+      "completed_at": "2026-09-01T16:22:00Z",
+      "duration_seconds": 60,
+      "notes": "AGENTS.md: LatestMetricsByAccount/VehicleStatus port bullet, vehicle_metrics 8-column ownership note citing design.md, Testing note. Pure doc edit.",
+      "budget": {
+        "five_hour_pct_start": 47,
+        "five_hour_pct_end": 64,
+        "context_pct_start": 13,
+        "context_pct_end": 15,
+        "cost_usd_delta": 6.11,
+        "approx": true,
+        "note": "one shared wave delta copied onto each task in the batched serial dispatch"
+      }
     },
     {
       "id": "6.2",
@@ -365,13 +406,13 @@
         "3.5"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-01T16:12:00Z",
+      "completed_at": "2026-09-01T16:13:00Z",
+      "duration_seconds": 60,
+      "notes": "[leader] Root README.md: the vehicle_metrics data-ownership row said 'raw observations plus five _calc columns' - now records the 8 mirrored fields, verbatim-copy rule and nullable/no-backfill; architecture row names the new port.",
       "budget": null
     },
     {
@@ -387,13 +428,13 @@
         "6.2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-01T16:22:00Z",
+      "completed_at": "2026-09-01T16:23:00Z",
+      "duration_seconds": 60,
+      "notes": "[leader] go build, go vet, make build/vet/bins, migration-guard all clean. gofmt and boundary-guard flag only pre-existing items - boundary-guard exits 2 on main too (gateway->telemetry prod imports, which tier 2 removes).",
       "budget": null
     },
     {
@@ -404,13 +445,13 @@
         "7.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-01T16:22:51Z",
       "completed_at": null,
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Suite handed to the owner: go test ./internal/analytics/... . Not run by the assistant per Test-Execution-Policy.",
       "budget": null
     }
   ],
@@ -485,6 +526,22 @@
       "made_by": "leader",
       "decision": "The gateway fake's LatestMetricsByAccount stub panics rather than returning nil",
       "why": "Matches that file's documented guard convention for ports the history fragment never calls; RM38 tier 2 replaces it with a recording impl"
+    },
+    {
+      "id": "D-seedsnap",
+      "at": "2026-09-01T16:22:51Z",
+      "scope": "task:5.1",
+      "made_by": "leader",
+      "decision": "Accepted the worker's fix to the seedSnapshot test helper, which bound real Snapshot fields instead of hardcoded literals",
+      "why": "The literals made Fixtures RM38-A/B unseedable. Leader verified no derivation reads ChargingState, so no pre-existing assertion can move"
+    },
+    {
+      "id": "D-boundary",
+      "at": "2026-09-01T16:22:51Z",
+      "scope": "task:7.1",
+      "made_by": "leader",
+      "decision": "make boundary-guard's failure is pre-existing and not a blocker for this tier",
+      "why": "It exits 2 on main too; it flags the gateway's production telemetry imports, which RM38 tier 2 is the change that removes them"
     }
   ],
   "events": [
@@ -522,6 +579,16 @@
       "at": "2026-09-01T16:10:28Z",
       "agent": "leader",
       "event": "wave B complete (3.1-3.5 done). Worker reported cross-module vet failure: analytics.Reader's new method broke fakes in internal/app and internal/gateway/handlers. Leader stubbed both; go build ./... and go vet ./... now clean repo-wide. budget 5h 38->47%, ctx 11->13%"
+    },
+    {
+      "at": "2026-09-01T16:10:35Z",
+      "agent": "leader",
+      "event": "dispatch 3 (wave C = 4.1, 5.1, 5.2, 5.3, 6.1) to the analytics worker on Sonnet; budget_start 5h=47% ctx=13%"
+    },
+    {
+      "at": "2026-09-01T16:22:51Z",
+      "agent": "leader",
+      "event": "wave C complete (4.1, 5.1, 5.2, 5.3 awaiting-user-verification; 6.1 done). Leader did 6.2 and 7.1. Worker reported no design-contract/implementation disagreement on Fixtures RM38-A/B/C. budget 5h 47->64%, ctx 13->15%"
     }
   ]
 }
