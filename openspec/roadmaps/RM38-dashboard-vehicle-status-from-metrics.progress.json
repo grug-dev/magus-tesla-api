@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. (1) Mirror locked, sentry_mode, car_version, inside_temp_c, outsite_temp_c from vehicle_snapshots into vehicle_metrics via UpsertVehicleMetric on the nightly job. (2) GET /dashboard -> handlers.dashboardFor and mapDashboardSnapshot read from vehicle_metrics instead of telemetryReader.LatestSnapshotsByAccount, via a new API using the same logic. (3) Vehicle Status section: remove the Status field, show locked/unlocked in a different colour (locked in green), add a sentry_mode label. (4) Update the KB for dashboard pages to record analytics.vehicle_metrics as the data source.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-01T15:45:09Z",
+  "updated_at": "2026-09-01T16:36:24Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
@@ -90,14 +90,14 @@
       "module": "analytics",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "applied",
       "assistant": "Claude Code",
       "model": "claude-sonnet-4-6",
       "started_at": "2026-09-01T15:00:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Artifacts created and validated; database design gate confirmed by the owner with one revision (idx_vehicle_metrics_latest added). Implementation not started."
+      "notes": "All 17 tasks implemented and committed on ft/RM38-MAG-12. Assistant-run signals clean. Five tasks awaiting the owner's suite run (go test ./internal/analytics/...); reviewer gate not yet opened."
     },
     {
       "id": 2,
@@ -132,6 +132,11 @@
       "at": "2026-09-01T15:45:09Z",
       "agent": "leader",
       "event": "tier 1 artifacts created and design gate confirmed; tier 1 -> proposed. Run halted per pickup-ticket scope before implementation."
+    },
+    {
+      "at": "2026-09-01T16:36:24Z",
+      "agent": "leader",
+      "event": "tier 1 implementation complete (waves A/B/C); halted at the Step 6 verification gate pending the owner's suite run"
     }
   ]
 }
