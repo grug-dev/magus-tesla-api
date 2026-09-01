@@ -6,7 +6,7 @@
   "request": "Source ticket: MAG-12 - Show Fields on Vehicle Status section. (1) Mirror locked, sentry_mode, car_version, inside_temp_c, outsite_temp_c from vehicle_snapshots into vehicle_metrics via UpsertVehicleMetric on the nightly job. (2) GET /dashboard -> handlers.dashboardFor and mapDashboardSnapshot read from vehicle_metrics instead of telemetryReader.LatestSnapshotsByAccount, via a new API using the same logic. (3) Vehicle Status section: remove the Status field, show locked/unlocked in a different colour (locked in green), add a sentry_mode label. (4) Update the KB for dashboard pages to record analytics.vehicle_metrics as the data source.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-01T17:08:52Z",
+  "updated_at": "2026-09-01T17:42:30Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
@@ -16,10 +16,10 @@
     "created_at": "2026-09-01T15:00:00Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       2
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1
@@ -81,6 +81,22 @@
       "made_by": "leader",
       "decision": "Tier order not put to the user",
       "why": "Forced by dependency: tier 2 consumes the port and columns tier 1 creates. No alternative existed"
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-01T17:20:00Z",
+      "scope": "tier:2",
+      "made_by": "user",
+      "decision": "Gateway keeps reading VehicleStatus.CapturedAt for the date/stale/nav-freshness logic; metric_date is NOT added to the analytics port; the 36h/48h thresholds are unchanged",
+      "why": "Owner's call after the metric_date option was costed: it needs a new analytics tier and a +24h retune of both thresholds. A NULL captured_at is acceptable"
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-01T17:20:30Z",
+      "scope": "tier:2",
+      "made_by": "leader",
+      "decision": "NULL CapturedAt renders no date and no [Stale] badge on the dashboard, and Asleep with no last-seen label in the nav header",
+      "why": "Connected needs a timestamp to prove freshness. Affects at most one nightly cycle after deploy, then self-heals"
     }
   ],
   "tiers": [
@@ -107,14 +123,14 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
+      "status": "in-progress",
       "assistant": "Claude Code",
-      "model": null,
-      "started_at": null,
+      "model": "claude-sonnet-4-6",
+      "started_at": "2026-09-01T17:20:45Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Artifacts created and validated (openspec validate --strict). 23 sub-tasks / 7 waves. No DB change, so no design gate. Implementation not started."
     }
   ],
   "events": [
@@ -147,6 +163,16 @@
       "at": "2026-09-01T17:08:52Z",
       "agent": "leader",
       "event": "PAUSED at the tier boundary by the owner's choice after tier 1 archived. Tier 2 (RM38-gateway-read-dashboard-from-metrics) is unblocked and not started; roadmap decisions D3-D6 already bind it. Budget at pause: 5h=77% ctx=21%. Resume with /kkpa-dev-harness-pipeline resume RM38-dashboard-vehicle-status-from-metrics"
+    },
+    {
+      "at": "2026-09-01T17:20:45Z",
+      "agent": "leader",
+      "event": "resumed at the tier boundary; tier 2 starting. Step 2 interview: one new decision surfaced (NULL captured_at), settled as D8/D9. No database gate in tier 2 (gateway-only, no schema change). Budget at resume: 5h=80% ctx=8%"
+    },
+    {
+      "at": "2026-09-01T17:42:30Z",
+      "agent": "leader",
+      "event": "tier 2 artifacts created and validated; tier 2 -> in-progress. change progress.json seeded with 23 tasks across 7 waves."
     }
   ]
 }

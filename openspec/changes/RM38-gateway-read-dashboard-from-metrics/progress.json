@@ -1,0 +1,487 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM38-gateway-read-dashboard-from-metrics",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM38-dashboard-vehicle-status-from-metrics.md",
+  "request": "Tier 2 of RM38 (MAG-12). Switch all four gateway LatestSnapshotsByAccount call sites to analytics.Reader.LatestMetricsByAccount; rewrite mapDashboardSnapshot/mapVehicles/nav-header/charges against analytics.VehicleStatus; DashboardData gains locked + sentry fields; dashboard.templ removes the Status stat tile, adds the two header badges and goes to a 3-column stat grid (D4/D5); update kkpa/context/ (D6).",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "4.1",
+      "4.2",
+      "4.3",
+      "5.1",
+      "5.2",
+      "5.3",
+      "5.4",
+      "5.5",
+      "5.6",
+      "6.1",
+      "6.2",
+      "7.1",
+      "7.2"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-01T17:42:00Z",
+  "updated_at": "2026-09-01T17:42:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM38-MAG-12-dashboard-vehicle-status-from-metrics",
+    "base": "main",
+    "ticket": "MAG-12",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-12/show-fields-on-vehicle-status-section",
+    "created_at": "2026-09-01T15:00:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "internal/gateway/templates/pages/dashboard.go \u2014 add dashLockedBadge(ctx",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "internal/gateway/handlers/handlers.go \u2014 rewrite dashStatus's signature from",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "internal/gateway/handlers/handlers.go \u2014 rename mergeSnapshots to",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "internal/gateway/templates/pages/dashboard_test.go (new file, or add to an",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "internal/gateway/handlers/handlers_test.go \u2014 extend (or add) a table-driven test",
+      "module": "gateway",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "internal/gateway/handlers/handlers_test.go \u2014 rename/retype the existing",
+      "module": "gateway",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "internal/gateway/handlers/handlers.go \u2014 dashboardFor: replace",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "internal/gateway/handlers/handlers.go \u2014 vehiclesFor/mapVehicles: replace",
+      "module": "gateway",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "internal/gateway/templates/fragments/vehicles.templ \u2014 Vehicle.Locked field",
+      "module": "gateway",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.4",
+      "title": "internal/gateway/handlers/handlers.go (navHeaderFor) and",
+      "module": "gateway",
+      "depends_on": [
+        "1.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "internal/gateway/templates/fragments/dashboard_vm.go \u2014 add Locked *bool and",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "internal/gateway/templates/pages/dashboard.templ \u2014 header row: add the Locked",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "4.3",
+      "title": "Run make templ (regenerates dashboard_templ.go, vehicles_templ.go from 3.3 +",
+      "module": "gateway",
+      "depends_on": [
+        "3.3",
+        "4.2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "internal/gateway/handlers/history_test.go \u2014 extend fakeAnalyticsReader with",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "internal/gateway/handlers/handlers_test.go \u2014 dashboardFor/mapDashboardSnapshot",
+      "module": "gateway",
+      "depends_on": [
+        "3.1",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.3",
+      "title": "internal/gateway/handlers/handlers_test.go (or a new dashboard_test.go in the",
+      "module": "gateway",
+      "depends_on": [
+        "4.3",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.4",
+      "title": "internal/gateway/handlers/handlers_test.go \u2014 navHeaderFor tests: add a case",
+      "module": "gateway",
+      "depends_on": [
+        "3.4",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.5",
+      "title": "internal/gateway/handlers/charges_test.go \u2014 retype the battery-suggestion test",
+      "module": "gateway",
+      "depends_on": [
+        "3.4",
+        "5.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "5.6",
+      "title": "internal/gateway/templates/fragments/vehicles_templ.go-adjacent test file (if one",
+      "module": "gateway",
+      "depends_on": [
+        "3.2",
+        "3.3"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.1",
+      "title": "internal/gateway/AGENTS.md \u2014 update the Deps.AnalyticsReader bullet to add",
+      "module": "gateway",
+      "depends_on": [
+        "3.1",
+        "3.2",
+        "3.4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "6.2",
+      "title": "kkpa/context/use-case/gateway/read-dashboard-bento.md \u2014 rewrite step 5 of \"Flow\"",
+      "module": "gateway",
+      "depends_on": [
+        "3.1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "7.1",
+      "title": "Run and report: go build ./..., go vet ./..., gofmt -l, make build,",
+      "module": "gateway",
+      "depends_on": [
+        "6.1",
+        "6.2",
+        "5.2",
+        "5.3",
+        "5.4",
+        "5.5",
+        "5.6",
+        "4.3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "7.2",
+      "title": "Hand off to the owner the exact command to run and report:",
+      "module": "gateway",
+      "depends_on": [
+        "7.1"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "D8",
+      "at": "2026-09-01T17:20:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Gateway keeps VehicleStatus.CapturedAt as the time source; metric_date is NOT added to the analytics port; the 36h/48h thresholds are unchanged",
+      "why": "The metric_date option needs a new analytics tier plus a +24h retune of both thresholds. The owner accepts a NULL captured_at instead",
+      "covered_by": "roadmap D8"
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-01T17:20:30Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "NULL CapturedAt renders no date and no [Stale] badge on the dashboard, and Asleep with no last-seen label in the nav header",
+      "why": "Connected needs a timestamp to prove freshness. Affects at most one nightly cycle after deploy, then self-heals",
+      "covered_by": "roadmap D9"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-01T17:42:00Z",
+      "agent": "leader",
+      "event": "artifacts created by the gateway worker (sonnet) and validated with openspec validate --strict. No database object changes, so the database design gate does not apply. 21 sub-tasks across 7 waves."
+    }
+  ]
+}
