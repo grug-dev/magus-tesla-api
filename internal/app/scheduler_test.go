@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
@@ -106,10 +107,10 @@ func TestScheduler_ShutsDownWithoutRunningWhenCancelled(t *testing.T) {
 	}
 }
 
-func TestScheduler_NilLocationDefaultsToLocal(t *testing.T) {
+func TestScheduler_NilLocationDefaultsToClockZone(t *testing.T) {
 	sched := NewScheduler(&stubCollector{}, 3, 30, nil, telemetry.Config{})
-	if sched.loc != time.Local {
-		t.Errorf("nil location should default to time.Local, got %v", sched.loc)
+	if sched.loc != clock.Zone() {
+		t.Errorf("nil location should default to clock.Zone(), got %v", sched.loc)
 	}
 }
 

@@ -100,6 +100,21 @@ It renders what other modules expose; it owns no business data.
 - Handlers stay thin: session/auth check → call an interface → render. Testable logic
   goes in helper funcs driven through interface fakes (see `handlers/`).
 
+## Allowed / forbidden imports
+
+**May import** (in addition to the domain-module ports listed under "Public interface"
+above):
+
+- `internal/clock` — the platform's default time zone and calendar-day primitives,
+  `Zone()`/`CalendarDay()` (`RM35-gateway-adopt-clock`, roadmap D4). Used by
+  `browserLocation`/`browserLocationFromHeader`'s no-cookie/malformed-cookie fallback
+  (`handlers/tz.go`) and by `history.go`'s `startOfDay`, which now delegates to
+  `clock.CalendarDay(t, time.UTC)`, plus four `handlers.go` call sites that previously
+  called raw `time.Now()`. The signed-in user's own `browser_tz` cookie still wins
+  whenever present — only the fallback default changed, from `time.UTC` to
+  `clock.Zone()` (`America/Bogota`) (RM35 D1). `internal/clock` imports nothing
+  project-local, so this creates no cycle.
+
 ## UI stack (styling) — Node-less Tailwind + DaisyUI
 
 The gateway is the **only** module with a UI stack; no other module touches Tailwind,
@@ -723,8 +738,10 @@ this entry does not grandfather it in.
 
 **Graceful degradation:** the script is wrapped in `try/catch`; on any JS
 failure, or in a `<noscript>` browser, the cookie is simply never set and the
-server falls back to `time.UTC` (`browserLocation`'s fallback rule) — no
-error surfaces to the user and no page render breaks.
+server falls back to `clock.Zone()`, the platform default `America/Bogota`
+(`browserLocation`'s fallback rule — was `time.UTC` before
+`RM35-gateway-adopt-clock`) — no error surfaces to the user and no page
+render breaks.
 
 ## Client-side JS exception: confirmation modal (RD10)
 

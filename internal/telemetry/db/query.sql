@@ -11,7 +11,7 @@
 -- telemetry-dedupe-daily-snapshots, which SUPERSEDES the table's prior
 -- append-only invariant — migration 20260710000002 design D1 of
 -- RM1-telemetry-add-nightly-snapshots). captured_date is Go-computed
--- (snapshotFrom/dateOnly, service.go) from captured_at in the poller's
+-- (snapshotFrom/clock.CalendarDay, service.go) from captured_at in the poller's
 -- configured timezone (design D2) — never a DB expression, because a UNIQUE
 -- index cannot depend on the runtime POLLER_TIMEZONE env var.
 -- Distance/range columns store DISPLAY units (km), converted exactly once at
@@ -310,7 +310,7 @@ ORDER BY tesla_id, captured_at DESC;
 -- bound moved from an instant to a calendar day.
 --
 -- The bound is captured_date, NOT captured_at: captured_date is already the
--- poller-zone calendar day (stamped once on the write path by dateOnly), so the
+-- poller-zone calendar day (stamped once on the write path by clock.CalendarDay), so the
 -- predicate is zone-free at query time. It is exactly equivalent to the
 -- captured_at < dayStart(cur.captured_at, loc) bound the deleted
 -- PreviousSnapshotForVehicle query used, and it preserves that bound's purpose:

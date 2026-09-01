@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 	telemetrydb "github.com/cristianpena/magus-tesla-api/internal/telemetry/db"
 )
 
@@ -51,7 +52,7 @@ func TestSourceA_ChargeEnrichment_NonNilRoundTrip(t *testing.T) {
 		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
-		CapturedDate:  dateOnly(captured, time.UTC),
+		CapturedDate:  clock.CalendarDay(captured, time.UTC),
 		ChargingState: "Charging",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{"charge_state":{"charging_state":"Charging"}}`),
@@ -127,7 +128,7 @@ func TestSourceA_ChargeEnrichment_NilRoundTrip(t *testing.T) {
 		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
-		CapturedDate:  dateOnly(captured, time.UTC),
+		CapturedDate:  clock.CalendarDay(captured, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{"charge_state":{"charging_state":"Disconnected"}}`),
@@ -190,7 +191,7 @@ func TestSourceA_ChargeEnrichment_TruthfulZeroStoredAndRead(t *testing.T) {
 		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
-		CapturedDate:  dateOnly(captured, time.UTC),
+		CapturedDate:  clock.CalendarDay(captured, time.UTC),
 		ChargingState: "Charging",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{"charge_state":{"charging_state":"Charging"}}`),
@@ -307,7 +308,7 @@ func TestMaxRangeChargeCounter_NonNilNonZeroRoundTrip(t *testing.T) {
 		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
-		CapturedDate:          dateOnly(captured, time.UTC),
+		CapturedDate:          clock.CalendarDay(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               []byte(`{"charge_state":{"max_range_charge_counter":3}}`),
@@ -350,7 +351,7 @@ func TestMaxRangeChargeCounter_TruthfulZeroStoredAsNonNil(t *testing.T) {
 		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
-		CapturedDate:          dateOnly(captured, time.UTC),
+		CapturedDate:          clock.CalendarDay(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               []byte(`{"charge_state":{"max_range_charge_counter":0}}`),
@@ -413,7 +414,7 @@ func TestMaxRangeChargeCounter_NilStoresAsNullAndRoundTripsNil(t *testing.T) {
 		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
-		CapturedDate:          dateOnly(captured, time.UTC),
+		CapturedDate:          clock.CalendarDay(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               []byte(`{}`),
@@ -475,7 +476,7 @@ func TestMaxRangeChargeCounter_BackfillFromRawData(t *testing.T) {
 		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
-		CapturedDate:          dateOnly(captured, time.UTC),
+		CapturedDate:          clock.CalendarDay(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               rawWithCounter,
@@ -534,7 +535,7 @@ func TestMaxRangeChargeCounter_BackfillSkipsRowsWithoutPath(t *testing.T) {
 		AccountID:             accountID,
 		TeslaID:               teslaID,
 		CapturedAt:            captured,
-		CapturedDate:          dateOnly(captured, time.UTC),
+		CapturedDate:          clock.CalendarDay(captured, time.UTC),
 		ChargingState:         "Disconnected",
 		CarVersion:            "2026.20.1",
 		RawData:               rawWithoutCounter,

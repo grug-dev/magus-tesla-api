@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/cristianpena/magus-tesla-api/internal/clock"
 )
 
 // These tests exercise the real dbStore.latestSnapshotsByAccount method against a live
@@ -46,7 +48,7 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 		AccountID:         accountID,
 		TeslaID:           vehicleA,
 		CapturedAt:        olderTime,
-		CapturedDate:      dateOnly(olderTime, time.UTC),
+		CapturedDate:      clock.CalendarDay(olderTime, time.UTC),
 		BatteryLevelPct:   40,
 		BatteryRangeKm:    193.12128, // 120.0 mi * 1.609344
 		ChargingState:     "Disconnected",
@@ -71,7 +73,7 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 		AccountID:         accountID,
 		TeslaID:           vehicleA,
 		CapturedAt:        newerTime,
-		CapturedDate:      dateOnly(newerTime, time.UTC),
+		CapturedDate:      clock.CalendarDay(newerTime, time.UTC),
 		BatteryLevelPct:   75,
 		BatteryRangeKm:    387.047232, // 240.5 mi * 1.609344
 		ChargingState:     "Charging",
@@ -96,7 +98,7 @@ func TestReadStore_LatestSnapshotsByAccount_MultiVehicleLatestWins(t *testing.T)
 		AccountID:         accountID,
 		TeslaID:           vehicleB,
 		CapturedAt:        snapBTime,
-		CapturedDate:      dateOnly(snapBTime, time.UTC),
+		CapturedDate:      clock.CalendarDay(snapBTime, time.UTC),
 		BatteryLevelPct:   60,
 		BatteryRangeKm:    289.68192, // 180.0 mi * 1.609344
 		ChargingState:     "Disconnected",
@@ -197,7 +199,7 @@ func TestReadStore_LatestSnapshotsByAccount_SentryNilRoundTrip(t *testing.T) {
 		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
-		CapturedDate:  dateOnly(captured, time.UTC),
+		CapturedDate:  clock.CalendarDay(captured, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "2026.1.0",
 		SentryMode:    nil, // absent field — must round-trip as SQL NULL → nil *bool
@@ -257,7 +259,7 @@ func TestReadStore_LatestSnapshotsByAccount_DifferentAccountExcluded(t *testing.
 		AccountID:     acctA,
 		TeslaID:       vehicleA,
 		CapturedAt:    capturedA,
-		CapturedDate:  dateOnly(capturedA, time.UTC),
+		CapturedDate:  clock.CalendarDay(capturedA, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "v",
 		RawData:       []byte(`{}`),
@@ -267,7 +269,7 @@ func TestReadStore_LatestSnapshotsByAccount_DifferentAccountExcluded(t *testing.
 		AccountID:     acctB,
 		TeslaID:       vehicleB,
 		CapturedAt:    capturedB,
-		CapturedDate:  dateOnly(capturedB, time.UTC),
+		CapturedDate:  clock.CalendarDay(capturedB, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "v",
 		RawData:       []byte(`{}`),
@@ -327,7 +329,7 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 		AccountID:       accountID,
 		TeslaID:         vehicleA,
 		CapturedAt:      before,
-		CapturedDate:    dateOnly(before, time.UTC),
+		CapturedDate:    clock.CalendarDay(before, time.UTC),
 		BatteryLevelPct: 50,
 		BatteryRangeKm:  241.4016, // 150.0 mi * 1.609344
 		ChargingState:   "Disconnected",
@@ -345,7 +347,7 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 		AccountID:       accountID,
 		TeslaID:         vehicleA,
 		CapturedAt:      day0,
-		CapturedDate:    dateOnly(day0, time.UTC),
+		CapturedDate:    clock.CalendarDay(day0, time.UTC),
 		BatteryLevelPct: 60,
 		BatteryRangeKm:  289.68192, // 180.0 mi * 1.609344
 		ChargingState:   "Disconnected",
@@ -363,7 +365,7 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 		AccountID:       accountID,
 		TeslaID:         vehicleA,
 		CapturedAt:      day1,
-		CapturedDate:    dateOnly(day1, time.UTC),
+		CapturedDate:    clock.CalendarDay(day1, time.UTC),
 		BatteryLevelPct: 72,
 		BatteryRangeKm:  354.05568, // 220.0 mi * 1.609344
 		ChargingState:   "Disconnected",
@@ -381,7 +383,7 @@ func TestReadStore_SnapshotsByVehicleSince_OldestFirstAndSinceBoundary(t *testin
 		AccountID:       accountID,
 		TeslaID:         vehicleA,
 		CapturedAt:      day2,
-		CapturedDate:    dateOnly(day2, time.UTC),
+		CapturedDate:    clock.CalendarDay(day2, time.UTC),
 		BatteryLevelPct: 80,
 		BatteryRangeKm:  386.24256, // 240.0 mi * 1.609344
 		ChargingState:   "Charging",
@@ -455,7 +457,7 @@ func TestReadStore_SnapshotsByVehicleSince_CrossAccountExcluded(t *testing.T) {
 		AccountID:       acctA,
 		TeslaID:         vehicleID,
 		CapturedAt:      capturedA,
-		CapturedDate:    dateOnly(capturedA, time.UTC),
+		CapturedDate:    clock.CalendarDay(capturedA, time.UTC),
 		ChargingState:   "Disconnected",
 		CarVersion:      "v",
 		BatteryLevelPct: 55,
@@ -466,7 +468,7 @@ func TestReadStore_SnapshotsByVehicleSince_CrossAccountExcluded(t *testing.T) {
 		AccountID:       acctB,
 		TeslaID:         vehicleID,
 		CapturedAt:      capturedB,
-		CapturedDate:    dateOnly(capturedB, time.UTC),
+		CapturedDate:    clock.CalendarDay(capturedB, time.UTC),
 		ChargingState:   "Disconnected",
 		CarVersion:      "v",
 		BatteryLevelPct: 77,
@@ -531,7 +533,7 @@ func TestReadStore_LatestSnapshotsByAccount_EffectiveDate(t *testing.T) {
 		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
-		CapturedDate:  dateOnly(captured, time.UTC),
+		CapturedDate:  clock.CalendarDay(captured, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{}`),
@@ -576,7 +578,7 @@ func TestReadStore_SnapshotsByVehicleSince_EffectiveDate(t *testing.T) {
 		AccountID:     accountID,
 		TeslaID:       teslaID,
 		CapturedAt:    captured,
-		CapturedDate:  dateOnly(captured, time.UTC),
+		CapturedDate:  clock.CalendarDay(captured, time.UTC),
 		ChargingState: "Disconnected",
 		CarVersion:    "2026.20.1",
 		RawData:       []byte(`{}`),
@@ -647,7 +649,7 @@ func seedConsecutiveNights(t *testing.T, st *dbStore, ctx context.Context, accou
 			AccountID:       accountID,
 			TeslaID:         teslaID,
 			CapturedAt:      captured.Truncate(time.Microsecond),
-			CapturedDate:    dateOnly(captured, time.UTC),
+			CapturedDate:    clock.CalendarDay(captured, time.UTC),
 			ChargingState:   "Disconnected",
 			CarVersion:      "v",
 			BatteryLevelPct: 50 + i, // tag per-night so the test can assert ordering/identity
@@ -701,7 +703,7 @@ func TestReadStore_SnapshotsByVehicleBetween_EffectiveDateInRange(t *testing.T) 
 	// full time.Time (EffectiveDate preserves time-of-day) to its UTC-midnight
 	// calendar day for comparison against the UTC-midnight start/end bounds.
 	for i, s := range got {
-		effCalDay := dateOnly(s.EffectiveDate, time.UTC)
+		effCalDay := clock.CalendarDay(s.EffectiveDate, time.UTC)
 		if effCalDay.Before(start) || effCalDay.After(end) {
 			t.Errorf("got[%d]: EffectiveDate calendar day %v outside [%v, %v]", i, effCalDay, start, end)
 		}
@@ -760,14 +762,14 @@ func TestReadStore_SnapshotsByVehicleBetween_BoundariesInclusive(t *testing.T) {
 	// got[0] = Aug 5 (== start, inclusive), got[1] = Aug 6 (== end, inclusive).
 	wantDays := []time.Time{start, end}
 	for i, s := range got {
-		effCalDay := dateOnly(s.EffectiveDate, time.UTC)
+		effCalDay := clock.CalendarDay(s.EffectiveDate, time.UTC)
 		if !effCalDay.Equal(wantDays[i]) {
 			t.Errorf("got[%d]: want EffectiveDate calendar day %v, got %v", i, wantDays[i], effCalDay)
 		}
 	}
 	// Defense: no just-outside snapshot (Aug 4 or Aug 7) may appear.
 	for _, s := range got {
-		effCalDay := dateOnly(s.EffectiveDate, time.UTC)
+		effCalDay := clock.CalendarDay(s.EffectiveDate, time.UTC)
 		if effCalDay.Equal(start.AddDate(0, 0, -1)) {
 			t.Errorf("start-1 (Aug 4) snapshot must NOT be included: %v", effCalDay)
 		}

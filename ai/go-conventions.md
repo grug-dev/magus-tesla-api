@@ -69,8 +69,11 @@ Standard Go project layout — modular monolith:
   `pgtype.Date` UTC-midnight **storage encoding** (a representation, not a zone) and the
   gateway's per-user `browser_tz` cookie, which still wins over the default for a signed-in
   user's own pages. `cmd/*` is exempt as the composition root — it calls `time.LoadLocation`
-  explicitly and on purpose. This becomes enforceable repo-wide once
-  `RM35-timezone-centralization` tiers 2–6 adopt `clock` at every current call site. Full rule:
+  explicitly and on purpose. `make tz-guard` (`RM35-timezone-centralization` tier 7) enforces
+  this repo-wide with a grep guard mirroring `money-guard`'s shape — a raw `time.Now()`, a
+  hand-rolled midnight-of-a-day `time.Date(...)` construction, or a hardcoded IANA zone string
+  outside `internal/clock` fails `make check`, unless marked with a trailing
+  `// tz:allow: <reason>` comment for a genuinely deliberate exception. Full rule:
   `internal/clock/AGENTS.md`.
 
 ---
@@ -114,7 +117,7 @@ pipeline or not, and `CLAUDE.md` §"Builds & local checks" states the same rule.
 |---|---|
 | `go build ./...`, `go vet ./...`, `gofmt -l` | **Claude may run these**, unprompted |
 | `make build`, `make vet`, `make bins` | **Claude** |
-| `make ui-guard`, `make i18n-guard`, `make money-guard`, `make migration-guard` | **Claude** — standalone guards, no tests |
+| `make ui-guard`, `make i18n-guard`, `make money-guard`, `tz-guard`, `make migration-guard` | **Claude** — standalone guards, no tests |
 | `go test ./...`, `make test`, `make test-with-db`, `make check` | **Owner only** — Claude never runs them |
 
 Everything on Claude's side is a **cheap deterministic signal**: fails fast, prints a few
@@ -122,7 +125,7 @@ lines, needs no human. `go vet` in particular compiles `_test.go` files, so it c
 signature drift and API mistakes in tests that were never executed. Skipping such a signal
 saves nothing — it converts it into a round-trip costing more than the output it replaced.
 
-`make check` is `build vet ui-guard i18n-guard money-guard migration-guard test`; it is owner-only purely
+`make check` is `build vet ui-guard i18n-guard money-guard tz-guard migration-guard test`; it is owner-only purely
 because of the trailing `test`. Claude runs the other six individually, so excluding
 `check` costs no guard coverage.
 

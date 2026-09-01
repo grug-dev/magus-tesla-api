@@ -100,8 +100,9 @@ interface-first):
   `ProcessVehicleData(ctx, telemetry.TriggeredByScheduler)` per day at `hour:minute` in
   `loc`, logging each cycle with `telemetry.LogCycle(report, err)`, and returning
   `ctx.Err()` on cancellation without starting a new cycle. A nil `loc` falls back to
-  `time.Local`. A per-cycle error is logged, never fatal — one bad night must not stop
-  the schedule.
+  the platform's default zone, `clock.Zone()` (`America/Bogota`) —
+  `RM35-app-adopt-clock`, roadmap D4. A per-cycle error is logged, never fatal — one
+  bad night must not stop the schedule.
   - The `cfg telemetry.Config` parameter exists **only for its `Clock` field** (the
     test seam). It is kept rather than narrowed to a `now func() time.Time`: design.md
     **D13** records why (minimum-diff relocation, `cmd/poller`'s single shared
@@ -131,6 +132,10 @@ sub-package or internals:
 - `internal/charging` — `SessionWriter` (writes the mirrored charge sessions).
 - `internal/analytics` — `Recalculator`, `Reader`, `GapWriter`, and the `ChargeGap`
   domain type (the analytics-recalculation step).
+- `internal/clock` — `Now()` and `CalendarDay(t, loc)`, used by `recalculateAnalytics`
+  to resolve "yesterday in `p.loc`" (`RM35-app-adopt-clock`) and by `NewScheduler`'s
+  nil-`loc` fallback (above). `clock` imports nothing project-local, so this creates
+  no cycle (`ai/architecture.md` §"Dependency direction").
 - `internal/account` — `Service`: specifically `AllRegisteredVehicles`, to enumerate the
   accounts/vehicles both the charging-mirror step and the analytics-recalculation step
   need to loop over. `app` sits **above** every domain module in the call graph (only
@@ -144,6 +149,10 @@ sub-package or internals:
   measurement points (`RM36-app-record-poll-run` design D2/D3). Imports stdlib `time`
   and nothing else, so it creates no cycle risk, same reasoning as every other allowed
   import above.
+  twice over: the `*time.Location` type threaded through `NewProcessor`/`NewScheduler`
+  and `Scheduler`'s timer/`nextRun` logic. The reconcile step's "yesterday in `loc`"
+  math itself now goes through `internal/clock` (above) rather than a raw
+  `time.Now()`/UTC-midnight truncation.
 
 **Must NOT import:**
 
@@ -181,14 +190,14 @@ coverage delta.**
 
 **Covered — `scheduler_test.go` (four tests).** `internal/app/scheduler_test.go` holds
 `TestNextRun`, `TestScheduler_ShutsDownWithoutRunningWhenCancelled`,
-`TestScheduler_NilLocationDefaultsToLocal` and `TestScheduler_RunsAndLogsOneCycle`,
+`TestScheduler_NilLocationDefaultsToClockZone` and `TestScheduler_RunsAndLogsOneCycle`,
 relocated from `internal/telemetry/scheduler_test.go` together with the code they cover
 (RM29 tier 7, design.md **D4**, carrying RD8). They are **pre-existing coverage that
 moved**, not coverage invented for that tier, so they sit outside roadmap D10's
 "characterization only" bar rather than violating it. Rules for them:
 
 - Same package (`package app`, not `package app_test`) — `nextRun` is unexported and
-  `TestScheduler_NilLocationDefaultsToLocal` reads the unexported `loc` field.
+  `TestScheduler_NilLocationDefaultsToClockZone` reads the unexported `loc` field.
 - Their two fakes satisfy **`Processor`**, not `telemetry.Collector`: one method
   recording the call and returning a canned `telemetry.CycleReport`/error. Expected
   values are pinned in design.md's Test Contract **group S** — change a value there

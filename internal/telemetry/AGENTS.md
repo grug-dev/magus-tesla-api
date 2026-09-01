@@ -125,7 +125,7 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
     whose `CapturedDate` is strictly before `day`, or `(nil, nil)` when the vehicle has no
     earlier snapshot at all (its first-ever capture) — a genuine query error is returned as-is
     and MUST NOT be degraded to "no predecessor". The bound is `captured_date < @day` (the
-    poller-zone calendar day, stamped once on the write path by `dateOnly`), never `captured_at`,
+    poller-zone calendar day, stamped once on the write path by `clock.CalendarDay`), never `captured_at`,
     so the predicate is zone-free at query time and a same-day re-capture cannot select its own
     about-to-be-replaced row as its own predecessor. Reuses the existing
     `idx_vehicle_snapshots_vehicle_time (account_id, tesla_id, captured_at)` index as a backward
@@ -175,6 +175,9 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
   `AccessTokenFor`, and its domain types (`OwnedVehicle`) and sentinel `ErrNoTeslaConnection`.
 - `internal/tesla` — the **public port** (`tesla.VehicleService`): `ListVehicles`, `WakeUp`,
   `VehicleData`, `Credentials`, `ErrUnauthorized`, and the `...Tesla` DTOs it returns.
+- `internal/clock` — `Zone()`/`Now()`/`CalendarDay()`, the platform's default-zone "now" and
+  calendar-day primitives (`RM35-telemetry-adopt-clock`, roadmap D4). `internal/clock` imports
+  stdlib `time` only, so this creates no import cycle.
 - `github.com/jackc/pgx/v5` + `pgxpool` for this module's own store, and the module-scoped
   `internal/telemetry/db` (`telemetrydb`), `github.com/google/uuid`, stdlib.
 
@@ -198,7 +201,7 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
   the existing row via `ON CONFLICT ... DO UPDATE` — the newest capture for a calendar day always
   wins (design D1). Columns: `account_id`, `tesla_id`, `captured_at` (the precise capture
   instant), `captured_date DATE` (the calendar day, **Go-computed** from `captured_at` in the
-  poller's configured timezone — `Config.Location`/`dateOnly`, design D2; never a DB expression,
+  poller's configured timezone — `Config.Location`/`clock.CalendarDay`, design D2; never a DB expression,
   since a UNIQUE index cannot depend on the runtime `POLLER_TIMEZONE` env var), `raw_data JSONB`
   (lossless `vehicle_data`), plus extracted typed columns (battery level, rated range, charging
   state, charge limit, odometer, inside/outside temp, locked, `sentry_mode` **nullable**, car
@@ -392,7 +395,7 @@ existing `pgNullableText` helper for `BatteryPctSource`.
   `telemetry-add-derived-consumption-columns`). `TestMain` logs
   `no Postgres available, SKIPPING all DB-backed tests` and still runs the suite, and
   `newTestStore` calls `t.Skip`. This keeps the package's offline tests
-  (`dateOnly`, `snapshotFrom`, scheduler math) runnable
+  (`clock.CalendarDay`, `snapshotFrom`, scheduler math) runnable
   and `make check` passable on a machine with no Docker daemon, where previously a failed
   provision called `log.Fatalf` and killed the whole test binary before any test ran.
 - **Only "no Postgres at all" skips — a broken migration still fails LOUDLY.** `TestMain`

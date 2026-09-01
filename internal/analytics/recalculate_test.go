@@ -118,7 +118,7 @@ func TestRecalculate_FetchWindow_RealGap_WidensToPrecedingsEffectiveDay(t *testi
 		t.Fatalf("Recalculate error: want wrapped errRecalculateFakeBoom, got %v", err)
 	}
 
-	wantChargeStart := day(2026, 7, 31) // effectiveDay(2026-08-01) = calendarDay(2026-08-01) - 1
+	wantChargeStart := day(2026, 7, 31) // effectiveDay(2026-08-01) = clock.CalendarDay(2026-08-01, time.UTC) - 1
 	if !superchargerFake.gotBetweenStart.Equal(wantChargeStart) {
 		t.Errorf("supercharger fetch start: want %v, got %v", wantChargeStart, superchargerFake.gotBetweenStart)
 	}

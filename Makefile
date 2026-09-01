@@ -70,7 +70,7 @@ DERIVED_ADMIN := $(shell echo "$(DATABASE_URL)" | sed -E 's|^(postgres(ql)?://)(
 ADMIN_DATABASE_URL ?= $(DERIVED_ADMIN)
 
 .PHONY: help db-url check-goose migrate-up migrate-down migrate-status \
-        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard migration-guard tidy build vet test check bins \
+        db-setup db-reset env-setup sqlc templ css ui-toolchain ui-bundles generate ui-guard i18n-guard money-guard tz-guard migration-guard tidy build vet test check bins \
         up cmd-setup cmd-explore-tesla cmd-poller-once
 
 # --- Help -------------------------------------------------------------------
@@ -410,6 +410,68 @@ money-guard: ## Fail if a handler hand-rolls a money label with fmt.Sprintf("%.N
 		echo "money-guard: no hand-rolled money-formatting fmt.Sprintf found in handlers/*.go"; \
 	fi
 
+# tz-guard mirrors money-guard's grep-based shape (design.md D-plat-1, RM35-platform-add-tz-guard),
+# enforcing ai/go-conventions.md's time-zone rule (RM35 D2): internal/clock is the sole owner of
+# the platform's default zone, "now", and calendar-day normalization. Three legs, all scanning
+# `internal` (never `cmd/`, which is out of scope by roadmap D4 simply by never being scanned):
+# raw time.Now(), a hand-rolled "midnight of some day" time.Date(...) construction (any trailing
+# zone argument — catches both a hardcoded time.UTC truncator and a zone-parameterized one like
+# startOfDayIn), and a hardcoded IANA zone string literal. Excludes _test.go wholesale (design.md
+# D-plat-3 — the tier-6 test-anchor bug class this convention is warned about is a semantic
+# mismatch no grep can see; every real _test.go hit is a legitimate fixture timestamp or literal
+# test date, hundreds of them, with zero discriminating power) and comment-only lines (design.md
+# D-plat-4 — the convention is explained in prose comments that contain the very literals being
+# guarded, e.g. "time.Now()" or "America/Bogota" as example text). Escape hatch: a trailing
+# `// tz:allow: <reason>` comment on the same line (all scanned files are .go, real comment
+# syntax — no separate above-the-line placement needed, unlike i18n-guard's .templ pass).
+tz-guard: ## Fail if code outside internal/clock hand-rolls "now", a UTC/day-midnight construction, a 24h Truncate day-rounding, or a hardcoded IANA zone name (escape hatch: // tz:allow: <reason>)
+	@fail=0; \
+	now_matches=$$(grep -rnE 'time\.Now\(\)' internal --include='*.go' \
+		| grep -v '_test\.go:' \
+		| grep -v '^internal/clock/' \
+		| grep -v 'tz:allow' \
+		| grep -vE '^[^:]+:[^:]+:[[:space:]]*//' \
+		|| true); \
+	if [ -n "$$now_matches" ]; then echo "$$now_matches"; fail=1; fi; \
+	trunc_matches=$$(grep -rnE ',[[:space:]]*0,[[:space:]]*0,[[:space:]]*0,[[:space:]]*0,[[:space:]]*[A-Za-z_][A-Za-z0-9_.]*\)' internal --include='*.go' \
+		| grep -v '_test\.go:' \
+		| grep -v '^internal/clock/' \
+		| grep -v 'tz:allow' \
+		| grep -vE '^[^:]+:[^:]+:[[:space:]]*//' \
+		|| true); \
+	if [ -n "$$trunc_matches" ]; then echo "$$trunc_matches"; fail=1; fi; \
+	daytrunc_matches=$$(grep -rnE '\.Truncate\(.*(24[[:space:]]*\*[[:space:]]*time\.Hour|time\.Hour[[:space:]]*\*[[:space:]]*24)' internal --include='*.go' \
+		| grep -v '_test\.go:' \
+		| grep -v '^internal/clock/' \
+		| grep -v 'tz:allow' \
+		| grep -vE '^[^:]+:[^:]+:[[:space:]]*//' \
+		|| true); \
+	if [ -n "$$daytrunc_matches" ]; then echo "$$daytrunc_matches"; fail=1; fi; \
+	zone_matches=$$(grep -rnE '"[A-Z][a-zA-Z_]+/[A-Z][a-zA-Z_]+"' internal --include='*.go' \
+		| grep -v '_test\.go:' \
+		| grep -v '^internal/clock/' \
+		| grep -v 'tz:allow' \
+		| grep -vE '^[^:]+:[^:]+:[[:space:]]*//' \
+		|| true); \
+	if [ -n "$$zone_matches" ]; then echo "$$zone_matches"; fail=1; fi; \
+	if [ "$$fail" = "1" ]; then \
+		echo ""; \
+		echo "ERROR: raw time.Now(), a hand-rolled UTC/day-midnight construction, a 24h Truncate"; \
+		echo "day-rounding, or a hardcoded"; \
+		echo "IANA zone name found above, outside internal/clock. internal/clock is the platform's"; \
+		echo "sole owner of the default time zone, \"now\", and calendar-day normalization"; \
+		echo "(ai/go-conventions.md, RM35-timezone-centralization D2). Call clock.Now() /"; \
+		echo "clock.Zone() / clock.CalendarDay(t, loc) / clock.LoadOrDefault(name) instead."; \
+		echo "Genuinely deliberate exception (a zone-parameterized helper, a different"; \
+		echo "granularity, a documented non-default choice)? Mark it with // tz:allow: <reason>"; \
+		echo "as a trailing comment on the same line. Never weaken this pattern to silence a true"; \
+		echo "positive."; \
+		exit 1; \
+	else \
+		echo "tz-guard: no raw time.Now(), hand-rolled UTC/day-midnight construction,"; \
+		echo "24h Truncate day-rounding, or hardcoded IANA zone name found outside internal/clock"; \
+	fi
+
 tidy: ## Sync go.mod / go.sum (go mod tidy)
 	go mod tidy
 
@@ -478,7 +540,7 @@ migration-guard: ## Fail if two modules' migrations share a version number (they
 	fi
 	@echo "migration-guard: no duplicate version numbers across $(words $(MIGRATIONS_DIRS)) module dirs"
 
-check: build vet ui-guard i18n-guard money-guard migration-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + migration-guard + test
+check: build vet ui-guard i18n-guard money-guard tz-guard migration-guard test ## Full local gate: build + vet + ui-guard + i18n-guard + money-guard + migration-guard + test
 
 bins: ## Compile the cmd/* entrypoints into ./bin
 	@mkdir -p bin
