@@ -83,7 +83,17 @@ func TestMirrorAndVerify_InferredCapacity_TableCases(t *testing.T) {
 		// above) so this case tests the energy-null guard in isolation.
 		{id: "T14", energyKWh: nil, startPct: ptrIntV(29), endPct: ptrIntV(100), want: nil},
 		// T15: missing start (D3). VerifySession called with one nil argument.
-		{id: "T15", energyKWh: ptrFloat64(52.273), startPct: nil, endPct: ptrIntV(100), want: nil},
+		// Corrected by MAG-36 (charging-add-derived-start-battery-pct design.md
+		// D12/C2): energyKWh changed from 52.273 to 124.0 (exactly 2 x the 62.0 kWh
+		// capacity constant, chosen so the arithmetic is legible by inspection). At
+		// the old 52.273 value, VerifySession's new derivation would compute a start
+		// percentage of 16 (in range) instead of leaving it absent, breaking this
+		// case's precondition through a cascading mechanism T15 never anticipated.
+		// At 124.0, derivedStartBatteryPct(62.0, 124.0, 100) computes
+		// 100 - 124.0/62.0*100 = -100.0, out of range -- so start_battery_pct stays
+		// genuinely NULL and want: nil is reached via design.md D3's out-of-range
+		// guard rather than "the start percentage was never touched."
+		{id: "T15", energyKWh: ptrFloat64(124.0), startPct: nil, endPct: ptrIntV(100), want: nil},
 		// T16: missing end (D3). VerifySession called with one nil argument.
 		{id: "T16", energyKWh: ptrFloat64(52.273), startPct: ptrIntV(29), endPct: nil, want: nil},
 		// T17: zero delta (D3). MUST mirror successfully — no aborted transaction.

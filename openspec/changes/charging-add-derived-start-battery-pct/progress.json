@@ -9,9 +9,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "3.1",
-      "4.1",
-      "4.2",
       "5.1"
     ],
     "blocked": [],
@@ -21,11 +18,14 @@
       "2.1",
       "2.2",
       "2.3",
-      "2.4"
+      "2.4",
+      "3.1",
+      "4.1",
+      "4.2"
     ]
   },
   "created_at": "2026-09-01T10:02:00Z",
-  "updated_at": "2026-09-01T10:14:15Z",
+  "updated_at": "2026-09-01T10:17:54Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -162,14 +162,20 @@
         "2.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:15:10Z",
+      "completed_at": "2026-09-01T10:17:54Z",
+      "duration_seconds": 164,
+      "notes": "New offline test file session_verifier_derivation_test.go, package charging (header states why, per D11). Group A (A1-A7) + Group B (B1-B5) implemented verbatim against design.md. go vet compiles it; not run.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 45,
+        "cost_usd_delta": 2.21,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 3 batched tasks"
+      }
     },
     {
       "id": "4.1",
@@ -179,14 +185,20 @@
         "2.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:15:10Z",
+      "completed_at": "2026-09-01T10:17:54Z",
+      "duration_seconds": 164,
+      "notes": "Changed only the expected value (*StartBatteryPct == 41) plus doc comment and TOC line. Fixture EnergyKWh 30.5 untouched. DATABASE_URL-gated, not run.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 45,
+        "cost_usd_delta": 2.21,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 3 batched tasks"
+      }
     },
     {
       "id": "4.2",
@@ -196,14 +208,20 @@
         "2.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "sonnet",
+      "started_at": "2026-09-01T10:15:10Z",
+      "completed_at": "2026-09-01T10:17:54Z",
+      "duration_seconds": 164,
+      "notes": "T15 energyKWh 52.273 -> 124.0; want: nil unchanged. Comment explains the out-of-range route. No other case touched. DATABASE_URL-gated, not run.",
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": 45,
+        "cost_usd_delta": 2.21,
+        "approx": true,
+        "note": "one shared wave delta copied onto each of the 3 batched tasks"
+      }
     },
     {
       "id": "5.1",
@@ -363,7 +381,17 @@
     {
       "at": "2026-09-01T10:14:15Z",
       "agent": "leader",
-      "event": "wave 1 reconciled: 1.1,2.1,2.2,2.3,2.4 -> awaiting-user-verification. Leader verified the diff independently: derivedStartBatteryPct byte-identical to design.md D8, query matches D9, composition matches, D10 error wrap identical. Worker's D1-D10 enumeration cross-checked against design.md, no gap. Worker-reported timestamps were estimates predating dispatch; leader substituted the real bracket times. budget end five_hour_pct=38 context_pct=11 (delta 9pp, cost_usd_delta 2.39)"
+      "event": "wave 1 reconciled: 1.1,2.1,2.2,2.3,2.4 -> awaiting-user-verification. Leader verified the diff independently: derivedStartBatteryPct byte-identical to design.md D8, query matches D9, composition matches, D10 error wrap identical. Worker's D1-D10 enumeration cross-checked against design.md, no gap. Worker-reported timestamps were estimates predating dispatch; leader substituted the real bracket times. budget end five_hour_pct=38 context_pct=11 (delta 9pp, cost_usd_delta 2.39) | wave-1 commit 5ed1cf6"
+    },
+    {
+      "at": "2026-09-01T10:15:10Z",
+      "agent": "leader",
+      "event": "dispatched charging worker (sonnet) for wave 2 tasks 3.1,4.1,4.2; budget start five_hour_pct=38 context_pct=11"
+    },
+    {
+      "at": "2026-09-01T10:17:54Z",
+      "agent": "leader",
+      "event": "wave 2 reconciled: 3.1,4.1,4.2 -> awaiting-user-verification. Leader cross-checked all 12 test cases against design.md Test Contract Groups A/B: A1=64 A2=nil A3=nil A4=nil A5=0 A6=100 A7=49, B1=true B2-B5=false -- all verbatim. Group C guards held: fixture EnergyKWh 30.5 preserved, T15 want:nil preserved. budget end five_hour_pct=45 context_pct=13 (delta 7pp, cost_usd_delta 2.21)"
     }
   ]
 }

@@ -119,7 +119,7 @@ design.md D1–D12 for the rationale behind each group.
 
 ## Wave 3 — offline tests (module: charging worker)
 
-- [ ] **3.1** **[module: charging worker]**
+- [x] **3.1** **[module: charging worker]**
   `internal/charging/session_verifier_derivation_test.go` (new file, `package charging` — NOT
   `charging_test`; design.md **D11** explains why, mirroring `entry_status_test.go`'s
   established precedent for the identical reason) — implement Test Contract **Groups A
@@ -142,7 +142,7 @@ design.md D1–D12 for the rationale behind each group.
 > Wave 3's offline tests only). Skipping this wave would leave `go test ./...` failing for the
 > owner the moment they run it — it is not optional follow-up work.
 
-- [ ] **4.1** **[module: charging worker]**
+- [x] **4.1** **[module: charging worker]**
   `internal/charging/db_session_verifier_integration_test.go` —
   `TestVerifySession_PartialEndOnlyStillSetsSource` (RM31 Test Contract T3): change the
   expected value only — `s3.StartBatteryPct == nil || *s3.StartBatteryPct != 41` is now the
@@ -160,7 +160,7 @@ design.md D1–D12 for the rationale behind each group.
   `Test-Execution-Policy` it cannot be run by the worker making this edit.
   `depends_on`: 2.3 · `parallel_ok`: with 3.1, 4.2
 
-- [ ] **4.2** **[module: charging worker]**
+- [x] **4.2** **[module: charging worker]**
   `internal/charging/db_inferred_capacity_sessions_integration_test.go` — in
   `TestMirrorAndVerify_InferredCapacity_TableCases`'s `cases` table, change case `"T15"`'s
   `energyKWh` field from `ptrFloat64(52.273)` to `ptrFloat64(124.0)`. Do **not** change `want:
