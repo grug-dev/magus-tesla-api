@@ -26,12 +26,15 @@ It renders what other modules expose; it owns no business data.
 - `Deps` struct — every collaborator arrives as a public Go interface (account, tesla,
   googleauth). New dependencies extend `Deps`; never construct another module's
   internals here.
-- `Deps.TelemetryReader telemetry.Reader` — the telemetry read port; injected at
-  construction via `gateway.Deps` and `handlers.Deps`. The gateway calls
-  `LatestSnapshotsByAccount(ctx, accountID)` once per dashboard render to populate
-  vehicle card telemetry. Added by `gateway-read-stored-vehicles` (tier 5).
-  NEVER import `internal/telemetry/db` (`telemetrydb`) — all access through this
-  interface only.
+- `Deps.TelemetryReader telemetry.Reader` — **DEPRECATED, being removed.** The gateway
+  must not depend on `internal/telemetry` at all — not the `db` package (never did) and,
+  since `make boundary-guard`, not the `telemetry.Reader` port either. Do **not** add a
+  new call to this field, a new `telemetry.*` type, or a new `internal/telemetry` import
+  anywhere under `internal/gateway/`. `make boundary-guard` fails the build on a
+  non-test file and warns on a `_test.go` file (escape hatch:
+  `// boundary:allow: <reason>`). The guard is **red today on purpose** — six existing
+  call sites still read the port. Rule and migration status:
+  `ai/architecture.md` §"Exception: the gateway may not depend on `telemetry` at all".
 - `Deps.ChargingWriter charging.Writer` — the manual charge write port; injected
   at construction. Called ONLY by the write handlers (ChargeCreate, ChargeRowUpdate,
   ChargeRowDelete) on explicit user-initiated form submissions. See "Exception:
@@ -280,8 +283,9 @@ tenancy safety rule and a read-optimization principle (see
 HTML) stays cheap and predictable.
 
 - Handlers only call **`Reader` ports** (e.g. `account.RegisteredVehicles`,
-  `telemetry.Reader.LatestSnapshotsByAccount`). Never call `Collector` or
-  `Writer` ports from a handler, **except as documented below**.
+  `charging.SessionReader.ListSessionsByVehicleBetween`). Never call `Collector` or
+  `Writer` ports from a handler, **except as documented below**. The `telemetry`
+  module is off-limits entirely — see the `Deps.TelemetryReader` note above.
 - No writes, no Tesla API calls, no side effects on user requests. The only
   user-initiated Tesla API call is listing vehicles on first Tesla connect
   (one-time seed), and even that happens through the account module's interface —

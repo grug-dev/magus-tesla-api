@@ -43,6 +43,12 @@
 | `charges page` | `/charges` | `charging` | `input-port/charging/charges.md` |
 | `Supercharger Stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
 | `fast charging stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |
+| `Dashboard page` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `dashboard` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Tablero` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Vehicle Status panel` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `Estado del vehículo` | `/dashboard` | `gateway` | `input-port/gateway/dashboard.md` |
+| `dashboard history charts` | `/ui/dashboard/history` | `gateway` | `input-port/gateway/dashboard.md` |
 
 ## Use cases
 
@@ -52,6 +58,11 @@
 | `update manual charge` | `PUT /ui/charges/row/:id` | `charging` | `use-case/charging/update-manual-charge.md` |
 | `delete a manual charge record` | `DELETE /ui/charges/row/:id` | `charging` | `use-case/charging/delete-manual-charge.md` |
 | `edit a Supercharger session` | `PATCH /ui/supercharger-stats/row/:id` | `charging` | `use-case/charging/verify-session-battery.md` |
+| `read dashboard bento` | `GET /dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |
+| `render the dashboard` | `GET /dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |
+| `dashboard vehicle status` | `GET /ui/dashboard` | `gateway` | `use-case/gateway/read-dashboard-bento.md` |
+| `read dashboard history charts` | `GET /ui/dashboard/history` | `gateway` | `use-case/gateway/read-dashboard-history.md` |
+| `dashboard charts` | `GET /ui/dashboard/history` | `gateway` | `use-case/gateway/read-dashboard-history.md` |
 
 ## Workflows
 
