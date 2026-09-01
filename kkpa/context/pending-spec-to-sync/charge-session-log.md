@@ -57,3 +57,54 @@ Status: PENDING REVIEW
 ## [index] ## Glossary & routing — entities — ADD ROWS
 
 | `session inferred capacity` | `charging.Session.InferredCapacityKWhCalc` / `charge_sessions.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/supercharger-stats-read.md` |
+
+---
+
+# Second target — added 2026-09-01 (MAG-36, `charging-add-derived-start-battery-pct`)
+
+> **Everything above this line is the 2026-08-29 draft (MAG-25, inferred pack capacity) and is
+> unchanged — it was still `PENDING REVIEW`, so this run extended the file instead of
+> overwriting it.** The blocks below come from a different requirement of the SAME capability
+> spec, and they target a **different guide**, so `apply-sync` must route them separately.
+>
+> Target guide for THIS section: `use-case/charging/verify-session-battery.md`
+> Source requirement: `A Charge Session's Battery Percentages Are Correctable By A Human`
+> Status: PENDING REVIEW
+
+## [guide → use-case/charging/verify-session-battery.md] ## Input / output — APPEND
+
+- **A cleared start percentage is now an input, not just an omission.** When the submitted
+  `start_battery_pct` is empty and `end_battery_pct` carries a value, the capability derives the
+  start percentage instead of storing an absence. Clearing the start field is therefore the
+  user's way of asking for it to be calculated — the response's `SuperchargerRow` comes back
+  carrying the derived value, with no second request.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+
+## [guide → use-case/charging/verify-session-battery.md] ## Conventions & gotchas — APPEND
+
+- **A start percentage the caller supplies is never derived, overridden, or altered.** Only an
+  unsupplied one is a candidate. This is a hard rule, not a heuristic — do not add a
+  "recalculate when the end changes" branch, which would silently destroy a hand-typed reading.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **A derivation that cannot produce a valid percentage records an absence, silently.** No
+  energy figure on the record, or a result outside 0–100, both store `NULL` — the correction is
+  never rejected and never clamped to `0`/`100`. Range validation rejects only a percentage the
+  *caller* supplied out of range; a derived out-of-range value is simply not recorded.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **Provenance cannot tell a derived percentage from a typed one.** `battery_pct_source` is
+  computed from whether a percentage is *present*, never from how it came to be present, so a
+  derived value is stored as `user_verified` exactly like a human's. Accepted trade-off — any
+  future feature that needs to filter derived rows out must add its own signal, not read this
+  column.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **A correction supplying neither percentage clears both and derives nothing.** The
+  clear-both path is explicitly not a derivation trigger.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+- **The derivation is one-directional.** An end percentage is never derived from a start
+  percentage, under any circumstance.
+  _Source: spec charge-session-log — Requirement: A Charge Session's Battery Percentages Are Correctable By A Human._
+
+## [index] ## Glossary & routing — entities — ADD ROWS
+
+| `derived start battery` | `charging.SessionVerifier.VerifySession` derivation (`start_battery_pct` computed from `energy_kwh` + end %) | entity | `use-case/charging/verify-session-battery.md` |
+| `calculated start battery` | synonym of `derived start battery` | entity | `use-case/charging/verify-session-battery.md` |
