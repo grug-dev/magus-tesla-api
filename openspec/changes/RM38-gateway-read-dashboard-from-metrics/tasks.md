@@ -137,7 +137,7 @@ is authoritative for every test's expected values.
 
 ## Wave 5 — fake test double + handler/integration tests (module: gateway worker, FINAL code wave)
 
-- [ ] **5.1** `internal/gateway/handlers/history_test.go` — extend `fakeAnalyticsReader` with
+- [x] **5.1** `internal/gateway/handlers/history_test.go` — extend `fakeAnalyticsReader` with
   `statuses []analytics.VehicleStatus` and `statusesErr error` fields; implement
   `LatestMetricsByAccount` to return them instead of panicking (design.md "Fake test double").
   Confirm the existing history-fragment tests, which never call this method, are unaffected
@@ -145,7 +145,7 @@ is authoritative for every test's expected values.
   `depends_on`: — · `parallel_ok`: yes (independent of Waves 3/4's production code, but must
   land before 5.2–5.5 use it)
 
-- [ ] **5.2** `internal/gateway/handlers/handlers_test.go` — `dashboardFor`/`mapDashboardSnapshot`
+- [x] **5.2** `internal/gateway/handlers/handlers_test.go` — `dashboardFor`/`mapDashboardSnapshot`
   tests: add Fixture RM38-G-Full and Fixture RM38-G-Nil (design.md Test Contract, exact field
   values) as `fakeAnalyticsReader{statuses: [...]}` cases; assert every `DashboardData` field
   listed in each fixture's expected-value table, including the two new `Locked`/`SentryMode`
@@ -153,7 +153,7 @@ is authoritative for every test's expected values.
   build an `analytics.VehicleStatus` fixture instead.
   `depends_on`: 3.1, 5.1 · `parallel_ok`: with 5.3, 5.4, 5.5
 
-- [ ] **5.3** `internal/gateway/handlers/handlers_test.go` (or a new `dashboard_test.go` in the
+- [x] **5.3** `internal/gateway/handlers/handlers_test.go` (or a new `dashboard_test.go` in the
   `handlers` package) — `httptest` render assertions for the dashboard page/fragment covering:
   Fixture Full's Locked+Sentry badges both render with the correct text/kind; Fixture Nil's
   header shows neither badge and no `[Stale]` badge and no date line; one mixed case
@@ -161,7 +161,7 @@ is authoritative for every test's expected values.
   wired into the template (Wave 2's tests only prove the helpers are correct in isolation).
   `depends_on`: 4.3, 5.1 · `parallel_ok`: with 5.2, 5.4, 5.5
 
-- [ ] **5.4** `internal/gateway/handlers/handlers_test.go` — `navHeaderFor` tests: add a case
+- [x] **5.4** `internal/gateway/handlers/handlers_test.go` — `navHeaderFor` tests: add a case
   using Fixture RM38-G-Nil (or any `VehicleStatus` with `CapturedAt: nil`) asserting `Status ==
   NavStatusAsleep` and `LastSeenLabel == ""` (design.md D8/Test Contract) — the regression test
   for roadmap D9's "never Connected on a nil timestamp" rule. Rewrite existing
@@ -169,13 +169,13 @@ is authoritative for every test's expected values.
   instead of `telemetry.Snapshot`.
   `depends_on`: 3.4, 5.1 · `parallel_ok`: with 5.2, 5.3, 5.5
 
-- [ ] **5.5** `internal/gateway/handlers/charges_test.go` — retype the battery-suggestion test
+- [x] **5.5** `internal/gateway/handlers/charges_test.go` — retype the battery-suggestion test
   fixture(s) for `buildChargesPage` from `telemetry.Snapshot` to `analytics.VehicleStatus`; no
   new case is required (design.md D9 — no nil-handling was introduced at this site), but the
   existing suggestion-populated and suggestion-absent cases must still pass under the new type.
   `depends_on`: 3.4, 5.1 · `parallel_ok`: with 5.2, 5.3, 5.4
 
-- [ ] **5.6** `internal/gateway/templates/fragments/vehicles_templ.go`-adjacent test file (if one
+- [x] **5.6** `internal/gateway/templates/fragments/vehicles_templ.go`-adjacent test file (if one
   exists covering `VehiclesList`/`mapVehicles`; otherwise extend `handlers_test.go`'s
   `vehiclesFor` coverage) — assert the three-way `Locked` rendering (nil/false/true) added in
   3.3, mirroring the existing `SentryMode` three-way test if one exists.
@@ -183,13 +183,13 @@ is authoritative for every test's expected values.
 
 ## Wave 6 — documentation (module: gateway worker)
 
-- [ ] **6.1** `internal/gateway/AGENTS.md` — update the `Deps.AnalyticsReader` bullet to add
+- [x] **6.1** `internal/gateway/AGENTS.md` — update the `Deps.AnalyticsReader` bullet to add
   `LatestMetricsByAccount` and its four callers (design.md D11 item 1); update the
   `Deps.TelemetryReader` bullet to say `SnapshotsByVehicleBetween` (history only) is its sole
   remaining caller as of this tier (design.md D11 item 2).
   `depends_on`: 3.1, 3.2, 3.4 · `parallel_ok`: with 6.2
 
-- [ ] **6.2** `kkpa/context/use-case/gateway/read-dashboard-bento.md` — rewrite step 5 of "Flow"
+- [x] **6.2** `kkpa/context/use-case/gateway/read-dashboard-bento.md` — rewrite step 5 of "Flow"
   and row 2 of "Database" from `telemetry.Reader.LatestSnapshotsByAccount`/`vehicle_snapshots`
   to `analytics.Reader.LatestMetricsByAccount`/`vehicle_metrics`; rewrite the "gateway must stop
   depending on telemetry" gotcha to state this specific use case is now resolved, while

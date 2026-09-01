@@ -37,13 +37,19 @@
 3. `Handler.dashboardFor` — `internal/gateway/handlers/handlers.go` — the core below.
 4. `account.Service.RegisteredVehicles` — the account module's port — the account's vehicles.
    Empty ⇒ `NeedsConnect`, return early.
-5. `telemetry.Reader.LatestSnapshotsByAccount` — the telemetry module's read port — the latest
-   snapshot per vehicle for the whole account, in one query. **See the boundary gotcha below.**
-6. `mergeSnapshots` — `internal/gateway/handlers/handlers.go` — indexes the slice by Tesla id
-   and picks the selected vehicle's snapshot. Missing ⇒ `HasSnapshot=false`, return early.
+5. `analytics.Reader.LatestMetricsByAccount` — the analytics module's read port — the latest
+   precomputed `vehicle_metrics` row per vehicle for the whole account, in one query. This
+   read no longer touches `internal/telemetry` at all (see the resolved gotcha below).
+6. `mergeVehicleStatuses` — `internal/gateway/handlers/handlers.go` — indexes the
+   `[]analytics.VehicleStatus` slice by Tesla id and picks the selected vehicle's status.
+   Missing ⇒ `HasSnapshot=false`, return early. (Renamed from `mergeSnapshots` by
+   `RM38-gateway-read-dashboard-from-metrics`; same shape, new source type.)
 7. `mapDashboardSnapshot` — `internal/gateway/handlers/handlers.go` — formats every display
    string (`formatKm`, `°C`, `%`, `km`, charge limit) and computes `IsStale` via `isStale`.
-   `dashStatus` collapses the Tesla charging state into `Charging` / `Parked`.
+   `dashStatus` collapses the Tesla charging state into `Charging` / `Parked`. Eight of
+   `VehicleStatus`'s fields are pointers (`InsideTempC`, `OutsideTempC`, `CarVersion`,
+   `ChargeLimitSocPct`, `ChargingState`, `CapturedAt`, `Locked`, `SentryMode`) — nil never
+   fabricates a value, it omits the corresponding display field (see gotchas).
 8. `Handler.vehicleImage` — `internal/gateway/vehicle_image.go` — maps
    (`CarType`, `ExteriorColor`) to a `/static/img/*.png` URL, falling back to `defaultCar.png`.
 
@@ -55,7 +61,7 @@ behind its interface.
 | # | Op | Table / entity | Where |
 |---|---|---|---|
 | 1 | READ | account vehicles | `account.Service.RegisteredVehicles` |
-| 2 | READ | `vehicle_snapshots` | `telemetry.Reader.LatestSnapshotsByAccount` — `DISTINCT ON (tesla_id) … ORDER BY tesla_id, captured_at DESC` |
+| 2 | READ | `vehicle_metrics` | `analytics.Reader.LatestMetricsByAccount` — `DISTINCT ON (tesla_id) … ORDER BY tesla_id, metric_date DESC` |
 
 Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outside_temp_c`,
 `charging_state`; plus `car_version`, `captured_at`, and the battery card's
@@ -63,8 +69,11 @@ Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outsid
 
 ## Entities involved
 
-- `architecture/telemetry-data-hub.md` — `telemetry.Snapshot` / `vehicle_snapshots`, the
-  module that owns this data and who else reads it
+- `entities/vehicle-metrics/guide.md` — `analytics.VehicleStatus` / `vehicle_metrics`, the
+  module that owns this data and who else reads it. `vehicle_metrics` is itself populated
+  from `telemetry.Snapshot` by the nightly recompute — see
+  `architecture/telemetry-data-hub.md` for that upstream data, which this use case no
+  longer reads directly.
 
 ## Related use cases
 
@@ -73,22 +82,44 @@ Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outsid
 
 ## Conventions & gotchas
 
-- **The gateway must stop depending on `internal/telemetry`.** `make boundary-guard` fails on
-  any `internal/telemetry` import under `internal/gateway/`, and this use case is one of the
-  remaining violations. Do **not** add a new `telemetry.*` type or call here. The port and the
-  `telemetry.Snapshot` type must move behind another module's interface.
-  _Source: `ai/architecture.md` §"Exception: the gateway may not depend on `telemetry` at all";
-  `internal/gateway/AGENTS.md` §`Deps.TelemetryReader`._
+- **This use case's `internal/telemetry` dependency is resolved** (`make boundary-guard`'s
+  general rule against a gateway→telemetry import still stands project-wide — see
+  `ai/architecture.md` §"Exception: the gateway may not depend on `telemetry` at all" — but
+  this specific read no longer violates it). `RM38-gateway-read-dashboard-from-metrics`
+  repointed this use case from `telemetry.Reader.LatestSnapshotsByAccount` onto
+  `analytics.Reader.LatestMetricsByAccount`, so `dashboardFor`'s own read path is
+  `telemetry`-free. The sibling use case `use-case/gateway/read-dashboard-history.md`
+  (`SnapshotsByVehicleBetween`) is a **different**, untouched use case that still reads
+  `telemetry` directly — do not assume it is also resolved.
+  _Source: `internal/gateway/AGENTS.md` §`Deps.AnalyticsReader` / §`Deps.TelemetryReader`._
+- **`vehicle_metrics` is a calendar-day grain, one day behind the capture.** Unlike
+  `vehicle_snapshots` (one row per poll instant), `vehicle_metrics`'s `metric_date` is the
+  snapshot's *effective day*, written by the nightly recompute — so "latest" here typically
+  means **yesterday's** row, not today's. A `nil` `CapturedAt` on the returned
+  `VehicleStatus` means the row predates the `RM38-analytics-add-vehicle-status-columns`
+  migration and has not been recomputed since — `mapDashboardSnapshot` leaves
+  `LastUpdated`/`IsStale` at their zero value in that case (never fabricated), and
+  `navHeaderFor` treats it as forced-Asleep, never Connected (roadmap D9).
+  _Source: `internal/analytics/analytics.go`'s `LatestMetricsByAccount` doc comment;
+  `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D8._
+- **Nil pointer fields omit, never fabricate.** Eight `VehicleStatus` fields are pointers
+  (`InsideTempC`, `OutsideTempC`, `CarVersion`, `ChargeLimitSocPct`, `ChargingState`,
+  `CapturedAt`, `Locked`, `SentryMode`). A nil value means "not yet computed since the
+  migration" and the corresponding display field is left empty/omitted (e.g. `"—"` for a nil
+  temperature, no Locked/Sentry badge) — it is never defaulted to a fabricated `false`/`0`/
+  `""`. See design.md D2's per-field table for the exact rule per field.
+  _Source: `openspec/changes/RM38-gateway-read-dashboard-from-metrics/design.md` D2/D3/D7._
 - **Four distinct degradation states, never a 500.** `NeedsConnect` (no registered vehicles ⇒
   connect prompt), `TelemetryUnavailable` (reader error ⇒ warning `Alert` + identity-only
-  bento), `HasSnapshot=false` (registered but no nightly snapshot yet ⇒ `—` tiles, **no**
-  alert, it is not an error), and `IsStale` (snapshot older than the threshold ⇒ warning
-  badge). An account-read error returns a notice-only shell.
+  bento — the field name is a historical holdover, the read is now against analytics), `HasSnapshot=false` (registered but no
+  stored `vehicle_metrics` row yet ⇒ `—` tiles, **no** alert, it is not an error), and
+  `IsStale` (snapshot older than the threshold ⇒ warning badge). An account-read error
+  returns a notice-only shell.
   _Source: `Handler.dashboardFor` doc comment._
-- **One batch read, never N+1.** `LatestSnapshotsByAccount` fetches every vehicle's latest
-  snapshot in one query even though the page shows one vehicle. Do not replace it with a
+- **One batch read, never N+1.** `LatestMetricsByAccount` fetches every vehicle's latest
+  status in one query even though the page shows one vehicle. Do not replace it with a
   per-vehicle call in a loop.
-  _Source: `internal/telemetry/db/query.sql`; `ai/architecture.md` §read-heavy profile._
+  _Source: `internal/analytics/db/query.sql`; `ai/architecture.md` §read-heavy profile._
 - **`now` is passed in, never read inside.** `mapDashboardSnapshot` and `isStale` take the
   current time as an argument so the staleness boundary is deterministic in tests. Time comes
   from `internal/clock`, never a raw `time.Now()` — `make tz-guard` enforces it.

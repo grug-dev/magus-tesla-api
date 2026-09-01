@@ -173,18 +173,28 @@ type fakeAnalyticsReader struct {
 	gotOdoStart         time.Time
 	gotOdoEnd           time.Time
 	odometerByDayCalled bool
+
+	// statuses/statusesErr back LatestMetricsByAccount
+	// (RM38-gateway-read-dashboard-from-metrics task 5.1). The dashboard,
+	// vehicles, nav-header, and charges-suggestion tests set these to drive
+	// the four call sites this tier repointed from
+	// telemetry.Reader.LatestSnapshotsByAccount.
+	statuses    []analytics.VehicleStatus
+	statusesErr error
 }
 
 func (f *fakeAnalyticsReader) RecentEfficiency(context.Context, uuid.UUID, int64) (analytics.Efficiency, bool, error) {
 	panic("fakeAnalyticsReader: RecentEfficiency is never called by the gateway's history fragment")
 }
 
-// LatestMetricsByAccount PANICS for the same reason RecentEfficiency does: the
-// history fragment never reads the latest-status port. RM38 tier 2 repoints the
-// dashboard's four LatestSnapshotsByAccount call sites at it, and will give this
-// fake a real recording implementation then.
+// LatestMetricsByAccount returns the fixture statuses/error the test set up.
+// The history fragment itself never calls this method (RecentEfficiency above
+// still panics for that reason), but the dashboard, vehicles, nav-header, and
+// charges-suggestion tests in this package share this same fake and DO call
+// it, since RM38-gateway-read-dashboard-from-metrics repointed all four of
+// those call sites here from telemetry.Reader.LatestSnapshotsByAccount.
 func (f *fakeAnalyticsReader) LatestMetricsByAccount(context.Context, uuid.UUID) ([]analytics.VehicleStatus, error) {
-	panic("fakeAnalyticsReader: LatestMetricsByAccount is never called by the gateway's history fragment")
+	return f.statuses, f.statusesErr
 }
 
 func (f *fakeAnalyticsReader) ConsumedByDay(_ context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]analytics.DayConsumption, error) {
@@ -1898,10 +1908,16 @@ func TestDashboard_HistoryRegionInsideDashboardContent(t *testing.T) {
 	acct := &fakeAccount{registered: []account.Vehicle{
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "Test"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{
-		{TeslaID: 1, CapturedAt: time.Now().Add(-time.Hour), BatteryLevelPct: 80, OdometerKm: 1000},
+	// RM38-gateway-read-dashboard-from-metrics: DashboardFragment/dashboardFor now
+	// read h.analyticsReader.LatestMetricsByAccount instead of
+	// h.telemetryReader.LatestSnapshotsByAccount — a nil analyticsReader would
+	// panic when this HTTP round-trip reaches dashboardFor, so this pre-existing
+	// structural test is retyped to the new port (same values, new fixture type).
+	structCapturedAt := time.Now().Add(-time.Hour)
+	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{
+		{TeslaID: 1, CapturedAt: &structCapturedAt, BatteryLevelPct: 80, OdometerKm: 1000},
 	}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandlerWithAnalytics(acct, fakeTesla{}, reader)
 	eng := dashboardEngine(h, uid, 1, "VIN1", "")
 	c := sessionCookie(eng, uid, "")
 
