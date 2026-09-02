@@ -170,6 +170,19 @@ acceptable (MAG-31). Precedent for the CHECK swap itself:
 `20260828000001_migrate_vehicle_metric_watermarks_source.sql` already performed this exact
 operation once. **Copy that file; do not invent it.**
 
+**D9 — Every tier also schema-qualifies the raw SQL in its `_test.go` files.** Not foreseen
+when D1–D8 were written; learned from tier 1. `query.sql` was fully qualified and `go build`,
+`go vet`, `gofmt`, `make migration-guard` and `make boundary-guard` were all clean — yet ten
+`account` integration tests failed with `relation "accounts" does not exist`. Integration tests
+hand-write their setup and assertions (`DELETE FROM …`, `UPDATE … SET …`, `SELECT count(*) FROM
+…`); sqlc never parses those strings, and `go vet` compiles the test while treating the SQL as
+an opaque string.
+
+**No assistant-runnable signal catches this** — only the owner's suite does. So it is a
+mandatory step (work shape 2b), not a nice-to-have. Migration files are the exception and stay
+bare: they run before the schema move and must keep resolving through `search_path` to
+`public`.
+
 ## Tiers
 
 Status legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, not

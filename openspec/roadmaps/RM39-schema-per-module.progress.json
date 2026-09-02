@@ -5,7 +5,7 @@
   "intention": "Every internal/ module that owns persistence gets its own Postgres schema, making the modular-monolith boundary visible in the database and checkable at sqlc codegen time.",
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
-  "autopilot": false,
+  "autopilot": true,
   "updated_at": "2026-09-02T14:45:00Z",
   "git": {
     "strategy": "auto",
@@ -117,6 +117,22 @@
       "made_by": "leader",
       "decision": "Every tier must also schema-qualify the raw SQL in its _test.go files (new work-shape step 2b)",
       "why": "Tier 1 shipped with query.sql qualified and every Claude-runnable signal clean, yet 10 integration tests failed: sqlc never sees test SQL strings and go vet treats them as strings."
+    },
+    {
+      "id": "D10",
+      "at": "2026-09-02T16:00:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Owner turned autopilot ON and authorized the assistant to run go test / make test directly, overriding CLAUDE.md's Test-Execution-Policy for this run",
+      "why": "Owner's explicit instruction. Scope kept narrow by the leader: only the LEADER runs tests, with env -u DATABASE_URL so containers are used; db-reset and destructive ops stay owner-only."
+    },
+    {
+      "id": "D11",
+      "at": "2026-09-02T16:00:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Tier 3's design gate will still stop for the owner; tier 2's will not",
+      "why": "Tier 2 mirrors the tier-1 migration the owner already confirmed. Tier 3 renames tables, rewrites a CHECK and deletes watermark rows (D8) \u2014 a big decision by the owner's own standard."
     }
   ],
   "tiers": [
@@ -260,6 +276,11 @@
       "at": "2026-09-02T15:55:00Z",
       "agent": "leader",
       "event": "owner's suite caught 10 account integration failures after tier 1's wave: raw SQL in service_integration_test.go was still unqualified. Fixed 6 statements; added work-shape step 2b + a findings row to the roadmap so tiers 2-4 do not repeat it."
+    },
+    {
+      "at": "2026-09-02T16:00:00Z",
+      "agent": "leader",
+      "event": "autopilot ON at owner's request (D10/D11). Tier 1 verified by the owner; dispatching account-reviewer."
     }
   ],
   "gates": [
