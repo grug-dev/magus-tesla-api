@@ -1,0 +1,93 @@
+# Sync proposal — account
+
+> Staged by `kkpa-context-curate from-spec`. This is a **draft** of KB edits derived from one
+> approved OpenSpec capability spec. Review/edit the blocks below, then run
+> `/kkpa-context-curate apply-sync` to write them into the real KB. Nothing here touches the
+> canonical KB until applied. This file is self-contained — it embeds the proposed content, so it
+> stays valid even after the OpenSpec change folder is archived/moved.
+
+Target guide: `architecture/schema-per-module.md`   <!-- NEW guide; apply-sync creates it from references/guide-template.md -->
+Source spec:  `openspec/specs/account/spec.md`
+Generated:    2026-09-02
+Status: PENDING REVIEW
+
+> **Curator's routing note.** The new requirement is not an `account` concept — it is a
+> cross-cutting database invariant that RM39 applies to four modules in turn. Filing it under
+> `entities/account/` would mean writing the same rule four times and leaving three copies to rot.
+> A single `architecture/` guide is the correct grain, matching how `platform-time-zone.md` and
+> `telemetry-ingest-only.md` are filed. The sibling proposal `account-vehicle-registry.md`
+> appends to this same guide, and tiers 2–4 will append their own rows as they land.
+
+---
+
+## [guide] ## Glossary — REPLACE
+
+- **Known as:** `schema per module`, `module schema`, `per-module Postgres schema`
+- **Internal name:** one PostgreSQL schema per `internal/` module that owns persistence, named
+  after the module — `account.accounts`, and (as later RM39 tiers land) `analytics.*`,
+  `charging.*`, `telemetry.*`
+
+## [guide] ## How maintenance works — REPLACE
+
+The modular-monolith boundary — historically enforced only by Go import guards and convention —
+is made visible in the database catalog. Each module's tables move into a schema named after the
+module, so a cross-module database read has to spell the other module's schema out loud in its own
+`query.sql`, where it is greppable and reviewable.
+
+Migration status, one row per module:
+
+| Module | Schema | Tables | Status |
+|---|---|---|---|
+| `account` | `account` | `accounts`, `tesla_tokens`, `vehicles` | moved (RM39 tier 1) |
+| `analytics` | `analytics` | `vehicle_metrics`, `vehicle_metric_watermarks`, `charge_gaps` | still in `public` |
+| `charging` | `charging` | `charge_sessions`, `manual_charge_entries` | still in `public` |
+| `telemetry` | `telemetry` | `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs` | still in `public` |
+
+To move a module's tables, in this order:
+
+1. **One additive goose migration** — `CREATE SCHEMA IF NOT EXISTS <module>` plus one
+   `ALTER TABLE … SET SCHEMA <module>` per owned table. Never edit a historic migration; they run
+   before the move and must keep resolving through `search_path` to `public`. The `-- +goose Down`
+   reverses in the opposite order, then drops the schema.
+2. **Schema-qualify every table reference in that module's `db/query.sql`.**
+3. **Schema-qualify the raw SQL in that module's `_test.go` files.**
+4. **Add `gen.go.rename` entries** to that module's `sqlc.yaml` entry, then run `make sqlc` and
+   diff `models.go`.
+
+## [guide] ## Conventions & gotchas — APPEND
+
+- **Every query is schema-qualified — this is forced, not stylistic.** sqlc resolves table names
+  statically from the migration files and fails codegen on a bare name once a table leaves
+  `public`. A `search_path` on the role cannot rescue it: the failure is at *generate* time, not
+  run time. _Source: spec account — Requirement: Module-Scoped Database Schema._
+- **The move is namespacing only.** No stored data, constraint (primary key, foreign key, unique,
+  check), index, or public-interface behavior changes. `ALTER TABLE … SET SCHEMA` is catalog-only —
+  constraints and indexes reference the table by OID, so nothing is rebuilt and no row moves.
+  _Source: spec account — Requirement: Module-Scoped Database Schema._
+- **`gen.go.rename` keys must be SINGULARIZED, and a wrong key fails SILENTLY at exit 0.**
+  `account_tesla_token` works; `account_tesla_tokens` is ignored with no error. Without the rename
+  block sqlc prefixes the schema onto every generated struct (`Account` → `AccountAccount`),
+  churning every call site. Never trust the config — verify by diffing `models.go`.
+  _Source: spec account — Requirement: Module-Scoped Database Schema._
+- **Raw SQL in `_test.go` files is the trap no automated signal catches.** Integration tests
+  hand-write `DELETE FROM …`, `UPDATE … SET …` and `SELECT count(*) FROM …`. sqlc never parses
+  those strings and `go vet` compiles the test while treating the SQL as opaque. On RM39 tier 1,
+  `go build`, `go vet`, `gofmt` and both guards were all clean while ten integration tests failed
+  on `relation "accounts" does not exist`. Only the test suite catches it.
+  _Source: RM39 roadmap decision D9 (learned during tier 1)._
+- **goose is untouched, and `make migration-guard` is NOT retired.** The shared
+  `public.goose_db_version` stays; goose stores version numbers, not table names, so every applied
+  record remains valid and no `db-reset` is needed. Version collisions across module directories
+  are independent of table schemas. _Source: RM39 roadmap decision D4._
+- **No module is granted access to another module's schema.** The boundary in
+  `ai/architecture.md` §2 ("no cross-module database leaks") is enforced identically before and
+  after the move — it is now additionally checkable at the database catalog level.
+  _Source: spec account — Requirement: Module-Scoped Database Schema._
+
+## [index] ## Architecture — ADD ROWS
+
+| `schema per module` (one PostgreSQL schema per persistence-owning `internal/` module, named after the module; RM39) | `architecture/schema-per-module.md` |
+| `module schema` | synonym of `schema per module` → `architecture/schema-per-module.md` |
+| `account schema` | the `account` schema holding `accounts`, `tesla_tokens`, `vehicles` → `architecture/schema-per-module.md` |
+| `schema-qualified query` | why every `query.sql` table reference carries its schema (sqlc codegen requirement) → `architecture/schema-per-module.md` |
+| `gen.go.rename` | the `sqlc.yaml` block that keeps generated Go type names stable across a schema move → `architecture/schema-per-module.md` |
