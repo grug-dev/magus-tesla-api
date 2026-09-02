@@ -4,21 +4,22 @@
   "roadmap": "RM39-schema-per-module",
   "intention": "Every internal/ module that owns persistence gets its own Postgres schema, making the modular-monolith boundary visible in the database and checkable at sqlc codegen time.",
   "request": "schema per module for internal/ modules",
-  "status": "proposed",
+  "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-02T11:05:00Z",
+  "updated_at": "2026-09-02T14:45:00Z",
   "git": {
     "strategy": "auto",
-    "branch": "ft/RM39-MAG-31-schema-per-module",
+    "branch": "ft/RM39-MAG-31-schema-per-module-renames",
     "base": "main",
     "ticket": "MAG-31",
     "ticket_url": "https://linear.app/magus-monitor/issue/MAG-31/analyze-scheme-per-module",
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [],
+    "current": [
+      1
+    ],
     "pending": [
-      1,
       2,
       3
     ],
@@ -117,10 +118,10 @@
       "module": "account",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
-      "assistant": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
       "model": null,
-      "started_at": null,
+      "started_at": "2026-09-02T14:36:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -231,6 +232,16 @@
       "at": "2026-09-02T11:05:00Z",
       "agent": "leader",
       "event": "audited the Makefile against the schema move: zero schema/public/GRANT/search_path references, zero bare table names, no guard reads SQL. db-setup migrates AS the app role against a role-owned database, so CREATE SCHEMA makes that role the schema owner -- no GRANT and no search_path change needed. No make target requires updating; the per-tier obligation is the goose Down reversing in opposite order."
+    },
+    {
+      "at": "2026-09-02T14:35:00Z",
+      "agent": "leader",
+      "event": "resume: corrected git.branch to ft/RM39-MAG-31-schema-per-module-renames (the recorded branch was merged to main via PR #41). Starting tier 1 (account) \u2014 the only unblocked tier with no deps."
+    },
+    {
+      "at": "2026-09-02T14:45:00Z",
+      "agent": "leader",
+      "event": "tier 1 artifacts created and validated; owner confirmed the database design gate (schema `account`, no extra catalog test). Tier 1 -> in-progress."
     }
   ],
   "gates": [

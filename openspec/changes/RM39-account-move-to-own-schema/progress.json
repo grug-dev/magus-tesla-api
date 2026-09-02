@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM39-account-move-to-own-schema",
+  "module": "account",
+  "roadmap": "openspec/roadmaps/RM39-schema-per-module.md",
+  "request": "Move internal/account's three tables (accounts, tesla_tokens, vehicles) into a dedicated `account` Postgres schema. Tier 1 of RM39 — the pilot tier every later tier mirrors.",
+  "status": "proposed",
+  "created_at": "2026-09-02T14:45:00Z",
+  "updated_at": "2026-09-02T14:45:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM39-MAG-31-schema-per-module-renames",
+    "base": "main",
+    "ticket": "MAG-31",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-31/analyze-scheme-per-module",
+    "created_at": "2026-09-02T01:25:55Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": ["T1", "T2", "T3", "T4", "T5"],
+    "blocked": [],
+    "done": []
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Goose migration — CREATE SCHEMA account + ALTER TABLE ... SET SCHEMA (x3), with reversing Down",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "Schema-qualify every table reference in internal/account/db/query.sql",
+      "module": "account",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "sqlc.yaml gen.go.rename block + make sqlc + verify models.go type names unchanged",
+      "module": "account",
+      "depends_on": ["T1", "T2"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "Docs — internal/account/AGENTS.md and any doc naming these tables",
+      "module": "account",
+      "depends_on": ["T1"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "Verification — go build / go vet / gofmt -l, boundary + no-other-module checks, openspec validate --strict",
+      "module": "account",
+      "depends_on": ["T1", "T2", "T3", "T4"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-02T14:42:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Database design gate PASSED: schema named `account`, additive SET SCHEMA migration, reversing Down, no index changes",
+      "why": "Owner asked whether the account_account stutter could be avoided; the rename block is required for ANY non-public schema, so a different name buys nothing and breaks schema==module.",
+      "covered_by": "roadmap D1-D4"
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-02T14:42:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "No new to_regclass catalog test; rely on the existing account integration suite",
+      "why": "A failed schema move makes every account query fail, so the existing suite already catches it. Matches the owner's no-extra-tests default."
+    }
+  ],
+  "events": [
+    { "at": "2026-09-02T14:40:00Z", "agent": "leader", "event": "artifacts created by the `account` worker; openspec validate --strict passes; migration version 20260902000001 confirmed free (highest existing across all module dirs is 20260901000001)" },
+    { "at": "2026-09-02T14:42:00Z", "agent": "leader", "event": "database design gate confirmed by the owner (D1/D2)" }
+  ]
+}
