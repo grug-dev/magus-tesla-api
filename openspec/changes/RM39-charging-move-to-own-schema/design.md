@@ -253,7 +253,7 @@ The roadmap's tier-3 row originally named only two objects: the index
 (`idx_charge_sessions_vehicle_stop`) and the CHECK constraint
 (`charge_sessions_pct_source_required`). This design first proposed that narrower scope and
 flagged the gap for the owner. **The owner rejected it (roadmap D16, 2026-09-02).** Scope is
-now all four:
+now all nine — the four D16 named, plus five found later in the catalog (see below):
 
 | Object | Kind | New name |
 |---|---|---|
@@ -285,13 +285,27 @@ against a table the rest of the system now calls `supercharger_sessions`. That i
 the stale-vocabulary confusion D5b exists to remove, preserved in the one place a developer
 reads under pressure: an error message.
 
-**Cost.** Two extra `ALTER TABLE … RENAME CONSTRAINT` statements in Up and two in Down — the
-same catalog-only mechanism already used for the CHECK. No table rewrite, no lock beyond the
-`ACCESS EXCLUSIVE` the migration already takes, no data touched.
+**Cost.** Seven extra `ALTER TABLE … RENAME CONSTRAINT` statements in Up and seven in Down —
+the same catalog-only mechanism already used for the named CHECK. No table rewrite, no lock
+beyond the `ACCESS EXCLUSIVE` the migration already takes, no data touched.
 
-**Rejected: renaming by generalization.** The migration names all four explicitly rather than
-looping over `pg_constraint` for names matching `charge_sessions%`. A literal list fails loudly
-if an object is missing; a pattern loop silently renames whatever it happens to match.
+**Still explicit, but the list is DERIVED from the catalog — not from reading the DDL.** The
+migration names each object rather than looping over `pg_constraint` for `charge_sessions%`,
+because a literal statement fails loudly if its object is absent while a pattern loop silently
+renames whatever it happens to match.
+
+An earlier version of this paragraph justified the literal list with "a literal list fails
+loudly if an object is missing." **That claim was wrong, and this change is the counterexample.**
+A literal list fails loudly only about objects it *names*; it is silent about objects it never
+knew existed. The first four-object list was built by reading `20260823000001`'s `CREATE TABLE`
+for explicitly-named constraints, so it never saw the five CHECKs Postgres auto-names
+`<table>_<column>_check` — names that exist only in the catalog and appear nowhere in this
+repo. That list passed review and archived before a catalog query found the gap.
+
+The correction is not "stop using a list", it is **where the list comes from**: enumerate
+`pg_constraint` and `pg_indexes` on a migrated database, then write those names into the
+migration explicitly. Keep the loud-failure property; drop the assumption that the DDL text is
+a complete inventory of the catalog.
 
 ### D8 — Boundary: the watermark CHECK rewrite + DELETE is analytics-owned work, not this change's
 
@@ -584,10 +598,18 @@ change's own migration will by then be the new highest.
    ```sql
    SELECT conname FROM pg_constraint WHERE conrelid = 'charging.supercharger_sessions'::regclass;
    ```
-   Expected (D16 — all four renamed): the set contains
-   `supercharger_sessions_pct_source_required`, `supercharger_sessions_pkey` and
-   `supercharger_sessions_account_session_unique`, and contains **no** name beginning
-   `charge_sessions`. A single `conname LIKE 'charge\\_sessions%'` match is a failure.
+   Expected (D16 — all nine renamed): the set is exactly
+   `supercharger_sessions_pct_source_required`, `supercharger_sessions_pkey`,
+   `supercharger_sessions_account_session_unique`,
+   `supercharger_sessions_battery_pct_source_check`,
+   `supercharger_sessions_start_battery_pct_check`,
+   `supercharger_sessions_end_battery_pct_check`,
+   `supercharger_sessions_start_battery_pct_est_check` and
+   `supercharger_sessions_end_battery_pct_est_check`.
+
+   **The binding assertion is the negative one**, because it cannot go stale as the table
+   gains constraints: a single `conname LIKE 'charge\\_sessions%'` match is a failure. The
+   positive list above is a reading aid; the catalog is the criterion.
 
 4. **`internal/charging`'s existing test suite — zero assertion changes EXCEPT the one
    documented EXPLAIN-text case.** Every existing test in `db_entry_status_integration_test.go`,

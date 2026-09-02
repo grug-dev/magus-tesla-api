@@ -507,9 +507,14 @@ unit segment (design.md D1, charging-add-inferred-capacity).
 `internal/charging/db/migrations/20260902000003_move_charging_to_own_schema.sql`) — moved
 out of `public`, in the same migration that renamed `charge_sessions` to
 `supercharger_sessions` (design.md D5b) and the Go db model `ChargeSession` to
-`SuperchargerSession` (design.md D5c). All four catalog objects still carrying the old
-table name — the index, the CHECK, the primary key, and the unique constraint — were
-renamed too (design.md D16).
+`SuperchargerSession` (design.md D5c). **Every** catalog object still carrying the old
+table name was renamed with it (design.md D16) — the index, the named CHECK, the primary
+key, the unique constraint, and the five CHECKs Postgres auto-named from inline column
+constraints (`battery_pct_source`, `start`/`end_battery_pct`, and their `_est` siblings).
+The completeness criterion is the **catalog, not a list**: no relation, index or constraint
+owned by this module may have a name beginning `charge_sessions`. Verify with
+`SELECT conname FROM pg_constraint WHERE conrelid = 'charging.supercharger_sessions'::regclass`
+— the five auto-named CHECKs appear nowhere in this repo, so grep cannot confirm this.
 
 ### `manual_charge_entries`
 

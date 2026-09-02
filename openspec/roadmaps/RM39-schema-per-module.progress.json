@@ -183,6 +183,14 @@
       "made_by": "leader",
       "decision": "D9's work-shape step 2b must cover OTHER modules' _test.go files, not just the renamed module's",
       "why": "Tier 3 renamed charging's table and broke 2 analytics tests that seed it by bare name. A rename escapes the module sandbox; a schema move alone did not."
+    },
+    {
+      "id": "D18",
+      "at": "2026-09-02T21:45:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "A rename tier's completeness criterion is the CATALOG, never a hand-written object list",
+      "why": "Tier 3 shipped, passed review and archived with 5 constraints still named charge_sessions_*. Postgres auto-names one CHECK per inline column constraint; those names exist only in the catalog, so no grep finds them."
     }
   ],
   "tiers": [
@@ -396,6 +404,16 @@
       "at": "2026-09-02T20:30:00Z",
       "agent": "leader",
       "event": "D12's search_path fix is UNSAFE for any tier where the new name collides with another module's table. Tier 3's backfill replay reads telemetry's supercharger_sessions; search_path=charging,public would have silently redirected it to charging's own table and passed while asserting nothing. Tier 4 must not reach for D12 reflexively."
+    },
+    {
+      "at": "2026-09-02T21:45:00Z",
+      "agent": "leader",
+      "event": "TIER 4 RENAME SURFACE, measured on a migrated db (not estimated). public.supercharger_sessions carries 9 objects that must follow the table to supercharger_history: constraints supercharger_sessions_pkey, _session_id_unique, _battery_pct_source_check, _start_battery_pct_check, _end_battery_pct_check, _start_battery_pct_est_check, _end_battery_pct_est_check; indexes idx_supercharger_sessions_account_time, idx_supercharger_sessions_vehicle_time. The tier 4 notes list none of these -- they mention only the table, the db model and 5 sqlc query names. Tier 4 will repeat tier 3's defect unless it adopts D18."
+    },
+    {
+      "at": "2026-09-02T21:45:00Z",
+      "agent": "leader",
+      "event": "TRANSIENT AMBIGUITY between tiers 3 and 4, by design but worth knowing: public.supercharger_sessions (telemetry) and charging.supercharger_sessions now BOTH exist and carry identically-named constraints (e.g. supercharger_sessions_end_battery_pct_check on each). Constraint names are per-table so nothing breaks, but an error message naming one is ambiguous until tier 4 renames telemetry's copy. This is the accepted D5b hazard, now visible in the catalog."
     }
   ],
   "gates": [
