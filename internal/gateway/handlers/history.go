@@ -29,7 +29,6 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
-	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 )
 
 // historyRangeWindowDays is the default window size in days applied when both
@@ -176,9 +175,10 @@ func parseHistoryRange(c *gin.Context, today time.Time) (start, end time.Time, o
 
 // DashboardHistoryFragment is the handler for GET /ui/dashboard/history.
 // It authenticates the caller, resolves the selected vehicle, validates the
-// start/end params, calls telemetry.Reader once (SnapshotsByVehicleBetween with
-// a 1-day lookback), builds a logic-free view model over a fixed [start..end]
-// calendar-day axis, and renders the #dashboard-history fragment.
+// start/end params, calls analytics.Reader (BatteryLevelByDay, no lookback —
+// RM40-gateway-drop-telemetry-dependency), builds a logic-free view model over
+// a fixed [start..end] calendar-day axis, and renders the #dashboard-history
+// fragment.
 //
 // Read-only: one read per request; no writes, no Tesla API calls, no side
 // effects. Degrades gracefully on reader errors (empty charts, no 500) and on
@@ -275,15 +275,18 @@ func buildHistoryPresets(ctx context.Context, start, end, today time.Time) []fra
 }
 
 // buildHistoryView is the core logic for the history fragment, decoupled from
-// gin/session so it is unit-testable with a fake telemetry.Reader and a fake
-// analytics.Reader. It performs THREE independent reads:
+// gin/session so it is unit-testable with a fake analytics.Reader. It performs
+// THREE independent reads, all against analytics.Reader
+// (RM40-gateway-drop-telemetry-dependency — the gateway no longer names the
+// telemetry module at all):
 //
-//  1. SnapshotsByVehicleBetween, with a 1-day lookback (readStart = start-1day
-//     — design D2), feeding ONLY the battery chart now. The returned snapshots
-//     are bucketed by EffectiveDate. Before RM29-analytics-add-vehicle-metrics
-//     this same read also fed the odometer chart; that delta/clamp computation
-//     moved into internal/analytics (roadmap D5, design.md D6) — the gateway
-//     computes nothing about the vehicle any more, only about the chart.
+//  1. BatteryLevelByDay, feeding ONLY the battery chart, with NO lookback —
+//     the port returns exactly [start, end] because vehicle_metrics.
+//     metric_date is already the effective day it needs (roadmap D5). Its
+//     entries are bucketed on DayBattery.Date verbatim. Before this tier, this
+//     read went through telemetry.Reader.SnapshotsByVehicleBetween with a
+//     1-day lookback; internal/analytics now owns the precomputed table this
+//     data lives in.
 //  2. OdometerDeltaByDay, feeding the odometer chart (roadmap D5). Its entries
 //     are bucketed on DayDistance.Date verbatim — internal/analytics already
 //     decided which calendar day each figure belongs to and already applied
@@ -300,7 +303,7 @@ func buildHistoryPresets(ctx context.Context, start, end, today time.Time) []fra
 //
 // The three reads fail INDEPENDENTLY (design.md D-G10, extended to the
 // odometer chart's own new port by RM29-analytics-add-vehicle-metrics): a
-// SnapshotsByVehicleBetween error empties ONLY the battery chart, an
+// BatteryLevelByDay error empties ONLY the battery chart, an
 // OdometerDeltaByDay error empties ONLY the odometer chart, and a
 // ConsumedByDay error empties ONLY the consumed chart — none of the three
 // blanks a sibling chart that already succeeded. Every branch degrades rather
@@ -312,18 +315,15 @@ func (h *Handler) buildHistoryView(ctx context.Context, uid uuid.UUID, teslaID i
 		Presets: buildHistoryPresets(ctx, start, end, today),
 	}
 
-	// Battery chart: unchanged raw-observation read. 1-day lookback: fetch
-	// from readStart so the snapshot whose EffectiveDate == start-1 remains
-	// available (the lookback is a gateway concern; the port stays a clean
-	// Between(start, end) — design D2). This read feeds ONLY buildBatteryChart
-	// now — the odometer chart's own read is the separate call below.
-	readStart := start.AddDate(0, 0, -1)
-	snaps, err := h.telemetryReader.SnapshotsByVehicleBetween(ctx, uid, teslaID, readStart, end)
+	// Battery chart: analytics.Reader.BatteryLevelByDay (RM40 tier 2) — replaces
+	// the telemetry.Reader.SnapshotsByVehicleBetween call and its 1-day lookback
+	// (roadmap D5). No lookback: the port returns exactly [start, end].
+	batteryDays, err := h.analyticsReader.BatteryLevelByDay(ctx, uid, teslaID, start, end)
 	if err != nil {
 		log.Printf("gateway: history reader error for account %s vehicle %d: %v", uid, teslaID, err)
 		v.Battery = fragments.HistoryChart{Empty: true}
 	} else {
-		v.Battery = buildBatteryChart(ctx, snaps, start, end)
+		v.Battery = buildBatteryChart(ctx, batteryDays, start, end)
 	}
 
 	// Odometer chart: a SEPARATE read against analytics.Reader.
@@ -451,31 +451,35 @@ func buildOdometerChart(ctx context.Context, distances []analytics.DayDistance, 
 }
 
 // buildBatteryChart computes battery-level-% bars over a FIXED [start..end]
-// calendar-day axis (design D3 — the MAG-7 fix). It allocates exactly numDays
-// slots, buckets snapshots by EffectiveDate, and for each day d in [start, end]
-// emits a bar at HeightPct = snap.BatteryLevelPct when a snapshot exists, else
-// an empty labeled bar (Present=false, HeightPct=0, "<MM-DD> · no snapshot").
-// Bar height is the battery level percentage directly (already 0–100). The
-// chart's Empty fires only when zero snapshots exist in the window (a partial
-// axis is NOT an empty chart). Returns EXACTLY numDays bars so the odometer and
-// battery Label slices are identical by construction.
-func buildBatteryChart(ctx context.Context, snaps []telemetry.Snapshot, start, end time.Time) fragments.HistoryChart {
+// calendar-day axis (design D3 — the MAG-7 fix), from
+// analytics.Reader.BatteryLevelByDay's SPARSE per-day result
+// (RM40-gateway-drop-telemetry-dependency). It allocates exactly numDays
+// slots, buckets []analytics.DayBattery by Date DIRECTLY — never
+// effectiveDayUTC (roadmap D4: Date is already a final bucket key, mirroring
+// buildConsumedChart/buildOdometerChart's own Date bucketing) — and for each
+// day d in [start, end] emits a bar at HeightPct = day.BatteryLevelPct when an
+// entry exists, else an empty labeled bar (Present=false, HeightPct=0,
+// "<MM-DD> · no snapshot"). Bar height is the battery level percentage
+// directly (already 0–100). The chart's Empty fires only when zero entries
+// exist in the window (a partial axis is NOT an empty chart). Returns EXACTLY
+// numDays bars so the odometer and battery Label slices are identical by
+// construction.
+func buildBatteryChart(ctx context.Context, days []analytics.DayBattery, start, end time.Time) fragments.HistoryChart {
 	numDays := int(end.Sub(start).Hours()/24) + 1
 
-	// Empty only when zero snapshots in the window (a partial axis is NOT empty).
-	if len(snaps) == 0 {
+	if len(days) == 0 {
 		return fragments.HistoryChart{Empty: true, LabelVertical: labelVerticalFor(numDays)}
 	}
 
-	byDay := make(map[time.Time]telemetry.Snapshot, len(snaps))
-	for _, s := range snaps {
-		byDay[effectiveDayUTC(s.EffectiveDate)] = s
+	byDay := make(map[time.Time]analytics.DayBattery, len(days))
+	for _, d := range days {
+		byDay[d.Date] = d // D4: Date verbatim, never effectiveDayUTC(d.Date)
 	}
 
 	bars := make([]fragments.HistoryBar, 0, numDays)
 	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
 		label := d.Format("01-02")
-		s, ok := byDay[d]
+		day, ok := byDay[d]
 		if !ok {
 			bars = append(bars, fragments.HistoryBar{
 				HeightPct: 0,
@@ -487,11 +491,11 @@ func buildBatteryChart(ctx context.Context, snaps []telemetry.Snapshot, start, e
 		}
 		tooltip := fmt.Sprintf("%s · %d%% · %s km range",
 			label,
-			s.BatteryLevelPct,
-			formatKmRaw(s.BatteryRangeKm),
+			day.BatteryLevelPct,
+			formatKmRaw(day.BatteryRangeKm),
 		)
 		bars = append(bars, fragments.HistoryBar{
-			HeightPct: s.BatteryLevelPct,
+			HeightPct: day.BatteryLevelPct,
 			Tooltip:   tooltip,
 			Label:     label,
 			Present:   true,
@@ -620,7 +624,7 @@ func buildConsumedChart(ctx context.Context, days []analytics.DayConsumption, st
 // chargeTypeLabel resolves the bilingual charge-type noun used inside a
 // flagged-day tooltip. analytics.MissingChargingType is a closed 2-value
 // enum (tier 1); this is the gateway's own closed mapping to a catalogue
-// key, kept here rather than in internal/telemetry because it is
+// key, kept here rather than in the telemetry module because it is
 // presentation vocabulary, not domain vocabulary.
 // buildYAxisTicks builds five evenly-spaced y-axis ticks (100/75/50/25/0% of
 // max) for a relative-scale chart, or nil when max <= 0 (no gutter rendered).

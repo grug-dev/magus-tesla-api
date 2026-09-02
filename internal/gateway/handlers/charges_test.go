@@ -208,7 +208,6 @@ func newHandlerForCharges(writer *fakeChargeWriter, reader *fakeChargeReader) *H
 		AnalyticsRecalculator: &fakeRecalculator{},
 		Account:               acct,
 		Tesla:                 &fakeTesla{},
-		TelemetryReader:       &fakeReader{},
 		ChargingWriter:        writer,
 		ChargingReader:        reader,
 	})
@@ -228,7 +227,6 @@ func newHandlerForChargesWithRecalc(writer *fakeChargeWriter, reader *fakeCharge
 		AnalyticsRecalculator: recalc,
 		Account:               acct,
 		Tesla:                 &fakeTesla{},
-		TelemetryReader:       &fakeReader{},
 		ChargingWriter:        writer,
 		ChargingReader:        reader,
 	})
@@ -558,7 +556,6 @@ func TestChargeCreate_NoResolvableVehicle_RejectedWithoutWriter(t *testing.T) {
 		AnalyticsRecalculator: &fakeRecalculator{},
 		Account:               acct,
 		Tesla:                 &fakeTesla{},
-		TelemetryReader:       &fakeReader{},
 		ChargingWriter:        &fakeChargeWriter{},
 		ChargingReader:        &fakeChargeReader{},
 	})
@@ -1381,7 +1378,6 @@ func TestChargesContentFragment_ScopedToSelectedVehicle(t *testing.T) {
 		AnalyticsRecalculator: &fakeRecalculator{},
 		Account:               acct,
 		Tesla:                 &fakeTesla{},
-		TelemetryReader:       &fakeReader{},
 		ChargingWriter:        &fakeChargeWriter{},
 		ChargingReader:        &fakeChargeReader{},
 	})
@@ -1431,7 +1427,6 @@ func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
 		AnalyticsRecalculator: &fakeRecalculator{},
 		Account:               acct,
 		Tesla:                 &fakeTesla{},
-		TelemetryReader:       &fakeReader{},
 		ChargingWriter:        &fakeChargeWriter{},
 		ChargingReader:        &fakeChargeReader{},
 	})
@@ -1466,7 +1461,7 @@ func TestChargePage_SubscribesToVehicleChanged(t *testing.T) {
 // vehicle's latest status reports BatteryLevelPct=73, the create form's
 // start_battery_pct input carries a placeholder helper label "Latest: 73%"
 // built via analytics.Reader.LatestMetricsByAccount (the same port the
-// dashboard uses — retyped from telemetry.Reader.LatestSnapshotsByAccount by
+// dashboard uses — retyped from the retired snapshot-based reader (RM40) by
 // RM38-gateway-read-dashboard-from-metrics design.md D9). The
 // fakeAnalyticsReader seeds the status; the buildChargesPage helper picks the
 // status for the session-selected TeslaID.
@@ -1514,8 +1509,8 @@ func TestChargePage_BatterySuggestionFromTelemetry(t *testing.T) {
 }
 
 // TestChargePage_NoBatterySuggestionWhenNoSnapshot verifies D2's graceful-empty
-// contract: when the telemetry.Reader returns no snapshot for the selected
-// vehicle (empty slice, nil error), the create form's start_battery_pct input
+// contract: when analytics.Reader.LatestMetricsByAccount returns no status for
+// the selected vehicle (empty slice, nil error), the create form's start_battery_pct input
 // does NOT carry a "Latest: N%" placeholder — no fabricated value — and the page
 // still renders 200.
 func TestChargePage_NoBatterySuggestionWhenNoSnapshot(t *testing.T) {
@@ -3091,7 +3086,6 @@ func TestChargePage_E1_NoRegisteredVehicles_NoFilterChrome(t *testing.T) {
 		AnalyticsRecalculator: &fakeRecalculator{},
 		Account:               acct,
 		Tesla:                 &fakeTesla{},
-		TelemetryReader:       &fakeReader{},
 		ChargingWriter:        &fakeChargeWriter{},
 		ChargingReader:        &fakeChargeReader{},
 	})

@@ -26,20 +26,22 @@ It renders what other modules expose; it owns no business data.
 - `Deps` struct — every collaborator arrives as a public Go interface (account, tesla,
   googleauth). New dependencies extend `Deps`; never construct another module's
   internals here.
-- `Deps.TelemetryReader telemetry.Reader` — **DEPRECATED, being removed.** The gateway
-  must not depend on `internal/telemetry` at all — not the `db` package (never did) and,
-  since `make boundary-guard`, not the `telemetry.Reader` port either. Do **not** add a
-  new call to this field, a new `telemetry.*` type, or a new `internal/telemetry` import
-  anywhere under `internal/gateway/`. `make boundary-guard` fails the build on a
-  non-test file and warns on a `_test.go` file (escape hatch:
-  `// boundary:allow: <reason>`). The guard is **red today on purpose**.
-  `SnapshotsByVehicleBetween` (`history.go`, `/ui/dashboard/history`) is this field's
-  **sole remaining caller** as of `RM38-gateway-read-dashboard-from-metrics` — the four
-  `LatestSnapshotsByAccount` call sites that used to read this port (dashboard, vehicle
-  cards, nav header, charges battery suggestion) were repointed onto
-  `Deps.AnalyticsReader.LatestMetricsByAccount` below by that tier. Rule and migration
-  status: `ai/architecture.md` §"Exception: the gateway may not depend on `telemetry` at
-  all".
+- **The gateway does not depend on the telemetry module at all** — no `Deps` field, no
+  `telemetry.*` type, no import of that module's package, anywhere under
+  `internal/gateway/`. This was completed by `RM40-gateway-drop-telemetry-dependency`:
+  the history fragment's battery chart (`history.go`, `/ui/dashboard/history`) was the
+  module's last caller of that module's `Reader.SnapshotsByVehicleBetween` — it now reads
+  `Deps.AnalyticsReader.BatteryLevelByDay(ctx, uid, teslaID, start, end)` instead, with
+  **no lookback** (the port returns exactly `[start, end]`, since `vehicle_metrics.
+  metric_date` is already the effective day it needs). The four `LatestSnapshotsByAccount`
+  call sites (dashboard, vehicle cards, nav header, charges battery suggestion) were
+  already repointed onto `Deps.AnalyticsReader.LatestMetricsByAccount` below by the
+  earlier `RM38-gateway-read-dashboard-from-metrics`. Do **not** reintroduce a
+  `Deps.TelemetryReader` field or an import of that module's package — `make
+  boundary-guard` enforces this repo-wide (fails on a non-test file, warns on a
+  `_test.go` file; escape hatch `// boundary:allow: <reason>`, which this module
+  carries **zero** of). Rule and migration status: `ai/architecture.md` §"Exception:
+  the gateway may not depend on `telemetry` at all".
 - `Deps.ChargingWriter charging.Writer` — the manual charge write port; injected
   at construction. Called ONLY by the write handlers (ChargeCreate, ChargeRowUpdate,
   ChargeRowDelete) on explicit user-initiated form submissions. See "Exception:
@@ -302,8 +304,8 @@ HTML) stays cheap and predictable.
 
 - Handlers only call **`Reader` ports** (e.g. `account.RegisteredVehicles`,
   `charging.SessionReader.ListSessionsByVehicleBetween`). Never call `Collector` or
-  `Writer` ports from a handler, **except as documented below**. The `telemetry`
-  module is off-limits entirely — see the `Deps.TelemetryReader` note above.
+  `Writer` ports from a handler, **except as documented below**. The telemetry
+  module is off-limits entirely — see "Public interface" above.
 - No writes, no Tesla API calls, no side effects on user requests. The only
   user-initiated Tesla API call is listing vehicles on first Tesla connect
   (one-time seed), and even that happens through the account module's interface —

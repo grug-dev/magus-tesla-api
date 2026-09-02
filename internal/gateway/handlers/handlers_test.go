@@ -21,7 +21,6 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/analytics"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
-	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
@@ -138,71 +137,18 @@ func (f fakeTesla) ChargingHistory(context.Context, tesla.Credentials, tesla.Cha
 	return nil, nil
 }
 
-// fakeReader is a test double for telemetry.Reader. Returns the configured
-// snapshots or error — no DB or network.
-type fakeReader struct {
-	snapshots []telemetry.Snapshot
-	err       error
-}
-
-func (f *fakeReader) LatestSnapshotsByAccount(_ context.Context, _ uuid.UUID) ([]telemetry.Snapshot, error) {
-	return f.snapshots, f.err
-}
-
-// SnapshotsByVehicleSince is a stub satisfying the telemetry.Reader interface
-// (added by telemetry-add-snapshot-history-read-port). Tests that need history
-// data may embed or extend fakeReader; the default returns nil, nil.
-func (f *fakeReader) SnapshotsByVehicleSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
-	return nil, nil
-}
-
-// SnapshotsByVehicleBetween is a stub satisfying the telemetry.Reader interface
-// (added by RM8-telemetry-between-range-port). The history handler is rewired to
-// Between in tier 2 (RM8-gateway-history-date-range); until then the default
-// returns nil, nil.
-func (f *fakeReader) SnapshotsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _ time.Time, _ time.Time) ([]telemetry.Snapshot, error) {
-	return nil, nil
-}
-
-// SnapshotsByVehicleUpdatedSince satisfies the telemetry.Reader method added by
-// RM29-analytics-add-vehicle-metrics task 1.2. No gateway handler calls it --
-// it exists for analytics' recompute watermark -- so this returns the same
-// no-op as SnapshotsByVehicleBetween immediately above.
-func (f *fakeReader) SnapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.Snapshot, error) {
-	return nil, nil
-}
-
-// SnapshotPrecedingDay satisfies the telemetry.Reader method added by
-// RM29-telemetry-drop-derived-columns task 1.2. Like SnapshotsByVehicleUpdatedSince
-// above, no gateway handler calls it -- it exists so analytics can fetch the exact
-// predecessor of a day it is recomputing, however far back that row sits -- so this
-// returns the same no-op. A nil *Snapshot with a nil error is the port's documented
-// "no predecessor exists" answer, not an error case.
-func (f *fakeReader) SnapshotPrecedingDay(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) (*telemetry.Snapshot, error) {
-	return nil, nil
-}
-
-// newHandler builds a Handler for tests that don't involve telemetry (seeds, connect
-// flows, etc.). The TelemetryReader is left nil — it won't be reached in those paths.
+// newHandler builds a Handler for tests that don't involve per-vehicle status
+// (seeds, connect flows, etc.). The AnalyticsReader is left nil — it won't be
+// reached in those paths.
 func newHandler(acct account.Service, tsvc tesla.VehicleService) *Handler {
 	return New(Deps{Account: acct, Tesla: tsvc})
-}
-
-// newHandlerWithReader builds a Handler with a fake telemetry.Reader. Kept for
-// the paths that still call telemetryReader (history.go's
-// SnapshotsByVehicleBetween — see history_test.go's newHandlerForHistory) and
-// for pre-existing tests that pass an unused reader through routes which never
-// reach it (e.g. VehicleSelect).
-func newHandlerWithReader(acct account.Service, tsvc tesla.VehicleService, reader telemetry.Reader) *Handler {
-	return New(Deps{Account: acct, Tesla: tsvc, TelemetryReader: reader})
 }
 
 // newHandlerWithAnalytics builds a Handler with a fake analytics.Reader for
 // tests that exercise vehiclesFor/dashboardFor/navHeaderFor's enriched-vehicle
 // path (RM38-gateway-read-dashboard-from-metrics: these three call sites now
-// read h.analyticsReader.LatestMetricsByAccount instead of
-// h.telemetryReader.LatestSnapshotsByAccount). Mirrors newHandlerWithReader's
-// shape for the new port.
+// read h.analyticsReader.LatestMetricsByAccount instead of the retired
+// snapshot-based reader (RM40). Mirrors newHandler's shape for the new port.
 func newHandlerWithAnalytics(acct account.Service, tsvc tesla.VehicleService, reader analytics.Reader) *Handler {
 	return New(Deps{Account: acct, Tesla: tsvc, AnalyticsReader: reader})
 }
@@ -218,7 +164,7 @@ func TestVehiclesFor_RegisteredRendersWithoutTeslaCall(t *testing.T) {
 		{DisplayName: "SHOULD NOT BE CALLED", VIN: "NEVER"},
 	}}
 	// RM38: vehiclesFor now reads h.analyticsReader.LatestMetricsByAccount
-	// instead of h.telemetryReader.LatestSnapshotsByAccount.
+	// instead of the retired snapshot-based reader (RM40).
 	reader := &fakeAnalyticsReader{statuses: []analytics.VehicleStatus{}}
 	h := newHandlerWithAnalytics(acct, tsvc, reader)
 	d := h.vehiclesFor(context.Background(), uuid.New())
@@ -585,8 +531,7 @@ func TestDashboardFor_RegisteredEmptyPromptsConnect(t *testing.T) {
 	// Registered list is empty (already-seeded account with zero vehicles) →
 	// NeedsConnect, not an error.
 	acct := &fakeAccount{registered: nil}
-	reader := &fakeReader{snapshots: nil}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandler(acct, fakeTesla{})
 	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if !d.NeedsConnect {
 		t.Fatalf("want NeedsConnect for empty registry, got %+v", d)
@@ -595,7 +540,7 @@ func TestDashboardFor_RegisteredEmptyPromptsConnect(t *testing.T) {
 
 func TestDashboardFor_AccountReadErrorShowsNotice(t *testing.T) {
 	acct := &fakeAccount{regErr: errors.New("db down")}
-	h := newHandlerWithReader(acct, fakeTesla{}, &fakeReader{})
+	h := newHandler(acct, fakeTesla{})
 	d := h.dashboardFor(context.Background(), uuid.New(), 0, startOfDay(time.Now()))
 	if d.NeedsConnect {
 		t.Errorf("want NeedsConnect false on account error, got true")
@@ -963,8 +908,8 @@ func ptrString(s string) *string { return &s }
 
 func TestDashStatus(t *testing.T) {
 	// dashStatus now takes a chargingState *string (design.md D2,
-	// RM38-gateway-read-dashboard-from-metrics), replacing the telemetry.Snapshot
-	// parameter -- nil collapses to Parked, identical to the pre-migration
+	// RM38-gateway-read-dashboard-from-metrics), replacing the retired
+	// snapshot-based parameter (RM40) -- nil collapses to Parked, identical to the pre-migration
 	// empty-string case (tasks.md 2.2). Still resolves through the i18n catalogue
 	// (design.md D5, RM24-gateway-translate-all-pages): assert against
 	// i18n.T(ctx, key), not a literal string.
@@ -1030,7 +975,7 @@ func TestSeedAccessTypeMapping_NonEmpty(t *testing.T) {
 	tsvc := &fakeTesla{vehicles: []tesla.VehicleTesla{
 		{ID: 10, DisplayName: "Magus", VIN: "VIN10", State: "online", AccessType: "OWNER"},
 	}}
-	// newHandler: telemetryReader is nil; the seed path never reaches it.
+	// newHandler: analyticsReader is nil; the seed path never reaches it.
 	h := newHandler(acct, tsvc)
 	_ = h.vehiclesFor(context.Background(), uuid.New())
 
@@ -1078,7 +1023,7 @@ func TestSeedAccessTypeMapping_Empty(t *testing.T) {
 
 // newNavHeaderHandler builds a Handler wired with account + analytics fakes for
 // the nav-header helper tests (Tesla is never reached by navHeaderFor).
-// Retyped from telemetry.Reader to analytics.Reader
+// Retyped from the retired snapshot-based reader (RM40) to analytics.Reader
 // (RM38-gateway-read-dashboard-from-metrics, design.md D8): navHeaderFor now
 // reads h.analyticsReader.LatestMetricsByAccount.
 func newNavHeaderHandler(acct account.Service, reader analytics.Reader) *Handler {
@@ -1611,8 +1556,7 @@ func TestVehicleSelect_FiresVehicleChangedTrigger(t *testing.T) {
 		{TeslaID: 1, VIN: "VIN1", DisplayName: "First"},
 		{TeslaID: 2, VIN: "VIN2", DisplayName: "Second"},
 	}}
-	reader := &fakeReader{snapshots: []telemetry.Snapshot{}}
-	h := newHandlerWithReader(acct, fakeTesla{}, reader)
+	h := newHandler(acct, fakeTesla{})
 	eng := dashboardEngine(h, uid, 0, "", "tok")
 	c := sessionCookie(eng, uid, "")
 
@@ -1659,7 +1603,7 @@ func TestHome_SignedInRedirectsToDashboard(t *testing.T) {
 	uid := uuid.New()
 	const email = "driver@example.com"
 
-	h := New(Deps{Account: &fakeAccount{}, Tesla: &fakeTesla{}, TelemetryReader: &fakeReader{}})
+	h := New(Deps{Account: &fakeAccount{}, Tesla: &fakeTesla{}})
 	eng := homeEngine(h, uid, email)
 
 	c := sessionCookie(eng, uid, "")

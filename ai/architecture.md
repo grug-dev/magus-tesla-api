@@ -211,20 +211,40 @@ Enforced by **`make boundary-guard`** (wired into `make check`). The guard greps
 non-test file and **warns** on a `_test.go` file. Escape hatch — a trailing
 `// boundary:allow: <reason>` comment on the same line as the import.
 
-**Status: the guard fails today, on purpose.** It was added ahead of the migration so
-the boundary is visible and cannot be widened silently. Three production files still
-violate it — `internal/gateway/gateway.go`, `internal/gateway/handlers/handlers.go`,
-`internal/gateway/handlers/history.go` — plus three test files (`handlers_test.go`,
-`history_test.go`, `charges_test.go`). Six call sites read the port:
-`LatestSnapshotsByAccount` (×4: dashboard, vehicle cards, charges) and
-`SnapshotsByVehicleBetween` (×1: history), see `make boundary-guard` output for the
-current list.
+**Status: RESOLVED — the guard passes clean** (`RM40`, ticket MAG-41). The gateway
+names `internal/telemetry` nowhere: not in a production file, not in a test file, and
+with **zero** `// boundary:allow:` escape hatches. `grep -rn "internal/telemetry"
+internal/gateway/` returns nothing.
 
-To resolve it, the gateway must reach vehicle telemetry through a different module's
-interface instead of naming `telemetry` itself, and the snapshot data must cross that
-boundary as that module's own type. Until that lands, `make check` is red at the
-`boundary-guard` step — run the earlier phases individually (`make build`, `make vet`,
-`make ui-guard`, …) to get a clean signal on everything else.
+The guard was deliberately added *before* the migration, so the boundary was visible
+and could not be widened silently while it was still red. It stayed red across several
+changes; that was the design working, not a defect.
+
+How it was resolved — the answer the rule itself demanded: the gateway reaches vehicle
+telemetry through **another module's interface**, and the data crosses the boundary as
+**that module's own type**.
+
+- `RM38` moved the four `LatestSnapshotsByAccount` call sites (dashboard, vehicle
+  cards, nav header, charges suggestion) to `analytics.Reader.LatestMetricsByAccount`,
+  returning `analytics.VehicleStatus`.
+- `RM40` moved the last one, `SnapshotsByVehicleBetween` (the history page's battery
+  chart), to **`analytics.Reader.BatteryLevelByDay`**, returning `analytics.DayBattery`.
+
+`internal/analytics` was the right owner because it already owns `vehicle_metrics`,
+the table holding the battery figures, and already served the history page's other two
+charts. Reading it there is not a workaround for the guard — it is the module the data
+actually lives in. The rejected alternative was a gateway-local interface still backed
+by `telemetry`: that satisfies the guard's letter while keeping the runtime dependency
+the guard exists to prevent.
+
+One consequence worth knowing: `vehicle_metrics` holds a row per day analytics has
+recalculated, whereas `vehicle_snapshots` held every raw capture. A day with no metric
+row renders as the history page's existing empty bar. Coverage tracks snapshots 1:1
+apart from the recalculator's watermark lag, so the effect is bounded to a recent day
+briefly showing empty. This was accepted deliberately rather than backfilled.
+
+Keep the guard. It now protects a clean boundary instead of tracking a migration, and
+a new `internal/telemetry` import in the gateway is a regression, not a known debt.
 
 ### Pre-computed summaries
 

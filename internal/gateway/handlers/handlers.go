@@ -31,7 +31,6 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/fragments"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/templates/pages"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
-	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
@@ -53,12 +52,6 @@ type Deps struct {
 	Account account.Service
 	Google  *googleauth.Client
 	Tesla   tesla.VehicleService
-	// TelemetryReader is the telemetry read port; injected at construction.
-	// Since RM38-gateway-read-dashboard-from-metrics its ONLY remaining caller is
-	// history.go's SnapshotsByVehicleBetween — the four latest-state reads moved to
-	// AnalyticsReader.LatestMetricsByAccount.
-	// NEVER import internal/telemetry/db — all access through this interface only.
-	TelemetryReader telemetry.Reader
 	// SuperchargerReader is the charging module's SessionReader port over
 	// charge_sessions; injected at construction. Called by the Supercharger
 	// Stats page/fragment handlers, one ListSessionsByVehicleBetween read per
@@ -116,7 +109,6 @@ type Handler struct {
 	acct                  account.Service
 	google                *googleauth.Client
 	tesla                 tesla.VehicleService
-	telemetryReader       telemetry.Reader
 	superchargerReader    charging.SessionReader
 	superchargerVerifier  charging.SessionVerifier
 	chargingWriter        charging.Writer
@@ -154,7 +146,6 @@ func New(d Deps) *Handler {
 		acct:                  d.Account,
 		google:                d.Google,
 		tesla:                 d.Tesla,
-		telemetryReader:       d.TelemetryReader,
 		superchargerReader:    d.SuperchargerReader,
 		superchargerVerifier:  d.SuperchargerVerifier,
 		chargingWriter:        d.ChargingWriter,
@@ -233,7 +224,7 @@ func (h *Handler) DashboardFragment(c *gin.Context) {
 // When vehicles are already registered, it additionally calls
 // h.analyticsReader.LatestMetricsByAccount to enrich each vehicle card with its
 // latest per-vehicle status (RM38-gateway-read-dashboard-from-metrics, design.md
-// D3 — replaces the earlier telemetry.Reader.LatestSnapshotsByAccount call). If
+// D3 — replaces the earlier snapshot-based reader call, retired by RM40). If
 // the Reader fails, it degrades gracefully — all vehicles render in placeholder
 // state with a non-fatal notice.
 func (h *Handler) vehiclesFor(ctx context.Context, uid uuid.UUID) fragments.VehiclesData {
@@ -394,7 +385,8 @@ func vehiclesTempOrDash(v *float64) string {
 // All derivation (km conversion, staleness, timestamp formatting, nil-safe
 // formatting) happens here — the template receives fully-computed display fields.
 //
-// Retyped from map[int64]telemetry.Snapshot to map[int64]analytics.VehicleStatus
+// Retyped from the retired snapshot-based status map (RM40) to
+// map[int64]analytics.VehicleStatus
 // (RM38-gateway-read-dashboard-from-metrics, design.md D3): ChargingState/
 // InsideTempC/OutsideTempC/CapturedAt are now pointers; nil never fabricates a
 // value. Locked is now *bool on fragments.Vehicle too (design.md D3) since the
@@ -443,8 +435,8 @@ func mapTeslasToVehicles(vs []tesla.VehicleTesla) []fragments.Vehicle {
 // (mirrors vehiclesFor). It reads the account's registered vehicles through the
 // account port, selects the user's chosen vehicle (or auto-selects the first), then
 // reads the latest per-vehicle status through analytics.Reader.LatestMetricsByAccount
-// (RM38 tier 2 — it was telemetry.Reader.LatestSnapshotsByAccount before) and maps the
-// selected vehicle's status onto a logic-free view model.
+// (RM38 tier 2 — it was a retired snapshot-based reader before, since removed by
+// RM40) and maps the selected vehicle's status onto a logic-free view model.
 //
 // Degradation rules (same resilient shape as vehiclesFor / navHeaderFor): a read
 // error NEVER returns a 500 — it degrades to a flagged view model:
@@ -516,7 +508,7 @@ func dashTempOrDash(v *float64) string {
 // deterministic in tests, mirroring isStale. ctx threads through to dashStatus and
 // the software-version i18n.T lookup (D5).
 //
-// Retyped from telemetry.Snapshot to analytics.VehicleStatus
+// Retyped from the retired snapshot type (RM40) to analytics.VehicleStatus
 // (RM38-gateway-read-dashboard-from-metrics, design.md D2): eight fields are now
 // pointers (InsideTempC, OutsideTempC, CarVersion, ChargeLimitSocPct,
 // ChargingState, CapturedAt, Locked, SentryMode) tracking whether that column has
@@ -721,18 +713,18 @@ func (h *Handler) VehicleSelect(c *gin.Context) {
 // is unit-testable with fake account/analytics implementations. It calls ONLY
 // Reader ports — account.RegisteredVehicles + analytics.Reader.
 // LatestMetricsByAccount (never a Writer/Collector, never Tesla). It never
-// imports a DB package. Retyped from telemetry.Reader.LatestSnapshotsByAccount by
+// imports a DB package. Retyped from the retired snapshot-based reader (RM40) by
 // RM38-gateway-read-dashboard-from-metrics, design.md D8.
 //
 // Degradation rules (DD2 resilience): a read error never returns a 500 — the
-// fragment degrades to a name-only "unavailable" state (telemetry error) or a
-// no-name "unavailable" state (account error), so the page that already rendered
-// stays intact.
+// fragment degrades to a name-only "unavailable" state (analytics reader error) or
+// a no-name "unavailable" state (account error), so the page that already
+// rendered stays intact.
 //
 // The vehicle context-switcher option list used to be built here; it now lives
 // in vehicleSelectFor. This helper resolves the primary (selected) vehicle only
 // to drive the status dot/battery/name — the switcher's option list is a
-// separate, telemetry-free read.
+// separate read that does not depend on this one.
 func (h *Handler) navHeaderFor(ctx context.Context, uid uuid.UUID, selectedTeslaID int64) fragments.NavHeaderVM {
 	registered, err := h.acct.RegisteredVehicles(ctx, uid)
 	if err != nil {

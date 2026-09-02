@@ -27,7 +27,7 @@ D-gw-test for the rationale behind each task.
 
 ## Wave 1 — production call-site swap (module: gateway worker)
 
-- [ ] **1.1** `internal/gateway/handlers/history.go` —
+- [x] **1.1** `internal/gateway/handlers/history.go` —
   - In `buildHistoryView`: replace the `readStart := start.AddDate(0, 0, -1)` +
     `h.telemetryReader.SnapshotsByVehicleBetween(ctx, uid, teslaID, readStart,
     end)` block with `h.analyticsReader.BatteryLevelByDay(ctx, uid, teslaID, start,
@@ -55,7 +55,7 @@ D-gw-test for the rationale behind each task.
 
 ## Wave 2 — Deps/Handler field removal (module: gateway worker)
 
-- [ ] **2.1** `internal/gateway/handlers/handlers.go` — remove `TelemetryReader
+- [x] **2.1** `internal/gateway/handlers/handlers.go` — remove `TelemetryReader
   telemetry.Reader` from `Deps`, remove `telemetryReader telemetry.Reader` from the
   `Handler` struct, remove the `telemetryReader: d.TelemetryReader,` line from
   `New()`'s wiring, remove the `internal/telemetry` import. Acceptance:
@@ -65,7 +65,7 @@ D-gw-test for the rationale behind each task.
   mention).
   `depends_on`: 1.1 · `parallel_ok`: with 2.2
 
-- [ ] **2.2** `internal/gateway/gateway.go` — remove `TelemetryReader
+- [x] **2.2** `internal/gateway/gateway.go` — remove `TelemetryReader
   telemetry.Reader` from `Deps`, remove the `TelemetryReader: d.TelemetryReader,`
   line from the `handlers.Deps{...}` literal `NewEngine` builds, remove the
   `internal/telemetry` import. Acceptance:
@@ -74,7 +74,7 @@ D-gw-test for the rationale behind each task.
 
 ## Wave 3 — test rework (module: gateway worker)
 
-- [ ] **3.1** `internal/gateway/handlers/handlers_test.go` — delete the `fakeReader`
+- [x] **3.1** `internal/gateway/handlers/handlers_test.go` — delete the `fakeReader`
   type (all 5 `telemetry.Reader` method stubs) and `newHandlerWithReader` outright
   (design.md D-gw-test, final paragraph). Update the four call sites that used
   them (`TestDashboardFor_RegisteredEmptyPromptsConnect`,
@@ -91,7 +91,7 @@ D-gw-test for the rationale behind each task.
   (only its `*Handler` construction line changes).
   `depends_on`: 2.1 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** `internal/gateway/handlers/history_test.go` — the larger rework
+- [x] **3.2** `internal/gateway/handlers/history_test.go` — the larger rework
   (design.md D-gw-test has the full investigation and exact contract; design.md's
   Test Contract section has the per-test expected-value mapping — treat both as
   binding, not advisory):
@@ -143,7 +143,7 @@ D-gw-test for the rationale behind each task.
   actually updated, not just the ones enumerated above).
   `depends_on`: 2.1, 2.2 · `parallel_ok`: with 3.1
 
-- [ ] **3.3** `internal/gateway/handlers/history_test.go` — extend
+- [x] **3.3** `internal/gateway/handlers/history_test.go` — extend
   `TestHandler_AnalyticsReaderDepsForwarding` with a `BatteryLevelByDay` forwarding
   assertion (`batteryByDayCalled`, `gotBattStart`/`gotBattEnd` matching the passed
   `start`/`end`), mirroring the existing `consumedByDayCalled`/
@@ -156,7 +156,7 @@ D-gw-test for the rationale behind each task.
 
 ## Wave 4 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **4.1** Run and report: `go build ./internal/gateway/...`, `go vet
+- [x] **4.1** Run and report: `go build ./internal/gateway/...`, `go vet
   ./internal/gateway/...`, `gofmt -l internal/gateway`, `make boundary-guard`
   (**this change's own definition of done** — must print
   `boundary-guard: internal/gateway/ does not import internal/telemetry` with NO
@@ -172,7 +172,7 @@ D-gw-test for the rationale behind each task.
   `make test-with-db`, or `make check`.
   `depends_on`: 1.1, 2.1, 2.2, 3.1, 3.2, 3.3 · `parallel_ok`: no
 
-- [ ] **4.2** Hand off to the owner the exact command to run and report, once the
+- [x] **4.2** Hand off to the owner the exact command to run and report, once the
   leader-owned task below has landed: `go test ./internal/gateway/...` (covers the
   full existing offline suite this tier repairs; no new test file is added).
   Separately, once BOTH this tier's artifacts and the leader-owned `cmd/web` fix
@@ -183,7 +183,7 @@ D-gw-test for the rationale behind each task.
 
 ## Leader-owned / permission-gated (outside this worker's sandbox — schedule in the same wave)
 
-- [ ] **L.1** `cmd/web/main.go:58` — remove the `TelemetryReader:
+- [x] **L.1** `cmd/web/main.go:58` — remove the `TelemetryReader:
   telemetry.NewReader(pool)` line from the `gateway.Deps{...}` literal (it no
   longer exists on `Deps` after 2.2 lands). **Do NOT touch lines ~72/~86 of the
   same file** — they call `telemetry.NewReader(pool)` for OTHER, unrelated
@@ -191,7 +191,7 @@ D-gw-test for the rationale behind each task.
   does not build once 2.2 lands (proposal.md "Breaking").
   `depends_on`: 2.2 · `parallel_ok`: no
 
-- [ ] **L.2** `internal/gateway/AGENTS.md` — under "Public interface (the port)",
+- [x] **L.2** `internal/gateway/AGENTS.md` — under "Public interface (the port)",
   remove or rewrite the `Deps.TelemetryReader telemetry.Reader` bullet (currently
   states it is "DEPRECATED, being removed" and names `SnapshotsByVehicleBetween`
   as its "sole remaining caller" — both now false: there is no remaining caller
@@ -202,7 +202,7 @@ D-gw-test for the rationale behind each task.
   structural change").
   `depends_on`: 2.1, 2.2 · `parallel_ok`: with L.1
 
-- [ ] **L.3** Root `README.md` — "Dependency graph" section: remove `telemetry,`
+- [x] **L.3** Root `README.md` — "Dependency graph" section: remove `telemetry,`
   from the `gateway ────────────► account, telemetry, charging, analytics,` line
   and from the `handlers ──────► account, auth, telemetry, charging,` line. Leave
   the `cmd/web`/`cmd/poller` lines and the `analytics ─► …, telemetry, …` line
