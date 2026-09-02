@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-02T14:45:00Z",
+  "updated_at": "2026-09-02T16:15:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -16,9 +16,7 @@
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [
-      1
-    ],
+    "current": [],
     "pending": [
       2,
       3
@@ -27,7 +25,9 @@
       4,
       5
     ],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -142,14 +142,20 @@
       "module": "account",
       "optional": false,
       "depends_on": [],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
+      "model": "claude-sonnet-5",
       "started_at": "2026-09-02T14:36:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Pilot tier. 3 tables, no cross-module reads. Establishes the pattern later tiers mirror."
+      "completed_at": "2026-09-02T16:15:00Z",
+      "duration_seconds": 5940,
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 7,
+        "source": "statusline-cache",
+        "approx": true
+      },
+      "notes": "Pilot tier, archived. 3 tables moved, Go type names frozen (models.go diff empty). Owner verified the suite. Reviewer approved with 3 minor findings; F1 rejected, F2/F3 accepted. Produced D9."
     },
     {
       "id": 2,
@@ -281,6 +287,11 @@
       "at": "2026-09-02T16:00:00Z",
       "agent": "leader",
       "event": "autopilot ON at owner's request (D10/D11). Tier 1 verified by the owner; dispatching account-reviewer."
+    },
+    {
+      "at": "2026-09-02T16:15:00Z",
+      "agent": "leader",
+      "event": "tier 1 archived to openspec/changes/archive/account/2026-09-02-RM39-account-move-to-own-schema (the CLI archives flat; moved into the domain folder per openspec/config.yaml). Delta specs synced into openspec/specs/account and account-vehicle-registry."
     }
   ],
   "gates": [
