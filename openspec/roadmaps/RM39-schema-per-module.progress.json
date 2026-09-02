@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "proposed",
   "autopilot": false,
-  "updated_at": "2026-09-02T10:20:00Z",
+  "updated_at": "2026-09-02T11:05:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module",
@@ -176,7 +176,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "BLOCKED on the external boundary ticket (D6). 4 tables. ALSO renames supercharger_sessions -> supercharger_history (D5a) and the db model + hand-written domain type to SuperchargerHistory, plus 5 sqlc query names. Public port SuperchargerReader stays put -- that is tier 5. Landing it breaks charging tests A1/A2."
+      "notes": "PRECEDED BY GATE G1 (owner-run make db-reset). BLOCKED on the external boundary ticket (D6). 4 tables. ALSO renames supercharger_sessions -> supercharger_history (D5a) and the db model + hand-written domain type to SuperchargerHistory, plus 5 sqlc query names. Public port SuperchargerReader stays put -- that is tier 5. Landing it breaks charging tests A1/A2."
     },
     {
       "id": 5,
@@ -221,6 +221,38 @@
       "at": "2026-09-02T10:20:00Z",
       "agent": "leader",
       "event": "found pre-existing KB debt: kkpa/context/architecture/telemetry-data-hub.md still shows the gateway reading telemetry.Reader, which RM38/RM40 removed and make boundary-guard now forbids. Correction assigned to tier 3."
+    },
+    {
+      "at": "2026-09-02T11:05:00Z",
+      "agent": "leader",
+      "event": "added blocking owner-run gate G1 (make db-reset) between tiers 3 and 4, at the owner's request: RM39 preserves all data by design, so a fresh-data wipe must be explicit."
+    },
+    {
+      "at": "2026-09-02T11:05:00Z",
+      "agent": "leader",
+      "event": "audited the Makefile against the schema move: zero schema/public/GRANT/search_path references, zero bare table names, no guard reads SQL. db-setup migrates AS the app role against a role-owned database, so CREATE SCHEMA makes that role the schema owner -- no GRANT and no search_path change needed. No make target requires updating; the per-tier obligation is the goose Down reversing in opposite order."
+    }
+  ],
+  "gates": [
+    {
+      "id": "G1",
+      "after_tier": 3,
+      "before_tier": 4,
+      "kind": "owner-run",
+      "status": "pending",
+      "name": "database reset for fresh test data",
+      "command": "make db-reset",
+      "run_by": "owner",
+      "blocking": true,
+      "why": "The owner wants a clean database to start testing on fresh data (MAG-31). RM39 preserves every row by design (D1/D4 use catalog-only ALTER TABLE ... SET SCHEMA / RENAME TO), so a wipe cannot happen as a side effect and must be an explicit gate.",
+      "placement_why": "After tier 3 because tiers 1-3 are the unblocked run and tier 4 waits on the D6 boundary ticket. Also avoids re-establishing the Tesla connection twice.",
+      "post_steps": [
+        "make migrate-status shows nothing pending",
+        "make db-reset (DESTRUCTIVE, owner-only per CLAUDE.md)",
+        "reconnect Tesla through cmd/web -- db-reset drops accounts and tesla_tokens",
+        "run the poller once, then verify the pages render"
+      ],
+      "leader_instruction": "HALT after tier 3 is archived. Do NOT dispatch tier 4 until the owner confirms this gate is done or explicitly waives it. Never run make db-reset yourself."
     }
   ]
 }

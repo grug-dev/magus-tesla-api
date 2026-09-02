@@ -179,6 +179,7 @@ archived) · `[x]` done (archived).
 | `[ ]` | `RM39-account-move-to-own-schema` | `account` | 3 tables: `accounts`, `tesla_tokens`, `vehicles`. No cross-module reads. The pilot tier — it establishes the pattern every later tier mirrors. | — | Create the OpenSpec change moving `internal/account`'s tables into an `account` schema. ONE new goose migration (`CREATE SCHEMA` + `ALTER TABLE … SET SCHEMA`), schema-qualify every table reference in `internal/account/db/query.sql`, and add `gen.go.rename` entries to `sqlc.yaml` so `Account`, `TeslaToken` and `Vehicle` keep their exact current names. Verify the generated `models.go` type names — a wrong rename key fails silently with exit 0. Follow D1–D4. The renames (D5a/D5b/D5c) do not touch this module. |
 | `[ ]` | `RM39-analytics-move-to-own-schema` | `analytics` | 3 tables: `vehicle_metrics`, `vehicle_metric_watermarks`, `charge_gaps`. Its `vehicle_snapshots` / `supercharger_sessions` mentions are watermark **string values** and comments, not table references — they must NOT be changed. | 1 | Mirror tier 1 for `internal/analytics`. Preserve `ChargeGap`, `VehicleMetric`, `VehicleMetricWatermark`. Take care: `vehicle_metric_watermarks.source` holds the literal strings `'vehicle_snapshots'`, `'supercharger_sessions'`, `'manual_charge_entries'` — these are data, and a CHECK constraint depends on them. Do not schema-qualify them. Note for later: tier 3 rewrites that CHECK and deletes these rows under D8 — leave both alone here. |
 | `[ ]` | `RM39-charging-move-to-own-schema` | `charging` | 2 tables: `charge_sessions`, `manual_charge_entries`. **Also renames `charge_sessions` → `supercharger_sessions` (D5b).** Its backfill migration still reads `public.supercharger_sessions` and still works here, because `telemetry` has not moved yet. | 1 | Mirror tier 1 for `internal/charging`, then apply D5b. **Statement order inside the one migration is mandatory (D7): CREATE SCHEMA → SET SCHEMA → RENAME TO.** Renaming before the schema move collides with telemetry's still-unmoved table. Rename the db model `ChargeSession` → `SuperchargerSession` (D5c), the 2 sqlc query names (`MirrorChargeSession`, `VerifyChargeSession`), the index `idx_charge_sessions_vehicle_stop` and the constraint `charge_sessions_pct_source_required`. Preserve `ManualChargeEntry`. Delete the affected `vehicle_metric_watermarks` rows per D8. Update the RM31 D8 comment on `SuperchargerSessionAnalyticsReader` — its "deliberate divergence" note is no longer a divergence. Do NOT touch `20260823000001_add_charge_sessions.sql` — its cross-module read is tier 4's problem and is owned by a separate boundary ticket (D6). |
+| `[ ]` | **— STOPPER GATE: owner resets the database —** | — | Not a change and not code. A hard stop after tier 3: the owner runs `make db-reset` to start testing on fresh data. See §"Stopper gate" below for the exact steps. The pipeline **must not** dispatch tier 4 until the owner confirms this gate is done or explicitly waives it. | 3 | HALT. Report that tiers 1–3 are archived and the gate is now the owner's to run. Do not run `make db-reset` yourself — it is destructive and owner-only per `CLAUDE.md` §"Builds & local checks". |
 | `[ ]` | `RM39-telemetry-move-to-own-schema` | `telemetry` | 4 tables: `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs`. **Also renames `supercharger_sessions` → `supercharger_history` (D5a).** The largest tier and the one that trips the backfill guard. | 1, 3, **+ the external boundary ticket (D6)** | **BLOCKED until the boundary ticket lands.** Mirror tier 1 for `internal/telemetry`, preserving `PollAttempt`, `PollRun`, `VehicleSnapshot`, then apply D5a. Rename the db model and the hand-written domain type `SuperchargerSession` → `SuperchargerHistory` (D5c) — the domain type in `telemetry.go` is NOT sqlc-generated, so no config touches it. Rename the 5 sqlc query names (`UpsertSuperchargerSession`, `SuperchargerSessionsByAccount`/`ByVehicle`/`ByVehicleBetween`/`ByVehicleUpdatedSince`); their `*Params` types follow. **Keep the public port `SuperchargerReader` unchanged here — it is tier 5.** Then reconcile `charging`'s backfill tests A1/A2, which break the moment this tier applies. Re-check `internal/analytics`' `ProvisionDirs` usage too. |
 | `[ ]` | `RM39-telemetry-rename-supercharger-port` | `telemetry` | No schema change. Renames telemetry's **public port** to finish D5c: `SuperchargerReader`, its 4 methods, `NewSuperchargerReader`, and the internal `superchargerReader` / `rowToSuperchargerSession` / `upsertSuperchargerSession` helpers. | 4 | **BLOCKED behind tier 4.** Split out deliberately: this surface has **88 references outside `internal/telemetry`** — in `charging`, `analytics`, `gateway`, `app` and both `cmd/` binaries — so folding it into tier 4 would make the already-largest tier unreviewable. Purely mechanical and compiler-checked; no SQL, no migration. Verify with `go build ./... && go vet ./... && gofmt -l`. |
 
@@ -198,6 +199,41 @@ Counts behind the tier sizes, measured on the live tree (archived specs and
 | `ChargeSession` | 30 | 2 | — |
 | telemetry public port, refs OUTSIDE the module | — | — | 88 total (tier 5) |
 
+## Stopper gate — owner resets the database (after tier 3)
+
+**Why it exists.** RM39 preserves every row by design: `ALTER TABLE … SET SCHEMA` and
+`… RENAME TO` are catalog-only operations, and D1/D4 deliberately avoid needing a reset. But
+the owner *wants* a wipe — a clean database to start testing the app on fresh data (MAG-31:
+"It's OK if we lost data"). Since nothing in the roadmap produces that, it is an explicit
+owner-run gate rather than a side effect.
+
+**Placement: after tier 3, not at the end.** Tiers 1–3 are the unblocked run; tier 4 waits on
+the D6 boundary ticket, which may be far off. Resetting after tier 3 gives a clean database
+whose schema already carries the new `charging` names, without waiting. It also avoids
+re-establishing the Tesla connection twice.
+
+**Claude does not run this.** `make db-reset` drops the database. It is on the gated list in
+`CLAUDE.md` §"Builds & local checks" — the owner runs it and reports the result.
+
+### Steps (owner)
+
+1. Confirm tiers 1–3 are archived and `make migrate-status` shows no pending migration.
+2. `make db-reset` — drops the database, recreates it owned by `APP_ROLE`, and re-applies
+   every migration directory in `MIGRATIONS_DIRS` order.
+3. **Re-establish the Tesla connection.** `db-reset` drops `accounts` and `tesla_tokens`
+   along with everything else, so the per-user Tesla link is gone. Reconnect through
+   `cmd/web` (sign-in, then the Tesla OAuth consent) — see `docs/layer2-user-vehicle-access.md`.
+   Note `make cmd-setup` is the **single-user `.env`** capture tool, not the multi-tenant path.
+4. Run the poller once to repopulate, then verify the pages render.
+
+### Replay is coherent — verified, not assumed
+
+`db-reset` re-applies migrations **per directory**, in `MIGRATIONS_DIRS` order
+(`account → telemetry → charging → analytics`), not merged by timestamp. Within charging's
+directory the historic backfill `20260823000001` still runs *before* tier 3's migration, so at
+that moment the table is still `public.charge_sessions` and the backfill's own name resolution
+is unchanged. It copies 0 rows on an empty database, which is the harmless case D6 describes.
+
 ## Per-tier work shape (every tier does exactly this)
 
 1. One new goose migration — `CREATE SCHEMA IF NOT EXISTS <module>` + one
@@ -211,6 +247,32 @@ Counts behind the tier sizes, measured on the live tree (archived specs and
    Test-Execution-Policy in `CLAUDE.md`).
 6. Update the module's `AGENTS.md` and any doc naming its tables. On tiers 3–5 this
    also means the KB under `kkpa/context/` — see "Knowledge-base debt" below.
+
+## The Makefile needs no changes — audited, not assumed
+
+A schema move usually drags the build tooling with it. Here it does not, and the reason is
+worth recording so no tier re-derives it:
+
+| Checked | Result |
+|---|---|
+| `schema` / `public` / `GRANT` / `search_path` in `Makefile` | **zero** occurrences |
+| Bare table names in `Makefile` | **zero** (two hits are comments about `poll_runs`) |
+| Guard scripts referencing table names | none — the guards are Go/grep over source, not SQL |
+| Who applies migrations | `db-setup` exports `PGUSER=$(APP_ROLE)` and migrates a database **owned by that role** |
+
+That last row is the load-bearing one: because migrations run **as the app role**, a
+`CREATE SCHEMA <module>` inside a migration makes the app role the schema **owner**, so it
+needs no `GRANT` and no `search_path` change. `db-reset`, `db-setup`, `migrate-up/down/status`
+and all six guards are schema-agnostic and stay as they are.
+
+Two caveats that *are* each tier's job:
+
+- **Every tier's `-- +goose Down` must reverse in the opposite order** — rename back first,
+  then `SET SCHEMA public`, then drop the schema. `make migrate-down` depends on it, and D7's
+  ordering logic applies in reverse.
+- **A pre-existing database migrated by a role other than the app role** would end up with
+  schemas the app role cannot use. The Makefile already warns on that ownership mismatch in
+  `db-setup`, and the stopper gate's `db-reset` eliminates it outright.
 
 ## Knowledge-base debt this roadmap must clear
 
