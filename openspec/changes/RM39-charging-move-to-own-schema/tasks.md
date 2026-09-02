@@ -6,10 +6,12 @@
 > `ChargeSession` becomes `SuperchargerSession` (D5c — NOT frozen, unlike `ManualChargeEntry`).
 > The 2 sqlc query names `MirrorChargeSession`/`VerifyChargeSession` become
 > `MirrorSuperchargerSession`/`VerifySuperchargerSession`. The index
-> **All FOUR** catalog objects carrying the old table name are renamed (roadmap **D16**,
-> owner-confirmed): `idx_charge_sessions_vehicle_stop`,
-> `charge_sessions_pct_source_required`, `charge_sessions_pkey` and
-> `charge_sessions_account_session_unique` — see design.md "Rename scope (D16)". D9's
+> **EVERY** catalog object carrying the old table name is renamed (roadmap **D16**,
+> owner-confirmed, expanded from four to nine after a catalog query found five auto-named
+> column CHECKs): the index, the named CHECK, the primary key, the unique constraint, and
+> `charge_sessions_{battery_pct_source,start_battery_pct,end_battery_pct,start_battery_pct_est,end_battery_pct_est}_check`
+> — see design.md "Rename scope (D16)". The completeness criterion is the catalog, not this
+> list: no name beginning `charge_sessions` may survive. D9's
 > raw-SQL-in-tests debt is schema/name-qualified (design.md's Test Contract point 4) —
 > confirmed 32 statements across 10 files, matching the roadmap's own re-measured figure. D12
 > checked and NOT present in this module. **D8's `vehicle_metric_watermarks` CHECK

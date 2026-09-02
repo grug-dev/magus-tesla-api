@@ -74,83 +74,36 @@ DDL event, not a recurring read/write path.
 
 ### D1/D7 — One additive migration: `CREATE SCHEMA` + `SET SCHEMA` + `RENAME`, in the mandatory order
 
-Exact DDL — one new goose migration file,
+The migration is one new goose file:
 `internal/charging/db/migrations/20260902000003_move_charging_to_own_schema.sql` (next free
-chronological timestamp — see "Migration filename" below):
+chronological timestamp — see "Migration filename" below). **That file is the single source of
+truth for the DDL; this section specifies the ORDER and the reasoning, not a second copy of the
+SQL.**
 
-```sql
--- +goose Up
--- RM39 tier 3 (charging-move-to-own-schema, MAG-31): move this module's two tables into a
--- dedicated `charging` Postgres schema (roadmap D1), AND rename charge_sessions to
--- supercharger_sessions (roadmap D5b) in the SAME migration.
---
--- STATEMENT ORDER IS MANDATORY (roadmap D7). Tier 3 runs BEFORE tier 4
--- (RM39-telemetry-move-to-own-schema, blocked on a separate boundary ticket, D6), so
--- internal/telemetry still owns `public.supercharger_sessions` at this point. Renaming
--- charge_sessions to the bare name `supercharger_sessions` while both tables sit in
--- `public` would collide with telemetry's table. Moving this table into the `charging`
--- schema FIRST, then renaming it there, means the two same-named tables coexist under
--- different schema qualifiers (`charging.supercharger_sessions` vs
--- `public.supercharger_sessions`) until tier 4 moves telemetry's copy too. This also frees
--- D5b from D6's block — this rename does not wait for the boundary ticket.
---
--- `ALTER TABLE … SET SCHEMA` and `ALTER TABLE … RENAME TO` / `ALTER INDEX … RENAME TO` /
--- `ALTER TABLE … RENAME CONSTRAINT` are all catalog-only operations (see this file's Index
--- Plan section for the proof: no row, index page, or constraint definition is rewritten).
--- Because migrations run as the app role (Makefile db-setup exports PGUSER=$(APP_ROLE)),
--- CREATE SCHEMA here makes that role the schema owner — no GRANT needed.
-CREATE SCHEMA IF NOT EXISTS charging;
+An earlier version of this section embedded the full statement text under the heading "Exact
+DDL". It drifted three times — it never gained the `COMMENT ON` refresh, and it kept the
+original four-object rename after the scope grew to nine — so "exact" became false in two
+directions while the real migration was correct. Per `CLAUDE.md`'s AI-efficiency rule, a
+duplicated, volatile artifact is not worth the tokens it costs to re-verify: read the file.
 
-ALTER TABLE charge_sessions       SET SCHEMA charging;
-ALTER TABLE manual_charge_entries SET SCHEMA charging;
+**Mandatory statement order (D7), Up:**
 
-ALTER TABLE charging.charge_sessions RENAME TO supercharger_sessions;
+1. `CREATE SCHEMA IF NOT EXISTS charging`
+2. `ALTER TABLE … SET SCHEMA charging` — for `charge_sessions`, then `manual_charge_entries`
+3. `ALTER TABLE charging.charge_sessions RENAME TO supercharger_sessions`
+4. the catalog renames — the index, then all eight constraints (see "Rename scope (D16)")
+5. `COMMENT ON COLUMN …` ×2, refreshing the comments sqlc copies into `models.go`
 
--- Rename ALL FOUR catalog objects that still carry the old table name (roadmap D16 —
--- see design.md "Rename scope"). Postgres does NOT auto-rename the index, the CHECK, the
--- implicit primary key, or the unique constraint when the table is renamed.
-ALTER INDEX charging.idx_charge_sessions_vehicle_stop
-    RENAME TO idx_supercharger_sessions_vehicle_stop;
+**Down reverses in the EXACT opposite order**, ending `DROP SCHEMA IF EXISTS charging` — a
+non-empty schema cannot be dropped without `CASCADE`, and this ordering means `CASCADE` is
+never needed.
 
-ALTER TABLE charging.supercharger_sessions
-    RENAME CONSTRAINT charge_sessions_pct_source_required
-    TO supercharger_sessions_pct_source_required;
-
-ALTER TABLE charging.supercharger_sessions
-    RENAME CONSTRAINT charge_sessions_pkey
-    TO supercharger_sessions_pkey;
-
-ALTER TABLE charging.supercharger_sessions
-    RENAME CONSTRAINT charge_sessions_account_session_unique
-    TO supercharger_sessions_account_session_unique;
-
--- +goose Down
--- Reverse in the EXACT opposite order of Up (D7's ordering logic in reverse): undo the
--- constraint/index renames, undo the table rename, THEN SET SCHEMA public for both tables,
--- THEN drop the now-empty schema. A non-empty schema cannot be dropped without CASCADE, and
--- this ordering means CASCADE is never needed.
-ALTER TABLE charging.supercharger_sessions
-    RENAME CONSTRAINT supercharger_sessions_account_session_unique
-    TO charge_sessions_account_session_unique;
-
-ALTER TABLE charging.supercharger_sessions
-    RENAME CONSTRAINT supercharger_sessions_pkey
-    TO charge_sessions_pkey;
-
-ALTER TABLE charging.supercharger_sessions
-    RENAME CONSTRAINT supercharger_sessions_pct_source_required
-    TO charge_sessions_pct_source_required;
-
-ALTER INDEX charging.idx_supercharger_sessions_vehicle_stop
-    RENAME TO idx_charge_sessions_vehicle_stop;
-
-ALTER TABLE charging.supercharger_sessions RENAME TO charge_sessions;
-
-ALTER TABLE charging.manual_charge_entries SET SCHEMA public;
-ALTER TABLE charging.charge_sessions       SET SCHEMA public;
-
-DROP SCHEMA IF EXISTS charging;
-```
+**Why the order is mandatory, not stylistic.** Tier 3 runs before tier 4, so `internal/telemetry`
+still owns `public.supercharger_sessions`. Renaming charging's table to that bare name while both
+sit in `public` would collide. Moving into the `charging` schema FIRST, then renaming there, lets
+the two coexist as `charging.supercharger_sessions` and `public.supercharger_sessions` until tier
+4 moves telemetry's copy — and frees D5b from D6's block, so this rename does not wait on the
+boundary ticket.
 
 **Why additive, not rewriting the five existing migrations.** Same reasoning as tiers 1–2:
 rewriting history desyncs `goose_db_version` from reality on every environment that already
@@ -247,7 +200,7 @@ error if missed, not a silent drift, unlike the `gen.go.rename` key-typo failure
 `LockSessionForVerification` has no "ChargeSession" in its name and is unaffected by this
 decision — only its `FROM charge_sessions` line needs D2's schema+rename qualification.
 
-### Rename scope (D16) — all FOUR catalog objects that carry the old table name
+### Rename scope (D16) — EVERY catalog object that carries the old table name
 
 The roadmap's tier-3 row originally named only two objects: the index
 (`idx_charge_sessions_vehicle_stop`) and the CHECK constraint

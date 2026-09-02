@@ -193,10 +193,46 @@
             "id": "F2",
             "severity": "major",
             "note": "internal/charging/AGENTS.md:510-512 (\"Data Ownership\") still reads \"All four catalog objects still carrying the old table name -- the index, the CHECK, the primary key, and the unique constraint -- were renamed too (design.md D16).\" This is now factually wrong: commit 4ef450c expanded D16 to nine objects (the original four plus five Postgres-auto-named inline-column CHECK constraints -- battery_pct_source_check, start/end_battery_pct_check, start/end_battery_pct_est_check). design.md, spec.md and tasks.md were all updated in 4ef450c; AGENTS.md was not. This is the same doc-pack file whose Data Ownership section T4.1 (round 1) was specifically tasked with keeping current on this exact rename scope, and it is the doc a future worker/reviewer reads first (CLAUDE.md base doc-pack + module pack). Leaving it saying \"all four\" is a real instance of the stale-vocabulary problem this whole change exists to remove, and violates CLAUDE.md's \"Docs track structural change\" rule (a change that leaves structure docs stale is incomplete). One-line fix: update the sentence to name the CHECK count correctly (or point to design.md's Rename scope table by reference instead of restating a number that can drift again).",
-            "status": "open"
+            "status": "fixed"
           }
         ],
         "independent_verification": "Read the full historic CREATE TABLE in 20260823000001_add_charge_sessions.sql end to end: confirmed exactly 5 inline column CHECKs with no explicit CONSTRAINT name (start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est) plus the one named CHECK, the PK, and the UNIQUE -- 8 constraints total, all now renamed across round 1 (4) and round 2 (5). Confirmed the GENERATED column inferred_capacity_kwh_calc (added later) carries no CHECK. No sequence exists on this table (no serial/identity column) and no trigger is defined on it, so neither is a residual-name risk. Verified the new migration file directly: the 5 new RENAME CONSTRAINT statements in Up sit between the original 4-object block and the COMMENT ON refresh (does not disturb D7 order), and Down reverses in the exact mirror position (comments restored first, then the 5 new constraints reversed, then the original 4, then index, then table rename, then SET SCHEMA public, then DROP SCHEMA) -- byte-for-byte the opposite of Up. go build/go vet/gofmt clean; openspec validate --strict passes. Answering the coordinator's specific question -- empirically tested Postgres 16 (local Homebrew instance, in a ROLLBACK-ed transaction, no lasting effect) rather than relying on memory: ALTER TABLE ... RENAME CONSTRAINT on a PRIMARY KEY or UNIQUE constraint automatically renames its backing index too (pg_indexes reflects the new name with no separate ALTER INDEX statement needed), and ALTER TABLE ... RENAME TO automatically renames the implicit composite row type in pg_type. Both confirmed live, not assumed. Given that, \"no pg_constraint or pg_indexes name beginning charge_sessions\" (spec.md's new criterion) is the right check and this migration satisfies it completely -- I found no further catalog object this change leaves behind. The one gap found is a documentation one (F2), not a DDL one."
+      },
+      {
+        "round": 3,
+        "at": "2026-09-02T22:20:00Z",
+        "reviewer": "charging-reviewer",
+        "verdict": "changes-requested",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "note": "No testcontainers-based suite run exists for this change yet. Docker still down. Carried forward unchanged. Non-blocking.",
+            "status": "open"
+          },
+          {
+            "id": "F2",
+            "severity": "major",
+            "note": "FIXED in af5a7be: internal/charging/AGENTS.md now names all nine objects, states the catalog (not a list) as the completeness criterion, and gives the verification query with a note that grep cannot confirm it.",
+            "status": "fixed"
+          },
+          {
+            "id": "F3",
+            "severity": "minor",
+            "note": "internal/charging/db/migrations/20260902000003_move_charging_to_own_schema.sql:28 -- the shipped migration's own comment still says \"Rename ALL FOUR catalog objects that still carry the old table name.\" It is immediately followed (14 lines later, same file) by the block that adds 5 more, so a full read of the file self-corrects, but the phrase itself is now false and is exactly the kind of completeness superlative this review round exists to catch. Cheap fix: drop \"ALL\" (\"Rename the four explicitly-named catalog objects...\") or add a forward pointer (\"five more below\").",
+            "status": "open"
+          },
+          {
+            "id": "F4",
+            "severity": "major",
+            "note": "design.md's D1/D7 section (\"Exact DDL\", around line 81) embeds a full copy of the migration as a fenced sql block, labelled \"Exact DDL\". That copy is stale in TWO directions the round-2/round-3 fixes did not touch (they edited the Rename-scope table, the Cost/Rejected paragraph, and the Test Contract -- not this code block): (1) it has never included the COMMENT ON refresh (decision D9, landed in the original edd5c46 implementation, before my own round 1 -- a miss I own, not a round-2/3 regression), and (2) it still shows only the original four-object rename, missing the five auto-named CHECK renames D16 later added, in both Up and Down. \"Exact DDL\" is now a false claim in both directions. Same failure pattern as F2/F3 (a completeness/fidelity claim that drifted from the shipped file) at a third location. Recommend not re-syncing the copy by hand a third time -- that just invites a fourth drift -- but replacing the embedded copy with a pointer to the actual migration file as the single source, consistent with CLAUDE.md's AI-efficiency principle (single-source over a duplicate that must be kept in sync). If a code sample is still wanted for readability, label it illustrative/abridged rather than \"Exact\".",
+            "status": "open"
+          }
+        ],
+        "answers_to_coordinator": {
+          "loop_vs_explicit_list": "Agree with the framing as rewritten; would not switch the migration itself to a runtime catalog loop. The bug was never \"explicit lists are the wrong mechanism\" -- it was \"the list was built by reading CREATE TABLE text instead of querying the catalog.\" A runtime loop over pg_constraint filtered by name LIKE 'charge_sessions%' does not actually buy more completeness than what design.md now specifies: enumerate every constraint bound to the table's OID with no name filter at all (WHERE conrelid = the table, full stop) -- which is exactly what the Test Contract's own verification query already does, and which is what should have been run before finalizing the list, not just after. A pattern-matching loop trades reviewability (a reviewer can no longer tell from reading the file what will happen) and loud failure (an absent name silently does nothing instead of erroring) for a completeness guarantee that an OID-scoped catalog query already provides at authoring time, with no runtime ambiguity. The real backstop against drift is exactly what the Test Contract now says: treat the negative catalog check (no name beginning charge_sessions) as binding in every environment the migration runs against, independent of whether the list inside the DDL is complete. Keep the explicit list; the fix is sourcing it correctly, which af5a7be already states.",
+          "decisions_events_append_only": "Agree, no action needed. D3 and the earlier events recorded what was true and decided at that timestamp; rewriting them to say nine would misrepresent the historical record of what the owner actually approved on 2026-09-02T18:05:00Z. D11 (round 1) and the new leader event (21:55:00Z) already carry the correction forward truthfully. This is the right application of append-only."
+        }
       }
     ]
   },

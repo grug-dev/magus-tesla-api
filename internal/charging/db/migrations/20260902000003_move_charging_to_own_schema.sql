@@ -25,7 +25,7 @@ ALTER TABLE manual_charge_entries SET SCHEMA charging;
 
 ALTER TABLE charging.charge_sessions RENAME TO supercharger_sessions;
 
--- Rename ALL FOUR catalog objects that still carry the old table name (roadmap D16 —
+-- Rename EVERY catalog object that still carries the old table name (roadmap D16 —
 -- see design.md "Rename scope"). Postgres does NOT auto-rename the index, the CHECK, the
 -- implicit primary key, or the unique constraint when the table is renamed.
 ALTER INDEX charging.idx_charge_sessions_vehicle_stop
