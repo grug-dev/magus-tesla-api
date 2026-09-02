@@ -43,6 +43,34 @@ ALTER TABLE charging.supercharger_sessions
     RENAME CONSTRAINT charge_sessions_account_session_unique
     TO supercharger_sessions_account_session_unique;
 
+-- The five CHECK constraints Postgres auto-named `charge_sessions_<column>_check` from the
+-- inline column CHECKs in 20260823000001 (start/end_battery_pct, their _est siblings, and
+-- battery_pct_source). They are not in D16's original four-object list because that list was
+-- built from the explicitly-named constraints; these were found by querying pg_constraint on
+-- a migrated database. D16's rationale applies to them verbatim: a CHECK violation would
+-- otherwise print a retired table name against `supercharger_sessions`. Nothing in Go, SQL or
+-- docs references these names, so the rename is catalog-only and consumer-free.
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT charge_sessions_battery_pct_source_check
+    TO supercharger_sessions_battery_pct_source_check;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT charge_sessions_end_battery_pct_check
+    TO supercharger_sessions_end_battery_pct_check;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT charge_sessions_end_battery_pct_est_check
+    TO supercharger_sessions_end_battery_pct_est_check;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT charge_sessions_start_battery_pct_check
+    TO supercharger_sessions_start_battery_pct_check;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT charge_sessions_start_battery_pct_est_check
+    TO supercharger_sessions_start_battery_pct_est_check;
+
 -- Refresh the two shipped column comments that still name the pre-rename table and its
 -- pre-rename constraint. sqlc copies these into internal/charging/db/models.go verbatim,
 -- so leaving them stale would regenerate the retired vocabulary into the module's
@@ -91,6 +119,27 @@ COMMENT ON COLUMN charging.supercharger_sessions.battery_pct_source IS
     'polled (a future measured-SOC path, not implemented). Required whenever either '
     'percentage is set (charge_sessions_pct_source_required). Never ''estimated'' — '
     'an estimate is computed on read and is never persisted here.';
+
+-- Reverse the five auto-named column CHECK renames first (opposite order of Up).
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT supercharger_sessions_start_battery_pct_est_check
+    TO charge_sessions_start_battery_pct_est_check;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT supercharger_sessions_start_battery_pct_check
+    TO charge_sessions_start_battery_pct_check;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT supercharger_sessions_end_battery_pct_est_check
+    TO charge_sessions_end_battery_pct_est_check;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT supercharger_sessions_end_battery_pct_check
+    TO charge_sessions_end_battery_pct_check;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT supercharger_sessions_battery_pct_source_check
+    TO charge_sessions_battery_pct_source_check;
 
 ALTER TABLE charging.supercharger_sessions
     RENAME CONSTRAINT supercharger_sessions_account_session_unique

@@ -258,9 +258,25 @@ now all four:
 | Object | Kind | New name |
 |---|---|---|
 | `idx_charge_sessions_vehicle_stop` | index | `idx_supercharger_sessions_vehicle_stop` |
-| `charge_sessions_pct_source_required` | CHECK | `supercharger_sessions_pct_source_required` |
+| `charge_sessions_pct_source_required` | CHECK (named) | `supercharger_sessions_pct_source_required` |
 | `charge_sessions_pkey` | primary key | `supercharger_sessions_pkey` |
 | `charge_sessions_account_session_unique` | UNIQUE `(account_id, session_id)` | `supercharger_sessions_account_session_unique` |
+| `charge_sessions_battery_pct_source_check` | CHECK (auto-named) | `supercharger_sessions_battery_pct_source_check` |
+| `charge_sessions_start_battery_pct_check` | CHECK (auto-named) | `supercharger_sessions_start_battery_pct_check` |
+| `charge_sessions_end_battery_pct_check` | CHECK (auto-named) | `supercharger_sessions_end_battery_pct_check` |
+| `charge_sessions_start_battery_pct_est_check` | CHECK (auto-named) | `supercharger_sessions_start_battery_pct_est_check` |
+| `charge_sessions_end_battery_pct_est_check` | CHECK (auto-named) | `supercharger_sessions_end_battery_pct_est_check` |
+
+**How the last five were found, and why D16's list missed them.** D16 was written from the
+constraints this module *names explicitly* in `20260823000001`. Postgres also auto-names one
+CHECK per inline column constraint as `<table>_<column>_check` — five of them here
+(`battery_pct_source`, `start/end_battery_pct`, and their `_est` siblings). No grep finds
+these: the names exist only in the catalog, never in the repo. They surfaced only when
+`tasks.md`'s T5.4 catalog-verification query was actually run against a migrated database,
+after the change had already passed review. Nothing in Go, SQL or docs references them, so
+the rename is catalog-only and consumer-free — but D16's rationale applies verbatim: a CHECK
+violation on a battery percentage would otherwise print `charge_sessions_end_battery_pct_check`
+against a table the whole system calls `supercharger_sessions`.
 
 **Why the owner expanded it.** Postgres auto-renames none of these when a table is renamed.
 Leaving the last two behind means a duplicate-key violation prints

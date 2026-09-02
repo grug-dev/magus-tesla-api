@@ -45,12 +45,16 @@ The table previously named `charge_sessions` SHALL be renamed to `supercharger_s
 the same migration that moves it into the `charging` schema, because it is a dense,
 Supercharger-only mirror and its old name over-claimed coverage of all charging activity.
 Every row SHALL survive unchanged, and every constraint and index SHALL preserve its exact
-prior definition. ALL FOUR catalog objects still carrying the old table name SHALL be renamed
-to follow it (`design.md`'s "Rename scope (D16)"): `idx_charge_sessions_vehicle_stop` →
-`idx_supercharger_sessions_vehicle_stop`, `charge_sessions_pct_source_required` →
-`supercharger_sessions_pct_source_required`, `charge_sessions_pkey` →
-`supercharger_sessions_pkey`, and `charge_sessions_account_session_unique` →
-`supercharger_sessions_account_session_unique`. Postgres renames none of these automatically,
+prior definition. EVERY catalog object still carrying the old table name SHALL be renamed to
+follow it (`design.md`'s "Rename scope (D16)") — the index
+`idx_charge_sessions_vehicle_stop`, the named CHECK `charge_sessions_pct_source_required`,
+the primary key `charge_sessions_pkey`, the unique constraint
+`charge_sessions_account_session_unique`, and the five CHECK constraints Postgres auto-named
+from inline column constraints (`charge_sessions_battery_pct_source_check`,
+`charge_sessions_start_battery_pct_check`, `charge_sessions_end_battery_pct_check`,
+`charge_sessions_start_battery_pct_est_check`, `charge_sessions_end_battery_pct_est_check`).
+The completeness criterion is the catalog, not a list: after this migration no relation,
+index or constraint owned by this module SHALL have a name beginning `charge_sessions`. Postgres renames none of these automatically,
 so leaving any behind would print the retired name in a duplicate-key or check-violation
 error against a table the rest of the system calls `supercharger_sessions`.
 The sqlc-generated Go model SHALL be renamed from `ChargeSession` to `SuperchargerSession`
@@ -80,7 +84,8 @@ change to either query's parameters, WHERE-scoping, or column effects.
 - **AND** the primary key constraint is named `supercharger_sessions_pkey` and still covers
   `id`, and the `UNIQUE (account_id, session_id)` constraint is named
   `supercharger_sessions_account_session_unique` — both preserving their prior definitions
-- **AND** no constraint or index on the table has a name beginning `charge_sessions`
+- **AND** `pg_constraint` and `pg_indexes` return NO name beginning `charge_sessions` for
+  this table — the completeness criterion is the catalog, not a fixed list
 
 #### Scenario: The renamed Go type carries an identical field set
 - **GIVEN** `make sqlc` has regenerated `internal/charging/db/models.go` against this tier's

@@ -59,12 +59,16 @@
       `to_regclass('charging.manual_charge_entries')` both return non-NULL;
       `to_regclass('public.charge_sessions')`, `to_regclass('public.manual_charge_entries')`,
       `to_regclass('charging.charge_sessions')` all return NULL (design.md Test Contract
-      points 2–3). ALSO assert the D16 four-object rename landed:
+      points 2–3). ALSO assert the D16 rename landed for EVERY object, not a fixed list:
       `SELECT conname FROM pg_constraint WHERE conrelid = 'charging.supercharger_sessions'::regclass`
       returns `supercharger_sessions_pkey`,
       `supercharger_sessions_account_session_unique` and
-      `supercharger_sessions_pct_source_required`, and NO name starting `charge_sessions`.
-      `goose down` (one step) reverses fully, including all four names reverting.
+      `supercharger_sessions_pct_source_required`, plus the five auto-named column CHECKs
+      (`supercharger_sessions_battery_pct_source_check`,
+      `supercharger_sessions_start_battery_pct_check`,
+      `supercharger_sessions_end_battery_pct_check`, and both `_est` siblings) — and NO name
+      starting `charge_sessions`. The catalog is the completeness criterion, not a list.
+      `goose down` (one step) reverses fully, including every name reverting.
 
 ## T2. Schema-qualify `query.sql` + rename 2 query names (`internal/charging/db/query.sql`) — no dependencies, parallel-ok with T1/T2b
 
@@ -319,21 +323,21 @@ reviewer that the split was deliberate, not an omission.
 
 ## T5. Verification — depends on T1–T4
 
-- [ ] T5.1 `go build ./...`, `go vet ./...`, `gofmt -l` pass repo-wide (Claude-run).
-- [ ] T5.2 Boundary check: `internal/charging` still imports only what
+- [x] T5.1 `go build ./...`, `go vet ./...`, `gofmt -l` pass repo-wide (Claude-run).
+- [x] T5.2 Boundary check: `internal/charging` still imports only what
       `internal/charging/AGENTS.md`'s Allowed Imports section already permits; no file
       outside `internal/charging` (and the granted `sqlc.yaml` charging entry +
       `openspec/changes/RM39-charging-move-to-own-schema/` artifacts folder) was touched by
       this change's own tasks (T1–T4). The tier-3b hand-off is documentation only — it
       touches no file.
-- [ ] T5.3 Confirm no other module's `sqlc.yaml` entry, migrations directory, or `query.sql`
+- [x] T5.3 Confirm no other module's `sqlc.yaml` entry, migrations directory, or `query.sql`
       was touched by T1–T4 — this tier's own sandbox is scoped to the charging entry only.
-- [ ] T5.4 State in the final report the exact catalog-verification queries from design.md's
+- [x] T5.4 State in the final report the exact catalog-verification queries from design.md's
       Test Contract points 2–3, so the owner can paste them after `make migrate-up`.
-- [ ] T5.5 Report the exact test-suite commands the owner must run to confirm this tier's
+- [x] T5.5 Report the exact test-suite commands the owner must run to confirm this tier's
       assertion-level state (`go test ./internal/charging/...`, and the full `go test
       ./...` / `make test-with-db`) — this tier does not execute them
       (`Test-Execution-Policy`); the owner's run is what turns it from
       `awaiting-user-verification` into `done`.
-- [ ] T5.6 `openspec validate RM39-charging-move-to-own-schema --strict` passes and every
+- [x] T5.6 `openspec validate RM39-charging-move-to-own-schema --strict` passes and every
       checkbox above (T1–T4; the tier-3b hand-off is not a checkbox) reflects real completion.
