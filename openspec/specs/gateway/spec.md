@@ -1282,14 +1282,17 @@ serve the now-removed demo).
 The gateway SHALL render THREE per-vehicle history bar charts in the dashboard bento — an
 "Odometer history" chart, a "Battery history" chart, and a "Battery consumed" chart — for the
 currently selected vehicle, replacing the "awaiting nightly snapshots" placeholders. **The
-Battery chart's data SHALL come exclusively from the `telemetry.Reader` port; the Odometer
-chart's data SHALL come exclusively from the `analytics.Reader.OdometerDeltaByDay` port; the
-consumed chart's data SHALL come exclusively from the `analytics.Reader.ConsumedByDay` port —
-this is a CHANGE from the prior revision of this requirement, under which the odometer chart
-was sourced from `telemetry.Reader` alongside the battery chart (roadmap D5: the gateway
-computes nothing about the vehicle, only about the chart).** The gateway SHALL NOT read
-telemetry or analytics tables directly and SHALL NOT make a live Tesla Fleet API call to render
-any of the three charts.
+Battery chart's data SHALL come exclusively from the `analytics.Reader.BatteryLevelByDay` port;
+the Odometer chart's data SHALL come exclusively from the `analytics.Reader.OdometerDeltaByDay`
+port; the consumed chart's data SHALL come exclusively from the `analytics.Reader.ConsumedByDay`
+port — this is a CHANGE from the prior revision of this requirement, under which the Battery
+chart was sourced from `telemetry.Reader.SnapshotsByVehicleBetween` (RM40-gateway-drop-telemetry-
+dependency, roadmap D1: `internal/analytics` already owns the precomputed table this data lives
+in and already serves the other two charts from it). After this change the gateway's history
+fragment reads exclusively through `analytics.Reader` — `internal/telemetry` is not named
+anywhere in `internal/gateway/` for any purpose.** The gateway SHALL NOT read telemetry or
+analytics tables directly and SHALL NOT make a live Tesla Fleet API call to render any of the
+three charts.
 
 The charts SHALL be served by an authenticated htmx fragment endpoint `GET /ui/dashboard/history`
 that accepts **`?start=YYYY-MM-DD&end=YYYY-MM-DD`** — both whole calendar days, UTC-midnight-
@@ -1299,83 +1302,83 @@ vehicle's Tesla id and the caller's account. Anonymous requests SHALL be redirec
 with no history data served.
 
 **"Today" for this endpoint's validation and defaulting is the browser's local calendar day, not
-the server's UTC day** (unchanged from the prior revision of this requirement) — derived from the
-`browser_tz` cookie, falling back to the platform's default time zone, `clock.Zone()`
-(`America/Bogota`), on any failure (absent cookie, empty value, unparseable IANA zone) — **this
-fallback default is a CHANGE from the prior revision of this requirement, which fell back to
-`time.UTC` (RM35-gateway-adopt-clock, roadmap D1/D4); the browser_tz cookie itself still wins
-unconditionally whenever present, unaffected by this change.** See the "Browser-Local Calendar
-Day" scenarios below.
+the server's UTC day** — derived from the `browser_tz` cookie, falling back to the platform's
+default time zone, `clock.Zone()` (`America/Bogota`), on any failure (absent cookie, empty value,
+unparseable IANA zone) — the cookie itself always wins whenever present. See the
+"Browser-Local Calendar Day" scenario below.
 
-**The `start`/`end` params' default window AND the `end <= X` validation cap now both target
-`browser-yesterday`, not `browser-today` — this is a BEHAVIOR CHANGE from the prior revision of
-this requirement.** The `start`/`end` params SHALL be validated by a single helper
-(`parseHistoryRange`): when both are absent the endpoint SHALL apply the default 6-day window
-(`end = browser-yesterday` midnight, `start = end-6`); a missing partner, a malformed non-ISO
-date, an `end` earlier than `start`, an `end` later than **browser-yesterday** (this bound moved
-by one calendar day — an `end` equal to browser-TODAY is now ALSO rejected, where it was
-previously accepted), or a window wider than 90 days SHALL be rejected with HTTP 400. **The
-endpoint SHALL compute a 1-day lookback `readStart = start-1day` and fetch the Battery chart's
-window via `telemetry.Reader.SnapshotsByVehicleBetween(ctx, uid, teslaID, readStart, end)`; it
-SHALL fetch the Odometer chart's window via `analytics.Reader.OdometerDeltaByDay(ctx, uid,
-teslaID, start, end)` (no lookback — the port performs its own internal lookback fetch, mirroring
-the consumed chart's port contract); and it SHALL fetch the consumed window via
-`analytics.Reader.ConsumedByDay(ctx, uid, teslaID, start, end)` (likewise no lookback). This is a
-CHANGE from the prior revision, under which one `telemetry.Reader` call with a lookback fed both
-the Odometer and Battery charts — the Battery chart's own fetch is otherwise unaffected by this
-change (same call, same lookback, same result for that chart).**
+The `start`/`end` params SHALL be validated by a single helper (`parseHistoryRange`): when both
+are absent the endpoint SHALL apply the default 6-day window (`end = browser-yesterday` midnight,
+`start = end-6`, because the nightly batch captures today's data tomorrow — an `end = today`
+window's last bar is always empty); a missing partner, a malformed non-ISO date, an `end` earlier
+than `start`, an `end` later than **browser-yesterday** (an `end` equal to browser-TODAY is
+rejected), or a window wider than 90 days SHALL be rejected with HTTP 400.
 
-**This closes a previously-documented divergence**: before this change, a direct API call
-omitting both `start` and `end` returned a window ending at browser-today, while the dashboard's
-own self-load and preset buttons always targeted a window ending at browser-yesterday (because
-today's data is not captured until tomorrow's nightly poll). After this change, BOTH paths target
-the same browser-yesterday-ending window — the no-params default and every preset now agree.
+**The endpoint SHALL fetch each chart's window through its OWN port call, with NO gateway-level
+lookback for any of the three — this is a CHANGE from the prior revision of this requirement,
+under which the Battery chart's fetch computed a 1-day lookback (`readStart = start-1day`) before
+calling `telemetry.Reader.SnapshotsByVehicleBetween`.** It SHALL fetch the Battery chart's window
+via `analytics.Reader.BatteryLevelByDay(ctx, uid, teslaID, start, end)` (no lookback — the port
+returns exactly `[start, end]`, because `vehicle_metrics.metric_date` is already the effective
+day it needs no extra day to resolve); the Odometer chart's window via
+`analytics.Reader.OdometerDeltaByDay(ctx, uid, teslaID, start, end)` (no lookback — the port
+performs its own internal lookback fetch); and the consumed chart's window via
+`analytics.Reader.ConsumedByDay(ctx, uid, teslaID, start, end)` (likewise no lookback). All three
+reads fail INDEPENDENTLY: a Battery-read error degrades ONLY the Battery chart to its empty
+state, an Odometer-read error degrades ONLY the Odometer chart, and a consumed-read error
+degrades ONLY the consumed chart — none of the three blanks a sibling chart that already
+succeeded.
 
 Both the Odometer and Battery charts SHALL continue to render a **fixed `[start..end]` date
 axis** — one bar per calendar day in the inclusive window, identical `MM-DD` labels across all
-three charts — so a missing nightly snapshot does not shift the axis. A calendar day with no
-data (no stored snapshot for the Battery chart; no `analytics.DayDistance` entry for the
+three charts — so a missing precomputed day does not shift the axis. A calendar day with no data
+(no `analytics.DayBattery` entry for the Battery chart; no `analytics.DayDistance` entry for the
 Odometer chart) SHALL render as an **empty labeled bar**: zero height, its own `MM-DD` label
-retained, and a "no snapshot" tooltip. **The pre-window `start-1` day (consumed internally by
-`analytics.Reader.OdometerDeltaByDay` as the first delta's kilometre basis, and by the Battery
-chart's own `telemetry.Reader` lookback fetch, respectively) SHALL NOT be displayed as a bar on
-either chart — this is unchanged from the prior revision; only WHICH port performs the lookback
-for the Odometer chart has changed.**
+retained, and a "no snapshot" tooltip. **A known, accepted consequence of the Battery chart's
+port change: because `analytics.Reader.BatteryLevelByDay` reads the precomputed
+`vehicle_metrics` table rather than the raw `vehicle_snapshots` table, a calendar day that the
+nightly recalculation watermark has not yet reached renders as this SAME empty bar even though a
+raw snapshot for that day already exists — this is a bounded, self-healing, typically
+single-day-wide gap (RM40-gateway-drop-telemetry-dependency roadmap D6), not backfilled, and is
+NOT a new UI state (it is byte-identical to the pre-existing "no snapshot at all" empty bar).**
+The pre-window `start-1` day (consumed internally by `analytics.Reader.OdometerDeltaByDay` as the
+first delta's kilometre basis) SHALL NOT be displayed as a bar on any chart.
 
-**The "Odometer history" bars SHALL represent kilometres driven per day, as already computed and
-already floored at zero by `internal/analytics`** (`OdometerDeltaByDay`'s `KmDriven` field) — **the
+The "Odometer history" bars SHALL represent kilometres driven per day, as already computed and
+already floored at zero by `internal/analytics` (`OdometerDeltaByDay`'s `KmDriven` field) — the
 gateway SHALL NOT compute a delta between two snapshots and SHALL NOT clamp a negative value
-itself; both the subtraction and the zero-floor are `internal/analytics`'s responsibility, not
-the gateway's (roadmap D5). This is a CHANGE from the prior revision, under which the gateway
-computed `cur.OdometerKm - prev.OdometerKm` and clamped it directly.** The "Battery history" bars
-SHALL represent the **battery level percentage** at each day's snapshot (absolute 0–100),
-unchanged — read directly from `telemetry.Reader`, with no delta and no clamp, exactly as before
-this change (the Battery chart was never a roadmap D5 violation). Each bar SHALL carry a hover
+itself; both the subtraction and the zero-floor are `internal/analytics`'s responsibility. **The
+"Battery history" bars SHALL represent the battery level percentage at each day's precomputed
+observation (absolute 0–100), read directly from `analytics.Reader.BatteryLevelByDay` — a CHANGE
+from the prior revision, under which this same absolute-percentage value was read directly from
+`telemetry.Reader`; the value, its 0–100 scale, and the absence of any delta or clamp are all
+unchanged by this move — only the port it is read from changed.** Each bar SHALL carry a hover
 tooltip: the odometer bar's tooltip SHALL include the `MM-DD` date, the kilometres driven that
 day (`DayDistance.KmDriven`), and the cumulative odometer in kilometres (`DayDistance.OdometerKm`
-— both values already supplied by `internal/analytics`, not computed by the gateway); the battery
-bar's tooltip SHALL include the `MM-DD` date, the level percentage, and the rated range in
-kilometres. A missing-day bar's tooltip SHALL state that no snapshot exists for that date.
+— both values already supplied by `internal/analytics`); the battery bar's tooltip SHALL include
+the `MM-DD` date, the level percentage, and the rated range in kilometres
+(`DayBattery.BatteryRangeKm`, already supplied by `internal/analytics`). A missing-day bar's
+tooltip SHALL state that no snapshot exists for that date.
 
 **The "Battery consumed" chart's bars SHALL represent the corrected per-day battery-consumed
 percentage** returned by `analytics.Reader.ConsumedByDay` — bucketed on each returned
 `DayConsumption.Date` value DIRECTLY, never re-derived or re-bucketed through the odometer/
-battery charts' `EffectiveDate`-based UTC bucketing. A day with no corresponding
-`DayConsumption` entry (no computable value for that calendar day) SHALL render as an empty
-labeled bar identical in shape to the odometer/battery "no snapshot" bar, but with a "no data"
-tooltip rather than a "no snapshot" tooltip. The gateway SHALL NOT perform any timezone
-computation of its own for this chart — the calendar day a value belongs to is decided entirely
-by `internal/analytics` before the gateway receives it. **The Odometer chart's bucket day is
-likewise the port's own `DayDistance.Date`, bucketed DIRECTLY — never re-derived through
-`effectiveDayUTC` — this is a CHANGE from the prior revision, under which the gateway itself
-computed each snapshot's `EffectiveDate` UTC bucket for the odometer chart; `internal/analytics`
-now performs that bucketing internally, using the identical `effectiveDay`/poller-zone logic
-`ConsumedByDay` already used (so the Odometer and Battery charts' bucket days remain in the SAME
-reference frame as before this change — only the consumed chart's own, separately-documented,
-poller-zone-vs-UTC mismatch is unaffected by this change).** A known, accepted consequence
-(unchanged): because `internal/analytics` and the Battery chart bucket calendar days in
-different reference frames (the poller's configured zone vs. UTC), the same underlying nightly
-poll can label the consumed bar's calendar day one day apart from its battery sibling bar; the
+battery charts' own bucket day. A day with no corresponding `DayConsumption` entry (no computable
+value for that calendar day) SHALL render as an empty labeled bar identical in shape to the
+odometer/battery "no snapshot" bar, but with a "no data" tooltip rather than a "no snapshot"
+tooltip. The gateway SHALL NOT perform any timezone computation of its own for this chart — the
+calendar day a value belongs to is decided entirely by `internal/analytics` before the gateway
+receives it. **The Odometer and Battery charts' bucket day is likewise each port's own `Date`
+field, bucketed DIRECTLY — the gateway performs no `effectiveDayUTC` re-derivation for either
+chart** (this now applies uniformly to all three charts: `DayDistance.Date`, `DayBattery.Date`,
+and `DayConsumption.Date` are each a FINAL bucket key supplied by `internal/analytics`, never
+re-projected by the gateway — RM40-gateway-drop-telemetry-dependency roadmap D4 extends the same
+rule tier 2's `RM29-analytics-add-vehicle-metrics` already established for the Odometer chart to
+the Battery chart). A known, accepted consequence (unchanged): because `internal/analytics` and
+`vehicle_metrics` bucket calendar days using the poller's configured zone for the consumed chart
+specifically, while the Odometer and Battery charts' bucket day derives from the same
+`Recalculate`-time effective-day computation, the same underlying nightly poll can in rare cases
+label the consumed bar's calendar day one day apart from its Odometer/Battery siblings; the
 gateway SHALL NOT attempt to reconcile this.
 
 **The "Battery consumed" chart SHALL be scaled RELATIVE to the window's own maximum displayed
@@ -1409,71 +1412,70 @@ axis only because a bar cannot be drawn with negative height (a rendering-mechan
 distinct from the flagged-day value-suppression rule above), never because the value is hidden
 from the tooltip.
 
-The date shown in each battery tooltip and per-bar label SHALL be the snapshot's
-**`EffectiveDate`** (the calendar day the nightly snapshot represents — `CapturedAt` − 1 day),
+The date shown in each battery tooltip and per-bar label SHALL be `analytics.DayBattery`'s own
+`Date` field (already the calendar day the nightly recalculation represents — a CHANGE from the
+prior revision, under which this same date came from the raw snapshot's `EffectiveDate` field),
 formatted **`MM-DD`** by the Go handler; the odometer chart's date SHALL be `DayDistance.Date`
-formatted the same way (already the equivalent bucket day, per the bucketing change above); the
-consumed chart's date SHALL be `DayConsumption.Date` formatted the same way. The gateway SHALL
-NOT show the capture-morning date (`CapturedAt`) and SHALL NOT format dates inside the template.
-Each bar on every chart SHALL carry a per-bar **date label** rendered under the bar in an HTML
-grid row (one cell per bar), with orientation decided by a single chart-level boolean flag
-(`LabelVertical`): **horizontal** for the 6-bar window (wide bars), **rotated vertical** (via the
-`[writing-mode:vertical-rl]` CSS class) for windows of 14 bars or more (narrow bars). The handler
-SHALL set `LabelVertical` from the number of bars in the fixed window (`labelVerticalFor(numBars)`,
-true when `numBars >= 14`) independently for each chart, not from a `days` count; the template
-SHALL NOT compare the window size, compute rotation, or call `time.Format`.
+formatted the same way; the consumed chart's date SHALL be `DayConsumption.Date` formatted the
+same way. The gateway SHALL NOT format dates inside the template. Each bar on every chart SHALL
+carry a per-bar **date label** rendered under the bar in an HTML grid row (one cell per bar),
+with orientation decided by a single chart-level boolean flag (`LabelVertical`): **horizontal**
+for the 6-bar window (wide bars), **rotated vertical** (via the `[writing-mode:vertical-rl]` CSS
+class) for windows of 14 bars or more (narrow bars). The handler SHALL set `LabelVertical` from
+the number of bars in the fixed window (`labelVerticalFor(numBars)`, true when `numBars >= 14`)
+independently for each chart, not from a `days` count; the template SHALL NOT compare the window
+size, compute rotation, or call `time.Format`.
 
 The charts SHALL be rendered as **responsive inline SVG** (scaling to the container width) using
 no client-side charting library. All numeric values — bar heights, deltas, percentages, tooltip
 strings, per-bar label strings, and the consumed chart's marker classification — SHALL be
-computed by the Go handler (for the Odometer and consumed charts: received already-computed from
-`internal/analytics` and only scaled/formatted by the handler; for the Battery chart: computed by
-the handler directly from the raw snapshot, unchanged) before the template renders; the template
-SHALL perform no arithmetic, unit conversion, date formatting, or method calls on domain types,
-and SHALL select every marker's visual class from a literal written in the template source, never
-from a string computed by the handler. Bar colours and marker colours SHALL use DaisyUI semantic
-tokens (no hardcoded hex).
+computed by the Go handler (received already-computed from `internal/analytics` for all three
+charts and only scaled/formatted by the handler — a CHANGE from the prior revision, under which
+the Battery chart's values were read from a raw snapshot with no `internal/analytics`
+intermediary; the handler still performs no arithmetic of its own for any of the three) before
+the template renders; the template SHALL perform no arithmetic, unit conversion, date formatting,
+or method calls on domain types, and SHALL select every marker's visual class from a literal
+written in the template source, never from a string computed by the handler. Bar colours and
+marker colours SHALL use DaisyUI semantic tokens (no hardcoded hex).
 
-The preset selector SHALL keep the 6/14/30 buttons but each button's `hx-get` SHALL emit a
-server-rendered absolute `?start=<yesterday-N>&end=<yesterday>` href (computed by the handler at
-render time, unchanged by this revision — the preset windows already targeted browser-yesterday
-before the default/cap change above); the selector SHALL mark the preset whose `(start, end)`
-matches the requested window as active. Changing the preset SHALL re-fetch
-`GET /ui/dashboard/history?start=...&end=...` and re-render all three charts AND the selector by
-swapping `#dashboard-history`'s `innerHTML` without a full page reload.
+The preset selector SHALL keep the 6/14/30 buttons, each button's `hx-get` emitting a
+server-rendered absolute `?start=<yesterday-N>&end=<yesterday>` href computed by the handler at
+render time; the selector SHALL mark the preset whose `(start, end)` matches the requested window
+as active. Changing the preset SHALL re-fetch `GET /ui/dashboard/history?start=...&end=...` and
+re-render all three charts AND the selector by swapping `#dashboard-history`'s `innerHTML`
+without a full page reload.
 
 The dashboard page SHALL NOT carry a Refresh button; the `#dashboard-content` (subscribes to
 `vehicle-changed from:body`) and `#dashboard-history` (self-loads on `hx-trigger="load"` with the
 default 6-day window's absolute `start`/`end` ending yesterday, and re-renders on preset clicks)
-htmx surfaces cover every refresh path. When too few data points exist to draw a chart (**zero
-`analytics.DayDistance` entries returned by `OdometerDeltaByDay` for the odometer chart — a
-CHANGE from the prior revision's "fewer than two snapshots total in the lookback window"
-condition, now equivalent in effect since a day only appears in that result when both it and its
-predecessor were computable**, none for the battery chart, or zero `DayConsumption` entries for
-the consumed chart), that chart SHALL show the existing empty-state placeholder instead of
-fabricated bars; a partially-missing axis (some days empty, some present) is NOT an empty chart
-for any of the three.
+htmx surfaces cover every refresh path. When too few data points exist to draw a chart (zero
+`analytics.DayBattery` entries for the battery chart, zero `analytics.DayDistance` entries for
+the odometer chart, or zero `DayConsumption` entries for the consumed chart), that chart SHALL
+show the existing empty-state placeholder instead of fabricated bars; a partially-missing axis
+(some days empty, some present) is NOT an empty chart for any of the three.
 
-Every user-facing string introduced or changed by this chart (its title, and every tooltip
-clause it composes from — the plain value, the multi-day-span value, and the flagged note)
-SHALL resolve through `i18n.T(ctx, key)` against `internal/gateway/i18n/catalog.go`, with both
-`ES` and `EN` non-empty. Composing multiple clauses into one tooltip (e.g. for a day that is
-both flagged and spanned) SHALL join independently-translated, complete clauses with a
-language-neutral separator and SHALL NOT hardcode a connective word from any one language.
+Every user-facing string this chart uses (its title, and every tooltip clause it composes from —
+the plain value, the multi-day-span value, and the flagged note) SHALL resolve through
+`i18n.T(ctx, key)` against `internal/gateway/i18n/catalog.go`, with both `ES` and `EN`
+non-empty. **The Battery chart's "no snapshot" tooltip key (`KeyHistoryNoSnapshotTooltip`) is
+UNCHANGED and NOT renamed by this move**, even though its English wording ("no snapshot") now
+describes the absence of a `vehicle_metrics` row rather than the absence of a raw snapshot — this
+is a deliberately accepted, flagged-not-actioned wording nuance
+(RM40-gateway-drop-telemetry-dependency roadmap "Future work"), not a defect. Composing multiple
+clauses into one tooltip (e.g. for a day that is both flagged and spanned) SHALL join
+independently-translated, complete clauses with a language-neutral separator and SHALL NOT
+hardcode a connective word from any one language.
 
-#### Scenario: History charts render for the selected vehicle with the default window, now ending yesterday
+#### Scenario: History charts render for the selected vehicle with the default window
 
-- **GIVEN** a signed-in user whose selected vehicle has several stored nightly snapshots and
-  several computable `analytics.DayConsumption` days
+- **GIVEN** a signed-in user whose selected vehicle has several precomputed daily
+  `vehicle_metrics` observations and several computable `analytics.DayConsumption` days
 - **WHEN** the history fragment is requested (`GET /ui/dashboard/history`) directly, with no
   `start` and no `end` parameter and no `browser_tz` cookie (a direct API call)
 - **THEN** the response renders an "Odometer history" chart, a "Battery history" chart, and a
   "Battery consumed" chart for the selected vehicle using a 6-day window (`end =
-  platform-default-yesterday`, `start = platform-default-yesterday-6`, `end` inclusive) — NOT
-  `end = platform-default-today` (the prior D11 behavior). `platform-default` is `clock.Zone()`,
-  the platform's default time zone `America/Bogota` — this is a CHANGE from the prior revision
-  of this requirement, which used `time.UTC` here with no `browser_tz` cookie present
-  (RM35-gateway-adopt-clock, roadmap D1/D4)
+  platform-default-yesterday`, `start = platform-default-yesterday-6`, `end` inclusive).
+  `platform-default` is `clock.Zone()`, the platform's default time zone `America/Bogota`
 - **AND** all three charts render exactly 6 bars, one per calendar day in
   `[platform-default-yesterday-6 .. platform-default-yesterday]`
 - **AND** the odometer and battery charts display identical `MM-DD` labels under corresponding
@@ -1482,39 +1484,27 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **AND** no live Tesla Fleet API call is made and no telemetry or analytics table is read
   directly
 
-#### Scenario: The end<=today cap now rejects end=today; only end<=yesterday is accepted
+#### Scenario: The end<=today cap rejects end=today; only end<=yesterday is accepted
 
 - **GIVEN** a signed-in user whose browser-local "today" is `2026-08-16`
 - **WHEN** the history fragment is requested with `?start=2026-08-10&end=2026-08-16` (`end`
   equal to browser-today)
-- **THEN** the endpoint responds with HTTP 400 — this request was ACCEPTED before this change
+- **THEN** the endpoint responds with HTTP 400
 - **AND** the SAME request with `?end=2026-08-15` (`end` equal to browser-yesterday) is
   accepted (HTTP 200)
 - **AND** the empty-state placeholder (no preset selector) is rendered for the rejected request,
   per the existing malformed-request degradation rule
 
-#### Scenario: Direct API default and the dashboard's own preset/self-load windows now agree
-
-- **GIVEN** a signed-in user whose browser-local "today" is `2026-08-16` (so
-  browser-yesterday is `2026-08-15`)
-- **WHEN** a direct API call omits both `start` and `end`, AND separately the dashboard page's
-  own self-load href is inspected
-- **THEN** both resolve to the identical window: `end = 2026-08-15`, `start = 2026-08-09`
-  (the default 6-day width)
-- **AND** this is a change from the prior revision of this requirement, under which the direct
-  API default ended at `2026-08-16` (browser-today) while the dashboard's self-load already
-  ended at `2026-08-15` (browser-yesterday) — that divergence no longer exists
-
 #### Scenario: The odometer chart's delta and clamp are computed by analytics, not the gateway
 
-- **GIVEN** two consecutive stored snapshots whose odometer readings differ by `-2.0` km (a
+- **GIVEN** two consecutive stored observations whose odometer readings differ by `-2.0` km (a
   clock-skew/read anomaly)
 - **WHEN** `analytics.Reader.OdometerDeltaByDay` is called for the window containing that day
 - **THEN** the returned `DayDistance.KmDriven` is `0.0` — the negative value is already floored
   by `internal/analytics`
 - **AND** the gateway handler building the odometer chart performs no subtraction between two
-  snapshots and no comparison against zero — it renders `DayDistance.KmDriven` directly, scaled
-  relative to the window's maximum
+  observations and no comparison against zero — it renders `DayDistance.KmDriven` directly,
+  scaled relative to the window's maximum
 
 #### Scenario: The odometer chart bucket day is the port's own Date, never re-derived
 
@@ -1524,6 +1514,19 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **THEN** the entry's bar is placed at the `2026-08-10` slot using `Date` verbatim
 - **AND** the gateway does NOT pass `Date` through `effectiveDayUTC` or any other re-bucketing
   step
+
+#### Scenario: The battery chart bucket day is the port's own Date, never re-derived
+
+- **GIVEN** `analytics.Reader.BatteryLevelByDay` returns a `DayBattery` entry with
+  `Date = 2026-08-10`
+- **WHEN** the battery chart buckets that entry onto the fixed `[start..end]` axis
+- **THEN** the entry's bar is placed at the `2026-08-10` slot using `Date` verbatim
+- **AND** the gateway does NOT pass `Date` through `effectiveDayUTC` or any other re-bucketing
+  step
+- **AND** this is a CHANGE from the prior revision, under which the gateway itself computed the
+  bucket day from a raw snapshot's `EffectiveDate` via `effectiveDayUTC`; the two produce the
+  identical bucket day for the same underlying nightly capture, so no rendered bar moves as a
+  result of this change
 
 #### Scenario: The consumed chart bucket day is the port's own Date, never re-derived
 
@@ -1535,8 +1538,8 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
   or any other re-bucketing step
 - **AND** a known, accepted consequence is that this bar's calendar day can differ by one day
   from the battery bar for the same underlying nightly poll, because `internal/analytics` buckets
-  in the poller's configured zone while the Battery chart buckets in UTC — this mismatch is NOT
-  corrected by the gateway
+  the consumed figure in the poller's configured zone while the battery/odometer figures use the
+  `Recalculate`-time effective day — this mismatch is NOT corrected by the gateway
 
 #### Scenario: The consumed chart scales relative to its own window maximum, not absolute 0-100
 
@@ -1586,17 +1589,13 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **WHEN** the consumed chart renders that day's bar
 - **THEN** the bar carries BOTH the multi-day-span marker AND the flagged-day warning marker,
   simultaneously and independently visible — neither marker is suppressed in favor of the
-  other (roadmap D21: "picking one hides a fact that is true")
-- **AND** the bar's height is zero — for this entry that outcome is unambiguous either way: the
-  chart's zero-axis floor (a negative height cannot be drawn) and the flagged-day
-  value-suppression rule agree, because a flagged day's `ConsumedPct` is always `<= 0` by
-  construction (tier 3 D5)
+  other
+- **AND** the bar's height is zero — the chart's zero-axis floor (a negative height cannot be
+  drawn) and the flagged-day value-suppression rule agree, because a flagged day's `ConsumedPct`
+  is always `<= 0` by construction
 - **AND** the tooltip states the real, signed percentage value (`-3.0%`) and that the entry
   covers 2 days, AND separately notes a possible missing manual charge record — both facts
   present, neither omitted in favor of the other
-- **AND** this is the roadmap's own worked overlap case: `Flagged` and `DaysSpanned > 1` are
-  independent conditions on `DayConsumption`, so this combination is reachable in production,
-  not merely a hypothetical fixture
 
 #### Scenario: A day absent from ConsumedByDay renders as a "no data" bar, distinct wording from "no snapshot"
 
@@ -1618,9 +1617,10 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **AND** it imports no package other than `internal/analytics`'s public port for this data (there
   is no `analytics` database package the gateway may import — `internal/analytics` owns
   `internal/analytics/db`, but that package is imported only inside `internal/analytics` itself)
-- **AND** an `analytics.Reader` error degrades only the consumed chart to its empty state; the
-  battery chart, sourced from the separate `telemetry.Reader` call, is unaffected by an
-  `analytics.Reader` failure
+- **AND** an `analytics.Reader` error on `ConsumedByDay` degrades only the consumed chart to its
+  empty state; the battery chart, sourced from the separate
+  `analytics.Reader.BatteryLevelByDay` call, and the odometer chart, sourced from
+  `analytics.Reader.OdometerDeltaByDay`, are both unaffected
 
 #### Scenario: Odometer chart data comes exclusively through analytics.Reader
 
@@ -1628,9 +1628,35 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **WHEN** it obtains per-day odometer distance data
 - **THEN** it does so exclusively through `analytics.Reader.OdometerDeltaByDay`
 - **AND** it imports no package other than `internal/analytics`'s public port for this data
-- **AND** an `analytics.Reader` error building the odometer chart degrades only the odometer
-  chart to its empty state; the battery chart, sourced from the separate `telemetry.Reader`
-  call, is unaffected
+- **AND** an `analytics.Reader` error on `OdometerDeltaByDay` degrades only the odometer chart to
+  its empty state; the battery chart, sourced from the separate
+  `analytics.Reader.BatteryLevelByDay` call, is unaffected
+
+#### Scenario: Battery chart data comes exclusively through analytics.Reader
+
+- **GIVEN** the gateway handler that builds the battery chart
+- **WHEN** it obtains per-day battery-level and range data
+- **THEN** it does so exclusively through `analytics.Reader.BatteryLevelByDay` — this is a CHANGE
+  from the prior revision of this requirement, under which this data came from
+  `telemetry.Reader.SnapshotsByVehicleBetween`
+- **AND** it imports no package from `internal/telemetry` for this data, or for any other purpose
+  anywhere in `internal/gateway/`
+- **AND** an `analytics.Reader` error on `BatteryLevelByDay` degrades only the battery chart to
+  its empty state; the odometer chart (`OdometerDeltaByDay`) and the consumed chart
+  (`ConsumedByDay`) are both unaffected
+
+#### Scenario: A day lagging the nightly recalculation renders as an empty bar (accepted, self-healing)
+
+- **GIVEN** a calendar day for which `internal/telemetry` already holds a raw snapshot, but for
+  which `internal/analytics`'s nightly `Recalculate`/`Reconcile` pass has not yet written the
+  corresponding `vehicle_metrics` row
+- **WHEN** the battery chart is rendered for a window containing that day
+- **THEN** that day's bar renders as the SAME empty "no snapshot" bar a day with no raw snapshot
+  at all would produce — zero height, its `MM-DD` label retained, the "no snapshot" tooltip
+- **AND** this is an accepted, typically single-day-wide, self-healing consequence of reading a
+  precomputed table instead of the raw snapshot table directly (RM40-gateway-drop-telemetry-
+  dependency roadmap D6) — no backfill is performed, and the bar corrects itself once the next
+  nightly recalculation catches up
 
 #### Scenario: Browser-Local Calendar Day, with a platform-default fallback
 
@@ -1638,17 +1664,14 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
   for any zone, negative or positive UTC offset
 - **WHEN** the history fragment is requested with no `start`/`end` parameter
 - **THEN** the default window's `end` is midnight of browser-yesterday IN THAT ZONE, not the
-  platform default zone's midnight — the cookie always wins whenever present, unchanged by this
-  revision (RM35-gateway-adopt-clock, roadmap D1)
+  platform default zone's midnight — the cookie always wins whenever present
 - **AND** on a missing, empty, or unparseable `browser_tz` cookie, the gateway falls back to the
   platform's default time zone, `clock.Zone()` (`America/Bogota`) — silently, no error surfaced,
-  no caller special-casing required. **This fallback default is a CHANGE from the prior revision
-  of this requirement, which fell back to `time.UTC`** (RM35-gateway-adopt-clock, roadmap D1/D4)
+  no caller special-casing required
 
 #### Scenario: Charts contain no business logic in templates
 
-- **GIVEN** the history chart and selector templates, including the new consumed-chart marker
-  rendering
+- **GIVEN** the history chart and selector templates
 - **WHEN** they render
 - **THEN** the bar heights, per-day deltas/percentages, tooltip strings, per-bar `MM-DD` label
   strings, the `Present` flag, the flagged-marker and multi-day-span-marker flags (independent
@@ -1664,15 +1687,17 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **AND** the per-bar label is a real DOM text cell in an HTML grid (not an SVG `<text>`), using
   a muted semantic token — no client-side library
 
-#### Scenario: Gateway never imports telemetrydb or an analytics database package for history
+#### Scenario: Gateway never imports telemetry or an analytics database package for history
 
 - **GIVEN** the gateway handler that builds all three history charts
-- **WHEN** it obtains the vehicle's snapshot history, its per-day odometer distance, and its
-  per-day consumption
-- **THEN** it does so exclusively through the `telemetry.Reader` and `analytics.Reader` public
-  interfaces
-- **AND** it imports no package from `internal/telemetry/db` (`telemetrydb`) and no package from
-  `internal/analytics/db` (`analyticsdb`)
+- **WHEN** it obtains the vehicle's per-day battery level, its per-day odometer distance, and
+  its per-day consumption
+- **THEN** it does so exclusively through the `analytics.Reader` public interface — a CHANGE
+  from the prior revision, under which the battery chart's data came through `telemetry.Reader`
+- **AND** it imports no package from `internal/telemetry`, at all, for any purpose in
+  `internal/gateway/` — not `internal/telemetry` itself and not `internal/telemetry/db`
+  (`telemetrydb`)
+- **AND** it imports no package from `internal/analytics/db` (`analyticsdb`)
 - **AND** no `pgtype` type appears in any gateway file involved
 
 #### Scenario: History fragment is not served to anonymous callers
@@ -1682,13 +1707,16 @@ language-neutral separator and SHALL NOT hardcode a connective word from any one
 - **THEN** the request is redirected to `/login` and no history data (including the consumed
   chart) is served
 
-#### Scenario: All new consumed-chart strings are bilingual
+#### Scenario: All history-chart strings are bilingual
 
-- **GIVEN** the consumed chart's title, and every clause its tooltip composes from (the plain
-  percentage value, the multi-day-span value, and the flagged note)
+- **GIVEN** each chart's title, and every clause its tooltip composes from (the plain
+  percentage/level value, the multi-day-span value, and the flagged note)
 - **WHEN** the catalogue is inspected
 - **THEN** every corresponding key has both an `ES` and an `EN` value, neither empty
-- **AND** no consumed-chart string is a hardcoded literal bypassing `i18n.T`
+- **AND** no history-chart string is a hardcoded literal bypassing `i18n.T`
+- **AND** the battery chart's "no snapshot" key (`KeyHistoryNoSnapshotTooltip`) is unchanged by
+  this requirement's battery-chart data-source change — its wording is a deliberately accepted,
+  flagged-not-actioned nuance, not a defect (see the requirement text above)
 - **AND** a tooltip composed from more than one clause (e.g. a day that is both flagged and
   spanned) joins the independently-translated clauses with a language-neutral separator, never
   a connective word hardcoded from one language

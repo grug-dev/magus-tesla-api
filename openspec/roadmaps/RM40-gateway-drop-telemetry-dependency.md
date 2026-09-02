@@ -12,8 +12,10 @@ that data.
 
 ## Status
 
-**IN PROGRESS — autopilot.** Tier 1 is implemented, reviewer-approved and archived
-(`2026-09-02-RM40-analytics-add-battery-level-read`). Tier 2 is in flight.
+**COMPLETE.** Both tiers implemented, reviewer-approved and archived on 2026-09-02.
+`make boundary-guard` passes clean with zero `// boundary:allow:` escape hatches, and
+`grep -rn "internal/telemetry" internal/gateway/` returns nothing — the roadmap's stated
+intention, met exactly.
 
 ## Findings that shaped this roadmap (read before touching anything)
 
@@ -90,7 +92,7 @@ archived) · `[x]` done (archived).
 | Status | Change | Module | Scope | depends_on | Proposal prompt |
 |---|---|---|---|---|---|
 | `[x]` | `RM40-analytics-add-battery-level-read` | `analytics` | Add `BatteryLevelByDay` to the `Reader` port: the `DayBattery` struct in `analytics.go`, the `VehicleMetricsBatteryByVehicleBetween` query in `db/query.sql` (+ `sqlc generate`), the store seam and reader method in `reader.go`, and the row→domain mapping. No migration, no new index, no schema change. | — | *(artifacts produced in this run)* |
-| `[~]` | `RM40-gateway-drop-telemetry-dependency` | `gateway` | Consume `BatteryLevelByDay` in `buildHistoryView` (dropping the `-1` lookback, D5); retype `buildBatteryChart` off `telemetry.Snapshot` onto `analytics.DayBattery`; delete `TelemetryReader` from `gateway.Deps`, `handlers.Deps` and the `Handler` struct; remove the `cmd/web/main.go:58` injection (leader-owned cross-module wiring — lines 72 and 86 keep their `telemetry.NewReader`, they are not gateway); rework the two `_test.go` fakes onto the analytics port (D7). Verify `make boundary-guard` passes with zero escape hatches (D8). | 1 | Generate the OpenSpec proposal for removing every `internal/telemetry` reference from `internal/gateway/`, consuming the `analytics.Reader.BatteryLevelByDay` port added in tier 1. Binding decisions: D2, D4, D5, D7, D8 of this roadmap. |
+| `[x]` | `RM40-gateway-drop-telemetry-dependency` | `gateway` | Consume `BatteryLevelByDay` in `buildHistoryView` (dropping the `-1` lookback, D5); retype `buildBatteryChart` off `telemetry.Snapshot` onto `analytics.DayBattery`; delete `TelemetryReader` from `gateway.Deps`, `handlers.Deps` and the `Handler` struct; remove the `cmd/web/main.go:58` injection (leader-owned cross-module wiring — lines 72 and 86 keep their `telemetry.NewReader`, they are not gateway); rework the two `_test.go` fakes onto the analytics port (D7). Verify `make boundary-guard` passes with zero escape hatches (D8). | 1 | Generate the OpenSpec proposal for removing every `internal/telemetry` reference from `internal/gateway/`, consuming the `analytics.Reader.BatteryLevelByDay` port added in tier 1. Binding decisions: D2, D4, D5, D7, D8 of this roadmap. |
 
 Both tiers commit to the single shared branch
 `ft/RM40-MAG-41-gateway-drop-telemetry-dependency`.
