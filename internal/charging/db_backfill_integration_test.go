@@ -79,9 +79,41 @@ func extractBackfillStatement(t *testing.T) string {
 
 // runBackfill executes the extracted backfill statement against the shared test
 // pool.
+// insertTargetOld / insertTargetNew map the backfill's INSERT target forward to the
+// name it has today. RM39 tier 3 moved this module's table into the `charging` schema
+// and renamed it `charge_sessions` -> `supercharger_sessions`; the shipped migration
+// necessarily still names the table as it existed when it ran, and historic migrations
+// are never edited (RM39 D1). Replaying it against a fully-migrated database therefore
+// has to map that one name forward.
+//
+// ONLY the INSERT target is rewritten. The statement's `FROM supercharger_sessions`
+// reads telemetry's table, which is still `public.supercharger_sessions` until RM39
+// tier 4 moves it — so the bare name there is already correct and must be left alone.
+//
+// This is deliberately NOT the `search_path` approach RM39 D12 used for analytics'
+// replay test. A search_path of `charging, public` would resolve this statement's
+// `FROM supercharger_sessions` to charging's OWN table instead of telemetry's, and the
+// backfill would silently read the wrong source and assert nothing. D12's fix is safe
+// only where a move happened without a name collision; here the new name collides with
+// the source table, so the mapping must be explicit and target-only.
+const (
+	insertTargetOld = "INSERT INTO charge_sessions ("
+	insertTargetNew = "INSERT INTO charging.supercharger_sessions ("
+)
+
 func runBackfill(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	stmt := extractBackfillStatement(t)
+
+	// Fail loudly if the shipped statement no longer contains the target we expect.
+	// A silent no-op rewrite would re-run the original text and fail with a confusing
+	// "relation does not exist", hiding the real cause: the migration changed shape.
+	if n := strings.Count(stmt, insertTargetOld); n != 1 {
+		t.Fatalf("expected exactly 1 occurrence of %q in the shipped backfill statement, got %d — "+
+			"the migration's INSERT target changed shape and this rewrite needs updating", insertTargetOld, n)
+	}
+	stmt = strings.Replace(stmt, insertTargetOld, insertTargetNew, 1)
+
 	if _, err := pool.Exec(context.Background(), stmt); err != nil {
 		t.Fatalf("executing extracted backfill statement: %v", err)
 	}

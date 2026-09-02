@@ -43,11 +43,55 @@ ALTER TABLE charging.supercharger_sessions
     RENAME CONSTRAINT charge_sessions_account_session_unique
     TO supercharger_sessions_account_session_unique;
 
+-- Refresh the two shipped column comments that still name the pre-rename table and its
+-- pre-rename constraint. sqlc copies these into internal/charging/db/models.go verbatim,
+-- so leaving them stale would regenerate the retired vocabulary into the module's
+-- most-read generated file on every `make sqlc`. Re-issuing COMMENT ON here is additive
+-- and reversible; editing the historic migrations that first set them is forbidden
+-- (RM39 D1).
+COMMENT ON COLUMN charging.supercharger_sessions.battery_pct_source IS
+    'Provenance of start/end_battery_pct: user_verified (a human entered them) or '
+    'polled (a future measured-SOC path, not implemented). Required whenever either '
+    'percentage is set (supercharger_sessions_pct_source_required). Never ''estimated'' — '
+    'an estimate is computed on read and is never persisted here.';
+
+COMMENT ON COLUMN charging.manual_charge_entries.energy_source IS
+    'Provenance of energy_added_kwh: USER when the value came from the person, ESTIMATED '
+    'when this module derived it from the pack capacity and the battery delta on write '
+    '(roadmap D3/D4). Always computed by internal/charging, never accepted from a caller -- '
+    'the same shape charging.supercharger_sessions.battery_pct_source already uses. It '
+    'exists so a future per-vehicle capacity average (backlog #18) can filter WHERE '
+    'energy_source = ''USER'': inferred_capacity_kwh_calc on an ESTIMATED row returns '
+    'exactly the capacity constant by algebra, so including such rows would seed that '
+    'average with its own output. This fact CANNOT be reconstructed later -- once 31.00 is '
+    'stored, a typed value and a derived one are indistinguishable. Not indexed: nothing '
+    'predicates on it yet.';
+
 -- +goose Down
 -- Reverse in the EXACT opposite order of Up (D7's ordering logic in reverse): undo the
 -- constraint/index renames, undo the table rename, THEN SET SCHEMA public for both tables,
 -- THEN drop the now-empty schema. A non-empty schema cannot be dropped without CASCADE, and
 -- this ordering means CASCADE is never needed.
+--
+-- Restore the two column comments to the exact text the historic migrations set, so the
+-- reverse is byte-faithful.
+COMMENT ON COLUMN charging.manual_charge_entries.energy_source IS
+    'Provenance of energy_added_kwh: USER when the value came from the person, ESTIMATED '
+    'when this module derived it from the pack capacity and the battery delta on write '
+    '(roadmap D3/D4). Always computed by internal/charging, never accepted from a caller -- '
+    'the same shape charge_sessions.battery_pct_source already uses. It exists so a future '
+    'per-vehicle capacity average (backlog #18) can filter WHERE energy_source = ''USER'': '
+    'inferred_capacity_kwh_calc on an ESTIMATED row returns exactly the capacity constant by '
+    'algebra, so including such rows would seed that average with its own output. This fact '
+    'CANNOT be reconstructed later -- once 31.00 is stored, a typed value and a derived one '
+    'are indistinguishable. Not indexed: nothing predicates on it yet.';
+
+COMMENT ON COLUMN charging.supercharger_sessions.battery_pct_source IS
+    'Provenance of start/end_battery_pct: user_verified (a human entered them) or '
+    'polled (a future measured-SOC path, not implemented). Required whenever either '
+    'percentage is set (charge_sessions_pct_source_required). Never ''estimated'' — '
+    'an estimate is computed on read and is never persisted here.';
+
 ALTER TABLE charging.supercharger_sessions
     RENAME CONSTRAINT supercharger_sessions_account_session_unique
     TO charge_sessions_account_session_unique;

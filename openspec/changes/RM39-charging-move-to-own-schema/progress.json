@@ -7,7 +7,7 @@
   "request": "Move internal/charging's two tables into a `charging` schema AND rename charge_sessions -> supercharger_sessions (D5b/D5c). Tier 3 of RM39.",
   "status": "in-progress",
   "created_at": "2026-09-02T17:35:00Z",
-  "updated_at": "2026-09-02T19:55:00Z",
+  "updated_at": "2026-09-02T20:00:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -222,6 +222,22 @@
       "made_by": "leader",
       "decision": "README.md's 'Database tables by module' gains a Schema column now, at tier 3",
       "why": "Owner deferred this to 'roadmap archive, or tier 3'. Tier 3 forces it: charging and telemetry now share the base name supercharger_sessions, so bare names mislead."
+    },
+    {
+      "id": "D8",
+      "at": "2026-09-02T19:58:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "The backfill replay test maps only the INSERT target forward; it does NOT use D12's search_path fix",
+      "why": "The statement's FROM reads telemetry's table. search_path=charging,public would resolve it to charging's own table, so the test would pass while reading the wrong source."
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-02T19:59:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Refresh the two stale sqlc-generated column comments by re-issuing COMMENT ON in this tier's migration",
+      "why": "Owner: 'if it's small just do it'. Additive, so D1's ban on editing historic migrations holds. models.go now regenerates with zero stale names."
     }
   ],
   "events": [
@@ -259,6 +275,11 @@
       "at": "2026-09-02T19:55:00Z",
       "agent": "leader",
       "event": "SUITE RUN BLOCKED, not passed. env -u DATABASE_URL go test ./... could not start containers: Docker daemon is DOWN (rootless Docker not found). internal/charging FAILED to provision testdb, so ZERO charging integration tests executed; other packages passed or were cached from before this change. The migration has never been applied to any database. Tasks whose verification depends on the DB moved to awaiting-user-verification. Change is NOT verified and does NOT advance to the reviewer gate."
+    },
+    {
+      "at": "2026-09-02T20:00:00Z",
+      "agent": "leader",
+      "event": "design.md's claim that D12 is NOT present in this module was WRONG: db_backfill_integration_test.go replays a historic migration statement and broke on the rename (owner's make test-with-db caught it, 2 failures). Fixed target-only; see D8. Suite STILL not green: disk hit 100% (go clean -cache freed 9.1Gi), and Docker Desktop is now unable to start, so account+charging cannot provision. Everything not DB-backed passes."
     }
   ]
 }
