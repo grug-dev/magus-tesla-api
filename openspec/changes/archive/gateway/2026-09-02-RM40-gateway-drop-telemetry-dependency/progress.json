@@ -1,0 +1,369 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM40-gateway-drop-telemetry-dependency",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM40-gateway-drop-telemetry-dependency.md",
+  "request": "Remove every internal/telemetry reference from internal/gateway/ by consuming analytics.Reader.BatteryLevelByDay, so make boundary-guard passes with zero escape hatches. Tier 2 of RM40 (ticket MAG-41).",
+  "status": "verified",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "2.1",
+      "2.2",
+      "3.1",
+      "3.2",
+      "3.3",
+      "4.1",
+      "4.2",
+      "L.1",
+      "L.2",
+      "L.3"
+    ]
+  },
+  "created_at": "2026-09-02T08:50:00Z",
+  "updated_at": "2026-09-02T09:20:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM40-MAG-41-gateway-drop-telemetry-dependency",
+    "base": "main",
+    "ticket": "MAG-41",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-41/fix-boundary-guard",
+    "created_at": "2026-09-02T02:16:30Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "history.go \u2014 swap to BatteryLevelByDay, drop lookback, retype buildBatteryChart",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Swapped to analyticsReader.BatteryLevelByDay, deleted the -1 lookback, retyped buildBatteryChart to []analytics.DayBattery bucketing on Date verbatim. Output unchanged.",
+      "budget": {
+        "five_hour_pct_start": 11.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "tier 2 wave; end reading taken at reconcile"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "handlers.go \u2014 remove TelemetryReader from Deps/Handler + import",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Removed TelemetryReader field, Handler wiring and import from handlers.go; reworded 5 stale doc comments naming the retired type.",
+      "budget": {
+        "five_hour_pct_start": 11.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "tier 2 wave; end reading taken at reconcile"
+      }
+    },
+    {
+      "id": "2.2",
+      "title": "gateway.go \u2014 remove TelemetryReader from Deps + import",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Removed TelemetryReader from gateway.Deps and the handlers.Deps literal, plus the import.",
+      "budget": {
+        "five_hour_pct_start": 11.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "tier 2 wave; end reading taken at reconcile"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "handlers_test.go \u2014 delete vestigial fakeReader, drop telemetry import",
+      "module": "gateway",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Deleted vestigial fakeReader/newHandlerWithReader, repointed 4 call sites, dropped the telemetry import.",
+      "budget": {
+        "five_hour_pct_start": 11.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "tier 2 wave; end reading taken at reconcile"
+      }
+    },
+    {
+      "id": "3.2",
+      "title": "history_test.go \u2014 retype odometer helpers, real BatteryLevelByDay fixture, delete fakeHistoryReader",
+      "module": "gateway",
+      "depends_on": [
+        "2.1",
+        "2.2"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Deleted fakeHistoryReader, retyped odometer helpers onto odometerCapture, added batteryForDays, gave BatteryLevelByDay a real call-recording fake. Also fixed charges_test.go, which design.md's grep missed.",
+      "budget": {
+        "five_hour_pct_start": 11.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "tier 2 wave; end reading taken at reconcile"
+      }
+    },
+    {
+      "id": "3.3",
+      "title": "history_test.go \u2014 extend Deps-forwarding test",
+      "module": "gateway",
+      "depends_on": [
+        "3.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Extended TestHandler_AnalyticsReaderDepsForwarding with battery call/arg assertions mirroring its two siblings.",
+      "budget": {
+        "five_hour_pct_start": 11.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "tier 2 wave; end reading taken at reconcile"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "Signals: go build, go vet, gofmt, make boundary-guard (must pass, zero escape hatches)",
+      "module": "gateway",
+      "depends_on": [
+        "1.1",
+        "2.1",
+        "2.2",
+        "3.1",
+        "3.2",
+        "3.3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Leader ran signals: go build clean, go vet ./... clean, gofmt clean on touched files, make boundary-guard PASSES, zero escape hatches, 0 telemetry refs in gateway.",
+      "budget": null
+    },
+    {
+      "id": "4.2",
+      "title": "Test suite run (session-only override: leader runs make test)",
+      "module": "gateway",
+      "depends_on": [
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Leader ran make test under the owner's session-only override: all packages ok. Offline suite only - make test unsets DATABASE_URL, so DB-gated integration tests did not run.",
+      "budget": null
+    },
+    {
+      "id": "L.1",
+      "title": "cmd/web/main.go:58 \u2014 remove TelemetryReader injection (LEADER, out of sandbox)",
+      "module": "gateway",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Leader removed the TelemetryReader injection from cmd/web/main.go. Lines constructing telemetry.NewReader for analytics kept - they are not gateway.",
+      "budget": null
+    },
+    {
+      "id": "L.2",
+      "title": "internal/gateway/AGENTS.md \u2014 document the port change",
+      "module": "gateway",
+      "depends_on": [
+        "1.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Rewrote the now-false Deps.TelemetryReader bullet into a 'no telemetry dependency at all' statement naming BatteryLevelByDay.",
+      "budget": {
+        "five_hour_pct_start": 11.0,
+        "five_hour_pct_end": null,
+        "five_hour_pct_delta": null,
+        "cost_usd_delta": null,
+        "context_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "tier 2 wave; end reading taken at reconcile"
+      }
+    },
+    {
+      "id": "L.3",
+      "title": "Root README.md dependency graph \u2014 drop telemetry from gateway (LEADER, out of sandbox)",
+      "module": "gateway",
+      "depends_on": [
+        "2.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-02T08:30:00Z",
+      "completed_at": "2026-09-02T09:20:00Z",
+      "duration_seconds": null,
+      "notes": "Leader removed telemetry from the gateway and handlers rows of the README dependency graph; cmd/web keeps it.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "RM40-gateway-drop-telemetry-dependency tier 2: remove every internal/telemetry reference from internal/gateway/ by consuming analytics.Reader.BatteryLevelByDay, with make boundary-guard passing clean and zero // boundary:allow: escape hatches.",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "reviewer": "gateway-reviewer",
+        "model": "claude-sonnet-5",
+        "findings": [],
+        "notes": "All 12 validation points pass. make boundary-guard prints the exact expected clean message with no WARNING block; grep -rn \"internal/telemetry\" internal/gateway/ returns nothing; Makefile guard pattern untouched; zero // boundary:allow: added anywhere in the diff. D5 lookback fully removed (readStart deleted, BatteryLevelByDay called with start verbatim) and its test-assertion consequences (-6 vs -7) correctly threaded through 4 tests. D4 bucketing verified byte-for-byte identical to buildConsumedChart/buildOdometerChart (byDay[d.Date] = d, no effectiveDayUTC). Independently verified the idempotence characterization claim: effectiveDayUTC == startOfDay (history.go:74), all fixtures build Date/EffectiveDate via startOfDay(d), so startOfDay(startOfDay(d)) == startOfDay(d) -- old and new bucket keys are provably identical for the same day. Independent per-chart failure preserved (three separate read/err blocks in buildHistoryView, each touching only its own v.* field). Deps/Handler/gateway.go removals are complete and consistent; cmd/web/main.go's leader-owned L.1 fix is a single-line deletion, lines ~72/86 untouched as instructed. charges_test.go's fix is minimal (7 dropped TelemetryReader: &fakeReader{} lines) and was genuinely necessary -- those literals reference now-nonexistent Deps.TelemetryReader/fakeReader without importing telemetry, so the design's own file-scoped grep never flagged it. fakeAnalyticsReader.BatteryLevelByDay is a real, call-recording, fixture-backed implementation (gotBattAccount/gotBattTeslaID/gotBattStart/gotBattEnd/batteryByDayCalled), replacing tier 1's panic stub -- not a silent stub. No new unit tests beyond task 3.3's scoped Deps-forwarding extension (D7 honored). Docs (ai/architecture.md, README.md, gateway/AGENTS.md) updated in-change and verified accurate against the live code, not just edited -- cmd/web still lists telemetry because it genuinely still builds telemetry.NewReader for two other, untouched call sites. tasks.md diff is checkbox-only; no acceptance criterion text was edited or weakened. On the grep-c telemetry==0 vs internal/telemetry carve-out (point 11): judged legitimate, not gaming -- see notes.",
+        "grep_criterion_judgement": "LEGITIMATE, not talked around. Tasks 2.1/3.1/3.2's literal `grep -c telemetry == 0` acceptance text is not met (handlers.go=4, handlers_test.go=8, history_test.go=18), but every remaining hit is prose: either the change's own name (RM40-gateway-drop-telemetry-dependency, which structurally contains the substring 'telemetry' and is used pervasively as a citation convention throughout this codebase's comments, e.g. RM38-/RM29- citations elsewhere) or generic English ('a telemetry error', 'vehicle telemetry') -- never an internal/telemetry import, a telemetry.Reader/telemetry.Snapshot type reference, or a package-qualified name. Task 2.1's own acceptance text explicitly carves this out ('a doc comment mentioning telemetry in prose is fine only if it does not name the package path or type'), and the proposal/roadmap/design.md's actual stated goal is consistently 'no import, no field, no type' -- never 'no occurrence of the English word'. The stricter, actually-binding bar per design.md D-gw3 and this change's own definition of done is grep -rn \"internal/telemetry\" internal/gateway/, which the worker verified returns zero, and I independently reproduced that result. Holding a literal substring-of-the-branch-name grep to zero would be self-defeating in a codebase whose universal convention is citing the responsible change by name in comments.",
+        "idempotence_verification": "Independently confirmed, not merely trusted. effectiveDayUTC(t) is defined as return startOfDay(t) (history.go:74), i.e. it IS startOfDay under another name -- so it is trivially idempotent (startOfDay(startOfDay(d)) == startOfDay(d) since startOfDay only truncates to UTC midnight, and truncating an already-truncated value is a no-op). Every fixture in history_test.go builds its calendar-day field via startOfDay(d) (both the old snapsForDays' EffectiveDate and the new batteryForDays' Date), so applying effectiveDayUTC on top (old code) or not applying it at all (new code, reading DayBattery.Date verbatim per D4) produces the identical time.Time value for the same underlying day d. The claim holds for every fixture in this file. Production-side, this rests on tier 1's (already reviewed and archived) DayBattery.Date being sourced from vehicle_metrics.metric_date, itself established as already the effective day -- outside this tier's own sandbox to re-verify, but consistent with the same rule design.md D4 states already governs the sibling ConsumedByDay/OdometerDeltaByDay ports this code has run against in production since RM29/RM38.",
+        "test_execution_policy_confirmation": "I did not run go test, go build, go vet, or any guard myself for verification purposes beyond what the Test-Execution-Policy allows a reviewer: I ran go build ./internal/gateway/..., go build ./..., go vet ./internal/gateway/..., gofmt -l, and make boundary-guard (all on the allowed list) to independently confirm the assistant-run signals reported in the commit message and progress.json, and did not run go test ./..., make test, make test-with-db, or make check at any point. The commit message's claim that make test passed under the owner's session-only override is recorded as the assistant's own result (not the owner's) and correctly flags that DATABASE_URL was unset, so DB-gated integration tests did not run -- I take no position beyond what was disclosed, since I did not re-run it.",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "ai/htmx-conventions.md",
+          "ai/htmx-go-integration.md",
+          "internal/gateway/AGENTS.md",
+          "openspec/changes/RM40-gateway-drop-telemetry-dependency/proposal.md",
+          "openspec/changes/RM40-gateway-drop-telemetry-dependency/design.md",
+          "openspec/changes/RM40-gateway-drop-telemetry-dependency/specs/gateway/spec.md",
+          "openspec/changes/RM40-gateway-drop-telemetry-dependency/tasks.md",
+          "openspec/roadmaps/RM40-gateway-drop-telemetry-dependency.md"
+        ],
+        "reviewed_commits": {
+          "implementation": "5a39640",
+          "artifacts": "3a589be"
+        }
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "scope": "design-gate:database",
+      "made_by": "autopilot",
+      "what": "Database design gate NOT tripped: this tier changes no database object at all.",
+      "why": "Pure consumer-side refactor. No migration, no query, no schema. The query it consumes was added and approved in tier 1.",
+      "at": "2026-09-02T08:50:00Z"
+    },
+    {
+      "scope": "task-ownership:L.2",
+      "made_by": "autopilot",
+      "what": "Reassigned L.2 (internal/gateway/AGENTS.md) from leader-owned to the gateway worker.",
+      "why": "The worker flagged it as arguably in-sandbox. It is inside internal/gateway/, so it belongs to the worker. Only L.1 (cmd/web) and L.3 (root README) are genuinely out of sandbox.",
+      "at": "2026-09-02T08:50:00Z"
+    },
+    {
+      "scope": "scope:charges_test",
+      "made_by": "autopilot",
+      "what": "Accepted the worker's collateral fix to internal/gateway/handlers/charges_test.go, which the artifacts never listed.",
+      "why": "It referenced the deleted fakeReader/TelemetryReader symbols without importing telemetry, so a plain grep missed it. Without the fix the package does not compile.",
+      "at": "2026-09-02T09:20:00Z"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-02T08:50:00Z",
+      "what": "Artifacts created and validated (openspec validate --strict: valid), committed 3a589be. Worker resolved the distancesFromSnaps unknown: history_test.go CAN drop its telemetry import, so zero escape hatches is reachable.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-02T09:20:00Z",
+      "what": "ASSISTANT-RUN VERIFICATION under the owner's session-only override: `make test` passed for every package. Caveat recorded: make test unsets DATABASE_URL, so DB-gated integration tests were skipped. make boundary-guard PASSES with zero escape hatches - the ticket's definition of done.",
+      "by": "leader"
+    }
+  ]
+}

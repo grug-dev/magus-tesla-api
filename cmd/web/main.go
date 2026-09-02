@@ -55,7 +55,6 @@ func main() {
 		Account:            acct,
 		Google:             google,
 		Tesla:              tesla.NewClient(),
-		TelemetryReader:    telemetry.NewReader(pool),
 		SuperchargerReader: charging.NewSessionReader(pool),
 		// Write port for the Supercharger row-edit save (PATCH
 		// /ui/supercharger-stats/row/:id). Its VerifySession is account-scoped,

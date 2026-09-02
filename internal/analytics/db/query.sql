@@ -154,6 +154,33 @@ WHERE account_id  = @account_id
   AND distance_traveled_km_calc IS NOT NULL
 ORDER BY metric_date;
 
+-- name: VehicleMetricsBatteryByVehicleBetween :many
+-- Backs analytics.Reader.BatteryLevelByDay
+-- (RM40-analytics-add-battery-level-read design.md D2/D3). UNLIKE the two
+-- filtered reads above (VehicleMetricsConsumedByVehicleBetween,
+-- VehicleMetricsOdometerByVehicleBetween), this query carries NO trailing
+-- "IS NOT NULL" predicate -- the one deliberate departure from the pattern
+-- it otherwise mirrors exactly (design.md D3). battery_level_pct and
+-- battery_range_km are declared NOT NULL: raw per-day observations copied
+-- verbatim from that day's own telemetry.Snapshot, with no predecessor
+-- requirement at all, unlike battery_used_pct_calc/
+-- distance_traveled_km_calc which are genuinely NULL on a predecessor-less
+-- day (design D9). Adding an IS NOT NULL filter here would silently exclude
+-- a vehicle's first tracked day (or any day following a capture gap) from
+-- the battery chart even though both values are fully known for that day --
+-- a strictly worse answer, and on a NOT NULL column the filter could never
+-- exclude a row anyway, so omitting it is not an oversight.
+-- Served by vehicle_metrics_account_tesla_date_unique's own index (design.md
+-- Index Plan #1) -- no separate CREATE INDEX; byte-identical index usage to
+-- its two siblings, differing only in the absent residual predicate.
+SELECT
+    metric_date, battery_level_pct, battery_range_km
+FROM vehicle_metrics
+WHERE account_id  = @account_id
+  AND tesla_id    = @tesla_id
+  AND metric_date BETWEEN @start_date AND @end_date
+ORDER BY metric_date;
+
 -- name: GetVehicleMetricWatermark :one
 -- Single-row cursor lookup for one (account_id, tesla_id, source) — design
 -- D2/D3. Returns pgx.ErrNoRows when no watermark exists yet for this source,

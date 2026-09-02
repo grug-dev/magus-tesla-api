@@ -20,7 +20,6 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/charging"
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/handlers"
 	"github.com/cristianpena/magus-tesla-api/internal/googleauth"
-	"github.com/cristianpena/magus-tesla-api/internal/telemetry"
 	"github.com/cristianpena/magus-tesla-api/internal/tesla"
 )
 
@@ -36,12 +35,6 @@ type Deps struct {
 	Account account.Service
 	Google  *googleauth.Client
 	Tesla   tesla.VehicleService
-	// TelemetryReader is the telemetry read port. The gateway calls
-	// LatestSnapshotsByAccount once per dashboard render to populate vehicle card
-	// telemetry. Injected from cmd/web via telemetry.NewReader(pool).
-	// NEVER import internal/telemetry/db (telemetrydb) — all access through this
-	// interface only.
-	TelemetryReader telemetry.Reader
 	// SuperchargerReader is the charging module's SessionReader port over
 	// charge_sessions. The gateway calls ListSessionsByVehicleBetween once per
 	// Supercharger Stats page/fragment render, bounded by the requested
@@ -66,8 +59,8 @@ type Deps struct {
 	// and the dataForCharges helper to list charge entries.
 	ChargingReader charging.Reader
 	// AnalyticsReader is the analytics module's read port; injected at
-	// construction (mirrors TelemetryReader/SuperchargerReader/
-	// ChargingReader — the gateway calls ConsumedByDay once per history
+	// construction (mirrors SuperchargerReader/ChargingReader — the gateway
+	// calls ConsumedByDay once per history
 	// fragment render). Injected from cmd/web via analytics.NewReader(...).
 	// NEVER import internal/analytics/db (analyticsdb). Since
 	// RM29-analytics-add-vehicle-metrics that package DOES exist — this
@@ -144,7 +137,6 @@ func NewEngine(d Deps) (*gin.Engine, error) {
 		Account:               d.Account,
 		Google:                d.Google,
 		Tesla:                 d.Tesla,
-		TelemetryReader:       d.TelemetryReader,
 		SuperchargerReader:    d.SuperchargerReader,
 		SuperchargerVerifier:  d.SuperchargerVerifier,
 		ChargingWriter:        d.ChargingWriter,

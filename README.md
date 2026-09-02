@@ -219,9 +219,9 @@ gateway calls domain modules, domain modules call adapters, and nothing calls ba
 │  cmd/setup ──────────► auth, config                                      │
 │  cmd/explore-tesla-api ► tesla, auth, config                             │
 ├─ LAYER 3 ── presentation ────────────────────────────────────────────────┤
-│  gateway ────────────► account, telemetry, charging, analytics,          │
+│  gateway ────────────► account, charging, analytics,                     │
 │    │                   tesla, googleauth, clock                          │
-│    ├─ handlers ──────► account, auth, telemetry, charging,               │
+│    ├─ handlers ──────► account, auth, charging,                          │
 │    │                   analytics, tesla, googleauth, i18n, clock,        │
 │    │                   templates/*                                       │
 │    ├─ templates/* ───► i18n, templates/ui                                │

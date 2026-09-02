@@ -38,6 +38,11 @@ type vehicleMetricsStore interface {
 	VehicleMetricsConsumedByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsConsumedByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsConsumedByVehicleBetweenRow, error)
 	VehicleMetricsOdometerByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsOdometerByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsOdometerByVehicleBetweenRow, error)
 	LatestVehicleMetricsByAccount(ctx context.Context, accountID uuid.UUID) ([]analyticsdb.LatestVehicleMetricsByAccountRow, error)
+	// VehicleMetricsBatteryByVehicleBetween backs BatteryLevelByDay
+	// (RM40-analytics-add-battery-level-read design.md D2). *analyticsdb.
+	// Queries satisfies it automatically, no adapter needed, mirroring this
+	// interface's other methods.
+	VehicleMetricsBatteryByVehicleBetween(ctx context.Context, arg analyticsdb.VehicleMetricsBatteryByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsBatteryByVehicleBetweenRow, error)
 }
 
 type reader struct {
@@ -213,6 +218,36 @@ func (r *reader) OdometerDeltaByDay(ctx context.Context, accountID uuid.UUID, te
 			Date:       dateFromPg(row.MetricDate),
 			KmDriven:   math.Max(0, row.DistanceTraveledKmCalc.Float64),
 			OdometerKm: row.OdometerKm,
+		})
+	}
+	return out, nil
+}
+
+// BatteryLevelByDay implements Reader
+// (RM40-analytics-add-battery-level-read design.md D2). It SELECTs from
+// vehicle_metrics via VehicleMetricsBatteryByVehicleBetween (the UNFILTERED
+// query -- design.md D3, no IS NOT NULL predicate, since
+// battery_level_pct/battery_range_km are NOT NULL and carry no predecessor
+// requirement) and maps row-by-row into DayBattery -- no derivation logic
+// here, pure row-to-domain mapping, mirroring ConsumedByDay/
+// OdometerDeltaByDay's own "no derivation logic here" convention.
+func (r *reader) BatteryLevelByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayBattery, error) {
+	rows, err := r.metrics.VehicleMetricsBatteryByVehicleBetween(ctx, analyticsdb.VehicleMetricsBatteryByVehicleBetweenParams{
+		AccountID: accountID,
+		TeslaID:   teslaID,
+		StartDate: dateFrom(start),
+		EndDate:   dateFrom(end),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]DayBattery, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, DayBattery{
+			Date:            dateFromPg(row.MetricDate),
+			BatteryLevelPct: int(row.BatteryLevelPct),
+			BatteryRangeKm:  row.BatteryRangeKm,
 		})
 	}
 	return out, nil
