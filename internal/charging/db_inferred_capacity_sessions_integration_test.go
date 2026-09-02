@@ -1,5 +1,5 @@
 // Package charging_test — database-backed integration tests for
-// charge_sessions.inferred_capacity_kwh_calc (MAG-25, charging-add-inferred-capacity),
+// supercharger_sessions.inferred_capacity_kwh_calc (MAG-25, charging-add-inferred-capacity),
 // covering design.md's Test Contract **Group B (T13-T23)** (tasks.md task 3.2).
 //
 // This is a GENERATED ALWAYS AS (...) STORED column (design.md D2): nothing in Go
@@ -118,7 +118,7 @@ func TestMirrorAndVerify_InferredCapacity_TableCases(t *testing.T) {
 	for i, tc := range cases {
 		t.Run(tc.id, func(t *testing.T) {
 			accountID := uuid.New()
-			cleanupChargeSessions(t, pool, accountID)
+			cleanupChargingSuperchargerSessions(t, pool, accountID)
 			sessionID := int64(960013 + i) // T13->960013 ... T19->960019
 			teslaID := sessionID
 
@@ -137,7 +137,7 @@ func TestMirrorAndVerify_InferredCapacity_TableCases(t *testing.T) {
 			}
 
 			if tc.startPct != nil || tc.endPct != nil {
-				id := fetchChargeSessionID(t, pool, accountID, sessionID)
+				id := fetchSuperchargerSessionID(t, pool, accountID, sessionID)
 				if _, err := v.VerifySession(ctx, accountID, id, tc.startPct, tc.endPct); err != nil {
 					t.Fatalf("%s: VerifySession: %v", tc.id, err)
 				}
@@ -163,7 +163,7 @@ func TestMirrorAndVerify_InferredCapacity_TableCases(t *testing.T) {
 // EnergyKWh = 41.31 and no percentages -> InferredCapacityKWhCalc is nil. Then
 // SessionVerifier.VerifySession(ctx, accountID, id, ptr(18), ptr(80)) -> expect
 // 66.629, asserted on VerifySession's OWN returned charging.Session so the
-// RETURNING * freshness is proven too. VerifyChargeSession's SET clause names only
+// RETURNING * freshness is proven too. VerifySuperchargerSession's SET clause names only
 // start_battery_pct, end_battery_pct, battery_pct_source and updated_at — no Go
 // code anywhere computes capacity, so the value appears purely because the engine
 // recomputed it (direct proof of design.md D2).
@@ -176,7 +176,7 @@ func TestMirrorAndVerify_InferredCapacity_TableCases(t *testing.T) {
 func TestVerifyThenRemirror_InferredCapacity_RecomputesBothWays(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 	verifier := charging.NewSessionVerifier(pool)
@@ -208,7 +208,7 @@ func TestVerifyThenRemirror_InferredCapacity_RecomputesBothWays(t *testing.T) {
 	}
 	assertFloatPtrApprox(t, "T20: InferredCapacityKWhCalc before verification", sessions[0].InferredCapacityKWhCalc, nil)
 
-	id := fetchChargeSessionID(t, pool, accountID, sessionID)
+	id := fetchSuperchargerSessionID(t, pool, accountID, sessionID)
 	time.Sleep(mirrorGap)
 
 	// T20, second half: verify sets the percentages; the value the engine computes
@@ -239,13 +239,13 @@ func TestVerifyThenRemirror_InferredCapacity_RecomputesBothWays(t *testing.T) {
 // TestInferredCapacity_Sessions_ColumnUnwritable implements T22: a direct SQL
 // write to the generated column is rejected by the database itself with SQLSTATE
 // 428C9 (design.md D2, "Write-protection, reproduced") — same shape as T12 on
-// manual_charge_entries. No port can express this write: MirrorChargeSession and
-// VerifyChargeSession name their columns explicitly and neither includes this one
+// manual_charge_entries. No port can express this write: MirrorSuperchargerSession and
+// VerifySuperchargerSession name their columns explicitly and neither includes this one
 // (design.md D8).
 func TestInferredCapacity_Sessions_ColumnUnwritable(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -264,10 +264,10 @@ func TestInferredCapacity_Sessions_ColumnUnwritable(t *testing.T) {
 	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
 		t.Fatalf("MirrorSessions: %v", err)
 	}
-	id := fetchChargeSessionID(t, pool, accountID, sessionID)
+	id := fetchSuperchargerSessionID(t, pool, accountID, sessionID)
 
 	_, err := pool.Exec(ctx,
-		"UPDATE charge_sessions SET inferred_capacity_kwh_calc = 1 WHERE id = $1",
+		"UPDATE charging.supercharger_sessions SET inferred_capacity_kwh_calc = 1 WHERE id = $1",
 		id)
 	assertPgErrorCode(t, err, "428C9")
 }

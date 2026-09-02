@@ -45,7 +45,7 @@ var _ SessionWriter = (*sessionWriter)(nil)
 //     GapWriter.ReconcileWindow's all-or-nothing contract).
 //  2. Return nil immediately for an empty/nil slice, before opening a
 //     transaction (Test Contract B7).
-//  3. One transaction, one MirrorChargeSession call per entry, commit-or-rollback.
+//  3. One transaction, one MirrorSuperchargerSession call per entry, commit-or-rollback.
 func (w *sessionWriter) MirrorSessions(ctx context.Context, accountID uuid.UUID, sessions []SessionMirror) error {
 	for _, s := range sessions {
 		if s.AccountID != accountID {
@@ -69,7 +69,7 @@ func (w *sessionWriter) MirrorSessions(ctx context.Context, accountID uuid.UUID,
 	qtx := w.q.WithTx(tx)
 
 	for _, s := range sessions {
-		if err := qtx.MirrorChargeSession(ctx, chargingdb.MirrorChargeSessionParams{
+		if err := qtx.MirrorSuperchargerSession(ctx, chargingdb.MirrorSuperchargerSessionParams{
 			AccountID:           s.AccountID,
 			Vin:                 s.VIN,
 			TeslaID:             int64PtrToPgInt8(s.TeslaID),

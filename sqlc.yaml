@@ -68,6 +68,9 @@ sql:
         sql_package: "pgx/v5"
         emit_json_tags: false
         emit_interface: false
+        rename:
+          charging_manual_charge_entry:  "ManualChargeEntry"
+          charging_supercharger_session: "SuperchargerSession"
         overrides:
           - db_type: "uuid"
             go_type:

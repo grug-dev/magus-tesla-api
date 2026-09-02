@@ -52,13 +52,13 @@
 | 2 | READ | `manual_charge_entries` | `charging.Reader.ListEntriesByAccount` (pre-update date) |
 | 3 | WRITE | `manual_charge_entries` | `UpdateEntry` — sets `updated_at = now()`; Postgres recomputes `inferred_capacity_kwh_calc` in the same statement |
 | 4 | READ | `vehicle_snapshots` | `telemetry.Reader.SnapshotsByVehicleBetween` + `SnapshotPrecedingDay` |
-| 5 | READ | `charge_sessions` | `charging.SuperchargerSessionAnalyticsReader.ListSessionsByVehicleBetween` |
+| 5 | READ | `supercharger_sessions` | `charging.SuperchargerSessionAnalyticsReader.ListSessionsByVehicleBetween` |
 | 6 | READ | `manual_charge_entries` | `charging.Reader.ListEntriesByVehicleBetween` |
 | 7 | WRITE | `vehicle_metrics` | `UpsertVehicleMetric` × n **+** `DeleteVehicleMetricsInRangeExcept`, one transaction |
 | 8 | READ | `manual_charge_entries`, `vehicles` | `buildChargesPage` |
 
 Steps 4–7 repeat when the edit changed the date. **Not touched:** `charge_gaps`,
-`vehicle_metric_watermarks`, `charge_sessions` (write side).
+`vehicle_metric_watermarks`, `supercharger_sessions` (write side).
 
 ## Entities involved
 

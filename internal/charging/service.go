@@ -625,7 +625,7 @@ func pgTextToPtr(v pgtype.Text) *string {
 // pgNumericToFloat64Ptr converts a nullable pgtype.Numeric to *float64.
 // !Valid (SQL NULL) → nil; Valid → a pointer to the numeric's float64 value via
 // Float64Value(). Backs InferredCapacityKwhCalc on both ManualChargeEntry and
-// ChargeSession (design D8) — the one nullable pgtype this module had no
+// SuperchargerSession (design D8) — the one nullable pgtype this module had no
 // …ToPtr helper for before MAG-25 (charging-add-inferred-capacity).
 //
 // Written NON-ERRORING, deliberately (design.md D8): on a Float64Value() error

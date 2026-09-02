@@ -115,8 +115,8 @@ func teslaIDToPgInt8(teslaID int64) pgtype.Int8 {
 	return pgtype.Int8{Int64: teslaID, Valid: true}
 }
 
-// rowToSession converts a generated chargingdb.ChargeSession row into the domain
-// Session type. This is the DB→domain mapping boundary for charge_sessions reads: all
+// rowToSession converts a generated chargingdb.SuperchargerSession row into the domain
+// Session type. This is the DB→domain mapping boundary for supercharger_sessions reads: all
 // pgtype conversions are confined here so pgtype never appears in public types, method
 // signatures, or tests (ai/go-conventions.md §persistence).
 //
@@ -136,7 +136,7 @@ func teslaIDToPgInt8(teslaID int64) pgtype.Int8 {
 //   - InferredCapacityKwhCalc: pgtype.Numeric → *float64 via pgNumericToFloat64Ptr
 //     (service.go) — nullable GENERATED ALWAYS AS ... STORED column (MAG-25
 //     design D8).
-func rowToSession(r chargingdb.ChargeSession) Session {
+func rowToSession(r chargingdb.SuperchargerSession) Session {
 	return Session{
 		ID:        r.ID,
 		AccountID: r.AccountID,

@@ -44,7 +44,7 @@ const (
 // it from the pack capacity and the battery delta on write (design.md D3/D4).
 // ALWAYS COMPUTED BY internal/charging on Create/Update — a value set on the Entry
 // passed to Writer is ignored and overwritten, the same shape
-// charge_sessions.battery_pct_source already uses via SessionVerifier.VerifySession.
+// supercharger_sessions.battery_pct_source already uses via SessionVerifier.VerifySession.
 type EnergySource string
 
 const (
@@ -280,7 +280,7 @@ func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
 	return newSessionWriter(pool)
 }
 
-// Session is the full domain representation of one charge_sessions row: identity, the
+// Session is the full domain representation of one supercharger_sessions row: identity, the
 // session's time window, the session facts internal/telemetry collects, and the five
 // charging-owned battery-percentage verification/estimate columns. Read-only counterpart
 // to SessionMirror — NOT built by adding fields to it.
@@ -292,7 +292,7 @@ func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
 // reason, even though Session's first thirteen fields duplicate SessionMirror's eleven
 // (RM30-charging-add-session-read-port design.md D4).
 //
-// Twenty fields, one per charge_sessions column. Field names/types follow this
+// Twenty fields, one per supercharger_sessions column. Field names/types follow this
 // module's existing conventions exactly: *T for every nullable column (matching Entry's
 // pattern), time.Time for every TIMESTAMPTZ, int64/*int64 for BIGINT/nullable BIGINT,
 // *int for nullable SMALLINT (matching Entry.StartBatteryPct's identical type), *string
@@ -343,7 +343,7 @@ type Session struct {
 	UpdatedAt time.Time
 }
 
-// SessionReader is the read port over charge_sessions (RM30-charging-add-session-read-port
+// SessionReader is the read port over supercharger_sessions (RM30-charging-add-session-read-port
 // design.md D3/D5/D6/D7). One method, unchanged by RM31-charging-add-session-read-ports:
 // internal/gateway depends on exactly this interface (Deps.SuperchargerReader) and calls
 // only ListSessionsByVehicleBetween, so this interface is NOT widened to add the two new
@@ -389,7 +389,7 @@ func NewSessionReader(pool *pgxpool.Pool) SessionReader {
 	return newSessionReader(pool)
 }
 
-// SuperchargerSessionAnalyticsReader is the read port over charge_sessions for
+// SuperchargerSessionAnalyticsReader is the read port over supercharger_sessions for
 // internal/analytics (RM31-charging-add-session-read-ports design.md D8). It is a
 // SEPARATE interface from SessionReader, not a widening of it, for the same "one fat
 // interface, two callers with different needs" reason RM31 tier 1's D9 made
@@ -403,14 +403,19 @@ func NewSessionReader(pool *pgxpool.Pool) SessionReader {
 //
 // The three methods reachable through this interface do NOT share a single
 // sort-direction convention — sort direction is chosen per query against the shared
-// idx_charge_sessions_vehicle_stop index, not as a port-family rule (design.md D3,
+// idx_supercharger_sessions_vehicle_stop index, not as a port-family rule (design.md D3,
 // Context fact 3). Do not "fix" one method's order to match another.
 //
-// Naming: "Supercharger" is the owner's deliberate divergence from this module's
-// Session* family (SessionReader, SessionWriter, SessionMirror, SessionVerifier), chosen
-// for call-site readability in internal/analytics, where the surrounding code is about
-// Supercharger sessions but the package qualifier is charging (design.md D8). Do not
-// "tidy" this name into the Session* family.
+// Naming: "Supercharger" was originally the owner's deliberate divergence from this
+// module's Session* family (SessionReader, SessionWriter, SessionMirror,
+// SessionVerifier), chosen for call-site readability in internal/analytics, where the
+// surrounding code is about Supercharger sessions but the package qualifier is charging
+// (RM31 design.md D8). RM39-charging-move-to-own-schema (D5b) renamed the underlying
+// table itself from charge_sessions to supercharger_sessions, so this is no longer a
+// divergence — it agrees with the table. D5b makes the table agree with a name the
+// module already chose; it removes a divergence rather than creating one. Do not "tidy"
+// this name into the Session* family — that would recreate the mismatch this change just
+// resolved.
 type SuperchargerSessionAnalyticsReader interface {
 	SessionReader
 
@@ -452,7 +457,7 @@ func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessi
 	return newSessionReader(pool)
 }
 
-// SessionVerifier is the human-write port over charge_sessions' verification channel
+// SessionVerifier is the human-write port over supercharger_sessions' verification channel
 // (RM31-charging-add-session-verification-port design.md D9). It is a deliberately
 // separate interface from SessionWriter, not a method added to it: SessionWriter's own
 // doc comment states "The gateway never calls this," and adding a gateway-triggered,
@@ -462,7 +467,7 @@ func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessi
 // trust models" shape the AI-efficiency "closed, small vocabularies" principle
 // (CLAUDE.md §Non-negotiables) argues against (design.md D9).
 type SessionVerifier interface {
-	// VerifySession updates exactly three columns on one account-scoped charge_sessions
+	// VerifySession updates exactly three columns on one account-scoped supercharger_sessions
 	// row — start_battery_pct, end_battery_pct, battery_pct_source — plus updated_at.
 	// No other column is reachable through this method, including
 	// start_battery_pct_est/end_battery_pct_est: the underlying query's SET clause

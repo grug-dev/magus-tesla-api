@@ -13,10 +13,10 @@
 -- status, odometer_km: bound as supplied by the caller (RM33 / MAG-18).
 --
 -- energy_source is COMPUTED IN GO, never accepted from the caller as a stored value's
--- true provenance -- the same shape VerifyChargeSession's @battery_pct_source already
--- uses for charge_sessions' human-write channel. service.go computes USER/ESTIMATED
+-- true provenance -- the same shape VerifySuperchargerSession's @battery_pct_source already
+-- uses for charging.supercharger_sessions' human-write channel. service.go computes USER/ESTIMATED
 -- before binding this param; the query itself has no way to tell the two apart.
-INSERT INTO manual_charge_entries (
+INSERT INTO charging.manual_charge_entries (
     account_id,
     tesla_id,
     vin,
@@ -68,8 +68,8 @@ RETURNING *;
 --
 -- energy_source is COMPUTED IN GO, never accepted from the caller as a stored value's
 -- true provenance -- same shape as CreateEntry's @energy_source above, and the same
--- precedent VerifyChargeSession's @battery_pct_source sets for charge_sessions.
-UPDATE manual_charge_entries
+-- precedent VerifySuperchargerSession's @battery_pct_source sets for charging.supercharger_sessions.
+UPDATE charging.manual_charge_entries
 SET
     charged_on        = @charged_on,
     energy_added_kwh  = @energy_added_kwh,
@@ -96,7 +96,7 @@ RETURNING *;
 -- (id AND account_id) means a user cannot delete another tenant's entry even
 -- if they somehow obtain a valid entry UUID — cross-tenant deletes are blocked
 -- at the SQL level (design D4, intentional double-scope guard).
-DELETE FROM manual_charge_entries
+DELETE FROM charging.manual_charge_entries
 WHERE id = @id
   AND account_id = @account_id;
 
@@ -106,7 +106,7 @@ WHERE id = @id
 -- (account_id, tesla_id, charged_on DESC): account_id prunes to the tenant, tesla_id
 -- further narrows to one vehicle, and the DESC column means the ORDER BY is satisfied
 -- by the index directly — no sort step required (design D3, Read path 1).
-SELECT * FROM manual_charge_entries
+SELECT * FROM charging.manual_charge_entries
 WHERE account_id = @account_id
   AND tesla_id = @tesla_id
 ORDER BY charged_on DESC
@@ -117,7 +117,7 @@ LIMIT @limit_count;
 -- day first, limited to limit_count rows. Uses idx_manual_charge_entries_account_time
 -- (account_id, charged_on DESC): account_id is the single WHERE predicate and
 -- charged_on DESC matches the ORDER BY, eliminating a sort step (design D3, Read path 2).
-SELECT * FROM manual_charge_entries
+SELECT * FROM charging.manual_charge_entries
 WHERE account_id = @account_id
 ORDER BY charged_on DESC
 LIMIT @limit_count;
@@ -131,7 +131,7 @@ LIMIT @limit_count;
 -- order satisfies ORDER BY with no separate sort step (design D3). No LIMIT: the
 -- caller-supplied [from, to] window is the safety bound, not a row count
 -- (design D1, roadmap D9).
-SELECT * FROM manual_charge_entries
+SELECT * FROM charging.manual_charge_entries
 WHERE account_id = @account_id
   AND tesla_id = @tesla_id
   AND charged_on BETWEEN @from_date AND @to_date
@@ -147,13 +147,13 @@ ORDER BY charged_on DESC;
 -- unlike the append-only, high-volume tables). No LIMIT: @since itself bounds the
 -- result (RM29-analytics-add-vehicle-metrics design D3, specs/manual-charge-log/spec.md
 -- "List entries by vehicle updated since a given instant").
-SELECT * FROM manual_charge_entries
+SELECT * FROM charging.manual_charge_entries
 WHERE account_id = @account_id
   AND tesla_id = @tesla_id
   AND updated_at >= @since
 ORDER BY charged_on DESC;
 
--- name: MirrorChargeSession :exec
+-- name: MirrorSuperchargerSession :exec
 -- Upsert one Supercharger session's mirrorable subset. Called once per session, in
 -- one transaction, by SessionWriter.MirrorSessions.
 --
@@ -183,7 +183,7 @@ ORDER BY charged_on DESC;
 -- updated_at here means "the last mirror pass touched this row" — exactly what
 -- supercharger_sessions.updated_at means — and is NOT a "this row's data changed"
 -- signal on either side.
-INSERT INTO charge_sessions (
+INSERT INTO charging.supercharger_sessions (
     account_id, vin, tesla_id, session_id,
     charge_start_date_time, charge_stop_date_time,
     site_location_name, energy_kwh, total_cost, currency, is_paid
@@ -216,7 +216,7 @@ ON CONFLICT (account_id, session_id) DO UPDATE SET
 -- which is exactly the trap the project's ?start=&end= HTTP date-filter convention
 -- (internal/gateway/AGENTS.md) exists to prevent.
 --
--- Uses idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time)
+-- Uses idx_supercharger_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time)
 -- as a single ascending index range scan: account_id and tesla_id prune to the tenant
 -- and vehicle as leading equality predicates, the half-open charge_stop_date_time
 -- range walks the trailing column, and the index's own ASC order satisfies ORDER BY
@@ -232,7 +232,7 @@ ON CONFLICT (account_id, session_id) DO UPDATE SET
 -- longer a currently-registered vehicle) is correctly outside a teslaID-keyed read
 -- (design.md D6). This is the same behavior telemetry's own
 -- SuperchargerSessionsByVehicleBetween already has over the identical column shape.
-SELECT * FROM charge_sessions
+SELECT * FROM charging.supercharger_sessions
 WHERE account_id = @account_id
   AND tesla_id = @tesla_id
   AND charge_stop_date_time >= @from_time
@@ -247,31 +247,31 @@ ORDER BY charge_stop_date_time ASC;
 -- single UPDATE outside a transaction, exactly as before this change.
 --
 -- FOR UPDATE mirrors internal/account's AccessTokenFor and this module's own
--- SessionWriter.MirrorSessions: the read and the later write (VerifyChargeSession, called
+-- SessionWriter.MirrorSessions: the read and the later write (VerifySuperchargerSession, called
 -- against the SAME transaction) must observe one consistent row, so a concurrent
 -- SessionWriter.MirrorSessions refresh of energy_kwh cannot land between this read and that
 -- write and leave the derived percentage computed from a value the row no longer holds
 -- (design.md D9).
 --
--- WHERE id = @id AND account_id = @account_id mirrors VerifyChargeSession's own scoping
+-- WHERE id = @id AND account_id = @account_id mirrors VerifySuperchargerSession's own scoping
 -- exactly; zero rows matched surfaces as pgx.ErrNoRows, wrapped by the caller identically to
--- VerifyChargeSession's own not-found case (design.md D10).
-SELECT vin, energy_kwh FROM charge_sessions
+-- VerifySuperchargerSession's own not-found case (design.md D10).
+SELECT vin, energy_kwh FROM charging.supercharger_sessions
 WHERE id = @id
   AND account_id = @account_id
 FOR UPDATE;
 
--- name: VerifyChargeSession :one
+-- name: VerifySuperchargerSession :one
 -- Update the human-owned verification channel on one account-scoped charge session:
 -- start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No other
 -- column is in this SET clause, INCLUDING start_battery_pct_est/end_battery_pct_est —
--- this is the mirror image of MirrorChargeSession's protection (that query cannot touch
+-- this is the mirror image of MirrorSuperchargerSession's protection (that query cannot touch
 -- these three; this query cannot touch anything else), by the query's shape, not by a
 -- comment a reviewer has to notice (design.md D1).
 --
 -- @battery_pct_source is COMPUTED IN GO (design.md D2/D7), never accepted from a caller:
 -- "user_verified" when either percentage is non-nil, NULL when both are nil — satisfying
--- charge_sessions_pct_source_required in the same statement that clears or sets the
+-- supercharger_sessions_pct_source_required in the same statement that clears or sets the
 -- percentages, so no intermediate row state can violate it.
 --
 -- WHERE id = @id AND account_id = @account_id mirrors UpdateEntry's scoping exactly
@@ -279,7 +279,7 @@ FOR UPDATE;
 -- column. Zero rows matched — unknown id or wrong account, indistinguishable — surfaces
 -- to the caller as pgx.ErrNoRows, exactly like UpdateEntry's own not-found behavior
 -- (TestUpdate_CrossAccountIsNoOp is the existing precedent for this shape).
-UPDATE charge_sessions
+UPDATE charging.supercharger_sessions
 SET
     start_battery_pct  = @start_battery_pct,
     end_battery_pct    = @end_battery_pct,
@@ -294,7 +294,7 @@ RETURNING *;
 -- or after @since, ordered oldest-first by charge_stop_date_time (design.md D1) — NOT by
 -- updated_at itself, and NOT ListEntriesByVehicleUpdatedSince's DESC: this table's index
 -- is built ASC (RM30 D1), so ascending on the index's own trailing column is the order
--- that needs no sort step. Reuses idx_charge_sessions_vehicle_stop (account_id, tesla_id,
+-- that needs no sort step. Reuses idx_supercharger_sessions_vehicle_stop (account_id, tesla_id,
 -- charge_stop_date_time) as a single ascending index range scan: account_id and tesla_id
 -- prune to the tenant and vehicle as leading equality predicates in the same scan every
 -- other vehicle-scoped query on this table already uses; updated_at >= @since is a
@@ -319,7 +319,7 @@ RETURNING *;
 -- tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
 -- NULL (SQL's NULL = value is neither true nor false) -- an orphaned session is
 -- correctly outside a teslaID-keyed read (design.md D4, restating RM29 D6/RM30 D6).
-SELECT * FROM charge_sessions
+SELECT * FROM charging.supercharger_sessions
 WHERE account_id = @account_id
   AND tesla_id = @tesla_id
   AND updated_at >= @since
@@ -337,7 +337,7 @@ ORDER BY charge_stop_date_time ASC;
 -- Reader.ListEntriesByVehicle already applies to manual_charge_entries and
 -- telemetry.SuperchargerSessionsByVehicle already applies to supercharger_sessions.
 --
--- idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time) was
+-- idx_supercharger_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time) was
 -- built ASC, not DESC (RM30 D1, for ListSessionsByVehicleBetween's own bounded-window
 -- read). This query still needs NO new index: Postgres serves
 -- ORDER BY charge_stop_date_time DESC LIMIT @limit_count from the SAME ascending btree
@@ -355,7 +355,7 @@ ORDER BY charge_stop_date_time ASC;
 --
 -- tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
 -- NULL, same as every other vehicle-scoped query on this table (design.md D4).
-SELECT * FROM charge_sessions
+SELECT * FROM charging.supercharger_sessions
 WHERE account_id = @account_id
   AND tesla_id = @tesla_id
 ORDER BY charge_stop_date_time DESC

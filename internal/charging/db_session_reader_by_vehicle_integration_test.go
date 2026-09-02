@@ -102,7 +102,7 @@ func seedL1(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64
 func TestListSessionsByVehicle_T8_LimitReturnsNewestFirst(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	const teslaID = int64(960010)
 	seedL1(t, pool, acctA, teslaID)
 
@@ -122,7 +122,7 @@ func TestListSessionsByVehicle_T8_LimitReturnsNewestFirst(t *testing.T) {
 func TestListSessionsByVehicle_T9_LimitLargerThanAvailableReturnsAllNewestFirst(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	const teslaID = int64(960010)
 	seedL1(t, pool, acctA, teslaID)
 
@@ -138,7 +138,7 @@ func TestListSessionsByVehicle_T9_LimitLargerThanAvailableReturnsAllNewestFirst(
 func TestListSessionsByVehicle_T10_ZeroLimitUsesServerDefault(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	const teslaID = int64(960010)
 	seedL1(t, pool, acctA, teslaID)
 
@@ -154,7 +154,7 @@ func TestListSessionsByVehicle_T10_ZeroLimitUsesServerDefault(t *testing.T) {
 func TestListSessionsByVehicle_T11_NegativeLimitUsesServerDefault(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	const teslaID = int64(960010)
 	seedL1(t, pool, acctA, teslaID)
 
@@ -183,7 +183,7 @@ func assertSessionIDOrder(t *testing.T, sessions []charging.Session, wantIDs []i
 func TestListSessionsByVehicle_T12_NoMatchReturnsEmptyNonNilSlice(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 
 	sessions := fetchSessionsByVehicle(t, pool, acctA, 960010, 100)
 	if sessions == nil {
@@ -202,7 +202,7 @@ func TestListSessionsByVehicle_T12_NoMatchReturnsEmptyNonNilSlice(t *testing.T) 
 func TestListSessionsByVehicle_T13_NullTeslaIDNeverReturned(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -235,7 +235,7 @@ func TestListSessionsByVehicle_T14_MultiTenantAndCrossVehicleIsolation(t *testin
 	pool := newTestPool(t)
 	acctA := uuid.New()
 	acctB := uuid.New()
-	cleanupChargeSessions(t, pool, acctA, acctB)
+	cleanupChargingSuperchargerSessions(t, pool, acctA, acctB)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -277,13 +277,13 @@ func TestListSessionsByVehicle_T14_MultiTenantAndCrossVehicleIsolation(t *testin
 // concrete verification for design.md D3's index proof: inside a transaction with
 // `SET LOCAL enable_seqscan = off` (load-bearing — see file header), EXPLAIN the
 // literal ListSessionsByVehicle SQL with the L1 fixture's real parameter values and
-// assert the plan uses "Index Scan Backward using idx_charge_sessions_vehicle_stop"
+// assert the plan uses "Index Scan Backward using idx_supercharger_sessions_vehicle_stop"
 // with no "Sort" node — proving the ASC-built index serves the DESC query by
 // walking backward, not by a sequential scan plus an in-memory sort.
 func TestListSessionsByVehicle_TOrder2_ExplainConfirmsBackwardIndexScanNoSort(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 	const teslaID = int64(960010)
 	seedL1(t, pool, acctA, teslaID)
@@ -299,7 +299,7 @@ func TestListSessionsByVehicle_TOrder2_ExplainConfirmsBackwardIndexScanNoSort(t 
 	}
 
 	rows, err := tx.Query(ctx,
-		`EXPLAIN (FORMAT TEXT) SELECT * FROM charge_sessions WHERE account_id = $1 AND tesla_id = $2 ORDER BY charge_stop_date_time DESC LIMIT $3`,
+		`EXPLAIN (FORMAT TEXT) SELECT * FROM charging.supercharger_sessions WHERE account_id = $1 AND tesla_id = $2 ORDER BY charge_stop_date_time DESC LIMIT $3`,
 		acctA, teslaID, 2,
 	)
 	if err != nil {
@@ -321,8 +321,8 @@ func TestListSessionsByVehicle_TOrder2_ExplainConfirmsBackwardIndexScanNoSort(t 
 	}
 
 	planText := plan.String()
-	if !strings.Contains(planText, "Index Scan Backward using idx_charge_sessions_vehicle_stop") {
-		t.Errorf("expected plan to contain \"Index Scan Backward using idx_charge_sessions_vehicle_stop\", got:\n%s", planText)
+	if !strings.Contains(planText, "Index Scan Backward using idx_supercharger_sessions_vehicle_stop") {
+		t.Errorf("expected plan to contain \"Index Scan Backward using idx_supercharger_sessions_vehicle_stop\", got:\n%s", planText)
 	}
 	if strings.Contains(planText, "Sort") {
 		t.Errorf("expected plan to NOT contain a Sort node (the ASC-built index must serve DESC via backward scan with no sort step), got:\n%s", planText)

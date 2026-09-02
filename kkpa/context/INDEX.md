@@ -11,10 +11,10 @@
 | `charge row` | `ChargeRowUpdate` / `ChargeRowDelete` | entity | `workflows/manual-charge-crud.md` |
 | `charges form` | `ChargeCreate` / `parseChargeForm` | entity | `workflows/manual-charge-crud.md` |
 | `Manual Records` | `/charges` page (`ChargePage`) | entity | `workflows/manual-charge-crud.md` |
-| `supercharger stats` | `SuperchargerStatsPage` / `charging.SessionReader` (read) + `charging.SessionVerifier` (write, RM31) (`charge_sessions`) | entity | `workflows/supercharger-stats-read.md` |
-| `Supercharger session` | `charging.Session` / mirrored into `charge_sessions` by the analytics recalculation path; its `start_battery_pct`/`end_battery_pct` are correctable by the gateway via `charging.SessionVerifier` (RM31) — still no gateway Create or Delete | entity | `workflows/supercharger-stats-read.md` |
+| `supercharger stats` | `SuperchargerStatsPage` / `charging.SessionReader` (read) + `charging.SessionVerifier` (write, RM31) (`supercharger_sessions`) | entity | `workflows/supercharger-stats-read.md` |
+| `Supercharger session` | `charging.Session` / mirrored into `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) by the nightly sync; its `start_battery_pct`/`end_battery_pct` are correctable by the gateway via `charging.SessionVerifier` (RM31) — still no gateway Create or Delete | entity | `workflows/supercharger-stats-read.md` |
 | `fast charging stats` | synonym of `supercharger stats` | entity | `workflows/supercharger-stats-read.md` |
-| `charge session log` | `charging.SessionReader` / `charging.SessionWriter` (`charge_sessions`) | entity | `workflows/supercharger-stats-read.md` |
+| `charge session log` | `charging.SessionReader` / `charging.SessionWriter` (`supercharger_sessions`) | entity | `workflows/supercharger-stats-read.md` |
 | `charge session record` | synonym of `charge session log` | entity | `workflows/supercharger-stats-read.md` |
 | `session battery edit` | `SuperchargerRowUpdate` / `charging.SessionVerifier.VerifySession` | entity | `use-case/charging/verify-session-battery.md` |
 | `verify session battery` | synonym of `session battery edit` | entity | `use-case/charging/verify-session-battery.md` |
@@ -26,7 +26,7 @@
 | `watermark source` | `vehicle_metric_watermarks.source` (`vehicle_snapshots` / `charge_sessions` / `manual_charge_entries`) | entity | `entities/vehicle-metrics/guide.md` |
 | `vehicle status` | the eight raw status observations on `vehicle_metrics`, read via `analytics.Reader.LatestMetricsByAccount` → `analytics.VehicleStatus` (RM38) | entity | `entities/vehicle-metrics/guide.md` |
 | `latest vehicle status` | `analytics.Reader.LatestMetricsByAccount` / `LatestVehicleMetricsByAccount` (`DISTINCT ON (tesla_id)` over `vehicle_metrics`) | entity | `entities/vehicle-metrics/guide.md` |
-| `session inferred capacity` | `charging.Session.InferredCapacityKWhCalc` / `charge_sessions.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/supercharger-stats-read.md` |
+| `session inferred capacity` | `charging.Session.InferredCapacityKWhCalc` / `supercharger_sessions.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/supercharger-stats-read.md` |
 | `derived start battery` | `charging.SessionVerifier.VerifySession` derivation (`start_battery_pct` computed from `energy_kwh` + end %) | entity | `use-case/charging/verify-session-battery.md` |
 | `calculated start battery` | synonym of `derived start battery` | entity | `use-case/charging/verify-session-battery.md` |
 | `inferred capacity` | `charging.Entry.InferredCapacityKWhCalc` / `manual_charge_entries.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/manual-charge-crud.md` |

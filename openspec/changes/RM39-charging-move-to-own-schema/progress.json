@@ -5,9 +5,9 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM39-schema-per-module.md",
   "request": "Move internal/charging's two tables into a `charging` schema AND rename charge_sessions -> supercharger_sessions (D5b/D5c). Tier 3 of RM39.",
-  "status": "proposed",
+  "status": "applied",
   "created_at": "2026-09-02T17:35:00Z",
-  "updated_at": "2026-09-02T17:05:00Z",
+  "updated_at": "2026-09-02T19:50:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,16 +23,17 @@
   "rollup": {
     "current": [],
     "pending": [
+      "T5"
+    ],
+    "blocked": [],
+    "done": [
       "T1",
       "T2",
       "T2b",
       "T3",
       "T3b",
-      "T4",
-      "T5"
-    ],
-    "blocked": [],
-    "done": []
+      "T4"
+    ]
   },
   "tasks": [
     {
@@ -41,13 +42,13 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T17:07:00Z",
+      "completed_at": "2026-09-02T19:50:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Migration 20260902000003 written: D7 order, all four D16 renames, Down reverses exactly. Verified against design.md by the leader.",
       "budget": null
     },
     {
@@ -56,13 +57,13 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T17:07:00Z",
+      "completed_at": "2026-09-02T19:50:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "query.sql fully schema-qualified; MirrorChargeSession/VerifyChargeSession renamed. No unqualified table ref remains.",
       "budget": null
     },
     {
@@ -73,13 +74,13 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T17:07:00Z",
+      "completed_at": "2026-09-02T19:50:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "32 raw SQL statements across 10 _test.go files qualified and renamed, incl. the T-Order2 EXPLAIN text. go vet compiles them clean.",
       "budget": null
     },
     {
@@ -91,13 +92,13 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T17:07:00Z",
+      "completed_at": "2026-09-02T19:50:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "sqlc rename block uses singularized schema-qualified keys. ManualChargeEntry frozen (D3), ChargeSession -> SuperchargerSession (D5c).",
       "budget": null
     },
     {
@@ -108,13 +109,13 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T17:07:00Z",
+      "completed_at": "2026-09-02T19:50:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Both renamed-query call sites and rowToSession's param type updated. Build clean.",
       "budget": null
     },
     {
@@ -125,13 +126,13 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T17:07:00Z",
+      "completed_at": "2026-09-02T19:50:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Docs + KB. T4.3 swept 10 kkpa/context files. T4.4/T4.5 added by the leader mid-wave: 34 stale comments and 5 test helper identifiers retired.",
       "budget": null
     },
     {
@@ -195,6 +196,30 @@
       "made_by": "leader",
       "decision": "Artifacts rewritten to match D15/D16 before dispatch; progress.json re-seeded with tasks.md's T3b",
       "why": "design/tasks/proposal/spec were written pre-D15/D16 and still said two objects renamed and D8 in-scope. Dispatching them would have implemented the superseded design."
+    },
+    {
+      "id": "D5",
+      "at": "2026-09-02T19:47:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Added T4.4 and T4.5 mid-wave: retire stale charge_sessions vocabulary from comments and test helper identifiers",
+      "why": "D5c's stated purpose is retiring the old name in the code that reads it most. 34 comments named renamed catalog objects or the old table; leaving them is the debt D5b exists to remove."
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-02T19:45:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "charging's session-cleanup test helper is named cleanupChargingSuperchargerSessions, not cleanupSuperchargerSessions",
+      "why": "The plain name already exists in db_backfill_integration_test.go for telemetry's seed table. D5b's name reuse collides in Go identifiers too, not just prose."
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-02T19:44:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "README.md's 'Database tables by module' gains a Schema column now, at tier 3",
+      "why": "Owner deferred this to 'roadmap archive, or tier 3'. Tier 3 forces it: charging and telemetry now share the base name supercharger_sessions, so bare names mislead."
     }
   ],
   "events": [
@@ -217,6 +242,16 @@
       "at": "2026-09-02T17:05:00Z",
       "agent": "leader",
       "event": "RESUME. Corrected all four artifacts for D15 (watermark work out, tier 3b owns it) and D16 (rename all four catalog objects); openspec validate --strict passes. Seeded T3b, which tasks.md defined but progress.json lacked. Owner chose to dispatch despite five_hour_pct=83 (resets 18:40Z)."
+    },
+    {
+      "at": "2026-09-02T17:07:00Z",
+      "agent": "leader",
+      "event": "WAVE 1 dispatched to charging worker (Sonnet), serial: T1,T2,T2b,T3,T3b,T4. budget_start five_hour_pct=89 context_pct=13. Owner authorized dispatch despite the 1-point margin to the 90 threshold."
+    },
+    {
+      "at": "2026-09-02T19:50:00Z",
+      "agent": "leader",
+      "event": "WAVE 1 complete after a rate-limit interruption and resume. Worker completed T1,T2,T2b,T3,T3b,T4 (incl. leader-added T4.4/T4.5). Leader fixed README.md + ai/go-conventions.md (out of module sandbox). Signals: go build, go vet, gofmt clean; all six guards pass; openspec validate --strict passes. Suite NOT yet run."
     }
   ]
 }

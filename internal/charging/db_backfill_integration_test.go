@@ -24,7 +24,7 @@
 // telemetry's migration directory first (testdb_test.go), so the to_regclass guard
 // never actually trips inside this suite. It is verified by the charging-only path
 // instead: applying only internal/charging/db/migrations/ to an empty database
-// succeeds and yields an empty charge_sessions.
+// succeeds and yields an empty supercharger_sessions.
 package charging_test
 
 import (
@@ -251,14 +251,14 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
 	cleanupSuperchargerSessions(t, pool, accountID)
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 
 	sessionIDs := seedA1Fixture(t, pool, accountID)
 	const percentageBearingSessionID = int64(734860294)
 
 	runBackfill(t, pool)
 
-	if n := countChargeSessions(t, pool, accountID); n != 4 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 4 {
 		t.Fatalf("expected exactly 4 rows after backfill, got %d", n)
 	}
 
@@ -278,7 +278,7 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 			t.Fatalf("reading source supercharger_sessions row %d: %v", sessionID, err)
 		}
 
-		row, ok := fetchChargeSession(t, pool, accountID, sessionID)
+		row, ok := fetchSuperchargerSession(t, pool, accountID, sessionID)
 		if !ok {
 			t.Fatalf("expected mirrored row for session %d", sessionID)
 		}
@@ -351,26 +351,26 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 }
 
 // A2: the backfill is idempotent and overwrites nothing on a re-run — ON CONFLICT DO
-// NOTHING means it is a one-time import, never a re-sync (that is MirrorChargeSession's
+// NOTHING means it is a one-time import, never a re-sync (that is MirrorSuperchargerSession's
 // job).
 func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
 	cleanupSuperchargerSessions(t, pool, accountID)
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 
 	sessionIDs := seedA1Fixture(t, pool, accountID)
 	const percentageBearingSessionID = int64(734860294)
 	nullRowSessionID := sessionIDs[1] // any of the three all-NULL-percentage rows
 
 	runBackfill(t, pool)
-	if n := countChargeSessions(t, pool, accountID); n != 4 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 4 {
 		t.Fatalf("expected 4 rows after first backfill, got %d", n)
 	}
 
 	before := make(map[int64]time.Time, len(sessionIDs))
 	for _, id := range sessionIDs {
-		row, ok := fetchChargeSession(t, pool, accountID, id)
+		row, ok := fetchSuperchargerSession(t, pool, accountID, id)
 		if !ok {
 			t.Fatalf("expected row for session %d after first backfill", id)
 		}
@@ -379,14 +379,14 @@ func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 
 	// (a) simulate a later human verification of a previously-unverified row.
 	if _, err := pool.Exec(context.Background(), `
-		UPDATE charge_sessions SET start_battery_pct = 55, end_battery_pct = 80, battery_pct_source = 'user_verified'
+		UPDATE charging.supercharger_sessions SET start_battery_pct = 55, end_battery_pct = 80, battery_pct_source = 'user_verified'
 		WHERE account_id = $1 AND session_id = $2`,
 		accountID, nullRowSessionID); err != nil {
 		t.Fatalf("simulating human verification: %v", err)
 	}
 	// (b) simulate a fee figure a later mirror pass already refreshed.
 	if _, err := pool.Exec(context.Background(), `
-		UPDATE charge_sessions SET total_cost = 99999, is_paid = false
+		UPDATE charging.supercharger_sessions SET total_cost = 99999, is_paid = false
 		WHERE account_id = $1 AND session_id = $2`,
 		accountID, percentageBearingSessionID); err != nil {
 		t.Fatalf("simulating a refreshed fee figure: %v", err)
@@ -394,11 +394,11 @@ func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 
 	runBackfill(t, pool)
 
-	if n := countChargeSessions(t, pool, accountID); n != 4 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 4 {
 		t.Fatalf("expected still 4 rows after second backfill, got %d", n)
 	}
 
-	verifiedRow, ok := fetchChargeSession(t, pool, accountID, nullRowSessionID)
+	verifiedRow, ok := fetchSuperchargerSession(t, pool, accountID, nullRowSessionID)
 	if !ok {
 		t.Fatalf("expected row for session %d after second backfill", nullRowSessionID)
 	}
@@ -412,7 +412,7 @@ func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 		t.Errorf("session %d: BatteryPctSource got %v, want still 'user_verified'", nullRowSessionID, verifiedRow.BatteryPctSource)
 	}
 
-	refreshedRow, ok := fetchChargeSession(t, pool, accountID, percentageBearingSessionID)
+	refreshedRow, ok := fetchSuperchargerSession(t, pool, accountID, percentageBearingSessionID)
 	if !ok {
 		t.Fatalf("expected row for session %d after second backfill", percentageBearingSessionID)
 	}
@@ -424,7 +424,7 @@ func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 	}
 
 	for _, id := range sessionIDs {
-		row, ok := fetchChargeSession(t, pool, accountID, id)
+		row, ok := fetchSuperchargerSession(t, pool, accountID, id)
 		if !ok {
 			t.Fatalf("expected row for session %d after second backfill", id)
 		}
