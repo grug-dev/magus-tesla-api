@@ -47,17 +47,17 @@ means the table analytics should now be naming is `supercharger_sessions` again 
 string the vocabulary held before `20260828000001`, but now naming a different physical table
 than it did then. Roadmap D8 requires deleting the stale `'charge_sessions'`-labelled watermark
 rows and rewriting the CHECK constraint to accept `'supercharger_sessions'` again, copying
-`20260828000001`'s own approach rather than inventing a new one.
+`20260828000001`'s own approach rather than inventing a new one. **That work is roadmap tier
+3b, not this change** — see below.
 
-**This proposal surfaces, rather than silently follows, a boundary question the roadmap's
-tier-3 row does not resolve**: `vehicle_metric_watermarks` is `internal/analytics`'s table
-(moved into the `analytics` schema by tier 2), not `internal/charging`'s. `design.md`'s
-"D8 — Boundary" section states the finding and this worker's recommendation in full: the
-DELETE + CHECK rewrite, and the companion Go source-label change in
-`internal/analytics/recalculate.go`, are **analytics-owned work**, sequenced after this
-tier by `MIGRATIONS_DIRS` order (`account → telemetry → charging → analytics`) rather than
-by same-directory chronology — not a task this change's own sandbox (`internal/charging/`
-plus this artifacts folder) can complete. The exact SQL and Go change are fully specified in
+**That boundary question is now RESOLVED — roadmap D15, owner-confirmed 2026-09-02.**
+`vehicle_metric_watermarks` is `internal/analytics`'s table (moved into the `analytics` schema
+by tier 2), not `internal/charging`'s, so charging writing it would repeat exactly the
+boundary violation this roadmap already blocks tier 4 on (D6). The DELETE + CHECK rewrite and
+the companion Go source-label change in `internal/analytics/recalculate.go` are therefore
+**out of this change entirely**: they became their own roadmap tier 3b,
+`RM39-analytics-fix-watermark-vocabulary`, owned by `internal/analytics` and depending on this
+tier. The exact SQL and Go change are fully specified in
 `design.md` so nothing is lost; `tasks.md` marks that task as owned outside this change.
 
 This tier also carries forward **D9** (raw SQL in `_test.go` files is invisible to sqlc/`go
@@ -102,9 +102,9 @@ module — see `design.md`).
   `internal/charging/charging.go` (the divergence no longer exists once the table agrees).
   Several `kkpa/context/` files name `charge_sessions`/`ChargeSession` by string — see
   `tasks.md`'s KB sub-task for the full, grep-verified list.
-- **Not in this change's sandbox** (see design.md + tasks.md): the
-  `vehicle_metric_watermarks` CHECK rewrite + DELETE (D8) and the companion
-  `sourceChargeSessions` label change in `internal/analytics/recalculate.go`.
+- **Not in this change at all** — roadmap tier 3b (D15): the `vehicle_metric_watermarks`
+  CHECK rewrite + DELETE and the companion `sourceChargeSessions` label change in
+  `internal/analytics/recalculate.go`. See tasks.md's "Hand-off to tier 3b".
 
 **Breaking?** Not for any Go consumer that already goes through this module's public ports —
 every exported `Writer`/`Reader`/`SessionWriter`/`SessionReader`/`SuperchargerSessionAnalyticsReader`/`SessionVerifier`
@@ -117,8 +117,8 @@ statements), but it does retire the `charge_sessions` table/index/constraint nam
 consumer with a raw SQL dependency outside this module (there is none inside this
 repository) would break.
 
-**Affected modules:** `internal/charging` for the schema/rename work. `internal/analytics`
-is the recommended (not this change's) owner of the D8 watermark cleanup — see design.md.
+**Affected modules:** `internal/charging` only. `internal/analytics` owns the watermark
+cleanup as roadmap tier 3b (D15), a separate change — see design.md.
 `internal/gateway` and `internal/app` are unaffected: both call this module only through its
 public interfaces, none of which changes name or signature.
 

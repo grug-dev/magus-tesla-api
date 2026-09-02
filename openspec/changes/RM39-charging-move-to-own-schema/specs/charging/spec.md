@@ -13,8 +13,9 @@ and after this requirement, now additionally checkable at the database catalog l
 The `vehicle_metric_watermarks.source` vocabulary collision this requirement's companion
 table rename (see "Supercharger Sessions Table Renamed" below) creates on
 `internal/analytics`'s own table is explicitly OUT OF SCOPE for this requirement — it is
-analytics' table, not charging's, and its resolution is specified (but not implemented) in
-this change's `design.md` "D8 — Boundary" section.
+analytics' table, not charging's. Its resolution is a separate analytics-owned change,
+`RM39-analytics-fix-watermark-vocabulary` (roadmap tier 3b, D15), analysed in this change's
+`design.md` "D8 — Boundary" section.
 
 #### Scenario: The manual_charge_entries and supercharger_sessions tables resolve under the charging schema
 - **GIVEN** the charging module's migrations have been applied
@@ -43,14 +44,15 @@ this change's `design.md` "D8 — Boundary" section.
 The table previously named `charge_sessions` SHALL be renamed to `supercharger_sessions` in
 the same migration that moves it into the `charging` schema, because it is a dense,
 Supercharger-only mirror and its old name over-claimed coverage of all charging activity.
-Every row, the primary key, and the `UNIQUE (account_id, session_id)` constraint SHALL
-survive unchanged (including their catalog names — this rename does NOT extend to
-`charge_sessions_pkey` or `charge_sessions_account_session_unique`, a deliberately narrower
-scope recorded in `design.md`'s "Rename scope" decision). The index
-`idx_charge_sessions_vehicle_stop` SHALL be renamed to
-`idx_supercharger_sessions_vehicle_stop`, and the CHECK constraint
-`charge_sessions_pct_source_required` SHALL be renamed to
-`supercharger_sessions_pct_source_required`, both preserving their exact prior definitions.
+Every row SHALL survive unchanged, and every constraint and index SHALL preserve its exact
+prior definition. ALL FOUR catalog objects still carrying the old table name SHALL be renamed
+to follow it (`design.md`'s "Rename scope (D16)"): `idx_charge_sessions_vehicle_stop` →
+`idx_supercharger_sessions_vehicle_stop`, `charge_sessions_pct_source_required` →
+`supercharger_sessions_pct_source_required`, `charge_sessions_pkey` →
+`supercharger_sessions_pkey`, and `charge_sessions_account_session_unique` →
+`supercharger_sessions_account_session_unique`. Postgres renames none of these automatically,
+so leaving any behind would print the retired name in a duplicate-key or check-violation
+error against a table the rest of the system calls `supercharger_sessions`.
 The sqlc-generated Go model SHALL be renamed from `ChargeSession` to `SuperchargerSession`
 with an identical field list — this is a deliberate exception to this module's general
 schema-move-preserves-Go-names rule, because the rename's whole purpose is to retire the
@@ -75,9 +77,10 @@ change to either query's parameters, WHERE-scoping, or column effects.
   does not exist
 - **AND** `supercharger_sessions_pct_source_required` exists with the identical CHECK
   expression `charge_sessions_pct_source_required` had, which no longer exists
-- **AND** the primary key constraint and `UNIQUE (account_id, session_id)` constraint still
-  exist, under their original `charge_sessions_pkey` / `charge_sessions_account_session_unique`
-  names (per this requirement's deliberately narrower rename scope)
+- **AND** the primary key constraint is named `supercharger_sessions_pkey` and still covers
+  `id`, and the `UNIQUE (account_id, session_id)` constraint is named
+  `supercharger_sessions_account_session_unique` — both preserving their prior definitions
+- **AND** no constraint or index on the table has a name beginning `charge_sessions`
 
 #### Scenario: The renamed Go type carries an identical field set
 - **GIVEN** `make sqlc` has regenerated `internal/charging/db/models.go` against this tier's

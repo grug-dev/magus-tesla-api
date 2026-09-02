@@ -6,14 +6,17 @@
 > `ChargeSession` becomes `SuperchargerSession` (D5c — NOT frozen, unlike `ManualChargeEntry`).
 > The 2 sqlc query names `MirrorChargeSession`/`VerifyChargeSession` become
 > `MirrorSuperchargerSession`/`VerifySuperchargerSession`. The index
-> `idx_charge_sessions_vehicle_stop` and the constraint `charge_sessions_pct_source_required`
-> are renamed; `charge_sessions_pkey` and `charge_sessions_account_session_unique` are
-> deliberately NOT renamed (design.md "Rename scope" — flagged for the owner). D9's
+> **All FOUR** catalog objects carrying the old table name are renamed (roadmap **D16**,
+> owner-confirmed): `idx_charge_sessions_vehicle_stop`,
+> `charge_sessions_pct_source_required`, `charge_sessions_pkey` and
+> `charge_sessions_account_session_unique` — see design.md "Rename scope (D16)". D9's
 > raw-SQL-in-tests debt is schema/name-qualified (design.md's Test Contract point 4) —
 > confirmed 32 statements across 10 files, matching the roadmap's own re-measured figure. D12
 > checked and NOT present in this module. **D8's `vehicle_metric_watermarks` CHECK
-> rewrite + DELETE is OUT OF THIS CHANGE'S SANDBOX** — design.md specifies it in full but it
-> is analytics-owned work; see T-D8 below, which this change cannot check off itself.
+> rewrite + DELETE is NOT PART OF THIS CHANGE AT ALL** — roadmap **D15** (owner-confirmed)
+> split it into its own analytics tier 3b, `RM39-analytics-fix-watermark-vocabulary`.
+> design.md retains the analysis as hand-off context only. No task here implements it, and no
+> worker on this change may write to `internal/analytics/` or to `vehicle_metric_watermarks`.
 >
 > **Dependencies / parallelism:**
 > - T1 (goose migration) has no dependencies. Independent of T2 (disjoint files) and MAY run
@@ -29,11 +32,10 @@
 >   depends on T3 (needs the regenerated function/params names to compile against).
 > - T4 (docs: `internal/charging/AGENTS.md`, `charging.go`'s RM31 D8 comment, KB sweep)
 >   depends on T1 only, parallel-ok with T2/T2b/T3/T3b.
-> - T-D8 (watermark CHECK+DELETE, analytics-owned) depends on T1 having landed (the rename
->   must exist before the vocabulary collision is real) but is NOT implementable inside this
->   change's sandbox (`internal/charging/` + this artifacts folder). Tracked here so it is not
->   lost; not counted toward this change's own completion.
-> - T5 (verification) depends on T1–T4 (NOT T-D8 — see T-D8's own acceptance note).
+> - The watermark CHECK+DELETE is **not a task here**. It is roadmap tier 3b
+>   (`RM39-analytics-fix-watermark-vocabulary`), a separate change that `depends_on` this one.
+>   See "Hand-off to tier 3b" at the end of this file.
+> - T5 (verification) depends on T1–T4.
 >
 > **Leader-integrated step:** run `make sqlc` after T1 and T2 both land (T3.2). Do not
 > hand-edit `internal/charging/db/models.go` or `db/query.sql.go` — both are sqlc-generated.
@@ -57,8 +59,12 @@
       `to_regclass('charging.manual_charge_entries')` both return non-NULL;
       `to_regclass('public.charge_sessions')`, `to_regclass('public.manual_charge_entries')`,
       `to_regclass('charging.charge_sessions')` all return NULL (design.md Test Contract
-      points 2–3). `goose down` (one step) reverses fully, including the index/constraint
-      names reverting.
+      points 2–3). ALSO assert the D16 four-object rename landed:
+      `SELECT conname FROM pg_constraint WHERE conrelid = 'charging.supercharger_sessions'::regclass`
+      returns `supercharger_sessions_pkey`,
+      `supercharger_sessions_account_session_unique` and
+      `supercharger_sessions_pct_source_required`, and NO name starting `charge_sessions`.
+      `goose down` (one step) reverses fully, including all four names reverting.
 
 ## T2. Schema-qualify `query.sql` + rename 2 query names (`internal/charging/db/query.sql`) — no dependencies, parallel-ok with T1/T2b
 
@@ -213,40 +219,44 @@
         including `idx_charge_sessions_vehicle_stop` in `supercharger-stats-read.md` line 94.
       - `kkpa/context/entities/vehicle-metrics/guide.md` — `charge_sessions` mentioned as
         analytics' Supercharger read source AND as the watermark vocabulary value; this
-        file's watermark-vocabulary line (pre-edit line 61) is entangled with the D8 cleanup
-        (T-D8, analytics-owned) — coordinate rather than edit unilaterally, since the correct
-        end-state string depends on whether/when T-D8 lands.
+        file's watermark-vocabulary line (pre-edit line 61) belongs to tier 3b (D15) —
+        LEAVE IT UNEDITED and record that you did, since the correct end-state string is the
+        one tier 3b writes. Edit only the charging-side facts in this file.
       - **Out of this module's sandbox, found but NOT this change's to edit:**
         `internal/analytics/db_integration_test.go:496` has a comment mentioning
-        `charge_sessions_pct_source_required` — analytics' own file; flag for whoever
-        implements T-D8.
+        `charge_sessions_pct_source_required` — analytics' own file; handed off to tier 3b
+        (see "Hand-off to tier 3b").
       Acceptance: every file in this list is either edited (charging-side facts only) or
-      explicitly left with a reason recorded (KB entanglement with T-D8, or telemetry-side
+      explicitly left with a reason recorded (deferred to tier 3b, or telemetry-side
       D5a scope), matching this design phase's own findings — do not silently skip one.
 
-## T-D8. `vehicle_metric_watermarks` CHECK rewrite + DELETE — OUT OF THIS CHANGE'S SANDBOX, analytics-owned
+## Hand-off to tier 3b — NOT a task in this change
 
-- [ ] T-D8.1 **Not implementable by this change.** design.md's "D8 — Boundary" section fully
-      specifies the migration SQL (Up/Down) this needs and the companion one-line change to
-      `internal/analytics/recalculate.go:44` (`sourceChargeSessions = "charge_sessions"` →
-      `"supercharger_sessions"`). Both touch `internal/analytics/`, which is outside this
-      change's granted sandbox (`internal/charging/` + this artifacts folder). This task
-      exists so the requirement is not lost — it is NOT counted toward this change's own
-      completion, and `openspec validate --strict` for THIS change does not depend on it.
-      **Leader decision needed:** either open a small analytics-owned companion
-      change/tier sequenced after this one, or grant this change (or a follow-up) an explicit
-      sandbox exception for the one migration file plus the one-line Go edit. Landing this
-      after tier 3 (rather than in the same wave) is safe — see design.md's "Consequence for
-      this change" paragraph for why nothing breaks in the interim.
+The watermark cleanup this change's analysis uncovered is **roadmap tier 3b**,
+`RM39-analytics-fix-watermark-vocabulary`, owned by `internal/analytics` and sequenced after
+this tier (roadmap D15, owner-confirmed). Nothing below is checked off here; it is written down
+so tier 3b starts from a finished hand-off rather than a rediscovery:
 
-## T5. Verification — depends on T1–T4 (not T-D8)
+- design.md's "D8 — Boundary" section holds the full Up/Down migration SQL, the reasoning for
+  the DELETE, and the era-ambiguity argument.
+- `internal/analytics/recalculate.go:44` — `sourceChargeSessions = "charge_sessions"` must
+  become `"supercharger_sessions"`.
+- `internal/analytics/db_integration_test.go:496` — a comment mentioning
+  `charge_sessions_pct_source_required`; now `supercharger_sessions_pct_source_required`.
+- `kkpa/context/entities/vehicle-metrics/guide.md`'s watermark-vocabulary line (see T4.x) is
+  left to tier 3b for the same reason: the correct end-state string is the one tier 3b writes.
+
+**No worker on this change may edit any of these.** They are listed as evidence for the
+reviewer that the split was deliberate, not an omission.
+
+## T5. Verification — depends on T1–T4
 
 - [ ] T5.1 `go build ./...`, `go vet ./...`, `gofmt -l` pass repo-wide (Claude-run).
 - [ ] T5.2 Boundary check: `internal/charging` still imports only what
       `internal/charging/AGENTS.md`'s Allowed Imports section already permits; no file
       outside `internal/charging` (and the granted `sqlc.yaml` charging entry +
       `openspec/changes/RM39-charging-move-to-own-schema/` artifacts folder) was touched by
-      this change's own tasks (T1–T4). T-D8's recommendation is documentation only — it
+      this change's own tasks (T1–T4). The tier-3b hand-off is documentation only — it
       touches no file.
 - [ ] T5.3 Confirm no other module's `sqlc.yaml` entry, migrations directory, or `query.sql`
       was touched by T1–T4 — this tier's own sandbox is scoped to the charging entry only.
@@ -258,4 +268,4 @@
       (`Test-Execution-Policy`); the owner's run is what turns it from
       `awaiting-user-verification` into `done`.
 - [ ] T5.6 `openspec validate RM39-charging-move-to-own-schema --strict` passes and every
-      checkbox above (T1–T4; T-D8 excluded per its own note) reflects real completion.
+      checkbox above (T1–T4; the tier-3b hand-off is not a checkbox) reflects real completion.

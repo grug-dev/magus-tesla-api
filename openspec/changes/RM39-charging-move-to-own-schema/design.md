@@ -57,16 +57,18 @@ DDL event, not a recurring read/write path.
 - `20260823000001_add_charge_sessions.sql` (the historic migration with the
   `public.supercharger_sessions` backfill read) is **not edited** — see "Do NOT touch" below.
   Its cross-module read is D6's problem, owned by a separate ticket, not this tier.
-- `charge_sessions_pkey` (the implicit PK constraint name) and
-  `charge_sessions_account_session_unique` (the UNIQUE constraint) are **not renamed** — see
-  "Rename scope" below. This is a deliberate, narrower scope than "rename everything that
-  says charge_sessions," and it is flagged as an open question for the owner, not silently
-  decided.
+- Nothing beyond the **four** catalog objects listed in "Rename scope" is renamed. Roadmap
+  **D16** (owner-confirmed 2026-09-02) expanded this change from two objects to four: the
+  index, the CHECK, the primary key and the unique constraint all follow the table's new
+  name. This design originally proposed the narrower two-object scope; the owner rejected it.
 - No `db-reset`. D4/D1 deliberately avoid needing one; the roadmap's stopper gate (an
   owner-run reset) sits immediately AFTER this tier.
 - goose itself is untouched. `public.goose_db_version` stays exactly where it is (D4).
-- The `vehicle_metric_watermarks` CHECK rewrite + DELETE (D8) is specified here in full but
-  is **not implemented by this change** — see "D8 — Boundary."
+- The `vehicle_metric_watermarks` CHECK rewrite + DELETE (roadmap D8) is **out of this
+  change entirely**. Roadmap **D15** (owner-confirmed 2026-09-02) moved it into its own
+  analytics-owned tier, `RM39-analytics-fix-watermark-vocabulary` (roadmap tier 3b), which
+  `depends_on` this one. It is described below only as downstream context — see
+  "D8 — Boundary."
 
 ## Decisions
 
@@ -104,9 +106,9 @@ ALTER TABLE manual_charge_entries SET SCHEMA charging;
 
 ALTER TABLE charging.charge_sessions RENAME TO supercharger_sessions;
 
--- Rename ONLY the two catalog objects the roadmap names explicitly (see design.md "Rename
--- scope" — charge_sessions_pkey and charge_sessions_account_session_unique are
--- deliberately left as-is).
+-- Rename ALL FOUR catalog objects that still carry the old table name (roadmap D16 —
+-- see design.md "Rename scope"). Postgres does NOT auto-rename the index, the CHECK, the
+-- implicit primary key, or the unique constraint when the table is renamed.
 ALTER INDEX charging.idx_charge_sessions_vehicle_stop
     RENAME TO idx_supercharger_sessions_vehicle_stop;
 
@@ -114,11 +116,27 @@ ALTER TABLE charging.supercharger_sessions
     RENAME CONSTRAINT charge_sessions_pct_source_required
     TO supercharger_sessions_pct_source_required;
 
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT charge_sessions_pkey
+    TO supercharger_sessions_pkey;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT charge_sessions_account_session_unique
+    TO supercharger_sessions_account_session_unique;
+
 -- +goose Down
 -- Reverse in the EXACT opposite order of Up (D7's ordering logic in reverse): undo the
 -- constraint/index renames, undo the table rename, THEN SET SCHEMA public for both tables,
 -- THEN drop the now-empty schema. A non-empty schema cannot be dropped without CASCADE, and
 -- this ordering means CASCADE is never needed.
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT supercharger_sessions_account_session_unique
+    TO charge_sessions_account_session_unique;
+
+ALTER TABLE charging.supercharger_sessions
+    RENAME CONSTRAINT supercharger_sessions_pkey
+    TO charge_sessions_pkey;
+
 ALTER TABLE charging.supercharger_sessions
     RENAME CONSTRAINT supercharger_sessions_pct_source_required
     TO charge_sessions_pct_source_required;
@@ -229,34 +247,46 @@ error if missed, not a silent drift, unlike the `gen.go.rename` key-typo failure
 `LockSessionForVerification` has no "ChargeSession" in its name and is unaffected by this
 decision — only its `FROM charge_sessions` line needs D2's schema+rename qualification.
 
-### Rename scope — only the two catalog objects the roadmap names, not every `charge_sessions_*` name
+### Rename scope (D16) — all FOUR catalog objects that carry the old table name
 
-The roadmap's tier-3 row names exactly two objects to rename: the index
-(`idx_charge_sessions_vehicle_stop`) and the constraint (`charge_sessions_pct_source_required`).
-It does **not** mention `charge_sessions_pkey` (the implicit PK constraint, auto-named by
-Postgres at `CREATE TABLE` time and NOT auto-renamed by a later `ALTER TABLE … RENAME TO`) or
-`charge_sessions_account_session_unique` (the `UNIQUE (account_id, session_id)` constraint).
+The roadmap's tier-3 row originally named only two objects: the index
+(`idx_charge_sessions_vehicle_stop`) and the CHECK constraint
+(`charge_sessions_pct_source_required`). This design first proposed that narrower scope and
+flagged the gap for the owner. **The owner rejected it (roadmap D16, 2026-09-02).** Scope is
+now all four:
 
-This design **follows the roadmap's explicit, narrower list** rather than generalizing to "rename
-every catalog object whose name contains `charge_sessions`." Two honest points against that
-choice, surfaced rather than smoothed over:
+| Object | Kind | New name |
+|---|---|---|
+| `idx_charge_sessions_vehicle_stop` | index | `idx_supercharger_sessions_vehicle_stop` |
+| `charge_sessions_pct_source_required` | CHECK | `supercharger_sessions_pct_source_required` |
+| `charge_sessions_pkey` | primary key | `supercharger_sessions_pkey` |
+| `charge_sessions_account_session_unique` | UNIQUE `(account_id, session_id)` | `supercharger_sessions_account_session_unique` |
 
-- A duplicate-key violation on `charge_sessions_account_session_unique` will still show that
-  name in a Postgres error / log line after this migration, next to a table now called
-  `supercharger_sessions` — a small, visible inconsistency the same rename that fixed the
-  table and index names does not fix here.
-- There is no technical reason NOT to rename these two as well (`ALTER TABLE … RENAME
-  CONSTRAINT … TO …` — same mechanism already used for the CHECK constraint); the cost is
-  two more statements in the same migration.
+**Why the owner expanded it.** Postgres auto-renames none of these when a table is renamed.
+Leaving the last two behind means a duplicate-key violation prints
+`charge_sessions_account_session_unique` — or `charge_sessions_pkey` — in the error text,
+against a table the rest of the system now calls `supercharger_sessions`. That is precisely
+the stale-vocabulary confusion D5b exists to remove, preserved in the one place a developer
+reads under pressure: an error message.
 
-**Recommendation for the owner/leader:** either accept this narrower scope as final (the
-roadmap's own list, taken literally), or expand the migration in this same change to rename
-`charge_sessions_pkey` → `supercharger_sessions_pkey` and
-`charge_sessions_account_session_unique` → `supercharger_sessions_account_session_unique` too,
-for full consistency. This worker did not expand scope unilaterally past what the roadmap
-named — see the Test Contract's explicit assertion on this point.
+**Cost.** Two extra `ALTER TABLE … RENAME CONSTRAINT` statements in Up and two in Down — the
+same catalog-only mechanism already used for the CHECK. No table rewrite, no lock beyond the
+`ACCESS EXCLUSIVE` the migration already takes, no data touched.
+
+**Rejected: renaming by generalization.** The migration names all four explicitly rather than
+looping over `pg_constraint` for names matching `charge_sessions%`. A literal list fails loudly
+if an object is missing; a pattern loop silently renames whatever it happens to match.
 
 ### D8 — Boundary: the watermark CHECK rewrite + DELETE is analytics-owned work, not this change's
+
+> **RESOLVED — roadmap D15 (owner-confirmed 2026-09-02).** This section's recommendation was
+> accepted. The watermark CHECK rewrite + DELETE and the `sourceChargeSessions` update are
+> **no longer part of this change in any form**. They are their own roadmap tier 3b,
+> `RM39-analytics-fix-watermark-vocabulary`, owned by `internal/analytics` and depending on
+> this tier. Everything below is retained as the analysis that produced that split, and as the
+> hand-off context tier 3b starts from. **No task in this change implements any of it**, and
+> no worker on this change may write to `internal/analytics/` or to
+> `vehicle_metric_watermarks`.
 
 **The collision, restated precisely.** Before this tier, `analytics.vehicle_metric_watermarks`'s
 CHECK constraint (rewritten once already by `20260828000001`) allows
@@ -458,8 +488,8 @@ by OID — every remaining constraint, the renamed index, the sequence backing
 
 | Object | Type | Preserved because |
 |---|---|---|
-| `charge_sessions`'s PK (unnamed change) | PK on `id` | catalog-only; name unchanged (see "Rename scope") |
-| `charge_sessions_account_session_unique` (unnamed change) | UNIQUE `(account_id, session_id)` | catalog-only; name unchanged (see "Rename scope") |
+| `charge_sessions_pkey` → `supercharger_sessions_pkey` | PK on `id` | catalog-only rename (D16); same OID, same backing index, same uniqueness enforcement |
+| `charge_sessions_account_session_unique` → `supercharger_sessions_account_session_unique` | UNIQUE `(account_id, session_id)` | catalog-only rename (D16); same OID, same backing index, same uniqueness enforcement |
 | `idx_charge_sessions_vehicle_stop` → `idx_supercharger_sessions_vehicle_stop` | index on `(account_id, tesla_id, charge_stop_date_time)` | catalog-only rename; same physical index, same column order, same scan behavior |
 | `charge_sessions_pct_source_required` → `supercharger_sessions_pct_source_required` | CHECK | catalog-only rename; identical CHECK expression |
 | `inferred_capacity_kwh_calc`'s `GENERATED ALWAYS AS (...) STORED` definition | generated column | catalog-only; the generation expression references columns by attnum, not by table/schema name |
@@ -538,10 +568,10 @@ change's own migration will by then be the new highest.
    ```sql
    SELECT conname FROM pg_constraint WHERE conrelid = 'charging.supercharger_sessions'::regclass;
    ```
-   Expected: includes `supercharger_sessions_pct_source_required`; per this design's "Rename
-   scope" decision, ALSO expected (unchanged) — `charge_sessions_pkey`,
-   `charge_sessions_account_session_unique`. If the owner instead expands scope per this
-   design's recommendation, this expectation flips for those two names.
+   Expected (D16 — all four renamed): the set contains
+   `supercharger_sessions_pct_source_required`, `supercharger_sessions_pkey` and
+   `supercharger_sessions_account_session_unique`, and contains **no** name beginning
+   `charge_sessions`. A single `conname LIKE 'charge\\_sessions%'` match is a failure.
 
 4. **`internal/charging`'s existing test suite — zero assertion changes EXCEPT the one
    documented EXPLAIN-text case.** Every existing test in `db_entry_status_integration_test.go`,
