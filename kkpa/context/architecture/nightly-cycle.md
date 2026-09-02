@@ -133,5 +133,5 @@ so the link above stays valid.
 - Features: (none)
 - Use cases: (none — the cycle has no external HTTP trigger; the tier-8 manual-rerun API is parked)
 - Workflows: `workflows/manual-charge-crud.md` (the other trigger of `Recalculator`, on user write), `workflows/supercharger-stats-read.md` (the page that reads the `charge_sessions` mirror this cycle writes)
-- Architecture: `architecture/telemetry-data-hub.md` (telemetry's own consumer map)
+- Architecture: `architecture/telemetry-ingest-only.md` (telemetry's own consumer map)
 - Entities: `entities/vehicle-metrics/guide.md` (what step 3 derives and stores)

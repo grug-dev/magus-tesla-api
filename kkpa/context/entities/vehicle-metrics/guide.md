@@ -48,7 +48,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 | File | Role |
 |---|---|
-| `internal/telemetry` (`Reader`) | `vehicle_snapshots` reads — see `architecture/telemetry-data-hub.md`. |
+| `internal/telemetry` (`Reader`) | `vehicle_snapshots` reads — see `architecture/telemetry-ingest-only.md`. |
 | `internal/charging` (`Reader`, `SuperchargerSessionAnalyticsReader`) | `manual_charge_entries` reads + the Supercharger session reads over `charge_sessions` (RM31 tier 3 moved the Supercharger input here from `internal/telemetry`). |
 
 ## How maintenance works
@@ -93,5 +93,5 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 ## Related KB
 
-- Architecture: `architecture/telemetry-data-hub.md` (the snapshot/supercharger sources this table derives from)
+- Architecture: `architecture/telemetry-ingest-only.md` (the snapshot/supercharger sources this table derives from)
 - Workflows: `workflows/manual-charge-crud.md` (the post-write `Recalculate` trigger), `workflows/supercharger-stats-read.md`

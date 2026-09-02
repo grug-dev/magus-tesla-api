@@ -1,11 +1,32 @@
-# Telemetry as the data hub — consumer map — maintenance guide
+# Telemetry is ingest-only — consumer map — maintenance guide
 
 > The map for changing this concept without re-scanning the codebase. Paths + symbols only;
 > for current signatures/callers/callees, ask CodeGraph. Pin to file paths, never line numbers.
 
+> **PENDING — RM39 renames two of the tables below.** `telemetry.supercharger_sessions` →
+> `supercharger_history` (D5a) and `charging.charge_sessions` → `charging.supercharger_sessions`
+> (D5b). **Not yet applied** — every name in this file is the live one. RM39 tier 3 owns
+> updating this guide. See `openspec/roadmaps/RM39-schema-per-module.md`.
+
+## What this module is (read this before the map)
+
+`internal/telemetry` **fetches Tesla Fleet API data and writes what it fetched. Nothing more.**
+It is a *source*, not a hub — it holds no read model, serves no page, and answers no
+user-facing request. Anything the app shows a user comes from a module that mirrors or derives
+telemetry's rows, never from telemetry itself.
+
+| Module | Role | Who may read it |
+|---|---|---|
+| `telemetry` | **Ingest only.** Nightly Fleet API collection → `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs`. | `internal/analytics` (snapshots only) and `internal/app` (the Supercharger mirror step). **Never `internal/gateway`.** |
+| `charging` | Mirrors telemetry's Supercharger rows into `charge_sessions`, **and originates** `manual_charge_entries` (a human types those). Part mirror, part owner — not a pure mirror. | gateway, analytics |
+| `analytics` | Derived read model. Recomputes `vehicle_metrics` from three independent watermark sources (`vehicle_snapshots`, `charge_sessions`, `manual_charge_entries`). | gateway |
+
+The gateway therefore reads **`charging` and `analytics` only**. That is enforced, not merely
+documented — see the boundary gotcha below.
+
 ## Glossary
 
-- **Known as:** `telemetry module`, `vehicle snapshots`, `nightly collection`, `telemetry hub`, `who reads telemetry`, `poll run`, `run summary`
+- **Known as:** `telemetry module`, `vehicle snapshots`, `nightly collection`, `who reads telemetry`, `telemetry vs analytics`, `can the gateway read telemetry`, `ingest module`, `poll run`, `run summary`
 - **Internal name:** `internal/telemetry` — ports `telemetry.Reader`, `telemetry.SuperchargerReader` (reads), `telemetry.Collector` (write), `telemetry.RunWriter` (run summary write) — tables `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs`
 
 ## Component map
@@ -26,12 +47,8 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 | File | Port calls | Use case |
 |---|---|---|
-| `internal/gateway/gateway.go` + `handlers/handlers.go` | `Deps.TelemetryReader` (`telemetry.Reader`) | Wiring: `cmd/web/main.go` injects `telemetry.NewReader(pool)`. |
-| `internal/gateway/handlers/handlers.go` (`navHeaderFor`) | `LatestSnapshotsByAccount` | Nav-header battery %/status + dashboard vehicle cards. |
-| `internal/gateway/handlers/history.go` | `SnapshotsByVehicleBetween` | Dashboard history fragment — battery-level chart (odometer chart moved to analytics, RM29 D5). |
-| `internal/gateway/handlers/charges.go` (`buildChargesPage`) | `LatestSnapshotsByAccount` | Create-form `start_battery_pct` suggestion. |
-| ~~gateway supercharger page~~ (REMOVED by RM30/MAG-30) | — | `/supercharger-stats` now reads the charging mirror via `charging.SessionReader` (`charge_sessions`) — see `workflows/supercharger-stats-read.md`. |
-| `internal/analytics/analytics.go` + `reader.go` | `SnapshotsByVehicleSince` | Derived metrics: `ConsumedByDay`, `OdometerDeltaByDay` over `vehicle_metrics`. Telemetry supplies **snapshots only** — `NewReader`'s `supercharger` argument is `charging.SuperchargerSessionAnalyticsReader`, not a telemetry port (**changed by RM31**). |
+| ~~`internal/gateway/**`~~ — **NO LONGER A CONSUMER, and now forbidden** | — | The gateway's four snapshot call sites were repointed onto `analytics.Reader` by **RM38** (`LatestMetricsByAccount` — dashboard, vehicle cards, nav header, charges battery suggestion) and **RM40** (`BatteryLevelByDay` — the history battery chart). The supercharger page had already moved to `charging.SessionReader` in RM30. `make boundary-guard` now fails the build on any `internal/telemetry` import under `internal/gateway/`, with **zero** `// boundary:allow:` escape hatches. See the boundary gotcha below. |
+| `internal/analytics/analytics.go` + `reader.go` | `SnapshotsByVehicleSince` | Derived metrics: `ConsumedByDay`, `OdometerDeltaByDay` over `vehicle_metrics`. Telemetry supplies **snapshots only** — `NewReader`'s `supercharger` argument is `charging.SuperchargerSessionAnalyticsReader`, not a telemetry port (**changed by RM31**). Verified: no file under `internal/analytics/` names `telemetry.SuperchargerReader`. |
 | `internal/analytics/recalculate.go` | `SnapshotPrecedingDay`, `SnapshotsByVehicleUpdatedSince`, `SnapshotsByVehicleBetween` | `Recalculator` re-derives `vehicle_metrics` rows (nightly + after manual-charge writes — see `entities/vehicle-metrics/guide.md`). **Snapshot reads only since RM31** — its Supercharger source moved to `charging.SuperchargerSessionAnalyticsReader` over `charge_sessions`. |
 | `internal/app/processor.go` | `SuperchargerSessionsByAccount` (limit 0 = every session) | Step 2 of `ProcessVehicleData`: mirrors Supercharger sessions into `charging.charge_sessions` via `charging.SessionWriter` — what the Supercharger Stats page reads (RM30) **and, since RM31, what `internal/analytics` derives from**. This is now the **only remaining caller of `telemetry.SuperchargerReader` repo-wide**. See `architecture/nightly-cycle.md`. |
 
@@ -41,7 +58,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 |---|---|
 | `internal/app/scheduler.go` | Daily timer; calls `Processor.ProcessVehicleData` (the scheduler is a peer adapter, NOT inside the Processor). |
 | `cmd/poller/main.go` | Constructs `telemetry.NewService(...)`, `app.NewScheduler(...)`; thin composition only. |
-| `cmd/web/main.go` | Injects the two telemetry readers into `gateway.Deps` (plus fresh copies into analytics' reader/recalculator constructors). |
+| `cmd/web/main.go` | Builds **one** `telemetry.NewReader(pool)` and passes it to `analytics.NewReader` / `analytics.NewRecalculator` — **never into `gateway.Deps`**. Its own comment at the call site says "gateway never calls that". |
 
 ## How maintenance works
 
@@ -62,6 +79,9 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Same-day captures dedupe** — `UNIQUE (account_id, tesla_id, captured_date)`, latest wins; repeated same-day collection is not duplicate data. _Source: `telemetry-dedupe-daily-snapshots` design D1/D2._
 - **The scheduler lives in `internal/app`, not telemetry** (RM29 RD8) — `Processor` never consults a clock; `Scheduler` is a peer adapter holding a `Processor`. _Source: `internal/app/AGENTS.md`._
 - **`internal/app` owns NO data** — `poll_attempts` (incl. `run_id`/`triggered_by`) stays telemetry's. _Source: `internal/app/AGENTS.md` → Data Ownership._
+- **The gateway may not depend on `telemetry` AT ALL — not even `telemetry.Reader`.** Stronger than the usual "ports only" rule: the whole module is outside the gateway's vocabulary, and `telemetry.*` types must not appear in gateway code. `make boundary-guard` enforces it repo-wide — it **fails** on a non-test file, warns on a `_test.go` — and the gateway carries **zero** `// boundary:allow:` escape hatches. A new `internal/telemetry` import in the gateway is a **regression, not known debt**. Route the read through `analytics` or `charging` instead. _Source: `ai/architecture.md` §"Exception: the gateway may not depend on `telemetry` at all"; `internal/gateway/AGENTS.md`._
+- **Telemetry is a source, not a hub — it serves no user-facing read.** If a page needs telemetry data, the correct move is to add it to `analytics`' derived model or `charging`'s mirror, never to open a telemetry port to the gateway. RM38 and RM40 exist precisely because that shortcut was taken once and had to be undone. _Source: `ai/architecture.md`; roadmaps RM38/RM40._
+- **`charging` is NOT a pure mirror.** It mirrors telemetry's Supercharger rows into `charge_sessions`, but `manual_charge_entries` originates in the module — a human types those, and telemetry never sees them. Treating `charging` as read-only-derived will lose the manual half. _Source: `workflows/manual-charge-crud.md`; `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql` header._
 
 - **A poll run is recorded exactly once, and a duplicate is an error — never an upsert.** A second summary for a run identity that already has one is rejected and leaves the first record unchanged; recording a run twice is never a legitimate outcome. _Source: spec telemetry — Requirement: Run-Level Poll Summary Storage._
 - **A run that fails before touching a single vehicle still records a summary.** Its account and vehicle counts are all zero, but its start/finish times and duration are real. This is the whole point of the table: before it, a failed run left no trace at all, because zero `poll_attempts` rows were written. _Source: spec telemetry — Requirement: Run-Level Poll Summary Storage._

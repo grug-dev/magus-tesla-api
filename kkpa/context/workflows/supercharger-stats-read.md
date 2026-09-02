@@ -164,7 +164,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 - Features: (none yet)
 - Workflows: `workflows/manual-charge-crud.md` (a sibling user-write path — full Create/Update/Delete over `manual_charge_entries`, vs. this concept's single narrow correction of two fields over an existing `charge_sessions` row, with no Create and no Delete)
-- Architecture: `architecture/telemetry-data-hub.md` (the raw `supercharger_sessions` upstream + the nightly mirror into `charge_sessions`)
+- Architecture: `architecture/telemetry-ingest-only.md` (the raw `supercharger_sessions` upstream + the nightly mirror into `charge_sessions`)
 - Architecture: `architecture/charge-record-mutation.md` — the contract this concept's battery-percentage write shares with the manual charge write path (affected period → centralized recalculation → persist → gaps), and the documented divergences between the two implementations
 - Use cases: `use-case/charging/verify-session-battery.md`
 - Input ports: `input-port/charging/supercharger-stats.md`

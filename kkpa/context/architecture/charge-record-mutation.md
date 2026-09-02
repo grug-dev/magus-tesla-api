@@ -186,4 +186,4 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   `input-port/charging/supercharger-stats.md`
 - Entities: `entities/vehicle-metrics/guide.md`
 - Workflows: `workflows/manual-charge-crud.md`, `workflows/supercharger-stats-read.md`
-- Architecture: `architecture/nightly-cycle.md`, `architecture/telemetry-data-hub.md`
+- Architecture: `architecture/nightly-cycle.md`, `architecture/telemetry-ingest-only.md`
