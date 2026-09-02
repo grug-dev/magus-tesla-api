@@ -92,6 +92,10 @@ sql:
         sql_package: "pgx/v5"
         emit_json_tags: false
         emit_interface: false
+        rename:
+          analytics_charge_gap:               "ChargeGap"
+          analytics_vehicle_metric:            "VehicleMetric"
+          analytics_vehicle_metric_watermark:  "VehicleMetricWatermark"
         overrides:
           - db_type: "uuid"
             go_type:

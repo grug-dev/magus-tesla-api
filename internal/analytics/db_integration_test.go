@@ -91,8 +91,8 @@ func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID
 	t.Helper()
 	t.Cleanup(func() {
 		ctx := context.Background()
-		_, _ = pool.Exec(ctx, "DELETE FROM vehicle_metrics WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metrics WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
 	})
 }
 
@@ -596,7 +596,7 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, t
 		       consumed_pct, flagged, missing_charging_type, created_at, updated_at,
 		       locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
 		       charging_state, charge_limit_soc_pct, captured_at
-		FROM vehicle_metrics
+		FROM analytics.vehicle_metrics
 		WHERE account_id = $1 AND tesla_id = $2 AND metric_date = $3`,
 		accountID, teslaID, dateFrom(metricDate),
 	).Scan(&m.ID, &m.AccountID, &m.TeslaID, &m.MetricDate, &m.BatteryLevelPct,
@@ -623,7 +623,7 @@ func fetchWatermark(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesla
 	t.Helper()
 	var ts pgtype.Timestamptz
 	err := pool.QueryRow(context.Background(),
-		`SELECT source_updated_at FROM vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2 AND source = $3`,
+		`SELECT source_updated_at FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2 AND source = $3`,
 		accountID, teslaID, source,
 	).Scan(&ts)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -773,7 +773,7 @@ func metricsFixtureRM38B(accountID uuid.UUID, teslaID int64) telemetry.Snapshot 
 func seedPreMigrationVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, metricDate time.Time, batteryLevelPct int, odometerKm, batteryRangeKm float64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO vehicle_metrics (
+		INSERT INTO analytics.vehicle_metrics (
 			account_id, tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km, flagged
 		) VALUES ($1, $2, $3, $4, $5, $6, false)`,
 		accountID, teslaID, dateFrom(metricDate), int32(batteryLevelPct), odometerKm, batteryRangeKm,
@@ -1105,7 +1105,7 @@ func TestReconcile_Idempotent(t *testing.T) {
 		t.Fatal("expected a vehicle_snapshots watermark row after the first Reconcile")
 	}
 	var rowCountBefore int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountBefore); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM analytics.vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountBefore); err != nil {
 		t.Fatalf("counting vehicle_metrics rows: %v", err)
 	}
 
@@ -1130,7 +1130,7 @@ func TestReconcile_Idempotent(t *testing.T) {
 		t.Errorf("Reconcile is not idempotent: row changed from %+v to %+v", before, after)
 	}
 	var rowCountAfter int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountAfter); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM analytics.vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountAfter); err != nil {
 		t.Fatalf("counting vehicle_metrics rows: %v", err)
 	}
 	if rowCountAfter != rowCountBefore {

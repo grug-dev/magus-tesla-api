@@ -42,6 +42,7 @@ import (
 	"database/sql"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -67,12 +68,30 @@ const watermarkSourceMigrationVersion int64 = 20260828000001
 // module's own db/migrations directory, against the SAME database
 // newTestPool connects to. See the file-level comment for why this provider
 // is driven exclusively through ApplyVersion, never DownTo/Up.
+//
+// RM39 tier 2 (analytics-move-to-own-schema): this provider replays migration
+// 20260828000001's own Up/Down SQL directly via ApplyVersion, OUT OF the
+// normal chronological order goose otherwise applies migrations in -- it
+// runs AFTER 20260902000002_move_analytics_to_own_schema.sql has already
+// relocated vehicle_metric_watermarks into the `analytics` schema (TestMain's
+// ProvisionDirs applies every migration, including this module's own newest
+// one, before any test in this package runs). 20260828000001's Up/Down SQL
+// references the table by its BARE name -- correctly so; per roadmap D9,
+// historic migration files stay bare and must keep resolving through
+// search_path for their NORMAL (chronological, forward) application, and this
+// file must not edit that migration to "fix" it. So the DSN below adds
+// analytics to THIS connection's own search_path, letting the historic
+// migration's bare `ALTER TABLE vehicle_metric_watermarks` resolve to
+// analytics.vehicle_metric_watermarks wherever it currently lives -- a
+// test-connection-scoped fix, not a migration-file change. `public` stays
+// first so a normal (pre-tier-2) run against a database that has not yet
+// applied 20260902000002 keeps resolving to public exactly as before.
 func newAnalyticsMigrationProvider(t *testing.T) *goose.Provider {
 	t.Helper()
 	if testDSN == "" {
 		t.Skip("no test Postgres: set DATABASE_URL or start Docker to run the DB-backed tests")
 	}
-	db, err := sql.Open("pgx", testDSN)
+	db, err := sql.Open("pgx", withSearchPath(testDSN, "public", "analytics"))
 	if err != nil {
 		t.Fatalf("opening database/sql connection for goose: %v", err)
 	}
@@ -85,6 +104,24 @@ func newAnalyticsMigrationProvider(t *testing.T) *goose.Provider {
 	return provider
 }
 
+// withSearchPath appends a `search_path` query parameter to a postgres:// DSN.
+// pgx treats any connection-string query parameter it does not itself
+// recognize as a Postgres runtime (startup) parameter, so this sets
+// search_path for every new connection opened from the returned DSN --
+// documented pgx behavior (postgres://host/db?search_path=myschema,public),
+// not a hand-rolled protocol detail. Every DSN this module's tests see
+// (DATABASE_URL, or testdb's testcontainers-generated one) is URL-form
+// (`postgres://...`), matching this repo's own convention (.env.example,
+// Makefile) -- see this file's newAnalyticsMigrationProvider doc comment for
+// why only THIS ONE test connection needs it.
+func withSearchPath(dsn string, schemas ...string) string {
+	sep := "?"
+	if strings.Contains(dsn, "?") {
+		sep = "&"
+	}
+	return dsn + sep + "search_path=" + strings.Join(schemas, ",")
+}
+
 // seedWatermarkRow inserts one vehicle_metric_watermarks row directly -- this
 // table has no public writer at all (Recalculator.advanceWatermark is
 // unexported and always computed, never handed an arbitrary
@@ -93,7 +130,7 @@ func newAnalyticsMigrationProvider(t *testing.T) *goose.Provider {
 func seedWatermarkRow(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, source string, sourceUpdatedAt time.Time) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		`INSERT INTO vehicle_metric_watermarks (account_id, tesla_id, source, source_updated_at) VALUES ($1, $2, $3, $4)`,
+		`INSERT INTO analytics.vehicle_metric_watermarks (account_id, tesla_id, source, source_updated_at) VALUES ($1, $2, $3, $4)`,
 		accountID, teslaID, source, pgtype.Timestamptz{Time: sourceUpdatedAt, Valid: true},
 	)
 	if err != nil {
@@ -123,12 +160,12 @@ func countWatermarkRows(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, t
 	var err error
 	if source == "" {
 		err = pool.QueryRow(context.Background(),
-			`SELECT count(*) FROM vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2`,
+			`SELECT count(*) FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2`,
 			accountID, teslaID,
 		).Scan(&n)
 	} else {
 		err = pool.QueryRow(context.Background(),
-			`SELECT count(*) FROM vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2 AND source = $3`,
+			`SELECT count(*) FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2 AND source = $3`,
 			accountID, teslaID, source,
 		).Scan(&n)
 	}
@@ -147,13 +184,13 @@ func insertWatermarkSource(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID
 	t.Helper()
 	ctx := context.Background()
 	_, err := pool.Exec(ctx,
-		`INSERT INTO vehicle_metric_watermarks (account_id, tesla_id, source, source_updated_at) VALUES ($1, $2, $3, now())`,
+		`INSERT INTO analytics.vehicle_metric_watermarks (account_id, tesla_id, source, source_updated_at) VALUES ($1, $2, $3, now())`,
 		accountID, teslaID, source,
 	)
 	if err == nil {
 		t.Cleanup(func() {
 			_, _ = pool.Exec(context.Background(),
-				`DELETE FROM vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2 AND source = $3`,
+				`DELETE FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2 AND source = $3`,
 				accountID, teslaID, source,
 			)
 		})
@@ -193,8 +230,8 @@ func TestMigration_WatermarkSourceVocabulary(t *testing.T) {
 
 	t.Cleanup(func() {
 		cleanupCtx := context.Background()
-		_, _ = pool.Exec(cleanupCtx, `DELETE FROM vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2`, accountID, teslaID)
-		_, _ = pool.Exec(cleanupCtx, `DELETE FROM vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2`, otherAccountID, otherTeslaID)
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2`, accountID, teslaID)
+		_, _ = pool.Exec(cleanupCtx, `DELETE FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2`, otherAccountID, otherTeslaID)
 		// Leave the migration APPLIED for every other test in this package,
 		// regardless of how this test's own assertions turned out.
 		if _, err := provider.ApplyVersion(cleanupCtx, watermarkSourceMigrationVersion, true); err != nil && !errors.Is(err, goose.ErrAlreadyApplied) {

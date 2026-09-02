@@ -249,6 +249,15 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 `RM29-analytics-add-vehicle-metrics` (MAG-26 tier 3). Before that change the answer
 here was "None"; it is no longer.
 
+- **Data lives in the `analytics` Postgres schema** (tables `vehicle_metrics`,
+  `vehicle_metric_watermarks`, `charge_gaps`, moved there by
+  `RM39-analytics-move-to-own-schema`, MAG-31 tier 2), managed from
+  `internal/analytics/db/` (goose migrations + `query.sql`, sqlc-generated code). This
+  is a namespacing change only — no stored data, constraint, or public interface
+  behavior changed. `vehicle_metric_watermarks.source`'s stored string values
+  (`'vehicle_snapshots'`, `'charge_sessions'`, `'manual_charge_entries'`) and its CHECK
+  constraint name OTHER modules' tables by convention — they are data, not table
+  references, and this schema move does not touch them.
 - `internal/analytics/db/` — the module's sqlc package, `analyticsdb`, generated from
   `internal/analytics/db/query.sql` via the `analytics` entry in the root `sqlc.yaml`.
   **No other module may import `analyticsdb`** (`ai/architecture.md` §2), exactly as

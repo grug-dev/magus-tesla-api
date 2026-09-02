@@ -184,6 +184,19 @@ mandatory step (work shape 2b), not a nice-to-have. Migration files are the exce
 bare: they run before the schema move and must keep resolving through `search_path` to
 `public`.
 
+**D12 — A test that replays a historic migration out of order needs a `search_path` on its own
+connection, never a migration edit.** Found in tier 2, not anticipated. `internal/analytics`'s
+`db_watermark_migration_integration_test.go` drives `goose.Provider.ApplyVersion` to replay
+migration `20260828000001` *after* `TestMain` has already applied every migration — including the
+schema move. That historic file names the table bare, correctly so under D1/D9, and must not be
+edited to "fix" it.
+
+The resolution is scoped to the one test connection: open it with
+`?search_path=public,<module>` so the bare name resolves wherever the table currently lives.
+`public` stays first, so the same test still passes against a database that has not yet applied
+the schema move. Tiers 3 and 4 must check their own modules for the same replay pattern before
+assuming it does not apply.
+
 ## Tiers
 
 Status legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, not
@@ -192,7 +205,7 @@ archived) · `[x]` done (archived).
 | Status | Change | Module | Scope | depends_on | Proposal prompt |
 |---|---|---|---|---|---|
 | `[x]` | `RM39-account-move-to-own-schema` | `account` | 3 tables: `accounts`, `tesla_tokens`, `vehicles`. No cross-module reads. The pilot tier — it establishes the pattern every later tier mirrors. | — | Create the OpenSpec change moving `internal/account`'s tables into an `account` schema. ONE new goose migration (`CREATE SCHEMA` + `ALTER TABLE … SET SCHEMA`), schema-qualify every table reference in `internal/account/db/query.sql`, and add `gen.go.rename` entries to `sqlc.yaml` so `Account`, `TeslaToken` and `Vehicle` keep their exact current names. Verify the generated `models.go` type names — a wrong rename key fails silently with exit 0. Follow D1–D4. The renames (D5a/D5b/D5c) do not touch this module. |
-| `[ ]` | `RM39-analytics-move-to-own-schema` | `analytics` | 3 tables: `vehicle_metrics`, `vehicle_metric_watermarks`, `charge_gaps`. Its `vehicle_snapshots` / `supercharger_sessions` mentions are watermark **string values** and comments, not table references — they must NOT be changed. | 1 | Mirror tier 1 for `internal/analytics`. Preserve `ChargeGap`, `VehicleMetric`, `VehicleMetricWatermark`. Take care: `vehicle_metric_watermarks.source` holds the literal strings `'vehicle_snapshots'`, `'supercharger_sessions'`, `'manual_charge_entries'` — these are data, and a CHECK constraint depends on them. Do not schema-qualify them. Note for later: tier 3 rewrites that CHECK and deletes these rows under D8 — leave both alone here. |
+| `[~]` | `RM39-analytics-move-to-own-schema` | `analytics` | 3 tables: `vehicle_metrics`, `vehicle_metric_watermarks`, `charge_gaps`. Its `vehicle_snapshots` / `supercharger_sessions` mentions are watermark **string values** and comments, not table references — they must NOT be changed. | 1 | Mirror tier 1 for `internal/analytics`. Preserve `ChargeGap`, `VehicleMetric`, `VehicleMetricWatermark`. Take care: `vehicle_metric_watermarks.source` holds the literal strings `'vehicle_snapshots'`, `'supercharger_sessions'`, `'manual_charge_entries'` — these are data, and a CHECK constraint depends on them. Do not schema-qualify them. Note for later: tier 3 rewrites that CHECK and deletes these rows under D8 — leave both alone here. |
 | `[ ]` | `RM39-charging-move-to-own-schema` | `charging` | 2 tables: `charge_sessions`, `manual_charge_entries`. **Also renames `charge_sessions` → `supercharger_sessions` (D5b).** Its backfill migration still reads `public.supercharger_sessions` and still works here, because `telemetry` has not moved yet. | 1 | Mirror tier 1 for `internal/charging`, then apply D5b. **Statement order inside the one migration is mandatory (D7): CREATE SCHEMA → SET SCHEMA → RENAME TO.** Renaming before the schema move collides with telemetry's still-unmoved table. Rename the db model `ChargeSession` → `SuperchargerSession` (D5c), the 2 sqlc query names (`MirrorChargeSession`, `VerifyChargeSession`), the index `idx_charge_sessions_vehicle_stop` and the constraint `charge_sessions_pct_source_required`. Preserve `ManualChargeEntry`. Delete the affected `vehicle_metric_watermarks` rows per D8. Update the RM31 D8 comment on `SuperchargerSessionAnalyticsReader` — its "deliberate divergence" note is no longer a divergence. Do NOT touch `20260823000001_add_charge_sessions.sql` — its cross-module read is tier 4's problem and is owned by a separate boundary ticket (D6). |
 | `[ ]` | **— STOPPER GATE: owner resets the database —** | — | Not a change and not code. A hard stop after tier 3: the owner runs `make db-reset` to start testing on fresh data. See §"Stopper gate" below for the exact steps. The pipeline **must not** dispatch tier 4 until the owner confirms this gate is done or explicitly waives it. | 3 | HALT. Report that tiers 1–3 are archived and the gate is now the owner's to run. Do not run `make db-reset` yourself — it is destructive and owner-only per `CLAUDE.md` §"Builds & local checks". |
 | `[ ]` | `RM39-telemetry-move-to-own-schema` | `telemetry` | 4 tables: `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs`. **Also renames `supercharger_sessions` → `supercharger_history` (D5a).** The largest tier and the one that trips the backfill guard. | 1, 3, **+ the external boundary ticket (D6)** | **BLOCKED until the boundary ticket lands.** Mirror tier 1 for `internal/telemetry`, preserving `PollAttempt`, `PollRun`, `VehicleSnapshot`, then apply D5a. Rename the db model and the hand-written domain type `SuperchargerSession` → `SuperchargerHistory` (D5c) — the domain type in `telemetry.go` is NOT sqlc-generated, so no config touches it. Rename the 5 sqlc query names (`UpsertSuperchargerSession`, `SuperchargerSessionsByAccount`/`ByVehicle`/`ByVehicleBetween`/`ByVehicleUpdatedSince`); their `*Params` types follow. **Keep the public port `SuperchargerReader` unchanged here — it is tier 5.** Then reconcile `charging`'s backfill tests A1/A2, which break the moment this tier applies. Re-check `internal/analytics`' `ProvisionDirs` usage too. |
@@ -265,10 +278,16 @@ is unchanged. It copies 0 rows on an empty database, which is the harmless case 
    Claude-runnable signal catches this**. Only the owner's suite does. Find them with:
 
    ```
-   grep -rnE '"[^"]*\b(FROM|INTO|UPDATE|JOIN)[[:space:]]+[a-z_]+' --include='*_test.go' internal/<module>
+   grep -rnE '(FROM|INTO|UPDATE|JOIN)[[:space:]]+(<table1>|<table2>)\b' --include='*_test.go' internal/<module>
    ```
 
-   Known counts, measured on the live tree: `analytics` 5, `charging` ~15, `telemetry` ~19.
+   **Match on the TABLE NAMES, never on an opening quote.** Tier 2 proved why: a
+   quote-anchored pattern (`'"[^"]*\b(FROM|…)'`) sees only double-quoted single-line SQL and
+   silently misses every backtick-delimited multi-line string. It reported 5 statements for
+   `analytics`; the real number was **18**, and it missed one whole test file.
+
+   Counts re-measured with the quote-agnostic pattern: `analytics` 18 (done),
+   `charging` **32** across 10 files, `telemetry` **41** across 7 files.
    **Migration files are the exception — never qualify those.** Every historic migration ran
    before the schema move and must keep resolving through `search_path` to `public`.
 3. Add `gen.go.rename` entries to that module's `sqlc.yaml` entry (singular keys).
