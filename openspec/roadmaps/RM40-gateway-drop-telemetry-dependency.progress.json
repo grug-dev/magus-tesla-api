@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM40-gateway-drop-telemetry-dependency",
+  "intention": "make boundary-guard passes clean with zero escape hatches: the gateway no longer names internal/telemetry, and gets its battery-history data from internal/analytics, which already owns the table.",
+  "request": "Source ticket MAG-41 — fix the boundary-guard violation. Analyze which DB table the gateway reads through internal/telemetry and move that read to the module the owner picks. Owner picked internal/analytics.",
+  "status": "in-progress",
+  "autopilot": false,
+  "updated_at": "2026-09-02T02:16:30Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM40-MAG-41-gateway-drop-telemetry-dependency",
+    "base": "main",
+    "ticket": "MAG-41",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-41/fix-boundary-guard",
+    "created_at": "2026-09-02T02:16:30Z"
+  },
+  "rollup": {
+    "current": [1],
+    "pending": [2],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "scope": "roadmap:owning-module",
+      "made_by": "user",
+      "what": "internal/analytics owns the battery-history read, not a gateway-local interface over telemetry.",
+      "why": "analytics already owns vehicle_metrics and already serves the two sibling history charts. A local interface would satisfy the guard's letter while keeping the runtime dependency the guard exists to stop.",
+      "at": "2026-09-02T02:16:30Z"
+    },
+    {
+      "scope": "roadmap:port-shape",
+      "made_by": "autopilot",
+      "what": "New method BatteryLevelByDay on the existing analytics.Reader returning []DayBattery — not a new port, not a new type family.",
+      "why": "Mirrors ConsumedByDay/OdometerDeltaByDay exactly and completes the existing DayConsumption/DayDistance vocabulary, so an agent looks the pattern up instead of re-inventing it.",
+      "at": "2026-09-02T02:16:30Z"
+    },
+    {
+      "scope": "roadmap:lookback",
+      "made_by": "user",
+      "what": "Drop buildHistoryView's readStart := start.AddDate(0,0,-1) lookback.",
+      "why": "metric_date is already the effective day, so the port returns exactly [start,end]. The lookback only ever compensated for the captured_at to EffectiveDate conversion the raw snapshot read needed.",
+      "at": "2026-09-02T02:16:30Z"
+    },
+    {
+      "scope": "roadmap:day-coverage",
+      "made_by": "user",
+      "what": "Accept and document the vehicle_metrics vs vehicle_snapshots day-coverage gap; do not add a backfill tier.",
+      "why": "A day with no metric row renders as the existing empty no-snapshot bar. Coverage tracks snapshots 1:1 modulo the recalculator watermark, so the effect is bounded to a recent day briefly showing empty.",
+      "at": "2026-09-02T02:16:30Z"
+    },
+    {
+      "scope": "roadmap:tests",
+      "made_by": "user",
+      "what": "No new unit tests. Repair the two gateway test files whose telemetry-typed fakes stop compiling.",
+      "why": "Owner's standing default is no new tests, but the fake rework is repair required to keep the suite compiling — not new coverage.",
+      "at": "2026-09-02T02:16:30Z"
+    },
+    {
+      "scope": "roadmap:no-db-gate",
+      "made_by": "autopilot",
+      "what": "The database design gate is recorded as not tripped: no table, column, index, constraint, view or migration changes.",
+      "why": "All three needed columns are original NOT NULL columns, and the existing UNIQUE (account_id, tesla_id, metric_date) index already serves the query. The only new artifact is a SELECT.",
+      "at": "2026-09-02T02:16:30Z"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM40-analytics-add-battery-level-read",
+      "module": "analytics",
+      "optional": false,
+      "depends_on": [],
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-02T02:16:30Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Artifacts only — this run halts after Step 4 by request."
+    },
+    {
+      "id": 2,
+      "change": "RM40-gateway-drop-telemetry-dependency",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-02T02:16:30Z",
+      "what": "Roadmap created. Runtime Claude Code, no degradations. Budget available (5h 4%, context 12%). Scope for this run: HALT AFTER STEP 4 — artifacts for tier 1 only, no implementation workers, no reviewer, no archive.",
+      "by": "leader"
+    }
+  ]
+}
