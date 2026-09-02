@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-02T16:15:00Z",
+  "updated_at": "2026-09-02T17:25:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -18,7 +18,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      2,
       3
     ],
     "blocked": [
@@ -26,7 +25,8 @@
       5
     ],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -133,6 +133,22 @@
       "made_by": "leader",
       "decision": "Tier 3's design gate will still stop for the owner; tier 2's will not",
       "why": "Tier 2 mirrors the tier-1 migration the owner already confirmed. Tier 3 renames tables, rewrites a CHECK and deletes watermark rows (D8) \u2014 a big decision by the owner's own standard."
+    },
+    {
+      "id": "D12",
+      "at": "2026-09-02T17:05:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "A test replaying a historic migration out of order gets a search_path on its own connection, never a migration edit",
+      "why": "D1/D9 forbid editing historic migrations. Analytics' watermark replay test broke without it. Scoped to one test connection, public first. Tiers 3-4 must check for the same pattern."
+    },
+    {
+      "id": "D13",
+      "at": "2026-09-02T17:05:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "D9's grep pattern corrected to match table names, not an opening quote; tiers 3/4 re-measured",
+      "why": "Quote-anchored, it missed backtick multi-line SQL: predicted 5 for analytics, real 18. Re-measured: charging 32 in 10 files, telemetry 41 in 7."
     }
   ],
   "tiers": [
@@ -165,14 +181,19 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "3 tables. Watermark 'source' string values must NOT be schema-qualified; a CHECK constraint depends on them. Plus work-shape step 2b (D9): schema-qualify ~5 raw SQL statements in this module's _test.go files."
+      "status": "archived",
+      "assistant": "Claude Code",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T16:20:00Z",
+      "completed_at": "2026-09-02T17:25:00Z",
+      "duration_seconds": 3900,
+      "budget": {
+        "five_hour_pct_start": 38,
+        "five_hour_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true
+      },
+      "notes": "Archived. 3 tables moved, Go names frozen (models.go diff empty). Watermark source strings and the CHECK left untouched for tier 3. Reviewer approved, zero findings. Produced D12 and corrected D9's grep."
     },
     {
       "id": 3,
@@ -292,6 +313,11 @@
       "at": "2026-09-02T16:15:00Z",
       "agent": "leader",
       "event": "tier 1 archived to openspec/changes/archive/account/2026-09-02-RM39-account-move-to-own-schema (the CLI archives flat; moved into the domain folder per openspec/config.yaml). Delta specs synced into openspec/specs/account and account-vehicle-registry."
+    },
+    {
+      "at": "2026-09-02T17:25:00Z",
+      "agent": "leader",
+      "event": "tier 2 archived to openspec/changes/archive/analytics/. Leader ran the full suite green under the owner's session authorization. Next: tier 3 (charging) \u2014 HALTING for the owner's design gate, per D11: it renames tables, rewrites a CHECK and deletes watermark rows."
     }
   ],
   "gates": [
