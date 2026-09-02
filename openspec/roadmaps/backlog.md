@@ -821,6 +821,37 @@ section.
 
 
 
+## 23. architecture — Per-module goose version table (retires `make migration-guard`)
+
+### PROPOSAL
+
+All four module migration directories currently share ONE `public.goose_db_version` table.
+goose keys it by version **number**, so if two modules pick the same number, goose records
+the number once and silently SKIPS the second file. `make migration-guard` exists purely to
+catch that collision before it happens.
+
+Giving each module its own version table — `goose -table <module>.goose_db_version`, one per
+directory in `MIGRATIONS_DIRS` — makes the collision structurally impossible and lets
+`migration-guard` (~25 Makefile lines) be deleted.
+
+Deferred from RM39 because the two concerns are independent: version collisions come from
+goose's numbering, not from where tables live, so moving tables into schemas does not fix
+it. Folding it in would also have forced a `make db-reset` — goose would see an empty
+version table and try to replay every migration against tables that already exist — which
+would have cancelled RM39's main advantage of being reset-free.
+
+**Trigger:** pick this up once RM39 has landed all four tiers, or sooner if a version
+collision actually bites. Requires either a `make db-reset` (acceptable — the project is not
+public) or a seeding migration that copies applied version rows from the shared table into
+each per-module one.
+
+### ORIGIN
+
+`RM39-schema-per-module` roadmap, decision **D4** (settled with the owner during the design
+interview, before any artifact was written).
+
+
+
 # BRAINSTORMING
 
 
