@@ -98,7 +98,7 @@ D1–D6/D-index for the rationale behind each task.
   or `make check`.
   `depends_on`: 1.1–4.1 (every prior task) · `parallel_ok`: no
 
-- [ ] **5.2** Hand off to the owner the exact command to run and report: `go test
+- [x] **5.2** Hand off to the owner the exact command to run and report: `go test
   ./internal/analytics/...` (covers the full existing offline + `DATABASE_URL`-gated
   suite; this tier adds no new test file, so a pass here confirms only that nothing
   existing broke). Until the owner reports a pass, this tier's implementation status

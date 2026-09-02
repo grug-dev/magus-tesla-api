@@ -6,7 +6,7 @@
   "request": "Source ticket MAG-41 \u2014 fix the boundary-guard violation. Analyze which DB table the gateway reads through internal/telemetry and move that read to the module the owner picks. Owner picked internal/analytics.",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-02T02:24:00Z",
+  "updated_at": "2026-09-02T02:50:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM40-MAG-41-gateway-drop-telemetry-dependency",
@@ -17,13 +17,13 @@
   },
   "rollup": {
     "current": [
-      1
-    ],
-    "pending": [
       2
     ],
+    "pending": [],
     "blocked": [],
-    "done": []
+    "done": [
+      1
+    ]
   },
   "decisions": [
     {
@@ -74,6 +74,13 @@
       "what": "Autopilot ON \u2014 drive tier 1 and tier 2 to completion without a go-ahead between them, overriding the pickup skill's halt-after-artifacts scope.",
       "why": "User explicitly asked mid-run. Their live instruction supersedes the earlier payload scope.",
       "at": "2026-09-02T02:24:00Z"
+    },
+    {
+      "scope": "roadmap:test-execution-override",
+      "made_by": "user",
+      "what": "SESSION-ONLY override of the project Test-Execution-Policy: the assistant runs `make test` at this session's remaining test gates. CLAUDE.md and the Pipeline config block are deliberately NOT edited.",
+      "why": "Owner wants autopilot to include test execution. Scoped to this session so the written rule and future sessions are unaffected.",
+      "at": "2026-09-02T02:44:00Z"
     }
   ],
   "tiers": [
@@ -83,14 +90,21 @@
       "module": "analytics",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-09-02T02:16:30Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts only \u2014 this run halts after Step 4 by request."
+      "completed_at": "2026-09-02T02:50:00Z",
+      "duration_seconds": 2010,
+      "budget": {
+        "five_hour_pct_delta": 20.0,
+        "cost_usd_delta": 7.0,
+        "spanned_sessions": 1,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "artifacts + impl wave + review"
+      },
+      "notes": "Reviewer-approved with zero findings. Archived to archive/analytics/2026-09-02-RM40-analytics-add-battery-level-read. Owner verified via make test."
     },
     {
       "id": 2,
@@ -100,10 +114,10 @@
       "depends_on": [
         1
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-02T02:50:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -119,6 +133,16 @@
     {
       "at": "2026-09-02T02:24:00Z",
       "what": "User switched the roadmap to autopilot mode, overriding the invocation payload's HALT-AFTER-STEP-4 scope. Leader now drives both tiers through implementation, review and archive without asking between tiers. Still gated: the two Test-Execution-Policy ask points (owner runs the suite), any changes-requested review round, and push/PR.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-02T02:44:00Z",
+      "what": "Tier 1 verified on the OWNER's own `make test` report. Reviewer dispatched. Owner then granted a session-only test-execution override: from here the assistant may run `make test`, and any pass it reports is the ASSISTANT's result, explicitly distinct from tier 1's owner-reported pass.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-02T02:50:00Z",
+      "what": "Tier 1 archived (reviewer approved, no findings). openspec archive synced 1 added requirement into openspec/specs/analytics/spec.md. Autopilot advancing to tier 2 (gateway) without asking.",
       "by": "leader"
     }
   ]
