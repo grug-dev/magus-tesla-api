@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-02T18:05:00Z",
+  "updated_at": "2026-09-02T18:10:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -373,6 +373,11 @@
       "at": "2026-09-02T18:05:00Z",
       "agent": "leader",
       "event": "tier 3 artifacts surfaced a real roadmap flaw: D8 put an analytics-table DELETE + CHECK rewrite in charging's migration dir. Owner confirmed D15 (split into tier 3b, json id 6) and D16 (rename all four constraint objects). G1 moved to fire after tier 3b."
+    },
+    {
+      "at": "2026-09-02T18:10:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at the tier-3 artifacts/implementation wave boundary. five_hour_pct=80 (threshold 90), context_pct=27 (threshold 40). Stopped BEFORE dispatching tier 3's implementation because it is the largest wave in the roadmap (32 raw test SQL statements across 10 files + 4 object renames + 12 Go symbol sites + 8 KB docs) and is projected to cross 90 mid-wave. All state is truthful; nothing is in flight. Resume with: /kkpa-dev-harness-pipeline resume RM39-schema-per-module"
     }
   ],
   "gates": [
