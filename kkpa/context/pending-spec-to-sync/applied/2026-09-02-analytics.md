@@ -9,7 +9,7 @@
 Target guide: `entities/vehicle-metrics/guide.md`
 Source spec:  `openspec/specs/analytics/spec.md`
 Generated:    2026-09-02
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-02
 
 Derived from the single requirement RM40 (ticket MAG-41) added to this capability:
 **"Per-Day Battery Level and Range Read"**. No other requirement in the spec changed.

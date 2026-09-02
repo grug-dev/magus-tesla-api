@@ -35,6 +35,11 @@
 | `charge status` | synonym of `entry status` | entity | `workflows/manual-charge-crud.md` |
 | `energy source` | `charging.EnergySource` (`USER` / `ESTIMATED`) / `manual_charge_entries.energy_source` — module-computed, never caller-supplied | entity | `workflows/manual-charge-crud.md` |
 | `energy provenance` | synonym of `energy source` | entity | `workflows/manual-charge-crud.md` |
+| `battery level by day` | `analytics.Reader.BatteryLevelByDay` / `analytics.DayBattery` (`vehicle_metrics.battery_level_pct`, `battery_range_km`) | entity | `entities/vehicle-metrics/guide.md` |
+| `per-day battery level` | synonym of `battery level by day` | entity | `entities/vehicle-metrics/guide.md` |
+| `battery history` | synonym of `battery level by day` | entity | `entities/vehicle-metrics/guide.md` |
+| `battery chart` | `buildBatteryChart` / `analytics.Reader.BatteryLevelByDay` (since RM40; previously `telemetry.Reader`) | entity | `use-case/gateway/read-dashboard-history.md` |
+| `battery history chart` | synonym of `battery chart` | entity | `use-case/gateway/read-dashboard-history.md` |
 
 ## Input ports — pages & endpoints
 
