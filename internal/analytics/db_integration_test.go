@@ -524,7 +524,7 @@ func seedChargeSession(t *testing.T, pool *pgxpool.Pool, s charging.Session) int
 		batteryPctSource = &src
 	}
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO charge_sessions (
+		INSERT INTO charging.supercharger_sessions (
 			account_id, vin, tesla_id, session_id,
 			charge_start_date_time, charge_stop_date_time,
 			site_location_name, energy_kwh, total_cost, currency, is_paid,
@@ -560,7 +560,7 @@ func seedChargeSession(t *testing.T, pool *pgxpool.Pool, s charging.Session) int
 func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, sessionID int64, endBatteryPct int, updatedAt time.Time) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		`UPDATE charge_sessions SET end_battery_pct = $1, updated_at = $2 WHERE account_id = $3 AND session_id = $4`,
+		`UPDATE charging.supercharger_sessions SET end_battery_pct = $1, updated_at = $2 WHERE account_id = $3 AND session_id = $4`,
 		int16(endBatteryPct), pgtype.Timestamptz{Time: updatedAt, Valid: true}, accountID, sessionID,
 	)
 	if err != nil {

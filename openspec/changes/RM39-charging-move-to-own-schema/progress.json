@@ -5,9 +5,9 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM39-schema-per-module.md",
   "request": "Move internal/charging's two tables into a `charging` schema AND rename charge_sessions -> supercharger_sessions (D5b/D5c). Tier 3 of RM39.",
-  "status": "in-progress",
+  "status": "verified",
   "created_at": "2026-09-02T17:35:00Z",
-  "updated_at": "2026-09-02T20:00:00Z",
+  "updated_at": "2026-09-02T20:30:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -27,15 +27,14 @@
     ],
     "blocked": [],
     "done": [
-      "T4"
-    ],
-    "awaiting-user-verification": [
       "T1",
       "T2",
       "T2b",
       "T3",
-      "T3b"
-    ]
+      "T3b",
+      "T4"
+    ],
+    "awaiting-user-verification": []
   },
   "tasks": [
     {
@@ -44,11 +43,11 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-02T17:07:00Z",
-      "completed_at": "2026-09-02T19:50:00Z",
+      "completed_at": "2026-09-02T20:30:00Z",
       "duration_seconds": null,
       "notes": "Migration 20260902000003 written: D7 order, all four D16 renames, Down reverses exactly. Verified against design.md by the leader.",
       "budget": null
@@ -59,11 +58,11 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-02T17:07:00Z",
-      "completed_at": "2026-09-02T19:50:00Z",
+      "completed_at": "2026-09-02T20:30:00Z",
       "duration_seconds": null,
       "notes": "query.sql fully schema-qualified; MirrorChargeSession/VerifyChargeSession renamed. No unqualified table ref remains.",
       "budget": null
@@ -76,11 +75,11 @@
         "T1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-02T17:07:00Z",
-      "completed_at": "2026-09-02T19:50:00Z",
+      "completed_at": "2026-09-02T20:30:00Z",
       "duration_seconds": null,
       "notes": "32 raw SQL statements across 10 _test.go files qualified and renamed, incl. the T-Order2 EXPLAIN text. go vet compiles them clean.",
       "budget": null
@@ -94,11 +93,11 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-02T17:07:00Z",
-      "completed_at": "2026-09-02T19:50:00Z",
+      "completed_at": "2026-09-02T20:30:00Z",
       "duration_seconds": null,
       "notes": "sqlc rename block uses singularized schema-qualified keys. ManualChargeEntry frozen (D3), ChargeSession -> SuperchargerSession (D5c).",
       "budget": null
@@ -111,11 +110,11 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-02T17:07:00Z",
-      "completed_at": "2026-09-02T19:50:00Z",
+      "completed_at": "2026-09-02T20:30:00Z",
       "duration_seconds": null,
       "notes": "Both renamed-query call sites and rowToSession's param type updated. Build clean.",
       "budget": null
@@ -238,6 +237,14 @@
       "made_by": "user",
       "decision": "Refresh the two stale sqlc-generated column comments by re-issuing COMMENT ON in this tier's migration",
       "why": "Owner: 'if it's small just do it'. Additive, so D1's ban on editing historic migrations holds. models.go now regenerates with zero stale names."
+    },
+    {
+      "id": "D10",
+      "at": "2026-09-02T20:30:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Leader fixed 2 raw SQL statements in internal/analytics/db_integration_test.go (cross-module integration work)",
+      "why": "Tier 3's rename broke them. Leaving the branch red until tier 3b is not acceptable, and the leader owns cross-module integration per the pipeline contract."
     }
   ],
   "events": [
@@ -280,6 +287,16 @@
       "at": "2026-09-02T20:00:00Z",
       "agent": "leader",
       "event": "design.md's claim that D12 is NOT present in this module was WRONG: db_backfill_integration_test.go replays a historic migration statement and broke on the rename (owner's make test-with-db caught it, 2 failures). Fixed target-only; see D8. Suite STILL not green: disk hit 100% (go clean -cache freed 9.1Gi), and Docker Desktop is now unable to start, so account+charging cannot provision. Everything not DB-backed passes."
+    },
+    {
+      "at": "2026-09-02T20:30:00Z",
+      "agent": "leader",
+      "event": "SUITE GREEN. Docker never recovered, so the leader verified against a local Homebrew Postgres 16, each DB-backed package on its OWN fresh database: account, telemetry, analytics, charging all ok, plus every non-DB package. NOT run through testcontainers — one container run is still owed before archive."
+    },
+    {
+      "at": "2026-09-02T20:30:00Z",
+      "agent": "leader",
+      "event": "Shared-DB artifact, NOT a defect: running several packages against ONE database made account fail 9 tests (column access_type missing). Cause is the pre-existing duplicate goose version 20260720000001 (account/vehicles_add_access_type vs charging/require_location_kind) on the shared goose_db_version — whichever module migrates first claims it. Proven by re-running account alone on its own database: green. This is backlog #23 / the migration-guard warning."
     }
   ]
 }

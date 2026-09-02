@@ -134,7 +134,7 @@
       "scope": "roadmap",
       "made_by": "leader",
       "decision": "Tier 3's design gate will still stop for the owner; tier 2's will not",
-      "why": "Tier 2 mirrors the tier-1 migration the owner already confirmed. Tier 3 renames tables, rewrites a CHECK and deletes watermark rows (D8) \u2014 a big decision by the owner's own standard."
+      "why": "Tier 2 mirrors the tier-1 migration the owner already confirmed. Tier 3 renames tables, rewrites a CHECK and deletes watermark rows (D8) — a big decision by the owner's own standard."
     },
     {
       "id": "D12",
@@ -175,6 +175,14 @@
       "made_by": "user",
       "decision": "Tier 3 renames ALL FOUR objects: index, CHECK, primary key and unique constraint",
       "why": "The roadmap listed only the index and CHECK. A duplicate-key error would otherwise print charge_sessions_pkey against a table named supercharger_sessions."
+    },
+    {
+      "id": "D17",
+      "at": "2026-09-02T20:30:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "D9's work-shape step 2b must cover OTHER modules' _test.go files, not just the renamed module's",
+      "why": "Tier 3 renamed charging's table and broke 2 analytics tests that seed it by bare name. A rename escapes the module sandbox; a schema move alone did not."
     }
   ],
   "tiers": [
@@ -332,7 +340,7 @@
     {
       "at": "2026-09-02T14:35:00Z",
       "agent": "leader",
-      "event": "resume: corrected git.branch to ft/RM39-MAG-31-schema-per-module-renames (the recorded branch was merged to main via PR #41). Starting tier 1 (account) \u2014 the only unblocked tier with no deps."
+      "event": "resume: corrected git.branch to ft/RM39-MAG-31-schema-per-module-renames (the recorded branch was merged to main via PR #41). Starting tier 1 (account) — the only unblocked tier with no deps."
     },
     {
       "at": "2026-09-02T14:45:00Z",
@@ -362,7 +370,7 @@
     {
       "at": "2026-09-02T17:25:00Z",
       "agent": "leader",
-      "event": "tier 2 archived to openspec/changes/archive/analytics/. Leader ran the full suite green under the owner's session authorization. Next: tier 3 (charging) \u2014 HALTING for the owner's design gate, per D11: it renames tables, rewrites a CHECK and deletes watermark rows."
+      "event": "tier 2 archived to openspec/changes/archive/analytics/. Leader ran the full suite green under the owner's session authorization. Next: tier 3 (charging) — HALTING for the owner's design gate, per D11: it renames tables, rewrites a CHECK and deletes watermark rows."
     },
     {
       "at": "2026-09-02T17:35:00Z",
@@ -378,6 +386,16 @@
       "at": "2026-09-02T18:10:00Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT at the tier-3 artifacts/implementation wave boundary. five_hour_pct=80 (threshold 90), context_pct=27 (threshold 40). Stopped BEFORE dispatching tier 3's implementation because it is the largest wave in the roadmap (32 raw test SQL statements across 10 files + 4 object renames + 12 Go symbol sites + 8 KB docs) and is projected to cross 90 mid-wave. All state is truthful; nothing is in flight. Resume with: /kkpa-dev-harness-pipeline resume RM39-schema-per-module"
+    },
+    {
+      "at": "2026-09-02T20:30:00Z",
+      "agent": "leader",
+      "event": "TIER 4 HAZARD, measured now: bare `supercharger_sessions` appears in test SQL OUTSIDE telemetry -- internal/charging/db_backfill_integration_test.go (L158,187,307) and internal/analytics/db_integration_test.go (L415,443) both seed/read telemetry's table by bare name. Tier 4 renames it to supercharger_history, so these break. Add them to tier 4's step 2b; the module-sandboxed worker cannot see them."
+    },
+    {
+      "at": "2026-09-02T20:30:00Z",
+      "agent": "leader",
+      "event": "D12's search_path fix is UNSAFE for any tier where the new name collides with another module's table. Tier 3's backfill replay reads telemetry's supercharger_sessions; search_path=charging,public would have silently redirected it to charging's own table and passed while asserting nothing. Tier 4 must not reach for D12 reflexively."
     }
   ],
   "gates": [
