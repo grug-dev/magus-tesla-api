@@ -86,6 +86,12 @@ original four-object rename after the scope grew to nine — so "exact" became f
 directions while the real migration was correct. Per `CLAUDE.md`'s AI-efficiency rule, a
 duplicated, volatile artifact is not worth the tokens it costs to re-verify: read the file.
 
+**Why this pointer cannot go stale, unlike the copy it replaced.** A shipped migration is never
+edited again in this project (D1 — see "Do NOT touch" below, `internal/charging/AGENTS.md`, and
+`ai/go-conventions.md`). The file this section points at is therefore immutable by rule, which is
+a stronger permanence guarantee than an ordinary cross-reference gets: the archived design.md and
+the migration cannot drift apart, because the migration cannot change.
+
 **Mandatory statement order (D7), Up:**
 
 1. `CREATE SCHEMA IF NOT EXISTS charging`
