@@ -187,6 +187,18 @@ func (f *fakeAnalyticsReader) RecentEfficiency(context.Context, uuid.UUID, int64
 	panic("fakeAnalyticsReader: RecentEfficiency is never called by the gateway's history fragment")
 }
 
+// BatteryLevelByDay is a compile-only stub for RM40 tier 1, which widened
+// analytics.Reader without giving the gateway a caller yet — the battery chart
+// still reads telemetry.Reader.SnapshotsByVehicleBetween until tier 2 repoints
+// it. It panics rather than returning nil so that tier 2 cannot quietly leave
+// the chart wired to an empty fixture: the first test to exercise the new path
+// fails loudly here instead of asserting against a silently blank chart.
+// Mirrors RecentEfficiency's panic guard above for an intentionally-unused
+// method.
+func (f *fakeAnalyticsReader) BatteryLevelByDay(context.Context, uuid.UUID, int64, time.Time, time.Time) ([]analytics.DayBattery, error) {
+	panic("fakeAnalyticsReader: BatteryLevelByDay has no gateway caller until RM40 tier 2 repoints the battery chart")
+}
+
 // LatestMetricsByAccount returns the fixture statuses/error the test set up.
 // The history fragment itself never calls this method (RecentEfficiency above
 // still panics for that reason), but the dashboard, vehicles, nav-header, and

@@ -243,6 +243,10 @@ func (fakeAnalyticsReader) LatestMetricsByAccount(_ context.Context, _ uuid.UUID
 	return nil, nil
 }
 
+func (fakeAnalyticsReader) BatteryLevelByDay(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]analytics.DayBattery, error) {
+	return nil, nil
+}
+
 var _ analytics.Reader = fakeAnalyticsReader{}
 
 // fakeGapWriter satisfies analytics.GapWriter. Unreachable in Fixtures P3-P5

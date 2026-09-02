@@ -424,6 +424,72 @@ func (q *Queries) UpsertVehicleMetricWatermark(ctx context.Context, arg UpsertVe
 	return err
 }
 
+const vehicleMetricsBatteryByVehicleBetween = `-- name: VehicleMetricsBatteryByVehicleBetween :many
+SELECT
+    metric_date, battery_level_pct, battery_range_km
+FROM vehicle_metrics
+WHERE account_id  = $1
+  AND tesla_id    = $2
+  AND metric_date BETWEEN $3 AND $4
+ORDER BY metric_date
+`
+
+type VehicleMetricsBatteryByVehicleBetweenParams struct {
+	AccountID uuid.UUID
+	TeslaID   int64
+	StartDate pgtype.Date
+	EndDate   pgtype.Date
+}
+
+type VehicleMetricsBatteryByVehicleBetweenRow struct {
+	MetricDate      pgtype.Date
+	BatteryLevelPct int32
+	BatteryRangeKm  float64
+}
+
+// Backs analytics.Reader.BatteryLevelByDay
+// (RM40-analytics-add-battery-level-read design.md D2/D3). UNLIKE the two
+// filtered reads above (VehicleMetricsConsumedByVehicleBetween,
+// VehicleMetricsOdometerByVehicleBetween), this query carries NO trailing
+// "IS NOT NULL" predicate -- the one deliberate departure from the pattern
+// it otherwise mirrors exactly (design.md D3). battery_level_pct and
+// battery_range_km are declared NOT NULL: raw per-day observations copied
+// verbatim from that day's own telemetry.Snapshot, with no predecessor
+// requirement at all, unlike battery_used_pct_calc/
+// distance_traveled_km_calc which are genuinely NULL on a predecessor-less
+// day (design D9). Adding an IS NOT NULL filter here would silently exclude
+// a vehicle's first tracked day (or any day following a capture gap) from
+// the battery chart even though both values are fully known for that day --
+// a strictly worse answer, and on a NOT NULL column the filter could never
+// exclude a row anyway, so omitting it is not an oversight.
+// Served by vehicle_metrics_account_tesla_date_unique's own index (design.md
+// Index Plan #1) -- no separate CREATE INDEX; byte-identical index usage to
+// its two siblings, differing only in the absent residual predicate.
+func (q *Queries) VehicleMetricsBatteryByVehicleBetween(ctx context.Context, arg VehicleMetricsBatteryByVehicleBetweenParams) ([]VehicleMetricsBatteryByVehicleBetweenRow, error) {
+	rows, err := q.db.Query(ctx, vehicleMetricsBatteryByVehicleBetween,
+		arg.AccountID,
+		arg.TeslaID,
+		arg.StartDate,
+		arg.EndDate,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []VehicleMetricsBatteryByVehicleBetweenRow
+	for rows.Next() {
+		var i VehicleMetricsBatteryByVehicleBetweenRow
+		if err := rows.Scan(&i.MetricDate, &i.BatteryLevelPct, &i.BatteryRangeKm); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const vehicleMetricsConsumedByVehicleBetween = `-- name: VehicleMetricsConsumedByVehicleBetween :many
 SELECT
     metric_date, consumed_pct, distance_traveled_km_calc, flagged,

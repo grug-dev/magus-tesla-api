@@ -3,10 +3,10 @@
   "kind": "roadmap",
   "roadmap": "RM40-gateway-drop-telemetry-dependency",
   "intention": "make boundary-guard passes clean with zero escape hatches: the gateway no longer names internal/telemetry, and gets its battery-history data from internal/analytics, which already owns the table.",
-  "request": "Source ticket MAG-41 — fix the boundary-guard violation. Analyze which DB table the gateway reads through internal/telemetry and move that read to the module the owner picks. Owner picked internal/analytics.",
+  "request": "Source ticket MAG-41 \u2014 fix the boundary-guard violation. Analyze which DB table the gateway reads through internal/telemetry and move that read to the module the owner picks. Owner picked internal/analytics.",
   "status": "in-progress",
-  "autopilot": false,
-  "updated_at": "2026-09-02T02:16:30Z",
+  "autopilot": true,
+  "updated_at": "2026-09-02T02:24:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM40-MAG-41-gateway-drop-telemetry-dependency",
@@ -16,8 +16,12 @@
     "created_at": "2026-09-02T02:16:30Z"
   },
   "rollup": {
-    "current": [1],
-    "pending": [2],
+    "current": [
+      1
+    ],
+    "pending": [
+      2
+    ],
     "blocked": [],
     "done": []
   },
@@ -32,7 +36,7 @@
     {
       "scope": "roadmap:port-shape",
       "made_by": "autopilot",
-      "what": "New method BatteryLevelByDay on the existing analytics.Reader returning []DayBattery — not a new port, not a new type family.",
+      "what": "New method BatteryLevelByDay on the existing analytics.Reader returning []DayBattery \u2014 not a new port, not a new type family.",
       "why": "Mirrors ConsumedByDay/OdometerDeltaByDay exactly and completes the existing DayConsumption/DayDistance vocabulary, so an agent looks the pattern up instead of re-inventing it.",
       "at": "2026-09-02T02:16:30Z"
     },
@@ -54,7 +58,7 @@
       "scope": "roadmap:tests",
       "made_by": "user",
       "what": "No new unit tests. Repair the two gateway test files whose telemetry-typed fakes stop compiling.",
-      "why": "Owner's standing default is no new tests, but the fake rework is repair required to keep the suite compiling — not new coverage.",
+      "why": "Owner's standing default is no new tests, but the fake rework is repair required to keep the suite compiling \u2014 not new coverage.",
       "at": "2026-09-02T02:16:30Z"
     },
     {
@@ -63,6 +67,13 @@
       "what": "The database design gate is recorded as not tripped: no table, column, index, constraint, view or migration changes.",
       "why": "All three needed columns are original NOT NULL columns, and the existing UNIQUE (account_id, tesla_id, metric_date) index already serves the query. The only new artifact is a SELECT.",
       "at": "2026-09-02T02:16:30Z"
+    },
+    {
+      "scope": "roadmap:autopilot",
+      "made_by": "user",
+      "what": "Autopilot ON \u2014 drive tier 1 and tier 2 to completion without a go-ahead between them, overriding the pickup skill's halt-after-artifacts scope.",
+      "why": "User explicitly asked mid-run. Their live instruction supersedes the earlier payload scope.",
+      "at": "2026-09-02T02:24:00Z"
     }
   ],
   "tiers": [
@@ -79,14 +90,16 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Artifacts only — this run halts after Step 4 by request."
+      "notes": "Artifacts only \u2014 this run halts after Step 4 by request."
     },
     {
       "id": 2,
       "change": "RM40-gateway-drop-telemetry-dependency",
       "module": "gateway",
       "optional": false,
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "status": "not-started",
       "assistant": null,
       "model": null,
@@ -100,7 +113,12 @@
   "events": [
     {
       "at": "2026-09-02T02:16:30Z",
-      "what": "Roadmap created. Runtime Claude Code, no degradations. Budget available (5h 4%, context 12%). Scope for this run: HALT AFTER STEP 4 — artifacts for tier 1 only, no implementation workers, no reviewer, no archive.",
+      "what": "Roadmap created. Runtime Claude Code, no degradations. Budget available (5h 4%, context 12%). Scope for this run: HALT AFTER STEP 4 \u2014 artifacts for tier 1 only, no implementation workers, no reviewer, no archive.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-02T02:24:00Z",
+      "what": "User switched the roadmap to autopilot mode, overriding the invocation payload's HALT-AFTER-STEP-4 scope. Leader now drives both tiers through implementation, review and archive without asking between tiers. Still gated: the two Test-Execution-Policy ask points (owner runs the suite), any changes-requested review round, and push/PR.",
       "by": "leader"
     }
   ]

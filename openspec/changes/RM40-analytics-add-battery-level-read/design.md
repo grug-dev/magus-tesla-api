@@ -287,8 +287,23 @@ tenant-isolation guarantee.
 
 - **`BatteryLevelByDay` has no caller until tier 2 lands.** Tier order is forced
   (roadmap requires tier 1 before tier 2) — this is a temporarily "dead" port method,
-  not a design flaw. `go vet`/`go build` do not flag an unused exported method, so
-  this carries no build-signal risk.
+  not a design flaw. `go build ./...` stays green, because no production code is
+  missing a method.
+
+  **Corrected during implementation — the original claim here was wrong.** This design
+  first stated that "`go vet`/`go build` do not flag an unused exported method, so this
+  carries no build-signal risk." That is true of `go build`, but **false of repo-wide
+  `go vet ./...`**: vet compiles every package's `_test.go` files, and two test doubles
+  in OTHER modules implement the full `analytics.Reader` interface, so widening the
+  interface broke their compilation —
+  `internal/app/processor_test.go`'s `fakeAnalyticsReader` and
+  `internal/gateway/handlers/history_test.go`'s `fakeAnalyticsReader`.
+  Widening a port interface is therefore NOT a module-local change in this repo: it is a
+  compile-time change to every out-of-module fake that satisfies it. The leader fixed
+  both (cross-module integration is leader-owned, not the analytics worker's sandbox) in
+  the same wave. `internal/app`'s stub returns `nil, nil` matching its siblings; the
+  gateway's panics, matching that file's own guard convention for a method with no caller
+  yet, so that tier 2 cannot leave the battery chart wired to a silently empty fixture.
 - **The day-coverage gap between `vehicle_metrics` and `vehicle_snapshots` (D6)** is a
   real, if narrow and self-healing, behavior change once tier 2 lands — a recent day
   can briefly render an empty bar it would not have rendered against

@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM40-analytics-add-battery-level-read",
+  "module": "analytics",
+  "roadmap": "openspec/roadmaps/RM40-gateway-drop-telemetry-dependency.md",
+  "request": "Add a BatteryLevelByDay read port over vehicle_metrics so the gateway can render its battery-history chart without depending on internal/telemetry. Tier 1 of RM40 (source ticket MAG-41).",
+  "status": "applied",
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "3.1",
+      "4.1",
+      "5.1"
+    ],
+    "awaiting-user-verification": [
+      "5.2"
+    ]
+  },
+  "created_at": "2026-09-02T02:28:00Z",
+  "updated_at": "2026-09-02T02:33:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM40-MAG-41-gateway-drop-telemetry-dependency",
+    "base": "main",
+    "ticket": "MAG-41",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-41/fix-boundary-guard",
+    "created_at": "2026-09-02T02:16:30Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "analytics.go \u2014 DayBattery struct + Reader.BatteryLevelByDay declaration",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T02:29:00Z",
+      "completed_at": "2026-09-02T02:26:00Z",
+      "duration_seconds": null,
+      "notes": "Added DayBattery after DayDistance and Reader.BatteryLevelByDay; doc comment states the no-IS-NOT-NULL contrast and the FINAL-bucket-key rule explicitly.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 24.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.18,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across batched tasks 1.1-4.1"
+      }
+    },
+    {
+      "id": "1.2",
+      "title": "db/query.sql \u2014 VehicleMetricsBatteryByVehicleBetween (no IS NOT NULL filter)",
+      "module": "analytics",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T02:29:00Z",
+      "completed_at": "2026-09-02T02:26:00Z",
+      "duration_seconds": null,
+      "notes": "Added VehicleMetricsBatteryByVehicleBetween mirroring its two siblings; comment states the deliberate absence of IS NOT NULL and why.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 24.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.18,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across batched tasks 1.1-4.1"
+      }
+    },
+    {
+      "id": "2.1",
+      "title": "sqlc generate \u2014 regenerate analytics db types",
+      "module": "analytics",
+      "depends_on": [
+        "1.2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T02:29:00Z",
+      "completed_at": "2026-09-02T02:26:00Z",
+      "duration_seconds": null,
+      "notes": "Ran sqlc generate. Params/Row types generated with MetricDate, BatteryLevelPct int32, BatteryRangeKm float64. Diff purely additive.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 24.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.18,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across batched tasks 1.1-4.1"
+      }
+    },
+    {
+      "id": "3.1",
+      "title": "reader.go \u2014 store seam + BatteryLevelByDay implementation",
+      "module": "analytics",
+      "depends_on": [
+        "1.1",
+        "2.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T02:29:00Z",
+      "completed_at": "2026-09-02T02:26:00Z",
+      "duration_seconds": null,
+      "notes": "Extended vehicleMetricsStore and implemented BatteryLevelByDay mirroring OdometerDeltaByDay; reused dateFrom/dateFromPg; repaired reader_test.go's fake store.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 24.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.18,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across batched tasks 1.1-4.1"
+      }
+    },
+    {
+      "id": "4.1",
+      "title": "AGENTS.md \u2014 document the new port method",
+      "module": "analytics",
+      "depends_on": [
+        "1.1",
+        "3.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T02:29:00Z",
+      "completed_at": "2026-09-02T02:26:00Z",
+      "duration_seconds": null,
+      "notes": "Documented BatteryLevelByDay/DayBattery in AGENTS.md under Public interface, after the OdometerDeltaByDay bullets.",
+      "budget": {
+        "five_hour_pct_start": 17.0,
+        "five_hour_pct_end": 24.0,
+        "five_hour_pct_delta": 7.0,
+        "cost_usd_delta": 3.18,
+        "context_pct_end": 18,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta across batched tasks 1.1-4.1"
+      }
+    },
+    {
+      "id": "5.1",
+      "title": "Assistant-run signals: go build, go vet, gofmt -l, make bins",
+      "module": "analytics",
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "2.1",
+        "3.1",
+        "4.1"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-02T02:30:00Z",
+      "completed_at": "2026-09-02T02:33:00Z",
+      "duration_seconds": 180,
+      "notes": "Leader ran signals: go build clean, go vet ./... clean, gofmt clean on touched files. boundary-guard still red by design - tier 2 clears it.",
+      "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "Owner runs go test ./internal/analytics/... and reports",
+      "module": "analytics",
+      "depends_on": [
+        "5.1"
+      ],
+      "parallel_ok": false,
+      "status": "awaiting-user-verification",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "scope": "design-gate:database",
+      "made_by": "autopilot",
+      "what": "Database design gate recorded as NOT tripped for this change; no user confirmation of a schema design was required.",
+      "why": "No table, column, index, constraint, view or migration changes. All three columns are pre-existing NOT NULL columns and the existing UNIQUE index already serves the query.",
+      "at": "2026-09-02T02:28:00Z"
+    },
+    {
+      "scope": "dispatch:batching",
+      "made_by": "autopilot",
+      "what": "Batched tasks 1.1-4.1 into ONE serial worker instead of four wave dispatches.",
+      "why": "Five small tasks in one module with a strict internal order. Four dispatches would re-read the whole doc pack four times for no parallelism gain.",
+      "at": "2026-09-02T02:29:00Z"
+    },
+    {
+      "scope": "integration:reader-widening",
+      "made_by": "autopilot",
+      "what": "Leader added a BatteryLevelByDay stub to two out-of-module fakes: internal/app/processor_test.go (returns nil,nil) and internal/gateway/handlers/history_test.go (panics).",
+      "why": "Widening analytics.Reader broke repo-wide go vet. Cross-module integration is leader-owned. The gateway stub panics so tier 2 cannot leave the chart on an empty fixture.",
+      "at": "2026-09-02T02:33:00Z"
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-02T02:28:00Z",
+      "what": "Artifacts created by the analytics worker and validated (openspec validate --strict: valid). Committed b256ddd. Autopilot is ON for this roadmap.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-02T02:29:00Z",
+      "what": "Dispatched analytics worker (Sonnet) for tasks 1.1-4.1, serial. Budget at dispatch: 5h 17%, context 16%.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-02T02:33:00Z",
+      "what": "Wave 1.1-4.1 complete. Worker correctly reported that design.md's claim 'go vet does not flag an unused exported method' was FALSE repo-wide; leader verified, fixed both out-of-module fakes, and corrected design.md. go build + go vet ./... now clean. boundary-guard still red by design until tier 2.",
+      "by": "leader"
+    }
+  ]
+}

@@ -19,7 +19,7 @@ D1–D6/D-index for the rationale behind each task.
 
 ## Wave 1 — port declaration + query (module: analytics worker)
 
-- [ ] **1.1** `internal/analytics/analytics.go` — add the `DayBattery` struct
+- [x] **1.1** `internal/analytics/analytics.go` — add the `DayBattery` struct
   (`Date time.Time`, `BatteryLevelPct int`, `BatteryRangeKm float64`) immediately
   after `DayDistance`, matching the field types and doc-comment density of
   `DayConsumption`/`DayDistance` (design.md D2). Add `BatteryLevelByDay(ctx
@@ -34,7 +34,7 @@ D1–D6/D-index for the rationale behind each task.
   (design.md D3).
   `depends_on`: — · `parallel_ok`: with 1.2
 
-- [ ] **1.2** `internal/analytics/db/query.sql` — add
+- [x] **1.2** `internal/analytics/db/query.sql` — add
   `VehicleMetricsBatteryByVehicleBetween` (a `:many` query), mirroring
   `VehicleMetricsConsumedByVehicleBetween`/`VehicleMetricsOdometerByVehicleBetween`
   exactly in shape and comment style: `SELECT metric_date, battery_level_pct,
@@ -49,7 +49,7 @@ D1–D6/D-index for the rationale behind each task.
 
 ## Wave 2 — codegen (module: analytics worker)
 
-- [ ] **2.1** Run `make sqlc` (or `sqlc generate`; Claude may run — allowed codegen
+- [x] **2.1** Run `make sqlc` (or `sqlc generate`; Claude may run — allowed codegen
   command, `CLAUDE.md` "Builds & local checks") to regenerate
   `internal/analytics/db/*.go` from 1.2's new query against the existing (unchanged)
   schema. Confirm `VehicleMetricsBatteryByVehicleBetweenParams` and
@@ -59,7 +59,7 @@ D1–D6/D-index for the rationale behind each task.
 
 ## Wave 3 — reader implementation (module: analytics worker)
 
-- [ ] **3.1** `internal/analytics/reader.go` — `vehicleMetricsStore` interface gains
+- [x] **3.1** `internal/analytics/reader.go` — `vehicleMetricsStore` interface gains
   `VehicleMetricsBatteryByVehicleBetween(ctx context.Context, arg
   analyticsdb.VehicleMetricsBatteryByVehicleBetweenParams)
   ([]analyticsdb.VehicleMetricsBatteryByVehicleBetweenRow, error)` (`*analyticsdb.
@@ -75,7 +75,7 @@ D1–D6/D-index for the rationale behind each task.
 
 ## Wave 4 — documentation (module: analytics worker)
 
-- [ ] **4.1** `internal/analytics/AGENTS.md` — under "Public interface (the port)",
+- [x] **4.1** `internal/analytics/AGENTS.md` — under "Public interface (the port)",
   add the `BatteryLevelByDay`/`DayBattery` bullet immediately after the existing
   `OdometerDeltaByDay`/`DayDistance` bullets, mirroring their exact style: the
   sparse/precomputed contract, the `Date`-is-a-final-bucket-key rule (D4), and the
@@ -87,7 +87,7 @@ D1–D6/D-index for the rationale behind each task.
 
 ## Wave 5 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **5.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l`, `make
+- [x] **5.1** Run and report: `go build ./...`, `go vet ./...`, `gofmt -l`, `make
   build`, `make vet`, `make bins`. Per design.md "Verification signals",
   `make ui-guard`/`make i18n-guard`/`make money-guard`/`make tz-guard`/
   `make boundary-guard`/`make migration-guard` are all no-ops for this tier (no

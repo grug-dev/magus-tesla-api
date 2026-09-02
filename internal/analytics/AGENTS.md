@@ -83,6 +83,21 @@ interface-first):
   an `IS NOT NULL` filter in the SQL rather than a zero comparison. Added by
   `RM29-analytics-add-vehicle-metrics` so the gateway stops deriving distance from
   snapshots itself (roadmap D5).
+- `Reader` — `BatteryLevelByDay(ctx, accountID, teslaID, start, end) ([]DayBattery,
+  error)`: per-day battery-level percentage and estimated range over `[start, end]`,
+  read from the precomputed `vehicle_metrics` rows, same shape and precomputed
+  contract as `ConsumedByDay`/`OdometerDeltaByDay`. `DayBattery.Date` is a FINAL
+  bucket key — the row's own already-effective `metric_date`, never re-projected
+  through the gateway's `effectiveDayUTC` (design.md D4). Sparse for the usual
+  reason: a day with no `vehicle_metrics` row at all yields no entry. **Unlike its
+  two siblings, this query has NO `IS NOT NULL` filter** — `battery_level_pct`/
+  `battery_range_km` are `NOT NULL` raw observations with no predecessor
+  requirement, so a predecessor-less day (that `ConsumedByDay`/`OdometerDeltaByDay`
+  exclude) still gets a `DayBattery` entry here. Added by
+  `RM40-analytics-add-battery-level-read` (MAG-41 tier 1) so the gateway's last
+  production `telemetry.Reader` call site (the battery-history chart) can retarget
+  here instead of `internal/telemetry` (tier 2, a separate change). Full rationale:
+  `openspec/changes/RM40-analytics-add-battery-level-read/design.md` D1–D6/D-index.
 - `Reader` — `LatestMetricsByAccount(ctx, accountID) ([]VehicleStatus, error)`: the latest
   precomputed `vehicle_metrics` row per vehicle for an account — the analytics-owned
   equivalent of `telemetry.Reader.LatestSnapshotsByAccount`, never `telemetry.Snapshot`
@@ -131,6 +146,9 @@ interface-first):
   touches, so if this call is ever dropped, every vehicle's charts silently stop
   advancing.
 - `DayDistance` — one calendar day's distance result, backing `OdometerDeltaByDay`.
+- `DayBattery` — one calendar day's raw battery-level and range observation, backing
+  `BatteryLevelByDay`. Both fields are always populated for any day with a
+  `vehicle_metrics` row at all — no predecessor requirement (design.md D3).
 - `NewRecalculator(pool *pgxpool.Pool, telemetryReader telemetry.Reader, supercharger charging.SuperchargerSessionAnalyticsReader, manual charging.Reader) Recalculator`
   is the constructor for the write side. `supercharger`'s type retyped from
   telemetry's own Supercharger-session port to `charging.SuperchargerSessionAnalyticsReader`

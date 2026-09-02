@@ -562,6 +562,14 @@ type fakeVehicleMetricsStore struct {
 	// (Wave 5, a later dispatch's own DB-integration test wave, owns those).
 	latestRows         []analyticsdb.LatestVehicleMetricsByAccountRow
 	gotLatestAccountID uuid.UUID
+
+	// batteryRows/gotBatteryParams back VehicleMetricsBatteryByVehicleBetween
+	// (RM40-analytics-add-battery-level-read task 3.1) -- added here only to
+	// keep this fake satisfying vehicleMetricsStore after the interface
+	// gained the method; no assertions on it are added by this dispatch
+	// (unit tests excluded per this change's design.md D7).
+	batteryRows      []analyticsdb.VehicleMetricsBatteryByVehicleBetweenRow
+	gotBatteryParams analyticsdb.VehicleMetricsBatteryByVehicleBetweenParams
 }
 
 func (f *fakeVehicleMetricsStore) VehicleMetricsConsumedByVehicleBetween(_ context.Context, arg analyticsdb.VehicleMetricsConsumedByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsConsumedByVehicleBetweenRow, error) {
@@ -586,6 +594,14 @@ func (f *fakeVehicleMetricsStore) LatestVehicleMetricsByAccount(_ context.Contex
 		return nil, f.err
 	}
 	return f.latestRows, nil
+}
+
+func (f *fakeVehicleMetricsStore) VehicleMetricsBatteryByVehicleBetween(_ context.Context, arg analyticsdb.VehicleMetricsBatteryByVehicleBetweenParams) ([]analyticsdb.VehicleMetricsBatteryByVehicleBetweenRow, error) {
+	f.gotBatteryParams = arg
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.batteryRows, nil
 }
 
 // TestReader_ConsumedByDay_ReadsPrecomputedRows covers design.md D13/D-precompute: a

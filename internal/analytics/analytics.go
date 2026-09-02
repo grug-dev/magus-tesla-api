@@ -100,6 +100,54 @@ type Reader interface {
 	// window-size validation or capping of its own, mirroring ConsumedByDay.
 	OdometerDeltaByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayDistance, error)
 
+	// BatteryLevelByDay returns, for the given vehicle and date range, the
+	// per-calendar-day battery-level percentage and estimated range exactly
+	// as observed (RM40-analytics-add-battery-level-read design.md D2). Same
+	// four-argument shape and [start, end] whole-calendar-day/UTC-midnight/
+	// end-inclusive convention as ConsumedByDay/OdometerDeltaByDay above.
+	// SELECTs from vehicle_metrics; PRECOMPUTED, not recomputed on read --
+	// identical contract to this port's two siblings.
+	//
+	// THE ONE DELIBERATE DEPARTURE FROM ITS TWO SIBLINGS (design.md D3): this
+	// method's underlying query carries NO "IS NOT NULL" filter, unlike
+	// ConsumedByDay/OdometerDeltaByDay's own battery_used_pct_calc/
+	// distance_traveled_km_calc filters. Those two filter out a
+	// predecessor-less row because their columns are genuinely NULL when no
+	// predecessor exists (design.md D9). battery_level_pct/battery_range_km
+	// are declared NOT NULL -- raw per-day observations copied verbatim from
+	// that day's own telemetry.Snapshot, with NO predecessor requirement at
+	// all (exactly like the three other always-populated raw observations
+	// vehicle_metrics already carries). So a vehicle's first-ever tracked
+	// day, or any day immediately following a capture gap, still gets an
+	// entry here even though the SAME day is excluded from ConsumedByDay's
+	// and OdometerDeltaByDay's results. This is not an oversight -- omitting
+	// the filter is correct, and adding one "for consistency" would silently
+	// and wrongly hide real, fully-known data (design.md D3's rejected
+	// alternative).
+	//
+	// SPARSE like its two siblings for the other reason -- a day with NO
+	// vehicle_metrics row at all (the recalculator has not processed it yet)
+	// yields no entry; absence IS the "no data" signal, never a fabricated
+	// zero-valued DayBattery (design.md D6). Returns a non-nil, empty slice
+	// (never bare nil) on the happy path with no matching rows.
+	//
+	// DayBattery.Date is a FINAL bucket key -- vehicle_metrics.metric_date,
+	// the row's own already-effective calendar day, read back verbatim. A
+	// caller must NEVER re-project it through
+	// internal/gateway/handlers/history.go's effectiveDayUTC -- that
+	// function converts a raw captured_at timestamp into an effective day, a
+	// conversion metric_date has already had applied once, at Recalculate
+	// time (design.md D4). Re-applying it a second time would shift the day
+	// by one.
+	//
+	// This port performs no window-size validation or capping of its own,
+	// mirroring ConsumedByDay/OdometerDeltaByDay, and issues no lookback of
+	// its own (design.md D5) -- unlike the gateway's current
+	// telemetry-backed battery read, no captured_at-to-effective-day
+	// conversion happens against vehicle_metrics, so no extra day of data is
+	// needed to produce an accurate [start, end] result.
+	BatteryLevelByDay(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]DayBattery, error)
+
 	// LatestMetricsByAccount returns the latest precomputed vehicle_metrics row for
 	// each vehicle belonging to the given account, as VehicleStatus — the
 	// analytics-owned equivalent of telemetry.Reader.LatestSnapshotsByAccount (never
@@ -211,6 +259,29 @@ type DayDistance struct {
 	// odometer_km), unclamped — there is nothing to clamp about an absolute
 	// reading.
 	OdometerKm float64
+}
+
+// DayBattery is one calendar day's raw battery-level observation — our own
+// domain model, no vendor suffix (ai/architecture.md §6). Backs
+// BatteryLevelByDay (RM40-analytics-add-battery-level-read design.md D2).
+// Unlike DayConsumption/DayDistance, both fields here are ALWAYS populated
+// for a day that has a vehicle_metrics row at all — they carry no
+// predecessor requirement (design.md D3).
+type DayBattery struct {
+	// Date is the calendar day this entry describes — vehicle_metrics'
+	// metric_date for this row, same representation as DayConsumption.Date/
+	// DayDistance.Date (UTC-midnight bare calendar date). A FINAL bucket key
+	// — see BatteryLevelByDay's doc comment for the effectiveDayUTC warning.
+	Date time.Time
+	// BatteryLevelPct is the day's stored battery_level_pct — a raw
+	// per-day observation copied verbatim from that day's own
+	// telemetry.Snapshot, NOT NULL regardless of predecessor existence
+	// (design.md D3).
+	BatteryLevelPct int
+	// BatteryRangeKm is the day's stored battery_range_km — same
+	// always-populated, no-predecessor-required contract as
+	// BatteryLevelPct above.
+	BatteryRangeKm float64
 }
 
 // VehicleStatus is the latest precomputed vehicle_metrics row for one vehicle
