@@ -196,6 +196,14 @@
       "made_by": "leader",
       "decision": "All 5 sub-tasks batched into ONE serial Sonnet worker instead of 3 dependency waves",
       "why": "Only T1/T2 and T4 are parallel-ok; 3 waves would re-read the doc pack 3x for a 4-file change. Serial order inside one dispatch respects every depends_on."
+    },
+    {
+      "id": "D4",
+      "at": "2026-09-02T15:55:00Z",
+      "scope": "task:T2",
+      "made_by": "leader",
+      "decision": "Leader fixed the 6 unqualified raw SQL statements in service_integration_test.go directly, rather than re-dispatching the worker",
+      "why": "Six mechanical sed edits with a deterministic grep check. A re-dispatch would re-read the whole doc pack to change six strings."
     }
   ],
   "events": [
@@ -223,6 +231,11 @@
       "at": "2026-09-02T15:40:00Z",
       "agent": "leader",
       "event": "worker flagged a roadmap-level doc item: README.md's 'Database tables by module' table has no schema column. Adding one for account alone would be wrong while 3 modules are still in public \u2014 deferred to the roadmap, not this tier."
+    },
+    {
+      "at": "2026-09-02T15:55:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED FAILURE: `env -u DATABASE_URL go test ./...` -> 10 FAIL in internal/account, all `relation \"accounts\" does not exist`. make migrate-up itself succeeded. Cause: raw SQL in service_integration_test.go (lines 50,66,144,657,774,840) never qualified. Leader fixed all 6; go vet clean; awaiting the owner's re-run."
     }
   ]
 }

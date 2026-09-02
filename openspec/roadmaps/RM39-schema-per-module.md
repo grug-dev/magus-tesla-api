@@ -29,6 +29,7 @@ reason the design looks the way it does.
 | sqlc **rejects bare table names** once a table leaves `public` | same repro, bare `SELECT * FROM vehicle_snapshots` → `relation "vehicle_snapshots" does not exist`, exit 1 | Schema-qualifying every query is **forced, not chosen** — **D2** |
 | Schema-qualifying **renames every generated struct** | `telemetry.vehicle_snapshots` → `TelemetryVehicleSnapshot` | Without a fix, ~144 non-test Go call sites churn — **D3** |
 | `gen.go.rename` needs the **singularized** key | `telemetry_vehicle_snapshots` → ignored; `telemetry_vehicle_snapshot` → works | The obvious key form silently does nothing — **D3** |
+| Raw SQL in `_test.go` breaks, and **no Claude-runnable signal catches it** | tier 1: query.sql fully qualified, build/vet/gofmt/guards all clean, yet 10 account integration tests failed on `relation "accounts" does not exist` | Every tier must qualify its tests' hand-written SQL — step 2b of the work shape |
 
 The last one deserves emphasis: a wrong `rename` key produces **no error and exit 0**. It
 just quietly fails to rename. Every tier must verify its generated `models.go` type names
@@ -241,6 +242,21 @@ is unchanged. It copies 0 rows on an empty database, which is the harmless case 
    On tiers 3 and 4 the same migration also carries the D5a/D5b `RENAME TO`, and on
    tier 3 the statement order of D7 is mandatory.
 2. Schema-qualify every table reference in that module's `db/query.sql`.
+2b. **Schema-qualify the raw SQL in that module's `_test.go` files too.** Learned the hard
+   way on tier 1: `query.sql` was fully qualified and `go build`, `go vet`, `gofmt` and both
+   guards were all clean, yet 10 account integration tests failed with
+   `relation "accounts" does not exist`. Integration tests hand-write `DELETE FROM …`,
+   `UPDATE …` and `SELECT count(*) FROM …` for setup and assertions. sqlc never sees those
+   strings, and `go vet` compiles the test but a SQL string is just a string to it — **no
+   Claude-runnable signal catches this**. Only the owner's suite does. Find them with:
+
+   ```
+   grep -rnE '"[^"]*\b(FROM|INTO|UPDATE|JOIN)[[:space:]]+[a-z_]+' --include='*_test.go' internal/<module>
+   ```
+
+   Known counts, measured on the live tree: `analytics` 5, `charging` ~15, `telemetry` ~19.
+   **Migration files are the exception — never qualify those.** Every historic migration ran
+   before the schema move and must keep resolving through `search_path` to `public`.
 3. Add `gen.go.rename` entries to that module's `sqlc.yaml` entry (singular keys).
 4. Run `sqlc generate`; **diff `models.go` and confirm no type name changed**.
 5. `go build ./... && go vet ./... && gofmt -l` — the owner runs the suite (see

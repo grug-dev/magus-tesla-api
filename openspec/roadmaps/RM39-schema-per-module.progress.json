@@ -109,6 +109,14 @@
       "made_by": "autopilot",
       "decision": "The rename DELETEs the affected vehicle_metric_watermarks rows",
       "why": "Post-rename the CHECK set is byte-identical to the pre-20260828000001 set, when 'supercharger_sessions' meant telemetry's table -- same string, two meanings by era, and Recalculator keys its cursor on it. A missing row means epoch per the table's own contract, so deleting is self-healing. Data loss acceptable (MAG-31)."
+    },
+    {
+      "id": "D9",
+      "at": "2026-09-02T15:55:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Every tier must also schema-qualify the raw SQL in its _test.go files (new work-shape step 2b)",
+      "why": "Tier 1 shipped with query.sql qualified and every Claude-runnable signal clean, yet 10 integration tests failed: sqlc never sees test SQL strings and go vet treats them as strings."
     }
   ],
   "tiers": [
@@ -142,7 +150,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "3 tables. Watermark 'source' string values must NOT be schema-qualified; a CHECK constraint depends on them."
+      "notes": "3 tables. Watermark 'source' string values must NOT be schema-qualified; a CHECK constraint depends on them. Plus work-shape step 2b (D9): schema-qualify ~5 raw SQL statements in this module's _test.go files."
     },
     {
       "id": 3,
@@ -159,7 +167,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "2 tables. ALSO renames charge_sessions -> supercharger_sessions (D5b) in the same migration, with the mandatory D7 statement order (CREATE SCHEMA -> SET SCHEMA -> RENAME TO). Renames ChargeSession -> SuperchargerSession, 2 sqlc query names, the index and the pct_source constraint. Deletes watermark rows (D8). Must not touch the backfill migration. Corrects kkpa/context KB, which is stale since RM38/RM40."
+      "notes": "2 tables. ALSO renames charge_sessions -> supercharger_sessions (D5b) in the same migration, with the mandatory D7 statement order (CREATE SCHEMA -> SET SCHEMA -> RENAME TO). Renames ChargeSession -> SuperchargerSession, 2 sqlc query names, the index and the pct_source constraint. Deletes watermark rows (D8). Must not touch the backfill migration. Corrects kkpa/context KB, which is stale since RM38/RM40. Plus work-shape step 2b (D9): schema-qualify ~15 raw SQL statements in this module's _test.go files."
     },
     {
       "id": 4,
@@ -177,7 +185,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "PRECEDED BY GATE G1 (owner-run make db-reset). BLOCKED on the external boundary ticket (D6). 4 tables. ALSO renames supercharger_sessions -> supercharger_history (D5a) and the db model + hand-written domain type to SuperchargerHistory, plus 5 sqlc query names. Public port SuperchargerReader stays put -- that is tier 5. Landing it breaks charging tests A1/A2."
+      "notes": "PRECEDED BY GATE G1 (owner-run make db-reset). BLOCKED on the external boundary ticket (D6). 4 tables. ALSO renames supercharger_sessions -> supercharger_history (D5a) and the db model + hand-written domain type to SuperchargerHistory, plus 5 sqlc query names. Public port SuperchargerReader stays put -- that is tier 5. Landing it breaks charging tests A1/A2. Plus work-shape step 2b (D9): schema-qualify ~19 raw SQL statements in this module's _test.go files."
     },
     {
       "id": 5,
@@ -247,6 +255,11 @@
       "at": "2026-09-02T15:40:00Z",
       "agent": "leader",
       "event": "ROADMAP-LEVEL DOC ITEM: README.md's 'Database tables by module' table (~L279) has no schema column. It is not stale today (it never claimed public.), but it should gain one once all four modules have moved. Adding it at tier 1 would be wrong while telemetry/charging/analytics are still in public. Owner: roadmap archive, or tier 3."
+    },
+    {
+      "at": "2026-09-02T15:55:00Z",
+      "agent": "leader",
+      "event": "owner's suite caught 10 account integration failures after tier 1's wave: raw SQL in service_integration_test.go was still unqualified. Fixed 6 statements; added work-shape step 2b + a findings row to the roadmap so tiers 2-4 do not repeat it."
     }
   ],
   "gates": [

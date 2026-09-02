@@ -47,7 +47,7 @@ func newTestService(t *testing.T) (*service, *pgxpool.Pool) {
 func deleteAccount(t *testing.T, pool *pgxpool.Pool, id uuid.UUID) {
 	t.Cleanup(func() {
 		// ON DELETE CASCADE removes the account's tesla_tokens too.
-		_, _ = pool.Exec(context.Background(), "DELETE FROM accounts WHERE id = $1", id)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM account.accounts WHERE id = $1", id)
 	})
 }
 
@@ -63,7 +63,7 @@ func deleteAccount(t *testing.T, pool *pgxpool.Pool, id uuid.UUID) {
 func activateAccount(t *testing.T, pool *pgxpool.Pool, id uuid.UUID) {
 	t.Helper()
 	if _, err := pool.Exec(context.Background(),
-		"UPDATE accounts SET status = 'Active' WHERE id = $1", id,
+		"UPDATE account.accounts SET status = 'Active' WHERE id = $1", id,
 	); err != nil {
 		t.Fatalf("activating test account: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestSaveTeslaTokens_ReplacesExistingConnection(t *testing.T) {
 
 	var count int
 	if err := pool.QueryRow(ctx,
-		"SELECT count(*) FROM tesla_tokens WHERE account_id = $1", acct.ID).Scan(&count); err != nil {
+		"SELECT count(*) FROM account.tesla_tokens WHERE account_id = $1", acct.ID).Scan(&count); err != nil {
 		t.Fatalf("counting tokens: %v", err)
 	}
 	if count != 1 {
@@ -654,7 +654,7 @@ func TestSetVehicleConfigIfEmpty_RoundTrip(t *testing.T) {
 	// sets both columns together), so construct it directly with a raw exec: leave
 	// car_type NULL while exterior_color is already set.
 	if _, err := pool.Exec(ctx,
-		"UPDATE vehicles SET exterior_color = $1 WHERE account_id = $2 AND tesla_id = $3",
+		"UPDATE account.vehicles SET exterior_color = $1 WHERE account_id = $2 AND tesla_id = $3",
 		"PearlWhite", acct.ID, selfHealID,
 	); err != nil {
 		t.Fatalf("constructing partially-captured row: %v", err)
@@ -771,7 +771,7 @@ func TestLanguagePreference_RoundTrip(t *testing.T) {
 	// write path (raw pool.Exec, mirroring the vehicle_config self-heal test
 	// technique) ---
 	if _, err := pool.Exec(ctx,
-		"UPDATE accounts SET language = $1 WHERE id = $2", "fr", acct.ID,
+		"UPDATE account.accounts SET language = $1 WHERE id = $2", "fr", acct.ID,
 	); err != nil {
 		t.Fatalf("simulating out-of-band language write: %v", err)
 	}
@@ -837,7 +837,7 @@ func TestSeedVehicles_IdempotentAndDoesNotOverwrite(t *testing.T) {
 	// No duplicate rows for the re-seeded tesla_id.
 	var count int
 	if err := pool.QueryRow(ctx,
-		"SELECT count(*) FROM vehicles WHERE account_id = $1 AND tesla_id = $2", acct.ID, int64(11)).Scan(&count); err != nil {
+		"SELECT count(*) FROM account.vehicles WHERE account_id = $1 AND tesla_id = $2", acct.ID, int64(11)).Scan(&count); err != nil {
 		t.Fatalf("counting vehicles: %v", err)
 	}
 	if count != 1 {
