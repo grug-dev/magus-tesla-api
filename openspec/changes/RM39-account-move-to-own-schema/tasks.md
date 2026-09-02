@@ -28,7 +28,7 @@
 
 ## T1. Goose migration (`internal/account/db/migrations/`) — no dependencies, parallel-ok with T2
 
-- [ ] T1.1 Create `internal/account/db/migrations/20260902000001_move_account_to_own_schema.sql`
+- [x] T1.1 Create `internal/account/db/migrations/20260902000001_move_account_to_own_schema.sql`
       (next free chronological timestamp: the latest existing filename across ALL modules'
       migration directories is `internal/telemetry/db/migrations/20260830000002_add_poll_runs.sql`
       and account's own latest is `20260830000001_...`; `20260902000001` collides with neither —
@@ -71,7 +71,7 @@
 
 ## T2. Schema-qualify `query.sql` (`internal/account/db/query.sql`) — no dependencies, parallel-ok with T1
 
-- [ ] T2.1 Qualify every table reference with `account.` — `FROM accounts`, `FROM tesla_tokens`,
+- [x] T2.1 Qualify every table reference with `account.` — `FROM accounts`, `FROM tesla_tokens`,
       `FROM vehicles`, `INSERT INTO accounts`, `INSERT INTO tesla_tokens`, `INSERT INTO vehicles`,
       `UPDATE accounts`, `UPDATE tesla_tokens`, `UPDATE vehicles` — **including the two `EXISTS
       (SELECT 1 FROM accounts a WHERE …)` subqueries** inside `GetLatestTeslaTokenByAccount`,
@@ -90,7 +90,7 @@
 
 ## T3. `sqlc.yaml` rename block + regeneration + verification (`sqlc.yaml`, `internal/account/db/`) — depends on T1 AND T2
 
-- [ ] T3.1 Add a `rename:` map under the account entry's existing `gen.go` block in the root
+- [x] T3.1 Add a `rename:` map under the account entry's existing `gen.go` block in the root
       `sqlc.yaml` (NOT the top-level `overrides:` block — design.md D3 confirms sqlc ignores
       renames placed there):
       ```yaml
@@ -112,10 +112,10 @@
       `tesla_tokens` → `tesla_token`, `vehicles` → `vehicle`, each prefixed with schema `account`.
       Do not touch the `telemetry`, `charging`, or `analytics` entries in this same file — they
       are out of scope for this tier.
-- [ ] T3.2 Run `make sqlc` (leader-integrated step — requires both T1's migration and T2's
+- [x] T3.2 Run `make sqlc` (leader-integrated step — requires both T1's migration and T2's
       schema-qualified queries to already be in place). This regenerates
       `internal/account/db/models.go`, `db.go`, and `query.sql.go`.
-- [ ] T3.3 **Diff `internal/account/db/models.go` against its pre-change version and confirm zero
+- [x] T3.3 **Diff `internal/account/db/models.go` against its pre-change version and confirm zero
       change to any struct name, field name, or field type** — compare against the exact byte-form
       quoted in `design.md`'s Test Contract point 1 (`Account`, `TeslaToken`, `Vehicle` struct
       bodies). This is the mandatory verification step design.md requires: a wrong `rename` key
@@ -126,7 +126,7 @@
       If the diff shows a renamed struct (e.g. `AccountAccount`, `AccountTeslaToken`,
       `AccountVehicle`), the rename key form was wrong — fix T3.1 and re-run T3.2/T3.3 before
       proceeding.
-- [ ] T3.4 Confirm by inspection that `internal/account/db/query.sql.go` compiles against the new
+- [x] T3.4 Confirm by inspection that `internal/account/db/query.sql.go` compiles against the new
       `accountdb` package (no hand edits) and that every generated query function's Go signature
       (parameter/return types) is unchanged from before this migration — the schema move changes
       only the SQL text embedded as string constants, never a Go-visible type.
@@ -134,12 +134,12 @@
 
 ## T4. Docs (`internal/account/AGENTS.md` + any other doc naming these tables) — depends on T1, parallel-ok with T2/T3
 
-- [ ] T4.1 Update `internal/account/AGENTS.md`'s "Boundaries" section to state that this module's
+- [x] T4.1 Update `internal/account/AGENTS.md`'s "Boundaries" section to state that this module's
       data lives in the `account` Postgres schema (tables `accounts`, `tesla_tokens`, `vehicles`),
       not just `internal/account/db/`. Keep the addition to one or two sentences, consistent with
       the file's existing terse style (CLAUDE.md's docs-track-change rule — this is a structural
       change to the module landing in the same change, not a follow-up).
-- [ ] T4.2 Grep the repo (`grep -rn` for `accounts`, `tesla_tokens`, `vehicles` as bare
+- [x] T4.2 Grep the repo (`grep -rn` for `accounts`, `tesla_tokens`, `vehicles` as bare
       identifiers, scoped to prose/docs — `docs/`, `ai/`, root `README.md`, `kkpa/context/`) for
       any doc that names these tables and would now read as stale by omitting the schema. Most
       references are expected to be either code (unaffected — Go identifiers don't change) or
@@ -148,15 +148,15 @@
 
 ## T5. Verification — depends on T1–T4
 
-- [ ] T5.1 `go build ./...`, `go vet ./...`, `gofmt -l` pass repo-wide (Claude-run, per
+- [x] T5.1 `go build ./...`, `go vet ./...`, `gofmt -l` pass repo-wide (Claude-run, per
       `Test-Execution-Policy` — these are cheap deterministic signals, not the owner-only test
       suite).
-- [ ] T5.2 Boundary check: `internal/account` still does not import any other feature module; no
+- [x] T5.2 Boundary check: `internal/account` still does not import any other feature module; no
       file outside `internal/account` (and the granted `openspec/changes/RM39-account-move-to-own-schema/`
       artifacts folder) was touched by this tier.
-- [ ] T5.3 Confirm no other module's `sqlc.yaml` entry, migrations directory, or `query.sql` was
+- [x] T5.3 Confirm no other module's `sqlc.yaml` entry, migrations directory, or `query.sql` was
       touched — this tier is scoped to the account entry only.
-- [ ] T5.4 State in the final report the exact catalog-verification queries from design.md's Test
+- [x] T5.4 State in the final report the exact catalog-verification queries from design.md's Test
       Contract point 2, so the owner can paste them after `make migrate-up`:
       ```sql
       SELECT to_regclass('account.accounts'), to_regclass('account.tesla_tokens'),
@@ -165,11 +165,11 @@
              to_regclass('public.vehicles');
       ```
       Expected: the first query returns three non-NULL OIDs; the second returns three NULLs.
-- [ ] T5.5 Report the exact test-suite commands the owner must run to confirm this tier's zero
+- [x] T5.5 Report the exact test-suite commands the owner must run to confirm this tier's zero
       assertion-level regression (`go test ./internal/account/... -run
       TestUpsertFromOAuth_Idempotent`, `go test ./internal/account/... -run
       TestLanguagePreference_RoundTrip`, and the full `go test ./...` / `make test-with-db`) — this
       tier does not execute them (`Test-Execution-Policy`); the owner's run is what turns it from
       `awaiting-user-verification` into `done`.
-- [ ] T5.6 `openspec validate RM39-account-move-to-own-schema --strict` passes and every checkbox
+- [x] T5.6 `openspec validate RM39-account-move-to-own-schema --strict` passes and every checkbox
       above reflects real completion.

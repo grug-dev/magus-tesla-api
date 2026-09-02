@@ -242,6 +242,11 @@
       "at": "2026-09-02T14:45:00Z",
       "agent": "leader",
       "event": "tier 1 artifacts created and validated; owner confirmed the database design gate (schema `account`, no extra catalog test). Tier 1 -> in-progress."
+    },
+    {
+      "at": "2026-09-02T15:40:00Z",
+      "agent": "leader",
+      "event": "ROADMAP-LEVEL DOC ITEM: README.md's 'Database tables by module' table (~L279) has no schema column. It is not stale today (it never claimed public.), but it should gain one once all four modules have moved. Adding it at tier 1 would be wrong while telemetry/charging/analytics are still in public. Owner: roadmap archive, or tier 3."
     }
   ],
   "gates": [

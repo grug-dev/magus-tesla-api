@@ -4,11 +4,14 @@
   "change": "RM39-account-move-to-own-schema",
   "module": "account",
   "roadmap": "openspec/roadmaps/RM39-schema-per-module.md",
-  "request": "Move internal/account's three tables (accounts, tesla_tokens, vehicles) into a dedicated `account` Postgres schema. Tier 1 of RM39 — the pilot tier every later tier mirrors.",
-  "status": "proposed",
+  "request": "Move internal/account's three tables (accounts, tesla_tokens, vehicles) into a dedicated `account` Postgres schema. Tier 1 of RM39 \u2014 the pilot tier every later tier mirrors.",
+  "status": "applied",
   "created_at": "2026-09-02T14:45:00Z",
-  "updated_at": "2026-09-02T14:45:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-02T15:40:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -18,22 +21,42 @@
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [],
-    "pending": ["T1", "T2", "T3", "T4", "T5"],
+    "current": [
+      "T1",
+      "T2",
+      "T3",
+      "T5"
+    ],
+    "pending": [],
     "blocked": [],
-    "done": []
+    "done": [
+      "T4"
+    ]
   },
   "tasks": [
     {
       "id": "T1",
-      "title": "Goose migration — CREATE SCHEMA account + ALTER TABLE ... SET SCHEMA (x3), with reversing Down",
+      "title": "Goose migration \u2014 CREATE SCHEMA account + ALTER TABLE ... SET SCHEMA (x3), with reversing Down",
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T15:34:15Z",
+      "completed_at": "2026-09-02T15:34:35Z",
+      "duration_seconds": 20,
+      "notes": "Created migration 20260902000001_move_account_to_own_schema.sql with the exact D1 DDL. Applying it via make migrate-up is owner-run.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": null,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared serial-wave delta copied onto all 5 tasks"
+      }
     },
     {
       "id": "T2",
@@ -41,46 +64,113 @@
       "module": "account",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T15:34:35Z",
+      "completed_at": "2026-09-02T15:35:00Z",
+      "duration_seconds": 25,
+      "notes": "All 12 query.sql blocks schema-qualified, including both EXISTS subqueries. Grep for bare table refs returns zero.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": null,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared serial-wave delta copied onto all 5 tasks"
+      }
     },
     {
       "id": "T3",
       "title": "sqlc.yaml gen.go.rename block + make sqlc + verify models.go type names unchanged",
       "module": "account",
-      "depends_on": ["T1", "T2"],
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T15:35:00Z",
+      "completed_at": "2026-09-02T15:35:20Z",
+      "duration_seconds": 20,
+      "notes": "rename: block added under account's gen.go. make sqlc clean; models.go diff empty \u2014 leader re-verified. Keys were right first try.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": null,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared serial-wave delta copied onto all 5 tasks"
+      }
     },
     {
       "id": "T4",
-      "title": "Docs — internal/account/AGENTS.md and any doc naming these tables",
+      "title": "Docs \u2014 internal/account/AGENTS.md and any doc naming these tables",
       "module": "account",
-      "depends_on": ["T1"],
+      "depends_on": [
+        "T1"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "done",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T15:35:35Z",
+      "completed_at": "2026-09-02T15:35:55Z",
+      "duration_seconds": 20,
+      "notes": "AGENTS.md Boundaries updated. Repo-wide grep found no doc asserting a public. schema for these tables, so no other edit needed.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": null,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared serial-wave delta copied onto all 5 tasks"
+      }
     },
     {
       "id": "T5",
-      "title": "Verification — go build / go vet / gofmt -l, boundary + no-other-module checks, openspec validate --strict",
+      "title": "Verification \u2014 go build / go vet / gofmt -l, boundary + no-other-module checks, openspec validate --strict",
       "module": "account",
-      "depends_on": ["T1", "T2", "T3", "T4"],
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "account",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-02T15:35:55Z",
+      "completed_at": "2026-09-02T15:36:54Z",
+      "duration_seconds": 59,
+      "notes": "go build, go vet, migration-guard, boundary-guard all clean; gofmt -l lists only pre-existing debt. openspec validate --strict passes.",
+      "budget": {
+        "five_hour_pct_start": 20,
+        "five_hour_pct_end": 27,
+        "five_hour_pct_delta": 7,
+        "cost_usd_delta": null,
+        "context_pct_end": 16,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared serial-wave delta copied onto all 5 tasks"
+      }
     }
   ],
-  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
   "decisions": [
     {
       "id": "D1",
@@ -98,10 +188,41 @@
       "made_by": "user",
       "decision": "No new to_regclass catalog test; rely on the existing account integration suite",
       "why": "A failed schema move makes every account query fail, so the existing suite already catches it. Matches the owner's no-extra-tests default."
+    },
+    {
+      "id": "D3",
+      "at": "2026-09-02T14:47:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "All 5 sub-tasks batched into ONE serial Sonnet worker instead of 3 dependency waves",
+      "why": "Only T1/T2 and T4 are parallel-ok; 3 waves would re-read the doc pack 3x for a 4-file change. Serial order inside one dispatch respects every depends_on."
     }
   ],
   "events": [
-    { "at": "2026-09-02T14:40:00Z", "agent": "leader", "event": "artifacts created by the `account` worker; openspec validate --strict passes; migration version 20260902000001 confirmed free (highest existing across all module dirs is 20260901000001)" },
-    { "at": "2026-09-02T14:42:00Z", "agent": "leader", "event": "database design gate confirmed by the owner (D1/D2)" }
+    {
+      "at": "2026-09-02T14:40:00Z",
+      "agent": "leader",
+      "event": "artifacts created by the `account` worker; openspec validate --strict passes; migration version 20260902000001 confirmed free (highest existing across all module dirs is 20260901000001)"
+    },
+    {
+      "at": "2026-09-02T14:42:00Z",
+      "agent": "leader",
+      "event": "database design gate confirmed by the owner (D1/D2)"
+    },
+    {
+      "at": "2026-09-02T14:47:00Z",
+      "agent": "leader",
+      "event": "dispatched `account` worker (Sonnet) for T1-T5 as one serial wave; budget start five_hour_pct=20 context_pct=14"
+    },
+    {
+      "at": "2026-09-02T15:40:00Z",
+      "agent": "leader",
+      "event": "wave 1 (T1-T5, serial) complete. Leader re-verified independently: models.go diff empty, rename: is a sibling of overrides:, zero bare table refs in query.sql. Suite not run \u2014 awaiting the owner."
+    },
+    {
+      "at": "2026-09-02T15:40:00Z",
+      "agent": "leader",
+      "event": "worker flagged a roadmap-level doc item: README.md's 'Database tables by module' table has no schema column. Adding one for account alone would be wrong while 3 modules are still in public \u2014 deferred to the roadmap, not this tier."
+    }
   ]
 }

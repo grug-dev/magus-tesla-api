@@ -4,7 +4,7 @@
 -- name: UpsertAccountFromOAuth :one
 -- Create the account for a social identity, or resolve the existing one. The
 -- UNIQUE (provider, provider_id) constraint makes this idempotent per identity.
-INSERT INTO accounts (email, provider, provider_id, display_name)
+INSERT INTO account.accounts (email, provider, provider_id, display_name)
 VALUES (@email, @provider, @provider_id, @display_name)
 ON CONFLICT (provider, provider_id) DO UPDATE
 SET email        = EXCLUDED.email,
@@ -15,12 +15,12 @@ RETURNING *;
 -- name: GetAccountByProviderID :one
 -- Filtered by status = 'Active' (design.md D4, RM34): an Inactive account is
 -- invisible to every account read except UpsertAccountFromOAuth.
-SELECT * FROM accounts
+SELECT * FROM account.accounts
 WHERE provider = @provider AND provider_id = @provider_id AND status = 'Active';
 
 -- name: UpsertTeslaToken :one
 -- One Tesla connection per account (UNIQUE account_id); reconnecting replaces it in place.
-INSERT INTO tesla_tokens (account_id, tesla_email, access_token, refresh_token, access_expires_at)
+INSERT INTO account.tesla_tokens (account_id, tesla_email, access_token, refresh_token, access_expires_at)
 VALUES (@account_id, @tesla_email, @access_token, @refresh_token, @access_expires_at)
 ON CONFLICT (account_id) DO UPDATE
 SET tesla_email       = EXCLUDED.tesla_email,
@@ -32,7 +32,7 @@ RETURNING *;
 
 -- name: UpdateTeslaToken :one
 -- Rotate a connection's tokens in place (used after a refresh).
-UPDATE tesla_tokens
+UPDATE account.tesla_tokens
 SET access_token      = @access_token,
     refresh_token     = @refresh_token,
     access_expires_at = @access_expires_at,
@@ -45,9 +45,9 @@ RETURNING *;
 -- Inactive account's token is invisible here, same as its vehicles. EXISTS (not a
 -- JOIN) keeps `SELECT *` scoped to tesla_tokens alone, so the sqlc-generated row
 -- struct is unchanged (D14).
-SELECT * FROM tesla_tokens
+SELECT * FROM account.tesla_tokens
 WHERE account_id = @account_id
-  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
 ORDER BY updated_at DESC
 LIMIT 1;
 
@@ -56,9 +56,9 @@ LIMIT 1;
 -- refreshes of the same connection serialize and can't strand a single-use token.
 -- Gated by the owning account's status via EXISTS (design.md D14/D15, RM34): a
 -- revoked (Inactive) account can no longer burn a single-use refresh token.
-SELECT * FROM tesla_tokens
+SELECT * FROM account.tesla_tokens
 WHERE account_id = @account_id
-  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
 ORDER BY updated_at DESC
 LIMIT 1
 FOR UPDATE;
@@ -71,7 +71,7 @@ FOR UPDATE;
 -- yields no row on a skipped insert, and the caller re-reads the full set via
 -- ListVehiclesByAccount anyway — there is nothing to return here.
 -- ON CONFLICT DO NOTHING is UNCHANGED per design.md D3.
-INSERT INTO vehicles (account_id, tesla_id, vin, display_name, access_type)
+INSERT INTO account.vehicles (account_id, tesla_id, vin, display_name, access_type)
 VALUES (@account_id, @tesla_id, @vin, @display_name, @access_type)
 ON CONFLICT (account_id, tesla_id) DO NOTHING;
 
@@ -81,7 +81,7 @@ ON CONFLICT (account_id, tesla_id) DO NOTHING;
 -- for a self-healing write, and a row with both already captured never matches (defense in
 -- depth — RD2 — independent of whatever Go-side guard the caller applies). updated_at only
 -- moves when the WHERE clause actually matches a row.
-UPDATE vehicles
+UPDATE account.vehicles
 SET exterior_color = @exterior_color,
     car_type        = @car_type,
     updated_at      = now()
@@ -96,9 +96,9 @@ WHERE account_id = @account_id
 -- (design.md D14/D15, RM34): a deactivated user's stateless cookie session must
 -- not keep rendering real vehicles. EXISTS (not a JOIN) keeps `SELECT *` scoped
 -- to vehicles alone, so the sqlc-generated row struct is unchanged (D14).
-SELECT * FROM vehicles
+SELECT * FROM account.vehicles
 WHERE account_id = @account_id AND status = 'Active'
-  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
 ORDER BY tesla_id;
 
 -- name: GetAccountLanguage :one
@@ -107,7 +107,7 @@ ORDER BY tesla_id;
 -- Filtered by status = 'Active' (design.md D4, RM34): an Inactive account's
 -- language preference is not readable — the read behaves as though no such
 -- account exists.
-SELECT language FROM accounts
+SELECT language FROM account.accounts
 WHERE id = @id AND status = 'Active';
 
 -- name: UpdateAccountLanguage :exec
@@ -118,7 +118,7 @@ WHERE id = @id AND status = 'Active';
 -- account this matches zero rows and is a silent no-op (Postgres does not error
 -- on an UPDATE matching zero rows, and SetLanguage does not inspect affected-row
 -- count) — documented consequence, not a bug (design.md D4).
-UPDATE accounts
+UPDATE account.accounts
 SET language   = @language,
     updated_at = now()
 WHERE id = @id AND status = 'Active';
@@ -135,7 +135,7 @@ WHERE id = @id AND status = 'Active';
 -- cars) on vehicles owned by a deactivated account. EXISTS (not a JOIN) keeps the
 -- explicit column list scoped to vehicles alone, so the sqlc-generated row struct
 -- is unchanged (D14).
-SELECT account_id, tesla_id, vin, display_name, access_type, exterior_color, car_type FROM vehicles
+SELECT account_id, tesla_id, vin, display_name, access_type, exterior_color, car_type FROM account.vehicles
 WHERE status = 'Active'
-  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
 ORDER BY account_id, tesla_id;

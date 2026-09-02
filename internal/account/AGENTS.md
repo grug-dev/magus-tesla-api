@@ -52,8 +52,10 @@ to apply to today — it governs any unit-bearing column added to this module in
 
 ## Boundaries
 
-- Data lives in `internal/account/db/` (goose migrations + `query.sql`, sqlc-generated
-  code). No other module touches these tables — ever.
+- Data lives in the `account` Postgres schema (tables `accounts`, `tesla_tokens`,
+  `vehicles`, moved there by `RM39-account-move-to-own-schema`), managed from
+  `internal/account/db/` (goose migrations + `query.sql`, sqlc-generated code). No other
+  module touches these tables — ever.
 - Does not import other feature modules; consumers wire account and tesla together
   (e.g. `AccessTokenFor` → `tesla.Credentials` happens in the gateway, not here).
 - No HTML, no HTTP handlers — that is the gateway's layer.
