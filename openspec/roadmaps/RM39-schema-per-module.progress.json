@@ -4,9 +4,9 @@
   "roadmap": "RM39-schema-per-module",
   "intention": "Every internal/ module that owns persistence gets its own Postgres schema, making the modular-monolith boundary visible in the database and checkable at sqlc codegen time.",
   "request": "schema per module for internal/ modules",
-  "status": "in-progress",
+  "status": "complete",
   "autopilot": true,
-  "updated_at": "2026-09-03T10:41:00Z",
+  "updated_at": "2026-09-03T11:30:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -16,9 +16,7 @@
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [
-      5
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
@@ -26,6 +24,7 @@
       2,
       3,
       4,
+      5,
       6
     ]
   },
@@ -132,7 +131,7 @@
       "scope": "roadmap",
       "made_by": "leader",
       "decision": "Tier 3's design gate will still stop for the owner; tier 2's will not",
-      "why": "Tier 2 mirrors the tier-1 migration the owner already confirmed. Tier 3 renames tables, rewrites a CHECK and deletes watermark rows (D8) — a big decision by the owner's own standard."
+      "why": "Tier 2 mirrors the tier-1 migration the owner already confirmed. Tier 3 renames tables, rewrites a CHECK and deletes watermark rows (D8) \u2014 a big decision by the owner's own standard."
     },
     {
       "id": "D12",
@@ -221,7 +220,7 @@
       "scope": "roadmap",
       "made_by": "leader",
       "decision": "Annotated tier 2's vocabulary statements in the LIVE analytics spec rather than rewriting them",
-      "why": "Tier 3b's delta is behavior-only, so tier 2's literal list became the spec's only vocabulary — and it named a retired value. Tier 2's scoped claim is still true."
+      "why": "Tier 3b's delta is behavior-only, so tier 2's literal list became the spec's only vocabulary \u2014 and it named a retired value. Tier 2's scoped claim is still true."
     },
     {
       "id": "D23",
@@ -229,7 +228,7 @@
       "scope": "roadmap",
       "made_by": "user",
       "decision": "Apply the 3 pending migrations to the real database BEFORE db-reset, instead of letting the reset apply them to an empty one",
-      "why": "The reset would have destroyed the only chance to test RM39's central claim — that these migrations preserve existing data. Rejected: straight to reset, and migrate-up without reset."
+      "why": "The reset would have destroyed the only chance to test RM39's central claim \u2014 that these migrations preserve existing data. Rejected: straight to reset, and migrate-up without reset."
     },
     {
       "id": "D24",
@@ -245,7 +244,7 @@
       "scope": "tier:4",
       "made_by": "user",
       "decision": "D6 SUPERSEDED: tier 4 unblocked, and charging's backfill violation is fixed inside tier 4",
-      "why": "No ticket ever covered it — MAG-41 was the gateway->telemetry import, a different violation, and MAG-31's only Linear blocker. The residue is one false comment plus test SQL tier 4's step 2b already owned."
+      "why": "No ticket ever covered it \u2014 MAG-41 was the gateway->telemetry import, a different violation, and MAG-31's only Linear blocker. The residue is one false comment plus test SQL tier 4's step 2b already owned."
     },
     {
       "id": "D26",
@@ -276,7 +275,7 @@
       "at": "2026-09-03T09:52:00Z",
       "scope": "tier:4",
       "made_by": "user",
-      "decision": "Tier 4's database design gate PASSED as specified — one migration for the move, the rename, the 9 catalog renames and the COMMENT refresh",
+      "decision": "Tier 4's database design gate PASSED as specified \u2014 one migration for the move, the rename, the 9 catalog renames and the COMMENT refresh",
       "why": "Rejected move-only (repeats the 41-statement sweep, leaves two supercharger_sessions alive) and split-in-two (same work, adds a pointless intermediate state)."
     },
     {
@@ -398,14 +397,17 @@
       "depends_on": [
         4
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "claude-code",
       "model": "sonnet",
       "started_at": "2026-09-03T10:30:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-03T11:30:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts complete, openspec validate --strict clean. No DB object touched, so the database design gate does not apply. D31 corrected the tier's scope: real cross-module surface is 4 files, not 88 references."
+      "budget": {
+        "five_hour_delta": 21,
+        "note": "tier 5 total: artifacts + wave 1 (Sonnet worker) + wave 2 (leader) + review round 1"
+      },
+      "notes": "Pure identifier rename, no behavior change. Reviewer-approved round 1, zero findings. Owner reported the suite passing."
     },
     {
       "id": 6,
@@ -471,7 +473,7 @@
     {
       "at": "2026-09-02T14:35:00Z",
       "agent": "leader",
-      "event": "resume: corrected git.branch to ft/RM39-MAG-31-schema-per-module-renames (the recorded branch was merged to main via PR #41). Starting tier 1 (account) — the only unblocked tier with no deps."
+      "event": "resume: corrected git.branch to ft/RM39-MAG-31-schema-per-module-renames (the recorded branch was merged to main via PR #41). Starting tier 1 (account) \u2014 the only unblocked tier with no deps."
     },
     {
       "at": "2026-09-02T14:45:00Z",
@@ -501,7 +503,7 @@
     {
       "at": "2026-09-02T17:25:00Z",
       "agent": "leader",
-      "event": "tier 2 archived to openspec/changes/archive/analytics/. Leader ran the full suite green under the owner's session authorization. Next: tier 3 (charging) — HALTING for the owner's design gate, per D11: it renames tables, rewrites a CHECK and deletes watermark rows."
+      "event": "tier 2 archived to openspec/changes/archive/analytics/. Leader ran the full suite green under the owner's session authorization. Next: tier 3 (charging) \u2014 HALTING for the owner's design gate, per D11: it renames tables, rewrites a CHECK and deletes watermark rows."
     },
     {
       "at": "2026-09-02T17:35:00Z",
@@ -546,27 +548,27 @@
     {
       "at": "2026-09-03T01:50:00Z",
       "agent": "leader",
-      "event": "ROADMAP-LEVEL DOC ITEM (new): openspec/specs/gateway/spec.md:1768 still says the gateway 'SHALL NOT read charge_sessions' — a name tier 3 retired. It is gateway's capability spec, not charging's or analytics's, so no current tier owns it. Fix at roadmap archive."
+      "event": "ROADMAP-LEVEL DOC ITEM (new): openspec/specs/gateway/spec.md:1768 still says the gateway 'SHALL NOT read charge_sessions' \u2014 a name tier 3 retired. It is gateway's capability spec, not charging's or analytics's, so no current tier owns it. Fix at roadmap archive."
     },
     {
       "at": "2026-09-03T01:50:00Z",
       "agent": "leader",
-      "event": "openspec archive left the new charging capability spec with a 'TBD - created by archiving' Purpose (same as charge-session-log from RM29). Leader wrote a real Purpose — the spec is the live doc agents read, and a TBD there is the KB-staleness failure CLAUDE.md warns about."
+      "event": "openspec archive left the new charging capability spec with a 'TBD - created by archiving' Purpose (same as charge-session-log from RM29). Leader wrote a real Purpose \u2014 the spec is the live doc agents read, and a TBD there is the KB-staleness failure CLAUDE.md warns about."
     },
     {
       "at": "2026-09-03T02:05:00Z",
       "agent": "leader",
-      "event": "SUITE RESULT (tier 3, leader-run under D19). Owner's env -u DATABASE_URL run failed account and charging with 'Docker Desktop is unable to start' — testcontainers, not the code; every other package passed. Re-ran both against local Postgres 16, each on its OWN fresh database (magus_t3b_account, magus_t3b_charging): both ok. Whole suite green."
+      "event": "SUITE RESULT (tier 3, leader-run under D19). Owner's env -u DATABASE_URL run failed account and charging with 'Docker Desktop is unable to start' \u2014 testcontainers, not the code; every other package passed. Re-ran both against local Postgres 16, each on its OWN fresh database (magus_t3b_account, magus_t3b_charging): both ok. Whole suite green."
     },
     {
       "at": "2026-09-03T02:05:00Z",
       "agent": "leader",
-      "event": "F1 STATUS after that run: substance answered, literal wording still open. Tier 3 has now been exercised against a real Postgres including the migration, the rename and both DB packages — but not through testcontainers, because Docker Desktop still refuses to start. F1 stays open as an environmental item, not a code item."
+      "event": "F1 STATUS after that run: substance answered, literal wording still open. Tier 3 has now been exercised against a real Postgres including the migration, the rename and both DB packages \u2014 but not through testcontainers, because Docker Desktop still refuses to start. F1 stays open as an environmental item, not a code item."
     },
     {
       "at": "2026-09-03T02:05:00Z",
       "agent": "leader",
-      "event": "D18 CATALOG CHECK re-verified independently on the fresh db: zero pg_constraint/pg_indexes names beginning charge_sessions; all 9 objects carry supercharger_sessions_*. Also confirms the accepted D5b transient ambiguity is real and visible — public.supercharger_sessions (telemetry) and charging.supercharger_sessions both exist with identically-named constraints until tier 4 renames telemetry's copy."
+      "event": "D18 CATALOG CHECK re-verified independently on the fresh db: zero pg_constraint/pg_indexes names beginning charge_sessions; all 9 objects carry supercharger_sessions_*. Also confirms the accepted D5b transient ambiguity is real and visible \u2014 public.supercharger_sessions (telemetry) and charging.supercharger_sessions both exist with identically-named constraints until tier 4 renames telemetry's copy."
     },
     {
       "at": "2026-09-03T02:15:00Z",
@@ -581,7 +583,7 @@
     {
       "at": "2026-09-03T03:00:00Z",
       "agent": "leader",
-      "event": "SPEC STALENESS found at archive, fixed: tier 3b's delta is deliberately WHAT-only (config.yaml forbids implementation literals in specs), so it named no vocabulary — which left tier 2's requirement as the live analytics spec's ONLY concrete vocabulary, still listing 'charge_sessions'. Annotated both places with a forward pointer instead of rewriting tier 2's claim, which remains true as scoped (D22)."
+      "event": "SPEC STALENESS found at archive, fixed: tier 3b's delta is deliberately WHAT-only (config.yaml forbids implementation literals in specs), so it named no vocabulary \u2014 which left tier 2's requirement as the live analytics spec's ONLY concrete vocabulary, still listing 'charge_sessions'. Annotated both places with a forward pointer instead of rewriting tier 2's claim, which remains true as scoped (D22)."
     },
     {
       "at": "2026-09-03T03:00:00Z",
@@ -591,7 +593,7 @@
     {
       "at": "2026-09-03T03:15:00Z",
       "agent": "leader",
-      "event": "RM39's DATA-PRESERVATION CLAIM (D1) IS NOW PROVEN ON REAL DATA, not just test fixtures. make migrate-up applied tiers 2, 3 and 3b to the owner's magus database: charging 20260902000003 OK (23ms), analytics 20260902000002 OK (5ms), analytics 20260902000004 OK (6ms). Row counts byte-identical before and after — manual_charge_entries 12, supercharger_sessions 10, vehicle_metrics 96, watermarks 3, charge_gaps 9. Catalog clean: zero charge_sessions* names. CHECK now reads vehicle_snapshots/supercharger_sessions/manual_charge_entries. Schemas present: account, charging, analytics (telemetry still public — tier 4 not done, correct). make migrate-status: nothing pending, so G1's precondition is satisfied."
+      "event": "RM39's DATA-PRESERVATION CLAIM (D1) IS NOW PROVEN ON REAL DATA, not just test fixtures. make migrate-up applied tiers 2, 3 and 3b to the owner's magus database: charging 20260902000003 OK (23ms), analytics 20260902000002 OK (5ms), analytics 20260902000004 OK (6ms). Row counts byte-identical before and after \u2014 manual_charge_entries 12, supercharger_sessions 10, vehicle_metrics 96, watermarks 3, charge_gaps 9. Catalog clean: zero charge_sessions* names. CHECK now reads vehicle_snapshots/supercharger_sessions/manual_charge_entries. Schemas present: account, charging, analytics (telemetry still public \u2014 tier 4 not done, correct). make migrate-status: nothing pending, so G1's precondition is satisfied."
     },
     {
       "at": "2026-09-03T03:15:00Z",
@@ -601,7 +603,7 @@
     {
       "at": "2026-09-03T03:25:00Z",
       "agent": "leader",
-      "event": "GATE G1 WAIVED by the owner (D24). Cold-start testing moves to a throwaway/pre-prod database. Tier 4's blocker is now the D6 boundary ticket ALONE — G1 no longer gates it."
+      "event": "GATE G1 WAIVED by the owner (D24). Cold-start testing moves to a throwaway/pre-prod database. Tier 4's blocker is now the D6 boundary ticket ALONE \u2014 G1 no longer gates it."
     },
     {
       "at": "2026-09-03T03:25:00Z",
@@ -611,12 +613,12 @@
     {
       "at": "2026-09-03T03:40:00Z",
       "agent": "leader",
-      "event": "D6 INVESTIGATED AND SUPERSEDED (D25). Checked Linear and the code: MAG-31's only blockedBy is MAG-41 (Fix boundary-guard), which is Done — but MAG-41 was the gateway->telemetry Go IMPORT violation fixed by RM38/RM40, not charging's backfill. No ticket ever existed for D6's violation. The violation is real and still present (20260823000001 reads public.supercharger_sessions inside a PL/pgSQL DO block; boundary-guard sees only Go imports and sqlc cannot parse a PL/pgSQL body), but its cost to tier 4 is one false comment plus test SQL already owned by step 2b. On a fresh db the post-rename guard skips a backfill that would have copied zero rows anyway."
+      "event": "D6 INVESTIGATED AND SUPERSEDED (D25). Checked Linear and the code: MAG-31's only blockedBy is MAG-41 (Fix boundary-guard), which is Done \u2014 but MAG-41 was the gateway->telemetry Go IMPORT violation fixed by RM38/RM40, not charging's backfill. No ticket ever existed for D6's violation. The violation is real and still present (20260823000001 reads public.supercharger_sessions inside a PL/pgSQL DO block; boundary-guard sees only Go imports and sqlc cannot parse a PL/pgSQL body), but its cost to tier 4 is one false comment plus test SQL already owned by step 2b. On a fresh db the post-rename guard skips a backfill that would have copied zero rows anyway."
     },
     {
       "at": "2026-09-03T02:45:00Z",
       "agent": "leader",
-      "event": "TIER 4 RESUMED. Roadmap md re-synced with D13/D17/D18/D23/D24/D25 (commit ffcb7e2) — it still said tiers 4/5 were blocked on the ticket D25 disproved, and was missing three decisions that bind tier 4. Catalog measured (D27) and cross-module Go refs found (D26). No fresh Step 2 interview: the roadmap Decisions fully determine the migration shape and the index plan is rename-only, so there is no second plausible design to grill on. The database design gate still applies at Step 3."
+      "event": "TIER 4 RESUMED. Roadmap md re-synced with D13/D17/D18/D23/D24/D25 (commit ffcb7e2) \u2014 it still said tiers 4/5 were blocked on the ticket D25 disproved, and was missing three decisions that bind tier 4. Catalog measured (D27) and cross-module Go refs found (D26). No fresh Step 2 interview: the roadmap Decisions fully determine the migration shape and the index plan is rename-only, so there is no second plausible design to grill on. The database design gate still applies at Step 3."
     },
     {
       "at": "2026-09-03T09:40:00Z",
@@ -652,6 +654,11 @@
       "at": "2026-09-03T10:41:00Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT at tier 5's artifacts/wave-1 boundary. five_hour_pct 94 (limit 90), context_pct 13 (limit 40), bucket resets 2026-09-03T14:30:00Z. Tier 5 artifacts are committed and the tier is [~]; no code has been touched. RM39 remains 5 of 6 tiers archived. Resume after the reset with: /kkpa-dev-harness-pipeline resume RM39-schema-per-module"
+    },
+    {
+      "at": "2026-09-03T11:30:00Z",
+      "agent": "leader",
+      "event": "TIER 5 ARCHIVED as 2026-09-03-RM39-telemetry-rename-supercharger-port (moved into the archive/telemetry/ module folder to match this project convention - the CLI drops archives at the archive root). openspec archive synced the delta into openspec/specs/telemetry/spec.md, retiring the tier-4 SHALL-NOT-rename clause. ROADMAP RM39 IS COMPLETE: all 6 tiers archived, stopper gate G1 waived by the owner (D24). Next: archive the roadmap itself."
     }
   ],
   "gates": [
@@ -676,7 +683,8 @@
       "leader_instruction": "HALT after tier 3b is archived. Do NOT dispatch tier 4 until the owner confirms this gate is done or explicitly waives it. Never run make db-reset yourself.",
       "waived_at": "2026-09-03T03:25:00Z",
       "waived_by": "user",
-      "waived_why": "Owner will create a fresh magus database before deploying to prod instead. The gate's purpose was met another way: D23's migrate-up proved RM39 on real data, so the wipe would have cost 174 vehicle_snapshots since 2026-07-13 and 12 hand-entered manual_charge_entries — neither recoverable — for an empty database RM39 no longer needs."
+      "waived_why": "Owner will create a fresh magus database before deploying to prod instead. The gate's purpose was met another way: D23's migrate-up proved RM39 on real data, so the wipe would have cost 174 vehicle_snapshots since 2026-07-13 and 12 hand-entered manual_charge_entries \u2014 neither recoverable \u2014 for an empty database RM39 no longer needs."
     }
-  ]
+  ],
+  "completed_at": "2026-09-03T11:30:00Z"
 }

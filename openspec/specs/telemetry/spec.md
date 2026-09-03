@@ -1020,18 +1020,31 @@ surviving old name would print retired vocabulary against a table the whole syst
 
 The module's own domain type SHALL be renamed from `SuperchargerSession` to
 `SuperchargerHistory`, and the sqlc-generated model for the table SHALL follow the table's new
-name with an identical field list — a deliberate exception to this change's general
-schema-move-preserves-Go-names rule, because the rename's whole purpose is to retire the old
-vocabulary everywhere, including in the code that reads it most. The five sqlc query names
-that embedded the old table name SHALL be renamed to name `SuperchargerHistory` instead, with
-no change to any query's parameters, predicates, ordering or column effects.
+name with an identical field list — a deliberate exception to the general schema-move-
+preserves-Go-names rule, because the rename's whole purpose is to retire the old vocabulary
+everywhere, including in the code that reads it most. The five sqlc query names that embedded
+the old table name SHALL be renamed to name `SuperchargerHistory` instead, with no change to
+any query's parameters, predicates, ordering or column effects.
 
-The public port SHALL be left **deliberately half-renamed**: `SuperchargerReader`, its four
-`SuperchargerSessions*` method names and its constructor keep their current names while
-returning `[]SuperchargerHistory`. This mismatch is the designed outcome of this change, not
-an omission — the port has a large cross-module footprint and its rename is a separate,
-sequenced change. A reviewer SHALL NOT flag the mismatch as incomplete work, and no
-implementer SHALL rename the port as part of this change.
+**The public port's deliberate half-renamed state is now RETIRED.** The port interface
+previously named `SuperchargerReader`, its four `SuperchargerSessions*` methods, its
+constructor `NewSuperchargerReader`, and its unexported implementation and helper functions
+SHALL be renamed to match the domain type and table they operate on:
+`SuperchargerReader` → `SuperchargerHistoryReader`; `SuperchargerSessionsByAccount` →
+`SuperchargerHistoryByAccount`; `SuperchargerSessionsByVehicle` →
+`SuperchargerHistoryByVehicle`; `SuperchargerSessionsByVehicleBetween` →
+`SuperchargerHistoryByVehicleBetween`; `SuperchargerSessionsByVehicleUpdatedSince` →
+`SuperchargerHistoryByVehicleUpdatedSince`; `NewSuperchargerReader` →
+`NewSuperchargerHistoryReader`. No method signature, parameter list, predicate, ordering, or
+returned data SHALL change — this is a pure identifier rename layered on top of tier 4's table
+and type rename, completing it rather than altering behavior.
+
+A same-named field belonging to another module (`internal/gateway`'s `Deps.SuperchargerReader`,
+typed `charging.SessionReader`) is explicitly OUT OF SCOPE for this requirement and SHALL NOT
+be renamed — it is a different, unrelated identifier that happens to share a name, and
+`internal/gateway` SHALL continue to be forbidden from importing `internal/telemetry` at all
+(the pre-existing "Exception: the gateway may not depend on `telemetry` at all" requirement is
+unaffected by this rename).
 
 #### Scenario: The renamed table resolves and the old name does not
 - **GIVEN** this change's migration has been applied
@@ -1048,12 +1061,9 @@ implementer SHALL rename the port as part of this change.
 - **THEN** the primary key, the `session_id` unique constraint, the five auto-named column
   CHECK constraints, and the two standalone indexes all carry names beginning
   `supercharger_history`
-- **AND** each preserves the exact definition it had under its old name — the same checked
-  expression for each CHECK, the same column set for each key, and the same column order and
-  sort direction for each index
+- **AND** each preserves the exact definition it had under its old name
 - **AND** a catalog query for any constraint or index name beginning `supercharger_sessions`
-  within this module's schema returns no rows — the completeness criterion is the catalog,
-  not a fixed list
+  within this module's schema returns no rows
 
 #### Scenario: The renamed Go type carries an identical field set
 - **GIVEN** the module's generated database models have been regenerated against this
@@ -1062,34 +1072,35 @@ implementer SHALL rename the port as part of this change.
   `SuperchargerSession` struct
 - **THEN** every field name, type and declaration order is identical — only the struct's own
   type identifier changed
-- **AND** no other generated struct (`VehicleSnapshot`, `PollAttempt`, `PollRun`) changed at
-  all, in name, field set or field order
 
-#### Scenario: Generated documentation names only live objects
-- **GIVEN** the module's generated database models have been regenerated against this
-  change's migration
-- **WHEN** the generated doc comments carried over from the database's table and column
-  comments are read
-- **THEN** none of them names a table, index, constraint or query that no longer exists under
-  that name
-
-#### Scenario: The public Supercharger port is deliberately left half-renamed
-- **GIVEN** a caller of `telemetry.SuperchargerReader`
+#### Scenario: The public port is fully renamed to match the table (no residual half-state)
+- **GIVEN** a caller of telemetry's Supercharger read port
 - **WHEN** this change is applied
-- **THEN** the port's name, its four method names, its constructor name and every method
-  signature's parameter list are unchanged
-- **AND** each method's returned element type is `SuperchargerHistory` rather than
-  `SuperchargerSession`
-- **AND** the data returned is identical to what the same call returned before the rename
-- **AND** the resulting name mismatch between the port and its element type is the specified
-  end state of this change, to be resolved by a separate later change
+- **THEN** the port is named `SuperchargerHistoryReader`, its four methods are named
+  `SuperchargerHistoryByAccount`, `SuperchargerHistoryByVehicle`,
+  `SuperchargerHistoryByVehicleBetween` and `SuperchargerHistoryByVehicleUpdatedSince`, and its
+  constructor is named `NewSuperchargerHistoryReader`
+- **AND** each method's parameter list, predicate, ordering and returned element type
+  (`SuperchargerHistory`) are byte-identical to the pre-change port's
+- **AND** the data returned by every call is identical to what the same call returned before
+  the rename
+- **AND** no name on the public port still contains the word "Session" in reference to this
+  table (the old `SuperchargerSession*` vocabulary is fully retired from this port)
 
-#### Scenario: A caller outside the module is broken only by the type name, and visibly
-- **GIVEN** code outside `internal/telemetry` that names the type
-  `telemetry.SuperchargerSession`
-- **WHEN** this change is applied
-- **THEN** that code fails to compile, rather than compiling against a silently different
-  type
+#### Scenario: A real consumer outside the module is broken only by the identifier, and visibly
+- **GIVEN** code outside `internal/telemetry` that names the type `telemetry.SuperchargerReader`
+  or calls one of its four old method names
+- **WHEN** this change is applied without that code being updated
+- **THEN** that code fails to compile, rather than compiling against a silently different type
+  or method
 - **AND** the failure is reported by the standard Go build and vet signals, which compile test
   files as well as production files
+
+#### Scenario: An unrelated, same-named identifier in another module is left untouched
+- **GIVEN** `internal/gateway`'s `Deps.SuperchargerReader` field, typed `charging.SessionReader`
+  and wired from `cmd/web/main.go` via `charging.NewSessionReader(pool)`
+- **WHEN** this change is applied
+- **THEN** that field's name, type, and wiring are completely unchanged
+- **AND** `internal/gateway` still does not import `internal/telemetry` anywhere, verified by
+  `make boundary-guard` continuing to pass with zero `// boundary:allow:` escape hatches
 

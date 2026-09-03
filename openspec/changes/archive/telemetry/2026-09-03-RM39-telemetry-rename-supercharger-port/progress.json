@@ -7,8 +7,8 @@
   "tier": 5,
   "intention": "Finish D5c by renaming telemetry's public Supercharger port so the Go vocabulary matches the supercharger_history table renamed in tier 4.",
   "request": "schema per module for internal/ modules (RM39 tier 5)",
-  "status": "applied",
-  "updated_at": "2026-09-03T11:25:00Z",
+  "status": "reviewer-approved",
+  "updated_at": "2026-09-03T11:27:00Z",
   "leader": {
     "assistant": "claude-code",
     "model": "Opus 5",
@@ -26,23 +26,22 @@
     "pending": [],
     "blocked": [],
     "done": [
-      "T5",
-      "T10",
-      "T11",
-      "T12",
-      "T13"
-    ],
-    "awaiting-user-verification": [
       "T1",
       "T2",
       "T3",
       "T4",
+      "T5",
       "T6",
       "T7",
       "T8",
       "T9",
+      "T10",
+      "T11",
+      "T12",
+      "T13",
       "T14"
-    ]
+    ],
+    "awaiting-user-verification": []
   },
   "tasks": [
     {
@@ -50,7 +49,7 @@
       "title": "Rename the public port - internal/telemetry/telemetry.go",
       "owner": "telemetry",
       "depends_on": [],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-03T11:15:00Z",
@@ -74,7 +73,7 @@
       "depends_on": [
         "T1"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-03T11:15:00Z",
@@ -98,7 +97,7 @@
       "depends_on": [
         "T1"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-03T11:15:00Z",
@@ -120,7 +119,7 @@
       "title": "Rename the write-seam helper - internal/telemetry/service.go",
       "owner": "telemetry",
       "depends_on": [],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-03T11:15:00Z",
@@ -164,7 +163,7 @@
       "title": "query.sql comments + sqlc regeneration",
       "owner": "telemetry",
       "depends_on": [],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-03T11:15:00Z",
@@ -191,7 +190,7 @@
         "T3",
         "T4"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-03T11:15:00Z",
@@ -218,7 +217,7 @@
         "T3",
         "T4"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-03T11:15:00Z",
@@ -242,7 +241,7 @@
       "depends_on": [
         "T1"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "sonnet",
       "started_at": "2026-09-03T11:15:00Z",
@@ -384,7 +383,7 @@
         "T12",
         "T13"
       ],
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "opus",
       "started_at": "2026-09-03T11:19:00Z",
@@ -472,12 +471,29 @@
       "at": "2026-09-03T11:25:00Z",
       "agent": "leader",
       "event": "WAVE 2 COMPLETE (leader-run): T10 charging comments, T11 analytics comments, T13 KB sweep, T14 verification. Signals all leader-run and clean: go build, go vet, gofmt -l on the 5 touched packages, make boundary-guard (0 escape hatches), openspec validate --strict. T14.3 repo-wide grep triaged by file - every remaining hit is a known-permanent out-of-scope identifier (D1.1 gateway + cmd/web, D1.2 analytics fakes) or a deliberate historical mention. tasks.md 43/43 checked. Budget 10->14 five_hour, context 16. NEXT: Step 6 - owner runs the suite before the reviewer gate."
+    },
+    {
+      "at": "2026-09-03T11:27:00Z",
+      "agent": "leader",
+      "event": "OWNER-REPORTED SUITE PASS. The owner ran `go test ./internal/telemetry/... ./internal/app/... ./internal/analytics/... ./internal/charging/...` and reported every package passing. Verification is the OWNER'S, not the assistant's. All 14 tasks -> done, change status -> verified. Next: Step 7 reviewer gate."
+    },
+    {
+      "at": "2026-09-03T11:27:48Z",
+      "agent": "telemetry-reviewer",
+      "event": "REVIEW ROUND 1: approved, zero findings. Set change status to reviewer-approved."
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": null,
-    "rounds": []
+    "brief": "Review RM39 tier 5 (RM39-telemetry-rename-supercharger-port) - a pure identifier rename, no behavior change. Read the DIFF of commits 882f7eb (wave 1) and 64f0329 (wave 2), not the whole module. Validate: (1) MODULE BOUNDARIES - the telemetry worker edited only internal/telemetry/** plus the 4 leader-granted paths (internal/app/{app.go,processor.go,processor_test.go}, cmd/poller/main.go); internal/gateway and cmd/web are untouched. (2) SCOPE DISCIPLINE (design.md D1) - internal/gateway's Deps.SuperchargerReader (typed charging.SessionReader) and internal/analytics' fakes satisfying charging.SuperchargerSessionAnalyticsReader are DIFFERENT identifiers that must NOT have been renamed. A rename there is a blocker finding. (3) RENAME COMPLETENESS against design.md D2's name table - no half-renamed identifier, no dangling old name inside internal/telemetry. (4) NO BEHAVIOR CHANGE - no signature, SQL, schema, migration or expected-test-value differs; sqlc models.go has zero diff and query.sql.go is comment-only. (5) TEST CONTRACT (design.md) - the _test.go edits are identifier-only; assertions and expected values are byte-identical. Any weakened or deleted assertion is a blocker. (6) DOC/KB ACCURACY - internal/telemetry/AGENTS.md and the 3 kkpa/context files now record the closed state, and the tier-4 'do not fix it' instruction no longer reads as live. (7) ANTI-GAMING - no task or acceptance criterion was edited or deleted; tasks.md 43/43 reflects real state. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards. The owner runs the suite and reports results. WHICH SIGNALS CAME FROM WHERE: go build ./..., go vet ./..., gofmt -l on the 5 touched packages, make boundary-guard (0 escape hatches) and openspec validate --strict were ASSISTANT-RUN and clean. The full suite (go test ./internal/telemetry/... ./internal/app/... ./internal/analytics/... ./internal/charging/...) was run and reported PASSING by the OWNER. Judge test quality by READING the tests - do not run them. PERFORMANCE-PROFILE (verbatim): read-heavy - read performance is mandatory over write performance; writes are mostly done by pollers at midnight, so denormalizing, indexing aggressively, and precomputing for reads is acceptable - never at the cost of the modular-monolith boundaries or module data ownership. (This tier changes no query, so any performance delta is a finding.)",
+    "agent": "telemetry-reviewer",
+    "status": "approved",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "findings": [],
+        "notes": "Pure identifier rename verified against design.md D1/D2 name table and Test Contract. All boundaries respected: telemetry files + 4 leader-granted paths (internal/app/{app.go,processor.go,processor_test.go}, cmd/poller/main.go) in wave 1; 4 comment-only files + 3 KB files in wave 2. internal/gateway and cmd/web confirmed untouched (git diff main empty). Gateway Deps.SuperchargerReader (charging.SessionReader) and analytics fakes satisfying charging.SuperchargerSessionAnalyticsReader confirmed NOT renamed. Zero old-identifier hits inside internal/telemetry; all remaining repo-wide grep hits are the two known-permanent out-of-scope classes. sqlc models.go zero diff, query.sql.go comment-only. go build ./..., go vet ./..., gofmt -l, make boundary-guard, and openspec validate --strict all independently re-run by reviewer and clean. tasks.md 43/43 checked with zero non-checkbox content drift vs pre-wave-1 baseline."
+      }
+    ]
   }
 }
