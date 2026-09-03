@@ -41,7 +41,7 @@ explicitly confirmed it.
 
 ## Wave 0 — database design gate (leader, before any implementation task)
 
-- [ ] **0.1** Leader presents design.md's "Database Design" section (migration SQL
+- [x] **0.1** Leader presents design.md's "Database Design" section (migration SQL
   up/down, state truth table, rationale — including the recompute-mismatch evidence
   behind the BACKFILL decision — and index plan) to the owner and iterates until
   explicitly confirmed. No task below may start until this gate passes.
@@ -49,7 +49,7 @@ explicitly confirmed it.
 
 ## Wave 1 — independent source edits (module: charging worker)
 
-- [ ] **1.1** Create
+- [x] **1.1** Create
   `internal/charging/db/migrations/20260903000004_add_session_status.sql` with the
   exact Up/Down SQL from design.md "Database Design" → "Schema change", verbatim,
   including its comments. Do NOT apply the migration yet (`make migrate-up` is the
@@ -61,7 +61,7 @@ explicitly confirmed it.
   `make migration-guard` reports no duplicate version across `MIGRATIONS_DIRS`.
   `depends_on`: 0.1 · `parallel_ok`: with 1.2, 1.4
 
-- [ ] **1.2** `internal/charging/charging.go` — apply design.md "Code changes" →
+- [x] **1.2** `internal/charging/charging.go` — apply design.md "Code changes" →
   `charging.go`'s three edits exactly: add the `SessionStatus` type + three
   constants, add the `Status SessionStatus` field to `Session` (after
   `BatteryPctSource`, before `InferredCapacityKWhCalc`) and update its doc comment
@@ -74,7 +74,7 @@ explicitly confirmed it.
   returns `1`.
   `depends_on`: 0.1 · `parallel_ok`: with 1.1, 1.4
 
-- [ ] **1.3** `internal/charging/session_verifier.go` — add the `sessionStatusFor`
+- [x] **1.3** `internal/charging/session_verifier.go` — add the `sessionStatusFor`
   function (design.md "Go-side call shape", verbatim) and apply the `VerifySession`
   body edit shown there: introduce `calculated`, set it when the derivation branch
   runs and produces a non-nil `startToStore`, compute `status` via
@@ -89,7 +89,7 @@ explicitly confirmed it.
   `depends_on`: 1.2 · `parallel_ok`: no (must follow 1.2; 1.4/2.1 sequencing below
   governs when it becomes compilable)
 
-- [ ] **1.4** `internal/charging/db/query.sql` — add `status = @status` to
+- [x] **1.4** `internal/charging/db/query.sql` — add `status = @status` to
   `VerifySuperchargerSession`'s `SET` clause and rewrite its doc comment to the
   four-column version; add the one-paragraph addition to
   `MirrorSuperchargerSession`'s guarding comment, per design.md "Code changes" →
@@ -100,7 +100,7 @@ explicitly confirmed it.
   returns at least `2` (one per rewritten/extended comment).
   `depends_on`: 0.1 · `parallel_ok`: with 1.1, 1.2
 
-- [ ] **1.5** `internal/charging/session_reader.go` — add
+- [x] **1.5** `internal/charging/session_reader.go` — add
   `Status: SessionStatus(r.Status)` to `rowToSession` (after `BatteryPctSource`,
   before `CreatedAt`) and the one new mapping-rules bullet, per design.md "Code
   changes" → `session_reader.go`. Acceptance:
@@ -110,7 +110,7 @@ explicitly confirmed it.
 
 ## Wave 2 — codegen (module: charging worker)
 
-- [ ] **2.1** Run `make sqlc` (or `sqlc generate`) to regenerate
+- [x] **2.1** Run `make sqlc` (or `sqlc generate`) to regenerate
   `internal/charging/db/models.go` and `internal/charging/db/query.sql.go` against
   the new migration (1.1) and the edited `query.sql` (1.4). Never hand-edit either
   generated file. Acceptance: `grep -c "Status string" internal/charging/db/models.go`

@@ -167,6 +167,13 @@ ORDER BY charged_on DESC;
 -- here were dropped from the table entirely by RM41-charging-drop-estimate-columns —
 -- there is no longer a column to guard.
 --
+-- The session's lifecycle status (added by RM41-charging-add-session-status, MAG-45)
+-- is ALSO absent from both the INSERT column list and the ON CONFLICT DO UPDATE SET
+-- clause — a freshly-mirrored session has no battery-percentage data yet, so it must
+-- start IN_PROGRESS, which is exactly what the column's own DEFAULT provides with no
+-- explicit value here. Only SessionVerifier.VerifySession ever writes this column
+-- (see VerifySuperchargerSession's own doc comment).
+--
 -- THE REFRESH SET IS NOT A JUDGEMENT CALL. It is telemetry's own ON CONFLICT DO
 -- UPDATE SET, minus raw_data (a column this table does not carry): energy_kwh,
 -- total_cost, currency, is_paid, tesla_id, updated_at. Everything else mirrored —
@@ -265,8 +272,8 @@ FOR UPDATE;
 
 -- name: VerifySuperchargerSession :one
 -- Update the human-owned verification channel on one account-scoped charge session:
--- start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No
--- other column is in this SET clause — this is the mirror image of
+-- start_battery_pct, end_battery_pct, battery_pct_source, and status — plus
+-- updated_at. No other column is in this SET clause — this is the mirror image of
 -- MirrorSuperchargerSession's protection (that query cannot touch these three; this
 -- query cannot touch anything else), by the query's shape, not by a comment a
 -- reviewer has to notice (RM31-charging-add-session-verification-port design.md D1).
@@ -284,11 +291,16 @@ FOR UPDATE;
 -- column. Zero rows matched — unknown id or wrong account, indistinguishable — surfaces
 -- to the caller as pgx.ErrNoRows, exactly like UpdateEntry's own not-found behavior
 -- (TestUpdate_CrossAccountIsNoOp is the existing precedent for this shape).
+--
+-- @status is COMPUTED IN GO by sessionStatusFor (RM41-charging-add-session-status),
+-- never accepted from an external caller — the identical shape @battery_pct_source
+-- already uses.
 UPDATE charging.supercharger_sessions
 SET
     start_battery_pct  = @start_battery_pct,
     end_battery_pct    = @end_battery_pct,
     battery_pct_source = @battery_pct_source,
+    status             = @status,
     updated_at         = now()
 WHERE id = @id
   AND account_id = @account_id

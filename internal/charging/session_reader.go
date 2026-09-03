@@ -135,6 +135,9 @@ func teslaIDToPgInt8(teslaID int64) pgtype.Int8 {
 //   - InferredCapacityKwhCalc: pgtype.Numeric → *float64 via pgNumericToFloat64Ptr
 //     (service.go) — nullable GENERATED ALWAYS AS ... STORED column (MAG-25
 //     design D8).
+//   - Status: string (NOT NULL TEXT) → SessionStatus via a direct type conversion —
+//     no pgtype involved, the same shape Vin/SiteLocationName already use for their
+//     own NOT NULL columns.
 func rowToSession(r chargingdb.SuperchargerSession) Session {
 	return Session{
 		ID:        r.ID,
@@ -155,6 +158,8 @@ func rowToSession(r chargingdb.SuperchargerSession) Session {
 		StartBatteryPct:  pgInt2ToIntPtr(r.StartBatteryPct),
 		EndBatteryPct:    pgInt2ToIntPtr(r.EndBatteryPct),
 		BatteryPctSource: pgTextToPtr(r.BatteryPctSource),
+
+		Status: SessionStatus(r.Status),
 
 		CreatedAt: r.CreatedAt.Time,
 		UpdatedAt: r.UpdatedAt.Time,
