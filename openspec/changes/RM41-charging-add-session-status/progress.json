@@ -7,7 +7,7 @@
   "request": "Roadmap RM41 tier 4, ticket MAG-45. Add a stored, auto-set three-state status column to charging.supercharger_sessions: one migration (TEXT + CHECK, DEFAULT IN_PROGRESS, all existing rows backfilled to DONE_CALCULATED), a sessionStatusFor helper computing it inside VerifySession, the field on charging.Session and the read port, sqlc regeneration, integration-test additions, and four doc files.",
   "status": "verified",
   "created_at": "2026-09-03T21:26:00Z",
-  "updated_at": "2026-09-03T22:28:00Z",
+  "updated_at": "2026-09-03T22:28:30Z",
   "rollup": {
     "current": [],
     "pending": [],
@@ -526,6 +526,11 @@
       "at": "2026-09-03T22:28:00Z",
       "by": "leader",
       "what": "REVIEW ROUND 1: changes-requested, one major finding (R1-F1). Leader triaged it, confirmed both cited lines from disk, and accepted it. The reviewer was right that the tier's doc tasks only covered its three granted paths and nobody ran the broader kkpa/context/ grep. Leader ran that grep and found a THIRD stale location the reviewer missed - supercharger-stats-read.md line 73. Checked nightly-cycle.md, schema-per-module.md and manual-charge-crud.md too: all three are unaffected (manual-charge-crud only cites battery_pct_source as a provenance analogy, still true). Three edits applied."
+    },
+    {
+      "at": "2026-09-03T22:28:30Z",
+      "by": "leader",
+      "what": "BUDGET CHECKPOINT REACHED: five_hour_pct=90, exactly at the threshold (context_pct=27, well under 40). five_hour_resets_at=1788487800 (21:10 local, ~2h40m away). State is truthful: all 14 tasks done, round 1 findings fixed and committed (d4beafe), review.status still changes-requested pending round 2. The live reviewer subagent still holds its round 1 context, so a round 2 re-verify by SendMessage is far cheaper than the fresh reviewer dispatch a /clear would force. Owner asked which to do. Resume with: /kkpa-dev-harness-pipeline resume RM41-charging-add-session-status"
     }
   ]
 }
