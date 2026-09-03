@@ -120,6 +120,22 @@ const (
 	// The source read, aliased `s` in the shipped statement.
 	sourceTableOld = "FROM supercharger_sessions s"
 	sourceTableNew = "FROM telemetry.supercharger_history s"
+
+	// The two frozen estimate columns are the one case that is a REMOVAL, not a move:
+	// RM41-charging-drop-estimate-columns dropped them from charging.supercharger_sessions,
+	// so unlike the three names above there is no forward name to map to and the shipped
+	// text must be deleted instead. Replaying it unedited fails with
+	// `column "start_battery_pct_est" of relation "supercharger_sessions" does not exist`.
+	// Both halves are rewritten — the INSERT column list and the matching SELECT items —
+	// because dropping one without the other leaves the statement's two lists misaligned.
+	// The source columns still exist on telemetry.supercharger_history until RM41 tier 3
+	// drops them there too; that is why the SELECT items are removed by this rewrite and
+	// not by any change to the source fixture (which stays untouched, see below).
+	estInsertColsOld = "        start_battery_pct_est, end_battery_pct_est,\n"
+	estInsertColsNew = ""
+
+	estSelectColsOld = "        s.start_battery_pct_est,\n        s.end_battery_pct_est,\n"
+	estSelectColsNew = ""
 )
 
 func runBackfill(t *testing.T, pool *pgxpool.Pool) {
@@ -133,6 +149,8 @@ func runBackfill(t *testing.T, pool *pgxpool.Pool) {
 		{insertTargetOld, insertTargetNew, "INSERT target"},
 		{guardTargetOld, guardTargetNew, "to_regclass guard"},
 		{sourceTableOld, sourceTableNew, "source table read"},
+		{estInsertColsOld, estInsertColsNew, "dropped est columns (INSERT list)"},
+		{estSelectColsOld, estSelectColsNew, "dropped est columns (SELECT list)"},
 	} {
 		if n := strings.Count(stmt, m.old); n != 1 {
 			t.Fatalf("expected exactly 1 occurrence of %q (%s) in the shipped backfill statement, got %d — "+
