@@ -74,10 +74,6 @@ type SuperchargerRowVM struct {
 	StartBatteryPctLabel string
 	// EndBatteryPctLabel is "N%", or "—" when EndBatteryPct is nil.
 	EndBatteryPctLabel string
-	// StartBatteryPctEstLabel is "N%", or "—" when StartBatteryPctEst is nil.
-	StartBatteryPctEstLabel string
-	// EndBatteryPctEstLabel is "N%", or "—" when EndBatteryPctEst is nil.
-	EndBatteryPctEstLabel string
 	// ID is the session's UUID, formatted as a string for URL path params
 	// (RM31-gateway-add-session-battery-edit) — the row's addressable id
 	// (id="supercharger-row-{ID}") and the row-level route parameter.

@@ -640,7 +640,7 @@ func TestBuildSuperchargerRows_NilEnergyAndCostRenderDash(t *testing.T) {
 	if rows[0].CostLabel != "—" {
 		t.Errorf("want CostLabel=—, got %q", rows[0].CostLabel)
 	}
-	for _, label := range []string{rows[0].StartBatteryPctLabel, rows[0].EndBatteryPctLabel, rows[0].StartBatteryPctEstLabel, rows[0].EndBatteryPctEstLabel} {
+	for _, label := range []string{rows[0].StartBatteryPctLabel, rows[0].EndBatteryPctLabel} {
 		if label != "—" {
 			t.Errorf("want nil battery value to render em dash, got %q", label)
 		}
@@ -657,8 +657,6 @@ func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
 			Currency:            ptrStr("MXN"),
 			StartBatteryPct:     ptrInt(40),
 			EndBatteryPct:       ptrInt(80),
-			StartBatteryPctEst:  ptrInt(42),
-			EndBatteryPctEst:    ptrInt(78),
 		},
 	}
 	rows := buildSuperchargerRows(sessions)
@@ -671,8 +669,8 @@ func TestBuildSuperchargerRows_PopulatedFields(t *testing.T) {
 	if rows[0].CostLabel != "99.90 MXN" {
 		t.Errorf("want CostLabel=99.90 MXN, got %q", rows[0].CostLabel)
 	}
-	if rows[0].StartBatteryPctLabel != "40%" || rows[0].EndBatteryPctLabel != "80%" || rows[0].StartBatteryPctEstLabel != "42%" || rows[0].EndBatteryPctEstLabel != "78%" {
-		t.Errorf("want four formatted battery labels, got %#v", rows[0])
+	if rows[0].StartBatteryPctLabel != "40%" || rows[0].EndBatteryPctLabel != "80%" {
+		t.Errorf("want two formatted battery labels, got %#v", rows[0])
 	}
 }
 
@@ -790,8 +788,6 @@ func TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues(t *testing.T) 
 		ChargeStopDateTime:  time.Date(2026, 8, 1, 11, 0, 0, 0, time.UTC),
 		StartBatteryPct:     ptrInt(40),
 		EndBatteryPct:       ptrInt(80),
-		StartBatteryPctEst:  ptrInt(42),
-		EndBatteryPctEst:    ptrInt(78),
 	}}}
 	h := newHandlerForSupercharger(reader, 42, "VIN42")
 	eng := superchargerEngine(h, uid, 42, "VIN42")
@@ -808,7 +804,7 @@ func TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues(t *testing.T) 
 		t.Fatalf("want 200, got %d", w.Code)
 	}
 	body := w.Body.String()
-	for _, want := range []string{"Batería inicial", "Batería final", "Estimación inicial", "Estimación final", "40%", "80%", "42%", "78%"} {
+	for _, want := range []string{"Batería inicial", "Batería final", "40%", "80%"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("want rendered supercharger table to contain %q", want)
 		}
@@ -822,26 +818,24 @@ func TestSuperchargerStatsContent_RendersEnglishHeadersAndNilBatteryValues(t *te
 	var body bytes.Buffer
 	err := fragments.SuperchargerStatsContent(fragments.SuperchargerStatsView{
 		Sessions: []fragments.SuperchargerRowVM{{
-			DateLabel:               "Fri Aug 1, 2026",
-			SiteLabel:               "Nil Battery Site",
-			EnergyLabel:             "—",
-			CostLabel:               "—",
-			StartBatteryPctLabel:    "—",
-			EndBatteryPctLabel:      "—",
-			StartBatteryPctEstLabel: "—",
-			EndBatteryPctEstLabel:   "—",
+			DateLabel:            "Fri Aug 1, 2026",
+			SiteLabel:            "Nil Battery Site",
+			EnergyLabel:          "—",
+			CostLabel:            "—",
+			StartBatteryPctLabel: "—",
+			EndBatteryPctLabel:   "—",
 		}},
 	}).Render(i18n.WithLang(context.Background(), "en"), &body)
 	if err != nil {
 		t.Fatalf("render Supercharger Stats content: %v", err)
 	}
-	for _, want := range []string{"Start battery", "End battery", "Start estimate", "End estimate"} {
+	for _, want := range []string{"Start battery", "End battery"} {
 		if !strings.Contains(body.String(), want) {
 			t.Errorf("want English rendered header %q", want)
 		}
 	}
-	if strings.Count(body.String(), "—") < 6 {
-		t.Errorf("want all four nil battery cells to render em dashes, body: %s", body.String())
+	if strings.Count(body.String(), "—") < 4 {
+		t.Errorf("want the four nil cells (energy, cost, start battery, end battery) to render em dashes, body: %s", body.String())
 	}
 }
 
@@ -1254,7 +1248,7 @@ func TestSuperchargerRowUpdate_AbsentKeyIs400(t *testing.T) {
 // T2: both keys present with empty values calls VerifySession(nil, nil)
 // exactly once; on the fake returning a session with both percentages (and
 // BatteryPctSource) nil, the response is 200 rendering the static row with
-// both battery cells as "—". EnergyKWh/TotalCost/Currency/*Est fields are
+// both battery cells as "—". EnergyKWh/TotalCost/Currency fields are
 // all set to non-nil fixture values so the em-dash count is attributable
 // ONLY to the two cleared percentages, not incidental zero-values.
 func TestSuperchargerRowUpdate_BothEmptyClearsBothPercentages(t *testing.T) {
@@ -1272,8 +1266,6 @@ func TestSuperchargerRowUpdate_BothEmptyClearsBothPercentages(t *testing.T) {
 		StartBatteryPct:     nil,
 		EndBatteryPct:       nil,
 		BatteryPctSource:    nil,
-		StartBatteryPctEst:  ptrInt(42),
-		EndBatteryPctEst:    ptrInt(78),
 	}}
 	reader := &fakeSessionReader{}
 	recalc := &fakeRecalculator{}
@@ -1306,9 +1298,6 @@ func TestSuperchargerRowUpdate_BothEmptyClearsBothPercentages(t *testing.T) {
 	body := w.Body.String()
 	if !strings.Contains(body, "Clear Site") {
 		t.Fatalf("want the static row rendered, body=%q", body)
-	}
-	if !strings.Contains(body, "42%") || !strings.Contains(body, "78%") {
-		t.Errorf("want the (unchanged) estimate cells still rendered, body=%q", body)
 	}
 	if got := strings.Count(body, "—"); got != 2 {
 		t.Errorf("want exactly 2 em dashes (the cleared start/end battery cells), got %d, body=%q", got, body)

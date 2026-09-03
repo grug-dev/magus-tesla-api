@@ -5,16 +5,34 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
   "request": "Source ticket MAG-36, roadmap RM41 tier 1. Add one bilingual (ES+EN) ui.Alert info message above the /supercharger-stats sessions table explaining that Tesla supplies no battery percentages and that an end-only entry derives the start; and remove every gateway reference to the dead start/end_battery_pct_est columns so tier 2 can drop them from charging.supercharger_sessions.",
-  "status": "proposed",
+  "status": "in-progress",
   "rollup": {
-    "current": [],
-    "pending": ["1.1", "1.2", "1.3", "2.1", "2.2", "2.3", "2.4", "3.1", "4.1", "5.1", "5.2"],
+    "current": [
+      "5.2"
+    ],
+    "pending": [],
     "blocked": [],
-    "done": []
+    "done": [
+      "1.3"
+    ],
+    "awaiting-user-verification": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "2.3",
+      "2.4",
+      "3.1",
+      "4.1",
+      "5.1"
+    ]
   },
   "created_at": "2026-09-03T17:48:00Z",
-  "updated_at": "2026-09-03T17:48:00Z",
-  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "updated_at": "2026-09-03T18:05:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
   "git": {
     "strategy": "auto",
     "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
@@ -30,10 +48,20 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T17:52:00Z",
+      "completed_at": "2026-09-03T17:54:30Z",
+      "duration_seconds": 150,
+      "notes": "Added KeySuperchargerBatteryPctHelp const+entry after EndBattery; removed StartEstimate/EndEstimate. Acceptance greps: 0 and 2.",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 39,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "One serial worker covered 1.1-4.1; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "1.2",
@@ -41,10 +69,20 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T17:54:30Z",
+      "completed_at": "2026-09-03T17:55:30Z",
+      "duration_seconds": 60,
+      "notes": "Dropped StartBatteryPctEstLabel/EndBatteryPctEstLabel fields and doc comments from SuperchargerRowVM. Acceptance grep: 0.",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 39,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "One serial worker covered 1.1-4.1; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "1.3",
@@ -52,98 +90,208 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "done",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T17:55:30Z",
+      "completed_at": "2026-09-03T17:56:30Z",
+      "duration_seconds": 60,
+      "notes": "Replaced the three old bullets with design.md's four exact bullets verbatim. No 'four battery columns' / 'start estimate, end estimate' text remains.",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 39,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "One serial worker covered 1.1-4.1; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "2.1",
       "title": "supercharger_stats.templ: render the info alert, drop the two table headers",
       "module": "gateway",
-      "depends_on": ["1.1", "1.2"],
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T17:56:30Z",
+      "completed_at": "2026-09-03T17:57:30Z",
+      "duration_seconds": 60,
+      "notes": "Added unconditional ui.Alert{Kind:info,Class:mb-4} as first element of SuperchargerStatsContent; removed two header entries. Acceptance: 0 and 1.",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 39,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "One serial worker covered 1.1-4.1; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "2.2",
       "title": "supercharger_row.templ: drop the two estimate <td>s",
       "module": "gateway",
-      "depends_on": ["1.1", "1.2"],
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T17:57:30Z",
+      "completed_at": "2026-09-03T17:58:00Z",
+      "duration_seconds": 30,
+      "notes": "Removed two estimate <td>s from SuperchargerRow; SuperchargerRowError colspan 9->7, doc comment updated. Acceptance: 0 and 0.",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 39,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "One serial worker covered 1.1-4.1; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "2.3",
       "title": "supercharger_row_edit.templ: drop the two read-only estimate ui.Field blocks",
       "module": "gateway",
-      "depends_on": ["1.1", "1.2"],
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T17:58:00Z",
+      "completed_at": "2026-09-03T17:58:30Z",
+      "duration_seconds": 30,
+      "notes": "Removed the two read-only ui.Field blocks from SuperchargerRowEdit; colspan 9->7. Acceptance: 0 and 0.",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 39,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "One serial worker covered 1.1-4.1; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "2.4",
       "title": "handlers/supercharger.go: remove the two Est label assignments",
       "module": "gateway",
-      "depends_on": ["1.2"],
+      "depends_on": [
+        "1.2"
+      ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T17:58:30Z",
+      "completed_at": "2026-09-03T17:59:00Z",
+      "duration_seconds": 30,
+      "notes": "Removed the two *EstLabel assignments from superchargerRowVMFromSession; struct literal gofmt-realigned. Acceptance: 0.",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 39,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "One serial worker covered 1.1-4.1; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "3.1",
       "title": "Regenerate the *_templ.go files via make templ",
       "module": "gateway",
-      "depends_on": ["2.1", "2.2", "2.3"],
+      "depends_on": [
+        "2.1",
+        "2.2",
+        "2.3"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T17:59:00Z",
+      "completed_at": "2026-09-03T17:59:15Z",
+      "duration_seconds": 15,
+      "notes": "make templ regenerated all three *_templ.go siblings. Acceptance grep across all three: 0.",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 39,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "One serial worker covered 1.1-4.1; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "4.1",
       "title": "supercharger_test.go: apply the Test Contract repairs (5 functions, 3 fixture literals)",
       "module": "gateway",
-      "depends_on": ["1.1", "1.2", "2.4", "3.1"],
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "2.4",
+        "3.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "gateway",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T17:59:15Z",
+      "completed_at": "2026-09-03T18:00:00Z",
+      "duration_seconds": 45,
+      "notes": "Test Contract items 1-5 applied. Leader additionally repaired the em-dash count threshold (6->4) the contract omitted. go vet compiles clean.",
+      "budget": {
+        "five_hour_pct_start": 36,
+        "five_hour_pct_end": 39,
+        "cost_usd_delta": null,
+        "approx": true,
+        "note": "One serial worker covered 1.1-4.1; the wave delta is copied onto each task."
+      }
     },
     {
       "id": "5.1",
       "title": "Assistant-run signals: go build, go vet, gofmt -l, make ui-guard, make i18n-guard",
       "module": "gateway",
-      "depends_on": ["1.1", "1.2", "1.3", "2.1", "2.2", "2.3", "2.4", "3.1", "4.1"],
+      "depends_on": [
+        "1.1",
+        "1.2",
+        "1.3",
+        "2.1",
+        "2.2",
+        "2.3",
+        "2.4",
+        "3.1",
+        "4.1"
+      ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T18:01:00Z",
+      "completed_at": "2026-09-03T18:04:00Z",
+      "duration_seconds": 180,
+      "notes": "go build, go vet, gofmt -l, make i18n-guard, make ui-guard all pass. Tier grep for BatteryPctEst/StartEstimate/EndEstimate returns zero lines. gofmt lists 4 untouched pre-existing files.",
+      "budget": null
     },
     {
       "id": "5.2",
       "title": "Owner runs the suite and reports the result",
       "module": "gateway",
-      "depends_on": ["5.1"],
+      "depends_on": [
+        "5.1"
+      ],
       "parallel_ok": false,
       "status": "pending",
-      "agent": null, "model": null,
-      "started_at": null, "completed_at": null, "duration_seconds": null,
-      "notes": null, "budget": null
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": "Handed to the owner: go test ./internal/gateway/...",
+      "budget": null
     }
   ],
   "decisions": [
@@ -174,6 +322,20 @@
       "what": "The database design gate is recorded as NOT tripped for this tier: no table, column, index, constraint, view or migration change.",
       "why": "Tier 1 is gateway-only rendering and catalogue work. Tiers 2 and 3 own every schema change in this roadmap and will trip the gate themselves.",
       "at": "2026-09-03T17:48:00Z"
+    },
+    {
+      "scope": "apply:wave-merge",
+      "made_by": "autopilot",
+      "what": "Waves 1-4 (tasks 1.1-4.1) merged into ONE serial Sonnet worker dispatch instead of four dispatches.",
+      "why": "The tier is fully specified mechanical deletion plus one alert insert; four dispatches would re-read the same six-doc pack four times for no added safety.",
+      "at": "2026-09-03T17:53:00Z"
+    },
+    {
+      "scope": "apply:em-dash-threshold",
+      "made_by": "autopilot",
+      "what": "Repaired TestSuperchargerStatsContent_RendersEnglishHeadersAndNilBatteryValues' em-dash count from `< 6` to `< 4`, which design.md's Test Contract item 4 did not list.",
+      "why": "Removing the two Est labels drops the rendered em dashes from 6 to 4, so the untouched threshold would have failed the owner's suite. Templates carry no literal em dash.",
+      "at": "2026-09-03T18:05:00Z"
     }
   ],
   "review": {
@@ -191,6 +353,16 @@
     {
       "at": "2026-09-03T17:48:00Z",
       "what": "HALTED after Step 4 by explicit scope from kkpa-pickup-linear-ticket: artifacts only, no implementation workers dispatched, no reviewer, no archive. Awaiting the owner's review of the proposal.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T17:53:00Z",
+      "what": "Resumed (Step R -> Step 5). Dispatched gateway worker (Sonnet) with tasks 1.1-4.1 serially. Budget at dispatch: five_hour 36%, context 10%. Granted path: kkpa/context/workflows/supercharger-stats-read.md.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:05:00Z",
+      "what": "Wave 1-4 returned: all 9 tasks done, doc-pack acknowledged, D1/D2 compliance enumerated. Leader signals pass (build, vet, gofmt, i18n-guard, ui-guard); tier grep is empty. Leader fixed the em-dash threshold the worker flagged. Budget after wave: five_hour 39%, context ~16%.",
       "by": "leader"
     }
   ]

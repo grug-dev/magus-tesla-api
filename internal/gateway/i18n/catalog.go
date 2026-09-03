@@ -111,17 +111,17 @@ const (
 	// Short helper copy under each form's title. Both state RULES THAT LIVE IN GO
 	// (charging.resolveEnergy's derivation and charging.RequiredFieldsFor's sets) —
 	// if either rule changes, these strings are part of that change.
-	KeyChargesFormCreateHint Key = "charges_form.create_hint"
-	KeyChargesFormEditHint   Key = "charges_form.edit_hint"
-	KeyChargesFormChargingType    Key = "charges_form.charging_type"
-	KeyChargesFormAC              Key = "charges_form.ac"
-	KeyChargesFormDC              Key = "charges_form.dc"
-	KeyChargesFormLocationLabel   Key = "charges_form.location_label"
-	KeyChargesFormNotes           Key = "charges_form.notes"
-	KeyChargesFormLogCharge       Key = "charges_form.log_charge"
-	KeyChargesFormVehicle         Key = "charges_form.vehicle"
-	KeyChargesFormSave            Key = "charges_form.save"
-	KeyChargesFormCancel          Key = "charges_form.cancel"
+	KeyChargesFormCreateHint    Key = "charges_form.create_hint"
+	KeyChargesFormEditHint      Key = "charges_form.edit_hint"
+	KeyChargesFormChargingType  Key = "charges_form.charging_type"
+	KeyChargesFormAC            Key = "charges_form.ac"
+	KeyChargesFormDC            Key = "charges_form.dc"
+	KeyChargesFormLocationLabel Key = "charges_form.location_label"
+	KeyChargesFormNotes         Key = "charges_form.notes"
+	KeyChargesFormLogCharge     Key = "charges_form.log_charge"
+	KeyChargesFormVehicle       Key = "charges_form.vehicle"
+	KeyChargesFormSave          Key = "charges_form.save"
+	KeyChargesFormCancel        Key = "charges_form.cancel"
 	// --- status control + odometer, added by RM33-gateway-update-charge-form ---
 	KeyChargesFormStatus           Key = "charges_form.status"
 	KeyChargesFormStatusInProgress Key = "charges_form.status_in_progress"
@@ -160,20 +160,19 @@ const (
 	KeyHistoryChargeTypeSupercharger Key = "history.charge_type_supercharger"
 
 	// --- supercharger stats (templates/fragments/supercharger_stats.templ) ---
-	KeySuperchargerMonthsPreset  Key = "supercharger.months_preset"
-	KeySuperchargerSessions      Key = "supercharger.sessions"
-	KeySuperchargerEnergy        Key = "supercharger.energy"
-	KeySuperchargerCost          Key = "supercharger.cost"
-	KeySuperchargerAvgKWhSession Key = "supercharger.avg_kwh_session"
-	KeySuperchargerKWhPerMonth   Key = "supercharger.kwh_per_month"
-	KeySuperchargerEmpty         Key = "supercharger.empty"
-	KeySuperchargerDate          Key = "supercharger.date"
-	KeySuperchargerSite          Key = "supercharger.site"
-	KeySuperchargerStartBattery  Key = "supercharger.start_battery"
-	KeySuperchargerEndBattery    Key = "supercharger.end_battery"
-	KeySuperchargerStartEstimate Key = "supercharger.start_estimate"
-	KeySuperchargerEndEstimate   Key = "supercharger.end_estimate"
-	KeySuperchargerActions       Key = "supercharger.actions"
+	KeySuperchargerMonthsPreset   Key = "supercharger.months_preset"
+	KeySuperchargerSessions       Key = "supercharger.sessions"
+	KeySuperchargerEnergy         Key = "supercharger.energy"
+	KeySuperchargerCost           Key = "supercharger.cost"
+	KeySuperchargerAvgKWhSession  Key = "supercharger.avg_kwh_session"
+	KeySuperchargerKWhPerMonth    Key = "supercharger.kwh_per_month"
+	KeySuperchargerEmpty          Key = "supercharger.empty"
+	KeySuperchargerDate           Key = "supercharger.date"
+	KeySuperchargerSite           Key = "supercharger.site"
+	KeySuperchargerStartBattery   Key = "supercharger.start_battery"
+	KeySuperchargerEndBattery     Key = "supercharger.end_battery"
+	KeySuperchargerBatteryPctHelp Key = "supercharger.battery_pct_help"
+	KeySuperchargerActions        Key = "supercharger.actions"
 
 	// --- supercharger row edit (fragments/supercharger_row.templ, supercharger_row_edit.templ)
 	// RM31-gateway-add-session-battery-edit design.md D3/D8/D9/D10 ---
@@ -485,9 +484,11 @@ var catalog = map[Key]entry{
 	KeySuperchargerSite:          {ES: "Sitio", EN: "Site"},
 	KeySuperchargerStartBattery:  {ES: "Batería inicial", EN: "Start battery"},
 	KeySuperchargerEndBattery:    {ES: "Batería final", EN: "End battery"},
-	KeySuperchargerStartEstimate: {ES: "Estimación inicial", EN: "Start estimate"},
-	KeySuperchargerEndEstimate:   {ES: "Estimación final", EN: "End estimate"},
-	KeySuperchargerActions:       {ES: "Acciones", EN: "Actions"},
+	KeySuperchargerBatteryPctHelp: {
+		ES: "Tesla no nos provee los porcentajes de batería inicial y final. Te aconsejamos que siempre intentes recordarlos al usar un Supercharger, para tener mejor precisión en los análisis. Sin embargo, conociendo solo el porcentaje final, el sistema calculará el porcentaje inicial aproximado que tenía el vehículo.",
+		EN: "Tesla does not give us the start and end battery percentages. We recommend you always try to remember them when you use a Supercharger, so the analysis is more accurate. Still, if you only know the end percentage, the system will calculate the approximate start percentage the vehicle had.",
+	},
+	KeySuperchargerActions: {ES: "Acciones", EN: "Actions"},
 
 	KeySuperchargerRowEdit:   {ES: "Editar", EN: "Edit"},
 	KeySuperchargerRowSave:   {ES: "Guardar", EN: "Save"},

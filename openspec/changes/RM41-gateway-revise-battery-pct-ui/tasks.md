@@ -29,7 +29,7 @@ source of truth for content.
 
 ## Wave 1 — independent, file-scoped edits (module: gateway worker)
 
-- [ ] **1.1** `internal/gateway/i18n/catalog.go` —
+- [x] **1.1** `internal/gateway/i18n/catalog.go` —
   - Add `KeySuperchargerBatteryPctHelp Key = "supercharger.battery_pct_help"`
     immediately after `KeySuperchargerEndBattery`'s constant line, and its
     catalogue entry (design.md D2 — exact ES/EN strings given there, copied
@@ -42,14 +42,14 @@ source of truth for content.
     returns `2` (constant + entry).
   `depends_on`: — · `parallel_ok`: with 1.2, 1.3
 
-- [ ] **1.2** `internal/gateway/templates/fragments/supercharger_vm.go` — remove
+- [x] **1.2** `internal/gateway/templates/fragments/supercharger_vm.go` — remove
   the `StartBatteryPctEstLabel`/`EndBatteryPctEstLabel` fields (and their doc
   comments) from `SuperchargerRowVM`. Acceptance:
   `grep -c "BatteryPctEst" internal/gateway/templates/fragments/supercharger_vm.go`
   returns `0`.
   `depends_on`: — · `parallel_ok`: with 1.1, 1.3
 
-- [ ] **1.3** `kkpa/context/workflows/supercharger-stats-read.md` — replace the
+- [x] **1.3** `kkpa/context/workflows/supercharger-stats-read.md` — replace the
   three bullets under "Requirement: Supercharger Stats session table displays
   battery percentages" describing the old four-column table with design.md
   "Docs"' exact replacement text (three bullets, the third and fourth new) — copy
@@ -59,7 +59,7 @@ source of truth for content.
 
 ## Wave 2 — dependent template/handler edits (module: gateway worker)
 
-- [ ] **2.1** `internal/gateway/templates/fragments/supercharger_stats.templ` —
+- [x] **2.1** `internal/gateway/templates/fragments/supercharger_stats.templ` —
   - In `SuperchargerStatsContent`, add
     `@ui.Alert(ui.AlertProps{Kind: "info", Class: "mb-4"}) { { i18n.T(ctx,
     i18n.KeySuperchargerBatteryPctHelp) } }` as the FIRST element inside the
@@ -73,7 +73,7 @@ source of truth for content.
     returns `1`.
   `depends_on`: 1.1, 1.2 · `parallel_ok`: with 2.2, 2.3, 2.4
 
-- [ ] **2.2** `internal/gateway/templates/fragments/supercharger_row.templ` —
+- [x] **2.2** `internal/gateway/templates/fragments/supercharger_row.templ` —
   remove the two `<td>{ vm.StartBatteryPctEstLabel }</td>` /
   `<td>{ vm.EndBatteryPctEstLabel }</td>` lines from `SuperchargerRow`. In
   `SuperchargerRowError`, change `<td colspan="9">` to `<td colspan="7">` and
@@ -83,7 +83,7 @@ source of truth for content.
   returns `0`.
   `depends_on`: 1.1, 1.2 · `parallel_ok`: with 2.1, 2.3, 2.4
 
-- [ ] **2.3** `internal/gateway/templates/fragments/supercharger_row_edit.templ` —
+- [x] **2.3** `internal/gateway/templates/fragments/supercharger_row_edit.templ` —
   remove the two `ui.Field(ui.FieldProps{Label: i18n.T(ctx,
   i18n.KeySuperchargerStartEstimate/EndEstimate)})` blocks (each wrapping a
   `<span>{ vm.Start/EndBatteryPctEstLabel }</span>`) from `SuperchargerRowEdit`.
@@ -93,7 +93,7 @@ source of truth for content.
   returns `0`.
   `depends_on`: 1.1, 1.2 · `parallel_ok`: with 2.1, 2.2, 2.4
 
-- [ ] **2.4** `internal/gateway/handlers/supercharger.go` — remove the two
+- [x] **2.4** `internal/gateway/handlers/supercharger.go` — remove the two
   `StartBatteryPctEstLabel: formatBatteryPct(s.StartBatteryPctEst)` /
   `EndBatteryPctEstLabel: formatBatteryPct(s.EndBatteryPctEst)` assignments from
   `superchargerRowVMFromSession`. Do NOT touch `charging.Session` itself or any
@@ -103,7 +103,7 @@ source of truth for content.
 
 ## Wave 3 — codegen (module: gateway worker)
 
-- [ ] **3.1** Run `make templ` (pinned `go tool templ generate`) to regenerate
+- [x] **3.1** Run `make templ` (pinned `go tool templ generate`) to regenerate
   `supercharger_stats_templ.go`, `supercharger_row_templ.go`, and
   `supercharger_row_edit_templ.go` from the three edited `.templ` files. Never
   hand-edit a `*_templ.go` file. `make css` is NOT needed for this change — no new
@@ -115,7 +115,7 @@ source of truth for content.
 
 ## Wave 4 — test repair (module: gateway worker)
 
-- [ ] **4.1** `internal/gateway/handlers/supercharger_test.go` — apply design.md's
+- [x] **4.1** `internal/gateway/handlers/supercharger_test.go` — apply design.md's
   Test Contract items 1–5 exactly (each names the test function, the exact
   before/after code, and the expected values that stay unchanged):
   1. `TestBuildSuperchargerRows_NilEnergyAndCostRenderDash` — drop the last two

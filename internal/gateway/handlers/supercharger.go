@@ -487,17 +487,15 @@ func superchargerRowVMFromSession(s charging.Session) fragments.SuperchargerRowV
 		rawEndPct = strconv.Itoa(*s.EndBatteryPct)
 	}
 	return fragments.SuperchargerRowVM{
-		ID:                      s.ID.String(),
-		DateLabel:               s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),
-		SiteLabel:               s.SiteLocationName,
-		EnergyLabel:             energyLabel,
-		CostLabel:               costLabel,
-		StartBatteryPctLabel:    formatBatteryPct(s.StartBatteryPct),
-		EndBatteryPctLabel:      formatBatteryPct(s.EndBatteryPct),
-		StartBatteryPctEstLabel: formatBatteryPct(s.StartBatteryPctEst),
-		EndBatteryPctEstLabel:   formatBatteryPct(s.EndBatteryPctEst),
-		RawStartBatteryPct:      rawStartPct,
-		RawEndBatteryPct:        rawEndPct,
+		ID:                   s.ID.String(),
+		DateLabel:            s.ChargeStartDateTime.UTC().Format("Mon Jan 2, 2006"),
+		SiteLabel:            s.SiteLocationName,
+		EnergyLabel:          energyLabel,
+		CostLabel:            costLabel,
+		StartBatteryPctLabel: formatBatteryPct(s.StartBatteryPct),
+		EndBatteryPctLabel:   formatBatteryPct(s.EndBatteryPct),
+		RawStartBatteryPct:   rawStartPct,
+		RawEndBatteryPct:     rawEndPct,
 	}
 }
 
