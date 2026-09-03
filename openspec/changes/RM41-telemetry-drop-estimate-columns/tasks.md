@@ -74,7 +74,7 @@ task; `openspec` syncs it into the main spec at archive time.
   shows this file sorts last of every migration in the repository.
   `depends_on`: 0.1 · `parallel_ok`: with 1.2, 1.3, 1.4, 1.5
 
-- [ ] **1.2** `internal/telemetry/telemetry.go` — apply design.md "Code changes" →
+- [x] **1.2** `internal/telemetry/telemetry.go` — apply design.md "Code changes" →
   `telemetry.go`'s two edits exactly: delete the "Reserved, currently unwritten
   (design D6)" comment block and the two fields it describes, and update the
   trailing "(see below)" cross-reference in the surviving trio comment. Acceptance:
@@ -93,7 +93,7 @@ task; `openspec` syncs it into the main spec at archive time.
   returns `1`.
   `depends_on`: 0.1 · `parallel_ok`: with 1.1, 1.2, 1.4, 1.5
 
-- [ ] **1.4** `internal/telemetry/service.go` — apply design.md "Code changes" →
+- [x] **1.4** `internal/telemetry/service.go` — apply design.md "Code changes" →
   `service.go`'s comment rewrite on `upsertSuperchargerHistory`, verbatim.
   Acceptance:
   `grep -c "StartBatteryPctEst\|EndBatteryPctEst" internal/telemetry/service.go`
@@ -101,7 +101,7 @@ task; `openspec` syncs it into the main spec at archive time.
   returns `1`.
   `depends_on`: 0.1 · `parallel_ok`: with 1.1, 1.2, 1.3, 1.5
 
-- [ ] **1.5** `internal/telemetry/db/query.sql` — rewrite the `UpsertSuperchargerHistory`
+- [x] **1.5** `internal/telemetry/db/query.sql` — rewrite the `UpsertSuperchargerHistory`
   guarding comment per design.md "Code changes" → `db/query.sql`, verbatim. No SQL
   statement in this file changes (only comment text). Acceptance:
   `grep -c "start_battery_pct_est\|end_battery_pct_est\|BatteryPctEst" internal/telemetry/db/query.sql`
@@ -153,7 +153,7 @@ task; `openspec` syncs it into the main spec at archive time.
   returns `0`.
   `depends_on`: 1.2, 1.3, 2.1 · `parallel_ok`: with 3.2
 
-- [ ] **3.2** **[granted path, cross-module test]**
+- [x] **3.2** **[granted path, cross-module test]**
   `internal/charging/db_backfill_integration_test.go` — apply design.md "Test
   Contract" → item 2 exactly: `superchargerFixtureRow` drops its
   `StartBatteryPctEst`/`EndBatteryPctEst` fields; `insertSuperchargerSessionFixture`'s
@@ -232,7 +232,7 @@ task; `openspec` syncs it into the main spec at archive time.
 
 ## Wave 5 — verification (assistant-run signals, then owner-run suite + migration)
 
-- [ ] **5.1** Run and report: `go build ./internal/telemetry/... ./internal/charging/...`,
+- [x] **5.1** Run and report: `go build ./internal/telemetry/... ./internal/charging/...`,
   `go vet ./internal/telemetry/... ./internal/charging/...`, `gofmt -l
   internal/telemetry internal/charging`, `make migration-guard`, `make
   boundary-guard`. This tier's own definition of done: `grep -rln
@@ -251,7 +251,7 @@ task; `openspec` syncs it into the main spec at archive time.
   `depends_on`: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 3.1, 3.2, 4.1, 4.2, 4.3, 4.4 ·
   `parallel_ok`: no
 
-- [ ] **5.2** Hand off to the owner the exact commands to run and report, in
+- [x] **5.2** Hand off to the owner the exact commands to run and report, in
   order:
   1. `make migrate-up` (applies this tier's migration — the design gate in Wave 0
      already confirmed its content; this is the first time it touches a real
