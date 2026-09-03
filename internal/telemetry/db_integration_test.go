@@ -39,8 +39,8 @@ func newTestStore(t *testing.T) (*dbStore, *pgxpool.Pool) {
 func cleanupVehicle(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) {
 	t.Cleanup(func() {
 		ctx := context.Background()
-		_, _ = pool.Exec(ctx, "DELETE FROM vehicle_snapshots WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM poll_attempts WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.vehicle_snapshots WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.poll_attempts WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
 	})
 }
 
@@ -376,7 +376,7 @@ func TestStore_PollAttemptRoundTrip_RunIDAndTriggeredByAPI(t *testing.T) {
 	var gotRunID pgtype.UUID
 	var gotTriggeredBy string
 	if err := pool.QueryRow(ctx,
-		`SELECT run_id, triggered_by FROM poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
+		`SELECT run_id, triggered_by FROM telemetry.poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
 		accountID, teslaID,
 	).Scan(&gotRunID, &gotTriggeredBy); err != nil {
 		t.Fatalf("querying poll_attempts: %v", err)
@@ -413,7 +413,7 @@ func TestStore_PollAttempt_PreMigrationRowDefaultsRunIDNullTriggeredByScheduler(
 
 	attemptedAt := time.Now().UTC().Truncate(time.Microsecond)
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO poll_attempts (account_id, tesla_id, attempted_at, outcome, reason)
+		`INSERT INTO telemetry.poll_attempts (account_id, tesla_id, attempted_at, outcome, reason)
 		 VALUES ($1, $2, $3, $4, $5)`,
 		accountID, teslaID, attemptedAt, string(OutcomeSuccess), string(ReasonOK),
 	); err != nil {
@@ -423,7 +423,7 @@ func TestStore_PollAttempt_PreMigrationRowDefaultsRunIDNullTriggeredByScheduler(
 	var gotRunID pgtype.UUID
 	var gotTriggeredBy string
 	if err := pool.QueryRow(ctx,
-		`SELECT run_id, triggered_by FROM poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
+		`SELECT run_id, triggered_by FROM telemetry.poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
 		accountID, teslaID,
 	).Scan(&gotRunID, &gotTriggeredBy); err != nil {
 		t.Fatalf("querying poll_attempts: %v", err)
@@ -467,7 +467,7 @@ func TestStore_PollAttemptRoundTrip_TriggeredByScheduler(t *testing.T) {
 
 	var gotTriggeredBy string
 	if err := pool.QueryRow(ctx,
-		`SELECT triggered_by FROM poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
+		`SELECT triggered_by FROM telemetry.poll_attempts WHERE account_id = $1 AND tesla_id = $2`,
 		accountID, teslaID,
 	).Scan(&gotTriggeredBy); err != nil {
 		t.Fatalf("querying poll_attempts: %v", err)

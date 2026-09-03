@@ -18,7 +18,7 @@ Three facts drive everything below, and all three surprise people:
 1. **The consumed percentage is never stored.** It is recomputed on every dashboard request (**D2**).
 2. **`charge_gaps` is reconciled — rows are both inserted *and* deleted — but only by the nightly
    poller** (**D7b**). No HTTP request ever touches that table.
-3. **`supercharger_sessions.start_battery_pct` / `end_battery_pct` are always NULL.** No code in
+3. **`telemetry.supercharger_history.start_battery_pct` / `end_battery_pct` are always NULL.** No code in
    this repository can write them (**D14**), so every Supercharger day flags as a gap.
 
 ---
@@ -50,7 +50,7 @@ stores.
 |---|---|---|
 | `vehicle_snapshots.battery_used_pct_calc`, `.distance_traveled_km_calc`, `.days_spanned_calc` | `internal/telemetry` | the raw nightly inputs |
 | `manual_charge_entries.charged_on`, `.start_battery_pct`, `.end_battery_pct` | `internal/charging` | charges you assert by hand (home / work / 3rd-party) |
-| `supercharger_sessions.charge_stop_date_time`, `.start_battery_pct`, `.end_battery_pct` | `internal/telemetry` | sessions Tesla reports |
+| `telemetry.supercharger_history.charge_stop_date_time`, `.start_battery_pct`, `.end_battery_pct` | `internal/telemetry` | sessions Tesla reports |
 | `charge_gaps` | `internal/analytics` | the pipeline's **output** — days whose math doesn't add up |
 
 ### The Supercharger percentages are always NULL
@@ -497,7 +497,7 @@ recompute-on-read is what makes the chart correct immediately.
   day flags as a gap, and the understatement in **D14a** stays invisible. RM28 makes this more
   valuable than it was.
 - **Entry 12** — charging data is split across two modules (`manual_charge_entries` in
-  `internal/charging`, `supercharger_sessions` in `internal/telemetry`), so every consumer of
+  `internal/charging`, `supercharger_history` in `internal/telemetry`), so every consumer of
   "how was this car charged" must compose two ports. Scoped out of RM28 deliberately.
 - **Entry 13** — the history charts key a `map[time.Time]` without normalizing the lookup side.
   Pre-existing in all three charts and currently unreachable through the UI; raised as a review

@@ -52,7 +52,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 | File | Role |
 |---|---|
-| `internal/telemetry/service.go` | `UpsertSuperchargerSession` — the ONLY writer of the RAW `supercharger_sessions` table (nightly collector, never the gateway). |
+| `internal/telemetry/service.go` | `UpsertSuperchargerHistory` — the ONLY writer of the RAW `telemetry.supercharger_history` table (nightly collector, never the gateway). Renamed + moved out of `public` by RM39 tier 4. |
 | `internal/app/processor.go` | Step 2 of `ProcessVehicleData`: `SuperchargerSessionsByVehicleUpdatedSince` (telemetry read) → mirrors new sessions into `charging` via `charging.SessionWriter` (`UpsertSession`). The page reads the mirror, not the raw table. |
 | `internal/charging/charging.go` | `SessionWriter` interface + `NewSessionWriter(pool)` — the mirror's write port. |
 
@@ -164,7 +164,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 - Features: (none yet)
 - Workflows: `workflows/manual-charge-crud.md` (a sibling user-write path — full Create/Update/Delete over `manual_charge_entries`, vs. this concept's single narrow correction of two fields over an existing `charging.supercharger_sessions` row, with no Create and no Delete)
-- Architecture: `architecture/telemetry-ingest-only.md` (the raw, telemetry-owned `supercharger_sessions` upstream + the nightly mirror into `charging.supercharger_sessions`, renamed from `charge_sessions`, RM39 tier 3)
+- Architecture: `architecture/telemetry-ingest-only.md` (the raw, telemetry-owned `telemetry.supercharger_history` upstream + the nightly mirror into `charging.supercharger_sessions`, renamed from `charge_sessions`, RM39 tier 3)
 - Architecture: `architecture/charge-record-mutation.md` — the contract this concept's battery-percentage write shares with the manual charge write path (affected period → centralized recalculation → persist → gaps), and the documented divergences between the two implementations
 - Use cases: `use-case/charging/verify-session-battery.md`
 - Input ports: `input-port/charging/supercharger-stats.md`

@@ -181,19 +181,19 @@ var _ account.Service = (*fakeAccountEmpty)(nil)
 // value (design D9).
 type fakeSuperchargerReader struct{}
 
-func (fakeSuperchargerReader) SuperchargerSessionsByAccount(_ context.Context, _ uuid.UUID, _ int) ([]telemetry.SuperchargerSession, error) {
+func (fakeSuperchargerReader) SuperchargerSessionsByAccount(_ context.Context, _ uuid.UUID, _ int) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
-func (fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context, _ uuid.UUID, _ int64, _ int) ([]telemetry.SuperchargerSession, error) {
+func (fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context, _ uuid.UUID, _ int64, _ int) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
-func (fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]telemetry.SuperchargerSession, error) {
+func (fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
-func (fakeSuperchargerReader) SuperchargerSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.SuperchargerSession, error) {
+func (fakeSuperchargerReader) SuperchargerSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 

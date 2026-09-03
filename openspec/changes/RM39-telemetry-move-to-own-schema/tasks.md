@@ -304,7 +304,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 > and `go vet` compiles the test while treating its SQL as an opaque string. Only the owner's
 > suite catches a missed statement. The grep below IS the acceptance criterion.
 
-- [ ] T5.1 Schema- and name-qualify every hand-written SQL statement in this module's
+- [x] T5.1 Schema- and name-qualify every hand-written SQL statement in this module's
       `_test.go` files. Command (the quote-agnostic pattern — match TABLE NAMES, never an
       opening quote; a quote-anchored pattern sees only double-quoted single-line SQL and
       misses every backtick multi-line string, which is how tier 2's first count came out 5
@@ -315,19 +315,19 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       ```
       Measured by this change's design phase, and re-confirmed at artifact time:
       **41 statements across 7 files** —
-      - [ ] `db_integration_test.go` — 6 (1 `vehicle_snapshots`, 5 `poll_attempts`)
-      - [ ] `db_poll_run_integration_test.go` — 5 (`poll_runs`)
-      - [ ] `db_preceding_snapshot_integration_test.go` — 1 (`vehicle_snapshots`; this one is
+      - [x] `db_integration_test.go` — 6 (1 `vehicle_snapshots`, 5 `poll_attempts`)
+      - [x] `db_poll_run_integration_test.go` — 5 (`poll_runs`)
+      - [x] `db_preceding_snapshot_integration_test.go` — 1 (`vehicle_snapshots`; this one is
             inside the `EXPLAIN (FORMAT TEXT)` query — see T5.3)
-      - [ ] `db_sourcea_integration_test.go` — 2 (`vehicle_snapshots`)
-      - [ ] `db_supercharger_battery_pct_integration_test.go` — 17 (`supercharger_sessions`)
-      - [ ] `db_supercharger_between_integration_test.go` — 3 (`supercharger_sessions`)
-      - [ ] `db_supercharger_integration_test.go` — 7 (`supercharger_sessions`)
+      - [x] `db_sourcea_integration_test.go` — 2 (`vehicle_snapshots`)
+      - [x] `db_supercharger_battery_pct_integration_test.go` — 17 (`supercharger_sessions`)
+      - [x] `db_supercharger_between_integration_test.go` — 3 (`supercharger_sessions`)
+      - [x] `db_supercharger_integration_test.go` — 7 (`supercharger_sessions`)
 
       Every reference gains `telemetry.`; every `supercharger_sessions` reference **also**
       takes the new name `supercharger_history`. **Never reach for `search_path` (D10).**
       Acceptance: re-running the command above returns **zero matches**.
-- [ ] T5.2 Update the `SuperchargerSession` Go type references in the same files to
+- [x] T5.2 Update the `SuperchargerSession` Go type references in the same files to
       `SuperchargerHistory` (compile-checked by `go vet`, unlike the SQL strings). Command:
       ```
       grep -rn '\bSuperchargerSession\b' --include='*_test.go' internal/telemetry
@@ -337,7 +337,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       names do not change in this tier.
       Acceptance: `go vet ./internal/telemetry/...` clean; every surviving match is a tier-5
       identifier.
-- [ ] T5.3 `db_preceding_snapshot_integration_test.go`'s
+- [x] T5.3 `db_preceding_snapshot_integration_test.go`'s
       `TestReader_SnapshotPrecedingDay_UsesIndexBackwardScan` runs a literal
       `EXPLAIN (FORMAT TEXT)` copy of `SnapshotPrecedingDay`'s SELECT and asserts on plan text.
       Its `FROM vehicle_snapshots` **must** be qualified (it is one of T5.1's 41). Its three

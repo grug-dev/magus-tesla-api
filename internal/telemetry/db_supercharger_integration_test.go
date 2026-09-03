@@ -29,7 +29,7 @@ func itoa(n int64) string {
 	return fmt.Sprint(n)
 }
 
-// cleanupSuperchargerBySessionID registers a cleanup that deletes supercharger_sessions
+// cleanupSuperchargerBySessionID registers a cleanup that deletes supercharger_history
 // rows by session_id using the pool returned by newTestStore. Keeps shared DB tidy.
 func cleanupSuperchargerBySessionID(t *testing.T, st *dbStore, pool interface {
 	Exec(ctx context.Context, sql string, args ...any) (interface{}, error)
@@ -55,7 +55,7 @@ func TestSupercharger_UpsertAndRead_RoundTrip(t *testing.T) {
 	sessionID := int64(60001)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = $1", sessionID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = $1", sessionID)
 	})
 
 	cost := 4.20
@@ -64,7 +64,7 @@ func TestSupercharger_UpsertAndRead_RoundTrip(t *testing.T) {
 	paid := true
 	unlatch := time.Date(2026, 6, 28, 11, 0, 0, 0, time.UTC)
 
-	sess := SuperchargerSession{
+	sess := SuperchargerHistory{
 		SessionID:           sessionID,
 		AccountID:           accountID,
 		VIN:                 "VIN_RT_001",
@@ -138,10 +138,10 @@ func TestSupercharger_UpsertNullableNullValues(t *testing.T) {
 	sessionID := int64(60002)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = $1", sessionID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = $1", sessionID)
 	})
 
-	sess := SuperchargerSession{
+	sess := SuperchargerHistory{
 		SessionID:           sessionID,
 		AccountID:           accountID,
 		VIN:                 "VIN_ORPHAN",
@@ -204,7 +204,7 @@ func TestSupercharger_UpsertIdempotency(t *testing.T) {
 	sessionID := int64(60003)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = $1", sessionID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = $1", sessionID)
 	})
 
 	notPaid := false
@@ -213,7 +213,7 @@ func TestSupercharger_UpsertIdempotency(t *testing.T) {
 	energy := 20.0
 	startTime := time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)
 
-	sess1 := SuperchargerSession{
+	sess1 := SuperchargerHistory{
 		SessionID:           sessionID,
 		AccountID:           accountID,
 		VIN:                 "VIN_IDEM",
@@ -286,7 +286,7 @@ func TestSupercharger_SessionsByVehicle_Scoping(t *testing.T) {
 	sessionB := int64(60011)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", []int64{sessionA, sessionB})
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", []int64{sessionA, sessionB})
 	})
 
 	startA := time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)
@@ -302,7 +302,7 @@ func TestSupercharger_SessionsByVehicle_Scoping(t *testing.T) {
 		{sessionB, teslaID2, "VIN_V2", startB},
 	} {
 		tid := tc.teslaID
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+		if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
 			SessionID:           tc.sessionID,
 			AccountID:           accountID,
 			VIN:                 tc.vin,
@@ -344,7 +344,7 @@ func TestSupercharger_SessionsByAccount_CrossAccountIsolation(t *testing.T) {
 	sessionB := int64(60021)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", []int64{sessionA, sessionB})
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", []int64{sessionA, sessionB})
 	})
 
 	for _, tc := range []struct {
@@ -356,7 +356,7 @@ func TestSupercharger_SessionsByAccount_CrossAccountIsolation(t *testing.T) {
 		{sessionA, acctA, "VIN_A", time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)},
 		{sessionB, acctB, "VIN_B", time.Date(2026, 6, 28, 12, 0, 0, 0, time.UTC)},
 	} {
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+		if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
 			SessionID:           tc.sessionID,
 			AccountID:           tc.accountID,
 			VIN:                 tc.vin,
@@ -407,7 +407,7 @@ func TestSupercharger_Ordering_NewestFirst(t *testing.T) {
 	sessionNew := int64(60031)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", []int64{sessionOld, sessionNew})
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", []int64{sessionOld, sessionNew})
 	})
 
 	oldStart := time.Date(2026, 6, 27, 10, 0, 0, 0, time.UTC)
@@ -420,7 +420,7 @@ func TestSupercharger_Ordering_NewestFirst(t *testing.T) {
 		{sessionOld, oldStart},
 		{sessionNew, newStart},
 	} {
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+		if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
 			SessionID:           tc.id,
 			AccountID:           accountID,
 			VIN:                 "VIN_ORD",
@@ -461,12 +461,12 @@ func TestSupercharger_Limit(t *testing.T) {
 	ids := []int64{60040, 60041, 60042}
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", ids)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", ids)
 	})
 
 	for i, id := range ids {
 		start := time.Date(2026, 6, 28, 10+i, 0, 0, 0, time.UTC)
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+		if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
 			SessionID:           id,
 			AccountID:           accountID,
 			VIN:                 "VIN_LMT",

@@ -3,14 +3,18 @@
 > The map for changing this concept without re-scanning the codebase. Paths + symbols only;
 > for current signatures/callers/callees, ask CodeGraph. Pin to file paths, never line numbers.
 
-> **PARTIALLY RESOLVED — RM39 renames two of the tables below.** `charging.charge_sessions` →
+> **RESOLVED — RM39 finished both renames.** `charging.charge_sessions` →
 > `charging.supercharger_sessions` (D5b) landed in RM39 tier 3 (`charging-move-to-own-schema`,
-> MAG-31) — this guide's charging-side mentions below now use the new name.
-> `telemetry.supercharger_sessions` → `supercharger_history` (D5a) is **still PENDING** — it
-> belongs to a separate, blocked boundary ticket (roadmap D6), not RM39 tier 3. Every
-> `supercharger_sessions` mention below that is NOT prefixed `charging.` still names
-> telemetry's own, still-`public`, still-live table. See
-> `openspec/roadmaps/RM39-schema-per-module.md`.
+> MAG-31). `telemetry.supercharger_sessions` → `telemetry.supercharger_history` (D5a) landed in
+> RM39 tier 4 (`telemetry-move-to-own-schema`), which also moved this module's four tables out
+> of `public` into schema `telemetry`. Roadmap D25 retired the "separate blocked boundary
+> ticket" (D6) this banner used to point at — no such ticket ever existed.
+>
+> **The two tables no longer share a base name**, so a bare `supercharger_sessions` below is
+> always **charging's** mirror; telemetry's is `telemetry.supercharger_history`. One thing is
+> deliberately still half-renamed: the port `telemetry.SuperchargerReader` and its four
+> `SuperchargerSessions*` methods keep their old names until RM39 tier 5. That is designed —
+> do not "fix" it. See `openspec/roadmaps/RM39-schema-per-module.md`.
 
 ## What this module is (read this before the map)
 
@@ -21,9 +25,9 @@ telemetry's rows, never from telemetry itself.
 
 | Module | Role | Who may read it |
 |---|---|---|
-| `telemetry` | **Ingest only.** Nightly Fleet API collection → `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs`. | `internal/analytics` (snapshots only) and `internal/app` (the Supercharger mirror step). **Never `internal/gateway`.** |
+| `telemetry` | **Ingest only.** Nightly Fleet API collection → schema `telemetry`: `vehicle_snapshots`, `supercharger_history`, `poll_attempts`, `poll_runs`. | `internal/analytics` (snapshots only) and `internal/app` (the Supercharger mirror step). **Never `internal/gateway`.** |
 | `charging` | Mirrors telemetry's Supercharger rows into `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), **and originates** `manual_charge_entries` (a human types those). Part mirror, part owner — not a pure mirror. | gateway, analytics |
-| `analytics` | Derived read model. Recomputes `vehicle_metrics` from three independent watermark sources (`vehicle_snapshots`, `supercharger_sessions`, `manual_charge_entries` — `supercharger_sessions` reused from before RM31 by `RM39-analytics-fix-watermark-vocabulary`, roadmap tier 3b; see that change's `design.md` §6). | gateway |
+| `analytics` | Derived read model. Recomputes `vehicle_metrics` from three independent watermark sources (`vehicle_snapshots`, `supercharger_history`, `manual_charge_entries` — `supercharger_sessions` reused from before RM31 by `RM39-analytics-fix-watermark-vocabulary`, roadmap tier 3b; see that change's `design.md` §6). | gateway |
 
 The gateway therefore reads **`charging` and `analytics` only**. That is enforced, not merely
 documented — see the boundary gotcha below.
@@ -31,7 +35,7 @@ documented — see the boundary gotcha below.
 ## Glossary
 
 - **Known as:** `telemetry module`, `vehicle snapshots`, `nightly collection`, `who reads telemetry`, `telemetry vs analytics`, `can the gateway read telemetry`, `ingest module`, `poll run`, `run summary`
-- **Internal name:** `internal/telemetry` — ports `telemetry.Reader`, `telemetry.SuperchargerReader` (reads), `telemetry.Collector` (write), `telemetry.RunWriter` (run summary write) — tables `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs`
+- **Internal name:** `internal/telemetry` — ports `telemetry.Reader`, `telemetry.SuperchargerReader` (reads), `telemetry.Collector` (write), `telemetry.RunWriter` (run summary write) — tables (all in schema `telemetry`) `vehicle_snapshots`, `supercharger_history`, `poll_attempts`, `poll_runs`
 
 ## Component map
 

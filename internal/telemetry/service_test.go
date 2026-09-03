@@ -228,8 +228,8 @@ type fakeStore struct {
 	snapErr     error
 	snapErrOnce bool
 	snapInserts int
-	// upsertedSessions records all SuperchargerSession upserts (B7 tests inspect this).
-	upsertedSessions []SuperchargerSession
+	// upsertedSessions records all SuperchargerHistory upserts (B7 tests inspect this).
+	upsertedSessions []SuperchargerHistory
 	// upsertErr, when set, is returned by every upsertSuperchargerSession call.
 	upsertErr error
 }
@@ -292,7 +292,7 @@ func (s *fakeStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUI
 //
 // upsertSuperchargerSession records the upserted session and returns upsertErr
 // (nil by default). Used by B7 collector tests.
-func (s *fakeStore) upsertSuperchargerSession(_ context.Context, session SuperchargerSession) error {
+func (s *fakeStore) upsertSuperchargerSession(_ context.Context, session SuperchargerHistory) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.upsertErr != nil {
@@ -1132,7 +1132,7 @@ func TestCollectAll_ChargingHistory_VINResolution(t *testing.T) {
 	if len(fs.upsertedSessions) != 2 {
 		t.Fatalf("want 2 sessions upserted, got %d", len(fs.upsertedSessions))
 	}
-	bySessionID := map[int64]SuperchargerSession{}
+	bySessionID := map[int64]SuperchargerHistory{}
 	for _, s := range fs.upsertedSessions {
 		bySessionID[s.SessionID] = s
 	}

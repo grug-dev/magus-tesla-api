@@ -5,7 +5,7 @@
 // design.md's Test Contract **Group A** (A1, A2).
 //
 // A migration's backfill runs once, at `goose up`, before any test can seed a
-// source row — so it always executes against an empty supercharger_sessions and can
+// source row — so it always executes against an empty telemetry.supercharger_history and can
 // never be observed through normal test provisioning. These tests work around that
 // by extracting the SHIPPED backfill statement at runtime from the embedded
 // migration file, between the `-- BACKFILL-BEGIN` / `-- BACKFILL-END` sentinels
@@ -86,19 +86,40 @@ func extractBackfillStatement(t *testing.T) string {
 // are never edited (RM39 D1). Replaying it against a fully-migrated database therefore
 // has to map that one name forward.
 //
-// ONLY the INSERT target is rewritten. The statement's `FROM supercharger_sessions`
-// reads telemetry's table, which is still `public.supercharger_sessions` until RM39
-// tier 4 moves it — so the bare name there is already correct and must be left alone.
+// THREE names are rewritten, not one. RM39 tier 4 moved telemetry's tables into the
+// `telemetry` schema and renamed `supercharger_sessions` to `supercharger_history`, so
+// both the statement's source reads now point at a relation that no longer exists under
+// the old name — alongside the INSERT target, which tier 3 had already moved.
+//
+// The to_regclass guard is the dangerous one. Miss it and the mapping fails SILENTLY:
+// `to_regclass('public.supercharger_sessions')` evaluates to NULL forever, the DO block
+// RETURNs early, raises no error (only a NOTICE), inserts nothing, and A1/A2 fail on
+// EMPTY assertions — a failure that reads like a data bug rather than a name bug. Each
+// mapping therefore carries an "exactly one occurrence, else t.Fatalf" guard, so a
+// change to the migration's shape fails loudly instead of quietly asserting nothing.
+//
+// The NOTICE string inside the guard also names the table. It is prose inside a RAISE
+// and constrains nothing, so it is deliberately NOT rewritten — a fourth fragile string
+// match would buy nothing and could break the replay on a harmless wording change.
 //
 // This is deliberately NOT the `search_path` approach RM39 D12 used for analytics'
-// replay test. A search_path of `charging, public` would resolve this statement's
-// `FROM supercharger_sessions` to charging's OWN table instead of telemetry's, and the
+// replay test, and tier 4 makes that argument stronger rather than weaker. A search_path
+// of `charging, public` would resolve a bare `supercharger_sessions` to charging's OWN
+// table — which since tier 3 is a real, populated table of a different shape — so the
 // backfill would silently read the wrong source and assert nothing. D12's fix is safe
-// only where a move happened without a name collision; here the new name collides with
-// the source table, so the mapping must be explicit and target-only.
+// only where a move happened without a name collision; here the name collides, so every
+// mapping must be explicit.
 const (
 	insertTargetOld = "INSERT INTO charge_sessions ("
 	insertTargetNew = "INSERT INTO charging.supercharger_sessions ("
+
+	// The guard's argument: telemetry's table is now telemetry.supercharger_history.
+	guardTargetOld = "to_regclass('public.supercharger_sessions')"
+	guardTargetNew = "to_regclass('telemetry.supercharger_history')"
+
+	// The source read, aliased `s` in the shipped statement.
+	sourceTableOld = "FROM supercharger_sessions s"
+	sourceTableNew = "FROM telemetry.supercharger_history s"
 )
 
 func runBackfill(t *testing.T, pool *pgxpool.Pool) {
@@ -108,18 +129,24 @@ func runBackfill(t *testing.T, pool *pgxpool.Pool) {
 	// Fail loudly if the shipped statement no longer contains the target we expect.
 	// A silent no-op rewrite would re-run the original text and fail with a confusing
 	// "relation does not exist", hiding the real cause: the migration changed shape.
-	if n := strings.Count(stmt, insertTargetOld); n != 1 {
-		t.Fatalf("expected exactly 1 occurrence of %q in the shipped backfill statement, got %d — "+
-			"the migration's INSERT target changed shape and this rewrite needs updating", insertTargetOld, n)
+	for _, m := range []struct{ old, new, what string }{
+		{insertTargetOld, insertTargetNew, "INSERT target"},
+		{guardTargetOld, guardTargetNew, "to_regclass guard"},
+		{sourceTableOld, sourceTableNew, "source table read"},
+	} {
+		if n := strings.Count(stmt, m.old); n != 1 {
+			t.Fatalf("expected exactly 1 occurrence of %q (%s) in the shipped backfill statement, got %d — "+
+				"the migration changed shape and this rewrite needs updating", m.old, m.what, n)
+		}
+		stmt = strings.Replace(stmt, m.old, m.new, 1)
 	}
-	stmt = strings.Replace(stmt, insertTargetOld, insertTargetNew, 1)
 
 	if _, err := pool.Exec(context.Background(), stmt); err != nil {
 		t.Fatalf("executing extracted backfill statement: %v", err)
 	}
 }
 
-// superchargerFixtureRow is one row of the live 4-row supercharger_sessions dataset
+// superchargerFixtureRow is one row of the live 4-row telemetry.supercharger_history dataset
 // design.md Test Contract A1 reproduces. Percentage fields are pointers so a NULL
 // case (three of the four rows) is expressible.
 type superchargerFixtureRow struct {
@@ -145,7 +172,7 @@ type superchargerFixtureRow struct {
 	EndBatteryPctEst   *int
 }
 
-// insertSuperchargerSessionFixture seeds one supercharger_sessions row via direct
+// insertSuperchargerSessionFixture seeds one telemetry.supercharger_history row via direct
 // SQL — the sanctioned form for seeding another module's table from a _test.go file
 // when that module exposes no writer for the shape needed (ai/go-conventions.md
 // §Testing, RM29 decision D19); telemetry has no writer at all for a single
@@ -155,7 +182,7 @@ type superchargerFixtureRow struct {
 func insertSuperchargerSessionFixture(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, r superchargerFixtureRow) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO supercharger_sessions (
+		INSERT INTO telemetry.supercharger_history (
 			session_id, account_id, vin, tesla_id, site_location_name, country_code,
 			charge_start_date_time, charge_stop_date_time, billing_type, vehicle_make_type,
 			energy_kwh, total_cost, currency, is_paid, raw_data, created_at,
@@ -175,16 +202,16 @@ func insertSuperchargerSessionFixture(t *testing.T, pool *pgxpool.Pool, accountI
 		r.StartBatteryPctEst, r.EndBatteryPctEst,
 	)
 	if err != nil {
-		t.Fatalf("seeding supercharger_sessions fixture (session %d): %v", r.SessionID, err)
+		t.Fatalf("seeding telemetry.supercharger_history fixture (session %d): %v", r.SessionID, err)
 	}
 }
 
-// cleanupSuperchargerSessions registers a cleanup that deletes supercharger_sessions
+// cleanupSuperchargerSessions registers a cleanup that deletes telemetry.supercharger_history
 // rows created by these tests so a shared DB stays tidy.
 func cleanupSuperchargerSessions(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID) {
 	t.Helper()
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM supercharger_sessions WHERE account_id = $1", accountID)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM telemetry.supercharger_history WHERE account_id = $1", accountID)
 	})
 }
 
@@ -304,10 +331,10 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 		if err := pool.QueryRow(context.Background(), `
 			SELECT vin, tesla_id, charge_start_date_time, charge_stop_date_time,
 			       site_location_name, energy_kwh, total_cost, currency, is_paid, created_at
-			FROM supercharger_sessions WHERE account_id = $1 AND session_id = $2`,
+			FROM telemetry.supercharger_history WHERE account_id = $1 AND session_id = $2`,
 			accountID, sessionID,
 		).Scan(&srcVIN, &srcTeslaID, &srcStart, &srcStop, &srcSite, &srcEnergyKWh, &srcTotalCost, &srcCurrency, &srcIsPaid, &srcCreatedAt); err != nil {
-			t.Fatalf("reading source supercharger_sessions row %d: %v", sessionID, err)
+			t.Fatalf("reading source telemetry.supercharger_history row %d: %v", sessionID, err)
 		}
 
 		row, ok := fetchSuperchargerSession(t, pool, accountID, sessionID)

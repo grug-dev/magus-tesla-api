@@ -193,7 +193,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id   = $1
   AND tesla_id     = $2
   AND captured_date < $3

@@ -178,7 +178,8 @@ Ordering between directories matters where one module's migration READS another'
 are still no cross-module foreign keys ([`architecture.md`](./architecture.md) §2), but since
 RM29 tier 6 there is one such read: `internal/charging`'s `20260823000001_add_charge_sessions`
 backfills the table it creates — then `public.charge_sessions`, since RM39 tier 3
-`charging.supercharger_sessions` — from `telemetry.supercharger_sessions`, so `telemetry` must
+`charging.supercharger_sessions` — from `telemetry.supercharger_history` (named
+`telemetry.supercharger_sessions` until RM39 tier 4 moved and renamed it), so `telemetry` must
 precede `charging` for that data to land. The migration filename and its own SQL still say
 `charge_sessions`: historic migrations are never edited (RM39 D1), so they keep the names that
 were current when they ran. `MIGRATIONS_DIRS` already orders them that way.

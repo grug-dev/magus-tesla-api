@@ -244,7 +244,7 @@ func NewReader(pool *pgxpool.Pool) Reader {
 // an oversight: it makes "a nightly poll erases a human's verified reading" a
 // compile error rather than a comment a reviewer has to notice (design.md D6).
 //
-// Field names mirror telemetry.SuperchargerSession's, which mirror the column
+// Field names mirror telemetry.SuperchargerHistory's, which mirror the column
 // names, so the whole path stays a literal copy (design.md D1).
 type SessionMirror struct {
 	AccountID uuid.UUID

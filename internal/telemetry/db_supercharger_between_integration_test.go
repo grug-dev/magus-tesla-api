@@ -55,7 +55,7 @@ func TestSuperchargerSessionsByVehicleBetween_BoundaryInclusiveStartAndEndDay_Ex
 	s4ID := int64(970004) // exactly one day past end — must be excluded
 	ids := []int64{s1ID, s2ID, s3ID, s4ID}
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", ids)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", ids)
 	})
 
 	fixtures := []struct {
@@ -70,7 +70,7 @@ func TestSuperchargerSessionsByVehicleBetween_BoundaryInclusiveStartAndEndDay_Ex
 
 	tid := teslaID
 	for _, f := range fixtures {
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+		if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
 			SessionID:           f.id,
 			AccountID:           accountID,
 			VIN:                 "VIN_BETWEEN",
@@ -126,12 +126,12 @@ func TestSuperchargerSessionsByVehicleBetween_IncludesMidnightSpanningSession_Fi
 	s5ID := int64(971005) // starts the day BEFORE start, stops inside the window
 	ids := []int64{s1ID, s5ID}
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", ids)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", ids)
 	})
 
 	tid := teslaID
 	s1Stop := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
-	if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+	if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
 		SessionID:           s1ID,
 		AccountID:           accountID,
 		VIN:                 "VIN_MIDNIGHT",
@@ -149,7 +149,7 @@ func TestSuperchargerSessionsByVehicleBetween_IncludesMidnightSpanningSession_Fi
 
 	s5Start := time.Date(2026, 8, 9, 23, 30, 0, 0, time.UTC) // the day BEFORE start
 	s5Stop := time.Date(2026, 8, 10, 0, 15, 0, 0, time.UTC)  // inside the window
-	if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+	if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
 		SessionID:           s5ID,
 		AccountID:           accountID,
 		VIN:                 "VIN_MIDNIGHT",
@@ -211,13 +211,13 @@ func TestSuperchargerSessionsByVehicleBetween_TenantIsolation_ReturnsOnlyRequest
 	sessionB := int64(972002)
 	ids := []int64{sessionA, sessionB}
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", ids)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", ids)
 	})
 
 	stop := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC) // same window for both accounts
 
 	tidA := teslaA
-	if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+	if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
 		SessionID:           sessionA,
 		AccountID:           accountA,
 		VIN:                 "VIN_TENANT_A",
@@ -234,7 +234,7 @@ func TestSuperchargerSessionsByVehicleBetween_TenantIsolation_ReturnsOnlyRequest
 	}
 
 	tidB := teslaB
-	if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+	if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
 		SessionID:           sessionB,
 		AccountID:           accountB,
 		VIN:                 "VIN_TENANT_B",

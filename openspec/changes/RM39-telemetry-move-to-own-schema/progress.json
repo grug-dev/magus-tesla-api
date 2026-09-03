@@ -5,9 +5,9 @@
   "module": "telemetry",
   "roadmap": "RM39-schema-per-module",
   "request": "Tier 4 of RM39: move internal/telemetry's 4 tables into a dedicated telemetry Postgres schema and rename supercharger_sessions -> supercharger_history, with its 9 catalog objects and the Go names that follow the table. The public port SuperchargerReader stays unchanged (tier 5).",
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-09-03T09:55:00Z",
-  "updated_at": "2026-09-03T10:25:00Z",
+  "updated_at": "2026-09-03T10:48:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,11 +23,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T5",
-      "T6",
-      "T7",
-      "T8",
-      "T10",
       "T11"
     ],
     "blocked": [],
@@ -36,7 +31,12 @@
       "T2",
       "T3",
       "T4",
-      "T9"
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "T10"
     ],
     "awaiting-user-verification": []
   },
@@ -129,14 +129,19 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:48:00Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "41 SQL statements qualified across 7 files (independent re-measure: 41 = design D9's 41, exact per-file match) + 25 SuperchargerSession type refs in 5 files. Zero expected assertion values changed, zero search_path added. Leader fixed one stale comment T5 left behind.",
+      "budget": {
+        "five_hour_pct_delta": 5,
+        "cost_usd_delta": 1.9,
+        "approx": true,
+        "note": "ran parallel with the leader's T6/T7/T8/T10, so the wave delta is shared"
+      }
     },
     {
       "id": "T6",
@@ -146,13 +151,13 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:45:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "4 raw SQL statements qualified (2 vehicle_snapshots, 2 supercharger_history) + 3 telemetry.SuperchargerSession type refs updated. T6.3 confirmed: both watermark replay tests untouched, no search_path edited (git diff shows only db_integration_test.go changed in analytics).",
       "budget": null
     },
     {
@@ -163,13 +168,13 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:45:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "4 telemetry.SuperchargerSession refs in fakeSuperchargerReader updated to SuperchargerHistory. All four SuperchargerSessionsBy* METHOD names kept - the fake implements the port, and the port is tier 5. go vet clean.",
       "budget": null
     },
     {
@@ -180,13 +185,13 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:45:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "D11's three guarded mappings now in runBackfill (INSERT target + the dangerous to_regclass guard + the FROM source), each with its own exactly-one-occurrence t.Fatalf. Header comment rewritten to the three-mapping rule. 3 D9 statements qualified. T8.6 comment-only: verified zero non-comment lines changed.",
       "budget": null
     },
     {
@@ -219,13 +224,13 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:45:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "13 files swept per-occurrence with the discrimination rule. Edited: README (4 schema-table rows + the now-obsolete base-name-collision note), ai/go-conventions, docs/battery-consumed-graph, 3 KB guides incl. resolving telemetry-ingest-only.md's PENDING banner. 5 KB files confirmed charging-side only, no edit.",
       "budget": null
     },
     {
@@ -317,6 +322,38 @@
       "made_by": "leader",
       "decision": "T3.3's empirical question is ANSWERED: telemetry_supercharger_history is the correct rename key",
       "why": "The irregular plural (history/histories) was a real risk since a wrong key is ignored at exit 0. Measured, not reasoned: no Telemetry-prefixed struct in models.go."
+    },
+    {
+      "id": "C8",
+      "at": "2026-09-03T10:28:00Z",
+      "scope": "wave:3",
+      "made_by": "autopilot",
+      "decision": "Ran the final wave PARALLEL: a worker on T5 while the leader does T6/T7/T8/T10 concurrently",
+      "why": "The exception to serial batching is met - disjoint files (worker in telemetry tests, leader in analytics/app/charging/docs) and the leader-owned half cannot be delegated anyway."
+    },
+    {
+      "id": "C9",
+      "at": "2026-09-03T10:40:00Z",
+      "scope": "task:T8.6",
+      "made_by": "leader",
+      "decision": "FOLDED IN, not deferred: all three comment corrections inside charging's shipped migration 20260823000001",
+      "why": "Design D12 required an explicit choice. Deferring would leave a comment that is now simply false about a guard this tier makes always-skip. Zero SQL lines changed, verified mechanically."
+    },
+    {
+      "id": "C10",
+      "at": "2026-09-03T10:40:00Z",
+      "scope": "task:T8.1",
+      "made_by": "leader",
+      "decision": "The RAISE NOTICE string inside the guard is deliberately NOT rewritten",
+      "why": "tasks.md left it optional. It is prose inside a RAISE, constrains nothing, and a fourth fragile string match could break the replay on a harmless wording change."
+    },
+    {
+      "id": "C11",
+      "at": "2026-09-03T10:45:00Z",
+      "scope": "task:T10.2",
+      "made_by": "leader",
+      "decision": "CHECKED AND UNAFFECTED: no doc asserts a schema for the three purely-moved tables",
+      "why": "The reverse-direction docs rule makes this a finding only if actually run. grep for public.<table> across kkpa/context, docs, ai and README returned zero rows."
     }
   ],
   "events": [
@@ -354,6 +391,26 @@
       "at": "2026-09-03T10:25:00Z",
       "agent": "leader",
       "event": "WORKER FINDING (pre-existing, out of scope, NOT fixed): internal/telemetry/AGENTS.md's SuperchargerReader block never documented the 4th method SuperchargerSessionsByVehicleUpdatedSince at all. It predates RM39 and is unrelated to the rename, so T9 (scoped to rename mentions) left it. Surfaced to the owner at archive as a backlog candidate rather than silently widening this change."
+    },
+    {
+      "at": "2026-09-03T10:28:00Z",
+      "agent": "leader",
+      "event": "FINAL WAVE DISPATCHED. T5 (telemetry's own 41 raw SQL statements across 7 test files) to a Sonnet telemetry worker; T6/T7/T8/T10 executed by the leader in parallel because they cross the module sandbox into analytics, app, charging and the repo docs. Their expected values were authored in design.md's Test Contract before implementation, so neither half derives an expectation by reading the code."
+    },
+    {
+      "at": "2026-09-03T10:45:00Z",
+      "agent": "leader",
+      "event": "LEADER HALF OF THE FINAL WAVE COMPLETE (T6, T7, T8, T10). go vet clean across analytics, app and charging; gofmt clean. T8's three-mapping fix is the one that decides whether this tier ships broken: the to_regclass guard mapping fails SILENTLY if missed (NULL guard -> early RETURN -> no error, just a NOTICE -> A1/A2 fail on empty assertions, reading like a data bug). All three mappings now carry an exactly-one-occurrence t.Fatalf. T10 applied the discrimination rule per occurrence across 13 files: telemetry's mentions became telemetry.supercharger_history, charging's own supercharger_sessions was left alone everywhere, and the watermark-vocabulary lines (analytics', settled by tier 3b) were left untouched."
+    },
+    {
+      "at": "2026-09-03T10:48:00Z",
+      "agent": "leader",
+      "event": "FINAL WAVE COMPLETE (T5 + the leader's T6/T7/T8/T10). T5 re-measured D9 independently and got 41 statements across 7 files, matching the design's per-file table exactly - no discrepancy. Leader verification repo-wide: 0 unqualified telemetry-table SQL references in any Go file; the only 3 remaining bare 'supercharger_sessions' in telemetry tests are history-narrating comments (a migration filename and an RM27 event), which T4.5's rule says keep the old name; no search_path was added anywhere (the 2 diff hits are the leader's own T8.2 comment ABOUT why search_path is wrong). One stale comment T5 left - 'deletes supercharger_sessions' describing current identity - was fixed by the leader on the spot rather than left for the reviewer."
+    },
+    {
+      "at": "2026-09-03T10:48:00Z",
+      "agent": "leader",
+      "event": "ASSISTANT-RUN SIGNALS, ALL GREEN: go build ./... clean, go vet ./... clean repo-wide (it compiles _test.go, so it covers every type rename in every test file), gofmt -l clean on all 22 touched files, make migration-guard / boundary-guard / tz-guard / money-guard all pass. NOT RUN, AND NOT CLAIMED: the test suite. Per Test-Execution-Policy every task is complete-but-unexecuted, so the change is awaiting the owner's verification before the reviewer gate."
     }
   ]
 }

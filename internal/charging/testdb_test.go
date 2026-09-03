@@ -10,7 +10,8 @@
 // first, then this module's own (design.md D8c,
 // RM29-charging-add-charge-sessions). Telemetry must go first because this
 // module's 20260823000001 migration ships a backfill that reads telemetry's
-// supercharger_sessions table — db_backfill_integration_test.go seeds that
+// supercharger_history table (named supercharger_sessions until RM39 tier 4
+// moved and renamed it) — db_backfill_integration_test.go seeds that
 // table and needs it to already exist. testdb.ProvisionDirs is the sanctioned
 // form for a package whose fixtures span more than one module's schema
 // (ai/go-conventions.md §Testing: "more than one module's tables →

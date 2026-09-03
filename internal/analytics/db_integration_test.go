@@ -339,7 +339,7 @@ func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 		updatedAt = s.CapturedAt
 	}
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO vehicle_snapshots (
+		INSERT INTO telemetry.vehicle_snapshots (
 			account_id, tesla_id, captured_at, captured_date, raw_data,
 			battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
 			odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
@@ -393,7 +393,7 @@ func pgInt2FromIntPtr(v *int) pgtype.Int2 {
 	return pgtype.Int2{Int16: int16(*v), Valid: true}
 }
 
-// seedSuperchargerSession inserts one telemetry.SuperchargerSession directly
+// seedSuperchargerSession inserts one telemetry.SuperchargerHistory directly
 // into supercharger_sessions (D19: telemetry exposes no public writer for
 // this table at all — upsertSuperchargerSession is unexported, reachable
 // only from inside Collector.CollectAll). Returns the session_id actually
@@ -401,7 +401,7 @@ func pgInt2FromIntPtr(v *int) pgtype.Int2 {
 // nextSessionID (the column is UNIQUE NOT NULL). updatedAt defaults to
 // ChargeStopDateTime when the caller leaves Session.UpdatedAt at its zero
 // value.
-func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.SuperchargerSession) int64 {
+func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.SuperchargerHistory) int64 {
 	t.Helper()
 	sessionID := s.SessionID
 	if sessionID == 0 {
@@ -412,7 +412,7 @@ func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.Super
 		updatedAt = s.ChargeStopDateTime
 	}
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO supercharger_sessions (
+		INSERT INTO telemetry.supercharger_history (
 			session_id, account_id, vin, tesla_id, site_location_name, country_code,
 			charge_start_date_time, charge_stop_date_time, billing_type, vehicle_make_type,
 			start_battery_pct, end_battery_pct, raw_data, updated_at
@@ -440,7 +440,7 @@ func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.Super
 func reviseSuperchargerSession(t *testing.T, pool *pgxpool.Pool, sessionID int64, endBatteryPct int, updatedAt time.Time) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		`UPDATE supercharger_sessions SET end_battery_pct = $1, updated_at = $2 WHERE session_id = $3`,
+		`UPDATE telemetry.supercharger_history SET end_battery_pct = $1, updated_at = $2 WHERE session_id = $3`,
 		int16(endBatteryPct), pgtype.Timestamptz{Time: updatedAt, Valid: true}, sessionID,
 	)
 	if err != nil {
@@ -1503,7 +1503,7 @@ func TestReconcile_T3_ChargingSourcedValueWinsOverStaleTelemetryCopy(t *testing.
 	// The STALE telemetry copy -- never read by Recalculate any more after
 	// this tier's retype; seeded only to prove it is NOT what consumed_pct
 	// comes from.
-	seedSuperchargerSession(t, pool, telemetry.SuperchargerSession{
+	seedSuperchargerSession(t, pool, telemetry.SuperchargerHistory{
 		AccountID:           accountID,
 		SessionID:           sessionID,
 		TeslaID:             &teslaIDCopy,
@@ -2101,7 +2101,7 @@ func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 	// public writer for a single row (D19), and the point under test is
 	// Recalculate's read-time behavior, not the UPSERT mechanics themselves.
 	if _, err := pool.Exec(ctx,
-		`UPDATE vehicle_snapshots SET odometer_km = $1, battery_level_pct = $2, battery_range_km = $3
+		`UPDATE telemetry.vehicle_snapshots SET odometer_km = $1, battery_level_pct = $2, battery_range_km = $3
 		 WHERE account_id = $4 AND tesla_id = $5 AND captured_date = $6`,
 		1080.0, int32(60), 260.0, accountID, teslaID, dateFrom(day(2026, 8, 21)),
 	); err != nil {

@@ -210,8 +210,17 @@ CREATE INDEX idx_charge_sessions_vehicle_stop
 --     were never applied (e.g. internal/charging's own module-scoped test
 --     provisioning, whose //go:embed cannot reach ../telemetry). PL/pgSQL plans a
 --     statement on first execution, so the INSERT below is never planned when the
---     guard returns first. In a real database the guard always passes: MIGRATIONS_DIRS
---     runs telemetry before charging. The dependency is SOFT — ordering affects data
+--     guard returns first. CORRECTED BY RM39 TIER 4 (comment only — not one character
+--     of this file's SQL changes, per RM39 D1): this guard now ALWAYS SKIPS. Tier 4
+--     moved telemetry's tables into schema `telemetry` and renamed the table to
+--     supercharger_history, so to_regclass('public.supercharger_sessions') is NULL
+--     permanently. That is harmless in both directions: on a database that already ran
+--     this migration the backfill committed its rows long ago and ON CONFLICT DO
+--     NOTHING would re-copy nothing anyway; on a fresh database there is nothing to
+--     copy, because telemetry's table is created empty in the same `goose up`. The
+--     claim it replaces — "in a real database the guard always passes: MIGRATIONS_DIRS
+--     runs telemetry before charging" — was true when written and is now false.
+--     The dependency is SOFT — ordering affects data
 --     completeness, never migration success (design.md D8a). Verified by probe: sqlc
 --     parses this file without ever seeing the supercharger_sessions reference,
 --     because a PL/pgSQL body is an opaque string to the SQL parser (design.md D8b).
@@ -275,13 +284,16 @@ $$;
 
 -- +goose Down
 -- Safe by construction TODAY: this tier is EXPAND-only (design.md D4), so every row
--- and every column dropped here still exists in telemetry.supercharger_sessions,
--- which this change never touched. Nothing is lost that is not still upstream.
+-- and every column dropped here still exists in telemetry.supercharger_history
+-- (named telemetry.supercharger_sessions when this migration shipped; moved and
+-- renamed by RM39 tier 4), which this change never touched. Nothing is lost that is
+-- not still upstream.
 --
 -- (This stops being true once the deferred contract change drops telemetry's five
 -- percentage columns — at that point charge_sessions is the only copy of them and
 -- this Down becomes destructive. That change owns updating this comment; see
 -- design.md D9, step 6. The mirrored session facts — site, energy, cost, currency,
--- is_paid — stay in supercharger_sessions permanently, so they are never at risk.)
+-- is_paid — stay in telemetry.supercharger_history permanently, so they are never at
+-- risk.)
 DROP INDEX IF EXISTS idx_charge_sessions_vehicle_stop;
 DROP TABLE IF EXISTS charge_sessions;

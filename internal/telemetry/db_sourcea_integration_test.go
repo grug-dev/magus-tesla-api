@@ -489,7 +489,7 @@ func TestMaxRangeChargeCounter_BackfillFromRawData(t *testing.T) {
 	// Simulate the migration backfill UPDATE using the exact SQL from the migration Up.
 	// This tests that the JSONB path, the jsonb_typeof guard, and the ::INTEGER cast work.
 	_, err := pool.Exec(ctx, `
-		UPDATE vehicle_snapshots
+		UPDATE telemetry.vehicle_snapshots
 		SET max_range_charge_counter =
 		        (raw_data -> 'charge_state' ->> 'max_range_charge_counter')::INTEGER
 		WHERE account_id = $1
@@ -547,7 +547,7 @@ func TestMaxRangeChargeCounter_BackfillSkipsRowsWithoutPath(t *testing.T) {
 
 	// Run the migration backfill logic — the jsonb_typeof guard must exclude this row.
 	_, err := pool.Exec(ctx, `
-		UPDATE vehicle_snapshots
+		UPDATE telemetry.vehicle_snapshots
 		SET max_range_charge_counter =
 		        (raw_data -> 'charge_state' ->> 'max_range_charge_counter')::INTEGER
 		WHERE account_id = $1
