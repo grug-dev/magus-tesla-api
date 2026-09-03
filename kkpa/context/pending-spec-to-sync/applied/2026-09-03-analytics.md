@@ -9,7 +9,7 @@
 Target guide: `architecture/schema-per-module.md`
 Source spec:  `openspec/specs/analytics/spec.md`
 Generated:    2026-09-02
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-03
 
 > **Curator's routing note.** Same cross-cutting invariant as the `account` proposal, so it
 > appends to the SAME guide. **Apply `account.md` first** — that is the proposal that creates the

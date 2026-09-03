@@ -9,7 +9,7 @@
 Target guide: `architecture/schema-per-module.md`
 Source spec:  `openspec/specs/account-vehicle-registry/spec.md`
 Generated:    2026-09-02
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-03
 
 > **Curator's routing note.** This capability's new requirement is the same cross-cutting
 > invariant as the `account` capability's, applied to the `vehicles` table. It therefore appends

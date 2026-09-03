@@ -9,7 +9,7 @@
 Target guide: `entities/vehicle-metrics/guide.md`
 Source spec:  `openspec/specs/analytics/spec.md`
 Generated:    2026-09-03
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-03
 
 > **Curator's routing note.** Unlike the other RM39 proposals, this one does NOT target
 > `architecture/schema-per-module.md` — tier 3b moves no schema. It changes the watermark

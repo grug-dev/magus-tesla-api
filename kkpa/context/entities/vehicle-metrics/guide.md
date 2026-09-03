@@ -91,6 +91,39 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Every per-day battery read is scoped to the requesting account's own vehicle** — two accounts whose vehicles share a vehicle identifier never see each other's observations, even on the same calendar day. This is the capability's tenant boundary, not an optimization. _Source: spec analytics — Requirement: Per-Day Battery Level and Range Read._
 - **The date carried by a per-day result is a FINAL bucket key** — consumers bucket on it verbatim and must never re-project it through a day-normalizing helper of their own. Identical to the rule the per-day consumption and distance reads already carry. _Source: spec analytics — Requirement: Per-Day Battery Level and Range Read._
 
+- **`vehicle_metric_watermarks.source` is a closed vocabulary of table names stored AS DATA, and
+  a table rename in another module invalidates it.** The column is never schema-qualified (the
+  values are data, not SQL table references), a CHECK constraint pins the legal set, and
+  `Recalculator.Reconcile` keys its per-source cursor on the string. So when a module renames a
+  table this vocabulary names, the fix is an analytics-owned migration — not an edit in the
+  module that did the renaming. Precedent twice over: `20260828000001` (RM31) and
+  `20260902000004` (RM39 tier 3b).
+  _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark._
+- **Retire a vocabulary value by DELETing its rows, never by UPDATEing them.** An absent watermark
+  row is DEFINED as the epoch, so the next nightly `Reconcile` backfills that source's whole
+  history in one pass — self-healing. Carrying the cursor value forward would make correctness
+  depend on the other module's mirror pass never having gapped, which the migration cannot
+  verify, and a stalled mirror would strand a carried cursor with nothing able to detect it.
+  _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark;
+  RM39 roadmap decisions D8/D21._
+- **The migration's Down DELETE is load-bearing, not tidying.** Restoring the old vocabulary while
+  a row still holds the new value makes `ADD CONSTRAINT` fail with SQLSTATE 23514 and leaves the
+  table with NO constraint at all. Each direction must clear the rows written under the
+  vocabulary the other direction retires. Found by the round-trip test, which is why the test
+  asserts the round trip rather than only the forward migration.
+  _Source: migration `20260828000001`'s own Down block, re-confirmed by `20260902000004`._
+- **`sqlc` mirrors the database's `COMMENT ON` text into `models.go` doc comments, so a migration
+  that rewrites a comment REQUIRES `make sqlc`.** Easy to miss, because the change alters no
+  column type and the build stays green either way. It has now been missed twice on this exact
+  table — fixed by commit `3882a53` after RM31, and caught again in RM39 tier 3b's review round 1.
+  _Source: RM39 tier 3b review finding F1._
+- **The value `'supercharger_sessions'` means two different tables depending on era.** Before
+  RM31 it named `internal/telemetry`'s table; since RM39 tier 3b it names `internal/charging`'s.
+  No live row is ambiguous (the CHECK forbade the string in between, so the eras cannot coexist
+  in data), but old backups, archived specs and `git log` are. A test asserting mid-migration
+  state must pin the literal of the era it runs in, not the current Go constant.
+  _Source: spec analytics; RM39 tier 3b design.md §6 and review finding F2._
+
 ## Related KB
 
 - Architecture: `architecture/telemetry-ingest-only.md` (the snapshot/supercharger sources this table derives from)

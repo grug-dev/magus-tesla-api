@@ -9,7 +9,7 @@
 Target guide: `architecture/telemetry-ingest-only.md`
 Source spec:  `openspec/specs/telemetry/spec.md`
 Generated:    2026-09-03
-Status: PENDING REVIEW
+Status: APPLIED 2026-09-03
 
 > **Origin:** RM39 tiers 4 and 5 (`RM39-telemetry-move-to-own-schema` and
 > `RM39-telemetry-rename-supercharger-port`, MAG-31), both archived 2026-09-03 — the last two
