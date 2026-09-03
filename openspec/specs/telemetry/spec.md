@@ -202,6 +202,7 @@ existing read port methods.
 - **AND** it imports no package from internal/telemetry/db
 
 ### Requirement: Supercharger Session Ledger
+
 The telemetry capability SHALL, on each nightly collection cycle, fetch the complete
 Tesla-billed Supercharger and DC fast-charging session history for each connected account
 and persist it as a durable session ledger. For each session the ledger SHALL store the
@@ -225,46 +226,28 @@ nightly refresh of that session, even when the session's billing fields or raw p
 change on that same refresh. A source label, when set, SHALL be one of a closed, explicitly
 extensible set of values identifying a human-owned or measured origin; the ledger SHALL
 NEVER store a label identifying a computed estimate — an estimate is a different
-capability's read-time concern, never persisted here.
+capability's read-time concern, never persisted here. **This is a CHANGE from the prior
+revision of this requirement, under which the ledger also carried a frozen
+verification-time snapshot pair — a start battery percentage estimate and an end battery
+percentage estimate, recording what a companion estimation capability's live computation
+produced at the moment the trio above was set. That snapshot pair is REMOVED by this
+revision (`RM41-telemetry-drop-estimate-columns`), because the companion estimation
+capability it was reserved for was descoped before it ever shipped, and the estimator
+MAG-36 eventually shipped instead writes the trio's own start percentage directly — there
+is no longer anything for a snapshot to capture.**
 
-The ledger SHALL additionally carry a frozen verification-time snapshot pair for each
-session — a start battery percentage estimate and an end battery percentage estimate (each
-0-100 inclusive) — recording what a companion estimation capability's live, on-read
-computation produced at the moment the verification/override trio above was set. This
-snapshot pair is a permanent, point-in-time observation, not an ongoing estimate: it SHALL
-be written at most once per verification, in the same operation that sets the trio, and
-SHALL NEVER be recomputed, refreshed, or otherwise modified afterward by the nightly
-collection cycle or by any other read of a live estimate — remaining unchanged even after
-the estimation method that originally produced it changes. It starts NULL for every newly
-inserted session and, like the trio, SHALL remain exactly as previously stored across every
-subsequent nightly refresh of that session. This snapshot pair SHALL NEVER be treated as an
-input to, or a cache of, the companion estimation capability's live computation.
+#### Scenario: A newly verified session records its battery-percentage verification trio
 
-NOTE (2026-08-15): no such companion estimation capability exists on this platform — it was
-descoped before implementation. The snapshot pair is therefore reserved and NULL in every
-stored session today; the requirements above bind whenever an estimation capability is
-introduced, and until then nothing writes the pair.
+- **GIVEN** a session whose battery-percentage verification/override trio is NULL
+- **WHEN** the trio is set to a specific start percentage, end percentage, and source label
+- **THEN** the ledger stores the verified start and end percentages and the source label
+  exactly as set
 
-#### Scenario: A newly verified session records a frozen snapshot of the estimate alongside the override
-
-- **GIVEN** a session whose battery-percentage verification/override trio and
-  verification-time snapshot pair are both NULL
-- **WHEN** the trio is set to a specific start and end percentage and a source label, in a
-  single write that also records the start and end percentage a companion estimation
-  capability's live computation produced at that same moment
-- **THEN** the ledger stores both the verified start and end percentages and the source
-  label
-- **AND** the ledger stores the snapshot start and end percentages exactly as they were
-  computed at that moment, independent of and not necessarily equal to the verified values
-
-#### Scenario: A later re-verification of the same session overwrites the frozen snapshot with the new verification's own snapshot
-- **GIVEN** a session whose verification/override trio and verification-time snapshot pair
-  were both set by a prior verification
-- **WHEN** the session is verified again, setting a new trio and a new snapshot pair in one
-  write
-- **THEN** the ledger's trio and snapshot pair both reflect only the most recent
-  verification's values
-- **AND** the prior verification's snapshot values are not separately retained
+#### Scenario: A later re-verification of the same session overwrites the trio with the new verification's own values
+- **GIVEN** a session whose verification/override trio was set by a prior verification
+- **WHEN** the session is verified again, setting a new trio
+- **THEN** the ledger's trio reflects only the most recent verification's values
+- **AND** the prior verification's values are not separately retained
 
 #### Scenario: A new account's full Supercharger history is ingested on first run
 - **GIVEN** an account with a valid Tesla connection and several historical Supercharger
@@ -301,17 +284,6 @@ introduced, and until then nothing writes the pair.
   percentage, source label) is exactly what it was before this nightly run — unchanged in
   every respect, not merely still non-NULL
 
-#### Scenario: A nightly refresh never overwrites an already-set verification-time snapshot pair
-- **GIVEN** a session already in the ledger whose verification-time snapshot pair has been
-  set (in the same write as its verification trio, by some means outside the nightly
-  collection cycle) to specific start and end percentage estimates
-- **WHEN** the nightly cycle runs and re-fetches that session one or more times, with its
-  billing fields or raw payload having changed since the prior run
-- **THEN** the ledger row's billing fields and raw payload reflect the newly fetched values
-- **AND** the ledger row's verification-time snapshot pair is exactly what it was before
-  this nightly run — unchanged in every respect, across every subsequent nightly refresh,
-  regardless of how many nightly cycles have run since the snapshot was recorded
-
 #### Scenario: Energy and cost derivation from fees
 - **GIVEN** a session with multiple fees where one fee has a unit of measure of kWh and
   another has a unit of measure of minutes
@@ -343,6 +315,7 @@ introduced, and until then nothing writes the pair.
 - **AND** no Supercharger sessions are stored for that account in this cycle
 
 ### Requirement: Supercharger Session Read Port
+
 The telemetry capability SHALL expose a read port that allows callers (the gateway, other
 consumers) to retrieve Supercharger sessions without accessing the telemetry database
 directly. The port SHALL provide three read methods: one returning all sessions for a given
@@ -353,9 +326,11 @@ within a caller-supplied date window (ordered oldest-first, with no limit — th
 itself bounds the result). Callers SHALL receive an empty non-nil result when no sessions
 exist for the given scope. Every returned session SHALL carry its battery-percentage
 verification trio (start percentage, end percentage, source label) exactly as stored — NULL
-when no override has been set for that session — and its verification-time snapshot pair
-(start percentage estimate, end percentage estimate) exactly as stored — NULL when no
-verification has occurred for that session.
+when no override has been set for that session. **This is a CHANGE from the prior revision
+of this requirement, under which a retrieved session also carried its verification-time
+snapshot pair (start percentage estimate, end percentage estimate) exactly as stored — that
+snapshot pair is REMOVED by this revision (`RM41-telemetry-drop-estimate-columns`), because
+the capability no longer stores it (see "Supercharger Session Ledger" above).**
 
 The date-windowed method SHALL determine whether a session belongs to the requested window
 by comparing the session's charge stop time against the window, regardless of when the
@@ -399,22 +374,6 @@ of the entire final calendar day, not merely its first instant.
   specific vehicle
 - **THEN** the returned session's start percentage, end percentage, and source label are
   all NULL
-
-#### Scenario: A returned session carries its verification-time snapshot pair
-- **GIVEN** a stored session whose verification-time snapshot pair has been set to a
-  specific start percentage estimate and end percentage estimate
-- **WHEN** the caller requests sessions for that session's account, or for that session's
-  specific vehicle
-- **THEN** the returned session's snapshot start percentage estimate and end percentage
-  estimate match the stored values exactly, independent of whatever a companion estimation
-  capability's live computation would currently produce for that session
-
-#### Scenario: A returned session with no verification has a NULL verification-time snapshot pair
-- **GIVEN** a stored session whose verification-time snapshot pair has never been set
-- **WHEN** the caller requests sessions for that session's account, or for that session's
-  specific vehicle
-- **THEN** the returned session's snapshot start percentage estimate and end percentage
-  estimate are both NULL
 
 #### Scenario: Sessions within a date window are returned ordered oldest-first
 - **GIVEN** a vehicle with several stored Supercharger sessions whose charge stop times span

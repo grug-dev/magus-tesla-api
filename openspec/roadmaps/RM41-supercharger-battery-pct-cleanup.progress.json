@@ -6,7 +6,7 @@
   "request": "Source ticket MAG-36. Part 1 (derive start_battery_pct) already shipped as charging-add-derived-start-battery-pct on 2026-09-01. This roadmap covers the two remaining parts: the bilingual UI help text, and removing the *_pct_est columns the ticket found unpopulated.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-03T19:57:08Z",
+  "updated_at": "2026-09-03T21:17:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
@@ -16,9 +16,7 @@
     "created_at": "2026-09-03T17:38:00Z"
   },
   "rollup": {
-    "current": [
-      3
-    ],
+    "current": [],
     "pending": [
       4,
       5
@@ -26,7 +24,8 @@
     "blocked": [],
     "done": [
       1,
-      2
+      2,
+      3
     ]
   },
   "decisions": [
@@ -173,14 +172,20 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T19:33:16Z",
-      "completed_at": null,
+      "completed_at": "2026-09-03T21:17:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts created and the database design gate passed with the owner. One extra granted path added at the gate (nightly-cycle.md)."
+      "budget": {
+        "five_hour_pct_start": 63,
+        "five_hour_pct_end": 8,
+        "cost_usd_delta": 21.5,
+        "approx": true,
+        "note": "Spans a 5-hour bucket reset and two sessions; sum of the tier's task deltas plus the review round."
+      },
+      "notes": "Archived. Reviewer approved round 1 with zero findings. Two design gates (the column drop, then the table comment the owner chose to leave stale), one cancelled task (1.6), and a mid-run artifact defect where design.md contradicted tasks.md on tombstone wording - tasks.md won, per tier 2's precedent."
     },
     {
       "id": 4,
@@ -246,6 +251,11 @@
       "at": "2026-09-03T19:34:58Z",
       "what": "Tier 2 archived. openspec archive synced the charge-session-log delta into openspec/specs/charge-session-log/spec.md (3 requirements modified); the folder moved under archive/charging/ to match this repo's module-grouped layout, which the CLI does not do itself. Roadmap tier 2 flipped to [x]. Tier 3 artifacts still in flight.",
       "by": "leader"
+    },
+    {
+      "at": "2026-09-03T21:17:00Z",
+      "by": "leader",
+      "what": "Tier 3 archived - MAG-36 is now complete end to end (parts 1-3). Tiers 4 and 5 remain, both MAG-45: the stored session status column (charging, trips the database design gate) and its ui.Badge column (gateway). Tier 4 is unblocked; tier 2 is archived."
     }
   ]
 }
