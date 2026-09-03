@@ -103,7 +103,7 @@ explicitly confirmed it.
 
 ## Wave 3 — test repair (module: charging worker, one file granted outside it)
 
-- [ ] **3.1** `internal/charging/db_session_integration_test.go` — apply design.md
+- [x] **3.1** `internal/charging/db_session_integration_test.go` — apply design.md
   "Test Contract" → item 1 exactly: drop the two fields from
   `superchargerSessionRow`, drop the two columns/scan targets from
   `fetchSuperchargerSession`, delete the two `if row.StartBatteryPctEst...`/
@@ -115,7 +115,7 @@ explicitly confirmed it.
   returns `0`.
   `depends_on`: 1.2, 1.3, 2.1 · `parallel_ok`: with 3.2, 3.3, 3.4, 3.5
 
-- [ ] **3.2** `internal/charging/db_session_reader_integration_test.go` — apply
+- [x] **3.2** `internal/charging/db_session_reader_integration_test.go` — apply
   design.md "Test Contract" → item 2 exactly: delete the two `s940002.*Est*`
   assertions, drop the two `*Est` disjuncts from the 940001/940003 trailing-loop
   condition, and remove the `StartBatteryPctEst`/`EndBatteryPctEst` values (22/78)
@@ -124,7 +124,7 @@ explicitly confirmed it.
   returns `0`.
   `depends_on`: 1.2, 1.3, 2.1 · `parallel_ok`: with 3.1, 3.3, 3.4, 3.5
 
-- [ ] **3.3** `internal/charging/db_backfill_integration_test.go` — apply
+- [x] **3.3** `internal/charging/db_backfill_integration_test.go` — apply
   design.md "Test Contract" → item 3 exactly: **leave
   `superchargerFixtureRow`'s two `*Est` fields and
   `insertSuperchargerSessionFixture`'s INSERT into `telemetry.supercharger_history`
@@ -144,14 +144,14 @@ explicitly confirmed it.
   (charging-side) assertion.
   `depends_on`: 1.2, 1.3, 2.1 · `parallel_ok`: with 3.1, 3.2, 3.4, 3.5
 
-- [ ] **3.4** `internal/charging/db_session_verifier_integration_test.go` — apply
+- [x] **3.4** `internal/charging/db_session_verifier_integration_test.go` — apply
   design.md "Test Contract" → item 4 exactly: delete the T1 `*Est` assertion pair
   and the T8 bit-identical `*Est` assertion pair. Acceptance:
   `grep -c "BatteryPctEst" internal/charging/db_session_verifier_integration_test.go`
   returns `0`.
   `depends_on`: 1.2, 1.3, 2.1 · `parallel_ok`: with 3.1, 3.2, 3.3, 3.5
 
-- [ ] **3.5** **[granted path, roadmap D6]**
+- [x] **3.5** **[granted path, roadmap D6]**
   `internal/analytics/db_integration_test.go` — apply design.md "Test Contract" →
   item 5 exactly: `seedChargeSession`'s INSERT drops
   `start_battery_pct_est, end_battery_pct_est` from its column list and the two
@@ -164,7 +164,7 @@ explicitly confirmed it.
 
 ## Wave 4 — docs (module: charging worker, granted KB + spec paths)
 
-- [ ] **4.1** `internal/charging/AGENTS.md` — apply design.md "Docs" → the five
+- [x] **4.1** `internal/charging/AGENTS.md` — apply design.md "Docs" → the five
   numbered edits exactly (`SessionMirror` exclusion note, the `Session` struct code
   block, `SessionVerifier`'s doc comment, the Data Ownership lead sentence, and the
   column-by-column bullet deletion). Do NOT edit the D16/rename-scope sentence
@@ -177,20 +177,20 @@ explicitly confirmed it.
   `1` that the D16 sentence itself is still present and unedited.
   `depends_on`: 1.2 · `parallel_ok`: with 4.2, 4.3, 4.4
 
-- [ ] **4.2** `kkpa/context/use-case/charging/verify-session-battery.md` — apply
+- [x] **4.2** `kkpa/context/use-case/charging/verify-session-battery.md` — apply
   design.md "Docs" → the exact replacement text, verbatim. Acceptance: the file
   contains no remaining "await an estimator that does not exist yet" text; `grep -c
   "RM41-charging-drop-estimate-columns" kkpa/context/use-case/charging/verify-session-battery.md`
   returns `1`.
   `depends_on`: — · `parallel_ok`: with 4.1, 4.3, 4.4
 
-- [ ] **4.3** `kkpa/context/workflows/supercharger-stats-read.md` — apply design.md
+- [x] **4.3** `kkpa/context/workflows/supercharger-stats-read.md` — apply design.md
   "Docs" → the exact replacement clause. Acceptance: the file contains no
   remaining "until tier 2 of `RM41-supercharger-battery-pct-cleanup` drops the
   columns" text (future tense); it instead states tier 2 already dropped them.
   `depends_on`: — · `parallel_ok`: with 4.1, 4.2, 4.4
 
-- [ ] **4.4** `kkpa/context/architecture/charge-record-mutation.md` — apply
+- [x] **4.4** `kkpa/context/architecture/charge-record-mutation.md` — apply
   design.md "Docs" → the exact replacement text, verbatim. This file was NOT named
   by the roadmap; it was found by re-verifying the Findings before writing these
   artifacts (proposal.md "Findings correction"). Acceptance: the file contains no
@@ -201,7 +201,7 @@ explicitly confirmed it.
 
 ## Wave 5 — verification (assistant-run signals, then owner-run suite + migration)
 
-- [ ] **5.1** Run and report: `go build ./internal/charging/... ./internal/analytics/...`,
+- [x] **5.1** Run and report: `go build ./internal/charging/... ./internal/analytics/...`,
   `go vet ./internal/charging/... ./internal/analytics/...`, `gofmt -l
   internal/charging internal/analytics`, `make migration-guard`, `make
   boundary-guard`. This tier's own definition of done: `grep -rln

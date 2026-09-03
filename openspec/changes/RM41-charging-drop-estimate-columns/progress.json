@@ -5,24 +5,14 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
   "request": "Roadmap RM41 tier 2, ticket MAG-36. Drop start_battery_pct_est / end_battery_pct_est from charging.supercharger_sessions: one migration, the two Session fields, the two reader mappings, the query.sql guarding comments, sqlc regeneration, four charging integration tests plus the granted analytics seed test, and four doc/KB files.",
-  "status": "in-progress",
+  "status": "applied",
   "created_at": "2026-09-03T18:35:00Z",
-  "updated_at": "2026-09-03T18:59:12Z",
+  "updated_at": "2026-09-03T19:13:46Z",
   "rollup": {
-    "current": [],
-    "pending": [
-      "3.1",
-      "3.2",
-      "3.3",
-      "3.4",
-      "3.5",
-      "4.1",
-      "4.2",
-      "4.3",
-      "4.4",
-      "5.1",
+    "current": [
       "5.2"
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       "0.1",
@@ -30,7 +20,20 @@
       "1.2",
       "1.3",
       "1.4",
-      "2.1"
+      "2.1",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "5.1"
+    ],
+    "awaiting_user_verification": [
+      "3.1",
+      "3.2",
+      "3.3",
+      "3.4",
+      "3.5",
+      "5.2"
     ]
   },
   "leader": {
@@ -189,14 +192,22 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "superchargerSessionRow, the SELECT/Scan, the first-mirror assertions and the B6 UPDATE all cleaned. Acceptance grep 0. Compiles under vet; suite not run.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
     },
     {
       "id": "3.2",
@@ -208,14 +219,22 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Two T9 assertions, two loop disjuncts and seedS1's _est UPDATE values removed; also corrected two adjacent 'all five'->'all three' mentions made stale by the drop. Acceptance grep 0.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
     },
     {
       "id": "3.3",
@@ -227,14 +246,22 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Telemetry-side fixture struct and INSERT left untouched as designed; only the four charging-side assertion blocks deleted. Acceptance grep 3, all hits inside the untouched fixture.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
     },
     {
       "id": "3.4",
@@ -246,14 +273,22 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "T1 and T8 assertion pairs deleted. Acceptance grep 0.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
     },
     {
       "id": "3.5",
@@ -263,14 +298,22 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Granted analytics path only: seedChargeSession's INSERT dropped both columns and args, renumbered to $1..$16. One file changed under internal/analytics/.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
     },
     {
       "id": "4.1",
@@ -281,14 +324,22 @@
         "1.3"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Five numbered edits applied; D16 sentence untouched. Leader then fixed the mirrored Session doc comment, which still said 'five ... verification/estimate columns'.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
     },
     {
       "id": "4.2",
@@ -298,14 +349,22 @@
         "1.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Estimator-gotcha bullet replaced verbatim. Both acceptance checks pass.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
     },
     {
       "id": "4.3",
@@ -315,14 +374,22 @@
         "1.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Future-tense 'until tier 2 drops the columns' clause replaced with the already-dropped wording.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
     },
     {
       "id": "4.4",
@@ -332,14 +399,22 @@
         "1.2"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:59:41Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "'never written / always show em-dash' bullet replaced verbatim. Both acceptance checks pass.",
+      "budget": {
+        "five_hour_pct_start": 12,
+        "five_hour_pct_end": 24,
+        "context_pct_start": 13,
+        "context_pct_end": 14,
+        "cost_usd_delta": 5.3459,
+        "approx": true,
+        "note": "one shared wave delta across 3.1-4.4 (single serial worker + leader fixes)"
+      }
     },
     {
       "id": "5.1",
@@ -362,13 +437,13 @@
         "4.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T19:13:46Z",
+      "completed_at": "2026-09-03T19:13:46Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "build, vet, gofmt all clean on charging+analytics; migration-guard and boundary-guard pass. Definition-of-done grep returns exactly the four predicted files.",
       "budget": null
     },
     {
@@ -379,13 +454,13 @@
         "5.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
+      "status": "awaiting-user-verification",
       "agent": null,
       "model": null,
-      "started_at": null,
+      "started_at": "2026-09-03T19:13:46Z",
       "completed_at": null,
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Handed to the owner: make migrate-up, the information_schema check, then go test on charging+analytics.",
       "budget": null
     }
   ],
@@ -417,6 +492,34 @@
       "what": "The three history comments keep the RM41 pointer but no longer spell out start_battery_pct_est / end_battery_pct_est.",
       "why": "design.md's Code changes text contradicted its own done-criterion and two acceptance greps. Owner chose to satisfy the checks and keep dead names out of generated code.",
       "at": "2026-09-03T18:59:12Z"
+    },
+    {
+      "scope": "dispatch:defer-test-ask",
+      "made_by": "autopilot",
+      "what": "Did not ask the owner to run the suite after wave 1+2; the ask moves to after wave 3+4.",
+      "why": "The charging test files do not compile until wave 3 repairs them, so a suite run now could only fail to build.",
+      "at": "2026-09-03T18:59:41Z"
+    },
+    {
+      "scope": "dispatch:wave-batching-2",
+      "made_by": "autopilot",
+      "what": "Waves 3 and 4 dispatched as ONE serial worker (nine files) instead of two dispatches or parallel workers.",
+      "why": "Every task is a verbatim application of design.md text on a distinct file; one dispatch reads the doc pack once and the wave is not large enough to justify parallel drain.",
+      "at": "2026-09-03T18:59:41Z"
+    },
+    {
+      "scope": "review:kb-literal-column-names",
+      "made_by": "autopilot",
+      "what": "The three kkpa/context/ guides keep the literal start_battery_pct_est / end_battery_pct_est names; the owner's drop-the-names decision was not extended to them.",
+      "why": "Those bullets exist so a future search for the old column name finds where it went, and no acceptance check forbids the names there. The owner's decision targeted code and generated output.",
+      "at": "2026-09-03T19:13:46Z"
+    },
+    {
+      "scope": "integration:stale-five",
+      "made_by": "autopilot",
+      "what": "Leader fixed two 'five'->'three' mentions wave 1 missed: charging.go:318 and the Session doc comment mirrored into AGENTS.md.",
+      "why": "Task 1.2's acceptance greps checked different sentences, so both survived. CLAUDE.md's docs-track-change rule makes a stale mirrored comment incomplete work.",
+      "at": "2026-09-03T19:13:46Z"
     }
   ],
   "review": {
@@ -449,6 +552,16 @@
     {
       "at": "2026-09-03T18:59:12Z",
       "what": "Wave 1+2 done (1.1-1.4, 2.1) by the charging worker on Sonnet. Worker flagged a real artifact self-contradiction on 1.4; leader triaged, owner decided, tombstones amended in charging.go + query.sql and sqlc re-run. Assistant-run signals: go build ./internal/charging clean, gofmt clean, all acceptance greps pass. go vet still fails on the four wave-3 test files, as designed.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:59:41Z",
+      "what": "Wave 1+2 committed as bd79622. Checkpoint gate evaluated: five_hour_pct=12, context_pct=13, both under threshold \u2014 continuing. Dispatching wave 3+4 (3.1-3.5, 4.1-4.4) to one serial charging worker on Sonnet.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:13:46Z",
+      "what": "Wave 3+4 done by the charging worker on Sonnet; nine tasks, go vet clean on charging+analytics. Leader triaged two worker flags: accepted the KB literal names, fixed the two stale 'five' mentions. Task 5.1 signals all pass. Change status applied; 5.2 handed to the owner.",
       "by": "leader"
     }
   ]

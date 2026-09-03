@@ -178,12 +178,6 @@ func TestVerifySession_T1_T4_T9_SetThenClearAdvancesUpdatedAt(t *testing.T) {
 	if s1.BatteryPctSource == nil || *s1.BatteryPctSource != "user_verified" {
 		t.Errorf("T1: BatteryPctSource = %v, want user_verified", s1.BatteryPctSource)
 	}
-	if s1.StartBatteryPctEst != nil {
-		t.Errorf("T1: StartBatteryPctEst = %v, want nil (untouched, D1)", s1.StartBatteryPctEst)
-	}
-	if s1.EndBatteryPctEst != nil {
-		t.Errorf("T1: EndBatteryPctEst = %v, want nil (untouched, D1)", s1.EndBatteryPctEst)
-	}
 	if !s1.UpdatedAt.After(baseline.UpdatedAt) {
 		t.Errorf("T1: UpdatedAt = %v, want strictly after baseline UpdatedAt %v", s1.UpdatedAt, baseline.UpdatedAt)
 	}
@@ -449,12 +443,6 @@ func TestVerifySession_OnlyTargetColumnsChange(t *testing.T) {
 	}
 	if !boolPtrEqualV(before.IsPaid, after.IsPaid) {
 		t.Errorf("IsPaid changed: before %v, after %v", before.IsPaid, after.IsPaid)
-	}
-	if !intPtrEqualV(before.StartBatteryPctEst, after.StartBatteryPctEst) {
-		t.Errorf("StartBatteryPctEst changed: before %v, after %v", before.StartBatteryPctEst, after.StartBatteryPctEst)
-	}
-	if !intPtrEqualV(before.EndBatteryPctEst, after.EndBatteryPctEst) {
-		t.Errorf("EndBatteryPctEst changed: before %v, after %v", before.EndBatteryPctEst, after.EndBatteryPctEst)
 	}
 	if !before.CreatedAt.Equal(after.CreatedAt) {
 		t.Errorf("CreatedAt changed: before %v, after %v", before.CreatedAt, after.CreatedAt)

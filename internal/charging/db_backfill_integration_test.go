@@ -383,12 +383,6 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 			if row.BatteryPctSource == nil || *row.BatteryPctSource != "user_verified" {
 				t.Errorf("session %d: BatteryPctSource got %v, want 'user_verified' (resolved from NULL by the backfill's COALESCE)", sessionID, row.BatteryPctSource)
 			}
-			if row.StartBatteryPctEst != nil {
-				t.Errorf("session %d: StartBatteryPctEst got %v, want nil", sessionID, *row.StartBatteryPctEst)
-			}
-			if row.EndBatteryPctEst != nil {
-				t.Errorf("session %d: EndBatteryPctEst got %v, want nil", sessionID, *row.EndBatteryPctEst)
-			}
 		} else {
 			if row.StartBatteryPct != nil {
 				t.Errorf("session %d: StartBatteryPct got %v, want nil", sessionID, *row.StartBatteryPct)
@@ -398,12 +392,6 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 			}
 			if row.BatteryPctSource != nil {
 				t.Errorf("session %d: BatteryPctSource got %v, want nil (must NOT be fabricated for a row with no percentages)", sessionID, *row.BatteryPctSource)
-			}
-			if row.StartBatteryPctEst != nil {
-				t.Errorf("session %d: StartBatteryPctEst got %v, want nil", sessionID, *row.StartBatteryPctEst)
-			}
-			if row.EndBatteryPctEst != nil {
-				t.Errorf("session %d: EndBatteryPctEst got %v, want nil", sessionID, *row.EndBatteryPctEst)
 			}
 		}
 	}

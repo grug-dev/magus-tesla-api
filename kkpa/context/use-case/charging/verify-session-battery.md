@@ -101,9 +101,14 @@ On the error branches, `fetchSuperchargerRowVM` additionally READs `supercharger
 - **The error branches re-resolve via `fetchSuperchargerRowVM` rather than inspecting the
   error** — that is how a 404 is told apart from a 500 without importing pgx into the gateway.
   _Source: `SuperchargerRowUpdate` (design D9)._
-- **`start_battery_pct_est` / `end_battery_pct_est` are unreachable from every write path in the
-  repo** and therefore always render `—`. They await an estimator that does not exist yet.
-  _Source: `charging/db/query.sql`, `superchargerRowVMFromSession`._
+- **`start_battery_pct_est` / `end_battery_pct_est` no longer exist.** Both columns
+  were dropped from `charging.supercharger_sessions` by
+  `RM41-charging-drop-estimate-columns` (2026-09-03) — they had been unreachable
+  from every write path since they shipped (no estimator was ever built to fill
+  them), and the estimator MAG-36 eventually shipped
+  (`derivedStartBatteryPct`) writes the real `start_battery_pct` column instead of
+  a frozen snapshot column. `charging.Session` no longer carries either field.
+  _Source: `charging/charging.go`, `charging/db/migrations/20260903000002_drop_supercharger_est_columns.sql`._
 - **The success response refreshes only the row.** Unlike the manual path there is no OOB list
   or tile refresh. Fine while the tiles aggregate only energy and cost; revisit the moment the
   page surfaces anything derived from the percentages.

@@ -99,8 +99,7 @@ func seedS1(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64
 
 	if _, err := pool.Exec(ctx, `
 		UPDATE charging.supercharger_sessions
-		SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified',
-		    start_battery_pct_est = 22, end_battery_pct_est = 78
+		SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified'
 		WHERE account_id = $1 AND session_id = 940002`,
 		accountID); err != nil {
 		t.Fatalf("seedS1: direct-SQL set battery percentages on 940002: %v", err)
@@ -118,7 +117,7 @@ func seedS1(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64
 //   - T4: 940002 (starts before the window, stops inside it) is included, and its
 //     ChargeStartDateTime is reported as recorded, not clamped to the window.
 //   - T9: 940002 carries the battery percentages written by direct SQL; 940001 and
-//     940003 carry all five as nil.
+//     940003 carry all three as nil.
 //   - T10: results are ordered ascending by ChargeStopDateTime: 940001, 940002, 940003.
 func TestListSessionsByVehicleBetween_S1_BoundariesOrderingAndPercentages(t *testing.T) {
 	pool := newTestPool(t)
@@ -180,18 +179,10 @@ func TestListSessionsByVehicleBetween_S1_BoundariesOrderingAndPercentages(t *tes
 	if s940002.BatteryPctSource == nil || *s940002.BatteryPctSource != "user_verified" {
 		t.Errorf("T9: 940002.BatteryPctSource = %v, want user_verified", s940002.BatteryPctSource)
 	}
-	if s940002.StartBatteryPctEst == nil || *s940002.StartBatteryPctEst != 22 {
-		t.Errorf("T9: 940002.StartBatteryPctEst = %v, want 22", s940002.StartBatteryPctEst)
-	}
-	if s940002.EndBatteryPctEst == nil || *s940002.EndBatteryPctEst != 78 {
-		t.Errorf("T9: 940002.EndBatteryPctEst = %v, want 78", s940002.EndBatteryPctEst)
-	}
-
 	for _, id := range []int64{940001, 940003} {
 		s := byID[id]
-		if s.StartBatteryPct != nil || s.EndBatteryPct != nil || s.BatteryPctSource != nil ||
-			s.StartBatteryPctEst != nil || s.EndBatteryPctEst != nil {
-			t.Errorf("T9: session %d: expected all five battery fields nil, got %+v", id, s)
+		if s.StartBatteryPct != nil || s.EndBatteryPct != nil || s.BatteryPctSource != nil {
+			t.Errorf("T9: session %d: expected all three battery fields nil, got %+v", id, s)
 		}
 	}
 }

@@ -315,7 +315,7 @@ type Session struct {
 	IsPaid           *bool    // nil when the session had no fees
 
 	// Charging-owned verification channel (RM29 design.md D1/D5/D6). Never written by
-	// the nightly sync — SessionWriter has no field for any of these five.
+	// the nightly sync — SessionWriter has no field for any of these three.
 	StartBatteryPct  *int    // 0-100 inclusive; nil = nothing recorded
 	EndBatteryPct    *int    // 0-100 inclusive; nil = nothing recorded
 	BatteryPctSource *string // "user_verified" or "polled"; nil iff both percentages are nil

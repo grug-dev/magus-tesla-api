@@ -211,11 +211,11 @@ type SessionWriter interface {
 func NewSessionWriter(pool *pgxpool.Pool) SessionWriter
 ```
 
-**`SessionMirror` has NO field for `start_battery_pct`, `end_battery_pct`,
-`battery_pct_source`, `start_battery_pct_est` or `end_battery_pct_est` — by design, and
-this is the single most important invariant in this file.** The five battery-percentage
-columns are absent from `SessionMirror` and absent from the `MirrorSuperchargerSession` SQL
-query entirely (`db/query.sql`), so the nightly sync path has no field and no column to
+**`SessionMirror` has NO field for `start_battery_pct`, `end_battery_pct`, or
+`battery_pct_source` — by design, and this is the single most important invariant in
+this file.** The three battery-percentage columns are absent from `SessionMirror` and
+absent from the `MirrorSuperchargerSession` SQL query entirely (`db/query.sql`), so the
+nightly sync path has no field and no column to
 bind one to even if a future edit tried — a human's verified reading is protected by a
 **compile error**, not by a comment a reviewer has to notice (design.md D6). Do not
 "complete" `SessionMirror` by adding these fields; the future verification UI (backlog
@@ -239,8 +239,8 @@ directly, exactly as for `Writer`/`Reader` above.
 
 ```go
 // Session is the full domain representation of one supercharger_sessions row: identity, the
-// session's time window, the session facts internal/telemetry collects, and the five
-// charging-owned battery-percentage verification/estimate columns. Read-only counterpart
+// session's time window, the session facts internal/telemetry collects, and the three
+// charging-owned battery-percentage verification columns. Read-only counterpart
 // to SessionMirror — NOT built by widening it: SessionMirror stays deliberately
 // percentage-free (RM29 design.md D6) so the nightly sync path has no field to bind a
 // human-verified percentage to, even by mistake. Session and SessionMirror are
@@ -266,8 +266,6 @@ type Session struct {
     StartBatteryPct    *int
     EndBatteryPct      *int
     BatteryPctSource   *string
-    StartBatteryPctEst *int
-    EndBatteryPctEst   *int
 
     // InferredCapacityKWhCalc — database-computed, read-only (MAG-25,
     // charging-add-inferred-capacity). nil when EnergyKWh is nil, either
@@ -365,9 +363,13 @@ directly, exactly as for `Writer`/`Reader`/`SessionWriter` above. The same appli
 type SessionVerifier interface {
     // VerifySession updates exactly three columns on one account-scoped
     // supercharger_sessions row — start_battery_pct, end_battery_pct, battery_pct_source —
-    // plus updated_at. No other column is reachable through this method, including
-    // start_battery_pct_est/end_battery_pct_est: the underlying query's SET clause
-    // names only these three plus updated_at (design.md D1).
+    // plus updated_at. No other column is reachable through this method: the
+    // underlying query's SET clause names only these three plus updated_at
+    // (RM31-charging-add-session-verification-port design.md D1). The two frozen
+    // estimate columns formerly named here as columns this method could never
+    // reach were dropped from the table entirely by
+    // RM41-charging-drop-estimate-columns — there is no longer a column to be
+    // unreachable from.
     //
     // battery_pct_source is always computed by this method, never supplied by the
     // caller: "user_verified" when either startBatteryPct or endBatteryPct is
@@ -577,14 +579,11 @@ RM29-charging-add-charge-sessions)
   schema source of truth, including its one-time backfill of every Supercharger session
   already collected (guarded so it is a no-op on a `charging`-only database — design.md
   D8a).
-- `internal/telemetry.supercharger_sessions` **keeps its own copy** of all five
-  battery-percentage columns until a separate, deferred contract change drops them
-  (design.md D9 spells out that change's six parts — it is not a one-line `ALTER`).
-  Until then, `start_battery_pct` / `end_battery_pct` / `battery_pct_source` /
-  `start_battery_pct_est` / `end_battery_pct_est` genuinely exist in two tables across
-  the module boundary, and only `charging.supercharger_sessions`'s copy is ever written to by
-  anything in this repository (telemetry's copy has no writer at all — see
-  `internal/telemetry`'s own docs).
+- `internal/telemetry.supercharger_history` keeps its own copy of the three
+  remaining battery-percentage columns (`start_battery_pct`, `end_battery_pct`,
+  `battery_pct_source`) until tier 3 of this roadmap
+  (`RM41-telemetry-drop-estimate-columns`) drops its own est-column pair — see
+  that change once it lands.
 - Column-by-column:
   - `account_id`, `vin`, `session_id`, `charge_start_date_time`, `charge_stop_date_time`,
     `site_location_name` — mirrored, **write-once**: telemetry never refreshes these
@@ -608,11 +607,6 @@ RM29-charging-add-charge-sessions)
     MAG-18 capacity-averaging implementer over `supercharger_sessions` cannot filter derived
     rows out by provenance alone; read design.md D1 before building that feature rather
     than rediscovering this limitation.
-  - `start_battery_pct_est`, `end_battery_pct_est` — **charging-owned**, never mirrored,
-    and still unwritable by any code path in this repository. Roadmap Decision 3
-    (RM31): no estimator exists yet, so these stay permanently `NULL` until one is
-    built — `SessionVerifier`'s query structurally cannot reach them either (design.md
-    D1 of that change).
   - Deliberately **not** carried, and the list is closed: `country_code`,
     `unlatch_date_time`, `billing_type`, `vehicle_make_type`, `raw_data` (design.md D1).
   - `inferred_capacity_kwh_calc` (MAG-25, charging-add-inferred-capacity) —
