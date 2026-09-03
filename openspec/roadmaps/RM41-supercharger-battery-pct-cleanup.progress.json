@@ -6,7 +6,7 @@
   "request": "Source ticket MAG-36. Part 1 (derive start_battery_pct) already shipped as charging-add-derived-start-battery-pct on 2026-09-01. This roadmap covers the two remaining parts: the bilingual UI help text, and removing the *_pct_est columns the ticket found unpopulated.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-03T19:34:58Z",
+  "updated_at": "2026-09-03T19:57:08Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
@@ -180,7 +180,7 @@
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Artifacts dispatched in parallel with tier 2's review (disjoint modules: telemetry vs charging)."
+      "notes": "Artifacts created and the database design gate passed with the owner. One extra granted path added at the gate (nightly-cycle.md)."
     },
     {
       "id": 4,
