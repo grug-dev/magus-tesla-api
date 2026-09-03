@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T11:20:00Z",
+  "updated_at": "2026-09-03T11:30:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -608,6 +608,11 @@
       "at": "2026-09-03T11:20:00Z",
       "agent": "leader",
       "event": "TIER 4 ARCHIVED. RM39 is now 5 of 6 tiers done (1, 2, 3, 3b, 4). Only tier 5 remains and it is UNBLOCKED - its sole dependency was tier 4. Tier 5 is the mechanical, fully compiler-checked half of D5c: rename the public port SuperchargerReader, its 4 methods, NewSuperchargerReader and the internal helpers, across 88 references in charging, analytics, gateway, app and both cmd/ binaries. No schema change, no migration, no raw SQL - so unlike every tier before it, go vet is a COMPLETE signal here."
+    },
+    {
+      "at": "2026-09-03T11:30:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at the tier boundary (Step 9.2), BEFORE opening tier 5. Neither threshold is crossed - five_hour_pct 73 (limit 90), context_pct 26 (limit 40) - but tier 4 consumed 70 points of the 5-hour bucket on its own (3 -> 73). Opening tier 5 now would cross 90 mid-tier, which is the worst place to stop. Stopping cleanly instead: RM39 stays in-progress with tier 5 not-started and unblocked, and every file is committed. Resume with: /kkpa-dev-harness-pipeline resume RM39-schema-per-module (after five_hour_resets_at, or immediately in a fresh session since the context trip is not the binding one). NOTE: budget.sh reported a FOREIGN session_id mid-run (around wave 2), so that window's cost figures are indicative only; it is reporting this session again now."
     }
   ],
   "gates": [
