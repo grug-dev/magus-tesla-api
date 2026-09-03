@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM39-analytics-fix-watermark-vocabulary",
+  "module": "analytics",
+  "intention": "Retire the charge_sessions vocabulary from analytics' watermark cursor after RM39 tier 3 renamed charging's table.",
+  "request": "roadmap RM39 tier 3b, split out of tier 3 by owner decision D15",
+  "status": "proposed",
+  "updated_at": "2026-09-03T02:15:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5",
+    "session_id": "1be35947-40d8-44de-b10e-a47bb7583cb8"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM39-MAG-31-schema-per-module-renames",
+    "base": "main",
+    "ticket": "MAG-31",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-31/analyze-scheme-per-module"
+  },
+  "roadmap": {
+    "name": "RM39-schema-per-module",
+    "tier": 6,
+    "label": "3b"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "Write the migration 20260902000004",
+      "status": "pending",
+      "depends_on": [],
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "Rename the Go constant to sourceSuperchargerSessions",
+      "status": "pending",
+      "depends_on": [],
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "Fix db_watermark_migration_integration_test.go cross-migration cleanup",
+      "status": "pending",
+      "depends_on": [
+        "1.1"
+      ],
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "Update stale comments in db_integration_test.go",
+      "status": "pending",
+      "depends_on": [
+        "1.2"
+      ],
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "Write the migration round-trip test T1",
+      "status": "pending",
+      "depends_on": [
+        "1.1",
+        "2.1"
+      ],
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "Update internal/analytics/AGENTS.md data ownership",
+      "status": "pending",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.2",
+      "title": "Update kkpa/context/entities/vehicle-metrics/guide.md",
+      "status": "pending",
+      "depends_on": [
+        "1.1",
+        "1.2"
+      ],
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "3.3",
+      "title": "Sweep for other stale charge_sessions references in docs",
+      "status": "pending",
+      "depends_on": [
+        "3.1",
+        "3.2"
+      ],
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "rollup": {
+    "current": [],
+    "pending": [
+      "1.1",
+      "1.2",
+      "2.1",
+      "2.2",
+      "2.3",
+      "3.1",
+      "3.2",
+      "3.3"
+    ],
+    "blocked": [],
+    "done": [],
+    "awaiting-user-verification": []
+  },
+  "decisions": [
+    {
+      "id": "D1",
+      "at": "2026-09-03T02:15:00Z",
+      "scope": "change",
+      "made_by": "user",
+      "decision": "Design gate CONFIRMED: DELETE the charge_sessions watermark rows; no rename-in-place, no deferral",
+      "why": "Owner confirmed at the gate. An absent row means epoch, so the delete is self-healing; a carried cursor is not.",
+      "covered_by": "roadmap D8/D14/D15/D21"
+    }
+  ],
+  "review": {
+    "brief": null,
+    "agent": null,
+    "status": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-09-03T02:15:00Z",
+      "agent": "leader",
+      "event": "progress.json seeded from tasks.md (8 sub-tasks, 3 waves). Artifacts validated; design gate confirmed (D21). Next: wave 1 dispatch."
+    }
+  ]
+}

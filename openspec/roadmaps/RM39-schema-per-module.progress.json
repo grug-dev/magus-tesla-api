@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T02:05:00Z",
+  "updated_at": "2026-09-03T02:15:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -16,10 +16,10 @@
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       6
     ],
+    "pending": [],
     "blocked": [
       4,
       5
@@ -207,6 +207,14 @@
       "decision": "While Docker is down, the suite runs per DB-package on its own fresh local database, never one shared db",
       "why": "env -u DATABASE_URL forces testcontainers, which cannot start. One shared db hits the duplicate goose version 20260720000001 (backlog #23) and fails account.",
       "covered_by": "D19"
+    },
+    {
+      "id": "D21",
+      "at": "2026-09-03T02:15:00Z",
+      "scope": "tier:6",
+      "made_by": "user",
+      "decision": "Tier 3b design gate CONFIRMED: DELETE the charge_sessions watermark rows, re-add the CHECK with the new vocabulary, rename the Go constant",
+      "why": "Owner confirmed at the gate. Rejected: rename-in-place (a carried cursor can silently skip data if the mirror gapped) and deferring 3b until tier 4."
     }
   ],
   "tiers": [
@@ -321,10 +329,10 @@
       "depends_on": [
         3
       ],
-      "status": "not-started",
-      "assistant": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
       "model": null,
-      "started_at": null,
+      "started_at": "2026-09-03T02:15:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
@@ -466,6 +474,11 @@
       "at": "2026-09-03T02:05:00Z",
       "agent": "leader",
       "event": "D18 CATALOG CHECK re-verified independently on the fresh db: zero pg_constraint/pg_indexes names beginning charge_sessions; all 9 objects carry supercharger_sessions_*. Also confirms the accepted D5b transient ambiguity is real and visible — public.supercharger_sessions (telemetry) and charging.supercharger_sessions both exist with identically-named constraints until tier 4 renames telemetry's copy."
+    },
+    {
+      "at": "2026-09-03T02:15:00Z",
+      "agent": "leader",
+      "event": "tier 3b artifacts created and validated (openspec validate --strict). Design gate presented and CONFIRMED (D21). Migration version 20260902000004 verified free. Worker surfaced a real interaction the roadmap missed: db_watermark_migration_integration_test.go's t.Cleanup re-applies 20260828000001's Up, which would leave the live CHECK at the OLD vocabulary for every later test in the same process. Fixed in tasks.md 2.1 without editing the historic migration."
     }
   ],
   "gates": [
