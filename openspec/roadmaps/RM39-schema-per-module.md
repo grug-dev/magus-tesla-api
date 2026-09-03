@@ -12,9 +12,11 @@ time.
 
 ## Status
 
-**IN PROGRESS.** Tiers 1 (`account`) and 2 (`analytics`) are archived. Tier 3 is the remaining unblocked
-work; tiers 4 and 5 are blocked on a separate ticket (see D6), with the owner-run `db-reset`
-stopper gate sitting between tier 3 and tier 4.
+**IN PROGRESS.** Tiers 1 (`account`), 2 (`analytics`), 3 (`charging`) and 3b
+(`analytics` watermark vocabulary) are archived. The owner-run `db-reset` stopper gate was
+**waived** on 2026-09-03 (D24), and D6 — which parked tiers 4 and 5 behind an external
+boundary ticket — was **superseded** on the same day (D25) after that ticket was found never
+to have existed. **Tier 4 (`telemetry`) is the current unblocked work**; tier 5 follows it.
 
 Scope grew on 2026-09-02: the owner reopened D5 and kept MAG-31's table renames, in a
 different form (D5a/D5b/D5c). That added tier 5 and reshaped tiers 3 and 4.
@@ -121,7 +123,7 @@ Verified safe: `internal/charging` never imports `telemetry.SuperchargerSession`
 comment in `charging.go` mentions it), so the swap crosses **no import edge**, and the two
 names live in different packages.
 
-**D6 — Tier 4 (`telemetry`) is blocked on a separate boundary ticket.**
+**D6 — Tier 4 (`telemetry`) is blocked on a separate boundary ticket. — SUPERSEDED by D25, see below.**
 `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql` reads
 `public.supercharger_sessions` directly (lines 233, 269) — a real cross-module database
 access, the one the architecture forbids. It is a one-time historic backfill.
@@ -212,6 +214,57 @@ The resolution is scoped to the one test connection: open it with
 the schema move. Tiers 3 and 4 must check their own modules for the same replay pattern before
 assuming it does not apply.
 
+**D13 — D9's grep pattern matches TABLE NAMES, never an opening quote.** The first form
+(`'"[^"]*\b(FROM|…)'`) only sees double-quoted single-line SQL and silently misses every
+backtick-delimited multi-line string. It predicted 5 statements for `analytics`; the real
+number was 18, and it missed a whole test file. Re-measured with the quote-agnostic pattern:
+`charging` 32 in 10 files, `telemetry` **41 in 7 files**.
+
+**D17 — Work-shape step 2b covers OTHER modules' `_test.go` files, not just the renamed
+module's.** Tier 3 renamed charging's table and broke two `analytics` tests that seed it by
+bare name. A pure schema move stays inside the module sandbox; a **rename escapes it**. Tier 4
+renames, so it must sweep `internal/charging` and `internal/analytics` too — concretely
+`internal/charging/db_backfill_integration_test.go` L158/187/307 and
+`internal/analytics/db_integration_test.go` L415/443.
+
+**D18 — A rename tier's completeness criterion is the CATALOG, never a hand-written object
+list.** Tier 3 shipped, passed review and archived with five constraints still named
+`charge_sessions_*`. Postgres auto-names one CHECK per inline column constraint, and those
+names exist **only in the catalog** — no grep over the repo can find them. Tier 4 must query
+`pg_constraint` / `pg_indexes` on a migrated database and rename every object still carrying
+the old table name. For `supercharger_sessions` that is **9 objects: 7 constraints + 2
+indexes**, measured, not listed from memory.
+
+**D23 — RM39's data-preservation claim (D1) is proven on real data.** `make migrate-up`
+applied tiers 2, 3 and 3b to the owner's live `magus` database — charging `20260902000003`
+(23 ms), analytics `20260902000002` (5 ms) and `20260902000004` (6 ms) — and every row count
+was byte-identical before and after. D8's "deliberate data loss" cost **zero**: the database
+held no `source='charge_sessions'` watermark rows at all.
+
+**D24 — The stopper gate (`make db-reset`) is WAIVED.** D23 already proved RM39 on real data,
+so the wipe's only remaining effect was destroying irreplaceable history — 174
+`vehicle_snapshots` back to 2026-07-13 and 12 hand-entered `manual_charge_entries`, neither
+recoverable from Tesla. Cold-start testing moves to a throwaway/pre-prod database, and a fresh
+`magus` database is built before the production deploy instead.
+
+**D25 — D6 is SUPERSEDED: tier 4 is unblocked, and charging's backfill violation is fixed
+inside tier 4.** No ticket ever covered D6's violation. MAG-31's only Linear `blockedBy` is
+MAG-41 ("Fix boundary-guard"), which is Done — but MAG-41 was the *gateway → telemetry Go
+import* violation fixed by RM38/RM40, an entirely different one. The backfill violation is
+real and still present: `20260823000001` reads `public.supercharger_sessions` inside a
+PL/pgSQL `DO` block, where neither `make boundary-guard` (Go imports only) nor sqlc (a
+PL/pgSQL body is an opaque string) can see it. But its residual cost to tier 4 is small: **one
+comment that becomes false**, plus test SQL that step 2b already owned. On a fresh database
+the post-rename guard skips a backfill that would have copied zero rows. So tier 4 folds in
+the comment correction — **comment only; D1 still forbids touching that migration's SQL**.
+
+**D25 corollary — D12's `search_path` fix is UNSAFE for tier 4.** D12 resolves a
+replayed-migration test by opening its connection with `?search_path=public,<module>`. That
+works when the table only *moves*. Tier 4 also **renames**, so a bare `supercharger_sessions`
+resolving through `search_path` would silently find *charging's* table — the name D5b reused —
+instead of failing loudly. Tier 4 must qualify explicitly and must not reach for D12.
+
+
 ## Tiers
 
 Status legend: `[ ]` pending (change not created) · `[~]` in progress (change exists, not
@@ -224,8 +277,8 @@ archived) · `[x]` done (archived).
 | `[x]` | `RM39-charging-move-to-own-schema` | `charging` | 2 tables: `charge_sessions`, `manual_charge_entries`. **Also renames `charge_sessions` → `supercharger_sessions` (D5b).** Its backfill migration still reads `public.supercharger_sessions` and still works here, because `telemetry` has not moved yet. | 1 | Mirror tier 1 for `internal/charging`, then apply D5b. **Statement order inside the one migration is mandatory (D7): CREATE SCHEMA → SET SCHEMA → RENAME TO.** Renaming before the schema move collides with telemetry's still-unmoved table. Rename the db model `ChargeSession` → `SuperchargerSession` (D5c) and the 2 sqlc query names (`MirrorChargeSession`, `VerifyChargeSession`). Preserve `ManualChargeEntry`. **Do NOT touch `vehicle_metric_watermarks` — that is tier 3b (D8 CORRECTED).** Rename EVERY catalog object carrying the old name — expanded from four to NINE after a pg_constraint query found five auto-named column CHECKs (D18). The completeness criterion is the catalog, not a list: the index `idx_charge_sessions_vehicle_stop`, the CHECK `charge_sessions_pct_source_required`, the primary key `charge_sessions_pkey`, and the unique constraint `charge_sessions_account_session_unique` — so a constraint violation names the table it came from. Update the RM31 D8 comment on `SuperchargerSessionAnalyticsReader` — its "deliberate divergence" note is no longer a divergence. Do NOT touch `20260823000001_add_charge_sessions.sql` — its cross-module read is tier 4's problem and is owned by a separate boundary ticket (D6). |
 | `[x]` | `RM39-analytics-fix-watermark-vocabulary` | `analytics` | No schema move — that happened in tier 2. Rewrites the `vehicle_metric_watermarks` CHECK to the post-rename vocabulary and DELETEs the affected rows (D8 CORRECTED), plus the `sourceChargeSessions` constant in `recalculate.go`. Recorded as **tier 3b**; its id in the progress JSON is `6`, because tier ids are never renumbered. | 3 | Owner-confirmed split out of tier 3, because the table is analytics's and charging must not write it. Copy `internal/analytics/db/migrations/20260828000001_migrate_vehicle_metric_watermarks_source.sql` — it performed this exact CHECK swap once already; do not invent it. New CHECK set: `('vehicle_snapshots','supercharger_sessions','manual_charge_entries')`. DELETE the affected rows rather than rewriting them: the new set is byte-identical to the pre-`20260828000001` set, when `'supercharger_sessions'` meant telemetry's table, so a rewrite could silently map a cursor to the wrong era. A missing row means epoch by the table's own contract, so Reconcile self-heals in one pass. Also update `internal/analytics/recalculate.go`'s `sourceChargeSessions = "charge_sessions"` to the new value. |
 | `[x]` | **— STOPPER GATE: owner resets the database — WAIVED 2026-09-03 —** | — | Not a change and not code. **WAIVED by the owner on 2026-09-03**, who will instead create a fresh `magus` database before deploying to prod. The gate's purpose — see RM39 fresh data on a clean database — was met another way: tiers 2/3/3b were applied to the live database with `make migrate-up` and preserved every row (roadmap D23), so a wipe would have destroyed 174 `vehicle_snapshots` going back to 2026-07-13 and 12 hand-entered `manual_charge_entries` — neither recoverable from Tesla — to buy an empty database RM39 no longer needed. Original text: a hard stop after tier 3b where the owner runs `make db-reset` to start testing on fresh data. See §"Stopper gate" below for the exact steps. The pipeline **must not** dispatch tier 4 until the owner confirms this gate is done or explicitly waives it. | 3 | HALT. Report that tiers 1–3 are archived and the gate is now the owner's to run. Do not run `make db-reset` yourself — it is destructive and owner-only per `CLAUDE.md` §"Builds & local checks". |
-| `[ ]` | `RM39-telemetry-move-to-own-schema` | `telemetry` | 4 tables: `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs`. **Also renames `supercharger_sessions` → `supercharger_history` (D5a).** The largest tier and the one that trips the backfill guard. | 1, 3, **+ the external boundary ticket (D6)** | **BLOCKED until the boundary ticket lands.** Mirror tier 1 for `internal/telemetry`, preserving `PollAttempt`, `PollRun`, `VehicleSnapshot`, then apply D5a. Rename the db model and the hand-written domain type `SuperchargerSession` → `SuperchargerHistory` (D5c) — the domain type in `telemetry.go` is NOT sqlc-generated, so no config touches it. Rename the 5 sqlc query names (`UpsertSuperchargerSession`, `SuperchargerSessionsByAccount`/`ByVehicle`/`ByVehicleBetween`/`ByVehicleUpdatedSince`); their `*Params` types follow. **Keep the public port `SuperchargerReader` unchanged here — it is tier 5.** Then reconcile `charging`'s backfill tests A1/A2, which break the moment this tier applies. Re-check `internal/analytics`' `ProvisionDirs` usage too. |
-| `[ ]` | `RM39-telemetry-rename-supercharger-port` | `telemetry` | No schema change. Renames telemetry's **public port** to finish D5c: `SuperchargerReader`, its 4 methods, `NewSuperchargerReader`, and the internal `superchargerReader` / `rowToSuperchargerSession` / `upsertSuperchargerSession` helpers. | 4 | **BLOCKED behind tier 4.** Split out deliberately: this surface has **88 references outside `internal/telemetry`** — in `charging`, `analytics`, `gateway`, `app` and both `cmd/` binaries — so folding it into tier 4 would make the already-largest tier unreviewable. Purely mechanical and compiler-checked; no SQL, no migration. Verify with `go build ./... && go vet ./... && gofmt -l`. |
+| `[ ]` | `RM39-telemetry-move-to-own-schema` | `telemetry` | 4 tables: `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs`. **Also renames `supercharger_sessions` → `supercharger_history` (D5a).** The largest tier and the one that trips the backfill guard. | 1, 3, 3b | **UNBLOCKED 2026-09-03 by D25** (D6 superseded; gate G1 waived by D24). Mirror tier 1 for `internal/telemetry`, preserving `PollAttempt`, `PollRun`, `VehicleSnapshot`, then apply D5a. Rename the db model and the hand-written domain type `SuperchargerSession` → `SuperchargerHistory` (D5c) — the domain type in `telemetry.go` is NOT sqlc-generated, so no config touches it. Rename the 5 sqlc query names (`UpsertSuperchargerSession`, `SuperchargerSessionsByAccount`/`ByVehicle`/`ByVehicleBetween`/`ByVehicleUpdatedSince`); their `*Params` types follow. **Keep the public port `SuperchargerReader` unchanged here — it is tier 5.** Then reconcile `charging`'s backfill tests A1/A2, which break the moment this tier applies. Re-check `internal/analytics`' `ProvisionDirs` usage too. **D18 binds: completeness is measured on the CATALOG (9 objects — 7 constraints + 2 indexes), not a hand-written list.** **D17 binds: step 2b crosses modules — 41 statements in telemetry's own tests, plus charging's backfill test and analytics' db integration test.** **D25 folds in** correcting `20260823000001`'s now-false comment (comment only). **D12's `search_path` fix is UNSAFE here** — see the D25 corollary. |
+| `[ ]` | `RM39-telemetry-rename-supercharger-port` | `telemetry` | No schema change. Renames telemetry's **public port** to finish D5c: `SuperchargerReader`, its 4 methods, `NewSuperchargerReader`, and the internal `superchargerReader` / `rowToSuperchargerSession` / `upsertSuperchargerSession` helpers. | 4 | **Queued behind tier 4** (ordering, not an external blocker). Split out deliberately: this surface has **88 references outside `internal/telemetry`** — in `charging`, `analytics`, `gateway`, `app` and both `cmd/` binaries — so folding it into tier 4 would make the already-largest tier unreviewable. Purely mechanical and compiler-checked; no SQL, no migration. Verify with `go build ./... && go vet ./... && gofmt -l`. |
 
 Tier order rationale: `account` first because it has zero cross-module entanglement, so it
 proves the pattern cheaply. `telemetry` last because it is the only tier whose landing
