@@ -216,7 +216,7 @@ explicitly confirmed it.
   `depends_on`: 1.1, 1.2, 1.3, 1.4, 2.1, 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4
   · `parallel_ok`: no
 
-- [ ] **5.2** Hand off to the owner the exact commands to run and report, in
+- [x] **5.2** Hand off to the owner the exact commands to run and report, in
   order:
   1. `make migrate-up` (applies this tier's migration — the design gate in Wave 0
      already confirmed its content; this is the first time it touches a real

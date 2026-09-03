@@ -5,13 +5,11 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
   "request": "Roadmap RM41 tier 2, ticket MAG-36. Drop start_battery_pct_est / end_battery_pct_est from charging.supercharger_sessions: one migration, the two Session fields, the two reader mappings, the query.sql guarding comments, sqlc regeneration, four charging integration tests plus the granted analytics seed test, and four doc/KB files.",
-  "status": "applied",
+  "status": "verified",
   "created_at": "2026-09-03T18:35:00Z",
-  "updated_at": "2026-09-03T19:25:38Z",
+  "updated_at": "2026-09-03T19:29:18Z",
   "rollup": {
-    "current": [
-      "5.2"
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
@@ -21,20 +19,19 @@
       "1.3",
       "1.4",
       "2.1",
-      "4.1",
-      "4.2",
-      "4.3",
-      "4.4",
-      "5.1"
-    ],
-    "awaiting_user_verification": [
       "3.1",
       "3.2",
       "3.3",
       "3.4",
       "3.5",
+      "4.1",
+      "4.2",
+      "4.3",
+      "4.4",
+      "5.1",
       "5.2"
-    ]
+    ],
+    "awaiting_user_verification": []
   },
   "leader": {
     "assistant": "Claude Code",
@@ -192,7 +189,7 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T18:59:41Z",
@@ -219,7 +216,7 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T18:59:41Z",
@@ -246,7 +243,7 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T18:59:41Z",
@@ -273,7 +270,7 @@
         "2.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T18:59:41Z",
@@ -298,7 +295,7 @@
         "1.1"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "charging",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T18:59:41Z",
@@ -454,13 +451,13 @@
         "5.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
-      "agent": null,
+      "status": "done",
+      "agent": "user",
       "model": null,
       "started_at": "2026-09-03T19:13:46Z",
-      "completed_at": null,
+      "completed_at": "2026-09-03T19:29:18Z",
       "duration_seconds": null,
-      "notes": "Handed to the owner: make migrate-up, the information_schema check, then go test on charging+analytics.",
+      "notes": "Owner ran make migrate-up and make test and reported both pass. Verification is the owner's, not the assistant's.",
       "budget": null
     }
   ],
@@ -532,7 +529,7 @@
   "review": {
     "status": "pending",
     "agent": null,
-    "brief": null,
+    "brief": "Review the tier-2 diff only (three commits: bd79622, 6b6005d, 43a732a) against main. Validate: (1) the migration matches design.md's user-confirmed Database Design byte-for-byte, both Up and Down, and is the last-sorting file in internal/charging/db/migrations/; a mismatch is a BLOCKER. (2) module boundaries: only internal/charging/, the single granted internal/analytics/db_integration_test.go, and the three granted kkpa/context/ files are touched \u2014 nothing under internal/telemetry/ (tier 3) or internal/gateway/. (3) the doc-pack conventions in CLAUDE.md, ai/architecture.md and ai/go-conventions.md, especially docs-track-change. (4) the integration tests still assert design.md's authored Test Contract and were not weakened: no assertion deleted beyond those design.md names, and db_backfill_integration_test.go's telemetry-side fixture deliberately unchanged (its acceptance count is 3, not 0). (5) the leader's own three interventions, which no worker reviewed: the tombstone rewording in charging.go/query.sql, the two 'five'->'three' fixes in charging.go and AGENTS.md, and the two removal rewrites added to db_backfill_integration_test.go. Judge these hardest \u2014 they bypassed the worker/report path. (6) Performance-Profile compliance and the anti-gaming checks (no weakened criteria, no self-approved statuses). Test-Execution-Policy verbatim: 'Claude writes tests but never runs the suite \u2014 never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard / make tz-guard / make migration-guard / make boundary-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.' SIGNAL PROVENANCE: go build ./..., go vet ./..., gofmt, make migration-guard and make boundary-guard were ASSISTANT-run and are clean. make migrate-up and make test were OWNER-run and the owner reported both pass. Judge test quality by READING the tests, never by running them.",
     "rounds": []
   },
   "events": [
@@ -575,6 +572,11 @@
       "at": "2026-09-03T19:25:38Z",
       "what": "Owner reported make test failed. Root cause found by reading, not guessing: db_backfill_integration_test.go replays the shipped 20260823000001 backfill against the live schema, and its INSERT/SELECT name the two dropped columns, so pool.Exec fails with SQLSTATE 42703. Fixed with two removal rewrites in the file's own pattern; verified the rewritten statement keeps 16 INSERT columns aligned to 16 SELECT expressions. Repo-wide go build, go vet, gofmt all clean. Suite re-run is the owner's.",
       "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:29:18Z",
+      "what": "OWNER VERIFICATION: the owner ran make migrate-up and make test and reported both pass. Recorded as the owner's result, not the assistant's. Tasks 3.1-3.5 and 5.2 cleared from awaiting-user-verification to done; change status verified. Proceeding to the reviewer gate.",
+      "by": "user"
     }
   ]
 }
