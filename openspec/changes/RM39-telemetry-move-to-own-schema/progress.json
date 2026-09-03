@@ -5,9 +5,9 @@
   "module": "telemetry",
   "roadmap": "RM39-schema-per-module",
   "request": "Tier 4 of RM39: move internal/telemetry's 4 tables into a dedicated telemetry Postgres schema and rename supercharger_sessions -> supercharger_history, with its 9 catalog objects and the Go names that follow the table. The public port SuperchargerReader stays unchanged (tier 5).",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-09-03T09:55:00Z",
-  "updated_at": "2026-09-03T09:55:00Z",
+  "updated_at": "2026-09-03T10:05:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,8 +23,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T1",
-      "T2",
       "T3",
       "T4",
       "T5",
@@ -36,7 +34,10 @@
       "T11"
     ],
     "blocked": [],
-    "done": [],
+    "done": [
+      "T1",
+      "T2"
+    ],
     "awaiting-user-verification": []
   },
   "tasks": [
@@ -46,14 +47,19 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T09:58:00Z",
+      "completed_at": "2026-09-03T10:05:00Z",
+      "duration_seconds": 420,
+      "notes": "Created 20260903000001_move_telemetry_to_own_schema.sql. Up: CREATE SCHEMA -> 4x SET SCHEMA -> RENAME TO supercharger_history -> 9 catalog renames (7 constraint, 2 index) -> 1 COMMENT ON TABLE + 3 COMMENT ON COLUMN refresh. Down exact reverse, ends DROP SCHEMA, no CASCADE. Leader re-verified all 9 objects and the reverse order by reading the file.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.5,
+        "approx": true,
+        "note": "wave 1 delta shared across T1+T2 (one serial worker)"
+      }
     },
     {
       "id": "T2",
@@ -61,14 +67,19 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T09:58:00Z",
+      "completed_at": "2026-09-03T10:05:00Z",
+      "duration_seconds": 420,
+      "notes": "All 15 table refs schema-qualified (leader re-ran the acceptance grep: 0 unqualified, 0 leftover supercharger_sessions). 5 -- name: lines renamed. 6 prose mentions fixed. Port method names left untouched per D6.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.5,
+        "approx": true,
+        "note": "wave 1 delta shared across T1+T2 (one serial worker)"
+      }
     },
     {
       "id": "T3",
@@ -264,6 +275,22 @@
       "made_by": "leader",
       "decision": "Accepted all 5 worker-reported doc inconsistencies as accurate; tasks.md already carries the corrected counts",
       "why": "Verified each myself: 8 type refs (7 test + 1 comment), 15 name blocks, EXPLAIN hits real, 20260903000001 free. None blocks implementation."
+    },
+    {
+      "id": "C4",
+      "at": "2026-09-03T10:05:00Z",
+      "scope": "wave:1",
+      "made_by": "autopilot",
+      "decision": "Did NOT ask the owner to run the suite at the end of wave 1",
+      "why": "Wave 1 changed only SQL. The generated Go still names the old queries, so testcontainer tests would fail on the new schema by design. First honest ask point is after T4."
+    },
+    {
+      "id": "C5",
+      "at": "2026-09-03T10:05:00Z",
+      "scope": "wave:1",
+      "made_by": "leader",
+      "decision": "Worker's reported timestamps (00:00Z-01:05Z) replaced with the real wave clock",
+      "why": "They predate the dispatch. Notes transcribed verbatim; only the times corrected, so the file stays truthful."
     }
   ],
   "events": [
@@ -276,6 +303,16 @@
       "at": "2026-09-03T09:52:00Z",
       "agent": "leader",
       "event": "DESIGN GATE (database) PASSED — the owner approved the design as specified (C1). Index plan confirmed as part of it: no index added, none dropped, every statement catalog-only, so all four tables keep their OIDs, columns and column order and no read path changes plan. Approved against the read-heavy Performance-Profile on exactly that basis."
+    },
+    {
+      "at": "2026-09-03T09:58:00Z",
+      "agent": "leader",
+      "event": "WAVE 1 DISPATCHED: T1 (goose migration) + T2 (query.sql qualification + 5 query-name renames) to ONE serial telemetry worker on Sonnet. Batched rather than parallelised — two tasks, one doc-pack read. Sonnet despite tier 3's 5-misnamed-constraint failure, because tasks.md now carries all 9 catalog objects as 9 named checkboxes, so the judgement that failed at tier 3 has been moved into the artifact."
+    },
+    {
+      "at": "2026-09-03T10:05:00Z",
+      "agent": "leader",
+      "event": "WAVE 1 COMPLETE (T1, T2). Leader independently verified the highest-risk artifact rather than trusting the report: read the migration in full (9 catalog renames present, Down is the exact reverse, no CASCADE anywhere, COMMENT ON re-issued for 1 table + 3 columns) and re-ran T2's acceptance greps (0 unqualified refs, 15 qualified: 7 vehicle_snapshots + 2 poll_attempts + 5 supercharger_history + 1 poll_runs, 0 leftover supercharger_sessions, 5 query names renamed). Worker signals: gofmt clean, go build clean, go vet clean, make migration-guard passed. Worker finding: design D8 says all three refreshed column comments name UpsertSuperchargerSession; end_battery_pct_est does not. Accurate, cosmetic, all three were refreshed anyway per T1.4."
     }
   ]
 }

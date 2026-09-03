@@ -72,7 +72,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 
 ## T1. Goose migration (`internal/telemetry/db/migrations/`) — `[telemetry]` — no dependencies, parallel-ok with T2
 
-- [ ] T1.1 Re-verify the timestamp is globally free **immediately before creating the file**,
+- [x] T1.1 Re-verify the timestamp is globally free **immediately before creating the file**,
       by listing every module's migrations directory rather than assuming
       (`make migration-guard` fails on a duplicate version *across* modules — they share one
       `goose_db_version` table). Command that produced this change's own figures:
@@ -84,7 +84,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       this module's own latest is `20260830000002_add_poll_runs.sql`. **`20260903000001`
       collides with neither** (design.md D14). If another tier has claimed it in the meantime,
       take the next free number and record the change.
-- [ ] T1.2 Create
+- [x] T1.2 Create
       `internal/telemetry/db/migrations/20260903000001_move_telemetry_to_own_schema.sql`.
       **This file is the single source of truth for the DDL** — design.md D1 deliberately does
       NOT restate the SQL (tier 3's embedded "exact DDL" drifted three times). Follow D1's
@@ -103,27 +103,27 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       (`make migrate-down` depends on this). Use `IF NOT EXISTS` / `IF EXISTS` per tiers 1–3's
       idempotency precedent.
       Acceptance: the file exists, contains no `CASCADE`, and edits no other migration.
-- [ ] T1.3 Rename **all 9** catalog objects (design.md D7, derived from the owner's query
+- [x] T1.3 Rename **all 9** catalog objects (design.md D7, derived from the owner's query
       against a migrated database — **not** from reading the `CREATE TABLE` text). One
       checkbox per object; a literal statement fails loudly if its object is absent, which is
       the property being bought here:
-      - [ ] T1.3.1 `supercharger_sessions_pkey` → `supercharger_history_pkey`
+      - [x] T1.3.1 `supercharger_sessions_pkey` → `supercharger_history_pkey`
             (`ALTER TABLE … RENAME CONSTRAINT`)
-      - [ ] T1.3.2 `supercharger_sessions_session_id_unique` →
+      - [x] T1.3.2 `supercharger_sessions_session_id_unique` →
             `supercharger_history_session_id_unique` (`ALTER TABLE … RENAME CONSTRAINT`)
-      - [ ] T1.3.3 `supercharger_sessions_battery_pct_source_check` →
+      - [x] T1.3.3 `supercharger_sessions_battery_pct_source_check` →
             `supercharger_history_battery_pct_source_check` (auto-named CHECK)
-      - [ ] T1.3.4 `supercharger_sessions_start_battery_pct_check` →
+      - [x] T1.3.4 `supercharger_sessions_start_battery_pct_check` →
             `supercharger_history_start_battery_pct_check` (auto-named CHECK)
-      - [ ] T1.3.5 `supercharger_sessions_end_battery_pct_check` →
+      - [x] T1.3.5 `supercharger_sessions_end_battery_pct_check` →
             `supercharger_history_end_battery_pct_check` (auto-named CHECK)
-      - [ ] T1.3.6 `supercharger_sessions_start_battery_pct_est_check` →
+      - [x] T1.3.6 `supercharger_sessions_start_battery_pct_est_check` →
             `supercharger_history_start_battery_pct_est_check` (auto-named CHECK)
-      - [ ] T1.3.7 `supercharger_sessions_end_battery_pct_est_check` →
+      - [x] T1.3.7 `supercharger_sessions_end_battery_pct_est_check` →
             `supercharger_history_end_battery_pct_est_check` (auto-named CHECK)
-      - [ ] T1.3.8 `idx_supercharger_sessions_vehicle_time` →
+      - [x] T1.3.8 `idx_supercharger_sessions_vehicle_time` →
             `idx_supercharger_history_vehicle_time` (`ALTER INDEX … RENAME TO`)
-      - [ ] T1.3.9 `idx_supercharger_sessions_account_time` →
+      - [x] T1.3.9 `idx_supercharger_sessions_account_time` →
             `idx_supercharger_history_account_time` (`ALTER INDEX … RENAME TO`)
 
       **Do NOT issue a separate `ALTER INDEX` for the pkey's or the unique constraint's
@@ -141,7 +141,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       ```
       Expected: **zero rows** (design.md Test Contract point 3). This is the check tier 3 did
       not run before archiving, and it is why tier 3 shipped with five constraints misnamed.
-- [ ] T1.4 In the **same new migration**, refresh the `COMMENT ON` text sqlc copies into
+- [x] T1.4 In the **same new migration**, refresh the `COMMENT ON` text sqlc copies into
       `models.go` (design.md D8) — 1 `COMMENT ON TABLE` + 3 `COMMENT ON COLUMN`:
       the table comment on `supercharger_history`, and the column comments on
       `start_battery_pct`, `start_battery_pct_est` and `end_battery_pct_est` (all three name
@@ -159,7 +159,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 
 ## T2. Schema-qualify `db/query.sql` + rename 5 query names — `[telemetry]` — no dependencies, parallel-ok with T1
 
-- [ ] T2.1 Qualify **all 15** table references across the 15 `-- name:` blocks in
+- [x] T2.1 Qualify **all 15** table references across the 15 `-- name:` blocks in
       `internal/telemetry/db/query.sql` (design.md D2 — forced by sqlc, which resolves names
       statically at *generate* time and exits 1 with `relation "…" does not exist` once a table
       leaves `public`; a role-level `search_path` cannot help, because the failure is at
@@ -179,14 +179,14 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       grep -nE '(FROM|INTO|UPDATE|JOIN)[[:space:]]+(vehicle_snapshots|supercharger_sessions|poll_attempts|poll_runs)\b' \
         internal/telemetry/db/query.sql
       ```
-- [ ] T2.2 Rename the **5** `-- name:` lines that embed the old table name. This is a
+- [x] T2.2 Rename the **5** `-- name:` lines that embed the old table name. This is a
       **different sqlc mechanism** from `gen.go.rename` (which remaps only table-derived struct
       names), so it means editing the `-- name:` line itself (design.md D4):
-      - [ ] `UpsertSuperchargerSession` → `UpsertSuperchargerHistory`
-      - [ ] `SuperchargerSessionsByAccount` → `SuperchargerHistoryByAccount`
-      - [ ] `SuperchargerSessionsByVehicle` → `SuperchargerHistoryByVehicle`
-      - [ ] `SuperchargerSessionsByVehicleBetween` → `SuperchargerHistoryByVehicleBetween`
-      - [ ] `SuperchargerSessionsByVehicleUpdatedSince` →
+      - [x] `UpsertSuperchargerSession` → `UpsertSuperchargerHistory`
+      - [x] `SuperchargerSessionsByAccount` → `SuperchargerHistoryByAccount`
+      - [x] `SuperchargerSessionsByVehicle` → `SuperchargerHistoryByVehicle`
+      - [x] `SuperchargerSessionsByVehicleBetween` → `SuperchargerHistoryByVehicleBetween`
+      - [x] `SuperchargerSessionsByVehicleUpdatedSince` →
             `SuperchargerHistoryByVehicleUpdatedSince`
 
       `History` singular is deliberate — "history" is a mass noun, so
@@ -197,7 +197,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       `SuperchargerSessionsBy*` names on `SuperchargerReader` are tier 5's (D6).
       Acceptance: `grep -c '^-- name: \(Upsert\)\?SuperchargerSessions\?' internal/telemetry/db/query.sql`
       returns 0, and a grep for the five new names returns 5.
-- [ ] T2.3 Update `query.sql`'s **prose comments** that name the old table or the two old index
+- [x] T2.3 Update `query.sql`'s **prose comments** that name the old table or the two old index
       names (`idx_supercharger_sessions_vehicle_time`, `idx_supercharger_sessions_account_time`)
       in the index-reuse notes. sqlc copies `-- name:` block comments into `query.sql.go`, so
       this is a real generated artifact, not just a source file, and a comment naming a
