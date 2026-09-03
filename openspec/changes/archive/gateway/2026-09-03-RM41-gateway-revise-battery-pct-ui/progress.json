@@ -5,7 +5,7 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
   "request": "Source ticket MAG-36, roadmap RM41 tier 1. Add one bilingual (ES+EN) ui.Alert info message above the /supercharger-stats sessions table explaining that Tesla supplies no battery percentages and that an end-only entry derives the start; and remove every gateway reference to the dead start/end_battery_pct_est columns so tier 2 can drop them from charging.supercharger_sessions.",
-  "status": "verified",
+  "status": "archived",
   "rollup": {
     "current": [],
     "pending": [],
@@ -25,7 +25,7 @@
     ]
   },
   "created_at": "2026-09-03T17:48:00Z",
-  "updated_at": "2026-09-03T18:12:00Z",
+  "updated_at": "2026-09-03T18:25:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -336,10 +336,26 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "approved",
+    "agent": "gateway-reviewer",
+    "brief": "Review RM41-gateway-revise-battery-pct-ui (roadmap RM41 tier 1, ticket MAG-36), module gateway. Read the DIFF (git diff main...HEAD -- internal/gateway kkpa/context), not the whole module. Validate: (1) module-boundary compliance - nothing outside internal/gateway except the single granted KB path; no import of another module's db package; charging.Session untouched. (2) Every doc-pack convention, especially the bilingual-i18n rule: the new key supercharger.battery_pct_help has non-empty ES AND EN, and no user-facing string bypasses i18n.T. (3) Spec/tasks coverage: every task in tasks.md is actually implemented, and the change's specs delta matches what shipped. (4) design.md D1 (alert renders unconditionally as the FIRST element of SuperchargerStatsContent) and D2 (ES/EN strings copied verbatim, uncorrected) are honoured exactly. (5) The integration/unit tests assert the expectations design.md's Test Contract authored UP FRONT, not whatever the implementation happens to do. NOTE one deliberate deviation to judge: the leader changed the em-dash count assertion in TestSuperchargerStatsContent_RendersEnglishHeadersAndNilBatteryValues from `< 6` to `< 4` because the Test Contract omitted it and the removed labels drop the rendered count to four. Confirm that reasoning holds and that the repair did not weaken the test's intent. (6) Performance-Profile compliance: this tier must add ZERO reads, queries or Tesla API calls - it is rendering and catalogue work only. (7) Docs-track-change: the KB guide kkpa/context/workflows/supercharger-stats-read.md is corrected in this same change. (8) Anti-gaming: no acceptance criterion weakened or deleted, no self-approved status. Test-Execution-Policy (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard / make tz-guard / make migration-guard / make boundary-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant. Which signals were assistant-run vs user-reported: ASSISTANT-RUN by the leader - go build ./internal/gateway/..., go vet ./internal/gateway/..., gofmt -l internal/gateway, make i18n-guard, make ui-guard (all pass). USER-REPORTED - the owner ran `make test` and reported it passed. You must judge test QUALITY by READING the tests, never by running them. Escalate on doubt: return changes-requested asking for leader re-review rather than approving anything you are not sure about.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-03T18:18:20Z",
+        "duration_seconds": null,
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "R1",
+            "severity": "minor",
+            "note": "openspec/changes/RM41-gateway-revise-battery-pct-ui/tasks.md Wave 5: tasks 5.1 and 5.2 checkboxes remain unchecked (`- [ ]`) even though progress.json's tasks[] and rollup.done both record them as `done` (owner reported `make test` passed). No functional impact - `tasks.md wins on implementation done-ness` per ai/agentic-workflow.md, so a reader of tasks.md alone would wrongly think verification is outstanding. Leader should flip the two checkboxes to keep the two files in step.",
+            "status": "open",
+            "triage": null
+          }
+        ]
+      }
+    ]
   },
   "events": [
     {
@@ -366,6 +382,16 @@
       "at": "2026-09-03T18:12:00Z",
       "what": "VERIFIED by the owner: they ran `make test` and reported it passed. The assistant ran no test command. Tier 1 advances to the Step 7 reviewer gate.",
       "by": "user"
+    },
+    {
+      "at": "2026-09-03T18:25:00Z",
+      "what": "Reviewer round 1 returned APPROVED (gateway-reviewer, Sonnet) with one minor finding R1: tasks.md 5.1/5.2 checkboxes unticked. Leader fixed R1 (all 11 now ticked). Change status transcribed from the reviewer's own verdict; the leader approved nothing.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:25:00Z",
+      "what": "Archived to openspec/changes/archive/gateway/2026-09-03-RM41-gateway-revise-battery-pct-ui. openspec archive synced the gateway delta spec into openspec/specs/gateway/spec.md (+1 added, ~2 modified). Folder moved under archive/gateway/ per this repo's module-grouped archive convention.",
+      "by": "leader"
     }
   ]
 }

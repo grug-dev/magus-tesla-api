@@ -147,7 +147,7 @@ source of truth for content.
 
 ## Wave 5 — verification (assistant-run signals, then owner-run suite)
 
-- [ ] **5.1** Run and report: `go build ./internal/gateway/...`, `go vet
+- [x] **5.1** Run and report: `go build ./internal/gateway/...`, `go vet
   ./internal/gateway/...`, `gofmt -l internal/gateway`, `make i18n-guard`, `make
   ui-guard`. This tier's own definition of done, restated from proposal.md's
   acceptance bar: `grep -rn "BatteryPctEst\|StartEstimate\|EndEstimate"
@@ -156,7 +156,7 @@ source of truth for content.
   run `go test ./...`, `make test`, `make test-with-db`, or `make check`.
   `depends_on`: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 2.4, 3.1, 4.1 · `parallel_ok`: no
 
-- [ ] **5.2** Hand off to the owner the exact command to run and report:
+- [x] **5.2** Hand off to the owner the exact command to run and report:
   `go test ./internal/gateway/...`. Until the owner reports a pass, this tier's
   implementation status is **awaiting-user-verification**, never "done."
   `depends_on`: 5.1 · `parallel_ok`: no
