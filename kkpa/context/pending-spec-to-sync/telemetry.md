@@ -11,9 +11,12 @@ Source spec:  `openspec/specs/telemetry/spec.md`
 Generated:    2026-09-03
 Status: PENDING REVIEW
 
-> **Origin:** RM39 tier 4 (`RM39-telemetry-move-to-own-schema`, MAG-31), archived 2026-09-03.
-> It added two requirements to the live telemetry spec: *Module-Scoped Database Schema* and
-> *Supercharger History Table Renamed*.
+> **Origin:** RM39 tiers 4 and 5 (`RM39-telemetry-move-to-own-schema` and
+> `RM39-telemetry-rename-supercharger-port`, MAG-31), both archived 2026-09-03 — the last two
+> tiers of RM39, which is now complete and archived. Tier 4 added two requirements to the live
+> telemetry spec (*Module-Scoped Database Schema*, *Supercharger History Table Renamed*); tier 5
+> extended the second one with the public port's rename and retired its own "SHALL NOT rename
+> the port" clause.
 >
 > **Note for the reviewer:** the archive wave already corrected this guide's factual claims in
 > place (the PENDING banner, the module-role table and the internal-name table list), because
@@ -42,6 +45,10 @@ Status: PENDING REVIEW
   _Source: spec telemetry — Requirement: Supercharger History Table Renamed, Scenario: No catalog object survives under the old table name._
 - **A schema move preserves Go names; a table rename does not.** Moving a table into a schema changes sqlc's default struct name, so `sqlc.yaml` carries preserving `rename:` keys to hold `PollAttempt`, `PollRun` and `VehicleSnapshot` steady. The `SuperchargerHistory` rename is the deliberate exception. A `rename:` key that does not match is ignored **silently, at exit 0** — the `models.go` diff is the only detector.
   _Source: spec telemetry — Requirement: Supercharger History Table Renamed._
+- **`SuperchargerReader` is TWO unrelated identifiers — never grep-and-rename it repo-wide.** Telemetry's port is `SuperchargerHistoryReader` since RM39 tier 5. `internal/gateway`'s `Deps.SuperchargerReader` is a *different* field, typed `charging.SessionReader` and wired from `cmd/web/main.go` — the gateway cannot import telemetry at all (`make boundary-guard`). `internal/analytics` adds a third: local test fakes satisfying `charging.SuperchargerSessionAnalyticsReader`. A blind sweep of the old name corrupts working gateway code; the planning estimate of "88 references" was this collision, and the real cross-module surface was 4 files.
+  _Source: spec telemetry — Requirement: Supercharger History Table Renamed, Scenario: An unrelated, same-named identifier in another module is left untouched._
+- **Renaming this port is compiler-checked, so the compiler is the acceptance test — not a grep.** Every method signature, predicate, ordering and returned element type is byte-identical across the rename, so any consumer left on an old name fails to build rather than binding to something subtly different. `go build ./...` and `go vet ./...` (which compiles `_test.go` too) are the authority; a repo-wide grep must be triaged file-by-file, because the collisions above guarantee it can never return zero.
+  _Source: spec telemetry — Requirement: Supercharger History Table Renamed, Scenario: A real consumer outside the module is broken only by the identifier, and visibly._
 - **Raw SQL inside `_test.go` files is invisible to sqlc and to `go vet`.** No assistant-runnable signal catches an unqualified table name there — only the suite does. After any schema or table change in this module, re-run a grep over the test files as the acceptance step; a green build proves nothing about them.
   _Source: spec telemetry — Requirement: Module-Scoped Database Schema (namespacing-only guarantee across all module reads)._
 
