@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T10:45:00Z",
+  "updated_at": "2026-09-03T10:41:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -647,6 +647,11 @@
       "at": "2026-09-03T10:45:00Z",
       "agent": "leader",
       "event": "TIER 5 ARTIFACTS COMPLETE. proposal/design/specs/tasks written by a Sonnet worker; openspec validate --strict clean. 14 tasks, split [telemetry] vs [leader-owned] because the cross-module edits are outside the worker's sandbox. No database design gate - no DB object is touched and design.md says so explicitly. Worker overturned the roadmap's measured scope; leader VERIFIED it independently (D31) and corrected the tier-5 row. Tier 5 flipped [ ] -> [~]. Next: Step 4 change progress.json, then Step 5 wave 1."
+    },
+    {
+      "at": "2026-09-03T10:41:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT at tier 5's artifacts/wave-1 boundary. five_hour_pct 94 (limit 90), context_pct 13 (limit 40), bucket resets 2026-09-03T14:30:00Z. Tier 5 artifacts are committed and the tier is [~]; no code has been touched. RM39 remains 5 of 6 tiers archived. Resume after the reset with: /kkpa-dev-harness-pipeline resume RM39-schema-per-module"
     }
   ],
   "gates": [

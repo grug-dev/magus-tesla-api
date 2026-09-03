@@ -8,7 +8,7 @@
   "intention": "Finish D5c by renaming telemetry's public Supercharger port so the Go vocabulary matches the supercharger_history table renamed in tier 4.",
   "request": "schema per module for internal/ modules (RM39 tier 5)",
   "status": "proposed",
-  "updated_at": "2026-09-03T10:50:00Z",
+  "updated_at": "2026-09-03T10:41:00Z",
   "leader": {
     "assistant": "claude-code",
     "model": "Opus 5",
@@ -322,6 +322,11 @@
       "at": "2026-09-03T10:50:00Z",
       "agent": "leader",
       "event": "progress.json created, 14 tasks seeded from tasks.md. No database design gate (no DB object touched). Wave 1 = T1-T9 + T12 in one serial worker; wave 2 = leader-owned comment/doc tasks T10, T11, T13, then T14 verification."
+    },
+    {
+      "at": "2026-09-03T10:41:00Z",
+      "agent": "leader",
+      "event": "BUDGET CHECKPOINT (Step 5.5) at the artifacts/wave-1 boundary, BEFORE dispatching wave 1. five_hour_pct 94 >= threshold 90; context_pct 13 (limit 40). Bucket resets at 2026-09-03T14:30:00Z. The artifacts dispatch cost 18 points (76 -> 94). Stopping with the tree clean: artifacts committed (637082f), all 14 tasks still pending, NO code touched. Resume runs wave 1 (T1-T9 + T12, one serial Sonnet worker with the 4 granted cross-module paths from CD2), then leader wave 2 (T10/T11/T13) and T14 verification."
     }
   ],
   "review": {
