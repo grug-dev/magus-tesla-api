@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-02T18:10:00Z",
+  "updated_at": "2026-09-03T01:50:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -16,9 +16,7 @@
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [
-      3
-    ],
+    "current": [],
     "pending": [
       6
     ],
@@ -28,7 +26,8 @@
     ],
     "done": [
       1,
-      2
+      2,
+      3
     ]
   },
   "decisions": [
@@ -245,14 +244,20 @@
       "depends_on": [
         1
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
+      "model": "claude-sonnet-5",
       "started_at": "2026-09-02T17:35:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "2 tables. ALSO renames charge_sessions -> supercharger_sessions (D5b) in the same migration, with the mandatory D7 statement order (CREATE SCHEMA -> SET SCHEMA -> RENAME TO). Renames ChargeSession -> SuperchargerSession, 2 sqlc query names, the index and the pct_source constraint. Deletes watermark rows (D8). Must not touch the backfill migration. Corrects kkpa/context KB, which is stale since RM38/RM40. Plus work-shape step 2b (D9): schema-qualify ~15 raw SQL statements in this module's _test.go files."
+      "completed_at": "2026-09-03T01:50:00Z",
+      "duration_seconds": 29700,
+      "budget": {
+        "five_hour_pct_start": 80,
+        "five_hour_pct_end": 2,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "spans a bucket reset and two sessions; delta not meaningful"
+      },
+      "notes": "Archived after 5 review rounds. 2 tables moved; charge_sessions -> supercharger_sessions with NINE catalog objects renamed (D18 caught 5 auto-named CHECKs). Watermark work split to tier 3b (D15). F1 open: no testcontainers run, Docker down; suite green on local PG16."
     },
     {
       "id": 4,
@@ -414,6 +419,21 @@
       "at": "2026-09-02T21:45:00Z",
       "agent": "leader",
       "event": "TRANSIENT AMBIGUITY between tiers 3 and 4, by design but worth knowing: public.supercharger_sessions (telemetry) and charging.supercharger_sessions now BOTH exist and carry identically-named constraints (e.g. supercharger_sessions_end_battery_pct_check on each). Constraint names are per-table so nothing breaks, but an error message naming one is ambiguous until tier 4 renames telemetry's copy. This is the accepted D5b hazard, now visible in the catalog."
+    },
+    {
+      "at": "2026-09-03T01:50:00Z",
+      "agent": "leader",
+      "event": "tier 3 review round 5 APPROVED by a freshly dispatched charging-reviewer (prior reviewer's context died with the session). F5 confirmed fixed; its independent sweep for drifted completeness claims found none. F1 (no testcontainers run) stays open and non-blocking. Archived to openspec/changes/archive/charging/2026-09-03-RM39-charging-move-to-own-schema; delta spec synced, creating openspec/specs/charging/spec.md."
+    },
+    {
+      "at": "2026-09-03T01:50:00Z",
+      "agent": "leader",
+      "event": "ROADMAP-LEVEL DOC ITEM (new): openspec/specs/gateway/spec.md:1768 still says the gateway 'SHALL NOT read charge_sessions' — a name tier 3 retired. It is gateway's capability spec, not charging's or analytics's, so no current tier owns it. Fix at roadmap archive."
+    },
+    {
+      "at": "2026-09-03T01:50:00Z",
+      "agent": "leader",
+      "event": "openspec archive left the new charging capability spec with a 'TBD - created by archiving' Purpose (same as charge-session-log from RM29). Leader wrote a real Purpose — the spec is the live doc agents read, and a TBD there is the KB-staleness failure CLAUDE.md warns about."
     }
   ],
   "gates": [
