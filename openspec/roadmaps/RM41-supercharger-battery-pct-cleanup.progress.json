@@ -2,11 +2,11 @@
   "schema_version": 1,
   "kind": "roadmap",
   "roadmap": "RM41-supercharger-battery-pct-cleanup",
-  "intention": "/supercharger-stats explains in ES+EN that Tesla supplies no battery percentages and that an end-only entry derives the start; and the four dead start/end_battery_pct_est columns are gone from both charging and telemetry.",
+  "intention": "/supercharger-stats explains in ES+EN that Tesla supplies no battery percentages and that an end-only entry derives the start; and the four dead start/end_battery_pct_est columns are gone from both charging and telemetry. Tiers 4-5 (MAG-45, added 2026-09-03) additionally give a Supercharger session a stored, auto-set three-state status rendered as a ui.Badge, mirroring /charges.",
   "request": "Source ticket MAG-36. Part 1 (derive start_battery_pct) already shipped as charging-add-derived-start-battery-pct on 2026-09-01. This roadmap covers the two remaining parts: the bilingual UI help text, and removing the *_pct_est columns the ticket found unpopulated.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-03T17:39:47Z",
+  "updated_at": "2026-09-03T18:16:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
@@ -16,8 +16,15 @@
     "created_at": "2026-09-03T17:38:00Z"
   },
   "rollup": {
-    "current": [1],
-    "pending": [2, 3],
+    "current": [
+      1
+    ],
+    "pending": [
+      2,
+      3,
+      4,
+      5
+    ],
     "blocked": [],
     "done": []
   },
@@ -84,6 +91,34 @@
       "what": "Remove the two visible start-estimate/end-estimate table columns, their two i18n keys and both VM label fields. The table goes from 9 columns to 7.",
       "why": "Forced by the column drop, and the owner confirmed the narrower table is wanted rather than repurposing the two slots.",
       "at": "2026-09-03T17:34:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-status-storage",
+      "made_by": "user",
+      "what": "The session status is a STORED column on charging.supercharger_sessions, auto-set on every write. Not computed on read, not user-chosen.",
+      "why": "Owner chose it over the cheaper compute-on-read option after seeing that it costs a migration, a design gate and a second module.",
+      "at": "2026-09-03T18:16:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-states",
+      "made_by": "user",
+      "what": "Three codes IN_PROGRESS / DONE_CALCULATED / DONE; middle label 'Finalizada (calculada)' / 'Done (calculated)'.",
+      "why": "Owner rejected 'Approximate' as misleading. The middle state is a qualified Done, and 'calcular' is already the page's own vocabulary.",
+      "at": "2026-09-03T18:16:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-placement",
+      "made_by": "user",
+      "what": "MAG-45 ships as tiers 4-5 of RM41 on the same branch, under its own Linear ticket, rather than a separate CH change off main.",
+      "why": "It edits the same three Supercharger files tier 1 just rewrote, so a separate branch would conflict on every one of them.",
+      "at": "2026-09-03T18:16:00Z"
+    },
+    {
+      "scope": "roadmap:mag45-tier-split",
+      "made_by": "autopilot",
+      "what": "MAG-45 is split into a charging tier (column + write logic) and a gateway tier (badge + copy), tier 5 depending on tier 4.",
+      "why": "A stored column belongs to the module owning the table; the gateway may not touch another module's schema. One tier is one module.",
+      "at": "2026-09-03T18:16:00Z"
     }
   ],
   "tiers": [
@@ -93,21 +128,23 @@
       "module": "gateway",
       "optional": false,
       "depends_on": [],
-      "status": "proposed",
+      "status": "verified",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T17:39:47Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "Artifacts only this run; implementation halted for owner review per the pickup skill's scope."
+      "notes": "Implemented and verified: the owner ran `make test` and reported it passed. At the Step 7 reviewer gate."
     },
     {
       "id": 2,
       "change": "RM41-charging-drop-estimate-columns",
       "module": "charging",
       "optional": false,
-      "depends_on": [1],
+      "depends_on": [
+        1
+      ],
       "status": "not-started",
       "assistant": null,
       "model": null,
@@ -131,12 +168,55 @@
       "duration_seconds": null,
       "budget": null,
       "notes": null
+    },
+    {
+      "id": 4,
+      "change": "RM41-charging-add-session-status",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [
+        2
+      ],
+      "status": "not-started",
+      "ticket": "MAG-45",
+      "ticket_url": "https://linear.app/magus-monitor/issue/MAG-45/supercharger-sessions-status-column-in-progress-done-calculated-done",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "MAG-45, not MAG-36. Stored status column + auto-set on write. Trips the database design gate."
+    },
+    {
+      "id": 5,
+      "change": "RM41-gateway-add-session-status-column",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [
+        4
+      ],
+      "status": "not-started",
+      "ticket": "MAG-45",
+      "ticket_url": "https://linear.app/magus-monitor/issue/MAG-45/supercharger-sessions-status-column-in-progress-done-calculated-done",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "MAG-45, not MAG-36. ui.Badge in the 2nd column mirroring charge_row.templ, plus the second recommendation alert."
     }
   ],
   "events": [
     {
       "at": "2026-09-03T17:39:47Z",
       "what": "Roadmap created. MAG-36 part 1 found already merged (PR #39, CH37, archived 2026-09-01); this roadmap covers only the ticket's two later sections. Runtime Claude Code, budget available, no degradations.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:16:00Z",
+      "what": "Roadmap extended mid-flight with MAG-45 (tiers 4-5): stored three-state session status + badge column. New Linear ticket MAG-45 created (High, Todo). Tier 1 verified by the owner and moving to the reviewer gate.",
       "by": "leader"
     }
   ]

@@ -2,6 +2,8 @@
 
 Source ticket: MAG-36 — https://linear.app/magus-monitor/issue/MAG-36/supercharger-session-battery-start-calculated
 
+Second ticket (tiers 4–5, added 2026-09-03): MAG-45 — https://linear.app/magus-monitor/issue/MAG-45/supercharger-sessions-status-column-in-progress-done-calculated-done
+
 ## Intention
 
 Finish the two parts of MAG-36 that remain after the start-percentage derivation shipped.
@@ -14,6 +16,12 @@ Finish the two parts of MAG-36 that remain after the start-percentage derivation
    `end_battery_pct_est` exist on two tables, are written by nothing in the repo, always
    render `—`, and are now permanently unnecessary — the derivation that shipped writes
    the real `start_battery_pct`, not a snapshot column.
+
+3. **Give a Supercharger session a lifecycle status** (MAG-45, added mid-roadmap on
+   2026-09-03 — *not* part of MAG-36). A stored, auto-set status column with three states,
+   rendered as a `ui.Badge` in the sessions table exactly the way `/charges` renders its
+   own status column, plus a second bilingual recommendation to fill in the percentages of
+   sessions still in progress.
 
 When this roadmap completes, `grep -rn "battery_pct_est\|BatteryPctEst" internal/` returns
 only migration history.
@@ -117,6 +125,39 @@ sessions table goes from 9 columns to 7. The `supercharger.start_estimate` /
 This is forced by D1 — once the DB columns are gone there is nothing to render — and the
 owner confirmed the narrower table is wanted.
 
+**D10 — The session status is a STORED column, set automatically on every write.** The
+owner chose this over computing the label on read (gateway-only, no migration) and over
+mirroring `/charges` literally with a user-picked dropdown. Consequence the owner accepted:
+a stored value can drift from the percentages, so the writer must recompute it on every
+write that touches `start_battery_pct` or `end_battery_pct` — never only on insert.
+
+**D11 — Three states, and the middle one is a qualified *Done*, not a separate middle
+step.** Stored codes `IN_PROGRESS` / `DONE_CALCULATED` / `DONE`; labels `En progreso` /
+`In progress`, `Finalizada (calculada)` / `Done (calculated)`, `Finalizada` / `Done`.
+`DONE_CALCULATED` means the end percentage is recorded and the start was derived by
+`derivedStartBatteryPct` rather than typed by the user. Rejected: "Approximate/Aproximada"
+(the owner found it misleading) and a bare "Calculated" (does not say the session is
+complete). The stored value is a code, so a label change later is a one-file catalogue edit
+with no migration.
+
+**D12 — MAG-45 ships as tiers 4 and 5 of THIS roadmap, on the same branch.** Rejected: its
+own `CH<N>` change off `main` — it edits `supercharger_stats.templ`, `supercharger_row.templ`
+and `catalog.go`, the exact files tier 1 just rewrote, so a separate branch would conflict
+on every one of them. Rejected: folding it into tier 1 — that change is verified and its
+approved artifacts do not describe this feature. Tier 4/5 commits carry `Ticket: MAG-45`,
+not MAG-36; the branch keeps its MAG-36 name.
+
+**D13 — MAG-45 is split across two tiers because the column is `charging`'s.** A stored
+status belongs to the module that owns `supercharger_sessions`, and the gateway may not
+touch another module's schema. Tier 4 (`charging`) adds and maintains the column; tier 5
+(`gateway`) renders it. Tier 5 depends on tier 4 — the badge cannot read a field that does
+not exist yet.
+
+**D14 — The badge mirrors `/charges` exactly.** Status is the **2nd column, right after the
+date**, rendered with the existing `ui.Badge` kit component. `charge_row.templ` deliberately
+uses the `primary` / `ghost` Kinds and never `success` / `warning`; tier 5 follows that
+choice and picks the third Kind in its own design, rather than introducing a new component.
+
 ## Tiers
 
 Status legend: `[ ]` pending (change not created) · `[~]` in progress (change created, not
@@ -128,8 +169,12 @@ archived) · `[x]` done (archived).
 | `[ ]` | `RM41-charging-drop-estimate-columns` | `charging` | New migration dropping `start_battery_pct_est` / `end_battery_pct_est` from `charging.supercharger_sessions` (D1, D2). Remove the two `Session` fields in `charging.go`, the two mappings in `session_reader.go`, and the guarding comments in `db/query.sql`; re-run `sqlc generate`. Repair the four `charging` integration tests plus the granted path `internal/analytics/db_integration_test.go` (D6, D7). | 1 | Generate the OpenSpec proposal for dropping `start_battery_pct_est` and `end_battery_pct_est` from `charging.supercharger_sessions`. Binding decisions: D1, D2, D6, D7 of this roadmap. The gateway already stopped reading these fields in tier 1. |
 | `[ ]` | `RM41-telemetry-drop-estimate-columns` | `telemetry` | New migration dropping `start_battery_pct_est` / `end_battery_pct_est` from `telemetry.supercharger_history` (D1, D2). Remove the two struct fields and the RM27-D6 comment block in `telemetry.go` (D8), the two mappings in `mapping.go`, and the stale comment in `service.go`; re-run `sqlc generate`. Delete the assertions in `db_supercharger_battery_pct_integration_test.go` that guard the dropped columns (D7). | — | Generate the OpenSpec proposal for dropping `start_battery_pct_est` and `end_battery_pct_est` from `telemetry.supercharger_history`. Binding decisions: D1, D2, D7, D8 of this roadmap. These columns have no consumer outside `internal/telemetry`. |
 
-All three tiers commit to the single shared branch
-`ft/RM41-MAG-36-supercharger-battery-pct-cleanup`.
+| `[ ]` | `RM41-charging-add-session-status` | `charging` | **MAG-45.** New migration adding a `status` column to `charging.supercharger_sessions` (TEXT + CHECK, default `IN_PROGRESS`), mirroring the manual-charge `status` column's shape. Recompute and persist it on EVERY write that touches `start_battery_pct` / `end_battery_pct`, including the derivation path (D10, D11). Expose it on `charging.Session` and the session read port; backfill existing rows in the migration. Trips the database design gate. | 2 | Generate the OpenSpec proposal for a stored, auto-set `status` column on `charging.supercharger_sessions`. Binding decisions: D10, D11, D13 of this roadmap. Three codes: IN_PROGRESS, DONE_CALCULATED, DONE. DONE_CALCULATED means the end percentage exists and the start came from `derivedStartBatteryPct`, not the user. Mirror the manual-charge status column's DB shape. |
+| `[ ]` | `RM41-gateway-add-session-status-column` | `gateway` | **MAG-45.** Render the status as a `ui.Badge` in the **2nd** table column, right after the date, mirroring `charge_row.templ` (D14). Three new bilingual i18n keys for the labels plus the column header (D11). Add a second bilingual recommendation on the page telling the user to fill in the percentages of sessions still In progress. Table goes from 7 columns to 8. | 4 | Generate the OpenSpec proposal for the Supercharger session status badge column. Binding decisions: D11, D14 of this roadmap. Mirror `charge_row.templ`'s status cell exactly — 2nd column, `ui.Badge`, never `success`/`warning` Kinds. All labels ES+EN through `i18n.T`. |
+
+All five tiers commit to the single shared branch
+`ft/RM41-MAG-36-supercharger-battery-pct-cleanup`. Tiers 1–3 close MAG-36; tiers 4–5 close
+MAG-45.
 
 ## Future work
 

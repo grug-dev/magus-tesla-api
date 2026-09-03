@@ -5,30 +5,27 @@
   "module": "gateway",
   "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
   "request": "Source ticket MAG-36, roadmap RM41 tier 1. Add one bilingual (ES+EN) ui.Alert info message above the /supercharger-stats sessions table explaining that Tesla supplies no battery percentages and that an end-only entry derives the start; and remove every gateway reference to the dead start/end_battery_pct_est columns so tier 2 can drop them from charging.supercharger_sessions.",
-  "status": "in-progress",
+  "status": "verified",
   "rollup": {
-    "current": [
-      "5.2"
-    ],
+    "current": [],
     "pending": [],
     "blocked": [],
     "done": [
-      "1.3"
-    ],
-    "awaiting-user-verification": [
       "1.1",
       "1.2",
+      "1.3",
       "2.1",
       "2.2",
       "2.3",
       "2.4",
       "3.1",
       "4.1",
-      "5.1"
+      "5.1",
+      "5.2"
     ]
   },
   "created_at": "2026-09-03T17:48:00Z",
-  "updated_at": "2026-09-03T18:05:00Z",
+  "updated_at": "2026-09-03T18:12:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -48,7 +45,7 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T17:52:00Z",
@@ -69,7 +66,7 @@
       "module": "gateway",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T17:54:30Z",
@@ -114,7 +111,7 @@
         "1.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T17:56:30Z",
@@ -138,7 +135,7 @@
         "1.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T17:57:30Z",
@@ -162,7 +159,7 @@
         "1.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T17:58:00Z",
@@ -185,7 +182,7 @@
         "1.2"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T17:58:30Z",
@@ -210,7 +207,7 @@
         "2.3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T17:59:00Z",
@@ -236,7 +233,7 @@
         "3.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "gateway",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T17:59:15Z",
@@ -267,7 +264,7 @@
         "4.1"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T18:01:00Z",
@@ -284,13 +281,13 @@
         "5.1"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
+      "status": "done",
+      "agent": "user",
       "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "started_at": "2026-09-03T18:06:00Z",
+      "completed_at": "2026-09-03T18:12:00Z",
       "duration_seconds": null,
-      "notes": "Handed to the owner: go test ./internal/gateway/...",
+      "notes": "Owner ran `make test` and reported it passed. Recorded as the owner's verification, not the assistant's.",
       "budget": null
     }
   ],
@@ -364,6 +361,11 @@
       "at": "2026-09-03T18:05:00Z",
       "what": "Wave 1-4 returned: all 9 tasks done, doc-pack acknowledged, D1/D2 compliance enumerated. Leader signals pass (build, vet, gofmt, i18n-guard, ui-guard); tier grep is empty. Leader fixed the em-dash threshold the worker flagged. Budget after wave: five_hour 39%, context ~16%.",
       "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:12:00Z",
+      "what": "VERIFIED by the owner: they ran `make test` and reported it passed. The assistant ran no test command. Tier 1 advances to the Step 7 reviewer gate.",
+      "by": "user"
     }
   ]
 }
