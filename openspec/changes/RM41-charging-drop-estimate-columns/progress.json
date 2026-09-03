@@ -7,7 +7,7 @@
   "request": "Roadmap RM41 tier 2, ticket MAG-36. Drop start_battery_pct_est / end_battery_pct_est from charging.supercharger_sessions: one migration, the two Session fields, the two reader mappings, the query.sql guarding comments, sqlc regeneration, four charging integration tests plus the granted analytics seed test, and four doc/KB files.",
   "status": "proposed",
   "created_at": "2026-09-03T18:35:00Z",
-  "updated_at": "2026-09-03T18:35:00Z",
+  "updated_at": "2026-09-03T18:36:00Z",
   "rollup": {
     "current": [],
     "pending": [
@@ -381,6 +381,11 @@
       "at": "2026-09-03T18:35:00Z",
       "what": "DATABASE DESIGN GATE PASSED: the owner confirmed the design. Task 0.1 done.",
       "by": "user"
+    },
+    {
+      "at": "2026-09-03T18:36:00Z",
+      "what": "BUDGET CHECKPOINT at the tier boundary, before any implementation dispatch. five_hour_pct=88 (threshold 90), context_pct=20 (threshold 40), five_hour_resets_at=1788469800. Every task status is truthful: 0.1 done, 1.1-5.2 pending, nothing in flight, no code written. Resume with: /kkpa-dev-harness-pipeline resume RM41-charging-drop-estimate-columns",
+      "by": "leader"
     }
   ]
 }
