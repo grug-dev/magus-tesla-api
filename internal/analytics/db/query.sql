@@ -25,7 +25,7 @@
 -- created_at column above -- copied verbatim from the day's own
 -- telemetry.Snapshot on EVERY re-derivation, regardless of predecessor
 -- existence (design D1/D3 of RM38-analytics-add-vehicle-status-columns).
-INSERT INTO vehicle_metrics (
+INSERT INTO analytics.vehicle_metrics (
     account_id, tesla_id, metric_date,
     battery_level_pct, odometer_km, battery_range_km,
     distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
@@ -80,7 +80,7 @@ SELECT DISTINCT ON (tesla_id)
     tesla_id, battery_level_pct, battery_range_km, odometer_km,
     inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
     charging_state, charge_limit_soc_pct, captured_at
-FROM vehicle_metrics
+FROM analytics.vehicle_metrics
 WHERE account_id = @account_id
 ORDER BY tesla_id, metric_date DESC;
 
@@ -98,7 +98,7 @@ ORDER BY tesla_id, metric_date DESC;
 -- there are no elements to compare against.
 -- Served by vehicle_metrics_account_tesla_date_unique's own index (Index Plan,
 -- read pattern #3) — no separate CREATE INDEX.
-DELETE FROM vehicle_metrics
+DELETE FROM analytics.vehicle_metrics
 WHERE account_id  = @account_id
   AND tesla_id    = @tesla_id
   AND metric_date BETWEEN @start_date AND @end_date
@@ -126,7 +126,7 @@ WHERE account_id  = @account_id
 SELECT
     metric_date, consumed_pct, distance_traveled_km_calc, flagged,
     missing_charging_type, days_spanned_calc
-FROM vehicle_metrics
+FROM analytics.vehicle_metrics
 WHERE account_id  = @account_id
   AND tesla_id    = @tesla_id
   AND metric_date BETWEEN @start_date AND @end_date
@@ -147,7 +147,7 @@ ORDER BY metric_date;
 -- VehicleMetricsConsumedByVehicleBetween above.
 SELECT
     metric_date, odometer_km, distance_traveled_km_calc
-FROM vehicle_metrics
+FROM analytics.vehicle_metrics
 WHERE account_id  = @account_id
   AND tesla_id    = @tesla_id
   AND metric_date BETWEEN @start_date AND @end_date
@@ -175,7 +175,7 @@ ORDER BY metric_date;
 -- its two siblings, differing only in the absent residual predicate.
 SELECT
     metric_date, battery_level_pct, battery_range_km
-FROM vehicle_metrics
+FROM analytics.vehicle_metrics
 WHERE account_id  = @account_id
   AND tesla_id    = @tesla_id
   AND metric_date BETWEEN @start_date AND @end_date
@@ -190,7 +190,7 @@ ORDER BY metric_date;
 -- vehicle_metric_watermarks_account_tesla_source_unique's own index (Index
 -- Plan, read pattern #4) — no separate CREATE INDEX.
 SELECT source_updated_at
-FROM vehicle_metric_watermarks
+FROM analytics.vehicle_metric_watermarks
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND source     = @source;
@@ -205,7 +205,7 @@ WHERE account_id = @account_id
 -- clause — it must record when this (account_id, tesla_id, source) cursor
 -- was FIRST created, not the most recent advance, mirroring
 -- UpsertChargeGap's identical convention.
-INSERT INTO vehicle_metric_watermarks (
+INSERT INTO analytics.vehicle_metric_watermarks (
     account_id, tesla_id, source, source_updated_at
 ) VALUES (
     @account_id, @tesla_id, @source, @source_updated_at
@@ -225,7 +225,7 @@ ON CONFLICT (account_id, tesla_id, source) DO UPDATE SET
 -- ABSENT from the SET clause -- design D-Table2/the table's own column
 -- comment: it must record when this vehicle-day was FIRST flagged, not the
 -- most recent confirmation.
-INSERT INTO charge_gaps (
+INSERT INTO analytics.charge_gaps (
     account_id, tesla_id, vin, gap_date, missing_charging_type
 ) VALUES (
     @account_id, @tesla_id, @vin, @gap_date, @missing_charging_type
@@ -242,7 +242,7 @@ ON CONFLICT (account_id, tesla_id, gap_date) DO UPDATE SET
 -- GapWriter.ReconcileWindow for every previously-stored day in the window
 -- that is no longer present in the caller's freshly-computed flagged set
 -- (roadmap D7b).
-DELETE FROM charge_gaps
+DELETE FROM analytics.charge_gaps
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND gap_date   = @gap_date;
@@ -261,7 +261,7 @@ WHERE account_id = @account_id
 -- Index reuse (design.md Index Plan, Read path 1): served directly by
 -- charge_gaps_account_tesla_date_unique's own (account_id, tesla_id, gap_date)
 -- index as a single contiguous forward range scan -- no new index.
-SELECT gap_date FROM charge_gaps
+SELECT gap_date FROM analytics.charge_gaps
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND gap_date   >= @start

@@ -13,7 +13,7 @@ import (
 )
 
 const getAccountByProviderID = `-- name: GetAccountByProviderID :one
-SELECT id, email, provider, provider_id, display_name, created_at, updated_at, language, status FROM accounts
+SELECT id, email, provider, provider_id, display_name, created_at, updated_at, language, status FROM account.accounts
 WHERE provider = $1 AND provider_id = $2 AND status = 'Active'
 `
 
@@ -42,7 +42,7 @@ func (q *Queries) GetAccountByProviderID(ctx context.Context, arg GetAccountByPr
 }
 
 const getAccountLanguage = `-- name: GetAccountLanguage :one
-SELECT language FROM accounts
+SELECT language FROM account.accounts
 WHERE id = $1 AND status = 'Active'
 `
 
@@ -59,9 +59,9 @@ func (q *Queries) GetAccountLanguage(ctx context.Context, id uuid.UUID) (string,
 }
 
 const getLatestTeslaTokenByAccount = `-- name: GetLatestTeslaTokenByAccount :one
-SELECT id, account_id, tesla_email, access_token, refresh_token, access_expires_at, created_at, updated_at FROM tesla_tokens
+SELECT id, account_id, tesla_email, access_token, refresh_token, access_expires_at, created_at, updated_at FROM account.tesla_tokens
 WHERE account_id = $1
-  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
 ORDER BY updated_at DESC
 LIMIT 1
 `
@@ -87,9 +87,9 @@ func (q *Queries) GetLatestTeslaTokenByAccount(ctx context.Context, accountID uu
 }
 
 const getLatestTeslaTokenByAccountForUpdate = `-- name: GetLatestTeslaTokenByAccountForUpdate :one
-SELECT id, account_id, tesla_email, access_token, refresh_token, access_expires_at, created_at, updated_at FROM tesla_tokens
+SELECT id, account_id, tesla_email, access_token, refresh_token, access_expires_at, created_at, updated_at FROM account.tesla_tokens
 WHERE account_id = $1
-  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = tesla_tokens.account_id AND a.status = 'Active')
 ORDER BY updated_at DESC
 LIMIT 1
 FOR UPDATE
@@ -116,7 +116,7 @@ func (q *Queries) GetLatestTeslaTokenByAccountForUpdate(ctx context.Context, acc
 }
 
 const insertVehicleIfMissing = `-- name: InsertVehicleIfMissing :exec
-INSERT INTO vehicles (account_id, tesla_id, vin, display_name, access_type)
+INSERT INTO account.vehicles (account_id, tesla_id, vin, display_name, access_type)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (account_id, tesla_id) DO NOTHING
 `
@@ -148,9 +148,9 @@ func (q *Queries) InsertVehicleIfMissing(ctx context.Context, arg InsertVehicleI
 }
 
 const listAllVehicles = `-- name: ListAllVehicles :many
-SELECT account_id, tesla_id, vin, display_name, access_type, exterior_color, car_type FROM vehicles
+SELECT account_id, tesla_id, vin, display_name, access_type, exterior_color, car_type FROM account.vehicles
 WHERE status = 'Active'
-  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
 ORDER BY account_id, tesla_id
 `
 
@@ -204,9 +204,9 @@ func (q *Queries) ListAllVehicles(ctx context.Context) ([]ListAllVehiclesRow, er
 }
 
 const listVehiclesByAccount = `-- name: ListVehiclesByAccount :many
-SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at, access_type, exterior_color, car_type, status FROM vehicles
+SELECT id, account_id, tesla_id, vin, display_name, created_at, updated_at, access_type, exterior_color, car_type, status FROM account.vehicles
 WHERE account_id = $1 AND status = 'Active'
-  AND EXISTS (SELECT 1 FROM accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
+  AND EXISTS (SELECT 1 FROM account.accounts a WHERE a.id = vehicles.account_id AND a.status = 'Active')
 ORDER BY tesla_id
 `
 
@@ -249,7 +249,7 @@ func (q *Queries) ListVehiclesByAccount(ctx context.Context, accountID uuid.UUID
 }
 
 const updateAccountLanguage = `-- name: UpdateAccountLanguage :exec
-UPDATE accounts
+UPDATE account.accounts
 SET language   = $1,
     updated_at = now()
 WHERE id = $2 AND status = 'Active'
@@ -273,7 +273,7 @@ func (q *Queries) UpdateAccountLanguage(ctx context.Context, arg UpdateAccountLa
 }
 
 const updateTeslaToken = `-- name: UpdateTeslaToken :one
-UPDATE tesla_tokens
+UPDATE account.tesla_tokens
 SET access_token      = $1,
     refresh_token     = $2,
     access_expires_at = $3,
@@ -312,7 +312,7 @@ func (q *Queries) UpdateTeslaToken(ctx context.Context, arg UpdateTeslaTokenPara
 }
 
 const updateVehicleConfigIfEmpty = `-- name: UpdateVehicleConfigIfEmpty :exec
-UPDATE vehicles
+UPDATE account.vehicles
 SET exterior_color = $1,
     car_type        = $2,
     updated_at      = now()
@@ -345,7 +345,7 @@ func (q *Queries) UpdateVehicleConfigIfEmpty(ctx context.Context, arg UpdateVehi
 
 const upsertAccountFromOAuth = `-- name: UpsertAccountFromOAuth :one
 
-INSERT INTO accounts (email, provider, provider_id, display_name)
+INSERT INTO account.accounts (email, provider, provider_id, display_name)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (provider, provider_id) DO UPDATE
 SET email        = EXCLUDED.email,
@@ -388,7 +388,7 @@ func (q *Queries) UpsertAccountFromOAuth(ctx context.Context, arg UpsertAccountF
 }
 
 const upsertTeslaToken = `-- name: UpsertTeslaToken :one
-INSERT INTO tesla_tokens (account_id, tesla_email, access_token, refresh_token, access_expires_at)
+INSERT INTO account.tesla_tokens (account_id, tesla_email, access_token, refresh_token, access_expires_at)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (account_id) DO UPDATE
 SET tesla_email       = EXCLUDED.tesla_email,

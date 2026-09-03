@@ -59,7 +59,7 @@ func pgNullableText(v pgtype.Text) *string {
 // mirrors internal/charging's identical intPtrToPgInt2/pgInt2ToIntPtr shape for
 // its own start_battery_pct/end_battery_pct (module boundaries mean the four-line
 // helper is duplicated here, not imported). Reused across all four SMALLINT columns
-// on supercharger_sessions (RM27-telemetry-add-supercharger-battery-pct, design D5).
+// on supercharger_history (RM27-telemetry-add-supercharger-battery-pct, design D5).
 func pgNullableInt16AsInt(v pgtype.Int2) *int {
 	if !v.Valid {
 		return nil
@@ -146,9 +146,9 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 	}
 }
 
-// rowToSuperchargerSession converts a generated telemetrydb.SuperchargerSession row
-// into the domain SuperchargerSession type. This is the DB→domain mapping boundary
-// for the SuperchargerReader read path: all pgtype conversions are confined here so
+// rowToSuperchargerHistory converts a generated telemetrydb.SuperchargerHistory row
+// into the domain SuperchargerHistory type. This is the DB→domain mapping boundary
+// for the SuperchargerHistoryReader read path: all pgtype conversions are confined here so
 // pgtype never appears in the domain type or any caller (ai/go-conventions.md
 // §persistence, design B6.1). Mapping rules:
 //
@@ -161,7 +161,7 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 //     design D5/D6): pgtype.Int2 → *int via pgNullableInt16AsInt (all four SMALLINT
 //     columns); pgtype.Text → *string via the existing pgNullableText for
 //     BatteryPctSource. NULL means no override/no snapshot exists.
-func rowToSuperchargerSession(r telemetrydb.SuperchargerSession) SuperchargerSession {
+func rowToSuperchargerHistory(r telemetrydb.SuperchargerHistory) SuperchargerHistory {
 	// nullable tesla_id
 	var teslaID *int64
 	if r.TeslaID.Valid {
@@ -198,7 +198,7 @@ func rowToSuperchargerSession(r telemetrydb.SuperchargerSession) SuperchargerSes
 		isPaid = &v
 	}
 
-	return SuperchargerSession{
+	return SuperchargerHistory{
 		ID:                  r.ID,
 		SessionID:           r.SessionID,
 		AccountID:           r.AccountID,

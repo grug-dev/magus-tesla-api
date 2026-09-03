@@ -16,15 +16,15 @@ import (
 
 // processor is the concrete Processor implementation (design.md D10).
 type processor struct {
-	collector          telemetry.Collector
-	superchargerReader telemetry.SuperchargerReader
-	runWriter          telemetry.RunWriter
-	sessionWriter      charging.SessionWriter
-	acct               account.Service
-	recalculator       analytics.Recalculator
-	analyticsReader    analytics.Reader
-	gapWriter          analytics.GapWriter
-	loc                *time.Location
+	collector                 telemetry.Collector
+	superchargerHistoryReader telemetry.SuperchargerHistoryReader
+	runWriter                 telemetry.RunWriter
+	sessionWriter             charging.SessionWriter
+	acct                      account.Service
+	recalculator              analytics.Recalculator
+	analyticsReader           analytics.Reader
+	gapWriter                 analytics.GapWriter
+	loc                       *time.Location
 }
 
 var _ Processor = (*processor)(nil)
@@ -178,7 +178,7 @@ func (p *processor) processChargingData(ctx context.Context) {
 		// limit 0 means "every session": telemetry's resolveLimit maps a
 		// non-positive limit to math.MaxInt32. The mirror is a full
 		// reconciliation, not a recent-window sweep, so it must not be capped.
-		sessions, err := p.superchargerReader.SuperchargerSessionsByAccount(ctx, v.AccountID, 0)
+		sessions, err := p.superchargerHistoryReader.SuperchargerHistoryByAccount(ctx, v.AccountID, 0)
 		if err != nil {
 			log.Printf("session mirror: account %s: reading sessions: %v", v.AccountID, err)
 			continue

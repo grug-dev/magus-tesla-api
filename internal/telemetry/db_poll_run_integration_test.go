@@ -56,7 +56,7 @@ func fetchPollRun(t *testing.T, ctx context.Context, pool *pgxpool.Pool, runID u
 		       failures_asleep_timeout, failures_unauthorized, failures_api_error,
 		       tesla_api_calls,
 		       charging_sessions_upserted, charging_fetch_failures, config_capture_failures
-		FROM poll_runs WHERE run_id = $1`, runID).Scan(
+		FROM telemetry.poll_runs WHERE run_id = $1`, runID).Scan(
 		&r.runID, &r.triggeredBy, &r.startedAt, &r.finishedAt, &r.durationSeconds,
 		&r.accountsAttempted, &r.accountsSucceeded, &r.accountsFailed,
 		&r.vehiclesAttempted, &r.vehiclesSucceeded,
@@ -72,7 +72,7 @@ func fetchPollRun(t *testing.T, ctx context.Context, pool *pgxpool.Pool, runID u
 func countPollRuns(t *testing.T, ctx context.Context, pool *pgxpool.Pool, runID uuid.UUID) int {
 	t.Helper()
 	var n int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM poll_runs WHERE run_id = $1`, runID).Scan(&n); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM telemetry.poll_runs WHERE run_id = $1`, runID).Scan(&n); err != nil {
 		t.Fatalf("counting poll_runs rows for %s: %v", runID, err)
 	}
 	return n
@@ -87,7 +87,7 @@ func TestRunWriter_RecordRun_NormalSuccessfulRun(t *testing.T) {
 
 	runID := uuid.New()
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM poll_runs WHERE run_id = $1", runID)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM telemetry.poll_runs WHERE run_id = $1", runID)
 	})
 
 	fixedT0 := time.Date(2026, 8, 30, 3, 30, 0, 0, time.UTC)
@@ -188,7 +188,7 @@ func TestRunWriter_RecordRun_WholeCycleFailureTrace(t *testing.T) {
 
 	runID := uuid.New()
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM poll_runs WHERE run_id = $1", runID)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM telemetry.poll_runs WHERE run_id = $1", runID)
 	})
 
 	fixedT0 := time.Date(2026, 8, 30, 3, 30, 0, 0, time.UTC)
@@ -237,7 +237,7 @@ func TestRunWriter_RecordRun_DuplicateRunIDFailsLoudly(t *testing.T) {
 
 	runID := uuid.New()
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM poll_runs WHERE run_id = $1", runID)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM telemetry.poll_runs WHERE run_id = $1", runID)
 	})
 
 	fixedT0 := time.Date(2026, 8, 30, 3, 30, 0, 0, time.UTC)

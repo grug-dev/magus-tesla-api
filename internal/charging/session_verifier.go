@@ -81,10 +81,10 @@ func needsDerivedStartBatteryPct(startPct, endPct *int) bool {
 //  3. Compute battery_pct_source: batteryPctSourceUserVerified when either the
 //     (possibly derived) start or the end percentage is non-nil, nil (SQL NULL) when
 //     both are nil (design.md D1/D2/D7 — unchanged: no new source value).
-//  4. Call VerifyChargeSession — against the open transaction when one exists,
+//  4. Call VerifySuperchargerSession — against the open transaction when one exists,
 //     against v.q otherwise — scoped by id + accountID, and map the returned row via
 //     the existing rowToSession (session_reader.go) — no new mapping code. Commit the
-//     transaction, when one was opened, only after VerifyChargeSession succeeds.
+//     transaction, when one was opened, only after VerifySuperchargerSession succeeds.
 func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID, id uuid.UUID, startBatteryPct, endBatteryPct *int) (Session, error) {
 	if startBatteryPct != nil && (*startBatteryPct < 0 || *startBatteryPct > 100) {
 		return Session{}, fmt.Errorf("charging: start_battery_pct %d out of range [0,100]", *startBatteryPct)
@@ -119,7 +119,7 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 			AccountID: accountID,
 		})
 		if err != nil {
-			// design.md D10: identical wrap to VerifyChargeSession's own
+			// design.md D10: identical wrap to VerifySuperchargerSession's own
 			// not-found case — a caller of VerifySession cannot observe, and
 			// must not need to care, which of the two internal queries
 			// produced a given not-found error.
@@ -140,7 +140,7 @@ func (v *sessionVerifier) VerifySession(ctx context.Context, accountID uuid.UUID
 		source = &s
 	}
 
-	row, err := q.VerifyChargeSession(ctx, chargingdb.VerifyChargeSessionParams{
+	row, err := q.VerifySuperchargerSession(ctx, chargingdb.VerifySuperchargerSessionParams{
 		ID:               id,
 		AccountID:        accountID,
 		StartBatteryPct:  intPtrToPgInt2(startToStore),

@@ -11,7 +11,7 @@ import (
 // runWriter is the concrete implementation of the RunWriter port
 // (RM36-telemetry-add-poll-runs design D12). It is NOT part of the store
 // interface reader.go/service.go define for Reader/Collector — mirroring
-// SuperchargerReader's and internal/analytics' gapWriter's identical precedent
+// SuperchargerHistoryReader's and internal/analytics' gapWriter's identical precedent
 // for a port proven by a DATABASE_URL-gated integration test rather than an
 // offline fake. pgtype never appears in this file: run_id binds as a plain
 // uuid.UUID (poll_runs.run_id is NOT NULL, so sqlc's uuid override maps it
@@ -27,7 +27,7 @@ type runWriter struct {
 
 // newRunWriter is the internal constructor called by the public NewRunWriter in
 // telemetry.go so the forward-declaration compiles before this file is parsed
-// (mirroring newSuperchargerReaderImpl's and newGapWriter's identical pattern).
+// (mirroring newSuperchargerHistoryReaderImpl's and newGapWriter's identical pattern).
 func newRunWriter(pool *pgxpool.Pool) *runWriter {
 	return &runWriter{pool: pool, q: telemetrydb.New(pool)}
 }

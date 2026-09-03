@@ -40,9 +40,9 @@ const recalcOverlap = 24 * time.Hour
 // 'SUPERCHARGER' free-standing string-label convention. No FK: just a label
 // (see vehicle_metric_watermarks' source CHECK vocabulary).
 const (
-	sourceVehicleSnapshots    = "vehicle_snapshots"
-	sourceChargeSessions      = "charge_sessions"
-	sourceManualChargeEntries = "manual_charge_entries"
+	sourceVehicleSnapshots     = "vehicle_snapshots"
+	sourceSuperchargerSessions = "supercharger_sessions"
+	sourceManualChargeEntries  = "manual_charge_entries"
 )
 
 // recalculator is the concrete implementation of the Recalculator port
@@ -248,9 +248,9 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 	if err != nil {
 		return fmt.Errorf("reading %s watermark: %w", sourceVehicleSnapshots, err)
 	}
-	scsCursor, err := r.watermark(ctx, accountID, teslaID, sourceChargeSessions)
+	scsCursor, err := r.watermark(ctx, accountID, teslaID, sourceSuperchargerSessions)
 	if err != nil {
-		return fmt.Errorf("reading %s watermark: %w", sourceChargeSessions, err)
+		return fmt.Errorf("reading %s watermark: %w", sourceSuperchargerSessions, err)
 	}
 	manualCursor, err := r.watermark(ctx, accountID, teslaID, sourceManualChargeEntries)
 	if err != nil {
@@ -332,7 +332,7 @@ func (r *recalculator) Reconcile(ctx context.Context, accountID uuid.UUID, tesla
 		}
 	}
 	if len(sessions) > 0 {
-		if err := r.advanceWatermark(ctx, accountID, teslaID, sourceChargeSessions, maxSessionUpdated); err != nil {
+		if err := r.advanceWatermark(ctx, accountID, teslaID, sourceSuperchargerSessions, maxSessionUpdated); err != nil {
 			return err
 		}
 	}

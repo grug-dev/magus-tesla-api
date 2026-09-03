@@ -46,7 +46,7 @@
 | 1 | READ | `manual_charge_entries` | `charging.Reader.ListEntriesByAccount` (resolve the affected day) |
 | 2 | DELETE | `manual_charge_entries` | `DeleteEntry` |
 | 3 | READ | `manual_charge_entries`, `vehicles` | `buildChargesPage` |
-| 4 | READ | `vehicle_snapshots`, `charge_sessions`, `manual_charge_entries` | `Recalculate`'s three source fetches |
+| 4 | READ | `vehicle_snapshots`, `supercharger_sessions`, `manual_charge_entries` | `Recalculate`'s three source fetches |
 | 5 | WRITE | `vehicle_metrics` | `UpsertVehicleMetric` × n **+** `DeleteVehicleMetricsInRangeExcept`, one transaction |
 
 Steps 4–5 are skipped entirely when step 1 did not find the row. **Not touched:** `charge_gaps`,

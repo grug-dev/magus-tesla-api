@@ -29,7 +29,8 @@ types, in two separate tables with two separate vocabularies (see §Data Ownersh
   entries, enforces multi-tenant data isolation, and computes derived values
   (cost-per-kWh, battery delta, session duration) on read as value-receiver methods on
   `charging.Entry`.
-- **Mirrored Supercharger charge sessions** (`charge_sessions`, RM29 tier 6,
+- **Mirrored Supercharger charge sessions** (`supercharger_sessions`, renamed from
+  `charge_sessions` in RM39 tier 3, RM29 tier 6,
   RM29-charging-add-charge-sessions) — a dense, one-row-per-session nightly mirror of
   `internal/telemetry`'s `supercharger_sessions`, plus a human-owned battery-percentage
   verification channel that only this module ever writes. The nightly orchestrator
@@ -45,18 +46,20 @@ types, in two separate tables with two separate vocabularies (see §Data Ownersh
 This module:
 
 - Owns the `manual_charge_entries` table exclusively.
-- Owns the `charge_sessions` table exclusively.
+- Owns the `supercharger_sessions` table exclusively (renamed from `charge_sessions`,
+  RM39 tier 3, D5b).
 - Is isolated from the Tesla Fleet API — it imports no `internal/tesla` package, needs no OAuth
   scope, and wakes no car.
 - Exposes CRUD (Writer) and read (Reader) ports for manual entries, and both a
   `SessionWriter` (mirroring) and a `SessionReader` (windowed per-vehicle reads) port for
-  Supercharger sessions — all public Go interfaces. `charge_sessions` gained its reader in
+  Supercharger sessions — all public Go interfaces. `supercharger_sessions` gained its reader in
   RM30 tier 1 (RM30-charging-add-session-read-port), superseding RM29 tier 6's design.md D9
   note that no consumer needed one.
 - Computes no HTML, no templates, no htmx fragments — that is the gateway's job (Tier 2).
 
 This module was renamed from `manualcharge` in RM29 tier 2, and gained `charge_sessions`
-in RM29 tier 6 — a scope this module did not have when it was named `manualcharge`.
+(renamed to `supercharger_sessions` in RM39 tier 3, D5b) in RM29 tier 6 — a scope this
+module did not have when it was named `manualcharge`.
 
 ---
 
@@ -115,7 +118,7 @@ const (
 
 // EnergySource is the provenance of Entry.EnergyAddedKWh. ALWAYS COMPUTED BY THIS
 // MODULE on Create/Update -- a value set on the Entry passed to Writer is ignored
-// and overwritten, the same shape charge_sessions.battery_pct_source already uses.
+// and overwritten, the same shape supercharger_sessions.battery_pct_source already uses.
 type EnergySource string
 
 const (
@@ -211,15 +214,15 @@ func NewSessionWriter(pool *pgxpool.Pool) SessionWriter
 **`SessionMirror` has NO field for `start_battery_pct`, `end_battery_pct`,
 `battery_pct_source`, `start_battery_pct_est` or `end_battery_pct_est` — by design, and
 this is the single most important invariant in this file.** The five battery-percentage
-columns are absent from `SessionMirror` and absent from the `MirrorChargeSession` SQL
+columns are absent from `SessionMirror` and absent from the `MirrorSuperchargerSession` SQL
 query entirely (`db/query.sql`), so the nightly sync path has no field and no column to
 bind one to even if a future edit tried — a human's verified reading is protected by a
 **compile error**, not by a comment a reviewer has to notice (design.md D6). Do not
 "complete" `SessionMirror` by adding these fields; the future verification UI (backlog
 item 11) writes them directly, never through this port.
 
-**The refresh set `MirrorChargeSession`'s `ON CONFLICT DO UPDATE SET` touches is
-telemetry's own conflict set, minus `raw_data`** (a column `charge_sessions` does not
+**The refresh set `MirrorSuperchargerSession`'s `ON CONFLICT DO UPDATE SET` touches is
+telemetry's own conflict set, minus `raw_data`** (a column `supercharger_sessions` does not
 carry): `energy_kwh, total_cost, currency, is_paid, tesla_id, updated_at`. This is not five
 independent judgement calls — it is one rule applied mechanically: *a mirrored column gets
 exactly the write semantics its source column has* (design.md D1). Concretely,
@@ -235,7 +238,7 @@ directly, exactly as for `Writer`/`Reader` above.
 ### The Supercharger session read ports (RM30-charging-add-session-read-port, widened by RM31-charging-add-session-read-ports)
 
 ```go
-// Session is the full domain representation of one charge_sessions row: identity, the
+// Session is the full domain representation of one supercharger_sessions row: identity, the
 // session's time window, the session facts internal/telemetry collects, and the five
 // charging-owned battery-percentage verification/estimate columns. Read-only counterpart
 // to SessionMirror — NOT built by widening it: SessionMirror stays deliberately
@@ -276,7 +279,7 @@ type Session struct {
     UpdatedAt time.Time
 }
 
-// SessionReader is the read port over charge_sessions. One method, shaped like
+// SessionReader is the read port over supercharger_sessions. One method, shaped like
 // Reader.ListEntriesByVehicleBetween's bounded-per-vehicle-window pattern but NOT
 // identical to it: ascending order (not descending) and whole-UTC-calendar-day,
 // half-open bound semantics (not exact-value BETWEEN) — see design.md D3/D5. This
@@ -300,7 +303,7 @@ type SessionReader interface {
 // the gateway's Deps.SuperchargerReader (RM31 design.md D8).
 func NewSessionReader(pool *pgxpool.Pool) SessionReader
 
-// SuperchargerSessionAnalyticsReader is the read port over charge_sessions for
+// SuperchargerSessionAnalyticsReader is the read port over supercharger_sessions for
 // internal/analytics (RM31-charging-add-session-read-ports design.md D8). It is a
 // SEPARATE interface from SessionReader, not a widening of it — internal/gateway's
 // fakeSessionReader test double implements only ListSessionsByVehicleBetween, and a
@@ -310,7 +313,7 @@ func NewSessionReader(pool *pgxpool.Pool) SessionReader
 // ListSessionsByVehicle), which is why this interface EMBEDS SessionReader instead
 // of restating its method. The three methods reachable through this interface do
 // NOT share a single sort-direction convention — sort direction is chosen per query
-// against the shared idx_charge_sessions_vehicle_stop index, not as a port-family
+// against the shared idx_supercharger_sessions_vehicle_stop index, not as a port-family
 // rule (design.md D3). "Supercharger" is a deliberate divergence from this module's
 // Session* family, for call-site readability in internal/analytics — do not "tidy"
 // it into the family (design.md D8).
@@ -351,7 +354,7 @@ directly, exactly as for `Writer`/`Reader`/`SessionWriter` above. The same appli
 ### The Supercharger session verification port (RM31-charging-add-session-verification-port)
 
 ```go
-// SessionVerifier is the human-write port over charge_sessions' verification channel
+// SessionVerifier is the human-write port over supercharger_sessions' verification channel
 // (design.md D9). It is a deliberately separate interface from SessionWriter, not a
 // method added to it — SessionWriter's own doc comment states "The gateway never
 // calls this," and adding a gateway-triggered, human-facing method to that interface
@@ -361,7 +364,7 @@ directly, exactly as for `Writer`/`Reader`/`SessionWriter` above. The same appli
 // "closed, small vocabularies" principle (CLAUDE.md §Non-negotiables) argues against.
 type SessionVerifier interface {
     // VerifySession updates exactly three columns on one account-scoped
-    // charge_sessions row — start_battery_pct, end_battery_pct, battery_pct_source —
+    // supercharger_sessions row — start_battery_pct, end_battery_pct, battery_pct_source —
     // plus updated_at. No other column is reachable through this method, including
     // start_battery_pct_est/end_battery_pct_est: the underlying query's SET clause
     // names only these three plus updated_at (design.md D1).
@@ -396,7 +399,7 @@ func NewSessionVerifier(pool *pgxpool.Pool) SessionVerifier
 ```
 
 `SessionVerifier` is this module's third narrow, single-purpose interface over
-`charge_sessions` (alongside `SessionWriter` and `SessionReader`) — one port per access
+`supercharger_sessions` (alongside `SessionWriter` and `SessionReader`) — one port per access
 pattern (batch write, read, human write), not one port per table, consistent with how
 `manual_charge_entries` already splits `Writer`/`Reader` (design.md D9). The gateway and
 any other future caller never import `chargingdb` directly, exactly as for
@@ -437,7 +440,7 @@ This module may import:
   the DB boundary. Never in public types, interfaces, `charging.go`, or any `_test.go`
   file. `session_writer.go` gained this allowance in RM29 tier 6 for the same reason
   `service.go` has it: it is the one file translating `charging.SessionMirror`'s plain Go
-  `*T` fields into `chargingdb.MirrorChargeSessionParams`' nullable pgtype fields.
+  `*T` fields into `chargingdb.MirrorSuperchargerSessionParams`' nullable pgtype fields.
 - `internal/charging/db` (package `chargingdb`) — ONLY inside the four files that talk to
   the database directly: `service.go`, `session_writer.go`, `session_reader.go`, and
   `session_verifier.go`. The generated package is module-private by convention; no other
@@ -498,7 +501,20 @@ unit segment (design.md D1, charging-add-inferred-capacity).
 
 ## Data Ownership
 
-`internal/charging` is the **sole owner** of two tables.
+`internal/charging` is the **sole owner** of two tables, both living in the dedicated
+`charging` Postgres schema (`charging.manual_charge_entries`,
+`charging.supercharger_sessions`) since `RM39-charging-move-to-own-schema` (MAG-31,
+`internal/charging/db/migrations/20260902000003_move_charging_to_own_schema.sql`) — moved
+out of `public`, in the same migration that renamed `charge_sessions` to
+`supercharger_sessions` (design.md D5b) and the Go db model `ChargeSession` to
+`SuperchargerSession` (design.md D5c). **Every** catalog object still carrying the old
+table name was renamed with it (design.md D16) — the index, the named CHECK, the primary
+key, the unique constraint, and the five CHECKs Postgres auto-named from inline column
+constraints (`battery_pct_source`, `start`/`end_battery_pct`, and their `_est` siblings).
+The completeness criterion is the **catalog, not a list**: no relation, index or constraint
+owned by this module may have a name beginning `charge_sessions`. Verify with
+`SELECT conname FROM pg_constraint WHERE conrelid = 'charging.supercharger_sessions'::regclass`
+— the five auto-named CHECKs appear nowhere in this repo, so grep cannot confirm this.
 
 ### `manual_charge_entries`
 
@@ -550,7 +566,8 @@ unit segment (design.md D1, charging-add-inferred-capacity).
     inferred capacities, or it averages this constant back into itself
     (design.md D4/D7).
 
-### `charge_sessions` (RM29 tier 6, RM29-charging-add-charge-sessions)
+### `supercharger_sessions` (renamed from `charge_sessions` in RM39 tier 3, D5b; RM29 tier 6,
+RM29-charging-add-charge-sessions)
 
 - No other module may read or write this table directly. Access goes through the
   `SessionWriter` port (write) and, since RM30-charging-add-session-read-port, the
@@ -565,7 +582,7 @@ unit segment (design.md D1, charging-add-inferred-capacity).
   (design.md D9 spells out that change's six parts — it is not a one-line `ALTER`).
   Until then, `start_battery_pct` / `end_battery_pct` / `battery_pct_source` /
   `start_battery_pct_est` / `end_battery_pct_est` genuinely exist in two tables across
-  the module boundary, and only `charging.charge_sessions`'s copy is ever written to by
+  the module boundary, and only `charging.supercharger_sessions`'s copy is ever written to by
   anything in this repository (telemetry's copy has no writer at all — see
   `internal/telemetry`'s own docs).
 - Column-by-column:
@@ -588,7 +605,7 @@ unit segment (design.md D1, charging-add-inferred-capacity).
     change (see §Public Interface above). **Accepted trade-off (design.md D1):** a
     derived value is stored under the same `battery_pct_source = 'user_verified'` value
     a human-typed one gets, so the two are indistinguishable in this column — a future
-    MAG-18 capacity-averaging implementer over `charge_sessions` cannot filter derived
+    MAG-18 capacity-averaging implementer over `supercharger_sessions` cannot filter derived
     rows out by provenance alone; read design.md D1 before building that feature rather
     than rediscovering this limitation.
   - `start_battery_pct_est`, `end_battery_pct_est` — **charging-owned**, never mirrored,
@@ -613,12 +630,12 @@ unit segment (design.md D1, charging-add-inferred-capacity).
     battery percentages, so the nightly sync cannot touch them even by mistake —
     is here strengthened to **protection by the database itself**: there is no
     query, port method, or Go code path that can write this column at all.
-- sqlc generates the `ChargeSession` model and the `MirrorChargeSession`,
-  `ListSessionsByVehicleBetween`, and `VerifyChargeSession` queries into the same
+- sqlc generates the `SuperchargerSession` model and the `MirrorSuperchargerSession`,
+  `ListSessionsByVehicleBetween`, and `VerifySuperchargerSession` queries into the same
   `chargingdb` package as `manual_charge_entries`'s queries. Only `session_writer.go`
-  may call `MirrorChargeSession`, only `session_reader.go` may call
+  may call `MirrorSuperchargerSession`, only `session_reader.go` may call
   `ListSessionsByVehicleBetween`, and only `session_verifier.go` may call
-  `VerifyChargeSession` (inside this module).
+  `VerifySuperchargerSession` (inside this module).
 
 ---
 
@@ -636,14 +653,14 @@ unit segment (design.md D1, charging-add-inferred-capacity).
   `db_inferred_capacity_sessions_integration_test.go`): cover full CRUD round-trips,
   ordering guarantees, multi-tenant isolation, CHECK constraint enforcement, the
   Supercharger session mirror (`SessionWriter.MirrorSessions`), the one-time backfill,
-  the `charge_sessions` read ports (`SessionReader.ListSessionsByVehicleBetween`,
+  the `supercharger_sessions` read ports (`SessionReader.ListSessionsByVehicleBetween`,
   RM30-charging-add-session-read-port; and
   `SuperchargerSessionAnalyticsReader.ListSessionsByVehicleUpdatedSince`/
   `ListSessionsByVehicle`, RM31-charging-add-session-read-ports,
   `db_session_reader_updated_since_integration_test.go`/
   `db_session_reader_by_vehicle_integration_test.go`, design.md Test Contract
   T1-T14/T-Order2), and — since RM31-charging-add-session-verification-port — the
-  `charge_sessions` verification write port (`SessionVerifier.VerifySession`,
+  `supercharger_sessions` verification write port (`SessionVerifier.VerifySession`,
   `db_session_verifier_integration_test.go`, design.md Test Contract T1-T9). Reads still
   assert only against `charging.Session` domain fields or direct SQL column values —
   never `pgtype`, in this file or any other.
@@ -700,7 +717,8 @@ unit segment (design.md D1, charging-add-inferred-capacity).
     - **Since RM29 tier 6, TWO migration DIRECTORIES are applied, in this order:**
       `../telemetry/db/migrations` first, then this module's own `db/migrations` second, via
       `testdb.ProvisionDirs` (not the single-directory `testdb.Provision` this package used
-      before). **Why:** the `charge_sessions` migration ships a backfill that reads
+      before). **Why:** the `20260823000001_add_charge_sessions.sql` migration (which
+      created what is now `charging.supercharger_sessions`) ships a backfill that reads
       `telemetry.supercharger_sessions`, and `db_backfill_integration_test.go` seeds that
       table and needs it to already exist before the backfill statement runs. This is a
       **path dependency on a migration directory, not a Go import** — no `_test.go` file in
@@ -727,7 +745,7 @@ unit segment (design.md D1, charging-add-inferred-capacity).
   only. `db_session_integration_test.go` (write-path tests, predating the reader) reads
   rows back with direct SQL, scanning nullable columns into plain Go `*T` fields (pgx v5
   supports NULL-into-pointer-to-pointer scanning natively) — never into a
-  `chargingdb.ChargeSession` (which is all `pgtype`).
+  `chargingdb.SuperchargerSession` (which is all `pgtype`).
   `db_session_reader_integration_test.go` (RM30-charging-add-session-read-port) instead
   asserts against `SessionReader.ListSessionsByVehicleBetween`'s returned
   `charging.Session` values directly — the port's own domain mapping already keeps
@@ -735,7 +753,7 @@ unit segment (design.md D1, charging-add-inferred-capacity).
   `db_session_verifier_integration_test.go` (RM31-charging-add-session-verification-port)
   asserts against `SessionVerifier.VerifySession`'s returned `charging.Session` for the
   columns it changes, and reuses `db_session_integration_test.go`'s existing
-  `fetchChargeSession` direct-SQL helper (plain Go `*T` fields, never `pgtype`) for the
+  `fetchSuperchargerSession` direct-SQL helper (plain Go `*T` fields, never `pgtype`) for the
   structural bit-identical-column proof (T8).
   `db_session_reader_updated_since_integration_test.go` and
   `db_session_reader_by_vehicle_integration_test.go` (RM31-charging-add-session-read-ports)

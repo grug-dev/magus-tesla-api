@@ -10,7 +10,7 @@
   `what happens when I edit a charge`, `charge write side effects`
 - **Internal name:** the contract shared by `charging.Writer` (manual) and
   `charging.SessionVerifier` (Supercharger), followed by
-  `analytics.Recalculator.Recalculate` — tables `manual_charge_entries`, `charge_sessions`,
+  `analytics.Recalculator.Recalculate` — tables `manual_charge_entries`, `supercharger_sessions`,
   `vehicle_metrics`, `charge_gaps`, `vehicle_metric_watermarks`
 
 This topic exists because **two sources are supposed to behave identically once their source row
@@ -60,7 +60,7 @@ known divergence lives there.
 | `internal/charging/service.go` | `Writer.Update` / `.Delete`; `resolveEnergy` (derives `energy_added_kwh` + `energy_source`); `defaultLimit = 100`. |
 | `internal/charging/session_verifier.go` | `VerifySession`; computes `battery_pct_source`; the only writer of the verified percentages. |
 | `internal/charging/capacity.go` | `packCapacityKWh` — hardcoded `62.0`, and `derivedEnergyKWh`. |
-| `internal/charging/db/query.sql` | `UpdateEntry`, `DeleteEntry`, `VerifyChargeSession`, `MirrorChargeSession`. |
+| `internal/charging/db/query.sql` | `UpdateEntry`, `DeleteEntry`, `VerifySuperchargerSession`, `MirrorSuperchargerSession`. |
 | `internal/charging/db/migrations/20260829000001_add_inferred_capacity.sql` | The `inferred_capacity_kwh_calc` generated column, on **both** tables. |
 
 ### analytics — the derived model
@@ -83,9 +83,9 @@ known divergence lives there.
 
 | Field | Formula / rule | Computed where | Persisted in |
 |---|---|---|---|
-| `inferred_capacity_kwh_calc` | energy ÷ ((end_pct − start_pct) ÷ 100), 3dp; NULL unless end > start | Postgres `GENERATED ALWAYS … STORED` | `manual_charge_entries`, `charge_sessions` |
+| `inferred_capacity_kwh_calc` | energy ÷ ((end_pct − start_pct) ÷ 100), 3dp; NULL unless end > start | Postgres `GENERATED ALWAYS … STORED` | `manual_charge_entries`, `supercharger_sessions` |
 | `energy_added_kwh`, `energy_source` | derived from capacity × Δpct when the user supplied no energy → `ESTIMATED`, else `USER` | `charging/service.go` `resolveEnergy` | `manual_charge_entries` |
-| `battery_pct_source` | `user_verified` when either pct non-nil, else NULL | `charging/session_verifier.go` | `charge_sessions` |
+| `battery_pct_source` | `user_verified` when either pct non-nil, else NULL | `charging/session_verifier.go` | `supercharger_sessions` |
 | `distance_traveled_km_calc`, `battery_used_pct_calc`, `km_per_pct_calc`, `estimated_range_km_calc`, `days_spanned_calc` | from the (predecessor, current) snapshot pair | `analytics/consumption.go` `deriveConsumption` | `vehicle_metrics` |
 | `consumed_pct` | `battery_used_pct` + Σ Supercharger Δpct + Σ manual Δpct over the span | `analytics/consumed.go` | `vehicle_metrics` |
 | `flagged`, `missing_charging_type` | `consumed < 0`, or `consumed == 0` with distance > `minFlagDistanceKm` (10 km) | `analytics/consumed.go` | `vehicle_metrics` |
@@ -143,15 +143,15 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   percentages.
   _Source: `fragments.ChargeRowUpdateSuccessOOB` vs `fragments.SuperchargerRow`._
 - **`start_battery_pct_est` / `end_battery_pct_est` are never written** — excluded from
-  `VerifyChargeSession`, `MirrorChargeSession` and telemetry's own upsert. They are rendered as
+  `VerifySuperchargerSession`, `MirrorSuperchargerSession` and telemetry's own upsert. They are rendered as
   `StartBatteryPctEstLabel` / `EndBatteryPctEstLabel` and always show `—`.
   _Source: `charging/db/query.sql`, `gateway/handlers/supercharger.go`
   `superchargerRowVMFromSession`._
-- **`charge_sessions.updated_at` is not a "data changed" signal** — `MirrorChargeSession` carries
+- **`supercharger_sessions.updated_at` is not a "data changed" signal** — `MirrorSuperchargerSession` carries
   no `WHERE` predicate, so every nightly mirror pass bumps it on every row. That is why the
   Supercharger path self-heals nightly and the manual path does not. The robustness is
   incidental: adding the obvious `IS DISTINCT FROM` optimisation would silently remove it.
-  _Source: `charging/db/query.sql` `MirrorChargeSession`._
+  _Source: `charging/db/query.sql` `MirrorSuperchargerSession`._
 
 ## Conventions & gotchas
 
@@ -172,7 +172,7 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   `GENERATED ALWAYS … STORED` on both tables; an attempt to write it fails with SQLSTATE 428C9.
   Do not add it to an INSERT column list or a SET clause.
   _Source: `charging/db/migrations/20260829000001_add_inferred_capacity.sql`._
-- **`VerifyChargeSession` and `MirrorChargeSession` are deliberate mirror images.** The verifier
+- **`VerifySuperchargerSession` and `MirrorSuperchargerSession` are deliberate mirror images.** The verifier
   can touch only the human-owned percentages + source + `updated_at`; the mirror can touch
   everything except those. Do not "complete the pattern" on either.
   _Source: `charging/db/query.sql`._
@@ -186,4 +186,4 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   `input-port/charging/supercharger-stats.md`
 - Entities: `entities/vehicle-metrics/guide.md`
 - Workflows: `workflows/manual-charge-crud.md`, `workflows/supercharger-stats-read.md`
-- Architecture: `architecture/nightly-cycle.md`, `architecture/telemetry-data-hub.md`
+- Architecture: `architecture/nightly-cycle.md`, `architecture/telemetry-ingest-only.md`

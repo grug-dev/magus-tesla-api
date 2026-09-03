@@ -36,7 +36,7 @@
 -- latitude/longitude/fast_charger_type dropped in 20260801000001 — lossless in raw_data.
 -- updated_at is NOT sent as a param: DEFAULT now() handles a fresh INSERT;
 -- the ON CONFLICT clause explicitly refreshes it to now() on a same-day
--- replace (design D5), mirroring UpsertSuperchargerSession's own
+-- replace (design D5), mirroring UpsertSuperchargerHistory's own
 -- `updated_at = now()`.
 -- The five derived-consumption columns (distance_traveled_km_calc,
 -- battery_used_pct_calc, km_per_pct_calc, estimated_range_km_calc,
@@ -45,7 +45,7 @@
 -- derivation moved to internal/analytics, which computes the same figures
 -- from this table's surviving raw columns (odometer_km, battery_level_pct,
 -- captured_date). Nothing inside telemetry ever read them back.
-INSERT INTO vehicle_snapshots (
+INSERT INTO telemetry.vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
     odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
@@ -97,7 +97,7 @@ ON CONFLICT (account_id, tesla_id, captured_date) DO UPDATE SET
 -- correlates every vehicle's row from one app.ProcessVehicleData invocation;
 -- triggered_by records what triggered that invocation (RM29-app-add-process-
 -- vehicle-data design D5/D7).
-INSERT INTO poll_attempts (
+INSERT INTO telemetry.poll_attempts (
     account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by
 ) VALUES (
     @account_id, @tesla_id, @attempted_at, @outcome, @reason, @run_id, @triggered_by
@@ -118,14 +118,14 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = @account_id AND tesla_id = @tesla_id
 ORDER BY captured_at DESC;
 
 -- name: ListPollAttemptsByVehicle :many
 -- Read helper for the DATABASE_URL-gated store tests: every attempt for one
 -- vehicle, newest first. Not consumed by another module (module-scoped).
-SELECT * FROM poll_attempts
+SELECT * FROM telemetry.poll_attempts
 WHERE account_id = @account_id AND tesla_id = @tesla_id
 ORDER BY attempted_at DESC;
 
@@ -153,7 +153,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND captured_at >= @since
@@ -234,7 +234,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND captured_at >= @start_bound
@@ -270,7 +270,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND updated_at >= @since
@@ -294,7 +294,7 @@ SELECT DISTINCT ON (tesla_id)
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = @account_id
 ORDER BY tesla_id, captured_at DESC;
 
@@ -336,7 +336,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id   = @account_id
   AND tesla_id     = @tesla_id
   AND captured_date < @day
@@ -355,14 +355,14 @@ LIMIT 1;
 -- column default (NULL); a re-upsert never assigns any of them. A future writer for
 -- these columns belongs on a dedicated query on a dedicated Writer port (out of
 -- scope here, backlog entry 11) -- do not "complete the pattern" by adding them here.
--- name: UpsertSuperchargerSession :exec
+-- name: UpsertSuperchargerHistory :exec
 -- Upsert one Supercharger session. On conflict with the session_id UNIQUE constraint,
 -- refresh only the mutable/derived columns (raw_data, derived fields, tesla_id,
 -- updated_at). Immutable columns (session_id, account_id, vin, location name,
 -- country, timestamps, billing fields, created_at) are never overwritten.
--- Design DBS3: supercharger_sessions is NOT append-only; billing state mutates
+-- Design DBS3: supercharger_history is NOT append-only; billing state mutates
 -- post-session (is_paid, invoice status change after midnight).
-INSERT INTO supercharger_sessions (
+INSERT INTO telemetry.supercharger_history (
     session_id, account_id, vin, tesla_id,
     site_location_name, country_code,
     charge_start_date_time, charge_stop_date_time, unlatch_date_time,
@@ -386,36 +386,36 @@ ON CONFLICT (session_id) DO UPDATE SET
     tesla_id   = EXCLUDED.tesla_id,
     updated_at = now();
 
--- name: SuperchargerSessionsByAccount :many
+-- name: SuperchargerHistoryByAccount :many
 -- Return all Supercharger sessions for the given account, newest first, up to
--- limit_count rows. Uses idx_supercharger_sessions_account_time
+-- limit_count rows. Uses idx_supercharger_history_account_time
 -- (account_id, charge_start_date_time DESC) — the account_id prefix prunes to
 -- the tenant; DESC order matches the ORDER BY so no sort step is needed.
 -- Design DBS4 / DBS6: account-wide spend/energy dashboard access pattern.
-SELECT * FROM supercharger_sessions
+SELECT * FROM telemetry.supercharger_history
 WHERE account_id = @account_id
 ORDER BY charge_start_date_time DESC
 LIMIT @limit_count;
 
--- name: SuperchargerSessionsByVehicle :many
+-- name: SuperchargerHistoryByVehicle :many
 -- Return Supercharger sessions for one vehicle within an account, newest first,
--- up to limit_count rows. Uses idx_supercharger_sessions_vehicle_time
+-- up to limit_count rows. Uses idx_supercharger_history_vehicle_time
 -- (account_id, tesla_id, charge_start_date_time DESC) — both WHERE columns are
 -- the leading index columns so the planner satisfies the filter and the ORDER BY
 -- in a single range scan without a sort step.
 -- Design DBS4 / DBS6: per-vehicle charging history dashboard access pattern.
-SELECT * FROM supercharger_sessions
+SELECT * FROM telemetry.supercharger_history
 WHERE account_id = @account_id
   AND tesla_id = @tesla_id
 ORDER BY charge_start_date_time DESC
 LIMIT @limit_count;
 
--- name: SuperchargerSessionsByVehicleBetween :many
+-- name: SuperchargerHistoryByVehicleBetween :many
 -- Return Supercharger sessions for one vehicle within an account whose
 -- charge_stop_date_time falls in the caller-supplied [start, end] window,
 -- inclusive of the whole end calendar day, ordered oldest-first (ascending
 -- by charge_stop_date_time). Used by
--- SuperchargerReader.SuperchargerSessionsByVehicleBetween to power RM28's
+-- SuperchargerHistoryReader.SuperchargerHistoryByVehicleBetween to power RM28's
 -- battery-consumed-per-day derivation (roadmap D9/D12).
 --
 -- Filters on charge_stop_date_time, NOT charge_start_date_time (D12): energy
@@ -428,7 +428,7 @@ LIMIT @limit_count;
 -- inclusive, matching this project's platform-wide HTTP date-filter
 -- convention, ai/go-conventions.md §"Read optimization"): end_bound = end +
 -- 1 calendar day (computed in Go, reader.go's
--- SuperchargerSessionsByVehicleBetween, mirroring
+-- SuperchargerHistoryByVehicleBetween, mirroring
 -- Reader.SnapshotsByVehicleBetween's own bounds-translation precedent of
 -- doing the day-arithmetic in Go, not in SQL) so
 -- WHERE charge_stop_date_time >= start AND charge_stop_date_time < end_bound
@@ -440,7 +440,7 @@ LIMIT @limit_count;
 -- already IS the value being windowed -- no EffectiveDate-style lag to
 -- compensate for, so only the upper bound needs translating.
 --
--- Index reuse: idx_supercharger_sessions_vehicle_time
+-- Index reuse: idx_supercharger_history_vehicle_time
 -- (account_id, tesla_id, charge_start_date_time DESC) does NOT fully serve
 -- this query -- it is sorted on charge_start_date_time, not
 -- charge_stop_date_time, so the stop-time predicate cannot be satisfied as a
@@ -457,24 +457,24 @@ LIMIT @limit_count;
 -- still add a defensive LIMIT 400 on top of its window, design D3 there; this
 -- query does not add an equivalent cap -- see design.md's Index Plan for why
 -- that asymmetry is deliberate, not an oversight).
-SELECT * FROM supercharger_sessions
+SELECT * FROM telemetry.supercharger_history
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND charge_stop_date_time >= @start
   AND charge_stop_date_time <  @end_bound
 ORDER BY charge_stop_date_time ASC;
 
--- name: SuperchargerSessionsByVehicleUpdatedSince :many
+-- name: SuperchargerHistoryByVehicleUpdatedSince :many
 -- Return every Supercharger session for one vehicle within an account whose
 -- updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
--- SuperchargerReader.SuperchargerSessionsByVehicleUpdatedSince to let
+-- SuperchargerHistoryReader.SuperchargerHistoryByVehicleUpdatedSince to let
 -- internal/analytics' Recalculator (RM29-analytics-add-vehicle-metrics) detect
 -- which sessions changed recently -- including a billing-state revision on a
--- session weeks old (design DBS3: supercharger_sessions is not append-only;
+-- session weeks old (design DBS3: supercharger_history is not append-only;
 -- is_paid / invoice status mutates post-session), whose charge_start_date_time /
 -- charge_stop_date_time stay unchanged while updated_at refreshes.
 --
--- Index reuse: idx_supercharger_sessions_vehicle_time
+-- Index reuse: idx_supercharger_history_vehicle_time
 -- (account_id, tesla_id, charge_start_date_time DESC) is not sorted on
 -- updated_at, so this query cannot use it as a pure ORDER BY-satisfying range
 -- scan. It STILL prunes the scan to this one vehicle's rows via its
@@ -482,7 +482,7 @@ ORDER BY charge_stop_date_time ASC;
 -- and sort are applied -- updated_at is a residual filter within that scan, per
 -- this change's explicit design call (no new index; verified via EXPLAIN in the
 -- DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
-SELECT * FROM supercharger_sessions
+SELECT * FROM telemetry.supercharger_history
 WHERE account_id = @account_id
   AND tesla_id   = @tesla_id
   AND updated_at >= @since
@@ -493,7 +493,7 @@ ORDER BY updated_at ASC;
 -- invocation via telemetry.RunWriter.RecordRun (design D3/D11/D12). Never an
 -- upsert: a duplicate run_id is a caller bug and must fail loudly on the
 -- PRIMARY KEY, not be silently absorbed.
-INSERT INTO poll_runs (
+INSERT INTO telemetry.poll_runs (
     run_id, triggered_by, started_at, finished_at, duration_seconds,
     accounts_attempted, accounts_succeeded, accounts_failed,
     vehicles_attempted, vehicles_succeeded,

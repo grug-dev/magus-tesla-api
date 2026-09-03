@@ -66,7 +66,7 @@ func insertEntryColumns(ctx context.Context, pool *pgxpool.Pool, columns string,
 	for i := range args {
 		placeholders[i] = "$" + strconv.Itoa(i+1)
 	}
-	query := "INSERT INTO manual_charge_entries (" + columns + ") VALUES (" +
+	query := "INSERT INTO charging.manual_charge_entries (" + columns + ") VALUES (" +
 		strings.Join(placeholders, ", ") + ") RETURNING id"
 	var id uuid.UUID
 	err := pool.QueryRow(ctx, query, args...).Scan(&id)
@@ -106,7 +106,7 @@ func TestEntryStatus_B1_PreMigrationInsertTakesDefaults(t *testing.T) {
 	var status, energySource string
 	var odometerNull bool
 	err = pool.QueryRow(ctx,
-		"SELECT status, energy_source, odometer_km IS NULL FROM manual_charge_entries WHERE id = $1", id,
+		"SELECT status, energy_source, odometer_km IS NULL FROM charging.manual_charge_entries WHERE id = $1", id,
 	).Scan(&status, &energySource, &odometerNull)
 	if err != nil {
 		t.Fatalf("B1: read back: %v", err)
@@ -168,7 +168,7 @@ func TestEntryStatus_B4_EnergyNullAccepted(t *testing.T) {
 
 	var energyNull bool
 	if err := pool.QueryRow(ctx,
-		"SELECT energy_added_kwh IS NULL FROM manual_charge_entries WHERE id = $1", id,
+		"SELECT energy_added_kwh IS NULL FROM charging.manual_charge_entries WHERE id = $1", id,
 	).Scan(&energyNull); err != nil {
 		t.Fatalf("B4: read back: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestEntryStatus_B8_NullEnergyWithValidPercentagesYieldsNullInferredCapacity
 
 	var calcNull bool
 	if err := pool.QueryRow(ctx,
-		"SELECT inferred_capacity_kwh_calc IS NULL FROM manual_charge_entries WHERE id = $1", id,
+		"SELECT inferred_capacity_kwh_calc IS NULL FROM charging.manual_charge_entries WHERE id = $1", id,
 	).Scan(&calcNull); err != nil {
 		t.Fatalf("B8: read back: %v", err)
 	}

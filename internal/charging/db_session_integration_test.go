@@ -1,5 +1,5 @@
 // Package charging_test — database-backed integration tests for SessionWriter
-// (session_writer.go) and its MirrorChargeSession query (db/query.sql), covering
+// (session_writer.go) and its MirrorSuperchargerSession query (db/query.sql), covering
 // design.md's Test Contract **Group B** (MirrorSessions, B1–B11) and **Group C**
 // (constraints, C1–C7) — RM29-charging-add-charge-sessions, tasks.md task 3.2.
 //
@@ -53,36 +53,36 @@ const mirrorGap = 15 * time.Millisecond
 // --- session-specific test helpers (mirror tier 5's fetchChargeGap/countChargeGaps
 // precedent — internal/analytics/db_gap_writer_integration_test.go) ---
 
-// cleanupChargeSessions registers a cleanup that deletes charge_sessions rows for
+// cleanupChargingSuperchargerSessions registers a cleanup that deletes supercharger_sessions rows for
 // the given accounts so a shared DB stays tidy across test runs.
-func cleanupChargeSessions(t *testing.T, pool *pgxpool.Pool, accountIDs ...uuid.UUID) {
+func cleanupChargingSuperchargerSessions(t *testing.T, pool *pgxpool.Pool, accountIDs ...uuid.UUID) {
 	t.Helper()
 	t.Cleanup(func() {
 		ctx := context.Background()
 		for _, id := range accountIDs {
-			_, _ = pool.Exec(ctx, "DELETE FROM charge_sessions WHERE account_id = $1", id)
+			_, _ = pool.Exec(ctx, "DELETE FROM charging.supercharger_sessions WHERE account_id = $1", id)
 		}
 	})
 }
 
-// countChargeSessions returns the number of stored charge_sessions rows for one
+// countSuperchargerSessions returns the number of stored supercharger_sessions rows for one
 // account.
-func countChargeSessions(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID) int {
+func countSuperchargerSessions(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID) int {
 	t.Helper()
 	var n int
 	if err := pool.QueryRow(context.Background(),
-		"SELECT COUNT(*) FROM charge_sessions WHERE account_id = $1", accountID,
+		"SELECT COUNT(*) FROM charging.supercharger_sessions WHERE account_id = $1", accountID,
 	).Scan(&n); err != nil {
-		t.Fatalf("counting charge_sessions rows: %v", err)
+		t.Fatalf("counting supercharger_sessions rows: %v", err)
 	}
 	return n
 }
 
-// chargeSessionRow is the subset of charge_sessions columns these tests read back
+// superchargerSessionRow is the subset of supercharger_sessions columns these tests read back
 // directly (no Reader port exists for this table in this tier — design.md D9).
 // Every nullable column is a plain Go pointer (**T at Scan time), never pgtype —
 // pgx v5 natively supports NULL-into-pointer-to-pointer scanning.
-type chargeSessionRow struct {
+type superchargerSessionRow struct {
 	VIN                 string
 	TeslaID             *int64
 	ChargeStartDateTime time.Time
@@ -101,17 +101,17 @@ type chargeSessionRow struct {
 	UpdatedAt           time.Time
 }
 
-// fetchChargeSession reads one charge_sessions row by its (accountID, sessionID)
-// key — the table's own UNIQUE constraint (charge_sessions_account_session_unique).
+// fetchSuperchargerSession reads one supercharger_sessions row by its (accountID, sessionID)
+// key — the table's own UNIQUE constraint (supercharger_sessions_account_session_unique).
 // ok is false when no row exists for that key (not an error).
-func fetchChargeSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, sessionID int64) (row chargeSessionRow, ok bool) {
+func fetchSuperchargerSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, sessionID int64) (row superchargerSessionRow, ok bool) {
 	t.Helper()
 	err := pool.QueryRow(context.Background(), `
 		SELECT vin, tesla_id, charge_start_date_time, charge_stop_date_time,
 		       site_location_name, energy_kwh, total_cost, currency, is_paid,
 		       start_battery_pct, end_battery_pct, battery_pct_source,
 		       start_battery_pct_est, end_battery_pct_est, created_at, updated_at
-		FROM charge_sessions
+		FROM charging.supercharger_sessions
 		WHERE account_id = $1 AND session_id = $2`,
 		accountID, sessionID,
 	).Scan(&row.VIN, &row.TeslaID, &row.ChargeStartDateTime, &row.ChargeStopDateTime,
@@ -120,9 +120,9 @@ func fetchChargeSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, s
 		&row.StartBatteryPctEst, &row.EndBatteryPctEst, &row.CreatedAt, &row.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return chargeSessionRow{}, false
+			return superchargerSessionRow{}, false
 		}
-		t.Fatalf("fetching charge_sessions row: %v", err)
+		t.Fatalf("fetching supercharger_sessions row: %v", err)
 	}
 	return row, true
 }
@@ -188,7 +188,7 @@ func minSessionMirror(accountID uuid.UUID, sessionID, teslaID int64) charging.Se
 func TestMirrorSessions_NewSessionInsertsElevenColumns(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -197,10 +197,10 @@ func TestMirrorSessions_NewSessionInsertsElevenColumns(t *testing.T) {
 		t.Fatalf("MirrorSessions: %v", err)
 	}
 
-	if n := countChargeSessions(t, pool, accountID); n != 1 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 1 {
 		t.Fatalf("expected 1 row, got %d", n)
 	}
-	row, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	row, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row for session %d, found none", m1.SessionID)
 	}
@@ -262,7 +262,7 @@ func TestMirrorSessions_NewSessionInsertsElevenColumns(t *testing.T) {
 func TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_AdvancesUpdatedAt(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -270,7 +270,7 @@ func TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_AdvancesUpdatedAt(t *testi
 	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{m1}); err != nil {
 		t.Fatalf("MirrorSessions (first): %v", err)
 	}
-	first, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	first, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row after first mirror")
 	}
@@ -281,10 +281,10 @@ func TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_AdvancesUpdatedAt(t *testi
 		t.Fatalf("MirrorSessions (second, unchanged): %v", err)
 	}
 
-	if n := countChargeSessions(t, pool, accountID); n != 1 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 1 {
 		t.Fatalf("expected still 1 row, got %d", n)
 	}
-	second, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	second, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row after second mirror")
 	}
@@ -309,7 +309,7 @@ func TestMirrorSessions_ReMirrorUnchanged_NoDuplicate_AdvancesUpdatedAt(t *testi
 func TestMirrorSessions_SettledFeesRefreshed(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -317,7 +317,7 @@ func TestMirrorSessions_SettledFeesRefreshed(t *testing.T) {
 	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{m1}); err != nil {
 		t.Fatalf("MirrorSessions (first): %v", err)
 	}
-	before, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	before, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row after first mirror")
 	}
@@ -333,10 +333,10 @@ func TestMirrorSessions_SettledFeesRefreshed(t *testing.T) {
 		t.Fatalf("MirrorSessions (settled fees): %v", err)
 	}
 
-	if n := countChargeSessions(t, pool, accountID); n != 1 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 1 {
 		t.Fatalf("expected still 1 row, got %d", n)
 	}
-	after, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	after, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row after second mirror")
 	}
@@ -363,7 +363,7 @@ func TestMirrorSessions_SettledFeesRefreshed(t *testing.T) {
 func TestMirrorSessions_WriteOnceColumnsNotRefreshed(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -380,10 +380,10 @@ func TestMirrorSessions_WriteOnceColumnsNotRefreshed(t *testing.T) {
 		t.Fatalf("MirrorSessions (attempted write-once change): %v", err)
 	}
 
-	if n := countChargeSessions(t, pool, accountID); n != 1 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 1 {
 		t.Fatalf("expected still 1 row, got %d", n)
 	}
-	row, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	row, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row after second mirror")
 	}
@@ -403,7 +403,7 @@ func TestMirrorSessions_WriteOnceColumnsNotRefreshed(t *testing.T) {
 func TestMirrorSessions_TeslaIDRefreshedIncludingToNull(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -411,7 +411,7 @@ func TestMirrorSessions_TeslaIDRefreshedIncludingToNull(t *testing.T) {
 	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{m1}); err != nil {
 		t.Fatalf("MirrorSessions (first): %v", err)
 	}
-	first, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	first, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row after first mirror")
 	}
@@ -422,7 +422,7 @@ func TestMirrorSessions_TeslaIDRefreshedIncludingToNull(t *testing.T) {
 	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{reassigned}); err != nil {
 		t.Fatalf("MirrorSessions (reassigned tesla_id): %v", err)
 	}
-	second, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	second, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row after second mirror")
 	}
@@ -445,7 +445,7 @@ func TestMirrorSessions_TeslaIDRefreshedIncludingToNull(t *testing.T) {
 	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{orphaned}); err != nil {
 		t.Fatalf("MirrorSessions (tesla_id -> nil): %v", err)
 	}
-	third, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	third, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row after third mirror")
 	}
@@ -468,7 +468,7 @@ func TestMirrorSessions_TeslaIDRefreshedIncludingToNull(t *testing.T) {
 func TestMirrorSessions_NeverTouchesVerifiedPercentage(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -478,7 +478,7 @@ func TestMirrorSessions_NeverTouchesVerifiedPercentage(t *testing.T) {
 	}
 
 	if _, err := pool.Exec(ctx, `
-		UPDATE charge_sessions
+		UPDATE charging.supercharger_sessions
 		SET start_battery_pct = 41, end_battery_pct = 88, battery_pct_source = 'user_verified',
 		    start_battery_pct_est = 39, end_battery_pct_est = 90
 		WHERE account_id = $1 AND session_id = $2`,
@@ -500,7 +500,7 @@ func TestMirrorSessions_NeverTouchesVerifiedPercentage(t *testing.T) {
 		t.Fatalf("MirrorSessions (changed re-mirror): %v", err)
 	}
 
-	row, ok := fetchChargeSession(t, pool, accountID, m1.SessionID)
+	row, ok := fetchSuperchargerSession(t, pool, accountID, m1.SessionID)
 	if !ok {
 		t.Fatalf("expected row after both re-mirrors")
 	}
@@ -527,7 +527,7 @@ func TestMirrorSessions_MisScopedEntryRejectsWholeCall(t *testing.T) {
 	pool := newTestPool(t)
 	accountA := uuid.New()
 	accountB := uuid.New()
-	cleanupChargeSessions(t, pool, accountA, accountB)
+	cleanupChargingSuperchargerSessions(t, pool, accountA, accountB)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -539,10 +539,10 @@ func TestMirrorSessions_MisScopedEntryRejectsWholeCall(t *testing.T) {
 		t.Fatal("MirrorSessions with a mis-scoped entry: expected non-nil error, got nil")
 	}
 
-	if n := countChargeSessions(t, pool, accountA); n != 0 {
+	if n := countSuperchargerSessions(t, pool, accountA); n != 0 {
 		t.Errorf("accountA: expected 0 rows (whole call rejected), got %d", n)
 	}
-	if n := countChargeSessions(t, pool, accountB); n != 0 {
+	if n := countSuperchargerSessions(t, pool, accountB); n != 0 {
 		t.Errorf("accountB: expected 0 rows (whole call rejected), got %d", n)
 	}
 }
@@ -552,7 +552,7 @@ func TestMirrorSessions_MisScopedEntryRejectsWholeCall(t *testing.T) {
 func TestMirrorSessions_EmptySliceIsNoOp(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -561,7 +561,7 @@ func TestMirrorSessions_EmptySliceIsNoOp(t *testing.T) {
 	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{existing}); err != nil {
 		t.Fatalf("MirrorSessions (seed): %v", err)
 	}
-	before, ok := fetchChargeSession(t, pool, accountID, existing.SessionID)
+	before, ok := fetchSuperchargerSession(t, pool, accountID, existing.SessionID)
 	if !ok {
 		t.Fatalf("expected seeded row")
 	}
@@ -573,10 +573,10 @@ func TestMirrorSessions_EmptySliceIsNoOp(t *testing.T) {
 		t.Errorf("MirrorSessions(empty slice): expected nil error, got %v", err)
 	}
 
-	if n := countChargeSessions(t, pool, accountID); n != 1 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 1 {
 		t.Errorf("expected still 1 row, got %d", n)
 	}
-	after, ok := fetchChargeSession(t, pool, accountID, existing.SessionID)
+	after, ok := fetchSuperchargerSession(t, pool, accountID, existing.SessionID)
 	if !ok {
 		t.Fatalf("expected seeded row to survive")
 	}
@@ -590,7 +590,7 @@ func TestMirrorSessions_EmptySliceIsNoOp(t *testing.T) {
 func TestMirrorSessions_NullableFeeFieldsRoundTripAsNull(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -600,10 +600,10 @@ func TestMirrorSessions_NullableFeeFieldsRoundTripAsNull(t *testing.T) {
 		t.Fatalf("MirrorSessions: %v", err)
 	}
 
-	if n := countChargeSessions(t, pool, accountID); n != 1 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 1 {
 		t.Fatalf("expected 1 row, got %d", n)
 	}
-	row, ok := fetchChargeSession(t, pool, accountID, noFees.SessionID)
+	row, ok := fetchSuperchargerSession(t, pool, accountID, noFees.SessionID)
 	if !ok {
 		t.Fatalf("expected row")
 	}
@@ -630,7 +630,7 @@ func TestMirrorSessions_TwoAccountsMaySharesSessionID(t *testing.T) {
 	pool := newTestPool(t)
 	accountA := uuid.New()
 	accountB := uuid.New()
-	cleanupChargeSessions(t, pool, accountA, accountB)
+	cleanupChargingSuperchargerSessions(t, pool, accountA, accountB)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -642,16 +642,16 @@ func TestMirrorSessions_TwoAccountsMaySharesSessionID(t *testing.T) {
 		t.Fatalf("MirrorSessions (accountB): %v", err)
 	}
 
-	if n := countChargeSessions(t, pool, accountA); n != 1 {
+	if n := countSuperchargerSessions(t, pool, accountA); n != 1 {
 		t.Errorf("accountA: expected 1 row, got %d", n)
 	}
-	if n := countChargeSessions(t, pool, accountB); n != 1 {
+	if n := countSuperchargerSessions(t, pool, accountB); n != 1 {
 		t.Errorf("accountB: expected 1 row, got %d", n)
 	}
-	if _, ok := fetchChargeSession(t, pool, accountA, sharedSessionID); !ok {
+	if _, ok := fetchSuperchargerSession(t, pool, accountA, sharedSessionID); !ok {
 		t.Errorf("expected accountA's row for session %d", sharedSessionID)
 	}
-	if _, ok := fetchChargeSession(t, pool, accountB, sharedSessionID); !ok {
+	if _, ok := fetchSuperchargerSession(t, pool, accountB, sharedSessionID); !ok {
 		t.Errorf("expected accountB's row for session %d", sharedSessionID)
 	}
 }
@@ -661,7 +661,7 @@ func TestMirrorSessions_TwoAccountsMaySharesSessionID(t *testing.T) {
 func TestMirrorSessions_TwoVehiclesInOneAccountAreIndependent(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -670,10 +670,10 @@ func TestMirrorSessions_TwoVehiclesInOneAccountAreIndependent(t *testing.T) {
 	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{v1, v2}); err != nil {
 		t.Fatalf("MirrorSessions (both vehicles): %v", err)
 	}
-	if n := countChargeSessions(t, pool, accountID); n != 2 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 2 {
 		t.Fatalf("expected 2 rows, got %d", n)
 	}
-	v2Before, ok := fetchChargeSession(t, pool, accountID, v2.SessionID)
+	v2Before, ok := fetchSuperchargerSession(t, pool, accountID, v2.SessionID)
 	if !ok {
 		t.Fatalf("expected v2's row")
 	}
@@ -683,7 +683,7 @@ func TestMirrorSessions_TwoVehiclesInOneAccountAreIndependent(t *testing.T) {
 		t.Fatalf("MirrorSessions (only v1): %v", err)
 	}
 
-	v2After, ok := fetchChargeSession(t, pool, accountID, v2.SessionID)
+	v2After, ok := fetchSuperchargerSession(t, pool, accountID, v2.SessionID)
 	if !ok {
 		t.Fatalf("expected v2's row to survive")
 	}
@@ -696,11 +696,11 @@ func TestMirrorSessions_TwoVehiclesInOneAccountAreIndependent(t *testing.T) {
 // deliberately-invalid shapes) ---
 
 // C1: a recorded percentage requires battery_pct_source to be set —
-// charge_sessions_pct_source_required.
+// supercharger_sessions_pct_source_required.
 func TestConstraint_ProvenanceRequired(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 
 	cases := []struct {
@@ -709,17 +709,17 @@ func TestConstraint_ProvenanceRequired(t *testing.T) {
 	}{
 		{
 			"start_battery_pct set, source NULL",
-			`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct)
+			`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct)
 			 VALUES ($1, 'VC1', 920040, now(), now(), 'Test Site', 50)`,
 		},
 		{
 			"end_battery_pct set, source NULL",
-			`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, end_battery_pct)
+			`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, end_battery_pct)
 			 VALUES ($1, 'VC1', 920041, now(), now(), 'Test Site', 50)`,
 		},
 		{
 			"both set, source NULL",
-			`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, end_battery_pct)
+			`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, end_battery_pct)
 			 VALUES ($1, 'VC1', 920042, now(), now(), 'Test Site', 50, 80)`,
 		},
 	}
@@ -735,11 +735,11 @@ func TestConstraint_ProvenanceRequired(t *testing.T) {
 func TestConstraint_NoPercentagesAllowsNullSource(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 
 	_, err := pool.Exec(ctx,
-		`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name)
+		`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name)
 		 VALUES ($1, 'VC2', 920043, now(), now(), 'Test Site')`,
 		accountID)
 	if err != nil {
@@ -752,15 +752,15 @@ func TestConstraint_NoPercentagesAllowsNullSource(t *testing.T) {
 func TestConstraint_PercentageRange(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 
 	rejected := []struct {
 		name string
 		sql  string
 	}{
-		{"101", `INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, battery_pct_source) VALUES ($1, 'VC3', 920044, now(), now(), 'Test Site', 101, 'user_verified')`},
-		{"-1", `INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, battery_pct_source) VALUES ($1, 'VC3', 920045, now(), now(), 'Test Site', -1, 'user_verified')`},
+		{"101", `INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, battery_pct_source) VALUES ($1, 'VC3', 920044, now(), now(), 'Test Site', 101, 'user_verified')`},
+		{"-1", `INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, battery_pct_source) VALUES ($1, 'VC3', 920045, now(), now(), 'Test Site', -1, 'user_verified')`},
 	}
 	for _, tc := range rejected {
 		t.Run(tc.name, func(t *testing.T) {
@@ -773,8 +773,8 @@ func TestConstraint_PercentageRange(t *testing.T) {
 		name string
 		sql  string
 	}{
-		{"0", `INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, battery_pct_source) VALUES ($1, 'VC3', 920046, now(), now(), 'Test Site', 0, 'user_verified')`},
-		{"100", `INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, battery_pct_source) VALUES ($1, 'VC3', 920047, now(), now(), 'Test Site', 100, 'user_verified')`},
+		{"0", `INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, battery_pct_source) VALUES ($1, 'VC3', 920046, now(), now(), 'Test Site', 0, 'user_verified')`},
+		{"100", `INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, start_battery_pct, battery_pct_source) VALUES ($1, 'VC3', 920047, now(), now(), 'Test Site', 100, 'user_verified')`},
 	}
 	for _, tc := range accepted {
 		t.Run(tc.name, func(t *testing.T) {
@@ -790,11 +790,11 @@ func TestConstraint_PercentageRange(t *testing.T) {
 func TestConstraint_ProvenanceEnum(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 
 	_, err := pool.Exec(ctx,
-		`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, battery_pct_source)
+		`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, battery_pct_source)
 		 VALUES ($1, 'VC4', 920048, now(), now(), 'Test Site', 'estimated')`,
 		accountID)
 	assertPgErrorCode(t, err, "23514")
@@ -809,7 +809,7 @@ func TestConstraint_ProvenanceEnum(t *testing.T) {
 	for _, tc := range accepted {
 		t.Run(tc.source, func(t *testing.T) {
 			_, err := pool.Exec(ctx,
-				`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, battery_pct_source)
+				`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, battery_pct_source)
 				 VALUES ($1, 'VC4', $2, now(), now(), 'Test Site', $3)`,
 				accountID, tc.sessID, tc.source)
 			if err != nil {
@@ -820,14 +820,14 @@ func TestConstraint_ProvenanceEnum(t *testing.T) {
 }
 
 // C5: (account_id, session_id) uniqueness is account-scoped and enforced —
-// charge_sessions_account_session_unique.
+// supercharger_sessions_account_session_unique.
 func TestConstraint_AccountScopedUniqueness(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 
-	insert := `INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name)
+	insert := `INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name)
 	           VALUES ($1, 'VC5', 920051, now(), now(), 'Test Site')`
 	if _, err := pool.Exec(ctx, insert, accountID); err != nil {
 		t.Fatalf("first insert: expected success, got %v", err)
@@ -840,17 +840,17 @@ func TestConstraint_AccountScopedUniqueness(t *testing.T) {
 func TestConstraint_SiteLocationNameRequired_FeeColumnsNullable(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 
 	_, err := pool.Exec(ctx,
-		`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time)
+		`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time)
 		 VALUES ($1, 'VC6', 920052, now(), now())`,
 		accountID)
 	assertPgErrorCode(t, err, "23502")
 
 	_, err = pool.Exec(ctx,
-		`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name)
+		`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name)
 		 VALUES ($1, 'VC6', 920053, now(), now(), 'Test Site')`,
 		accountID)
 	if err != nil {
@@ -863,11 +863,11 @@ func TestConstraint_SiteLocationNameRequired_FeeColumnsNullable(t *testing.T) {
 func TestConstraint_NoStricterThanSource(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 
 	_, err := pool.Exec(ctx,
-		`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name)
+		`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name)
 		 VALUES ($1, 'VC7', 920054, '2026-08-05T10:00:00Z', '2026-08-05T09:00:00Z', 'Test Site')`,
 		accountID)
 	if err != nil {
@@ -875,7 +875,7 @@ func TestConstraint_NoStricterThanSource(t *testing.T) {
 	}
 
 	_, err = pool.Exec(ctx,
-		`INSERT INTO charge_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, total_cost)
+		`INSERT INTO charging.supercharger_sessions (account_id, vin, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, total_cost)
 		 VALUES ($1, 'VC7', 920055, now(), now(), 'Test Site', -100.0)`,
 		accountID)
 	if err != nil {

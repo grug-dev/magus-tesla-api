@@ -10,7 +10,7 @@
 - **Trigger:** `PATCH /ui/supercharger-stats/row/:id`
 - **Module:** `charging` (the domain this serves; the handler itself lives in `internal/gateway`)
 
-This is the **only** write route against `charge_sessions` reachable from the UI. There is no
+This is the **only** write route against `supercharger_sessions` reachable from the UI. There is no
 create and no delete: the rows are mirrored from Tesla by the nightly job, so the user's sole
 write channel is correcting the two human-owned battery percentages.
 
@@ -45,7 +45,7 @@ write channel is correcting the two human-owned battery percentages.
 2. `c.GetPostForm` × 2 — strict presence check, then range-validate each non-empty value to
    `[0, 100]` before any port call.
 3. `charging.SessionVerifier.VerifySession` — `internal/charging/session_verifier.go` —
-   re-validates the range, computes `battery_pct_source`, calls `VerifyChargeSession`, maps the
+   re-validates the range, computes `battery_pct_source`, calls `VerifySuperchargerSession`, maps the
    returned row via `rowToSession`.
 4. `Handler.recalculateAfterSessionVerify` →
    `analytics.Recalculator.Recalculate(uid, teslaID, day−1, day+1)` where `day` is the **UTC**
@@ -58,13 +58,13 @@ write channel is correcting the two human-owned battery percentages.
 
 | # | Op | Table / entity | Where |
 |---|---|---|---|
-| 1 | WRITE | `charge_sessions` | `VerifyChargeSession` — SETs `start_battery_pct`, `end_battery_pct`, `battery_pct_source`, `updated_at` and nothing else; Postgres recomputes `inferred_capacity_kwh_calc` in the same statement |
+| 1 | WRITE | `supercharger_sessions` | `VerifySuperchargerSession` — SETs `start_battery_pct`, `end_battery_pct`, `battery_pct_source`, `updated_at` and nothing else; Postgres recomputes `inferred_capacity_kwh_calc` in the same statement |
 | 2 | READ | `vehicle_snapshots` | `SnapshotsByVehicleBetween` + `SnapshotPrecedingDay` |
-| 3 | READ | `charge_sessions` | `ListSessionsByVehicleBetween` |
+| 3 | READ | `supercharger_sessions` | `ListSessionsByVehicleBetween` |
 | 4 | READ | `manual_charge_entries` | `ListEntriesByVehicleBetween` |
 | 5 | WRITE | `vehicle_metrics` | `UpsertVehicleMetric` × n **+** `DeleteVehicleMetricsInRangeExcept`, one transaction |
 
-On the error branches, `fetchSuperchargerRowVM` additionally READs `charge_sessions` (via
+On the error branches, `fetchSuperchargerRowVM` additionally READs `supercharger_sessions` (via
 `ListSessionsByVehicleBetween`) and `vehicles` to re-resolve the row's display context.
 **Not touched:** `charge_gaps`, `vehicle_metric_watermarks`, `manual_charge_entries` (write side).
 
@@ -80,7 +80,7 @@ On the error branches, `fetchSuperchargerRowVM` additionally READs `charge_sessi
 
 ## Conventions & gotchas
 
-- **`VerifyChargeSession` and `MirrorChargeSession` are deliberate mirror images.** This query
+- **`VerifySuperchargerSession` and `MirrorSuperchargerSession` are deliberate mirror images.** This query
   can touch only the three human-owned columns plus `updated_at`; the nightly mirror can touch
   everything *except* them. The protection is the query's shape, not a comment. Never add a
   column to either SET clause to "complete the pattern".
@@ -88,7 +88,7 @@ On the error branches, `fetchSuperchargerRowVM` additionally READs `charge_sessi
 - **`battery_pct_source` is computed in Go and never accepted from the caller** —
   `user_verified` when either percentage is non-nil, SQL NULL when both are nil. Setting it in
   the same statement as the percentages is what keeps the
-  `charge_sessions_pct_source_required` CHECK satisfied with no intermediate state.
+  `supercharger_sessions_pct_source_required` CHECK satisfied with no intermediate state.
   _Source: `charging/session_verifier.go`._
 - **The `±1 day` recalculation window is load-bearing, not padding.** `charge_stop_date_time` is
   a timestamp; its UTC calendar day can differ from the poller-zone day the metric is bucketed

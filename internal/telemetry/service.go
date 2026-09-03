@@ -36,9 +36,9 @@ const defaultRetryBackoff = 2 * time.Second
 // telemetry-add-snapshot-read-port). The mapping from pgtype→domain happens in
 // mapping.go (rowToSnapshot), confining pgtype to the concrete dbStore.
 //
-// upsertSuperchargerSession is the Source B write seam: it maps a domain
-// SuperchargerSession into telemetrydb params at the DB boundary. pgtype never
-// appears in the SuperchargerSession type or any public interface (design DBS4/B4).
+// upsertSuperchargerHistory is the Source B write seam: it maps a domain
+// SuperchargerHistory into telemetrydb params at the DB boundary. pgtype never
+// appears in the SuperchargerHistory type or any public interface (design DBS4/B4).
 type store interface {
 	insertSnapshot(ctx context.Context, s Snapshot) error
 	insertPollAttempt(ctx context.Context, a Attempt) error
@@ -50,7 +50,7 @@ type store interface {
 	// updated_at (Reader.SnapshotsByVehicleUpdatedSince, RM29-analytics-add-
 	// vehicle-metrics task 1.2). Reuses rowToSnapshot — no new mapper.
 	snapshotsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]Snapshot, error)
-	upsertSuperchargerSession(ctx context.Context, s SuperchargerSession) error
+	upsertSuperchargerHistory(ctx context.Context, s SuperchargerHistory) error
 	// snapshotPrecedingDay backs the public Reader.SnapshotPrecedingDay
 	// (RM29-telemetry-drop-derived-columns design D2): the most recent stored
 	// snapshot for (accountID, teslaID) whose captured_date is strictly before
@@ -290,7 +290,7 @@ func (s *service) collectChargingHistory(ctx context.Context, tsla tesla.Vehicle
 
 		// Derive the four computed fields from fees[] in Go (not in SQL) so they
 		// are testable offline without a DB (design DBS2).
-		domainSession := SuperchargerSession{
+		domainSession := SuperchargerHistory{
 			SessionID:           session.SessionID,
 			AccountID:           accountID,
 			VIN:                 session.VIN,
@@ -317,7 +317,7 @@ func (s *service) collectChargingHistory(ctx context.Context, tsla tesla.Vehicle
 			domainSession.UnlatchDateTime = &t
 		}
 
-		if err := s.store.upsertSuperchargerSession(ctx, domainSession); err != nil {
+		if err := s.store.upsertSuperchargerHistory(ctx, domainSession); err != nil {
 			// Per-session isolation: a single upsert failure does not abort the
 			// charging ingestion pass. Continue to the next session.
 			continue
@@ -849,18 +849,18 @@ func boolPtrToPgBool(b *bool) pgtype.Bool {
 	return pgtype.Bool{Bool: *b, Valid: true}
 }
 
-// upsertSuperchargerSession maps a domain SuperchargerSession to
-// telemetrydb.UpsertSuperchargerSessionParams at the DB boundary. This is the ONLY
+// upsertSuperchargerHistory maps a domain SuperchargerHistory to
+// telemetrydb.UpsertSuperchargerHistoryParams at the DB boundary. This is the ONLY
 // place pgtype is touched for supercharger session writes — pgtype never appears in
-// SuperchargerSession or any method signature outside service.go/mapping.go
+// SuperchargerHistory or any method signature outside service.go/mapping.go
 // (design DBS4/B4.2, ai/go-conventions.md §persistence).
 //
 // Deliberately does NOT read s.StartBatteryPct / s.EndBatteryPct / s.BatteryPctSource /
-// s.StartBatteryPctEst / s.EndBatteryPctEst: telemetrydb.UpsertSuperchargerSessionParams
+// s.StartBatteryPctEst / s.EndBatteryPctEst: telemetrydb.UpsertSuperchargerHistoryParams
 // has no fields for them (query.sql omits all five from the query entirely — R3/D3/D6,
 // RM27-telemetry-add-supercharger-battery-pct). This keeps the nightly poller from ever
 // silently overwriting a human-verified value or its frozen snapshot.
-func (d *dbStore) upsertSuperchargerSession(ctx context.Context, s SuperchargerSession) error {
+func (d *dbStore) upsertSuperchargerHistory(ctx context.Context, s SuperchargerHistory) error {
 	// nullable tesla_id: nil → invalid (NULL), non-nil → valid BIGINT.
 	var teslaID pgtype.Int8
 	if s.TeslaID != nil {
@@ -891,7 +891,7 @@ func (d *dbStore) upsertSuperchargerSession(ctx context.Context, s SuperchargerS
 		isPaid = pgtype.Bool{Bool: *s.IsPaid, Valid: true}
 	}
 
-	return d.q.UpsertSuperchargerSession(ctx, telemetrydb.UpsertSuperchargerSessionParams{
+	return d.q.UpsertSuperchargerHistory(ctx, telemetrydb.UpsertSuperchargerHistoryParams{
 		SessionID:           s.SessionID,
 		AccountID:           s.AccountID,
 		Vin:                 s.VIN,

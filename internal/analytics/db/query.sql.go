@@ -13,7 +13,7 @@ import (
 )
 
 const chargeGapDatesByVehicleBetween = `-- name: ChargeGapDatesByVehicleBetween :many
-SELECT gap_date FROM charge_gaps
+SELECT gap_date FROM analytics.charge_gaps
 WHERE account_id = $1
   AND tesla_id   = $2
   AND gap_date   >= $3
@@ -66,7 +66,7 @@ func (q *Queries) ChargeGapDatesByVehicleBetween(ctx context.Context, arg Charge
 }
 
 const deleteChargeGap = `-- name: DeleteChargeGap :exec
-DELETE FROM charge_gaps
+DELETE FROM analytics.charge_gaps
 WHERE account_id = $1
   AND tesla_id   = $2
   AND gap_date   = $3
@@ -90,7 +90,7 @@ func (q *Queries) DeleteChargeGap(ctx context.Context, arg DeleteChargeGapParams
 }
 
 const deleteVehicleMetricsInRangeExcept = `-- name: DeleteVehicleMetricsInRangeExcept :exec
-DELETE FROM vehicle_metrics
+DELETE FROM analytics.vehicle_metrics
 WHERE account_id  = $1
   AND tesla_id    = $2
   AND metric_date BETWEEN $3 AND $4
@@ -131,7 +131,7 @@ func (q *Queries) DeleteVehicleMetricsInRangeExcept(ctx context.Context, arg Del
 
 const getVehicleMetricWatermark = `-- name: GetVehicleMetricWatermark :one
 SELECT source_updated_at
-FROM vehicle_metric_watermarks
+FROM analytics.vehicle_metric_watermarks
 WHERE account_id = $1
   AND tesla_id   = $2
   AND source     = $3
@@ -162,7 +162,7 @@ SELECT DISTINCT ON (tesla_id)
     tesla_id, battery_level_pct, battery_range_km, odometer_km,
     inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
     charging_state, charge_limit_soc_pct, captured_at
-FROM vehicle_metrics
+FROM analytics.vehicle_metrics
 WHERE account_id = $1
 ORDER BY tesla_id, metric_date DESC
 `
@@ -227,7 +227,7 @@ func (q *Queries) LatestVehicleMetricsByAccount(ctx context.Context, accountID u
 }
 
 const upsertChargeGap = `-- name: UpsertChargeGap :exec
-INSERT INTO charge_gaps (
+INSERT INTO analytics.charge_gaps (
     account_id, tesla_id, vin, gap_date, missing_charging_type
 ) VALUES (
     $1, $2, $3, $4, $5
@@ -269,7 +269,7 @@ func (q *Queries) UpsertChargeGap(ctx context.Context, arg UpsertChargeGapParams
 
 const upsertVehicleMetric = `-- name: UpsertVehicleMetric :exec
 
-INSERT INTO vehicle_metrics (
+INSERT INTO analytics.vehicle_metrics (
     account_id, tesla_id, metric_date,
     battery_level_pct, odometer_km, battery_range_km,
     distance_traveled_km_calc, battery_used_pct_calc, km_per_pct_calc,
@@ -388,7 +388,7 @@ func (q *Queries) UpsertVehicleMetric(ctx context.Context, arg UpsertVehicleMetr
 }
 
 const upsertVehicleMetricWatermark = `-- name: UpsertVehicleMetricWatermark :exec
-INSERT INTO vehicle_metric_watermarks (
+INSERT INTO analytics.vehicle_metric_watermarks (
     account_id, tesla_id, source, source_updated_at
 ) VALUES (
     $1, $2, $3, $4
@@ -427,7 +427,7 @@ func (q *Queries) UpsertVehicleMetricWatermark(ctx context.Context, arg UpsertVe
 const vehicleMetricsBatteryByVehicleBetween = `-- name: VehicleMetricsBatteryByVehicleBetween :many
 SELECT
     metric_date, battery_level_pct, battery_range_km
-FROM vehicle_metrics
+FROM analytics.vehicle_metrics
 WHERE account_id  = $1
   AND tesla_id    = $2
   AND metric_date BETWEEN $3 AND $4
@@ -494,7 +494,7 @@ const vehicleMetricsConsumedByVehicleBetween = `-- name: VehicleMetricsConsumedB
 SELECT
     metric_date, consumed_pct, distance_traveled_km_calc, flagged,
     missing_charging_type, days_spanned_calc
-FROM vehicle_metrics
+FROM analytics.vehicle_metrics
 WHERE account_id  = $1
   AND tesla_id    = $2
   AND metric_date BETWEEN $3 AND $4
@@ -571,7 +571,7 @@ func (q *Queries) VehicleMetricsConsumedByVehicleBetween(ctx context.Context, ar
 const vehicleMetricsOdometerByVehicleBetween = `-- name: VehicleMetricsOdometerByVehicleBetween :many
 SELECT
     metric_date, odometer_km, distance_traveled_km_calc
-FROM vehicle_metrics
+FROM analytics.vehicle_metrics
 WHERE account_id  = $1
   AND tesla_id    = $2
   AND metric_date BETWEEN $3 AND $4

@@ -60,7 +60,7 @@ func fetchSessionsByVehicleUpdatedSince(t *testing.T, pool *pgxpool.Pool, accoun
 func pinSessionUpdatedAt(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, sessionID int64, updatedAt time.Time) {
 	t.Helper()
 	if _, err := pool.Exec(context.Background(),
-		`UPDATE charge_sessions SET updated_at = $1 WHERE account_id = $2 AND session_id = $3`,
+		`UPDATE charging.supercharger_sessions SET updated_at = $1 WHERE account_id = $2 AND session_id = $3`,
 		updatedAt, accountID, sessionID,
 	); err != nil {
 		t.Fatalf("pinSessionUpdatedAt: session %d: %v", sessionID, err)
@@ -116,7 +116,7 @@ func seedU1(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64
 func TestListSessionsByVehicleUpdatedSince_T1_VerifySessionEditBecomesVisible(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 
 	const teslaID = int64(960001)
@@ -139,7 +139,7 @@ func TestListSessionsByVehicleUpdatedSince_T1_VerifySessionEditBecomesVisible(t 
 	}
 	pinSessionUpdatedAt(t, pool, acctA, 960001, mirrorPass)
 
-	sessionID := fetchChargeSessionID(t, pool, acctA, 960001)
+	sessionID := fetchSuperchargerSessionID(t, pool, acctA, 960001)
 	v := charging.NewSessionVerifier(pool)
 	if _, err := v.VerifySession(ctx, acctA, sessionID, ptrIntV(50), ptrIntV(90)); err != nil {
 		t.Fatalf("VerifySession: %v", err)
@@ -173,7 +173,7 @@ func TestListSessionsByVehicleUpdatedSince_T1_VerifySessionEditBecomesVisible(t 
 func TestListSessionsByVehicleUpdatedSince_U1_BoundaryInclusiveExclusive(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	const teslaID = int64(960001)
 	seedU1(t, pool, acctA, teslaID)
 
@@ -206,7 +206,7 @@ func TestListSessionsByVehicleUpdatedSince_U1_BoundaryInclusiveExclusive(t *test
 func TestListSessionsByVehicleUpdatedSince_NoMatchReturnsEmptyNonNilSlice(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	const teslaID = int64(960001)
 	seedU1(t, pool, acctA, teslaID)
 
@@ -230,7 +230,7 @@ func TestListSessionsByVehicleUpdatedSince_NoMatchReturnsEmptyNonNilSlice(t *tes
 func TestListSessionsByVehicleUpdatedSince_NullTeslaIDNeverReturned(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -265,7 +265,7 @@ func TestListSessionsByVehicleUpdatedSince_MultiTenantIsolation(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
 	acctB := uuid.New()
-	cleanupChargeSessions(t, pool, acctA, acctB)
+	cleanupChargingSuperchargerSessions(t, pool, acctA, acctB)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -304,7 +304,7 @@ func TestListSessionsByVehicleUpdatedSince_MultiTenantIsolation(t *testing.T) {
 func TestListSessionsByVehicleUpdatedSince_U1_OrderingAscendingByChargeStopDateTime(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	const teslaID = int64(960001)
 	seedU1(t, pool, acctA, teslaID)
 

@@ -77,7 +77,7 @@ Columns behind the Vehicle Status tiles: `odometer_km`, `inside_temp_c`, `outsid
 - `entities/vehicle-metrics/guide.md` — `analytics.VehicleStatus` / `vehicle_metrics`, the
   module that owns this data and who else reads it. `vehicle_metrics` is itself populated
   from `telemetry.Snapshot` by the nightly recompute — see
-  `architecture/telemetry-data-hub.md` for that upstream data, which this use case no
+  `architecture/telemetry-ingest-only.md` for that upstream data, which this use case no
   longer reads directly.
 
 ## Related use cases

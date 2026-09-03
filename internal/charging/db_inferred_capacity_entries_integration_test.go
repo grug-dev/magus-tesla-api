@@ -91,7 +91,7 @@ func TestCreate_InferredCapacity_TableCases(t *testing.T) {
 		// T3: ticket worked example 1 AS THIS TABLE CAN STORE IT. energy_added_kwh is
 		// NUMERIC(6,2), so the ticket's 52.273 is not representable here and rounds to
 		// 52.27 on insert, giving 73.620 — NOT 73.624 (that figure belongs to T13 on
-		// charge_sessions, whose energy_kwh is full DOUBLE PRECISION).
+		// supercharger_sessions, whose energy_kwh is full DOUBLE PRECISION).
 		{id: "T3", energyAddedKWh: 52.27, startPct: ptrInt(29), endPct: ptrInt(100), want: ptrFloat64(73.620)},
 		// T4: missing start (D3).
 		{id: "T4", energyAddedKWh: 7.04, startPct: nil, endPct: ptrInt(74), want: nil},
@@ -209,7 +209,7 @@ func TestInferredCapacity_Entries_ColumnUnwritable(t *testing.T) {
 	}
 
 	_, err = pool.Exec(ctx,
-		"UPDATE manual_charge_entries SET inferred_capacity_kwh_calc = 1 WHERE id = $1",
+		"UPDATE charging.manual_charge_entries SET inferred_capacity_kwh_calc = 1 WHERE id = $1",
 		created.ID)
 	assertPgErrorCode(t, err, "428C9")
 }

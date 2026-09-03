@@ -43,7 +43,8 @@ The one Tesla endpoint the poller calls that *does* accept a date range is
 `tesla.ChargingHistoryParams`). The poller deliberately leaves both **empty**
 (`service.go:collectChargingHistory` passes `ChargingHistoryParams{}`), so the full account
 Supercharger history is re-fetched every night and upserted by `session_id` (see
-`supercharger_sessions` below). The dedup/idempotency mechanism is the table's `UNIQUE (session_id)`
+`supercharger_history` below — renamed from `supercharger_sessions` by RM39 tier 4,
+roadmap D5a). The dedup/idempotency mechanism is the table's `UNIQUE (session_id)`
 constraint + `ON CONFLICT DO UPDATE` (refreshing only mutable columns — `raw_data`, `energy_kwh`,
 `total_cost`, `currency`, `is_paid`, `tesla_id`, `updated_at`), NOT any application-level
 "what's new since last run" logic. Re-upserting the full history every night is intentional:
@@ -139,14 +140,24 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
   `NewReader(pool *pgxpool.Pool) Reader` is the constructor. The gateway (tier 5,
   `gateway-read-stored-vehicles`) depends on this interface, never on `telemetrydb` directly.
 
-- `SuperchargerReader` — exposes `supercharger_sessions` for read-only consumption, a
-  separate port from `Reader` (snapshot-centric):
-  - `SuperchargerSessionsByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerSession, error)`:
+- `SuperchargerHistoryReader` — exposes `supercharger_history` (renamed from
+  `supercharger_sessions` by `RM39-telemetry-move-to-own-schema` tier 4, roadmap D5a/D5c)
+  for read-only consumption, a separate port from `Reader` (snapshot-centric).
+  **Fully renamed (RM39-telemetry-rename-supercharger-port, roadmap tier 5, closes
+  design D6 of tier 4):** the port name `SuperchargerHistoryReader`, its four method
+  names below (`SuperchargerHistoryBy…`), the constructor `NewSuperchargerHistoryReader`,
+  and the unexported `superchargerHistoryReader` / `rowToSuperchargerHistory` /
+  `upsertSuperchargerHistory` helpers now all match the table (`supercharger_history`)
+  and the domain type (`SuperchargerHistory`) they have returned/handled since tier 4.
+  Tier 4's half-renamed state — the port still saying `…Session…` while returning
+  `[]SuperchargerHistory` — is retired; there is no remaining vocabulary mismatch on
+  this port.
+  - `SuperchargerHistoryByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerHistory, error)`:
     all sessions for an account, ordered `charge_start_date_time DESC`, limited to `limit`
     rows (`0` = server default `math.MaxInt32`). Non-nil empty slice when none exist.
-  - `SuperchargerSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerSession, error)`:
+  - `SuperchargerHistoryByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerHistory, error)`:
     same shape, scoped to one vehicle within the account.
-  - `SuperchargerSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerSession, error)`:
+  - `SuperchargerHistoryByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error)`:
     sessions for one vehicle whose **`ChargeStopDateTime`** falls in the caller-supplied
     `[start, end]` window, inclusive of the whole `end` calendar day, ordered oldest-first
     (ascending by `ChargeStopDateTime`). `start`/`end` are whole UTC-midnight-bounded calendar
@@ -159,12 +170,13 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
     precedent, so the underlying SQL's half-open `>= start AND < endBound` includes every
     instant of the end calendar day. No `limit` parameter — the caller-supplied window is the
     bound. No new index added for this method (see design.md's Index Plan for the documented
-    trade-off and fallback). Reuses the existing `rowToSuperchargerSession` mapper — no new
+    trade-off and fallback). Reuses the existing `rowToSuperchargerHistory` mapper — no new
     field, no new mapper. Non-nil empty slice when none exist (parity with the other two
     methods). `account_id` AND `tesla_id` filter provides defense-in-depth tenant isolation.
     Added by `RM28-telemetry-add-charge-gap-storage` (MAG-15, roadmap D9/D12).
-  `NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader` is the constructor;
-  implementation in `reader.go`. Callers MUST NOT import `telemetrydb` (design DBS6).
+  `NewSuperchargerHistoryReader(pool *pgxpool.Pool) SuperchargerHistoryReader` is the
+  constructor; implementation in `reader.go`. Callers MUST NOT import `telemetrydb`
+  (design DBS6).
 
 No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3).
 
@@ -191,8 +203,14 @@ No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3)
 
 ## Data ownership
 
-Owns five tables in the module-scoped `internal/telemetry/db` (goose migrations are the
-single schema source; sqlc generates `telemetrydb`, which **no other module imports**):
+Owns five tables, all living in the dedicated **`telemetry` Postgres schema**
+(`RM39-telemetry-move-to-own-schema` tier 4, MAG-31, migration `20260903000001`; moved
+out of `public` — every table reference in `db/query.sql` and in this module's
+`_test.go` files is schema-qualified as `telemetry.<table>`, and a bare, unqualified
+table name in new code here is a bug, not a style choice, because sqlc resolves names
+statically at generate time). Module-scoped `internal/telemetry/db` (goose migrations
+are the single schema source; sqlc generates `telemetrydb`, which **no other module
+imports**):
 
 - `vehicle_snapshots` — **no longer append-only** (superseded by
   `telemetry-dedupe-daily-snapshots`, migration `20260805000001` — see below): at most one row
@@ -227,11 +245,18 @@ single schema source; sqlc generates `telemetrydb`, which **no other module impo
   own attempt"), so adding `triggered_by` extends the table rather than blurring a boundary it
   never had. `internal/app` ends up owning no schema at all. Grain is unchanged (one row per
   vehicle per run, design.md D2); no CHECK, no index (nothing reads either column in this tier).
-- `supercharger_sessions` — one row per Tesla `session_id` (UPSERT, not append-only: billing
-  state — `is_paid`, invoice status — mutates post-session, migration `20260716000001`).
-  Extended by `RM27-telemetry-add-supercharger-battery-pct` (MAG-14, migration
-  `20260815000001`) with five new nullable columns, all excluded from
-  `UpsertSuperchargerSession`'s `INSERT`/`ON CONFLICT DO UPDATE SET` (see "Battery-%
+- `supercharger_history` — **renamed from `supercharger_sessions`** by
+  `RM39-telemetry-move-to-own-schema` tier 4 (MAG-31, migration `20260903000001`,
+  roadmap D5a/D5c) in the same migration that moved it into the `telemetry` schema —
+  every catalog object that named the old table (7 constraints + 2 standalone indexes,
+  all `supercharger_sessions_*` / `idx_supercharger_sessions_*`) was renamed alongside
+  it, and the hand-written Go domain type followed: `SuperchargerSession` →
+  `SuperchargerHistory` (`telemetry.go`). One row per Tesla `session_id` (UPSERT, not
+  append-only: billing state — `is_paid`, invoice status — mutates post-session,
+  migration `20260716000001`). Extended by `RM27-telemetry-add-supercharger-battery-pct`
+  (MAG-14, migration `20260815000001`) with five new nullable columns, all excluded from
+  `UpsertSuperchargerHistory`'s (the sqlc query, renamed from `UpsertSuperchargerSession`
+  by the same tier-4 change) `INSERT`/`ON CONFLICT DO UPDATE SET` (see "Battery-%
   verification columns" below for the full convention):
   - `start_battery_pct SMALLINT CHECK (0..100)`, `end_battery_pct SMALLINT CHECK (0..100)` —
     human-owned verification/override trio.
@@ -322,11 +347,11 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
   dropped columns back after writing them — their only consumer was `internal/analytics`, which
   is exactly the boundary blur `RM29-modular-monolith-boundaries` exists to fix.
 
-### Battery-% verification columns (`supercharger_sessions`) — introduced by `RM27-telemetry-add-supercharger-battery-pct` (MAG-14)
+### Battery-% verification columns (`supercharger_history`, renamed from `supercharger_sessions` by RM39 tier 4) — introduced by `RM27-telemetry-add-supercharger-battery-pct` (MAG-14)
 
-`SuperchargerSession` gains five pointer fields (`StartBatteryPct *int`, `EndBatteryPct *int`,
+`SuperchargerHistory` gains five pointer fields (`StartBatteryPct *int`, `EndBatteryPct *int`,
 `BatteryPctSource *string`, `StartBatteryPctEst *int`, `EndBatteryPctEst *int`), mapped by
-`rowToSuperchargerSession` (`mapping.go`) via the new `pgNullableInt16AsInt` helper (first
+`rowToSuperchargerHistory` (`mapping.go`) via the new `pgNullableInt16AsInt` helper (first
 `SMALLINT`/`pgtype.Int2` column in this module; reused for all four `SMALLINT` fields) and the
 existing `pgNullableText` helper for `BatteryPctSource`.
 
@@ -342,7 +367,7 @@ existing `pgNullableText` helper for `BatteryPctSource`.
   `BatteryPctSource` records why (`"user_verified"` or `"polled"`). Nothing fills a NULL trio
   today — no fallback, no estimate.
 - **Never auto-written (R3/R7):** all five columns are excluded from
-  `UpsertSuperchargerSession`'s `INSERT` column list and its `ON CONFLICT DO UPDATE SET` clause
+  `UpsertSuperchargerHistory`'s `INSERT` column list and its `ON CONFLICT DO UPDATE SET` clause
   — deliberately, not an oversight (design D3). The nightly poller re-upserts every session
   because Tesla billing state (`is_paid`, invoices) mutates post-session; if any of these five
   were bound as a query parameter, a human-verified value would be silently overwritten on the
@@ -366,7 +391,7 @@ existing `pgNullableText` helper for `BatteryPctSource`.
   correct, intended behavior for a dated observation, not a bug. They must **never be read back
   into a live estimate computation** — reading them "to save a computation" defeats the entire
   point of the drift log. They carry the identical R3 write-exclusion as the trio (never in
-  `UpsertSuperchargerSession`). Full rationale — including why a nightly-refreshed `_est` pair
+  `UpsertSuperchargerHistory`). Full rationale — including why a nightly-refreshed `_est` pair
   (the shape this is NOT) has no legal writer under this project's module-ownership rule — in
   `openspec/changes/archive/2026-08-15-RM27-telemetry-add-supercharger-battery-pct/design.md` D6.
 

@@ -7,7 +7,7 @@
 ## Glossary
 
 - **Known as:** `vehicle metrics`, `calc fields`, `calculated fields`, `metrics reconciliation`, `derived metrics`, `watermark source`, `vehicle status`, `latest vehicle status`, `battery level by day`, `per-day battery level`, `battery history`
-- **Internal name:** `analytics.Recalculator` (`Recalculate` / `Reconcile`) — table `vehicle_metrics` (analytics-owned), watermarks in `vehicle_metric_watermarks`. Read side for latest-per-vehicle status: `analytics.Reader.LatestMetricsByAccount` returning `analytics.VehicleStatus`. Read side for the per-day battery history: `analytics.Reader.BatteryLevelByDay` returning `analytics.DayBattery`. **Changed by RM31 tier 3:** the Supercharger input moved from `internal/telemetry`'s port over `supercharger_sessions` to `internal/charging`'s `SuperchargerSessionAnalyticsReader` over `charge_sessions`, and the watermark `source` vocabulary became `('vehicle_snapshots', 'charge_sessions', 'manual_charge_entries')`. **Changed by RM38 tier 1:** `vehicle_metrics` gained eight raw vehicle-status observation columns and a latest-row-per-vehicle read port. **Changed by RM40 tier 1:** a bounded per-day battery-level/range read port was added over the same table — no new column, no migration.
+- **Internal name:** `analytics.Recalculator` (`Recalculate` / `Reconcile`) — table `vehicle_metrics` (analytics-owned), watermarks in `vehicle_metric_watermarks`. Read side for latest-per-vehicle status: `analytics.Reader.LatestMetricsByAccount` returning `analytics.VehicleStatus`. Read side for the per-day battery history: `analytics.Reader.BatteryLevelByDay` returning `analytics.DayBattery`. **Changed by RM31 tier 3:** the Supercharger input moved from `internal/telemetry`'s port over its own, still-`public`, `supercharger_sessions` to `internal/charging`'s `SuperchargerSessionAnalyticsReader` over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), and the watermark `source` vocabulary became `('vehicle_snapshots', 'charge_sessions', 'manual_charge_entries')` — later changed again by `RM39-analytics-fix-watermark-vocabulary` (roadmap tier 3b) to `('vehicle_snapshots', 'supercharger_sessions', 'manual_charge_entries')`, reusing the string that named `telemetry`'s table before RM31 to now name `charging`'s table instead (see that change's `design.md` §6). **Changed by RM38 tier 1:** `vehicle_metrics` gained eight raw vehicle-status observation columns and a latest-row-per-vehicle read port. **Changed by RM40 tier 1:** a bounded per-day battery-level/range read port was added over the same table — no new column, no migration.
 
 The `_calc` columns: `distance_traveled_km_calc`, `battery_used_pct_calc`, `km_per_pct_calc`,
 `estimated_range_km_calc`, `days_spanned_calc` — plus charge-corrected `consumed_pct` derived
@@ -48,8 +48,8 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 | File | Role |
 |---|---|
-| `internal/telemetry` (`Reader`) | `vehicle_snapshots` reads — see `architecture/telemetry-data-hub.md`. |
-| `internal/charging` (`Reader`, `SuperchargerSessionAnalyticsReader`) | `manual_charge_entries` reads + the Supercharger session reads over `charge_sessions` (RM31 tier 3 moved the Supercharger input here from `internal/telemetry`). |
+| `internal/telemetry` (`Reader`) | `vehicle_snapshots` reads — see `architecture/telemetry-ingest-only.md`. |
+| `internal/charging` (`Reader`, `SuperchargerSessionAnalyticsReader`) | `manual_charge_entries` reads + the Supercharger session reads over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3; RM31 tier 3 moved the Supercharger input here from `internal/telemetry`). |
 
 ## How maintenance works
 
@@ -57,8 +57,8 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Change the math of an existing field:** edit `deriveConsumption` / `deriveVehicleMetrics` only — the UPSERT is a full-row replace, so the next `Recalculate`/`Reconcile` run self-heals history (idempotent on `(account_id, tesla_id, metric_date)`).
 - **Add a new source table:** new watermark source label + `Reconcile` read branch in `recalculate.go`; the source's owning module exposes a bounded read port (never import another module's `db/`).
 - **Read the metrics:** `analytics.Reader` (`ConsumedByDay`, `OdometerDeltaByDay`) — the gateway history fragment reads these, never `vehicle_metrics` directly.
-- **Change where the Supercharger input comes from:** it is `internal/charging`'s `SuperchargerSessionAnalyticsReader`, **not** `internal/telemetry` — RM31 tier 3 moved it so that a human battery-% correction written to `charge_sessions` reaches `vehicle_metrics`. `internal/telemetry` still supplies `vehicle_snapshots` and nothing else for this concept. Analytics must import only those modules' public interfaces.
-- **Change a watermark source label:** the closed vocabulary is `vehicle_snapshots`, `charge_sessions`, `manual_charge_entries`, enforced by a CHECK constraint on `vehicle_metric_watermarks.source` and mirrored in `recalculate.go`'s source labels. Renaming one means a migration that changes the CHECK **and** disposes of the existing rows — RM31 tier 3 DELETEd the retired `supercharger_sessions` rows rather than renaming them in place, because an absent cursor is defined as the epoch and the next nightly `Reconcile` rebuilds that source's history in one pass.
+- **Change where the Supercharger input comes from:** it is `internal/charging`'s `SuperchargerSessionAnalyticsReader`, **not** `internal/telemetry` — RM31 tier 3 moved it so that a human battery-% correction written to `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) reaches `vehicle_metrics`. `internal/telemetry` still supplies `vehicle_snapshots` and nothing else for this concept. Analytics must import only those modules' public interfaces.
+- **Change a watermark source label:** the closed vocabulary is `vehicle_snapshots`, `supercharger_sessions`, `manual_charge_entries`, enforced by a CHECK constraint on `vehicle_metric_watermarks.source` and mirrored in `recalculate.go`'s source labels. Renaming one means a migration that changes the CHECK **and** disposes of the existing rows — RM31 tier 3 DELETEd the then-retired (pre-RM31) `supercharger_sessions` rows in favor of `charge_sessions`, and `RM39-analytics-fix-watermark-vocabulary` (roadmap tier 3b) later reversed that, DELETEing `charge_sessions` rows and reusing `supercharger_sessions` — now naming `charging`'s table, not `telemetry`'s (see that change's `design.md` §6) — because an absent cursor is defined as the epoch and the next nightly `Reconcile` rebuilds that source's history in one pass.
 
 ## Conventions & gotchas
 
@@ -71,7 +71,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **"Yesterday" is resolved in the poller's own timezone, not UTC** — `recalculateAnalytics` computes its window with `time.Now().In(p.loc)`; `internal/analytics` itself stays location-free (each row's bucket day travels with it). _Source: `internal/app/processor.go` D-B12 comment._
 
 - **Analytics owns `vehicle_metrics` and `vehicle_metric_watermarks` and NOTHING else — every input arrives through another module's public read port.** It imports the public `Reader` of `internal/telemetry`, the public `Reader` **and `SuperchargerSessionAnalyticsReader`** of `internal/charging`, and the public `Service` of `internal/account`. Never `internal/telemetry/db`, `internal/charging/db`, or `internal/account/db`, and never a shared pool reaching into another module's tables. _Source: spec analytics — Requirement: No Cross-Module Database Access._
-- **The Supercharger input is `internal/charging` over `charge_sessions`, not `internal/telemetry` over `supercharger_sessions`.** This is load-bearing, not cosmetic: `charge_sessions` is the table a human battery-% verification writes to, so reading anywhere else would make the correction invisible to `vehicle_metrics`. _Source: spec analytics — Requirement: No Cross-Module Database Access._
+- **The Supercharger input is `internal/charging` over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), not `internal/telemetry` over its own, still-`public`, `supercharger_sessions`.** This is load-bearing, not cosmetic: `charging.supercharger_sessions` is the table a human battery-% verification writes to, so reading anywhere else would make the correction invisible to `vehicle_metrics`. _Source: spec analytics — Requirement: No Cross-Module Database Access._
 - **Three independent cursors, each advanced alone.** One cursor per (vehicle, source) over telemetry snapshots, Supercharger sessions, and manual charge entries; advancing one must never rewind or skip another. A source with no cursor is treated as never incorporated, so its first reconciliation backfills that source's whole history for the vehicle. _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark._
 - **An absent watermark row means epoch — which is why a source migration can safely DELETE cursors.** Dropping a retired source's rows costs one full re-read on the next nightly pass; carrying the old cursor value forward risks silently skipping any row in the new table older than the inherited cursor. _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark._
 - **A weeks-old revision is picked up because the cursor is `updated_at`-driven, not a trailing window.** A Supercharger session from three weeks ago whose `updated_at` refreshes today recomputes the day it affects. This is exactly the mechanism a human battery-% edit rides. _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark._
@@ -91,7 +91,40 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 - **Every per-day battery read is scoped to the requesting account's own vehicle** — two accounts whose vehicles share a vehicle identifier never see each other's observations, even on the same calendar day. This is the capability's tenant boundary, not an optimization. _Source: spec analytics — Requirement: Per-Day Battery Level and Range Read._
 - **The date carried by a per-day result is a FINAL bucket key** — consumers bucket on it verbatim and must never re-project it through a day-normalizing helper of their own. Identical to the rule the per-day consumption and distance reads already carry. _Source: spec analytics — Requirement: Per-Day Battery Level and Range Read._
 
+- **`vehicle_metric_watermarks.source` is a closed vocabulary of table names stored AS DATA, and
+  a table rename in another module invalidates it.** The column is never schema-qualified (the
+  values are data, not SQL table references), a CHECK constraint pins the legal set, and
+  `Recalculator.Reconcile` keys its per-source cursor on the string. So when a module renames a
+  table this vocabulary names, the fix is an analytics-owned migration — not an edit in the
+  module that did the renaming. Precedent twice over: `20260828000001` (RM31) and
+  `20260902000004` (RM39 tier 3b).
+  _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark._
+- **Retire a vocabulary value by DELETing its rows, never by UPDATEing them.** An absent watermark
+  row is DEFINED as the epoch, so the next nightly `Reconcile` backfills that source's whole
+  history in one pass — self-healing. Carrying the cursor value forward would make correctness
+  depend on the other module's mirror pass never having gapped, which the migration cannot
+  verify, and a stalled mirror would strand a carried cursor with nothing able to detect it.
+  _Source: spec analytics — Requirement: Incremental Recompute Via An Analytics-Owned Watermark;
+  RM39 roadmap decisions D8/D21._
+- **The migration's Down DELETE is load-bearing, not tidying.** Restoring the old vocabulary while
+  a row still holds the new value makes `ADD CONSTRAINT` fail with SQLSTATE 23514 and leaves the
+  table with NO constraint at all. Each direction must clear the rows written under the
+  vocabulary the other direction retires. Found by the round-trip test, which is why the test
+  asserts the round trip rather than only the forward migration.
+  _Source: migration `20260828000001`'s own Down block, re-confirmed by `20260902000004`._
+- **`sqlc` mirrors the database's `COMMENT ON` text into `models.go` doc comments, so a migration
+  that rewrites a comment REQUIRES `make sqlc`.** Easy to miss, because the change alters no
+  column type and the build stays green either way. It has now been missed twice on this exact
+  table — fixed by commit `3882a53` after RM31, and caught again in RM39 tier 3b's review round 1.
+  _Source: RM39 tier 3b review finding F1._
+- **The value `'supercharger_sessions'` means two different tables depending on era.** Before
+  RM31 it named `internal/telemetry`'s table; since RM39 tier 3b it names `internal/charging`'s.
+  No live row is ambiguous (the CHECK forbade the string in between, so the eras cannot coexist
+  in data), but old backups, archived specs and `git log` are. A test asserting mid-migration
+  state must pin the literal of the era it runs in, not the current Go constant.
+  _Source: spec analytics; RM39 tier 3b design.md §6 and review finding F2._
+
 ## Related KB
 
-- Architecture: `architecture/telemetry-data-hub.md` (the snapshot/supercharger sources this table derives from)
+- Architecture: `architecture/telemetry-ingest-only.md` (the snapshot/supercharger sources this table derives from)
 - Workflows: `workflows/manual-charge-crud.md` (the post-write `Recalculate` trigger), `workflows/supercharger-stats-read.md`

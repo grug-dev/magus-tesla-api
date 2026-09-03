@@ -66,8 +66,8 @@ func (f *fakeReadStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid
 	return nil, nil
 }
 
-func (f *fakeReadStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
-	panic("fakeReadStore: upsertSuperchargerSession must not be called from the reader path")
+func (f *fakeReadStore) upsertSuperchargerHistory(_ context.Context, _ SuperchargerHistory) error {
+	panic("fakeReadStore: upsertSuperchargerHistory must not be called from the reader path")
 }
 
 // snapshotPrecedingDay satisfies the store seam added by
@@ -301,8 +301,8 @@ func (f *fakeHistoryStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ u
 	panic("fakeHistoryStore: snapshotsByVehicleUpdatedSince must not be called from the Since path")
 }
 
-func (f *fakeHistoryStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
-	panic("fakeHistoryStore: upsertSuperchargerSession must not be called")
+func (f *fakeHistoryStore) upsertSuperchargerHistory(_ context.Context, _ SuperchargerHistory) error {
+	panic("fakeHistoryStore: upsertSuperchargerHistory must not be called")
 }
 
 // snapshotPrecedingDay satisfies the store seam added by
@@ -544,8 +544,8 @@ func (f *fakeBetweenStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ u
 	panic("fakeBetweenStore: snapshotsByVehicleUpdatedSince must not be called from Between path")
 }
 
-func (f *fakeBetweenStore) upsertSuperchargerSession(_ context.Context, _ SuperchargerSession) error {
-	panic("fakeBetweenStore: upsertSuperchargerSession must not be called")
+func (f *fakeBetweenStore) upsertSuperchargerHistory(_ context.Context, _ SuperchargerHistory) error {
+	panic("fakeBetweenStore: upsertSuperchargerHistory must not be called")
 }
 
 // snapshotPrecedingDay satisfies the store seam added by

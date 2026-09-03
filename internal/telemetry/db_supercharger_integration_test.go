@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// These tests exercise the real telemetrydb store and SuperchargerReader against a live
+// These tests exercise the real telemetrydb store and SuperchargerHistoryReader against a live
 // Postgres from DATABASE_URL and self-skip when it is unset, so `go test ./...` stays
 // green without a database (ai/go-conventions.md §persistence). They require:
 //   - DATABASE_URL set to a running Postgres with goose migrations applied.
@@ -19,8 +19,8 @@ import (
 //   - B8.1: upsert round-trip with all nullable fields (non-nil).
 //   - B8.1: upsert round-trip with all nullable fields nil (NULL vs zero check).
 //   - B8.2: upsert idempotency + immutable columns unchanged on second upsert.
-//   - B8.3: SuperchargerSessionsByVehicle scopes to the queried vehicle only.
-//   - B8.4: SuperchargerSessionsByAccount scopes to the queried account only.
+//   - B8.3: SuperchargerHistoryByVehicle scopes to the queried vehicle only.
+//   - B8.4: SuperchargerHistoryByAccount scopes to the queried account only.
 //   - B8.5: Results are ordered by charge_start_date_time DESC (newest first).
 //   - B8.6: LIMIT is respected.
 
@@ -29,7 +29,7 @@ func itoa(n int64) string {
 	return fmt.Sprint(n)
 }
 
-// cleanupSuperchargerBySessionID registers a cleanup that deletes supercharger_sessions
+// cleanupSuperchargerBySessionID registers a cleanup that deletes supercharger_history
 // rows by session_id using the pool returned by newTestStore. Keeps shared DB tidy.
 func cleanupSuperchargerBySessionID(t *testing.T, st *dbStore, pool interface {
 	Exec(ctx context.Context, sql string, args ...any) (interface{}, error)
@@ -44,7 +44,7 @@ func cleanupSuperchargerBySessionID(t *testing.T, st *dbStore, pool interface {
 }
 
 // TestSupercharger_UpsertAndRead_RoundTrip verifies that a session upserted via
-// the store is readable via SuperchargerSessionsByAccount with all nullable fields
+// the store is readable via SuperchargerHistoryByAccount with all nullable fields
 // faithfully preserved when non-nil (B8.1 non-nil).
 func TestSupercharger_UpsertAndRead_RoundTrip(t *testing.T) {
 	st, pool := newTestStore(t)
@@ -55,7 +55,7 @@ func TestSupercharger_UpsertAndRead_RoundTrip(t *testing.T) {
 	sessionID := int64(60001)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = $1", sessionID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = $1", sessionID)
 	})
 
 	cost := 4.20
@@ -64,7 +64,7 @@ func TestSupercharger_UpsertAndRead_RoundTrip(t *testing.T) {
 	paid := true
 	unlatch := time.Date(2026, 6, 28, 11, 0, 0, 0, time.UTC)
 
-	sess := SuperchargerSession{
+	sess := SuperchargerHistory{
 		SessionID:           sessionID,
 		AccountID:           accountID,
 		VIN:                 "VIN_RT_001",
@@ -82,14 +82,14 @@ func TestSupercharger_UpsertAndRead_RoundTrip(t *testing.T) {
 		IsPaid:              &paid,
 		RawData:             []byte(`{"sessionId":60001}`),
 	}
-	if err := st.upsertSuperchargerSession(ctx, sess); err != nil {
-		t.Fatalf("upsertSuperchargerSession: %v", err)
+	if err := st.upsertSuperchargerHistory(ctx, sess); err != nil {
+		t.Fatalf("upsertSuperchargerHistory: %v", err)
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 session, got %d", len(got))
@@ -138,10 +138,10 @@ func TestSupercharger_UpsertNullableNullValues(t *testing.T) {
 	sessionID := int64(60002)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = $1", sessionID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = $1", sessionID)
 	})
 
-	sess := SuperchargerSession{
+	sess := SuperchargerHistory{
 		SessionID:           sessionID,
 		AccountID:           accountID,
 		VIN:                 "VIN_ORPHAN",
@@ -159,14 +159,14 @@ func TestSupercharger_UpsertNullableNullValues(t *testing.T) {
 		IsPaid:              nil, // no fees
 		RawData:             []byte(`{"sessionId":60002}`),
 	}
-	if err := st.upsertSuperchargerSession(ctx, sess); err != nil {
-		t.Fatalf("upsertSuperchargerSession: %v", err)
+	if err := st.upsertSuperchargerHistory(ctx, sess); err != nil {
+		t.Fatalf("upsertSuperchargerHistory: %v", err)
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 session, got %d", len(got))
@@ -204,7 +204,7 @@ func TestSupercharger_UpsertIdempotency(t *testing.T) {
 	sessionID := int64(60003)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = $1", sessionID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = $1", sessionID)
 	})
 
 	notPaid := false
@@ -213,7 +213,7 @@ func TestSupercharger_UpsertIdempotency(t *testing.T) {
 	energy := 20.0
 	startTime := time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)
 
-	sess1 := SuperchargerSession{
+	sess1 := SuperchargerHistory{
 		SessionID:           sessionID,
 		AccountID:           accountID,
 		VIN:                 "VIN_IDEM",
@@ -230,7 +230,7 @@ func TestSupercharger_UpsertIdempotency(t *testing.T) {
 		IsPaid:              &notPaid,
 		RawData:             []byte(`{"sessionId":60003,"v":1}`),
 	}
-	if err := st.upsertSuperchargerSession(ctx, sess1); err != nil {
+	if err := st.upsertSuperchargerHistory(ctx, sess1); err != nil {
 		t.Fatalf("first upsert: %v", err)
 	}
 
@@ -241,14 +241,14 @@ func TestSupercharger_UpsertIdempotency(t *testing.T) {
 	sess2.IsPaid = &paid
 	sess2.TotalCost = &cost2
 	sess2.RawData = []byte(`{"sessionId":60003,"v":2}`)
-	if err := st.upsertSuperchargerSession(ctx, sess2); err != nil {
+	if err := st.upsertSuperchargerHistory(ctx, sess2); err != nil {
 		t.Fatalf("second upsert: %v", err)
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 row after idempotent upsert (no duplicates), got %d", len(got))
@@ -273,7 +273,7 @@ func TestSupercharger_UpsertIdempotency(t *testing.T) {
 	}
 }
 
-// TestSupercharger_SessionsByVehicle_Scoping verifies that SuperchargerSessionsByVehicle
+// TestSupercharger_SessionsByVehicle_Scoping verifies that SuperchargerHistoryByVehicle
 // returns only the queried vehicle's sessions within the account (B8.3).
 func TestSupercharger_SessionsByVehicle_Scoping(t *testing.T) {
 	st, pool := newTestStore(t)
@@ -286,7 +286,7 @@ func TestSupercharger_SessionsByVehicle_Scoping(t *testing.T) {
 	sessionB := int64(60011)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", []int64{sessionA, sessionB})
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", []int64{sessionA, sessionB})
 	})
 
 	startA := time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)
@@ -302,7 +302,7 @@ func TestSupercharger_SessionsByVehicle_Scoping(t *testing.T) {
 		{sessionB, teslaID2, "VIN_V2", startB},
 	} {
 		tid := tc.teslaID
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+		if err := st.upsertSuperchargerHistory(ctx, SuperchargerHistory{
 			SessionID:           tc.sessionID,
 			AccountID:           accountID,
 			VIN:                 tc.vin,
@@ -319,10 +319,10 @@ func TestSupercharger_SessionsByVehicle_Scoping(t *testing.T) {
 		}
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByVehicle(ctx, accountID, teslaID1, 10)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByVehicle(ctx, accountID, teslaID1, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByVehicle: %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicle: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 session for vehicle1, got %d", len(got))
@@ -333,7 +333,7 @@ func TestSupercharger_SessionsByVehicle_Scoping(t *testing.T) {
 }
 
 // TestSupercharger_SessionsByAccount_CrossAccountIsolation verifies that
-// SuperchargerSessionsByAccount returns only sessions for the queried account (B8.4).
+// SuperchargerHistoryByAccount returns only sessions for the queried account (B8.4).
 func TestSupercharger_SessionsByAccount_CrossAccountIsolation(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
@@ -344,7 +344,7 @@ func TestSupercharger_SessionsByAccount_CrossAccountIsolation(t *testing.T) {
 	sessionB := int64(60021)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", []int64{sessionA, sessionB})
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", []int64{sessionA, sessionB})
 	})
 
 	for _, tc := range []struct {
@@ -356,7 +356,7 @@ func TestSupercharger_SessionsByAccount_CrossAccountIsolation(t *testing.T) {
 		{sessionA, acctA, "VIN_A", time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)},
 		{sessionB, acctB, "VIN_B", time.Date(2026, 6, 28, 12, 0, 0, 0, time.UTC)},
 	} {
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+		if err := st.upsertSuperchargerHistory(ctx, SuperchargerHistory{
 			SessionID:           tc.sessionID,
 			AccountID:           tc.accountID,
 			VIN:                 tc.vin,
@@ -372,11 +372,11 @@ func TestSupercharger_SessionsByAccount_CrossAccountIsolation(t *testing.T) {
 		}
 	}
 
-	r := newSuperchargerReaderImpl(pool)
+	r := newSuperchargerHistoryReaderImpl(pool)
 
-	gotA, err := r.SuperchargerSessionsByAccount(ctx, acctA, 10)
+	gotA, err := r.SuperchargerHistoryByAccount(ctx, acctA, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount (acctA): %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount (acctA): %v", err)
 	}
 	if len(gotA) != 1 || gotA[0].SessionID != sessionA {
 		t.Errorf("acctA: want 1 session (%d), got %+v", sessionA, gotA)
@@ -387,9 +387,9 @@ func TestSupercharger_SessionsByAccount_CrossAccountIsolation(t *testing.T) {
 		}
 	}
 
-	gotB, err := r.SuperchargerSessionsByAccount(ctx, acctB, 10)
+	gotB, err := r.SuperchargerHistoryByAccount(ctx, acctB, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount (acctB): %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount (acctB): %v", err)
 	}
 	if len(gotB) != 1 || gotB[0].SessionID != sessionB {
 		t.Errorf("acctB: want 1 session (%d), got %+v", sessionB, gotB)
@@ -407,7 +407,7 @@ func TestSupercharger_Ordering_NewestFirst(t *testing.T) {
 	sessionNew := int64(60031)
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", []int64{sessionOld, sessionNew})
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", []int64{sessionOld, sessionNew})
 	})
 
 	oldStart := time.Date(2026, 6, 27, 10, 0, 0, 0, time.UTC)
@@ -420,7 +420,7 @@ func TestSupercharger_Ordering_NewestFirst(t *testing.T) {
 		{sessionOld, oldStart},
 		{sessionNew, newStart},
 	} {
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+		if err := st.upsertSuperchargerHistory(ctx, SuperchargerHistory{
 			SessionID:           tc.id,
 			AccountID:           accountID,
 			VIN:                 "VIN_ORD",
@@ -436,10 +436,10 @@ func TestSupercharger_Ordering_NewestFirst(t *testing.T) {
 		}
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
 	if len(got) != 2 {
 		t.Fatalf("want 2 sessions, got %d", len(got))
@@ -461,12 +461,12 @@ func TestSupercharger_Limit(t *testing.T) {
 	ids := []int64{60040, 60041, 60042}
 
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = ANY($1::bigint[])", ids)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = ANY($1::bigint[])", ids)
 	})
 
 	for i, id := range ids {
 		start := time.Date(2026, 6, 28, 10+i, 0, 0, 0, time.UTC)
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerSession{
+		if err := st.upsertSuperchargerHistory(ctx, SuperchargerHistory{
 			SessionID:           id,
 			AccountID:           accountID,
 			VIN:                 "VIN_LMT",
@@ -482,10 +482,10 @@ func TestSupercharger_Limit(t *testing.T) {
 		}
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 1)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 1)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount limit=1: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount limit=1: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want exactly 1 row with limit=1, got %d", len(got))

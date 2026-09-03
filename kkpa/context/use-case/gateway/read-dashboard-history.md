@@ -64,7 +64,7 @@ behind its interface.
 - `entities/vehicle-metrics/guide.md` — `vehicle_metrics`, its `_calc` columns and its raw
   per-day observations: the single precomputed read model behind **all three** series
   (`BatteryLevelByDay`, `OdometerDeltaByDay`, `ConsumedByDay`)
-- `architecture/telemetry-data-hub.md` — `vehicle_snapshots`, the upstream source
+- `architecture/telemetry-ingest-only.md` — `vehicle_snapshots`, the upstream source
   `vehicle_metrics` is derived FROM. Background only: since RM40 this use case does not read
   it and the gateway cannot reach it.
 

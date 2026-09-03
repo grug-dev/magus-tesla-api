@@ -5,7 +5,7 @@
 // design.md's Test Contract **Group A** (A1, A2).
 //
 // A migration's backfill runs once, at `goose up`, before any test can seed a
-// source row — so it always executes against an empty supercharger_sessions and can
+// source row — so it always executes against an empty telemetry.supercharger_history and can
 // never be observed through normal test provisioning. These tests work around that
 // by extracting the SHIPPED backfill statement at runtime from the embedded
 // migration file, between the `-- BACKFILL-BEGIN` / `-- BACKFILL-END` sentinels
@@ -24,7 +24,7 @@
 // telemetry's migration directory first (testdb_test.go), so the to_regclass guard
 // never actually trips inside this suite. It is verified by the charging-only path
 // instead: applying only internal/charging/db/migrations/ to an empty database
-// succeeds and yields an empty charge_sessions.
+// succeeds and yields an empty supercharger_sessions.
 package charging_test
 
 import (
@@ -79,15 +79,74 @@ func extractBackfillStatement(t *testing.T) string {
 
 // runBackfill executes the extracted backfill statement against the shared test
 // pool.
+// insertTargetOld / insertTargetNew map the backfill's INSERT target forward to the
+// name it has today. RM39 tier 3 moved this module's table into the `charging` schema
+// and renamed it `charge_sessions` -> `supercharger_sessions`; the shipped migration
+// necessarily still names the table as it existed when it ran, and historic migrations
+// are never edited (RM39 D1). Replaying it against a fully-migrated database therefore
+// has to map that one name forward.
+//
+// THREE names are rewritten, not one. RM39 tier 4 moved telemetry's tables into the
+// `telemetry` schema and renamed `supercharger_sessions` to `supercharger_history`, so
+// both the statement's source reads now point at a relation that no longer exists under
+// the old name — alongside the INSERT target, which tier 3 had already moved.
+//
+// The to_regclass guard is the dangerous one. Miss it and the mapping fails SILENTLY:
+// `to_regclass('public.supercharger_sessions')` evaluates to NULL forever, the DO block
+// RETURNs early, raises no error (only a NOTICE), inserts nothing, and A1/A2 fail on
+// EMPTY assertions — a failure that reads like a data bug rather than a name bug. Each
+// mapping therefore carries an "exactly one occurrence, else t.Fatalf" guard, so a
+// change to the migration's shape fails loudly instead of quietly asserting nothing.
+//
+// The NOTICE string inside the guard also names the table. It is prose inside a RAISE
+// and constrains nothing, so it is deliberately NOT rewritten — a fourth fragile string
+// match would buy nothing and could break the replay on a harmless wording change.
+//
+// This is deliberately NOT the `search_path` approach RM39 D12 used for analytics'
+// replay test, and tier 4 makes that argument stronger rather than weaker. A search_path
+// of `charging, public` would resolve a bare `supercharger_sessions` to charging's OWN
+// table — which since tier 3 is a real, populated table of a different shape — so the
+// backfill would silently read the wrong source and assert nothing. D12's fix is safe
+// only where a move happened without a name collision; here the name collides, so every
+// mapping must be explicit.
+const (
+	insertTargetOld = "INSERT INTO charge_sessions ("
+	insertTargetNew = "INSERT INTO charging.supercharger_sessions ("
+
+	// The guard's argument: telemetry's table is now telemetry.supercharger_history.
+	guardTargetOld = "to_regclass('public.supercharger_sessions')"
+	guardTargetNew = "to_regclass('telemetry.supercharger_history')"
+
+	// The source read, aliased `s` in the shipped statement.
+	sourceTableOld = "FROM supercharger_sessions s"
+	sourceTableNew = "FROM telemetry.supercharger_history s"
+)
+
 func runBackfill(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	stmt := extractBackfillStatement(t)
+
+	// Fail loudly if the shipped statement no longer contains the target we expect.
+	// A silent no-op rewrite would re-run the original text and fail with a confusing
+	// "relation does not exist", hiding the real cause: the migration changed shape.
+	for _, m := range []struct{ old, new, what string }{
+		{insertTargetOld, insertTargetNew, "INSERT target"},
+		{guardTargetOld, guardTargetNew, "to_regclass guard"},
+		{sourceTableOld, sourceTableNew, "source table read"},
+	} {
+		if n := strings.Count(stmt, m.old); n != 1 {
+			t.Fatalf("expected exactly 1 occurrence of %q (%s) in the shipped backfill statement, got %d — "+
+				"the migration changed shape and this rewrite needs updating", m.old, m.what, n)
+		}
+		stmt = strings.Replace(stmt, m.old, m.new, 1)
+	}
+
 	if _, err := pool.Exec(context.Background(), stmt); err != nil {
 		t.Fatalf("executing extracted backfill statement: %v", err)
 	}
 }
 
-// superchargerFixtureRow is one row of the live 4-row supercharger_sessions dataset
+// superchargerFixtureRow is one row of the live 4-row telemetry.supercharger_history dataset
 // design.md Test Contract A1 reproduces. Percentage fields are pointers so a NULL
 // case (three of the four rows) is expressible.
 type superchargerFixtureRow struct {
@@ -113,7 +172,7 @@ type superchargerFixtureRow struct {
 	EndBatteryPctEst   *int
 }
 
-// insertSuperchargerSessionFixture seeds one supercharger_sessions row via direct
+// insertSuperchargerSessionFixture seeds one telemetry.supercharger_history row via direct
 // SQL — the sanctioned form for seeding another module's table from a _test.go file
 // when that module exposes no writer for the shape needed (ai/go-conventions.md
 // §Testing, RM29 decision D19); telemetry has no writer at all for a single
@@ -123,7 +182,7 @@ type superchargerFixtureRow struct {
 func insertSuperchargerSessionFixture(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, r superchargerFixtureRow) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO supercharger_sessions (
+		INSERT INTO telemetry.supercharger_history (
 			session_id, account_id, vin, tesla_id, site_location_name, country_code,
 			charge_start_date_time, charge_stop_date_time, billing_type, vehicle_make_type,
 			energy_kwh, total_cost, currency, is_paid, raw_data, created_at,
@@ -143,16 +202,16 @@ func insertSuperchargerSessionFixture(t *testing.T, pool *pgxpool.Pool, accountI
 		r.StartBatteryPctEst, r.EndBatteryPctEst,
 	)
 	if err != nil {
-		t.Fatalf("seeding supercharger_sessions fixture (session %d): %v", r.SessionID, err)
+		t.Fatalf("seeding telemetry.supercharger_history fixture (session %d): %v", r.SessionID, err)
 	}
 }
 
-// cleanupSuperchargerSessions registers a cleanup that deletes supercharger_sessions
+// cleanupSuperchargerSessions registers a cleanup that deletes telemetry.supercharger_history
 // rows created by these tests so a shared DB stays tidy.
 func cleanupSuperchargerSessions(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID) {
 	t.Helper()
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM supercharger_sessions WHERE account_id = $1", accountID)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM telemetry.supercharger_history WHERE account_id = $1", accountID)
 	})
 }
 
@@ -251,14 +310,14 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
 	cleanupSuperchargerSessions(t, pool, accountID)
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 
 	sessionIDs := seedA1Fixture(t, pool, accountID)
 	const percentageBearingSessionID = int64(734860294)
 
 	runBackfill(t, pool)
 
-	if n := countChargeSessions(t, pool, accountID); n != 4 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 4 {
 		t.Fatalf("expected exactly 4 rows after backfill, got %d", n)
 	}
 
@@ -272,13 +331,13 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 		if err := pool.QueryRow(context.Background(), `
 			SELECT vin, tesla_id, charge_start_date_time, charge_stop_date_time,
 			       site_location_name, energy_kwh, total_cost, currency, is_paid, created_at
-			FROM supercharger_sessions WHERE account_id = $1 AND session_id = $2`,
+			FROM telemetry.supercharger_history WHERE account_id = $1 AND session_id = $2`,
 			accountID, sessionID,
 		).Scan(&srcVIN, &srcTeslaID, &srcStart, &srcStop, &srcSite, &srcEnergyKWh, &srcTotalCost, &srcCurrency, &srcIsPaid, &srcCreatedAt); err != nil {
-			t.Fatalf("reading source supercharger_sessions row %d: %v", sessionID, err)
+			t.Fatalf("reading source telemetry.supercharger_history row %d: %v", sessionID, err)
 		}
 
-		row, ok := fetchChargeSession(t, pool, accountID, sessionID)
+		row, ok := fetchSuperchargerSession(t, pool, accountID, sessionID)
 		if !ok {
 			t.Fatalf("expected mirrored row for session %d", sessionID)
 		}
@@ -351,26 +410,26 @@ func TestBackfill_RealFourRowDataset_OnePercentageBearing(t *testing.T) {
 }
 
 // A2: the backfill is idempotent and overwrites nothing on a re-run — ON CONFLICT DO
-// NOTHING means it is a one-time import, never a re-sync (that is MirrorChargeSession's
+// NOTHING means it is a one-time import, never a re-sync (that is MirrorSuperchargerSession's
 // job).
 func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
 	cleanupSuperchargerSessions(t, pool, accountID)
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 
 	sessionIDs := seedA1Fixture(t, pool, accountID)
 	const percentageBearingSessionID = int64(734860294)
 	nullRowSessionID := sessionIDs[1] // any of the three all-NULL-percentage rows
 
 	runBackfill(t, pool)
-	if n := countChargeSessions(t, pool, accountID); n != 4 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 4 {
 		t.Fatalf("expected 4 rows after first backfill, got %d", n)
 	}
 
 	before := make(map[int64]time.Time, len(sessionIDs))
 	for _, id := range sessionIDs {
-		row, ok := fetchChargeSession(t, pool, accountID, id)
+		row, ok := fetchSuperchargerSession(t, pool, accountID, id)
 		if !ok {
 			t.Fatalf("expected row for session %d after first backfill", id)
 		}
@@ -379,14 +438,14 @@ func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 
 	// (a) simulate a later human verification of a previously-unverified row.
 	if _, err := pool.Exec(context.Background(), `
-		UPDATE charge_sessions SET start_battery_pct = 55, end_battery_pct = 80, battery_pct_source = 'user_verified'
+		UPDATE charging.supercharger_sessions SET start_battery_pct = 55, end_battery_pct = 80, battery_pct_source = 'user_verified'
 		WHERE account_id = $1 AND session_id = $2`,
 		accountID, nullRowSessionID); err != nil {
 		t.Fatalf("simulating human verification: %v", err)
 	}
 	// (b) simulate a fee figure a later mirror pass already refreshed.
 	if _, err := pool.Exec(context.Background(), `
-		UPDATE charge_sessions SET total_cost = 99999, is_paid = false
+		UPDATE charging.supercharger_sessions SET total_cost = 99999, is_paid = false
 		WHERE account_id = $1 AND session_id = $2`,
 		accountID, percentageBearingSessionID); err != nil {
 		t.Fatalf("simulating a refreshed fee figure: %v", err)
@@ -394,11 +453,11 @@ func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 
 	runBackfill(t, pool)
 
-	if n := countChargeSessions(t, pool, accountID); n != 4 {
+	if n := countSuperchargerSessions(t, pool, accountID); n != 4 {
 		t.Fatalf("expected still 4 rows after second backfill, got %d", n)
 	}
 
-	verifiedRow, ok := fetchChargeSession(t, pool, accountID, nullRowSessionID)
+	verifiedRow, ok := fetchSuperchargerSession(t, pool, accountID, nullRowSessionID)
 	if !ok {
 		t.Fatalf("expected row for session %d after second backfill", nullRowSessionID)
 	}
@@ -412,7 +471,7 @@ func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 		t.Errorf("session %d: BatteryPctSource got %v, want still 'user_verified'", nullRowSessionID, verifiedRow.BatteryPctSource)
 	}
 
-	refreshedRow, ok := fetchChargeSession(t, pool, accountID, percentageBearingSessionID)
+	refreshedRow, ok := fetchSuperchargerSession(t, pool, accountID, percentageBearingSessionID)
 	if !ok {
 		t.Fatalf("expected row for session %d after second backfill", percentageBearingSessionID)
 	}
@@ -424,7 +483,7 @@ func TestBackfill_IdempotentOnRerun_OverwritesNothing(t *testing.T) {
 	}
 
 	for _, id := range sessionIDs {
-		row, ok := fetchChargeSession(t, pool, accountID, id)
+		row, ok := fetchSuperchargerSession(t, pool, accountID, id)
 		if !ok {
 			t.Fatalf("expected row for session %d after second backfill", id)
 		}

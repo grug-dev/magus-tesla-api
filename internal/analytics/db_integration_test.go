@@ -27,9 +27,11 @@
 // manual_charge_entries DOES have a clean public writer,
 // charging.NewWriter(pool).Create — TestRecalculate_FixtureD2_ChargeInsideTheGap
 // below (RM29-telemetry-drop-derived-columns, tier 4) is the first test in
-// this file to use it, exactly as this file uses
-// telemetry.NewReader/NewSuperchargerReader/charging.NewReader (never
-// telemetrydb/chargingdb) for every READ against seeded data.
+// this file to use it, exactly as this file uses telemetry.NewReader/
+// charging.NewSuperchargerSessionAnalyticsReader/charging.NewReader (never
+// telemetrydb/chargingdb) for every READ against seeded data. (The Supercharger
+// read is charging's since RM31 tier 3; telemetry's own port, today
+// telemetry.NewSuperchargerHistoryReader, is no longer called from this module.)
 //
 // # RM29-telemetry-drop-derived-columns (tier 4) — tasks 6b.1/6b.2/6b.3
 //
@@ -91,8 +93,8 @@ func cleanupVehicleMetrics(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID
 	t.Helper()
 	t.Cleanup(func() {
 		ctx := context.Background()
-		_, _ = pool.Exec(ctx, "DELETE FROM vehicle_metrics WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
-		_, _ = pool.Exec(ctx, "DELETE FROM vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metrics WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(ctx, "DELETE FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
 	})
 }
 
@@ -339,7 +341,7 @@ func seedSnapshot(t *testing.T, pool *pgxpool.Pool, s telemetry.Snapshot) {
 		updatedAt = s.CapturedAt
 	}
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO vehicle_snapshots (
+		INSERT INTO telemetry.vehicle_snapshots (
 			account_id, tesla_id, captured_at, captured_date, raw_data,
 			battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
 			odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode, car_version,
@@ -393,15 +395,15 @@ func pgInt2FromIntPtr(v *int) pgtype.Int2 {
 	return pgtype.Int2{Int16: int16(*v), Valid: true}
 }
 
-// seedSuperchargerSession inserts one telemetry.SuperchargerSession directly
+// seedSuperchargerSession inserts one telemetry.SuperchargerHistory directly
 // into supercharger_sessions (D19: telemetry exposes no public writer for
-// this table at all — upsertSuperchargerSession is unexported, reachable
+// this table at all — upsertSuperchargerHistory is unexported, reachable
 // only from inside Collector.CollectAll). Returns the session_id actually
 // used: s.SessionID when the caller set one, otherwise a fresh value from
 // nextSessionID (the column is UNIQUE NOT NULL). updatedAt defaults to
 // ChargeStopDateTime when the caller leaves Session.UpdatedAt at its zero
 // value.
-func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.SuperchargerSession) int64 {
+func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.SuperchargerHistory) int64 {
 	t.Helper()
 	sessionID := s.SessionID
 	if sessionID == 0 {
@@ -412,7 +414,7 @@ func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.Super
 		updatedAt = s.ChargeStopDateTime
 	}
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO supercharger_sessions (
+		INSERT INTO telemetry.supercharger_history (
 			session_id, account_id, vin, tesla_id, site_location_name, country_code,
 			charge_start_date_time, charge_stop_date_time, billing_type, vehicle_make_type,
 			start_battery_pct, end_battery_pct, raw_data, updated_at
@@ -440,7 +442,7 @@ func seedSuperchargerSession(t *testing.T, pool *pgxpool.Pool, s telemetry.Super
 func reviseSuperchargerSession(t *testing.T, pool *pgxpool.Pool, sessionID int64, endBatteryPct int, updatedAt time.Time) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		`UPDATE supercharger_sessions SET end_battery_pct = $1, updated_at = $2 WHERE session_id = $3`,
+		`UPDATE telemetry.supercharger_history SET end_battery_pct = $1, updated_at = $2 WHERE session_id = $3`,
 		int16(endBatteryPct), pgtype.Timestamptz{Time: updatedAt, Valid: true}, sessionID,
 	)
 	if err != nil {
@@ -524,7 +526,7 @@ func seedChargeSession(t *testing.T, pool *pgxpool.Pool, s charging.Session) int
 		batteryPctSource = &src
 	}
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO charge_sessions (
+		INSERT INTO charging.supercharger_sessions (
 			account_id, vin, tesla_id, session_id,
 			charge_start_date_time, charge_stop_date_time,
 			site_location_name, energy_kwh, total_cost, currency, is_paid,
@@ -560,7 +562,7 @@ func seedChargeSession(t *testing.T, pool *pgxpool.Pool, s charging.Session) int
 func reviseChargeSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, sessionID int64, endBatteryPct int, updatedAt time.Time) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
-		`UPDATE charge_sessions SET end_battery_pct = $1, updated_at = $2 WHERE account_id = $3 AND session_id = $4`,
+		`UPDATE charging.supercharger_sessions SET end_battery_pct = $1, updated_at = $2 WHERE account_id = $3 AND session_id = $4`,
 		int16(endBatteryPct), pgtype.Timestamptz{Time: updatedAt, Valid: true}, accountID, sessionID,
 	)
 	if err != nil {
@@ -596,7 +598,7 @@ func fetchVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, t
 		       consumed_pct, flagged, missing_charging_type, created_at, updated_at,
 		       locked, sentry_mode, car_version, inside_temp_c, outside_temp_c,
 		       charging_state, charge_limit_soc_pct, captured_at
-		FROM vehicle_metrics
+		FROM analytics.vehicle_metrics
 		WHERE account_id = $1 AND tesla_id = $2 AND metric_date = $3`,
 		accountID, teslaID, dateFrom(metricDate),
 	).Scan(&m.ID, &m.AccountID, &m.TeslaID, &m.MetricDate, &m.BatteryLevelPct,
@@ -623,7 +625,7 @@ func fetchWatermark(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesla
 	t.Helper()
 	var ts pgtype.Timestamptz
 	err := pool.QueryRow(context.Background(),
-		`SELECT source_updated_at FROM vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2 AND source = $3`,
+		`SELECT source_updated_at FROM analytics.vehicle_metric_watermarks WHERE account_id = $1 AND tesla_id = $2 AND source = $3`,
 		accountID, teslaID, source,
 	).Scan(&ts)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -773,7 +775,7 @@ func metricsFixtureRM38B(accountID uuid.UUID, teslaID int64) telemetry.Snapshot 
 func seedPreMigrationVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, metricDate time.Time, batteryLevelPct int, odometerKm, batteryRangeKm float64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(), `
-		INSERT INTO vehicle_metrics (
+		INSERT INTO analytics.vehicle_metrics (
 			account_id, tesla_id, metric_date, battery_level_pct, odometer_km, battery_range_km, flagged
 		) VALUES ($1, $2, $3, $4, $5, $6, false)`,
 		accountID, teslaID, dateFrom(metricDate), int32(batteryLevelPct), odometerKm, batteryRangeKm,
@@ -791,10 +793,11 @@ func seedPreMigrationVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID u
 // fetch-shape assertions above.
 //
 // RM31-analytics-read-sessions-from-charging (tier 3): the Supercharger port
-// retypes from telemetry.SuperchargerReader to
+// retypes from telemetry.SuperchargerReader (renamed
+// telemetry.SuperchargerHistoryReader by RM39 tier 5) to
 // charging.SuperchargerSessionAnalyticsReader (design.md §3) — this call site
 // is exactly what the leader's Wave 2 dispatch flagged as failing to build
-// (telemetry.NewSuperchargerReader(pool) no longer satisfies NewRecalculator's
+// (telemetry's own constructor no longer satisfies NewRecalculator's
 // retyped parameter).
 func newRealRecalculator(pool *pgxpool.Pool) Recalculator {
 	return NewRecalculator(pool, telemetry.NewReader(pool), charging.NewSuperchargerSessionAnalyticsReader(pool), charging.NewReader(pool))
@@ -1056,11 +1059,14 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 	// on the very first run (design.md D2/D3's idempotence contract) -- no
 	// Supercharger session and no manual entry was ever seeded for this
 	// vehicle, so both of those sources' cursors stay at "no row = epoch".
-	// RM31 tier 3: this source's label is charge_sessions now (sourceChargeSessions),
-	// not supercharger_sessions -- the underlying table this cursor tracks moved
-	// from internal/telemetry to internal/charging (design.md §2).
-	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceChargeSessions); ok {
-		t.Error("want no charge_sessions watermark row (no session data ever seeded for this vehicle)")
+	// This source's label is supercharger_sessions again (sourceSuperchargerSessions),
+	// as of RM39 tier 3b -- see recalculate.go. The underlying table this
+	// cursor tracks is internal/charging's Supercharger session table, moved
+	// there from internal/telemetry by RM31 tier 3 and renamed by RM39 tier 3
+	// (charging.supercharger_sessions); the watermark label was reset to match
+	// by RM39-analytics-fix-watermark-vocabulary (design.md §2/§7).
+	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions); ok {
+		t.Error("want no supercharger_sessions watermark row (no session data ever seeded for this vehicle)")
 	}
 	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceManualChargeEntries); ok {
 		t.Error("want no manual_charge_entries watermark row (no entry ever seeded for this vehicle)")
@@ -1105,7 +1111,7 @@ func TestReconcile_Idempotent(t *testing.T) {
 		t.Fatal("expected a vehicle_snapshots watermark row after the first Reconcile")
 	}
 	var rowCountBefore int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountBefore); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM analytics.vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountBefore); err != nil {
 		t.Fatalf("counting vehicle_metrics rows: %v", err)
 	}
 
@@ -1130,7 +1136,7 @@ func TestReconcile_Idempotent(t *testing.T) {
 		t.Errorf("Reconcile is not idempotent: row changed from %+v to %+v", before, after)
 	}
 	var rowCountAfter int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountAfter); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM analytics.vehicle_metrics WHERE account_id=$1 AND tesla_id=$2`, accountID, teslaID).Scan(&rowCountAfter); err != nil {
 		t.Fatalf("counting vehicle_metrics rows: %v", err)
 	}
 	if rowCountAfter != rowCountBefore {
@@ -1230,12 +1236,12 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 		t.Errorf("ConsumedPct after revision: want %v (the day, well outside any trailing window measured from today, must still be recomputed), got %+v", wantConsumedAfter, after.ConsumedPct)
 	}
 
-	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceChargeSessions)
+	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions)
 	if !ok {
-		t.Fatal("expected a charge_sessions watermark row")
+		t.Fatal("expected a supercharger_sessions watermark row")
 	}
 	if watermark.Before(t0) {
-		t.Errorf("charge_sessions watermark did not advance past the original sync time: got %s", watermark)
+		t.Errorf("supercharger_sessions watermark did not advance past the original sync time: got %s", watermark)
 	}
 }
 
@@ -1376,12 +1382,12 @@ func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
 		t.Errorf("Flagged: want false (65 is neither negative nor zero), got %v", row.Flagged)
 	}
 
-	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceChargeSessions)
+	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions)
 	if !ok {
-		t.Fatal("expected a charge_sessions watermark row to be created (no prior row -- epoch)")
+		t.Fatal("expected a supercharger_sessions watermark row to be created (no prior row -- epoch)")
 	}
 	if !watermark.Equal(session.UpdatedAt) {
-		t.Errorf("charge_sessions watermark: want advanced to the session's own updated_at %s, got %s", session.UpdatedAt, watermark)
+		t.Errorf("supercharger_sessions watermark: want advanced to the session's own updated_at %s, got %s", session.UpdatedAt, watermark)
 	}
 }
 
@@ -1500,7 +1506,7 @@ func TestReconcile_T3_ChargingSourcedValueWinsOverStaleTelemetryCopy(t *testing.
 	// The STALE telemetry copy -- never read by Recalculate any more after
 	// this tier's retype; seeded only to prove it is NOT what consumed_pct
 	// comes from.
-	seedSuperchargerSession(t, pool, telemetry.SuperchargerSession{
+	seedSuperchargerSession(t, pool, telemetry.SuperchargerHistory{
 		AccountID:           accountID,
 		SessionID:           sessionID,
 		TeslaID:             &teslaIDCopy,
@@ -2098,7 +2104,7 @@ func TestRecalculate_AfterSameDayRecapture_RefreshesSuccessorRow(t *testing.T) {
 	// public writer for a single row (D19), and the point under test is
 	// Recalculate's read-time behavior, not the UPSERT mechanics themselves.
 	if _, err := pool.Exec(ctx,
-		`UPDATE vehicle_snapshots SET odometer_km = $1, battery_level_pct = $2, battery_range_km = $3
+		`UPDATE telemetry.vehicle_snapshots SET odometer_km = $1, battery_level_pct = $2, battery_range_km = $3
 		 WHERE account_id = $4 AND tesla_id = $5 AND captured_date = $6`,
 		1080.0, int32(60), 260.0, accountID, teslaID, dateFrom(day(2026, 8, 21)),
 	); err != nil {

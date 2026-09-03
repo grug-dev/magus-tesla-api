@@ -9,42 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Tesla Supercharger charge sessions as owned by internal/charging: identity, the session time window, the session facts (site, energy, cost, currency, paid state), and the human-owned battery-percentage verification/estimate columns. Dense — one row per session, verified or not (design D2). Deliberately carries NO country_code, unlatch_date_time, billing_type, vehicle_make_type or raw_data (closed list, design D1). Mirrored from telemetry.supercharger_sessions by the nightly orchestrator through public ports only, in the same cycle that refreshes the source; each mirrored column has exactly its source column's write semantics, so energy_kwh / total_cost / currency / is_paid / tesla_id are refreshed on every pass and everything else mirrored is write-once. The sync path can never write the five percentage columns (design D6). No other module reads this table directly.
-type ChargeSession struct {
-	ID        uuid.UUID
-	AccountID uuid.UUID
-	Vin       string
-	// Currently-registered vehicle id, refreshed on every sync and set NULL when the VIN is not a currently-registered vehicle of the account — the same contract telemetry.supercharger_sessions.tesla_id carries. Resolution is inherited from telemetry, never recomputed here: internal/charging may not import internal/account (design D3).
-	TeslaID             pgtype.Int8
-	SessionID           int64
-	ChargeStartDateTime pgtype.Timestamptz
-	ChargeStopDateTime  pgtype.Timestamptz
-	// Supercharger site name as Tesla reported it. Write-once: absent from telemetry's ON CONFLICT DO UPDATE SET, therefore absent from ours (design D1's rule).
-	SiteLocationName string
-	// kWh delivered, derived by telemetry from the session's fees. NULL when the session had no kWh fee. REFRESHED on every mirror pass — telemetry recomputes it nightly as fees settle.
-	EnergyKwh pgtype.Float8
-	// Total charged for the session, in the currency column's currency. Monetary amount: no unit suffix by the platform money exemption, paired with currency instead. NULL when the session had no fees. REFRESHED on every mirror pass. DOUBLE PRECISION is copied from telemetry to keep the backfill a literal copy; float is a questionable type for money and converging with manual_charge_entries.price NUMERIC(14,2) will have to reconcile the two.
-	TotalCost pgtype.Float8
-	// ISO 4217 code for total_cost. NULL when the session had no fees. REFRESHED on every mirror pass.
-	Currency pgtype.Text
-	// Whether every fee on the session is settled. NULL when the session had no fees. REFRESHED on every mirror pass — this is the column that most visibly changes after a session ends.
-	IsPaid pgtype.Bool
-	// Human-verified battery % at charge start (0-100). NULL = nothing recorded. Never written by the nightly sync — the sync port has no field for it (design D6).
-	StartBatteryPct pgtype.Int2
-	// Human-verified battery % at charge end (0-100). Same NULL convention and the same sync-path protection as start_battery_pct.
-	EndBatteryPct pgtype.Int2
-	// Provenance of start/end_battery_pct: user_verified (a human entered them) or polled (a future measured-SOC path, not implemented). Required whenever either percentage is set (charge_sessions_pct_source_required). Never 'estimated' — an estimate is computed on read and is never persisted here.
-	BatteryPctSource pgtype.Text
-	// FROZEN write-once snapshot of the live estimate at the moment start_battery_pct was verified — a drift-log entry, not a cache. Never refreshed, including by a later improved model; staleness here is correct, not a bug.
-	StartBatteryPctEst pgtype.Int2
-	// FROZEN write-once snapshot of the live estimate at the moment end_battery_pct was verified. Same write-once, never-refreshed, never-a-cache semantics as start_battery_pct_est.
-	EndBatteryPctEst pgtype.Int2
-	CreatedAt        pgtype.Timestamptz
-	UpdatedAt        pgtype.Timestamptz
-	// Pack capacity in kWh implied by this session: energy_kwh / ((end_battery_pct - start_battery_pct) / 100), rounded to 3 decimals. Same GENERATED ALWAYS AS ... STORED mechanism, same guard, and the same unconstrained NUMERIC type as manual_charge_entries.inferred_capacity_kwh_calc -- the two expressions differ only in the energy IS NOT NULL guard (energy_kwh is nullable here) and the ::NUMERIC cast (energy_kwh is DOUBLE PRECISION here), both forced by the source column (design D4). NULL additionally whenever energy_kwh is NULL, i.e. the session had no kWh fee. This column recomputes when the nightly mirror refreshes energy_kwh AND when a human corrects the percentages through SessionVerifier.VerifySession -- neither write path names this column, and neither has to (design D2).
-	InferredCapacityKwhCalc pgtype.Numeric
-}
-
 // User-asserted home/work/third-party charge sessions not captured by the Tesla Fleet API. Owned by internal/manualcharge; no other module reads this table directly. Mutable table: full CRUD via Writer port (users correct hand-typed entries). No cross-module FK on account_id or tesla_id (ai/architecture.md §2). No raw_data JSONB column: user-typed data has no vendor payload to preserve (ai/go-conventions.md §persistence, design D5).
 type ManualChargeEntry struct {
 	ID              uuid.UUID
@@ -69,8 +33,44 @@ type ManualChargeEntry struct {
 	InferredCapacityKwhCalc pgtype.Numeric
 	// Lifecycle state of this user-asserted charge record: IN_PROGRESS (logged at plug-in time, may lack the end-of-session facts) or DONE (complete). The required-field set is a function of this value and lives in Go, in charging.RequiredFieldsFor -- deliberately NOT as a database CHECK (roadmap D5): a CHECK backstop would turn every future change to the skip set into a migration, working against the ticket's maintainability requirement. Pre-existing rows backfilled to IN_PROGRESS by this column's DEFAULT, by the user's explicit choice, so historical entries surface as unreviewed. Not indexed: nothing predicates on it.
 	Status string
-	// Provenance of energy_added_kwh: USER when the value came from the person, ESTIMATED when this module derived it from the pack capacity and the battery delta on write (roadmap D3/D4). Always computed by internal/charging, never accepted from a caller -- the same shape charge_sessions.battery_pct_source already uses. It exists so a future per-vehicle capacity average (backlog #18) can filter WHERE energy_source = 'USER': inferred_capacity_kwh_calc on an ESTIMATED row returns exactly the capacity constant by algebra, so including such rows would seed that average with its own output. This fact CANNOT be reconstructed later -- once 31.00 is stored, a typed value and a derived one are indistinguishable. Not indexed: nothing predicates on it yet.
+	// Provenance of energy_added_kwh: USER when the value came from the person, ESTIMATED when this module derived it from the pack capacity and the battery delta on write (roadmap D3/D4). Always computed by internal/charging, never accepted from a caller -- the same shape charging.supercharger_sessions.battery_pct_source already uses. It exists so a future per-vehicle capacity average (backlog #18) can filter WHERE energy_source = 'USER': inferred_capacity_kwh_calc on an ESTIMATED row returns exactly the capacity constant by algebra, so including such rows would seed that average with its own output. This fact CANNOT be reconstructed later -- once 31.00 is stored, a typed value and a derived one are indistinguishable. Not indexed: nothing predicates on it yet.
 	EnergySource string
 	// Odometer reading in kilometres observed AT this charge event -- an observation belonging to the event, not current vehicle state, which is why it lives here and not on a vehicle table (roadmap D6). INTEGER, not NUMERIC(10,1): whole kilometres are what the user reads off the dash (the user chose this over the recommended one-decimal type). The _km suffix is mandatory under the project display-unit rule (ai/go-conventions.md). NULL means not recorded. Not indexed: nothing predicates on it.
 	OdometerKm pgtype.Int4
+}
+
+// Tesla Supercharger charge sessions as owned by internal/charging: identity, the session time window, the session facts (site, energy, cost, currency, paid state), and the human-owned battery-percentage verification/estimate columns. Dense — one row per session, verified or not (design D2). Deliberately carries NO country_code, unlatch_date_time, billing_type, vehicle_make_type or raw_data (closed list, design D1). Mirrored from telemetry.supercharger_sessions by the nightly orchestrator through public ports only, in the same cycle that refreshes the source; each mirrored column has exactly its source column's write semantics, so energy_kwh / total_cost / currency / is_paid / tesla_id are refreshed on every pass and everything else mirrored is write-once. The sync path can never write the five percentage columns (design D6). No other module reads this table directly.
+type SuperchargerSession struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	Vin       string
+	// Currently-registered vehicle id, refreshed on every sync and set NULL when the VIN is not a currently-registered vehicle of the account — the same contract telemetry.supercharger_sessions.tesla_id carries. Resolution is inherited from telemetry, never recomputed here: internal/charging may not import internal/account (design D3).
+	TeslaID             pgtype.Int8
+	SessionID           int64
+	ChargeStartDateTime pgtype.Timestamptz
+	ChargeStopDateTime  pgtype.Timestamptz
+	// Supercharger site name as Tesla reported it. Write-once: absent from telemetry's ON CONFLICT DO UPDATE SET, therefore absent from ours (design D1's rule).
+	SiteLocationName string
+	// kWh delivered, derived by telemetry from the session's fees. NULL when the session had no kWh fee. REFRESHED on every mirror pass — telemetry recomputes it nightly as fees settle.
+	EnergyKwh pgtype.Float8
+	// Total charged for the session, in the currency column's currency. Monetary amount: no unit suffix by the platform money exemption, paired with currency instead. NULL when the session had no fees. REFRESHED on every mirror pass. DOUBLE PRECISION is copied from telemetry to keep the backfill a literal copy; float is a questionable type for money and converging with manual_charge_entries.price NUMERIC(14,2) will have to reconcile the two.
+	TotalCost pgtype.Float8
+	// ISO 4217 code for total_cost. NULL when the session had no fees. REFRESHED on every mirror pass.
+	Currency pgtype.Text
+	// Whether every fee on the session is settled. NULL when the session had no fees. REFRESHED on every mirror pass — this is the column that most visibly changes after a session ends.
+	IsPaid pgtype.Bool
+	// Human-verified battery % at charge start (0-100). NULL = nothing recorded. Never written by the nightly sync — the sync port has no field for it (design D6).
+	StartBatteryPct pgtype.Int2
+	// Human-verified battery % at charge end (0-100). Same NULL convention and the same sync-path protection as start_battery_pct.
+	EndBatteryPct pgtype.Int2
+	// Provenance of start/end_battery_pct: user_verified (a human entered them) or polled (a future measured-SOC path, not implemented). Required whenever either percentage is set (supercharger_sessions_pct_source_required). Never 'estimated' — an estimate is computed on read and is never persisted here.
+	BatteryPctSource pgtype.Text
+	// FROZEN write-once snapshot of the live estimate at the moment start_battery_pct was verified — a drift-log entry, not a cache. Never refreshed, including by a later improved model; staleness here is correct, not a bug.
+	StartBatteryPctEst pgtype.Int2
+	// FROZEN write-once snapshot of the live estimate at the moment end_battery_pct was verified. Same write-once, never-refreshed, never-a-cache semantics as start_battery_pct_est.
+	EndBatteryPctEst pgtype.Int2
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
+	// Pack capacity in kWh implied by this session: energy_kwh / ((end_battery_pct - start_battery_pct) / 100), rounded to 3 decimals. Same GENERATED ALWAYS AS ... STORED mechanism, same guard, and the same unconstrained NUMERIC type as manual_charge_entries.inferred_capacity_kwh_calc -- the two expressions differ only in the energy IS NOT NULL guard (energy_kwh is nullable here) and the ::NUMERIC cast (energy_kwh is DOUBLE PRECISION here), both forced by the source column (design D4). NULL additionally whenever energy_kwh is NULL, i.e. the session had no kWh fee. This column recomputes when the nightly mirror refreshes energy_kwh AND when a human corrects the percentages through SessionVerifier.VerifySession -- neither write path names this column, and neither has to (design D2).
+	InferredCapacityKwhCalc pgtype.Numeric
 }

@@ -1,13 +1,13 @@
 // Package charging_test — database-backed integration tests for SessionVerifier
-// (session_verifier.go) and its VerifyChargeSession query (db/query.sql), covering
+// (session_verifier.go) and its VerifySuperchargerSession query (db/query.sql), covering
 // design.md's Test Contract T1-T9 (RM31-charging-add-session-verification-port,
 // tasks.md task 3.1).
 //
 // Fixtures are seeded through SessionWriter.MirrorSessions (the only writer this
 // table has), verified through SessionVerifier.VerifySession, and read back either
-// through the returned charging.Session or through the existing fetchChargeSession
+// through the returned charging.Session or through the existing fetchSuperchargerSession
 // direct-SQL helper (db_session_integration_test.go, same package) — never through
-// chargingdb.ChargeSession. pgtype NEVER appears in this file
+// chargingdb.SuperchargerSession. pgtype NEVER appears in this file
 // (internal/charging/AGENTS.md §Testing Notes). session_ids are in the 950001-950099
 // range, disjoint from RM29 tier 6's 920001-920099, RM30 tier 1's 940001-940099, and
 // the real backfilled 734860294.
@@ -41,7 +41,7 @@ import (
 
 // --- session-verifier-specific test helpers ---
 
-// seedVerifierSession seeds one baseline charge_sessions row via
+// seedVerifierSession seeds one baseline supercharger_sessions row via
 // SessionWriter.MirrorSessions — non-nil SiteLocationName/EnergyKWh/TotalCost/
 // Currency/IsPaid, all five battery-percentage columns NULL (design.md's baseline
 // fixture V1 shape) — and returns its server-assigned id.
@@ -65,20 +65,20 @@ func seedVerifierSession(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, 
 	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
 		t.Fatalf("seedVerifierSession: MirrorSessions: %v", err)
 	}
-	return fetchChargeSessionID(t, pool, accountID, sessionID)
+	return fetchSuperchargerSessionID(t, pool, accountID, sessionID)
 }
 
-// fetchChargeSessionID reads back the server-assigned id for one (accountID,
+// fetchSuperchargerSessionID reads back the server-assigned id for one (accountID,
 // sessionID) pair by direct SQL — SessionWriter.MirrorSessions is an :exec query
 // and returns no row, but every SessionVerifier.VerifySession call needs the id.
-func fetchChargeSessionID(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, sessionID int64) uuid.UUID {
+func fetchSuperchargerSessionID(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, sessionID int64) uuid.UUID {
 	t.Helper()
 	var id uuid.UUID
 	if err := pool.QueryRow(context.Background(),
-		"SELECT id FROM charge_sessions WHERE account_id = $1 AND session_id = $2",
+		"SELECT id FROM charging.supercharger_sessions WHERE account_id = $1 AND session_id = $2",
 		accountID, sessionID,
 	).Scan(&id); err != nil {
-		t.Fatalf("fetchChargeSessionID: %v", err)
+		t.Fatalf("fetchSuperchargerSessionID: %v", err)
 	}
 	return id
 }
@@ -92,7 +92,7 @@ func ptrIntV(v int) *int { return &v }
 // TestVerifySession_OutOfRangeRejectedBeforeQuery/WrongAccountIsNoOp cares about
 // (start_battery_pct, end_battery_pct, battery_pct_source, updated_at) is identical
 // between before and after.
-func assertVerifierColumnsUnchanged(t *testing.T, before, after chargeSessionRow, context string) {
+func assertVerifierColumnsUnchanged(t *testing.T, before, after superchargerSessionRow, context string) {
 	t.Helper()
 	if !intPtrEqualV(before.StartBatteryPct, after.StartBatteryPct) {
 		t.Errorf("%s: StartBatteryPct changed: before %v, after %v", context, before.StartBatteryPct, after.StartBatteryPct)
@@ -152,12 +152,12 @@ func stringPtrEqualV(a, b *string) bool {
 func TestVerifySession_T1_T4_T9_SetThenClearAdvancesUpdatedAt(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 	v := charging.NewSessionVerifier(pool)
 
 	v1ID := seedVerifierSession(t, pool, acctA, 950001)
-	baseline, ok := fetchChargeSession(t, pool, acctA, 950001)
+	baseline, ok := fetchSuperchargerSession(t, pool, acctA, 950001)
 	if !ok {
 		t.Fatalf("expected baseline row for session 950001")
 	}
@@ -220,7 +220,7 @@ func TestVerifySession_T1_T4_T9_SetThenClearAdvancesUpdatedAt(t *testing.T) {
 func TestVerifySession_PartialStartOnlyStillSetsSource(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 	v := charging.NewSessionVerifier(pool)
 
@@ -259,7 +259,7 @@ func TestVerifySession_PartialStartOnlyStillSetsSource(t *testing.T) {
 func TestVerifySession_PartialEndOnlyStillSetsSource(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 	v := charging.NewSessionVerifier(pool)
 
@@ -288,12 +288,12 @@ func TestVerifySession_PartialEndOnlyStillSetsSource(t *testing.T) {
 func TestVerifySession_OutOfRangeRejectedBeforeQuery(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 	v := charging.NewSessionVerifier(pool)
 
 	v5ID := seedVerifierSession(t, pool, acctA, 950005)
-	before, ok := fetchChargeSession(t, pool, acctA, 950005)
+	before, ok := fetchSuperchargerSession(t, pool, acctA, 950005)
 	if !ok {
 		t.Fatalf("expected baseline row for session 950005")
 	}
@@ -306,7 +306,7 @@ func TestVerifySession_OutOfRangeRejectedBeforeQuery(t *testing.T) {
 	if !strings.Contains(err.Error(), "start_battery_pct") || !strings.Contains(err.Error(), "101") {
 		t.Errorf("error = %q, want it to contain \"start_battery_pct\" and \"101\"", err.Error())
 	}
-	after1, ok := fetchChargeSession(t, pool, acctA, 950005)
+	after1, ok := fetchSuperchargerSession(t, pool, acctA, 950005)
 	if !ok {
 		t.Fatalf("expected row for session 950005 still present")
 	}
@@ -320,7 +320,7 @@ func TestVerifySession_OutOfRangeRejectedBeforeQuery(t *testing.T) {
 	if !strings.Contains(err.Error(), "end_battery_pct") || !strings.Contains(err.Error(), "-1") {
 		t.Errorf("error = %q, want it to contain \"end_battery_pct\" and \"-1\"", err.Error())
 	}
-	after2, ok := fetchChargeSession(t, pool, acctA, 950005)
+	after2, ok := fetchSuperchargerSession(t, pool, acctA, 950005)
 	if !ok {
 		t.Fatalf("expected row for session 950005 still present")
 	}
@@ -330,19 +330,19 @@ func TestVerifySession_OutOfRangeRejectedBeforeQuery(t *testing.T) {
 // --- T6 ---
 
 // TestVerifySession_WrongAccountIsNoOp mirrors TestUpdate_CrossAccountIsNoOp
-// (db_integration_test.go) for charge_sessions: calling VerifySession with a
+// (db_integration_test.go) for supercharger_sessions: calling VerifySession with a
 // session id that belongs to a different account has zero effect and returns an
 // error wrapping pgx.ErrNoRows.
 func TestVerifySession_WrongAccountIsNoOp(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
 	acctB := uuid.New()
-	cleanupChargeSessions(t, pool, acctA, acctB)
+	cleanupChargingSuperchargerSessions(t, pool, acctA, acctB)
 	ctx := context.Background()
 	v := charging.NewSessionVerifier(pool)
 
 	v6ID := seedVerifierSession(t, pool, acctA, 950006)
-	before, ok := fetchChargeSession(t, pool, acctA, 950006)
+	before, ok := fetchSuperchargerSession(t, pool, acctA, 950006)
 	if !ok {
 		t.Fatalf("expected baseline row for session 950006")
 	}
@@ -355,7 +355,7 @@ func TestVerifySession_WrongAccountIsNoOp(t *testing.T) {
 		t.Errorf("expected error wrapping pgx.ErrNoRows, got %v", err)
 	}
 
-	after, ok := fetchChargeSession(t, pool, acctA, 950006)
+	after, ok := fetchSuperchargerSession(t, pool, acctA, 950006)
 	if !ok {
 		t.Fatalf("expected row for session 950006 still present under acctA")
 	}
@@ -370,7 +370,7 @@ func TestVerifySession_WrongAccountIsNoOp(t *testing.T) {
 func TestVerifySession_UnknownIDSameErrorShapeAsWrongAccount(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 	v := charging.NewSessionVerifier(pool)
 
@@ -389,18 +389,18 @@ func TestVerifySession_UnknownIDSameErrorShapeAsWrongAccount(t *testing.T) {
 // D1: a successful verify changes ONLY start_battery_pct, end_battery_pct,
 // battery_pct_source, and updated_at. Every other column is captured via direct SQL
 // both before and after the call and asserted bit-identical. id, account_id, and
-// session_id are implicitly unchanged — fetchChargeSession is keyed on
+// session_id are implicitly unchanged — fetchSuperchargerSession is keyed on
 // (account_id, session_id), so a changed id or session_id would make the "after"
 // re-fetch return ok=false or a different row outright.
 func TestVerifySession_OnlyTargetColumnsChange(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
-	cleanupChargeSessions(t, pool, acctA)
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
 	ctx := context.Background()
 	v := charging.NewSessionVerifier(pool)
 
 	v8ID := seedVerifierSession(t, pool, acctA, 950008)
-	before, ok := fetchChargeSession(t, pool, acctA, 950008)
+	before, ok := fetchSuperchargerSession(t, pool, acctA, 950008)
 	if !ok {
 		t.Fatalf("expected baseline row for session 950008")
 	}
@@ -409,16 +409,16 @@ func TestVerifySession_OnlyTargetColumnsChange(t *testing.T) {
 		t.Fatalf("VerifySession: %v", err)
 	}
 
-	after, ok := fetchChargeSession(t, pool, acctA, 950008)
+	after, ok := fetchSuperchargerSession(t, pool, acctA, 950008)
 	if !ok {
 		t.Fatalf("expected row for session 950008 still present")
 	}
 
-	// id must be bit-identical too (design.md T8 lists it). chargeSessionRow carries
+	// id must be bit-identical too (design.md T8 lists it). superchargerSessionRow carries
 	// no ID field and belongs to RM29 tier 6's test file, which this change must not
 	// touch — so re-read the key directly. account_id and session_id are already
-	// pinned by fetchChargeSession's own WHERE clause returning ok above.
-	if got := fetchChargeSessionID(t, pool, acctA, 950008); got != v8ID {
+	// pinned by fetchSuperchargerSession's own WHERE clause returning ok above.
+	if got := fetchSuperchargerSessionID(t, pool, acctA, 950008); got != v8ID {
 		t.Errorf("id changed: before %v, after %v", v8ID, got)
 	}
 

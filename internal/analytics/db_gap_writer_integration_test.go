@@ -54,7 +54,7 @@ import (
 func cleanupChargeGaps(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64) {
 	t.Helper()
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM charge_gaps WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM analytics.charge_gaps WHERE account_id = $1 AND tesla_id = $2", accountID, teslaID)
 	})
 }
 
@@ -64,7 +64,7 @@ func cleanupChargeGaps(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, te
 func cleanupChargeGapsByAccount(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID) {
 	t.Helper()
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), "DELETE FROM charge_gaps WHERE account_id = $1", accountID)
+		_, _ = pool.Exec(context.Background(), "DELETE FROM analytics.charge_gaps WHERE account_id = $1", accountID)
 	})
 }
 
@@ -74,7 +74,7 @@ func countChargeGaps(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, tesl
 	t.Helper()
 	var n int
 	if err := pool.QueryRow(context.Background(),
-		"SELECT COUNT(*) FROM charge_gaps WHERE account_id = $1 AND tesla_id = $2",
+		"SELECT COUNT(*) FROM analytics.charge_gaps WHERE account_id = $1 AND tesla_id = $2",
 		accountID, teslaID,
 	).Scan(&n); err != nil {
 		t.Fatalf("counting charge_gaps rows: %v", err)
@@ -95,7 +95,7 @@ type chargeGapRow struct {
 func fetchChargeGap(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64, date time.Time) (row chargeGapRow, ok bool) {
 	t.Helper()
 	err := pool.QueryRow(context.Background(),
-		`SELECT missing_charging_type, created_at, updated_at FROM charge_gaps
+		`SELECT missing_charging_type, created_at, updated_at FROM analytics.charge_gaps
 		 WHERE account_id = $1 AND tesla_id = $2 AND gap_date = $3`,
 		accountID, teslaID, date,
 	).Scan(&row.MissingChargingType, &row.CreatedAt, &row.UpdatedAt)

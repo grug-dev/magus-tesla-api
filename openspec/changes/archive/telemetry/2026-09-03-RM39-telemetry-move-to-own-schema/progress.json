@@ -1,0 +1,466 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM39-telemetry-move-to-own-schema",
+  "module": "telemetry",
+  "roadmap": "RM39-schema-per-module",
+  "request": "Tier 4 of RM39: move internal/telemetry's 4 tables into a dedicated telemetry Postgres schema and rename supercharger_sessions -> supercharger_history, with its 9 catalog objects and the Go names that follow the table. The public port SuperchargerReader stays unchanged (tier 5).",
+  "status": "archived",
+  "created_at": "2026-09-03T09:55:00Z",
+  "updated_at": "2026-09-03T11:20:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM39-MAG-31-schema-per-module-renames",
+    "base": "main",
+    "ticket": "MAG-31",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-31/analyze-scheme-per-module",
+    "created_at": "2026-09-02T01:25:55Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [],
+    "blocked": [],
+    "done": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "T10",
+      "T11"
+    ],
+    "awaiting-user-verification": []
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Goose migration: CREATE SCHEMA + 4 SET SCHEMA + RENAME TO + 9 catalog renames + COMMENT ON refresh",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T09:58:00Z",
+      "completed_at": "2026-09-03T10:05:00Z",
+      "duration_seconds": 420,
+      "notes": "Created 20260903000001_move_telemetry_to_own_schema.sql. Up: CREATE SCHEMA -> 4x SET SCHEMA -> RENAME TO supercharger_history -> 9 catalog renames (7 constraint, 2 index) -> 1 COMMENT ON TABLE + 3 COMMENT ON COLUMN refresh. Down exact reverse, ends DROP SCHEMA, no CASCADE. Leader re-verified all 9 objects and the reverse order by reading the file.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.5,
+        "approx": true,
+        "note": "wave 1 delta shared across T1+T2 (one serial worker)"
+      }
+    },
+    {
+      "id": "T2",
+      "title": "Schema-qualify all 15 table references in db/query.sql + rename 5 query names",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T09:58:00Z",
+      "completed_at": "2026-09-03T10:05:00Z",
+      "duration_seconds": 420,
+      "notes": "All 15 table refs schema-qualified (leader re-ran the acceptance grep: 0 unqualified, 0 leftover supercharger_sessions). 5 -- name: lines renamed. 6 prose mentions fixed. Port method names left untouched per D6.",
+      "budget": {
+        "five_hour_pct_delta": 8,
+        "cost_usd_delta": 2.5,
+        "approx": true,
+        "note": "wave 1 delta shared across T1+T2 (one serial worker)"
+      }
+    },
+    {
+      "id": "T3",
+      "title": "sqlc.yaml rename block + make sqlc + mandatory models.go diff (SuperchargerHistory only)",
+      "module": "telemetry",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:08:00Z",
+      "completed_at": "2026-09-03T10:14:00Z",
+      "duration_seconds": 360,
+      "notes": "Leader-integrated. 4-key rename block added to sqlc.yaml's telemetry entry; make sqlc clean first try. models.go diff is EXACTLY the expected shape: SuperchargerSession -> SuperchargerHistory plus 2 comment refreshes, zero field changes, no Telemetry-prefixed struct. query.sql.go has all 5 renamed funcs + Params.",
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "Rename hand-written SuperchargerSession -> SuperchargerHistory and follow it through the module",
+      "module": "telemetry",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T10:15:00Z",
+      "completed_at": "2026-09-03T10:25:00Z",
+      "duration_seconds": 600,
+      "notes": "Renamed SuperchargerSession -> SuperchargerHistory in telemetry.go; updated call sites in reader.go/mapping.go/service.go to the renamed query funcs/params; ran the T4.5 sweep by rule. go build ./... green (was red on purpose pre-dispatch). Leader re-verified all six tier-5 identifiers survive unchanged.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.1,
+        "approx": true,
+        "note": "wave 2 delta shared across T4+T9 (one serial worker); statusline cache was reporting a foreign session, so the figure is indicative"
+      }
+    },
+    {
+      "id": "T5",
+      "title": "FINAL WAVE: telemetry's own _test.go files (41 raw SQL statements, 7 files)",
+      "module": "telemetry",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:48:00Z",
+      "duration_seconds": null,
+      "notes": "41 SQL statements qualified across 7 files (independent re-measure: 41 = design D9's 41, exact per-file match) + 25 SuperchargerSession type refs in 5 files. Zero expected assertion values changed, zero search_path added. Leader fixed one stale comment T5 left behind.",
+      "budget": {
+        "five_hour_pct_delta": 5,
+        "cost_usd_delta": 1.9,
+        "approx": true,
+        "note": "ran parallel with the leader's T6/T7/T8/T10, so the wave delta is shared"
+      }
+    },
+    {
+      "id": "T6",
+      "title": "FINAL WAVE: internal/analytics/db_integration_test.go (4 SQL + 3 type refs)",
+      "module": "analytics [leader-owned]",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:45:00Z",
+      "duration_seconds": null,
+      "notes": "4 raw SQL statements qualified (2 vehicle_snapshots, 2 supercharger_history) + 3 telemetry.SuperchargerSession type refs updated. T6.3 confirmed: both watermark replay tests untouched, no search_path edited (git diff shows only db_integration_test.go changed in analytics).",
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "FINAL WAVE: internal/app/processor_test.go (4 type refs)",
+      "module": "app [leader-owned]",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:45:00Z",
+      "duration_seconds": null,
+      "notes": "4 telemetry.SuperchargerSession refs in fakeSuperchargerReader updated to SuperchargerHistory. All four SuperchargerSessionsBy* METHOD names kept - the fake implements the port, and the port is tier 5. go vet clean.",
+      "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "FINAL WAVE: internal/charging (D11 three forward mappings + D12 comment-only corrections)",
+      "module": "charging [leader-owned]",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:45:00Z",
+      "duration_seconds": null,
+      "notes": "D11's three guarded mappings now in runBackfill (INSERT target + the dangerous to_regclass guard + the FROM source), each with its own exactly-one-occurrence t.Fatalf. Header comment rewritten to the three-mapping rule. 3 D9 statements qualified. T8.6 comment-only: verified zero non-comment lines changed.",
+      "budget": null
+    },
+    {
+      "id": "T9",
+      "title": "Module docs: internal/telemetry/AGENTS.md",
+      "module": "telemetry",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T10:15:00Z",
+      "completed_at": "2026-09-03T10:25:00Z",
+      "duration_seconds": 600,
+      "notes": "Updated internal/telemetry/AGENTS.md - schema telemetry, table rename, query-name rename, and an explicit tier-5 half-state warning on the SuperchargerReader block so a future agent will not 'fix' it.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.1,
+        "approx": true,
+        "note": "wave 2 delta shared across T4+T9 (one serial worker); statusline cache was reporting a foreign session, so the figure is indicative"
+      }
+    },
+    {
+      "id": "T10",
+      "title": "Repo docs + knowledge base sweep",
+      "module": "platform [leader-owned]",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:28:00Z",
+      "completed_at": "2026-09-03T10:45:00Z",
+      "duration_seconds": null,
+      "notes": "13 files swept per-occurrence with the discrimination rule. Edited: README (4 schema-table rows + the now-obsolete base-name-collision note), ai/go-conventions, docs/battery-consumed-graph, 3 KB guides incl. resolving telemetry-ingest-only.md's PENDING banner. 5 KB files confirmed charging-side only, no edit.",
+      "budget": null
+    },
+    {
+      "id": "T11",
+      "title": "Verification: build/vet/gofmt/migration-guard + owner-run suite",
+      "module": "telemetry",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10"
+      ],
+      "parallel_ok": false,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:48:00Z",
+      "completed_at": "2026-09-03T11:05:00Z",
+      "duration_seconds": null,
+      "notes": "Assistant half: build, vet repo-wide, gofmt, migration/boundary/tz/money guards all green. Owner half: reported make test passing on the disposable container.",
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review RM39 tier 4 (RM39-telemetry-move-to-own-schema), diff ffcb7e2..HEAD. Gate items, hardest first. (1) CATALOG COMPLETENESS is the one that failed last time: tier 3 shipped, passed review AND archived with five constraints still misnamed, because Postgres auto-names one CHECK per inline column constraint and those names live only in pg_constraint. Check all 9 objects in design D7 against the migration, and check the Down reverses them in the exact opposite order with no CASCADE. (2) DB matches the OWNER-CONFIRMED design (decision C1/roadmap D29) - any deviation is a BLOCKER, not a nit. Index plan promised nothing added or dropped and every statement catalog-only. (3) D6's INTENTIONAL HALF-STATE: SuperchargerReader, its four SuperchargerSessions* methods, NewSuperchargerReader, superchargerReader, rowToSuperchargerSession, upsertSuperchargerSession MUST still carry their old names. A finding that says 'rename these for consistency' is WRONG and will be rejected - that is tier 5. (4) RAW TEST SQL (D9) is this tier's central risk: invisible to sqlc and go vet. Verify the 41 statements across 7 telemetry test files plus the cross-module ones in charging/analytics are all schema-qualified and name supercharger_history. (5) D10: no search_path was added anywhere. A bare supercharger_sessions resolved through a search_path including charging would silently read CHARGING's table and pass while asserting the wrong data. (6) T8's three guarded mappings in charging's backfill replay, especially the to_regclass one - a miss fails SILENTLY on empty assertions. (7) T8.6 changed comments ONLY inside the shipped migration 20260823000001 - verify zero SQL lines moved. (8) TEST QUALITY BY READING, NOT RUNNING: confirm the test edits assert the values design.md's Test Contract authored BEFORE implementation, not values derived from the implementation. Zero expected assertion values should have changed - this tier renames, it does not change behavior. (9) Performance-Profile (read-heavy): confirm no query shape, predicate or plan changed. (10) Docs rule: structure docs AND kkpa/context/ updated in the same change; check the discrimination rule was applied per occurrence (telemetry's mentions renamed, charging's own supercharger_sessions left alone, analytics' watermark vocabulary untouched). (11) ANTI-GAMING: no acceptance criterion weakened or deleted, no status self-approved. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards. The owner runs the suite and reports results. SIGNAL PROVENANCE: assistant-run = go build ./..., go vet ./... repo-wide, gofmt -l, make migration-guard/boundary-guard/tz-guard/money-guard, all green. USER-REPORTED = `make test` (full suite, disposable postgres:16-alpine) PASSING, reported by the owner on 2026-09-03. You must NOT run any suite; judge test quality by reading.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-03T10:21:27Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "file": "openspec/changes/RM39-telemetry-move-to-own-schema/tasks.md",
+            "note": "Sub-tasks under T3, T6, T7, T8, T10 and T11 (all leader-owned) remain unchecked (`- [ ]`) even though progress.json marks the parent tasks 'done' and the corresponding code/doc changes are verified present and correct in the diff (sqlc.yaml rename block, analytics/app/charging test fixes, D11's three-mapping backfill guard, T8.6 comment-only migration edit, README/go-conventions/KB sweep, and the build/vet/guard signals). ai/agentic-workflow.md states 'tasks.md wins on implementation done-ness, progress.json wins on review state' — a future session reading tasks.md alone would see this tier as far less complete than it is. Not gaming (it under-claims, not over-claims) and does not block archive, but the leader should tick these boxes before archiving so the two files agree."
+          }
+        ],
+        "notes": "Reviewed git diff ffcb7e2..HEAD (33 files, +771/-379) cold against design.md, proposal.md, tasks.md, spec.md and the doc pack. Verified: (1) migration's 9 catalog renames match design D7 exactly, table-by-table; Down reverses in exact opposite order, no CASCADE, no search_path anywhere in the migration or any test file. (2) query.sql: all 15 table refs schema-qualified, exactly the 5 query names renamed; sqlc.yaml's rename block touches only the telemetry entry with the exact 4 keys design D5c/D3 specify; models.go shows only SuperchargerSession->SuperchargerHistory plus the refreshed COMMENT text, zero stray Telemetry-prefixed struct. (3) D6 half-state fully intact: SuperchargerReader, its four SuperchargerSessionsBy* methods, NewSuperchargerReader, superchargerReader, rowToSuperchargerSession, upsertSuperchargerSession all still carry old names, now returning []SuperchargerHistory; AGENTS.md explicitly warns future agents not to 'fix' this. (4) Raw test SQL: exactly 41 schema-qualified statements across the same 7 telemetry test files design D9 named; cross-module sweep in analytics (4 SQL + 3 type refs) and app (4 type refs) matches proposal's counts exactly; charging.supercharger_sessions left untouched throughout (correct, different table). (5) No search_path added anywhere (grepped). (6) charging/db_backfill_integration_test.go's runBackfill now maps THREE names (INSERT target, to_regclass guard, FROM source), each with its own exactly-one-occurrence t.Fatalf, matching D11 exactly. (7) The shipped charging migration 20260823000001 diff is comment-only -- confirmed zero non-comment lines changed. (8) Read every changed test file's diff: no expected assertion value changed anywhere (battery-pct trio values, EXPLAIN index-name assertion text, etc. all preserved) -- only names/qualifiers/types changed, consistent with a pure rename. (9) No query shape/predicate/plan change -- confirmed by reading query.sql and the Index Plan's catalog-only claim against the actual migration SQL. (10) Docs: README, ai/go-conventions.md, docs/battery-consumed-graph.md and the three kkpa/context guides all apply the per-occurrence discrimination rule correctly -- charging's own supercharger_sessions mentions and the analytics watermark vocabulary were left alone. (11) Anti-gaming: no spec/task criterion weakened; progress.json's 'verified' top-level status is supported by decision C12 (owner ran make test, PASSING, 2026-09-03) which matches the dispatch prompt's declared user-reported signal -- not an assistant self-claim. Re-ran go build ./..., go vet ./..., gofmt -l, make migration-guard, make boundary-guard myself: all clean. One minor finding (F1, tasks.md checkbox drift on leader-owned tasks) does not block approval."
+      }
+    ]
+  },
+  "decisions": [
+    {
+      "id": "C1",
+      "at": "2026-09-03T09:52:00Z",
+      "scope": "design-gate",
+      "made_by": "user",
+      "decision": "Tier 4's database design APPROVED as specified: one migration doing the 4-table move, the supercharger_history rename, the 9 catalog renames and the COMMENT refresh",
+      "why": "Rejected: move-only (repeats the 41-statement sweep later, leaves two supercharger_sessions alive) and split-in-two (same work, adds an intermediate state)."
+    },
+    {
+      "id": "C2",
+      "at": "2026-09-03T09:50:00Z",
+      "scope": "artifacts",
+      "made_by": "leader",
+      "decision": "Corrected design.md Test Contract point 6: the EXPLAIN grep is NOT clean",
+      "why": "It told final-wave workers to record a clean grep that returns hits. Substantive claim survives: no EXPLAIN assertion names a renamed object."
+    },
+    {
+      "id": "C3",
+      "at": "2026-09-03T09:50:00Z",
+      "scope": "artifacts",
+      "made_by": "leader",
+      "decision": "Accepted all 5 worker-reported doc inconsistencies as accurate; tasks.md already carries the corrected counts",
+      "why": "Verified each myself: 8 type refs (7 test + 1 comment), 15 name blocks, EXPLAIN hits real, 20260903000001 free. None blocks implementation."
+    },
+    {
+      "id": "C4",
+      "at": "2026-09-03T10:05:00Z",
+      "scope": "wave:1",
+      "made_by": "autopilot",
+      "decision": "Did NOT ask the owner to run the suite at the end of wave 1",
+      "why": "Wave 1 changed only SQL. The generated Go still names the old queries, so testcontainer tests would fail on the new schema by design. First honest ask point is after T4."
+    },
+    {
+      "id": "C5",
+      "at": "2026-09-03T10:05:00Z",
+      "scope": "wave:1",
+      "made_by": "leader",
+      "decision": "Worker's reported timestamps (00:00Z-01:05Z) replaced with the real wave clock",
+      "why": "They predate the dispatch. Notes transcribed verbatim; only the times corrected, so the file stays truthful."
+    },
+    {
+      "id": "C6",
+      "at": "2026-09-03T10:08:00Z",
+      "scope": "wave:2",
+      "made_by": "autopilot",
+      "decision": "Leader implemented T3 in-session instead of dispatching a worker",
+      "why": "tasks.md already marks the make sqlc run leader-integrated, and T3.3's inflection risk needs an iterate-on-output loop that costs a worker round-trip per attempt."
+    },
+    {
+      "id": "C7",
+      "at": "2026-09-03T10:14:00Z",
+      "scope": "wave:2",
+      "made_by": "leader",
+      "decision": "T3.3's empirical question is ANSWERED: telemetry_supercharger_history is the correct rename key",
+      "why": "The irregular plural (history/histories) was a real risk since a wrong key is ignored at exit 0. Measured, not reasoned: no Telemetry-prefixed struct in models.go."
+    },
+    {
+      "id": "C8",
+      "at": "2026-09-03T10:28:00Z",
+      "scope": "wave:3",
+      "made_by": "autopilot",
+      "decision": "Ran the final wave PARALLEL: a worker on T5 while the leader does T6/T7/T8/T10 concurrently",
+      "why": "The exception to serial batching is met - disjoint files (worker in telemetry tests, leader in analytics/app/charging/docs) and the leader-owned half cannot be delegated anyway."
+    },
+    {
+      "id": "C9",
+      "at": "2026-09-03T10:40:00Z",
+      "scope": "task:T8.6",
+      "made_by": "leader",
+      "decision": "FOLDED IN, not deferred: all three comment corrections inside charging's shipped migration 20260823000001",
+      "why": "Design D12 required an explicit choice. Deferring would leave a comment that is now simply false about a guard this tier makes always-skip. Zero SQL lines changed, verified mechanically."
+    },
+    {
+      "id": "C10",
+      "at": "2026-09-03T10:40:00Z",
+      "scope": "task:T8.1",
+      "made_by": "leader",
+      "decision": "The RAISE NOTICE string inside the guard is deliberately NOT rewritten",
+      "why": "tasks.md left it optional. It is prose inside a RAISE, constrains nothing, and a fourth fragile string match could break the replay on a harmless wording change."
+    },
+    {
+      "id": "C11",
+      "at": "2026-09-03T10:45:00Z",
+      "scope": "task:T10.2",
+      "made_by": "leader",
+      "decision": "CHECKED AND UNAFFECTED: no doc asserts a schema for the three purely-moved tables",
+      "why": "The reverse-direction docs rule makes this a finding only if actually run. grep for public.<table> across kkpa/context, docs, ai and README returned zero rows."
+    },
+    {
+      "id": "C12",
+      "at": "2026-09-03T10:52:00Z",
+      "scope": "verification",
+      "made_by": "user",
+      "decision": "Verify tier 4 with the FULL suite on a disposable container: make test",
+      "why": "Rejected the throwaway-DATABASE_URL route (needs a hand-checked URL) and telemetry-only (skips charging's backfill pair, the exact tests the riskiest edit affects)."
+    },
+    {
+      "id": "C13",
+      "at": "2026-09-03T11:15:00Z",
+      "scope": "review:F1",
+      "made_by": "leader",
+      "decision": "F1 ACCEPTED and fixed: ticked the 45 tasks.md checkboxes the leader never ticked for its own leader-owned tasks",
+      "why": "Correct catch. ai/agentic-workflow.md makes tasks.md win on implementation done-ness, so the drift made the authoritative file under-claim finished work."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-03T09:52:00Z",
+      "agent": "leader",
+      "event": "ARTIFACTS COMPLETE. Step 3 had been interrupted with only proposal.md and design.md written; a re-dispatched Opus telemetry worker added specs/telemetry/spec.md (2 ADDED requirements, 11 GIVEN/WHEN/THEN scenarios) and tasks.md (T1-T11, 43 checkboxes, 9 catalog objects as 9 separate boxes, models.go diff as a hard acceptance criterion). openspec validate --strict: valid, exit 0. Worker note worth keeping for tier 5: the validator only scans the FIRST line after a Requirement header for SHALL/MUST."
+    },
+    {
+      "at": "2026-09-03T09:52:00Z",
+      "agent": "leader",
+      "event": "DESIGN GATE (database) PASSED — the owner approved the design as specified (C1). Index plan confirmed as part of it: no index added, none dropped, every statement catalog-only, so all four tables keep their OIDs, columns and column order and no read path changes plan. Approved against the read-heavy Performance-Profile on exactly that basis."
+    },
+    {
+      "at": "2026-09-03T09:58:00Z",
+      "agent": "leader",
+      "event": "WAVE 1 DISPATCHED: T1 (goose migration) + T2 (query.sql qualification + 5 query-name renames) to ONE serial telemetry worker on Sonnet. Batched rather than parallelised — two tasks, one doc-pack read. Sonnet despite tier 3's 5-misnamed-constraint failure, because tasks.md now carries all 9 catalog objects as 9 named checkboxes, so the judgement that failed at tier 3 has been moved into the artifact."
+    },
+    {
+      "at": "2026-09-03T10:05:00Z",
+      "agent": "leader",
+      "event": "WAVE 1 COMPLETE (T1, T2). Leader independently verified the highest-risk artifact rather than trusting the report: read the migration in full (9 catalog renames present, Down is the exact reverse, no CASCADE anywhere, COMMENT ON re-issued for 1 table + 3 columns) and re-ran T2's acceptance greps (0 unqualified refs, 15 qualified: 7 vehicle_snapshots + 2 poll_attempts + 5 supercharger_history + 1 poll_runs, 0 leftover supercharger_sessions, 5 query names renamed). Worker signals: gofmt clean, go build clean, go vet clean, make migration-guard passed. Worker finding: design D8 says all three refreshed column comments name UpsertSuperchargerSession; end_battery_pct_est does not. Accurate, cosmetic, all three were refreshed anyway per T1.4."
+    },
+    {
+      "at": "2026-09-03T10:14:00Z",
+      "agent": "leader",
+      "event": "T3 DONE (leader-integrated). sqlc.yaml gained the 4-key rename block; make sqlc regenerated cleanly. The mandatory models.go diff came out exactly as design.md's Test Contract point 1 specifies -- one type identifier renamed, two comment lines refreshed by T1.4's COMMENT ON, and ZERO field-level changes. All four rename keys matched, so the three preserving keys held PollAttempt/PollRun/VehicleSnapshot byte-identical and ~144 call sites never moved. go build ./... now fails ONLY at T4's call sites in mapping.go/reader.go/service.go, which is T3.5's stated acceptance."
+    },
+    {
+      "at": "2026-09-03T10:25:00Z",
+      "agent": "leader",
+      "event": "WAVE 2 COMPLETE (T4, T9). go build ./... is fully green. Leader independently re-checked the rule most at risk here -- D6's intentional half-state -- and all six tier-5 identifiers survive unchanged: SuperchargerReader, its 4 SuperchargerSessions* methods, NewSuperchargerReader, superchargerReader, rowToSuperchargerSession, upsertSuperchargerSession. Only their signatures moved to SuperchargerHistory. The hand-written type is now telemetry.go:429 type SuperchargerHistory struct. go vet still red in exactly 3 test files (telemetry/service_test.go, app/processor_test.go, analytics/db_integration_test.go) -- that is T5/T6/T7, the final wave, and is the expected state."
+    },
+    {
+      "at": "2026-09-03T10:25:00Z",
+      "agent": "leader",
+      "event": "WORKER FINDING (pre-existing, out of scope, NOT fixed): internal/telemetry/AGENTS.md's SuperchargerReader block never documented the 4th method SuperchargerSessionsByVehicleUpdatedSince at all. It predates RM39 and is unrelated to the rename, so T9 (scoped to rename mentions) left it. Surfaced to the owner at archive as a backlog candidate rather than silently widening this change."
+    },
+    {
+      "at": "2026-09-03T10:28:00Z",
+      "agent": "leader",
+      "event": "FINAL WAVE DISPATCHED. T5 (telemetry's own 41 raw SQL statements across 7 test files) to a Sonnet telemetry worker; T6/T7/T8/T10 executed by the leader in parallel because they cross the module sandbox into analytics, app, charging and the repo docs. Their expected values were authored in design.md's Test Contract before implementation, so neither half derives an expectation by reading the code."
+    },
+    {
+      "at": "2026-09-03T10:45:00Z",
+      "agent": "leader",
+      "event": "LEADER HALF OF THE FINAL WAVE COMPLETE (T6, T7, T8, T10). go vet clean across analytics, app and charging; gofmt clean. T8's three-mapping fix is the one that decides whether this tier ships broken: the to_regclass guard mapping fails SILENTLY if missed (NULL guard -> early RETURN -> no error, just a NOTICE -> A1/A2 fail on empty assertions, reading like a data bug). All three mappings now carry an exactly-one-occurrence t.Fatalf. T10 applied the discrimination rule per occurrence across 13 files: telemetry's mentions became telemetry.supercharger_history, charging's own supercharger_sessions was left alone everywhere, and the watermark-vocabulary lines (analytics', settled by tier 3b) were left untouched."
+    },
+    {
+      "at": "2026-09-03T10:48:00Z",
+      "agent": "leader",
+      "event": "FINAL WAVE COMPLETE (T5 + the leader's T6/T7/T8/T10). T5 re-measured D9 independently and got 41 statements across 7 files, matching the design's per-file table exactly - no discrepancy. Leader verification repo-wide: 0 unqualified telemetry-table SQL references in any Go file; the only 3 remaining bare 'supercharger_sessions' in telemetry tests are history-narrating comments (a migration filename and an RM27 event), which T4.5's rule says keep the old name; no search_path was added anywhere (the 2 diff hits are the leader's own T8.2 comment ABOUT why search_path is wrong). One stale comment T5 left - 'deletes supercharger_sessions' describing current identity - was fixed by the leader on the spot rather than left for the reviewer."
+    },
+    {
+      "at": "2026-09-03T10:48:00Z",
+      "agent": "leader",
+      "event": "ASSISTANT-RUN SIGNALS, ALL GREEN: go build ./... clean, go vet ./... clean repo-wide (it compiles _test.go, so it covers every type rename in every test file), gofmt -l clean on all 22 touched files, make migration-guard / boundary-guard / tz-guard / money-guard all pass. NOT RUN, AND NOT CLAIMED: the test suite. Per Test-Execution-Policy every task is complete-but-unexecuted, so the change is awaiting the owner's verification before the reviewer gate."
+    },
+    {
+      "at": "2026-09-03T10:50:00Z",
+      "agent": "leader",
+      "event": "MANDATORY ASK POINT (Step 5.7 + Step 6, merged - the final wave is also the last code-touching wave, so one ask serves both). T1-T8 moved from done to AWAITING-USER-VERIFICATION: their work is complete but no test has been executed by the assistant, and this tier's central risk (raw SQL in _test.go) has no assistant-runnable signal at all. T9/T10 stay done - they are docs and depend on no suite. The reviewer gate does NOT open until the owner reports the suite."
+    },
+    {
+      "at": "2026-09-03T10:52:00Z",
+      "agent": "leader",
+      "event": "PIPELINE PAUSED AT THE VERIFICATION GATE. The owner chose make test (disposable postgres:16-alpine), which also exercises the cold-start path since the container applies every migration to a fresh database. Waiting for the owner's reported result; the assistant runs nothing. On a pass, T1-T8 go done, the pass is recorded as the OWNER'S verification naming the command they ran, and the reviewer gate opens (Step 7). On a failure, the fix goes into a new wave and nothing is archived."
+    },
+    {
+      "at": "2026-09-03T11:05:00Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE OWNER, NOT BY THE ASSISTANT. The owner ran `make test` (full suite, disposable postgres:16-alpine) and reported it PASSING. This is recorded as the owner's result; the assistant executed no test at any point in this change. Because the container applies every migration to a fresh database, this pass also exercises the cold-start path -- including RM39 tier 4's new migration and charging's backfill guard, which now always skips. T1-T8 move from awaiting-user-verification to done; change status -> verified. The reviewer gate may now open (Step 7)."
+    },
+    {
+      "at": "2026-09-03T11:20:00Z",
+      "agent": "leader",
+      "event": "REVIEWER APPROVED in ONE round (tier 3, the other rename tier, took five). The reviewer re-derived rather than trusting: it checked the 9 catalog renames against D7, the Down order, the 41 test statements, charging's three backfill mappings, the comment-only migration diff, and re-ran build/vet/gofmt/migration-guard/boundary-guard itself. One minor finding F1 - the leader had never ticked tasks.md checkboxes for its own leader-owned tasks T3/T6/T7/T8/T10/T11 - accepted and fixed (C13); it under-claimed rather than gamed. ARCHIVED: openspec archive synced both ADDED requirements into openspec/specs/telemetry/spec.md, then the leader git mv'd the folder from the CLI's flat drop into archive/telemetry/ as openspec/config.yaml's domain-grouping rule requires."
+    }
+  ]
+}

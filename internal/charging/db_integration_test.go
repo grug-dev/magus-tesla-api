@@ -50,7 +50,7 @@ func cleanupAccount(t *testing.T, pool *pgxpool.Pool, accountIDs ...uuid.UUID) {
 	t.Cleanup(func() {
 		ctx := context.Background()
 		for _, id := range accountIDs {
-			_, _ = pool.Exec(ctx, "DELETE FROM manual_charge_entries WHERE account_id = $1", id)
+			_, _ = pool.Exec(ctx, "DELETE FROM charging.manual_charge_entries WHERE account_id = $1", id)
 		}
 	})
 }

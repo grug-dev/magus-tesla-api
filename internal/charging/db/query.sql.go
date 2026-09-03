@@ -14,7 +14,7 @@ import (
 
 const createEntry = `-- name: CreateEntry :one
 
-INSERT INTO manual_charge_entries (
+INSERT INTO charging.manual_charge_entries (
     account_id,
     tesla_id,
     vin,
@@ -90,8 +90,8 @@ type CreateEntryParams struct {
 // status, odometer_km: bound as supplied by the caller (RM33 / MAG-18).
 //
 // energy_source is COMPUTED IN GO, never accepted from the caller as a stored value's
-// true provenance -- the same shape VerifyChargeSession's @battery_pct_source already
-// uses for charge_sessions' human-write channel. service.go computes USER/ESTIMATED
+// true provenance -- the same shape VerifySuperchargerSession's @battery_pct_source already
+// uses for charging.supercharger_sessions' human-write channel. service.go computes USER/ESTIMATED
 // before binding this param; the query itself has no way to tell the two apart.
 func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (ManualChargeEntry, error) {
 	row := q.db.QueryRow(ctx, createEntry,
@@ -143,7 +143,7 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Manua
 }
 
 const deleteEntry = `-- name: DeleteEntry :exec
-DELETE FROM manual_charge_entries
+DELETE FROM charging.manual_charge_entries
 WHERE id = $1
   AND account_id = $2
 `
@@ -163,7 +163,7 @@ func (q *Queries) DeleteEntry(ctx context.Context, arg DeleteEntryParams) error 
 }
 
 const listEntriesByAccount = `-- name: ListEntriesByAccount :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km FROM manual_charge_entries
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km FROM charging.manual_charge_entries
 WHERE account_id = $1
 ORDER BY charged_on DESC
 LIMIT $2
@@ -222,7 +222,7 @@ func (q *Queries) ListEntriesByAccount(ctx context.Context, arg ListEntriesByAcc
 }
 
 const listEntriesByVehicle = `-- name: ListEntriesByVehicle :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km FROM manual_charge_entries
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km FROM charging.manual_charge_entries
 WHERE account_id = $1
   AND tesla_id = $2
 ORDER BY charged_on DESC
@@ -284,7 +284,7 @@ func (q *Queries) ListEntriesByVehicle(ctx context.Context, arg ListEntriesByVeh
 }
 
 const listEntriesByVehicleBetween = `-- name: ListEntriesByVehicleBetween :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km FROM manual_charge_entries
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km FROM charging.manual_charge_entries
 WHERE account_id = $1
   AND tesla_id = $2
   AND charged_on BETWEEN $3 AND $4
@@ -355,7 +355,7 @@ func (q *Queries) ListEntriesByVehicleBetween(ctx context.Context, arg ListEntri
 }
 
 const listEntriesByVehicleUpdatedSince = `-- name: ListEntriesByVehicleUpdatedSince :many
-SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km FROM manual_charge_entries
+SELECT id, account_id, tesla_id, vin, charged_on, energy_added_kwh, price, currency, started_at, ended_at, start_battery_pct, end_battery_pct, charging_type, location_kind, location_label, notes, created_at, updated_at, inferred_capacity_kwh_calc, status, energy_source, odometer_km FROM charging.manual_charge_entries
 WHERE account_id = $1
   AND tesla_id = $2
   AND updated_at >= $3
@@ -421,7 +421,7 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 }
 
 const listSessionsByVehicle = `-- name: ListSessionsByVehicle :many
-SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charge_sessions
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charging.supercharger_sessions
 WHERE account_id = $1
   AND tesla_id = $2
 ORDER BY charge_stop_date_time DESC
@@ -445,7 +445,7 @@ type ListSessionsByVehicleParams struct {
 // Reader.ListEntriesByVehicle already applies to manual_charge_entries and
 // telemetry.SuperchargerSessionsByVehicle already applies to supercharger_sessions.
 //
-// idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time) was
+// idx_supercharger_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time) was
 // built ASC, not DESC (RM30 D1, for ListSessionsByVehicleBetween's own bounded-window
 // read). This query still needs NO new index: Postgres serves
 // ORDER BY charge_stop_date_time DESC LIMIT @limit_count from the SAME ascending btree
@@ -463,15 +463,15 @@ type ListSessionsByVehicleParams struct {
 //
 // tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
 // NULL, same as every other vehicle-scoped query on this table (design.md D4).
-func (q *Queries) ListSessionsByVehicle(ctx context.Context, arg ListSessionsByVehicleParams) ([]ChargeSession, error) {
+func (q *Queries) ListSessionsByVehicle(ctx context.Context, arg ListSessionsByVehicleParams) ([]SuperchargerSession, error) {
 	rows, err := q.db.Query(ctx, listSessionsByVehicle, arg.AccountID, arg.TeslaID, arg.LimitCount)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ChargeSession
+	var items []SuperchargerSession
 	for rows.Next() {
-		var i ChargeSession
+		var i SuperchargerSession
 		if err := rows.Scan(
 			&i.ID,
 			&i.AccountID,
@@ -505,7 +505,7 @@ func (q *Queries) ListSessionsByVehicle(ctx context.Context, arg ListSessionsByV
 }
 
 const listSessionsByVehicleBetween = `-- name: ListSessionsByVehicleBetween :many
-SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charge_sessions
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charging.supercharger_sessions
 WHERE account_id = $1
   AND tesla_id = $2
   AND charge_stop_date_time >= $3
@@ -535,7 +535,7 @@ type ListSessionsByVehicleBetweenParams struct {
 // which is exactly the trap the project's ?start=&end= HTTP date-filter convention
 // (internal/gateway/AGENTS.md) exists to prevent.
 //
-// Uses idx_charge_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time)
+// Uses idx_supercharger_sessions_vehicle_stop (account_id, tesla_id, charge_stop_date_time)
 // as a single ascending index range scan: account_id and tesla_id prune to the tenant
 // and vehicle as leading equality predicates, the half-open charge_stop_date_time
 // range walks the trailing column, and the index's own ASC order satisfies ORDER BY
@@ -551,7 +551,7 @@ type ListSessionsByVehicleBetweenParams struct {
 // longer a currently-registered vehicle) is correctly outside a teslaID-keyed read
 // (design.md D6). This is the same behavior telemetry's own
 // SuperchargerSessionsByVehicleBetween already has over the identical column shape.
-func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSessionsByVehicleBetweenParams) ([]ChargeSession, error) {
+func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSessionsByVehicleBetweenParams) ([]SuperchargerSession, error) {
 	rows, err := q.db.Query(ctx, listSessionsByVehicleBetween,
 		arg.AccountID,
 		arg.TeslaID,
@@ -562,9 +562,9 @@ func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSess
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ChargeSession
+	var items []SuperchargerSession
 	for rows.Next() {
-		var i ChargeSession
+		var i SuperchargerSession
 		if err := rows.Scan(
 			&i.ID,
 			&i.AccountID,
@@ -598,7 +598,7 @@ func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSess
 }
 
 const listSessionsByVehicleUpdatedSince = `-- name: ListSessionsByVehicleUpdatedSince :many
-SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charge_sessions
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charging.supercharger_sessions
 WHERE account_id = $1
   AND tesla_id = $2
   AND updated_at >= $3
@@ -615,7 +615,7 @@ type ListSessionsByVehicleUpdatedSinceParams struct {
 // or after @since, ordered oldest-first by charge_stop_date_time (design.md D1) — NOT by
 // updated_at itself, and NOT ListEntriesByVehicleUpdatedSince's DESC: this table's index
 // is built ASC (RM30 D1), so ascending on the index's own trailing column is the order
-// that needs no sort step. Reuses idx_charge_sessions_vehicle_stop (account_id, tesla_id,
+// that needs no sort step. Reuses idx_supercharger_sessions_vehicle_stop (account_id, tesla_id,
 // charge_stop_date_time) as a single ascending index range scan: account_id and tesla_id
 // prune to the tenant and vehicle as leading equality predicates in the same scan every
 // other vehicle-scoped query on this table already uses; updated_at >= @since is a
@@ -640,15 +640,15 @@ type ListSessionsByVehicleUpdatedSinceParams struct {
 // tesla_id = @tesla_id against a nullable column excludes every row where tesla_id IS
 // NULL (SQL's NULL = value is neither true nor false) -- an orphaned session is
 // correctly outside a teslaID-keyed read (design.md D4, restating RM29 D6/RM30 D6).
-func (q *Queries) ListSessionsByVehicleUpdatedSince(ctx context.Context, arg ListSessionsByVehicleUpdatedSinceParams) ([]ChargeSession, error) {
+func (q *Queries) ListSessionsByVehicleUpdatedSince(ctx context.Context, arg ListSessionsByVehicleUpdatedSinceParams) ([]SuperchargerSession, error) {
 	rows, err := q.db.Query(ctx, listSessionsByVehicleUpdatedSince, arg.AccountID, arg.TeslaID, arg.Since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ChargeSession
+	var items []SuperchargerSession
 	for rows.Next() {
-		var i ChargeSession
+		var i SuperchargerSession
 		if err := rows.Scan(
 			&i.ID,
 			&i.AccountID,
@@ -682,7 +682,7 @@ func (q *Queries) ListSessionsByVehicleUpdatedSince(ctx context.Context, arg Lis
 }
 
 const lockSessionForVerification = `-- name: LockSessionForVerification :one
-SELECT vin, energy_kwh FROM charge_sessions
+SELECT vin, energy_kwh FROM charging.supercharger_sessions
 WHERE id = $1
   AND account_id = $2
 FOR UPDATE
@@ -705,15 +705,15 @@ type LockSessionForVerificationRow struct {
 // single UPDATE outside a transaction, exactly as before this change.
 //
 // FOR UPDATE mirrors internal/account's AccessTokenFor and this module's own
-// SessionWriter.MirrorSessions: the read and the later write (VerifyChargeSession, called
+// SessionWriter.MirrorSessions: the read and the later write (VerifySuperchargerSession, called
 // against the SAME transaction) must observe one consistent row, so a concurrent
 // SessionWriter.MirrorSessions refresh of energy_kwh cannot land between this read and that
 // write and leave the derived percentage computed from a value the row no longer holds
 // (design.md D9).
 //
-// WHERE id = @id AND account_id = @account_id mirrors VerifyChargeSession's own scoping
+// WHERE id = @id AND account_id = @account_id mirrors VerifySuperchargerSession's own scoping
 // exactly; zero rows matched surfaces as pgx.ErrNoRows, wrapped by the caller identically to
-// VerifyChargeSession's own not-found case (design.md D10).
+// VerifySuperchargerSession's own not-found case (design.md D10).
 func (q *Queries) LockSessionForVerification(ctx context.Context, arg LockSessionForVerificationParams) (LockSessionForVerificationRow, error) {
 	row := q.db.QueryRow(ctx, lockSessionForVerification, arg.ID, arg.AccountID)
 	var i LockSessionForVerificationRow
@@ -721,8 +721,8 @@ func (q *Queries) LockSessionForVerification(ctx context.Context, arg LockSessio
 	return i, err
 }
 
-const mirrorChargeSession = `-- name: MirrorChargeSession :exec
-INSERT INTO charge_sessions (
+const mirrorSuperchargerSession = `-- name: MirrorSuperchargerSession :exec
+INSERT INTO charging.supercharger_sessions (
     account_id, vin, tesla_id, session_id,
     charge_start_date_time, charge_stop_date_time,
     site_location_name, energy_kwh, total_cost, currency, is_paid
@@ -740,7 +740,7 @@ ON CONFLICT (account_id, session_id) DO UPDATE SET
     updated_at = now()
 `
 
-type MirrorChargeSessionParams struct {
+type MirrorSuperchargerSessionParams struct {
 	AccountID           uuid.UUID
 	Vin                 string
 	TeslaID             pgtype.Int8
@@ -783,8 +783,8 @@ type MirrorChargeSessionParams struct {
 // updated_at here means "the last mirror pass touched this row" — exactly what
 // supercharger_sessions.updated_at means — and is NOT a "this row's data changed"
 // signal on either side.
-func (q *Queries) MirrorChargeSession(ctx context.Context, arg MirrorChargeSessionParams) error {
-	_, err := q.db.Exec(ctx, mirrorChargeSession,
+func (q *Queries) MirrorSuperchargerSession(ctx context.Context, arg MirrorSuperchargerSessionParams) error {
+	_, err := q.db.Exec(ctx, mirrorSuperchargerSession,
 		arg.AccountID,
 		arg.Vin,
 		arg.TeslaID,
@@ -801,7 +801,7 @@ func (q *Queries) MirrorChargeSession(ctx context.Context, arg MirrorChargeSessi
 }
 
 const updateEntry = `-- name: UpdateEntry :one
-UPDATE manual_charge_entries
+UPDATE charging.manual_charge_entries
 SET
     charged_on        = $1,
     energy_added_kwh  = $2,
@@ -854,7 +854,7 @@ type UpdateEntryParams struct {
 //
 // energy_source is COMPUTED IN GO, never accepted from the caller as a stored value's
 // true provenance -- same shape as CreateEntry's @energy_source above, and the same
-// precedent VerifyChargeSession's @battery_pct_source sets for charge_sessions.
+// precedent VerifySuperchargerSession's @battery_pct_source sets for charging.supercharger_sessions.
 func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (ManualChargeEntry, error) {
 	row := q.db.QueryRow(ctx, updateEntry,
 		arg.ChargedOn,
@@ -903,8 +903,8 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Manua
 	return i, err
 }
 
-const verifyChargeSession = `-- name: VerifyChargeSession :one
-UPDATE charge_sessions
+const verifySuperchargerSession = `-- name: VerifySuperchargerSession :one
+UPDATE charging.supercharger_sessions
 SET
     start_battery_pct  = $1,
     end_battery_pct    = $2,
@@ -915,7 +915,7 @@ WHERE id = $4
 RETURNING id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc
 `
 
-type VerifyChargeSessionParams struct {
+type VerifySuperchargerSessionParams struct {
 	StartBatteryPct  pgtype.Int2
 	EndBatteryPct    pgtype.Int2
 	BatteryPctSource pgtype.Text
@@ -926,13 +926,13 @@ type VerifyChargeSessionParams struct {
 // Update the human-owned verification channel on one account-scoped charge session:
 // start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No other
 // column is in this SET clause, INCLUDING start_battery_pct_est/end_battery_pct_est —
-// this is the mirror image of MirrorChargeSession's protection (that query cannot touch
+// this is the mirror image of MirrorSuperchargerSession's protection (that query cannot touch
 // these three; this query cannot touch anything else), by the query's shape, not by a
 // comment a reviewer has to notice (design.md D1).
 //
 // @battery_pct_source is COMPUTED IN GO (design.md D2/D7), never accepted from a caller:
 // "user_verified" when either percentage is non-nil, NULL when both are nil — satisfying
-// charge_sessions_pct_source_required in the same statement that clears or sets the
+// supercharger_sessions_pct_source_required in the same statement that clears or sets the
 // percentages, so no intermediate row state can violate it.
 //
 // WHERE id = @id AND account_id = @account_id mirrors UpdateEntry's scoping exactly
@@ -940,15 +940,15 @@ type VerifyChargeSessionParams struct {
 // column. Zero rows matched — unknown id or wrong account, indistinguishable — surfaces
 // to the caller as pgx.ErrNoRows, exactly like UpdateEntry's own not-found behavior
 // (TestUpdate_CrossAccountIsNoOp is the existing precedent for this shape).
-func (q *Queries) VerifyChargeSession(ctx context.Context, arg VerifyChargeSessionParams) (ChargeSession, error) {
-	row := q.db.QueryRow(ctx, verifyChargeSession,
+func (q *Queries) VerifySuperchargerSession(ctx context.Context, arg VerifySuperchargerSessionParams) (SuperchargerSession, error) {
+	row := q.db.QueryRow(ctx, verifySuperchargerSession,
 		arg.StartBatteryPct,
 		arg.EndBatteryPct,
 		arg.BatteryPctSource,
 		arg.ID,
 		arg.AccountID,
 	)
-	var i ChargeSession
+	var i SuperchargerSession
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,

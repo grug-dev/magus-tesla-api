@@ -98,7 +98,7 @@ func seedS1(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64
 	}
 
 	if _, err := pool.Exec(ctx, `
-		UPDATE charge_sessions
+		UPDATE charging.supercharger_sessions
 		SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified',
 		    start_battery_pct_est = 22, end_battery_pct_est = 78
 		WHERE account_id = $1 AND session_id = 940002`,
@@ -123,7 +123,7 @@ func seedS1(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, teslaID int64
 func TestListSessionsByVehicleBetween_S1_BoundariesOrderingAndPercentages(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	const teslaID = int64(940001)
 	seedS1(t, pool, accountID, teslaID)
 
@@ -203,7 +203,7 @@ func TestListSessionsByVehicleBetween_S1_BoundariesOrderingAndPercentages(t *tes
 func TestListSessionsByVehicleBetween_NoMatchReturnsEmptyNonNilSlice(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	// No sessions seeded for this account at all.
 
 	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -227,7 +227,7 @@ func TestListSessionsByVehicleBetween_MultiTenantIsolation(t *testing.T) {
 	pool := newTestPool(t)
 	acctA := uuid.New()
 	acctB := uuid.New()
-	cleanupChargeSessions(t, pool, acctA, acctB)
+	cleanupChargingSuperchargerSessions(t, pool, acctA, acctB)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -267,7 +267,7 @@ func TestListSessionsByVehicleBetween_MultiTenantIsolation(t *testing.T) {
 func TestListSessionsByVehicleBetween_DifferentVehicleSameAccountIsolation(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -309,7 +309,7 @@ func TestListSessionsByVehicleBetween_DifferentVehicleSameAccountIsolation(t *te
 func TestListSessionsByVehicleBetween_NullTeslaIDNeverReturned(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 
@@ -344,7 +344,7 @@ func TestListSessionsByVehicleBetween_NullTeslaIDNeverReturned(t *testing.T) {
 func TestListSessionsByVehicleBetween_NullableFeeFieldsRoundTripAsNil(t *testing.T) {
 	pool := newTestPool(t)
 	accountID := uuid.New()
-	cleanupChargeSessions(t, pool, accountID)
+	cleanupChargingSuperchargerSessions(t, pool, accountID)
 	ctx := context.Background()
 	w := charging.NewSessionWriter(pool)
 

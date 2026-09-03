@@ -32,11 +32,11 @@ func insertBaseSuperchargerSession(t *testing.T, st *dbStore, pool *pgxpool.Pool
 	t.Helper()
 	ctx := context.Background()
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, "DELETE FROM supercharger_sessions WHERE session_id = $1", sessionID)
+		_, _ = pool.Exec(ctx, "DELETE FROM telemetry.supercharger_history WHERE session_id = $1", sessionID)
 	})
 
 	start := time.Date(2026, 6, 28, 10, 0, 0, 0, time.UTC)
-	sess := SuperchargerSession{
+	sess := SuperchargerHistory{
 		SessionID:           sessionID,
 		AccountID:           accountID,
 		VIN:                 "VIN_BATPCT",
@@ -52,8 +52,8 @@ func insertBaseSuperchargerSession(t *testing.T, st *dbStore, pool *pgxpool.Pool
 		IsPaid:              &isPaid,
 		RawData:             rawData,
 	}
-	if err := st.upsertSuperchargerSession(ctx, sess); err != nil {
-		t.Fatalf("upsertSuperchargerSession(%d): %v", sessionID, err)
+	if err := st.upsertSuperchargerHistory(ctx, sess); err != nil {
+		t.Fatalf("upsertSuperchargerHistory(%d): %v", sessionID, err)
 	}
 }
 
@@ -68,10 +68,10 @@ func TestStore_SuperchargerUpsert_FreshInsertSeedsBatteryPctColumnsNull(t *testi
 	const sessionID = int64(900001)
 	insertBaseSuperchargerSession(t, st, pool, accountID, sessionID, 45.2, 12000, "COP", false, []byte(`{"sessionId":900001}`))
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 session, got %d", len(got))
@@ -110,19 +110,19 @@ func TestStore_SuperchargerUpsert_LeavesVerifiedBatteryPctUntouched(t *testing.T
 	// Simulate the (future, out-of-scope) verification UI's write via direct SQL —
 	// no Go writer exists for the trio in this tier (R7).
 	if _, err := pool.Exec(ctx,
-		`UPDATE supercharger_sessions SET start_battery_pct = 18, end_battery_pct = 76, battery_pct_source = 'user_verified' WHERE session_id = $1`,
+		`UPDATE telemetry.supercharger_history SET start_battery_pct = 18, end_battery_pct = 76, battery_pct_source = 'user_verified' WHERE session_id = $1`,
 		sessionID); err != nil {
 		t.Fatalf("direct-SQL set trio: %v", err)
 	}
 
 	var updatedAtBefore time.Time
-	if err := pool.QueryRow(ctx, `SELECT updated_at FROM supercharger_sessions WHERE session_id = $1`, sessionID).Scan(&updatedAtBefore); err != nil {
+	if err := pool.QueryRow(ctx, `SELECT updated_at FROM telemetry.supercharger_history WHERE session_id = $1`, sessionID).Scan(&updatedAtBefore); err != nil {
 		t.Fatalf("read updated_at before re-upsert: %v", err)
 	}
 
 	// Simulate the nightly poller's re-fetch: billing state mutates post-session.
 	paid := true
-	sess2 := SuperchargerSession{
+	sess2 := SuperchargerHistory{
 		SessionID:           sessionID,
 		AccountID:           accountID,
 		VIN:                 "VIN_BATPCT",
@@ -138,14 +138,14 @@ func TestStore_SuperchargerUpsert_LeavesVerifiedBatteryPctUntouched(t *testing.T
 		IsPaid:              &paid,
 		RawData:             []byte(`{"sessionId":900002,"v":2,"invoiceStatus":"finalized"}`),
 	}
-	if err := st.upsertSuperchargerSession(ctx, sess2); err != nil {
-		t.Fatalf("re-upsertSuperchargerSession: %v", err)
+	if err := st.upsertSuperchargerHistory(ctx, sess2); err != nil {
+		t.Fatalf("re-upsertSuperchargerHistory: %v", err)
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 session, got %d", len(got))
@@ -190,7 +190,7 @@ func TestStore_SuperchargerUpsert_LeavesVerificationSnapshotUntouched(t *testing
 	// snapshot pair together — snapshot deliberately differs from the verified value
 	// ("model said X, human said Y").
 	if _, err := pool.Exec(ctx,
-		`UPDATE supercharger_sessions SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified', start_battery_pct_est = 22, end_battery_pct_est = 78 WHERE session_id = $1`,
+		`UPDATE telemetry.supercharger_history SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified', start_battery_pct_est = 22, end_battery_pct_est = 78 WHERE session_id = $1`,
 		sessionID); err != nil {
 		t.Fatalf("direct-SQL set trio + snapshot: %v", err)
 	}
@@ -201,11 +201,11 @@ func TestStore_SuperchargerUpsert_LeavesVerificationSnapshotUntouched(t *testing
 		[]byte(`{"sessionId":900003,"v":3,"invoiceStatus":"finalized"}`),
 	} {
 		var updatedAtBefore time.Time
-		if err := pool.QueryRow(ctx, `SELECT updated_at FROM supercharger_sessions WHERE session_id = $1`, sessionID).Scan(&updatedAtBefore); err != nil {
+		if err := pool.QueryRow(ctx, `SELECT updated_at FROM telemetry.supercharger_history WHERE session_id = $1`, sessionID).Scan(&updatedAtBefore); err != nil {
 			t.Fatalf("read updated_at before re-upsert #%d: %v", i+1, err)
 		}
 
-		sess := SuperchargerSession{
+		sess := SuperchargerHistory{
 			SessionID:           sessionID,
 			AccountID:           accountID,
 			VIN:                 "VIN_BATPCT",
@@ -221,14 +221,14 @@ func TestStore_SuperchargerUpsert_LeavesVerificationSnapshotUntouched(t *testing
 			IsPaid:              &paid,
 			RawData:             rawData,
 		}
-		if err := st.upsertSuperchargerSession(ctx, sess); err != nil {
-			t.Fatalf("re-upsertSuperchargerSession #%d: %v", i+1, err)
+		if err := st.upsertSuperchargerHistory(ctx, sess); err != nil {
+			t.Fatalf("re-upsertSuperchargerHistory #%d: %v", i+1, err)
 		}
 
-		r := newSuperchargerReaderImpl(pool)
-		got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+		r := newSuperchargerHistoryReaderImpl(pool)
+		got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 		if err != nil {
-			t.Fatalf("SuperchargerSessionsByAccount (after re-upsert #%d): %v", i+1, err)
+			t.Fatalf("SuperchargerHistoryByAccount (after re-upsert #%d): %v", i+1, err)
 		}
 		if len(got) != 1 {
 			t.Fatalf("want 1 session, got %d", len(got))
@@ -269,14 +269,14 @@ func TestStore_SuperchargerBatteryPctChecks_RejectOutOfRangeAndUnrecognizedValue
 		name string
 		sql  string
 	}{
-		{"start_battery_pct > 100", `UPDATE supercharger_sessions SET start_battery_pct = 101 WHERE session_id = $1`},
-		{"start_battery_pct < 0", `UPDATE supercharger_sessions SET start_battery_pct = -1 WHERE session_id = $1`},
-		{"end_battery_pct > 100", `UPDATE supercharger_sessions SET end_battery_pct = 101 WHERE session_id = $1`},
-		{"start_battery_pct_est > 100", `UPDATE supercharger_sessions SET start_battery_pct_est = 101 WHERE session_id = $1`},
-		{"start_battery_pct_est < 0", `UPDATE supercharger_sessions SET start_battery_pct_est = -1 WHERE session_id = $1`},
-		{"end_battery_pct_est > 100", `UPDATE supercharger_sessions SET end_battery_pct_est = 101 WHERE session_id = $1`},
-		{"battery_pct_source = 'estimated'", `UPDATE supercharger_sessions SET battery_pct_source = 'estimated' WHERE session_id = $1`},
-		{"battery_pct_source = 'bogus'", `UPDATE supercharger_sessions SET battery_pct_source = 'bogus' WHERE session_id = $1`},
+		{"start_battery_pct > 100", `UPDATE telemetry.supercharger_history SET start_battery_pct = 101 WHERE session_id = $1`},
+		{"start_battery_pct < 0", `UPDATE telemetry.supercharger_history SET start_battery_pct = -1 WHERE session_id = $1`},
+		{"end_battery_pct > 100", `UPDATE telemetry.supercharger_history SET end_battery_pct = 101 WHERE session_id = $1`},
+		{"start_battery_pct_est > 100", `UPDATE telemetry.supercharger_history SET start_battery_pct_est = 101 WHERE session_id = $1`},
+		{"start_battery_pct_est < 0", `UPDATE telemetry.supercharger_history SET start_battery_pct_est = -1 WHERE session_id = $1`},
+		{"end_battery_pct_est > 100", `UPDATE telemetry.supercharger_history SET end_battery_pct_est = 101 WHERE session_id = $1`},
+		{"battery_pct_source = 'estimated'", `UPDATE telemetry.supercharger_history SET battery_pct_source = 'estimated' WHERE session_id = $1`},
+		{"battery_pct_source = 'bogus'", `UPDATE telemetry.supercharger_history SET battery_pct_source = 'bogus' WHERE session_id = $1`},
 	}
 	for _, tc := range rejected {
 		t.Run(tc.name, func(t *testing.T) {
@@ -298,17 +298,17 @@ func TestStore_SuperchargerBatteryPctChecks_RejectOutOfRangeAndUnrecognizedValue
 	// four SMALLINT columns; 'polled' must be accepted even though this tier never
 	// writes it in application code.
 	if _, err := pool.Exec(ctx,
-		`UPDATE supercharger_sessions SET start_battery_pct = 0, end_battery_pct = 100, battery_pct_source = 'polled', start_battery_pct_est = 0, end_battery_pct_est = 100 WHERE session_id = $1`,
+		`UPDATE telemetry.supercharger_history SET start_battery_pct = 0, end_battery_pct = 100, battery_pct_source = 'polled', start_battery_pct_est = 0, end_battery_pct_est = 100 WHERE session_id = $1`,
 		sessionID); err != nil {
 		t.Fatalf("boundary/'polled' sanity-check UPDATE: want success, got %v", err)
 	}
 }
 
-// TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot implements design.md
-// test-contract scenario (d): SuperchargerSessionsByAccount and
-// SuperchargerSessionsByVehicle both surface the trio and the frozen snapshot pair,
+// TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot implements design.md
+// test-contract scenario (d): SuperchargerHistoryByAccount and
+// SuperchargerHistoryByVehicle both surface the trio and the frozen snapshot pair,
 // and round-trip an untouched (NULL) session correctly (T6.4).
-func TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T) {
+func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -323,35 +323,35 @@ func TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T)
 	insertBaseSuperchargerSession(t, st, pool, accountID, sessionUntouched, 10.0, 3000, "USD", false, []byte(`{"sessionId":900001}`))
 
 	// This fixture's vehicle-scoped session needs a TeslaID to exercise
-	// SuperchargerSessionsByVehicle — set it via a direct-SQL update since
+	// SuperchargerHistoryByVehicle — set it via a direct-SQL update since
 	// insertBaseSuperchargerSession's shared fixture doesn't take one.
-	if _, err := pool.Exec(ctx, `UPDATE supercharger_sessions SET tesla_id = $1 WHERE session_id = $2`, teslaID, sessionVerified); err != nil {
+	if _, err := pool.Exec(ctx, `UPDATE telemetry.supercharger_history SET tesla_id = $1 WHERE session_id = $2`, teslaID, sessionVerified); err != nil {
 		t.Fatalf("set tesla_id on verified session: %v", err)
 	}
 
 	if _, err := pool.Exec(ctx,
-		`UPDATE supercharger_sessions SET start_battery_pct = 18, end_battery_pct = 76, battery_pct_source = 'user_verified' WHERE session_id = $1`,
+		`UPDATE telemetry.supercharger_history SET start_battery_pct = 18, end_battery_pct = 76, battery_pct_source = 'user_verified' WHERE session_id = $1`,
 		sessionVerified); err != nil {
 		t.Fatalf("direct-SQL set trio: %v", err)
 	}
 	if _, err := pool.Exec(ctx,
-		`UPDATE supercharger_sessions SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified', start_battery_pct_est = 22, end_battery_pct_est = 78 WHERE session_id = $1`,
+		`UPDATE telemetry.supercharger_history SET start_battery_pct = 20, end_battery_pct = 80, battery_pct_source = 'user_verified', start_battery_pct_est = 22, end_battery_pct_est = 78 WHERE session_id = $1`,
 		sessionSnapshot); err != nil {
 		t.Fatalf("direct-SQL set trio + snapshot: %v", err)
 	}
 
-	r := newSuperchargerReaderImpl(pool)
+	r := newSuperchargerHistoryReaderImpl(pool)
 
-	byAccount, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	byAccount, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
-	byVehicle, err := r.SuperchargerSessionsByVehicle(ctx, accountID, teslaID, 10)
+	byVehicle, err := r.SuperchargerHistoryByVehicle(ctx, accountID, teslaID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByVehicle: %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicle: %v", err)
 	}
 
-	assertVerifiedTrio := func(t *testing.T, s SuperchargerSession) {
+	assertVerifiedTrio := func(t *testing.T, s SuperchargerHistory) {
 		t.Helper()
 		if s.StartBatteryPct == nil || *s.StartBatteryPct != 18 {
 			t.Errorf("StartBatteryPct: want *18, got %v", s.StartBatteryPct)
@@ -363,7 +363,7 @@ func TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T)
 			t.Errorf("BatteryPctSource: want *user_verified, got %v", s.BatteryPctSource)
 		}
 	}
-	assertSnapshot := func(t *testing.T, s SuperchargerSession) {
+	assertSnapshot := func(t *testing.T, s SuperchargerHistory) {
 		t.Helper()
 		if s.StartBatteryPctEst == nil || *s.StartBatteryPctEst != 22 {
 			t.Errorf("StartBatteryPctEst: want *22, got %v", s.StartBatteryPctEst)
@@ -372,7 +372,7 @@ func TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T)
 			t.Errorf("EndBatteryPctEst: want *78, got %v", s.EndBatteryPctEst)
 		}
 	}
-	assertUntouched := func(t *testing.T, s SuperchargerSession) {
+	assertUntouched := func(t *testing.T, s SuperchargerHistory) {
 		t.Helper()
 		if s.StartBatteryPct != nil || s.EndBatteryPct != nil || s.BatteryPctSource != nil ||
 			s.StartBatteryPctEst != nil || s.EndBatteryPctEst != nil {
@@ -395,17 +395,17 @@ func TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T)
 		}
 	}
 	if !foundVerifiedInAccount {
-		t.Errorf("SuperchargerSessionsByAccount: missing session %d", sessionVerified)
+		t.Errorf("SuperchargerHistoryByAccount: missing session %d", sessionVerified)
 	}
 	if !foundSnapshotInAccount {
-		t.Errorf("SuperchargerSessionsByAccount: missing session %d", sessionSnapshot)
+		t.Errorf("SuperchargerHistoryByAccount: missing session %d", sessionSnapshot)
 	}
 	if !foundUntouchedInAccount {
-		t.Errorf("SuperchargerSessionsByAccount: missing session %d", sessionUntouched)
+		t.Errorf("SuperchargerHistoryByAccount: missing session %d", sessionUntouched)
 	}
 
 	if len(byVehicle) != 1 || byVehicle[0].SessionID != sessionVerified {
-		t.Fatalf("SuperchargerSessionsByVehicle: want 1 session (%d), got %+v", sessionVerified, byVehicle)
+		t.Fatalf("SuperchargerHistoryByVehicle: want 1 session (%d), got %+v", sessionVerified, byVehicle)
 	}
 	assertVerifiedTrio(t, byVehicle[0])
 }

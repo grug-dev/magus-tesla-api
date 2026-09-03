@@ -25,8 +25,8 @@
 | File | Role |
 |---|---|
 | `internal/telemetry/service.go` | `Collector.CollectAll` — per-account token resolve, per-vehicle wake/read, charging-history fetch. |
-| `internal/telemetry/telemetry.go` | Ports `Collector`, `Reader`, `SuperchargerReader`; domain types (`Snapshot`, `SuperchargerSession`, `CycleReport`, `RunContext`). |
-| `internal/telemetry/reader.go` | Read implementations (`NewReader`, `newSuperchargerReaderImpl`); pgtype→domain mapping stays here. |
+| `internal/telemetry/telemetry.go` | Ports `Collector`, `Reader`, `SuperchargerHistoryReader`; domain types (`Snapshot`, `SuperchargerHistory`, `CycleReport`, `RunContext`). |
+| `internal/telemetry/reader.go` | Read implementations (`NewReader`, `newSuperchargerHistoryReaderImpl`); pgtype→domain mapping stays here. |
 | `internal/tesla/vehicles.go` | The paid Fleet API calls (`ListVehicles`, `WakeUp`, `VehicleData`, `ChargingHistory`). |
 | `internal/account/service.go` | Vehicle registry (`AllRegisteredVehicles`), per-user token refresh (`AccessTokenFor`), config write-back (`SetVehicleConfigIfEmpty`). |
 
@@ -44,7 +44,7 @@
 | `internal/analytics/recalculate.go` | `Recalculator.Reconcile` (watermark-driven) and `Recalculate` (window re-derivation) — the module's write path onto `vehicle_metrics`. |
 | `internal/analytics/reader.go` | `Reader.ConsumedByDay` — read of the model step 3a just advanced. |
 | `internal/analytics/gap_writer.go` | `GapWriter.ReconcileWindow` — UPSERT+DELETE over `charge_gaps` for the trailing window. |
-| `internal/charging/session_reader.go` | `SuperchargerSessionAnalyticsReader` — **analytics' Supercharger source since RM31** (`charge_sessions`), replacing `telemetry.SuperchargerReader`. |
+| `internal/charging/session_reader.go` | `SuperchargerSessionAnalyticsReader` — **analytics' Supercharger source since RM31** (`supercharger_sessions`), replacing `telemetry.SuperchargerHistoryReader`. |
 | `internal/analytics/db/migrations/20260828000001_migrate_vehicle_metric_watermarks_source.sql` | Retires the `'supercharger_sessions'` watermark label by DELETING those cursor rows (forcing a backfill), not renaming them. |
 
 ### Port map — who calls whom in one cycle
@@ -52,7 +52,7 @@
 | Caller | Port | Callee | Methods used |
 |---|---|---|---|
 | `app` | `telemetry.Collector` | `telemetry` | `CollectAll` |
-| `app` | `telemetry.SuperchargerReader` | `telemetry` | `SuperchargerSessionsByAccount` — **the port's only remaining caller repo-wide** |
+| `app` | `telemetry.SuperchargerHistoryReader` | `telemetry` | `SuperchargerHistoryByAccount` — **the port's only remaining caller repo-wide** |
 | `app` | `charging.SessionWriter` | `charging` | `MirrorSessions` |
 | `app` | `analytics.Recalculator` | `analytics` | `Reconcile` |
 | `app` | `analytics.Reader` | `analytics` | `ConsumedByDay` |
@@ -73,8 +73,8 @@
 | `accounts` | account | — | untouched — OAuth and language are user paths |
 | `vehicle_snapshots` | telemetry | 1 write · 3 read | C+U (`InsertVehicleSnapshot`, on-conflict per `(account_id, tesla_id, captured_date)`), R by analytics |
 | `poll_attempts` | telemetry | 1 | C only, one row per vehicle per cycle, stamped `run_id`/`triggered_by` |
-| `supercharger_sessions` | telemetry | 1 write · 2 read | C+U (`UpsertSuperchargerSession`), R by step 2's mirror (`SuperchargerSessionsByAccount`). **No longer read in step 3.** |
-| `charge_sessions` | charging | 2 write · 3 read | C+U (`MirrorChargeSession`), R by analytics (`ListSessionsByVehicle{Between,UpdatedSince}`) |
+| `supercharger_history` (schema `telemetry`; renamed from `supercharger_sessions` + moved out of `public`, RM39 tier 4) | telemetry | 1 write · 2 read | C+U (`UpsertSuperchargerHistory`), R by step 2's mirror (`SuperchargerHistoryByAccount` — the port was renamed to match the table by RM39 tier 5). **No longer read in step 3.** |
+| `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) | charging | 2 write · 3 read | C+U (`MirrorSuperchargerSession`), R by analytics (`ListSessionsByVehicle{Between,UpdatedSince}`) |
 | `manual_charge_entries` | charging | 3 read | R only — the nightly job never writes manual entries |
 | `vehicle_metrics` | analytics | 3 | C+R+U+D — the only table the cycle touches with all four, in one transaction |
 | `vehicle_metric_watermarks` | analytics | 3 | C+R+U — one cursor per source |
@@ -85,7 +85,7 @@
 - **Change what the cycle does, or the order of its steps:** `internal/app/processor.go` only. Never re-add orchestration to `cmd/poller`, and never give `Processor` a `Scheduler` field or a clock.
 - **Add a step:** add a private method on `processor` in `processor.go`, call it from `ProcessVehicleData`, and add its port to `NewProcessor` in `app.go` + the injection site in `cmd/poller/main.go`. The new argument must be another module's **public port** — never a pool.
 - **Add a new derivation source to step 3:** add the read port to `analytics.NewRecalculator` (`recalculate.go`), add a watermark source constant, and extend the `vehicle_metric_watermarks.source` CHECK by migration. A **new** source starts at epoch and backfills the vehicle's whole history on first run — that is intended, not a bug.
-- **Change what the mirror carries:** add the field to `charging.SessionMirror` (`charging.go`), the `MirrorChargeSession` query (`internal/charging/db/query.sql` → `make sqlc`), and the mapping in `processor.go`'s `processChargingData`. Field-name-for-field-name, no renames, no derivation.
+- **Change what the mirror carries:** add the field to `charging.SessionMirror` (`charging.go`), the `MirrorSuperchargerSession` query (`internal/charging/db/query.sql` → `make sqlc`), and the mapping in `processor.go`'s `processChargingData`. Field-name-for-field-name, no renames, no derivation.
 - **Change the schedule:** `internal/app/scheduler.go` + the `PollerScheduleHour`/`PollerScheduleMinute` config read in `cmd/poller/main.go`. Keep `nextRun` unexported and pure.
 - **Change failure containment:** the isolation shape is per-account in step 2 and per-vehicle in step 3; see the gotchas below before loosening either.
 
@@ -95,12 +95,12 @@
 ## Conventions & gotchas
 
 - **Exactly one failure stops the cycle: step 1's.** A non-nil error from `Collector.CollectAll` returns immediately and steps 2 and 3 never run — both later steps read data step 1 was supposed to have just written. Every other failure is logged and isolated, never fatal. _Source: `internal/app/processor.go` `ProcessVehicleData` doc; `internal/app/AGENTS.md` §Responsibility._
-- **Step 2 before step 3 is load-bearing since RM31 — it used to be only a convention.** Analytics now derives its Supercharger figures from `charge_sessions`, which step 2 writes. A mirror that fails leaves step 3 deriving that account's consumed-percent from the previous night's sessions. _Source: `RM31-analytics-read-sessions-from-charging`; `internal/analytics/recalculate.go`._
-- **Analytics reads `charging.charge_sessions`, NOT `telemetry.supercharger_sessions`.** RM31 moved it to `charging.SuperchargerSessionAnalyticsReader`. `telemetry.SuperchargerReader` still exists and is still correct — but `internal/app`'s step 2 is now its **only** caller. _Source: `internal/analytics/recalculate.go`, `internal/charging/charging.go`._
+- **Step 2 before step 3 is load-bearing since RM31 — it used to be only a convention.** Analytics now derives its Supercharger figures from `supercharger_sessions`, which step 2 writes. A mirror that fails leaves step 3 deriving that account's consumed-percent from the previous night's sessions. _Source: `RM31-analytics-read-sessions-from-charging`; `internal/analytics/recalculate.go`._
+- **Analytics reads `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), NOT `telemetry`'s own `telemetry.supercharger_history` table** (moved out of `public` and renamed from `supercharger_sessions` by RM39 tier 4). RM31 moved it to `charging.SuperchargerSessionAnalyticsReader`. `telemetry.SuperchargerHistoryReader` (renamed from `SuperchargerReader` by RM39 tier 5) still exists and is still correct — but `internal/app`'s step 2 is now its **only** caller. _Source: `internal/analytics/recalculate.go`, `internal/charging/charging.go`._
 - **`telemetry.Reader` is unchanged by that move.** Analytics still reads snapshot history straight from telemetry (`SnapshotsByVehicleUpdatedSince`, `SnapshotsByVehicleBetween`, `SnapshotPrecedingDay`). Do not "finish the migration" by moving snapshot reads too — telemetry owns snapshots. _Source: `internal/analytics/recalculate.go`._
-- **The watermark source label is `charge_sessions`, not `supercharger_sessions`.** Migration `20260828000001` DELETED the old cursor rows rather than renaming them, so every affected vehicle backfills its whole Supercharger history on the first run after deploy. That is deliberate: the two tables' `updated_at` columns do not carry the same meaning. _Source: `internal/analytics/db/migrations/20260828000001_migrate_vehicle_metric_watermarks_source.sql`._
-- **The nightly mirror can never overwrite a human's verified battery percentage — structurally.** `charging.SessionMirror` has no percentage field, so a nightly pass that clobbered one would not compile, and `MirrorChargeSession` never names the five battery-percentage columns. Only `charging.SessionVerifier.VerifySession` (a gateway user path, RM31) writes them. _Source: `internal/charging/charging.go`; `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql`._
-- **The mirror's upsert has no WHERE predicate, on purpose.** `updated_at` must keep advancing on every nightly pass so downstream watermarks see the row. _Source: `internal/charging/db/query.sql` `MirrorChargeSession`._
+- **The watermark source label is `supercharger_sessions` (again), not `charge_sessions`.** Migration `20260828000001` (RM31 tier 3) first flipped it from `supercharger_sessions` to `charge_sessions`, DELETEing the old cursor rows rather than renaming them; migration `20260902000004` (`RM39-analytics-fix-watermark-vocabulary`, roadmap tier 3b) later reversed that — DELETEing the `charge_sessions` rows and reusing `supercharger_sessions`, which now names `charging`'s table instead of `telemetry`'s (see that change's `design.md` §6). Either way, every affected vehicle backfills its whole Supercharger history on the first run after deploy — deliberate, since the two tables' `updated_at` columns never carried the same meaning. _Source: `internal/analytics/db/migrations/20260828000001_migrate_vehicle_metric_watermarks_source.sql`, `20260902000004_migrate_vehicle_metric_watermarks_source_supercharger.sql`._
+- **The nightly mirror can never overwrite a human's verified battery percentage — structurally.** `charging.SessionMirror` has no percentage field, so a nightly pass that clobbered one would not compile, and `MirrorSuperchargerSession` never names the five battery-percentage columns. Only `charging.SessionVerifier.VerifySession` (a gateway user path, RM31) writes them. _Source: `internal/charging/charging.go`; `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql`._
+- **The mirror's upsert has no WHERE predicate, on purpose.** `updated_at` must keep advancing on every nightly pass so downstream watermarks see the row. _Source: `internal/charging/db/query.sql` `MirrorSuperchargerSession`._
 - **Step 2 enumerates per ACCOUNT, step 3 per VEHICLE.** The session read is account-wide, so looping per vehicle would re-mirror the same rows once per vehicle; the derivation is per vehicle. _Source: `internal/app/processor.go` `processChargingData` doc._
 - **A failing `Reconcile` skips that vehicle's gap step too.** Reconciling gaps against metrics you just failed to refresh would delete gap rows on stale evidence. Keep the `continue`. _Source: `internal/app/processor.go` `recalculateAnalytics`._
 - **The gap window's "yesterday" resolves in the POLLER'S zone, not UTC.** `time.Now().UTC()` here asks for the wrong day for 5 hours out of every 24. `internal/analytics` stays zone-free; the zone lives in this composition. _Source: `internal/app/processor.go` `recalculateAnalytics`; roadmap D6/D18._
@@ -132,6 +132,6 @@ so the link above stays valid.
 
 - Features: (none)
 - Use cases: (none — the cycle has no external HTTP trigger; the tier-8 manual-rerun API is parked)
-- Workflows: `workflows/manual-charge-crud.md` (the other trigger of `Recalculator`, on user write), `workflows/supercharger-stats-read.md` (the page that reads the `charge_sessions` mirror this cycle writes)
-- Architecture: `architecture/telemetry-data-hub.md` (telemetry's own consumer map)
+- Workflows: `workflows/manual-charge-crud.md` (the other trigger of `Recalculator`, on user write), `workflows/supercharger-stats-read.md` (the page that reads the `supercharger_sessions` mirror this cycle writes)
+- Architecture: `architecture/telemetry-ingest-only.md` (telemetry's own consumer map)
 - Entities: `entities/vehicle-metrics/guide.md` (what step 3 derives and stores)

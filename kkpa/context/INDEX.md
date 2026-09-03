@@ -11,10 +11,10 @@
 | `charge row` | `ChargeRowUpdate` / `ChargeRowDelete` | entity | `workflows/manual-charge-crud.md` |
 | `charges form` | `ChargeCreate` / `parseChargeForm` | entity | `workflows/manual-charge-crud.md` |
 | `Manual Records` | `/charges` page (`ChargePage`) | entity | `workflows/manual-charge-crud.md` |
-| `supercharger stats` | `SuperchargerStatsPage` / `charging.SessionReader` (read) + `charging.SessionVerifier` (write, RM31) (`charge_sessions`) | entity | `workflows/supercharger-stats-read.md` |
-| `Supercharger session` | `charging.Session` / mirrored into `charge_sessions` by the analytics recalculation path; its `start_battery_pct`/`end_battery_pct` are correctable by the gateway via `charging.SessionVerifier` (RM31) — still no gateway Create or Delete | entity | `workflows/supercharger-stats-read.md` |
+| `supercharger stats` | `SuperchargerStatsPage` / `charging.SessionReader` (read) + `charging.SessionVerifier` (write, RM31) (`supercharger_sessions`) | entity | `workflows/supercharger-stats-read.md` |
+| `Supercharger session` | `charging.Session` / mirrored into `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3) by the nightly sync; its `start_battery_pct`/`end_battery_pct` are correctable by the gateway via `charging.SessionVerifier` (RM31) — still no gateway Create or Delete | entity | `workflows/supercharger-stats-read.md` |
 | `fast charging stats` | synonym of `supercharger stats` | entity | `workflows/supercharger-stats-read.md` |
-| `charge session log` | `charging.SessionReader` / `charging.SessionWriter` (`charge_sessions`) | entity | `workflows/supercharger-stats-read.md` |
+| `charge session log` | `charging.SessionReader` / `charging.SessionWriter` (`supercharger_sessions`) | entity | `workflows/supercharger-stats-read.md` |
 | `charge session record` | synonym of `charge session log` | entity | `workflows/supercharger-stats-read.md` |
 | `session battery edit` | `SuperchargerRowUpdate` / `charging.SessionVerifier.VerifySession` | entity | `use-case/charging/verify-session-battery.md` |
 | `verify session battery` | synonym of `session battery edit` | entity | `use-case/charging/verify-session-battery.md` |
@@ -23,10 +23,10 @@
 | `calc fields` | the `_calc` columns of `vehicle_metrics` | entity | `entities/vehicle-metrics/guide.md` |
 | `calculated fields` | synonym of `calc fields` | entity | `entities/vehicle-metrics/guide.md` |
 | `metrics reconciliation` | `Recalculator.Reconcile` / `vehicle_metric_watermarks` | entity | `entities/vehicle-metrics/guide.md` |
-| `watermark source` | `vehicle_metric_watermarks.source` (`vehicle_snapshots` / `charge_sessions` / `manual_charge_entries`) | entity | `entities/vehicle-metrics/guide.md` |
+| `watermark source` | `vehicle_metric_watermarks.source` (`vehicle_snapshots` / `supercharger_sessions` / `manual_charge_entries`) | entity | `entities/vehicle-metrics/guide.md` |
 | `vehicle status` | the eight raw status observations on `vehicle_metrics`, read via `analytics.Reader.LatestMetricsByAccount` → `analytics.VehicleStatus` (RM38) | entity | `entities/vehicle-metrics/guide.md` |
 | `latest vehicle status` | `analytics.Reader.LatestMetricsByAccount` / `LatestVehicleMetricsByAccount` (`DISTINCT ON (tesla_id)` over `vehicle_metrics`) | entity | `entities/vehicle-metrics/guide.md` |
-| `session inferred capacity` | `charging.Session.InferredCapacityKWhCalc` / `charge_sessions.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/supercharger-stats-read.md` |
+| `session inferred capacity` | `charging.Session.InferredCapacityKWhCalc` / `supercharger_sessions.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/supercharger-stats-read.md` |
 | `derived start battery` | `charging.SessionVerifier.VerifySession` derivation (`start_battery_pct` computed from `energy_kwh` + end %) | entity | `use-case/charging/verify-session-battery.md` |
 | `calculated start battery` | synonym of `derived start battery` | entity | `use-case/charging/verify-session-battery.md` |
 | `inferred capacity` | `charging.Entry.InferredCapacityKWhCalc` / `manual_charge_entries.inferred_capacity_kwh_calc` (DB-generated) | entity | `workflows/manual-charge-crud.md` |
@@ -40,6 +40,8 @@
 | `battery history` | synonym of `battery level by day` | entity | `entities/vehicle-metrics/guide.md` |
 | `battery chart` | `buildBatteryChart` / `analytics.Reader.BatteryLevelByDay` (since RM40; previously `telemetry.Reader`) | entity | `use-case/gateway/read-dashboard-history.md` |
 | `battery history chart` | synonym of `battery chart` | entity | `use-case/gateway/read-dashboard-history.md` |
+| `watermark vocabulary` | the closed set of table names `vehicle_metric_watermarks.source` may hold, and how it is migrated → `entities/vehicle-metrics/guide.md` |
+| `vocabulary migration` | retiring a watermark source value when another module renames its table → `entities/vehicle-metrics/guide.md` |
 
 ## Input ports — pages & endpoints
 
@@ -85,9 +87,13 @@
 
 | Topic | KB path |
 |---|---|
-| `telemetry hub` (module purpose + consumer map: who reads telemetry data) | `architecture/telemetry-data-hub.md` |
-| `telemetry module` | synonym of `telemetry hub` → `architecture/telemetry-data-hub.md` |
-| `vehicle snapshots` | `telemetry.Snapshot` / `vehicle_snapshots` → `architecture/telemetry-data-hub.md` |
+| `telemetry module` (ingest-only: fetches the Fleet API and writes what it fetched — plus the consumer map of who may read it) | `architecture/telemetry-ingest-only.md` |
+| `telemetry hub` | **misnomer** — telemetry is a source, not a hub → `architecture/telemetry-ingest-only.md` |
+| `who reads telemetry` | synonym of `telemetry module` → `architecture/telemetry-ingest-only.md` |
+| `telemetry vs analytics` | the module split (telemetry ingests · charging mirrors + owns manual · analytics derives) → `architecture/telemetry-ingest-only.md` |
+| `can the gateway read telemetry` | no — forbidden by `make boundary-guard` → `architecture/telemetry-ingest-only.md` |
+| `ingest module` | synonym of `telemetry module` → `architecture/telemetry-ingest-only.md` |
+| `vehicle snapshots` | `telemetry.Snapshot` / `vehicle_snapshots` → `architecture/telemetry-ingest-only.md` |
 | `nightly cycle` (the 3-step `ProcessVehicleData` orchestration: sync fleet data → mirror charging data → recalculate analytics) | `architecture/nightly-cycle.md` |
 | `nightly collection` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
 | `nightly poll` | synonym of `nightly cycle` → `architecture/nightly-cycle.md` |
@@ -113,10 +119,24 @@
 | `deactivated account` | synonym of `account activation gate` → `architecture/account-activation-gate.md` |
 | `poll run summary` (one row per `ProcessVehicleData` invocation, recorded on every exit path incl. whole-cycle failure) | `architecture/nightly-cycle.md` |
 | `run duration` | `ProcessVehicleData`'s clock-measured start-to-finish span → `architecture/nightly-cycle.md` |
-| `poll run` (one `poll_runs` row per collection-cycle invocation: trigger, timing, account/vehicle outcome counts, Tesla API call count) | `architecture/telemetry-data-hub.md` |
-| `run summary` | synonym of `poll run` → `architecture/telemetry-data-hub.md` |
-| `poll_runs` | `telemetry.PollRun` / `telemetry.RunWriter.RecordRun` → `architecture/telemetry-data-hub.md` |
-| `Tesla API call count` | `CycleReport.TeslaAPICalls` (counting decorator inside `internal/telemetry`) → `architecture/telemetry-data-hub.md` |
+| `poll run` (one `poll_runs` row per collection-cycle invocation: trigger, timing, account/vehicle outcome counts, Tesla API call count) | `architecture/telemetry-ingest-only.md` |
+| `run summary` | synonym of `poll run` → `architecture/telemetry-ingest-only.md` |
+| `poll_runs` | `telemetry.PollRun` / `telemetry.RunWriter.RecordRun` → `architecture/telemetry-ingest-only.md` |
+| `Tesla API call count` | `CycleReport.TeslaAPICalls` (counting decorator inside `internal/telemetry`) → `architecture/telemetry-ingest-only.md` |
+| `schema per module` (one PostgreSQL schema per persistence-owning `internal/` module, named after the module; RM39) | `architecture/schema-per-module.md` |
+| `module schema` | synonym of `schema per module` → `architecture/schema-per-module.md` |
+| `account schema` | the `account` schema holding `accounts`, `tesla_tokens`, `vehicles` → `architecture/schema-per-module.md` |
+| `schema-qualified query` | why every `query.sql` table reference carries its schema (sqlc codegen requirement) → `architecture/schema-per-module.md` |
+| `gen.go.rename` | the `sqlc.yaml` block that keeps generated Go type names stable across a schema move → `architecture/schema-per-module.md` |
+| `vehicles table schema` | `account.vehicles` — the registry lives in its owning module's schema → `architecture/schema-per-module.md` |
+| `analytics schema` | the `analytics` schema holding `vehicle_metrics`, `vehicle_metric_watermarks`, `charge_gaps` → `architecture/schema-per-module.md` |
+| `watermark source values` | why `vehicle_metric_watermarks.source` strings are never schema-qualified → `architecture/schema-per-module.md` |
+| `charging schema` | the `charging` schema holding `manual_charge_entries` and `supercharger_sessions` → `architecture/schema-per-module.md` |
+| `table rename` | renaming a table and every catalog object that carries its name → `architecture/schema-per-module.md` |
+| `charge_sessions rename` | why `charge_sessions` became `supercharger_sessions` (RM39 tier 3) → `architecture/schema-per-module.md` |
+| `supercharger history` (`telemetry.supercharger_history` — the RAW vendor upsert; NOT charging's `supercharger_sessions` mirror) | `architecture/telemetry-ingest-only.md` |
+| `telemetry schema` | the module's own Postgres schema — all four telemetry tables live there, never `public` → `architecture/telemetry-ingest-only.md` |
+| `supercharger_history vs supercharger_sessions` | two different tables — telemetry's raw upsert vs charging's mirror → `architecture/telemetry-ingest-only.md` |
 
 <!--
 Notes for the curator:

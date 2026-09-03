@@ -175,29 +175,29 @@ func (f *fakeAccountEmpty) SetLanguage(_ context.Context, _ uuid.UUID, _ string)
 
 var _ account.Service = (*fakeAccountEmpty)(nil)
 
-// fakeSuperchargerReader satisfies telemetry.SuperchargerReader. Every method
+// fakeSuperchargerHistoryReader satisfies telemetry.SuperchargerHistoryReader. Every method
 // is unreachable in Fixtures P3-P5 (an empty vehicle list means the
 // per-account loop that would call it never iterates) and stubs to its zero
 // value (design D9).
-type fakeSuperchargerReader struct{}
+type fakeSuperchargerHistoryReader struct{}
 
-func (fakeSuperchargerReader) SuperchargerSessionsByAccount(_ context.Context, _ uuid.UUID, _ int) ([]telemetry.SuperchargerSession, error) {
+func (fakeSuperchargerHistoryReader) SuperchargerHistoryByAccount(_ context.Context, _ uuid.UUID, _ int) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
-func (fakeSuperchargerReader) SuperchargerSessionsByVehicle(_ context.Context, _ uuid.UUID, _ int64, _ int) ([]telemetry.SuperchargerSession, error) {
+func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicle(_ context.Context, _ uuid.UUID, _ int64, _ int) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
-func (fakeSuperchargerReader) SuperchargerSessionsByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]telemetry.SuperchargerSession, error) {
+func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicleBetween(_ context.Context, _ uuid.UUID, _ int64, _, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
-func (fakeSuperchargerReader) SuperchargerSessionsByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.SuperchargerSession, error) {
+func (fakeSuperchargerHistoryReader) SuperchargerHistoryByVehicleUpdatedSince(_ context.Context, _ uuid.UUID, _ int64, _ time.Time) ([]telemetry.SuperchargerHistory, error) {
 	return nil, nil
 }
 
-var _ telemetry.SuperchargerReader = fakeSuperchargerReader{}
+var _ telemetry.SuperchargerHistoryReader = fakeSuperchargerHistoryReader{}
 
 // fakeSessionWriter satisfies charging.SessionWriter. Unreachable in
 // Fixtures P3-P5 (design D9).
@@ -264,7 +264,7 @@ var _ analytics.GapWriter = fakeGapWriter{}
 func newTestProcessor(collector telemetry.Collector, runWriter telemetry.RunWriter, acct account.Service) Processor {
 	return NewProcessor(
 		collector,
-		fakeSuperchargerReader{},
+		fakeSuperchargerHistoryReader{},
 		runWriter,
 		fakeSessionWriter{},
 		acct,
