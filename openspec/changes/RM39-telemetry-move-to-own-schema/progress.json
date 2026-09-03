@@ -7,7 +7,7 @@
   "request": "Tier 4 of RM39: move internal/telemetry's 4 tables into a dedicated telemetry Postgres schema and rename supercharger_sessions -> supercharger_history, with its 9 catalog objects and the Go names that follow the table. The public port SuperchargerReader stays unchanged (tier 5).",
   "status": "applied",
   "created_at": "2026-09-03T09:55:00Z",
-  "updated_at": "2026-09-03T10:48:00Z",
+  "updated_at": "2026-09-03T10:50:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -27,6 +27,10 @@
     ],
     "blocked": [],
     "done": [
+      "T9",
+      "T10"
+    ],
+    "awaiting-user-verification": [
       "T1",
       "T2",
       "T3",
@@ -34,11 +38,8 @@
       "T5",
       "T6",
       "T7",
-      "T8",
-      "T9",
-      "T10"
-    ],
-    "awaiting-user-verification": []
+      "T8"
+    ]
   },
   "tasks": [
     {
@@ -47,7 +48,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T09:58:00Z",
@@ -67,7 +68,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T09:58:00Z",
@@ -90,7 +91,7 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T10:08:00Z",
@@ -107,7 +108,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T10:15:00Z",
@@ -129,7 +130,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T10:28:00Z",
@@ -151,7 +152,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T10:28:00Z",
@@ -168,7 +169,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T10:28:00Z",
@@ -185,7 +186,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "done",
+      "status": "awaiting-user-verification",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T10:28:00Z",
@@ -411,6 +412,11 @@
       "at": "2026-09-03T10:48:00Z",
       "agent": "leader",
       "event": "ASSISTANT-RUN SIGNALS, ALL GREEN: go build ./... clean, go vet ./... clean repo-wide (it compiles _test.go, so it covers every type rename in every test file), gofmt -l clean on all 22 touched files, make migration-guard / boundary-guard / tz-guard / money-guard all pass. NOT RUN, AND NOT CLAIMED: the test suite. Per Test-Execution-Policy every task is complete-but-unexecuted, so the change is awaiting the owner's verification before the reviewer gate."
+    },
+    {
+      "at": "2026-09-03T10:50:00Z",
+      "agent": "leader",
+      "event": "MANDATORY ASK POINT (Step 5.7 + Step 6, merged - the final wave is also the last code-touching wave, so one ask serves both). T1-T8 moved from done to AWAITING-USER-VERIFICATION: their work is complete but no test has been executed by the assistant, and this tier's central risk (raw SQL in _test.go) has no assistant-runnable signal at all. T9/T10 stay done - they are docs and depend on no suite. The reviewer gate does NOT open until the owner reports the suite."
     }
   ]
 }
