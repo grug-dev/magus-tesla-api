@@ -1,7 +1,9 @@
 // Package charging_test — database-backed integration tests for SessionVerifier
 // (session_verifier.go) and its VerifySuperchargerSession query (db/query.sql), covering
 // design.md's Test Contract T1-T9 (RM31-charging-add-session-verification-port,
-// tasks.md task 3.1).
+// tasks.md task 3.1) and, since RM41 tier 4 (MAG-45,
+// RM41-charging-add-session-status), Group S1-S8 (the sessionStatusFor state truth
+// table) plus T8's repair to assert the new Status field.
 //
 // Fixtures are seeded through SessionWriter.MirrorSessions (the only writer this
 // table has), verified through SessionVerifier.VerifySession, and read back either
@@ -9,8 +11,9 @@
 // direct-SQL helper (db_session_integration_test.go, same package) — never through
 // chargingdb.SuperchargerSession. pgtype NEVER appears in this file
 // (internal/charging/AGENTS.md §Testing Notes). session_ids are in the 950001-950099
-// range, disjoint from RM29 tier 6's 920001-920099, RM30 tier 1's 940001-940099, and
-// the real backfilled 734860294.
+// range, disjoint from RM29 tier 6's 920001-920099, RM30 tier 1's 940001-940099, three
+// other files' 960001-960099, and the real backfilled 734860294. RM31 tier 1 used
+// 950001-950009; RM41 tier 4's Group S continues in the same block at 950010-950017.
 //
 // Test -> Test Contract case mapping:
 //
@@ -22,7 +25,16 @@
 //	T5          TestVerifySession_OutOfRangeRejectedBeforeQuery
 //	T6          TestVerifySession_WrongAccountIsNoOp
 //	T7          TestVerifySession_UnknownIDSameErrorShapeAsWrongAccount
-//	T8          TestVerifySession_OnlyTargetColumnsChange
+//	T8          TestVerifySession_OnlyTargetColumnsChange (repaired by RM41 tier 4 to
+//	            assert the returned Status)
+//	S1          TestVerifySession_S1_FreshMirrorIsInProgress
+//	S2          TestVerifySession_S2_StartOnlyIsInProgress
+//	S3          TestVerifySession_S3_EndOnlyNoEnergyStaysInProgress
+//	S4          TestVerifySession_S4_EndOnlyDerivedIsDoneCalculated
+//	S5          TestVerifySession_S5_BothSuppliedIsDone
+//	S6          TestVerifySession_S6_ReverificationFlipsCalculatedToDone
+//	S7          TestVerifySession_S7_ClearingBothResetsToInProgress
+//	S8          TestVerifySession_S8_DerivedOutOfRangeStaysInProgress
 package charging_test
 
 import (
@@ -399,8 +411,12 @@ func TestVerifySession_OnlyTargetColumnsChange(t *testing.T) {
 		t.Fatalf("expected baseline row for session 950008")
 	}
 
-	if _, err := v.VerifySession(ctx, acctA, v8ID, ptrIntV(15), ptrIntV(95)); err != nil {
+	got, err := v.VerifySession(ctx, acctA, v8ID, ptrIntV(15), ptrIntV(95))
+	if err != nil {
 		t.Fatalf("VerifySession: %v", err)
+	}
+	if got.Status != charging.SessionStatusDone {
+		t.Errorf("Status = %q, want %q (both percentages supplied directly)", got.Status, charging.SessionStatusDone)
 	}
 
 	after, ok := fetchSuperchargerSession(t, pool, acctA, 950008)
@@ -460,5 +476,238 @@ func TestVerifySession_OnlyTargetColumnsChange(t *testing.T) {
 	}
 	if !after.UpdatedAt.After(before.UpdatedAt) {
 		t.Errorf("UpdatedAt did not advance: before %v, after %v", before.UpdatedAt, after.UpdatedAt)
+	}
+}
+
+// --- Group S: sessionStatusFor state truth table (RM41 tier 4, MAG-45) ---
+
+// seedVerifierSessionEnergy seeds one baseline supercharger_sessions row via
+// SessionWriter.MirrorSessions with a caller-chosen EnergyKWh (nil included) and all
+// battery-percentage/status columns at their defaults -- generalizes
+// seedVerifierSession for Group S, which needs an energy_kwh SQL NULL fixture (S3)
+// and an unusually large one (S8) seedVerifierSession's hardcoded 30.5 cannot
+// produce.
+func seedVerifierSessionEnergy(t *testing.T, pool *pgxpool.Pool, accountID uuid.UUID, sessionID int64, energyKWh *float64) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	w := charging.NewSessionWriter(pool)
+	m := charging.SessionMirror{
+		AccountID:           accountID,
+		VIN:                 "VVERIFY",
+		TeslaID:             ptrInt64(sessionID),
+		SessionID:           sessionID,
+		ChargeStartDateTime: time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC),
+		ChargeStopDateTime:  time.Date(2026, 8, 1, 11, 0, 0, 0, time.UTC),
+		SiteLocationName:    "Verifier Test Site",
+		EnergyKWh:           energyKWh,
+		TotalCost:           ptrFloat64(9.99),
+		Currency:            ptrString("USD"),
+		IsPaid:              ptrBool(true),
+	}
+	if err := w.MirrorSessions(ctx, accountID, []charging.SessionMirror{m}); err != nil {
+		t.Fatalf("seedVerifierSessionEnergy: MirrorSessions: %v", err)
+	}
+	return fetchSuperchargerSessionID(t, pool, accountID, sessionID)
+}
+
+// TestVerifySession_S1_FreshMirrorIsInProgress: a fresh mirror, never verified,
+// reads IN_PROGRESS -- the column DEFAULT, exercised through the real INSERT path.
+func TestVerifySession_S1_FreshMirrorIsInProgress(t *testing.T) {
+	pool := newTestPool(t)
+	acctA := uuid.New()
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
+
+	id := seedVerifierSession(t, pool, acctA, 950010)
+
+	var status string
+	if err := pool.QueryRow(context.Background(),
+		"SELECT status FROM charging.supercharger_sessions WHERE id = $1", id,
+	).Scan(&status); err != nil {
+		t.Fatalf("reading status: %v", err)
+	}
+	if status != string(charging.SessionStatusInProgress) {
+		t.Errorf("status = %q, want %q", status, charging.SessionStatusInProgress)
+	}
+}
+
+// TestVerifySession_S2_StartOnlyIsInProgress: start only, end nil -> IN_PROGRESS
+// (truth table row 3) -- deliberately not a fourth state.
+func TestVerifySession_S2_StartOnlyIsInProgress(t *testing.T) {
+	pool := newTestPool(t)
+	acctA := uuid.New()
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
+	ctx := context.Background()
+	v := charging.NewSessionVerifier(pool)
+
+	id := seedVerifierSession(t, pool, acctA, 950011)
+
+	got, err := v.VerifySession(ctx, acctA, id, ptrIntV(30), nil)
+	if err != nil {
+		t.Fatalf("VerifySession: %v", err)
+	}
+	if got.Status != charging.SessionStatusInProgress {
+		t.Errorf("Status = %q, want %q", got.Status, charging.SessionStatusInProgress)
+	}
+	if got.StartBatteryPct == nil || *got.StartBatteryPct != 30 {
+		t.Errorf("StartBatteryPct = %v, want 30", got.StartBatteryPct)
+	}
+	if got.EndBatteryPct != nil {
+		t.Errorf("EndBatteryPct = %v, want nil", got.EndBatteryPct)
+	}
+}
+
+// TestVerifySession_S3_EndOnlyNoEnergyStaysInProgress: end only, energy_kwh SQL
+// NULL -> derivation impossible, IN_PROGRESS (truth table row 2, no-energy sub-case).
+func TestVerifySession_S3_EndOnlyNoEnergyStaysInProgress(t *testing.T) {
+	pool := newTestPool(t)
+	acctA := uuid.New()
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
+	ctx := context.Background()
+	v := charging.NewSessionVerifier(pool)
+
+	id := seedVerifierSessionEnergy(t, pool, acctA, 950012, nil)
+
+	got, err := v.VerifySession(ctx, acctA, id, nil, ptrIntV(80))
+	if err != nil {
+		t.Fatalf("VerifySession: %v", err)
+	}
+	if got.Status != charging.SessionStatusInProgress {
+		t.Errorf("Status = %q, want %q", got.Status, charging.SessionStatusInProgress)
+	}
+	if got.StartBatteryPct != nil {
+		t.Errorf("StartBatteryPct = %v, want nil (no energy to derive from)", got.StartBatteryPct)
+	}
+	if got.EndBatteryPct == nil || *got.EndBatteryPct != 80 {
+		t.Errorf("EndBatteryPct = %v, want 80", got.EndBatteryPct)
+	}
+}
+
+// TestVerifySession_S4_EndOnlyDerivedIsDoneCalculated: end only, energy_kwh
+// present, derivation succeeds -> DONE_CALCULATED (truth table row 4). Arithmetic:
+// 90 - 30.5/62*100 = 40.8 -> rounds to 41, the identical fixture shape
+// TestVerifySession_PartialEndOnlyStillSetsSource already pins.
+func TestVerifySession_S4_EndOnlyDerivedIsDoneCalculated(t *testing.T) {
+	pool := newTestPool(t)
+	acctA := uuid.New()
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
+	ctx := context.Background()
+	v := charging.NewSessionVerifier(pool)
+
+	id := seedVerifierSession(t, pool, acctA, 950013)
+
+	got, err := v.VerifySession(ctx, acctA, id, nil, ptrIntV(90))
+	if err != nil {
+		t.Fatalf("VerifySession: %v", err)
+	}
+	if got.Status != charging.SessionStatusDoneCalculated {
+		t.Errorf("Status = %q, want %q", got.Status, charging.SessionStatusDoneCalculated)
+	}
+	if got.StartBatteryPct == nil || *got.StartBatteryPct != 41 {
+		t.Errorf("StartBatteryPct = %v, want 41 (derived)", got.StartBatteryPct)
+	}
+}
+
+// TestVerifySession_S5_BothSuppliedIsDone: both supplied directly -> DONE (truth
+// table row 5).
+func TestVerifySession_S5_BothSuppliedIsDone(t *testing.T) {
+	pool := newTestPool(t)
+	acctA := uuid.New()
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
+	ctx := context.Background()
+	v := charging.NewSessionVerifier(pool)
+
+	id := seedVerifierSession(t, pool, acctA, 950014)
+
+	got, err := v.VerifySession(ctx, acctA, id, ptrIntV(20), ptrIntV(80))
+	if err != nil {
+		t.Fatalf("VerifySession: %v", err)
+	}
+	if got.Status != charging.SessionStatusDone {
+		t.Errorf("Status = %q, want %q", got.Status, charging.SessionStatusDone)
+	}
+}
+
+// TestVerifySession_S6_ReverificationFlipsCalculatedToDone: a re-verification
+// flips a status -- DONE_CALCULATED -> DONE when a later call supplies a
+// caller-typed start. This is also the concrete proof that status is recomputed on
+// every write (roadmap D10), not fixed at first-write.
+func TestVerifySession_S6_ReverificationFlipsCalculatedToDone(t *testing.T) {
+	pool := newTestPool(t)
+	acctA := uuid.New()
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
+	ctx := context.Background()
+	v := charging.NewSessionVerifier(pool)
+
+	id := seedVerifierSession(t, pool, acctA, 950015)
+
+	first, err := v.VerifySession(ctx, acctA, id, nil, ptrIntV(90))
+	if err != nil {
+		t.Fatalf("VerifySession (first): %v", err)
+	}
+	if first.Status != charging.SessionStatusDoneCalculated {
+		t.Fatalf("first Status = %q, want %q", first.Status, charging.SessionStatusDoneCalculated)
+	}
+
+	second, err := v.VerifySession(ctx, acctA, id, ptrIntV(45), ptrIntV(90))
+	if err != nil {
+		t.Fatalf("VerifySession (second): %v", err)
+	}
+	if second.Status != charging.SessionStatusDone {
+		t.Errorf("second Status = %q, want %q (a caller-supplied start must flip DONE_CALCULATED to DONE)", second.Status, charging.SessionStatusDone)
+	}
+	if second.StartBatteryPct == nil || *second.StartBatteryPct != 45 {
+		t.Errorf("second StartBatteryPct = %v, want 45 (the caller's own value, never the earlier derived 41)", second.StartBatteryPct)
+	}
+}
+
+// TestVerifySession_S7_ClearingBothResetsToInProgress: clearing both percentages
+// resets a DONE session to IN_PROGRESS.
+func TestVerifySession_S7_ClearingBothResetsToInProgress(t *testing.T) {
+	pool := newTestPool(t)
+	acctA := uuid.New()
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
+	ctx := context.Background()
+	v := charging.NewSessionVerifier(pool)
+
+	id := seedVerifierSession(t, pool, acctA, 950016)
+
+	if _, err := v.VerifySession(ctx, acctA, id, ptrIntV(20), ptrIntV(80)); err != nil {
+		t.Fatalf("VerifySession (set): %v", err)
+	}
+
+	got, err := v.VerifySession(ctx, acctA, id, nil, nil)
+	if err != nil {
+		t.Fatalf("VerifySession (clear): %v", err)
+	}
+	if got.Status != charging.SessionStatusInProgress {
+		t.Errorf("Status = %q, want %q", got.Status, charging.SessionStatusInProgress)
+	}
+	if got.StartBatteryPct != nil || got.EndBatteryPct != nil {
+		t.Errorf("percentages not cleared: start=%v end=%v", got.StartBatteryPct, got.EndBatteryPct)
+	}
+}
+
+// TestVerifySession_S8_DerivedOutOfRangeStaysInProgress: end only, energy_kwh
+// present, derivation out of range -> IN_PROGRESS (truth table row 2,
+// out-of-range sub-case -- a different path to the same status as S3). Arithmetic:
+// 10 - 100/62*100 = -151.29 -> rounds to -151, outside [0,100].
+func TestVerifySession_S8_DerivedOutOfRangeStaysInProgress(t *testing.T) {
+	pool := newTestPool(t)
+	acctA := uuid.New()
+	cleanupChargingSuperchargerSessions(t, pool, acctA)
+	ctx := context.Background()
+	v := charging.NewSessionVerifier(pool)
+
+	id := seedVerifierSessionEnergy(t, pool, acctA, 950017, ptrFloat64(100.0))
+
+	got, err := v.VerifySession(ctx, acctA, id, nil, ptrIntV(10))
+	if err != nil {
+		t.Fatalf("VerifySession: %v", err)
+	}
+	if got.Status != charging.SessionStatusInProgress {
+		t.Errorf("Status = %q, want %q", got.Status, charging.SessionStatusInProgress)
+	}
+	if got.StartBatteryPct != nil {
+		t.Errorf("StartBatteryPct = %v, want nil (derivation out of range)", got.StartBatteryPct)
 	}
 }

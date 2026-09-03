@@ -58,7 +58,7 @@ write channel is correcting the two human-owned battery percentages.
 
 | # | Op | Table / entity | Where |
 |---|---|---|---|
-| 1 | WRITE | `supercharger_sessions` | `VerifySuperchargerSession` — SETs `start_battery_pct`, `end_battery_pct`, `battery_pct_source`, `updated_at` and nothing else; Postgres recomputes `inferred_capacity_kwh_calc` in the same statement |
+| 1 | WRITE | `supercharger_sessions` | `VerifySuperchargerSession` — SETs `start_battery_pct`, `end_battery_pct`, `battery_pct_source`, `status`, `updated_at` and nothing else (the fourth SET target, `status`, added by `RM41-charging-add-session-status`); Postgres recomputes `inferred_capacity_kwh_calc` in the same statement |
 | 2 | READ | `vehicle_snapshots` | `SnapshotsByVehicleBetween` + `SnapshotPrecedingDay` |
 | 3 | READ | `supercharger_sessions` | `ListSessionsByVehicleBetween` |
 | 4 | READ | `manual_charge_entries` | `ListEntriesByVehicleBetween` |
@@ -83,7 +83,10 @@ On the error branches, `fetchSuperchargerRowVM` additionally READs `supercharger
 - **`VerifySuperchargerSession` and `MirrorSuperchargerSession` are deliberate mirror images.** This query
   can touch only the three human-owned columns plus `updated_at`; the nightly mirror can touch
   everything *except* them. The protection is the query's shape, not a comment. Never add a
-  column to either SET clause to "complete the pattern".
+  column to either SET clause to "complete the pattern". Since RM41 tier 4 (MAG-45), `status`
+  joined the human-owned side of this mirror image — it is a fourth `VerifySuperchargerSession`
+  SET target, still excluded from `MirrorSuperchargerSession`'s SET clause the same way the
+  three percentage columns are.
   _Source: `charging/db/query.sql`._
 - **`battery_pct_source` is computed in Go and never accepted from the caller** —
   `user_verified` when either percentage is non-nil, SQL NULL when both are nil. Setting it in

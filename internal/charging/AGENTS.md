@@ -238,9 +238,37 @@ directly, exactly as for `Writer`/`Reader` above.
 ### The Supercharger session read ports (RM30-charging-add-session-read-port, widened by RM31-charging-add-session-read-ports)
 
 ```go
+// SessionStatus is the lifecycle status of one supercharger_sessions row's
+// battery-percentage data (TEXT + CHECK in the DB, RM41-charging-add-session-status,
+// MAG-45). ALWAYS COMPUTED by SessionVerifier.VerifySession on every call -- no port
+// accepts a Session as input for this field, so there is no way for a caller to set
+// it directly.
+type SessionStatus string
+
+const (
+    // SessionStatusInProgress: at least one of start_battery_pct/end_battery_pct is
+    // NULL. This is the status of a session nobody has recorded anything for, AND of
+    // a session with only a start percentage recorded and no end percentage --
+    // deliberately not a fourth state (design.md "State truth table"): this is what
+    // keeps "sessions still in progress" a meaningful worklist for the gateway's own
+    // follow-up recommendation (RM41 tier 5) even when a session is half-recorded.
+    SessionStatusInProgress SessionStatus = "IN_PROGRESS"
+    // SessionStatusDoneCalculated: both percentages are present, AND the
+    // VerifySession call that produced this row's CURRENT start_battery_pct derived
+    // it via derivedStartBatteryPct (capacity.go) rather than storing a
+    // caller-supplied value. This is the one place in the schema that keeps a typed
+    // percentage apart from a derived one -- battery_pct_source itself cannot
+    // (MAG-36 design.md D1).
+    SessionStatusDoneCalculated SessionStatus = "DONE_CALCULATED"
+    // SessionStatusDone: both percentages are present, and the CURRENT
+    // start_battery_pct was supplied directly by VerifySession's caller.
+    SessionStatusDone SessionStatus = "DONE"
+)
+
 // Session is the full domain representation of one supercharger_sessions row: identity, the
 // session's time window, the session facts internal/telemetry collects, and the three
-// charging-owned battery-percentage verification columns. Read-only counterpart
+// charging-owned battery-percentage verification columns, plus (since RM41 tier 4) a
+// fourth charging-owned column, Status, computed from them. Read-only counterpart
 // to SessionMirror — NOT built by widening it: SessionMirror stays deliberately
 // percentage-free (RM29 design.md D6) so the nightly sync path has no field to bind a
 // human-verified percentage to, even by mistake. Session and SessionMirror are
@@ -266,6 +294,12 @@ type Session struct {
     StartBatteryPct    *int
     EndBatteryPct      *int
     BatteryPctSource   *string
+
+    // Status is this session's lifecycle status -- ALWAYS COMPUTED by
+    // SessionVerifier.VerifySession, never settable through any port
+    // (RM41-charging-add-session-status, MAG-45). See SessionStatus's own doc
+    // comment for the three values and the rule that produces each.
+    Status SessionStatus
 
     // InferredCapacityKWhCalc — database-computed, read-only (MAG-25,
     // charging-add-inferred-capacity). nil when EnergyKWh is nil, either
@@ -361,11 +395,17 @@ directly, exactly as for `Writer`/`Reader`/`SessionWriter` above. The same appli
 // fat interface, two callers with different trust models" shape the AI-efficiency
 // "closed, small vocabularies" principle (CLAUDE.md §Non-negotiables) argues against.
 type SessionVerifier interface {
-    // VerifySession updates exactly three columns on one account-scoped
-    // supercharger_sessions row — start_battery_pct, end_battery_pct, battery_pct_source —
-    // plus updated_at. No other column is reachable through this method: the
-    // underlying query's SET clause names only these three plus updated_at
-    // (RM31-charging-add-session-verification-port design.md D1). The two frozen
+    // VerifySession updates exactly four columns on one account-scoped
+    // supercharger_sessions row — start_battery_pct, end_battery_pct,
+    // battery_pct_source, status — plus updated_at (RM41-charging-add-session-status,
+    // MAG-45, added the fourth). No other column is reachable through this method: the
+    // underlying query's SET clause names only these four plus updated_at (RM31 design.md
+    // D1, extended by RM41 tier 4). status is ALWAYS COMPUTED by this method from the
+    // same startToStore/endBatteryPct/derivation-outcome values used to compute
+    // battery_pct_source — never accepted as a parameter; VerifySession's own signature
+    // is unchanged by this addition.
+    //
+    // The two frozen
     // estimate columns formerly named here as columns this method could never
     // reach were dropped from the table entirely by
     // RM41-charging-drop-estimate-columns — there is no longer a column to be
@@ -428,6 +468,36 @@ writes (design.md D1 — no new source value). The derivation runs inside a tran
 query/`Commit`) only when the trigger fires, mirroring `internal/account`'s
 `AccessTokenFor` and this module's own `SessionWriter.MirrorSessions` (design.md D7/D9);
 every other call keeps the prior single-statement, non-transactional path unchanged.
+
+### Session lifecycle status (RM41 tier 4, MAG-45)
+
+`SessionVerifier.VerifySession` now also computes a stored `status` column on every
+call, alongside `battery_pct_source`, sharing its "never accepted from a caller"
+property — no port takes a `Session` as input for this field. One-sentence rule: a
+session's status is `IN_PROGRESS` unless BOTH percentage columns end up non-`NULL`
+after the write; when both are present, it is `DONE_CALCULATED` if THIS write derived
+the start percentage rather than storing a caller-supplied one, and `DONE` otherwise.
+
+| `start_battery_pct` (final, after this write) | `end_battery_pct` (final) | This write derived `start`? | `status` |
+|---|---|---|---|
+| NULL | NULL | — | `IN_PROGRESS` |
+| NULL | non-NULL | derivation not attempted or failed (no `energy_kwh`, or out of `[0,100]`) | `IN_PROGRESS` |
+| non-NULL | NULL | — | `IN_PROGRESS` |
+| non-NULL (derived this call) | non-NULL | yes | `DONE_CALCULATED` |
+| non-NULL (caller-supplied) | non-NULL | no | `DONE` |
+
+A session carrying a typed `start_battery_pct` but no `end_battery_pct` is
+`IN_PROGRESS` — the same status as a session with nothing recorded at all,
+deliberately not a fourth state (design.md "State truth table"): this is what keeps
+"sessions still in progress" a meaningful worklist for the gateway's own follow-up
+recommendation (RM41 tier 5) even when a session is half-recorded.
+
+**BACKFILL decision:** every row that existed before this migration
+(`20260903000004_add_session_status.sql`) was backfilled to `DONE_CALCULATED`
+unconditionally — an owner decision about data provenance (every one of those rows'
+percentages was manually reconstructed by the owner, not read from the car) the
+stored percentages themselves cannot show, not a recompute of the truth table above
+against their actual values (design.md "Rationale").
 
 ---
 
@@ -608,7 +678,11 @@ RM29-charging-add-charge-sessions)
     a human-typed one gets, so the two are indistinguishable in this column — a future
     MAG-18 capacity-averaging implementer over `supercharger_sessions` cannot filter derived
     rows out by provenance alone; read design.md D1 before building that feature rather
-    than rediscovering this limitation.
+    than rediscovering this limitation. Since RM41 tier 4 (MAG-45), a fourth
+    charging-owned column, `status`, is computed from these two on every `VerifySession`
+    call — see §Public Interface above and the new "Session lifecycle status"
+    subsection for the full rule; `status` is not itself mirrored, refreshed, or
+    engine-generated, it is Go-computed.
   - Deliberately **not** carried, and the list is closed: `country_code`,
     `unlatch_date_time`, `billing_type`, `vehicle_make_type`, `raw_data` (design.md D1).
   - `inferred_capacity_kwh_calc` (MAG-25, charging-add-inferred-capacity) —
@@ -750,7 +824,11 @@ RM29-charging-add-charge-sessions)
   asserts against `SessionVerifier.VerifySession`'s returned `charging.Session` for the
   columns it changes, and reuses `db_session_integration_test.go`'s existing
   `fetchSuperchargerSession` direct-SQL helper (plain Go `*T` fields, never `pgtype`) for the
-  structural bit-identical-column proof (T8).
+  structural bit-identical-column proof (T8). Since RM41 tier 4 (MAG-45), the same file
+  also covers the `status` column's full state truth table (Test Contract Group S1-S8,
+  `RM41-charging-add-session-status` design.md) and the backfill's identical "DEFAULT
+  mechanism only, not the real backfill outcome" exemption already established for
+  MAG-25/RM33's own backfilled columns.
   `db_session_reader_updated_since_integration_test.go` and
   `db_session_reader_by_vehicle_integration_test.go` (RM31-charging-add-session-read-ports)
   assert against `SuperchargerSessionAnalyticsReader.ListSessionsByVehicleUpdatedSince`/

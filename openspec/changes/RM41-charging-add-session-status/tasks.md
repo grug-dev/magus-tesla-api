@@ -124,7 +124,7 @@ explicitly confirmed it.
 
 ## Wave 3 — test extension (module: charging worker)
 
-- [ ] **3.1** `internal/charging/db_session_verifier_integration_test.go` — add the
+- [x] **3.1** `internal/charging/db_session_verifier_integration_test.go` — add the
   `seedVerifierSessionEnergy` helper and the eight new test functions
   (`TestVerifySession_S1_FreshMirrorIsInProgress` through
   `TestVerifySession_S8_DerivedOutOfRangeStaysInProgress`), verbatim from design.md
@@ -143,7 +143,7 @@ explicitly confirmed it.
 
 ## Wave 4 — docs (module: charging worker, granted README + KB + spec paths)
 
-- [ ] **4.1** `internal/charging/AGENTS.md` — apply design.md "Docs" → the five
+- [x] **4.1** `internal/charging/AGENTS.md` — apply design.md "Docs" → the five
   numbered edits exactly (§Public Interface's `SessionStatus`/`Session` code block,
   `SessionVerifier`'s doc comment, the new "Session lifecycle status" subsection,
   the Data Ownership column-by-column sentence, and the Testing Notes sentence).
@@ -153,7 +153,7 @@ explicitly confirmed it.
   least `2` (the type doc and the new subsection).
   `depends_on`: 1.2, 1.3 · `parallel_ok`: with 4.2, 4.3, 4.4
 
-- [ ] **4.2** Root `README.md` — apply design.md "Docs" → the `charging.supercharger_sessions`
+- [x] **4.2** Root `README.md` — apply design.md "Docs" → the `charging.supercharger_sessions`
   row rewrite exactly: "five" becomes "three" (correcting the pre-existing
   staleness from tier 2) AND the new `status` sentence is added. Touch only this
   one table cell; no other row or section. Acceptance:
@@ -163,7 +163,7 @@ explicitly confirmed it.
   shows the new sentence present on that row.
   `depends_on`: — · `parallel_ok`: with 4.1, 4.3, 4.4
 
-- [ ] **4.3** `kkpa/context/use-case/charging/verify-session-battery.md` — apply
+- [x] **4.3** `kkpa/context/use-case/charging/verify-session-battery.md` — apply
   design.md "Docs" → the Database table row 1 rewrite (add `status` as the fourth
   SET target) and the one-clause addition to the mirror-images gotcha bullet.
   Acceptance: `grep -c "start_battery_pct.*end_battery_pct.*battery_pct_source.*status.*updated_at"
@@ -174,7 +174,7 @@ explicitly confirmed it.
   kkpa/context/use-case/charging/verify-session-battery.md` returns at least `1`.
   `depends_on`: — · `parallel_ok`: with 4.1, 4.2, 4.4
 
-- [ ] **4.4** `openspec/specs/charge-session-log/spec.md` — apply the spec delta
+- [x] **4.4** `openspec/specs/charge-session-log/spec.md` — apply the spec delta
   from this change's own `specs/charge-session-log/spec.md` (this task is really
   "confirm `openspec archive` will sync it correctly" — no manual edit needed
   beyond what already exists in this change folder; verify the delta's ADDED
@@ -187,7 +187,7 @@ explicitly confirmed it.
 
 ## Wave 5 — verification (assistant-run signals, then owner-run suite + migration)
 
-- [ ] **5.1** Run and report: `go build ./internal/charging/...`,
+- [x] **5.1** Run and report: `go build ./internal/charging/...`,
   `go vet ./internal/charging/...`, `gofmt -l internal/charging`,
   `make migration-guard`, `make boundary-guard`. This tier's own definition of
   done: `grep -rln "SessionStatus" internal/charging/` includes `charging.go`,
