@@ -133,16 +133,20 @@ registered to the account.
 ### Requirement: Battery Percentage Verification On A Charge Session
 
 Each charge session record SHALL carry an optional verified battery percentage at charge
-start and at charge stop, an optional provenance stating where those percentages came
-from, and an optional frozen pair of estimated percentages captured at the moment of
-verification. Any recorded percentage SHALL be between 0 and 100 inclusive. A recorded
-provenance SHALL be either "user verified" or "polled". A record carrying either verified
-percentage SHALL also carry a provenance.
+start and at charge stop, and an optional provenance stating where those percentages came
+from. **This is a CHANGE from the prior revision of this requirement, under which each
+record also carried an optional frozen pair of estimated percentages captured at the
+moment of verification — that frozen pair is REMOVED by this revision
+(`RM41-charging-drop-estimate-columns`), because no code path in the platform has ever
+written it and the estimator that was originally intended to eventually populate it
+(`derivedStartBatteryPct`) instead writes the real verified start percentage.** Any
+recorded percentage SHALL be between 0 and 100 inclusive. A recorded provenance SHALL be
+either "user verified" or "polled". A record carrying either verified percentage SHALL
+also carry a provenance.
 
 Synchronizing charge session records SHALL never write, clear, or overwrite any of these
-five values — including when the same synchronization pass updates that same record's
-registered vehicle identifier or its energy, cost, currency or payment facts. The frozen
-estimate pair SHALL never be refreshed after it is first recorded.
+three values — including when the same synchronization pass updates that same record's
+registered vehicle identifier or its energy, cost, currency or payment facts.
 
 #### Scenario: A percentage without a provenance is rejected
 - **GIVEN** a charge session record being written
@@ -165,12 +169,12 @@ estimate pair SHALL never be refreshed after it is first recorded.
 - **THEN** the write is rejected
 
 #### Scenario: Synchronization never overwrites a verified percentage
-- **GIVEN** a charge session record whose verified percentages, provenance, and frozen
-  estimates have been recorded
+- **GIVEN** a charge session record whose verified percentages and provenance have been
+  recorded
 - **WHEN** the charge session records are synchronized again for that session, including
   when its registered vehicle identifier, energy delivered, cost, currency or payment
   status have changed
-- **THEN** all five values are unchanged
+- **THEN** all three values are unchanged
 
 ### Requirement: One-Time Import Of Previously Collected Sessions
 
@@ -226,9 +230,13 @@ return an empty result, never an absence or an error.
 
 Each retrieved record SHALL carry every fact the capability holds for that session,
 including the session's charging site, energy delivered, cost, currency, payment status,
-and its optional verified battery percentages, their provenance, and their frozen
-estimated pair — so that a caller needs no further request to another capability to
-describe the session completely.
+and its optional verified battery percentages and their provenance — so that a caller
+needs no further request to another capability to describe the session completely. **This
+is a CHANGE from the prior revision of this requirement, under which a retrieved record
+also carried a frozen estimated pair alongside the verified percentages and their
+provenance — the frozen pair is REMOVED by this revision
+(`RM41-charging-drop-estimate-columns`), because the capability no longer stores it (see
+"Battery Percentage Verification On A Charge Session" above).**
 
 A record whose vehicle is not currently registered to the account SHALL NOT be returned by
 this retrieval, for any vehicle requested, even though the record itself continues to
@@ -281,8 +289,7 @@ exist and to be retained.
 
 #### Scenario: A retrieved record carries its full session detail
 - **GIVEN** a charge session record carrying a charging site, energy delivered, cost,
-  currency, payment status, and verified battery percentages with their provenance and
-  frozen estimates
+  currency, payment status, and verified battery percentages with their provenance
 - **WHEN** that record is retrieved
 - **THEN** the retrieved record carries all of that same detail
 
@@ -354,10 +361,12 @@ cause; it is simply not recorded (above).
 
 A correction SHALL change nothing about the record other than its start percentage, end
 percentage, and provenance — every other fact the record carries about the session (its
-identity, its time window, its charging site, its energy, cost, currency and payment facts,
-and its frozen estimated percentages) SHALL be unaffected by any correction, no matter how
-many times a correction is performed, and regardless of whether a start percentage was
-supplied or derived.
+identity, its time window, its charging site, its energy, cost, currency and payment facts)
+SHALL be unaffected by any correction, no matter how many times a correction is performed,
+and regardless of whether a start percentage was supplied or derived. **This is a CHANGE
+from the prior revision of this requirement, under which that list of unaffected facts also
+named the record's frozen estimated percentages — REMOVED by this revision
+(`RM41-charging-drop-estimate-columns`) because the capability no longer stores them.**
 
 A correction that names a record that does not exist, or that names a record belonging to a
 different account than the one the correction is scoped to, SHALL be rejected in the same way
@@ -447,11 +456,11 @@ correction itself derived.
 #### Scenario: A correction never alters the session's other facts, whether a start percentage was supplied or derived
 
 - **GIVEN** a charge session record belonging to an account, carrying a charging site,
-  energy delivered, cost, currency, payment status, and frozen estimated percentages
+  energy delivered, cost, currency, and payment status
 - **WHEN** a correction for that account changes the record's verified percentages, whether
   the resulting start percentage was supplied directly or derived
-- **THEN** the record's charging site, energy delivered, cost, currency, payment status, and
-  frozen estimated percentages are unchanged
+- **THEN** the record's charging site, energy delivered, cost, currency, and payment status
+  are unchanged
 - **AND** the record's identity and time window are unchanged
 
 #### Scenario: A correction to a session belonging to a different account is rejected

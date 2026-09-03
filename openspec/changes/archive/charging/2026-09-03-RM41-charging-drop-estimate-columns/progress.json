@@ -527,10 +527,17 @@
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
+    "status": "approved",
+    "agent": "charging-reviewer",
     "brief": "Review the tier-2 diff only (three commits: bd79622, 6b6005d, 43a732a) against main. Validate: (1) the migration matches design.md's user-confirmed Database Design byte-for-byte, both Up and Down, and is the last-sorting file in internal/charging/db/migrations/; a mismatch is a BLOCKER. (2) module boundaries: only internal/charging/, the single granted internal/analytics/db_integration_test.go, and the three granted kkpa/context/ files are touched \u2014 nothing under internal/telemetry/ (tier 3) or internal/gateway/. (3) the doc-pack conventions in CLAUDE.md, ai/architecture.md and ai/go-conventions.md, especially docs-track-change. (4) the integration tests still assert design.md's authored Test Contract and were not weakened: no assertion deleted beyond those design.md names, and db_backfill_integration_test.go's telemetry-side fixture deliberately unchanged (its acceptance count is 3, not 0). (5) the leader's own three interventions, which no worker reviewed: the tombstone rewording in charging.go/query.sql, the two 'five'->'three' fixes in charging.go and AGENTS.md, and the two removal rewrites added to db_backfill_integration_test.go. Judge these hardest \u2014 they bypassed the worker/report path. (6) Performance-Profile compliance and the anti-gaming checks (no weakened criteria, no self-approved statuses). Test-Execution-Policy verbatim: 'Claude writes tests but never runs the suite \u2014 never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard / make tz-guard / make migration-guard / make boundary-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.' SIGNAL PROVENANCE: go build ./..., go vet ./..., gofmt, make migration-guard and make boundary-guard were ASSISTANT-run and are clean. make migrate-up and make test were OWNER-run and the owner reported both pass. Judge test quality by READING the tests, never by running them.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "approved",
+        "at": "2026-09-03T20:00:00Z",
+        "findings": []
+      }
+    ]
   },
   "events": [
     {

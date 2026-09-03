@@ -6,7 +6,7 @@
   "request": "Source ticket MAG-36. Part 1 (derive start_battery_pct) already shipped as charging-add-derived-start-battery-pct on 2026-09-01. This roadmap covers the two remaining parts: the bilingual UI help text, and removing the *_pct_est columns the ticket found unpopulated.",
   "status": "in-progress",
   "autopilot": false,
-  "updated_at": "2026-09-03T18:35:00Z",
+  "updated_at": "2026-09-03T19:34:58Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
@@ -17,16 +17,16 @@
   },
   "rollup": {
     "current": [
-      2
+      3
     ],
     "pending": [
-      3,
       4,
       5
     ],
     "blocked": [],
     "done": [
-      1
+      1,
+      2
     ]
   },
   "decisions": [
@@ -120,6 +120,13 @@
       "what": "MAG-45 is split into a charging tier (column + write logic) and a gateway tier (badge + copy), tier 5 depending on tier 4.",
       "why": "A stored column belongs to the module owning the table; the gateway may not touch another module's schema. One tier is one module.",
       "at": "2026-09-03T18:16:00Z"
+    },
+    {
+      "scope": "roadmap:tier3-charging-granted-path",
+      "made_by": "autopilot",
+      "what": "internal/charging/db_backfill_integration_test.go is an explicitly granted path on tier 3, not a fourth charging tier.",
+      "why": "Its fixture INSERTs into telemetry.supercharger_history naming both est columns, so tier 3's drop breaks it at runtime. Same shape as tier 2's analytics grant.",
+      "at": "2026-09-03T19:33:16Z"
     }
   ],
   "tiers": [
@@ -146,14 +153,19 @@
       "depends_on": [
         1
       ],
-      "status": "proposed",
+      "status": "archived",
       "assistant": "Claude Code",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T18:35:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-03T19:34:58Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": "Artifacts created and the database design gate passed with the owner."
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 29,
+        "cost_usd_delta": 10.6,
+        "approx": true
+      },
+      "notes": "Archived. Reviewer approved round 1 with zero findings. One owner decision (tombstone wording) and one post-verification bug the leader found and fixed: the replayed backfill statement still named the dropped columns."
     },
     {
       "id": 3,
@@ -161,14 +173,14 @@
       "module": "telemetry",
       "optional": false,
       "depends_on": [],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T19:33:16Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": null
+      "notes": "Artifacts dispatched in parallel with tier 2's review (disjoint modules: telemetry vs charging)."
     },
     {
       "id": 4,
@@ -223,6 +235,16 @@
     {
       "at": "2026-09-03T18:25:00Z",
       "what": "Tier 1 archived. Tier 2 artifacts dispatched in parallel with the tier 1 review (disjoint modules: gateway vs charging).",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:33:16Z",
+      "what": "Tier 2 verified by the owner (make migrate-up + make test) and sent to the reviewer. Tier 3 started in parallel \u2014 depends_on is empty and the modules are disjoint. Leader pre-check found a cross-module breakage the roadmap's tier 3 scope never listed: charging's backfill fixture seeds telemetry.supercharger_history naming both est columns, so it is granted to tier 3.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T19:34:58Z",
+      "what": "Tier 2 archived. openspec archive synced the charge-session-log delta into openspec/specs/charge-session-log/spec.md (3 requirements modified); the folder moved under archive/charging/ to match this repo's module-grouped layout, which the CLI does not do itself. Roadmap tier 2 flipped to [x]. Tier 3 artifacts still in flight.",
       "by": "leader"
     }
   ]
