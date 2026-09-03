@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T03:40:00Z",
+  "updated_at": "2026-09-03T09:55:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -16,10 +16,10 @@
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       4
     ],
+    "pending": [],
     "blocked": [
       5
     ],
@@ -247,6 +247,38 @@
       "made_by": "user",
       "decision": "D6 SUPERSEDED: tier 4 unblocked, and charging's backfill violation is fixed inside tier 4",
       "why": "No ticket ever covered it — MAG-41 was the gateway->telemetry import, a different violation, and MAG-31's only Linear blocker. The residue is one false comment plus test SQL tier 4's step 2b already owned."
+    },
+    {
+      "id": "D26",
+      "at": "2026-09-03T02:45:00Z",
+      "scope": "tier:4",
+      "made_by": "autopilot",
+      "decision": "D5c's safety check was incomplete: 7 real code refs to telemetry.SuperchargerSession live outside telemetry, in app and analytics tests",
+      "why": "D5c only checked charging (whose 6 hits are all comments). app/processor_test.go has 4 and analytics/db_integration_test.go 3. Leader-owned, go vet catches them."
+    },
+    {
+      "id": "D27",
+      "at": "2026-09-03T02:45:00Z",
+      "scope": "tier:4",
+      "made_by": "autopilot",
+      "decision": "Tier 4's 9 catalog objects measured on the live migrated database, not derived from migration files",
+      "why": "D18 demands the catalog. pg_constraint/pg_indexes give 7 constraints (5 auto-named CHECKs, pkey, session_id_unique) + 2 standalone indexes. Backing indexes follow their constraint."
+    },
+    {
+      "id": "D28",
+      "at": "2026-09-03T02:50:00Z",
+      "scope": "tier:4",
+      "made_by": "autopilot",
+      "decision": "Opus (not the default Sonnet) for tier 4's ARTIFACTS dispatch only; implementation waves stay Sonnet",
+      "why": "Tier 3, the other rename tier, took 5 review rounds and still archived with 5 misnamed constraints (D18). Design.md is where that failed, and a bad one costs a rework wave plus a re-review."
+    },
+    {
+      "id": "D29",
+      "at": "2026-09-03T09:52:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "Tier 4's database design gate PASSED as specified — one migration for the move, the rename, the 9 catalog renames and the COMMENT refresh",
+      "why": "Rejected move-only (repeats the 41-statement sweep, leaves two supercharger_sessions alive) and split-in-two (same work, adds a pointless intermediate state)."
     }
   ],
   "tiers": [
@@ -326,14 +358,14 @@
         3,
         6
       ],
-      "status": "not-started",
+      "status": "in-progress",
       "assistant": null,
       "model": null,
-      "started_at": null,
+      "started_at": "2026-09-03T09:55:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "UNBLOCKED by D25 (was blocked by D6). 4 tables move to schema telemetry. ALSO renames supercharger_sessions -> supercharger_history (D5a) + the db model and hand-written domain type to SuperchargerHistory, plus 5 sqlc query names. D18 binds: the completeness criterion is the CATALOG — 9 objects measured on a migrated db (7 constraints + 2 indexes), NOT the table alone. Public port SuperchargerReader stays put; that is tier 5. Step 2b (D9/D13/D17) spans MODULES: 41 raw SQL statements in telemetry's own tests, plus charging/db_backfill_integration_test.go L158/187/307 and analytics/db_integration_test.go L415/443. FOLDED IN by D25: correct 20260823000001's now-false comment claiming the to_regclass guard always passes in a real database (comment only — D1 still forbids touching its SQL). D12's search_path fix is UNSAFE here."
+      "notes": "UNBLOCKED by D25. 4 tables -> schema telemetry; supercharger_sessions -> supercharger_history (D5a) + db model and hand-written domain type (telemetry.go:427) -> SuperchargerHistory (D5c) + 5 sqlc query names. D27 measured the 9 catalog objects on the live db: 7 constraints (supercharger_sessions_{pkey,session_id_unique,battery_pct_source_check,start_battery_pct_check,end_battery_pct_check,start_battery_pct_est_check,end_battery_pct_est_check}) + 2 indexes (idx_supercharger_sessions_{account_time,vehicle_time}). Step 2b (D9/D13/D17): 41 statements in 7 telemetry test files (re-measured, matches D13), plus charging's backfill test and analytics/db_integration_test.go. D26: 7 cross-module Go refs (app 4, analytics 3) are leader-owned; go vet catches them. D25 folds in correcting 20260823000001's line-213 comment (comment only). D12's search_path fix is UNSAFE here. Port SuperchargerReader stays (tier 5)."
     },
     {
       "id": 5,
@@ -557,6 +589,21 @@
       "at": "2026-09-03T03:40:00Z",
       "agent": "leader",
       "event": "D6 INVESTIGATED AND SUPERSEDED (D25). Checked Linear and the code: MAG-31's only blockedBy is MAG-41 (Fix boundary-guard), which is Done — but MAG-41 was the gateway->telemetry Go IMPORT violation fixed by RM38/RM40, not charging's backfill. No ticket ever existed for D6's violation. The violation is real and still present (20260823000001 reads public.supercharger_sessions inside a PL/pgSQL DO block; boundary-guard sees only Go imports and sqlc cannot parse a PL/pgSQL body), but its cost to tier 4 is one false comment plus test SQL already owned by step 2b. On a fresh db the post-rename guard skips a backfill that would have copied zero rows anyway."
+    },
+    {
+      "at": "2026-09-03T02:45:00Z",
+      "agent": "leader",
+      "event": "TIER 4 RESUMED. Roadmap md re-synced with D13/D17/D18/D23/D24/D25 (commit ffcb7e2) — it still said tiers 4/5 were blocked on the ticket D25 disproved, and was missing three decisions that bind tier 4. Catalog measured (D27) and cross-module Go refs found (D26). No fresh Step 2 interview: the roadmap Decisions fully determine the migration shape and the index plan is rename-only, so there is no second plausible design to grill on. The database design gate still applies at Step 3."
+    },
+    {
+      "at": "2026-09-03T09:40:00Z",
+      "agent": "leader",
+      "event": "TIER 4 RESUMED after a session interruption inside Step 3. proposal.md and design.md existed (uncommitted, complete); specs/telemetry/spec.md and tasks.md were missing and no change progress.json had been created. Re-dispatched the telemetry artifacts worker on Opus (D28) for those two files ONLY, with the existing two marked settled input. Budget at resume: 5h 3%, context 10%."
+    },
+    {
+      "at": "2026-09-03T09:55:00Z",
+      "agent": "leader",
+      "event": "TIER 4 ARTIFACTS COMPLETE AND GATED. specs + tasks.md written by a re-dispatched Opus worker, openspec validate --strict clean, database design gate passed (D29). Tier 4 flipped [ ] -> [~]. Change progress.json created with T1-T11. Next: Step 5 wave 1 (T1 migration + T2 query.sql, disjoint files)."
     }
   ],
   "gates": [

@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM39-telemetry-move-to-own-schema",
+  "module": "telemetry",
+  "roadmap": "RM39-schema-per-module",
+  "request": "Tier 4 of RM39: move internal/telemetry's 4 tables into a dedicated telemetry Postgres schema and rename supercharger_sessions -> supercharger_history, with its 9 catalog objects and the Go names that follow the table. The public port SuperchargerReader stays unchanged (tier 5).",
+  "status": "proposed",
+  "created_at": "2026-09-03T09:55:00Z",
+  "updated_at": "2026-09-03T09:55:00Z",
+  "leader": {
+    "assistant": "Claude Code",
+    "model": "claude-opus-5"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM39-MAG-31-schema-per-module-renames",
+    "base": "main",
+    "ticket": "MAG-31",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-31/analyze-scheme-per-module",
+    "created_at": "2026-09-02T01:25:55Z"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "T10",
+      "T11"
+    ],
+    "blocked": [],
+    "done": [],
+    "awaiting-user-verification": []
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Goose migration: CREATE SCHEMA + 4 SET SCHEMA + RENAME TO + 9 catalog renames + COMMENT ON refresh",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T2",
+      "title": "Schema-qualify all 15 table references in db/query.sql + rename 5 query names",
+      "module": "telemetry",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T3",
+      "title": "sqlc.yaml rename block + make sqlc + mandatory models.go diff (SuperchargerHistory only)",
+      "module": "telemetry",
+      "depends_on": [
+        "T1",
+        "T2"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T4",
+      "title": "Rename hand-written SuperchargerSession -> SuperchargerHistory and follow it through the module",
+      "module": "telemetry",
+      "depends_on": [
+        "T3"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T5",
+      "title": "FINAL WAVE: telemetry's own _test.go files (41 raw SQL statements, 7 files)",
+      "module": "telemetry",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T6",
+      "title": "FINAL WAVE: internal/analytics/db_integration_test.go (4 SQL + 3 type refs)",
+      "module": "analytics [leader-owned]",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T7",
+      "title": "FINAL WAVE: internal/app/processor_test.go (4 type refs)",
+      "module": "app [leader-owned]",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T8",
+      "title": "FINAL WAVE: internal/charging (D11 three forward mappings + D12 comment-only corrections)",
+      "module": "charging [leader-owned]",
+      "depends_on": [
+        "T4"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T9",
+      "title": "Module docs: internal/telemetry/AGENTS.md",
+      "module": "telemetry",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T10",
+      "title": "Repo docs + knowledge base sweep",
+      "module": "platform [leader-owned]",
+      "depends_on": [
+        "T1"
+      ],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    },
+    {
+      "id": "T11",
+      "title": "Verification: build/vet/gofmt/migration-guard + owner-run suite",
+      "module": "telemetry",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10"
+      ],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "notes": null,
+      "budget": null
+    }
+  ],
+  "review": {
+    "status": "not-started",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "decisions": [
+    {
+      "id": "C1",
+      "at": "2026-09-03T09:52:00Z",
+      "scope": "design-gate",
+      "made_by": "user",
+      "decision": "Tier 4's database design APPROVED as specified: one migration doing the 4-table move, the supercharger_history rename, the 9 catalog renames and the COMMENT refresh",
+      "why": "Rejected: move-only (repeats the 41-statement sweep later, leaves two supercharger_sessions alive) and split-in-two (same work, adds an intermediate state)."
+    },
+    {
+      "id": "C2",
+      "at": "2026-09-03T09:50:00Z",
+      "scope": "artifacts",
+      "made_by": "leader",
+      "decision": "Corrected design.md Test Contract point 6: the EXPLAIN grep is NOT clean",
+      "why": "It told final-wave workers to record a clean grep that returns hits. Substantive claim survives: no EXPLAIN assertion names a renamed object."
+    },
+    {
+      "id": "C3",
+      "at": "2026-09-03T09:50:00Z",
+      "scope": "artifacts",
+      "made_by": "leader",
+      "decision": "Accepted all 5 worker-reported doc inconsistencies as accurate; tasks.md already carries the corrected counts",
+      "why": "Verified each myself: 8 type refs (7 test + 1 comment), 15 name blocks, EXPLAIN hits real, 20260903000001 free. None blocks implementation."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-03T09:52:00Z",
+      "agent": "leader",
+      "event": "ARTIFACTS COMPLETE. Step 3 had been interrupted with only proposal.md and design.md written; a re-dispatched Opus telemetry worker added specs/telemetry/spec.md (2 ADDED requirements, 11 GIVEN/WHEN/THEN scenarios) and tasks.md (T1-T11, 43 checkboxes, 9 catalog objects as 9 separate boxes, models.go diff as a hard acceptance criterion). openspec validate --strict: valid, exit 0. Worker note worth keeping for tier 5: the validator only scans the FIRST line after a Requirement header for SHALL/MUST."
+    },
+    {
+      "at": "2026-09-03T09:52:00Z",
+      "agent": "leader",
+      "event": "DESIGN GATE (database) PASSED — the owner approved the design as specified (C1). Index plan confirmed as part of it: no index added, none dropped, every statement catalog-only, so all four tables keep their OIDs, columns and column order and no read path changes plan. Approved against the read-heavy Performance-Profile on exactly that basis."
+    }
+  ]
+}
