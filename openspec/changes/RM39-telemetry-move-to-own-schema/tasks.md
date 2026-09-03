@@ -258,24 +258,24 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 
 ## T4. Rename the hand-written domain type and follow it through the module — `[telemetry]` — depends on T3
 
-- [ ] T4.1 `internal/telemetry/telemetry.go`: rename `type SuperchargerSession struct { … }`
+- [x] T4.1 `internal/telemetry/telemetry.go`: rename `type SuperchargerSession struct { … }`
       (~line 427) to `SuperchargerHistory`, and update its doc comment to name the new table
       (design.md D5). This type is **not** sqlc-generated, so `gen.go.rename` does not reach
       it. It is the element type of all four `SuperchargerReader` method return slices, which
       is why the rename has consumers outside the module (T6/T7 — 7 references, all in
       `_test.go` files, all caught by `go vet`, which compiles test files).
-- [ ] T4.2 `internal/telemetry/reader.go`: update the 4 renamed query-function call sites
+- [x] T4.2 `internal/telemetry/reader.go`: update the 4 renamed query-function call sites
       (`SuperchargerHistoryBy{Account,Vehicle,VehicleBetween,VehicleUpdatedSince}` + their
       `*Params` types) and every `SuperchargerSession` type reference to `SuperchargerHistory`.
       **`SuperchargerReader`, its four method names, `NewSuperchargerReader` and
       `superchargerReader` KEEP THEIR NAMES** (D6 — tier 5).
-- [ ] T4.3 `internal/telemetry/mapping.go`: `rowToSuperchargerSession` changes its
+- [x] T4.3 `internal/telemetry/mapping.go`: `rowToSuperchargerSession` changes its
       **signature** (it now takes `telemetrydb.SuperchargerHistory` and returns
       `SuperchargerHistory`) but **keeps its name** (D5/D6 — tier 5).
-- [ ] T4.4 `internal/telemetry/service.go`: update the `UpsertSuperchargerHistory` call site
+- [x] T4.4 `internal/telemetry/service.go`: update the `UpsertSuperchargerHistory` call site
       and its params type. `upsertSuperchargerSession` changes its signature but **keeps its
       name** (D5/D6 — tier 5).
-- [ ] T4.5 Sweep the module's remaining `SuperchargerSession` / `supercharger_sessions`
+- [x] T4.5 Sweep the module's remaining `SuperchargerSession` / `supercharger_sessions`
       mentions in **non-test** Go files by rule, not by list: a comment describing the table's
       or type's **current** identity uses the new name; a comment narrating **history** (an
       event tied to the name it had at the time, an immutable migration filename, or the rename
@@ -471,19 +471,19 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 
 ## T9. Module docs — `[telemetry]` — depends on T1, parallel-ok with T2–T8
 
-- [ ] T9.1 Update `internal/telemetry/AGENTS.md` §"Data ownership": state that this module's
+- [x] T9.1 Update `internal/telemetry/AGENTS.md` §"Data ownership": state that this module's
       data lives in the **`telemetry` Postgres schema**, list the four tables under their
       current names, and record the `supercharger_sessions` → `supercharger_history` rename
       (roadmap D5a) with the Go type following (`SuperchargerSession` → `SuperchargerHistory`,
       roadmap D5c).
-- [ ] T9.2 In the same file, update every place that names the old table or type — the
+- [x] T9.2 In the same file, update every place that names the old table or type — the
       §"Public interface" `SuperchargerReader` block, the §"Why nightly collection exists"
       dedup paragraph, the §"Battery-% verification columns" section, and the DTO/units notes.
       **State the tier-5 half-state explicitly and loudly**, so the next agent reading this
       file does not "tidy" it: the port is named `SuperchargerReader`, its four methods are
       named `SuperchargerSessionsBy*`, and they return `[]SuperchargerHistory` — by design,
       until `RM39-telemetry-rename-supercharger-port`.
-- [ ] T9.3 Update the AGENTS.md mentions of `UpsertSuperchargerSession` (the write-exclusion
+- [x] T9.3 Update the AGENTS.md mentions of `UpsertSuperchargerSession` (the write-exclusion
       convention for the five battery-% columns) to `UpsertSuperchargerHistory` — the query name
       T2.2 renames. The convention itself is unchanged: all five columns stay excluded from the
       `INSERT` column list and the `ON CONFLICT DO UPDATE SET` clause.

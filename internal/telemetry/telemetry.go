@@ -418,13 +418,15 @@ type Reader interface {
 
 // --- Source B: Supercharger sessions ---
 
-// SuperchargerSession is one Tesla-billed Supercharger / DC fast-charging session —
-// our own domain model (no vendor suffix, ai/architecture.md §6). It is distinct from
+// SuperchargerHistory is one Tesla-billed Supercharger / DC fast-charging session,
+// stored in the telemetry.supercharger_history table (renamed from
+// supercharger_sessions by RM39-telemetry-move-to-own-schema tier 4, roadmap D5a/D5c)
+// — our own domain model (no vendor suffix, ai/architecture.md §6). It is distinct from
 // tesla.ChargingSessionTesla: that is the vendor DTO; this is the mapped, stored
 // domain record. Nullable fields use *T where the column allows NULL (energy, cost,
 // currency, is_paid, tesla_id, unlatch_date_time). No Km()/Kmh() companions — none
 // of these fields are distances or speeds (design DBS5).
-type SuperchargerSession struct {
+type SuperchargerHistory struct {
 	ID                  uuid.UUID
 	SessionID           int64 // Tesla's globally-unique session id
 	AccountID           uuid.UUID
@@ -447,7 +449,7 @@ type SuperchargerSession struct {
 
 	// --- Human-owned battery-% verification/override channel (RM27, MAG-14) ---
 	// NULL = nothing recorded. NEVER auto-written by the nightly poller — omitted from
-	// UpsertSuperchargerSession's INSERT and ON CONFLICT DO UPDATE SET alike (R3/D3),
+	// UpsertSuperchargerHistory's INSERT and ON CONFLICT DO UPDATE SET alike (R3/D3),
 	// so a nightly re-upsert can never clobber a human-entered value. No writer exists
 	// in this repository yet: RM27 shipped the storage only (see below).
 	StartBatteryPct *int // 0-100 inclusive; SMALLINT CHECK in DB.
@@ -462,7 +464,7 @@ type SuperchargerSession struct {
 	// at the moment a human verifies, never refreshed afterward. That capability was
 	// DESCOPED from RM27 (2026-08-15) and does not exist, so these two columns are
 	// always NULL today. Kept rather than dropped so the estimator can land later
-	// without a migration. Excluded from UpsertSuperchargerSession like the trio above.
+	// without a migration. Excluded from UpsertSuperchargerHistory like the trio above.
 	StartBatteryPctEst *int // NULL until BOTH an estimator and a verification UI exist.
 	EndBatteryPctEst   *int // same semantics as StartBatteryPctEst.
 }
@@ -541,13 +543,13 @@ type SuperchargerReader interface {
 	// given account, ordered by charge_start_date_time DESC, limited to limit
 	// rows (0 = server default of math.MaxInt32). Returns an empty non-nil
 	// slice when no sessions exist.
-	SuperchargerSessionsByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerSession, error)
+	SuperchargerSessionsByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerHistory, error)
 
 	// SuperchargerSessionsByVehicle returns Supercharger sessions for the given
 	// vehicle within the given account, ordered by charge_start_date_time DESC,
 	// limited to limit rows (0 = server default of math.MaxInt32). Returns an
 	// empty non-nil slice when no sessions exist.
-	SuperchargerSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerSession, error)
+	SuperchargerSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerHistory, error)
 
 	// SuperchargerSessionsByVehicleBetween returns Supercharger sessions for
 	// the given vehicle (within the given account) whose ChargeStopDateTime
@@ -580,7 +582,7 @@ type SuperchargerReader interface {
 	// contract -- the caller-supplied window is the bound, exactly like
 	// Reader.SnapshotsByVehicleBetween's own reasoning for why a bounded
 	// window makes an unbounded-N limit the caller's job, not this query's.
-	SuperchargerSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerSession, error)
+	SuperchargerSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error)
 
 	// SuperchargerSessionsByVehicleUpdatedSince returns every stored Supercharger
 	// session for the given vehicle (within the given account) whose updated_at
@@ -589,7 +591,7 @@ type SuperchargerReader interface {
 	// RM29-analytics-add-vehicle-metrics) can detect which sessions changed
 	// recently — including a billing-state revision on a session weeks old,
 	// whose ChargeStartDateTime/ChargeStopDateTime stay unchanged while
-	// updated_at refreshes (design DBS3: supercharger_sessions is not
+	// updated_at refreshes (design DBS3: supercharger_history is not
 	// append-only) — without importing telemetrydb directly. Returns a non-nil
 	// empty slice and nil error when no session for the vehicle has been
 	// updated at or after `since` (parity with every other SuperchargerReader
@@ -600,7 +602,7 @@ type SuperchargerReader interface {
 	// (verified via EXPLAIN in the DB-integration test, Wave 6 of that
 	// change). Reuses the existing rowToSuperchargerSession mapper — no new
 	// field, no new mapper.
-	SuperchargerSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]SuperchargerSession, error)
+	SuperchargerSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]SuperchargerHistory, error)
 }
 
 // NewSuperchargerReader constructs a SuperchargerReader backed by the telemetry DB pool.

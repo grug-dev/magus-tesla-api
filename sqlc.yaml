@@ -46,6 +46,19 @@ sql:
         sql_package: "pgx/v5"
         emit_json_tags: false
         emit_interface: false
+        # RM39 tier 4: the four tables moved to schema `telemetry`, so sqlc's default
+        # struct name becomes <Schema><Table> — TelemetryPollAttempt, etc. The first
+        # three keys are pure PRESERVATION (roadmap D3): without them the schema move
+        # alone would rename three types and churn ~144 non-test call sites for nothing.
+        # The fourth is the deliberate NEW mapping that follows the table rename (D5c).
+        # Key form is the SINGULARISED <schema>_<table>, using the post-rename table
+        # name. A key that does not match is ignored silently, with exit 0 — the
+        # models.go diff is the only detector.
+        rename:
+          telemetry_poll_attempt:         "PollAttempt"
+          telemetry_poll_run:             "PollRun"
+          telemetry_supercharger_history: "SuperchargerHistory"
+          telemetry_vehicle_snapshot:     "VehicleSnapshot"
         overrides:
           - db_type: "uuid"
             go_type:

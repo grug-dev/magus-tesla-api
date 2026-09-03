@@ -13,7 +13,7 @@ import (
 )
 
 const insertPollAttempt = `-- name: InsertPollAttempt :exec
-INSERT INTO poll_attempts (
+INSERT INTO telemetry.poll_attempts (
     account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7
@@ -49,7 +49,7 @@ func (q *Queries) InsertPollAttempt(ctx context.Context, arg InsertPollAttemptPa
 }
 
 const insertPollRun = `-- name: InsertPollRun :exec
-INSERT INTO poll_runs (
+INSERT INTO telemetry.poll_runs (
     run_id, triggered_by, started_at, finished_at, duration_seconds,
     accounts_attempted, accounts_succeeded, accounts_failed,
     vehicles_attempted, vehicles_succeeded,
@@ -115,7 +115,7 @@ func (q *Queries) InsertPollRun(ctx context.Context, arg InsertPollRunParams) er
 
 const insertVehicleSnapshot = `-- name: InsertVehicleSnapshot :exec
 
-INSERT INTO vehicle_snapshots (
+INSERT INTO telemetry.vehicle_snapshots (
     account_id, tesla_id, captured_at, raw_data,
     battery_level_pct, battery_range_km, charging_state, charge_limit_soc_pct,
     odometer_km, inside_temp_c, outside_temp_c, locked, sentry_mode,
@@ -226,7 +226,7 @@ type InsertVehicleSnapshotParams struct {
 // latitude/longitude/fast_charger_type dropped in 20260801000001 — lossless in raw_data.
 // updated_at is NOT sent as a param: DEFAULT now() handles a fresh INSERT;
 // the ON CONFLICT clause explicitly refreshes it to now() on a same-day
-// replace (design D5), mirroring UpsertSuperchargerSession's own
+// replace (design D5), mirroring UpsertSuperchargerHistory's own
 // `updated_at = now()`.
 // The five derived-consumption columns (distance_traveled_km_calc,
 // battery_used_pct_calc, km_per_pct_calc, estimated_range_km_calc,
@@ -277,7 +277,7 @@ SELECT DISTINCT ON (tesla_id)
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = $1
 ORDER BY tesla_id, captured_at DESC
 `
@@ -338,7 +338,7 @@ func (q *Queries) LatestSnapshotsByAccount(ctx context.Context, accountID uuid.U
 }
 
 const listPollAttemptsByVehicle = `-- name: ListPollAttemptsByVehicle :many
-SELECT id, account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by FROM poll_attempts
+SELECT id, account_id, tesla_id, attempted_at, outcome, reason, run_id, triggered_by FROM telemetry.poll_attempts
 WHERE account_id = $1 AND tesla_id = $2
 ORDER BY attempted_at DESC
 `
@@ -390,7 +390,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = $1 AND tesla_id = $2
 ORDER BY captured_at DESC
 `
@@ -463,7 +463,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id   = $1
   AND tesla_id     = $2
   AND captured_date < $3
@@ -550,7 +550,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = $1
   AND tesla_id   = $2
   AND captured_at >= $3
@@ -695,7 +695,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = $1
   AND tesla_id   = $2
   AND captured_at >= $3
@@ -781,7 +781,7 @@ SELECT
     max_range_charge_counter,
     tpms_pressure_fl_psi, tpms_pressure_fr_psi, tpms_pressure_rl_psi, tpms_pressure_rr_psi,
     captured_date, updated_at
-FROM vehicle_snapshots
+FROM telemetry.vehicle_snapshots
 WHERE account_id = $1
   AND tesla_id   = $2
   AND updated_at >= $3
@@ -859,32 +859,32 @@ func (q *Queries) SnapshotsByVehicleUpdatedSince(ctx context.Context, arg Snapsh
 	return items, nil
 }
 
-const superchargerSessionsByAccount = `-- name: SuperchargerSessionsByAccount :many
-SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM supercharger_sessions
+const superchargerHistoryByAccount = `-- name: SuperchargerHistoryByAccount :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM telemetry.supercharger_history
 WHERE account_id = $1
 ORDER BY charge_start_date_time DESC
 LIMIT $2
 `
 
-type SuperchargerSessionsByAccountParams struct {
+type SuperchargerHistoryByAccountParams struct {
 	AccountID  uuid.UUID
 	LimitCount int32
 }
 
 // Return all Supercharger sessions for the given account, newest first, up to
-// limit_count rows. Uses idx_supercharger_sessions_account_time
+// limit_count rows. Uses idx_supercharger_history_account_time
 // (account_id, charge_start_date_time DESC) — the account_id prefix prunes to
 // the tenant; DESC order matches the ORDER BY so no sort step is needed.
 // Design DBS4 / DBS6: account-wide spend/energy dashboard access pattern.
-func (q *Queries) SuperchargerSessionsByAccount(ctx context.Context, arg SuperchargerSessionsByAccountParams) ([]SuperchargerSession, error) {
-	rows, err := q.db.Query(ctx, superchargerSessionsByAccount, arg.AccountID, arg.LimitCount)
+func (q *Queries) SuperchargerHistoryByAccount(ctx context.Context, arg SuperchargerHistoryByAccountParams) ([]SuperchargerHistory, error) {
+	rows, err := q.db.Query(ctx, superchargerHistoryByAccount, arg.AccountID, arg.LimitCount)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SuperchargerSession
+	var items []SuperchargerHistory
 	for rows.Next() {
-		var i SuperchargerSession
+		var i SuperchargerHistory
 		if err := rows.Scan(
 			&i.ID,
 			&i.SessionID,
@@ -921,35 +921,35 @@ func (q *Queries) SuperchargerSessionsByAccount(ctx context.Context, arg Superch
 	return items, nil
 }
 
-const superchargerSessionsByVehicle = `-- name: SuperchargerSessionsByVehicle :many
-SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM supercharger_sessions
+const superchargerHistoryByVehicle = `-- name: SuperchargerHistoryByVehicle :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM telemetry.supercharger_history
 WHERE account_id = $1
   AND tesla_id = $2
 ORDER BY charge_start_date_time DESC
 LIMIT $3
 `
 
-type SuperchargerSessionsByVehicleParams struct {
+type SuperchargerHistoryByVehicleParams struct {
 	AccountID  uuid.UUID
 	TeslaID    pgtype.Int8
 	LimitCount int32
 }
 
 // Return Supercharger sessions for one vehicle within an account, newest first,
-// up to limit_count rows. Uses idx_supercharger_sessions_vehicle_time
+// up to limit_count rows. Uses idx_supercharger_history_vehicle_time
 // (account_id, tesla_id, charge_start_date_time DESC) — both WHERE columns are
 // the leading index columns so the planner satisfies the filter and the ORDER BY
 // in a single range scan without a sort step.
 // Design DBS4 / DBS6: per-vehicle charging history dashboard access pattern.
-func (q *Queries) SuperchargerSessionsByVehicle(ctx context.Context, arg SuperchargerSessionsByVehicleParams) ([]SuperchargerSession, error) {
-	rows, err := q.db.Query(ctx, superchargerSessionsByVehicle, arg.AccountID, arg.TeslaID, arg.LimitCount)
+func (q *Queries) SuperchargerHistoryByVehicle(ctx context.Context, arg SuperchargerHistoryByVehicleParams) ([]SuperchargerHistory, error) {
+	rows, err := q.db.Query(ctx, superchargerHistoryByVehicle, arg.AccountID, arg.TeslaID, arg.LimitCount)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SuperchargerSession
+	var items []SuperchargerHistory
 	for rows.Next() {
-		var i SuperchargerSession
+		var i SuperchargerHistory
 		if err := rows.Scan(
 			&i.ID,
 			&i.SessionID,
@@ -986,8 +986,8 @@ func (q *Queries) SuperchargerSessionsByVehicle(ctx context.Context, arg Superch
 	return items, nil
 }
 
-const superchargerSessionsByVehicleBetween = `-- name: SuperchargerSessionsByVehicleBetween :many
-SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM supercharger_sessions
+const superchargerHistoryByVehicleBetween = `-- name: SuperchargerHistoryByVehicleBetween :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM telemetry.supercharger_history
 WHERE account_id = $1
   AND tesla_id   = $2
   AND charge_stop_date_time >= $3
@@ -995,7 +995,7 @@ WHERE account_id = $1
 ORDER BY charge_stop_date_time ASC
 `
 
-type SuperchargerSessionsByVehicleBetweenParams struct {
+type SuperchargerHistoryByVehicleBetweenParams struct {
 	AccountID uuid.UUID
 	TeslaID   pgtype.Int8
 	Start     pgtype.Timestamptz
@@ -1031,7 +1031,7 @@ type SuperchargerSessionsByVehicleBetweenParams struct {
 // already IS the value being windowed -- no EffectiveDate-style lag to
 // compensate for, so only the upper bound needs translating.
 //
-// Index reuse: idx_supercharger_sessions_vehicle_time
+// Index reuse: idx_supercharger_history_vehicle_time
 // (account_id, tesla_id, charge_start_date_time DESC) does NOT fully serve
 // this query -- it is sorted on charge_start_date_time, not
 // charge_stop_date_time, so the stop-time predicate cannot be satisfied as a
@@ -1048,8 +1048,8 @@ type SuperchargerSessionsByVehicleBetweenParams struct {
 // still add a defensive LIMIT 400 on top of its window, design D3 there; this
 // query does not add an equivalent cap -- see design.md's Index Plan for why
 // that asymmetry is deliberate, not an oversight).
-func (q *Queries) SuperchargerSessionsByVehicleBetween(ctx context.Context, arg SuperchargerSessionsByVehicleBetweenParams) ([]SuperchargerSession, error) {
-	rows, err := q.db.Query(ctx, superchargerSessionsByVehicleBetween,
+func (q *Queries) SuperchargerHistoryByVehicleBetween(ctx context.Context, arg SuperchargerHistoryByVehicleBetweenParams) ([]SuperchargerHistory, error) {
+	rows, err := q.db.Query(ctx, superchargerHistoryByVehicleBetween,
 		arg.AccountID,
 		arg.TeslaID,
 		arg.Start,
@@ -1059,9 +1059,9 @@ func (q *Queries) SuperchargerSessionsByVehicleBetween(ctx context.Context, arg 
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SuperchargerSession
+	var items []SuperchargerHistory
 	for rows.Next() {
-		var i SuperchargerSession
+		var i SuperchargerHistory
 		if err := rows.Scan(
 			&i.ID,
 			&i.SessionID,
@@ -1098,15 +1098,15 @@ func (q *Queries) SuperchargerSessionsByVehicleBetween(ctx context.Context, arg 
 	return items, nil
 }
 
-const superchargerSessionsByVehicleUpdatedSince = `-- name: SuperchargerSessionsByVehicleUpdatedSince :many
-SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM supercharger_sessions
+const superchargerHistoryByVehicleUpdatedSince = `-- name: SuperchargerHistoryByVehicleUpdatedSince :many
+SELECT id, session_id, account_id, vin, tesla_id, site_location_name, country_code, charge_start_date_time, charge_stop_date_time, unlatch_date_time, billing_type, vehicle_make_type, energy_kwh, total_cost, currency, is_paid, raw_data, created_at, updated_at, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est FROM telemetry.supercharger_history
 WHERE account_id = $1
   AND tesla_id   = $2
   AND updated_at >= $3
 ORDER BY updated_at ASC
 `
 
-type SuperchargerSessionsByVehicleUpdatedSinceParams struct {
+type SuperchargerHistoryByVehicleUpdatedSinceParams struct {
 	AccountID uuid.UUID
 	TeslaID   pgtype.Int8
 	Since     pgtype.Timestamptz
@@ -1117,11 +1117,11 @@ type SuperchargerSessionsByVehicleUpdatedSinceParams struct {
 // SuperchargerReader.SuperchargerSessionsByVehicleUpdatedSince to let
 // internal/analytics' Recalculator (RM29-analytics-add-vehicle-metrics) detect
 // which sessions changed recently -- including a billing-state revision on a
-// session weeks old (design DBS3: supercharger_sessions is not append-only;
+// session weeks old (design DBS3: supercharger_history is not append-only;
 // is_paid / invoice status mutates post-session), whose charge_start_date_time /
 // charge_stop_date_time stay unchanged while updated_at refreshes.
 //
-// Index reuse: idx_supercharger_sessions_vehicle_time
+// Index reuse: idx_supercharger_history_vehicle_time
 // (account_id, tesla_id, charge_start_date_time DESC) is not sorted on
 // updated_at, so this query cannot use it as a pure ORDER BY-satisfying range
 // scan. It STILL prunes the scan to this one vehicle's rows via its
@@ -1129,15 +1129,15 @@ type SuperchargerSessionsByVehicleUpdatedSinceParams struct {
 // and sort are applied -- updated_at is a residual filter within that scan, per
 // this change's explicit design call (no new index; verified via EXPLAIN in the
 // DB-integration test, RM29-analytics-add-vehicle-metrics Wave 6).
-func (q *Queries) SuperchargerSessionsByVehicleUpdatedSince(ctx context.Context, arg SuperchargerSessionsByVehicleUpdatedSinceParams) ([]SuperchargerSession, error) {
-	rows, err := q.db.Query(ctx, superchargerSessionsByVehicleUpdatedSince, arg.AccountID, arg.TeslaID, arg.Since)
+func (q *Queries) SuperchargerHistoryByVehicleUpdatedSince(ctx context.Context, arg SuperchargerHistoryByVehicleUpdatedSinceParams) ([]SuperchargerHistory, error) {
+	rows, err := q.db.Query(ctx, superchargerHistoryByVehicleUpdatedSince, arg.AccountID, arg.TeslaID, arg.Since)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []SuperchargerSession
+	var items []SuperchargerHistory
 	for rows.Next() {
-		var i SuperchargerSession
+		var i SuperchargerHistory
 		if err := rows.Scan(
 			&i.ID,
 			&i.SessionID,
@@ -1174,8 +1174,8 @@ func (q *Queries) SuperchargerSessionsByVehicleUpdatedSince(ctx context.Context,
 	return items, nil
 }
 
-const upsertSuperchargerSession = `-- name: UpsertSuperchargerSession :exec
-INSERT INTO supercharger_sessions (
+const upsertSuperchargerHistory = `-- name: UpsertSuperchargerHistory :exec
+INSERT INTO telemetry.supercharger_history (
     session_id, account_id, vin, tesla_id,
     site_location_name, country_code,
     charge_start_date_time, charge_stop_date_time, unlatch_date_time,
@@ -1200,7 +1200,7 @@ ON CONFLICT (session_id) DO UPDATE SET
     updated_at = now()
 `
 
-type UpsertSuperchargerSessionParams struct {
+type UpsertSuperchargerHistoryParams struct {
 	SessionID           int64
 	AccountID           uuid.UUID
 	Vin                 string
@@ -1235,10 +1235,10 @@ type UpsertSuperchargerSessionParams struct {
 // refresh only the mutable/derived columns (raw_data, derived fields, tesla_id,
 // updated_at). Immutable columns (session_id, account_id, vin, location name,
 // country, timestamps, billing fields, created_at) are never overwritten.
-// Design DBS3: supercharger_sessions is NOT append-only; billing state mutates
+// Design DBS3: supercharger_history is NOT append-only; billing state mutates
 // post-session (is_paid, invoice status change after midnight).
-func (q *Queries) UpsertSuperchargerSession(ctx context.Context, arg UpsertSuperchargerSessionParams) error {
-	_, err := q.db.Exec(ctx, upsertSuperchargerSession,
+func (q *Queries) UpsertSuperchargerHistory(ctx context.Context, arg UpsertSuperchargerHistoryParams) error {
+	_, err := q.db.Exec(ctx, upsertSuperchargerHistory,
 		arg.SessionID,
 		arg.AccountID,
 		arg.Vin,

@@ -7,7 +7,7 @@
   "request": "Tier 4 of RM39: move internal/telemetry's 4 tables into a dedicated telemetry Postgres schema and rename supercharger_sessions -> supercharger_history, with its 9 catalog objects and the Go names that follow the table. The public port SuperchargerReader stays unchanged (tier 5).",
   "status": "in-progress",
   "created_at": "2026-09-03T09:55:00Z",
-  "updated_at": "2026-09-03T10:05:00Z",
+  "updated_at": "2026-09-03T10:25:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -23,20 +23,20 @@
   "rollup": {
     "current": [],
     "pending": [
-      "T3",
-      "T4",
       "T5",
       "T6",
       "T7",
       "T8",
-      "T9",
       "T10",
       "T11"
     ],
     "blocked": [],
     "done": [
       "T1",
-      "T2"
+      "T2",
+      "T3",
+      "T4",
+      "T9"
     ],
     "awaiting-user-verification": []
   },
@@ -90,13 +90,13 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:08:00Z",
+      "completed_at": "2026-09-03T10:14:00Z",
+      "duration_seconds": 360,
+      "notes": "Leader-integrated. 4-key rename block added to sqlc.yaml's telemetry entry; make sqlc clean first try. models.go diff is EXACTLY the expected shape: SuperchargerSession -> SuperchargerHistory plus 2 comment refreshes, zero field changes, no Telemetry-prefixed struct. query.sql.go has all 5 renamed funcs + Params.",
       "budget": null
     },
     {
@@ -107,14 +107,19 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T10:15:00Z",
+      "completed_at": "2026-09-03T10:25:00Z",
+      "duration_seconds": 600,
+      "notes": "Renamed SuperchargerSession -> SuperchargerHistory in telemetry.go; updated call sites in reader.go/mapping.go/service.go to the renamed query funcs/params; ran the T4.5 sweep by rule. go build ./... green (was red on purpose pre-dispatch). Leader re-verified all six tier-5 identifiers survive unchanged.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.1,
+        "approx": true,
+        "note": "wave 2 delta shared across T4+T9 (one serial worker); statusline cache was reporting a foreign session, so the figure is indicative"
+      }
     },
     {
       "id": "T5",
@@ -192,14 +197,19 @@
         "T1"
       ],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "status": "done",
+      "agent": "telemetry",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T10:15:00Z",
+      "completed_at": "2026-09-03T10:25:00Z",
+      "duration_seconds": 600,
+      "notes": "Updated internal/telemetry/AGENTS.md - schema telemetry, table rename, query-name rename, and an explicit tier-5 half-state warning on the SuperchargerReader block so a future agent will not 'fix' it.",
+      "budget": {
+        "five_hour_pct_delta": 6,
+        "cost_usd_delta": 2.1,
+        "approx": true,
+        "note": "wave 2 delta shared across T4+T9 (one serial worker); statusline cache was reporting a foreign session, so the figure is indicative"
+      }
     },
     {
       "id": "T10",
@@ -291,6 +301,22 @@
       "made_by": "leader",
       "decision": "Worker's reported timestamps (00:00Z-01:05Z) replaced with the real wave clock",
       "why": "They predate the dispatch. Notes transcribed verbatim; only the times corrected, so the file stays truthful."
+    },
+    {
+      "id": "C6",
+      "at": "2026-09-03T10:08:00Z",
+      "scope": "wave:2",
+      "made_by": "autopilot",
+      "decision": "Leader implemented T3 in-session instead of dispatching a worker",
+      "why": "tasks.md already marks the make sqlc run leader-integrated, and T3.3's inflection risk needs an iterate-on-output loop that costs a worker round-trip per attempt."
+    },
+    {
+      "id": "C7",
+      "at": "2026-09-03T10:14:00Z",
+      "scope": "wave:2",
+      "made_by": "leader",
+      "decision": "T3.3's empirical question is ANSWERED: telemetry_supercharger_history is the correct rename key",
+      "why": "The irregular plural (history/histories) was a real risk since a wrong key is ignored at exit 0. Measured, not reasoned: no Telemetry-prefixed struct in models.go."
     }
   ],
   "events": [
@@ -313,6 +339,21 @@
       "at": "2026-09-03T10:05:00Z",
       "agent": "leader",
       "event": "WAVE 1 COMPLETE (T1, T2). Leader independently verified the highest-risk artifact rather than trusting the report: read the migration in full (9 catalog renames present, Down is the exact reverse, no CASCADE anywhere, COMMENT ON re-issued for 1 table + 3 columns) and re-ran T2's acceptance greps (0 unqualified refs, 15 qualified: 7 vehicle_snapshots + 2 poll_attempts + 5 supercharger_history + 1 poll_runs, 0 leftover supercharger_sessions, 5 query names renamed). Worker signals: gofmt clean, go build clean, go vet clean, make migration-guard passed. Worker finding: design D8 says all three refreshed column comments name UpsertSuperchargerSession; end_battery_pct_est does not. Accurate, cosmetic, all three were refreshed anyway per T1.4."
+    },
+    {
+      "at": "2026-09-03T10:14:00Z",
+      "agent": "leader",
+      "event": "T3 DONE (leader-integrated). sqlc.yaml gained the 4-key rename block; make sqlc regenerated cleanly. The mandatory models.go diff came out exactly as design.md's Test Contract point 1 specifies -- one type identifier renamed, two comment lines refreshed by T1.4's COMMENT ON, and ZERO field-level changes. All four rename keys matched, so the three preserving keys held PollAttempt/PollRun/VehicleSnapshot byte-identical and ~144 call sites never moved. go build ./... now fails ONLY at T4's call sites in mapping.go/reader.go/service.go, which is T3.5's stated acceptance."
+    },
+    {
+      "at": "2026-09-03T10:25:00Z",
+      "agent": "leader",
+      "event": "WAVE 2 COMPLETE (T4, T9). go build ./... is fully green. Leader independently re-checked the rule most at risk here -- D6's intentional half-state -- and all six tier-5 identifiers survive unchanged: SuperchargerReader, its 4 SuperchargerSessions* methods, NewSuperchargerReader, superchargerReader, rowToSuperchargerSession, upsertSuperchargerSession. Only their signatures moved to SuperchargerHistory. The hand-written type is now telemetry.go:429 type SuperchargerHistory struct. go vet still red in exactly 3 test files (telemetry/service_test.go, app/processor_test.go, analytics/db_integration_test.go) -- that is T5/T6/T7, the final wave, and is the expected state."
+    },
+    {
+      "at": "2026-09-03T10:25:00Z",
+      "agent": "leader",
+      "event": "WORKER FINDING (pre-existing, out of scope, NOT fixed): internal/telemetry/AGENTS.md's SuperchargerReader block never documented the 4th method SuperchargerSessionsByVehicleUpdatedSince at all. It predates RM39 and is unrelated to the rename, so T9 (scoped to rename mentions) left it. Surfaced to the owner at archive as a backlog candidate rather than silently widening this change."
     }
   ]
 }
