@@ -663,7 +663,7 @@ whole calendar days, UTC-midnight-bounded, **`end` inclusive** — never a `?day
     **endpoint's own cap** (hard cap against unbounded range scans). The cap is **per-endpoint,
     set by that table's row density**, not one flat number: history's source table
     (`vehicle_snapshots`) is dense — many rows per day — so its cap is **90 days**
-    (`historyRangeMaxDays`); the Supercharger Stats endpoint's source table (`charge_sessions`)
+    (`historyRangeMaxDays`); the Supercharger Stats endpoint's source table (`charging.supercharger_sessions`)
     is sparse — a handful of rows per month — so its cap is **400 days**
     (`superchargerRangeMaxDays`, `RM30-gateway-read-supercharger-stats-from-charging`). A new
     endpoint sizes its own cap the same way: measure the source table's row density, don't copy

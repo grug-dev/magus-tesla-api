@@ -1056,11 +1056,14 @@ func TestReconcile_BackfillsOnFirstRun(t *testing.T) {
 	// on the very first run (design.md D2/D3's idempotence contract) -- no
 	// Supercharger session and no manual entry was ever seeded for this
 	// vehicle, so both of those sources' cursors stay at "no row = epoch".
-	// RM31 tier 3: this source's label is charge_sessions now (sourceChargeSessions),
-	// not supercharger_sessions -- the underlying table this cursor tracks moved
-	// from internal/telemetry to internal/charging (design.md §2).
-	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceChargeSessions); ok {
-		t.Error("want no charge_sessions watermark row (no session data ever seeded for this vehicle)")
+	// This source's label is supercharger_sessions again (sourceSuperchargerSessions),
+	// as of RM39 tier 3b -- see recalculate.go. The underlying table this
+	// cursor tracks is internal/charging's Supercharger session table, moved
+	// there from internal/telemetry by RM31 tier 3 and renamed by RM39 tier 3
+	// (charging.supercharger_sessions); the watermark label was reset to match
+	// by RM39-analytics-fix-watermark-vocabulary (design.md §2/§7).
+	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions); ok {
+		t.Error("want no supercharger_sessions watermark row (no session data ever seeded for this vehicle)")
 	}
 	if _, ok := fetchWatermark(t, pool, accountID, teslaID, sourceManualChargeEntries); ok {
 		t.Error("want no manual_charge_entries watermark row (no entry ever seeded for this vehicle)")
@@ -1230,12 +1233,12 @@ func TestReconcile_RevisedOldSuperchargerSession(t *testing.T) {
 		t.Errorf("ConsumedPct after revision: want %v (the day, well outside any trailing window measured from today, must still be recomputed), got %+v", wantConsumedAfter, after.ConsumedPct)
 	}
 
-	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceChargeSessions)
+	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions)
 	if !ok {
-		t.Fatal("expected a charge_sessions watermark row")
+		t.Fatal("expected a supercharger_sessions watermark row")
 	}
 	if watermark.Before(t0) {
-		t.Errorf("charge_sessions watermark did not advance past the original sync time: got %s", watermark)
+		t.Errorf("supercharger_sessions watermark did not advance past the original sync time: got %s", watermark)
 	}
 }
 
@@ -1376,12 +1379,12 @@ func TestReconcile_T2_ReadsSessionsThroughChargingPort(t *testing.T) {
 		t.Errorf("Flagged: want false (65 is neither negative nor zero), got %v", row.Flagged)
 	}
 
-	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceChargeSessions)
+	watermark, ok := fetchWatermark(t, pool, accountID, teslaID, sourceSuperchargerSessions)
 	if !ok {
-		t.Fatal("expected a charge_sessions watermark row to be created (no prior row -- epoch)")
+		t.Fatal("expected a supercharger_sessions watermark row to be created (no prior row -- epoch)")
 	}
 	if !watermark.Equal(session.UpdatedAt) {
-		t.Errorf("charge_sessions watermark: want advanced to the session's own updated_at %s, got %s", session.UpdatedAt, watermark)
+		t.Errorf("supercharger_sessions watermark: want advanced to the session's own updated_at %s, got %s", session.UpdatedAt, watermark)
 	}
 }
 

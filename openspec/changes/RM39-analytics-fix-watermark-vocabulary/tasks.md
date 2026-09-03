@@ -27,7 +27,7 @@ tasks rule).
 
 ## Wave 2 — test fixes (depends on 1.2 for symbol references; independent of each other)
 
-- [ ] **2.1 Fix `db_watermark_migration_integration_test.go`'s cross-migration cleanup.**
+- [x] **2.1 Fix `db_watermark_migration_integration_test.go`'s cross-migration cleanup.**
   Apply the exact fix in `design.md` §8: add
   `const superchargerVocabMigrationVersion int64 = 20260902000004` (match task 1.1's actual
   filename/version) alongside the existing `watermarkSourceMigrationVersion` constant, and
@@ -38,7 +38,7 @@ tasks rule).
   Up/Down and must stay exactly as they are (design.md §8, D1). Depends on 1.1 (needs the
   real migration version number to exist).
 
-- [ ] **2.2 Update stale comments in `db_integration_test.go`.** Three regions (currently
+- [x] **2.2 Update stale comments in `db_integration_test.go`.** Three regions (currently
   around lines 1059, 1233, 1379 — re-locate by searching for `sourceChargeSessions` and
   the phrase "charge_sessions watermark") reference the retiring label in prose. Update
   the comment text to describe the current vocabulary (design.md §8 gives example wording
@@ -47,7 +47,7 @@ tasks rule).
   comment-only task, verify with `gofmt -l` and a visual diff, not a test run. Depends on
   1.2 (the symbol must already be renamed for the surrounding code to compile).
 
-- [ ] **2.3 Write the migration round-trip test (T1).** Either append a new `Test...`
+- [x] **2.3 Write the migration round-trip test (T1).** Either append a new `Test...`
   function to `db_watermark_migration_integration_test.go` or create a new file (e.g.
   `db_watermark_supercharger_migration_integration_test.go`) — implementer's choice, both
   reuse the existing file's helpers unchanged (`seedWatermarkRow`, `fetchWatermarkUpdatedAt`,
@@ -64,14 +64,14 @@ tasks rule).
 
 ## Wave 3 — docs (independent of every other task; may start any time after 1.1/1.2 land, since it documents their outcome)
 
-- [ ] **3.1 Update `internal/analytics/AGENTS.md`.** "Data ownership" section, the line
+- [x] **3.1 Update `internal/analytics/AGENTS.md`.** "Data ownership" section, the line
   currently reading `vehicle_metric_watermarks.source`'s stored string values
   (`'vehicle_snapshots'`, `'charge_sessions'`, `'manual_charge_entries'`)` — change
   `'charge_sessions'` to `'supercharger_sessions'` and add a one-clause note that the value
   is reused from before RM31 and now names `charging`'s table (point at this change's
   design.md §6 for the full reused-string rationale rather than duplicating it).
 
-- [ ] **3.2 Update `kkpa/context/entities/vehicle-metrics/guide.md`.** Five lines
+- [x] **3.2 Update `kkpa/context/entities/vehicle-metrics/guide.md`.** Five lines
   currently name the vocabulary as `'charge_sessions'` or describe the Supercharger table
   by its retiring name in a way that will read as stale once this change lands (found via
   `grep -n "charge_sessions" kkpa/context/entities/vehicle-metrics/guide.md` — re-run to
@@ -79,7 +79,7 @@ tasks rule).
   touched some of them). Update each to the current vocabulary/table name. This is the
   `CLAUDE.md` "Docs track structural change" KB-sync requirement, not optional cleanup.
 
-- [ ] **3.3 Sweep for any other stale reference.** `grep -rln "charge_sessions" --include='*.md'
+- [x] **3.3 Sweep for any other stale reference.** `grep -rln "charge_sessions" --include='*.md'
   internal/ kkpa/context/ docs/ ai/` (outside `openspec/changes/archive/`, which is
   historical and frozen by convention) to catch anything 3.1/3.2 missed. Report findings
   even if the list is empty — an empty result is itself the confirmation this task exists

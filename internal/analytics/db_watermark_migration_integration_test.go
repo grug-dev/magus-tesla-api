@@ -64,6 +64,18 @@ import (
 // (20260828000001_migrate_vehicle_metric_watermarks_source.sql).
 const watermarkSourceMigrationVersion int64 = 20260828000001
 
+// superchargerVocabMigrationVersion is the goose version_id of
+// 20260902000004_migrate_vehicle_metric_watermarks_source_supercharger.sql
+// (RM39-analytics-fix-watermark-vocabulary, tier 3b) -- the migration that
+// runs AFTER watermarkSourceMigrationVersion in the package's fully-migrated
+// state and re-points the same CHECK constraint's vocabulary. This file's
+// TestMigration_WatermarkSourceVocabulary replays watermarkSourceMigrationVersion
+// in isolation via ApplyVersion, which leaves the live constraint at THAT
+// migration's own Up vocabulary -- not this later one's -- so its t.Cleanup
+// must also re-toggle this version afterward to restore the state every
+// other test in this package expects (design.md §8).
+const superchargerVocabMigrationVersion int64 = 20260902000004
+
 // newAnalyticsMigrationProvider returns a goose.Provider scoped to ONLY this
 // module's own db/migrations directory, against the SAME database
 // newTestPool connects to. See the file-level comment for why this provider
@@ -237,6 +249,21 @@ func TestMigration_WatermarkSourceVocabulary(t *testing.T) {
 		if _, err := provider.ApplyVersion(cleanupCtx, watermarkSourceMigrationVersion, true); err != nil && !errors.Is(err, goose.ErrAlreadyApplied) {
 			t.Errorf("cleanup: re-applying watermark-source migration: %v", err)
 		}
+		// The line above just replayed watermarkSourceMigrationVersion's own Up,
+		// which overwrites the live CHECK constraint with THAT migration's
+		// vocabulary ('vehicle_snapshots', 'charge_sessions',
+		// 'manual_charge_entries') -- even though goose_db_version's bookkeeping
+		// still (and always did) claim superchargerVocabMigrationVersion is
+		// applied on top of it. Force a real down/up cycle to restore this
+		// later migration's own physical DDL effect (design.md §8); a bare
+		// ApplyVersion(..., true) would see "already applied" and skip
+		// execution entirely.
+		if _, err := provider.ApplyVersion(cleanupCtx, superchargerVocabMigrationVersion, false); err != nil {
+			t.Errorf("cleanup: rolling back the RM39 tier 3b migration to force re-application: %v", err)
+		}
+		if _, err := provider.ApplyVersion(cleanupCtx, superchargerVocabMigrationVersion, true); err != nil {
+			t.Errorf("cleanup: re-applying the RM39 tier 3b migration: %v", err)
+		}
 	})
 
 	// --- Given: migrations applied through 20260822000002 only ---
@@ -285,12 +312,27 @@ func TestMigration_WatermarkSourceVocabulary(t *testing.T) {
 	if !ok {
 		t.Fatal("newRealRecalculator did not return a *recalculator")
 	}
-	gotEpoch, err := rec.watermark(ctx, accountID, teslaID, sourceChargeSessions)
+	// This assertion runs in THIS test's own mid-state: migrations applied
+	// only through watermarkSourceMigrationVersion (20260828000001) -- NOT the
+	// fully-migrated, post-RM39-tier-3b state. sourceSuperchargerSessions is
+	// the sole surviving Go identifier for this constant after RM39 tier 3b's
+	// rename (design.md §7); the old identifier sourceChargeSessions no
+	// longer exists, so this call cannot reference it regardless of which
+	// state the test is in. Its compile-time VALUE, "supercharger_sessions",
+	// is exactly the label the Up step above just DELETEd (the seeded row at
+	// this vehicle/source), so watermark() correctly finds no row and returns
+	// the zero-value epoch -- still proving D7 ("no row = epoch"), just via
+	// the row this migration's own DELETE removed rather than via a label
+	// that never had a row to begin with. Contrast with this change's own T1
+	// test (design.md §9), which asserts this same method call in the FULLY
+	// post-migration state, where the same value instead means "no cursor
+	// written yet under the new label."
+	gotEpoch, err := rec.watermark(ctx, accountID, teslaID, sourceSuperchargerSessions)
 	if err != nil {
-		t.Fatalf("watermark(charge_sessions) post-migration: %v", err)
+		t.Fatalf("watermark(supercharger_sessions) mid-migration: %v", err)
 	}
 	if !gotEpoch.IsZero() {
-		t.Errorf("watermark(charge_sessions) post-migration: want the zero-value epoch (no row = epoch, design D7), got %s", gotEpoch)
+		t.Errorf("watermark(supercharger_sessions) mid-migration: want the zero-value epoch (no row = epoch, design D7), got %s", gotEpoch)
 	}
 
 	// --- Down round-trip ---

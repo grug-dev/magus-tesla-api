@@ -23,7 +23,7 @@ telemetry's rows, never from telemetry itself.
 |---|---|---|
 | `telemetry` | **Ingest only.** Nightly Fleet API collection → `vehicle_snapshots`, `supercharger_sessions`, `poll_attempts`, `poll_runs`. | `internal/analytics` (snapshots only) and `internal/app` (the Supercharger mirror step). **Never `internal/gateway`.** |
 | `charging` | Mirrors telemetry's Supercharger rows into `supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3), **and originates** `manual_charge_entries` (a human types those). Part mirror, part owner — not a pure mirror. | gateway, analytics |
-| `analytics` | Derived read model. Recomputes `vehicle_metrics` from three independent watermark sources (`vehicle_snapshots`, `charge_sessions`, `manual_charge_entries`). | gateway |
+| `analytics` | Derived read model. Recomputes `vehicle_metrics` from three independent watermark sources (`vehicle_snapshots`, `supercharger_sessions`, `manual_charge_entries` — `supercharger_sessions` reused from before RM31 by `RM39-analytics-fix-watermark-vocabulary`, roadmap tier 3b; see that change's `design.md` §6). | gateway |
 
 The gateway therefore reads **`charging` and `analytics` only**. That is enforced, not merely
 documented — see the boundary gotcha below.

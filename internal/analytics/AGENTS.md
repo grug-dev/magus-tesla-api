@@ -255,9 +255,12 @@ here was "None"; it is no longer.
   `internal/analytics/db/` (goose migrations + `query.sql`, sqlc-generated code). This
   is a namespacing change only — no stored data, constraint, or public interface
   behavior changed. `vehicle_metric_watermarks.source`'s stored string values
-  (`'vehicle_snapshots'`, `'charge_sessions'`, `'manual_charge_entries'`) and its CHECK
-  constraint name OTHER modules' tables by convention — they are data, not table
-  references, and this schema move does not touch them.
+  (`'vehicle_snapshots'`, `'supercharger_sessions'`, `'manual_charge_entries'`) and its
+  CHECK constraint name OTHER modules' tables by convention — they are data, not table
+  references, and this schema move does not touch them. `'supercharger_sessions'` is a
+  value reused from before RM31, when it named `telemetry`'s table — it now names
+  `charging`'s table instead; see `openspec/changes/RM39-analytics-fix-watermark-vocabulary/design.md`
+  §6 for the reused-string rationale.
 - `internal/analytics/db/` — the module's sqlc package, `analyticsdb`, generated from
   `internal/analytics/db/query.sql` via the `analytics` entry in the root `sqlc.yaml`.
   **No other module may import `analyticsdb`** (`ai/architecture.md` §2), exactly as
