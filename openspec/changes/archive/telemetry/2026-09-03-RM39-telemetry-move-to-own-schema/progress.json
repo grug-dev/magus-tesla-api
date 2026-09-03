@@ -5,9 +5,9 @@
   "module": "telemetry",
   "roadmap": "RM39-schema-per-module",
   "request": "Tier 4 of RM39: move internal/telemetry's 4 tables into a dedicated telemetry Postgres schema and rename supercharger_sessions -> supercharger_history, with its 9 catalog objects and the Go names that follow the table. The public port SuperchargerReader stays unchanged (tier 5).",
-  "status": "applied",
+  "status": "archived",
   "created_at": "2026-09-03T09:55:00Z",
-  "updated_at": "2026-09-03T10:50:00Z",
+  "updated_at": "2026-09-03T11:20:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5"
@@ -22,15 +22,9 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "T11"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
-      "T9",
-      "T10"
-    ],
-    "awaiting-user-verification": [
       "T1",
       "T2",
       "T3",
@@ -38,8 +32,12 @@
       "T5",
       "T6",
       "T7",
-      "T8"
-    ]
+      "T8",
+      "T9",
+      "T10",
+      "T11"
+    ],
+    "awaiting-user-verification": []
   },
   "tasks": [
     {
@@ -48,7 +46,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T09:58:00Z",
@@ -68,7 +66,7 @@
       "module": "telemetry",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T09:58:00Z",
@@ -91,7 +89,7 @@
         "T2"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T10:08:00Z",
@@ -108,7 +106,7 @@
         "T3"
       ],
       "parallel_ok": false,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T10:15:00Z",
@@ -130,7 +128,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "telemetry",
       "model": "claude-sonnet-5",
       "started_at": "2026-09-03T10:28:00Z",
@@ -152,7 +150,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T10:28:00Z",
@@ -169,7 +167,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T10:28:00Z",
@@ -186,7 +184,7 @@
         "T4"
       ],
       "parallel_ok": true,
-      "status": "awaiting-user-verification",
+      "status": "done",
       "agent": "leader",
       "model": "claude-opus-5",
       "started_at": "2026-09-03T10:28:00Z",
@@ -251,21 +249,36 @@
         "T10"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T10:48:00Z",
+      "completed_at": "2026-09-03T11:05:00Z",
       "duration_seconds": null,
-      "notes": null,
+      "notes": "Assistant half: build, vet repo-wide, gofmt, migration/boundary/tz/money guards all green. Owner half: reported make test passing on the disposable container.",
       "budget": null
     }
   ],
   "review": {
-    "status": "not-started",
-    "agent": null,
-    "brief": null,
-    "rounds": []
+    "status": "reviewer-approved",
+    "agent": "telemetry-reviewer",
+    "brief": "Review RM39 tier 4 (RM39-telemetry-move-to-own-schema), diff ffcb7e2..HEAD. Gate items, hardest first. (1) CATALOG COMPLETENESS is the one that failed last time: tier 3 shipped, passed review AND archived with five constraints still misnamed, because Postgres auto-names one CHECK per inline column constraint and those names live only in pg_constraint. Check all 9 objects in design D7 against the migration, and check the Down reverses them in the exact opposite order with no CASCADE. (2) DB matches the OWNER-CONFIRMED design (decision C1/roadmap D29) - any deviation is a BLOCKER, not a nit. Index plan promised nothing added or dropped and every statement catalog-only. (3) D6's INTENTIONAL HALF-STATE: SuperchargerReader, its four SuperchargerSessions* methods, NewSuperchargerReader, superchargerReader, rowToSuperchargerSession, upsertSuperchargerSession MUST still carry their old names. A finding that says 'rename these for consistency' is WRONG and will be rejected - that is tier 5. (4) RAW TEST SQL (D9) is this tier's central risk: invisible to sqlc and go vet. Verify the 41 statements across 7 telemetry test files plus the cross-module ones in charging/analytics are all schema-qualified and name supercharger_history. (5) D10: no search_path was added anywhere. A bare supercharger_sessions resolved through a search_path including charging would silently read CHARGING's table and pass while asserting the wrong data. (6) T8's three guarded mappings in charging's backfill replay, especially the to_regclass one - a miss fails SILENTLY on empty assertions. (7) T8.6 changed comments ONLY inside the shipped migration 20260823000001 - verify zero SQL lines moved. (8) TEST QUALITY BY READING, NOT RUNNING: confirm the test edits assert the values design.md's Test Contract authored BEFORE implementation, not values derived from the implementation. Zero expected assertion values should have changed - this tier renames, it does not change behavior. (9) Performance-Profile (read-heavy): confirm no query shape, predicate or plan changed. (10) Docs rule: structure docs AND kkpa/context/ updated in the same change; check the discrimination rule was applied per occurrence (telemetry's mentions renamed, charging's own supercharger_sessions left alone, analytics' watermark vocabulary untouched). (11) ANTI-GAMING: no acceptance criterion weakened or deleted, no status self-approved. TEST-EXECUTION-POLICY (verbatim): Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards. The owner runs the suite and reports results. SIGNAL PROVENANCE: assistant-run = go build ./..., go vet ./... repo-wide, gofmt -l, make migration-guard/boundary-guard/tz-guard/money-guard, all green. USER-REPORTED = `make test` (full suite, disposable postgres:16-alpine) PASSING, reported by the owner on 2026-09-03. You must NOT run any suite; judge test quality by reading.",
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-03T10:21:27Z",
+        "verdict": "approved",
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "minor",
+            "file": "openspec/changes/RM39-telemetry-move-to-own-schema/tasks.md",
+            "note": "Sub-tasks under T3, T6, T7, T8, T10 and T11 (all leader-owned) remain unchecked (`- [ ]`) even though progress.json marks the parent tasks 'done' and the corresponding code/doc changes are verified present and correct in the diff (sqlc.yaml rename block, analytics/app/charging test fixes, D11's three-mapping backfill guard, T8.6 comment-only migration edit, README/go-conventions/KB sweep, and the build/vet/guard signals). ai/agentic-workflow.md states 'tasks.md wins on implementation done-ness, progress.json wins on review state' — a future session reading tasks.md alone would see this tier as far less complete than it is. Not gaming (it under-claims, not over-claims) and does not block archive, but the leader should tick these boxes before archiving so the two files agree."
+          }
+        ],
+        "notes": "Reviewed git diff ffcb7e2..HEAD (33 files, +771/-379) cold against design.md, proposal.md, tasks.md, spec.md and the doc pack. Verified: (1) migration's 9 catalog renames match design D7 exactly, table-by-table; Down reverses in exact opposite order, no CASCADE, no search_path anywhere in the migration or any test file. (2) query.sql: all 15 table refs schema-qualified, exactly the 5 query names renamed; sqlc.yaml's rename block touches only the telemetry entry with the exact 4 keys design D5c/D3 specify; models.go shows only SuperchargerSession->SuperchargerHistory plus the refreshed COMMENT text, zero stray Telemetry-prefixed struct. (3) D6 half-state fully intact: SuperchargerReader, its four SuperchargerSessionsBy* methods, NewSuperchargerReader, superchargerReader, rowToSuperchargerSession, upsertSuperchargerSession all still carry old names, now returning []SuperchargerHistory; AGENTS.md explicitly warns future agents not to 'fix' this. (4) Raw test SQL: exactly 41 schema-qualified statements across the same 7 telemetry test files design D9 named; cross-module sweep in analytics (4 SQL + 3 type refs) and app (4 type refs) matches proposal's counts exactly; charging.supercharger_sessions left untouched throughout (correct, different table). (5) No search_path added anywhere (grepped). (6) charging/db_backfill_integration_test.go's runBackfill now maps THREE names (INSERT target, to_regclass guard, FROM source), each with its own exactly-one-occurrence t.Fatalf, matching D11 exactly. (7) The shipped charging migration 20260823000001 diff is comment-only -- confirmed zero non-comment lines changed. (8) Read every changed test file's diff: no expected assertion value changed anywhere (battery-pct trio values, EXPLAIN index-name assertion text, etc. all preserved) -- only names/qualifiers/types changed, consistent with a pure rename. (9) No query shape/predicate/plan change -- confirmed by reading query.sql and the Index Plan's catalog-only claim against the actual migration SQL. (10) Docs: README, ai/go-conventions.md, docs/battery-consumed-graph.md and the three kkpa/context guides all apply the per-occurrence discrimination rule correctly -- charging's own supercharger_sessions mentions and the analytics watermark vocabulary were left alone. (11) Anti-gaming: no spec/task criterion weakened; progress.json's 'verified' top-level status is supported by decision C12 (owner ran make test, PASSING, 2026-09-03) which matches the dispatch prompt's declared user-reported signal -- not an assistant self-claim. Re-ran go build ./..., go vet ./..., gofmt -l, make migration-guard, make boundary-guard myself: all clean. One minor finding (F1, tasks.md checkbox drift on leader-owned tasks) does not block approval."
+      }
+    ]
   },
   "decisions": [
     {
@@ -355,6 +368,22 @@
       "made_by": "leader",
       "decision": "CHECKED AND UNAFFECTED: no doc asserts a schema for the three purely-moved tables",
       "why": "The reverse-direction docs rule makes this a finding only if actually run. grep for public.<table> across kkpa/context, docs, ai and README returned zero rows."
+    },
+    {
+      "id": "C12",
+      "at": "2026-09-03T10:52:00Z",
+      "scope": "verification",
+      "made_by": "user",
+      "decision": "Verify tier 4 with the FULL suite on a disposable container: make test",
+      "why": "Rejected the throwaway-DATABASE_URL route (needs a hand-checked URL) and telemetry-only (skips charging's backfill pair, the exact tests the riskiest edit affects)."
+    },
+    {
+      "id": "C13",
+      "at": "2026-09-03T11:15:00Z",
+      "scope": "review:F1",
+      "made_by": "leader",
+      "decision": "F1 ACCEPTED and fixed: ticked the 45 tasks.md checkboxes the leader never ticked for its own leader-owned tasks",
+      "why": "Correct catch. ai/agentic-workflow.md makes tasks.md win on implementation done-ness, so the drift made the authoritative file under-claim finished work."
     }
   ],
   "events": [
@@ -417,6 +446,21 @@
       "at": "2026-09-03T10:50:00Z",
       "agent": "leader",
       "event": "MANDATORY ASK POINT (Step 5.7 + Step 6, merged - the final wave is also the last code-touching wave, so one ask serves both). T1-T8 moved from done to AWAITING-USER-VERIFICATION: their work is complete but no test has been executed by the assistant, and this tier's central risk (raw SQL in _test.go) has no assistant-runnable signal at all. T9/T10 stay done - they are docs and depend on no suite. The reviewer gate does NOT open until the owner reports the suite."
+    },
+    {
+      "at": "2026-09-03T10:52:00Z",
+      "agent": "leader",
+      "event": "PIPELINE PAUSED AT THE VERIFICATION GATE. The owner chose make test (disposable postgres:16-alpine), which also exercises the cold-start path since the container applies every migration to a fresh database. Waiting for the owner's reported result; the assistant runs nothing. On a pass, T1-T8 go done, the pass is recorded as the OWNER'S verification naming the command they ran, and the reviewer gate opens (Step 7). On a failure, the fix goes into a new wave and nothing is archived."
+    },
+    {
+      "at": "2026-09-03T11:05:00Z",
+      "agent": "leader",
+      "event": "VERIFIED BY THE OWNER, NOT BY THE ASSISTANT. The owner ran `make test` (full suite, disposable postgres:16-alpine) and reported it PASSING. This is recorded as the owner's result; the assistant executed no test at any point in this change. Because the container applies every migration to a fresh database, this pass also exercises the cold-start path -- including RM39 tier 4's new migration and charging's backfill guard, which now always skips. T1-T8 move from awaiting-user-verification to done; change status -> verified. The reviewer gate may now open (Step 7)."
+    },
+    {
+      "at": "2026-09-03T11:20:00Z",
+      "agent": "leader",
+      "event": "REVIEWER APPROVED in ONE round (tier 3, the other rename tier, took five). The reviewer re-derived rather than trusting: it checked the 9 catalog renames against D7, the Down order, the 41 test statements, charging's three backfill mappings, the comment-only migration diff, and re-ran build/vet/gofmt/migration-guard/boundary-guard itself. One minor finding F1 - the leader had never ticked tasks.md checkboxes for its own leader-owned tasks T3/T6/T7/T8/T10/T11 - accepted and fixed (C13); it under-claimed rather than gamed. ARCHIVED: openspec archive synced both ADDED requirements into openspec/specs/telemetry/spec.md, then the leader git mv'd the folder from the CLI's flat drop into archive/telemetry/ as openspec/config.yaml's domain-grouping rule requires."
     }
   ]
 }

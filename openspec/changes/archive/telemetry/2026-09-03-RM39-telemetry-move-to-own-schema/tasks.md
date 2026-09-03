@@ -211,7 +211,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 
 ## T3. `sqlc.yaml` rename block + regeneration + the mandatory `models.go` diff — `[telemetry]` — depends on T1 AND T2
 
-- [ ] T3.1 Add a `rename:` map under the **telemetry** entry's existing `gen.go` block in the
+- [x] T3.1 Add a `rename:` map under the **telemetry** entry's existing `gen.go` block in the
       root `sqlc.yaml` (**not** the top-level `overrides:` block, which sqlc ignores for this
       purpose). The telemetry entry has no `rename:` block at all today:
       ```yaml
@@ -227,16 +227,16 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       `TelemetryVehicleSnapshot`, churning ~144 non-test call sites for nothing. The fourth is
       the deliberate NEW mapping (roadmap D5c). **Do not touch the `account`, `charging` or
       `analytics` entries in this file.**
-- [ ] T3.2 Run `make sqlc` (leader-integrated step). Regenerates
+- [x] T3.2 Run `make sqlc` (leader-integrated step). Regenerates
       `internal/telemetry/db/models.go`, `db.go` and `query.sql.go`.
-- [ ] T3.3 **`telemetry_supercharger_history` is a special risk and MUST be verified, not
+- [x] T3.3 **`telemetry_supercharger_history` is a special risk and MUST be verified, not
       assumed.** The roadmap's finding — a wrong `rename` key is ignored with **no error and
       exit 0** — was measured on a regular plural. `history` is an irregular noun whose plural
       is `histories`, so sqlc's inflector may or may not treat the singular as already-singular.
       **Do not reason about it.** After `make sqlc`, read `models.go`: if the struct is named
       `TelemetrySuperchargerHistory` the key did not match, and the correct key must be found
       empirically (try `telemetry_supercharger_histories` next) before this task is complete.
-- [ ] T3.4 **Diff `internal/telemetry/db/models.go` and confirm the EXACT expected shape from
+- [x] T3.4 **Diff `internal/telemetry/db/models.go` and confirm the EXACT expected shape from
       design.md's Test Contract point 1.** This is the mandatory verification step, not a
       nicety — it is the *only* detector of a silently-wrong `rename` key.
       **Expected diff: the type identifier `SuperchargerSession` → `SuperchargerHistory`, plus
@@ -250,7 +250,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       Any `Telemetry`-prefixed struct name in the output means a `rename` key did not match.
       Acceptance: `git diff internal/telemetry/db/models.go` matches that description exactly;
       paste the diff into the final report.
-- [ ] T3.5 Confirm by inspection that `internal/telemetry/db/query.sql.go` regenerated with the
+- [x] T3.5 Confirm by inspection that `internal/telemetry/db/query.sql.go` regenerated with the
       5 new query function names and their `*Params` types (`UpsertSuperchargerHistoryParams`,
       `SuperchargerHistoryByAccountParams`, …), with unchanged parameter shapes. No hand edits
       to any generated file. Acceptance: `go build ./internal/telemetry/...` fails only at the
@@ -358,25 +358,25 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 
 > Outside the telemetry sandbox. **Test file only** — no analytics production file is touched.
 
-- [ ] T6.1 Qualify the **4** raw SQL statements that seed/read telemetry's tables (design.md
+- [x] T6.1 Qualify the **4** raw SQL statements that seed/read telemetry's tables (design.md
       D9; **the roadmap under-counted this file at 2** — it named only the two
       `supercharger_sessions` statements, but `seedSnapshot`'s INSERT and the same-day-recapture
       UPDATE hit `vehicle_snapshots` and are equally affected and equally invisible to every
       runnable signal):
-      - [ ] `INSERT INTO vehicle_snapshots` (`seedSnapshot`) → `telemetry.vehicle_snapshots`
-      - [ ] `INSERT INTO supercharger_sessions` (`seedSuperchargerSession`) →
+      - [x] `INSERT INTO vehicle_snapshots` (`seedSnapshot`) → `telemetry.vehicle_snapshots`
+      - [x] `INSERT INTO supercharger_sessions` (`seedSuperchargerSession`) →
             `telemetry.supercharger_history`
-      - [ ] `UPDATE supercharger_sessions …` (`reviseSuperchargerSession`) →
+      - [x] `UPDATE supercharger_sessions …` (`reviseSuperchargerSession`) →
             `telemetry.supercharger_history`
-      - [ ] `UPDATE vehicle_snapshots …` (same-day-recapture simulation) →
+      - [x] `UPDATE vehicle_snapshots …` (same-day-recapture simulation) →
             `telemetry.vehicle_snapshots`
 
       Acceptance: the T5.1 grep command, run against `internal/analytics`, returns zero
       matches.
-- [ ] T6.2 Update the **3** `telemetry.SuperchargerSession` Go type references to
+- [x] T6.2 Update the **3** `telemetry.SuperchargerSession` Go type references to
       `telemetry.SuperchargerHistory` (the `seedSuperchargerSession` doc comment, its parameter
       type, and its one call site). Acceptance: `go vet ./internal/analytics/...` clean.
-- [ ] T6.3 **Confirm, do not assume, that analytics' two watermark replay tests are
+- [x] T6.3 **Confirm, do not assume, that analytics' two watermark replay tests are
       unaffected** (design.md D10 / Test Contract point 7).
       `db_watermark_migration_integration_test.go` and
       `db_watermark_supercharger_migration_integration_test.go` drive a `goose.Provider` scoped
@@ -389,7 +389,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 
 > Outside the telemetry sandbox. **Test file only.**
 
-- [ ] T7.1 Update the **4** `telemetry.SuperchargerSession` references in
+- [x] T7.1 Update the **4** `telemetry.SuperchargerSession` references in
       `fakeSuperchargerReader`'s four methods to `telemetry.SuperchargerHistory`. The **method
       names stay `SuperchargerSessionsBy*`** — the fake implements the port, and the port is
       not renamed in this tier (D6). Acceptance: `go vet ./internal/app/...` clean; a grep for
@@ -400,21 +400,21 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 
 > Outside the telemetry sandbox. **The single most likely way this tier ships broken.**
 
-- [ ] T8.1 **`db_backfill_integration_test.go`'s `runBackfill` must map THREE names forward,
+- [x] T8.1 **`db_backfill_integration_test.go`'s `runBackfill` must map THREE names forward,
       not one** (design.md D11 — a finding this change adds to the roadmap's own list). The
       test extracts the shipped backfill statement from the historic migration at runtime
       (between `-- BACKFILL-BEGIN` / `-- BACKFILL-END`) and re-executes it, rewriting names
       forward because historic migrations are never edited. Today it rewrites exactly one (the
       `INSERT` target). Add the two missing mappings:
-      - [ ] `to_regclass('public.supercharger_sessions')` →
+      - [x] `to_regclass('public.supercharger_sessions')` →
             `to_regclass('telemetry.supercharger_history')` — **the dangerous one.** Miss it
             and the `DO` block's guard evaluates to `NULL` forever, `RETURN`s early, raises **no
             error** (just a `NOTICE`), inserts nothing, and A1/A2
             (`TestBackfill_RealFourRowDataset_OnePercentageBearing`,
             `TestBackfill_IdempotentOnRerun_OverwritesNothing`) fail on **empty assertions** —
             a failure that reads like a data bug rather than a name bug.
-      - [ ] `FROM supercharger_sessions s` → `FROM telemetry.supercharger_history s`
-      - [ ] (existing, unchanged) the `INSERT INTO charge_sessions (` →
+      - [x] `FROM supercharger_sessions s` → `FROM telemetry.supercharger_history s`
+      - [x] (existing, unchanged) the `INSERT INTO charge_sessions (` →
             `INSERT INTO charging.supercharger_sessions (` target
 
       Each new mapping carries the same **"exactly one occurrence, else `t.Fatalf`"** guard the
@@ -423,46 +423,46 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       so rewriting it is **optional and not required** — leaving it avoids a fourth fragile
       string match. Record which was chosen.
       Acceptance: three guarded mappings present; `go vet ./internal/charging/...` clean.
-- [ ] T8.2 Rewrite that file's **header comment**, which currently explains the ONE-mapping
+- [x] T8.2 Rewrite that file's **header comment**, which currently explains the ONE-mapping
       rule and states that `FROM supercharger_sessions` "is already correct and must be left
       alone" until RM39 tier 4 lands. It must now explain the THREE-mapping rule, including why
       `search_path` is still the wrong tool (D10 — a bare `supercharger_sessions` would resolve
       to **charging's** table and succeed while reading the wrong data). The existing
       `search_path` argument in that comment survives this tier intact.
-- [ ] T8.3 Qualify the **3** ordinary D9 statements in the same file that seed/clean/read
+- [x] T8.3 Qualify the **3** ordinary D9 statements in the same file that seed/clean/read
       telemetry's table — `insertSuperchargerSessionFixture`'s `INSERT INTO
       supercharger_sessions`, `cleanupSuperchargerSessions`'s `DELETE FROM …`, and the
       source-row read-back's `FROM supercharger_sessions` — all to
       `telemetry.supercharger_history`. Acceptance: the T5.1 grep command, run against
       `internal/charging`, returns zero SQL matches (comment lines that merely mention the name
       are T8.5's).
-- [ ] T8.4 **`internal/charging/testdb_test.go` needs no change** to its
+- [x] T8.4 **`internal/charging/testdb_test.go` needs no change** to its
       `ProvisionDirs(ctx, "../telemetry/db/migrations", "db/migrations")` call — it takes
       **directories**, not names, and the ordering it depends on is unchanged (design.md D11).
       Confirm and record; only its stale **comment** is in scope (T8.5).
-- [ ] T8.5 Sweep the module's comments naming `telemetry.SuperchargerSession` or telemetry's
+- [x] T8.5 Sweep the module's comments naming `telemetry.SuperchargerSession` or telemetry's
       old table name: `charging.go` (~L247, the field-mirroring note), `session_reader.go`,
       `testdb_test.go`, and `db_backfill_integration_test.go`'s remaining prose. Apply T4.5's
       rule — current identity gets the new name, a history-narrating comment keeps the old one.
       Command: `grep -rn 'telemetry\.SuperchargerSession\|supercharger_sessions' internal/charging`
       (expect matches for **charging's own** `charging.supercharger_sessions` too — those are a
       **different table** and must NOT be changed; this is the D10 hazard in prose form).
-- [ ] T8.6 **Comment-only correction inside the shipped migration**
+- [x] T8.6 **Comment-only correction inside the shipped migration**
       `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql` (roadmap D25 /
       design.md D12). **Roadmap D1 forbids editing its SQL. Not one character of SQL changes.**
-      - [ ] ~L213: the comment claiming *"In a real database the guard always passes:
+      - [x] ~L213: the comment claiming *"In a real database the guard always passes:
             MIGRATIONS_DIRS runs telemetry before charging."* After this tier
             `to_regclass('public.supercharger_sessions')` is `NULL` permanently, so the guard
             **always skips**. The corrected comment must say so **and why it is harmless**: on
             a database that already ran this migration the backfill committed its rows long
             ago; on a fresh database there is nothing to copy, because telemetry's table is
             created empty in the same `goose up`.
-      - [ ] ~L277 and ~L284 (the `-- +goose Down` header): two more comments name
+      - [x] ~L277 and ~L284 (the `-- +goose Down` header): two more comments name
             `telemetry.supercharger_sessions`, which ceases to exist. **The roadmap did not
             name these** — found by inspection during design (D12), recorded rather than
             silently fixed. They are pure prose about data safety, so the correction is a name
             substitution to `telemetry.supercharger_history`.
-      - [ ] **Record the decision explicitly.** Design.md D12 says the leader may fold these two
+      - [x] **Record the decision explicitly.** Design.md D12 says the leader may fold these two
             into this task or defer them, and that *either is defensible but choosing silently
             is not* — "I did not think about it" and "it is unaffected" are different findings,
             and only the second is a finding (`CLAUDE.md`, docs rule).
@@ -505,12 +505,12 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 > `telemetry.supercharger_history`. The two names are one word apart and adjacent in every one
 > of these files.
 
-- [ ] T10.1 Command that produced the file list below (re-run it; do not trust the counts):
+- [x] T10.1 Command that produced the file list below (re-run it; do not trust the counts):
       ```
       grep -rc 'supercharger_sessions' kkpa/context/ docs/ ai/ README.md | grep -v ':0$'
       ```
       Live KB + docs files with mentions (count at artifact time):
-      - [ ] `kkpa/context/architecture/telemetry-ingest-only.md` (11) — **the primary one.**
+      - [x] `kkpa/context/architecture/telemetry-ingest-only.md` (11) — **the primary one.**
             Resolve the file's top **PENDING banner**, which parks the
             `telemetry.supercharger_sessions` → `supercharger_history` half of the rename on
             "a separate, blocked boundary ticket (roadmap D6)". Roadmap D25 retired that block
@@ -518,24 +518,24 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
             needed** — the roadmap's §"Knowledge-base debt" says a file
             `telemetry-data-hub.md` must be corrected and retitled; **that file no longer
             exists**, tier 3 already did that work (design.md D15 records the correction).
-      - [ ] `kkpa/context/architecture/nightly-cycle.md` (8) — mixed telemetry/charging
+      - [x] `kkpa/context/architecture/nightly-cycle.md` (8) — mixed telemetry/charging
             mentions; apply the discrimination rule per occurrence.
-      - [ ] `kkpa/context/workflows/supercharger-stats-read.md` (12) — mixed; also check for
+      - [x] `kkpa/context/workflows/supercharger-stats-read.md` (12) — mixed; also check for
             index names.
-      - [ ] `kkpa/context/INDEX.md` (5) — mixed.
-      - [ ] `kkpa/context/entities/vehicle-metrics/guide.md` (5) — mixed; the
+      - [x] `kkpa/context/INDEX.md` (5) — mixed.
+      - [x] `kkpa/context/entities/vehicle-metrics/guide.md` (5) — mixed; the
             watermark-vocabulary line is analytics' (tier 3b already settled it) — leave it.
-      - [ ] `kkpa/context/architecture/charge-record-mutation.md` (4) — expected to be
+      - [x] `kkpa/context/architecture/charge-record-mutation.md` (4) — expected to be
             charging-side only; confirm and record if no edit is needed.
-      - [ ] `kkpa/context/use-case/charging/verify-session-battery.md` (5),
+      - [x] `kkpa/context/use-case/charging/verify-session-battery.md` (5),
             `update-manual-charge.md` (2), `delete-manual-charge.md` (1),
             `kkpa/context/workflows/manual-charge-crud.md` (2) — expected charging-side only;
             confirm per occurrence.
-      - [ ] `README.md` (4) — includes the "Two different tables share the base name
+      - [x] `README.md` (4) — includes the "Two different tables share the base name
             `supercharger_sessions`" note that **this tier makes obsolete**, plus the
             schema/table table, which now must show `telemetry` as this module's schema.
-      - [ ] `docs/battery-consumed-graph.md` (3)
-      - [ ] `ai/go-conventions.md` (1) — the §Testing paragraph on `MIGRATIONS_DIRS` ordering
+      - [x] `docs/battery-consumed-graph.md` (3)
+      - [x] `ai/go-conventions.md` (1) — the §Testing paragraph on `MIGRATIONS_DIRS` ordering
             names `telemetry.supercharger_sessions` as the backfill's source table.
       **Excluded deliberately:** everything under `kkpa/context/pending-spec-to-sync/` — that
       is the curator's staging area, not a live guide; and `kkpa/context/**/applied/`, which is
@@ -544,7 +544,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       Acceptance: every file above is either edited or explicitly left with a recorded reason.
       **Do not edit speculatively** — an occurrence you cannot attribute to telemetry or
       charging gets reported, not guessed.
-- [ ] T10.2 Sweep the pure **schema-move** mentions (`vehicle_snapshots`, `poll_attempts`,
+- [x] T10.2 Sweep the pure **schema-move** mentions (`vehicle_snapshots`, `poll_attempts`,
       `poll_runs`) for any doc that asserts a specific schema. Tiers 1 and 2 both concluded no
       edit was needed, because prose names tables without a `public.` prefix. Confirm the same
       here and **record the conclusion** — the reverse-direction docs rule makes "I checked and
@@ -556,17 +556,17 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
 
 ## T11. Verification — `[telemetry]` for the assistant-runnable half — depends on T1–T10
 
-- [ ] T11.1 Claude-runnable signals, repo-wide: `go build ./...`, `go vet ./...`, `gofmt -l`
+- [x] T11.1 Claude-runnable signals, repo-wide: `go build ./...`, `go vet ./...`, `gofmt -l`
       (expect empty). `go vet` compiles `_test.go` files, so it is the signal that catches every
       `telemetry.SuperchargerSession` reference this tier renames — inside the module and all 7
       outside it. It catches **none** of the raw SQL work in T5.1/T6.1/T8.3, which is exactly
       why those tasks carry their own grep acceptance criteria.
-- [ ] T11.2 `make migration-guard` passes (the new migration's version is globally unique across
+- [x] T11.2 `make migration-guard` passes (the new migration's version is globally unique across
       every module directory — they share one `goose_db_version` table).
-- [ ] T11.3 `make boundary-guard` passes. It greps `internal/gateway/**` for the
+- [x] T11.3 `make boundary-guard` passes. It greps `internal/gateway/**` for the
       `internal/telemetry` **import path**, which this tier does not touch — `internal/gateway`
       is not edited by any task here.
-- [ ] T11.4 **Makefile / tooling re-check** (`CLAUDE.md`'s reverse-direction docs rule).
+- [x] T11.4 **Makefile / tooling re-check** (`CLAUDE.md`'s reverse-direction docs rule).
       design.md §"Makefile / tooling re-check" already performed this and recorded the finding
       *"nothing in the build tooling requires a change for this tier"*. **Re-confirm each line
       rather than restating it**, and record any drift: `MIGRATIONS_DIRS` order and membership
@@ -579,11 +579,11 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       its own `//go:embed db/migrations/*.sql`, and `analytics`/`charging` use `ProvisionDirs`
       with **directory** arguments this tier does not rename or move); the other guards
       (`ui`, `i18n`, `money`, `tz`) are schema-agnostic.
-- [ ] T11.5 Sandbox check: no file outside `internal/telemetry/` (plus the leader-granted
+- [x] T11.5 Sandbox check: no file outside `internal/telemetry/` (plus the leader-granted
       `sqlc.yaml` telemetry entry and this change's `openspec/changes/…` folder) was touched by
       a `[telemetry]` task. Confirm no other module's `sqlc.yaml` entry, migrations directory
       or `query.sql` was touched.
-- [ ] T11.6 **State in the final report the exact catalog-verification queries** from
+- [x] T11.6 **State in the final report the exact catalog-verification queries** from
       design.md's Test Contract points 2–5, ready for the owner to paste after
       `make migrate-up`:
       ```sql
@@ -629,7 +629,7 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
       `supercharger_sessions` name, restores all nine object names and drops the `telemetry`
       schema **without `CASCADE`**; re-running `goose up` lands the same catalog state as
       point 3).
-- [ ] T11.7 **Report the exact test-suite commands the owner must run.** Per
+- [x] T11.7 **Report the exact test-suite commands the owner must run.** Per
       `Test-Execution-Policy` this change does **not** execute them; every task whose completion
       depends on the suite is `awaiting-user-verification`, never `done`, until the owner
       reports a result — and a passing suite is recorded as the **owner's** report, never
@@ -649,6 +649,6 @@ Do **not** run `make migrate-up`, `make db-setup`, or any test suite from this c
         missed `to_regclass` guard mapping in T8.1.
       - A `relation "…" does not exist` in any DB-backed test ⇒ a raw SQL statement missed by
         T5.1 / T6.1 / T8.3.
-- [ ] T11.8 `openspec validate RM39-telemetry-move-to-own-schema --strict` passes, and every
+- [x] T11.8 `openspec validate RM39-telemetry-move-to-own-schema --strict` passes, and every
       checkbox above reflects real completion — **no task title or acceptance criterion may be
       edited, weakened or deleted to make the work look done.**

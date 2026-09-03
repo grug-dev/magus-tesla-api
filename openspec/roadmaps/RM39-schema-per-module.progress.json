@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T09:55:00Z",
+  "updated_at": "2026-09-03T11:20:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -16,17 +16,16 @@
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [
-      4
-    ],
-    "pending": [],
-    "blocked": [
+    "current": [],
+    "pending": [
       5
     ],
+    "blocked": [],
     "done": [
       1,
       2,
       3,
+      4,
       6
     ]
   },
@@ -358,14 +357,14 @@
         3,
         6
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": null,
       "model": null,
       "started_at": "2026-09-03T09:55:00Z",
-      "completed_at": null,
+      "completed_at": "2026-09-03T11:20:00Z",
       "duration_seconds": null,
       "budget": null,
-      "notes": "UNBLOCKED by D25. 4 tables -> schema telemetry; supercharger_sessions -> supercharger_history (D5a) + db model and hand-written domain type (telemetry.go:427) -> SuperchargerHistory (D5c) + 5 sqlc query names. D27 measured the 9 catalog objects on the live db: 7 constraints (supercharger_sessions_{pkey,session_id_unique,battery_pct_source_check,start_battery_pct_check,end_battery_pct_check,start_battery_pct_est_check,end_battery_pct_est_check}) + 2 indexes (idx_supercharger_sessions_{account_time,vehicle_time}). Step 2b (D9/D13/D17): 41 statements in 7 telemetry test files (re-measured, matches D13), plus charging's backfill test and analytics/db_integration_test.go. D26: 7 cross-module Go refs (app 4, analytics 3) are leader-owned; go vet catches them. D25 folds in correcting 20260823000001's line-213 comment (comment only). D12's search_path fix is UNSAFE here. Port SuperchargerReader stays (tier 5)."
+      "notes": "ARCHIVED 2026-09-03, reviewer-approved in ONE round. 4 tables -> schema telemetry; supercharger_sessions -> supercharger_history with all 9 catalog objects (D18's lesson held - the 5 auto-named CHECKs were renamed this time). 41 test SQL statements + 25 type refs swept; charging's backfill replay now maps THREE names, not one. Owner ran make test on a disposable container: PASSING. Port SuperchargerReader deliberately still half-renamed -> tier 5."
     },
     {
       "id": 5,
@@ -375,14 +374,14 @@
       "depends_on": [
         4
       ],
-      "status": "blocked",
+      "status": "not-started",
       "assistant": null,
       "model": null,
       "started_at": null,
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "No schema change. Finishes D5c by renaming telemetry's public port (SuperchargerReader, its 4 methods, NewSuperchargerReader and the internal helpers). Split from tier 4 deliberately: 88 references outside internal/telemetry, across charging, analytics, gateway, app and both cmd/ binaries. Mechanical and compiler-checked."
+      "notes": "UNBLOCKED 2026-09-03 by tier 4 archiving. No schema change. Finishes D5c by renaming telemetry's public port (SuperchargerReader, its 4 methods, NewSuperchargerReader and the internal helpers). Split from tier 4 deliberately: 88 references outside internal/telemetry, across charging, analytics, gateway, app and both cmd/ binaries. Mechanical and compiler-checked."
     },
     {
       "id": 6,
@@ -604,6 +603,11 @@
       "at": "2026-09-03T09:55:00Z",
       "agent": "leader",
       "event": "TIER 4 ARTIFACTS COMPLETE AND GATED. specs + tasks.md written by a re-dispatched Opus worker, openspec validate --strict clean, database design gate passed (D29). Tier 4 flipped [ ] -> [~]. Change progress.json created with T1-T11. Next: Step 5 wave 1 (T1 migration + T2 query.sql, disjoint files)."
+    },
+    {
+      "at": "2026-09-03T11:20:00Z",
+      "agent": "leader",
+      "event": "TIER 4 ARCHIVED. RM39 is now 5 of 6 tiers done (1, 2, 3, 3b, 4). Only tier 5 remains and it is UNBLOCKED - its sole dependency was tier 4. Tier 5 is the mechanical, fully compiler-checked half of D5c: rename the public port SuperchargerReader, its 4 methods, NewSuperchargerReader and the internal helpers, across 88 references in charging, analytics, gateway, app and both cmd/ binaries. No schema change, no migration, no raw SQL - so unlike every tier before it, go vet is a COMPLETE signal here."
     }
   ],
   "gates": [
