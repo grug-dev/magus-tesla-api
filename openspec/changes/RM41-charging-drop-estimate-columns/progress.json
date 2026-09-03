@@ -5,17 +5,12 @@
   "module": "charging",
   "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
   "request": "Roadmap RM41 tier 2, ticket MAG-36. Drop start_battery_pct_est / end_battery_pct_est from charging.supercharger_sessions: one migration, the two Session fields, the two reader mappings, the query.sql guarding comments, sqlc regeneration, four charging integration tests plus the granted analytics seed test, and four doc/KB files.",
-  "status": "proposed",
+  "status": "in-progress",
   "created_at": "2026-09-03T18:35:00Z",
-  "updated_at": "2026-09-03T18:36:00Z",
+  "updated_at": "2026-09-03T18:59:12Z",
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "1.2",
-      "1.3",
-      "1.4",
-      "2.1",
       "3.1",
       "3.2",
       "3.3",
@@ -30,7 +25,12 @@
     ],
     "blocked": [],
     "done": [
-      "0.1"
+      "0.1",
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "2.1"
     ]
   },
   "leader": {
@@ -67,14 +67,22 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Migration 20260903000002 written verbatim from design.md, both goose sections, sorts last. Not applied \u2014 make migrate-up stays the owner's step (5.2).",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
     },
     {
       "id": "1.2",
@@ -82,14 +90,22 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Two Session fields removed, doc comment five->three / Twenty->Eighteen, VerifySession doc rewritten. Leader then dropped the literal column names from the tombstone (see decision).",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
     },
     {
       "id": "1.3",
@@ -97,14 +113,22 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Two rowToSession mapping lines and the mapping-rules bullet removed. Acceptance grep returns 0.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
     },
     {
       "id": "1.4",
@@ -112,14 +136,22 @@
       "module": "charging",
       "depends_on": [],
       "parallel_ok": true,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "Both guarding comments rewritten. Leader amended the tombstone wording so the acceptance grep returns 0 as written; RM41 pointer kept, count 2.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
     },
     {
       "id": "2.1",
@@ -130,14 +162,22 @@
         "1.4"
       ],
       "parallel_ok": false,
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "charging",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T18:48:35Z",
+      "completed_at": "2026-09-03T18:59:12Z",
       "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "notes": "make sqlc run twice (after 1.4 and again after the tombstone amendment). models.go and query.sql.go carry no est name. go build ./internal/charging clean; vet fails only on wave-3 test files, as designed.",
+      "budget": {
+        "five_hour_pct_start": 2,
+        "five_hour_pct_end": 12,
+        "context_pct_start": 9,
+        "context_pct_end": 13,
+        "cost_usd_delta": 2.9464,
+        "approx": true,
+        "note": "one shared wave delta across 1.1-2.1 (single serial worker + leader amendment)"
+      }
     },
     {
       "id": "3.1",
@@ -363,6 +403,20 @@
       "what": "Added task 4.4 for kkpa/context/architecture/charge-record-mutation.md, a KB file the roadmap's Findings table never listed.",
       "why": "The roadmap's grep covered only internal/ and cmd/, so it could not see a KB file that describes these columns as never-written.",
       "at": "2026-09-03T18:35:00Z"
+    },
+    {
+      "scope": "dispatch:wave-batching",
+      "made_by": "autopilot",
+      "what": "Waves 1 and 2 dispatched as ONE serial worker (1.1-1.4 then 2.1) instead of two dispatches.",
+      "why": "2.1 depends only on 1.1 and 1.4, both in the same batch, so one dispatch reads the doc pack once and needs no second setup.",
+      "at": "2026-09-03T18:48:35Z"
+    },
+    {
+      "scope": "review:tombstone-column-names",
+      "made_by": "user",
+      "what": "The three history comments keep the RM41 pointer but no longer spell out start_battery_pct_est / end_battery_pct_est.",
+      "why": "design.md's Code changes text contradicted its own done-criterion and two acceptance greps. Owner chose to satisfy the checks and keep dead names out of generated code.",
+      "at": "2026-09-03T18:59:12Z"
     }
   ],
   "review": {
@@ -385,6 +439,16 @@
     {
       "at": "2026-09-03T18:36:00Z",
       "what": "BUDGET CHECKPOINT at the tier boundary, before any implementation dispatch. five_hour_pct=88 (threshold 90), context_pct=20 (threshold 40), five_hour_resets_at=1788469800. Every task status is truthful: 0.1 done, 1.1-5.2 pending, nothing in flight, no code written. Resume with: /kkpa-dev-harness-pipeline resume RM41-charging-drop-estimate-columns",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:48:35Z",
+      "what": "Resumed after the tier 2 budget checkpoint; five_hour_pct=2 (bucket reset, was 88), context_pct=9. Dispatching wave 1+2 (1.1-1.4, 2.1) to one serial charging worker on Sonnet.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T18:59:12Z",
+      "what": "Wave 1+2 done (1.1-1.4, 2.1) by the charging worker on Sonnet. Worker flagged a real artifact self-contradiction on 1.4; leader triaged, owner decided, tombstones amended in charging.go + query.sql and sqlc re-run. Assistant-run signals: go build ./internal/charging clean, gofmt clean, all acceptance greps pass. go vet still fails on the four wave-3 test files, as designed.",
       "by": "leader"
     }
   ]

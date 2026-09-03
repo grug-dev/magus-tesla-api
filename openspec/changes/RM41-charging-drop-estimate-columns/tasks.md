@@ -49,7 +49,7 @@ explicitly confirmed it.
 
 ## Wave 1 — independent source edits (module: charging worker)
 
-- [ ] **1.1** Create
+- [x] **1.1** Create
   `internal/charging/db/migrations/20260903000002_drop_supercharger_est_columns.sql`
   with the exact Up/Down SQL from design.md "Database Design" → "Schema change",
   verbatim, including its comments. Do NOT apply the migration yet (`make
@@ -60,7 +60,7 @@ explicitly confirmed it.
   last.
   `depends_on`: 0.1 · `parallel_ok`: with 1.2, 1.3, 1.4
 
-- [ ] **1.2** `internal/charging/charging.go` — apply design.md "Code changes" →
+- [x] **1.2** `internal/charging/charging.go` — apply design.md "Code changes" →
   `charging.go`'s three edits exactly: remove the two `Session` fields, update the
   doc comment above `Session` ("five" → "three", "Twenty fields" → "Eighteen
   fields"), and rewrite `SessionVerifier.VerifySession`'s doc comment per the
@@ -71,7 +71,7 @@ explicitly confirmed it.
   `1`.
   `depends_on`: 0.1 · `parallel_ok`: with 1.1, 1.3, 1.4
 
-- [ ] **1.3** `internal/charging/session_reader.go` — remove the two
+- [x] **1.3** `internal/charging/session_reader.go` — remove the two
   `StartBatteryPctEst`/`EndBatteryPctEst` mapping lines from `rowToSession` and
   update the mapping-rules doc comment bullet per design.md "Code changes" →
   `session_reader.go`. Acceptance:
@@ -79,7 +79,7 @@ explicitly confirmed it.
   returns `0`.
   `depends_on`: 0.1 · `parallel_ok`: with 1.1, 1.2, 1.4
 
-- [ ] **1.4** `internal/charging/db/query.sql` — rewrite the two guarding comments
+- [x] **1.4** `internal/charging/db/query.sql` — rewrite the two guarding comments
   on `MirrorSuperchargerSession` and `VerifySuperchargerSession` per design.md
   "Code changes" → `db/query.sql`, verbatim. No SQL statement in this file changes
   (only comment text). Acceptance:
@@ -90,7 +90,7 @@ explicitly confirmed it.
 
 ## Wave 2 — codegen (module: charging worker)
 
-- [ ] **2.1** Run `make sqlc` (or `sqlc generate`) to regenerate
+- [x] **2.1** Run `make sqlc` (or `sqlc generate`) to regenerate
   `internal/charging/db/models.go` and `internal/charging/db/query.sql.go` against
   the new migration (1.1) and the edited `query.sql` (1.4). Never hand-edit either
   generated file. Acceptance:

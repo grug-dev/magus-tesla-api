@@ -421,7 +421,7 @@ func (q *Queries) ListEntriesByVehicleUpdatedSince(ctx context.Context, arg List
 }
 
 const listSessionsByVehicle = `-- name: ListSessionsByVehicle :many
-SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charging.supercharger_sessions
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, created_at, updated_at, inferred_capacity_kwh_calc FROM charging.supercharger_sessions
 WHERE account_id = $1
   AND tesla_id = $2
 ORDER BY charge_stop_date_time DESC
@@ -488,8 +488,6 @@ func (q *Queries) ListSessionsByVehicle(ctx context.Context, arg ListSessionsByV
 			&i.StartBatteryPct,
 			&i.EndBatteryPct,
 			&i.BatteryPctSource,
-			&i.StartBatteryPctEst,
-			&i.EndBatteryPctEst,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.InferredCapacityKwhCalc,
@@ -505,7 +503,7 @@ func (q *Queries) ListSessionsByVehicle(ctx context.Context, arg ListSessionsByV
 }
 
 const listSessionsByVehicleBetween = `-- name: ListSessionsByVehicleBetween :many
-SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charging.supercharger_sessions
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, created_at, updated_at, inferred_capacity_kwh_calc FROM charging.supercharger_sessions
 WHERE account_id = $1
   AND tesla_id = $2
   AND charge_stop_date_time >= $3
@@ -581,8 +579,6 @@ func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSess
 			&i.StartBatteryPct,
 			&i.EndBatteryPct,
 			&i.BatteryPctSource,
-			&i.StartBatteryPctEst,
-			&i.EndBatteryPctEst,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.InferredCapacityKwhCalc,
@@ -598,7 +594,7 @@ func (q *Queries) ListSessionsByVehicleBetween(ctx context.Context, arg ListSess
 }
 
 const listSessionsByVehicleUpdatedSince = `-- name: ListSessionsByVehicleUpdatedSince :many
-SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc FROM charging.supercharger_sessions
+SELECT id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, created_at, updated_at, inferred_capacity_kwh_calc FROM charging.supercharger_sessions
 WHERE account_id = $1
   AND tesla_id = $2
   AND updated_at >= $3
@@ -665,8 +661,6 @@ func (q *Queries) ListSessionsByVehicleUpdatedSince(ctx context.Context, arg Lis
 			&i.StartBatteryPct,
 			&i.EndBatteryPct,
 			&i.BatteryPctSource,
-			&i.StartBatteryPctEst,
-			&i.EndBatteryPctEst,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.InferredCapacityKwhCalc,
@@ -757,13 +751,15 @@ type MirrorSuperchargerSessionParams struct {
 // Upsert one Supercharger session's mirrorable subset. Called once per session, in
 // one transaction, by SessionWriter.MirrorSessions.
 //
-// LOAD-BEARING: start_battery_pct, end_battery_pct, battery_pct_source,
-// start_battery_pct_est and end_battery_pct_est are ABSENT from both the INSERT
-// column list and the ON CONFLICT DO UPDATE SET clause. They are human-owned; the
-// nightly sync must never write, clear or overwrite one. Unlike
+// LOAD-BEARING: start_battery_pct, end_battery_pct, and battery_pct_source are ABSENT
+// from both the INSERT column list and the ON CONFLICT DO UPDATE SET clause. They
+// are human-owned; the nightly sync must never write, clear or overwrite one. Unlike
 // telemetry.UpsertSuperchargerSession — which relies on this comment alone —
 // charging.SessionMirror has no field for them either, so binding one here would not
-// even compile (design.md D6). Do NOT "complete the pattern" by adding them.
+// even compile (RM29-charging-add-charge-sessions design.md D6). Do NOT "complete
+// the pattern" by adding them. The two frozen estimate columns formerly also excluded
+// here were dropped from the table entirely by RM41-charging-drop-estimate-columns —
+// there is no longer a column to guard.
 //
 // THE REFRESH SET IS NOT A JUDGEMENT CALL. It is telemetry's own ON CONFLICT DO
 // UPDATE SET, minus raw_data (a column this table does not carry): energy_kwh,
@@ -912,7 +908,7 @@ SET
     updated_at         = now()
 WHERE id = $4
   AND account_id = $5
-RETURNING id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, start_battery_pct_est, end_battery_pct_est, created_at, updated_at, inferred_capacity_kwh_calc
+RETURNING id, account_id, vin, tesla_id, session_id, charge_start_date_time, charge_stop_date_time, site_location_name, energy_kwh, total_cost, currency, is_paid, start_battery_pct, end_battery_pct, battery_pct_source, created_at, updated_at, inferred_capacity_kwh_calc
 `
 
 type VerifySuperchargerSessionParams struct {
@@ -924,11 +920,14 @@ type VerifySuperchargerSessionParams struct {
 }
 
 // Update the human-owned verification channel on one account-scoped charge session:
-// start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No other
-// column is in this SET clause, INCLUDING start_battery_pct_est/end_battery_pct_est —
-// this is the mirror image of MirrorSuperchargerSession's protection (that query cannot touch
-// these three; this query cannot touch anything else), by the query's shape, not by a
-// comment a reviewer has to notice (design.md D1).
+// start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No
+// other column is in this SET clause — this is the mirror image of
+// MirrorSuperchargerSession's protection (that query cannot touch these three; this
+// query cannot touch anything else), by the query's shape, not by a comment a
+// reviewer has to notice (RM31-charging-add-session-verification-port design.md D1).
+// The two frozen estimate columns formerly also named here as columns this SET clause
+// could never reach were dropped from the table entirely by
+// RM41-charging-drop-estimate-columns.
 //
 // @battery_pct_source is COMPUTED IN GO (design.md D2/D7), never accepted from a caller:
 // "user_verified" when either percentage is non-nil, NULL when both are nil — satisfying
@@ -965,8 +964,6 @@ func (q *Queries) VerifySuperchargerSession(ctx context.Context, arg VerifySuper
 		&i.StartBatteryPct,
 		&i.EndBatteryPct,
 		&i.BatteryPctSource,
-		&i.StartBatteryPctEst,
-		&i.EndBatteryPctEst,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.InferredCapacityKwhCalc,

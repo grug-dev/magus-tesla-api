@@ -281,8 +281,8 @@ func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
 }
 
 // Session is the full domain representation of one supercharger_sessions row: identity, the
-// session's time window, the session facts internal/telemetry collects, and the five
-// charging-owned battery-percentage verification/estimate columns. Read-only counterpart
+// session's time window, the session facts internal/telemetry collects, and the three
+// charging-owned battery-percentage verification columns. Read-only counterpart
 // to SessionMirror — NOT built by adding fields to it.
 //
 // SessionMirror stays deliberately percentage-free (RM29 design.md D6): a nightly sync
@@ -292,7 +292,7 @@ func NewSessionWriter(pool *pgxpool.Pool) SessionWriter {
 // reason, even though Session's first thirteen fields duplicate SessionMirror's eleven
 // (RM30-charging-add-session-read-port design.md D4).
 //
-// Twenty fields, one per supercharger_sessions column. Field names/types follow this
+// Eighteen fields, one per supercharger_sessions column. Field names/types follow this
 // module's existing conventions exactly: *T for every nullable column (matching Entry's
 // pattern), time.Time for every TIMESTAMPTZ, int64/*int64 for BIGINT/nullable BIGINT,
 // *int for nullable SMALLINT (matching Entry.StartBatteryPct's identical type), *string
@@ -316,11 +316,9 @@ type Session struct {
 
 	// Charging-owned verification channel (RM29 design.md D1/D5/D6). Never written by
 	// the nightly sync — SessionWriter has no field for any of these five.
-	StartBatteryPct    *int    // 0-100 inclusive; nil = nothing recorded
-	EndBatteryPct      *int    // 0-100 inclusive; nil = nothing recorded
-	BatteryPctSource   *string // "user_verified" or "polled"; nil iff both percentages are nil
-	StartBatteryPctEst *int    // frozen snapshot at verification time; nil = nothing recorded
-	EndBatteryPctEst   *int    // frozen snapshot at verification time; nil = nothing recorded
+	StartBatteryPct  *int    // 0-100 inclusive; nil = nothing recorded
+	EndBatteryPct    *int    // 0-100 inclusive; nil = nothing recorded
+	BatteryPctSource *string // "user_verified" or "polled"; nil iff both percentages are nil
 
 	// InferredCapacityKWhCalc is the pack capacity in kWh implied by this session
 	// alone: EnergyKWh / ((EndBatteryPct - StartBatteryPct) / 100), rounded to 3
@@ -470,10 +468,11 @@ func NewSuperchargerSessionAnalyticsReader(pool *pgxpool.Pool) SuperchargerSessi
 type SessionVerifier interface {
 	// VerifySession updates exactly three columns on one account-scoped supercharger_sessions
 	// row — start_battery_pct, end_battery_pct, battery_pct_source — plus updated_at.
-	// No other column is reachable through this method, including
-	// start_battery_pct_est/end_battery_pct_est: the underlying query's SET clause
-	// names only these three plus updated_at, so the two _est columns are structurally
-	// unreachable, not merely undocumented as targets (design.md D1).
+	// No other column is reachable through this method: the underlying query's SET
+	// clause names only these three plus updated_at (RM31-charging-add-session-verification-port
+	// design.md D1). The two frozen estimate columns formerly named here as columns this
+	// method could never reach were dropped from the table entirely by
+	// RM41-charging-drop-estimate-columns — there is no longer a column to be unreachable from.
 	//
 	// battery_pct_source is always computed by this method, never supplied by the
 	// caller: "user_verified" when either startBatteryPct or endBatteryPct is non-nil,

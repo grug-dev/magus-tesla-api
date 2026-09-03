@@ -157,13 +157,15 @@ ORDER BY charged_on DESC;
 -- Upsert one Supercharger session's mirrorable subset. Called once per session, in
 -- one transaction, by SessionWriter.MirrorSessions.
 --
--- LOAD-BEARING: start_battery_pct, end_battery_pct, battery_pct_source,
--- start_battery_pct_est and end_battery_pct_est are ABSENT from both the INSERT
--- column list and the ON CONFLICT DO UPDATE SET clause. They are human-owned; the
--- nightly sync must never write, clear or overwrite one. Unlike
+-- LOAD-BEARING: start_battery_pct, end_battery_pct, and battery_pct_source are ABSENT
+-- from both the INSERT column list and the ON CONFLICT DO UPDATE SET clause. They
+-- are human-owned; the nightly sync must never write, clear or overwrite one. Unlike
 -- telemetry.UpsertSuperchargerSession — which relies on this comment alone —
 -- charging.SessionMirror has no field for them either, so binding one here would not
--- even compile (design.md D6). Do NOT "complete the pattern" by adding them.
+-- even compile (RM29-charging-add-charge-sessions design.md D6). Do NOT "complete
+-- the pattern" by adding them. The two frozen estimate columns formerly also excluded
+-- here were dropped from the table entirely by RM41-charging-drop-estimate-columns —
+-- there is no longer a column to guard.
 --
 -- THE REFRESH SET IS NOT A JUDGEMENT CALL. It is telemetry's own ON CONFLICT DO
 -- UPDATE SET, minus raw_data (a column this table does not carry): energy_kwh,
@@ -263,11 +265,14 @@ FOR UPDATE;
 
 -- name: VerifySuperchargerSession :one
 -- Update the human-owned verification channel on one account-scoped charge session:
--- start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No other
--- column is in this SET clause, INCLUDING start_battery_pct_est/end_battery_pct_est —
--- this is the mirror image of MirrorSuperchargerSession's protection (that query cannot touch
--- these three; this query cannot touch anything else), by the query's shape, not by a
--- comment a reviewer has to notice (design.md D1).
+-- start_battery_pct, end_battery_pct, and battery_pct_source — plus updated_at. No
+-- other column is in this SET clause — this is the mirror image of
+-- MirrorSuperchargerSession's protection (that query cannot touch these three; this
+-- query cannot touch anything else), by the query's shape, not by a comment a
+-- reviewer has to notice (RM31-charging-add-session-verification-port design.md D1).
+-- The two frozen estimate columns formerly also named here as columns this SET clause
+-- could never reach were dropped from the table entirely by
+-- RM41-charging-drop-estimate-columns.
 --
 -- @battery_pct_source is COMPUTED IN GO (design.md D2/D7), never accepted from a caller:
 -- "user_verified" when either percentage is non-nil, NULL when both are nil — satisfying
