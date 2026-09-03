@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T03:00:00Z",
+  "updated_at": "2026-09-03T03:15:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -222,6 +222,14 @@
       "made_by": "leader",
       "decision": "Annotated tier 2's vocabulary statements in the LIVE analytics spec rather than rewriting them",
       "why": "Tier 3b's delta is behavior-only, so tier 2's literal list became the spec's only vocabulary — and it named a retired value. Tier 2's scoped claim is still true."
+    },
+    {
+      "id": "D23",
+      "at": "2026-09-03T03:15:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Apply the 3 pending migrations to the real database BEFORE db-reset, instead of letting the reset apply them to an empty one",
+      "why": "The reset would have destroyed the only chance to test RM39's central claim — that these migrations preserve existing data. Rejected: straight to reset, and migrate-up without reset."
     }
   ],
   "tiers": [
@@ -507,6 +515,16 @@
       "at": "2026-09-03T03:00:00Z",
       "agent": "leader",
       "event": "ROADMAP STATE: tiers 1, 2, 3, 3b archived. Gate G1 (owner-run make db-reset) is now DUE. Tiers 4 and 5 stay blocked on the external D6 boundary ticket regardless of G1."
+    },
+    {
+      "at": "2026-09-03T03:15:00Z",
+      "agent": "leader",
+      "event": "RM39's DATA-PRESERVATION CLAIM (D1) IS NOW PROVEN ON REAL DATA, not just test fixtures. make migrate-up applied tiers 2, 3 and 3b to the owner's magus database: charging 20260902000003 OK (23ms), analytics 20260902000002 OK (5ms), analytics 20260902000004 OK (6ms). Row counts byte-identical before and after — manual_charge_entries 12, supercharger_sessions 10, vehicle_metrics 96, watermarks 3, charge_gaps 9. Catalog clean: zero charge_sessions* names. CHECK now reads vehicle_snapshots/supercharger_sessions/manual_charge_entries. Schemas present: account, charging, analytics (telemetry still public — tier 4 not done, correct). make migrate-status: nothing pending, so G1's precondition is satisfied."
+    },
+    {
+      "at": "2026-09-03T03:15:00Z",
+      "agent": "leader",
+      "event": "D8's 'deliberate data loss' cost ZERO on the real database: it held no source='charge_sessions' watermark rows at all (only vehicle_snapshots and manual_charge_entries), so tier 3b's DELETE removed nothing. The owner accepted a loss that never materialised."
     }
   ],
   "gates": [
