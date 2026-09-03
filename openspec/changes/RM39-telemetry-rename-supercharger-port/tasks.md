@@ -160,7 +160,7 @@ on both sides of the interface boundary.
 
 ## T10. Comment-only accuracy fix — `internal/charging/charging.go` — `[leader-owned]` — depends on T1, independent of T8/T9
 
-- [ ] T10.1 Update the genuine prose mentions of telemetry's port, confirmed by design.md D1.3
+- [x] T10.1 Update the genuine prose mentions of telemetry's port, confirmed by design.md D1.3
   to be about `telemetry.SuperchargerReader`/its methods (NOT the file's other
   `Deps.SuperchargerReader` mentions, which describe the **gateway's own**,
   `charging.SessionReader`-typed field and must NOT change): the comment near
@@ -171,12 +171,12 @@ on both sides of the interface boundary.
 
 ## T11. Comment-only accuracy fixes — `internal/analytics` — `[leader-owned]` — depends on T1, independent of T8–T10
 
-- [ ] T11.1 `analytics.go`: update the comment "mirroring NewSuperchargerReader's identical
+- [x] T11.1 `analytics.go`: update the comment "mirroring NewSuperchargerReader's identical
   pattern, design B6.3 of..." to the new constructor name.
-- [ ] T11.2 `gap_writer.go`: update "SuperchargerReader already established the precedent that
+- [x] T11.2 `gap_writer.go`: update "SuperchargerReader already established the precedent that
   a port not..." and "(mirroring newSuperchargerReaderImpl's identical pattern, design..." to
   the new names.
-- [ ] T11.3 `db_integration_test.go`: update the historical/comparative comment at ~L31
+- [x] T11.3 `db_integration_test.go`: update the historical/comparative comment at ~L31
   ("telemetry.NewReader/NewSuperchargerReader/charging.NewReader...") and ~L398 ("this table at
   all — upsertSuperchargerSession is unexported, reachable...") to the new names. **Confirm
   before editing** that `fakeSuperchargerReader`/`recordingSuperchargerReader` in this file and
@@ -201,19 +201,19 @@ on both sides of the interface boundary.
 
 ## T13. Repo docs + knowledge base — `[leader-owned]` — depends on T1–T11, parallel-ok with T12
 
-- [ ] T13.1 Command that produced the file list below (re-run it; do not trust the counts —
+- [x] T13.1 Command that produced the file list below (re-run it; do not trust the counts —
   same discipline as tier 4's T10.1):
   ```
   grep -rln "SuperchargerReader\|NewSuperchargerReader" kkpa/context/ 2>/dev/null
   ```
-- [ ] T13.2 Update `kkpa/context/architecture/telemetry-ingest-only.md` and
+- [x] T13.2 Update `kkpa/context/architecture/telemetry-ingest-only.md` and
   `kkpa/context/architecture/nightly-cycle.md` — both name telemetry's port genuinely (not the
   gateway's unrelated field) at multiple lines, and both already independently record this
   design's D1 finding ("the only remaining caller repo-wide") — update the port/method/
   constructor names to match T1's rename while preserving that finding's substance.
-- [ ] T13.3 Update `kkpa/context/pending-spec-to-sync/telemetry.md` (a staged, not-yet-applied
+- [x] T13.3 Update `kkpa/context/pending-spec-to-sync/telemetry.md` (a staged, not-yet-applied
   proposal that also names the old port and its half-renamed-state note) to the new names.
-- [ ] T13.4 **Do NOT edit** `kkpa/context/workflows/supercharger-stats-read.md` — its
+- [x] T13.4 **Do NOT edit** `kkpa/context/workflows/supercharger-stats-read.md` — its
   `SuperchargerReader` mention is explicitly the gateway's own field ("field NAME kept from the
   telemetry era; the TYPE is the charging port since RM30") — out of scope (design.md D5). **Do
   NOT edit** anything under `kkpa/context/pending-spec-to-sync/applied/` — that is a historical
@@ -221,13 +221,13 @@ on both sides of the interface boundary.
 
 ## T14. Verification — `[telemetry]` for the assistant-runnable half, `[leader-owned]` for the repo-wide grep — depends on T1–T13
 
-- [ ] T14.1 Claude-runnable signals, repo-wide: `go build ./...`, `go vet ./...`, `gofmt -l`
+- [x] T14.1 Claude-runnable signals, repo-wide: `go build ./...`, `go vet ./...`, `gofmt -l`
   (empty output). All three MUST be clean before this change is reported anything but
   `awaiting-user-verification` on its testable tasks.
-- [ ] T14.2 `make boundary-guard` passes with zero `// boundary:allow:` escape hatches — this
+- [x] T14.2 `make boundary-guard` passes with zero `// boundary:allow:` escape hatches — this
   tier does not touch `internal/gateway` at all (design.md D1), so the guard's zero-hit state
   from tier 4 is unaffected; re-run it to confirm rather than assume.
-- [ ] T14.3 Repo-wide grep for the 5 old telemetry-side identifiers, **triaged by file, not
+- [x] T14.3 Repo-wide grep for the 5 old telemetry-side identifiers, **triaged by file, not
   treated as a zero-hits gate** (design.md D1 — a blind grep can never return zero here, because
   `internal/gateway`'s and `internal/charging`'s own, permanently different
   `SuperchargerReader`/`SessionReader`/`SuperchargerSessionAnalyticsReader` identifiers will
@@ -241,10 +241,10 @@ on both sides of the interface boundary.
   (`internal/analytics`'s `charging.SuperchargerSessionAnalyticsReader`-satisfying fakes) — any
   hit that is NOT one of those is a missed real reference and must be fixed before this task is
   marked done.
-- [ ] T14.4 `openspec validate RM39-telemetry-rename-supercharger-port --strict` passes, and
+- [x] T14.4 `openspec validate RM39-telemetry-rename-supercharger-port --strict` passes, and
   every task above is checked off with `tasks.md` reflecting real, current status (per
   `openspec/config.yaml`'s tasks rule).
-- [ ] T14.5 **Report the exact test-suite commands the owner must run.** Per this project's
+- [x] T14.5 **Report the exact test-suite commands the owner must run.** Per this project's
   Test-Execution-Policy, no task above may be reported `done` on the strength of a test run
   Claude performed — report `awaiting-user-verification` for every task with test coverage and
   hand back:

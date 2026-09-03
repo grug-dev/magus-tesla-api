@@ -26,7 +26,7 @@ Status: PENDING REVIEW
 ## [guide] ## Glossary — REPLACE
 
 - **Known as:** `telemetry module`, `vehicle snapshots`, `supercharger history`, `nightly collection`, `telemetry schema`, `who reads telemetry`, `telemetry vs analytics`, `can the gateway read telemetry`, `ingest module`, `poll run`, `run summary`
-- **Internal name:** `internal/telemetry` — ports `telemetry.Reader`, `telemetry.SuperchargerReader` (reads), `telemetry.Collector` (write), `telemetry.RunWriter` (run summary write) — tables (all in schema `telemetry`) `vehicle_snapshots`, `supercharger_history`, `poll_attempts`, `poll_runs`
+- **Internal name:** `internal/telemetry` — ports `telemetry.Reader`, `telemetry.SuperchargerHistoryReader` (reads), `telemetry.Collector` (write), `telemetry.RunWriter` (run summary write) — tables (all in schema `telemetry`) `vehicle_snapshots`, `supercharger_history`, `poll_attempts`, `poll_runs`
 
 ## [guide] ## Conventions & gotchas — APPEND
 
@@ -36,7 +36,7 @@ Status: PENDING REVIEW
   _Source: spec telemetry — Requirement: Module-Scoped Database Schema, Scenario: The charging module's identically-named table is untouched._
 - **`supercharger_history` is UPSERTED, not append-only — do not reason about it like `vehicle_snapshots`.** Tesla settles fees after a session ends, so a row is never final on first insert. That difference is why the table is named `_history` and not `_snapshots`; treating both as append-only invites a query that double-counts.
   _Source: spec telemetry — Requirement: Supercharger History Table Renamed._
-- **The public port is DELIBERATELY half-renamed — do not "fix" it.** `SuperchargerReader`, its four `SuperchargerSessions*` methods and its constructor keep the old names while returning `[]SuperchargerHistory`. The spec states outright that a reviewer SHALL NOT flag this as incomplete and no implementer SHALL rename it as part of that change; the port rename is separately sequenced (RM39 tier 5).
+- **The port's half-renamed state is CLOSED — the vocabulary is now uniform.** The tier-4 spec deliberately left `SuperchargerReader`, its four `SuperchargerSessions*` methods and its constructor on the old names while they returned `[]SuperchargerHistory`, and told reviewers not to flag it. RM39 tier 5 finished the rename: the port is `SuperchargerHistoryReader`, its methods are `SuperchargerHistoryBy*`, its constructor is `NewSuperchargerHistoryReader`. Read the tier-4 spec's "SHALL NOT rename" clause as history, not as a live instruction.
   _Source: spec telemetry — Requirement: Supercharger History Table Renamed._
 - **When renaming a table here, the completeness criterion is the CATALOG, never a hand-written list.** PostgreSQL auto-names one CHECK per inline column constraint and renames nothing automatically when a table is renamed; those names exist only in `pg_constraint`, where no grep reaches. The binding check is that a catalog query for any constraint or index named `<old_table>%` in this schema returns zero rows.
   _Source: spec telemetry — Requirement: Supercharger History Table Renamed, Scenario: No catalog object survives under the old table name._

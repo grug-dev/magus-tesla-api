@@ -27,9 +27,11 @@
 // manual_charge_entries DOES have a clean public writer,
 // charging.NewWriter(pool).Create — TestRecalculate_FixtureD2_ChargeInsideTheGap
 // below (RM29-telemetry-drop-derived-columns, tier 4) is the first test in
-// this file to use it, exactly as this file uses
-// telemetry.NewReader/NewSuperchargerReader/charging.NewReader (never
-// telemetrydb/chargingdb) for every READ against seeded data.
+// this file to use it, exactly as this file uses telemetry.NewReader/
+// charging.NewSuperchargerSessionAnalyticsReader/charging.NewReader (never
+// telemetrydb/chargingdb) for every READ against seeded data. (The Supercharger
+// read is charging's since RM31 tier 3; telemetry's own port, today
+// telemetry.NewSuperchargerHistoryReader, is no longer called from this module.)
 //
 // # RM29-telemetry-drop-derived-columns (tier 4) — tasks 6b.1/6b.2/6b.3
 //
@@ -395,7 +397,7 @@ func pgInt2FromIntPtr(v *int) pgtype.Int2 {
 
 // seedSuperchargerSession inserts one telemetry.SuperchargerHistory directly
 // into supercharger_sessions (D19: telemetry exposes no public writer for
-// this table at all — upsertSuperchargerSession is unexported, reachable
+// this table at all — upsertSuperchargerHistory is unexported, reachable
 // only from inside Collector.CollectAll). Returns the session_id actually
 // used: s.SessionID when the caller set one, otherwise a fresh value from
 // nextSessionID (the column is UNIQUE NOT NULL). updatedAt defaults to
@@ -791,10 +793,11 @@ func seedPreMigrationVehicleMetric(t *testing.T, pool *pgxpool.Pool, accountID u
 // fetch-shape assertions above.
 //
 // RM31-analytics-read-sessions-from-charging (tier 3): the Supercharger port
-// retypes from telemetry.SuperchargerReader to
+// retypes from telemetry.SuperchargerReader (renamed
+// telemetry.SuperchargerHistoryReader by RM39 tier 5) to
 // charging.SuperchargerSessionAnalyticsReader (design.md §3) — this call site
 // is exactly what the leader's Wave 2 dispatch flagged as failing to build
-// (telemetry.NewSuperchargerReader(pool) no longer satisfies NewRecalculator's
+// (telemetry's own constructor no longer satisfies NewRecalculator's
 // retyped parameter).
 func newRealRecalculator(pool *pgxpool.Pool) Recalculator {
 	return NewRecalculator(pool, telemetry.NewReader(pool), charging.NewSuperchargerSessionAnalyticsReader(pool), charging.NewReader(pool))

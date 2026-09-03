@@ -356,7 +356,7 @@ type SessionReader interface {
 	// within an account whose ChargeStopDateTime falls within the window [from, to].
 	//
 	// from and to are whole UTC calendar days, to inclusive of its entire day —
-	// mirroring telemetry.SuperchargerSessionsByVehicleBetween's end.AddDate(0,0,1)/
+	// mirroring telemetry.SuperchargerHistoryByVehicleBetween's end.AddDate(0,0,1)/
 	// half-open contract exactly (design.md D5, revised), NOT
 	// ListEntriesByVehicleBetween's exact-value BETWEEN semantics: to is translated to
 	// a half-open upper bound (to+1 calendar day) before the database sees it, so every
@@ -423,7 +423,8 @@ type SuperchargerSessionAnalyticsReader interface {
 	// within an account whose updated_at is at or after since. Ordered ASCENDING by
 	// ChargeStopDateTime — NOT by updated_at itself (RM31 design.md D1, Context fact 2:
 	// this mirrors Reader.ListEntriesByVehicleUpdatedSince's index reasoning in this
-	// module, not telemetry.SuperchargerReader's updated_at-ordering choice). No limit
+	// module, not telemetry.SuperchargerHistoryReader's updated_at-ordering choice). No
+	// limit
 	// parameter — since itself bounds the result. Always returns a non-nil empty slice
 	// when no rows match. A session whose TeslaID is nil is never returned, for any
 	// teslaID (design.md D1, D4).

@@ -439,7 +439,7 @@ type GapWriter interface {
 // (cmd/poller) depend on the GapWriter interface, never on the concrete type
 // or on analyticsdb directly. Implementation is in gap_writer.go
 // (forward-declared here so this file compiles before that one is parsed,
-// mirroring NewSuperchargerReader's identical pattern, design B6.3 of
+// mirroring NewSuperchargerHistoryReader's identical pattern, design B6.3 of
 // RM27-telemetry-add-supercharger-battery-pct).
 func NewGapWriter(pool *pgxpool.Pool) GapWriter {
 	return newGapWriter(pool)

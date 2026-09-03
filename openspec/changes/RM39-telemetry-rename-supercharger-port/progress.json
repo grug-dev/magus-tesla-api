@@ -7,8 +7,8 @@
   "tier": 5,
   "intention": "Finish D5c by renaming telemetry's public Supercharger port so the Go vocabulary matches the supercharger_history table renamed in tier 4.",
   "request": "schema per module for internal/ modules (RM39 tier 5)",
-  "status": "in-progress",
-  "updated_at": "2026-09-03T11:19:00Z",
+  "status": "applied",
+  "updated_at": "2026-09-03T11:25:00Z",
   "leader": {
     "assistant": "claude-code",
     "model": "Opus 5",
@@ -23,16 +23,14 @@
   },
   "rollup": {
     "current": [],
-    "pending": [
-      "T10",
-      "T11",
-      "T13",
-      "T14"
-    ],
+    "pending": [],
     "blocked": [],
     "done": [
+      "T5",
+      "T10",
+      "T11",
       "T12",
-      "T5"
+      "T13"
     ],
     "awaiting-user-verification": [
       "T1",
@@ -42,7 +40,8 @@
       "T6",
       "T7",
       "T8",
-      "T9"
+      "T9",
+      "T14"
     ]
   },
   "tasks": [
@@ -267,14 +266,20 @@
       "depends_on": [
         "T1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "opus",
+      "started_at": "2026-09-03T11:19:00Z",
+      "completed_at": "2026-09-03T11:25:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 10,
+        "five_hour_pct_end": 14,
+        "context_pct_end": 16,
+        "approx": true,
+        "note": "wave-2 shared delta (leader-run, 4 tasks)"
+      },
+      "notes": "Comment-only accuracy fixes in internal/charging/charging.go (2 telemetry-port mentions). The gateway-owned Deps.SuperchargerReader mentions at L348/L387 correctly left alone per T10.1."
     },
     {
       "id": "T11",
@@ -283,14 +288,20 @@
       "depends_on": [
         "T1"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "opus",
+      "started_at": "2026-09-03T11:19:00Z",
+      "completed_at": "2026-09-03T11:25:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 10,
+        "five_hour_pct_end": 14,
+        "context_pct_end": 16,
+        "approx": true,
+        "note": "wave-2 shared delta (leader-run, 4 tasks)"
+      },
+      "notes": "Comment-only fixes in analytics.go, gap_writer.go, db_integration_test.go. charging.SuperchargerSessionAnalyticsReader fakes untouched (D1.2). Also corrected a stale L31 claim that this file reads via telemetry's port - it uses charging's since RM31."
     },
     {
       "id": "T12",
@@ -339,14 +350,20 @@
         "T10",
         "T11"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "done",
+      "agent": "leader",
+      "model": "opus",
+      "started_at": "2026-09-03T11:19:00Z",
+      "completed_at": "2026-09-03T11:25:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 10,
+        "five_hour_pct_end": 14,
+        "context_pct_end": 16,
+        "approx": true,
+        "note": "wave-2 shared delta (leader-run, 4 tasks)"
+      },
+      "notes": "KB sweep: telemetry-ingest-only.md, nightly-cycle.md, pending-spec-to-sync/telemetry.md updated; the tier-4 half-renamed banners replaced with the closed state. workflows/supercharger-stats-read.md and applied/** untouched per T13.4."
     },
     {
       "id": "T14",
@@ -367,14 +384,20 @@
         "T12",
         "T13"
       ],
-      "status": "pending",
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
+      "status": "awaiting-user-verification",
+      "agent": "leader",
+      "model": "opus",
+      "started_at": "2026-09-03T11:19:00Z",
+      "completed_at": "2026-09-03T11:25:00Z",
       "duration_seconds": null,
-      "budget": null,
-      "notes": null
+      "budget": {
+        "five_hour_pct_start": 10,
+        "five_hour_pct_end": 14,
+        "context_pct_end": 16,
+        "approx": true,
+        "note": "wave-2 shared delta (leader-run, 4 tasks)"
+      },
+      "notes": "go build, go vet, gofmt -l (touched pkgs), make boundary-guard (0 escape hatches), openspec validate --strict: all clean. Repo-wide grep triaged: every remaining hit is D1.1 gateway/cmd/web or D1.2 analytics fakes. Suite is the owner's."
     }
   ],
   "decisions": [
@@ -401,6 +424,22 @@
       "made_by": "autopilot",
       "decision": "T5 and T12 recorded done, the other 8 wave-1 tasks awaiting-user-verification",
       "why": "T5 is a Go comment and T12 is markdown - build/vet already covers them and no test can verify either. The 8 that touch compiled identifiers await the owner suite."
+    },
+    {
+      "id": "CD4",
+      "at": "2026-09-03T11:25:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "One test-run ask, at the Step 6 reviewer gate, not two",
+      "why": "Wave 2 is leader-run comments and markdown only - no compiled behavior changed, so the wave-1 and wave-2 suite results are identical. Two asks for one answer."
+    },
+    {
+      "id": "CD5",
+      "at": "2026-09-03T11:25:00Z",
+      "scope": "change",
+      "made_by": "autopilot",
+      "decision": "Fixed 3 stale mentions the tasks did not name: query.sql L431, analytics db_integration_test L31 and L797",
+      "why": "Same comment-accuracy class as T6/T11, found by the required greps. Leaving a known-wrong comment behind fails the docs-track-change rule."
     }
   ],
   "events": [
@@ -428,6 +467,11 @@
       "at": "2026-09-03T11:19:00Z",
       "agent": "leader",
       "event": "WAVE 1 RECONCILED. Sonnet telemetry worker delivered T1-T9 + T12. go build ./..., go vet ./..., gofmt -l (telemetry/app/poller) all clean - leader-run. sqlc regen: models.go zero diff, query.sql.go comment-only. Diff scope verified: 17 files, all inside internal/telemetry/** plus the 4 CD2-granted paths; internal/gateway, internal/charging, internal/analytics untouched. Budget 2->10 five_hour, context 9->11. Next: leader wave 2 (T10/T11/T13) then T14."
+    },
+    {
+      "at": "2026-09-03T11:25:00Z",
+      "agent": "leader",
+      "event": "WAVE 2 COMPLETE (leader-run): T10 charging comments, T11 analytics comments, T13 KB sweep, T14 verification. Signals all leader-run and clean: go build, go vet, gofmt -l on the 5 touched packages, make boundary-guard (0 escape hatches), openspec validate --strict. T14.3 repo-wide grep triaged by file - every remaining hit is a known-permanent out-of-scope identifier (D1.1 gateway + cmd/web, D1.2 analytics fakes) or a deliberate historical mention. tasks.md 43/43 checked. Budget 10->14 five_hour, context 16. NEXT: Step 6 - owner runs the suite before the reviewer gate."
     }
   ],
   "review": {

@@ -11,10 +11,12 @@
 > ticket" (D6) this banner used to point at — no such ticket ever existed.
 >
 > **The two tables no longer share a base name**, so a bare `supercharger_sessions` below is
-> always **charging's** mirror; telemetry's is `telemetry.supercharger_history`. One thing is
-> deliberately still half-renamed: the port `telemetry.SuperchargerReader` and its four
-> `SuperchargerSessions*` methods keep their old names until RM39 tier 5. That is designed —
-> do not "fix" it. See `openspec/roadmaps/RM39-schema-per-module.md`.
+>
+> always **charging's** mirror; telemetry's is `telemetry.supercharger_history`. The port's
+> half-renamed state is **closed**: RM39 tier 5 renamed it to
+> `telemetry.SuperchargerHistoryReader`, its four methods to `SuperchargerHistoryBy*` and its
+> constructor to `NewSuperchargerHistoryReader`, so the port, the table and the domain type now
+> share one vocabulary. See `openspec/roadmaps/RM39-schema-per-module.md`.
 
 ## What this module is (read this before the map)
 
@@ -35,7 +37,7 @@ documented — see the boundary gotcha below.
 ## Glossary
 
 - **Known as:** `telemetry module`, `vehicle snapshots`, `nightly collection`, `who reads telemetry`, `telemetry vs analytics`, `can the gateway read telemetry`, `ingest module`, `poll run`, `run summary`
-- **Internal name:** `internal/telemetry` — ports `telemetry.Reader`, `telemetry.SuperchargerReader` (reads), `telemetry.Collector` (write), `telemetry.RunWriter` (run summary write) — tables (all in schema `telemetry`) `vehicle_snapshots`, `supercharger_history`, `poll_attempts`, `poll_runs`
+- **Internal name:** `internal/telemetry` — ports `telemetry.Reader`, `telemetry.SuperchargerHistoryReader` (reads), `telemetry.Collector` (write), `telemetry.RunWriter` (run summary write) — tables (all in schema `telemetry`) `vehicle_snapshots`, `supercharger_history`, `poll_attempts`, `poll_runs`
 
 ## Component map
 
@@ -45,9 +47,9 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 | File | Role |
 |---|---|
-| `internal/telemetry/telemetry.go` | Package doc (the purpose statement) + public ports: `Reader` (snapshot reads), `SuperchargerReader` (session reads), `Collector` (nightly write). Domain types (`Snapshot`, `SuperchargerSession`, `CycleReport`, `RunContext`) — no vendor suffix. |
+| `internal/telemetry/telemetry.go` | Package doc (the purpose statement) + public ports: `Reader` (snapshot reads), `SuperchargerHistoryReader` (Supercharger history reads), `Collector` (nightly write). Domain types (`Snapshot`, `SuperchargerHistory`, `CycleReport`, `RunContext`) — no vendor suffix. |
 | `internal/telemetry/service.go` | `NewService(pool, acct, tsla, cfg) Collector` — the ONLY writer (nightly collection, wake logic, upserts incl. `UpsertSuperchargerSession`). |
-| `internal/telemetry/reader.go` | `NewReader(pool)` / `NewSuperchargerReader(pool)` read impls; pgtype→domain mapping stays here. |
+| `internal/telemetry/reader.go` | `NewReader(pool)` / `NewSuperchargerHistoryReader(pool)` read impls; pgtype→domain mapping stays here. |
 | `internal/telemetry/db/queries.sql` → `query.sql.go` | sqlc source of truth; every read method the ports expose has its query here. |
 | `internal/telemetry/wake.go`, `report.go`, `scheduler.go`(relocated) | Collection support: vehicle wake, cycle reporting. The scheduler now lives in `internal/app/scheduler.go`. |
 
@@ -56,9 +58,9 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 | File | Port calls | Use case |
 |---|---|---|
 | ~~`internal/gateway/**`~~ — **NO LONGER A CONSUMER, and now forbidden** | — | The gateway's four snapshot call sites were repointed onto `analytics.Reader` by **RM38** (`LatestMetricsByAccount` — dashboard, vehicle cards, nav header, charges battery suggestion) and **RM40** (`BatteryLevelByDay` — the history battery chart). The supercharger page had already moved to `charging.SessionReader` in RM30. `make boundary-guard` now fails the build on any `internal/telemetry` import under `internal/gateway/`, with **zero** `// boundary:allow:` escape hatches. See the boundary gotcha below. |
-| `internal/analytics/analytics.go` + `reader.go` | `SnapshotsByVehicleSince` | Derived metrics: `ConsumedByDay`, `OdometerDeltaByDay` over `vehicle_metrics`. Telemetry supplies **snapshots only** — `NewReader`'s `supercharger` argument is `charging.SuperchargerSessionAnalyticsReader`, not a telemetry port (**changed by RM31**). Verified: no file under `internal/analytics/` names `telemetry.SuperchargerReader`. |
+| `internal/analytics/analytics.go` + `reader.go` | `SnapshotsByVehicleSince` | Derived metrics: `ConsumedByDay`, `OdometerDeltaByDay` over `vehicle_metrics`. Telemetry supplies **snapshots only** — `NewReader`'s `supercharger` argument is `charging.SuperchargerSessionAnalyticsReader`, not a telemetry port (**changed by RM31**). Verified: no file under `internal/analytics/` names `telemetry.SuperchargerHistoryReader`. |
 | `internal/analytics/recalculate.go` | `SnapshotPrecedingDay`, `SnapshotsByVehicleUpdatedSince`, `SnapshotsByVehicleBetween` | `Recalculator` re-derives `vehicle_metrics` rows (nightly + after manual-charge writes — see `entities/vehicle-metrics/guide.md`). **Snapshot reads only since RM31** — its Supercharger source moved to `charging.SuperchargerSessionAnalyticsReader` over `charging.supercharger_sessions` (renamed from `charge_sessions`, RM39 tier 3). |
-| `internal/app/processor.go` | `SuperchargerSessionsByAccount` (limit 0 = every session) | Step 2 of `ProcessVehicleData`: mirrors Supercharger sessions into `charging.supercharger_sessions` (renamed from `charging.charge_sessions`, RM39 tier 3) via `charging.SessionWriter` — what the Supercharger Stats page reads (RM30) **and, since RM31, what `internal/analytics` derives from**. This is now the **only remaining caller of `telemetry.SuperchargerReader` repo-wide**. See `architecture/nightly-cycle.md`. |
+| `internal/app/processor.go` | `SuperchargerHistoryByAccount` (limit 0 = every row) | Step 2 of `ProcessVehicleData`: mirrors Supercharger sessions into `charging.supercharger_sessions` (renamed from `charging.charge_sessions`, RM39 tier 3) via `charging.SessionWriter` — what the Supercharger Stats page reads (RM30) **and, since RM31, what `internal/analytics` derives from**. This is now the **only remaining caller of `telemetry.SuperchargerHistoryReader` repo-wide**. See `architecture/nightly-cycle.md`. |
 
 ### Driving adapters (the write side's callers)
 
@@ -70,8 +72,8 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 ## How maintenance works
 
-- **Add a new telemetry read consumer:** construct `telemetry.NewReader(pool)` / `NewSuperchargerReader(pool)` in the consumer's composition root (`cmd/web/main.go` or the module's constructor), accept the PORT interface in `Deps`/constructor — never import `internal/telemetry/db`. Gateway handlers go through `resolveSelectedVehicle` for per-vehicle reads.
-- **Add a new read method:** `internal/telemetry/db/queries.sql` → `make sqlc` → implement on `Reader`/`SuperchargerReader` in `reader.go` + declare in `telemetry.go`. Bounded windows follow the platform `?start=&end=` convention (see `SuperchargerSessionsByVehicleBetween`).
+- **Add a new telemetry read consumer:** construct `telemetry.NewReader(pool)` / `NewSuperchargerHistoryReader(pool)` in the consumer's composition root (`cmd/web/main.go` or the module's constructor), accept the PORT interface in `Deps`/constructor — never import `internal/telemetry/db`. Gateway handlers go through `resolveSelectedVehicle` for per-vehicle reads.
+- **Add a new read method:** `internal/telemetry/db/queries.sql` → `make sqlc` → implement on `Reader`/`SuperchargerHistoryReader` in `reader.go` + declare in `telemetry.go`. Bounded windows follow the platform `?start=&end=` convention (see `SuperchargerHistoryByVehicleBetween`).
 - **Add a new collected field:** capture path only — `telemetry.Collector`/`service.go` + `db/queries.sql` (+ migration). Units convert exactly once at capture time (display units, RM7 D1/D3); never add read-time conversion.
 - **Change the nightly cycle:** `internal/app/processor.go` (`ProcessVehicleData` 3-step flow) — never re-add orchestration to `cmd/poller`. Full step/port/table map: `architecture/nightly-cycle.md`.
 
@@ -80,7 +82,7 @@ Files involved, grouped by layer. Each row: the file's role in this concept.
 
 ## Conventions & gotchas
 
-- **One writer, many readers.** Only `telemetry.Collector` (via `NewService`) writes; every other module reads through `Reader`/`SuperchargerReader`. No user-facing request ever writes telemetry. _Source: `internal/telemetry/telemetry.go` package doc; `internal/telemetry/AGENTS.md`._
+- **One writer, many readers.** Only `telemetry.Collector` (via `NewService`) writes; every other module reads through `Reader`/`SuperchargerHistoryReader`. No user-facing request ever writes telemetry. _Source: `internal/telemetry/telemetry.go` package doc; `internal/telemetry/AGENTS.md`._
 - **Reads are hot-path — keep them indexed and bounded.** The workload profile is read-heavy (dashboards) vs one nightly write batch; every new read method must be bounded (limit or `[start,end]` window). _Source: `ai/architecture.md` §7, `ai/go-conventions.md` §"Read optimization"._
 - **NEVER import `internal/telemetry/db` outside the module** — consumers take the port interface; pgtype never escapes. _Source: `internal/gateway/AGENTS.md`, `internal/app/AGENTS.md` → allowed imports._
 - **`EffectiveDate` vs `CapturedDate` vs `CapturedAt`** — three distinct time fields on `Snapshot` (the day the data describes / dedupe-UNIQUE day / precise read instant); mixing them up is the classic bug. `EffectiveDate` is read-derived, never persisted. _Source: `internal/telemetry/telemetry.go` `Snapshot` doc._

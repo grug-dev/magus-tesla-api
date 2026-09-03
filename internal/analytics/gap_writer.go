@@ -15,7 +15,7 @@ import (
 // (RM28-telemetry-add-charge-gap-storage, design D3/D7/D7a/D7b; relocated
 // here by RM29-analytics-own-charge-gaps). It is NOT part of the store
 // interface reader.go/recalculate.go define for Reader/Recalculator --
-// SuperchargerReader already established the precedent that a port not
+// SuperchargerHistoryReader already established the precedent that a port not
 // shaped by that offline-fake-testable seam (because it is tested via real
 // DB-integration tests instead) gets its own small concrete type talking
 // directly to analyticsdb.Queries. pgtype never appears in this file: every
@@ -29,7 +29,7 @@ type gapWriter struct {
 
 // newGapWriter is the internal constructor called by the public NewGapWriter
 // in analytics.go so the forward-declaration compiles before this file is
-// parsed (mirroring newSuperchargerReaderImpl's identical pattern, design
+// parsed (mirroring newSuperchargerHistoryReaderImpl's identical pattern, design
 // B6.3 of RM27-telemetry-add-supercharger-battery-pct).
 func newGapWriter(pool *pgxpool.Pool) *gapWriter {
 	return &gapWriter{pool: pool, q: analyticsdb.New(pool)}
