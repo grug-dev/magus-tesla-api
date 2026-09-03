@@ -547,8 +547,12 @@ rows for one vehicle (`accountID = uuid.MustParse("33333333-3333-3333-3333-33333
   `*recalculator` built via `newRealRecalculator(pool).(*recalculator)`, calling
   `rec.watermark(ctx, accountID, teslaID, sourceSuperchargerSessions)` (the renamed
   constant — this assertion runs in the FULLY POST-migration state, unlike
-  `db_watermark_migration_integration_test.go`'s own analogous assertion at its line 288,
-  which correctly uses the pre-rename literal for ITS migration's mid-state — see §8)
+  `db_watermark_migration_integration_test.go`'s own analogous assertion inside
+  `TestMigration_WatermarkSourceVocabulary`, which deliberately passes the raw pre-rename
+  literal `"charge_sessions"` because it runs in ITS migration's mid-state, where that is
+  the legal label and the renamed one is not — see §8. Referenced by test name, not by line
+  number: this text originally said "line 288" and the line had already moved by the time
+  review round 1 read it)
   returns the zero-value epoch (`time.Time{}`), `err == nil` — no row exists yet for this
   vehicle under the new label, and absence IS epoch (design D7).
 

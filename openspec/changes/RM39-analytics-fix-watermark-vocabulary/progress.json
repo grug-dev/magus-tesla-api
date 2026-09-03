@@ -5,8 +5,8 @@
   "module": "analytics",
   "intention": "Retire the charge_sessions vocabulary from analytics' watermark cursor after RM39 tier 3 renamed charging's table.",
   "request": "roadmap RM39 tier 3b, split out of tier 3 by owner decision D15",
-  "status": "applied",
-  "updated_at": "2026-09-03T02:35:00Z",
+  "status": "verified",
+  "updated_at": "2026-09-03T02:50:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -251,13 +251,68 @@
       "made_by": "leader",
       "decision": "Tasks marked done on the LEADER's suite run, not the owner's",
       "why": "Roadmap D19 transfers test execution to the leader for this run. Recorded as the leader's run, never as the owner's report."
+    },
+    {
+      "id": "D6",
+      "at": "2026-09-03T02:50:00Z",
+      "scope": "review:F1",
+      "made_by": "leader",
+      "decision": "F1 accepted: ran make sqlc; models.go's two watermark doc comments regenerated",
+      "why": "Reviewer's precedent 3882a53 is exact — sqlc mirrors DB COMMENT ON, and this migration rewrites it. Diff touched only the two comment strings."
+    },
+    {
+      "id": "D7",
+      "at": "2026-09-03T02:50:00Z",
+      "scope": "review:F2",
+      "made_by": "leader",
+      "decision": "F2 accepted: the mid-state assertion takes the raw literal \"charge_sessions\", not the renamed constant",
+      "why": "My own D2 widening caused it. The constant's value is illegal in that mid-state, so the assertion had collapsed into a duplicate of countWatermarkRows."
     }
   ],
   "review": {
-    "brief": null,
-    "agent": null,
-    "status": null,
-    "rounds": []
+    "brief": "Validate RM39 tier 3b (analytics watermark vocabulary) before archive. Read the DIFF of 4e3bb63..HEAD, not the whole module. Checks: (1) the migration matches design.md §3 verbatim and is schema-qualified, unlike the 20260828000001 precedent it copies; (2) the DELETE is the owner-confirmed D21/D8 design, not a rename-in-place; (3) module boundary — this is analytics' table, and the only cross-module edit is the leader's one-phrase fix in internal/gateway/AGENTS.md; (4) the historic migration 20260828000001 and its pinned test literals are UNCHANGED (D1); (5) the T1 test asserts design.md §9's up-front expected values rather than what the code produces; (6) the t.Cleanup force-toggle actually prevents the stale-CHECK leak design.md §8 describes; (7) doc/KB sweep correctness — a present-tense charge_sessions is stale, a historical one is right. KNOWN DEFECT to confirm, do not re-report as new: design.md §9's prose claims line 288 uses the pre-rename literal, which task 1.2 made impossible; the code follows leader decision D2 instead. Judge whether design.md should be corrected.",
+    "agent": "analytics-reviewer",
+    "status": "changes-requested",
+    "rounds": [
+      {
+        "round": 1,
+        "verdict": "changes-requested",
+        "at": "2026-09-03T03:10:00Z",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/analytics/AGENTS.md"
+        ],
+        "checks_passed": [
+          "migration 20260902000004 diffs byte-identical to design.md §3 (only trailing-whitespace/EOF-newline noise), correctly schema-qualified analytics.vehicle_metric_watermarks unlike the bare 20260828000001 precedent",
+          "DELETE-not-rename-in-place confirmed, matches D21/D8/D15",
+          "boundary clean: only internal/analytics + the leader's single-line internal/gateway/AGENTS.md fix touched; historic migration 20260828000001 has zero diff; only remaining sourceChargeSessions hit is a prose comment, not a Go identifier",
+          "T1 (db_watermark_supercharger_migration_integration_test.go) matches design.md §9's Given/When/Then values verbatim (IDs, timestamps, counts), authored up front",
+          "t.Cleanup force-toggle in db_watermark_migration_integration_test.go matches design.md §8's code exactly and closes the leak",
+          "doc/KB sweep judgment correct in both directions: all remaining 'charge_sessions' hits outside internal/analytics are historical ('renamed from...') or migration filenames; no missed present-tense staleness found",
+          "KNOWN DEFECT confirmed as real: design.md §9 prose is stale about line ~288 (identifier no longer exists post-1.2)"
+        ],
+        "findings": [
+          {
+            "id": "F1",
+            "severity": "major",
+            "status": "open",
+            "note": "internal/analytics/db/models.go:72-78 (sqlc-generated VehicleMetricWatermark table+Source doc comments) still say the PRE-migration vocabulary ('charge_sessions... as of RM31...') even though this migration's Up explicitly rewrites the live COMMENT ON TABLE/COLUMN text 'so the catalog's own documentation matches the live vocabulary' (design.md §1 step 4). design.md §10's 'no sqlc generate needed, a CHECK constraint carries no column type' reasoning is true for types but ignores that sqlc also mirrors DB comments into these doc comments -- proven by this repo's own precedent commit 3882a53 'fix",
+            "triage": "accepted"
+          },
+          {
+            "id": "F2",
+            "severity": "major",
+            "status": "open",
+            "note": "db_watermark_migration_integration_test.go's line ~317 assertion (task 2.1/D2's fix for the broken sourceChargeSessions reference) substitutes sourceSuperchargerSessions (value 'supercharger_sessions'), but at this point in the test only migrations through 20260828000001 are applied, where 'supercharger_sessions' is NOT a legal CHECK value at all (proven by the CHECK-violation assertion a few lines above) and the seeded row under that label was just DELETEd by Up -- so the assertion is now redundant with the countWatermarkRows(...,'supercharger_sessions')==0 check already performed above, not ",
+            "triage": "accepted"
+          }
+        ],
+        "notes": "Two majors, no blockers. Boundary, migration, DELETE semantics, T1, cleanup fix, and doc sweep all clean. F1/F2 are both concrete and cheaply fixable; re-dispatch to the analytics worker, then re-verify with this same reviewer."
+      }
+    ]
   },
   "events": [
     {
@@ -289,6 +344,16 @@
       "at": "2026-09-03T02:35:00Z",
       "agent": "leader",
       "event": "DESIGN.MD DEFECT for the reviewer: §9's prose says line 288 'correctly uses the pre-rename literal', which task 1.2 made impossible — the identifier no longer exists. The worker followed D2 and used the renamed symbol, documenting the semantic shift in a code comment. design.md §9's wording is stale; the code is right."
+    },
+    {
+      "at": "2026-09-03T02:38:00Z",
+      "agent": "leader",
+      "event": "status -> verified on the leader's own suite run (D19). Dispatching analytics-reviewer."
+    },
+    {
+      "at": "2026-09-03T02:50:00Z",
+      "agent": "leader",
+      "event": "round 1 triage: BOTH findings accepted, none rejected. F1 fixed by make sqlc (verified: only the 2 comment strings changed, no type churn). F2 fixed with the raw literal + a comment saying why this one call site pins the historic vocabulary. design.md §9's wording is now TRUE again as a side effect, so it was corrected only to reference the test by NAME instead of the drifted line 288. go vet + gofmt clean; analytics suite re-run green, both migration tests still PASS."
     }
   ]
 }

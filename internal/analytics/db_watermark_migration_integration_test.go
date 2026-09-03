@@ -312,27 +312,26 @@ func TestMigration_WatermarkSourceVocabulary(t *testing.T) {
 	if !ok {
 		t.Fatal("newRealRecalculator did not return a *recalculator")
 	}
-	// This assertion runs in THIS test's own mid-state: migrations applied
-	// only through watermarkSourceMigrationVersion (20260828000001) -- NOT the
-	// fully-migrated, post-RM39-tier-3b state. sourceSuperchargerSessions is
-	// the sole surviving Go identifier for this constant after RM39 tier 3b's
-	// rename (design.md §7); the old identifier sourceChargeSessions no
-	// longer exists, so this call cannot reference it regardless of which
-	// state the test is in. Its compile-time VALUE, "supercharger_sessions",
-	// is exactly the label the Up step above just DELETEd (the seeded row at
-	// this vehicle/source), so watermark() correctly finds no row and returns
-	// the zero-value epoch -- still proving D7 ("no row = epoch"), just via
-	// the row this migration's own DELETE removed rather than via a label
-	// that never had a row to begin with. Contrast with this change's own T1
-	// test (design.md §9), which asserts this same method call in the FULLY
-	// post-migration state, where the same value instead means "no cursor
-	// written yet under the new label."
-	gotEpoch, err := rec.watermark(ctx, accountID, teslaID, sourceSuperchargerSessions)
+	// A RAW LITERAL here, deliberately -- not the sourceSuperchargerSessions
+	// constant. This assertion runs in THIS test's own mid-state: migrations
+	// applied only through watermarkSourceMigrationVersion (20260828000001),
+	// NOT the fully-migrated post-RM39-tier-3b state. In that mid-state
+	// "charge_sessions" is the legal label (the CHECK assertions just above
+	// prove it, and prove "supercharger_sessions" is NOT legal there), and no
+	// row has ever been written under it -- which is exactly what makes this
+	// a real test of D7 ("no row = epoch"). Passing the renamed constant
+	// instead would query the label the Up step just DELETEd, which the
+	// countWatermarkRows assertion above already covers, collapsing this
+	// assertion into a duplicate. watermark() takes a plain string, so the
+	// literal compiles fine after the rename. Contrast with this change's own
+	// T1 test (design.md §9), which makes the equivalent assertion in the
+	// FULLY post-migration state, where the new label is the meaningful one.
+	gotEpoch, err := rec.watermark(ctx, accountID, teslaID, "charge_sessions")
 	if err != nil {
-		t.Fatalf("watermark(supercharger_sessions) mid-migration: %v", err)
+		t.Fatalf("watermark(charge_sessions) mid-migration: %v", err)
 	}
 	if !gotEpoch.IsZero() {
-		t.Errorf("watermark(supercharger_sessions) mid-migration: want the zero-value epoch (no row = epoch, design D7), got %s", gotEpoch)
+		t.Errorf("watermark(charge_sessions) mid-migration: want the zero-value epoch (no row = epoch, design D7), got %s", gotEpoch)
 	}
 
 	// --- Down round-trip ---
