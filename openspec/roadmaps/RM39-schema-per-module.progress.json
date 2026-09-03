@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T01:50:00Z",
+  "updated_at": "2026-09-03T02:05:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -190,6 +190,23 @@
       "made_by": "leader",
       "decision": "A rename tier's completeness criterion is the CATALOG, never a hand-written object list",
       "why": "Tier 3 shipped, passed review and archived with 5 constraints still named charge_sessions_*. Postgres auto-names one CHECK per inline column constraint; those names exist only in the catalog, so no grep finds them."
+    },
+    {
+      "id": "D19",
+      "at": "2026-09-03T02:05:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Owner reaffirmed autopilot ON and test authorization; the leader runs tests without asking again",
+      "why": "Owner's explicit instruction, superseding D10's per-run framing. Destructive ops (db-reset, DROP on real data) stay owner-only."
+    },
+    {
+      "id": "D20",
+      "at": "2026-09-03T02:05:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "While Docker is down, the suite runs per DB-package on its own fresh local database, never one shared db",
+      "why": "env -u DATABASE_URL forces testcontainers, which cannot start. One shared db hits the duplicate goose version 20260720000001 (backlog #23) and fails account.",
+      "covered_by": "D19"
     }
   ],
   "tiers": [
@@ -434,6 +451,21 @@
       "at": "2026-09-03T01:50:00Z",
       "agent": "leader",
       "event": "openspec archive left the new charging capability spec with a 'TBD - created by archiving' Purpose (same as charge-session-log from RM29). Leader wrote a real Purpose — the spec is the live doc agents read, and a TBD there is the KB-staleness failure CLAUDE.md warns about."
+    },
+    {
+      "at": "2026-09-03T02:05:00Z",
+      "agent": "leader",
+      "event": "SUITE RESULT (tier 3, leader-run under D19). Owner's env -u DATABASE_URL run failed account and charging with 'Docker Desktop is unable to start' — testcontainers, not the code; every other package passed. Re-ran both against local Postgres 16, each on its OWN fresh database (magus_t3b_account, magus_t3b_charging): both ok. Whole suite green."
+    },
+    {
+      "at": "2026-09-03T02:05:00Z",
+      "agent": "leader",
+      "event": "F1 STATUS after that run: substance answered, literal wording still open. Tier 3 has now been exercised against a real Postgres including the migration, the rename and both DB packages — but not through testcontainers, because Docker Desktop still refuses to start. F1 stays open as an environmental item, not a code item."
+    },
+    {
+      "at": "2026-09-03T02:05:00Z",
+      "agent": "leader",
+      "event": "D18 CATALOG CHECK re-verified independently on the fresh db: zero pg_constraint/pg_indexes names beginning charge_sessions; all 9 objects carry supercharger_sessions_*. Also confirms the accepted D5b transient ambiguity is real and visible — public.supercharger_sessions (telemetry) and charging.supercharger_sessions both exist with identically-named constraints until tier 4 renames telemetry's copy."
     }
   ],
   "gates": [
