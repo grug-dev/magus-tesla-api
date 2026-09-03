@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T03:15:00Z",
+  "updated_at": "2026-09-03T03:25:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -230,6 +230,14 @@
       "made_by": "user",
       "decision": "Apply the 3 pending migrations to the real database BEFORE db-reset, instead of letting the reset apply them to an empty one",
       "why": "The reset would have destroyed the only chance to test RM39's central claim — that these migrations preserve existing data. Rejected: straight to reset, and migrate-up without reset."
+    },
+    {
+      "id": "D24",
+      "at": "2026-09-03T03:25:00Z",
+      "scope": "roadmap",
+      "made_by": "user",
+      "decision": "Gate G1 (make db-reset) WAIVED; a fresh magus database will be built before the prod deploy instead",
+      "why": "D23 already proved RM39 on real data, so the wipe's only remaining cost was irreplaceable history: 174 snapshots since 2026-07-13 and 12 hand-entered charge rows."
     }
   ],
   "tiers": [
@@ -525,6 +533,16 @@
       "at": "2026-09-03T03:15:00Z",
       "agent": "leader",
       "event": "D8's 'deliberate data loss' cost ZERO on the real database: it held no source='charge_sessions' watermark rows at all (only vehicle_snapshots and manual_charge_entries), so tier 3b's DELETE removed nothing. The owner accepted a loss that never materialised."
+    },
+    {
+      "at": "2026-09-03T03:25:00Z",
+      "agent": "leader",
+      "event": "GATE G1 WAIVED by the owner (D24). Cold-start testing moves to a throwaway/pre-prod database. Tier 4's blocker is now the D6 boundary ticket ALONE — G1 no longer gates it."
+    },
+    {
+      "at": "2026-09-03T03:25:00Z",
+      "agent": "leader",
+      "event": "ROADMAP HALT (Step 9). Tiers 1, 2, 3, 3b archived; tiers 4 and 5 remain BLOCKED on the external D6 boundary ticket, which is outside RM39 by the owner's own choice. No unblocked tier remains, so autopilot has nothing to advance to. RM39 stays in-progress; resume when the D6 ticket lands."
     }
   ],
   "gates": [
@@ -533,7 +551,7 @@
       "after_tier": 6,
       "before_tier": 4,
       "kind": "owner-run",
-      "status": "due",
+      "status": "waived",
       "name": "database reset for fresh test data",
       "command": "make db-reset",
       "run_by": "owner",
@@ -546,7 +564,10 @@
         "reconnect Tesla through cmd/web -- db-reset drops accounts and tesla_tokens",
         "run the poller once, then verify the pages render"
       ],
-      "leader_instruction": "HALT after tier 3b is archived. Do NOT dispatch tier 4 until the owner confirms this gate is done or explicitly waives it. Never run make db-reset yourself."
+      "leader_instruction": "HALT after tier 3b is archived. Do NOT dispatch tier 4 until the owner confirms this gate is done or explicitly waives it. Never run make db-reset yourself.",
+      "waived_at": "2026-09-03T03:25:00Z",
+      "waived_by": "user",
+      "waived_why": "Owner will create a fresh magus database before deploying to prod instead. The gate's purpose was met another way: D23's migrate-up proved RM39 on real data, so the wipe would have cost 174 vehicle_snapshots since 2026-07-13 and 12 hand-entered manual_charge_entries — neither recoverable — for an empty database RM39 no longer needs."
     }
   ]
 }
