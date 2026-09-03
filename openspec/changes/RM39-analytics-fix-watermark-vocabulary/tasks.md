@@ -8,7 +8,7 @@ tasks rule).
 
 ## Wave 1 — migration + Go constant (independent of each other, no shared files)
 
-- [ ] **1.1 Write the migration.** New file
+- [x] **1.1 Write the migration.** New file
   `internal/analytics/db/migrations/20260902000004_migrate_vehicle_metric_watermarks_source_supercharger.sql`,
   exact content specified in `design.md` §3 — copy verbatim, including comments. Verify the
   chosen timestamp is still unused by re-running `find internal -path '*/db/migrations/*.sql'
@@ -16,7 +16,7 @@ tasks rule).
   immediately before creating the file, since other tiers may land migrations concurrently.
   No dependency on task 1.2.
 
-- [ ] **1.2 Rename the Go constant.** `internal/analytics/recalculate.go`: rename
+- [x] **1.2 Rename the Go constant.** `internal/analytics/recalculate.go`: rename
   `sourceChargeSessions` to `sourceSuperchargerSessions` and change its value from
   `"charge_sessions"` to `"supercharger_sessions"` (design.md §7). Update every call site
   in the same file (the two `r.watermark`/`r.advanceWatermark` calls and their `fmt.Errorf`

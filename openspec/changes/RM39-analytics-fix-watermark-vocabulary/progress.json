@@ -5,8 +5,8 @@
   "module": "analytics",
   "intention": "Retire the charge_sessions vocabulary from analytics' watermark cursor after RM39 tier 3 renamed charging's table.",
   "request": "roadmap RM39 tier 3b, split out of tier 3 by owner decision D15",
-  "status": "proposed",
-  "updated_at": "2026-09-03T02:15:00Z",
+  "status": "in-progress",
+  "updated_at": "2026-09-03T02:22:00Z",
   "leader": {
     "assistant": "Claude Code",
     "model": "claude-opus-5",
@@ -28,28 +28,40 @@
     {
       "id": "1.1",
       "title": "Write the migration 20260902000004",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T02:18:00Z",
+      "completed_at": "2026-09-03T02:20:00Z",
+      "duration_seconds": 120,
+      "notes": "Re-verified 20260902000004 free (only known dup 20260720000001). Created the migration with design.md §3 content verbatim.",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta; both tasks ran in one serial worker"
+      }
     },
     {
       "id": "1.2",
       "title": "Rename the Go constant to sourceSuperchargerSessions",
-      "status": "pending",
+      "status": "done",
       "depends_on": [],
-      "agent": null,
-      "model": null,
-      "started_at": null,
-      "completed_at": null,
-      "duration_seconds": null,
-      "notes": null,
-      "budget": null
+      "agent": "analytics",
+      "model": "claude-sonnet-5",
+      "started_at": "2026-09-03T02:18:00Z",
+      "completed_at": "2026-09-03T02:20:00Z",
+      "duration_seconds": 120,
+      "notes": "Renamed sourceChargeSessions -> sourceSuperchargerSessions, value charge_sessions -> supercharger_sessions. 3 call sites + 2 fmt.Errorf strings. const block realigned.",
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": null,
+        "source": "statusline-cache",
+        "approx": true,
+        "note": "one shared wave delta; both tasks ran in one serial worker"
+      }
     },
     {
       "id": "2.1",
@@ -149,8 +161,6 @@
   "rollup": {
     "current": [],
     "pending": [
-      "1.1",
-      "1.2",
       "2.1",
       "2.2",
       "2.3",
@@ -159,7 +169,10 @@
       "3.3"
     ],
     "blocked": [],
-    "done": [],
+    "done": [
+      "1.1",
+      "1.2"
+    ],
     "awaiting-user-verification": []
   },
   "decisions": [
@@ -171,6 +184,14 @@
       "decision": "Design gate CONFIRMED: DELETE the charge_sessions watermark rows; no rename-in-place, no deferral",
       "why": "Owner confirmed at the gate. An absent row means epoch, so the delete is self-healing; a carried cursor is not.",
       "covered_by": "roadmap D8/D14/D15/D21"
+    },
+    {
+      "id": "D2",
+      "at": "2026-09-03T02:22:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Task 2.1 is widened to also fix db_watermark_migration_integration_test.go:288's sourceChargeSessions reference",
+      "why": "tasks.md 2.1 covers only that file's cleanup and 2.2 covers only db_integration_test.go, so line 288 was owned by neither. Widening, never weakening."
     }
   ],
   "review": {
@@ -184,6 +205,16 @@
       "at": "2026-09-03T02:15:00Z",
       "agent": "leader",
       "event": "progress.json seeded from tasks.md (8 sub-tasks, 3 waves). Artifacts validated; design gate confirmed (D21). Next: wave 1 dispatch."
+    },
+    {
+      "at": "2026-09-03T02:18:00Z",
+      "agent": "leader",
+      "event": "wave 1 dispatched to one serial analytics worker (sonnet): 1.1 migration + 1.2 Go constant. Batched, not parallel — two small edits in disjoint files do not repay a second doc-pack read."
+    },
+    {
+      "at": "2026-09-03T02:22:00Z",
+      "agent": "leader",
+      "event": "wave 1 reconciled. Leader verified independently: migration file exists, recalculate.go renames 3 call sites + 2 error strings, no sourceChargeSessions left in non-test code. go build clean, gofmt clean, make migration-guard passes (only the known 20260720000001 warning). go vet is RED on 4 test-file references — expected, owned by wave 2. Worker's reported timestamps were placeholders (2026-09-02T00:00Z); leader transcribed the real dispatch/return times instead."
     }
   ]
 }
