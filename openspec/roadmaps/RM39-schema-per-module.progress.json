@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T02:15:00Z",
+  "updated_at": "2026-09-03T03:00:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -16,9 +16,7 @@
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [
-      6
-    ],
+    "current": [],
     "pending": [],
     "blocked": [
       4,
@@ -27,7 +25,8 @@
     "done": [
       1,
       2,
-      3
+      3,
+      6
     ]
   },
   "decisions": [
@@ -215,6 +214,14 @@
       "made_by": "user",
       "decision": "Tier 3b design gate CONFIRMED: DELETE the charge_sessions watermark rows, re-add the CHECK with the new vocabulary, rename the Go constant",
       "why": "Owner confirmed at the gate. Rejected: rename-in-place (a carried cursor can silently skip data if the mirror gapped) and deferring 3b until tier 4."
+    },
+    {
+      "id": "D22",
+      "at": "2026-09-03T03:00:00Z",
+      "scope": "roadmap",
+      "made_by": "leader",
+      "decision": "Annotated tier 2's vocabulary statements in the LIVE analytics spec rather than rewriting them",
+      "why": "Tier 3b's delta is behavior-only, so tier 2's literal list became the spec's only vocabulary — and it named a retired value. Tier 2's scoped claim is still true."
     }
   ],
   "tiers": [
@@ -329,14 +336,20 @@
       "depends_on": [
         3
       ],
-      "status": "in-progress",
+      "status": "archived",
       "assistant": "Claude Code",
-      "model": null,
+      "model": "claude-sonnet-5",
       "started_at": "2026-09-03T02:15:00Z",
-      "completed_at": null,
-      "duration_seconds": null,
-      "budget": null,
-      "notes": "Split out of tier 3 by owner decision D15. No schema move. Rewrites the vehicle_metric_watermarks CHECK to the post-rename vocabulary, DELETEs the affected rows (D8), and updates sourceChargeSessions in recalculate.go. Copy migration 20260828000001; do not invent it."
+      "completed_at": "2026-09-03T03:00:00Z",
+      "duration_seconds": 2700,
+      "budget": {
+        "five_hour_pct_start": 31,
+        "five_hour_pct_end": 49,
+        "five_hour_pct_delta": 18,
+        "source": "statusline-cache",
+        "approx": true
+      },
+      "notes": "Archived after 2 review rounds. Migration 20260902000004 retires 'charge_sessions' from the watermark vocabulary; constant renamed; 5 live docs swept. Reviewer caught stale sqlc comments and an assertion the leader's own D2 widening had collapsed into a duplicate."
     }
   ],
   "events": [
@@ -479,6 +492,21 @@
       "at": "2026-09-03T02:15:00Z",
       "agent": "leader",
       "event": "tier 3b artifacts created and validated (openspec validate --strict). Design gate presented and CONFIRMED (D21). Migration version 20260902000004 verified free. Worker surfaced a real interaction the roadmap missed: db_watermark_migration_integration_test.go's t.Cleanup re-applies 20260828000001's Up, which would leave the live CHECK at the OLD vocabulary for every later test in the same process. Fixed in tasks.md 2.1 without editing the historic migration."
+    },
+    {
+      "at": "2026-09-03T03:00:00Z",
+      "agent": "leader",
+      "event": "tier 3b archived to openspec/changes/archive/analytics/2026-09-03-RM39-analytics-fix-watermark-vocabulary. Reviewer approved at round 2 after both round-1 findings were accepted and fixed."
+    },
+    {
+      "at": "2026-09-03T03:00:00Z",
+      "agent": "leader",
+      "event": "SPEC STALENESS found at archive, fixed: tier 3b's delta is deliberately WHAT-only (config.yaml forbids implementation literals in specs), so it named no vocabulary — which left tier 2's requirement as the live analytics spec's ONLY concrete vocabulary, still listing 'charge_sessions'. Annotated both places with a forward pointer instead of rewriting tier 2's claim, which remains true as scoped (D22)."
+    },
+    {
+      "at": "2026-09-03T03:00:00Z",
+      "agent": "leader",
+      "event": "ROADMAP STATE: tiers 1, 2, 3, 3b archived. Gate G1 (owner-run make db-reset) is now DUE. Tiers 4 and 5 stay blocked on the external D6 boundary ticket regardless of G1."
     }
   ],
   "gates": [
@@ -487,7 +515,7 @@
       "after_tier": 6,
       "before_tier": 4,
       "kind": "owner-run",
-      "status": "pending",
+      "status": "due",
       "name": "database reset for fresh test data",
       "command": "make db-reset",
       "run_by": "owner",

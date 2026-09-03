@@ -331,6 +331,13 @@ with no prior cursor for a vehicle SHALL be treated as never having been
 incorporated, so its very first reconciliation incorporates that source's entire
 history for that vehicle.
 
+The label each source's cursor is stored under is an implementation detail (which physical
+table it names), not part of this requirement's contract — but retiring a label (because
+the table it names was renamed) SHALL follow the same no-prior-cursor-means-full-backfill
+rule as a vehicle's very first reconciliation: the capability SHALL treat a source whose
+label was just retired as having no prior cursor, never as continuing from a value
+recorded under the old label.
+
 #### Scenario: A revised Supercharger session weeks old is picked up
 - **GIVEN** a vehicle whose Supercharger-sessions cursor was last advanced yesterday
 - **AND** a Supercharger session from three weeks ago has its billing state revised
@@ -352,6 +359,20 @@ history for that vehicle.
 - **THEN** it recomputes every calendar day of that vehicle's stored telemetry
   history, persisting a row for each such day (with its derived fields absent on
   any day that itself has no computable predecessor)
+
+#### Scenario: Retiring a source's cursor label resets that source to a full backfill, once
+- **GIVEN** a vehicle whose Supercharger-sessions cursor was stored under a label that
+  named a table which has since been renamed
+- **WHEN** the capability's underlying vocabulary for that label is migrated to the
+  table's new name
+- **THEN** the vehicle's existing cursor for that source is gone, exactly as if it had
+  never been reconciled for that source before
+- **AND** the vehicle's own precomputed daily metrics and flagged charge gaps for every
+  other source are unaffected — only the retired source's cursor is reset
+- **WHEN** the capability next reconciles that vehicle
+- **THEN** it recomputes that source's entire history for that vehicle in one pass, under
+  the new label, exactly as the "no prior cursor" scenario above already specifies for a
+  vehicle's very first reconciliation
 
 ### Requirement: Odometer Distance-Per-Day, Already Anomaly-Clamped
 
@@ -799,6 +820,13 @@ after this requirement, now additionally checkable at the database catalog level
 by this requirement — those values are data naming other modules' tables by convention, not
 schema-qualified references, and this schema move SHALL NOT alter, rewrite, or reinterpret them.
 
+(The vocabulary listed above is the one in force when THIS requirement was written. It was
+migrated afterwards, by `RM39-analytics-fix-watermark-vocabulary`: `'charge_sessions'` was
+retired in favour of `'supercharger_sessions'` once `internal/charging` renamed the table it
+names. That later change is governed by "Incremental Recompute Via An Analytics-Owned
+Watermark" above; this requirement's own claim — that the *schema move* left the vocabulary
+untouched — remains true and is deliberately not rewritten.)
+
 #### Scenario: The three tables resolve under the analytics schema
 - **GIVEN** the analytics module's migrations have been applied
 - **WHEN** the database catalog is queried for `analytics.vehicle_metrics`,
@@ -829,7 +857,8 @@ schema-qualified references, and this schema move SHALL NOT alter, rewrite, or r
 
 #### Scenario: The watermark source vocabulary is unaffected by the schema move
 - **GIVEN** `vehicle_metric_watermarks` rows whose `source` column holds `'vehicle_snapshots'`,
-  `'charge_sessions'`, or `'manual_charge_entries'`
+  `'charge_sessions'`, or `'manual_charge_entries'` (the vocabulary in force at the time of the
+  schema move; `'charge_sessions'` was retired later — see this requirement's note above)
 - **WHEN** the schema-move migration is applied
 - **THEN** every row's `source` value is byte-identical to its pre-migration value
 - **AND** the `vehicle_metric_watermarks_source_check` constraint still accepts exactly the same
