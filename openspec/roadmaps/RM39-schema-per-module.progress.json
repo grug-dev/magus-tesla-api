@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T11:30:00Z",
+  "updated_at": "2026-09-03T10:45:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -16,10 +16,10 @@
     "created_at": "2026-09-02T01:25:55Z"
   },
   "rollup": {
-    "current": [],
-    "pending": [
+    "current": [
       5
     ],
+    "pending": [],
     "blocked": [],
     "done": [
       1,
@@ -278,6 +278,30 @@
       "made_by": "user",
       "decision": "Tier 4's database design gate PASSED as specified — one migration for the move, the rename, the 9 catalog renames and the COMMENT refresh",
       "why": "Rejected move-only (repeats the 41-statement sweep, leaves two supercharger_sessions alive) and split-in-two (same work, adds a pointless intermediate state)."
+    },
+    {
+      "id": "D30",
+      "at": "2026-09-03T10:30:00Z",
+      "scope": "tier:5",
+      "made_by": "user",
+      "decision": "Run tier 5 now at 76% of the 5-hour bucket, lean, instead of waiting for the 14:30Z reset",
+      "why": "Tier 5 is a pure Go rename - no migration, no SQL, no design gate - and is fully compiler-checked. If the bucket trips it stops at a wave boundary."
+    },
+    {
+      "id": "D31",
+      "at": "2026-09-03T10:45:00Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "Tier 5's '88 references outside internal/telemetry' is WRONG; the real surface is 4 files in internal/app and cmd/poller",
+      "why": "Name collision: gateway's SuperchargerReader field is charging.SessionReader-typed and analytics' hits are local test fakes. Worker found it; leader verified. A grep-rename would corrupt gateway."
+    },
+    {
+      "id": "D32",
+      "at": "2026-09-03T10:45:00Z",
+      "scope": "tier:5",
+      "made_by": "leader",
+      "decision": "For a Go rename, D18's catalog criterion means the compiler plus a zero-hit repo-wide grep of the old identifiers",
+      "why": "D18 forbids a hand-written object list. Go has no catalog, but the compiler is the equivalent authority and covers every real reference."
     }
   ],
   "tiers": [
@@ -374,14 +398,14 @@
       "depends_on": [
         4
       ],
-      "status": "not-started",
-      "assistant": null,
-      "model": null,
-      "started_at": null,
+      "status": "in-progress",
+      "assistant": "claude-code",
+      "model": "sonnet",
+      "started_at": "2026-09-03T10:30:00Z",
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "UNBLOCKED 2026-09-03 by tier 4 archiving. No schema change. Finishes D5c by renaming telemetry's public port (SuperchargerReader, its 4 methods, NewSuperchargerReader and the internal helpers). Split from tier 4 deliberately: 88 references outside internal/telemetry, across charging, analytics, gateway, app and both cmd/ binaries. Mechanical and compiler-checked."
+      "notes": "Artifacts complete, openspec validate --strict clean. No DB object touched, so the database design gate does not apply. D31 corrected the tier's scope: real cross-module surface is 4 files, not 88 references."
     },
     {
       "id": 6,
@@ -613,6 +637,16 @@
       "at": "2026-09-03T11:30:00Z",
       "agent": "leader",
       "event": "BUDGET CHECKPOINT at the tier boundary (Step 9.2), BEFORE opening tier 5. Neither threshold is crossed - five_hour_pct 73 (limit 90), context_pct 26 (limit 40) - but tier 4 consumed 70 points of the 5-hour bucket on its own (3 -> 73). Opening tier 5 now would cross 90 mid-tier, which is the worst place to stop. Stopping cleanly instead: RM39 stays in-progress with tier 5 not-started and unblocked, and every file is committed. Resume with: /kkpa-dev-harness-pipeline resume RM39-schema-per-module (after five_hour_resets_at, or immediately in a fresh session since the context trip is not the binding one). NOTE: budget.sh reported a FOREIGN session_id mid-run (around wave 2), so that window's cost figures are indicative only; it is reporting this session again now."
+    },
+    {
+      "at": "2026-09-03T10:30:00Z",
+      "agent": "leader",
+      "event": "TIER 5 OPENED (resume). Budget re-read at the checkpoint per Step R.3: five_hour_pct 76 (bucket does NOT reset until 14:30Z), context_pct 9. Owner chose to run tier 5 now, lean (one worker, one wave, one review round) rather than wait 4 hours. No Step 2 interview: D5c fully determines the rename and no new decision exists. Artifacts worker dispatched on Sonnet."
+    },
+    {
+      "at": "2026-09-03T10:45:00Z",
+      "agent": "leader",
+      "event": "TIER 5 ARTIFACTS COMPLETE. proposal/design/specs/tasks written by a Sonnet worker; openspec validate --strict clean. 14 tasks, split [telemetry] vs [leader-owned] because the cross-module edits are outside the worker's sandbox. No database design gate - no DB object is touched and design.md says so explicitly. Worker overturned the roadmap's measured scope; leader VERIFIED it independently (D31) and corrected the tier-5 row. Tier 5 flipped [ ] -> [~]. Next: Step 4 change progress.json, then Step 5 wave 1."
     }
   ],
   "gates": [

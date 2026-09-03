@@ -1,0 +1,333 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM39-telemetry-rename-supercharger-port",
+  "module": "telemetry",
+  "roadmap": "RM39-schema-per-module",
+  "tier": 5,
+  "intention": "Finish D5c by renaming telemetry's public Supercharger port so the Go vocabulary matches the supercharger_history table renamed in tier 4.",
+  "request": "schema per module for internal/ modules (RM39 tier 5)",
+  "status": "proposed",
+  "updated_at": "2026-09-03T10:50:00Z",
+  "leader": {
+    "assistant": "claude-code",
+    "model": "Opus 5",
+    "session_id": "add95408-1310-4286-abea-9e3d78fa3e4c"
+  },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM39-MAG-31-schema-per-module-renames",
+    "base": "main",
+    "ticket": "MAG-31",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-31/analyze-scheme-per-module"
+  },
+  "rollup": {
+    "current": [],
+    "pending": [
+      "T1",
+      "T2",
+      "T3",
+      "T4",
+      "T5",
+      "T6",
+      "T7",
+      "T8",
+      "T9",
+      "T10",
+      "T11",
+      "T12",
+      "T13",
+      "T14"
+    ],
+    "blocked": [],
+    "done": []
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Rename the public port - internal/telemetry/telemetry.go",
+      "owner": "telemetry",
+      "depends_on": [],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T2",
+      "title": "Rename the implementation - internal/telemetry/reader.go",
+      "owner": "telemetry",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T3",
+      "title": "Rename the mapper - internal/telemetry/mapping.go",
+      "owner": "telemetry",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T4",
+      "title": "Rename the write-seam helper - internal/telemetry/service.go",
+      "owner": "telemetry",
+      "depends_on": [],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T5",
+      "title": "Comment-only sweep - internal/telemetry/run_writer.go",
+      "owner": "telemetry",
+      "depends_on": [],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T6",
+      "title": "query.sql comments + sqlc regeneration",
+      "owner": "telemetry",
+      "depends_on": [],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T7",
+      "title": "telemetry's own _test.go files",
+      "owner": "telemetry",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T8",
+      "title": "internal/app - the port's only remaining real caller (D31)",
+      "owner": "telemetry-granted",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T9",
+      "title": "cmd/poller/main.go",
+      "owner": "telemetry-granted",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T10",
+      "title": "Comment-only accuracy fix - internal/charging/charging.go",
+      "owner": "leader",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T11",
+      "title": "Comment-only accuracy fixes - internal/analytics",
+      "owner": "leader",
+      "depends_on": [
+        "T1"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T12",
+      "title": "Module docs - internal/telemetry/AGENTS.md",
+      "owner": "telemetry",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T13",
+      "title": "Repo docs + knowledge base",
+      "owner": "leader",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10",
+        "T11"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": "T14",
+      "title": "Verification - build/vet/gofmt + repo-wide zero-hit grep",
+      "owner": "leader",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10",
+        "T11",
+        "T12",
+        "T13"
+      ],
+      "status": "pending",
+      "agent": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "decisions": [
+    {
+      "id": "CD1",
+      "at": "2026-09-03T10:50:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "One serial wave for T1-T9 + T12, not parallel sub-tasks",
+      "why": "design.md D4: renaming an exported interface has no intermediate state where go build passes. Parallel workers would each see an uncompilable tree."
+    },
+    {
+      "id": "CD2",
+      "at": "2026-09-03T10:50:00Z",
+      "scope": "change",
+      "made_by": "leader",
+      "decision": "Grant the telemetry worker 4 explicit paths outside its module: internal/app/{app.go,processor.go,processor_test.go} and cmd/poller/main.go",
+      "why": "Compilation requires them in the same dispatch (CD1). Comment-only cross-module tasks T10/T11/T13 stay leader-owned, so the grant is exactly what the compiler forces."
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-03T09:55:00Z",
+      "agent": "leader",
+      "event": "Artifacts created by a Sonnet telemetry worker; openspec validate --strict clean."
+    },
+    {
+      "at": "2026-09-03T10:50:00Z",
+      "agent": "leader",
+      "event": "progress.json created, 14 tasks seeded from tasks.md. No database design gate (no DB object touched). Wave 1 = T1-T9 + T12 in one serial worker; wave 2 = leader-owned comment/doc tasks T10, T11, T13, then T14 verification."
+    }
+  ],
+  "review": {
+    "brief": null,
+    "agent": null,
+    "status": null,
+    "rounds": []
+  }
+}
