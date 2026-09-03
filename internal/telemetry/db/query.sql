@@ -415,7 +415,7 @@ LIMIT @limit_count;
 -- charge_stop_date_time falls in the caller-supplied [start, end] window,
 -- inclusive of the whole end calendar day, ordered oldest-first (ascending
 -- by charge_stop_date_time). Used by
--- SuperchargerReader.SuperchargerSessionsByVehicleBetween to power RM28's
+-- SuperchargerHistoryReader.SuperchargerHistoryByVehicleBetween to power RM28's
 -- battery-consumed-per-day derivation (roadmap D9/D12).
 --
 -- Filters on charge_stop_date_time, NOT charge_start_date_time (D12): energy
@@ -428,7 +428,7 @@ LIMIT @limit_count;
 -- inclusive, matching this project's platform-wide HTTP date-filter
 -- convention, ai/go-conventions.md §"Read optimization"): end_bound = end +
 -- 1 calendar day (computed in Go, reader.go's
--- SuperchargerSessionsByVehicleBetween, mirroring
+-- SuperchargerHistoryByVehicleBetween, mirroring
 -- Reader.SnapshotsByVehicleBetween's own bounds-translation precedent of
 -- doing the day-arithmetic in Go, not in SQL) so
 -- WHERE charge_stop_date_time >= start AND charge_stop_date_time < end_bound
@@ -467,7 +467,7 @@ ORDER BY charge_stop_date_time ASC;
 -- name: SuperchargerHistoryByVehicleUpdatedSince :many
 -- Return every Supercharger session for one vehicle within an account whose
 -- updated_at is at or after `since`, ordered oldest-first by updated_at. Used by
--- SuperchargerReader.SuperchargerSessionsByVehicleUpdatedSince to let
+-- SuperchargerHistoryReader.SuperchargerHistoryByVehicleUpdatedSince to let
 -- internal/analytics' Recalculator (RM29-analytics-add-vehicle-metrics) detect
 -- which sessions changed recently -- including a billing-state revision on a
 -- session weeks old (design DBS3: supercharger_history is not append-only;

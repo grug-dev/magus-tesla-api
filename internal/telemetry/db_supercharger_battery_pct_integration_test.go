@@ -52,8 +52,8 @@ func insertBaseSuperchargerSession(t *testing.T, st *dbStore, pool *pgxpool.Pool
 		IsPaid:              &isPaid,
 		RawData:             rawData,
 	}
-	if err := st.upsertSuperchargerSession(ctx, sess); err != nil {
-		t.Fatalf("upsertSuperchargerSession(%d): %v", sessionID, err)
+	if err := st.upsertSuperchargerHistory(ctx, sess); err != nil {
+		t.Fatalf("upsertSuperchargerHistory(%d): %v", sessionID, err)
 	}
 }
 
@@ -68,10 +68,10 @@ func TestStore_SuperchargerUpsert_FreshInsertSeedsBatteryPctColumnsNull(t *testi
 	const sessionID = int64(900001)
 	insertBaseSuperchargerSession(t, st, pool, accountID, sessionID, 45.2, 12000, "COP", false, []byte(`{"sessionId":900001}`))
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 session, got %d", len(got))
@@ -138,14 +138,14 @@ func TestStore_SuperchargerUpsert_LeavesVerifiedBatteryPctUntouched(t *testing.T
 		IsPaid:              &paid,
 		RawData:             []byte(`{"sessionId":900002,"v":2,"invoiceStatus":"finalized"}`),
 	}
-	if err := st.upsertSuperchargerSession(ctx, sess2); err != nil {
-		t.Fatalf("re-upsertSuperchargerSession: %v", err)
+	if err := st.upsertSuperchargerHistory(ctx, sess2); err != nil {
+		t.Fatalf("re-upsertSuperchargerHistory: %v", err)
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
 	if len(got) != 1 {
 		t.Fatalf("want 1 session, got %d", len(got))
@@ -221,14 +221,14 @@ func TestStore_SuperchargerUpsert_LeavesVerificationSnapshotUntouched(t *testing
 			IsPaid:              &paid,
 			RawData:             rawData,
 		}
-		if err := st.upsertSuperchargerSession(ctx, sess); err != nil {
-			t.Fatalf("re-upsertSuperchargerSession #%d: %v", i+1, err)
+		if err := st.upsertSuperchargerHistory(ctx, sess); err != nil {
+			t.Fatalf("re-upsertSuperchargerHistory #%d: %v", i+1, err)
 		}
 
-		r := newSuperchargerReaderImpl(pool)
-		got, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+		r := newSuperchargerHistoryReaderImpl(pool)
+		got, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 		if err != nil {
-			t.Fatalf("SuperchargerSessionsByAccount (after re-upsert #%d): %v", i+1, err)
+			t.Fatalf("SuperchargerHistoryByAccount (after re-upsert #%d): %v", i+1, err)
 		}
 		if len(got) != 1 {
 			t.Fatalf("want 1 session, got %d", len(got))
@@ -304,11 +304,11 @@ func TestStore_SuperchargerBatteryPctChecks_RejectOutOfRangeAndUnrecognizedValue
 	}
 }
 
-// TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot implements design.md
-// test-contract scenario (d): SuperchargerSessionsByAccount and
-// SuperchargerSessionsByVehicle both surface the trio and the frozen snapshot pair,
+// TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot implements design.md
+// test-contract scenario (d): SuperchargerHistoryByAccount and
+// SuperchargerHistoryByVehicle both surface the trio and the frozen snapshot pair,
 // and round-trip an untouched (NULL) session correctly (T6.4).
-func TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T) {
+func TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -323,7 +323,7 @@ func TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T)
 	insertBaseSuperchargerSession(t, st, pool, accountID, sessionUntouched, 10.0, 3000, "USD", false, []byte(`{"sessionId":900001}`))
 
 	// This fixture's vehicle-scoped session needs a TeslaID to exercise
-	// SuperchargerSessionsByVehicle — set it via a direct-SQL update since
+	// SuperchargerHistoryByVehicle — set it via a direct-SQL update since
 	// insertBaseSuperchargerSession's shared fixture doesn't take one.
 	if _, err := pool.Exec(ctx, `UPDATE telemetry.supercharger_history SET tesla_id = $1 WHERE session_id = $2`, teslaID, sessionVerified); err != nil {
 		t.Fatalf("set tesla_id on verified session: %v", err)
@@ -340,15 +340,15 @@ func TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T)
 		t.Fatalf("direct-SQL set trio + snapshot: %v", err)
 	}
 
-	r := newSuperchargerReaderImpl(pool)
+	r := newSuperchargerHistoryReaderImpl(pool)
 
-	byAccount, err := r.SuperchargerSessionsByAccount(ctx, accountID, 10)
+	byAccount, err := r.SuperchargerHistoryByAccount(ctx, accountID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByAccount: %v", err)
+		t.Fatalf("SuperchargerHistoryByAccount: %v", err)
 	}
-	byVehicle, err := r.SuperchargerSessionsByVehicle(ctx, accountID, teslaID, 10)
+	byVehicle, err := r.SuperchargerHistoryByVehicle(ctx, accountID, teslaID, 10)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByVehicle: %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicle: %v", err)
 	}
 
 	assertVerifiedTrio := func(t *testing.T, s SuperchargerHistory) {
@@ -395,17 +395,17 @@ func TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot(t *testing.T)
 		}
 	}
 	if !foundVerifiedInAccount {
-		t.Errorf("SuperchargerSessionsByAccount: missing session %d", sessionVerified)
+		t.Errorf("SuperchargerHistoryByAccount: missing session %d", sessionVerified)
 	}
 	if !foundSnapshotInAccount {
-		t.Errorf("SuperchargerSessionsByAccount: missing session %d", sessionSnapshot)
+		t.Errorf("SuperchargerHistoryByAccount: missing session %d", sessionSnapshot)
 	}
 	if !foundUntouchedInAccount {
-		t.Errorf("SuperchargerSessionsByAccount: missing session %d", sessionUntouched)
+		t.Errorf("SuperchargerHistoryByAccount: missing session %d", sessionUntouched)
 	}
 
 	if len(byVehicle) != 1 || byVehicle[0].SessionID != sessionVerified {
-		t.Fatalf("SuperchargerSessionsByVehicle: want 1 session (%d), got %+v", sessionVerified, byVehicle)
+		t.Fatalf("SuperchargerHistoryByVehicle: want 1 session (%d), got %+v", sessionVerified, byVehicle)
 	}
 	assertVerifiedTrio(t, byVehicle[0])
 }

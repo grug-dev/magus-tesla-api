@@ -25,104 +25,104 @@ on both sides of the interface boundary.
 
 ## T1. Rename the public port — `internal/telemetry/telemetry.go` — `[telemetry]` — no dependencies, must land first
 
-- [ ] T1.1 Rename `type SuperchargerReader interface { ... }` → `type SuperchargerHistoryReader interface { ... }`.
-- [ ] T1.2 Rename the interface's four methods: `SuperchargerSessionsByAccount` →
+- [x] T1.1 Rename `type SuperchargerReader interface { ... }` → `type SuperchargerHistoryReader interface { ... }`.
+- [x] T1.2 Rename the interface's four methods: `SuperchargerSessionsByAccount` →
   `SuperchargerHistoryByAccount`, `SuperchargerSessionsByVehicle` →
   `SuperchargerHistoryByVehicle`, `SuperchargerSessionsByVehicleBetween` →
   `SuperchargerHistoryByVehicleBetween`, `SuperchargerSessionsByVehicleUpdatedSince` →
   `SuperchargerHistoryByVehicleUpdatedSince`. Signatures, parameter lists, and doc comments'
   behavioral content are unchanged — update only the identifier and any comment prose that
   names the old method/interface name (design.md D2).
-- [ ] T1.3 Rename the constructor `func NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader`
+- [x] T1.3 Rename the constructor `func NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader`
   → `func NewSuperchargerHistoryReader(pool *pgxpool.Pool) SuperchargerHistoryReader`, including
   its body's call to the (still-to-be-renamed in T2) internal constructor helper.
-- [ ] T1.4 Sweep this file's own comments naming the old identifiers outside the declarations
+- [x] T1.4 Sweep this file's own comments naming the old identifiers outside the declarations
   above (e.g. the `RunWriter`/`GapWriter`-adjacent comments at ~L658, ~L674 that say "mirroring
   this module's own SuperchargerReader" / "mirrors NewSuperchargerReader's own pattern") —
   update to the new names.
 
 ## T2. Rename the implementation — `internal/telemetry/reader.go` — `[telemetry]` — depends on T1
 
-- [ ] T2.1 Rename `type superchargerReader struct { ... }` → `type superchargerHistoryReader struct { ... }`.
-- [ ] T2.2 Rename `func newSuperchargerReaderImpl(pool *pgxpool.Pool) *superchargerReader` →
+- [x] T2.1 Rename `type superchargerReader struct { ... }` → `type superchargerHistoryReader struct { ... }`.
+- [x] T2.2 Rename `func newSuperchargerReaderImpl(pool *pgxpool.Pool) *superchargerReader` →
   `func newSuperchargerHistoryReaderImpl(pool *pgxpool.Pool) *superchargerHistoryReader`.
-- [ ] T2.3 Update the compile-time assertion `var _ SuperchargerReader = (*superchargerReader)(nil)`
+- [x] T2.3 Update the compile-time assertion `var _ SuperchargerReader = (*superchargerReader)(nil)`
   → `var _ SuperchargerHistoryReader = (*superchargerHistoryReader)(nil)`.
-- [ ] T2.4 Rename all four method receivers (`func (r *superchargerReader) SuperchargerSessionsByAccount(...)`
+- [x] T2.4 Rename all four method receivers (`func (r *superchargerReader) SuperchargerSessionsByAccount(...)`
   etc.) to match T1.2's new method names on the new receiver type
   `*superchargerHistoryReader`, including each method's own reference to
   `rowToSuperchargerSession` (T3) in its body.
-- [ ] T2.5 Sweep this file's doc comments (the `// --- Source B: SuperchargerReader ---` section
+- [x] T2.5 Sweep this file's doc comments (the `// --- Source B: SuperchargerReader ---` section
   header and per-method "implements SuperchargerReader" comments) to the new names.
 
 ## T3. Rename the mapper — `internal/telemetry/mapping.go` — `[telemetry]` — depends on T1, parallel-ok with T2
 
-- [ ] T3.1 Rename `func rowToSuperchargerSession(r telemetrydb.SuperchargerHistory) SuperchargerHistory`
+- [x] T3.1 Rename `func rowToSuperchargerSession(r telemetrydb.SuperchargerHistory) SuperchargerHistory`
   → `func rowToSuperchargerHistory(...)`. Its doc comment (which already correctly says it
   converts a `telemetrydb.SuperchargerHistory` row) updates its own name and its
   "for the SuperchargerReader read path" phrase to name the new port.
-- [ ] T3.2 Update every call site of `rowToSuperchargerSession` (four, one per method in
+- [x] T3.2 Update every call site of `rowToSuperchargerSession` (four, one per method in
   `reader.go`, covered by T2.4) to the new name — verify no call site is missed by grepping
   `internal/telemetry/*.go` for the old name after T2 and T3 both land.
 
 ## T4. Rename the write-seam helper — `internal/telemetry/service.go` — `[telemetry]` — no dependency on T1 (a separate, `Collector`-side interface), parallel-ok with T1–T3
 
-- [ ] T4.1 Rename the unexported `store` interface's method `upsertSuperchargerSession(ctx
+- [x] T4.1 Rename the unexported `store` interface's method `upsertSuperchargerSession(ctx
   context.Context, s SuperchargerHistory) error` → `upsertSuperchargerHistory(...)`, and its
   doc comment "upsertSuperchargerSession is the Source B write seam" → the new name.
-- [ ] T4.2 Rename the `dbStore` implementation `func (d *dbStore) upsertSuperchargerSession(...)`
+- [x] T4.2 Rename the `dbStore` implementation `func (d *dbStore) upsertSuperchargerSession(...)`
   → `upsertSuperchargerHistory`, and its own doc comment.
-- [ ] T4.3 Update the one call site, `s.store.upsertSuperchargerSession(ctx, domainSession)` →
+- [x] T4.3 Update the one call site, `s.store.upsertSuperchargerSession(ctx, domainSession)` →
   `s.store.upsertSuperchargerHistory(ctx, domainSession)`.
 
 ## T5. Comment-only sweep — `internal/telemetry/run_writer.go` — `[telemetry]` — independent, parallel-ok with everything
 
-- [ ] T5.1 Update the two comments that name the old vocabulary for illustrative comparison
+- [x] T5.1 Update the two comments that name the old vocabulary for illustrative comparison
   ("mirroring SuperchargerReader's and internal/analytics' gapWriter's identical precedent";
   "mirroring newSuperchargerReaderImpl's and newGapWriter's identical pattern") to the new
   names. No code in this file changes — `runWriter`/`RunWriter` are unrelated to this rename.
 
 ## T6. `internal/telemetry/db/query.sql` comments + regeneration — `[telemetry]` — depends on nothing, parallel-ok with T1–T5
 
-- [ ] T6.1 In `internal/telemetry/db/query.sql`, update the two `-- name:` block doc comments
+- [x] T6.1 In `internal/telemetry/db/query.sql`, update the two `-- name:` block doc comments
   that name the old port for cross-reference: the `SuperchargerHistoryByVehicleBetween` query's
   "Used by SuperchargerReader.SuperchargerSessionsByVehicleBetween..." and the
   `SuperchargerHistoryByVehicleUpdatedSince` query's "Used by
   SuperchargerReader.SuperchargerSessionsByVehicleUpdatedSince..." → name the new port/method
   (design.md D3). **No SQL statement, parameter, or `-- name:` line changes** — the 5 query
   names are already `SuperchargerHistoryBy*`/`UpsertSuperchargerHistory` from tier 4.
-- [ ] T6.2 Run `sqlc generate` (equivalent to `make sqlc`). Confirm `internal/telemetry/db/models.go`
+- [x] T6.2 Run `sqlc generate` (equivalent to `make sqlc`). Confirm `internal/telemetry/db/models.go`
   has **zero** diff (this task changes no schema and no query name) and
   `internal/telemetry/db/query.sql.go` only reflects the 2 comment edits from T6.1 — diff the
   regenerated file and confirm nothing else moved.
 
 ## T7. FINAL WAVE — telemetry's own `_test.go` files — `[telemetry]` — depends on T1–T4
 
-- [ ] T7.1 `reader_test.go`: rename `fakeReadStore.upsertSuperchargerSession`,
+- [x] T7.1 `reader_test.go`: rename `fakeReadStore.upsertSuperchargerSession`,
   `fakeHistoryStore.upsertSuperchargerSession`, `fakeBetweenStore.upsertSuperchargerSession` →
   `upsertSuperchargerHistory` (interface satisfaction for T4's renamed `store` interface — each
   still panics with its existing message, updated to name the new symbol). No assertion or
   expected-value change (design.md Test Contract).
-- [ ] T7.2 `service_test.go`: rename `fakeStore.upsertSuperchargerSession` →
+- [x] T7.2 `service_test.go`: rename `fakeStore.upsertSuperchargerSession` →
   `upsertSuperchargerHistory` and its surrounding comments (`upsertedSessions`/`upsertErr`
   field names may stay — they name what the field holds, not the renamed method). No
   assertion or expected-value change.
-- [ ] T7.3 `db_supercharger_integration_test.go`: update all `newSuperchargerReaderImpl(pool)` →
+- [x] T7.3 `db_supercharger_integration_test.go`: update all `newSuperchargerReaderImpl(pool)` →
   `newSuperchargerHistoryReaderImpl(pool)` and `.SuperchargerSessionsByAccount(...)` →
   `.SuperchargerHistoryByAccount(...)` call sites (design.md Test Contract lists this file).
   Update `t.Fatalf` format strings that echo the old method name for accuracy. No
   row/expected-value change.
-- [ ] T7.4 `db_supercharger_between_integration_test.go`: same shape —
+- [x] T7.4 `db_supercharger_between_integration_test.go`: same shape —
   `newSuperchargerReaderImpl` → `newSuperchargerHistoryReaderImpl`,
   `.SuperchargerSessionsByVehicleBetween(...)` → `.SuperchargerHistoryByVehicleBetween(...)`.
   Test function names (`TestSuperchargerSessionsByVehicleBetween_*`) MAY be renamed to
   `TestSuperchargerHistoryByVehicleBetween_*` for vocabulary consistency — optional, not
   required for compilation; do it if touching the file anyway. No expected-value change.
-- [ ] T7.5 `db_supercharger_battery_pct_integration_test.go`: same shape as T7.3/T7.4, plus
+- [x] T7.5 `db_supercharger_battery_pct_integration_test.go`: same shape as T7.3/T7.4, plus
   rename the test function `TestStore_SuperchargerReader_ReturnsBatteryPctTrioAndSnapshot` →
   `TestStore_SuperchargerHistoryReader_ReturnsBatteryPctTrioAndSnapshot` (design.md D2 — this
   one directly names the old port in its own test name). No expected-value change.
-- [ ] T7.6 Grep `internal/telemetry/*.go` for the 5 old identifiers
+- [x] T7.6 Grep `internal/telemetry/*.go` for the 5 old identifiers
   (`SuperchargerReader\b`, `SuperchargerSessionsBy`, `NewSuperchargerReader`,
   `rowToSuperchargerSession`, `upsertSuperchargerSession`) after T1–T7 land and confirm zero
   hits inside `internal/telemetry` (this module has no gateway/charging-style name collision,
@@ -130,22 +130,22 @@ on both sides of the interface boundary.
 
 ## T8. FINAL WAVE — `internal/app` (the port's only remaining real caller, design.md D1) — `[leader-owned]` — depends on T1–T4
 
-- [ ] T8.1 `internal/app/app.go`: rename the constructor parameter `superchargerReader
+- [x] T8.1 `internal/app/app.go`: rename the constructor parameter `superchargerReader
   telemetry.SuperchargerReader` → `superchargerHistoryReader telemetry.SuperchargerHistoryReader`
   (the type per T1; the local parameter name per design.md D2's consistency argument, not a
   compiler requirement), and its comment mentioning `superchargerReader`.
-- [ ] T8.2 `internal/app/processor.go`: rename the struct field `superchargerReader
+- [x] T8.2 `internal/app/processor.go`: rename the struct field `superchargerReader
   telemetry.SuperchargerReader` → `superchargerHistoryReader telemetry.SuperchargerHistoryReader`,
   and its one call site `p.superchargerReader.SuperchargerSessionsByAccount(ctx, v.AccountID, 0)`
   → `p.superchargerHistoryReader.SuperchargerHistoryByAccount(ctx, v.AccountID, 0)`.
-- [ ] T8.3 `internal/app/processor_test.go`: rename `fakeSuperchargerReader`'s four methods to
+- [x] T8.3 `internal/app/processor_test.go`: rename `fakeSuperchargerReader`'s four methods to
   match T1.2 (`SuperchargerHistoryByAccount` etc.), update the compile-time assertion `var _
   telemetry.SuperchargerReader = fakeSuperchargerReader{}` → `var _
   telemetry.SuperchargerHistoryReader = fakeSuperchargerReader{}` (the fake's own type name
   MAY optionally follow to `fakeSuperchargerHistoryReader` — not required), and its doc comment
   "fakeSuperchargerReader satisfies telemetry.SuperchargerReader". No assertion or
   expected-value change in any `TestProcessVehicleData_*` test.
-- [ ] T8.4 **Do NOT touch `internal/gateway` or `internal/charging`'s own `SuperchargerReader`/
+- [x] T8.4 **Do NOT touch `internal/gateway` or `internal/charging`'s own `SuperchargerReader`/
   `SessionReader` identifiers while doing this sweep** — confirm before starting that any file
   edited under T8 imports `internal/telemetry` (only `app.go`, `processor.go`,
   `processor_test.go` do; `internal/gateway/**` and `cmd/web/main.go` do not and must not be
@@ -153,7 +153,7 @@ on both sides of the interface boundary.
 
 ## T9. FINAL WAVE — `cmd/poller/main.go` — `[leader-owned]` — depends on T1
 
-- [ ] T9.1 Rename the local variable `superchargerReader := telemetry.NewSuperchargerReader(pool)`
+- [x] T9.1 Rename the local variable `superchargerReader := telemetry.NewSuperchargerReader(pool)`
   → `superchargerHistoryReader := telemetry.NewSuperchargerHistoryReader(pool)`, its downstream
   usage (passed into `app.New(...)` or equivalent), and the comment above it ("superchargerReader
   is telemetry's, and stays: the mirror step reads...").
@@ -187,7 +187,7 @@ on both sides of the interface boundary.
 
 ## T12. Module docs — `internal/telemetry/AGENTS.md` — `[telemetry]` — depends on T1–T7, parallel-ok with T8–T11
 
-- [ ] T12.1 Replace the `SuperchargerReader` section's "Deliberate half-state (design D6,
+- [x] T12.1 Replace the `SuperchargerReader` section's "Deliberate half-state (design D6,
   tier 4) — do not 'fix' this" note (the one instructing future agents not to rename
   `SuperchargerSessionsBy…`/`NewSuperchargerReader`/`superchargerReader`/
   `rowToSuperchargerSession`/`upsertSuperchargerSession`) with the completed state: the port is
@@ -195,7 +195,7 @@ on both sides of the interface boundary.
   `NewSuperchargerHistoryReader`, and it fully matches the table/domain-type vocabulary. Record
   this change (`RM39-telemetry-rename-supercharger-port`) as the tier that closed it, mirroring
   how other renamed-vocabulary sections in this file read after their own tier landed.
-- [ ] T12.2 Update every other mention of the old port/method/helper names elsewhere in this
+- [x] T12.2 Update every other mention of the old port/method/helper names elsewhere in this
   file (the "Public interface (the port)" intro, any cross-reference in "Data ownership" or
   "Testing notes").
 

@@ -140,26 +140,24 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
   `NewReader(pool *pgxpool.Pool) Reader` is the constructor. The gateway (tier 5,
   `gateway-read-stored-vehicles`) depends on this interface, never on `telemetrydb` directly.
 
-- `SuperchargerReader` — exposes `supercharger_history` (renamed from
+- `SuperchargerHistoryReader` — exposes `supercharger_history` (renamed from
   `supercharger_sessions` by `RM39-telemetry-move-to-own-schema` tier 4, roadmap D5a/D5c)
   for read-only consumption, a separate port from `Reader` (snapshot-centric).
-  **Deliberate half-state (design D6, tier 4) — do not "fix" this:** the port name
-  `SuperchargerReader`, its four method names below (`SuperchargerSessionsBy…`),
-  `NewSuperchargerReader` and the unexported `superchargerReader` all KEEP the old
-  `…Session…` wording on purpose, while every one of them now returns/handles the
-  renamed domain type `[]SuperchargerHistory`. That mismatch is correct and expected
-  until `RM39-telemetry-rename-supercharger-port` (roadmap tier 5) renames the port
-  itself — deferred because the surface has 88 references outside this module across
-  `charging`, `analytics`, `gateway`, `app` and both `cmd/` binaries. If you are the
-  next agent here: do not rename `SuperchargerSessionsBy…`, `NewSuperchargerReader`,
-  `superchargerReader`, `rowToSuperchargerSession` or `upsertSuperchargerSession` — that
-  is tier 5's job, not an omission in this file.
-  - `SuperchargerSessionsByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerHistory, error)`:
+  **Fully renamed (RM39-telemetry-rename-supercharger-port, roadmap tier 5, closes
+  design D6 of tier 4):** the port name `SuperchargerHistoryReader`, its four method
+  names below (`SuperchargerHistoryBy…`), the constructor `NewSuperchargerHistoryReader`,
+  and the unexported `superchargerHistoryReader` / `rowToSuperchargerHistory` /
+  `upsertSuperchargerHistory` helpers now all match the table (`supercharger_history`)
+  and the domain type (`SuperchargerHistory`) they have returned/handled since tier 4.
+  Tier 4's half-renamed state — the port still saying `…Session…` while returning
+  `[]SuperchargerHistory` — is retired; there is no remaining vocabulary mismatch on
+  this port.
+  - `SuperchargerHistoryByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerHistory, error)`:
     all sessions for an account, ordered `charge_start_date_time DESC`, limited to `limit`
     rows (`0` = server default `math.MaxInt32`). Non-nil empty slice when none exist.
-  - `SuperchargerSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerHistory, error)`:
+  - `SuperchargerHistoryByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerHistory, error)`:
     same shape, scoped to one vehicle within the account.
-  - `SuperchargerSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error)`:
+  - `SuperchargerHistoryByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error)`:
     sessions for one vehicle whose **`ChargeStopDateTime`** falls in the caller-supplied
     `[start, end]` window, inclusive of the whole `end` calendar day, ordered oldest-first
     (ascending by `ChargeStopDateTime`). `start`/`end` are whole UTC-midnight-bounded calendar
@@ -172,12 +170,13 @@ The module's mandatory contract is a Go interface (`ai/go-conventions.md` — in
     precedent, so the underlying SQL's half-open `>= start AND < endBound` includes every
     instant of the end calendar day. No `limit` parameter — the caller-supplied window is the
     bound. No new index added for this method (see design.md's Index Plan for the documented
-    trade-off and fallback). Reuses the existing `rowToSuperchargerSession` mapper — no new
+    trade-off and fallback). Reuses the existing `rowToSuperchargerHistory` mapper — no new
     field, no new mapper. Non-nil empty slice when none exist (parity with the other two
     methods). `account_id` AND `tesla_id` filter provides defense-in-depth tenant isolation.
     Added by `RM28-telemetry-add-charge-gap-storage` (MAG-15, roadmap D9/D12).
-  `NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader` is the constructor;
-  implementation in `reader.go`. Callers MUST NOT import `telemetrydb` (design DBS6).
+  `NewSuperchargerHistoryReader(pool *pgxpool.Pool) SuperchargerHistoryReader` is the
+  constructor; implementation in `reader.go`. Callers MUST NOT import `telemetrydb`
+  (design DBS6).
 
 No HTTP/JSON surface in this module (none required — `ai/architecture.md` §3).
 
@@ -352,7 +351,7 @@ that rule: `vehicle_snapshots` is the table the platform rule was generalised fr
 
 `SuperchargerHistory` gains five pointer fields (`StartBatteryPct *int`, `EndBatteryPct *int`,
 `BatteryPctSource *string`, `StartBatteryPctEst *int`, `EndBatteryPctEst *int`), mapped by
-`rowToSuperchargerSession` (`mapping.go`) via the new `pgNullableInt16AsInt` helper (first
+`rowToSuperchargerHistory` (`mapping.go`) via the new `pgNullableInt16AsInt` helper (first
 `SMALLINT`/`pgtype.Int2` column in this module; reused for all four `SMALLINT` fields) and the
 existing `pgNullableText` helper for `BatteryPctSource`.
 

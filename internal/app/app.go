@@ -64,7 +64,7 @@ type Processor interface {
 // this use case performs happens through one of these eight arguments.
 //
 // runWriter is telemetry's third port here (grouped with collector and
-// superchargerReader — RM36-app-record-poll-run design D1): ProcessVehicleData
+// superchargerHistoryReader — RM36-app-record-poll-run design D1): ProcessVehicleData
 // calls it exactly once per invocation, after measuring the run's start-to-finish
 // span, to record a poll_runs summary row (RM36 tier 2).
 //
@@ -76,7 +76,7 @@ type Processor interface {
 // D10).
 func NewProcessor(
 	collector telemetry.Collector,
-	superchargerReader telemetry.SuperchargerReader,
+	superchargerHistoryReader telemetry.SuperchargerHistoryReader,
 	runWriter telemetry.RunWriter,
 	sessionWriter charging.SessionWriter,
 	acct account.Service,
@@ -86,14 +86,14 @@ func NewProcessor(
 	loc *time.Location,
 ) Processor {
 	return &processor{
-		collector:          collector,
-		superchargerReader: superchargerReader,
-		runWriter:          runWriter,
-		sessionWriter:      sessionWriter,
-		acct:               acct,
-		recalculator:       recalculator,
-		analyticsReader:    analyticsReader,
-		gapWriter:          gapWriter,
-		loc:                loc,
+		collector:                 collector,
+		superchargerHistoryReader: superchargerHistoryReader,
+		runWriter:                 runWriter,
+		sessionWriter:             sessionWriter,
+		acct:                      acct,
+		recalculator:              recalculator,
+		analyticsReader:           analyticsReader,
+		gapWriter:                 gapWriter,
+		loc:                       loc,
 	}
 }

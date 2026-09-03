@@ -534,24 +534,24 @@ func deriveIsPaid(fees []tesla.ChargingFeeTesla) *bool {
 	return &allPaid
 }
 
-// SuperchargerReader exposes supercharger session data for read-only consumption.
+// SuperchargerHistoryReader exposes supercharger session data for read-only consumption.
 // It is a separate port from Reader (snapshot-centric) to keep concerns distinct
 // and to allow the gateway to depend on only the port it needs. Callers MUST NOT
 // import telemetrydb (design DBS6).
-type SuperchargerReader interface {
-	// SuperchargerSessionsByAccount returns all Supercharger sessions for the
+type SuperchargerHistoryReader interface {
+	// SuperchargerHistoryByAccount returns all Supercharger sessions for the
 	// given account, ordered by charge_start_date_time DESC, limited to limit
 	// rows (0 = server default of math.MaxInt32). Returns an empty non-nil
 	// slice when no sessions exist.
-	SuperchargerSessionsByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerHistory, error)
+	SuperchargerHistoryByAccount(ctx context.Context, accountID uuid.UUID, limit int) ([]SuperchargerHistory, error)
 
-	// SuperchargerSessionsByVehicle returns Supercharger sessions for the given
+	// SuperchargerHistoryByVehicle returns Supercharger sessions for the given
 	// vehicle within the given account, ordered by charge_start_date_time DESC,
 	// limited to limit rows (0 = server default of math.MaxInt32). Returns an
 	// empty non-nil slice when no sessions exist.
-	SuperchargerSessionsByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerHistory, error)
+	SuperchargerHistoryByVehicle(ctx context.Context, accountID uuid.UUID, teslaID int64, limit int) ([]SuperchargerHistory, error)
 
-	// SuperchargerSessionsByVehicleBetween returns Supercharger sessions for
+	// SuperchargerHistoryByVehicleBetween returns Supercharger sessions for
 	// the given vehicle (within the given account) whose ChargeStopDateTime
 	// falls in the caller-supplied [start, end] window, inclusive of the
 	// whole end calendar day, ordered oldest-first (ascending by
@@ -570,21 +570,21 @@ type SuperchargerReader interface {
 	// answers "which sessions' energy finished landing in this window."
 	//
 	// Returns a non-nil empty slice and nil error when no sessions exist in
-	// the window (parity with SuperchargerSessionsByAccount/ByVehicle's
+	// the window (parity with SuperchargerHistoryByAccount/ByVehicle's
 	// existing empty-result contract, and with Reader.SnapshotsByVehicleBetween's
 	// identical convention -- no nil-slice footgun for callers). The
 	// account_id AND tesla_id filter provides defense-in-depth tenant
 	// isolation, mirroring every other bounded-window method in this module.
 	//
-	// Purely additive alongside SuperchargerSessionsByAccount/ByVehicle
+	// Purely additive alongside SuperchargerHistoryByAccount/ByVehicle
 	// (both unchanged, both remain limit-based for their own "most recent N"
 	// access pattern). This method has no limit parameter and no LIMIT-N
 	// contract -- the caller-supplied window is the bound, exactly like
 	// Reader.SnapshotsByVehicleBetween's own reasoning for why a bounded
 	// window makes an unbounded-N limit the caller's job, not this query's.
-	SuperchargerSessionsByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error)
+	SuperchargerHistoryByVehicleBetween(ctx context.Context, accountID uuid.UUID, teslaID int64, start, end time.Time) ([]SuperchargerHistory, error)
 
-	// SuperchargerSessionsByVehicleUpdatedSince returns every stored Supercharger
+	// SuperchargerHistoryByVehicleUpdatedSince returns every stored Supercharger
 	// session for the given vehicle (within the given account) whose updated_at
 	// is at or after `since`, ordered oldest-first by updated_at. It exists so
 	// other modules (internal/analytics' Recalculator,
@@ -594,22 +594,22 @@ type SuperchargerReader interface {
 	// updated_at refreshes (design DBS3: supercharger_history is not
 	// append-only) — without importing telemetrydb directly. Returns a non-nil
 	// empty slice and nil error when no session for the vehicle has been
-	// updated at or after `since` (parity with every other SuperchargerReader
+	// updated at or after `since` (parity with every other SuperchargerHistoryReader
 	// method's empty-result contract). The account_id AND tesla_id filter
 	// provides defense-in-depth tenant isolation, mirroring every other
 	// per-vehicle method on this interface. No new index — updated_at is a
 	// residual filter within the existing (account_id, tesla_id) scan prefix
 	// (verified via EXPLAIN in the DB-integration test, Wave 6 of that
-	// change). Reuses the existing rowToSuperchargerSession mapper — no new
+	// change). Reuses the existing rowToSuperchargerHistory mapper — no new
 	// field, no new mapper.
-	SuperchargerSessionsByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]SuperchargerHistory, error)
+	SuperchargerHistoryByVehicleUpdatedSince(ctx context.Context, accountID uuid.UUID, teslaID int64, since time.Time) ([]SuperchargerHistory, error)
 }
 
-// NewSuperchargerReader constructs a SuperchargerReader backed by the telemetry DB pool.
+// NewSuperchargerHistoryReader constructs a SuperchargerHistoryReader backed by the telemetry DB pool.
 // Implementation is in reader.go. The gateway and other callers depend on the
-// SuperchargerReader interface, never on the concrete type or on telemetrydb directly.
-func NewSuperchargerReader(pool *pgxpool.Pool) SuperchargerReader {
-	return newSuperchargerReaderImpl(pool)
+// SuperchargerHistoryReader interface, never on the concrete type or on telemetrydb directly.
+func NewSuperchargerHistoryReader(pool *pgxpool.Pool) SuperchargerHistoryReader {
+	return newSuperchargerHistoryReaderImpl(pool)
 }
 
 // --- poll_runs: run-level summary (RM36-telemetry-add-poll-runs) ---
@@ -655,7 +655,7 @@ type PollRun struct {
 // D12): its correctness is proven by a DATABASE_URL-gated integration test, not
 // by an offline fake, so its implementation talks to telemetrydb.Queries directly
 // rather than being routed through the store interface service.go/reader.go
-// share (mirroring this module's own SuperchargerReader and internal/analytics'
+// share (mirroring this module's own SuperchargerHistoryReader and internal/analytics'
 // gapWriter — adding this to store would force every existing fake store test
 // double to grow a stub method it never calls).
 type RunWriter interface {
@@ -671,7 +671,7 @@ type RunWriter interface {
 // NewRunWriter constructs a RunWriter backed by a real Postgres pool. Callers
 // (internal/app) depend on the RunWriter interface, never on the concrete type
 // or on telemetrydb directly. Implementation is in run_writer.go — the forward
-// declaration here mirrors NewSuperchargerReader's own pattern (design D12).
+// declaration here mirrors NewSuperchargerHistoryReader's own pattern (design D12).
 func NewRunWriter(pool *pgxpool.Pool) RunWriter {
 	return newRunWriter(pool)
 }

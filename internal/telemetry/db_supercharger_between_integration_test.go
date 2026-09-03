@@ -8,26 +8,26 @@ import (
 	"github.com/google/uuid"
 )
 
-// These tests exercise SuperchargerReader.SuperchargerSessionsByVehicleBetween
+// These tests exercise SuperchargerHistoryReader.SuperchargerHistoryByVehicleBetween
 // (RM28-telemetry-add-charge-gap-storage, roadmap D9/D12) against a real Postgres from
 // DATABASE_URL and self-skip when it is unset, so `go test ./...` stays green without a
 // database (ai/go-conventions.md §persistence, AGENTS.md §Testing notes). They reuse
-// upsertSuperchargerSession (service.go) and newSuperchargerReaderImpl (reader.go) —
+// upsertSuperchargerHistory (service.go) and newSuperchargerHistoryReaderImpl (reader.go) —
 // the same helpers db_supercharger_integration_test.go already exercises — plus the
 // itoa helper defined there (same package, no re-declaration needed).
 //
 // They implement the test contract authored in design.md BEFORE the implementation
 // existed (§"Test Contract"):
 //
-//   - (c) TestSuperchargerSessionsByVehicleBetween_BoundaryInclusiveStartAndEndDay_ExcludesDayAfter
-//   - (d) TestSuperchargerSessionsByVehicleBetween_IncludesMidnightSpanningSession_FiltersOnStopTime
-//   - (e)-iii TestSuperchargerSessionsByVehicleBetween_TenantIsolation_ReturnsOnlyRequestedAccountVehicle
+//   - (c) TestSuperchargerHistoryByVehicleBetween_BoundaryInclusiveStartAndEndDay_ExcludesDayAfter
+//   - (d) TestSuperchargerHistoryByVehicleBetween_IncludesMidnightSpanningSession_FiltersOnStopTime
+//   - (e)-iii TestSuperchargerHistoryByVehicleBetween_TenantIsolation_ReturnsOnlyRequestedAccountVehicle
 //
 // DISCREPANCY IN design.md's SCENARIO (d) — see the worker report for this task: the
 // prose says S5 is "ordered before S1 (its stop time, 00:15:00Z, is after S1's
 // 00:00:00Z)" — those two clauses cannot both be true under the ascending-by-
 // ChargeStopDateTime ordering scenario (c) establishes ("the returned slice is ordered
-// oldest-first (S1 before S2 before S3)") and the SuperchargerReader interface doc
+// oldest-first (S1 before S2 before S3)") and the SuperchargerHistoryReader interface doc
 // comment restates ("ordered oldest-first (ascending by ChargeStopDateTime)"). The test
 // below asserts the internally-consistent half of the contract — ascending stop-time
 // order, so S1 (earlier stop) precedes S5 (later stop) — which is also exactly what
@@ -35,12 +35,12 @@ import (
 // scenario (c) fixtures by its stop time"), without repeating design.md's
 // self-contradictory "before S1" wording.
 
-// TestSuperchargerSessionsByVehicleBetween_BoundaryInclusiveStartAndEndDay_ExcludesDayAfter
+// TestSuperchargerHistoryByVehicleBetween_BoundaryInclusiveStartAndEndDay_ExcludesDayAfter
 // implements design.md test-contract scenario (c): a session stopping exactly on
 // `start`, one exactly on `end` (the first instant of the end calendar day), and one
 // late in the end calendar day are all included and ordered oldest-first; a session
 // stopping exactly one day past `end` is excluded (T7.3).
-func TestSuperchargerSessionsByVehicleBetween_BoundaryInclusiveStartAndEndDay_ExcludesDayAfter(t *testing.T) {
+func TestSuperchargerHistoryByVehicleBetween_BoundaryInclusiveStartAndEndDay_ExcludesDayAfter(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -70,7 +70,7 @@ func TestSuperchargerSessionsByVehicleBetween_BoundaryInclusiveStartAndEndDay_Ex
 
 	tid := teslaID
 	for _, f := range fixtures {
-		if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
+		if err := st.upsertSuperchargerHistory(ctx, SuperchargerHistory{
 			SessionID:           f.id,
 			AccountID:           accountID,
 			VIN:                 "VIN_BETWEEN",
@@ -87,10 +87,10 @@ func TestSuperchargerSessionsByVehicleBetween_BoundaryInclusiveStartAndEndDay_Ex
 		}
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, start, end)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByVehicleBetween(ctx, accountID, teslaID, start, end)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByVehicleBetween: %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicleBetween: %v", err)
 	}
 
 	wantIDs := []int64{s1ID, s2ID, s3ID}
@@ -109,11 +109,11 @@ func TestSuperchargerSessionsByVehicleBetween_BoundaryInclusiveStartAndEndDay_Ex
 	}
 }
 
-// TestSuperchargerSessionsByVehicleBetween_IncludesMidnightSpanningSession_FiltersOnStopTime
+// TestSuperchargerHistoryByVehicleBetween_IncludesMidnightSpanningSession_FiltersOnStopTime
 // implements design.md test-contract scenario (d): a session that STARTS the day before
 // `start` but STOPS inside the window is included, because the port filters purely on
 // ChargeStopDateTime and ignores where the session started (T7.4).
-func TestSuperchargerSessionsByVehicleBetween_IncludesMidnightSpanningSession_FiltersOnStopTime(t *testing.T) {
+func TestSuperchargerHistoryByVehicleBetween_IncludesMidnightSpanningSession_FiltersOnStopTime(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -131,7 +131,7 @@ func TestSuperchargerSessionsByVehicleBetween_IncludesMidnightSpanningSession_Fi
 
 	tid := teslaID
 	s1Stop := time.Date(2026, 8, 10, 0, 0, 0, 0, time.UTC)
-	if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
+	if err := st.upsertSuperchargerHistory(ctx, SuperchargerHistory{
 		SessionID:           s1ID,
 		AccountID:           accountID,
 		VIN:                 "VIN_MIDNIGHT",
@@ -149,7 +149,7 @@ func TestSuperchargerSessionsByVehicleBetween_IncludesMidnightSpanningSession_Fi
 
 	s5Start := time.Date(2026, 8, 9, 23, 30, 0, 0, time.UTC) // the day BEFORE start
 	s5Stop := time.Date(2026, 8, 10, 0, 15, 0, 0, time.UTC)  // inside the window
-	if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
+	if err := st.upsertSuperchargerHistory(ctx, SuperchargerHistory{
 		SessionID:           s5ID,
 		AccountID:           accountID,
 		VIN:                 "VIN_MIDNIGHT",
@@ -165,10 +165,10 @@ func TestSuperchargerSessionsByVehicleBetween_IncludesMidnightSpanningSession_Fi
 		t.Fatalf("upsert S5: %v", err)
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByVehicleBetween(ctx, accountID, teslaID, start, end)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByVehicleBetween(ctx, accountID, teslaID, start, end)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByVehicleBetween: %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicleBetween: %v", err)
 	}
 
 	if len(got) != 2 {
@@ -192,11 +192,11 @@ func TestSuperchargerSessionsByVehicleBetween_IncludesMidnightSpanningSession_Fi
 	}
 }
 
-// TestSuperchargerSessionsByVehicleBetween_TenantIsolation_ReturnsOnlyRequestedAccountVehicle
+// TestSuperchargerHistoryByVehicleBetween_TenantIsolation_ReturnsOnlyRequestedAccountVehicle
 // implements design.md test-contract scenario (e)-iii: given two accounts each with a
 // session whose ChargeStopDateTime falls in the same window, calling the method for one
 // account/vehicle returns only that account's session, never the other's (T7.5).
-func TestSuperchargerSessionsByVehicleBetween_TenantIsolation_ReturnsOnlyRequestedAccountVehicle(t *testing.T) {
+func TestSuperchargerHistoryByVehicleBetween_TenantIsolation_ReturnsOnlyRequestedAccountVehicle(t *testing.T) {
 	st, pool := newTestStore(t)
 	ctx := context.Background()
 
@@ -217,7 +217,7 @@ func TestSuperchargerSessionsByVehicleBetween_TenantIsolation_ReturnsOnlyRequest
 	stop := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC) // same window for both accounts
 
 	tidA := teslaA
-	if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
+	if err := st.upsertSuperchargerHistory(ctx, SuperchargerHistory{
 		SessionID:           sessionA,
 		AccountID:           accountA,
 		VIN:                 "VIN_TENANT_A",
@@ -234,7 +234,7 @@ func TestSuperchargerSessionsByVehicleBetween_TenantIsolation_ReturnsOnlyRequest
 	}
 
 	tidB := teslaB
-	if err := st.upsertSuperchargerSession(ctx, SuperchargerHistory{
+	if err := st.upsertSuperchargerHistory(ctx, SuperchargerHistory{
 		SessionID:           sessionB,
 		AccountID:           accountB,
 		VIN:                 "VIN_TENANT_B",
@@ -250,10 +250,10 @@ func TestSuperchargerSessionsByVehicleBetween_TenantIsolation_ReturnsOnlyRequest
 		t.Fatalf("upsert account B session: %v", err)
 	}
 
-	r := newSuperchargerReaderImpl(pool)
-	got, err := r.SuperchargerSessionsByVehicleBetween(ctx, accountA, teslaA, start, end)
+	r := newSuperchargerHistoryReaderImpl(pool)
+	got, err := r.SuperchargerHistoryByVehicleBetween(ctx, accountA, teslaA, start, end)
 	if err != nil {
-		t.Fatalf("SuperchargerSessionsByVehicleBetween: %v", err)
+		t.Fatalf("SuperchargerHistoryByVehicleBetween: %v", err)
 	}
 
 	if len(got) != 1 || got[0].SessionID != sessionA {

@@ -103,12 +103,12 @@ func main() {
 	// same sources.
 	telemetryReader := telemetry.NewReader(pool)
 	// Two Supercharger-session ports, deliberately, reading two different tables.
-	// superchargerReader is telemetry's, and stays: the mirror step reads
-	// supercharger_sessions to WRITE charge_sessions, so it must keep its source.
+	// superchargerHistoryReader is telemetry's, and stays: the mirror step reads
+	// supercharger_history to WRITE charge_sessions, so it must keep its source.
 	// sessionAnalyticsReader is charging's, and is what analytics now reads --
 	// since RM31 tier 3 the metrics derive from charge_sessions, the table a
 	// human's verified battery percentages land in.
-	superchargerReader := telemetry.NewSuperchargerReader(pool)
+	superchargerHistoryReader := telemetry.NewSuperchargerHistoryReader(pool)
 	sessionAnalyticsReader := charging.NewSuperchargerSessionAnalyticsReader(pool)
 	chargingReader := charging.NewReader(pool)
 
@@ -129,7 +129,7 @@ func main() {
 	// other the way a decorator wrapped around only one of them could.
 	processor := app.NewProcessor(
 		telemetry.NewService(pool, acct, tesla.NewClient(), tcfg),
-		superchargerReader,
+		superchargerHistoryReader,
 		telemetry.NewRunWriter(pool),
 		charging.NewSessionWriter(pool),
 		acct,

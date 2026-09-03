@@ -230,7 +230,7 @@ type fakeStore struct {
 	snapInserts int
 	// upsertedSessions records all SuperchargerHistory upserts (B7 tests inspect this).
 	upsertedSessions []SuperchargerHistory
-	// upsertErr, when set, is returned by every upsertSuperchargerSession call.
+	// upsertErr, when set, is returned by every upsertSuperchargerHistory call.
 	upsertErr error
 }
 
@@ -287,12 +287,12 @@ func (s *fakeStore) snapshotsByVehicleUpdatedSince(_ context.Context, _ uuid.UUI
 	return []Snapshot{}, nil
 }
 
-// upsertedSessions holds all sessions upserted via upsertSuperchargerSession.
+// upsertedSessions holds all sessions upserted via upsertSuperchargerHistory.
 // It is a separate field so B7 tests can inspect what was upserted.
 //
-// upsertSuperchargerSession records the upserted session and returns upsertErr
+// upsertSuperchargerHistory records the upserted session and returns upsertErr
 // (nil by default). Used by B7 collector tests.
-func (s *fakeStore) upsertSuperchargerSession(_ context.Context, session SuperchargerHistory) error {
+func (s *fakeStore) upsertSuperchargerHistory(_ context.Context, session SuperchargerHistory) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.upsertErr != nil {

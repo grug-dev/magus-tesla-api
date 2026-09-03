@@ -146,9 +146,9 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 	}
 }
 
-// rowToSuperchargerSession converts a generated telemetrydb.SuperchargerHistory row
+// rowToSuperchargerHistory converts a generated telemetrydb.SuperchargerHistory row
 // into the domain SuperchargerHistory type. This is the DB→domain mapping boundary
-// for the SuperchargerReader read path: all pgtype conversions are confined here so
+// for the SuperchargerHistoryReader read path: all pgtype conversions are confined here so
 // pgtype never appears in the domain type or any caller (ai/go-conventions.md
 // §persistence, design B6.1). Mapping rules:
 //
@@ -161,7 +161,7 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 //     design D5/D6): pgtype.Int2 → *int via pgNullableInt16AsInt (all four SMALLINT
 //     columns); pgtype.Text → *string via the existing pgNullableText for
 //     BatteryPctSource. NULL means no override/no snapshot exists.
-func rowToSuperchargerSession(r telemetrydb.SuperchargerHistory) SuperchargerHistory {
+func rowToSuperchargerHistory(r telemetrydb.SuperchargerHistory) SuperchargerHistory {
 	// nullable tesla_id
 	var teslaID *int64
 	if r.TeslaID.Valid {
