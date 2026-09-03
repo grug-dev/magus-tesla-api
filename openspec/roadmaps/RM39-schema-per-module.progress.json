@@ -6,7 +6,7 @@
   "request": "schema per module for internal/ modules",
   "status": "in-progress",
   "autopilot": true,
-  "updated_at": "2026-09-03T03:25:00Z",
+  "updated_at": "2026-09-03T03:40:00Z",
   "git": {
     "strategy": "auto",
     "branch": "ft/RM39-MAG-31-schema-per-module-renames",
@@ -17,9 +17,10 @@
   },
   "rollup": {
     "current": [],
-    "pending": [],
+    "pending": [
+      4
+    ],
     "blocked": [
-      4,
       5
     ],
     "done": [
@@ -238,6 +239,14 @@
       "made_by": "user",
       "decision": "Gate G1 (make db-reset) WAIVED; a fresh magus database will be built before the prod deploy instead",
       "why": "D23 already proved RM39 on real data, so the wipe's only remaining cost was irreplaceable history: 174 snapshots since 2026-07-13 and 12 hand-entered charge rows."
+    },
+    {
+      "id": "D25",
+      "at": "2026-09-03T03:40:00Z",
+      "scope": "tier:4",
+      "made_by": "user",
+      "decision": "D6 SUPERSEDED: tier 4 unblocked, and charging's backfill violation is fixed inside tier 4",
+      "why": "No ticket ever covered it — MAG-41 was the gateway->telemetry import, a different violation, and MAG-31's only Linear blocker. The residue is one false comment plus test SQL tier 4's step 2b already owned."
     }
   ],
   "tiers": [
@@ -317,14 +326,14 @@
         3,
         6
       ],
-      "status": "blocked",
+      "status": "not-started",
       "assistant": null,
       "model": null,
       "started_at": null,
       "completed_at": null,
       "duration_seconds": null,
       "budget": null,
-      "notes": "PRECEDED BY GATE G1 (owner-run make db-reset). BLOCKED on the external boundary ticket (D6). 4 tables. ALSO renames supercharger_sessions -> supercharger_history (D5a) and the db model + hand-written domain type to SuperchargerHistory, plus 5 sqlc query names. Public port SuperchargerReader stays put -- that is tier 5. Landing it breaks charging tests A1/A2. Plus work-shape step 2b (D9): schema-qualify ~19 raw SQL statements in this module's _test.go files."
+      "notes": "UNBLOCKED by D25 (was blocked by D6). 4 tables move to schema telemetry. ALSO renames supercharger_sessions -> supercharger_history (D5a) + the db model and hand-written domain type to SuperchargerHistory, plus 5 sqlc query names. D18 binds: the completeness criterion is the CATALOG — 9 objects measured on a migrated db (7 constraints + 2 indexes), NOT the table alone. Public port SuperchargerReader stays put; that is tier 5. Step 2b (D9/D13/D17) spans MODULES: 41 raw SQL statements in telemetry's own tests, plus charging/db_backfill_integration_test.go L158/187/307 and analytics/db_integration_test.go L415/443. FOLDED IN by D25: correct 20260823000001's now-false comment claiming the to_regclass guard always passes in a real database (comment only — D1 still forbids touching its SQL). D12's search_path fix is UNSAFE here."
     },
     {
       "id": 5,
@@ -543,6 +552,11 @@
       "at": "2026-09-03T03:25:00Z",
       "agent": "leader",
       "event": "ROADMAP HALT (Step 9). Tiers 1, 2, 3, 3b archived; tiers 4 and 5 remain BLOCKED on the external D6 boundary ticket, which is outside RM39 by the owner's own choice. No unblocked tier remains, so autopilot has nothing to advance to. RM39 stays in-progress; resume when the D6 ticket lands."
+    },
+    {
+      "at": "2026-09-03T03:40:00Z",
+      "agent": "leader",
+      "event": "D6 INVESTIGATED AND SUPERSEDED (D25). Checked Linear and the code: MAG-31's only blockedBy is MAG-41 (Fix boundary-guard), which is Done — but MAG-41 was the gateway->telemetry Go IMPORT violation fixed by RM38/RM40, not charging's backfill. No ticket ever existed for D6's violation. The violation is real and still present (20260823000001 reads public.supercharger_sessions inside a PL/pgSQL DO block; boundary-guard sees only Go imports and sqlc cannot parse a PL/pgSQL body), but its cost to tier 4 is one false comment plus test SQL already owned by step 2b. On a fresh db the post-rename guard skips a backfill that would have copied zero rows anyway."
     }
   ],
   "gates": [
