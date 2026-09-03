@@ -1,0 +1,83 @@
+# Sync proposal — charging
+
+> Staged by `kkpa-context-curate from-spec`. This is a **draft** of KB edits derived from one
+> approved OpenSpec capability spec. Review/edit the blocks below, then run
+> `/kkpa-context-curate apply-sync` to write them into the real KB. Nothing here touches the
+> canonical KB until applied. This file is self-contained — it embeds the proposed content, so it
+> stays valid even after the OpenSpec change folder is archived/moved.
+
+Target guide: `architecture/schema-per-module.md`
+Source spec:  `openspec/specs/charging/spec.md`
+Generated:    2026-09-03
+Status: PENDING REVIEW
+
+> **Curator's routing note.** Same cross-cutting invariant as the `account` and `analytics`
+> proposals, so it appends to the SAME guide. **Apply `account.md` first** — that is the proposal
+> that creates the guide — then `analytics.md`, then this one. The blocks here add only what is
+> specific to charging, and update the per-module migration-status table.
+>
+> **The table rename is the part that does NOT generalise.** Tiers 1 and 2 were pure schema moves;
+> tier 3 also renamed a table, and that difference is the source of three new gotchas below. A
+> reader of this guide must not carry the rename rules back onto a plain move.
+
+---
+
+## [guide] ## How maintenance works — APPEND
+
+Migration status update (RM39 tier 3): `charging` has moved, and renamed one table in the same
+migration. Replace the `charging` row of the status table with:
+
+| `charging` | `charging` | `manual_charge_entries`, `supercharger_sessions` (renamed from `charge_sessions`) | moved + renamed (RM39 tier 3) |
+
+The rename's statement order inside one migration is mandatory, not stylistic:
+`CREATE SCHEMA` → `ALTER TABLE ... SET SCHEMA` → `ALTER TABLE ... RENAME TO`. Renaming first
+collides with `public.supercharger_sessions`, which `telemetry` still owns until RM39 tier 4
+renames it to `supercharger_history`. The Down migration reverses in the exact mirror order.
+
+## [guide] ## Conventions & gotchas — APPEND
+
+- **A rename's completeness criterion is the CATALOG, never a hand-written object list.** Postgres
+  auto-names one CHECK constraint per inline column constraint, so those names exist ONLY in
+  `pg_constraint` — no grep of the source tree finds them. Tier 3 shipped, passed a review round
+  and archived with five `charge_sessions_*_check` constraints still carrying the retired name,
+  because everyone verified "the four objects we listed were renamed", which was true and
+  insufficient. Verify with a catalog query, and treat "no name beginning `<old_table>` remains"
+  as the acceptance criterion.
+  _Source: spec charging — Requirement: Supercharger Sessions Table Renamed._
+- **`ALTER TABLE ... RENAME TO` renames nothing else.** Indexes, the primary key, unique
+  constraints and every CHECK keep their old names silently. Left behind, they surface the retired
+  name in a duplicate-key or check-violation error message against a table the rest of the system
+  calls by its new name — a debugging trap, not a cosmetic one. Tier 3 renamed nine objects for
+  one table.
+  _Source: spec charging — Requirement: Supercharger Sessions Table Renamed._
+- **A rename escapes the module sandbox; a schema move does not.** Other modules' `_test.go` files
+  seed this module's table by bare name, and a module-scoped worker cannot see them. Tier 3 broke
+  two `internal/analytics` tests this way. Before dispatching a rename tier, the leader must grep
+  the WHOLE repo for the old table name in test SQL, not just the owning module.
+  _Source: RM39 roadmap decision D17 (found during tier 3)._
+- **`search_path` is UNSAFE as a test fix whenever the new name collides with another module's
+  table.** D12's trick — giving one test connection `?search_path=<module>,public` — silently
+  redirects a query meant for another module's identically-named table to your own, and the test
+  passes while asserting nothing. During tiers 3 and 4 both `public.supercharger_sessions`
+  (telemetry) and `charging.supercharger_sessions` exist. Qualify explicitly instead.
+  _Source: RM39 roadmap decision D12, corrected during tier 3._
+- **A generated Go type name follows the table when the rename's PURPOSE is to retire the old
+  word.** The general RM39 rule freezes Go names via `gen.go.rename` to avoid churn (D3), but
+  tier 3 deliberately did the opposite: `ChargeSession` → `SuperchargerSession`, with an identical
+  field list, plus the two sqlc query names that embedded the old table name
+  (`MirrorChargeSession` → `MirrorSuperchargerSession`, `VerifyChargeSession` →
+  `VerifySuperchargerSession`). Freezing them would have half-fixed the confusion in the code that
+  is read most.
+  _Source: spec charging — Requirement: Supercharger Sessions Table Renamed._
+- **The rename changed no public port and no behavior.** `charging.Writer`, `charging.Reader` and
+  the session ports keep every exported type, method name and signature; `internal/gateway` and
+  `internal/analytics` needed no change to keep working. If a rename tier forces a caller edit,
+  something outside its scope moved.
+  _Source: spec charging — Requirement: Supercharger Sessions Table Renamed; Requirement:
+  Module-Scoped Database Schema._
+
+## [index] ## Architecture — ADD ROWS
+
+| `charging schema` | the `charging` schema holding `manual_charge_entries` and `supercharger_sessions` → `architecture/schema-per-module.md` |
+| `table rename` | renaming a table and every catalog object that carries its name → `architecture/schema-per-module.md` |
+| `charge_sessions rename` | why `charge_sessions` became `supercharger_sessions` (RM39 tier 3) → `architecture/schema-per-module.md` |
