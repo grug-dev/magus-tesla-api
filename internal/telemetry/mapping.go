@@ -58,7 +58,7 @@ func pgNullableText(v pgtype.Text) *string {
 // {Valid: false} -> nil, {Valid: true} -> &v. First SMALLINT column in this module;
 // mirrors internal/charging's identical intPtrToPgInt2/pgInt2ToIntPtr shape for
 // its own start_battery_pct/end_battery_pct (module boundaries mean the four-line
-// helper is duplicated here, not imported). Reused across all four SMALLINT columns
+// helper is duplicated here, not imported). Reused across both SMALLINT columns
 // on supercharger_history (RM27-telemetry-add-supercharger-battery-pct, design D5).
 func pgNullableInt16AsInt(v pgtype.Int2) *int {
 	if !v.Valid {
@@ -158,9 +158,9 @@ func rowToSnapshot(r telemetrydb.VehicleSnapshot) Snapshot {
 //   - pgtype.Text → *string: {Valid: false} → nil
 //   - pgtype.Bool → *bool: {Valid: false} → nil
 //   - Battery-% verification columns (RM27-telemetry-add-supercharger-battery-pct,
-//     design D5/D6): pgtype.Int2 → *int via pgNullableInt16AsInt (all four SMALLINT
-//     columns); pgtype.Text → *string via the existing pgNullableText for
-//     BatteryPctSource. NULL means no override/no snapshot exists.
+//     design D5): pgtype.Int2 → *int via pgNullableInt16AsInt (both remaining
+//     SMALLINT columns); pgtype.Text → *string via the existing pgNullableText for
+//     BatteryPctSource. NULL means no override exists.
 func rowToSuperchargerHistory(r telemetrydb.SuperchargerHistory) SuperchargerHistory {
 	// nullable tesla_id
 	var teslaID *int64
@@ -219,13 +219,10 @@ func rowToSuperchargerHistory(r telemetrydb.SuperchargerHistory) SuperchargerHis
 		CreatedAt:           r.CreatedAt.Time,
 		UpdatedAt:           r.UpdatedAt.Time,
 
-		// Battery-% verification/override trio + frozen snapshot pair (RM27 tier 1,
-		// MAG-14, design D5/D6). Placed last, mirroring the migration's physical
-		// column-append order.
-		StartBatteryPct:    pgNullableInt16AsInt(r.StartBatteryPct),
-		EndBatteryPct:      pgNullableInt16AsInt(r.EndBatteryPct),
-		BatteryPctSource:   pgNullableText(r.BatteryPctSource),
-		StartBatteryPctEst: pgNullableInt16AsInt(r.StartBatteryPctEst),
-		EndBatteryPctEst:   pgNullableInt16AsInt(r.EndBatteryPctEst),
+		// Battery-% verification/override trio (RM27 tier 1, MAG-14, design D5).
+		// Placed last, mirroring the migration's physical column-append order.
+		StartBatteryPct:  pgNullableInt16AsInt(r.StartBatteryPct),
+		EndBatteryPct:    pgNullableInt16AsInt(r.EndBatteryPct),
+		BatteryPctSource: pgNullableText(r.BatteryPctSource),
 	}
 }

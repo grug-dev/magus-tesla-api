@@ -63,7 +63,7 @@ task; `openspec` syncs it into the main spec at archive time.
 
 ## Wave 1 — independent source edits (module: telemetry worker)
 
-- [ ] **1.1** Create
+- [x] **1.1** Create
   `internal/telemetry/db/migrations/20260903000003_drop_supercharger_est_columns.sql`
   with the exact Up/Down SQL from design.md "Database Design" → "Schema change",
   verbatim, including its comments. Do NOT apply the migration yet (`make
@@ -83,7 +83,7 @@ task; `openspec` syncs it into the main spec at archive time.
   returns `0`; `grep -c "(see below)" internal/telemetry/telemetry.go` returns `0`.
   `depends_on`: 0.1 · `parallel_ok`: with 1.1, 1.3, 1.4, 1.5
 
-- [ ] **1.3** `internal/telemetry/mapping.go` — apply design.md "Code changes" →
+- [x] **1.3** `internal/telemetry/mapping.go` — apply design.md "Code changes" →
   `mapping.go`'s three edits exactly: remove the two mapping lines from
   `rowToSuperchargerHistory`, update the field-block comment above them, and
   update the mapping-rules doc comment bullet above the function. Acceptance:
@@ -111,7 +111,7 @@ task; `openspec` syncs it into the main spec at archive time.
 
 ## Wave 2 — codegen (module: telemetry worker)
 
-- [ ] **2.1** Run `make sqlc` (or `sqlc generate`) to regenerate
+- [x] **2.1** Run `make sqlc` (or `sqlc generate`) to regenerate
   `internal/telemetry/db/models.go` and `internal/telemetry/db/query.sql.go`
   against the new migration (1.1) and the edited `query.sql` (1.5). Never
   hand-edit either generated file. Acceptance:

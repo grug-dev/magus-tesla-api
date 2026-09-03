@@ -74,10 +74,6 @@ type SuperchargerHistory struct {
 	EndBatteryPct pgtype.Int2
 	// Why start/end_battery_pct are set: user_verified (verification UI, out of scope this tier) or polled (future measured-SOC alternative, logged to the backlog, not implemented). NULL means no override exists. Never 'estimated' -- that state is computed on read by internal/battery and is never persisted here (R6).
 	BatteryPctSource pgtype.Text
-	// FROZEN, write-once snapshot of internal/battery's live estimate at the moment start_battery_pct was verified/overridden -- a permanent drift log entry, not a cache. Written exactly once, in the same write as the trio; NEVER refreshed again, including by a later improved taper model (staleness here is correct, not a bug -- design D6). NEVER read back into internal/battery's live computation. Excluded from UpsertSuperchargerHistory like the trio (R3).
-	StartBatteryPctEst pgtype.Int2
-	// FROZEN, write-once snapshot of internal/battery's live estimate at the moment end_battery_pct was verified/overridden. Same write-once, never-refreshed, never-a-cache, R3-protected semantics as start_battery_pct_est (design D6).
-	EndBatteryPctEst pgtype.Int2
 }
 
 type VehicleSnapshot struct {

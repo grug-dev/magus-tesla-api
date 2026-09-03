@@ -183,11 +183,9 @@ type superchargerFixtureRow struct {
 	IsPaid              bool
 	CreatedAt           time.Time
 
-	StartBatteryPct    *int
-	EndBatteryPct      *int
-	BatteryPctSource   *string
-	StartBatteryPctEst *int
-	EndBatteryPctEst   *int
+	StartBatteryPct  *int
+	EndBatteryPct    *int
+	BatteryPctSource *string
 }
 
 // insertSuperchargerSessionFixture seeds one telemetry.supercharger_history row via direct
@@ -204,20 +202,17 @@ func insertSuperchargerSessionFixture(t *testing.T, pool *pgxpool.Pool, accountI
 			session_id, account_id, vin, tesla_id, site_location_name, country_code,
 			charge_start_date_time, charge_stop_date_time, billing_type, vehicle_make_type,
 			energy_kwh, total_cost, currency, is_paid, raw_data, created_at,
-			start_battery_pct, end_battery_pct, battery_pct_source,
-			start_battery_pct_est, end_battery_pct_est
+			start_battery_pct, end_battery_pct, battery_pct_source
 		) VALUES (
 			$1, $2, $3, $4, $5, $6,
 			$7, $8, $9, $10,
 			$11, $12, $13, $14, '{}'::jsonb, $15,
-			$16, $17, $18,
-			$19, $20
+			$16, $17, $18
 		)`,
 		r.SessionID, accountID, r.VIN, r.TeslaID, r.SiteLocationName, r.CountryCode,
 		r.ChargeStartDateTime, r.ChargeStopDateTime, r.BillingType, r.VehicleMakeType,
 		r.EnergyKWh, r.TotalCost, r.Currency, r.IsPaid, r.CreatedAt,
 		r.StartBatteryPct, r.EndBatteryPct, r.BatteryPctSource,
-		r.StartBatteryPctEst, r.EndBatteryPctEst,
 	)
 	if err != nil {
 		t.Fatalf("seeding telemetry.supercharger_history fixture (session %d): %v", r.SessionID, err)
