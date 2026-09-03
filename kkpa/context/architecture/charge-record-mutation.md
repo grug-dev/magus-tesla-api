@@ -175,8 +175,10 @@ Documented from the code as at 2026-08-29. Each is a real finding, not a design 
   Do not add it to an INSERT column list or a SET clause.
   _Source: `charging/db/migrations/20260829000001_add_inferred_capacity.sql`._
 - **`VerifySuperchargerSession` and `MirrorSuperchargerSession` are deliberate mirror images.** The verifier
-  can touch only the human-owned percentages + source + `updated_at`; the mirror can touch
-  everything except those. Do not "complete the pattern" on either.
+  can touch only the human-owned percentages + source + `status` + `updated_at`; the mirror can
+  touch everything except those. (`status` joined the verifier's SET clause in RM41 tier 4,
+  MAG-45; the mirror still excludes it, so a freshly mirrored session takes `IN_PROGRESS` from
+  the column DEFAULT.) Do not "complete the pattern" on either.
   _Source: `charging/db/query.sql`._
 
 ## Related KB

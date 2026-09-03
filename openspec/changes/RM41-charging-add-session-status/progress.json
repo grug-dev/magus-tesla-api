@@ -7,7 +7,7 @@
   "request": "Roadmap RM41 tier 4, ticket MAG-45. Add a stored, auto-set three-state status column to charging.supercharger_sessions: one migration (TEXT + CHECK, DEFAULT IN_PROGRESS, all existing rows backfilled to DONE_CALCULATED), a sessionStatusFor helper computing it inside VerifySession, the field on charging.Session and the read port, sqlc regeneration, integration-test additions, and four doc files.",
   "status": "verified",
   "created_at": "2026-09-03T21:26:00Z",
-  "updated_at": "2026-09-03T22:20:46Z",
+  "updated_at": "2026-09-03T22:28:00Z",
   "rollup": {
     "current": [],
     "pending": [],
@@ -389,13 +389,62 @@
       "what": "Waves 3 and 4 batched into ONE serial worker (3.1 plus 4.1-4.4).",
       "why": "The four doc edits are small and prescribed verbatim by design.md; batching them with the test file reads the doc pack once instead of twice.",
       "at": "2026-09-03T22:05:00Z"
+    },
+    {
+      "scope": "review:R1-F1",
+      "made_by": "autopilot",
+      "what": "Finding ACCEPTED and fixed by the leader, plus a third location the reviewer did not name: supercharger-stats-read.md line 73's 'ONLY mutation' bullet.",
+      "why": "Line 73 says no column beyond the two percentages is reachable from the gateway. True for status too, but it must say so alongside battery_pct_source or the next agent reads the list as exhaustive.",
+      "at": "2026-09-03T22:28:00Z"
     }
   ],
   "review": {
-    "status": "pending",
-    "agent": null,
+    "status": "changes-requested",
+    "agent": "charging-reviewer",
     "brief": "Review RM41 tier 4 (charging, ticket MAG-45): add a stored, auto-set three-state status column to charging.supercharger_sessions. Read the diff 3451e7d..HEAD, not the whole module. The artifacts commit is 3451e7d; implementation is e5ff412 and b231d6f; e5a01da and the final bookkeeping commit are records only.\n\nVALIDATE:\n1. Module boundary. charging-owned. TWO paths outside internal/charging/ were explicitly granted: the root README.md (task 4.2) and kkpa/context/use-case/charging/verify-session-battery.md (4.3). Confirm NOTHING else outside the module changed - in particular no internal/gateway/ or internal/telemetry/ file. Tier 5 renders the badge; this tier must not.\n2. The migration 20260903000004_add_session_status.sql matches the design the OWNER CONFIRMED at the database gate: status TEXT NOT NULL DEFAULT 'IN_PROGRESS' with CHECK IN ('IN_PROGRESS','DONE_CALCULATED','DONE'), a SEPARATE unconditional UPDATE backfilling every row to DONE_CALCULATED (no WHERE, no CASE), a COMMENT ON COLUMN, a working Down, and NO index. A mismatch with the confirmed design is a blocker finding.\n3. The backfill is DELIBERATE and owner-confirmed TWICE. All pre-existing rows become DONE_CALCULATED even though recomputing the derivation matches only 3 of 10, and 4 rows have a NULL energy_kwh so could never have been derived. The owner chose it on provenance the data cannot show (Tesla supplies no battery percentages, so every historic start was reconstructed). See decisions[].database-gate and the roadmap's roadmap:mag45-backfill. Do NOT report it as a bug.\n4. sessionStatusFor implements the truth table exactly: either percentage nil -> IN_PROGRESS; both set and this write derived the start -> DONE_CALCULATED; both set and the start was caller-supplied -> DONE. Check the failed-derivation corner specifically: calculated = startToStore != nil, so a derivation returning nil must fall to IN_PROGRESS, never to a DONE state.\n5. Only VerifySession writes status. Confirm MirrorSuperchargerSession's INSERT and ON CONFLICT DO UPDATE SET still exclude it (a mirrored session takes IN_PROGRESS from the column DEFAULT), and that its LOAD-BEARING guarding comment now says so. A status added to that SET clause is a blocker.\n6. Test contract. The eight Group-S tests must assert the expectations design.md authored UP FRONT, not values read back from the implementation. Spot-check at least S4 (expects a derived start of 41 from a 30.5 kWh seed and a 90 percent end) and S8 (an out-of-range derivation expects nil and IN_PROGRESS). Judge test quality BY READING - do not run them.\n7. No new unit-test files. The roadmap decision roadmap:tests is the owner's standing default: only the integration cases design.md authored, plus repairs to existing tests. 3.1 extends an existing file; flag any brand-new test file.\n8. Docs. CLAUDE.md requires structural changes to update docs in the SAME change: charging/AGENTS.md, the root README.md and the kkpa/context/ KB. Note that the README's 'five human-verified battery-percentage columns' was PRE-EXISTING staleness from tiers 2-3, corrected here because this tier rewrites that sentence anyway (decisions[].artifacts:readme-staleness). Verify nothing else in kkpa/context/ still describes a 3-column SET clause or omits status.\n9. Performance-Profile compliance (read-heavy): no index added, and design.md must justify that against the read patterns with a stated revisit trigger. Confirm no read path regressed and that status rides along on the existing SELECT * reads.\n10. Anti-gaming: no acceptance criterion weakened or deleted, no self-approved status, no task marked done whose acceptance check fails from disk. Note that the worker reported a tasks.md 1.5 grep defect rather than editing it, and the leader confirmed the fix matched the file's existing field-group style - correct behavior, not a finding.\n\nTEST-EXECUTION-POLICY (verbatim, project override in CLAUDE.md): 'Claude writes tests but never runs the suite - never go test ./..., make test, make test-with-db or make check. It MAY run go build ./..., go vet ./..., gofmt -l, make build, make vet, make bins, and the standalone guards make ui-guard / make i18n-guard / make money-guard / make tz-guard / make migration-guard / make boundary-guard. The owner runs the suite and reports results; work that is complete but unexecuted is awaiting-user-verification, never done, and a passing suite is recorded as the owner's report, never claimed by the assistant.'\n\nSIGNAL PROVENANCE: assistant-run (leader) = go build ./... (0), go vet ./... (0), gofmt -l internal/charging (clean), make migration-guard (ok, only the pre-existing 20260720000001 warning), make boundary-guard (ok), openspec validate --strict (valid). USER-REPORTED = make migrate-up, the status count check returning 10 rows all DONE_CALCULATED, and the suite - run TWICE by the owner: once after wave 1+2 (before the status tests existed) and again after wave 3+4, which is the run that exercises them. Both passed. You may re-run only the assistant-permitted signals; never the suite.\n\nKNOWN, OUT OF SCOPE: gofmt -l flags 7 files repo-wide (account x2, config x1, gateway x4). All pre-existing; this change touched no file outside internal/charging/, which is clean. Do not report them.",
-    "rounds": []
+    "rounds": [
+      {
+        "round": 1,
+        "at": "2026-09-03T22:45:00Z",
+        "agent": "charging-reviewer",
+        "verdict": "changes-requested",
+        "doc_pack_read": [
+          "CLAUDE.md",
+          "ai/architecture.md",
+          "ai/go-conventions.md",
+          "ai/agentic-workflow.md",
+          "internal/charging/AGENTS.md"
+        ],
+        "findings": [
+          {
+            "id": "R1-F1",
+            "severity": "major",
+            "note": "kkpa/context/workflows/supercharger-stats-read.md:45 still states 'SET clause reaches EXACTLY start_battery_pct, end_battery_pct, battery_pct_source (computed, never caller-supplied) plus updated_at' -- now false, since this change adds status as a fourth SET target on VerifySuperchargerSession. Same staleness pattern in kkpa/context/architecture/charge-record-mutation.md:177-178 ('the verifier can touch only the human-owned percentages + source + updated_at') -- also omits status. This tier's docs tasks (4.1-4.3) only touched the three explicitly granted paths (internal/charging/AGENTS.md, README.md, kkpa/context/use-case/charging/verify-session-battery.md) and did not do the broader grep of kkpa/context/ for 'charging'/'supercharger_sessions'/'VerifySuperchargerSession' that CLAUDE.md's docs-track-change rule requires ('grep kkpa/context/ for the module name and fix any guide whose consumer map, file map, or title the change invalidated'). Per that rule this is incomplete work, not a nit -- the same category of gap the rule's own precedent (RM38/RM40) calls out. Fix: update both locations to name status as a fourth SET target, mirroring the edit already made to verify-session-battery.md.",
+            "status": "open"
+          }
+        ],
+        "checked": {
+          "1_module_boundary": "git diff --name-only 3451e7d..HEAD -> exactly README.md, internal/charging/** (9 files), kkpa/context/use-case/charging/verify-session-battery.md, and the change's own progress.json/tasks.md. No internal/gateway or internal/telemetry file touched. Confirmed clean.",
+          "2_migration_matches_confirmed_design": "Read internal/charging/db/migrations/20260903000004_add_session_status.sql in full and diffed it character-for-character against design.md 'Database Design -> Schema change' -- identical: ADD COLUMN status TEXT NOT NULL DEFAULT 'IN_PROGRESS' CHECK (status IN ('IN_PROGRESS','DONE_CALCULATED','DONE')), a separate unconditional UPDATE ... SET status = 'DONE_CALCULATED' with no WHERE/CASE, COMMENT ON COLUMN, working non-guarded Down. No index in the migration.",
+          "3_backfill_not_reported_as_bug": "Confirmed design.md 'Rationale' and proposal.md 'Resolved decisions' (BACKFILL) document the owner's twice-confirmed, provenance-based decision including the 3-of-10 recompute-mismatch and the 4 NULL-energy_kwh rows; not flagged as a defect.",
+          "4_sessionStatusFor_truth_table": "Read internal/charging/session_verifier.go sessionStatusFor and its call site: calculated := false initialized before the derivation branch, set to (startToStore != nil) only inside the needsDerivedStartBatteryPct branch; sessionStatusFor returns InProgress when either pct is nil (covers a failed derivation, since startToStore stays nil), DoneCalculated when both present and derived, Done otherwise. Matches design.md exactly.",
+          "5_only_VerifySession_writes_status": "Read internal/charging/db/query.sql MirrorSuperchargerSession INSERT column list and ON CONFLICT DO UPDATE SET -- status absent from both; grep confirms no 'status' token in the INSERT/ON CONFLICT block. LOAD-BEARING comment updated with the new paragraph explaining status relies on the column DEFAULT. VerifySuperchargerSession's SET clause gained 'status = @status' as the 4th target.",
+          "6_test_contract_S4_S8": "Read db_session_verifier_integration_test.go's Group S tests in full and diffed them against design.md 'Test Contract -> Group S' -- verbatim match, function-for-function, including S4 (seedVerifierSession's hardcoded 30.5 kWh, end=90 -> expects derived start 41, status DoneCalculated) and S8 (seedVerifierSessionEnergy with 100.0 kWh, end=10 -> derivation -151, out of [0,100], expects StartBatteryPct nil and status InProgress). Independently recomputed both: 90 - 30.5/62*100 = 40.81 -> rounds to 41 (matches); 10 - 100/62*100 = -151.29 -> rounds to -151, out of range (matches). Design.md's test code predates the implementation in the same file (both authored in this change's single design.md), so these are contract-first, not back-fitted.",
+          "7_no_new_unit_test_files": "git diff --stat 3451e7d..HEAD shows exactly one test file touched, db_session_verifier_integration_test.go (existing, extended), no new _test.go file.",
+          "8_docs": "internal/charging/AGENTS.md, README.md, and kkpa/context/use-case/charging/verify-session-battery.md diffs read in full and matched against design.md 'Docs' section verbatim (including the pre-existing 'five'->'three' README correction, confirmed pre-existing via git blame context in design.md/AGENTS.md history). Broader kkpa/context/ grep for 'supercharger_sessions'/'VerifySuperchargerSession'/'SessionVerifier' surfaced two additional stale files not touched by this change -- see R1-F1.",
+          "9_performance_profile": "design.md 'Index plan' states no index added, justified against the three SELECT * read paths (all ride the existing idx_supercharger_sessions_vehicle_stop scan) with an explicit revisit trigger (a future partial account_id-leading index if a server-side in-progress count/list is ever needed). Migration itself adds no index. No read-path SQL changed except the added status column appearing in existing SELECT * results.",
+          "10_anti_gaming": "git diff 3451e7d..HEAD -- tasks.md shows only checkbox flips ([ ] -> [x]), no acceptance-check text changed for any task. progress.json's decisions[] and events[] record the 1.5 grep-defect judgment call (worker flagged, leader verified against file's existing style, no criterion edited) consistent with the brief's framing -- not a finding. review.rounds was empty before this round; review.status/agent were the only review.* fields set by the leader (both null/pending), consistent with reviewer-exclusive write ownership."
+        },
+        "signals_reverified": {
+          "go_build": "0 (re-run by reviewer)",
+          "go_vet": "0 (re-run by reviewer)",
+          "gofmt_-l_internal_charging": "clean (re-run by reviewer)",
+          "make_migration-guard": "ok, only the pre-existing 20260720000001 warning (re-run by reviewer)",
+          "make_boundary-guard": "ok (re-run by reviewer)",
+          "openspec_validate_--strict": "valid (re-run by reviewer)"
+        }
+      }
+    ]
   },
   "events": [
     {
@@ -472,6 +521,11 @@
       "at": "2026-09-03T22:20:46Z",
       "by": "user",
       "what": "OWNER VERIFICATION: the owner ran the suite after wave 3+4 landed and reported it passing. This is the run that actually exercises the eight Group-S status tests - the earlier run predated them, as recorded at 22:12. Tasks 3.1 and 5.2 move to done and the change advances to verified. Reported by the owner; the assistant never ran the suite."
+    },
+    {
+      "at": "2026-09-03T22:28:00Z",
+      "by": "leader",
+      "what": "REVIEW ROUND 1: changes-requested, one major finding (R1-F1). Leader triaged it, confirmed both cited lines from disk, and accepted it. The reviewer was right that the tier's doc tasks only covered its three granted paths and nobody ran the broader kkpa/context/ grep. Leader ran that grep and found a THIRD stale location the reviewer missed - supercharger-stats-read.md line 73. Checked nightly-cycle.md, schema-per-module.md and manual-charge-crud.md too: all three are unaffected (manual-charge-crud only cites battery_pct_source as a provenance analogy, still true). Three edits applied."
     }
   ]
 }
