@@ -14,11 +14,11 @@ import (
 // These tests exercise the three battery-% verification/override columns added to
 // supercharger_sessions by RM27-telemetry-add-supercharger-battery-pct (MAG-14):
 // start_battery_pct, end_battery_pct, battery_pct_source (the human-owned trio, D1/D2).
-// A fourth and fifth column, start_battery_pct_est/end_battery_pct_est (a frozen,
-// write-once verification snapshot pair, design D6), existed alongside the trio until
-// RM41-telemetry-drop-estimate-columns (2026-09-03) dropped both — the reservation
-// they existed for (a future SOC estimator) turned out unnecessary once the estimator
-// that shipped wrote the real start_battery_pct column instead. They implement the
+// A frozen, write-once verification snapshot pair (design D6) existed alongside
+// the trio until RM41-telemetry-drop-estimate-columns (2026-09-03) dropped both —
+// the reservation they existed for (a future SOC estimator) turned out
+// unnecessary once the estimator that shipped wrote the real start_battery_pct
+// column instead. They implement the
 // test contract authored in this change's design.md BEFORE the mapping code existed
 // (§"Test Contract").
 //

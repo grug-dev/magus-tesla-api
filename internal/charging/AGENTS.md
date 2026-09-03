@@ -579,11 +579,13 @@ RM29-charging-add-charge-sessions)
   schema source of truth, including its one-time backfill of every Supercharger session
   already collected (guarded so it is a no-op on a `charging`-only database — design.md
   D8a).
-- `internal/telemetry.supercharger_history` keeps its own copy of the three
-  remaining battery-percentage columns (`start_battery_pct`, `end_battery_pct`,
-  `battery_pct_source`) until tier 3 of this roadmap
-  (`RM41-telemetry-drop-estimate-columns`) drops its own est-column pair — see
-  that change once it lands.
+- `internal/telemetry.supercharger_history` keeps its own copy of the same three
+  battery-percentage columns (`start_battery_pct`, `end_battery_pct`,
+  `battery_pct_source`) — permanently, not temporarily. Tier 3 of this roadmap
+  (`RM41-telemetry-drop-estimate-columns`, 2026-09-03) dropped telemetry's own
+  `start_battery_pct_est`/`end_battery_pct_est` pair, the same drop this change
+  performed one tier earlier on `charging.supercharger_sessions`; neither table
+  has carried an `_est` column since.
 - Column-by-column:
   - `account_id`, `vin`, `session_id`, `charge_start_date_time`, `charge_stop_date_time`,
     `site_location_name` — mirrored, **write-once**: telemetry never refreshes these

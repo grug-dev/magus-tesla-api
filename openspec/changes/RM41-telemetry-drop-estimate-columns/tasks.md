@@ -123,7 +123,7 @@ task; `openspec` syncs it into the main spec at archive time.
 
 ## Wave 3 — test repair (module: telemetry worker, one file granted outside it)
 
-- [ ] **3.1** `internal/telemetry/db_supercharger_battery_pct_integration_test.go` —
+- [x] **3.1** `internal/telemetry/db_supercharger_battery_pct_integration_test.go` —
   apply design.md "Test Contract" → item 1 exactly: update the file-level doc
   comment's column count; delete the two `*Est` assertion blocks in
   `TestStore_SuperchargerUpsert_FreshInsertSeedsBatteryPctColumnsNull` and update
@@ -167,7 +167,7 @@ task; `openspec` syncs it into the main spec at archive time.
 
 ## Wave 4 — docs (module: telemetry worker, two granted paths outside it)
 
-- [ ] **4.1** `internal/telemetry/AGENTS.md` — apply design.md "Docs" → the six
+- [x] **4.1** `internal/telemetry/AGENTS.md` — apply design.md "Docs" → the six
   numbered edits exactly (the nightly-collection intro sentence, the Data
   Ownership `supercharger_history` bullet, the "Battery-% verification columns"
   section's field-count sentence, the SCOPE NOTE, the "Never auto-written
@@ -185,7 +185,7 @@ task; `openspec` syncs it into the main spec at archive time.
   dropped by RM29 — neither touched by this task).
   `depends_on`: 1.2 · `parallel_ok`: with 4.2, 4.3
 
-- [ ] **4.2** **[granted path, one sentence]** `internal/charging/AGENTS.md` —
+- [x] **4.2** **[granted path, one sentence]** `internal/charging/AGENTS.md` —
   apply design.md "Docs" → the exact replacement sentence, verbatim (the
   `internal/telemetry.supercharger_history` forward reference tier 2 left open).
   Touch NOTHING else in this file. Acceptance: the file contains no remaining
@@ -197,7 +197,7 @@ task; `openspec` syncs it into the main spec at archive time.
   separate task).
   `depends_on`: — · `parallel_ok`: with 4.1, 4.3
 
-- [ ] **4.3** **[granted path, historic migration comment]**
+- [x] **4.3** **[granted path, historic migration comment]**
   `internal/charging/db/migrations/20260823000001_add_charge_sessions.sql` —
   apply design.md "Docs" → the exact replacement text for the Down comment's
   second paragraph, verbatim. Do NOT touch the Down comment's first paragraph
@@ -214,7 +214,7 @@ task; `openspec` syncs it into the main spec at archive time.
   SQL keyword line differs from the version on `main`.
   `depends_on`: — · `parallel_ok`: with 4.1, 4.2
 
-- [ ] **4.4** **[granted path, one sentence — added by the leader at the design gate]**
+- [x] **4.4** **[granted path, one sentence — added by the leader at the design gate]**
   `kkpa/context/architecture/nightly-cycle.md` — the line stating that
   `MirrorSuperchargerSession` "never names the five battery-percentage columns" is
   stale: tier 2 dropped charging's estimate pair, so the mirror's trio is three, not
