@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "kind": "roadmap",
+  "roadmap": "RM41-supercharger-battery-pct-cleanup",
+  "intention": "/supercharger-stats explains in ES+EN that Tesla supplies no battery percentages and that an end-only entry derives the start; and the four dead start/end_battery_pct_est columns are gone from both charging and telemetry.",
+  "request": "Source ticket MAG-36. Part 1 (derive start_battery_pct) already shipped as charging-add-derived-start-battery-pct on 2026-09-01. This roadmap covers the two remaining parts: the bilingual UI help text, and removing the *_pct_est columns the ticket found unpopulated.",
+  "status": "in-progress",
+  "autopilot": false,
+  "updated_at": "2026-09-03T17:39:47Z",
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
+    "base": "main",
+    "ticket": "MAG-36",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-36/supercharger-session-battery-start-calculated",
+    "created_at": "2026-09-03T17:38:00Z"
+  },
+  "rollup": {
+    "current": [1],
+    "pending": [2, 3],
+    "blocked": [],
+    "done": []
+  },
+  "decisions": [
+    {
+      "scope": "roadmap:scope",
+      "made_by": "user",
+      "what": "This run covers both remaining MAG-36 parts (UI help text + dropping the est columns). Part 1, the start-percentage derivation, is already merged and archived and is not re-implemented.",
+      "why": "The ticket was edited after the derivation shipped; only the two later sections are outstanding. The owner confirmed both are in scope.",
+      "at": "2026-09-03T17:30:00Z"
+    },
+    {
+      "scope": "roadmap:db-safety",
+      "made_by": "user",
+      "what": "Drop the four columns directly. No verify-then-drop migration step, no deprecate-in-place option.",
+      "why": "Both tables exclude the columns from every write path by design, and integration tests already guard those exclusions. The owner priced the risk and chose the direct drop.",
+      "at": "2026-09-03T17:32:00Z"
+    },
+    {
+      "scope": "roadmap:tier-order",
+      "made_by": "autopilot",
+      "what": "Tier order gateway then charging then telemetry; only tier 2's dependency on tier 1 is real.",
+      "why": "The gateway reads charging.Session.StartBatteryPctEst, so charging cannot delete the field first without breaking the build. Telemetry has no consumer outside itself.",
+      "at": "2026-09-03T17:35:00Z"
+    },
+    {
+      "scope": "roadmap:ui-placement",
+      "made_by": "user",
+      "what": "One page-level ui.Alert{Kind:\"info\"} above the sessions table, mirroring dashboard.templ. Not an in-form hint, not a tooltip.",
+      "why": "ui.Field has no hint slot, so an in-form hint would change a shared kit component; and an in-form-only message hides the record-your-percentages advice from readers.",
+      "at": "2026-09-03T17:36:00Z"
+    },
+    {
+      "scope": "roadmap:copy",
+      "made_by": "user",
+      "what": "The owner's own draft wording, typos and accents corrected, in ES and EN under one new key supercharger.battery_pct_help. Exact strings are in the roadmap D5.",
+      "why": "Owner chose the faithful variant over a shorter rewrite, keeping their tone. ES keeps Supercharger as a proper noun, matching the existing catalogue.",
+      "at": "2026-09-03T17:37:00Z"
+    },
+    {
+      "scope": "roadmap:analytics-granted-path",
+      "made_by": "autopilot",
+      "what": "analytics/db_integration_test.go is an explicitly granted path on tier 2 rather than a fourth analytics tier.",
+      "why": "It is a test seed helper naming both est columns in one INSERT. A whole tier and dispatch to delete two arguments would cost far more than the edit.",
+      "at": "2026-09-03T17:35:00Z"
+    },
+    {
+      "scope": "roadmap:tests",
+      "made_by": "user",
+      "what": "No new unit tests. Repair the seven existing test files that stop compiling; delete the telemetry assertions that guard the dropped columns.",
+      "why": "Owner's standing default is no new tests. The repairs are required to keep the suite compiling, which is repair rather than new coverage.",
+      "at": "2026-09-03T17:33:00Z"
+    },
+    {
+      "scope": "roadmap:rm27-d6-reversal",
+      "made_by": "user",
+      "what": "Reverse RM27 design D6, which kept the telemetry columns so a future estimator could land without a migration.",
+      "why": "The estimator landed as derivedStartBatteryPct and writes the real start_battery_pct column instead, so the reservation is obsolete. Recorded so the drop does not read as an oversight.",
+      "at": "2026-09-03T17:32:00Z"
+    },
+    {
+      "scope": "roadmap:visible-columns",
+      "made_by": "user",
+      "what": "Remove the two visible start-estimate/end-estimate table columns, their two i18n keys and both VM label fields. The table goes from 9 columns to 7.",
+      "why": "Forced by the column drop, and the owner confirmed the narrower table is wanted rather than repurposing the two slots.",
+      "at": "2026-09-03T17:34:00Z"
+    }
+  ],
+  "tiers": [
+    {
+      "id": 1,
+      "change": "RM41-gateway-revise-battery-pct-ui",
+      "module": "gateway",
+      "optional": false,
+      "depends_on": [],
+      "status": "proposed",
+      "assistant": "Claude Code",
+      "model": "claude-opus-5",
+      "started_at": "2026-09-03T17:39:47Z",
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": "Artifacts only this run; implementation halted for owner review per the pickup skill's scope."
+    },
+    {
+      "id": 2,
+      "change": "RM41-charging-drop-estimate-columns",
+      "module": "charging",
+      "optional": false,
+      "depends_on": [1],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    },
+    {
+      "id": 3,
+      "change": "RM41-telemetry-drop-estimate-columns",
+      "module": "telemetry",
+      "optional": false,
+      "depends_on": [],
+      "status": "not-started",
+      "assistant": null,
+      "model": null,
+      "started_at": null,
+      "completed_at": null,
+      "duration_seconds": null,
+      "budget": null,
+      "notes": null
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-09-03T17:39:47Z",
+      "what": "Roadmap created. MAG-36 part 1 found already merged (PR #39, CH37, archived 2026-09-01); this roadmap covers only the ticket's two later sections. Runtime Claude Code, budget available, no degradations.",
+      "by": "leader"
+    }
+  ]
+}
