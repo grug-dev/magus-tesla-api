@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM41-gateway-revise-battery-pct-ui",
+  "module": "gateway",
+  "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
+  "request": "Source ticket MAG-36, roadmap RM41 tier 1. Add one bilingual (ES+EN) ui.Alert info message above the /supercharger-stats sessions table explaining that Tesla supplies no battery percentages and that an end-only entry derives the start; and remove every gateway reference to the dead start/end_battery_pct_est columns so tier 2 can drop them from charging.supercharger_sessions.",
+  "status": "proposed",
+  "rollup": {
+    "current": [],
+    "pending": ["1.1", "1.2", "1.3", "2.1", "2.2", "2.3", "2.4", "3.1", "4.1", "5.1", "5.2"],
+    "blocked": [],
+    "done": []
+  },
+  "created_at": "2026-09-03T17:48:00Z",
+  "updated_at": "2026-09-03T17:48:00Z",
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
+    "base": "main",
+    "ticket": "MAG-36",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-36/supercharger-session-battery-start-calculated",
+    "created_at": "2026-09-03T17:38:00Z"
+  },
+  "tasks": [
+    {
+      "id": "1.1",
+      "title": "catalog.go: add supercharger.battery_pct_help (ES+EN), remove the two estimate keys and entries",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "1.2",
+      "title": "supercharger_vm.go: remove StartBatteryPctEstLabel / EndBatteryPctEstLabel",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "1.3",
+      "title": "KB: correct supercharger-stats-read.md's four-battery-columns description",
+      "module": "gateway",
+      "depends_on": [],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "2.1",
+      "title": "supercharger_stats.templ: render the info alert, drop the two table headers",
+      "module": "gateway",
+      "depends_on": ["1.1", "1.2"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "2.2",
+      "title": "supercharger_row.templ: drop the two estimate <td>s",
+      "module": "gateway",
+      "depends_on": ["1.1", "1.2"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "2.3",
+      "title": "supercharger_row_edit.templ: drop the two read-only estimate ui.Field blocks",
+      "module": "gateway",
+      "depends_on": ["1.1", "1.2"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "2.4",
+      "title": "handlers/supercharger.go: remove the two Est label assignments",
+      "module": "gateway",
+      "depends_on": ["1.2"],
+      "parallel_ok": true,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "3.1",
+      "title": "Regenerate the *_templ.go files via make templ",
+      "module": "gateway",
+      "depends_on": ["2.1", "2.2", "2.3"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "4.1",
+      "title": "supercharger_test.go: apply the Test Contract repairs (5 functions, 3 fixture literals)",
+      "module": "gateway",
+      "depends_on": ["1.1", "1.2", "2.4", "3.1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "5.1",
+      "title": "Assistant-run signals: go build, go vet, gofmt -l, make ui-guard, make i18n-guard",
+      "module": "gateway",
+      "depends_on": ["1.1", "1.2", "1.3", "2.1", "2.2", "2.3", "2.4", "3.1", "4.1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    },
+    {
+      "id": "5.2",
+      "title": "Owner runs the suite and reports the result",
+      "module": "gateway",
+      "depends_on": ["5.1"],
+      "parallel_ok": false,
+      "status": "pending",
+      "agent": null, "model": null,
+      "started_at": null, "completed_at": null, "duration_seconds": null,
+      "notes": null, "budget": null
+    }
+  ],
+  "decisions": [
+    {
+      "scope": "artifacts:alert-render-condition",
+      "made_by": "autopilot",
+      "what": "The info alert renders unconditionally as the first element of SuperchargerStatsContent, not gated on v.Empty or v.Presets (design.md D1).",
+      "why": "The guidance is data-independent, so hiding it on an empty window would hide it exactly when a first-time user needs it. One render site also needs no new view-model field.",
+      "at": "2026-09-03T17:46:00Z"
+    },
+    {
+      "scope": "artifacts:test-fixture-sweep",
+      "made_by": "autopilot",
+      "what": "Task 4.1 also strips StartBatteryPctEst/EndBatteryPctEst from three charging.Session{} fixture literals in supercharger_test.go, though they are not a compile break until tier 2.",
+      "why": "The tier's acceptance grep scans test files, so leaving them would produce a false-negative clean grep and hide the fixtures from tier 2's sweep.",
+      "at": "2026-09-03T17:46:00Z"
+    },
+    {
+      "scope": "artifacts:kb-split",
+      "made_by": "autopilot",
+      "what": "This tier corrects kkpa/context/workflows/supercharger-stats-read.md but deliberately leaves verify-session-battery.md's estimator gotcha to tier 2.",
+      "why": "The first describes gateway rendering this tier changes; the second states a charging write-path fact that only becomes wrong when tier 2 drops the columns.",
+      "at": "2026-09-03T17:46:00Z"
+    },
+    {
+      "scope": "artifacts:no-db-gate",
+      "made_by": "autopilot",
+      "what": "The database design gate is recorded as NOT tripped for this tier: no table, column, index, constraint, view or migration change.",
+      "why": "Tier 1 is gateway-only rendering and catalogue work. Tiers 2 and 3 own every schema change in this roadmap and will trip the gate themselves.",
+      "at": "2026-09-03T17:48:00Z"
+    }
+  ],
+  "review": {
+    "status": "pending",
+    "agent": null,
+    "brief": null,
+    "rounds": []
+  },
+  "events": [
+    {
+      "at": "2026-09-03T17:47:00Z",
+      "what": "Artifacts created by the gateway worker (Sonnet) and validated: openspec validate --strict passes. Doc-pack acknowledgment present. Copy verified byte-exact against roadmap D5.",
+      "by": "leader"
+    },
+    {
+      "at": "2026-09-03T17:48:00Z",
+      "what": "HALTED after Step 4 by explicit scope from kkpa-pickup-linear-ticket: artifacts only, no implementation workers dispatched, no reviewer, no archive. Awaiting the owner's review of the proposal.",
+      "by": "leader"
+    }
+  ]
+}
