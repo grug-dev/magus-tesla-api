@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "kind": "change",
+  "change": "RM41-charging-add-session-status",
+  "module": "charging",
+  "roadmap": "openspec/roadmaps/RM41-supercharger-battery-pct-cleanup.md",
+  "request": "Roadmap RM41 tier 4, ticket MAG-45. Add a stored, auto-set three-state status column to charging.supercharger_sessions: one migration (TEXT + CHECK, DEFAULT IN_PROGRESS, all existing rows backfilled to DONE_CALCULATED), a sessionStatusFor helper computing it inside VerifySession, the field on charging.Session and the read port, sqlc regeneration, integration-test additions, and four doc files.",
+  "status": "proposed",
+  "created_at": "2026-09-03T21:26:00Z",
+  "updated_at": "2026-09-03T21:26:00Z",
+  "rollup": {
+    "current": [],
+    "pending": ["1.1","1.2","1.3","1.4","1.5","2.1","3.1","4.1","4.2","4.3","4.4","5.1","5.2"],
+    "blocked": [],
+    "done": ["0.1"],
+    "awaiting_user_verification": []
+  },
+  "leader": { "assistant": "Claude Code", "model": "claude-opus-5" },
+  "git": {
+    "strategy": "auto",
+    "branch": "ft/RM41-MAG-36-supercharger-battery-pct-cleanup",
+    "base": "main",
+    "ticket": "MAG-45",
+    "ticket_url": "https://linear.app/magus-monitor/issue/MAG-45/supercharger-sessions-status-column-in-progress-done-calculated-done",
+    "created_at": "2026-09-03T17:38:00Z"
+  },
+  "tasks": [
+    { "id": "0.1", "title": "Leader presents the database design to the owner and gets confirmation", "module": "charging", "depends_on": [], "parallel_ok": false, "status": "done", "agent": "user", "model": null, "started_at": "2026-09-03T21:26:00Z", "completed_at": "2026-09-03T21:26:00Z", "duration_seconds": null, "notes": "Owner confirmed the design as written: TEXT + CHECK three codes, DEFAULT IN_PROGRESS, all existing rows backfilled to DONE_CALCULATED, no index. Chose it over changing the state rule or adding the partial index now.", "budget": null },
+    { "id": "1.1", "title": "Create migration 20260903000004_add_session_status.sql", "module": "charging", "depends_on": ["0.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "1.2", "title": "charging.go: SessionStatus type, constants and the Session field", "module": "charging", "depends_on": ["0.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "1.3", "title": "session_verifier.go: sessionStatusFor + wire it into VerifySession", "module": "charging", "depends_on": ["1.2"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "1.4", "title": "db/query.sql: status in the VerifySuperchargerSession SET clause + both guarding comments", "module": "charging", "depends_on": ["0.1"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "1.5", "title": "session_reader.go: map status in rowToSession", "module": "charging", "depends_on": ["1.2"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "2.1", "title": "Run make sqlc to regenerate the generated types", "module": "charging", "depends_on": ["1.1","1.4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "3.1", "title": "db_session_verifier_integration_test.go: the design.md Test Contract cases", "module": "charging", "depends_on": ["1.2","1.3","1.5","2.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "4.1", "title": "charging/AGENTS.md: the five doc edits", "module": "charging", "depends_on": ["1.2","1.3"], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "4.2", "title": "[granted] root README.md: the supercharger_sessions row + the pre-existing 'five' staleness", "module": "charging (granted paths on 4.2, 4.3)", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "4.3", "title": "[granted] kkpa/context/use-case/charging/verify-session-battery.md: SET clause is now 4 columns", "module": "charging (granted paths on 4.2, 4.3)", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "4.4", "title": "Verify the spec delta still applies cleanly against the current main spec", "module": "charging", "depends_on": [], "parallel_ok": true, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "5.1", "title": "Assistant-run signals: build, vet, gofmt, migration-guard, boundary-guard", "module": "charging", "depends_on": ["1.1","1.2","1.3","1.4","1.5","2.1","3.1","4.1","4.2","4.3","4.4"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null },
+    { "id": "5.2", "title": "Owner runs make migrate-up, the status count check, and the suite", "module": "charging", "depends_on": ["5.1"], "parallel_ok": false, "status": "pending", "agent": null, "model": null, "started_at": null, "completed_at": null, "duration_seconds": null, "notes": null, "budget": null }
+  ],
+  "decisions": [
+    { "scope": "database-gate", "made_by": "user", "what": "Owner confirmed the tier 4 database design as written: status TEXT NOT NULL DEFAULT 'IN_PROGRESS' CHECK three codes, a separate unconditional UPDATE backfilling every existing row to DONE_CALCULATED, no index.", "why": "Leader showed the schema, the state truth table, the index plan with its revisit trigger, the lossy Down, and the three rejected alternatives. Owner chose apply-as-designed over changing the state rule or adding the partial index now.", "at": "2026-09-03T21:26:00Z" },
+    { "scope": "artifacts:readme-staleness", "made_by": "autopilot", "what": "The worker's fix of the root README's pre-existing 'five battery-percentage columns' error (should be three since tiers 2-3) stays in this change as task 4.2 rather than becoming a backlog entry.", "why": "Tier 4 must edit that exact sentence anyway to add the status column, so correcting it costs nothing and leaving it wrong in a sentence we are rewriting would be deliberate.", "at": "2026-09-03T21:26:00Z" }
+  ],
+  "review": { "status": "pending", "agent": null, "brief": null, "rounds": [] },
+  "events": [
+    { "at": "2026-09-03T21:26:00Z", "by": "leader", "what": "Artifacts created by the charging worker (Sonnet); openspec validate --strict passes. Doc-pack acknowledged. Leader independently verified: 20260903000004 is unique across all four module migration dirs and sorts after the repo-wide newest (20260903000003); SessionMirror carries no percentage field and MirrorSuperchargerSession's INSERT/ON CONFLICT lists exclude every verification column, confirming the worker's finding that the nightly sync needs no status recompute." },
+    { "at": "2026-09-03T21:26:00Z", "by": "leader", "what": "Leader closed a gap D11 left open BEFORE dispatch, with two owner decisions: (a) VerifySession sets the status itself at write time, because battery_pct_source cannot distinguish a derived start from a typed one and the writer is the only place that knows; (b) every existing row backfills to DONE_CALCULATED. The leader showed the owner that recomputing the derivation matches only 3 of 10 rows, and that 4 rows have a NULL energy_kwh so could never have been derived; the owner confirmed DONE_CALCULATED for all of them on provenance the data cannot show." },
+    { "at": "2026-09-03T21:26:00Z", "by": "user", "what": "DATABASE DESIGN GATE PASSED: the owner confirmed the migration, the state truth table, and the no-index plan. Task 0.1 done." },
+    { "at": "2026-09-03T21:26:00Z", "by": "leader", "what": "Worker flagged three things rather than papering over them: the root README's pre-existing 'five columns' staleness (folded into task 4.2), that the roadmap's 'expose it on the read port' needs no SQL change because the three reads already SELECT *, and a test-fixture session-ID block collision it caught and renumbered itself before finalizing." }
+  ]
+}
