@@ -64,8 +64,7 @@ templ baseShell(title string) {
 // Composes baseShell with the anonymous-page chrome: a fixed-position language
 // switcher (MAG-8 design D6 — "visible on every page including login") pinned
 // top-right, since these pages have no navbar to host one. Callers must NOT
-// mount their own ui.LangSwitcher — Base already provides it (see
-// TestBase_RendersLangSwitcher).
+// mount their own ui.LangSwitcher — Base already provides it.
 templ Base(title string) {
 	@baseShell(title) {
 		<div class="fixed top-3 right-3 z-40">

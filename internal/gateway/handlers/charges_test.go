@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -2561,12 +2560,15 @@ func TestChargeRowEdit_C4_StatusSelectReflectsPersistedValue(t *testing.T) {
 	}
 }
 
-// TestChargeForms_C5_NoCurrencyField_PriceHasCOPSuffix verifies Test Contract
-// C5: neither form renders a Currency <input> (removed — design.md §D-Suffix
-// replaces it with a COP suffix on the price input); the price input's
-// rendered HTML contains a <span class="label">COP</span> inside a
-// <label class="input w-full"> wrapper (DaisyUI v5's compound-input idiom).
-func TestChargeForms_C5_NoCurrencyField_PriceHasCOPSuffix(t *testing.T) {
+// TestChargeForms_NoCurrencyField pins a form contract: neither form renders a
+// Currency <input>. Currency is not user-supplied — the money rule pairs the
+// amount with a fixed currency column, so a Currency control appearing here
+// would mean the write path changed shape.
+//
+// The former C5 also asserted the COP suffix <span> and the DaisyUI compound
+// wrapper around the price input. Both were dropped (MAG-39): a suffix glyph
+// and a wrapper element are appearance, verified by hand.
+func TestChargeForms_NoCurrencyField(t *testing.T) {
 	createBody := renderCreateForm(t, fragments.ChargesPageData{}, "")
 	editBody := renderEditRow(t, fragments.ChargeEntryVM{}, "")
 
@@ -2577,20 +2579,6 @@ func TestChargeForms_C5_NoCurrencyField_PriceHasCOPSuffix(t *testing.T) {
 		t.Run(form.name, func(t *testing.T) {
 			if strings.Contains(form.body, `name="currency"`) {
 				t.Errorf("%s form: must NOT render a Currency input, body=%q", form.name, form.body[:min(1500, len(form.body))])
-			}
-			if !strings.Contains(form.body, `<span class="label">COP</span>`) {
-				t.Errorf("%s form: want a COP suffix span, body=%q", form.name, form.body[:min(1500, len(form.body))])
-			}
-			// Match structurally, not by literal class string: Templ concatenates
-			// ui.InputProps.Class onto the base classes and leaves a trailing
-			// space when it is empty (`class="input w-full "`), exactly as it does
-			// for every other component in this output (`class="fieldset "`). The
-			// regex also pins what C5 actually requires and a substring check
-			// cannot — that the price input is INSIDE the compound-label wrapper,
-			// rather than the wrapper and the input merely both existing somewhere.
-			wrapped := regexp.MustCompile(`<label class="input[^"]*"><input type="number" name="price"`)
-			if !wrapped.MatchString(form.body) {
-				t.Errorf("%s form: want the price input wrapped in DaisyUI's compound label, body=%q", form.name, form.body[:min(1500, len(form.body))])
 			}
 		})
 	}
@@ -2627,38 +2615,26 @@ func TestChargeForms_C6_ACDCOptionText_BothLanguages(t *testing.T) {
 	}
 }
 
-// TestChargeForms_C7_OdometerInsideOptionalDetails verifies Test Contract C7,
-// restated for the 2026-08-29 layout change: the <details>/<summary> collapse
-// is gone, so odometer_km must now render inside the always-visible "Optional
-// details" <section> instead — after its opening tag and before its close.
-func TestChargeForms_C7_OdometerInsideOptionalDetails(t *testing.T) {
+// TestChargeForms_NoDetailsCollapse pins a browser trap, not a layout: a
+// required control inside a closed <details> cannot be focused to show its
+// HTML5 validation message, so Save silently does nothing — Chrome only logs
+// "An invalid form control with name='location_kind' is not focusable". The
+// 2026-08-29 layout removed the collapse for that reason; this keeps it out.
+//
+// The former C7 also asserted odometer_km rendered inside the optional-details
+// <section>. That part was dropped (MAG-39): where a field sits is layout, and
+// layout is verified by hand.
+func TestChargeForms_NoDetailsCollapse(t *testing.T) {
 	createBody := renderCreateForm(t, fragments.ChargesPageData{}, "")
 	editBody := renderEditRow(t, fragments.ChargeEntryVM{}, "")
 
 	for _, form := range []struct {
-		name       string
-		body       string
-		sectionTag string
-	}{
-		{"create", createBody, `<section id="charges-create-optional"`},
-		{"edit", editBody, `<section id="charge-row-optional-`},
-	} {
+		name string
+		body string
+	}{{"create", createBody}, {"edit", editBody}} {
 		t.Run(form.name, func(t *testing.T) {
-			// The collapse must be GONE: a required control inside a closed
-			// <details> cannot be focused for an HTML5 validation message, so
-			// Save silently does nothing. That is what this layout fixed.
 			if strings.Contains(form.body, "<details") || strings.Contains(form.body, "<summary") {
 				t.Errorf("%s form: <details>/<summary> must not return — a required field inside a closed collapse breaks form validation", form.name)
-			}
-			sectionIdx := strings.Index(form.body, form.sectionTag)
-			sectionCloseIdx := strings.Index(form.body, "</section>")
-			odometerIdx := strings.Index(form.body, `name="odometer_km"`)
-			if sectionIdx == -1 || sectionCloseIdx == -1 || odometerIdx == -1 {
-				t.Fatalf("%s form: missing optional-details section/odometer_km markers, body=%q", form.name, form.body[:min(1500, len(form.body))])
-			}
-			if !(odometerIdx > sectionIdx && odometerIdx < sectionCloseIdx) {
-				t.Errorf("%s form: odometer_km must render inside the optional-details section, section=%d odometer=%d sectionClose=%d",
-					form.name, sectionIdx, odometerIdx, sectionCloseIdx)
 			}
 		})
 	}
@@ -2716,128 +2692,12 @@ func TestChargeCreate_DoneStatus_ErrorRerender_KeepsRequiredAttributes(t *testin
 // httptest (D, E) groups — Wave 9.
 // ============================================================================
 
-// --- Group C — the completeness dot / status badge render (design.md Test
-// Contract C1-C3, offline rendered-HTML assertions) ---
-
-// renderChargeRow builds a ChargeEntryVM from e via chargeEntryVMFromEntry
-// (exercising the REAL entryComplete/Complete wiring — design.md §D-Dot,
-// tasks.md 9.1 depends_on 5.2) and renders fragments.ChargeRow to a string.
-// Mirrors renderEditRow/renderCreateForm's direct-render pattern (tier 2's
-// pre-existing Group C tests) — ambient context.Background() resolves to
-// Spanish (i18n.FromContext's default), matching this file's established
-// convention (see TestChargesListFragment_EmptyState's comment).
-func renderChargeRow(t *testing.T, e charging.Entry, vehicles []account.Vehicle) string {
-	t.Helper()
-	vm := chargeEntryVMFromEntry(e, vehicles)
-	var body bytes.Buffer
-	if err := fragments.ChargeRow(vm, "tok", "2026-08-23", "2026-08-29").Render(context.Background(), &body); err != nil {
-		t.Fatalf("render ChargeRow: %v", err)
-	}
-	return body.String()
-}
-
-// TestChargeRow_C1_DoneComplete_RendersSuccessDotAndDoneBadge verifies Test
-// Contract C1: a DONE, fully-complete entry's row renders ui.Dot with a class
-// containing bg-success (dotClass("success")) and the status badge text
-// matches the DONE label (KeyChargesBadgeDone's ES value, "Finalizada").
-func TestChargeRow_C1_DoneComplete_RendersSuccessDotAndDoneBadge(t *testing.T) {
-	e := charging.Entry{
-		ID:              uuid.New(),
-		AccountID:       uuid.New(),
-		TeslaID:         1001,
-		VIN:             "VIN1001",
-		Status:          charging.StatusDone,
-		ChargedOn:       time.Now(),
-		Price:           5000,
-		Currency:        "COP",
-		EnergyAddedKWh:  ptrF64(10.0),
-		StartBatteryPct: ptrInt(50),
-		EndBatteryPct:   ptrInt(80),
-		StartedAt:       ptrTime(time.Now()),
-		EndedAt:         ptrTime(time.Now()),
-	}
-	body := renderChargeRow(t, e, nil)
-
-	if !strings.Contains(body, "bg-success") {
-		t.Errorf("C1: want the success dot class (bg-success) for a fully-complete DONE entry, body=%q", body[:min(1200, len(body))])
-	}
-	if strings.Contains(body, "bg-warning") {
-		t.Errorf("C1: want NO warning dot class on a fully-complete entry, body=%q", body[:min(1200, len(body))])
-	}
-	if !strings.Contains(body, "Finalizada") {
-		t.Errorf("C1: want the DONE status badge text (KeyChargesBadgeDone), body=%q", body[:min(1200, len(body))])
-	}
-}
-
-// TestChargeRow_C2_DoneMissingEndBatteryPct_RendersWarningNeverError verifies
-// Test Contract C2: a DONE entry missing EndBatteryPct (a data state the
-// domain permits even though the gateway's own form now requires it for a NEW
-// DONE save — e.g. seeded directly or edited by an earlier code path) renders
-// the WARNING dot class, never the success one, and never bg-error
-// (D-RM33-12 — ChargeRow only ever passes "success"/"warning" to ui.Dot; this
-// pins that the row template never regresses to a third variant).
-func TestChargeRow_C2_DoneMissingEndBatteryPct_RendersWarningNeverError(t *testing.T) {
-	e := charging.Entry{
-		ID:              uuid.New(),
-		AccountID:       uuid.New(),
-		TeslaID:         1001,
-		VIN:             "VIN1001",
-		Status:          charging.StatusDone,
-		ChargedOn:       time.Now(),
-		Price:           5000,
-		Currency:        "COP",
-		EnergyAddedKWh:  ptrF64(10.0),
-		StartBatteryPct: ptrInt(50),
-		EndBatteryPct:   nil, // the missing field under test
-		StartedAt:       ptrTime(time.Now()),
-		EndedAt:         ptrTime(time.Now()),
-	}
-	body := renderChargeRow(t, e, nil)
-
-	if !strings.Contains(body, "bg-warning") {
-		t.Errorf("C2: want the warning dot class for a DONE entry missing EndBatteryPct, body=%q", body[:min(1200, len(body))])
-	}
-	if strings.Contains(body, "bg-success") {
-		t.Errorf("C2: want NO success dot class when EndBatteryPct is missing, body=%q", body[:min(1200, len(body))])
-	}
-	if strings.Contains(body, "bg-error") {
-		t.Errorf("C2: want NO error/red dot variant ever (D-RM33-12 — two-state only), body=%q", body[:min(1200, len(body))])
-	}
-}
-
-// TestChargeRow_C3_InProgress_RendersWarningDotAndInProgressBadge verifies
-// Test Contract C3: a normally-shaped IN_PROGRESS entry (EndedAt/EndBatteryPct
-// both nil, the valid shape for that status) renders the warning dot AND the
-// IN_PROGRESS badge — both signals independently correct on the same row.
-func TestChargeRow_C3_InProgress_RendersWarningDotAndInProgressBadge(t *testing.T) {
-	e := charging.Entry{
-		ID:              uuid.New(),
-		AccountID:       uuid.New(),
-		TeslaID:         1001,
-		VIN:             "VIN1001",
-		Status:          charging.StatusInProgress,
-		ChargedOn:       time.Now(),
-		Price:           0,
-		Currency:        "COP",
-		StartBatteryPct: ptrInt(50),
-		// EndedAt, EndBatteryPct, EnergyAddedKWh all nil — the normal
-		// IN_PROGRESS shape.
-	}
-	body := renderChargeRow(t, e, nil)
-
-	if !strings.Contains(body, "bg-warning") {
-		t.Errorf("C3: want the warning dot class for a normally-shaped IN_PROGRESS entry, body=%q", body[:min(1200, len(body))])
-	}
-	if strings.Contains(body, "bg-success") {
-		t.Errorf("C3: want NO success dot class for an incomplete entry, body=%q", body[:min(1200, len(body))])
-	}
-	if !strings.Contains(body, "En progreso") {
-		t.Errorf("C3: want the IN_PROGRESS status badge text (KeyChargesBadgeInProgress), body=%q", body[:min(1200, len(body))])
-	}
-	if strings.Contains(body, "Finalizada") {
-		t.Errorf("C3: want NO DONE badge text on an IN_PROGRESS entry, body=%q", body[:min(1200, len(body))])
-	}
-}
+// MAG-39: the three ChargeRow C1-C3 tests were removed here. They asserted the
+// row's dot CSS class (bg-success / bg-warning) and the status badge's rendered
+// text — appearance, not behaviour, and the kind of assertion a re-skin breaks
+// while the page still works. The data rule they stood for (which entries count
+// as complete) is covered by TestEntryComplete_* in charges_tiles_test.go,
+// which tests the predicate directly instead of through markup.
 
 // --- Group D — window preservation (design.md Test Contract D1-D4, offline httptest) ---
 

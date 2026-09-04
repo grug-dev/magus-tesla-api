@@ -130,8 +130,7 @@ func baseShell(title string) templ.Component {
 // Composes baseShell with the anonymous-page chrome: a fixed-position language
 // switcher (MAG-8 design D6 — "visible on every page including login") pinned
 // top-right, since these pages have no navbar to host one. Callers must NOT
-// mount their own ui.LangSwitcher — Base already provides it (see
-// TestBase_RendersLangSwitcher).
+// mount their own ui.LangSwitcher — Base already provides it.
 func Base(title string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -244,7 +243,7 @@ func BaseAuth(title, path string) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.T(ctx, i18n.KeyNavOpenSidebar))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 103, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 102, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 			if templ_7745c5c3_Err != nil {
@@ -281,7 +280,7 @@ func BaseAuth(title, path string) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(i18n.T(ctx, i18n.KeyNavCloseSidebar))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 120, Col: 76}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/gateway/templates/layouts/base.templ`, Line: 119, Col: 76}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 			if templ_7745c5c3_Err != nil {

@@ -149,6 +149,13 @@ because of the trailing `test`. Claude runs the other six individually, so exclu
   code does rather than what the design specifies. Contract-first authoring recovers most of
   TDD's benefit for tests that have no fast feedback loop.
 
+**Do not test what a page looks like.** In `internal/gateway` — the only module that
+renders HTML — assert what the markup *does* (attributes, htmx wiring, status codes, i18n,
+pure functions), never how it *looks* (element order, section placement, CSS class strings,
+decoration, copy). The UI changes often and is checked by hand, so an appearance assertion
+costs a fix on every redesign and buys nothing. The full banned/required split lives in
+`internal/gateway/AGENTS.md` §"Do not test what the page looks like" (MAG-39).
+
 **Provisioning the test database — which entry point.** `internal/testdb` provisions a
 throw-away Postgres (a reachable `DATABASE_URL` if there is one, otherwise a disposable
 `postgres:16-alpine` container) with your migrations applied. It has two entry points, and

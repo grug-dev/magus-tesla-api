@@ -11,57 +11,61 @@ import (
 	"github.com/cristianpena/magus-tesla-api/internal/gateway/i18n"
 )
 
-// TestNavShell_RendersIconsAndSoonBadges asserts the evolved NavShell renders an
-// inline <svg> icon per item, lights the active item with navActiveClass, and appends
-// a "Soon" badge ONLY on placeholder items (which also force Href="#"). No external
-// CDN / Material Symbols stylesheet is involved — icons are inline SVG via ui.Icon.
-func TestNavShell_RendersIconsAndSoonBadges(t *testing.T) {
-	items := []NavItem{
+// navItemsFixture is the shared item set for this file's behavioural tests:
+// two live entries and two placeholders, across two named sections.
+func navItemsFixture() []NavItem {
+	return []NavItem{
 		{Label: "Dashboard", Href: "/dashboard", Active: true, Icon: "dashboard"},
-		{Label: "Manual Records", Href: "/charges", Icon: "ev_station"},
-		{Label: "Supercharger Stats", Icon: "analytics", Placeholder: true},
+		{Label: "Manual Records", Href: "/charges", Icon: "ev_station", SectionLabel: "Charging"},
+		{Label: "Supercharger Stats", Icon: "analytics", Placeholder: true, SectionLabel: "Charging"},
 		{Label: "Settings", Icon: "settings", Placeholder: true},
 	}
+}
 
-	// Rendered under English so the "Soon" badge text below matches the
-	// catalogue's KeyNavSoonBadge EN value (i18n.T(ctx, ...) now drives the
-	// badge text; ctx defaults to es otherwise).
+func renderNavShell(t *testing.T) string {
+	t.Helper()
 	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
 	var buf bytes.Buffer
-	if err := templ.Handler(NavShell(items, nil)).Component.Render(ctx, &buf); err != nil {
+	if err := templ.Handler(NavShell(navItemsFixture(), nil)).Component.Render(ctx, &buf); err != nil {
 		t.Fatalf("render NavShell: %v", err)
 	}
-	body := buf.String()
+	return buf.String()
+}
 
-	// One inline <svg> per item (4 icons → at least 4 svg opens).
-	if got := strings.Count(body, "<svg"); got != 4 {
-		t.Errorf("want 4 inline <svg> icons (one per item), got %d", got)
-	}
-	// No external CDN / icon-font link.
-	if strings.Contains(body, "fonts.googleapis.com") || strings.Contains(body, "Material+Symbols") {
-		t.Errorf("nav shell must not load an external icon CDN:\n%s", body)
-	}
-	// "Soon" badge appears only on the two placeholder items.
-	if got := strings.Count(body, "Soon"); got != 2 {
-		t.Errorf("want 2 'Soon' badges (two placeholders), got %d", got)
-	}
-	// Only live items keep their Href; placeholders link to "#".
-	if !strings.Contains(body, `href="/dashboard"`) || !strings.Contains(body, `href="/charges"`) {
-		t.Errorf("live nav items should link to their real href:\n%s", body)
+// TestNavShell_PlaceholdersDoNotNavigate pins behaviour, not looks: an item
+// marked Placeholder must render href="#" so it cannot navigate to a route that
+// does not exist yet, while a live item keeps its real href. A placeholder that
+// leaked a real href would 404 the user.
+func TestNavShell_PlaceholdersDoNotNavigate(t *testing.T) {
+	body := renderNavShell(t)
+
+	for _, href := range []string{`href="/dashboard"`, `href="/charges"`} {
+		if !strings.Contains(body, href) {
+			t.Errorf("live nav item should keep its real href %s:\n%s", href, body)
+		}
 	}
 	if got := strings.Count(body, `href="#"`); got != 2 {
-		t.Errorf("want 2 placeholder '#' hrefs, got %d", got)
+		t.Errorf("want 2 placeholder '#' hrefs (one per placeholder item), got %d:\n%s", got, body)
 	}
-	// Exactly one active item lit (Dashboard). MAG-44 replaced DaisyUI's
-	// menu-active with the primary-tinted navActiveClass; asserting on the
-	// constant keeps this test tied to the component rather than to a literal.
-	if got := strings.Count(body, navActiveClass); got != 1 {
-		t.Errorf("want exactly 1 active nav entry, got %d", got)
+}
+
+// TestNavShell_NoExternalIconCDN pins the Node-less, self-hosted-asset rule:
+// icons are inline SVG via ui.Icon, never a Material Symbols stylesheet or any
+// other external font/icon CDN. A CDN link would add a third-party runtime
+// dependency to a stack that deliberately has none.
+func TestNavShell_NoExternalIconCDN(t *testing.T) {
+	body := renderNavShell(t)
+
+	for _, banned := range []string{"fonts.googleapis.com", "Material+Symbols"} {
+		if strings.Contains(body, banned) {
+			t.Errorf("nav shell must not load an external icon CDN (%s):\n%s", banned, body)
+		}
 	}
 }
 
 // TestIcon_ClosedVocabulary asserts every shipped glyph renders an <svg> and an
-// unknown name degrades to no markup (the closed-vocabulary contract).
+// unknown name degrades to no markup (the closed-vocabulary contract), and that
+// every glyph uses currentColor so a theme swap re-skins it for free.
 func TestIcon_ClosedVocabulary(t *testing.T) {
 	for _, name := range []string{"dashboard", "ev_station", "analytics", "settings", "menu", "battery", "speed", "groups"} {
 		var buf bytes.Buffer
@@ -85,40 +89,10 @@ func TestIcon_ClosedVocabulary(t *testing.T) {
 	}
 }
 
-// TestNavShell_RendersSectionTitles asserts section titles (menu-title) appear
-// above the first item of each named section, and whitespace separators (mt-2)
-// appear on items that leave a section.
-func TestNavShell_RendersSectionTitles(t *testing.T) {
-	items := []NavItem{
-		{Label: "Dashboard", Href: "/dashboard", Icon: "dashboard"},
-		{Label: "Manual Records", Href: "/charges", Icon: "ev_station", SectionLabel: "Charging"},
-		{Label: "Supercharger Stats", Href: "/supercharger-stats", Icon: "analytics", SectionLabel: "Charging"},
-		{Label: "Vehicle Stats", Icon: "speed", Placeholder: true, SectionLabel: "Insights"},
-		{Label: "Community Benchmark", Icon: "groups", Placeholder: true, SectionLabel: "Insights"},
-		{Label: "Settings", Icon: "settings", Placeholder: true},
-	}
-	ctx := i18n.WithLang(context.Background(), account.LanguageEN)
-	var buf bytes.Buffer
-	if err := templ.Handler(NavShell(items, nil)).Component.Render(ctx, &buf); err != nil {
-		t.Fatalf("render NavShell: %v", err)
-	}
-	body := buf.String()
-
-	// Exactly two section titles (Charging, Insights)
-	if got := strings.Count(body, "menu-title"); got != 2 {
-		t.Errorf("want 2 menu-title rows, got %d", got)
-	}
-	if !strings.Contains(body, "Charging") || !strings.Contains(body, "Insights") {
-		t.Errorf("want both section labels rendered:\n%s", body)
-	}
-
-	// Soon appears only on the three placeholders
-	if got := strings.Count(body, "Soon"); got != 3 {
-		t.Errorf("want 3 'Soon' badges, got %d", got)
-	}
-
-	// Whitespace separator (mt-2) on Settings (leaves Insights section)
-	if !strings.Contains(body, `class="mt-2"`) {
-		t.Errorf("want mt-2 class on item leaving section (Settings):\n%s", body)
-	}
-}
+// MAG-39 removed two assertions sets from this file:
+//   - TestNavShell_RendersSectionTitles (menu-title count, section label text,
+//     the mt-2 separator class) — pure layout.
+//   - the icon-count, "Soon"-badge-count and active-item-count halves of the
+//     former TestNavShell_RendersIconsAndSoonBadges — decoration.
+//
+// Both are verified by looking at the nav.

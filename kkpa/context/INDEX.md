@@ -48,6 +48,12 @@
 | Page / endpoint | Route or URI | Module | KB path |
 |---|---|---|---|
 | `Manual Records page` | `/charges` | `charging` | `input-port/charging/charges.md` |
+| `charge form layout` | `ChargeCreateForm` / `ChargeRowEdit` field set and order | `charging` | `input-port/charging/charges.md` |
+| `charge form fields` | synonym of `charge form layout` | `charging` | `input-port/charging/charges.md` |
+| `location label toggle` | RD14 — `applyChargeLocationLabelToggle` (`static/app.js`) | `charging` | `input-port/charging/charges.md` |
+| `status required toggle` | RD13 — `applyChargeStatusRequiredToggle` (`static/app.js`) | `charging` | `input-port/charging/charges.md` |
+| `charge date time sync` | RD12 — the `charged_on` → `started_at`/`ended_at` date splice | `charging` | `input-port/charging/charges.md` |
+| `one in-progress per day` | `handlers.inProgressConflictOn` — one `IN_PROGRESS` entry per (vehicle, `charged_on`) | `charging` | `input-port/charging/charges.md` |
 | `Registros manuales` | `/charges` | `charging` | `input-port/charging/charges.md` |
 | `charges page` | `/charges` | `charging` | `input-port/charging/charges.md` |
 | `Supercharger Stats page` | `/supercharger-stats` | `charging` | `input-port/charging/supercharger-stats.md` |

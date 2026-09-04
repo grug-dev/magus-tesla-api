@@ -67,31 +67,12 @@ func TestNavItems_LabelsTranslate(t *testing.T) {
 	}
 }
 
-// TestBase_RendersLangSwitcher asserts the anonymous shell (Home/Login) mounts
-// the language selector — the spec delta's "visible on every page including
-// login" claim, proven directly (design.md D6).
-func TestBase_RendersLangSwitcher(t *testing.T) {
-	w := httptest.NewRecorder()
-	if err := Base("Test").Render(context.Background(), w); err != nil {
-		t.Fatalf("Base render: %v", err)
-	}
-	if !strings.Contains(w.Body.String(), "dropdown-content") {
-		t.Errorf("Base should mount ui.LangSwitcher (no dropdown-content found):\n%s", w.Body.String())
-	}
-}
-
-// TestBaseAuth_RendersLangSwitcher asserts every authenticated page shell
-// inherits the language selector via Base (design.md D6 — "mounted once,
-// inherited by BaseAuth", the same shape as RD10's ui.ConfirmDialog).
-func TestBaseAuth_RendersLangSwitcher(t *testing.T) {
-	w := httptest.NewRecorder()
-	if err := BaseAuth("Test", "/dashboard").Render(context.Background(), w); err != nil {
-		t.Fatalf("BaseAuth render: %v", err)
-	}
-	if !strings.Contains(w.Body.String(), "dropdown-content") {
-		t.Errorf("BaseAuth should inherit ui.LangSwitcher from Base (no dropdown-content found):\n%s", w.Body.String())
-	}
-}
+// MAG-39: TestBase_RendersLangSwitcher and TestBaseAuth_RendersLangSwitcher were
+// removed. Both asserted the presence of DaisyUI's "dropdown-content" class as a
+// proxy for "the language switcher is mounted" — an exact-CSS-class assertion a
+// DaisyUI upgrade breaks while the switcher still works. The switcher's real
+// contract (an hx-vals payload per language) is pinned by
+// TestLangSwitcher_BothOptionsPresent in the ui package.
 
 // TestBase_RendersResolvedThemeAttribute and TestBaseAuth_RendersResolvedThemeAttribute
 // are Test Contract item 16: rendering with ui.WithTheme(ctx, "apex") on the context

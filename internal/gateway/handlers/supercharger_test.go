@@ -779,7 +779,7 @@ func TestSuperchargerStatsFragment_ReaderErrorDegradesNo500(t *testing.T) {
 	}
 }
 
-func TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues(t *testing.T) {
+func TestSuperchargerStatsFragment_RendersBatteryValues(t *testing.T) {
 	uid := uuid.New()
 	reader := &fakeSessionReader{sessions: []charging.Session{{
 		TeslaID:             ptrInt64(42),
@@ -804,7 +804,10 @@ func TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues(t *testing.T) 
 		t.Fatalf("want 200, got %d", w.Code)
 	}
 	body := w.Body.String()
-	for _, want := range []string{"Batería inicial", "Batería final", "40%", "80%"} {
+	// MAG-39: the two header strings ("Batería inicial" / "Batería final") were
+	// dropped from this assertion — column heading copy is layout. The battery
+	// VALUES stay: they prove the reader's data reaches the rendered row.
+	for _, want := range []string{"40%", "80%"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("want rendered supercharger table to contain %q", want)
 		}
@@ -1505,7 +1508,7 @@ func TestSuperchargerRowUpdate_OutOfRangeFieldErrorIs422(t *testing.T) {
 	body := w.Body.String()
 	// ES catalogue value — superchargerRowEngine wires no LanguageMiddleware, so
 	// i18n.FromContext falls back to Spanish (mirrors this file's existing
-	// resolved-language assertions, e.g. TestSuperchargerStatsFragment_RendersBatteryHeadersAndValues).
+	// resolved-language assertions, e.g. TestSuperchargerStatsFragment_RendersBatteryValues).
 	if !strings.Contains(body, "El porcentaje de batería inicial debe ser un número entero entre 0 y 100.") {
 		t.Errorf("want the start-range field error message rendered, body=%q", body)
 	}
