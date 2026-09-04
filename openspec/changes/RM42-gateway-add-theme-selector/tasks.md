@@ -106,9 +106,9 @@ this endpoint mirrors the Supercharger/D8 CSRF write-exception, NOT `LangSwitch`
 `internal/gateway/handlers/supercharger.go`'s `csrfSuperchargerKey`/`checkCSRFKey` shape before
 writing this task — mirror it, do not invent a variant.
 
-- [ ] T4.1 In `preferences.go`: `const csrfThemeKey = "csrf_theme"` (a session key, distinct
+- [x] T4.1 In `preferences.go`: `const csrfThemeKey = "csrf_theme"` (a session key, distinct
       from `csrfManualChargeKey`/`csrfVehicleSelectKey`/`csrfSuperchargerKey`).
-- [ ] T4.2 `func (h *Handler) ThemeSwitch(c *gin.Context)`, in this exact order (mirrors the
+- [x] T4.2 `func (h *Handler) ThemeSwitch(c *gin.Context)`, in this exact order (mirrors the
       Supercharger amendment's own point order):
       1. **Auth guard first** — `uid, ok := currentUID(c)`; if not ok, `c.Redirect(http.StatusFound,
          "/login")` and return (Test Contract 8 — this IS the endpoint's entire "anonymous
@@ -127,7 +127,7 @@ writing this task — mirror it, do not invent a variant.
          design.md D2/D3 for why).
       5. **On success**, `setThemeCookie(c, theme)` THEN `c.Status(http.StatusOK)` — no body, no
          `HX-Location` header (design.md D6 — a theme change never reloads).
-- [ ] T4.3 `internal/gateway/handlers/preferences_test.go`:
+- [x] T4.3 `internal/gateway/handlers/preferences_test.go`:
       `TestThemeSwitch_Unauthenticated_RedirectsToLogin` (Test Contract 8 — fake `SetTheme` and
       `checkCSRFKey` never reached, cookie untouched),
       `TestThemeSwitch_MissingOrWrongCSRFToken_Refused` (Test Contract 10 — `403`, `SetTheme` NOT

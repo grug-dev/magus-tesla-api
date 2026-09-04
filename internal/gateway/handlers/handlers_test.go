@@ -68,6 +68,17 @@ type fakeAccount struct {
 	// values" invariant (design.md D1) is asserted directly against this
 	// counter, not inferred from side effects.
 	preferencesForCalls int
+	// setThemeErr, when set, makes SetTheme return this error instead of
+	// recording success — used to exercise ThemeSwitch's "persist fails,
+	// cookie stays untouched" branch (Test Contract 12).
+	setThemeErr error
+	// setThemeCalls captures every SetTheme invocation (id + theme) so a
+	// test can assert ThemeSwitch called it with the exact submitted value,
+	// or that it was never called at all on a rejected request.
+	setThemeCalls []struct {
+		ID    uuid.UUID
+		Theme string
+	}
 }
 
 func (f fakeAccount) UpsertFromOAuth(context.Context, account.OAuthIdentity) (account.Account, error) {
@@ -142,8 +153,17 @@ func (f *fakeAccount) ThemeFor(_ context.Context, _ uuid.UUID) (string, error) {
 	return account.ThemeGraphite, nil
 }
 
-func (f *fakeAccount) SetTheme(_ context.Context, _ uuid.UUID, _ string) error {
-	return nil
+// SetTheme records every call in setThemeCalls (so a test can assert
+// ThemeSwitch called it with the exact submitted value — or, for the
+// unauthenticated/CSRF-rejected/unsupported-value paths, that it was NOT
+// called at all — RM42 tier 2 T4 Test Contract 8-12) and returns
+// f.setThemeErr (nil by default).
+func (f *fakeAccount) SetTheme(_ context.Context, id uuid.UUID, theme string) error {
+	f.setThemeCalls = append(f.setThemeCalls, struct {
+		ID    uuid.UUID
+		Theme string
+	}{ID: id, Theme: theme})
+	return f.setThemeErr
 }
 
 func (f *fakeAccount) SeedVehicles(_ context.Context, _ uuid.UUID, vs []account.SeedVehicle) ([]account.Vehicle, error) {

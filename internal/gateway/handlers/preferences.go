@@ -6,10 +6,12 @@
 // (design.md D2). It replaces lang.go's former LanguageMiddleware, which
 // resolved language alone via the now-doubled-cost LanguageFor call.
 //
-// ThemeSwitch/SettingsPage/csrfThemeKey (design.md D3/D4, roadmap RM42 tier 2
-// tasks T4/T6) are NOT in this file yet — they land in a later wave of this
-// same change, in this same file (per design.md's file plan), once the CSRF
-// key they share is wired up.
+// csrfThemeKey and ThemeSwitch (design.md D3, roadmap RM42 tier 2 task T4)
+// also live in this file — the write handler that persists a theme change,
+// CSRF-protected the same way the Supercharger session-verification write
+// is (design.md D8 amendment in AGENTS.md), NOT the way lang.go's
+// LangSwitch is. SettingsPage (T6, which mints the csrfThemeKey token this
+// handler checks) is NOT in this file yet — it lands in a later wave.
 package handlers
 
 import (
@@ -132,4 +134,74 @@ func PreferencesMiddleware(acct account.Service) gin.HandlerFunc {
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
+}
+
+// csrfThemeKey is the session key for the theme-switch CSRF token
+// (design.md D3) — a new key, distinct from csrfManualChargeKey,
+// csrfVehicleSelectKey, and csrfSuperchargerKey. Minted by SettingsPage
+// (T6, a later wave) via the existing generateCSRFToken() (charges.go);
+// checked here by ThemeSwitch via the existing checkCSRFKey (charges.go).
+const csrfThemeKey = "csrf_theme"
+
+// ThemeSwitch handles POST /ui/theme/switch — persists a theme change for
+// the calling user. Requires an authenticated session and a valid
+// csrfThemeKey CSRF token: this endpoint mirrors the Supercharger/D8
+// write-exception pattern (SuperchargerRowUpdate in supercharger.go), NOT
+// lang.go's LangSwitch shape (design.md D3, SETTLED — the user explicitly
+// declined the no-CSRF option analyzed and initially proposed in an earlier
+// draft of design.md). There is no anonymous path to this endpoint: the
+// only control capable of submitting to it, ui.ThemeSwitcher, is rendered
+// exclusively on the authenticated /settings page.
+//
+// Order (Test Contract 8-12, design.md D3 point 4 — mirrors the
+// Supercharger amendment's own point order exactly):
+//  1. Auth guard — no session, no token could ever have been minted, so
+//     checking CSRF before auth would just compare against an empty session
+//     value. An unauthenticated caller is redirected to /login; this IS the
+//     endpoint's entire "anonymous caller" behavior (Test Contract 8).
+//  2. CSRF check — checkCSRFKey already writes the 403 body on failure.
+//  3. Value validation against the closed ui.Themes vocabulary — an
+//     unsupported value is rejected with nothing persisted and the cookie
+//     untouched (Test Contract 11).
+//  4. Persist via account.Service.SetTheme. A write error responds 500 and
+//     returns WITHOUT touching the cookie (Test Contract 12).
+//  5. Only on a successful persist is the theme cookie refreshed, then a
+//     bare 200 with no body and no HX-Location header — a theme change
+//     never reloads or re-navigates the page (design.md D6; RD15 in
+//     static/app.js applies it client-side instantly instead).
+//
+// The cookie-write ordering (step 5, AFTER the persist) is the one place
+// this handler deliberately does NOT mirror lang.go's LangSwitch, which
+// sets its cookie FIRST, unconditionally. That is correct there because the
+// lang cookie is that endpoint's only persistence for an anonymous caller.
+// Since design.md D2, the theme cookie has no anonymous writer at all — it
+// is purely a mirror of what the account row actually holds — so setting it
+// before (or regardless of) a successful SetTheme would let it claim a
+// value the database write never reached. Do not "fix" this ordering to
+// match lang.go; see AGENTS.md's "Exception: theme switch" (D8) for the
+// same warning recorded where a future agent is more likely to read it
+// first.
+func (h *Handler) ThemeSwitch(c *gin.Context) {
+	uid, ok := currentUID(c)
+	if !ok {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	if !h.checkCSRFKey(c, csrfThemeKey) {
+		return
+	}
+
+	theme := c.PostForm("theme")
+	if !ui.IsSupportedTheme(theme) {
+		c.String(http.StatusBadRequest, i18n.T(c.Request.Context(), i18n.KeyThemeSwitchErrorUnsupportedTheme))
+		return
+	}
+
+	if err := h.acct.SetTheme(c.Request.Context(), uid, theme); err != nil {
+		c.String(http.StatusInternalServerError, i18n.T(c.Request.Context(), i18n.KeyThemeSwitchErrorCouldNotSaveTheme))
+		return
+	}
+
+	setThemeCookie(c, theme)
+	c.Status(http.StatusOK)
 }

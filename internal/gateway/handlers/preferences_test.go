@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -319,5 +320,192 @@ func TestPreferencesMiddleware_AnonymousInvalidThemeCookieDefaults(t *testing.T)
 	_, theme := splitPrefs(t, w.Body.String())
 	if theme != ui.DefaultTheme {
 		t.Fatalf("anonymous, unsupported theme cookie: context theme = %q, want %q", theme, ui.DefaultTheme)
+	}
+}
+
+// --- ThemeSwitch (design.md D3, Test Contract 8-12) ---
+
+// themeSwitchEngine builds a minimal Gin engine with session middleware and
+// the POST /ui/theme/switch route (ThemeSwitch) — mirrors
+// superchargerRowEngine's shape (supercharger_test.go). issueCSRF is a bool,
+// not a string, for the same reason that file gives: a test needs a session
+// where csrfThemeKey was NEVER set at all, distinct from an issued-but-empty
+// value.
+func themeSwitchEngine(h *Handler, uid uuid.UUID, csrfToken string, issueCSRF bool) *gin.Engine {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	store := cookie.NewStore([]byte("test-secret"))
+	r.Use(sessions.Sessions("test", store))
+	r.GET("/_session", func(c *gin.Context) {
+		sess := sessions.Default(c)
+		if uid != uuid.Nil {
+			sess.Set("uid", uid.String())
+		}
+		if issueCSRF {
+			sess.Set(csrfThemeKey, csrfToken)
+		}
+		_ = sess.Save()
+		c.String(http.StatusOK, "ok")
+	})
+	r.POST("/ui/theme/switch", h.ThemeSwitch)
+	return r
+}
+
+// postThemeSwitch posts theme+csrf_token as a form body to /ui/theme/switch,
+// attaching sessCookie (nil for an anonymous request — no /_session call was
+// ever made, mirroring TestSuperchargerStatsPage_AnonymousRedirectsToLogin's
+// shape of never hitting /_session at all for the anonymous case).
+func postThemeSwitch(r *gin.Engine, sessCookie *http.Cookie, theme, csrfToken string) *httptest.ResponseRecorder {
+	form := url.Values{"theme": {theme}, "csrf_token": {csrfToken}}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/ui/theme/switch", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if sessCookie != nil {
+		req.AddCookie(sessCookie)
+	}
+	r.ServeHTTP(w, req)
+	return w
+}
+
+// TestThemeSwitch_Unauthenticated_RedirectsToLogin is Test Contract item 8:
+// no session at all -> redirect to /login, SetTheme and the CSRF check are
+// never reached (checkCSRFKey is unreachable code here, so we assert its
+// downstream effect: zero SetTheme calls and no theme Set-Cookie), and the
+// theme cookie is left untouched.
+func TestThemeSwitch_Unauthenticated_RedirectsToLogin(t *testing.T) {
+	acct := &fakeAccount{}
+	h := newHandler(acct, &fakeTesla{})
+	r := themeSwitchEngine(h, uuid.Nil, "", false)
+
+	w := postThemeSwitch(r, nil, account.ThemeApex, "irrelevant")
+
+	if w.Code != http.StatusFound {
+		t.Fatalf("want 302 for an unauthenticated request, got %d body=%q", w.Code, w.Body.String())
+	}
+	if loc := w.Header().Get("Location"); loc != "/login" {
+		t.Errorf("want redirect to /login, got %q", loc)
+	}
+	if len(acct.setThemeCalls) != 0 {
+		t.Errorf("want zero SetTheme calls for an unauthenticated request, got %d", len(acct.setThemeCalls))
+	}
+	if tc := findCookie(w, themeCookieName); tc != nil {
+		t.Errorf("want no theme Set-Cookie for an unauthenticated request, got %+v", tc)
+	}
+}
+
+// TestThemeSwitch_MissingOrWrongCSRFToken_Refused is Test Contract item 10:
+// covers BOTH "no token was ever issued for this session" and "a wrong
+// token was submitted" — both must be refused (403 via checkCSRFKey's
+// fail-closed contract), with SetTheme never called and the cookie
+// untouched.
+func TestThemeSwitch_MissingOrWrongCSRFToken_Refused(t *testing.T) {
+	cases := []struct {
+		name      string
+		issueCSRF bool
+		issued    string
+		submitted string
+	}{
+		{name: "no token ever issued for this session", issueCSRF: false, issued: "", submitted: "sometoken"},
+		{name: "wrong token submitted", issueCSRF: true, issued: "correcttoken", submitted: "wrongtoken"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			uid := uuid.New()
+			acct := &fakeAccount{}
+			h := newHandler(acct, &fakeTesla{})
+			r := themeSwitchEngine(h, uid, tc.issued, tc.issueCSRF)
+			sessCookie := sessionCookie(r, uid, tc.issued)
+
+			w := postThemeSwitch(r, sessCookie, account.ThemeApex, tc.submitted)
+
+			if w.Code != http.StatusForbidden {
+				t.Fatalf("want 403, got %d body=%q", w.Code, w.Body.String())
+			}
+			if len(acct.setThemeCalls) != 0 {
+				t.Errorf("want zero SetTheme calls on a CSRF rejection, got %d", len(acct.setThemeCalls))
+			}
+			if tc2 := findCookie(w, themeCookieName); tc2 != nil {
+				t.Errorf("want no theme Set-Cookie on a CSRF rejection, got %+v", tc2)
+			}
+		})
+	}
+}
+
+// TestThemeSwitch_RejectsUnsupportedTheme is Test Contract item 11: issued
+// WITH a valid CSRF token, so this isolates value validation from the CSRF
+// check covered above. An unsupported theme value gets 400, SetTheme is not
+// called, and the cookie is untouched.
+func TestThemeSwitch_RejectsUnsupportedTheme(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{}
+	h := newHandler(acct, &fakeTesla{})
+	r := themeSwitchEngine(h, uid, "validtoken", true)
+	sessCookie := sessionCookie(r, uid, "validtoken")
+
+	w := postThemeSwitch(r, sessCookie, "cyberpunk", "validtoken")
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 for an unsupported theme value, got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(acct.setThemeCalls) != 0 {
+		t.Errorf("want zero SetTheme calls for an unsupported theme value, got %d", len(acct.setThemeCalls))
+	}
+	if tc := findCookie(w, themeCookieName); tc != nil {
+		t.Errorf("want no theme Set-Cookie for an unsupported theme value, got %+v", tc)
+	}
+}
+
+// TestThemeSwitch_SignedInValidCSRF_PersistsThenSyncsCookie is Test Contract
+// item 9, the happy path: SetTheme is called with the exact submitted
+// value, the theme cookie is set to it, the response is 200, and there is
+// no HX-Location header (contrast with LangSwitch, which always sets one —
+// design.md D6, a theme change never reloads).
+func TestThemeSwitch_SignedInValidCSRF_PersistsThenSyncsCookie(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{}
+	h := newHandler(acct, &fakeTesla{})
+	r := themeSwitchEngine(h, uid, "validtoken", true)
+	sessCookie := sessionCookie(r, uid, "validtoken")
+
+	w := postThemeSwitch(r, sessCookie, account.ThemeApex, "validtoken")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200 on a successful switch, got %d body=%q", w.Code, w.Body.String())
+	}
+	if len(acct.setThemeCalls) != 1 {
+		t.Fatalf("want exactly 1 SetTheme call, got %d", len(acct.setThemeCalls))
+	}
+	if got := acct.setThemeCalls[0]; got.ID != uid || got.Theme != account.ThemeApex {
+		t.Errorf("SetTheme called with (%s, %q), want (%s, %q)", got.ID, got.Theme, uid, account.ThemeApex)
+	}
+	tc := findCookie(w, themeCookieName)
+	if tc == nil || tc.Value != account.ThemeApex {
+		t.Fatalf("want a theme Set-Cookie = %q, got %+v", account.ThemeApex, tc)
+	}
+	if loc := w.Header().Get("HX-Location"); loc != "" {
+		t.Errorf("want no HX-Location header on a theme switch, got %q", loc)
+	}
+}
+
+// TestThemeSwitch_SetThemeErrorLeavesCookieUnchanged is Test Contract item
+// 12: SetTheme returning an error responds 500 and — the point this test
+// exists to isolate — the theme cookie is NOT set. This is the exact
+// opposite of LangSwitch's "cookie first, unconditionally" ordering
+// (design.md D3); a future agent must not "simplify" ThemeSwitch to match
+// it.
+func TestThemeSwitch_SetThemeErrorLeavesCookieUnchanged(t *testing.T) {
+	uid := uuid.New()
+	acct := &fakeAccount{setThemeErr: errors.New("db write failed")}
+	h := newHandler(acct, &fakeTesla{})
+	r := themeSwitchEngine(h, uid, "validtoken", true)
+	sessCookie := sessionCookie(r, uid, "validtoken")
+
+	w := postThemeSwitch(r, sessCookie, account.ThemeApex, "validtoken")
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500 when SetTheme errors, got %d body=%q", w.Code, w.Body.String())
+	}
+	if tc := findCookie(w, themeCookieName); tc != nil {
+		t.Fatalf("want NO theme Set-Cookie when SetTheme errors, got %+v", tc)
 	}
 }
